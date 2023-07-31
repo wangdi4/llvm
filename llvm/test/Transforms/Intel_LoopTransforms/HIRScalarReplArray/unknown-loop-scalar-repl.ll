@@ -58,15 +58,15 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %i.013 = phi i32 [ %mul, %for.body ], [ 1, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv.next
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv.next
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !2
   %add3 = add nsw i32 %1, %0
   %2 = zext i32 %i.013 to i64
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %2
-  store i32 %add3, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %2
+  store i32 %add3, ptr %arrayidx5, align 4, !tbaa !2
   %mul = shl nsw i32 %i.013, 1
   %cmp = icmp slt i32 %mul, %n
   br i1 %cmp, label %for.body, label %for.end.loopexit

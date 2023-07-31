@@ -64,17 +64,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @Logtable = external dso_local local_unnamed_addr global [0 x i8], align 1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define dso_local void @InvMixColumn([8 x i8]* nocapture %a, i8 zeroext %BC) local_unnamed_addr #1 {
+define dso_local void @InvMixColumn(ptr nocapture %a, i8 zeroext %BC) local_unnamed_addr #1 {
 entry:
   %b = alloca [4 x [8 x i8]], align 16
-  %0 = getelementptr inbounds [4 x [8 x i8]], [4 x [8 x i8]]* %b, i64 0, i64 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %0) #3
+  %0 = getelementptr inbounds [4 x [8 x i8]], ptr %b, i64 0, i64 0, i64 0
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %0) #3
   %cmp131.not = icmp eq i8 %BC, 0
   br i1 %cmp131.not, label %for.end63, label %for.cond2.preheader.preheader
 
@@ -94,55 +94,55 @@ for.cond45.preheader.us.preheader:                ; preds = %for.cond41.preheade
 
 for.cond45.preheader.us:                          ; preds = %for.cond45.preheader.us, %for.cond45.preheader.us.preheader
   %indvar = phi i64 [ 0, %for.cond45.preheader.us.preheader ], [ %indvar.next, %for.cond45.preheader.us ]
-  %scevgep = getelementptr [8 x i8], [8 x i8]* %a, i64 %indvar, i64 0
-  %scevgep134 = getelementptr [4 x [8 x i8]], [4 x [8 x i8]]* %b, i64 0, i64 %indvar, i64 0
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %scevgep, i8* align 8 %scevgep134, i64 %1, i1 false)
+  %scevgep = getelementptr [8 x i8], ptr %a, i64 %indvar, i64 0
+  %scevgep134 = getelementptr [4 x [8 x i8]], ptr %b, i64 0, i64 %indvar, i64 0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %scevgep, ptr align 8 %scevgep134, i64 %1, i1 false)
   %indvar.next = add nuw nsw i64 %indvar, 1
   %exitcond.not = icmp eq i64 %indvar.next, 4
   br i1 %exitcond.not, label %for.end63.loopexit, label %for.cond45.preheader.us
 
 for.body5:                                        ; preds = %mul.exit104, %for.cond2.preheader
   %indvars.iv = phi i64 [ 0, %for.cond2.preheader ], [ %indvars.iv.next, %mul.exit104 ]
-  %arrayidx7 = getelementptr inbounds [8 x i8], [8 x i8]* %a, i64 %indvars.iv, i64 %indvars.iv141
-  %2 = load i8, i8* %arrayidx7, align 1, !tbaa !3
+  %arrayidx7 = getelementptr inbounds [8 x i8], ptr %a, i64 %indvars.iv, i64 %indvars.iv141
+  %2 = load i8, ptr %arrayidx7, align 1, !tbaa !3
   %tobool2.not.i = icmp eq i8 %2, 0
   br i1 %tobool2.not.i, label %mul.exit, label %if.then.i
 
 if.then.i:                                        ; preds = %for.body5
-  %3 = load i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @Logtable, i64 0, i64 14), align 1, !tbaa !7
+  %3 = load i8, ptr getelementptr inbounds ([0 x i8], ptr @Logtable, i64 0, i64 14), align 1, !tbaa !7
   %conv3.i = zext i8 %3 to i16
   %idxprom4.i = zext i8 %2 to i64
-  %arrayidx5.i = getelementptr inbounds [0 x i8], [0 x i8]* @Logtable, i64 0, i64 %idxprom4.i
-  %4 = load i8, i8* %arrayidx5.i, align 1, !tbaa !7
+  %arrayidx5.i = getelementptr inbounds [0 x i8], ptr @Logtable, i64 0, i64 %idxprom4.i
+  %4 = load i8, ptr %arrayidx5.i, align 1, !tbaa !7
   %conv6.i = zext i8 %4 to i16
   %add.i = add nuw nsw i16 %conv6.i, %conv3.i
   %rem11.i = urem i16 %add.i, 255
   %5 = zext i16 %rem11.i to i64
-  %arrayidx8.i = getelementptr inbounds [0 x i8], [0 x i8]* @Alogtable, i64 0, i64 %5
-  %6 = load i8, i8* %arrayidx8.i, align 1, !tbaa !7
+  %arrayidx8.i = getelementptr inbounds [0 x i8], ptr @Alogtable, i64 0, i64 %5
+  %6 = load i8, ptr %arrayidx8.i, align 1, !tbaa !7
   br label %mul.exit
 
 mul.exit:                                         ; preds = %if.then.i, %for.body5
   %retval.0.i = phi i8 [ %6, %if.then.i ], [ 0, %for.body5 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %rem = and i64 %indvars.iv.next, 3
-  %arrayidx12 = getelementptr inbounds [8 x i8], [8 x i8]* %a, i64 %rem, i64 %indvars.iv141
-  %7 = load i8, i8* %arrayidx12, align 1, !tbaa !3
+  %arrayidx12 = getelementptr inbounds [8 x i8], ptr %a, i64 %rem, i64 %indvars.iv141
+  %7 = load i8, ptr %arrayidx12, align 1, !tbaa !3
   %tobool2.not.i116 = icmp eq i8 %7, 0
   br i1 %tobool2.not.i116, label %mul.exit126, label %if.then.i124
 
 if.then.i124:                                     ; preds = %mul.exit
-  %8 = load i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @Logtable, i64 0, i64 11), align 1, !tbaa !7
+  %8 = load i8, ptr getelementptr inbounds ([0 x i8], ptr @Logtable, i64 0, i64 11), align 1, !tbaa !7
   %conv3.i117 = zext i8 %8 to i16
   %idxprom4.i118 = zext i8 %7 to i64
-  %arrayidx5.i119 = getelementptr inbounds [0 x i8], [0 x i8]* @Logtable, i64 0, i64 %idxprom4.i118
-  %9 = load i8, i8* %arrayidx5.i119, align 1, !tbaa !7
+  %arrayidx5.i119 = getelementptr inbounds [0 x i8], ptr @Logtable, i64 0, i64 %idxprom4.i118
+  %9 = load i8, ptr %arrayidx5.i119, align 1, !tbaa !7
   %conv6.i120 = zext i8 %9 to i16
   %add.i121 = add nuw nsw i16 %conv6.i120, %conv3.i117
   %rem11.i122 = urem i16 %add.i121, 255
   %10 = zext i16 %rem11.i122 to i64
-  %arrayidx8.i123 = getelementptr inbounds [0 x i8], [0 x i8]* @Alogtable, i64 0, i64 %10
-  %11 = load i8, i8* %arrayidx8.i123, align 1, !tbaa !7
+  %arrayidx8.i123 = getelementptr inbounds [0 x i8], ptr @Alogtable, i64 0, i64 %10
+  %11 = load i8, ptr %arrayidx8.i123, align 1, !tbaa !7
   br label %mul.exit126
 
 mul.exit126:                                      ; preds = %if.then.i124, %mul.exit
@@ -150,23 +150,23 @@ mul.exit126:                                      ; preds = %if.then.i124, %mul.
   %xor91 = xor i8 %retval.0.i, %retval.0.i125
   %12 = add nuw i64 %indvars.iv, 2
   %rem16 = and i64 %12, 3
-  %arrayidx20 = getelementptr inbounds [8 x i8], [8 x i8]* %a, i64 %rem16, i64 %indvars.iv141
-  %13 = load i8, i8* %arrayidx20, align 1, !tbaa !3
+  %arrayidx20 = getelementptr inbounds [8 x i8], ptr %a, i64 %rem16, i64 %indvars.iv141
+  %13 = load i8, ptr %arrayidx20, align 1, !tbaa !3
   %tobool2.not.i105 = icmp eq i8 %13, 0
   br i1 %tobool2.not.i105, label %mul.exit115, label %if.then.i113
 
 if.then.i113:                                     ; preds = %mul.exit126
-  %14 = load i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @Logtable, i64 0, i64 13), align 1, !tbaa !7
+  %14 = load i8, ptr getelementptr inbounds ([0 x i8], ptr @Logtable, i64 0, i64 13), align 1, !tbaa !7
   %conv3.i106 = zext i8 %14 to i16
   %idxprom4.i107 = zext i8 %13 to i64
-  %arrayidx5.i108 = getelementptr inbounds [0 x i8], [0 x i8]* @Logtable, i64 0, i64 %idxprom4.i107
-  %15 = load i8, i8* %arrayidx5.i108, align 1, !tbaa !7
+  %arrayidx5.i108 = getelementptr inbounds [0 x i8], ptr @Logtable, i64 0, i64 %idxprom4.i107
+  %15 = load i8, ptr %arrayidx5.i108, align 1, !tbaa !7
   %conv6.i109 = zext i8 %15 to i16
   %add.i110 = add nuw nsw i16 %conv6.i109, %conv3.i106
   %rem11.i111 = urem i16 %add.i110, 255
   %16 = zext i16 %rem11.i111 to i64
-  %arrayidx8.i112 = getelementptr inbounds [0 x i8], [0 x i8]* @Alogtable, i64 0, i64 %16
-  %17 = load i8, i8* %arrayidx8.i112, align 1, !tbaa !7
+  %arrayidx8.i112 = getelementptr inbounds [0 x i8], ptr @Alogtable, i64 0, i64 %16
+  %17 = load i8, ptr %arrayidx8.i112, align 1, !tbaa !7
   br label %mul.exit115
 
 mul.exit115:                                      ; preds = %if.then.i113, %mul.exit126
@@ -174,30 +174,30 @@ mul.exit115:                                      ; preds = %if.then.i113, %mul.
   %xor2392 = xor i8 %xor91, %retval.0.i114
   %18 = add nuw i64 %indvars.iv, 3
   %rem25 = and i64 %18, 3
-  %arrayidx29 = getelementptr inbounds [8 x i8], [8 x i8]* %a, i64 %rem25, i64 %indvars.iv141
-  %19 = load i8, i8* %arrayidx29, align 1, !tbaa !3
+  %arrayidx29 = getelementptr inbounds [8 x i8], ptr %a, i64 %rem25, i64 %indvars.iv141
+  %19 = load i8, ptr %arrayidx29, align 1, !tbaa !3
   %tobool2.not.i94 = icmp eq i8 %19, 0
   br i1 %tobool2.not.i94, label %mul.exit104, label %if.then.i102
 
 if.then.i102:                                     ; preds = %mul.exit115
-  %20 = load i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @Logtable, i64 0, i64 9), align 1, !tbaa !7
+  %20 = load i8, ptr getelementptr inbounds ([0 x i8], ptr @Logtable, i64 0, i64 9), align 1, !tbaa !7
   %conv3.i95 = zext i8 %20 to i16
   %idxprom4.i96 = zext i8 %19 to i64
-  %arrayidx5.i97 = getelementptr inbounds [0 x i8], [0 x i8]* @Logtable, i64 0, i64 %idxprom4.i96
-  %21 = load i8, i8* %arrayidx5.i97, align 1, !tbaa !7
+  %arrayidx5.i97 = getelementptr inbounds [0 x i8], ptr @Logtable, i64 0, i64 %idxprom4.i96
+  %21 = load i8, ptr %arrayidx5.i97, align 1, !tbaa !7
   %conv6.i98 = zext i8 %21 to i16
   %add.i99 = add nuw nsw i16 %conv6.i98, %conv3.i95
   %rem11.i100 = urem i16 %add.i99, 255
   %22 = zext i16 %rem11.i100 to i64
-  %arrayidx8.i101 = getelementptr inbounds [0 x i8], [0 x i8]* @Alogtable, i64 0, i64 %22
-  %23 = load i8, i8* %arrayidx8.i101, align 1, !tbaa !7
+  %arrayidx8.i101 = getelementptr inbounds [0 x i8], ptr @Alogtable, i64 0, i64 %22
+  %23 = load i8, ptr %arrayidx8.i101, align 1, !tbaa !7
   br label %mul.exit104
 
 mul.exit104:                                      ; preds = %if.then.i102, %mul.exit115
   %retval.0.i103 = phi i8 [ %23, %if.then.i102 ], [ 0, %mul.exit115 ]
   %xor3293 = xor i8 %xor2392, %retval.0.i103
-  %arrayidx37 = getelementptr inbounds [4 x [8 x i8]], [4 x [8 x i8]]* %b, i64 0, i64 %indvars.iv, i64 %indvars.iv141, !intel-tbaa !8
-  store i8 %xor3293, i8* %arrayidx37, align 1, !tbaa !8
+  %arrayidx37 = getelementptr inbounds [4 x [8 x i8]], ptr %b, i64 0, i64 %indvars.iv, i64 %indvars.iv141, !intel-tbaa !8
+  store i8 %xor3293, ptr %arrayidx37, align 1, !tbaa !8
   %exitcond140.not = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond140.not, label %for.inc38, label %for.body5
 
@@ -210,12 +210,12 @@ for.end63.loopexit:                               ; preds = %for.cond45.preheade
   br label %for.end63
 
 for.end63:                                        ; preds = %for.end63.loopexit, %for.cond41.preheader, %entry
-  call void @llvm.lifetime.end.p0i8(i64 32, i8* nonnull %0) #3
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %0) #3
   ret void
 }
 
 ; Function Attrs: argmemonly nofree nounwind willreturn
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
 attributes #0 = { argmemonly nofree nosync nounwind willreturn }
 attributes #1 = { nofree nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }

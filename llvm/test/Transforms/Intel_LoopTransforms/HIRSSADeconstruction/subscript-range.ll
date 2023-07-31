@@ -46,27 +46,27 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @main() local_unnamed_addr {
 bb:
   %tmp = alloca [100 x i16], align 16
-  %tmp1 = bitcast [100 x i16]* %tmp to i8*
+  %tmp1 = bitcast ptr %tmp to ptr
   br label %bb2
 
 bb2:
-  %ptr0 = getelementptr inbounds [100 x i16], [100 x i16]* %tmp, i64 0, i64 0
+  %ptr0 = getelementptr inbounds [100 x i16], ptr %tmp, i64 0, i64 0
   br label %loop
 
 loop:
   %cnt = phi i32 [ 12, %bb2 ], [ %cnt_next, %loop ]
   %accum = phi i16 [ 0, %bb2 ], [ %sum, %loop ]
-  %ptr = phi i16* [ %ptr0, %bb2 ], [ %ptr1, %loop ]
+  %ptr = phi ptr [ %ptr0, %bb2 ], [ %ptr1, %loop ]
 
-  %tmp30 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 0)
-  %tmp31 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 1)
-  %tmp32 = load i16, i16* %tmp30, align 2
+  %tmp30 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 2, ptr elementtype(i16) %ptr, i64 0)
+  %tmp31 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 2, ptr elementtype(i16) %ptr, i64 1)
+  %tmp32 = load i16, ptr %tmp30, align 2
   %tmp33 = add i16 %tmp32, %accum
-  %ptr1 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 2)
-  %tmp35 = load i16, i16* %tmp31, align 2
+  %ptr1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 2, ptr elementtype(i16) %ptr, i64 2)
+  %tmp35 = load i16, ptr %tmp31, align 2
   %tmp36 = add i16 %tmp33, %tmp35
-  %tmp37 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 3)
-  %tmp38 = load i16, i16* %ptr1, align 2
+  %tmp37 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 2, ptr elementtype(i16) %ptr, i64 3)
+  %tmp38 = load i16, ptr %ptr1, align 2
   %sum = add i16 %tmp38, %tmp36
 
   %cnt_next = add nsw i32 %cnt, -1
@@ -79,5 +79,5 @@ bb50:
   ret i32 %tmp52
 }
 
-declare i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8, i64, i64, i16*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 

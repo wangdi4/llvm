@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @matmul(float* nocapture %px, float* nocapture readonly %vy, float* nocapture readonly %cx, i32 %loop, i32 %n) #0 {
+define void @matmul(ptr nocapture %px, ptr nocapture readonly %vy, ptr nocapture readonly %cx, i32 %loop, i32 %n) #0 {
 entry:
   %cmp60 = icmp slt i32 %loop, 1
   br i1 %cmp60, label %for.end34, label %for.cond1.preheader.lr.ph
@@ -41,7 +41,7 @@ for.cond7.preheader:                              ; preds = %for.inc26, %for.con
 
 for.body9.lr.ph:                                  ; preds = %for.cond7.preheader
   %3 = add nsw i64 %indvars.iv64, %1
-  %arrayidx14 = getelementptr inbounds float, float* %vy, i64 %3
+  %arrayidx14 = getelementptr inbounds float, ptr %vy, i64 %3
   br label %for.body9
 
 for.body9:                                        ; preds = %for.body9, %for.body9.lr.ph
@@ -51,18 +51,18 @@ for.body9:                                        ; preds = %for.body9, %for.bod
   %6 = trunc i64 %5 to i32
   %add10 = add i32 %sub, %6
   %idxprom = sext i32 %add10 to i64
-  %arrayidx = getelementptr inbounds float, float* %px, i64 %idxprom
-  %7 = load float, float* %arrayidx, align 4, !tbaa !1
-  %8 = load float, float* %arrayidx14, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %px, i64 %idxprom
+  %7 = load float, ptr %arrayidx, align 4, !tbaa !1
+  %8 = load float, ptr %arrayidx14, align 4, !tbaa !1
   %9 = trunc i64 %4 to i32
   %add17 = add i32 %add16, %9
   %idxprom18 = sext i32 %add17 to i64
-  %arrayidx19 = getelementptr inbounds float, float* %cx, i64 %idxprom18
-  %10 = load float, float* %arrayidx19, align 4, !tbaa !1
+  %arrayidx19 = getelementptr inbounds float, ptr %cx, i64 %idxprom18
+  %10 = load float, ptr %arrayidx19, align 4, !tbaa !1
   %mul20 = fmul float %8, %10
   %add21 = fadd float %7, %mul20
-  %arrayidx25 = getelementptr inbounds float, float* %px, i64 %5
-  store float %add21, float* %arrayidx25, align 4, !tbaa !1
+  %arrayidx25 = getelementptr inbounds float, ptr %px, i64 %5
+  store float %add21, ptr %arrayidx25, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

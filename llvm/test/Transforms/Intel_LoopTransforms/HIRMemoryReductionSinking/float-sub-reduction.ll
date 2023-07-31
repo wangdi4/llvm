@@ -1,6 +1,5 @@
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-memory-reduction-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-memory-reduction-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
 ; Verify that we are able to handle FSub reduction correctly by adding the
 ; subtractive element inside the loop.
@@ -35,9 +34,9 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld = load float, float* getelementptr inbounds ([100 x float], [100 x float]* @A, i64 0, i64 5), align 4
+  %ld = load float, ptr getelementptr inbounds ([100 x float], ptr @A, i64 0, i64 5), align 4
   %add7 = fsub fast float %ld, %t
-  store float %add7, float* getelementptr inbounds ([100 x float], [100 x float]* @A, i64 0, i64 5), align 4
+  store float %add7, ptr getelementptr inbounds ([100 x float], ptr @A, i64 0, i64 5), align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

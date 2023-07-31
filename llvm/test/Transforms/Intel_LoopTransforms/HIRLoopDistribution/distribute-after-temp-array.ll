@@ -231,13 +231,13 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare double @llvm.pow.f64(double, double) #0
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local void @quux.bb579(i1 %tmp437, i64 %tmp82, double* noalias %tmp79, i64 %tmp84, double* noalias %tmp59, double* noalias %tmp56, i1 %tmp443, i32 %tmp441, i64 %tmp81, i64 %tmp83, i32 %arg2, double %tmp445, double %tmp573, i64 %tmp463a, i32 %arg3, i32 %tmp578a) #2 {
+define dso_local void @quux.bb579(i1 %tmp437, i64 %tmp82, ptr noalias %tmp79, i64 %tmp84, ptr noalias %tmp59, ptr noalias %tmp56, i1 %tmp443, i32 %tmp441, i64 %tmp81, i64 %tmp83, i32 %arg2, double %tmp445, double %tmp573, i64 %tmp463a, i32 %arg3, i32 %tmp578a) #2 {
 newFuncRoot:
   %tmp4631 = add i32 %arg2, 1
   %tmp463 = zext i32 %tmp4631 to i64
@@ -256,9 +256,9 @@ bb579:                                            ; preds = %bb814, %newFuncRoot
   br i1 %tmp437, label %bb814, label %bb582
 
 bb582:                                            ; preds = %bb579
-  %tmp583 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %tmp82, double* elementtype(double) nonnull %tmp79, i64 %tmp581) #3
-  %tmp584 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %tmp84, double* elementtype(double) nonnull %tmp59, i64 %tmp580) #3
-  %tmp585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %tmp84, double* elementtype(double) nonnull %tmp56, i64 %tmp580) #3
+  %tmp583 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %tmp82, ptr elementtype(double) nonnull %tmp79, i64 %tmp581) #3
+  %tmp584 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %tmp84, ptr elementtype(double) nonnull %tmp59, i64 %tmp580) #3
+  %tmp585 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %tmp84, ptr elementtype(double) nonnull %tmp56, i64 %tmp580) #3
   br label %bb586
 
 bb586:                                            ; preds = %bb810, %bb582
@@ -268,11 +268,11 @@ bb586:                                            ; preds = %bb810, %bb582
 bb588:                                            ; preds = %bb586
   %tmp589 = trunc i64 %tmp587 to i32
   %tmp590 = srem i32 %tmp589, %tmp4641
-  %tmp591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %tmp81, double* elementtype(double) nonnull %tmp583, i64 %tmp587) #3
-  %tmp592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %tmp83, double* elementtype(double) nonnull %tmp584, i64 %tmp587) #3
+  %tmp591 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %tmp81, ptr elementtype(double) nonnull %tmp583, i64 %tmp587) #3
+  %tmp592 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %tmp83, ptr elementtype(double) nonnull %tmp584, i64 %tmp587) #3
   %tmp593 = zext i32 %tmp590 to i64
-  %tmp594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %tmp81, double* elementtype(double) nonnull %tmp583, i64 %tmp593) #3
-  %tmp595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %tmp83, double* elementtype(double) nonnull %tmp585, i64 %tmp587) #3
+  %tmp594 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %tmp81, ptr elementtype(double) nonnull %tmp583, i64 %tmp593) #3
+  %tmp595 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %tmp83, ptr elementtype(double) nonnull %tmp585, i64 %tmp587) #3
   br label %bb596
 
 bb596:                                            ; preds = %bb596, %bb588
@@ -280,17 +280,17 @@ bb596:                                            ; preds = %bb596, %bb588
   %tmp598 = trunc i64 %tmp597 to i32
   %tmp599 = srem i32 %tmp598, %arg2
   %tmp600 = add nuw nsw i32 %tmp599, 1
-  %tmp601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp591, i64 %tmp597) #3
-  %tmp602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp601, i64 1) #3
-  %tmp603 = load double, double* %tmp602, align 1, !alias.scope !5, !noalias !8
-  %tmp604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp601, i64 2) #3
-  %tmp605 = load double, double* %tmp604, align 1, !alias.scope !5, !noalias !8
+  %tmp601 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp591, i64 %tmp597) #3
+  %tmp602 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp601, i64 1) #3
+  %tmp603 = load double, ptr %tmp602, align 1, !alias.scope !5, !noalias !8
+  %tmp604 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp601, i64 2) #3
+  %tmp605 = load double, ptr %tmp604, align 1, !alias.scope !5, !noalias !8
   %tmp606 = fdiv fast double %tmp605, %tmp603
-  %tmp607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp601, i64 3) #3
-  %tmp608 = load double, double* %tmp607, align 1, !alias.scope !5, !noalias !8
+  %tmp607 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp601, i64 3) #3
+  %tmp608 = load double, ptr %tmp607, align 1, !alias.scope !5, !noalias !8
   %tmp609 = fdiv fast double %tmp608, %tmp603
-  %tmp610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp601, i64 4) #3
-  %tmp611 = load double, double* %tmp610, align 1, !alias.scope !5, !noalias !8
+  %tmp610 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp601, i64 4) #3
+  %tmp611 = load double, ptr %tmp610, align 1, !alias.scope !5, !noalias !8
   %tmp612 = fdiv fast double %tmp611, %tmp603
   %tmp613 = fmul fast double %tmp606, %tmp606
   %tmp614 = fmul fast double %tmp609, %tmp609
@@ -299,112 +299,112 @@ bb596:                                            ; preds = %bb596, %bb588
   %tmp617 = fadd fast double %tmp615, %tmp616
   %tmp618 = fmul fast double %tmp617, 5.000000e-01
   %tmp619 = fmul fast double %tmp618, 0x3FD9999980000000
-  %tmp620 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp601, i64 5) #3
-  %tmp621 = load double, double* %tmp620, align 1, !alias.scope !5, !noalias !8
+  %tmp620 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp601, i64 5) #3
+  %tmp621 = load double, ptr %tmp620, align 1, !alias.scope !5, !noalias !8
   %tmp622 = fmul fast double %tmp621, 0x3FF6666660000000
   %tmp623 = fdiv fast double %tmp622, %tmp603
   %tmp624 = fdiv fast double %tmp621, %tmp603
   %tmp625 = fsub fast double %tmp624, %tmp618
   %tmp626 = fmul fast double %tmp625, 0x3FD9999980000000
   %tmp627 = call fast double @llvm.pow.f64(double %tmp626, double 7.500000e-01) #3
-  %tmp628 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %tmp592, i64 %tmp597) #3
-  %tmp629 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp628, i64 1) #3
-  %tmp630 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp629, i64 1) #3
-  %tmp631 = bitcast double* %tmp630 to i64*
-  store i64 0, i64* %tmp631, align 1, !alias.scope !22, !noalias !23
+  %tmp628 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %tmp592, i64 %tmp597) #3
+  %tmp629 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp628, i64 1) #3
+  %tmp630 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp629, i64 1) #3
+  %tmp631 = bitcast ptr %tmp630 to ptr
+  store i64 0, ptr %tmp631, align 1, !alias.scope !22, !noalias !23
   %tmp632 = fsub fast double %tmp619, %tmp613
-  %tmp633 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp629, i64 2) #3
-  store double %tmp632, double* %tmp633, align 1, !alias.scope !22, !noalias !23
+  %tmp633 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp629, i64 2) #3
+  store double %tmp632, ptr %tmp633, align 1, !alias.scope !22, !noalias !23
   %tmp634 = fneg fast double %tmp606
   %tmp635 = fmul fast double %tmp609, %tmp634
-  %tmp636 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp629, i64 3) #3
-  store double %tmp635, double* %tmp636, align 1, !alias.scope !22, !noalias !23
+  %tmp636 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp629, i64 3) #3
+  store double %tmp635, ptr %tmp636, align 1, !alias.scope !22, !noalias !23
   %tmp637 = fmul fast double %tmp612, %tmp634
-  %tmp638 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp629, i64 4) #3
-  store double %tmp637, double* %tmp638, align 1, !alias.scope !22, !noalias !23
+  %tmp638 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp629, i64 4) #3
+  store double %tmp637, ptr %tmp638, align 1, !alias.scope !22, !noalias !23
   %tmp639 = fmul fast double %tmp619, 2.000000e+00
   %tmp640 = fsub fast double %tmp639, %tmp623
   %tmp641 = fmul fast double %tmp640, %tmp606
-  %tmp642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp629, i64 5) #3
-  store double %tmp641, double* %tmp642, align 1, !alias.scope !22, !noalias !23
-  %tmp643 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp628, i64 2) #3
-  %tmp644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp643, i64 1) #3
-  %tmp645 = bitcast double* %tmp644 to i64*
-  store i64 4607182418800017408, i64* %tmp645, align 1, !alias.scope !22, !noalias !23
+  %tmp642 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp629, i64 5) #3
+  store double %tmp641, ptr %tmp642, align 1, !alias.scope !22, !noalias !23
+  %tmp643 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp628, i64 2) #3
+  %tmp644 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp643, i64 1) #3
+  %tmp645 = bitcast ptr %tmp644 to ptr
+  store i64 4607182418800017408, ptr %tmp645, align 1, !alias.scope !22, !noalias !23
   %tmp646 = fmul fast double %tmp606, 0xBFE3333340000000
   %tmp647 = fsub fast double %tmp606, %tmp646
-  %tmp648 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp643, i64 2) #3
-  store double %tmp647, double* %tmp648, align 1, !alias.scope !22, !noalias !23
-  %tmp649 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp643, i64 3) #3
-  store double %tmp609, double* %tmp649, align 1, !alias.scope !22, !noalias !23
-  %tmp650 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp643, i64 4) #3
-  store double %tmp612, double* %tmp650, align 1, !alias.scope !22, !noalias !23
+  %tmp648 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp643, i64 2) #3
+  store double %tmp647, ptr %tmp648, align 1, !alias.scope !22, !noalias !23
+  %tmp649 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp643, i64 3) #3
+  store double %tmp609, ptr %tmp649, align 1, !alias.scope !22, !noalias !23
+  %tmp650 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp643, i64 4) #3
+  store double %tmp612, ptr %tmp650, align 1, !alias.scope !22, !noalias !23
   %tmp651 = fmul fast double %tmp606, 0x3FD9999980000000
   %tmp652 = fmul fast double %tmp651, %tmp606
   %tmp653 = fadd fast double %tmp619, %tmp652
   %tmp654 = fsub fast double %tmp623, %tmp653
-  %tmp655 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp643, i64 5) #3
-  store double %tmp654, double* %tmp655, align 1, !alias.scope !22, !noalias !23
-  %tmp656 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp628, i64 3) #3
-  %tmp657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp656, i64 1) #3
-  %tmp658 = bitcast double* %tmp657 to i64*
-  store i64 0, i64* %tmp658, align 1, !alias.scope !22, !noalias !23
+  %tmp655 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp643, i64 5) #3
+  store double %tmp654, ptr %tmp655, align 1, !alias.scope !22, !noalias !23
+  %tmp656 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp628, i64 3) #3
+  %tmp657 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp656, i64 1) #3
+  %tmp658 = bitcast ptr %tmp657 to ptr
+  store i64 0, ptr %tmp658, align 1, !alias.scope !22, !noalias !23
   %tmp659 = fmul fast double %tmp609, 0xBFD9999980000000
-  %tmp660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp656, i64 2) #3
-  store double %tmp659, double* %tmp660, align 1, !alias.scope !22, !noalias !23
-  %tmp661 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp656, i64 3) #3
-  store double %tmp606, double* %tmp661, align 1, !alias.scope !22, !noalias !23
-  %tmp662 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp656, i64 4) #3
-  store double 0.000000e+00, double* %tmp662, align 1, !alias.scope !22, !noalias !23
+  %tmp660 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp656, i64 2) #3
+  store double %tmp659, ptr %tmp660, align 1, !alias.scope !22, !noalias !23
+  %tmp661 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp656, i64 3) #3
+  store double %tmp606, ptr %tmp661, align 1, !alias.scope !22, !noalias !23
+  %tmp662 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp656, i64 4) #3
+  store double 0.000000e+00, ptr %tmp662, align 1, !alias.scope !22, !noalias !23
   %tmp663 = fneg fast double %tmp651
   %tmp664 = fmul fast double %tmp609, %tmp663
-  %tmp665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp656, i64 5) #3
-  store double %tmp664, double* %tmp665, align 1, !alias.scope !22, !noalias !23
-  %tmp666 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp628, i64 4) #3
-  %tmp667 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp666, i64 1) #3
-  %tmp668 = bitcast double* %tmp667 to i64*
-  store i64 0, i64* %tmp668, align 1, !alias.scope !22, !noalias !23
+  %tmp665 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp656, i64 5) #3
+  store double %tmp664, ptr %tmp665, align 1, !alias.scope !22, !noalias !23
+  %tmp666 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp628, i64 4) #3
+  %tmp667 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp666, i64 1) #3
+  %tmp668 = bitcast ptr %tmp667 to ptr
+  store i64 0, ptr %tmp668, align 1, !alias.scope !22, !noalias !23
   %tmp669 = fmul fast double %tmp612, 0xBFD9999980000000
-  %tmp670 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp666, i64 2) #3
-  store double %tmp669, double* %tmp670, align 1, !alias.scope !22, !noalias !23
-  %tmp671 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp666, i64 3) #3
-  store double 0.000000e+00, double* %tmp671, align 1, !alias.scope !22, !noalias !23
-  %tmp672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp666, i64 4) #3
-  store double %tmp606, double* %tmp672, align 1, !alias.scope !22, !noalias !23
+  %tmp670 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp666, i64 2) #3
+  store double %tmp669, ptr %tmp670, align 1, !alias.scope !22, !noalias !23
+  %tmp671 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp666, i64 3) #3
+  store double 0.000000e+00, ptr %tmp671, align 1, !alias.scope !22, !noalias !23
+  %tmp672 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp666, i64 4) #3
+  store double %tmp606, ptr %tmp672, align 1, !alias.scope !22, !noalias !23
   %tmp673 = fmul fast double %tmp612, %tmp663
-  %tmp674 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp666, i64 5) #3
-  store double %tmp673, double* %tmp674, align 1, !alias.scope !22, !noalias !23
-  %tmp675 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp628, i64 5) #3
-  %tmp676 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp675, i64 1) #3
-  store double 0.000000e+00, double* %tmp676, align 1, !alias.scope !22, !noalias !23
-  %tmp677 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp675, i64 2) #3
-  store double 0x3FD9999980000000, double* %tmp677, align 1, !alias.scope !22, !noalias !23
-  %tmp678 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp675, i64 3) #3
-  store double 0.000000e+00, double* %tmp678, align 1, !alias.scope !22, !noalias !23
-  %tmp679 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp675, i64 4) #3
-  store double 0.000000e+00, double* %tmp679, align 1, !alias.scope !22, !noalias !23
+  %tmp674 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp666, i64 5) #3
+  store double %tmp673, ptr %tmp674, align 1, !alias.scope !22, !noalias !23
+  %tmp675 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp628, i64 5) #3
+  %tmp676 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp675, i64 1) #3
+  store double 0.000000e+00, ptr %tmp676, align 1, !alias.scope !22, !noalias !23
+  %tmp677 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp675, i64 2) #3
+  store double 0x3FD9999980000000, ptr %tmp677, align 1, !alias.scope !22, !noalias !23
+  %tmp678 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp675, i64 3) #3
+  store double 0.000000e+00, ptr %tmp678, align 1, !alias.scope !22, !noalias !23
+  %tmp679 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp675, i64 4) #3
+  store double 0.000000e+00, ptr %tmp679, align 1, !alias.scope !22, !noalias !23
   %tmp680 = fmul fast double %tmp606, 0x3FF6666660000000
-  %tmp681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp675, i64 5) #3
-  store double %tmp680, double* %tmp681, align 1, !alias.scope !22, !noalias !23
+  %tmp681 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp675, i64 5) #3
+  store double %tmp680, ptr %tmp681, align 1, !alias.scope !22, !noalias !23
   %tmp682 = zext i32 %tmp600 to i64
-  %tmp683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp594, i64 %tmp682) #3
-  %tmp684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp683, i64 1) #3
-  %tmp685 = load double, double* %tmp684, align 1, !alias.scope !5, !noalias !8
-  %tmp686 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp683, i64 2) #3
-  %tmp687 = load double, double* %tmp686, align 1, !alias.scope !5, !noalias !8
+  %tmp683 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp594, i64 %tmp682) #3
+  %tmp684 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp683, i64 1) #3
+  %tmp685 = load double, ptr %tmp684, align 1, !alias.scope !5, !noalias !8
+  %tmp686 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp683, i64 2) #3
+  %tmp687 = load double, ptr %tmp686, align 1, !alias.scope !5, !noalias !8
   %tmp688 = fdiv fast double %tmp687, %tmp685
-  %tmp689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp683, i64 3) #3
-  %tmp690 = load double, double* %tmp689, align 1, !alias.scope !5, !noalias !8
+  %tmp689 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp683, i64 3) #3
+  %tmp690 = load double, ptr %tmp689, align 1, !alias.scope !5, !noalias !8
   %tmp691 = fdiv fast double %tmp690, %tmp685
-  %tmp692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp683, i64 4) #3
-  %tmp693 = load double, double* %tmp692, align 1, !alias.scope !5, !noalias !8
+  %tmp692 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp683, i64 4) #3
+  %tmp693 = load double, ptr %tmp692, align 1, !alias.scope !5, !noalias !8
   %tmp694 = fdiv fast double %tmp693, %tmp685
   %tmp695 = fdiv fast double 1.000000e+00, %tmp685
   %tmp696 = fdiv fast double 1.000000e+00, %tmp603
   %tmp697 = fsub fast double %tmp695, %tmp696
   %tmp698 = fmul fast double %tmp697, %tmp445
-  %tmp699 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp683, i64 5) #3
-  %tmp700 = load double, double* %tmp699, align 1, !alias.scope !5, !noalias !8
+  %tmp699 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp683, i64 5) #3
+  %tmp700 = load double, ptr %tmp699, align 1, !alias.scope !5, !noalias !8
   %tmp701 = fdiv fast double %tmp700, %tmp685
   %tmp702 = fmul fast double %tmp688, %tmp688
   %tmp703 = fmul fast double %tmp691, %tmp691
@@ -417,10 +417,10 @@ bb596:                                            ; preds = %bb596, %bb588
   %tmp710 = call fast double @llvm.pow.f64(double %tmp709, double 7.500000e-01) #3
   %tmp711 = fadd fast double %tmp710, %tmp627
   %tmp712 = fmul fast double %tmp711, 5.000000e-01
-  %tmp713 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %tmp595, i64 %tmp597) #3
-  %tmp714 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp713, i64 1) #3
-  %tmp715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp714, i64 1) #3
-  store double 0.000000e+00, double* %tmp715, align 1, !alias.scope !24, !noalias !25
+  %tmp713 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %tmp595, i64 %tmp597) #3
+  %tmp714 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp713, i64 1) #3
+  %tmp715 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp714, i64 1) #3
+  store double 0.000000e+00, ptr %tmp715, align 1, !alias.scope !24, !noalias !25
   %tmp716 = fdiv fast double %tmp606, %tmp603
   %tmp717 = fdiv fast double %tmp688, %tmp685
   %tmp718 = fsub fast double %tmp716, %tmp717
@@ -433,16 +433,16 @@ bb596:                                            ; preds = %bb596, %bb588
   %tmp725 = fsub fast double %tmp723, %tmp724
   %tmp726 = fmul fast double %tmp712, %tmp719
   %tmp727 = fmul fast double %tmp726, %tmp445
-  %tmp728 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp714, i64 2) #3
-  store double %tmp727, double* %tmp728, align 1, !alias.scope !24, !noalias !25
+  %tmp728 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp714, i64 2) #3
+  store double %tmp727, ptr %tmp728, align 1, !alias.scope !24, !noalias !25
   %tmp729 = fmul fast double %tmp712, %tmp722
   %tmp730 = fmul fast double %tmp729, %tmp445
-  %tmp731 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp714, i64 3) #3
-  store double %tmp730, double* %tmp731, align 1, !alias.scope !24, !noalias !25
+  %tmp731 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp714, i64 3) #3
+  store double %tmp730, ptr %tmp731, align 1, !alias.scope !24, !noalias !25
   %tmp732 = fmul fast double %tmp712, %tmp725
   %tmp733 = fmul fast double %tmp732, %tmp445
-  %tmp734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp714, i64 4) #3
-  store double %tmp733, double* %tmp734, align 1, !alias.scope !24, !noalias !25
+  %tmp734 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp714, i64 4) #3
+  store double %tmp733, ptr %tmp734, align 1, !alias.scope !24, !noalias !25
   %tmp735 = fdiv fast double %tmp613, %tmp603
   %tmp736 = fdiv fast double %tmp702, %tmp685
   %tmp737 = fsub fast double %tmp735, %tmp736
@@ -468,74 +468,74 @@ bb596:                                            ; preds = %bb596, %bb588
   %tmp757 = fadd fast double %tmp756, %tmp754
   %tmp758 = fmul fast double %tmp757, %tmp712
   %tmp759 = fmul fast double %tmp758, %tmp445
-  %tmp760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp714, i64 5) #3
-  store double %tmp759, double* %tmp760, align 1, !alias.scope !24, !noalias !25
-  %tmp761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp713, i64 2) #3
-  %tmp762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp761, i64 1) #3
-  store double 0.000000e+00, double* %tmp762, align 1, !alias.scope !24, !noalias !25
+  %tmp760 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp714, i64 5) #3
+  store double %tmp759, ptr %tmp760, align 1, !alias.scope !24, !noalias !25
+  %tmp761 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp713, i64 2) #3
+  %tmp762 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp761, i64 1) #3
+  store double 0.000000e+00, ptr %tmp762, align 1, !alias.scope !24, !noalias !25
   %tmp763 = fmul fast double %tmp712, %tmp698
   %tmp764 = fmul fast double %tmp763, 0x3FF5555560000000
-  %tmp765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp761, i64 2) #3
-  store double %tmp764, double* %tmp765, align 1, !alias.scope !24, !noalias !25
-  %tmp766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp761, i64 3) #3
-  store double 0.000000e+00, double* %tmp766, align 1, !alias.scope !24, !noalias !25
-  %tmp767 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp761, i64 4) #3
-  store double 0.000000e+00, double* %tmp767, align 1, !alias.scope !24, !noalias !25
-  %tmp768 = load double, double* %tmp728, align 1, !alias.scope !24, !noalias !25
+  %tmp765 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp761, i64 2) #3
+  store double %tmp764, ptr %tmp765, align 1, !alias.scope !24, !noalias !25
+  %tmp766 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp761, i64 3) #3
+  store double 0.000000e+00, ptr %tmp766, align 1, !alias.scope !24, !noalias !25
+  %tmp767 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp761, i64 4) #3
+  store double 0.000000e+00, ptr %tmp767, align 1, !alias.scope !24, !noalias !25
+  %tmp768 = load double, ptr %tmp728, align 1, !alias.scope !24, !noalias !25
   %tmp769 = fmul fast double %tmp712, %tmp573
   %tmp770 = fsub fast double %tmp717, %tmp716
   %tmp771 = fmul fast double %tmp769, %tmp770
   %tmp772 = fmul fast double %tmp771, %tmp445
   %tmp773 = fadd fast double %tmp768, %tmp772
   %tmp774 = fneg fast double %tmp773
-  %tmp775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp761, i64 5) #3
-  store double %tmp774, double* %tmp775, align 1, !alias.scope !24, !noalias !25
-  %tmp776 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp713, i64 3) #3
-  %tmp777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp776, i64 1) #3
-  store double 0.000000e+00, double* %tmp777, align 1, !alias.scope !24, !noalias !25
-  %tmp778 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp776, i64 2) #3
-  store double 0.000000e+00, double* %tmp778, align 1, !alias.scope !24, !noalias !25
-  %tmp779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp776, i64 3) #3
-  store double %tmp763, double* %tmp779, align 1, !alias.scope !24, !noalias !25
-  %tmp780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp776, i64 4) #3
-  store double 0.000000e+00, double* %tmp780, align 1, !alias.scope !24, !noalias !25
-  %tmp781 = load double, double* %tmp731, align 1, !alias.scope !24, !noalias !25
+  %tmp775 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp761, i64 5) #3
+  store double %tmp774, ptr %tmp775, align 1, !alias.scope !24, !noalias !25
+  %tmp776 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp713, i64 3) #3
+  %tmp777 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp776, i64 1) #3
+  store double 0.000000e+00, ptr %tmp777, align 1, !alias.scope !24, !noalias !25
+  %tmp778 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp776, i64 2) #3
+  store double 0.000000e+00, ptr %tmp778, align 1, !alias.scope !24, !noalias !25
+  %tmp779 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp776, i64 3) #3
+  store double %tmp763, ptr %tmp779, align 1, !alias.scope !24, !noalias !25
+  %tmp780 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp776, i64 4) #3
+  store double 0.000000e+00, ptr %tmp780, align 1, !alias.scope !24, !noalias !25
+  %tmp781 = load double, ptr %tmp731, align 1, !alias.scope !24, !noalias !25
   %tmp782 = fsub fast double %tmp721, %tmp720
   %tmp783 = fmul fast double %tmp769, %tmp782
   %tmp784 = fmul fast double %tmp783, %tmp445
   %tmp785 = fadd fast double %tmp781, %tmp784
   %tmp786 = fneg fast double %tmp785
-  %tmp787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp776, i64 5) #3
-  store double %tmp786, double* %tmp787, align 1, !alias.scope !24, !noalias !25
-  %tmp788 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp713, i64 4) #3
-  %tmp789 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp788, i64 1) #3
-  store double 0.000000e+00, double* %tmp789, align 1, !alias.scope !24, !noalias !25
-  %tmp790 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp788, i64 2) #3
-  store double 0.000000e+00, double* %tmp790, align 1, !alias.scope !24, !noalias !25
-  %tmp791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp788, i64 3) #3
-  store double 0.000000e+00, double* %tmp791, align 1, !alias.scope !24, !noalias !25
-  %tmp792 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp788, i64 4) #3
-  store double %tmp763, double* %tmp792, align 1, !alias.scope !24, !noalias !25
-  %tmp793 = load double, double* %tmp734, align 1, !alias.scope !24, !noalias !25
+  %tmp787 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp776, i64 5) #3
+  store double %tmp786, ptr %tmp787, align 1, !alias.scope !24, !noalias !25
+  %tmp788 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp713, i64 4) #3
+  %tmp789 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp788, i64 1) #3
+  store double 0.000000e+00, ptr %tmp789, align 1, !alias.scope !24, !noalias !25
+  %tmp790 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp788, i64 2) #3
+  store double 0.000000e+00, ptr %tmp790, align 1, !alias.scope !24, !noalias !25
+  %tmp791 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp788, i64 3) #3
+  store double 0.000000e+00, ptr %tmp791, align 1, !alias.scope !24, !noalias !25
+  %tmp792 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp788, i64 4) #3
+  store double %tmp763, ptr %tmp792, align 1, !alias.scope !24, !noalias !25
+  %tmp793 = load double, ptr %tmp734, align 1, !alias.scope !24, !noalias !25
   %tmp794 = fsub fast double %tmp724, %tmp723
   %tmp795 = fmul fast double %tmp769, %tmp794
   %tmp796 = fmul fast double %tmp795, %tmp445
   %tmp797 = fadd fast double %tmp793, %tmp796
   %tmp798 = fneg fast double %tmp797
-  %tmp799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp788, i64 5) #3
-  store double %tmp798, double* %tmp799, align 1, !alias.scope !24, !noalias !25
-  %tmp800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %tmp713, i64 5) #3
-  %tmp801 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp800, i64 1) #3
-  store double 0.000000e+00, double* %tmp801, align 1, !alias.scope !24, !noalias !25
-  %tmp802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp800, i64 2) #3
-  store double 0.000000e+00, double* %tmp802, align 1, !alias.scope !24, !noalias !25
-  %tmp803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp800, i64 3) #3
-  store double 0.000000e+00, double* %tmp803, align 1, !alias.scope !24, !noalias !25
-  %tmp804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp800, i64 4) #3
-  store double 0.000000e+00, double* %tmp804, align 1, !alias.scope !24, !noalias !25
+  %tmp799 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp788, i64 5) #3
+  store double %tmp798, ptr %tmp799, align 1, !alias.scope !24, !noalias !25
+  %tmp800 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %tmp713, i64 5) #3
+  %tmp801 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp800, i64 1) #3
+  store double 0.000000e+00, ptr %tmp801, align 1, !alias.scope !24, !noalias !25
+  %tmp802 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp800, i64 2) #3
+  store double 0.000000e+00, ptr %tmp802, align 1, !alias.scope !24, !noalias !25
+  %tmp803 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp800, i64 3) #3
+  store double 0.000000e+00, ptr %tmp803, align 1, !alias.scope !24, !noalias !25
+  %tmp804 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp800, i64 4) #3
+  store double 0.000000e+00, ptr %tmp804, align 1, !alias.scope !24, !noalias !25
   %tmp805 = fmul fast double %tmp769, %tmp698
-  %tmp806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp800, i64 5) #3
-  store double %tmp805, double* %tmp806, align 1, !alias.scope !24, !noalias !25
+  %tmp806 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp800, i64 5) #3
+  store double %tmp805, ptr %tmp806, align 1, !alias.scope !24, !noalias !25
   %tmp807 = add nuw nsw i64 %tmp597, 1
   %tmp808 = icmp eq i64 %tmp807, %tmp463
   br i1 %tmp808, label %bb809, label %bb596

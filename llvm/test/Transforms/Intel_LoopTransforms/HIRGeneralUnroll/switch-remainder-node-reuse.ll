@@ -52,16 +52,16 @@
 ; CHECK: }
 
 
-define void @foo(i64* %ptr, i64 %n) {
+define void @foo(ptr %ptr, i64 %n) {
 entry:
   br label %loop
 
 loop:                                               ; preds = %loop, %entry
-  %ptr.phi = phi i64* [ %ptr, %entry ], [ %ptr.inc, %loop ]
+  %ptr.phi = phi ptr [ %ptr, %entry ], [ %ptr.inc, %loop ]
   %t12 = phi i64 [ 0, %entry ], [ %t20, %loop ]
   %t13 = phi i64 [ 0, %entry ], [ %t19, %loop ]
-  %ptr.inc = getelementptr i64, i64* %ptr.phi, i64 1
-  %t17 = load i64, i64* %ptr.phi, align 8
+  %ptr.inc = getelementptr i64, ptr %ptr.phi, i64 1
+  %t17 = load i64, ptr %ptr.phi, align 8
   %t18 = lshr i64 %t17, 3
   %t19 = add i64 %t18, %t13
   %t20 = add nuw nsw i64 %t12, 1

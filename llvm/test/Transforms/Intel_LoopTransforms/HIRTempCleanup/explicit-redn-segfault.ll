@@ -31,20 +31,20 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @foo() local_unnamed_addr #0 {
 entry:
   %sum = alloca float, align 4
-  %0 = bitcast float* %sum to i8*
-  call void @llvm.lifetime.start(i64 4, i8* %0) #2
-  store float 0.000000e+00, float* %sum, align 4, !tbaa !1
+  %0 = bitcast ptr %sum to ptr
+  call void @llvm.lifetime.start(i64 4, ptr %0) #2
+  store float 0.000000e+00, ptr %sum, align 4, !tbaa !1
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.ADD", float* nonnull %sum)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.ADD", ptr nonnull %sum)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-  %sum.promoted = load float, float* %sum, align 4, !tbaa !1
+  %sum.promoted = load float, ptr %sum, align 4, !tbaa !1
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %add5 = phi float [ %sum.promoted, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !5
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !5
   %add = fadd float %1, %add5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -53,12 +53,12 @@ for.body:                                         ; preds = %for.body, %entry
 for.end:                                          ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-  call void @llvm.lifetime.end(i64 4, i8* %0) #2
+  call void @llvm.lifetime.end(i64 4, ptr %0) #2
   ret float %add
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.intel.directive(metadata) #1
@@ -67,7 +67,7 @@ declare void @llvm.intel.directive(metadata) #1
 declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind readonly uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

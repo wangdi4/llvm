@@ -8,62 +8,62 @@
 ;     BEGIN REGION { }
 ;         + DO i1 = 0, zext.i32.i64(%4) + -4, 1   <DO_LOOP>  <MAX_TC_EST = 2147483644>
 ;         |   + DO i2 = 0, (sext.i32.i64(%6) + -1 * sext.i32.i64(%5) + -1)/u8, 1   <DO_LOOP>  <MAX_TC_EST = 536870912>
-;           |   |   @llvm.lifetime.start.p0i8(2368,  &((i8*)(%8)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%9)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%10)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%11)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%12)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%13)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%14)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%15)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%16)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%17)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%18)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%19)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%20)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%21)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%22)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%23)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%24)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%25)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%26)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%27)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%28)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%29)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%30)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%31)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%32)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%33)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%34)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%35)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%36)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%37)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%38)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%39)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%40)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%41)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%42)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%43)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%44)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%45)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%46)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%47)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%48)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%49)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%50)[0]));
-;           |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%51)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%52)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%53)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%54)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%55)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%56)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%57)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%58)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%59)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%60)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%61)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%62)[0]));
-;          |   |   @llvm.lifetime.start.p0i8(64,  &((i8*)(%63)[0]));
+;           |   |   @llvm.lifetime.start.p0(2368,  &((i8*)(%8)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%9)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%10)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%11)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%12)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%13)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%14)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%15)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%16)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%17)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%18)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%19)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%20)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%21)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%22)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%23)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%24)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%25)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%26)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%27)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%28)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%29)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%30)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%31)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%32)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%33)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%34)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%35)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%36)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%37)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%38)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%39)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%40)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%41)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%42)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%43)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%44)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%45)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%46)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%47)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%48)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%49)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%50)[0]));
+;           |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%51)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%52)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%53)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%54)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%55)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%56)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%57)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%58)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%59)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%60)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%61)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%62)[0]));
+;          |   |   @llvm.lifetime.start.p0(64,  &((i8*)(%63)[0]));
 ;         |   |
 ;         |   |   + DO i3 = 0, 7, 1   <DO_LOOP>
 ;          |   |   |   (%9)[0][i3] = 0.000000e+00;
@@ -534,62 +534,62 @@
 ;         |   |   |   + END LOOP
 ;         |   |   + END LOOP
 ;         |   |
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%63)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%62)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%61)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%60)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%59)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%58)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%57)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%56)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%55)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%54)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%53)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%52)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%51)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%50)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%49)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%48)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%47)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%46)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%45)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%44)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%43)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%42)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%41)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%40)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%39)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%38)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%37)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%36)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%35)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%34)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%33)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%32)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%31)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%30)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%29)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%28)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%27)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%26)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%25)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%24)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%23)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%22)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%21)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%20)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%19)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%18)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%17)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%16)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%15)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%14)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%13)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%12)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%11)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%10)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(64,  &((i8*)(%9)[0]));
-;         |   |   @llvm.lifetime.end.p0i8(2368,  &((i8*)(%8)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%63)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%62)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%61)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%60)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%59)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%58)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%57)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%56)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%55)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%54)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%53)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%52)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%51)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%50)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%49)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%48)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%47)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%46)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%45)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%44)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%43)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%42)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%41)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%40)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%39)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%38)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%37)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%36)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%35)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%34)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%33)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%32)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%31)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%30)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%29)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%28)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%27)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%26)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%25)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%24)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%23)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%22)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%21)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%20)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%19)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%18)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%17)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%16)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%15)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%14)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%13)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%12)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%11)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%10)[0]));
+;         |   |   @llvm.lifetime.end.p0(64,  &((i8*)(%9)[0]));
+;         |   |   @llvm.lifetime.end.p0(2368,  &((i8*)(%8)[0]));
 ;         |   + END LOOP
 ;         + END LOOP
 ;      END REGION
@@ -609,7 +609,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture readonly %1, %struct.par_t* noalias nocapture readonly %2, i64* noalias nocapture readonly %3, i32 %4, i32 %5, i32 %6) unnamed_addr #1 !dbg !49 {
+define hidden fastcc void @myKernel(ptr nocapture %0, ptr nocapture readonly %1, ptr noalias nocapture readonly %2, ptr noalias nocapture readonly %3, i32 %4, i32 %5, i32 %6) unnamed_addr #1 !dbg !49 {
   %8 = alloca [37 x [8 x double]], align 16
   %9 = alloca [8 x double], align 16
   %10 = alloca [8 x double], align 16
@@ -666,10 +666,10 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %61 = alloca [8 x double], align 16
   %62 = alloca [8 x double], align 16
   %63 = alloca [8 x double], align 16
-  call void @llvm.dbg.value(metadata double* %0, metadata !85, metadata !DIExpression()), !dbg !183
-  call void @llvm.dbg.value(metadata double* %1, metadata !86, metadata !DIExpression()), !dbg !183
-  call void @llvm.dbg.value(metadata %struct.par_t* %2, metadata !87, metadata !DIExpression()), !dbg !183
-  call void @llvm.dbg.value(metadata i64* %3, metadata !88, metadata !DIExpression()), !dbg !183
+  call void @llvm.dbg.value(metadata ptr %0, metadata !85, metadata !DIExpression()), !dbg !183
+  call void @llvm.dbg.value(metadata ptr %1, metadata !86, metadata !DIExpression()), !dbg !183
+  call void @llvm.dbg.value(metadata ptr %2, metadata !87, metadata !DIExpression()), !dbg !183
+  call void @llvm.dbg.value(metadata ptr %3, metadata !88, metadata !DIExpression()), !dbg !183
   call void @llvm.dbg.value(metadata i32 3, metadata !89, metadata !DIExpression()), !dbg !183
   call void @llvm.dbg.value(metadata i32 %4, metadata !90, metadata !DIExpression()), !dbg !183
   call void @llvm.dbg.value(metadata i32 %5, metadata !91, metadata !DIExpression()), !dbg !183
@@ -680,62 +680,62 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 
 65:                                               ; preds = %7
   %66 = icmp slt i32 %5, %6, !dbg !186
-  %67 = bitcast [37 x [8 x double]]* %8 to i8*, !dbg !187
-  %68 = bitcast [8 x double]* %9 to i8*, !dbg !188
-  %69 = bitcast [8 x double]* %10 to i8*, !dbg !188
-  %70 = bitcast [8 x double]* %11 to i8*, !dbg !188
-  %71 = bitcast [8 x double]* %12 to i8*, !dbg !188
-  %72 = bitcast [8 x double]* %13 to i8*, !dbg !189
-  %73 = bitcast [8 x double]* %14 to i8*, !dbg !189
-  %74 = bitcast [8 x double]* %15 to i8*, !dbg !190
-  %75 = bitcast [8 x double]* %16 to i8*, !dbg !190
-  %76 = bitcast [8 x double]* %17 to i8*, !dbg !191
-  %77 = bitcast [8 x double]* %18 to i8*, !dbg !191
-  %78 = bitcast [8 x double]* %19 to i8*, !dbg !191
-  %79 = bitcast [8 x double]* %20 to i8*, !dbg !191
-  %80 = bitcast [8 x double]* %21 to i8*, !dbg !191
-  %81 = bitcast [8 x double]* %22 to i8*, !dbg !192
-  %82 = bitcast [8 x double]* %23 to i8*, !dbg !192
-  %83 = bitcast [8 x double]* %24 to i8*, !dbg !192
-  %84 = bitcast [8 x double]* %25 to i8*, !dbg !193
-  %85 = bitcast [8 x double]* %26 to i8*, !dbg !193
-  %86 = bitcast [8 x double]* %27 to i8*, !dbg !193
-  %87 = bitcast [8 x double]* %28 to i8*, !dbg !193
-  %88 = bitcast [8 x double]* %29 to i8*, !dbg !193
-  %89 = bitcast [8 x double]* %30 to i8*, !dbg !193
-  %90 = bitcast [8 x double]* %31 to i8*, !dbg !193
-  %91 = bitcast [8 x double]* %32 to i8*, !dbg !193
-  %92 = bitcast [8 x double]* %33 to i8*, !dbg !193
-  %93 = bitcast [8 x double]* %34 to i8*, !dbg !193
-  %94 = bitcast [8 x double]* %35 to i8*, !dbg !193
-  %95 = bitcast [8 x double]* %36 to i8*, !dbg !193
-  %96 = bitcast [8 x double]* %37 to i8*, !dbg !194
-  %97 = bitcast [8 x double]* %38 to i8*, !dbg !194
-  %98 = bitcast [8 x double]* %39 to i8*, !dbg !194
-  %99 = bitcast [8 x double]* %40 to i8*, !dbg !194
-  %100 = bitcast [8 x double]* %41 to i8*, !dbg !194
-  %101 = bitcast [8 x double]* %42 to i8*, !dbg !194
-  %102 = bitcast [8 x double]* %43 to i8*, !dbg !195
-  %103 = bitcast [8 x double]* %44 to i8*, !dbg !195
-  %104 = bitcast [8 x double]* %45 to i8*, !dbg !195
-  %105 = bitcast [8 x double]* %46 to i8*, !dbg !195
-  %106 = bitcast [8 x double]* %47 to i8*, !dbg !195
-  %107 = bitcast [8 x double]* %48 to i8*, !dbg !195
-  %108 = bitcast [8 x double]* %49 to i8*, !dbg !195
-  %109 = bitcast [8 x double]* %50 to i8*, !dbg !195
-  %110 = bitcast [8 x double]* %51 to i8*, !dbg !195
-  %111 = bitcast [8 x double]* %52 to i8*, !dbg !195
-  %112 = bitcast [8 x double]* %53 to i8*, !dbg !195
-  %113 = bitcast [8 x double]* %54 to i8*, !dbg !195
-  %114 = bitcast [8 x double]* %55 to i8*, !dbg !195
-  %115 = bitcast [8 x double]* %56 to i8*, !dbg !195
-  %116 = bitcast [8 x double]* %57 to i8*, !dbg !195
-  %117 = bitcast [8 x double]* %58 to i8*, !dbg !196
-  %118 = bitcast [8 x double]* %59 to i8*, !dbg !196
-  %119 = bitcast [8 x double]* %60 to i8*, !dbg !196
-  %120 = bitcast [8 x double]* %61 to i8*, !dbg !196
-  %121 = bitcast [8 x double]* %62 to i8*, !dbg !196
-  %122 = bitcast [8 x double]* %63 to i8*, !dbg !196
+  %67 = bitcast ptr %8 to ptr, !dbg !187
+  %68 = bitcast ptr %9 to ptr, !dbg !188
+  %69 = bitcast ptr %10 to ptr, !dbg !188
+  %70 = bitcast ptr %11 to ptr, !dbg !188
+  %71 = bitcast ptr %12 to ptr, !dbg !188
+  %72 = bitcast ptr %13 to ptr, !dbg !189
+  %73 = bitcast ptr %14 to ptr, !dbg !189
+  %74 = bitcast ptr %15 to ptr, !dbg !190
+  %75 = bitcast ptr %16 to ptr, !dbg !190
+  %76 = bitcast ptr %17 to ptr, !dbg !191
+  %77 = bitcast ptr %18 to ptr, !dbg !191
+  %78 = bitcast ptr %19 to ptr, !dbg !191
+  %79 = bitcast ptr %20 to ptr, !dbg !191
+  %80 = bitcast ptr %21 to ptr, !dbg !191
+  %81 = bitcast ptr %22 to ptr, !dbg !192
+  %82 = bitcast ptr %23 to ptr, !dbg !192
+  %83 = bitcast ptr %24 to ptr, !dbg !192
+  %84 = bitcast ptr %25 to ptr, !dbg !193
+  %85 = bitcast ptr %26 to ptr, !dbg !193
+  %86 = bitcast ptr %27 to ptr, !dbg !193
+  %87 = bitcast ptr %28 to ptr, !dbg !193
+  %88 = bitcast ptr %29 to ptr, !dbg !193
+  %89 = bitcast ptr %30 to ptr, !dbg !193
+  %90 = bitcast ptr %31 to ptr, !dbg !193
+  %91 = bitcast ptr %32 to ptr, !dbg !193
+  %92 = bitcast ptr %33 to ptr, !dbg !193
+  %93 = bitcast ptr %34 to ptr, !dbg !193
+  %94 = bitcast ptr %35 to ptr, !dbg !193
+  %95 = bitcast ptr %36 to ptr, !dbg !193
+  %96 = bitcast ptr %37 to ptr, !dbg !194
+  %97 = bitcast ptr %38 to ptr, !dbg !194
+  %98 = bitcast ptr %39 to ptr, !dbg !194
+  %99 = bitcast ptr %40 to ptr, !dbg !194
+  %100 = bitcast ptr %41 to ptr, !dbg !194
+  %101 = bitcast ptr %42 to ptr, !dbg !194
+  %102 = bitcast ptr %43 to ptr, !dbg !195
+  %103 = bitcast ptr %44 to ptr, !dbg !195
+  %104 = bitcast ptr %45 to ptr, !dbg !195
+  %105 = bitcast ptr %46 to ptr, !dbg !195
+  %106 = bitcast ptr %47 to ptr, !dbg !195
+  %107 = bitcast ptr %48 to ptr, !dbg !195
+  %108 = bitcast ptr %49 to ptr, !dbg !195
+  %109 = bitcast ptr %50 to ptr, !dbg !195
+  %110 = bitcast ptr %51 to ptr, !dbg !195
+  %111 = bitcast ptr %52 to ptr, !dbg !195
+  %112 = bitcast ptr %53 to ptr, !dbg !195
+  %113 = bitcast ptr %54 to ptr, !dbg !195
+  %114 = bitcast ptr %55 to ptr, !dbg !195
+  %115 = bitcast ptr %56 to ptr, !dbg !195
+  %116 = bitcast ptr %57 to ptr, !dbg !195
+  %117 = bitcast ptr %58 to ptr, !dbg !196
+  %118 = bitcast ptr %59 to ptr, !dbg !196
+  %119 = bitcast ptr %60 to ptr, !dbg !196
+  %120 = bitcast ptr %61 to ptr, !dbg !196
+  %121 = bitcast ptr %62 to ptr, !dbg !196
+  %122 = bitcast ptr %63 to ptr, !dbg !196
   %123 = sext i32 %5 to i64, !dbg !185
   %124 = sext i32 %6 to i64, !dbg !185
   %125 = zext i32 %4 to i64, !dbg !184
@@ -753,138 +753,138 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 129:                                              ; preds = %863, %128
   %130 = phi i64 [ %864, %863 ], [ %123, %128 ]
   call void @llvm.dbg.value(metadata i64 %130, metadata !94, metadata !DIExpression()), !dbg !183
-  call void @llvm.lifetime.start.p0i8(i64 2368, i8* nonnull %67) #3, !dbg !187
-  call void @llvm.dbg.declare(metadata [37 x [8 x double]]* %8, metadata !103, metadata !DIExpression()), !dbg !198
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %68) #3, !dbg !188
-  call void @llvm.dbg.declare(metadata [8 x double]* %9, metadata !109, metadata !DIExpression()), !dbg !199
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %69) #3, !dbg !188
-  call void @llvm.dbg.declare(metadata [8 x double]* %10, metadata !110, metadata !DIExpression()), !dbg !200
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %70) #3, !dbg !188
-  call void @llvm.dbg.declare(metadata [8 x double]* %11, metadata !111, metadata !DIExpression()), !dbg !201
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %71) #3, !dbg !188
-  call void @llvm.dbg.declare(metadata [8 x double]* %12, metadata !112, metadata !DIExpression()), !dbg !202
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %72) #3, !dbg !189
-  call void @llvm.dbg.declare(metadata [8 x double]* %13, metadata !113, metadata !DIExpression()), !dbg !203
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %73) #3, !dbg !189
-  call void @llvm.dbg.declare(metadata [8 x double]* %14, metadata !114, metadata !DIExpression()), !dbg !204
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %74) #3, !dbg !190
-  call void @llvm.dbg.declare(metadata [8 x double]* %15, metadata !115, metadata !DIExpression()), !dbg !205
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %75) #3, !dbg !190
-  call void @llvm.dbg.declare(metadata [8 x double]* %16, metadata !120, metadata !DIExpression()), !dbg !206
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %76) #3, !dbg !191
-  call void @llvm.dbg.declare(metadata [8 x double]* %17, metadata !123, metadata !DIExpression()), !dbg !207
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %77) #3, !dbg !191
-  call void @llvm.dbg.declare(metadata [8 x double]* %18, metadata !125, metadata !DIExpression()), !dbg !208
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %78) #3, !dbg !191
-  call void @llvm.dbg.declare(metadata [8 x double]* %19, metadata !126, metadata !DIExpression()), !dbg !209
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %79) #3, !dbg !191
-  call void @llvm.dbg.declare(metadata [8 x double]* %20, metadata !127, metadata !DIExpression()), !dbg !210
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %80) #3, !dbg !191
-  call void @llvm.dbg.declare(metadata [8 x double]* %21, metadata !128, metadata !DIExpression()), !dbg !211
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %81) #3, !dbg !192
-  call void @llvm.dbg.declare(metadata [8 x double]* %22, metadata !141, metadata !DIExpression()), !dbg !212
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %82) #3, !dbg !192
-  call void @llvm.dbg.declare(metadata [8 x double]* %23, metadata !142, metadata !DIExpression()), !dbg !213
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %83) #3, !dbg !192
-  call void @llvm.dbg.declare(metadata [8 x double]* %24, metadata !143, metadata !DIExpression()), !dbg !214
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %84) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %25, metadata !144, metadata !DIExpression()), !dbg !215
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %85) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %26, metadata !145, metadata !DIExpression()), !dbg !216
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %86) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %27, metadata !146, metadata !DIExpression()), !dbg !217
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %87) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %28, metadata !147, metadata !DIExpression()), !dbg !218
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %88) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %29, metadata !148, metadata !DIExpression()), !dbg !219
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %89) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %30, metadata !149, metadata !DIExpression()), !dbg !220
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %90) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %31, metadata !150, metadata !DIExpression()), !dbg !221
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %91) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %32, metadata !151, metadata !DIExpression()), !dbg !222
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %92) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %33, metadata !152, metadata !DIExpression()), !dbg !223
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %93) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %34, metadata !153, metadata !DIExpression()), !dbg !224
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %94) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %35, metadata !154, metadata !DIExpression()), !dbg !225
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %95) #3, !dbg !193
-  call void @llvm.dbg.declare(metadata [8 x double]* %36, metadata !155, metadata !DIExpression()), !dbg !226
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %96) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %37, metadata !156, metadata !DIExpression()), !dbg !227
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %97) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %38, metadata !157, metadata !DIExpression()), !dbg !228
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %98) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %39, metadata !158, metadata !DIExpression()), !dbg !229
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %99) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %40, metadata !159, metadata !DIExpression()), !dbg !230
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %100) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %41, metadata !160, metadata !DIExpression()), !dbg !231
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %101) #3, !dbg !194
-  call void @llvm.dbg.declare(metadata [8 x double]* %42, metadata !161, metadata !DIExpression()), !dbg !232
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %102) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %43, metadata !162, metadata !DIExpression()), !dbg !233
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %103) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %44, metadata !163, metadata !DIExpression()), !dbg !234
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %104) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %45, metadata !164, metadata !DIExpression()), !dbg !235
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %105) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %46, metadata !165, metadata !DIExpression()), !dbg !236
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %106) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %47, metadata !166, metadata !DIExpression()), !dbg !237
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %107) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %48, metadata !167, metadata !DIExpression()), !dbg !238
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %108) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %49, metadata !168, metadata !DIExpression()), !dbg !239
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %109) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %50, metadata !169, metadata !DIExpression()), !dbg !240
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %110) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %51, metadata !170, metadata !DIExpression()), !dbg !241
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %111) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %52, metadata !171, metadata !DIExpression()), !dbg !242
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %112) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %53, metadata !172, metadata !DIExpression()), !dbg !243
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %113) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %54, metadata !173, metadata !DIExpression()), !dbg !244
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %114) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %55, metadata !174, metadata !DIExpression()), !dbg !245
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %115) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %56, metadata !175, metadata !DIExpression()), !dbg !246
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %116) #3, !dbg !195
-  call void @llvm.dbg.declare(metadata [8 x double]* %57, metadata !176, metadata !DIExpression()), !dbg !247
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %117) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %58, metadata !177, metadata !DIExpression()), !dbg !248
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %118) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %59, metadata !178, metadata !DIExpression()), !dbg !249
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %119) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %60, metadata !179, metadata !DIExpression()), !dbg !250
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %120) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %61, metadata !180, metadata !DIExpression()), !dbg !251
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %121) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %62, metadata !181, metadata !DIExpression()), !dbg !252
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %122) #3, !dbg !196
-  call void @llvm.dbg.declare(metadata [8 x double]* %63, metadata !182, metadata !DIExpression()), !dbg !253
+  call void @llvm.lifetime.start.p0(i64 2368, ptr nonnull %67) #3, !dbg !187
+  call void @llvm.dbg.declare(metadata ptr %8, metadata !103, metadata !DIExpression()), !dbg !198
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %68) #3, !dbg !188
+  call void @llvm.dbg.declare(metadata ptr %9, metadata !109, metadata !DIExpression()), !dbg !199
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %69) #3, !dbg !188
+  call void @llvm.dbg.declare(metadata ptr %10, metadata !110, metadata !DIExpression()), !dbg !200
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %70) #3, !dbg !188
+  call void @llvm.dbg.declare(metadata ptr %11, metadata !111, metadata !DIExpression()), !dbg !201
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %71) #3, !dbg !188
+  call void @llvm.dbg.declare(metadata ptr %12, metadata !112, metadata !DIExpression()), !dbg !202
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %72) #3, !dbg !189
+  call void @llvm.dbg.declare(metadata ptr %13, metadata !113, metadata !DIExpression()), !dbg !203
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %73) #3, !dbg !189
+  call void @llvm.dbg.declare(metadata ptr %14, metadata !114, metadata !DIExpression()), !dbg !204
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %74) #3, !dbg !190
+  call void @llvm.dbg.declare(metadata ptr %15, metadata !115, metadata !DIExpression()), !dbg !205
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %75) #3, !dbg !190
+  call void @llvm.dbg.declare(metadata ptr %16, metadata !120, metadata !DIExpression()), !dbg !206
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %76) #3, !dbg !191
+  call void @llvm.dbg.declare(metadata ptr %17, metadata !123, metadata !DIExpression()), !dbg !207
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %77) #3, !dbg !191
+  call void @llvm.dbg.declare(metadata ptr %18, metadata !125, metadata !DIExpression()), !dbg !208
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %78) #3, !dbg !191
+  call void @llvm.dbg.declare(metadata ptr %19, metadata !126, metadata !DIExpression()), !dbg !209
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %79) #3, !dbg !191
+  call void @llvm.dbg.declare(metadata ptr %20, metadata !127, metadata !DIExpression()), !dbg !210
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %80) #3, !dbg !191
+  call void @llvm.dbg.declare(metadata ptr %21, metadata !128, metadata !DIExpression()), !dbg !211
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %81) #3, !dbg !192
+  call void @llvm.dbg.declare(metadata ptr %22, metadata !141, metadata !DIExpression()), !dbg !212
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %82) #3, !dbg !192
+  call void @llvm.dbg.declare(metadata ptr %23, metadata !142, metadata !DIExpression()), !dbg !213
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %83) #3, !dbg !192
+  call void @llvm.dbg.declare(metadata ptr %24, metadata !143, metadata !DIExpression()), !dbg !214
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %84) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %25, metadata !144, metadata !DIExpression()), !dbg !215
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %85) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %26, metadata !145, metadata !DIExpression()), !dbg !216
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %86) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %27, metadata !146, metadata !DIExpression()), !dbg !217
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %87) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %28, metadata !147, metadata !DIExpression()), !dbg !218
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %88) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %29, metadata !148, metadata !DIExpression()), !dbg !219
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %89) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %30, metadata !149, metadata !DIExpression()), !dbg !220
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %90) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %31, metadata !150, metadata !DIExpression()), !dbg !221
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %91) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %32, metadata !151, metadata !DIExpression()), !dbg !222
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %92) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %33, metadata !152, metadata !DIExpression()), !dbg !223
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %93) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %34, metadata !153, metadata !DIExpression()), !dbg !224
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %94) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %35, metadata !154, metadata !DIExpression()), !dbg !225
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %95) #3, !dbg !193
+  call void @llvm.dbg.declare(metadata ptr %36, metadata !155, metadata !DIExpression()), !dbg !226
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %96) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %37, metadata !156, metadata !DIExpression()), !dbg !227
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %97) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %38, metadata !157, metadata !DIExpression()), !dbg !228
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %98) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %39, metadata !158, metadata !DIExpression()), !dbg !229
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %99) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %40, metadata !159, metadata !DIExpression()), !dbg !230
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %100) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %41, metadata !160, metadata !DIExpression()), !dbg !231
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %101) #3, !dbg !194
+  call void @llvm.dbg.declare(metadata ptr %42, metadata !161, metadata !DIExpression()), !dbg !232
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %102) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %43, metadata !162, metadata !DIExpression()), !dbg !233
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %103) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %44, metadata !163, metadata !DIExpression()), !dbg !234
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %104) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %45, metadata !164, metadata !DIExpression()), !dbg !235
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %105) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %46, metadata !165, metadata !DIExpression()), !dbg !236
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %106) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %47, metadata !166, metadata !DIExpression()), !dbg !237
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %107) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %48, metadata !167, metadata !DIExpression()), !dbg !238
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %108) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %49, metadata !168, metadata !DIExpression()), !dbg !239
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %109) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %50, metadata !169, metadata !DIExpression()), !dbg !240
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %110) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %51, metadata !170, metadata !DIExpression()), !dbg !241
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %111) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %52, metadata !171, metadata !DIExpression()), !dbg !242
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %112) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %53, metadata !172, metadata !DIExpression()), !dbg !243
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %113) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %54, metadata !173, metadata !DIExpression()), !dbg !244
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %114) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %55, metadata !174, metadata !DIExpression()), !dbg !245
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %115) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %56, metadata !175, metadata !DIExpression()), !dbg !246
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %116) #3, !dbg !195
+  call void @llvm.dbg.declare(metadata ptr %57, metadata !176, metadata !DIExpression()), !dbg !247
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %117) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %58, metadata !177, metadata !DIExpression()), !dbg !248
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %118) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %59, metadata !178, metadata !DIExpression()), !dbg !249
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %119) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %60, metadata !179, metadata !DIExpression()), !dbg !250
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %120) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %61, metadata !180, metadata !DIExpression()), !dbg !251
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %121) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %62, metadata !181, metadata !DIExpression()), !dbg !252
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %122) #3, !dbg !196
+  call void @llvm.dbg.declare(metadata ptr %63, metadata !182, metadata !DIExpression()), !dbg !253
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
   br label %134, !dbg !255
 
 131:                                              ; preds = %134
   call void @llvm.dbg.value(metadata i32 0, metadata !95, metadata !DIExpression()), !dbg !254
-  %132 = load i64, i64* @NX, align 8, !dbg !257, !tbaa !264
-  %133 = load i64, i64* @NY, align 8, !dbg !268, !tbaa !264
+  %132 = load i64, ptr @NX, align 8, !dbg !257, !tbaa !264
+  %133 = load i64, ptr @NY, align 8, !dbg !268, !tbaa !264
   br label %142, !dbg !269
 
 134:                                              ; preds = %134, %129
   %135 = phi i64 [ 0, %129 ], [ %140, %134 ]
   call void @llvm.dbg.value(metadata i64 %135, metadata !102, metadata !DIExpression()), !dbg !254
-  %136 = getelementptr inbounds [8 x double], [8 x double]* %9, i64 0, i64 %135, !dbg !270, !intel-tbaa !273
-  store double 0.000000e+00, double* %136, align 8, !dbg !276, !tbaa !273
-  %137 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %135, !dbg !277, !intel-tbaa !273
-  store double 0.000000e+00, double* %137, align 8, !dbg !278, !tbaa !273
-  %138 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %135, !dbg !279, !intel-tbaa !273
-  store double 0.000000e+00, double* %138, align 8, !dbg !280, !tbaa !273
-  %139 = getelementptr inbounds [8 x double], [8 x double]* %12, i64 0, i64 %135, !dbg !281, !intel-tbaa !273
-  store double 0.000000e+00, double* %139, align 8, !dbg !282, !tbaa !273
+  %136 = getelementptr inbounds [8 x double], ptr %9, i64 0, i64 %135, !dbg !270, !intel-tbaa !273
+  store double 0.000000e+00, ptr %136, align 8, !dbg !276, !tbaa !273
+  %137 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %135, !dbg !277, !intel-tbaa !273
+  store double 0.000000e+00, ptr %137, align 8, !dbg !278, !tbaa !273
+  %138 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %135, !dbg !279, !intel-tbaa !273
+  store double 0.000000e+00, ptr %138, align 8, !dbg !280, !tbaa !273
+  %139 = getelementptr inbounds [8 x double], ptr %12, i64 0, i64 %135, !dbg !281, !intel-tbaa !273
+  store double 0.000000e+00, ptr %139, align 8, !dbg !282, !tbaa !273
   %140 = add nuw nsw i64 %135, 1, !dbg !283
   call void @llvm.dbg.value(metadata i64 %140, metadata !102, metadata !DIExpression()), !dbg !254
   %141 = icmp eq i64 %140, 8, !dbg !284
@@ -897,16 +897,16 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %144 = mul nsw i64 %132, %143, !dbg !288
   %145 = add i64 %144, %127, !dbg !289
   %146 = mul i64 %145, %133, !dbg !289
-  %147 = getelementptr inbounds i64, i64* %3, i64 %143, !dbg !290
-  %148 = load i64, i64* %147, align 8, !dbg !290, !tbaa !264
+  %147 = getelementptr inbounds i64, ptr %3, i64 %143, !dbg !290
+  %148 = load i64, ptr %147, align 8, !dbg !290, !tbaa !264
   br label %154, !dbg !291
 
 149:                                              ; preds = %154
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %150 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 1, i64 %143, !dbg !292
-  %151 = load double, double* %150, align 8, !dbg !292, !tbaa !296
-  %152 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 2, i64 %143, !dbg !299
-  %153 = load double, double* %152, align 8, !dbg !299, !tbaa !300
+  %150 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 1, i64 %143, !dbg !292
+  %151 = load double, ptr %150, align 8, !dbg !292, !tbaa !296
+  %152 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 2, i64 %143, !dbg !299
+  %153 = load double, ptr %152, align 8, !dbg !299, !tbaa !300
   br label %164, !dbg !301
 
 154:                                              ; preds = %154, %142
@@ -915,10 +915,10 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %156 = add nsw i64 %155, %130, !dbg !302
   %157 = add i64 %156, %148, !dbg !303
   %158 = add i64 %157, %146, !dbg !304
-  %159 = getelementptr inbounds double, double* %1, i64 %158, !dbg !305
-  %160 = load double, double* %159, align 8, !dbg !305, !tbaa !306
-  %161 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %143, i64 %155, !dbg !307
-  store double %160, double* %161, align 8, !dbg !308, !tbaa !309
+  %159 = getelementptr inbounds double, ptr %1, i64 %158, !dbg !305
+  %160 = load double, ptr %159, align 8, !dbg !305, !tbaa !306
+  %161 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %143, i64 %155, !dbg !307
+  store double %160, ptr %161, align 8, !dbg !308, !tbaa !309
   %162 = add nuw nsw i64 %155, 1, !dbg !311
   call void @llvm.dbg.value(metadata i64 %162, metadata !102, metadata !DIExpression()), !dbg !254
   %163 = icmp eq i64 %162, 8, !dbg !312
@@ -927,22 +927,22 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 164:                                              ; preds = %164, %149
   %165 = phi i64 [ 0, %149 ], [ %179, %164 ]
   call void @llvm.dbg.value(metadata i64 %165, metadata !102, metadata !DIExpression()), !dbg !254
-  %166 = getelementptr inbounds [8 x double], [8 x double]* %9, i64 0, i64 %165, !dbg !315, !intel-tbaa !273
-  %167 = load double, double* %166, align 8, !dbg !315, !tbaa !273
-  %168 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %143, i64 %165, !dbg !316
-  %169 = load double, double* %168, align 8, !dbg !316, !tbaa !309
+  %166 = getelementptr inbounds [8 x double], ptr %9, i64 0, i64 %165, !dbg !315, !intel-tbaa !273
+  %167 = load double, ptr %166, align 8, !dbg !315, !tbaa !273
+  %168 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %143, i64 %165, !dbg !316
+  %169 = load double, ptr %168, align 8, !dbg !316, !tbaa !309
   %170 = fadd fast double %169, %167, !dbg !317
-  store double %170, double* %166, align 8, !dbg !318, !tbaa !273
-  %171 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %165, !dbg !319, !intel-tbaa !273
-  %172 = load double, double* %171, align 8, !dbg !319, !tbaa !273
+  store double %170, ptr %166, align 8, !dbg !318, !tbaa !273
+  %171 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %165, !dbg !319, !intel-tbaa !273
+  %172 = load double, ptr %171, align 8, !dbg !319, !tbaa !273
   %173 = fmul fast double %151, %169, !dbg !320
   %174 = fadd fast double %173, %172, !dbg !321
-  store double %174, double* %171, align 8, !dbg !322, !tbaa !273
-  %175 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %165, !dbg !323, !intel-tbaa !273
-  %176 = load double, double* %175, align 8, !dbg !323, !tbaa !273
+  store double %174, ptr %171, align 8, !dbg !322, !tbaa !273
+  %175 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %165, !dbg !323, !intel-tbaa !273
+  %176 = load double, ptr %175, align 8, !dbg !323, !tbaa !273
   %177 = fmul fast double %153, %169, !dbg !324
   %178 = fadd fast double %177, %176, !dbg !325
-  store double %178, double* %175, align 8, !dbg !326, !tbaa !273
+  store double %178, ptr %175, align 8, !dbg !326, !tbaa !273
   %179 = add nuw nsw i64 %165, 1, !dbg !327
   call void @llvm.dbg.value(metadata i64 %179, metadata !102, metadata !DIExpression()), !dbg !254
   %180 = icmp eq i64 %179, 8, !dbg !328
@@ -959,29 +959,29 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 
 185:                                              ; preds = %188
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %186 = load i32, i32* @IGSIZEY, align 4, !dbg !337, !tbaa !341
+  %186 = load i32, ptr @IGSIZEY, align 4, !dbg !337, !tbaa !341
   %187 = trunc i64 %130 to i32, !dbg !343
   br label %204, !dbg !344
 
 188:                                              ; preds = %188, %184
   %189 = phi i64 [ %202, %188 ], [ 0, %184 ]
   call void @llvm.dbg.value(metadata i64 %189, metadata !102, metadata !DIExpression()), !dbg !254
-  %190 = getelementptr inbounds [8 x double], [8 x double]* %9, i64 0, i64 %189, !dbg !345, !intel-tbaa !273
-  %191 = load double, double* %190, align 8, !dbg !345, !tbaa !273
+  %190 = getelementptr inbounds [8 x double], ptr %9, i64 0, i64 %189, !dbg !345, !intel-tbaa !273
+  %191 = load double, ptr %190, align 8, !dbg !345, !tbaa !273
   %192 = fdiv fast double 1.000000e+00, %191, !dbg !348
-  %193 = getelementptr inbounds [8 x double], [8 x double]* %15, i64 0, i64 %189, !dbg !349, !intel-tbaa !273
-  store double %192, double* %193, align 8, !dbg !350, !tbaa !273
+  %193 = getelementptr inbounds [8 x double], ptr %15, i64 0, i64 %189, !dbg !349, !intel-tbaa !273
+  store double %192, ptr %193, align 8, !dbg !350, !tbaa !273
   %194 = fmul fast double %191, 0xBF223E3A5A7D3718, !dbg !351
-  %195 = getelementptr inbounds [8 x double], [8 x double]* %16, i64 0, i64 %189, !dbg !352, !intel-tbaa !273
-  store double %194, double* %195, align 8, !dbg !353, !tbaa !273
-  %196 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %189, !dbg !354, !intel-tbaa !273
-  %197 = load double, double* %196, align 8, !dbg !354, !tbaa !273
+  %195 = getelementptr inbounds [8 x double], ptr %16, i64 0, i64 %189, !dbg !352, !intel-tbaa !273
+  store double %194, ptr %195, align 8, !dbg !353, !tbaa !273
+  %196 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %189, !dbg !354, !intel-tbaa !273
+  %197 = load double, ptr %196, align 8, !dbg !354, !tbaa !273
   %198 = fmul fast double %197, %192, !dbg !355
-  store double %198, double* %196, align 8, !dbg !356, !tbaa !273
-  %199 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %189, !dbg !357, !intel-tbaa !273
-  %200 = load double, double* %199, align 8, !dbg !357, !tbaa !273
+  store double %198, ptr %196, align 8, !dbg !356, !tbaa !273
+  %199 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %189, !dbg !357, !intel-tbaa !273
+  %200 = load double, ptr %199, align 8, !dbg !357, !tbaa !273
   %201 = fmul fast double %200, %192, !dbg !358
-  store double %201, double* %199, align 8, !dbg !359, !tbaa !273
+  store double %201, ptr %199, align 8, !dbg !359, !tbaa !273
   %202 = add nuw nsw i64 %189, 1, !dbg !360
   call void @llvm.dbg.value(metadata i64 %202, metadata !102, metadata !DIExpression()), !dbg !254
   %203 = icmp eq i64 %202, 8, !dbg !361
@@ -998,11 +998,11 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %211 = or i32 %210, %208, !dbg !366
   %212 = lshr i32 %211, 31, !dbg !366
   %213 = sitofp i32 %212 to double, !dbg !367
-  %214 = getelementptr inbounds [8 x double], [8 x double]* %13, i64 0, i64 %205, !dbg !368, !intel-tbaa !273
-  store double %213, double* %214, align 8, !dbg !369, !tbaa !273
+  %214 = getelementptr inbounds [8 x double], ptr %13, i64 0, i64 %205, !dbg !368, !intel-tbaa !273
+  store double %213, ptr %214, align 8, !dbg !369, !tbaa !273
   %215 = fsub fast double 1.000000e+00, %213, !dbg !370
-  %216 = getelementptr inbounds [8 x double], [8 x double]* %14, i64 0, i64 %205, !dbg !371, !intel-tbaa !273
-  store double %215, double* %216, align 8, !dbg !372, !tbaa !273
+  %216 = getelementptr inbounds [8 x double], ptr %14, i64 0, i64 %205, !dbg !371, !intel-tbaa !273
+  store double %215, ptr %216, align 8, !dbg !372, !tbaa !273
   %217 = add nuw nsw i64 %205, 1, !dbg !373
   call void @llvm.dbg.value(metadata i64 %217, metadata !102, metadata !DIExpression()), !dbg !254
   %218 = icmp eq i64 %217, 8, !dbg !374
@@ -1015,33 +1015,33 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %221 = phi i64 [ %247, %246 ], [ 0, %219 ]
   call void @llvm.dbg.value(metadata i64 %221, metadata !95, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %222 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 1, i64 %221, !dbg !379
-  %223 = load double, double* %222, align 8, !dbg !379, !tbaa !296
-  %224 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 2, i64 %221, !dbg !385
-  %225 = load double, double* %224, align 8, !dbg !385, !tbaa !300
+  %222 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 1, i64 %221, !dbg !379
+  %223 = load double, ptr %222, align 8, !dbg !379, !tbaa !296
+  %224 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 2, i64 %221, !dbg !385
+  %225 = load double, ptr %224, align 8, !dbg !385, !tbaa !300
   br label %226, !dbg !386
 
 226:                                              ; preds = %226, %220
   %227 = phi i64 [ 0, %220 ], [ %244, %226 ]
   call void @llvm.dbg.value(metadata i64 %227, metadata !102, metadata !DIExpression()), !dbg !254
-  %228 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %227, !dbg !387, !intel-tbaa !273
-  %229 = load double, double* %228, align 8, !dbg !387, !tbaa !273
+  %228 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %227, !dbg !387, !intel-tbaa !273
+  %229 = load double, ptr %228, align 8, !dbg !387, !tbaa !273
   %230 = fsub fast double %223, %229, !dbg !388
   %231 = fmul fast double %230, %230, !dbg !389
-  %232 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %227, !dbg !390, !intel-tbaa !273
-  %233 = load double, double* %232, align 8, !dbg !390, !tbaa !273
+  %232 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %227, !dbg !390, !intel-tbaa !273
+  %233 = load double, ptr %232, align 8, !dbg !390, !tbaa !273
   %234 = fsub fast double %225, %233, !dbg !391
   %235 = fmul fast double %234, %234, !dbg !392
   %236 = fadd fast double %235, %231, !dbg !393
   call void @llvm.dbg.value(metadata double undef, metadata !116, metadata !DIExpression()), !dbg !254
-  %237 = getelementptr inbounds [8 x double], [8 x double]* %12, i64 0, i64 %227, !dbg !394, !intel-tbaa !273
-  %238 = load double, double* %237, align 8, !dbg !394, !tbaa !273
-  %239 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %221, i64 %227, !dbg !395, !intel-tbaa !309
-  %240 = load double, double* %239, align 8, !dbg !395, !tbaa !309
+  %237 = getelementptr inbounds [8 x double], ptr %12, i64 0, i64 %227, !dbg !394, !intel-tbaa !273
+  %238 = load double, ptr %237, align 8, !dbg !394, !tbaa !273
+  %239 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %221, i64 %227, !dbg !395, !intel-tbaa !309
+  %240 = load double, ptr %239, align 8, !dbg !395, !tbaa !309
   %241 = fmul fast double %240, 5.000000e-01, !dbg !396
   %242 = fmul fast double %241, %236, !dbg !397
   %243 = fadd fast double %242, %238, !dbg !398
-  store double %243, double* %237, align 8, !dbg !399, !tbaa !273
+  store double %243, ptr %237, align 8, !dbg !399, !tbaa !273
   %244 = add nuw nsw i64 %227, 1, !dbg !400
   call void @llvm.dbg.value(metadata i64 %244, metadata !102, metadata !DIExpression()), !dbg !254
   %245 = icmp eq i64 %244, 8, !dbg !401
@@ -1059,43 +1059,43 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 250:                                              ; preds = %250, %249
   %251 = phi i64 [ %286, %250 ], [ 0, %249 ]
   call void @llvm.dbg.value(metadata i64 %251, metadata !102, metadata !DIExpression()), !dbg !254
-  %252 = getelementptr inbounds [8 x double], [8 x double]* %12, i64 0, i64 %251, !dbg !410, !intel-tbaa !273
-  %253 = load double, double* %252, align 8, !dbg !410, !tbaa !273
-  %254 = getelementptr inbounds [8 x double], [8 x double]* %15, i64 0, i64 %251, !dbg !413, !intel-tbaa !273
-  %255 = load double, double* %254, align 8, !dbg !413, !tbaa !273
+  %252 = getelementptr inbounds [8 x double], ptr %12, i64 0, i64 %251, !dbg !410, !intel-tbaa !273
+  %253 = load double, ptr %252, align 8, !dbg !410, !tbaa !273
+  %254 = getelementptr inbounds [8 x double], ptr %15, i64 0, i64 %251, !dbg !413, !intel-tbaa !273
+  %255 = load double, ptr %254, align 8, !dbg !413, !tbaa !273
   %256 = fmul fast double %255, %253, !dbg !414
   call void @llvm.dbg.value(metadata double undef, metadata !118, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata double undef, metadata !117, metadata !DIExpression()), !dbg !254
   %257 = fdiv fast double 1.000000e-03, %253, !dbg !415
   %258 = fadd fast double %257, 5.000000e-01, !dbg !416
-  %259 = getelementptr inbounds [8 x double], [8 x double]* %14, i64 0, i64 %251, !dbg !417, !intel-tbaa !273
-  %260 = load double, double* %259, align 8, !dbg !417, !tbaa !273
+  %259 = getelementptr inbounds [8 x double], ptr %14, i64 0, i64 %251, !dbg !417, !intel-tbaa !273
+  %260 = load double, ptr %259, align 8, !dbg !417, !tbaa !273
   %261 = fmul fast double %260, %258, !dbg !418
-  %262 = getelementptr inbounds [8 x double], [8 x double]* %13, i64 0, i64 %251, !dbg !419, !intel-tbaa !273
-  %263 = load double, double* %262, align 8, !dbg !419, !tbaa !273
+  %262 = getelementptr inbounds [8 x double], ptr %13, i64 0, i64 %251, !dbg !419, !intel-tbaa !273
+  %263 = load double, ptr %262, align 8, !dbg !419, !tbaa !273
   %264 = fadd fast double %261, %263, !dbg !420
   call void @llvm.dbg.value(metadata double undef, metadata !138, metadata !DIExpression()), !dbg !254
   %265 = fdiv fast double 5.000000e-01, %264, !dbg !421
-  %266 = getelementptr inbounds [8 x double], [8 x double]* %22, i64 0, i64 %251, !dbg !422, !intel-tbaa !273
-  store double %265, double* %266, align 8, !dbg !423, !tbaa !273
+  %266 = getelementptr inbounds [8 x double], ptr %22, i64 0, i64 %251, !dbg !422, !intel-tbaa !273
+  store double %265, ptr %266, align 8, !dbg !423, !tbaa !273
   call void @llvm.dbg.value(metadata double undef, metadata !139, metadata !DIExpression()), !dbg !254
   %267 = fdiv fast double 0x3FC5555555555555, %264, !dbg !424
-  %268 = getelementptr inbounds [8 x double], [8 x double]* %23, i64 0, i64 %251, !dbg !425, !intel-tbaa !273
-  store double %267, double* %268, align 8, !dbg !426, !tbaa !273
+  %268 = getelementptr inbounds [8 x double], ptr %23, i64 0, i64 %251, !dbg !425, !intel-tbaa !273
+  store double %267, ptr %268, align 8, !dbg !426, !tbaa !273
   %269 = fadd fast double %263, %260, !dbg !427
   call void @llvm.dbg.value(metadata double undef, metadata !140, metadata !DIExpression()), !dbg !254
   %270 = fdiv fast double 0x3FA5555555555555, %269, !dbg !428
-  %271 = getelementptr inbounds [8 x double], [8 x double]* %24, i64 0, i64 %251, !dbg !429, !intel-tbaa !273
-  store double %270, double* %271, align 8, !dbg !430, !tbaa !273
+  %271 = getelementptr inbounds [8 x double], ptr %24, i64 0, i64 %251, !dbg !429, !intel-tbaa !273
+  store double %270, ptr %271, align 8, !dbg !430, !tbaa !273
   %272 = fmul fast double %264, %255, !dbg !431
   call void @llvm.dbg.value(metadata double undef, metadata !121, metadata !DIExpression()), !dbg !254
-  %273 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %251, !dbg !432, !intel-tbaa !273
-  %274 = load double, double* %273, align 8, !dbg !432, !tbaa !273
-  %275 = getelementptr inbounds [8 x double], [8 x double]* %16, i64 0, i64 %251, !dbg !433, !intel-tbaa !273
-  %276 = load double, double* %275, align 8, !dbg !433, !tbaa !273
+  %273 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %251, !dbg !432, !intel-tbaa !273
+  %274 = load double, ptr %273, align 8, !dbg !432, !tbaa !273
+  %275 = getelementptr inbounds [8 x double], ptr %16, i64 0, i64 %251, !dbg !433, !intel-tbaa !273
+  %276 = load double, ptr %275, align 8, !dbg !433, !tbaa !273
   %277 = fmul fast double %272, %276, !dbg !434
   %278 = fadd fast double %277, %274, !dbg !435
-  store double %278, double* %273, align 8, !dbg !436, !tbaa !273
+  store double %278, ptr %273, align 8, !dbg !436, !tbaa !273
   %279 = fmul fast double %264, 5.000000e-01, !dbg !437
   %280 = fsub fast double 5.000000e-01, %279, !dbg !437
   %281 = fmul fast double %276, %255, !dbg !438
@@ -1103,7 +1103,7 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %283 = fmul fast double %281, %281, !dbg !438
   %284 = fmul fast double %283, %282, !dbg !438
   %285 = fadd fast double %284, %256, !dbg !439
-  store double %285, double* %252, align 8, !dbg !440, !tbaa !273
+  store double %285, ptr %252, align 8, !dbg !440, !tbaa !273
   %286 = add nuw nsw i64 %251, 1, !dbg !441
   call void @llvm.dbg.value(metadata i64 %286, metadata !102, metadata !DIExpression()), !dbg !254
   %287 = icmp eq i64 %286, 8, !dbg !442
@@ -1115,30 +1115,30 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 289:                                              ; preds = %289, %288
   %290 = phi i64 [ %303, %289 ], [ 0, %288 ]
   call void @llvm.dbg.value(metadata i64 %290, metadata !102, metadata !DIExpression()), !dbg !254
-  %291 = getelementptr inbounds [8 x double], [8 x double]* %25, i64 0, i64 %290, !dbg !447, !intel-tbaa !273
-  store double 0.000000e+00, double* %291, align 8, !dbg !450, !tbaa !273
-  %292 = getelementptr inbounds [8 x double], [8 x double]* %26, i64 0, i64 %290, !dbg !451, !intel-tbaa !273
-  store double 0.000000e+00, double* %292, align 8, !dbg !452, !tbaa !273
-  %293 = getelementptr inbounds [8 x double], [8 x double]* %27, i64 0, i64 %290, !dbg !453, !intel-tbaa !273
-  store double 0.000000e+00, double* %293, align 8, !dbg !454, !tbaa !273
-  %294 = getelementptr inbounds [8 x double], [8 x double]* %28, i64 0, i64 %290, !dbg !455, !intel-tbaa !273
-  store double 0.000000e+00, double* %294, align 8, !dbg !456, !tbaa !273
-  %295 = getelementptr inbounds [8 x double], [8 x double]* %29, i64 0, i64 %290, !dbg !457, !intel-tbaa !273
-  store double 0.000000e+00, double* %295, align 8, !dbg !458, !tbaa !273
-  %296 = getelementptr inbounds [8 x double], [8 x double]* %30, i64 0, i64 %290, !dbg !459, !intel-tbaa !273
-  store double 0.000000e+00, double* %296, align 8, !dbg !460, !tbaa !273
-  %297 = getelementptr inbounds [8 x double], [8 x double]* %31, i64 0, i64 %290, !dbg !461, !intel-tbaa !273
-  store double 0.000000e+00, double* %297, align 8, !dbg !462, !tbaa !273
-  %298 = getelementptr inbounds [8 x double], [8 x double]* %32, i64 0, i64 %290, !dbg !463, !intel-tbaa !273
-  store double 0.000000e+00, double* %298, align 8, !dbg !464, !tbaa !273
-  %299 = getelementptr inbounds [8 x double], [8 x double]* %33, i64 0, i64 %290, !dbg !465, !intel-tbaa !273
-  store double 0.000000e+00, double* %299, align 8, !dbg !466, !tbaa !273
-  %300 = getelementptr inbounds [8 x double], [8 x double]* %34, i64 0, i64 %290, !dbg !467, !intel-tbaa !273
-  store double 0.000000e+00, double* %300, align 8, !dbg !468, !tbaa !273
-  %301 = getelementptr inbounds [8 x double], [8 x double]* %35, i64 0, i64 %290, !dbg !469, !intel-tbaa !273
-  store double 0.000000e+00, double* %301, align 8, !dbg !470, !tbaa !273
-  %302 = getelementptr inbounds [8 x double], [8 x double]* %36, i64 0, i64 %290, !dbg !471, !intel-tbaa !273
-  store double 0.000000e+00, double* %302, align 8, !dbg !472, !tbaa !273
+  %291 = getelementptr inbounds [8 x double], ptr %25, i64 0, i64 %290, !dbg !447, !intel-tbaa !273
+  store double 0.000000e+00, ptr %291, align 8, !dbg !450, !tbaa !273
+  %292 = getelementptr inbounds [8 x double], ptr %26, i64 0, i64 %290, !dbg !451, !intel-tbaa !273
+  store double 0.000000e+00, ptr %292, align 8, !dbg !452, !tbaa !273
+  %293 = getelementptr inbounds [8 x double], ptr %27, i64 0, i64 %290, !dbg !453, !intel-tbaa !273
+  store double 0.000000e+00, ptr %293, align 8, !dbg !454, !tbaa !273
+  %294 = getelementptr inbounds [8 x double], ptr %28, i64 0, i64 %290, !dbg !455, !intel-tbaa !273
+  store double 0.000000e+00, ptr %294, align 8, !dbg !456, !tbaa !273
+  %295 = getelementptr inbounds [8 x double], ptr %29, i64 0, i64 %290, !dbg !457, !intel-tbaa !273
+  store double 0.000000e+00, ptr %295, align 8, !dbg !458, !tbaa !273
+  %296 = getelementptr inbounds [8 x double], ptr %30, i64 0, i64 %290, !dbg !459, !intel-tbaa !273
+  store double 0.000000e+00, ptr %296, align 8, !dbg !460, !tbaa !273
+  %297 = getelementptr inbounds [8 x double], ptr %31, i64 0, i64 %290, !dbg !461, !intel-tbaa !273
+  store double 0.000000e+00, ptr %297, align 8, !dbg !462, !tbaa !273
+  %298 = getelementptr inbounds [8 x double], ptr %32, i64 0, i64 %290, !dbg !463, !intel-tbaa !273
+  store double 0.000000e+00, ptr %298, align 8, !dbg !464, !tbaa !273
+  %299 = getelementptr inbounds [8 x double], ptr %33, i64 0, i64 %290, !dbg !465, !intel-tbaa !273
+  store double 0.000000e+00, ptr %299, align 8, !dbg !466, !tbaa !273
+  %300 = getelementptr inbounds [8 x double], ptr %34, i64 0, i64 %290, !dbg !467, !intel-tbaa !273
+  store double 0.000000e+00, ptr %300, align 8, !dbg !468, !tbaa !273
+  %301 = getelementptr inbounds [8 x double], ptr %35, i64 0, i64 %290, !dbg !469, !intel-tbaa !273
+  store double 0.000000e+00, ptr %301, align 8, !dbg !470, !tbaa !273
+  %302 = getelementptr inbounds [8 x double], ptr %36, i64 0, i64 %290, !dbg !471, !intel-tbaa !273
+  store double 0.000000e+00, ptr %302, align 8, !dbg !472, !tbaa !273
   %303 = add nuw nsw i64 %290, 1, !dbg !473
   call void @llvm.dbg.value(metadata i64 %303, metadata !102, metadata !DIExpression()), !dbg !254
   %304 = icmp eq i64 %303, 8, !dbg !474
@@ -1151,97 +1151,97 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %307 = phi i64 [ %387, %386 ], [ 0, %305 ]
   call void @llvm.dbg.value(metadata i64 %307, metadata !95, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %308 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 6, i64 %307, !dbg !479
-  %309 = load double, double* %308, align 8, !dbg !479, !tbaa !485
-  %310 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 7, i64 %307, !dbg !486
-  %311 = load double, double* %310, align 8, !dbg !486, !tbaa !487
-  %312 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 8, i64 %307, !dbg !488
-  %313 = load double, double* %312, align 8, !dbg !488, !tbaa !489
-  %314 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 9, i64 %307, !dbg !490
-  %315 = load double, double* %314, align 8, !dbg !490, !tbaa !491
-  %316 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 10, i64 %307, !dbg !492
-  %317 = load double, double* %316, align 8, !dbg !492, !tbaa !493
-  %318 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 11, i64 %307, !dbg !494
-  %319 = load double, double* %318, align 8, !dbg !494, !tbaa !495
-  %320 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 12, i64 %307, !dbg !496
-  %321 = load double, double* %320, align 8, !dbg !496, !tbaa !497
-  %322 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 13, i64 %307, !dbg !498
-  %323 = load double, double* %322, align 8, !dbg !498, !tbaa !499
-  %324 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 14, i64 %307, !dbg !500
-  %325 = load double, double* %324, align 8, !dbg !500, !tbaa !501
-  %326 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 15, i64 %307, !dbg !502
-  %327 = load double, double* %326, align 8, !dbg !502, !tbaa !503
-  %328 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 16, i64 %307, !dbg !504
-  %329 = load double, double* %328, align 8, !dbg !504, !tbaa !505
-  %330 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 17, i64 %307, !dbg !506
-  %331 = load double, double* %330, align 8, !dbg !506, !tbaa !507
+  %308 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 6, i64 %307, !dbg !479
+  %309 = load double, ptr %308, align 8, !dbg !479, !tbaa !485
+  %310 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 7, i64 %307, !dbg !486
+  %311 = load double, ptr %310, align 8, !dbg !486, !tbaa !487
+  %312 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 8, i64 %307, !dbg !488
+  %313 = load double, ptr %312, align 8, !dbg !488, !tbaa !489
+  %314 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 9, i64 %307, !dbg !490
+  %315 = load double, ptr %314, align 8, !dbg !490, !tbaa !491
+  %316 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 10, i64 %307, !dbg !492
+  %317 = load double, ptr %316, align 8, !dbg !492, !tbaa !493
+  %318 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 11, i64 %307, !dbg !494
+  %319 = load double, ptr %318, align 8, !dbg !494, !tbaa !495
+  %320 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 12, i64 %307, !dbg !496
+  %321 = load double, ptr %320, align 8, !dbg !496, !tbaa !497
+  %322 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 13, i64 %307, !dbg !498
+  %323 = load double, ptr %322, align 8, !dbg !498, !tbaa !499
+  %324 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 14, i64 %307, !dbg !500
+  %325 = load double, ptr %324, align 8, !dbg !500, !tbaa !501
+  %326 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 15, i64 %307, !dbg !502
+  %327 = load double, ptr %326, align 8, !dbg !502, !tbaa !503
+  %328 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 16, i64 %307, !dbg !504
+  %329 = load double, ptr %328, align 8, !dbg !504, !tbaa !505
+  %330 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 17, i64 %307, !dbg !506
+  %331 = load double, ptr %330, align 8, !dbg !506, !tbaa !507
   br label %332, !dbg !508
 
 332:                                              ; preds = %332, %306
   %333 = phi i64 [ 0, %306 ], [ %384, %332 ]
   call void @llvm.dbg.value(metadata i64 %333, metadata !102, metadata !DIExpression()), !dbg !254
-  %334 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %307, i64 %333, !dbg !509, !intel-tbaa !309
-  %335 = load double, double* %334, align 8, !dbg !509, !tbaa !309
+  %334 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %307, i64 %333, !dbg !509, !intel-tbaa !309
+  %335 = load double, ptr %334, align 8, !dbg !509, !tbaa !309
   %336 = fmul fast double %309, %335, !dbg !510
-  %337 = getelementptr inbounds [8 x double], [8 x double]* %25, i64 0, i64 %333, !dbg !511, !intel-tbaa !273
-  %338 = load double, double* %337, align 8, !dbg !512, !tbaa !273
+  %337 = getelementptr inbounds [8 x double], ptr %25, i64 0, i64 %333, !dbg !511, !intel-tbaa !273
+  %338 = load double, ptr %337, align 8, !dbg !512, !tbaa !273
   %339 = fadd fast double %338, %336, !dbg !512
-  store double %339, double* %337, align 8, !dbg !512, !tbaa !273
+  store double %339, ptr %337, align 8, !dbg !512, !tbaa !273
   %340 = fmul fast double %311, %335, !dbg !513
-  %341 = getelementptr inbounds [8 x double], [8 x double]* %26, i64 0, i64 %333, !dbg !514, !intel-tbaa !273
-  %342 = load double, double* %341, align 8, !dbg !515, !tbaa !273
+  %341 = getelementptr inbounds [8 x double], ptr %26, i64 0, i64 %333, !dbg !514, !intel-tbaa !273
+  %342 = load double, ptr %341, align 8, !dbg !515, !tbaa !273
   %343 = fadd fast double %342, %340, !dbg !515
-  store double %343, double* %341, align 8, !dbg !515, !tbaa !273
+  store double %343, ptr %341, align 8, !dbg !515, !tbaa !273
   %344 = fmul fast double %313, %335, !dbg !516
-  %345 = getelementptr inbounds [8 x double], [8 x double]* %27, i64 0, i64 %333, !dbg !517, !intel-tbaa !273
-  %346 = load double, double* %345, align 8, !dbg !518, !tbaa !273
+  %345 = getelementptr inbounds [8 x double], ptr %27, i64 0, i64 %333, !dbg !517, !intel-tbaa !273
+  %346 = load double, ptr %345, align 8, !dbg !518, !tbaa !273
   %347 = fadd fast double %346, %344, !dbg !518
-  store double %347, double* %345, align 8, !dbg !518, !tbaa !273
+  store double %347, ptr %345, align 8, !dbg !518, !tbaa !273
   %348 = fmul fast double %315, %335, !dbg !519
-  %349 = getelementptr inbounds [8 x double], [8 x double]* %28, i64 0, i64 %333, !dbg !520, !intel-tbaa !273
-  %350 = load double, double* %349, align 8, !dbg !521, !tbaa !273
+  %349 = getelementptr inbounds [8 x double], ptr %28, i64 0, i64 %333, !dbg !520, !intel-tbaa !273
+  %350 = load double, ptr %349, align 8, !dbg !521, !tbaa !273
   %351 = fadd fast double %350, %348, !dbg !521
-  store double %351, double* %349, align 8, !dbg !521, !tbaa !273
+  store double %351, ptr %349, align 8, !dbg !521, !tbaa !273
   %352 = fmul fast double %317, %335, !dbg !522
-  %353 = getelementptr inbounds [8 x double], [8 x double]* %29, i64 0, i64 %333, !dbg !523, !intel-tbaa !273
-  %354 = load double, double* %353, align 8, !dbg !524, !tbaa !273
+  %353 = getelementptr inbounds [8 x double], ptr %29, i64 0, i64 %333, !dbg !523, !intel-tbaa !273
+  %354 = load double, ptr %353, align 8, !dbg !524, !tbaa !273
   %355 = fadd fast double %354, %352, !dbg !524
-  store double %355, double* %353, align 8, !dbg !524, !tbaa !273
+  store double %355, ptr %353, align 8, !dbg !524, !tbaa !273
   %356 = fmul fast double %319, %335, !dbg !525
-  %357 = getelementptr inbounds [8 x double], [8 x double]* %30, i64 0, i64 %333, !dbg !526, !intel-tbaa !273
-  %358 = load double, double* %357, align 8, !dbg !527, !tbaa !273
+  %357 = getelementptr inbounds [8 x double], ptr %30, i64 0, i64 %333, !dbg !526, !intel-tbaa !273
+  %358 = load double, ptr %357, align 8, !dbg !527, !tbaa !273
   %359 = fadd fast double %358, %356, !dbg !527
-  store double %359, double* %357, align 8, !dbg !527, !tbaa !273
+  store double %359, ptr %357, align 8, !dbg !527, !tbaa !273
   %360 = fmul fast double %321, %335, !dbg !528
-  %361 = getelementptr inbounds [8 x double], [8 x double]* %31, i64 0, i64 %333, !dbg !529, !intel-tbaa !273
-  %362 = load double, double* %361, align 8, !dbg !530, !tbaa !273
+  %361 = getelementptr inbounds [8 x double], ptr %31, i64 0, i64 %333, !dbg !529, !intel-tbaa !273
+  %362 = load double, ptr %361, align 8, !dbg !530, !tbaa !273
   %363 = fadd fast double %362, %360, !dbg !530
-  store double %363, double* %361, align 8, !dbg !530, !tbaa !273
+  store double %363, ptr %361, align 8, !dbg !530, !tbaa !273
   %364 = fmul fast double %323, %335, !dbg !531
-  %365 = getelementptr inbounds [8 x double], [8 x double]* %32, i64 0, i64 %333, !dbg !532, !intel-tbaa !273
-  %366 = load double, double* %365, align 8, !dbg !533, !tbaa !273
+  %365 = getelementptr inbounds [8 x double], ptr %32, i64 0, i64 %333, !dbg !532, !intel-tbaa !273
+  %366 = load double, ptr %365, align 8, !dbg !533, !tbaa !273
   %367 = fadd fast double %366, %364, !dbg !533
-  store double %367, double* %365, align 8, !dbg !533, !tbaa !273
+  store double %367, ptr %365, align 8, !dbg !533, !tbaa !273
   %368 = fmul fast double %325, %335, !dbg !534
-  %369 = getelementptr inbounds [8 x double], [8 x double]* %33, i64 0, i64 %333, !dbg !535, !intel-tbaa !273
-  %370 = load double, double* %369, align 8, !dbg !536, !tbaa !273
+  %369 = getelementptr inbounds [8 x double], ptr %33, i64 0, i64 %333, !dbg !535, !intel-tbaa !273
+  %370 = load double, ptr %369, align 8, !dbg !536, !tbaa !273
   %371 = fadd fast double %370, %368, !dbg !536
-  store double %371, double* %369, align 8, !dbg !536, !tbaa !273
+  store double %371, ptr %369, align 8, !dbg !536, !tbaa !273
   %372 = fmul fast double %327, %335, !dbg !537
-  %373 = getelementptr inbounds [8 x double], [8 x double]* %34, i64 0, i64 %333, !dbg !538, !intel-tbaa !273
-  %374 = load double, double* %373, align 8, !dbg !539, !tbaa !273
+  %373 = getelementptr inbounds [8 x double], ptr %34, i64 0, i64 %333, !dbg !538, !intel-tbaa !273
+  %374 = load double, ptr %373, align 8, !dbg !539, !tbaa !273
   %375 = fadd fast double %374, %372, !dbg !539
-  store double %375, double* %373, align 8, !dbg !539, !tbaa !273
+  store double %375, ptr %373, align 8, !dbg !539, !tbaa !273
   %376 = fmul fast double %329, %335, !dbg !540
-  %377 = getelementptr inbounds [8 x double], [8 x double]* %35, i64 0, i64 %333, !dbg !541, !intel-tbaa !273
-  %378 = load double, double* %377, align 8, !dbg !542, !tbaa !273
+  %377 = getelementptr inbounds [8 x double], ptr %35, i64 0, i64 %333, !dbg !541, !intel-tbaa !273
+  %378 = load double, ptr %377, align 8, !dbg !542, !tbaa !273
   %379 = fadd fast double %378, %376, !dbg !542
-  store double %379, double* %377, align 8, !dbg !542, !tbaa !273
+  store double %379, ptr %377, align 8, !dbg !542, !tbaa !273
   %380 = fmul fast double %331, %335, !dbg !543
-  %381 = getelementptr inbounds [8 x double], [8 x double]* %36, i64 0, i64 %333, !dbg !544, !intel-tbaa !273
-  %382 = load double, double* %381, align 8, !dbg !545, !tbaa !273
+  %381 = getelementptr inbounds [8 x double], ptr %36, i64 0, i64 %333, !dbg !544, !intel-tbaa !273
+  %382 = load double, ptr %381, align 8, !dbg !545, !tbaa !273
   %383 = fadd fast double %382, %380, !dbg !545
-  store double %383, double* %381, align 8, !dbg !545, !tbaa !273
+  store double %383, ptr %381, align 8, !dbg !545, !tbaa !273
   %384 = add nuw nsw i64 %333, 1, !dbg !546
   call void @llvm.dbg.value(metadata i64 %384, metadata !102, metadata !DIExpression()), !dbg !254
   %385 = icmp eq i64 %384, 8, !dbg !547
@@ -1259,61 +1259,61 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 390:                                              ; preds = %390, %389
   %391 = phi i64 [ %435, %390 ], [ 0, %389 ]
   call void @llvm.dbg.value(metadata i64 %391, metadata !102, metadata !DIExpression()), !dbg !254
-  %392 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %391, !dbg !556, !intel-tbaa !273
-  %393 = load double, double* %392, align 8, !dbg !556, !tbaa !273
+  %392 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %391, !dbg !556, !intel-tbaa !273
+  %393 = load double, ptr %392, align 8, !dbg !556, !tbaa !273
   %394 = fmul fast double %393, %393, !dbg !559
-  %395 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %391, !dbg !560, !intel-tbaa !273
-  %396 = load double, double* %395, align 8, !dbg !560, !tbaa !273
+  %395 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %391, !dbg !560, !intel-tbaa !273
+  %396 = load double, ptr %395, align 8, !dbg !560, !tbaa !273
   %397 = fmul fast double %396, %396, !dbg !561
   %398 = fadd fast double %397, %394, !dbg !562
-  %399 = getelementptr inbounds [8 x double], [8 x double]* %17, i64 0, i64 %391, !dbg !563, !intel-tbaa !273
-  store double %398, double* %399, align 8, !dbg !564, !tbaa !273
-  %400 = getelementptr inbounds [8 x double], [8 x double]* %12, i64 0, i64 %391, !dbg !565, !intel-tbaa !273
-  %401 = load double, double* %400, align 8, !dbg !565, !tbaa !273
+  %399 = getelementptr inbounds [8 x double], ptr %17, i64 0, i64 %391, !dbg !563, !intel-tbaa !273
+  store double %398, ptr %399, align 8, !dbg !564, !tbaa !273
+  %400 = getelementptr inbounds [8 x double], ptr %12, i64 0, i64 %391, !dbg !565, !intel-tbaa !273
+  %401 = load double, ptr %400, align 8, !dbg !565, !tbaa !273
   call void @llvm.dbg.value(metadata double undef, metadata !119, metadata !DIExpression()), !dbg !254
   %402 = fadd fast double %401, -1.000000e+00, !dbg !566
-  %403 = getelementptr inbounds [8 x double], [8 x double]* %18, i64 0, i64 %391, !dbg !567, !intel-tbaa !273
-  store double %402, double* %403, align 8, !dbg !568, !tbaa !273
+  %403 = getelementptr inbounds [8 x double], ptr %18, i64 0, i64 %391, !dbg !567, !intel-tbaa !273
+  store double %402, ptr %403, align 8, !dbg !568, !tbaa !273
   %404 = fmul fast double %402, 3.000000e+00, !dbg !569
-  %405 = getelementptr inbounds [8 x double], [8 x double]* %19, i64 0, i64 %391, !dbg !570, !intel-tbaa !273
-  store double %404, double* %405, align 8, !dbg !571, !tbaa !273
+  %405 = getelementptr inbounds [8 x double], ptr %19, i64 0, i64 %391, !dbg !570, !intel-tbaa !273
+  store double %404, ptr %405, align 8, !dbg !571, !tbaa !273
   %406 = fmul fast double %402, 2.500000e-01, !dbg !572
-  %407 = getelementptr inbounds [8 x double], [8 x double]* %20, i64 0, i64 %391, !dbg !573, !intel-tbaa !273
-  store double %406, double* %407, align 8, !dbg !574, !tbaa !273
+  %407 = getelementptr inbounds [8 x double], ptr %20, i64 0, i64 %391, !dbg !573, !intel-tbaa !273
+  store double %406, ptr %407, align 8, !dbg !574, !tbaa !273
   %408 = fmul fast double %402, %402, !dbg !575
   %409 = fmul fast double %408, 1.250000e-01, !dbg !575
-  %410 = getelementptr inbounds [8 x double], [8 x double]* %21, i64 0, i64 %391, !dbg !576, !intel-tbaa !273
-  store double %409, double* %410, align 8, !dbg !577, !tbaa !273
-  %411 = getelementptr inbounds [8 x double], [8 x double]* %26, i64 0, i64 %391, !dbg !578, !intel-tbaa !273
-  %412 = load double, double* %411, align 8, !dbg !578, !tbaa !273
+  %410 = getelementptr inbounds [8 x double], ptr %21, i64 0, i64 %391, !dbg !576, !intel-tbaa !273
+  store double %409, ptr %410, align 8, !dbg !577, !tbaa !273
+  %411 = getelementptr inbounds [8 x double], ptr %26, i64 0, i64 %391, !dbg !578, !intel-tbaa !273
+  %412 = load double, ptr %411, align 8, !dbg !578, !tbaa !273
   %413 = fmul fast double %412, 2.000000e+00, !dbg !579
-  %414 = getelementptr inbounds [8 x double], [8 x double]* %37, i64 0, i64 %391, !dbg !580, !intel-tbaa !273
-  store double %413, double* %414, align 8, !dbg !581, !tbaa !273
-  %415 = getelementptr inbounds [8 x double], [8 x double]* %29, i64 0, i64 %391, !dbg !582, !intel-tbaa !273
-  %416 = load double, double* %415, align 8, !dbg !582, !tbaa !273
+  %414 = getelementptr inbounds [8 x double], ptr %37, i64 0, i64 %391, !dbg !580, !intel-tbaa !273
+  store double %413, ptr %414, align 8, !dbg !581, !tbaa !273
+  %415 = getelementptr inbounds [8 x double], ptr %29, i64 0, i64 %391, !dbg !582, !intel-tbaa !273
+  %416 = load double, ptr %415, align 8, !dbg !582, !tbaa !273
   %417 = fmul fast double %416, 3.000000e+00, !dbg !583
-  %418 = getelementptr inbounds [8 x double], [8 x double]* %38, i64 0, i64 %391, !dbg !584, !intel-tbaa !273
-  store double %417, double* %418, align 8, !dbg !585, !tbaa !273
-  %419 = getelementptr inbounds [8 x double], [8 x double]* %30, i64 0, i64 %391, !dbg !586, !intel-tbaa !273
-  %420 = load double, double* %419, align 8, !dbg !586, !tbaa !273
+  %418 = getelementptr inbounds [8 x double], ptr %38, i64 0, i64 %391, !dbg !584, !intel-tbaa !273
+  store double %417, ptr %418, align 8, !dbg !585, !tbaa !273
+  %419 = getelementptr inbounds [8 x double], ptr %30, i64 0, i64 %391, !dbg !586, !intel-tbaa !273
+  %420 = load double, ptr %419, align 8, !dbg !586, !tbaa !273
   %421 = fmul fast double %420, 3.000000e+00, !dbg !587
-  %422 = getelementptr inbounds [8 x double], [8 x double]* %39, i64 0, i64 %391, !dbg !588, !intel-tbaa !273
-  store double %421, double* %422, align 8, !dbg !589, !tbaa !273
-  %423 = getelementptr inbounds [8 x double], [8 x double]* %33, i64 0, i64 %391, !dbg !590, !intel-tbaa !273
-  %424 = load double, double* %423, align 8, !dbg !590, !tbaa !273
+  %422 = getelementptr inbounds [8 x double], ptr %39, i64 0, i64 %391, !dbg !588, !intel-tbaa !273
+  store double %421, ptr %422, align 8, !dbg !589, !tbaa !273
+  %423 = getelementptr inbounds [8 x double], ptr %33, i64 0, i64 %391, !dbg !590, !intel-tbaa !273
+  %424 = load double, ptr %423, align 8, !dbg !590, !tbaa !273
   %425 = fmul fast double %424, 4.000000e+00, !dbg !591
-  %426 = getelementptr inbounds [8 x double], [8 x double]* %40, i64 0, i64 %391, !dbg !592, !intel-tbaa !273
-  store double %425, double* %426, align 8, !dbg !593, !tbaa !273
-  %427 = getelementptr inbounds [8 x double], [8 x double]* %34, i64 0, i64 %391, !dbg !594, !intel-tbaa !273
-  %428 = load double, double* %427, align 8, !dbg !594, !tbaa !273
+  %426 = getelementptr inbounds [8 x double], ptr %40, i64 0, i64 %391, !dbg !592, !intel-tbaa !273
+  store double %425, ptr %426, align 8, !dbg !593, !tbaa !273
+  %427 = getelementptr inbounds [8 x double], ptr %34, i64 0, i64 %391, !dbg !594, !intel-tbaa !273
+  %428 = load double, ptr %427, align 8, !dbg !594, !tbaa !273
   %429 = fmul fast double %428, 6.000000e+00, !dbg !595
-  %430 = getelementptr inbounds [8 x double], [8 x double]* %41, i64 0, i64 %391, !dbg !596, !intel-tbaa !273
-  store double %429, double* %430, align 8, !dbg !597, !tbaa !273
-  %431 = getelementptr inbounds [8 x double], [8 x double]* %35, i64 0, i64 %391, !dbg !598, !intel-tbaa !273
-  %432 = load double, double* %431, align 8, !dbg !598, !tbaa !273
+  %430 = getelementptr inbounds [8 x double], ptr %41, i64 0, i64 %391, !dbg !596, !intel-tbaa !273
+  store double %429, ptr %430, align 8, !dbg !597, !tbaa !273
+  %431 = getelementptr inbounds [8 x double], ptr %35, i64 0, i64 %391, !dbg !598, !intel-tbaa !273
+  %432 = load double, ptr %431, align 8, !dbg !598, !tbaa !273
   %433 = fmul fast double %432, 4.000000e+00, !dbg !599
-  %434 = getelementptr inbounds [8 x double], [8 x double]* %42, i64 0, i64 %391, !dbg !600, !intel-tbaa !273
-  store double %433, double* %434, align 8, !dbg !601, !tbaa !273
+  %434 = getelementptr inbounds [8 x double], ptr %42, i64 0, i64 %391, !dbg !600, !intel-tbaa !273
+  store double %433, ptr %434, align 8, !dbg !601, !tbaa !273
   %435 = add nuw nsw i64 %391, 1, !dbg !602
   call void @llvm.dbg.value(metadata i64 %435, metadata !102, metadata !DIExpression()), !dbg !254
   %436 = icmp eq i64 %435, 8, !dbg !603
@@ -1326,122 +1326,122 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %439 = phi i64 [ %597, %596 ], [ 0, %437 ]
   call void @llvm.dbg.value(metadata i64 %439, metadata !95, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %440 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 1, i64 %439, !dbg !608
-  %441 = load double, double* %440, align 8, !dbg !608, !tbaa !296
-  %442 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 2, i64 %439, !dbg !614
-  %443 = load double, double* %442, align 8, !dbg !614, !tbaa !300
+  %440 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 1, i64 %439, !dbg !608
+  %441 = load double, ptr %440, align 8, !dbg !608, !tbaa !296
+  %442 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 2, i64 %439, !dbg !614
+  %443 = load double, ptr %442, align 8, !dbg !614, !tbaa !300
   %444 = fmul fast double %441, %441, !dbg !615
   %445 = fmul fast double %443, %443, !dbg !616
   %446 = fadd fast double %445, %444, !dbg !617
-  %447 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 6, i64 %439, !dbg !618
-  %448 = load double, double* %447, align 8, !dbg !618, !tbaa !485
-  %449 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 7, i64 %439, !dbg !619
-  %450 = load double, double* %449, align 8, !dbg !619, !tbaa !487
-  %451 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 8, i64 %439, !dbg !620
-  %452 = load double, double* %451, align 8, !dbg !620, !tbaa !489
-  %453 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 9, i64 %439, !dbg !621
-  %454 = load double, double* %453, align 8, !dbg !621, !tbaa !491
-  %455 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 10, i64 %439, !dbg !622
-  %456 = load double, double* %455, align 8, !dbg !622, !tbaa !493
-  %457 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 11, i64 %439, !dbg !623
-  %458 = load double, double* %457, align 8, !dbg !623, !tbaa !495
-  %459 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 12, i64 %439, !dbg !624
-  %460 = load double, double* %459, align 8, !dbg !624, !tbaa !497
-  %461 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 13, i64 %439, !dbg !625
-  %462 = load double, double* %461, align 8, !dbg !625, !tbaa !499
-  %463 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 14, i64 %439, !dbg !626
-  %464 = load double, double* %463, align 8, !dbg !626, !tbaa !501
-  %465 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 15, i64 %439, !dbg !627
-  %466 = load double, double* %465, align 8, !dbg !627, !tbaa !503
-  %467 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 16, i64 %439, !dbg !628
-  %468 = load double, double* %467, align 8, !dbg !628, !tbaa !505
-  %469 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 17, i64 %439, !dbg !629
-  %470 = load double, double* %469, align 8, !dbg !629, !tbaa !507
+  %447 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 6, i64 %439, !dbg !618
+  %448 = load double, ptr %447, align 8, !dbg !618, !tbaa !485
+  %449 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 7, i64 %439, !dbg !619
+  %450 = load double, ptr %449, align 8, !dbg !619, !tbaa !487
+  %451 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 8, i64 %439, !dbg !620
+  %452 = load double, ptr %451, align 8, !dbg !620, !tbaa !489
+  %453 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 9, i64 %439, !dbg !621
+  %454 = load double, ptr %453, align 8, !dbg !621, !tbaa !491
+  %455 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 10, i64 %439, !dbg !622
+  %456 = load double, ptr %455, align 8, !dbg !622, !tbaa !493
+  %457 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 11, i64 %439, !dbg !623
+  %458 = load double, ptr %457, align 8, !dbg !623, !tbaa !495
+  %459 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 12, i64 %439, !dbg !624
+  %460 = load double, ptr %459, align 8, !dbg !624, !tbaa !497
+  %461 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 13, i64 %439, !dbg !625
+  %462 = load double, ptr %461, align 8, !dbg !625, !tbaa !499
+  %463 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 14, i64 %439, !dbg !626
+  %464 = load double, ptr %463, align 8, !dbg !626, !tbaa !501
+  %465 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 15, i64 %439, !dbg !627
+  %466 = load double, ptr %465, align 8, !dbg !627, !tbaa !503
+  %467 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 16, i64 %439, !dbg !628
+  %468 = load double, ptr %467, align 8, !dbg !628, !tbaa !505
+  %469 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 17, i64 %439, !dbg !629
+  %470 = load double, ptr %469, align 8, !dbg !629, !tbaa !507
   %471 = fadd fast double %446, -2.000000e+00, !dbg !630
   %472 = fadd fast double %446, -4.000000e+00, !dbg !631
   %473 = fadd fast double %446, -8.000000e+00, !dbg !632
   %474 = fmul fast double %473, %446, !dbg !632
   %475 = fadd fast double %474, 8.000000e+00, !dbg !633
-  %476 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 0, i64 %439, !dbg !634
-  %477 = load double, double* %476, align 8, !dbg !634, !tbaa !635
+  %476 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 0, i64 %439, !dbg !634
+  %477 = load double, ptr %476, align 8, !dbg !634, !tbaa !635
   br label %478, !dbg !636
 
 478:                                              ; preds = %478, %438
   %479 = phi i64 [ 0, %438 ], [ %594, %478 ]
   call void @llvm.dbg.value(metadata i64 %479, metadata !102, metadata !DIExpression()), !dbg !254
-  %480 = getelementptr inbounds [8 x double], [8 x double]* %11, i64 0, i64 %479, !dbg !637, !intel-tbaa !273
-  %481 = load double, double* %480, align 8, !dbg !637, !tbaa !273
+  %480 = getelementptr inbounds [8 x double], ptr %11, i64 0, i64 %479, !dbg !637, !intel-tbaa !273
+  %481 = load double, ptr %480, align 8, !dbg !637, !tbaa !273
   %482 = fmul fast double %481, %441, !dbg !638
-  %483 = getelementptr inbounds [8 x double], [8 x double]* %10, i64 0, i64 %479, !dbg !639, !intel-tbaa !273
-  %484 = load double, double* %483, align 8, !dbg !639, !tbaa !273
+  %483 = getelementptr inbounds [8 x double], ptr %10, i64 0, i64 %479, !dbg !639, !intel-tbaa !273
+  %484 = load double, ptr %483, align 8, !dbg !639, !tbaa !273
   %485 = fmul fast double %484, %443, !dbg !640
   %486 = fadd fast double %485, %482, !dbg !641
   call void @llvm.dbg.value(metadata double undef, metadata !116, metadata !DIExpression()), !dbg !254
   %487 = fmul fast double %486, %486, !dbg !642
   call void @llvm.dbg.value(metadata double undef, metadata !124, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata double %446, metadata !122, metadata !DIExpression()), !dbg !254
-  %488 = getelementptr inbounds [8 x double], [8 x double]* %25, i64 0, i64 %479, !dbg !643, !intel-tbaa !273
-  %489 = load double, double* %488, align 8, !dbg !643, !tbaa !273
+  %488 = getelementptr inbounds [8 x double], ptr %25, i64 0, i64 %479, !dbg !643, !intel-tbaa !273
+  %489 = load double, ptr %488, align 8, !dbg !643, !tbaa !273
   %490 = fmul fast double %448, %489, !dbg !644
-  %491 = getelementptr inbounds [8 x double], [8 x double]* %37, i64 0, i64 %479, !dbg !645, !intel-tbaa !273
-  %492 = load double, double* %491, align 8, !dbg !645, !tbaa !273
+  %491 = getelementptr inbounds [8 x double], ptr %37, i64 0, i64 %479, !dbg !645, !intel-tbaa !273
+  %492 = load double, ptr %491, align 8, !dbg !645, !tbaa !273
   %493 = fmul fast double %450, %492, !dbg !646
   %494 = fadd fast double %493, %490, !dbg !647
-  %495 = getelementptr inbounds [8 x double], [8 x double]* %27, i64 0, i64 %479, !dbg !648, !intel-tbaa !273
-  %496 = load double, double* %495, align 8, !dbg !648, !tbaa !273
+  %495 = getelementptr inbounds [8 x double], ptr %27, i64 0, i64 %479, !dbg !648, !intel-tbaa !273
+  %496 = load double, ptr %495, align 8, !dbg !648, !tbaa !273
   %497 = fmul fast double %452, %496, !dbg !649
   %498 = fadd fast double %494, %497, !dbg !650
   call void @llvm.dbg.value(metadata double undef, metadata !131, metadata !DIExpression()), !dbg !254
-  %499 = getelementptr inbounds [8 x double], [8 x double]* %28, i64 0, i64 %479, !dbg !651, !intel-tbaa !273
-  %500 = load double, double* %499, align 8, !dbg !651, !tbaa !273
+  %499 = getelementptr inbounds [8 x double], ptr %28, i64 0, i64 %479, !dbg !651, !intel-tbaa !273
+  %500 = load double, ptr %499, align 8, !dbg !651, !tbaa !273
   %501 = fmul fast double %454, %500, !dbg !652
-  %502 = getelementptr inbounds [8 x double], [8 x double]* %38, i64 0, i64 %479, !dbg !653, !intel-tbaa !273
-  %503 = load double, double* %502, align 8, !dbg !653, !tbaa !273
+  %502 = getelementptr inbounds [8 x double], ptr %38, i64 0, i64 %479, !dbg !653, !intel-tbaa !273
+  %503 = load double, ptr %502, align 8, !dbg !653, !tbaa !273
   %504 = fmul fast double %456, %503, !dbg !654
   %505 = fadd fast double %504, %501, !dbg !655
-  %506 = getelementptr inbounds [8 x double], [8 x double]* %39, i64 0, i64 %479, !dbg !656, !intel-tbaa !273
-  %507 = load double, double* %506, align 8, !dbg !656, !tbaa !273
+  %506 = getelementptr inbounds [8 x double], ptr %39, i64 0, i64 %479, !dbg !656, !intel-tbaa !273
+  %507 = load double, ptr %506, align 8, !dbg !656, !tbaa !273
   %508 = fmul fast double %458, %507, !dbg !657
   %509 = fadd fast double %505, %508, !dbg !658
-  %510 = getelementptr inbounds [8 x double], [8 x double]* %31, i64 0, i64 %479, !dbg !659, !intel-tbaa !273
-  %511 = load double, double* %510, align 8, !dbg !659, !tbaa !273
+  %510 = getelementptr inbounds [8 x double], ptr %31, i64 0, i64 %479, !dbg !659, !intel-tbaa !273
+  %511 = load double, ptr %510, align 8, !dbg !659, !tbaa !273
   %512 = fmul fast double %460, %511, !dbg !660
   %513 = fadd fast double %509, %512, !dbg !661
   call void @llvm.dbg.value(metadata double undef, metadata !132, metadata !DIExpression()), !dbg !254
-  %514 = getelementptr inbounds [8 x double], [8 x double]* %32, i64 0, i64 %479, !dbg !662, !intel-tbaa !273
-  %515 = load double, double* %514, align 8, !dbg !662, !tbaa !273
+  %514 = getelementptr inbounds [8 x double], ptr %32, i64 0, i64 %479, !dbg !662, !intel-tbaa !273
+  %515 = load double, ptr %514, align 8, !dbg !662, !tbaa !273
   %516 = fmul fast double %462, %515, !dbg !663
-  %517 = getelementptr inbounds [8 x double], [8 x double]* %40, i64 0, i64 %479, !dbg !664, !intel-tbaa !273
-  %518 = load double, double* %517, align 8, !dbg !664, !tbaa !273
+  %517 = getelementptr inbounds [8 x double], ptr %40, i64 0, i64 %479, !dbg !664, !intel-tbaa !273
+  %518 = load double, ptr %517, align 8, !dbg !664, !tbaa !273
   %519 = fmul fast double %464, %518, !dbg !665
   %520 = fadd fast double %519, %516, !dbg !666
-  %521 = getelementptr inbounds [8 x double], [8 x double]* %41, i64 0, i64 %479, !dbg !667, !intel-tbaa !273
-  %522 = load double, double* %521, align 8, !dbg !667, !tbaa !273
+  %521 = getelementptr inbounds [8 x double], ptr %41, i64 0, i64 %479, !dbg !667, !intel-tbaa !273
+  %522 = load double, ptr %521, align 8, !dbg !667, !tbaa !273
   %523 = fmul fast double %466, %522, !dbg !668
   %524 = fadd fast double %520, %523, !dbg !669
-  %525 = getelementptr inbounds [8 x double], [8 x double]* %42, i64 0, i64 %479, !dbg !670, !intel-tbaa !273
-  %526 = load double, double* %525, align 8, !dbg !670, !tbaa !273
+  %525 = getelementptr inbounds [8 x double], ptr %42, i64 0, i64 %479, !dbg !670, !intel-tbaa !273
+  %526 = load double, ptr %525, align 8, !dbg !670, !tbaa !273
   %527 = fmul fast double %468, %526, !dbg !671
   %528 = fadd fast double %524, %527, !dbg !672
-  %529 = getelementptr inbounds [8 x double], [8 x double]* %36, i64 0, i64 %479, !dbg !673, !intel-tbaa !273
-  %530 = load double, double* %529, align 8, !dbg !673, !tbaa !273
+  %529 = getelementptr inbounds [8 x double], ptr %36, i64 0, i64 %479, !dbg !673, !intel-tbaa !273
+  %530 = load double, ptr %529, align 8, !dbg !673, !tbaa !273
   %531 = fmul fast double %470, %530, !dbg !674
   %532 = fadd fast double %528, %531, !dbg !675
   call void @llvm.dbg.value(metadata double undef, metadata !133, metadata !DIExpression()), !dbg !254
-  %533 = getelementptr inbounds [8 x double], [8 x double]* %9, i64 0, i64 %479, !dbg !676, !intel-tbaa !273
-  %534 = load double, double* %533, align 8, !dbg !676, !tbaa !273
-  %535 = getelementptr inbounds [8 x double], [8 x double]* %17, i64 0, i64 %479, !dbg !677, !intel-tbaa !273
-  %536 = load double, double* %535, align 8, !dbg !677, !tbaa !273
+  %533 = getelementptr inbounds [8 x double], ptr %9, i64 0, i64 %479, !dbg !676, !intel-tbaa !273
+  %534 = load double, ptr %533, align 8, !dbg !676, !tbaa !273
+  %535 = getelementptr inbounds [8 x double], ptr %17, i64 0, i64 %479, !dbg !677, !intel-tbaa !273
+  %536 = load double, ptr %535, align 8, !dbg !677, !tbaa !273
   %537 = fsub fast double %487, %536, !dbg !678
-  %538 = getelementptr inbounds [8 x double], [8 x double]* %18, i64 0, i64 %479, !dbg !679, !intel-tbaa !273
-  %539 = load double, double* %538, align 8, !dbg !679, !tbaa !273
+  %538 = getelementptr inbounds [8 x double], ptr %18, i64 0, i64 %479, !dbg !679, !intel-tbaa !273
+  %539 = load double, ptr %538, align 8, !dbg !679, !tbaa !273
   %540 = fmul fast double %539, %471, !dbg !680
   %541 = fadd fast double %540, %537, !dbg !681
   call void @llvm.dbg.value(metadata double undef, metadata !134, metadata !DIExpression()), !dbg !254
   %542 = fmul fast double %536, -3.000000e+00
   %543 = fadd fast double %542, %487, !dbg !682
-  %544 = getelementptr inbounds [8 x double], [8 x double]* %19, i64 0, i64 %479, !dbg !683, !intel-tbaa !273
-  %545 = load double, double* %544, align 8, !dbg !683, !tbaa !273
+  %544 = getelementptr inbounds [8 x double], ptr %19, i64 0, i64 %479, !dbg !683, !intel-tbaa !273
+  %545 = load double, ptr %544, align 8, !dbg !683, !tbaa !273
   %546 = fmul fast double %545, %472, !dbg !684
   %547 = fadd fast double %543, %546, !dbg !685
   call void @llvm.dbg.value(metadata double undef, metadata !135, metadata !DIExpression()), !dbg !254
@@ -1452,24 +1452,24 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %552 = fmul fast double %551, %536
   %553 = fadd fast double %552, %548, !dbg !688
   %554 = fmul fast double %553, 0x3FA5555555555555, !dbg !689
-  %555 = getelementptr inbounds [8 x double], [8 x double]* %20, i64 0, i64 %479, !dbg !690, !intel-tbaa !273
-  %556 = load double, double* %555, align 8, !dbg !690, !tbaa !273
+  %555 = getelementptr inbounds [8 x double], ptr %20, i64 0, i64 %479, !dbg !690, !intel-tbaa !273
+  %556 = load double, ptr %555, align 8, !dbg !690, !tbaa !273
   %557 = fmul fast double %537, %472, !dbg !691
   %558 = fmul fast double %487, 2.000000e+00, !dbg !692
   %559 = fsub fast double %557, %558, !dbg !693
   %560 = fmul fast double %556, %559, !dbg !694
   %561 = fadd fast double %554, %560, !dbg !695
-  %562 = getelementptr inbounds [8 x double], [8 x double]* %21, i64 0, i64 %479, !dbg !696, !intel-tbaa !273
-  %563 = load double, double* %562, align 8, !dbg !696, !tbaa !273
+  %562 = getelementptr inbounds [8 x double], ptr %21, i64 0, i64 %479, !dbg !696, !intel-tbaa !273
+  %563 = load double, ptr %562, align 8, !dbg !696, !tbaa !273
   %564 = fmul fast double %563, %475, !dbg !697
   %565 = fadd fast double %561, %564, !dbg !698
   call void @llvm.dbg.value(metadata double undef, metadata !136, metadata !DIExpression()), !dbg !254
-  %566 = getelementptr inbounds [8 x double], [8 x double]* %16, i64 0, i64 %479, !dbg !699, !intel-tbaa !273
-  %567 = load double, double* %566, align 8, !dbg !699, !tbaa !273
+  %566 = getelementptr inbounds [8 x double], ptr %16, i64 0, i64 %479, !dbg !699, !intel-tbaa !273
+  %567 = load double, ptr %566, align 8, !dbg !699, !tbaa !273
   %568 = fmul fast double %541, %534, !dbg !700
   %569 = fsub fast double %498, %568, !dbg !700
-  %570 = getelementptr inbounds [8 x double], [8 x double]* %22, i64 0, i64 %479, !dbg !701, !intel-tbaa !273
-  %571 = load double, double* %570, align 8, !dbg !701, !tbaa !273
+  %570 = getelementptr inbounds [8 x double], ptr %22, i64 0, i64 %479, !dbg !701, !intel-tbaa !273
+  %571 = load double, ptr %570, align 8, !dbg !701, !tbaa !273
   %572 = fmul fast double %571, %569, !dbg !702
   %573 = fmul fast double %567, %443, !dbg !703
   %574 = fsub fast double %572, %573, !dbg !703
@@ -1477,23 +1477,23 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %576 = fmul fast double %486, %575
   %577 = fmul fast double %576, %547
   %578 = fadd fast double %513, %577, !dbg !704
-  %579 = getelementptr inbounds [8 x double], [8 x double]* %23, i64 0, i64 %479, !dbg !705, !intel-tbaa !273
-  %580 = load double, double* %579, align 8, !dbg !705, !tbaa !273
+  %579 = getelementptr inbounds [8 x double], ptr %23, i64 0, i64 %479, !dbg !705, !intel-tbaa !273
+  %580 = load double, ptr %579, align 8, !dbg !705, !tbaa !273
   %581 = fmul fast double %578, %580, !dbg !706
   %582 = fadd fast double %574, %581, !dbg !707
   %583 = fmul fast double %534, -2.400000e+01, !dbg !708
   %584 = fmul fast double %583, %565
   %585 = fadd fast double %532, %584, !dbg !709
-  %586 = getelementptr inbounds [8 x double], [8 x double]* %24, i64 0, i64 %479, !dbg !710, !intel-tbaa !273
-  %587 = load double, double* %586, align 8, !dbg !710, !tbaa !273
+  %586 = getelementptr inbounds [8 x double], ptr %24, i64 0, i64 %479, !dbg !710, !intel-tbaa !273
+  %587 = load double, ptr %586, align 8, !dbg !710, !tbaa !273
   %588 = fmul fast double %585, %587, !dbg !711
   %589 = fadd fast double %582, %588, !dbg !712
   call void @llvm.dbg.value(metadata double undef, metadata !137, metadata !DIExpression()), !dbg !254
-  %590 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %439, i64 %479, !dbg !713, !intel-tbaa !309
-  %591 = load double, double* %590, align 8, !dbg !713, !tbaa !309
+  %590 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %439, i64 %479, !dbg !713, !intel-tbaa !309
+  %591 = load double, ptr %590, align 8, !dbg !713, !tbaa !309
   %592 = fmul fast double %589, %477, !dbg !714
   %593 = fsub fast double %591, %592, !dbg !715
-  store double %593, double* %590, align 8, !dbg !716, !tbaa !309
+  store double %593, ptr %590, align 8, !dbg !716, !tbaa !309
   %594 = add nuw nsw i64 %479, 1, !dbg !717
   call void @llvm.dbg.value(metadata i64 %594, metadata !102, metadata !DIExpression()), !dbg !254
   %595 = icmp eq i64 %594, 8, !dbg !718
@@ -1511,36 +1511,36 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 600:                                              ; preds = %600, %599
   %601 = phi i64 [ %617, %600 ], [ 0, %599 ]
   call void @llvm.dbg.value(metadata i64 %601, metadata !102, metadata !DIExpression()), !dbg !254
-  %602 = getelementptr inbounds [8 x double], [8 x double]* %43, i64 0, i64 %601, !dbg !727, !intel-tbaa !273
-  store double 0.000000e+00, double* %602, align 8, !dbg !730, !tbaa !273
-  %603 = getelementptr inbounds [8 x double], [8 x double]* %44, i64 0, i64 %601, !dbg !731, !intel-tbaa !273
-  store double 0.000000e+00, double* %603, align 8, !dbg !732, !tbaa !273
-  %604 = getelementptr inbounds [8 x double], [8 x double]* %45, i64 0, i64 %601, !dbg !733, !intel-tbaa !273
-  store double 0.000000e+00, double* %604, align 8, !dbg !734, !tbaa !273
-  %605 = getelementptr inbounds [8 x double], [8 x double]* %46, i64 0, i64 %601, !dbg !735, !intel-tbaa !273
-  store double 0.000000e+00, double* %605, align 8, !dbg !736, !tbaa !273
-  %606 = getelementptr inbounds [8 x double], [8 x double]* %47, i64 0, i64 %601, !dbg !737, !intel-tbaa !273
-  store double 0.000000e+00, double* %606, align 8, !dbg !738, !tbaa !273
-  %607 = getelementptr inbounds [8 x double], [8 x double]* %48, i64 0, i64 %601, !dbg !739, !intel-tbaa !273
-  store double 0.000000e+00, double* %607, align 8, !dbg !740, !tbaa !273
-  %608 = getelementptr inbounds [8 x double], [8 x double]* %49, i64 0, i64 %601, !dbg !741, !intel-tbaa !273
-  store double 0.000000e+00, double* %608, align 8, !dbg !742, !tbaa !273
-  %609 = getelementptr inbounds [8 x double], [8 x double]* %50, i64 0, i64 %601, !dbg !743, !intel-tbaa !273
-  store double 0.000000e+00, double* %609, align 8, !dbg !744, !tbaa !273
-  %610 = getelementptr inbounds [8 x double], [8 x double]* %51, i64 0, i64 %601, !dbg !745, !intel-tbaa !273
-  store double 0.000000e+00, double* %610, align 8, !dbg !746, !tbaa !273
-  %611 = getelementptr inbounds [8 x double], [8 x double]* %52, i64 0, i64 %601, !dbg !747, !intel-tbaa !273
-  store double 0.000000e+00, double* %611, align 8, !dbg !748, !tbaa !273
-  %612 = getelementptr inbounds [8 x double], [8 x double]* %53, i64 0, i64 %601, !dbg !749, !intel-tbaa !273
-  store double 0.000000e+00, double* %612, align 8, !dbg !750, !tbaa !273
-  %613 = getelementptr inbounds [8 x double], [8 x double]* %54, i64 0, i64 %601, !dbg !751, !intel-tbaa !273
-  store double 0.000000e+00, double* %613, align 8, !dbg !752, !tbaa !273
-  %614 = getelementptr inbounds [8 x double], [8 x double]* %55, i64 0, i64 %601, !dbg !753, !intel-tbaa !273
-  store double 0.000000e+00, double* %614, align 8, !dbg !754, !tbaa !273
-  %615 = getelementptr inbounds [8 x double], [8 x double]* %56, i64 0, i64 %601, !dbg !755, !intel-tbaa !273
-  store double 0.000000e+00, double* %615, align 8, !dbg !756, !tbaa !273
-  %616 = getelementptr inbounds [8 x double], [8 x double]* %57, i64 0, i64 %601, !dbg !757, !intel-tbaa !273
-  store double 0.000000e+00, double* %616, align 8, !dbg !758, !tbaa !273
+  %602 = getelementptr inbounds [8 x double], ptr %43, i64 0, i64 %601, !dbg !727, !intel-tbaa !273
+  store double 0.000000e+00, ptr %602, align 8, !dbg !730, !tbaa !273
+  %603 = getelementptr inbounds [8 x double], ptr %44, i64 0, i64 %601, !dbg !731, !intel-tbaa !273
+  store double 0.000000e+00, ptr %603, align 8, !dbg !732, !tbaa !273
+  %604 = getelementptr inbounds [8 x double], ptr %45, i64 0, i64 %601, !dbg !733, !intel-tbaa !273
+  store double 0.000000e+00, ptr %604, align 8, !dbg !734, !tbaa !273
+  %605 = getelementptr inbounds [8 x double], ptr %46, i64 0, i64 %601, !dbg !735, !intel-tbaa !273
+  store double 0.000000e+00, ptr %605, align 8, !dbg !736, !tbaa !273
+  %606 = getelementptr inbounds [8 x double], ptr %47, i64 0, i64 %601, !dbg !737, !intel-tbaa !273
+  store double 0.000000e+00, ptr %606, align 8, !dbg !738, !tbaa !273
+  %607 = getelementptr inbounds [8 x double], ptr %48, i64 0, i64 %601, !dbg !739, !intel-tbaa !273
+  store double 0.000000e+00, ptr %607, align 8, !dbg !740, !tbaa !273
+  %608 = getelementptr inbounds [8 x double], ptr %49, i64 0, i64 %601, !dbg !741, !intel-tbaa !273
+  store double 0.000000e+00, ptr %608, align 8, !dbg !742, !tbaa !273
+  %609 = getelementptr inbounds [8 x double], ptr %50, i64 0, i64 %601, !dbg !743, !intel-tbaa !273
+  store double 0.000000e+00, ptr %609, align 8, !dbg !744, !tbaa !273
+  %610 = getelementptr inbounds [8 x double], ptr %51, i64 0, i64 %601, !dbg !745, !intel-tbaa !273
+  store double 0.000000e+00, ptr %610, align 8, !dbg !746, !tbaa !273
+  %611 = getelementptr inbounds [8 x double], ptr %52, i64 0, i64 %601, !dbg !747, !intel-tbaa !273
+  store double 0.000000e+00, ptr %611, align 8, !dbg !748, !tbaa !273
+  %612 = getelementptr inbounds [8 x double], ptr %53, i64 0, i64 %601, !dbg !749, !intel-tbaa !273
+  store double 0.000000e+00, ptr %612, align 8, !dbg !750, !tbaa !273
+  %613 = getelementptr inbounds [8 x double], ptr %54, i64 0, i64 %601, !dbg !751, !intel-tbaa !273
+  store double 0.000000e+00, ptr %613, align 8, !dbg !752, !tbaa !273
+  %614 = getelementptr inbounds [8 x double], ptr %55, i64 0, i64 %601, !dbg !753, !intel-tbaa !273
+  store double 0.000000e+00, ptr %614, align 8, !dbg !754, !tbaa !273
+  %615 = getelementptr inbounds [8 x double], ptr %56, i64 0, i64 %601, !dbg !755, !intel-tbaa !273
+  store double 0.000000e+00, ptr %615, align 8, !dbg !756, !tbaa !273
+  %616 = getelementptr inbounds [8 x double], ptr %57, i64 0, i64 %601, !dbg !757, !intel-tbaa !273
+  store double 0.000000e+00, ptr %616, align 8, !dbg !758, !tbaa !273
   %617 = add nuw nsw i64 %601, 1, !dbg !759
   call void @llvm.dbg.value(metadata i64 %617, metadata !102, metadata !DIExpression()), !dbg !254
   %618 = icmp eq i64 %617, 8, !dbg !760
@@ -1553,118 +1553,118 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %621 = phi i64 [ %719, %718 ], [ 0, %619 ]
   call void @llvm.dbg.value(metadata i64 %621, metadata !95, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %622 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 3, i64 %621, !dbg !765
-  %623 = load double, double* %622, align 8, !dbg !765, !tbaa !771
-  %624 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 4, i64 %621, !dbg !772
-  %625 = load double, double* %624, align 8, !dbg !772, !tbaa !773
-  %626 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 5, i64 %621, !dbg !774
-  %627 = load double, double* %626, align 8, !dbg !774, !tbaa !775
-  %628 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 6, i64 %621, !dbg !776
-  %629 = load double, double* %628, align 8, !dbg !776, !tbaa !485
-  %630 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 7, i64 %621, !dbg !777
-  %631 = load double, double* %630, align 8, !dbg !777, !tbaa !487
-  %632 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 8, i64 %621, !dbg !778
-  %633 = load double, double* %632, align 8, !dbg !778, !tbaa !489
-  %634 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 9, i64 %621, !dbg !779
-  %635 = load double, double* %634, align 8, !dbg !779, !tbaa !491
-  %636 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 10, i64 %621, !dbg !780
-  %637 = load double, double* %636, align 8, !dbg !780, !tbaa !493
-  %638 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 11, i64 %621, !dbg !781
-  %639 = load double, double* %638, align 8, !dbg !781, !tbaa !495
-  %640 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 12, i64 %621, !dbg !782
-  %641 = load double, double* %640, align 8, !dbg !782, !tbaa !497
-  %642 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 13, i64 %621, !dbg !783
-  %643 = load double, double* %642, align 8, !dbg !783, !tbaa !499
-  %644 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 14, i64 %621, !dbg !784
-  %645 = load double, double* %644, align 8, !dbg !784, !tbaa !501
-  %646 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 15, i64 %621, !dbg !785
-  %647 = load double, double* %646, align 8, !dbg !785, !tbaa !503
-  %648 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 16, i64 %621, !dbg !786
-  %649 = load double, double* %648, align 8, !dbg !786, !tbaa !505
-  %650 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 17, i64 %621, !dbg !787
-  %651 = load double, double* %650, align 8, !dbg !787, !tbaa !507
+  %622 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 3, i64 %621, !dbg !765
+  %623 = load double, ptr %622, align 8, !dbg !765, !tbaa !771
+  %624 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 4, i64 %621, !dbg !772
+  %625 = load double, ptr %624, align 8, !dbg !772, !tbaa !773
+  %626 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 5, i64 %621, !dbg !774
+  %627 = load double, ptr %626, align 8, !dbg !774, !tbaa !775
+  %628 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 6, i64 %621, !dbg !776
+  %629 = load double, ptr %628, align 8, !dbg !776, !tbaa !485
+  %630 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 7, i64 %621, !dbg !777
+  %631 = load double, ptr %630, align 8, !dbg !777, !tbaa !487
+  %632 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 8, i64 %621, !dbg !778
+  %633 = load double, ptr %632, align 8, !dbg !778, !tbaa !489
+  %634 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 9, i64 %621, !dbg !779
+  %635 = load double, ptr %634, align 8, !dbg !779, !tbaa !491
+  %636 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 10, i64 %621, !dbg !780
+  %637 = load double, ptr %636, align 8, !dbg !780, !tbaa !493
+  %638 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 11, i64 %621, !dbg !781
+  %639 = load double, ptr %638, align 8, !dbg !781, !tbaa !495
+  %640 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 12, i64 %621, !dbg !782
+  %641 = load double, ptr %640, align 8, !dbg !782, !tbaa !497
+  %642 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 13, i64 %621, !dbg !783
+  %643 = load double, ptr %642, align 8, !dbg !783, !tbaa !499
+  %644 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 14, i64 %621, !dbg !784
+  %645 = load double, ptr %644, align 8, !dbg !784, !tbaa !501
+  %646 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 15, i64 %621, !dbg !785
+  %647 = load double, ptr %646, align 8, !dbg !785, !tbaa !503
+  %648 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 16, i64 %621, !dbg !786
+  %649 = load double, ptr %648, align 8, !dbg !786, !tbaa !505
+  %650 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 17, i64 %621, !dbg !787
+  %651 = load double, ptr %650, align 8, !dbg !787, !tbaa !507
   br label %652, !dbg !788
 
 652:                                              ; preds = %652, %620
   %653 = phi i64 [ 0, %620 ], [ %716, %652 ]
   call void @llvm.dbg.value(metadata i64 %653, metadata !102, metadata !DIExpression()), !dbg !254
-  %654 = getelementptr inbounds [37 x [8 x double]], [37 x [8 x double]]* %8, i64 0, i64 %621, i64 %653, !dbg !789, !intel-tbaa !309
-  %655 = load double, double* %654, align 8, !dbg !789, !tbaa !309
+  %654 = getelementptr inbounds [37 x [8 x double]], ptr %8, i64 0, i64 %621, i64 %653, !dbg !789, !intel-tbaa !309
+  %655 = load double, ptr %654, align 8, !dbg !789, !tbaa !309
   %656 = fmul fast double %623, %655, !dbg !790
-  %657 = getelementptr inbounds [8 x double], [8 x double]* %43, i64 0, i64 %653, !dbg !791, !intel-tbaa !273
-  %658 = load double, double* %657, align 8, !dbg !792, !tbaa !273
+  %657 = getelementptr inbounds [8 x double], ptr %43, i64 0, i64 %653, !dbg !791, !intel-tbaa !273
+  %658 = load double, ptr %657, align 8, !dbg !792, !tbaa !273
   %659 = fadd fast double %658, %656, !dbg !792
-  store double %659, double* %657, align 8, !dbg !792, !tbaa !273
+  store double %659, ptr %657, align 8, !dbg !792, !tbaa !273
   %660 = fmul fast double %625, %655, !dbg !793
-  %661 = getelementptr inbounds [8 x double], [8 x double]* %44, i64 0, i64 %653, !dbg !794, !intel-tbaa !273
-  %662 = load double, double* %661, align 8, !dbg !795, !tbaa !273
+  %661 = getelementptr inbounds [8 x double], ptr %44, i64 0, i64 %653, !dbg !794, !intel-tbaa !273
+  %662 = load double, ptr %661, align 8, !dbg !795, !tbaa !273
   %663 = fadd fast double %662, %660, !dbg !795
-  store double %663, double* %661, align 8, !dbg !795, !tbaa !273
+  store double %663, ptr %661, align 8, !dbg !795, !tbaa !273
   %664 = fmul fast double %627, %655, !dbg !796
-  %665 = getelementptr inbounds [8 x double], [8 x double]* %45, i64 0, i64 %653, !dbg !797, !intel-tbaa !273
-  %666 = load double, double* %665, align 8, !dbg !798, !tbaa !273
+  %665 = getelementptr inbounds [8 x double], ptr %45, i64 0, i64 %653, !dbg !797, !intel-tbaa !273
+  %666 = load double, ptr %665, align 8, !dbg !798, !tbaa !273
   %667 = fadd fast double %666, %664, !dbg !798
-  store double %667, double* %665, align 8, !dbg !798, !tbaa !273
+  store double %667, ptr %665, align 8, !dbg !798, !tbaa !273
   %668 = fmul fast double %629, %655, !dbg !799
-  %669 = getelementptr inbounds [8 x double], [8 x double]* %46, i64 0, i64 %653, !dbg !800, !intel-tbaa !273
-  %670 = load double, double* %669, align 8, !dbg !801, !tbaa !273
+  %669 = getelementptr inbounds [8 x double], ptr %46, i64 0, i64 %653, !dbg !800, !intel-tbaa !273
+  %670 = load double, ptr %669, align 8, !dbg !801, !tbaa !273
   %671 = fadd fast double %670, %668, !dbg !801
-  store double %671, double* %669, align 8, !dbg !801, !tbaa !273
+  store double %671, ptr %669, align 8, !dbg !801, !tbaa !273
   %672 = fmul fast double %631, %655, !dbg !802
-  %673 = getelementptr inbounds [8 x double], [8 x double]* %47, i64 0, i64 %653, !dbg !803, !intel-tbaa !273
-  %674 = load double, double* %673, align 8, !dbg !804, !tbaa !273
+  %673 = getelementptr inbounds [8 x double], ptr %47, i64 0, i64 %653, !dbg !803, !intel-tbaa !273
+  %674 = load double, ptr %673, align 8, !dbg !804, !tbaa !273
   %675 = fadd fast double %674, %672, !dbg !804
-  store double %675, double* %673, align 8, !dbg !804, !tbaa !273
+  store double %675, ptr %673, align 8, !dbg !804, !tbaa !273
   %676 = fmul fast double %633, %655, !dbg !805
-  %677 = getelementptr inbounds [8 x double], [8 x double]* %48, i64 0, i64 %653, !dbg !806, !intel-tbaa !273
-  %678 = load double, double* %677, align 8, !dbg !807, !tbaa !273
+  %677 = getelementptr inbounds [8 x double], ptr %48, i64 0, i64 %653, !dbg !806, !intel-tbaa !273
+  %678 = load double, ptr %677, align 8, !dbg !807, !tbaa !273
   %679 = fadd fast double %678, %676, !dbg !807
-  store double %679, double* %677, align 8, !dbg !807, !tbaa !273
+  store double %679, ptr %677, align 8, !dbg !807, !tbaa !273
   %680 = fmul fast double %635, %655, !dbg !808
-  %681 = getelementptr inbounds [8 x double], [8 x double]* %49, i64 0, i64 %653, !dbg !809, !intel-tbaa !273
-  %682 = load double, double* %681, align 8, !dbg !810, !tbaa !273
+  %681 = getelementptr inbounds [8 x double], ptr %49, i64 0, i64 %653, !dbg !809, !intel-tbaa !273
+  %682 = load double, ptr %681, align 8, !dbg !810, !tbaa !273
   %683 = fadd fast double %682, %680, !dbg !810
-  store double %683, double* %681, align 8, !dbg !810, !tbaa !273
+  store double %683, ptr %681, align 8, !dbg !810, !tbaa !273
   %684 = fmul fast double %637, %655, !dbg !811
-  %685 = getelementptr inbounds [8 x double], [8 x double]* %50, i64 0, i64 %653, !dbg !812, !intel-tbaa !273
-  %686 = load double, double* %685, align 8, !dbg !813, !tbaa !273
+  %685 = getelementptr inbounds [8 x double], ptr %50, i64 0, i64 %653, !dbg !812, !intel-tbaa !273
+  %686 = load double, ptr %685, align 8, !dbg !813, !tbaa !273
   %687 = fadd fast double %686, %684, !dbg !813
-  store double %687, double* %685, align 8, !dbg !813, !tbaa !273
+  store double %687, ptr %685, align 8, !dbg !813, !tbaa !273
   %688 = fmul fast double %639, %655, !dbg !814
-  %689 = getelementptr inbounds [8 x double], [8 x double]* %51, i64 0, i64 %653, !dbg !815, !intel-tbaa !273
-  %690 = load double, double* %689, align 8, !dbg !816, !tbaa !273
+  %689 = getelementptr inbounds [8 x double], ptr %51, i64 0, i64 %653, !dbg !815, !intel-tbaa !273
+  %690 = load double, ptr %689, align 8, !dbg !816, !tbaa !273
   %691 = fadd fast double %690, %688, !dbg !816
-  store double %691, double* %689, align 8, !dbg !816, !tbaa !273
+  store double %691, ptr %689, align 8, !dbg !816, !tbaa !273
   %692 = fmul fast double %641, %655, !dbg !817
-  %693 = getelementptr inbounds [8 x double], [8 x double]* %52, i64 0, i64 %653, !dbg !818, !intel-tbaa !273
-  %694 = load double, double* %693, align 8, !dbg !819, !tbaa !273
+  %693 = getelementptr inbounds [8 x double], ptr %52, i64 0, i64 %653, !dbg !818, !intel-tbaa !273
+  %694 = load double, ptr %693, align 8, !dbg !819, !tbaa !273
   %695 = fadd fast double %694, %692, !dbg !819
-  store double %695, double* %693, align 8, !dbg !819, !tbaa !273
+  store double %695, ptr %693, align 8, !dbg !819, !tbaa !273
   %696 = fmul fast double %643, %655, !dbg !820
-  %697 = getelementptr inbounds [8 x double], [8 x double]* %53, i64 0, i64 %653, !dbg !821, !intel-tbaa !273
-  %698 = load double, double* %697, align 8, !dbg !822, !tbaa !273
+  %697 = getelementptr inbounds [8 x double], ptr %53, i64 0, i64 %653, !dbg !821, !intel-tbaa !273
+  %698 = load double, ptr %697, align 8, !dbg !822, !tbaa !273
   %699 = fadd fast double %698, %696, !dbg !822
-  store double %699, double* %697, align 8, !dbg !822, !tbaa !273
+  store double %699, ptr %697, align 8, !dbg !822, !tbaa !273
   %700 = fmul fast double %645, %655, !dbg !823
-  %701 = getelementptr inbounds [8 x double], [8 x double]* %54, i64 0, i64 %653, !dbg !824, !intel-tbaa !273
-  %702 = load double, double* %701, align 8, !dbg !825, !tbaa !273
+  %701 = getelementptr inbounds [8 x double], ptr %54, i64 0, i64 %653, !dbg !824, !intel-tbaa !273
+  %702 = load double, ptr %701, align 8, !dbg !825, !tbaa !273
   %703 = fadd fast double %702, %700, !dbg !825
-  store double %703, double* %701, align 8, !dbg !825, !tbaa !273
+  store double %703, ptr %701, align 8, !dbg !825, !tbaa !273
   %704 = fmul fast double %647, %655, !dbg !826
-  %705 = getelementptr inbounds [8 x double], [8 x double]* %55, i64 0, i64 %653, !dbg !827, !intel-tbaa !273
-  %706 = load double, double* %705, align 8, !dbg !828, !tbaa !273
+  %705 = getelementptr inbounds [8 x double], ptr %55, i64 0, i64 %653, !dbg !827, !intel-tbaa !273
+  %706 = load double, ptr %705, align 8, !dbg !828, !tbaa !273
   %707 = fadd fast double %706, %704, !dbg !828
-  store double %707, double* %705, align 8, !dbg !828, !tbaa !273
+  store double %707, ptr %705, align 8, !dbg !828, !tbaa !273
   %708 = fmul fast double %649, %655, !dbg !829
-  %709 = getelementptr inbounds [8 x double], [8 x double]* %56, i64 0, i64 %653, !dbg !830, !intel-tbaa !273
-  %710 = load double, double* %709, align 8, !dbg !831, !tbaa !273
+  %709 = getelementptr inbounds [8 x double], ptr %56, i64 0, i64 %653, !dbg !830, !intel-tbaa !273
+  %710 = load double, ptr %709, align 8, !dbg !831, !tbaa !273
   %711 = fadd fast double %710, %708, !dbg !831
-  store double %711, double* %709, align 8, !dbg !831, !tbaa !273
+  store double %711, ptr %709, align 8, !dbg !831, !tbaa !273
   %712 = fmul fast double %651, %655, !dbg !832
-  %713 = getelementptr inbounds [8 x double], [8 x double]* %57, i64 0, i64 %653, !dbg !833, !intel-tbaa !273
-  %714 = load double, double* %713, align 8, !dbg !834, !tbaa !273
+  %713 = getelementptr inbounds [8 x double], ptr %57, i64 0, i64 %653, !dbg !833, !intel-tbaa !273
+  %714 = load double, ptr %713, align 8, !dbg !834, !tbaa !273
   %715 = fadd fast double %714, %712, !dbg !834
-  store double %715, double* %713, align 8, !dbg !834, !tbaa !273
+  store double %715, ptr %713, align 8, !dbg !834, !tbaa !273
   %716 = add nuw nsw i64 %653, 1, !dbg !835
   call void @llvm.dbg.value(metadata i64 %716, metadata !102, metadata !DIExpression()), !dbg !254
   %717 = icmp eq i64 %716, 8, !dbg !836
@@ -1681,43 +1681,43 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 
 722:                                              ; preds = %725
   call void @llvm.dbg.value(metadata i32 0, metadata !95, metadata !DIExpression()), !dbg !254
-  %723 = load i64, i64* @NX, align 8, !dbg !845, !tbaa !264
-  %724 = load i64, i64* @NY, align 8, !dbg !852, !tbaa !264
+  %723 = load i64, ptr @NX, align 8, !dbg !845, !tbaa !264
+  %724 = load i64, ptr @NY, align 8, !dbg !852, !tbaa !264
   br label %753, !dbg !853
 
 725:                                              ; preds = %725, %721
   %726 = phi i64 [ %751, %725 ], [ 0, %721 ]
   call void @llvm.dbg.value(metadata i64 %726, metadata !102, metadata !DIExpression()), !dbg !254
-  %727 = getelementptr inbounds [8 x double], [8 x double]* %47, i64 0, i64 %726, !dbg !854, !intel-tbaa !273
-  %728 = load double, double* %727, align 8, !dbg !854, !tbaa !273
+  %727 = getelementptr inbounds [8 x double], ptr %47, i64 0, i64 %726, !dbg !854, !intel-tbaa !273
+  %728 = load double, ptr %727, align 8, !dbg !854, !tbaa !273
   %729 = fmul fast double %728, 2.000000e+00, !dbg !857
-  %730 = getelementptr inbounds [8 x double], [8 x double]* %58, i64 0, i64 %726, !dbg !858, !intel-tbaa !273
-  store double %729, double* %730, align 8, !dbg !859, !tbaa !273
-  %731 = getelementptr inbounds [8 x double], [8 x double]* %50, i64 0, i64 %726, !dbg !860, !intel-tbaa !273
-  %732 = load double, double* %731, align 8, !dbg !860, !tbaa !273
+  %730 = getelementptr inbounds [8 x double], ptr %58, i64 0, i64 %726, !dbg !858, !intel-tbaa !273
+  store double %729, ptr %730, align 8, !dbg !859, !tbaa !273
+  %731 = getelementptr inbounds [8 x double], ptr %50, i64 0, i64 %726, !dbg !860, !intel-tbaa !273
+  %732 = load double, ptr %731, align 8, !dbg !860, !tbaa !273
   %733 = fmul fast double %732, 3.000000e+00, !dbg !861
-  %734 = getelementptr inbounds [8 x double], [8 x double]* %59, i64 0, i64 %726, !dbg !862, !intel-tbaa !273
-  store double %733, double* %734, align 8, !dbg !863, !tbaa !273
-  %735 = getelementptr inbounds [8 x double], [8 x double]* %51, i64 0, i64 %726, !dbg !864, !intel-tbaa !273
-  %736 = load double, double* %735, align 8, !dbg !864, !tbaa !273
+  %734 = getelementptr inbounds [8 x double], ptr %59, i64 0, i64 %726, !dbg !862, !intel-tbaa !273
+  store double %733, ptr %734, align 8, !dbg !863, !tbaa !273
+  %735 = getelementptr inbounds [8 x double], ptr %51, i64 0, i64 %726, !dbg !864, !intel-tbaa !273
+  %736 = load double, ptr %735, align 8, !dbg !864, !tbaa !273
   %737 = fmul fast double %736, 3.000000e+00, !dbg !865
-  %738 = getelementptr inbounds [8 x double], [8 x double]* %60, i64 0, i64 %726, !dbg !866, !intel-tbaa !273
-  store double %737, double* %738, align 8, !dbg !867, !tbaa !273
-  %739 = getelementptr inbounds [8 x double], [8 x double]* %54, i64 0, i64 %726, !dbg !868, !intel-tbaa !273
-  %740 = load double, double* %739, align 8, !dbg !868, !tbaa !273
+  %738 = getelementptr inbounds [8 x double], ptr %60, i64 0, i64 %726, !dbg !866, !intel-tbaa !273
+  store double %737, ptr %738, align 8, !dbg !867, !tbaa !273
+  %739 = getelementptr inbounds [8 x double], ptr %54, i64 0, i64 %726, !dbg !868, !intel-tbaa !273
+  %740 = load double, ptr %739, align 8, !dbg !868, !tbaa !273
   %741 = fmul fast double %740, 4.000000e+00, !dbg !869
-  %742 = getelementptr inbounds [8 x double], [8 x double]* %61, i64 0, i64 %726, !dbg !870, !intel-tbaa !273
-  store double %741, double* %742, align 8, !dbg !871, !tbaa !273
-  %743 = getelementptr inbounds [8 x double], [8 x double]* %55, i64 0, i64 %726, !dbg !872, !intel-tbaa !273
-  %744 = load double, double* %743, align 8, !dbg !872, !tbaa !273
+  %742 = getelementptr inbounds [8 x double], ptr %61, i64 0, i64 %726, !dbg !870, !intel-tbaa !273
+  store double %741, ptr %742, align 8, !dbg !871, !tbaa !273
+  %743 = getelementptr inbounds [8 x double], ptr %55, i64 0, i64 %726, !dbg !872, !intel-tbaa !273
+  %744 = load double, ptr %743, align 8, !dbg !872, !tbaa !273
   %745 = fmul fast double %744, 6.000000e+00, !dbg !873
-  %746 = getelementptr inbounds [8 x double], [8 x double]* %62, i64 0, i64 %726, !dbg !874, !intel-tbaa !273
-  store double %745, double* %746, align 8, !dbg !875, !tbaa !273
-  %747 = getelementptr inbounds [8 x double], [8 x double]* %56, i64 0, i64 %726, !dbg !876, !intel-tbaa !273
-  %748 = load double, double* %747, align 8, !dbg !876, !tbaa !273
+  %746 = getelementptr inbounds [8 x double], ptr %62, i64 0, i64 %726, !dbg !874, !intel-tbaa !273
+  store double %745, ptr %746, align 8, !dbg !875, !tbaa !273
+  %747 = getelementptr inbounds [8 x double], ptr %56, i64 0, i64 %726, !dbg !876, !intel-tbaa !273
+  %748 = load double, ptr %747, align 8, !dbg !876, !tbaa !273
   %749 = fmul fast double %748, 4.000000e+00, !dbg !877
-  %750 = getelementptr inbounds [8 x double], [8 x double]* %63, i64 0, i64 %726, !dbg !878, !intel-tbaa !273
-  store double %749, double* %750, align 8, !dbg !879, !tbaa !273
+  %750 = getelementptr inbounds [8 x double], ptr %63, i64 0, i64 %726, !dbg !878, !intel-tbaa !273
+  store double %749, ptr %750, align 8, !dbg !879, !tbaa !273
   %751 = add nuw nsw i64 %726, 1, !dbg !880
   call void @llvm.dbg.value(metadata i64 %751, metadata !102, metadata !DIExpression()), !dbg !254
   %752 = icmp eq i64 %751, 8, !dbg !881
@@ -1727,38 +1727,38 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %754 = phi i64 [ 0, %722 ], [ %861, %860 ]
   call void @llvm.dbg.value(metadata i64 %754, metadata !95, metadata !DIExpression()), !dbg !254
   call void @llvm.dbg.value(metadata i32 0, metadata !102, metadata !DIExpression()), !dbg !254
-  %755 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 3, i64 %754, !dbg !884
-  %756 = load double, double* %755, align 8, !dbg !884, !tbaa !771
-  %757 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 4, i64 %754, !dbg !885
-  %758 = load double, double* %757, align 8, !dbg !885, !tbaa !773
-  %759 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 5, i64 %754, !dbg !886
-  %760 = load double, double* %759, align 8, !dbg !886, !tbaa !775
-  %761 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 6, i64 %754, !dbg !887
-  %762 = load double, double* %761, align 8, !dbg !887, !tbaa !485
-  %763 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 7, i64 %754, !dbg !888
-  %764 = load double, double* %763, align 8, !dbg !888, !tbaa !487
-  %765 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 8, i64 %754, !dbg !889
-  %766 = load double, double* %765, align 8, !dbg !889, !tbaa !489
-  %767 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 9, i64 %754, !dbg !890
-  %768 = load double, double* %767, align 8, !dbg !890, !tbaa !491
-  %769 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 10, i64 %754, !dbg !891
-  %770 = load double, double* %769, align 8, !dbg !891, !tbaa !493
-  %771 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 11, i64 %754, !dbg !892
-  %772 = load double, double* %771, align 8, !dbg !892, !tbaa !495
-  %773 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 12, i64 %754, !dbg !893
-  %774 = load double, double* %773, align 8, !dbg !893, !tbaa !497
-  %775 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 13, i64 %754, !dbg !894
-  %776 = load double, double* %775, align 8, !dbg !894, !tbaa !499
-  %777 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 14, i64 %754, !dbg !895
-  %778 = load double, double* %777, align 8, !dbg !895, !tbaa !501
-  %779 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 15, i64 %754, !dbg !896
-  %780 = load double, double* %779, align 8, !dbg !896, !tbaa !503
-  %781 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 16, i64 %754, !dbg !897
-  %782 = load double, double* %781, align 8, !dbg !897, !tbaa !505
-  %783 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 17, i64 %754, !dbg !898
-  %784 = load double, double* %783, align 8, !dbg !898, !tbaa !507
-  %785 = getelementptr inbounds %struct.par_t, %struct.par_t* %2, i64 0, i32 0, i64 %754, !dbg !899
-  %786 = load double, double* %785, align 8, !dbg !899, !tbaa !635
+  %755 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 3, i64 %754, !dbg !884
+  %756 = load double, ptr %755, align 8, !dbg !884, !tbaa !771
+  %757 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 4, i64 %754, !dbg !885
+  %758 = load double, ptr %757, align 8, !dbg !885, !tbaa !773
+  %759 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 5, i64 %754, !dbg !886
+  %760 = load double, ptr %759, align 8, !dbg !886, !tbaa !775
+  %761 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 6, i64 %754, !dbg !887
+  %762 = load double, ptr %761, align 8, !dbg !887, !tbaa !485
+  %763 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 7, i64 %754, !dbg !888
+  %764 = load double, ptr %763, align 8, !dbg !888, !tbaa !487
+  %765 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 8, i64 %754, !dbg !889
+  %766 = load double, ptr %765, align 8, !dbg !889, !tbaa !489
+  %767 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 9, i64 %754, !dbg !890
+  %768 = load double, ptr %767, align 8, !dbg !890, !tbaa !491
+  %769 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 10, i64 %754, !dbg !891
+  %770 = load double, ptr %769, align 8, !dbg !891, !tbaa !493
+  %771 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 11, i64 %754, !dbg !892
+  %772 = load double, ptr %771, align 8, !dbg !892, !tbaa !495
+  %773 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 12, i64 %754, !dbg !893
+  %774 = load double, ptr %773, align 8, !dbg !893, !tbaa !497
+  %775 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 13, i64 %754, !dbg !894
+  %776 = load double, ptr %775, align 8, !dbg !894, !tbaa !499
+  %777 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 14, i64 %754, !dbg !895
+  %778 = load double, ptr %777, align 8, !dbg !895, !tbaa !501
+  %779 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 15, i64 %754, !dbg !896
+  %780 = load double, ptr %779, align 8, !dbg !896, !tbaa !503
+  %781 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 16, i64 %754, !dbg !897
+  %782 = load double, ptr %781, align 8, !dbg !897, !tbaa !505
+  %783 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 17, i64 %754, !dbg !898
+  %784 = load double, ptr %783, align 8, !dbg !898, !tbaa !507
+  %785 = getelementptr inbounds %struct.par_t, ptr %2, i64 0, i32 0, i64 %754, !dbg !899
+  %786 = load double, ptr %785, align 8, !dbg !899, !tbaa !635
   %787 = mul nsw i64 %723, %754, !dbg !900
   %788 = add i64 %787, %127, !dbg !901
   %789 = mul i64 %788, %724, !dbg !901
@@ -1767,62 +1767,62 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 790:                                              ; preds = %790, %753
   %791 = phi i64 [ 0, %753 ], [ %858, %790 ]
   call void @llvm.dbg.value(metadata i64 %791, metadata !102, metadata !DIExpression()), !dbg !254
-  %792 = getelementptr inbounds [8 x double], [8 x double]* %43, i64 0, i64 %791, !dbg !903, !intel-tbaa !273
-  %793 = load double, double* %792, align 8, !dbg !903, !tbaa !273
+  %792 = getelementptr inbounds [8 x double], ptr %43, i64 0, i64 %791, !dbg !903, !intel-tbaa !273
+  %793 = load double, ptr %792, align 8, !dbg !903, !tbaa !273
   %794 = fmul fast double %756, %793, !dbg !904
   call void @llvm.dbg.value(metadata double undef, metadata !129, metadata !DIExpression()), !dbg !254
-  %795 = getelementptr inbounds [8 x double], [8 x double]* %44, i64 0, i64 %791, !dbg !905, !intel-tbaa !273
-  %796 = load double, double* %795, align 8, !dbg !905, !tbaa !273
+  %795 = getelementptr inbounds [8 x double], ptr %44, i64 0, i64 %791, !dbg !905, !intel-tbaa !273
+  %796 = load double, ptr %795, align 8, !dbg !905, !tbaa !273
   %797 = fmul fast double %758, %796, !dbg !906
-  %798 = getelementptr inbounds [8 x double], [8 x double]* %45, i64 0, i64 %791, !dbg !907, !intel-tbaa !273
-  %799 = load double, double* %798, align 8, !dbg !907, !tbaa !273
+  %798 = getelementptr inbounds [8 x double], ptr %45, i64 0, i64 %791, !dbg !907, !intel-tbaa !273
+  %799 = load double, ptr %798, align 8, !dbg !907, !tbaa !273
   %800 = fmul fast double %760, %799, !dbg !908
   call void @llvm.dbg.value(metadata double undef, metadata !130, metadata !DIExpression()), !dbg !254
-  %801 = getelementptr inbounds [8 x double], [8 x double]* %46, i64 0, i64 %791, !dbg !909, !intel-tbaa !273
-  %802 = load double, double* %801, align 8, !dbg !909, !tbaa !273
+  %801 = getelementptr inbounds [8 x double], ptr %46, i64 0, i64 %791, !dbg !909, !intel-tbaa !273
+  %802 = load double, ptr %801, align 8, !dbg !909, !tbaa !273
   %803 = fmul fast double %762, %802, !dbg !910
-  %804 = getelementptr inbounds [8 x double], [8 x double]* %58, i64 0, i64 %791, !dbg !911, !intel-tbaa !273
-  %805 = load double, double* %804, align 8, !dbg !911, !tbaa !273
+  %804 = getelementptr inbounds [8 x double], ptr %58, i64 0, i64 %791, !dbg !911, !intel-tbaa !273
+  %805 = load double, ptr %804, align 8, !dbg !911, !tbaa !273
   %806 = fmul fast double %764, %805, !dbg !912
   %807 = fadd fast double %806, %803, !dbg !913
-  %808 = getelementptr inbounds [8 x double], [8 x double]* %48, i64 0, i64 %791, !dbg !914, !intel-tbaa !273
-  %809 = load double, double* %808, align 8, !dbg !914, !tbaa !273
+  %808 = getelementptr inbounds [8 x double], ptr %48, i64 0, i64 %791, !dbg !914, !intel-tbaa !273
+  %809 = load double, ptr %808, align 8, !dbg !914, !tbaa !273
   %810 = fmul fast double %766, %809, !dbg !915
   %811 = fadd fast double %807, %810, !dbg !916
   call void @llvm.dbg.value(metadata double undef, metadata !131, metadata !DIExpression()), !dbg !254
-  %812 = getelementptr inbounds [8 x double], [8 x double]* %49, i64 0, i64 %791, !dbg !917, !intel-tbaa !273
-  %813 = load double, double* %812, align 8, !dbg !917, !tbaa !273
+  %812 = getelementptr inbounds [8 x double], ptr %49, i64 0, i64 %791, !dbg !917, !intel-tbaa !273
+  %813 = load double, ptr %812, align 8, !dbg !917, !tbaa !273
   %814 = fmul fast double %768, %813, !dbg !918
-  %815 = getelementptr inbounds [8 x double], [8 x double]* %59, i64 0, i64 %791, !dbg !919, !intel-tbaa !273
-  %816 = load double, double* %815, align 8, !dbg !919, !tbaa !273
+  %815 = getelementptr inbounds [8 x double], ptr %59, i64 0, i64 %791, !dbg !919, !intel-tbaa !273
+  %816 = load double, ptr %815, align 8, !dbg !919, !tbaa !273
   %817 = fmul fast double %770, %816, !dbg !920
   %818 = fadd fast double %817, %814, !dbg !921
-  %819 = getelementptr inbounds [8 x double], [8 x double]* %60, i64 0, i64 %791, !dbg !922, !intel-tbaa !273
-  %820 = load double, double* %819, align 8, !dbg !922, !tbaa !273
+  %819 = getelementptr inbounds [8 x double], ptr %60, i64 0, i64 %791, !dbg !922, !intel-tbaa !273
+  %820 = load double, ptr %819, align 8, !dbg !922, !tbaa !273
   %821 = fmul fast double %772, %820, !dbg !923
   %822 = fadd fast double %818, %821, !dbg !924
-  %823 = getelementptr inbounds [8 x double], [8 x double]* %52, i64 0, i64 %791, !dbg !925, !intel-tbaa !273
-  %824 = load double, double* %823, align 8, !dbg !925, !tbaa !273
+  %823 = getelementptr inbounds [8 x double], ptr %52, i64 0, i64 %791, !dbg !925, !intel-tbaa !273
+  %824 = load double, ptr %823, align 8, !dbg !925, !tbaa !273
   %825 = fmul fast double %774, %824, !dbg !926
   %826 = fadd fast double %822, %825, !dbg !927
   call void @llvm.dbg.value(metadata double undef, metadata !132, metadata !DIExpression()), !dbg !254
-  %827 = getelementptr inbounds [8 x double], [8 x double]* %53, i64 0, i64 %791, !dbg !928, !intel-tbaa !273
-  %828 = load double, double* %827, align 8, !dbg !928, !tbaa !273
+  %827 = getelementptr inbounds [8 x double], ptr %53, i64 0, i64 %791, !dbg !928, !intel-tbaa !273
+  %828 = load double, ptr %827, align 8, !dbg !928, !tbaa !273
   %829 = fmul fast double %776, %828, !dbg !929
-  %830 = getelementptr inbounds [8 x double], [8 x double]* %61, i64 0, i64 %791, !dbg !930, !intel-tbaa !273
-  %831 = load double, double* %830, align 8, !dbg !930, !tbaa !273
+  %830 = getelementptr inbounds [8 x double], ptr %61, i64 0, i64 %791, !dbg !930, !intel-tbaa !273
+  %831 = load double, ptr %830, align 8, !dbg !930, !tbaa !273
   %832 = fmul fast double %778, %831, !dbg !931
   %833 = fadd fast double %832, %829, !dbg !932
-  %834 = getelementptr inbounds [8 x double], [8 x double]* %62, i64 0, i64 %791, !dbg !933, !intel-tbaa !273
-  %835 = load double, double* %834, align 8, !dbg !933, !tbaa !273
+  %834 = getelementptr inbounds [8 x double], ptr %62, i64 0, i64 %791, !dbg !933, !intel-tbaa !273
+  %835 = load double, ptr %834, align 8, !dbg !933, !tbaa !273
   %836 = fmul fast double %780, %835, !dbg !934
   %837 = fadd fast double %833, %836, !dbg !935
-  %838 = getelementptr inbounds [8 x double], [8 x double]* %63, i64 0, i64 %791, !dbg !936, !intel-tbaa !273
-  %839 = load double, double* %838, align 8, !dbg !936, !tbaa !273
+  %838 = getelementptr inbounds [8 x double], ptr %63, i64 0, i64 %791, !dbg !936, !intel-tbaa !273
+  %839 = load double, ptr %838, align 8, !dbg !936, !tbaa !273
   %840 = fmul fast double %782, %839, !dbg !937
   %841 = fadd fast double %837, %840, !dbg !938
-  %842 = getelementptr inbounds [8 x double], [8 x double]* %57, i64 0, i64 %791, !dbg !939, !intel-tbaa !273
-  %843 = load double, double* %842, align 8, !dbg !939, !tbaa !273
+  %842 = getelementptr inbounds [8 x double], ptr %57, i64 0, i64 %791, !dbg !939, !intel-tbaa !273
+  %843 = load double, ptr %842, align 8, !dbg !939, !tbaa !273
   %844 = fmul fast double %784, %843, !dbg !940
   %845 = fadd fast double %841, %844, !dbg !941
   call void @llvm.dbg.value(metadata double undef, metadata !133, metadata !DIExpression()), !dbg !254
@@ -1837,8 +1837,8 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   %854 = fmul fast double %853, %786, !dbg !950
   %855 = add nsw i64 %791, %130, !dbg !951
   %856 = add i64 %855, %789, !dbg !952
-  %857 = getelementptr inbounds double, double* %0, i64 %856, !dbg !953
-  store double %854, double* %857, align 8, !dbg !954, !tbaa !306
+  %857 = getelementptr inbounds double, ptr %0, i64 %856, !dbg !953
+  store double %854, ptr %857, align 8, !dbg !954, !tbaa !306
   %858 = add nuw nsw i64 %791, 1, !dbg !955
   call void @llvm.dbg.value(metadata i64 %858, metadata !102, metadata !DIExpression()), !dbg !254
   %859 = icmp eq i64 %858, 8, !dbg !956
@@ -1851,62 +1851,62 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
   br i1 %862, label %863, label %753, !dbg !853, !llvm.loop !961
 
 863:                                              ; preds = %860
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %122) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %121) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %120) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %119) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %118) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %117) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %116) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %115) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %114) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %113) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %112) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %111) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %110) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %109) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %108) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %107) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %106) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %105) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %104) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %103) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %102) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %101) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %100) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %99) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %98) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %97) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %96) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %95) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %94) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %93) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %92) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %91) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %90) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %89) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %88) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %87) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %86) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %85) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %84) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %83) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %82) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %81) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %80) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %79) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %78) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %77) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %76) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %75) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %74) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %73) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %72) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %71) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %70) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %69) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %68) #3, !dbg !963
-  call void @llvm.lifetime.end.p0i8(i64 2368, i8* nonnull %67) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %122) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %121) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %120) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %119) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %118) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %117) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %116) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %115) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %114) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %113) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %112) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %111) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %110) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %109) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %108) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %107) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %106) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %105) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %104) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %103) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %102) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %101) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %100) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %99) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %98) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %97) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %96) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %95) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %94) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %93) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %92) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %91) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %90) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %89) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %88) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %87) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %86) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %85) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %84) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %83) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %82) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %81) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %80) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %79) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %78) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %77) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %76) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %75) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %74) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %73) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %72) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %71) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %70) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %69) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %68) #3, !dbg !963
+  call void @llvm.lifetime.end.p0(i64 2368, ptr nonnull %67) #3, !dbg !963
   %864 = add nsw i64 %130, 8, !dbg !964
   call void @llvm.dbg.value(metadata i64 %864, metadata !94, metadata !DIExpression()), !dbg !183
   %865 = icmp slt i64 %864, %124, !dbg !186
@@ -1929,13 +1929,13 @@ define hidden fastcc void @myKernel(double* nocapture %0, double* nocapture read
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #2
 
 attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }
 attributes #1 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }

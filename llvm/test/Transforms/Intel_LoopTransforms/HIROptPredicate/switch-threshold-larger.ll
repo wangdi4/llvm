@@ -63,7 +63,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %p, i32* nocapture %q, i32 %x) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture %q, i32 %x) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -77,36 +77,36 @@ for.body:                                         ; preds = %for.inc, %entry
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %idx0 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
+  %idx0 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %idx0, align 4
+  store i32 %0, ptr %idx0, align 4
   br label %for.inc
 
 sw.bb1:                                           ; preds = %for.body
-  %idx1 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
+  %idx1 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %idx1, align 4
+  store i32 %1, ptr %idx1, align 4
   br label %for.inc
 
 sw.bb2:                                       ; preds = %for.body
   %2 = add nuw nsw i64 %indvars.iv, 1
-  %idx2 = getelementptr inbounds i32, i32* %q, i64 %2
+  %idx2 = getelementptr inbounds i32, ptr %q, i64 %2
   %3 = trunc i64 %indvars.iv to i32
-  store i32 %3, i32* %idx2, align 4
+  store i32 %3, ptr %idx2, align 4
   br label %for.inc
 
 sw.bb3:                                       ; preds = %for.body
   %4 = add nuw nsw i64 %indvars.iv, 1
-  %idx3 = getelementptr inbounds i32, i32* %q, i64 %4
+  %idx3 = getelementptr inbounds i32, ptr %q, i64 %4
   %5 = trunc i64 %indvars.iv to i32
-  store i32 %5, i32* %idx3, align 4
+  store i32 %5, ptr %idx3, align 4
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
   %6 = add nuw nsw i64 %indvars.iv, 1
-  %idx.def = getelementptr inbounds i32, i32* %q, i64 %6
+  %idx.def = getelementptr inbounds i32, ptr %q, i64 %6
   %7 = trunc i64 %indvars.iv to i32
-  store i32 %7, i32* %idx.def, align 4
+  store i32 %7, ptr %idx.def, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb, %sw.bb1, %sw.bb2, %sw.bb3, %sw.default

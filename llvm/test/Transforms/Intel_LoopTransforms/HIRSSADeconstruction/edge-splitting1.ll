@@ -17,27 +17,27 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 ; Function Attrs: uwtable
-define i32 @main(i8 %in, float *%p, float %f) #2 {
+define i32 @main(i8 %in, ptr %p, float %f) #2 {
 entry:
   br label %for.cond.1.preheader
 
 for.cond.1.preheader:                             ; preds = %cleanup, %entry
   %i.093 = phi i64 [ 0, %entry ], [ %add.1, %cleanup ]
   %ok.092 = phi i8 [ 1, %entry ], [ %ok.1, %cleanup ]
-  %arrayidx.1 = getelementptr inbounds float, float* %p, i64 %i.093
-  store float %f, float* %arrayidx.1, align 4
+  %arrayidx.1 = getelementptr inbounds float, ptr %p, i64 %i.093
+  store float %f, ptr %arrayidx.1, align 4
   %add.1 = add nuw nsw i64 %i.093, 1
   %cmp37 = fcmp ogt float %f, 1.000000e+00
   br i1 %cmp37, label %cleanup, label %for.cond.16
 
 for.cond.16:                                      ; preds = %for.cond.1.preheader
-  %arrayidx.2 = getelementptr inbounds float, float* %p, i64 %add.1
-  store float %f, float* %arrayidx.2, align 4
+  %arrayidx.2 = getelementptr inbounds float, ptr %p, i64 %add.1
+  store float %f, ptr %arrayidx.2, align 4
   %cmp37.1 = fcmp ogt float %f, 1.000000e+00
   br i1 %cmp37.1, label %cleanup, label %for.cond.16.1
 
 for.cond.16.1:                                    ; preds = %for.cond.16
-  store float %f, float* %arrayidx.2, align 4
+  store float %f, ptr %arrayidx.2, align 4
   %cmp37.2 = fcmp ogt float %f, 1.000000e+00
   %0 = select i1 %cmp37.2, i8 0, i8 %ok.092
   br label %cleanup

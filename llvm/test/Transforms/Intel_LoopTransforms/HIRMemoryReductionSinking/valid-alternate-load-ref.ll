@@ -18,16 +18,16 @@
 ; CHECK: %mul59 = %tmp  *  (%t13)[%t];
 ; CHECK: (%t13)[%t] = %mul59;
 
-define void @foo(float *%t13, float %mul52, i64 %n, i64 %t) {
+define void @foo(ptr %t13, float %mul52, i64 %n, i64 %t) {
 entry:
   br label %for.body56
 
 for.body56:                                       ; preds = %for.body56, %entry
   %indvars.iv158 = phi i64 [ 0, %entry ], [ %indvars.iv.next159, %for.body56 ]
-  %arrayidx58 = getelementptr inbounds float, float* %t13, i64 %t
-  %t14 = load float, float* %arrayidx58, align 4
+  %arrayidx58 = getelementptr inbounds float, ptr %t13, i64 %t
+  %t14 = load float, ptr %arrayidx58, align 4
   %mul59 = fmul fast float %mul52, %t14
-  store float %mul59, float* %arrayidx58, align 4
+  store float %mul59, ptr %arrayidx58, align 4
   %indvars.iv.next159 = add nuw nsw i64 %indvars.iv158, 1
   %exitcond161 = icmp eq i64 %indvars.iv.next159, %n
   br i1 %exitcond161, label %for.end62.loopexit, label %for.body56

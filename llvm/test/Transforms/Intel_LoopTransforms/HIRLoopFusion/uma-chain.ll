@@ -127,18 +127,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo(i32* noalias nocapture readonly %p, i32* nocapture %q, i32 %n) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr noalias nocapture readonly %p, ptr nocapture %q, i32 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv217 = phi i64 [ 0, %entry ], [ %indvars.iv.next218, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv217
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv217
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %indvars.iv217
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv217
+  %1 = load i32, ptr %arrayidx2, align 4
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next218 = add nuw nsw i64 %indvars.iv217, 1
   %exitcond219 = icmp eq i64 %indvars.iv.next218, 1000
   br i1 %exitcond219, label %for.body7.preheader, label %for.body
@@ -148,12 +148,12 @@ for.body7.preheader:                              ; preds = %for.body
 
 for.body7:                                        ; preds = %for.body7.preheader, %for.body7
   %indvars.iv214 = phi i64 [ %indvars.iv.next215, %for.body7 ], [ 0, %for.body7.preheader ]
-  %arrayidx9 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv214
-  %2 = load i32, i32* %arrayidx9, align 4
-  %arrayidx11 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv214
-  %3 = load i32, i32* %arrayidx11, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv214
+  %2 = load i32, ptr %arrayidx9, align 4
+  %arrayidx11 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv214
+  %3 = load i32, ptr %arrayidx11, align 4
   %add12 = add nsw i32 %3, %2
-  store i32 %add12, i32* %arrayidx11, align 4
+  store i32 %add12, ptr %arrayidx11, align 4
   %putchar182 = tail call i32 @putchar(i32 10)
   %indvars.iv.next215 = add nuw nsw i64 %indvars.iv214, 1
   %exitcond216 = icmp eq i64 %indvars.iv.next215, 1000
@@ -164,12 +164,12 @@ for.body20.preheader:                             ; preds = %for.body7
 
 for.body20:                                       ; preds = %for.body20.preheader, %for.body20
   %indvars.iv211 = phi i64 [ %indvars.iv.next212, %for.body20 ], [ 0, %for.body20.preheader ]
-  %arrayidx22 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv211
-  %4 = load i32, i32* %arrayidx22, align 4
-  %arrayidx24 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv211
-  %5 = load i32, i32* %arrayidx24, align 4
+  %arrayidx22 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv211
+  %4 = load i32, ptr %arrayidx22, align 4
+  %arrayidx24 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv211
+  %5 = load i32, ptr %arrayidx24, align 4
   %add25 = add nsw i32 %5, %4
-  store i32 %add25, i32* %arrayidx24, align 4
+  store i32 %add25, ptr %arrayidx24, align 4
   %indvars.iv.next212 = add nuw nsw i64 %indvars.iv211, 1
   %exitcond213 = icmp eq i64 %indvars.iv.next212, 1000
   br i1 %exitcond213, label %for.body33.preheader, label %for.body20
@@ -179,12 +179,12 @@ for.body33.preheader:                             ; preds = %for.body20
 
 for.body33:                                       ; preds = %for.body33.preheader, %for.body33
   %indvars.iv208 = phi i64 [ %indvars.iv.next209, %for.body33 ], [ 0, %for.body33.preheader ]
-  %arrayidx35 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv208
-  %6 = load i32, i32* %arrayidx35, align 4
-  %arrayidx37 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv208
-  %7 = load i32, i32* %arrayidx37, align 4
+  %arrayidx35 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv208
+  %6 = load i32, ptr %arrayidx35, align 4
+  %arrayidx37 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv208
+  %7 = load i32, ptr %arrayidx37, align 4
   %add38 = add nsw i32 %7, %6
-  store i32 %add38, i32* %arrayidx37, align 4
+  store i32 %add38, ptr %arrayidx37, align 4
   %indvars.iv.next209 = add nuw nsw i64 %indvars.iv208, 1
   %exitcond210 = icmp eq i64 %indvars.iv.next209, 1000
   br i1 %exitcond210, label %for.body46.preheader, label %for.body33
@@ -194,12 +194,12 @@ for.body46.preheader:                             ; preds = %for.body33
 
 for.body46:                                       ; preds = %for.body46.preheader, %for.body46
   %indvars.iv205 = phi i64 [ %indvars.iv.next206, %for.body46 ], [ 0, %for.body46.preheader ]
-  %arrayidx48 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv205
-  %8 = load i32, i32* %arrayidx48, align 4
-  %arrayidx50 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv205
-  %9 = load i32, i32* %arrayidx50, align 4
+  %arrayidx48 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv205
+  %8 = load i32, ptr %arrayidx48, align 4
+  %arrayidx50 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv205
+  %9 = load i32, ptr %arrayidx50, align 4
   %add51 = add nsw i32 %9, %8
-  store i32 %add51, i32* %arrayidx50, align 4
+  store i32 %add51, ptr %arrayidx50, align 4
   %putchar181 = tail call i32 @putchar(i32 10)
   %indvars.iv.next206 = add nuw nsw i64 %indvars.iv205, 1
   %exitcond207 = icmp eq i64 %indvars.iv.next206, 1000
@@ -210,12 +210,12 @@ for.body60.preheader:                             ; preds = %for.body46
 
 for.body60:                                       ; preds = %for.body60.preheader, %for.body60
   %indvars.iv202 = phi i64 [ %indvars.iv.next203, %for.body60 ], [ 0, %for.body60.preheader ]
-  %arrayidx62 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv202
-  %10 = load i32, i32* %arrayidx62, align 4
-  %arrayidx64 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv202
-  %11 = load i32, i32* %arrayidx64, align 4
+  %arrayidx62 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv202
+  %10 = load i32, ptr %arrayidx62, align 4
+  %arrayidx64 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv202
+  %11 = load i32, ptr %arrayidx64, align 4
   %add65 = add nsw i32 %11, %10
-  store i32 %add65, i32* %arrayidx64, align 4
+  store i32 %add65, ptr %arrayidx64, align 4
   %indvars.iv.next203 = add nuw nsw i64 %indvars.iv202, 1
   %exitcond204 = icmp eq i64 %indvars.iv.next203, 1000
   br i1 %exitcond204, label %for.body73.preheader, label %for.body60
@@ -225,12 +225,12 @@ for.body73.preheader:                             ; preds = %for.body60
 
 for.body73:                                       ; preds = %for.body73.preheader, %for.body73
   %indvars.iv199 = phi i64 [ %indvars.iv.next200, %for.body73 ], [ 0, %for.body73.preheader ]
-  %arrayidx75 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv199
-  %12 = load i32, i32* %arrayidx75, align 4
-  %arrayidx77 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv199
-  %13 = load i32, i32* %arrayidx77, align 4
+  %arrayidx75 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv199
+  %12 = load i32, ptr %arrayidx75, align 4
+  %arrayidx77 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv199
+  %13 = load i32, ptr %arrayidx77, align 4
   %add78 = add nsw i32 %13, %12
-  store i32 %add78, i32* %arrayidx77, align 4
+  store i32 %add78, ptr %arrayidx77, align 4
   %indvars.iv.next200 = add nuw nsw i64 %indvars.iv199, 1
   %exitcond201 = icmp eq i64 %indvars.iv.next200, 1000
   br i1 %exitcond201, label %for.body86.preheader, label %for.body73
@@ -240,12 +240,12 @@ for.body86.preheader:                             ; preds = %for.body73
 
 for.body86:                                       ; preds = %for.body86.preheader, %for.body86
   %indvars.iv196 = phi i64 [ %indvars.iv.next197, %for.body86 ], [ 0, %for.body86.preheader ]
-  %arrayidx88 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv196
-  %14 = load i32, i32* %arrayidx88, align 4
-  %arrayidx90 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv196
-  %15 = load i32, i32* %arrayidx90, align 4
+  %arrayidx88 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv196
+  %14 = load i32, ptr %arrayidx88, align 4
+  %arrayidx90 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv196
+  %15 = load i32, ptr %arrayidx90, align 4
   %add91 = add nsw i32 %15, %14
-  store i32 %add91, i32* %arrayidx90, align 4
+  store i32 %add91, ptr %arrayidx90, align 4
   %putchar = tail call i32 @putchar(i32 10)
   %indvars.iv.next197 = add nuw nsw i64 %indvars.iv196, 1
   %exitcond198 = icmp eq i64 %indvars.iv.next197, 1000
@@ -256,12 +256,12 @@ for.body100.preheader:                            ; preds = %for.body86
 
 for.body100:                                      ; preds = %for.body100.preheader, %for.body100
   %indvars.iv193 = phi i64 [ %indvars.iv.next194, %for.body100 ], [ 0, %for.body100.preheader ]
-  %arrayidx102 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv193
-  %16 = load i32, i32* %arrayidx102, align 4
-  %arrayidx104 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv193
-  %17 = load i32, i32* %arrayidx104, align 4
+  %arrayidx102 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv193
+  %16 = load i32, ptr %arrayidx102, align 4
+  %arrayidx104 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv193
+  %17 = load i32, ptr %arrayidx104, align 4
   %add105 = add nsw i32 %17, %16
-  store i32 %add105, i32* %arrayidx104, align 4
+  store i32 %add105, ptr %arrayidx104, align 4
   %indvars.iv.next194 = add nuw nsw i64 %indvars.iv193, 1
   %exitcond195 = icmp eq i64 %indvars.iv.next194, 1000
   br i1 %exitcond195, label %for.body113.preheader, label %for.body100
@@ -274,12 +274,12 @@ for.cond.cleanup112:                              ; preds = %for.body113
 
 for.body113:                                      ; preds = %for.body113.preheader, %for.body113
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body113 ], [ 0, %for.body113.preheader ]
-  %arrayidx115 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  %18 = load i32, i32* %arrayidx115, align 4
-  %arrayidx117 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  %19 = load i32, i32* %arrayidx117, align 4
+  %arrayidx115 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  %18 = load i32, ptr %arrayidx115, align 4
+  %arrayidx117 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  %19 = load i32, ptr %arrayidx117, align 4
   %add118 = add nsw i32 %19, %18
-  store i32 %add118, i32* %arrayidx117, align 4
+  store i32 %add118, ptr %arrayidx117, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.cond.cleanup112, label %for.body113

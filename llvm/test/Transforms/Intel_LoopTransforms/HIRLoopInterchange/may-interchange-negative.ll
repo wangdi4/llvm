@@ -41,17 +41,17 @@ for.body3:                                        ; preds = %for.inc27, %for.con
   %0 = trunc i64 %indvars.iv54 to i32
   %mul4 = mul nsw i32 %mul, %0
   %1 = zext i32 %mul4 to i64
-  %arrayidx8 = getelementptr inbounds [100 x [100 x [100 x i8]]], [100 x [100 x [100 x i8]]]* @B, i64 0, i64 %1, i64 %indvars.iv57, i64 %indvars.iv54
-  %2 = load i8, i8* %arrayidx8, align 1, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [100 x [100 x [100 x i8]]], ptr @B, i64 0, i64 %1, i64 %indvars.iv57, i64 %indvars.iv54
+  %2 = load i8, ptr %arrayidx8, align 1, !tbaa !2
   br label %for.body12
 
 for.body12:                                       ; preds = %for.body12, %for.body3
   %indvars.iv = phi i64 [ 0, %for.body3 ], [ %indvars.iv.next, %for.body12 ]
-  %arrayidx18 = getelementptr inbounds [100 x [100 x [100 x i8]]], [100 x [100 x [100 x i8]]]* @B, i64 0, i64 %indvars.iv57, i64 %indvars.iv54, i64 %indvars.iv
-  %3 = load i8, i8* %arrayidx18, align 1, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [100 x [100 x [100 x i8]]], ptr @B, i64 0, i64 %indvars.iv57, i64 %indvars.iv54, i64 %indvars.iv
+  %3 = load i8, ptr %arrayidx18, align 1, !tbaa !2
   %add = add i8 %3, %2
-  %arrayidx26 = getelementptr inbounds [100 x [100 x [100 x i8]]], [100 x [100 x [100 x i8]]]* @A, i64 0, i64 %indvars.iv54, i64 %indvars.iv, i64 %indvars.iv
-  store i8 %add, i8* %arrayidx26, align 1, !tbaa !2
+  %arrayidx26 = getelementptr inbounds [100 x [100 x [100 x i8]]], ptr @A, i64 0, i64 %indvars.iv54, i64 %indvars.iv, i64 %indvars.iv
+  store i8 %add, ptr %arrayidx26, align 1, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.inc27, label %for.body12

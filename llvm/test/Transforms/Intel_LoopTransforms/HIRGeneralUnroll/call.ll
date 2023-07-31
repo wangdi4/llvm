@@ -68,8 +68,8 @@ for.cond1.preheader:                              ; preds = %for.inc6, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv20
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv20
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add nsw i32 %1, %0
   %call = tail call i32 @foo1(i32 %add)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -83,15 +83,15 @@ for.inc6:                                         ; preds = %for.body3
 
 for.end8:                                         ; preds = %for.inc6
   %add9 = add nsw i32 %add, 5
-  store i32 %add9, i32* getelementptr inbounds ([1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 5, i64 5), align 4
+  store i32 %add9, ptr getelementptr inbounds ([1000 x [1000 x i32]], ptr @A, i64 0, i64 5, i64 5), align 4
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 declare i32 @foo1(i32)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 

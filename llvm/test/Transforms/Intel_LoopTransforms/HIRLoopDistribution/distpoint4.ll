@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @sub(i32 %n) local_unnamed_addr #0 {
 entry:
-  %0 = load float, float* getelementptr inbounds ([1000 x float], [1000 x float]* @a3, i64 0, i64 5), align 4, !tbaa !2
+  %0 = load float, ptr getelementptr inbounds ([1000 x float], ptr @a3, i64 0, i64 5), align 4, !tbaa !2
   %cmp24 = icmp sgt i32 %n, 0
   br i1 %cmp24, label %for.body.lr.ph, label %for.end
 
@@ -42,27 +42,27 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @a1, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @a1, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %conv1 = fpext float %1 to double
   %add = fadd double %sub, %conv1
   %conv2 = fptrunc double %add to float
-  store float %conv2, float* %arrayidx, align 4, !tbaa !2
+  store float %conv2, ptr %arrayidx, align 4, !tbaa !2
   %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  %arrayidx6 = getelementptr inbounds [1000 x float], [1000 x float]* @a2, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [1000 x float], ptr @a2, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx6, align 4, !tbaa !2
   %conv7 = fpext float %3 to double
   %add8 = fadd double %add4, %conv7
   %conv9 = fptrunc double %add8 to float
-  store float %conv9, float* %arrayidx6, align 4, !tbaa !2
+  store float %conv9, ptr %arrayidx6, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %4 = trunc i64 %indvars.iv to i32
   %conv10 = sitofp i32 %4 to float
   %add11 = fadd float %0, %conv10
-  %arrayidx13 = getelementptr inbounds [1000 x float], [1000 x float]* @a3, i64 0, i64 %indvars.iv
-  %5 = load float, float* %arrayidx13, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [1000 x float], ptr @a3, i64 0, i64 %indvars.iv
+  %5 = load float, ptr %arrayidx13, align 4, !tbaa !2
   %add14 = fadd float %add11, %5
-  store float %add14, float* %arrayidx13, align 4, !tbaa !2
+  store float %add14, ptr %arrayidx13, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body

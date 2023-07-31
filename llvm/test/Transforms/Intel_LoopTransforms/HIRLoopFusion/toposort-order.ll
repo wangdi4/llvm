@@ -53,15 +53,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @j() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @g, align 4
+  %.pr = load i32, ptr @g, align 4
   %tobool41 = icmp eq i32 %.pr, 0
   br i1 %tobool41, label %for.end34, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %0 = load i8, i8* @d, align 1
+  %0 = load i8, ptr @d, align 1
   %conv21 = sext i8 %0 to i32
-  %i.promoted42 = load i32, i32* @i, align 4
-  %c.promoted = load i32, i32* @c, align 4
+  %i.promoted42 = load i32, ptr @i, align 4
+  %c.promoted = load i32, ptr @c, align 4
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.inc32
@@ -102,10 +102,10 @@ for.cond16.preheader:                             ; preds = %for.body8
 
 for.body8:                                        ; preds = %for.body8, %for.end
   %indvars.iv = phi i64 [ 0, %for.end ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx = getelementptr inbounds [5 x i16], [5 x i16]* @b, i64 0, i64 %indvars.iv
-  %4 = load i16, i16* %arrayidx, align 2
+  %arrayidx = getelementptr inbounds [5 x i16], ptr @b, i64 0, i64 %indvars.iv
+  %4 = load i16, ptr %arrayidx, align 2
   %sub = sub i16 0, %4
-  store i16 %sub, i16* %arrayidx, align 2
+  store i16 %sub, ptr %arrayidx, align 2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond45 = icmp eq i64 %indvars.iv.next, 3
   %indvars.iv.in51 = bitcast i64 %indvars.iv.next to i64
@@ -113,8 +113,8 @@ for.body8:                                        ; preds = %for.body8, %for.end
 
 for.body19:                                       ; preds = %for.cond16.preheader, %for.body19
   %indvars.iv46 = phi i64 [ 0, %for.cond16.preheader ], [ %indvars.iv.next47, %for.body19 ]
-  %arrayidx28 = getelementptr inbounds [5 x i16], [5 x i16]* @b, i64 0, i64 %indvars.iv46
-  store i16 %conv26, i16* %arrayidx28, align 2
+  %arrayidx28 = getelementptr inbounds [5 x i16], ptr @b, i64 0, i64 %indvars.iv46
+  store i16 %conv26, ptr %arrayidx28, align 2
   %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 1
   %cmp17 = icmp ult i64 %indvars.iv.next47, 3
   %indvars.iv46.in52 = bitcast i64 %indvars.iv.next47 to i64
@@ -130,12 +130,12 @@ for.inc32:                                        ; preds = %for.body19
 for.cond.for.end34_crit_edge:                     ; preds = %for.inc32
   %and.lcssa = phi i32 [ %and, %for.inc32 ]
   %conv.le.lcssa = phi i8 [ %conv.le, %for.inc32 ]
-  store i32 0, i32* @i, align 4
-  store i8 %conv.le.lcssa, i8* @h, align 1
-  store i32 5, i32* @f, align 4
-  store i32 6, i32* @e, align 4
-  store i32 %and.lcssa, i32* @c, align 4
-  store i32 0, i32* @g, align 4
+  store i32 0, ptr @i, align 4
+  store i8 %conv.le.lcssa, ptr @h, align 1
+  store i32 5, ptr @f, align 4
+  store i32 6, ptr @e, align 4
+  store i32 %and.lcssa, ptr @c, align 4
+  store i32 0, ptr @g, align 4
   br label %for.end34
 
 for.end34:                                        ; preds = %for.cond.for.end34_crit_edge, %entry

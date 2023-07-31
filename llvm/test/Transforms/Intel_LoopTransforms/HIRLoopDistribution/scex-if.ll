@@ -115,45 +115,44 @@
 @neglect_ = external unnamed_addr global [24 x i8], align 32
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8, i64, i64, i64*, i64) #0
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare double @llvm.sqrt.f64(double) #1
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @prec4neg_1_(i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NBLS_N0", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_N0", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$IJ", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$KL", i64* noalias nocapture readnone dereferenceable(8) %"prec4neg_1_$LC12", i64* noalias nocapture readnone dereferenceable(8) %"prec4neg_1_$LC34", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$ESTAB", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$ESTCD", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$APB", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$CPD", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$COEFIJ", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$COEFKL", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$XP", double* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$XQ", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_IJ", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_KL", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NIJ_UNIQE", i64* noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NKL_UNIQE", double* noalias nocapture dereferenceable(8) %"prec4neg_1_$RPPQ", double* noalias nocapture dereferenceable(8) %"prec4neg_1_$RHOAPB", double* noalias nocapture dereferenceable(8) %"prec4neg_1_$RHOCPD", double* noalias nocapture dereferenceable(8) %"prec4neg_1_$RYS", double* noalias nocapture dereferenceable(8) %"prec4neg_1_$CONST", i64* noalias nocapture dereferenceable(8) %"prec4neg_1_$NBLS1", i64* noalias nocapture dereferenceable(8) %"prec4neg_1_$INDEX") local_unnamed_addr #2 {
+define void @prec4neg_1_(ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NBLS_N0", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_N0", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$IJ", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$KL", ptr noalias nocapture readnone dereferenceable(8) %"prec4neg_1_$LC12", ptr noalias nocapture readnone dereferenceable(8) %"prec4neg_1_$LC34", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$ESTAB", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$ESTCD", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$APB", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$CPD", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$COEFIJ", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$COEFKL", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$XP", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$XQ", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_IJ", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$MAP_KL", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NIJ_UNIQE", ptr noalias nocapture readonly dereferenceable(8) %"prec4neg_1_$NKL_UNIQE", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$RPPQ", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$RHOAPB", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$RHOCPD", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$RYS", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$CONST", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$NBLS1", ptr noalias nocapture dereferenceable(8) %"prec4neg_1_$INDEX") local_unnamed_addr #2 {
 alloca_9:
-  %"prec4neg_1_$NIJ_UNIQE_fetch.1116" = load i64, i64* %"prec4neg_1_$NIJ_UNIQE", align 1, !tbaa !0
-  %"prec4neg_1_$NKL_UNIQE_fetch.1118" = load i64, i64* %"prec4neg_1_$NKL_UNIQE", align 1, !tbaa !4
+  %"prec4neg_1_$NIJ_UNIQE_fetch.1116" = load i64, ptr %"prec4neg_1_$NIJ_UNIQE", align 1, !tbaa !0
+  %"prec4neg_1_$NKL_UNIQE_fetch.1118" = load i64, ptr %"prec4neg_1_$NKL_UNIQE", align 1, !tbaa !4
   %mul.147 = shl nsw i64 %"prec4neg_1_$NIJ_UNIQE_fetch.1116", 3
   %mul.149 = shl nsw i64 %"prec4neg_1_$NKL_UNIQE_fetch.1118", 3
-  %"prec4neg_1_$NBLS_N0_fetch.1124" = load i64, i64* %"prec4neg_1_$NBLS_N0", align 1, !tbaa !6
+  %"prec4neg_1_$NBLS_N0_fetch.1124" = load i64, ptr %"prec4neg_1_$NBLS_N0", align 1, !tbaa !6
   %rel.108 = icmp slt i64 %"prec4neg_1_$NBLS_N0_fetch.1124", 1
   br i1 %rel.108, label %bb209, label %bb208.preheader
 
 bb208.preheader:                                  ; preds = %alloca_9
   %mul.166 = mul nsw i64 %"prec4neg_1_$NKL_UNIQE_fetch.1118", 24
   %mul.162 = mul nsw i64 %"prec4neg_1_$NIJ_UNIQE_fetch.1116", 24
-  %"prec4neg_1_$IJ_fetch.1135" = load i64, i64* %"prec4neg_1_$IJ", align 1, !tbaa !8
-  %"prec4neg_1_$APB[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$APB", i64 %"prec4neg_1_$IJ_fetch.1135")
-  %"prec4neg_1_$KL_fetch.1142" = load i64, i64* %"prec4neg_1_$KL", align 1, !tbaa !10
-  %"prec4neg_1_$CPD[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$CPD", i64 %"prec4neg_1_$KL_fetch.1142")
-  %"prec4neg_1_$ESTAB[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$ESTAB", i64 %"prec4neg_1_$IJ_fetch.1135")
-  %"prec4neg_1_$ESTCD[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$ESTCD", i64 %"prec4neg_1_$KL_fetch.1142")
-  %fetch.1169 = load double, double* bitcast (i8* getelementptr inbounds ([24 x i8], [24 x i8]* @neglect_, i64 0, i64 16) to double*), align 16, !tbaa !12
-  %"prec4neg_1_$XP[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.162, double* nonnull elementtype(double) %"prec4neg_1_$XP", i64 %"prec4neg_1_$IJ_fetch.1135")
-  %"prec4neg_1_$XP[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 1)
-  %"prec4neg_1_$XQ[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.166, double* nonnull elementtype(double) %"prec4neg_1_$XQ", i64 %"prec4neg_1_$KL_fetch.1142")
-  %"prec4neg_1_$XQ[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 1)
-  %"prec4neg_1_$XP[][]3" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 2)
-  %"prec4neg_1_$XQ[][]6" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 2)
-  %"prec4neg_1_$XP[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 3)
-  %"prec4neg_1_$XQ[][]12" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 3)
-  %"prec4neg_1_$COEFIJ[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.147, double* nonnull elementtype(double) %"prec4neg_1_$COEFIJ", i64 %"prec4neg_1_$IJ_fetch.1135")
-  %"prec4neg_1_$COEFKL[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.149, double* nonnull elementtype(double) %"prec4neg_1_$COEFKL", i64 %"prec4neg_1_$KL_fetch.1142")
+  %"prec4neg_1_$IJ_fetch.1135" = load i64, ptr %"prec4neg_1_$IJ", align 1, !tbaa !8
+  %"prec4neg_1_$APB[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$APB", i64 %"prec4neg_1_$IJ_fetch.1135")
+  %"prec4neg_1_$KL_fetch.1142" = load i64, ptr %"prec4neg_1_$KL", align 1, !tbaa !10
+  %"prec4neg_1_$CPD[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$CPD", i64 %"prec4neg_1_$KL_fetch.1142")
+  %"prec4neg_1_$ESTAB[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$ESTAB", i64 %"prec4neg_1_$IJ_fetch.1135")
+  %"prec4neg_1_$ESTCD[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$ESTCD", i64 %"prec4neg_1_$KL_fetch.1142")
+  %fetch.1169 = load double, ptr getelementptr inbounds ([24 x i8], ptr @neglect_, i64 0, i64 16), align 16, !tbaa !12
+  %"prec4neg_1_$XP[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.162, ptr nonnull elementtype(double) %"prec4neg_1_$XP", i64 %"prec4neg_1_$IJ_fetch.1135")
+  %"prec4neg_1_$XP[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 1)
+  %"prec4neg_1_$XQ[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.166, ptr nonnull elementtype(double) %"prec4neg_1_$XQ", i64 %"prec4neg_1_$KL_fetch.1142")
+  %"prec4neg_1_$XQ[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 1)
+  %"prec4neg_1_$XP[][]3" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 2)
+  %"prec4neg_1_$XQ[][]6" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 2)
+  %"prec4neg_1_$XP[][]9" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$XP[]", i64 3)
+  %"prec4neg_1_$XQ[][]12" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[]", i64 3)
+  %"prec4neg_1_$COEFIJ[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.147, ptr nonnull elementtype(double) %"prec4neg_1_$COEFIJ", i64 %"prec4neg_1_$IJ_fetch.1135")
+  %"prec4neg_1_$COEFKL[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.149, ptr nonnull elementtype(double) %"prec4neg_1_$COEFKL", i64 %"prec4neg_1_$KL_fetch.1142")
   %0 = add nuw nsw i64 %"prec4neg_1_$NBLS_N0_fetch.1124", 1
   br label %bb208
 
@@ -164,25 +163,25 @@ bb208:                                            ; preds = %bb217_endif, %bb208
   %"prec4neg_1_$ABPCDR.0" = phi double [ %2, %bb217_endif ], [ 0.000000e+00, %bb208.preheader ]
   %"prec4neg_1_$IJKL1.0" = phi i64 [ %"prec4neg_1_$IJKL1.1", %bb217_endif ], [ 0, %bb208.preheader ]
   %"prec4neg_1_$IJKLP.0" = phi i64 [ %add.112, %bb217_endif ], [ 1, %bb208.preheader ]
-  %"prec4neg_1_$MAP_N0[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* nonnull elementtype(i64) %"prec4neg_1_$MAP_N0", i64 %"prec4neg_1_$IJKLP.0")
-  %"prec4neg_1_$MAP_N0[]_fetch.1127" = load i64, i64* %"prec4neg_1_$MAP_N0[]", align 1, !tbaa !14
-  %"prec4neg_1_$MAP_IJ[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* nonnull elementtype(i64) %"prec4neg_1_$MAP_IJ", i64 %"prec4neg_1_$MAP_N0[]_fetch.1127")
-  %"prec4neg_1_$MAP_IJ[]_fetch.1129" = load i64, i64* %"prec4neg_1_$MAP_IJ[]", align 1, !tbaa !16
-  %"prec4neg_1_$MAP_KL[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* nonnull elementtype(i64) %"prec4neg_1_$MAP_KL", i64 %"prec4neg_1_$MAP_N0[]_fetch.1127")
-  %"prec4neg_1_$MAP_KL[]_fetch.1131" = load i64, i64* %"prec4neg_1_$MAP_KL[]", align 1, !tbaa !18
-  %"prec4neg_1_$APB[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$APB[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$APB[][]_fetch.1138" = load double, double* %"prec4neg_1_$APB[][]", align 1, !tbaa !20
-  %"prec4neg_1_$CPD[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$CPD[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$CPD[][]_fetch.1145" = load double, double* %"prec4neg_1_$CPD[][]", align 1, !tbaa !22
+  %"prec4neg_1_$MAP_N0[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(i64) %"prec4neg_1_$MAP_N0", i64 %"prec4neg_1_$IJKLP.0")
+  %"prec4neg_1_$MAP_N0[]_fetch.1127" = load i64, ptr %"prec4neg_1_$MAP_N0[]", align 1, !tbaa !14
+  %"prec4neg_1_$MAP_IJ[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(i64) %"prec4neg_1_$MAP_IJ", i64 %"prec4neg_1_$MAP_N0[]_fetch.1127")
+  %"prec4neg_1_$MAP_IJ[]_fetch.1129" = load i64, ptr %"prec4neg_1_$MAP_IJ[]", align 1, !tbaa !16
+  %"prec4neg_1_$MAP_KL[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(i64) %"prec4neg_1_$MAP_KL", i64 %"prec4neg_1_$MAP_N0[]_fetch.1127")
+  %"prec4neg_1_$MAP_KL[]_fetch.1131" = load i64, ptr %"prec4neg_1_$MAP_KL[]", align 1, !tbaa !18
+  %"prec4neg_1_$APB[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$APB[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$APB[][]_fetch.1138" = load double, ptr %"prec4neg_1_$APB[][]", align 1, !tbaa !20
+  %"prec4neg_1_$CPD[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$CPD[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$CPD[][]_fetch.1145" = load double, ptr %"prec4neg_1_$CPD[][]", align 1, !tbaa !22
   %add.100 = fadd reassoc ninf nsz arcp contract afn double %"prec4neg_1_$APB[][]_fetch.1138", %"prec4neg_1_$CPD[][]_fetch.1145"
   %rel.109 = fcmp reassoc ninf nsz arcp contract afn une double %add.100, %"prec4neg_1_$ABPCD1R.0"
   %div.8 = fdiv reassoc ninf nsz arcp contract afn double 1.000000e+00, %add.100
   %1 = select i1 %rel.109, double %add.100, double %"prec4neg_1_$ABPCD1R.0"
   %2 = select i1 %rel.109, double %div.8, double %"prec4neg_1_$ABPCDR.0"
-  %"prec4neg_1_$ESTAB[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$ESTAB[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$ESTAB[][]_fetch.1159" = load double, double* %"prec4neg_1_$ESTAB[][]", align 1, !tbaa !24
-  %"prec4neg_1_$ESTCD[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$ESTCD[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$ESTCD[][]_fetch.1166" = load double, double* %"prec4neg_1_$ESTCD[][]", align 1, !tbaa !26
+  %"prec4neg_1_$ESTAB[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$ESTAB[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$ESTAB[][]_fetch.1159" = load double, ptr %"prec4neg_1_$ESTAB[][]", align 1, !tbaa !24
+  %"prec4neg_1_$ESTCD[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$ESTCD[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$ESTCD[][]_fetch.1166" = load double, ptr %"prec4neg_1_$ESTCD[][]", align 1, !tbaa !26
   %mul.155 = fmul reassoc ninf nsz arcp contract afn double %"prec4neg_1_$ESTAB[][]_fetch.1159", %"prec4neg_1_$ESTCD[][]_fetch.1166"
   %mul.156 = fmul reassoc ninf nsz arcp contract afn double %mul.155, %2
   %rel.110 = fcmp reassoc ninf nsz arcp contract afn ogt double %mul.156, %fetch.1169
@@ -190,32 +189,32 @@ bb208:                                            ; preds = %bb217_endif, %bb208
 
 bb_new543_then:                                   ; preds = %bb208
   %add.103 = add nsw i64 %"prec4neg_1_$IJKL1.0", 1
-  %"prec4neg_1_$INDEX[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* nonnull elementtype(i64) %"prec4neg_1_$INDEX", i64 %add.103)
-  store i64 %"prec4neg_1_$IJKLP.0", i64* %"prec4neg_1_$INDEX[]", align 1, !tbaa !28
-  %"prec4neg_1_$RPPQ[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$RPPQ", i64 %add.103)
-  store double %2, double* %"prec4neg_1_$RPPQ[]", align 1, !tbaa !30
+  %"prec4neg_1_$INDEX[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(i64) %"prec4neg_1_$INDEX", i64 %add.103)
+  store i64 %"prec4neg_1_$IJKLP.0", ptr %"prec4neg_1_$INDEX[]", align 1, !tbaa !28
+  %"prec4neg_1_$RPPQ[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$RPPQ", i64 %add.103)
+  store double %2, ptr %"prec4neg_1_$RPPQ[]", align 1, !tbaa !30
   %mul.157 = fmul reassoc ninf nsz arcp contract afn double %"prec4neg_1_$CPD[][]_fetch.1145", %2
-  %"prec4neg_1_$RHOAPB[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$RHOAPB", i64 %add.103)
-  store double %mul.157, double* %"prec4neg_1_$RHOAPB[]", align 1, !tbaa !32
+  %"prec4neg_1_$RHOAPB[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$RHOAPB", i64 %add.103)
+  store double %mul.157, ptr %"prec4neg_1_$RHOAPB[]", align 1, !tbaa !32
   %mul.158 = fmul reassoc ninf nsz arcp contract afn double %"prec4neg_1_$APB[][]_fetch.1138", %2
-  %"prec4neg_1_$RHOCPD[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$RHOCPD", i64 %add.103)
-  store double %mul.158, double* %"prec4neg_1_$RHOCPD[]", align 1, !tbaa !34
+  %"prec4neg_1_$RHOCPD[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$RHOCPD", i64 %add.103)
+  store double %mul.158, ptr %"prec4neg_1_$RHOCPD[]", align 1, !tbaa !34
   %mul.159 = fmul reassoc ninf nsz arcp contract afn double %"prec4neg_1_$APB[][]_fetch.1138", %"prec4neg_1_$CPD[][]_fetch.1145"
   %mul.160 = fmul reassoc ninf nsz arcp contract afn double %mul.159, %2
-  %"prec4neg_1_$XP[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XP[][]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$XP[][][]_fetch.1193" = load double, double* %"prec4neg_1_$XP[][][]", align 1, !tbaa !36
-  %"prec4neg_1_$XQ[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XQ[][]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$XQ[][][]_fetch.1202" = load double, double* %"prec4neg_1_$XQ[][][]", align 1, !tbaa !38
+  %"prec4neg_1_$XP[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XP[][]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$XP[][][]_fetch.1193" = load double, ptr %"prec4neg_1_$XP[][][]", align 1, !tbaa !36
+  %"prec4neg_1_$XQ[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[][]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$XQ[][][]_fetch.1202" = load double, ptr %"prec4neg_1_$XQ[][][]", align 1, !tbaa !38
   %sub.11 = fsub reassoc ninf nsz arcp contract afn double %"prec4neg_1_$XP[][][]_fetch.1193", %"prec4neg_1_$XQ[][][]_fetch.1202"
-  %"prec4neg_1_$XP[][][]4" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XP[][]3", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$XP[][][]_fetch.1208" = load double, double* %"prec4neg_1_$XP[][][]4", align 1, !tbaa !36
-  %"prec4neg_1_$XQ[][][]7" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XQ[][]6", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$XQ[][][]_fetch.1214" = load double, double* %"prec4neg_1_$XQ[][][]7", align 1, !tbaa !38
+  %"prec4neg_1_$XP[][][]4" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XP[][]3", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$XP[][][]_fetch.1208" = load double, ptr %"prec4neg_1_$XP[][][]4", align 1, !tbaa !36
+  %"prec4neg_1_$XQ[][][]7" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[][]6", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$XQ[][][]_fetch.1214" = load double, ptr %"prec4neg_1_$XQ[][][]7", align 1, !tbaa !38
   %sub.12 = fsub reassoc ninf nsz arcp contract afn double %"prec4neg_1_$XP[][][]_fetch.1208", %"prec4neg_1_$XQ[][][]_fetch.1214"
-  %"prec4neg_1_$XP[][][]10" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XP[][]9", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$XP[][][]_fetch.1220" = load double, double* %"prec4neg_1_$XP[][][]10", align 1, !tbaa !36
-  %"prec4neg_1_$XQ[][][]13" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$XQ[][]12", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$XQ[][][]_fetch.1226" = load double, double* %"prec4neg_1_$XQ[][][]13", align 1, !tbaa !38
+  %"prec4neg_1_$XP[][][]10" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XP[][]9", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$XP[][][]_fetch.1220" = load double, ptr %"prec4neg_1_$XP[][][]10", align 1, !tbaa !36
+  %"prec4neg_1_$XQ[][][]13" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$XQ[][]12", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$XQ[][][]_fetch.1226" = load double, ptr %"prec4neg_1_$XQ[][][]13", align 1, !tbaa !38
   %sub.13 = fsub reassoc ninf nsz arcp contract afn double %"prec4neg_1_$XP[][][]_fetch.1220", %"prec4neg_1_$XQ[][][]_fetch.1226"
   %mul.169 = fmul reassoc ninf nsz arcp contract afn double %sub.11, %sub.11
   %mul.170 = fmul reassoc ninf nsz arcp contract afn double %sub.12, %sub.12
@@ -223,20 +222,20 @@ bb_new543_then:                                   ; preds = %bb208
   %mul.171 = fmul reassoc ninf nsz arcp contract afn double %sub.13, %sub.13
   %add.109 = fadd reassoc ninf nsz arcp contract afn double %add.108, %mul.171
   %mul.172 = fmul reassoc ninf nsz arcp contract afn double %mul.160, %add.109
-  %"prec4neg_1_$RYS[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$RYS", i64 %add.103)
-  store double %mul.172, double* %"prec4neg_1_$RYS[]", align 1, !tbaa !40
+  %"prec4neg_1_$RYS[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$RYS", i64 %add.103)
+  store double %mul.172, ptr %"prec4neg_1_$RYS[]", align 1, !tbaa !40
   %rel.111 = fcmp reassoc ninf nsz arcp contract afn une double %2, %"prec4neg_1_$RPOLD.0"
   %func_result = tail call reassoc ninf nsz arcp contract afn double @llvm.sqrt.f64(double %2)
   %3 = select i1 %rel.111, double %func_result, double %"prec4neg_1_$SQRPOLD.0"
   %4 = select i1 %rel.111, double %2, double %"prec4neg_1_$RPOLD.0"
-  %"prec4neg_1_$COEFIJ[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$COEFIJ[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
-  %"prec4neg_1_$COEFIJ[][]_fetch.1246" = load double, double* %"prec4neg_1_$COEFIJ[][]", align 1, !tbaa !42
-  %"prec4neg_1_$COEFKL[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$COEFKL[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
-  %"prec4neg_1_$COEFKL[][]_fetch.1253" = load double, double* %"prec4neg_1_$COEFKL[][]", align 1, !tbaa !44
+  %"prec4neg_1_$COEFIJ[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$COEFIJ[]", i64 %"prec4neg_1_$MAP_IJ[]_fetch.1129")
+  %"prec4neg_1_$COEFIJ[][]_fetch.1246" = load double, ptr %"prec4neg_1_$COEFIJ[][]", align 1, !tbaa !42
+  %"prec4neg_1_$COEFKL[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$COEFKL[]", i64 %"prec4neg_1_$MAP_KL[]_fetch.1131")
+  %"prec4neg_1_$COEFKL[][]_fetch.1253" = load double, ptr %"prec4neg_1_$COEFKL[][]", align 1, !tbaa !44
   %mul.177 = fmul reassoc ninf nsz arcp contract afn double %"prec4neg_1_$COEFIJ[][]_fetch.1246", %"prec4neg_1_$COEFKL[][]_fetch.1253"
   %mul.178 = fmul reassoc ninf nsz arcp contract afn double %3, %mul.177
-  %"prec4neg_1_$CONST[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"prec4neg_1_$CONST", i64 %add.103)
-  store double %mul.178, double* %"prec4neg_1_$CONST[]", align 1, !tbaa !46
+  %"prec4neg_1_$CONST[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"prec4neg_1_$CONST", i64 %add.103)
+  store double %mul.178, ptr %"prec4neg_1_$CONST[]", align 1, !tbaa !46
   br label %bb217_endif
 
 bb217_endif:                                      ; preds = %bb_new543_then, %bb208
@@ -253,7 +252,7 @@ bb209.loopexit:                                   ; preds = %bb217_endif
 
 bb209:                                            ; preds = %bb209.loopexit, %alloca_9
   %"prec4neg_1_$IJKL1.2" = phi i64 [ 0, %alloca_9 ], [ %"prec4neg_1_$IJKL1.1.lcssa", %bb209.loopexit ]
-  store i64 %"prec4neg_1_$IJKL1.2", i64* %"prec4neg_1_$NBLS1", align 1, !tbaa !48
+  store i64 %"prec4neg_1_$IJKL1.2", ptr %"prec4neg_1_$NBLS1", align 1, !tbaa !48
   ret void
 }
 

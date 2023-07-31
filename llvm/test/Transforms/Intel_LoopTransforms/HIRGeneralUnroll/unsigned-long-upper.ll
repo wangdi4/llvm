@@ -30,12 +30,12 @@ for.body:                                         ; preds = %for.body, %entry
   %i.08 = phi i64 [ 1, %entry ], [ %inc, %for.body ]
   %sub = add i64 %i.08, -1
   %rem = urem i64 %sub, 50
-  %arrayidx = getelementptr inbounds [50 x i64], [50 x i64]* @A, i64 0, i64 %rem
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [50 x i64], ptr @A, i64 0, i64 %rem
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add i64 %0, %i.08
   %rem1 = urem i64 %i.08, 50
-  %arrayidx2 = getelementptr inbounds [50 x i64], [50 x i64]* @A, i64 0, i64 %rem1
-  store i64 %add, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds [50 x i64], ptr @A, i64 0, i64 %rem1
+  store i64 %add, ptr %arrayidx2, align 8
   %inc = add nuw i64 %i.08, 1
   %exitcond = icmp eq i64 %inc, -1152921504606846977
   br i1 %exitcond, label %for.end, label %for.body

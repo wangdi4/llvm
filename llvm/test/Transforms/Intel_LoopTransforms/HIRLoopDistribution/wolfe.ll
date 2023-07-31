@@ -64,30 +64,30 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 1, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd float %0, %1
-  %arrayidx4 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx4, align 4
-  %arrayidx8 = getelementptr inbounds [100 x float], [100 x float]* @E, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx8, align 4
-  %reload = load float, float* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx4, align 4
+  %arrayidx8 = getelementptr inbounds [100 x float], ptr @E, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx8, align 4
+  %reload = load float, ptr %arrayidx4, align 4
   %div = fdiv float %reload, %2
-  %arrayidx10 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %indvars.iv
-  store float %div, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %indvars.iv
+  store float %div, ptr %arrayidx10, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx15 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %indvars.iv.next
-  %3 = load float, float* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %indvars.iv.next
+  %3 = load float, ptr %arrayidx15, align 4
   %add16 = fadd float %div, %3
   %conv18 = fmul float %add16, 5.000000e-01
-  %arrayidx21 = getelementptr inbounds [100 x float], [100 x float]* @E, i64 0, i64 %indvars.iv.next
-  store float %conv18, float* %arrayidx21, align 4
-  %4 = load float, float* %arrayidx8, align 4
+  %arrayidx21 = getelementptr inbounds [100 x float], ptr @E, i64 0, i64 %indvars.iv.next
+  store float %conv18, ptr %arrayidx21, align 4
+  %4 = load float, ptr %arrayidx8, align 4
   %mul = fmul float %4, %4
-  %arrayidx27 = getelementptr inbounds [100 x float], [100 x float]* @F, i64 0, i64 %indvars.iv
-  store float %mul, float* %arrayidx27, align 4
+  %arrayidx27 = getelementptr inbounds [100 x float], ptr @F, i64 0, i64 %indvars.iv
+  store float %mul, ptr %arrayidx27, align 4
   %exitcond = icmp ne i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.body, label %for.end
 
@@ -96,8 +96,8 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 

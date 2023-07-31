@@ -3,7 +3,7 @@
 ;
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+
 ;
 ;*** IR Dump Before HIR Temp Cleanup (hir-temp-cleanup) ***
 ;Function: sub
@@ -43,7 +43,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @sub(float* noalias nocapture readonly %p, float* noalias nocapture %q) local_unnamed_addr #0 {
+define dso_local void @sub(ptr noalias nocapture readonly %p, ptr noalias nocapture %q) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -53,18 +53,18 @@ for.cond.cleanup:                                 ; preds = %for.inc
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %m.010 = phi i32 [ 0, %entry ], [ %m.1, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !3
   %cmp1 = fcmp fast ogt float %0, 0.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %inc = add nsw i32 %m.010, 1
   %idxprom3 = sext i32 %m.010 to i64
-  %arrayidx4 = getelementptr inbounds float, float* %q, i64 %idxprom3
-  %1 = load float, float* %arrayidx4, align 4, !tbaa !3
+  %arrayidx4 = getelementptr inbounds float, ptr %q, i64 %idxprom3
+  %1 = load float, ptr %arrayidx4, align 4, !tbaa !3
   %add = fadd fast float %1, 1.000000e+00
-  store float %add, float* %arrayidx4, align 4, !tbaa !3
+  store float %add, ptr %arrayidx4, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

@@ -54,7 +54,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(float* noalias nocapture %p1, i64* noalias nocapture readonly %q1, float* noalias nocapture %p2, i64* noalias nocapture readonly %q2, float* noalias nocapture readnone %p, float* noalias nocapture readnone %q) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %p1, ptr noalias nocapture readonly %q1, ptr noalias nocapture %p2, ptr noalias nocapture readonly %q2, ptr noalias nocapture readnone %p, ptr noalias nocapture readnone %q) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -67,24 +67,24 @@ for.body:                                         ; preds = %for.body, %entry
   %mul1 = mul i64 %mul, %i.022
   %conv = uitofp i64 %mul1 to float
   %add = fadd float %conv, 0x3FB99999A0000000
-  %arrayidx = getelementptr inbounds i64, i64* %q1, i64 %i.022
-  %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds float, float* %p1, i64 %0
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %q1, i64 %i.022
+  %0 = load i64, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds float, ptr %p1, i64 %0
+  %1 = load float, ptr %arrayidx2, align 4
   %add3 = fadd float %add, %1
-  store float %add3, float* %arrayidx2, align 4
+  store float %add3, ptr %arrayidx2, align 4
   %mul4 = mul nuw nsw i64 %i.022, 3
   %mul5 = mul i64 %mul4, %i.022
   %mul6 = mul i64 %mul5, %i.022
   %add7 = add nuw nsw i64 %mul6, 1
   %conv8 = uitofp i64 %add7 to float
   %add9 = fadd float %conv8, 0x3FC99999A0000000
-  %arrayidx10 = getelementptr inbounds i64, i64* %q2, i64 %i.022
-  %2 = load i64, i64* %arrayidx10, align 8
-  %arrayidx11 = getelementptr inbounds float, float* %p2, i64 %2
-  %3 = load float, float* %arrayidx11, align 4
+  %arrayidx10 = getelementptr inbounds i64, ptr %q2, i64 %i.022
+  %2 = load i64, ptr %arrayidx10, align 8
+  %arrayidx11 = getelementptr inbounds float, ptr %p2, i64 %2
+  %3 = load float, ptr %arrayidx11, align 4
   %add12 = fadd float %add9, %3
-  store float %add12, float* %arrayidx11, align 4
+  store float %add12, ptr %arrayidx11, align 4
   %inc = add nuw nsw i64 %i.022, 1
   %exitcond = icmp eq i64 %inc, 64
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

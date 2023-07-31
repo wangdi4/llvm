@@ -39,7 +39,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @main.for.body(i32* %jh6, i32* %arrayidx, i32* %b, i32* %ia, i32 %0, i32* %arrayidx19, i32* %arrayidx21) #0 {
+define dso_local void @main.for.body(ptr %jh6, ptr %arrayidx, ptr %b, ptr %ia, i32 %0, ptr %arrayidx19, ptr %arrayidx21) #0 {
 newFuncRoot:
   br label %for.body
 
@@ -54,7 +54,7 @@ for.body:                                         ; preds = %newFuncRoot, %for.i
   br i1 %cmp3, label %for.cond4.preheader, label %for.inc27
 
 for.cond4.preheader:                              ; preds = %for.body
-  store i32 9, i32* %jh6, align 4
+  store i32 9, ptr %jh6, align 4
   br label %for.body6
 
 for.body6:                                        ; preds = %for.inc24, %for.cond4.preheader
@@ -64,18 +64,18 @@ for.body6:                                        ; preds = %for.inc24, %for.con
   br i1 %cmp7, label %if.end, label %for.inc24
 
 if.end:                                           ; preds = %for.body6
-  %1 = load i32, i32* %arrayidx, align 4
-  %2 = load i32, i32* %b, align 4
+  %1 = load i32, ptr %arrayidx, align 4
+  %2 = load i32, ptr %b, align 4
   %sub11 = sub i32 %2, %1
-  store i32 %sub11, i32* %b, align 4
-  %3 = load i32, i32* %ia, align 4
+  store i32 %sub11, ptr %b, align 4
+  %3 = load i32, ptr %ia, align 4
   %add = add i32 %3, %0
   %mul = mul i32 %add, %3
-  store i32 %mul, i32* %ia, align 4
-  %4 = load i32, i32* %arrayidx19, align 4
-  %5 = load i32, i32* %arrayidx21, align 4
+  store i32 %mul, ptr %ia, align 4
+  %4 = load i32, ptr %arrayidx19, align 4
+  %5 = load i32, ptr %arrayidx21, align 4
   %sub22 = sub i32 %5, %4
-  store i32 %sub22, i32* %arrayidx21, align 4
+  store i32 %sub22, ptr %arrayidx21, align 4
   br label %for.inc24
 
 for.inc24:                                        ; preds = %if.end, %for.body6
@@ -85,7 +85,7 @@ for.inc24:                                        ; preds = %if.end, %for.body6
   br i1 %exitcond, label %for.inc27.loopexit, label %for.body6
 
 for.inc27.loopexit:                               ; preds = %for.inc24
-  store i32 1, i32* %jh6, align 4
+  store i32 1, ptr %jh6, align 4
   br label %for.inc27
 
 for.inc27:                                        ; preds = %for.inc27.loopexit, %for.body

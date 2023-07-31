@@ -213,7 +213,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPiiiii(i32* nocapture noundef %a, i32 noundef %n, i32 noundef %m, i32 noundef %q, i32 noundef %p) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPiiiii(ptr nocapture noundef %a, i32 noundef %n, i32 noundef %m, i32 noundef %q, i32 noundef %p) local_unnamed_addr #0 {
 entry:
   %cmp155 = icmp sgt i32 %n, 0
   br i1 %cmp155, label %for.body.lr.ph, label %for.cond.cleanup
@@ -275,39 +275,39 @@ for.body9:                                        ; preds = %for.body9.lr.ph, %f
   br i1 %cmp10, label %if.then11, label %if.else
 
 if.then11:                                        ; preds = %for.body9
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv161
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !5
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv161
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !5
   %add = add nsw i32 %0, %j.0154
-  store i32 %add, i32* %arrayidx, align 4, !tbaa !5
+  store i32 %add, ptr %arrayidx, align 4, !tbaa !5
   br label %for.inc
 
 if.else:                                          ; preds = %for.body9
   br i1 %cmp12, label %if.then13, label %if.else25
 
 if.then13:                                        ; preds = %if.else
-  %arrayidx16 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv161
-  %1 = load i32, i32* %arrayidx16, align 4, !tbaa !5
+  %arrayidx16 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv161
+  %1 = load i32, ptr %arrayidx16, align 4, !tbaa !5
   %add17 = add nsw i32 %add14, %1
-  store i32 %add17, i32* %arrayidx16, align 4, !tbaa !5
+  store i32 %add17, ptr %arrayidx16, align 4, !tbaa !5
   br label %for.inc
 
 if.else25:                                        ; preds = %if.else
   br i1 %cmp26, label %if.then27, label %if.else32
 
 if.then27:                                        ; preds = %if.else25
-  %arrayidx30 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv161
-  %2 = load i32, i32* %arrayidx30, align 4, !tbaa !5
+  %arrayidx30 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv161
+  %2 = load i32, ptr %arrayidx30, align 4, !tbaa !5
   %3 = trunc i64 %indvars.iv161 to i32
   %4 = add i32 %3, 4
   %add31 = add nsw i32 %4, %2
-  store i32 %add31, i32* %arrayidx30, align 4, !tbaa !5
+  store i32 %add31, ptr %arrayidx30, align 4, !tbaa !5
   br label %for.inc
 
 if.else32:                                        ; preds = %if.else25
-  %arrayidx34 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv161
-  %5 = load i32, i32* %arrayidx34, align 4, !tbaa !5
+  %arrayidx34 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv161
+  %5 = load i32, ptr %arrayidx34, align 4, !tbaa !5
   %add35 = add nsw i32 %5, %i.0156
-  store i32 %add35, i32* %arrayidx34, align 4, !tbaa !5
+  store i32 %add35, ptr %arrayidx34, align 4, !tbaa !5
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then11, %if.else32, %if.then27, %if.then13
@@ -336,39 +336,39 @@ for.body52:                                       ; preds = %for.body52.lr.ph, %
   br i1 %cmp53, label %if.then54, label %if.else58
 
 if.then54:                                        ; preds = %for.body52
-  %arrayidx56 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %6 = load i32, i32* %arrayidx56, align 4, !tbaa !5
+  %arrayidx56 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %6 = load i32, ptr %arrayidx56, align 4, !tbaa !5
   %add57 = add nsw i32 %6, %j43.0150
-  store i32 %add57, i32* %arrayidx56, align 4, !tbaa !5
+  store i32 %add57, ptr %arrayidx56, align 4, !tbaa !5
   br label %for.inc87
 
 if.else58:                                        ; preds = %for.body52
   br i1 %cmp59, label %if.then60, label %if.else72
 
 if.then60:                                        ; preds = %if.else58
-  %arrayidx63 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %7 = load i32, i32* %arrayidx63, align 4, !tbaa !5
+  %arrayidx63 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %7 = load i32, ptr %arrayidx63, align 4, !tbaa !5
   %add64 = add nsw i32 %add61, %7
-  store i32 %add64, i32* %arrayidx63, align 4, !tbaa !5
+  store i32 %add64, ptr %arrayidx63, align 4, !tbaa !5
   br label %for.inc87
 
 if.else72:                                        ; preds = %if.else58
   br i1 %cmp73, label %if.then74, label %if.else79
 
 if.then74:                                        ; preds = %if.else72
-  %arrayidx77 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %8 = load i32, i32* %arrayidx77, align 4, !tbaa !5
+  %arrayidx77 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %8 = load i32, ptr %arrayidx77, align 4, !tbaa !5
   %9 = trunc i64 %indvars.iv to i32
   %10 = add i32 %9, 4
   %add78 = add nsw i32 %10, %8
-  store i32 %add78, i32* %arrayidx77, align 4, !tbaa !5
+  store i32 %add78, ptr %arrayidx77, align 4, !tbaa !5
   br label %for.inc87
 
 if.else79:                                        ; preds = %if.else72
-  %arrayidx81 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %11 = load i32, i32* %arrayidx81, align 4, !tbaa !5
+  %arrayidx81 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %11 = load i32, ptr %arrayidx81, align 4, !tbaa !5
   %add82 = add nsw i32 %11, %i.0156
-  store i32 %add82, i32* %arrayidx81, align 4, !tbaa !5
+  store i32 %add82, ptr %arrayidx81, align 4, !tbaa !5
   br label %for.inc87
 
 for.inc87:                                        ; preds = %if.then54, %if.else79, %if.then74, %if.then60

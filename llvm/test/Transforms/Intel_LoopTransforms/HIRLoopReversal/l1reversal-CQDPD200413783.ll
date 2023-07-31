@@ -69,31 +69,31 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 0, i32* @main_v_xk, align 4, !tbaa !1
-  %0 = load i32, i32* @main_v_me, align 4, !tbaa !1
+  store i32 0, ptr @main_v_xk, align 4, !tbaa !1
+  %0 = load i32, ptr @main_v_me, align 4, !tbaa !1
   %add4 = add nsw i32 %0, 1
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %1 = mul nuw nsw i64 %indvars.iv, 3
-  %arrayidx = getelementptr inbounds [192 x i32], [192 x i32]* @a1_diwssz, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [192 x i32], ptr @a1_diwssz, i64 0, i64 %1
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %3 = trunc i64 %indvars.iv to i32
   %add = add i32 %2, %3
   %4 = shl nsw i64 %indvars.iv, 1
   %5 = sub nuw nsw i64 129, %4
-  %arrayidx3 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_lpa, i64 0, i64 %5
-  store i32 0, i32* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds [192 x i32], ptr @a1_lpa, i64 0, i64 %5
+  store i32 0, ptr %arrayidx3, align 4, !tbaa !1
   %and = and i32 %add, %add4
-  store i32 %and, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %and, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 36
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  store i32 36, i32* @main_v_xk, align 4, !tbaa !1
-  %6 = load i32, i32* getelementptr inbounds ([192 x i32], [192 x i32]* @a1_diwssz, i64 0, i64 0), align 16, !tbaa !1
+  store i32 36, ptr @main_v_xk, align 4, !tbaa !1
+  %6 = load i32, ptr @a1_diwssz, align 16, !tbaa !1
   ret i32 %6
 }
 

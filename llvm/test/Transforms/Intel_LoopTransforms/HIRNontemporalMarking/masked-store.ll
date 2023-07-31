@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <20>               + END LOOP
 ; <0>          END REGION
 
-define void @example(double* %dest) "target-features"="+avx512f" {
+define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: example
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i64 i1 = 0, 6399999, [[#]]   <DO_LOOP> <auto-vectorized> <novectorize>
@@ -26,12 +26,12 @@ entry:
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %skipstore ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds double, double* %dest, i64 %index
+  %addr = getelementptr inbounds double, ptr %dest, i64 %index
   %odd = trunc i64 %index to i1
   br i1 %odd, label %dostore, label %skipstore
 
 dostore:
-  store double 0.0, double* %addr, align 8
+  store double 0.0, ptr %addr, align 8
   br label %skipstore
 
 skipstore:

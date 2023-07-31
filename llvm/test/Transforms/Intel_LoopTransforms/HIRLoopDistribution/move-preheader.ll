@@ -64,14 +64,14 @@ for.body4.pre:
 
 for.body4:                                        ; preds = %for.body4, %for.body4.pre
   %indvars.iv = phi i64 [ 0, %for.body4.pre ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @p, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @p, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %conv5 = fadd float %0, 1.000000e+01
-  store float %conv5, float* %arrayidx, align 4
-  %arrayidx9 = getelementptr inbounds [100 x float], [100 x float]* @q, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx9, align 4
+  store float %conv5, ptr %arrayidx, align 4
+  %arrayidx9 = getelementptr inbounds [100 x float], ptr @q, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx9, align 4
   %conv12 = fadd float %1, %add
-  store float %conv12, float* %arrayidx9, align 4
+  store float %conv12, ptr %arrayidx9, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond, label %for.exit, label %for.body4, !llvm.loop !1

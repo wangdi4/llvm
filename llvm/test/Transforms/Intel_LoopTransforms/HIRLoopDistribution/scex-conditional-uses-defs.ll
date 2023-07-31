@@ -130,7 +130,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @quux(float* noalias %arg4, float* noalias %arg5, float* noalias %arg6, float %tmp488, float %tmp505, float %tmp516, float* %tmp446) {
+define void @quux(ptr noalias %arg4, ptr noalias %arg5, ptr noalias %arg6, float %tmp488, float %tmp505, float %tmp516, ptr %tmp446) {
 bb:
   br label %bb440
 
@@ -138,64 +138,64 @@ bb440:                                            ; preds = %bb730, %bb
   br label %bb452
 
 bb452:                                            ; preds = %bb727, %bb440
-  %tmp460 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
+  %tmp460 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
   br label %bb469
 
 bb469:                                            ; preds = %bb637, %bb452
   %tmp470 = phi i64 [ 1, %bb452 ], [ %tmp538, %bb637 ]
-  %tmp471 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp472 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp473 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp476 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp478 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp480 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp482 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp483 = load float, float* %tmp471, align 1
+  %tmp471 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp472 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp473 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp476 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp478 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp480 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp482 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp483 = load float, ptr %tmp471, align 1
   %tmp484 = fmul fast float %tmp483, 0.000000e+00
-  %tmp485 = load float, float* %tmp472, align 1
+  %tmp485 = load float, ptr %tmp472, align 1
   %tmp486 = fmul fast float %tmp485, 0.000000e+00
   %tmp501 = fcmp fast olt float %tmp488, 0x4013851EC0000000
   br i1 %tmp501, label %bb502, label %bb512
 
 bb502:                                            ; preds = %bb469
-  %tmp5053 = load float, float* null, align 1
+  %tmp5053 = load float, ptr null, align 1
   %tmp506 = fmul fast float %tmp5053, 0.000000e+00
   br label %bb522
 
 bb512:                                            ; preds = %bb469
-  %tmp5164 = load float, float* null, align 1
+  %tmp5164 = load float, ptr null, align 1
   %tmp517 = fmul fast float %tmp5164, 0.000000e+00
   br label %bb522
 
 bb522:                                            ; preds = %bb512, %bb502
   %tmp524 = phi float [ 0.000000e+00, %bb502 ], [ 0.000000e+00, %bb512 ]
   %tmp525 = phi float [ %tmp505, %bb502 ], [ %tmp516, %bb512 ]
-  %tmp529 = load float, float* %tmp473, align 1
-  %tmp530 = load float, float* %tmp476, align 1
+  %tmp529 = load float, ptr %tmp473, align 1
+  %tmp530 = load float, ptr %tmp476, align 1
   %tmp531 = fsub fast float %tmp529, %tmp530
-  store float 0.000000e+00, float* %tmp480, align 1
-  %tmp533 = load float, float* %tmp478, align 1
+  store float 0.000000e+00, ptr %tmp480, align 1
+  %tmp533 = load float, ptr %tmp478, align 1
   %tmp534 = fsub fast float 0.000000e+00, %tmp533
-  store float 0.000000e+00, float* %tmp482, align 1
+  store float 0.000000e+00, ptr %tmp482, align 1
   %tmp538 = add nuw nsw i64 %tmp470, 1
-  %tmp540 = load float, float* null, align 1
+  %tmp540 = load float, ptr null, align 1
   %tmp541 = fcmp fast ogt float %tmp540, 0.000000e+00
   br i1 %tmp541, label %bb542, label %bb618
 
 bb542:                                            ; preds = %bb522
-  %tmp546 = load float, float* %tmp460, align 4
+  %tmp546 = load float, ptr %tmp460, align 4
   %tmp547 = fmul fast float %tmp546, 0.000000e+00
-  store float 0.000000e+00, float* %arg4, align 1
-  store float 0.000000e+00, float* %arg6, align 1
-  %tmp569 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp570 = load float, float* null, align 1
-  store float %tmp570, float* %tmp569, align 1
-  %tmp575 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 0, float* elementtype(float) null, i64 0)
-  %tmp576 = load float, float* %tmp575, align 1
-  %tmp582 = load float, float* null, align 1
-  %tmp584 = load float, float* %arg5, align 1
+  store float 0.000000e+00, ptr %arg4, align 1
+  store float 0.000000e+00, ptr %arg6, align 1
+  %tmp569 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp570 = load float, ptr null, align 1
+  store float %tmp570, ptr %tmp569, align 1
+  %tmp575 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(float) null, i64 0)
+  %tmp576 = load float, ptr %tmp575, align 1
+  %tmp582 = load float, ptr null, align 1
+  %tmp584 = load float, ptr %arg5, align 1
   %tmp585 = fsub fast float %tmp582, %tmp584
-  %tmp586 = load float, float* %tmp446, align 1
+  %tmp586 = load float, ptr %tmp446, align 1
   %tmp587 = fmul fast float %tmp586, 0.000000e+00
   %tmp595 = fadd fast float 0.000000e+00, %tmp576
   %tmp600 = fmul fast float %tmp540, %tmp525
@@ -217,7 +217,7 @@ bb630:                                            ; preds = %bb618
   br label %bb637
 
 bb637:                                            ; preds = %bb630, %bb623
-  store float 0.000000e+00, float* null, align 1
+  store float 0.000000e+00, ptr null, align 1
   %tmp725 = icmp eq i64 %tmp538, 0
   br i1 %tmp725, label %bb727, label %bb469
 
@@ -234,9 +234,9 @@ bb734:                                            ; preds = %bb730
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; uselistorder directives
-uselistorder float* (i8, i64, i64, float*, i64)* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64, { 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }
+uselistorder ptr @llvm.intel.subscript.p0.i64.i64.p0.i64, { 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }
 
 attributes #0 = { nounwind readnone speculatable }

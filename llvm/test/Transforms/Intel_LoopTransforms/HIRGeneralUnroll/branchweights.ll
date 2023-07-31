@@ -73,8 +73,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %0 = trunc i64 %indvars.iv to i32
   %1 = add i32 %0, 2
   %conv = sitofp i32 %1 to double
-  %arrayidx = getelementptr inbounds [20 x double], [20 x double]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !31
-  store double %conv, double* %arrayidx, align 8, !tbaa !31
+  %arrayidx = getelementptr inbounds [20 x double], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !31
+  store double %conv, ptr %arrayidx, align 8, !tbaa !31
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body, !prof !36, !llvm.loop !37
@@ -83,7 +83,7 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %2 = load double, double* getelementptr inbounds ([20 x double], [20 x double]* @a, i64 0, i64 3), align 8, !tbaa !31
+  %2 = load double, ptr getelementptr inbounds ([20 x double], ptr @a, i64 0, i64 3), align 8, !tbaa !31
   %conv1 = fptosi double %2 to i32
   ret i32 %conv1
 }

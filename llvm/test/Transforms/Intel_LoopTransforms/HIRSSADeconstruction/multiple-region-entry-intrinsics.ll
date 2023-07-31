@@ -11,31 +11,31 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %a) {
+define dso_local void @foo(ptr nocapture %a) {
 entry:
   br label %region.entry
 
 region.entry:
-  %ld = load i32, i32* %a
-  %entry0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %ld = load i32, ptr %a
+  %entry0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   call void @llvm.directive.region.exit(token %entry0) [ "DIR.OMP.END.SIMD"() ]
-  %entry1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %entry1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   call void @llvm.directive.region.exit(token %entry1) [ "DIR.OMP.END.SIMD"() ]
-  %entry2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 4
+  %entry2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %region.entry ]
   %t1 = sub nuw nsw i64 32, %indvars.iv
-  %t2 = load i32, i32* %arrayidx, align 4
+  %t2 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp eq i32 %t2, 20
   br i1 %cmp1, label %omp.inner.for.inc, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %t1
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %t1
   %t3 = trunc i64 %t1 to i32
-  store i32 %t3, i32* %arrayidx2, align 4
+  store i32 %t3, ptr %arrayidx2, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.inner.for.body, %if.then

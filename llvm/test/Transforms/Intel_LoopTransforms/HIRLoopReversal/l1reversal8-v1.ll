@@ -119,15 +119,15 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(i32* noalias nocapture readonly %A, i32* noalias nocapture %B) #0 {
+define i32 @foo(ptr noalias nocapture readonly %A, ptr noalias nocapture %B) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.inc7, %entry
   %indvars.iv27 = phi i64 [ 0, %entry ], [ %indvars.iv.next28, %for.inc7 ]
   %0 = sub nuw nsw i64 10, %indvars.iv27
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add = add nsw i32 %1, 1
   br label %for.body3
 
@@ -135,8 +135,8 @@ for.body3:                                        ; preds = %for.body3, %for.bod
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body3 ]
   %2 = shl nsw i64 %indvars.iv, 1
   %3 = sub nuw nsw i64 50, %2
-  %arrayidx6 = getelementptr inbounds i32, i32* %B, i64 %3
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds i32, ptr %B, i64 %3
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.inc7, label %for.body3
@@ -147,19 +147,19 @@ for.inc7:                                         ; preds = %for.body3
   br i1 %exitcond30, label %for.end9, label %for.body
 
 for.end9:                                         ; preds = %for.inc7
-  %arrayidx10 = getelementptr inbounds i32, i32* %A, i64 1
-  %4 = load i32, i32* %arrayidx10, align 4, !tbaa !1
-  %5 = load i32, i32* %B, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds i32, ptr %A, i64 1
+  %4 = load i32, ptr %arrayidx10, align 4, !tbaa !1
+  %5 = load i32, ptr %B, align 4, !tbaa !1
   %add12 = add i32 %4, 1
   %add13 = add i32 %add12, %5
   ret i32 %add13
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

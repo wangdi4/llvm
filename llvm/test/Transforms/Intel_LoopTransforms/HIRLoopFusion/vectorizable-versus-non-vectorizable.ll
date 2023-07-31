@@ -40,28 +40,28 @@ for.body9.preheader:                              ; preds = %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv33 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next34, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @c, i64 0, i64 %indvars.iv33
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %indvars.iv33
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @c, i64 0, i64 %indvars.iv33
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %indvars.iv33
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd fast float %1, %0
-  %arrayidx4 = getelementptr inbounds [100 x i32], [100 x i32]* @m, i64 0, i64 %indvars.iv33
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [100 x i32], ptr @m, i64 0, i64 %indvars.iv33
+  %2 = load i32, ptr %arrayidx4, align 4
   %idxprom5 = sext i32 %2 to i64
-  %arrayidx6 = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %idxprom5
-  store float %add, float* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %idxprom5
+  store float %add, ptr %arrayidx6, align 4
   %indvars.iv.next34 = add nuw nsw i64 %indvars.iv33, 1
   %exitcond37.not = icmp eq i64 %indvars.iv.next34, %wide.trip.count3638
   br i1 %exitcond37.not, label %for.body9.preheader, label %for.body
 
 for.body9:                                        ; preds = %for.body9.preheader, %for.body9
   %indvars.iv = phi i64 [ 0, %for.body9.preheader ], [ %indvars.iv.next, %for.body9 ]
-  %arrayidx11 = getelementptr inbounds [1000 x float], [1000 x float]* @c, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx11, align 4
-  %arrayidx13 = getelementptr inbounds [1000 x float], [1000 x float]* @b, i64 0, i64 %indvars.iv
-  %4 = load float, float* %arrayidx13, align 4
+  %arrayidx11 = getelementptr inbounds [1000 x float], ptr @c, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx11, align 4
+  %arrayidx13 = getelementptr inbounds [1000 x float], ptr @b, i64 0, i64 %indvars.iv
+  %4 = load float, ptr %arrayidx13, align 4
   %add14 = fadd fast float %4, %3
-  store float %add14, float* %arrayidx13, align 4
+  store float %add14, ptr %arrayidx13, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count3638
   br i1 %exitcond.not, label %for.end17.loopexit, label %for.body9

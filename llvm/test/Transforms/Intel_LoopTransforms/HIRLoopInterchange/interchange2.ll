@@ -42,11 +42,11 @@ for.cond.1.preheader:                             ; preds = %for.inc.9, %entry
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %j.019 = phi i64 [ 1, %for.cond.1.preheader ], [ %inc, %for.body.3 ]
   %add4 = add nsw i64 %j.019, %m
-  %arrayidx5 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %add4, i64 %add
-  %0 = load float, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %add4, i64 %add
+  %0 = load float, ptr %arrayidx5, align 4, !tbaa !1
   %add6 = fadd float %0, 1.000000e+00
-  %arrayidx8 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.019, i64 %i.020
-  store float %add6, float* %arrayidx8, align 4, !tbaa !1
+  %arrayidx8 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.019, i64 %i.020
+  store float %add6, ptr %arrayidx8, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.019, 1
   %exitcond = icmp eq i64 %inc, 97
   br i1 %exitcond, label %for.inc.9, label %for.body.3

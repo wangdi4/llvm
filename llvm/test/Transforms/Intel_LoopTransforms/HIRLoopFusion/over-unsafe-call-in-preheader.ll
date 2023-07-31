@@ -25,7 +25,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64* nocapture %ary, i64* nocapture %ary2, i64 %size.inner) {
+define void @foo(ptr nocapture %ary, ptr nocapture %ary2, i64 %size.inner) {
 entry:
   br label %loop.outer
 
@@ -39,8 +39,8 @@ preheader:
 
 for.body:
   %j = phi i64 [ 0, %preheader ], [ %j.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %j
-  store i64 %j, i64* %ptr, align 8
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %j
+  store i64 %j, ptr %ptr, align 8
   %j.next = add nsw i64 %j, 1
   %cmp.j = icmp ne i64 %j.next, %size.inner
   br i1 %cmp.j, label %for.body, label %postexit
@@ -54,8 +54,8 @@ preheader2:
 
 for.body2:
   %k = phi i64 [ 0, %preheader2 ], [ %k.next, %for.body2 ]
-  %ptr2 = getelementptr inbounds i64, i64* %ary, i64 %k
-  store i64 %k, i64* %ptr2, align 8
+  %ptr2 = getelementptr inbounds i64, ptr %ary, i64 %k
+  store i64 %k, ptr %ptr2, align 8
   %k.next = add nsw i64 %k, 1
   %cmp.k = icmp ne i64 %k.next, %size.inner
   br i1 %cmp.k, label %for.body2, label %postexit2

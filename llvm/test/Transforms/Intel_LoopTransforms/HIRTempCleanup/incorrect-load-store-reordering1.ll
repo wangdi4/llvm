@@ -45,28 +45,28 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i32* %arr) {
+define void @foo(ptr %arr) {
 entry:
   br label %do.body
 
 do.body:                                    ; preds = %do.body, %entry
   %sum.0 = phi i32 [ 0, %entry ], [ %add10, %do.body ]
   %arr.idx = phi i64 [ 0, %entry ], [ %arr.add, %do.body ]
-  %arr.ptr = getelementptr inbounds i32, i32* %arr, i64 %arr.idx
-  %t113 = load i32, i32* %arr.ptr, align 4
-  %arrayidx1 = getelementptr inbounds i32, i32* %arr.ptr, i64 1
-  %t114 = load i32, i32* %arrayidx1, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %arr.ptr, i64 2
-  %t115 = load i32, i32* %arrayidx2, align 4
-  %arrayidx3 = getelementptr inbounds i32, i32* %arr.ptr, i64 3
-  %t116 = load i32, i32* %arrayidx3, align 4
+  %arr.ptr = getelementptr inbounds i32, ptr %arr, i64 %arr.idx
+  %t113 = load i32, ptr %arr.ptr, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %arr.ptr, i64 1
+  %t114 = load i32, ptr %arrayidx1, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %arr.ptr, i64 2
+  %t115 = load i32, ptr %arrayidx2, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %arr.ptr, i64 3
+  %t116 = load i32, ptr %arrayidx3, align 4
   %add = add i32 %t113, %sum.0
   %add4 = add i32 %add, %t114
   %add5 = add i32 %add4, %t115
-  store i32 %sum.0, i32* %arr.ptr, align 4
-  store i32 %add, i32* %arrayidx1, align 4
-  store i32 %add4, i32* %arrayidx2, align 4
-  store i32 %add5, i32* %arrayidx3, align 4
+  store i32 %sum.0, ptr %arr.ptr, align 4
+  store i32 %add, ptr %arrayidx1, align 4
+  store i32 %add4, ptr %arrayidx2, align 4
+  store i32 %add5, ptr %arrayidx3, align 4
   %add10 = add i32 %add5, %t116
   %arr.add = add nuw nsw i64 %arr.idx, 1
   %cmp.not = icmp eq i64 %arr.add, 256

@@ -59,12 +59,12 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv.next
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv.next
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv
-  %ld = load i32, i32* %arrayidx, align 4, !tbaa !2
-  store i32 %ld, i32* %arrayidx6, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %ld = load i32, ptr %arrayidx, align 4, !tbaa !2
+  store i32 %ld, ptr %arrayidx6, align 4, !tbaa !2
   %exitcond = icmp eq i64 %indvars.iv.next, 101
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }

@@ -46,9 +46,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @sub_(float* noalias nocapture dereferenceable(4) %"sub_$A", float* noalias nocapture readnone dereferenceable(4) %"sub_$B", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr {
+define void @sub_(ptr noalias nocapture dereferenceable(4) %"sub_$A", ptr noalias nocapture readnone dereferenceable(4) %"sub_$B", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr {
 alloca_0:
-  %"sub_$N_fetch.1" = load i32, i32* %"sub_$N", align 1
+  %"sub_$N_fetch.1" = load i32, ptr %"sub_$N", align 1
   %rel.1 = icmp slt i32 %"sub_$N_fetch.1", 1
   %0 = add nuw nsw i32 %"sub_$N_fetch.1", 1
   %wide.trip.count82 = sext i32 %0 to i64
@@ -63,20 +63,20 @@ bb14.preheader.preheader.preheader:               ; preds = %bb2
 
 bb14.preheader.preheader:                         ; preds = %bb14.preheader.preheader.preheader, %bb11
   %indvars.iv80 = phi i64 [ %indvars.iv.next81, %bb11 ], [ 1, %bb14.preheader.preheader.preheader ]
-  %"sub_$A_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull elementtype(float) %"sub_$A", i64 %indvars.iv80)
+  %"sub_$A_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 40000, ptr nonnull elementtype(float) %"sub_$A", i64 %indvars.iv80)
   br label %bb14.preheader
 
 bb14.preheader:                                   ; preds = %bb14.preheader.preheader, %bb15
   %indvars.iv76 = phi i64 [ 1, %bb14.preheader.preheader ], [ %indvars.iv.next77, %bb15 ]
-  %"sub_$A_entry[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull elementtype(float) %"sub_$A_entry[]", i64 %indvars.iv76)
+  %"sub_$A_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 400, ptr nonnull elementtype(float) %"sub_$A_entry[]", i64 %indvars.iv76)
   br label %bb14
 
 bb14:                                             ; preds = %bb14.preheader, %bb14
   %indvars.iv = phi i64 [ 1, %bb14.preheader ], [ %indvars.iv.next, %bb14 ]
-  %"sub_$A_entry[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A_entry[][]", i64 %indvars.iv)
-  %"sub_$A_entry[][][]_fetch.10" = load float, float* %"sub_$A_entry[][][]", align 1
+  %"sub_$A_entry[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A_entry[][]", i64 %indvars.iv)
+  %"sub_$A_entry[][][]_fetch.10" = load float, ptr %"sub_$A_entry[][][]", align 1
   %add.1 = fadd reassoc ninf nsz arcp contract afn float %"sub_$A_entry[][][]_fetch.10", 5.000000e+00
-  store float %add.1, float* %"sub_$A_entry[][][]", align 1
+  store float %add.1, ptr %"sub_$A_entry[][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count82
   br i1 %exitcond, label %bb15, label %bb14
@@ -96,18 +96,18 @@ bb26.preheader.preheader.preheader:               ; preds = %bb11
 
 bb26.preheader.preheader:                         ; preds = %bb26.preheader.preheader.preheader, %bb23
   %indvars.iv93 = phi i64 [ %indvars.iv.next94, %bb23 ], [ 1, %bb26.preheader.preheader.preheader ]
-  %"sub_$A_entry[]14" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull elementtype(float) %"sub_$A", i64 %indvars.iv93)
+  %"sub_$A_entry[]14" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 40000, ptr nonnull elementtype(float) %"sub_$A", i64 %indvars.iv93)
   br label %bb26.preheader
 
 bb26.preheader:                                   ; preds = %bb26.preheader.preheader, %bb27
   %indvars.iv89 = phi i64 [ 1, %bb26.preheader.preheader ], [ %indvars.iv.next90, %bb27 ]
-  %"sub_$A_entry[][]15" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull elementtype(float) %"sub_$A_entry[]14", i64 %indvars.iv89)
+  %"sub_$A_entry[][]15" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 400, ptr nonnull elementtype(float) %"sub_$A_entry[]14", i64 %indvars.iv89)
   br label %bb26
 
 bb26:                                             ; preds = %bb26.preheader, %bb33
   %indvars.iv85 = phi i64 [ 1, %bb26.preheader ], [ %indvars.iv.next86, %bb33 ]
-  %"sub_$A_entry[][][]16" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A_entry[][]15", i64 %indvars.iv85)
-  %"sub_$A_entry[][][]_fetch.32" = load float, float* %"sub_$A_entry[][][]16", align 1
+  %"sub_$A_entry[][][]16" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A_entry[][]15", i64 %indvars.iv85)
+  %"sub_$A_entry[][][]_fetch.32" = load float, ptr %"sub_$A_entry[][][]16", align 1
   %add.5 = fadd reassoc ninf nsz arcp contract afn float %"sub_$A_entry[][][]_fetch.32", 6.000000e+00
   br label %bb30
 
@@ -121,7 +121,7 @@ bb30:                                             ; preds = %bb30, %bb26
 
 bb33:                                             ; preds = %bb30
   %add.6.lcssa = phi float [ %add.6, %bb30 ]
-  store float %add.6.lcssa, float* %"sub_$A_entry[][][]16", align 1
+  store float %add.6.lcssa, ptr %"sub_$A_entry[][][]16", align 1
   %indvars.iv.next86 = add nuw nsw i64 %indvars.iv85, 1
   %exitcond88 = icmp eq i64 %indvars.iv.next86, %wide.trip.count82
   br i1 %exitcond88, label %bb27, label %bb26
@@ -149,5 +149,5 @@ bb5:                                              ; preds = %bb19
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 

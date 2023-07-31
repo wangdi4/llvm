@@ -35,9 +35,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %a) local_unnamed_addr #0 !dbg !8 {
+define void @foo(ptr nocapture %a) local_unnamed_addr #0 !dbg !8 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %a, metadata !14, metadata !DIExpression()), !dbg !16
+  call void @llvm.dbg.value(metadata ptr %a, metadata !14, metadata !DIExpression()), !dbg !16
   call void @llvm.dbg.value(metadata i32 0, metadata !15, metadata !DIExpression()), !dbg !17
   br label %for.body, !dbg !18
 
@@ -48,15 +48,15 @@ for.body:                                         ; preds = %if.end, %entry
   br i1 %cmp1, label %if.then, label %if.end, !dbg !24
 
 if.then:                                          ; preds = %for.body
-  store i32 0, i32* %a, align 4, !dbg !25, !tbaa !27
+  store i32 0, ptr %a, align 4, !dbg !25, !tbaa !27
   br label %if.end, !dbg !31
 
 if.end:                                           ; preds = %if.then, %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv, !dbg !32
-  %0 = load i32, i32* %arrayidx3, align 4, !dbg !33, !tbaa !27
+  %arrayidx3 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv, !dbg !32
+  %0 = load i32, ptr %arrayidx3, align 4, !dbg !33, !tbaa !27
   %1 = trunc i64 %indvars.iv to i32, !dbg !33
   %add = add nsw i32 %0, %1, !dbg !33
-  store i32 %add, i32* %arrayidx3, align 4, !dbg !33, !tbaa !27
+  store i32 %add, ptr %arrayidx3, align 4, !dbg !33, !tbaa !27
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !34
   %exitcond = icmp eq i64 %indvars.iv.next, 100, !dbg !35
   br i1 %exitcond, label %for.end, label %for.body, !dbg !18, !llvm.loop !36

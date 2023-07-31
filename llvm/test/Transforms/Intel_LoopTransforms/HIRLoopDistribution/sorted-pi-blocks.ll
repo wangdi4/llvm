@@ -44,10 +44,10 @@ for.body:                                         ; preds = %for.body, %entry
   %conv = sitofp i32 %0 to double
   %add = fadd double %conv, 2.000000e+00
   %conv1 = fptrunc double %add to float
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @p, i64 0, i64 %indvars.iv
-  store float %conv1, float* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds [100 x float], [100 x float]* @q, i64 0, i64 %indvars.iv
-  store float 5.000000e+00, float* %arrayidx3, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @p, i64 0, i64 %indvars.iv
+  store float %conv1, ptr %arrayidx, align 4
+  %arrayidx3 = getelementptr inbounds [100 x float], ptr @q, i64 0, i64 %indvars.iv
+  store float 5.000000e+00, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 32
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

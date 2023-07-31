@@ -50,7 +50,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @_Z16gemm_blockedPdS_S_iii(double* noalias nocapture readonly %matA, double* noalias nocapture readonly %matB, double* noalias nocapture %matC, i32 %M, i32 %N, i32 %K) local_unnamed_addr #0 {
+define void @_Z16gemm_blockedPdS_S_iii(ptr noalias nocapture readonly %matA, ptr noalias nocapture readonly %matB, ptr noalias nocapture %matC, i32 %M, i32 %N, i32 %K) local_unnamed_addr #0 {
 entry:
   %cmp53 = icmp sgt i32 %M, 0
   br i1 %cmp53, label %for.body.lr.ph, label %for.cond.cleanup
@@ -91,14 +91,14 @@ for.body4:                                        ; preds = %for.cond.cleanup7, 
 for.body8.lr.ph:                                  ; preds = %for.body4
   %2 = mul nsw i64 %indvars.iv59, %0
   %3 = add nsw i64 %2, %indvars.iv66
-  %arrayidx = getelementptr inbounds double, double* %matC, i64 %3
+  %arrayidx = getelementptr inbounds double, ptr %matC, i64 %3
   %4 = mul nsw i64 %indvars.iv59, %1
-  %arrayidx.promoted = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx.promoted = load double, ptr %arrayidx, align 8, !tbaa !2
   br label %for.body8
 
 for.cond5.for.cond.cleanup7_crit_edge:            ; preds = %for.body8
   %add18.lcssa = phi double [ %add18, %for.body8 ]
-  store double %add18.lcssa, double* %arrayidx, align 8, !tbaa !2
+  store double %add18.lcssa, ptr %arrayidx, align 8, !tbaa !2
   br label %for.cond.cleanup7
 
 for.cond.cleanup7:                                ; preds = %for.cond5.for.cond.cleanup7_crit_edge, %for.body4
@@ -111,11 +111,11 @@ for.body8:                                        ; preds = %for.body8, %for.bod
   %add1850 = phi double [ %arrayidx.promoted, %for.body8.lr.ph ], [ %add18, %for.body8 ]
   %5 = mul nsw i64 %indvars.iv, %0
   %6 = add nsw i64 %5, %indvars.iv66
-  %arrayidx12 = getelementptr inbounds double, double* %matA, i64 %6
-  %7 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds double, ptr %matA, i64 %6
+  %7 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %8 = add nsw i64 %indvars.iv, %4
-  %arrayidx16 = getelementptr inbounds double, double* %matB, i64 %8
-  %9 = load double, double* %arrayidx16, align 8, !tbaa !2
+  %arrayidx16 = getelementptr inbounds double, ptr %matB, i64 %8
+  %9 = load double, ptr %arrayidx16, align 8, !tbaa !2
   %mul17 = fmul double %7, %9
   %add18 = fadd double %add1850, %mul17
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

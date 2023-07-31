@@ -46,7 +46,7 @@ for.cond.1.preheader:                             ; preds = %entry, %for.cond.cl
   br i1 %cmp2.19, label %for.body.4, label %for.cond.cleanup.3
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.3, %entry
-  %0 = load i32, i32* getelementptr inbounds ([500 x i32], [500 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
+  %0 = load i32, ptr getelementptr inbounds ([500 x i32], ptr @A, i64 0, i64 2), align 8, !tbaa !1
   ret i32 %0
 
 for.cond.cleanup.3:                               ; preds = %for.body.4, %for.cond.1.preheader
@@ -57,22 +57,22 @@ for.cond.cleanup.3:                               ; preds = %for.body.4, %for.co
 for.body.4:                                       ; preds = %for.cond.1.preheader, %for.body.4
   %i.020 = phi i64 [ %add, %for.body.4 ], [ 0, %for.cond.1.preheader ]
   %add = add nuw nsw i64 %i.020, 1
-  %arrayidx = getelementptr inbounds [500 x i32], [500 x i32]* @A, i64 0, i64 %add
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx5 = getelementptr inbounds [500 x i32], [500 x i32]* @B, i64 0, i64 %i.020
-  %2 = load i32, i32* %arrayidx5, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [500 x i32], ptr @A, i64 0, i64 %add
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [500 x i32], ptr @B, i64 0, i64 %i.020
+  %2 = load i32, ptr %arrayidx5, align 4, !tbaa !1
   %add6 = add nsw i32 %2, %1
-  %arrayidx7 = getelementptr inbounds [500 x i32], [500 x i32]* @A, i64 0, i64 %i.020
-  store i32 %add6, i32* %arrayidx7, align 4, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [500 x i32], ptr @A, i64 0, i64 %i.020
+  store i32 %add6, ptr %arrayidx7, align 4, !tbaa !1
   %exitcond = icmp eq i64 %add, %indvars.iv
   br i1 %exitcond, label %for.cond.cleanup.3, label %for.body.4
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

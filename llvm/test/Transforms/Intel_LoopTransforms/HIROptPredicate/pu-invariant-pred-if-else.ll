@@ -48,7 +48,7 @@
 ; ModuleID = 'new.ll'
 source_filename = "new.ll"
 
-define dso_local void @foo(i32 %t, i32* %A) {
+define dso_local void @foo(i32 %t, ptr %A) {
 entry:
   br label %for.body
 
@@ -61,15 +61,15 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %land.lhs.true
   %idxprom = sext i32 %i.05 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %i.05, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 %i.05, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else:
   %idxprom2 = sext i32 %i.05 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom2
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom2
   %add = add nsw i32 %i.05, 1
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end, %if.else

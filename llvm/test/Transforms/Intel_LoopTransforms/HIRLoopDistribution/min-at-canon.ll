@@ -87,164 +87,164 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %storemerge903938 = phi i64 [ 1, %newFuncRoot ], [ %inc322, %for.body4 ]
   %inc = add nuw nsw i64 %inc939, 1
   %sub = add nsw i64 %storemerge903938, -1
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f11, i64 0, i64 %sub
-  store float 2.000000e+00, float* %arrayidx
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
-  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a11, i64 0, i64 %inc939
-  %1 = load float, float* %arrayidx6, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x float], ptr @MAIN__.f11, i64 0, i64 %sub
+  store float 2.000000e+00, ptr %arrayidx
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [100 x float], ptr @MAIN__.a11, i64 0, i64 %inc939
+  %1 = load float, ptr %arrayidx6, align 4, !tbaa !2
   %sub7 = fsub float %0, %1
-  %arrayidx9 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a21, i64 0, i64 %inc939
-  %2 = load float, float* %arrayidx9, align 4, !tbaa !2
+  %arrayidx9 = getelementptr inbounds [100 x float], ptr @MAIN__.a21, i64 0, i64 %inc939
+  %2 = load float, ptr %arrayidx9, align 4, !tbaa !2
   %mul10 = fmul float %2, 2.000000e+00
   %sub11 = fsub float %sub7, %mul10
-  %arrayidx13 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a31, i64 0, i64 %inc939
-  %3 = load float, float* %arrayidx13, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [100 x float], ptr @MAIN__.a31, i64 0, i64 %inc939
+  %3 = load float, ptr %arrayidx13, align 4, !tbaa !2
   %mul14 = fmul float %3, 3.000000e+00
   %sub15 = fsub float %sub11, %mul14
-  %arrayidx17 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a41, i64 0, i64 %inc939
-  %4 = load float, float* %arrayidx17, align 4, !tbaa !2
+  %arrayidx17 = getelementptr inbounds [100 x float], ptr @MAIN__.a41, i64 0, i64 %inc939
+  %4 = load float, ptr %arrayidx17, align 4, !tbaa !2
   %mul18 = fmul float %4, 4.000000e+00
   %sub19 = fsub float %sub15, %mul18
-  store float %sub19, float* %arrayidx, align 4, !tbaa !2
-  %arrayidx23 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f21, i64 0, i64 %sub
-  %5 = load float, float* %arrayidx23, align 4, !tbaa !2
+  store float %sub19, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [100 x float], ptr @MAIN__.f21, i64 0, i64 %sub
+  %5 = load float, ptr %arrayidx23, align 4, !tbaa !2
   %sub27 = fsub float %5, %1
   %sub31 = fsub float %sub27, %mul10
   %sub35 = fsub float %sub31, %mul14
   %sub39 = fsub float %sub35, %mul18
-  store float %sub39, float* %arrayidx23, align 4, !tbaa !2
-  %arrayidx43 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f31, i64 0, i64 %sub
-  %6 = load float, float* %arrayidx43, align 4, !tbaa !2
+  store float %sub39, ptr %arrayidx23, align 4, !tbaa !2
+  %arrayidx43 = getelementptr inbounds [100 x float], ptr @MAIN__.f31, i64 0, i64 %sub
+  %6 = load float, ptr %arrayidx43, align 4, !tbaa !2
   %sub47 = fsub float %6, %1
   %sub51 = fsub float %sub47, %mul10
   %sub55 = fsub float %sub51, %mul14
   %sub59 = fsub float %sub55, %mul18
-  store float %sub59, float* %arrayidx43, align 4, !tbaa !2
-  %arrayidx63 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f41, i64 0, i64 %sub
-  %7 = load float, float* %arrayidx63, align 4, !tbaa !2
+  store float %sub59, ptr %arrayidx43, align 4, !tbaa !2
+  %arrayidx63 = getelementptr inbounds [100 x float], ptr @MAIN__.f41, i64 0, i64 %sub
+  %7 = load float, ptr %arrayidx63, align 4, !tbaa !2
   %sub67 = fsub float %7, %1
   %sub71 = fsub float %sub67, %mul10
   %sub75 = fsub float %sub71, %mul14
   %sub79 = fsub float %sub75, %mul18
-  store float %sub79, float* %arrayidx63, align 4, !tbaa !2
-  %arrayidx83 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f12, i64 0, i64 %sub
-  %8 = load float, float* %arrayidx83, align 4, !tbaa !2
-  %arrayidx85 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a12, i64 0, i64 %inc939
-  %9 = load float, float* %arrayidx85, align 4, !tbaa !2
+  store float %sub79, ptr %arrayidx63, align 4, !tbaa !2
+  %arrayidx83 = getelementptr inbounds [100 x float], ptr @MAIN__.f12, i64 0, i64 %sub
+  %8 = load float, ptr %arrayidx83, align 4, !tbaa !2
+  %arrayidx85 = getelementptr inbounds [100 x float], ptr @MAIN__.a12, i64 0, i64 %inc939
+  %9 = load float, ptr %arrayidx85, align 4, !tbaa !2
   %sub87 = fsub float %8, %9
-  %arrayidx89 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a22, i64 0, i64 %inc939
-  %10 = load float, float* %arrayidx89, align 4, !tbaa !2
+  %arrayidx89 = getelementptr inbounds [100 x float], ptr @MAIN__.a22, i64 0, i64 %inc939
+  %10 = load float, ptr %arrayidx89, align 4, !tbaa !2
   %mul90 = fmul float %10, 2.000000e+00
   %sub91 = fsub float %sub87, %mul90
-  %arrayidx93 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a32, i64 0, i64 %inc939
-  %11 = load float, float* %arrayidx93, align 4, !tbaa !2
+  %arrayidx93 = getelementptr inbounds [100 x float], ptr @MAIN__.a32, i64 0, i64 %inc939
+  %11 = load float, ptr %arrayidx93, align 4, !tbaa !2
   %mul94 = fmul float %11, 3.000000e+00
   %sub95 = fsub float %sub91, %mul94
-  %arrayidx97 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a42, i64 0, i64 %inc939
-  %12 = load float, float* %arrayidx97, align 4, !tbaa !2
+  %arrayidx97 = getelementptr inbounds [100 x float], ptr @MAIN__.a42, i64 0, i64 %inc939
+  %12 = load float, ptr %arrayidx97, align 4, !tbaa !2
   %mul98 = fmul float %12, 4.000000e+00
   %sub99 = fsub float %sub95, %mul98
-  store float %sub99, float* %arrayidx83, align 4, !tbaa !2
-  %arrayidx103 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f22, i64 0, i64 %sub
-  %13 = load float, float* %arrayidx103, align 4, !tbaa !2
+  store float %sub99, ptr %arrayidx83, align 4, !tbaa !2
+  %arrayidx103 = getelementptr inbounds [100 x float], ptr @MAIN__.f22, i64 0, i64 %sub
+  %13 = load float, ptr %arrayidx103, align 4, !tbaa !2
   %sub107 = fsub float %13, %9
   %sub111 = fsub float %sub107, %mul90
   %sub115 = fsub float %sub111, %mul94
   %sub119 = fsub float %sub115, %mul98
-  store float %sub119, float* %arrayidx103, align 4, !tbaa !2
-  %arrayidx123 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f32, i64 0, i64 %sub
-  %14 = load float, float* %arrayidx123, align 4, !tbaa !2
+  store float %sub119, ptr %arrayidx103, align 4, !tbaa !2
+  %arrayidx123 = getelementptr inbounds [100 x float], ptr @MAIN__.f32, i64 0, i64 %sub
+  %14 = load float, ptr %arrayidx123, align 4, !tbaa !2
   %sub127 = fsub float %14, %9
   %sub131 = fsub float %sub127, %mul90
   %sub135 = fsub float %sub131, %mul94
   %sub139 = fsub float %sub135, %mul98
-  store float %sub139, float* %arrayidx123, align 4, !tbaa !2
-  %arrayidx143 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f42, i64 0, i64 %sub
-  %15 = load float, float* %arrayidx143, align 4, !tbaa !2
+  store float %sub139, ptr %arrayidx123, align 4, !tbaa !2
+  %arrayidx143 = getelementptr inbounds [100 x float], ptr @MAIN__.f42, i64 0, i64 %sub
+  %15 = load float, ptr %arrayidx143, align 4, !tbaa !2
   %sub147 = fsub float %15, %9
   %sub151 = fsub float %sub147, %mul90
   %sub155 = fsub float %sub151, %mul94
   %sub159 = fsub float %sub155, %mul98
-  store float %sub159, float* %arrayidx143, align 4, !tbaa !2
-  %arrayidx163 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f13, i64 0, i64 %sub
-  store float 2.000000e+00, float* %arrayidx163
-  %16 = load float, float* %arrayidx163, align 4, !tbaa !2
-  %arrayidx165 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a13, i64 0, i64 %inc939
-  %17 = load float, float* %arrayidx165, align 4, !tbaa !2
+  store float %sub159, ptr %arrayidx143, align 4, !tbaa !2
+  %arrayidx163 = getelementptr inbounds [100 x float], ptr @MAIN__.f13, i64 0, i64 %sub
+  store float 2.000000e+00, ptr %arrayidx163
+  %16 = load float, ptr %arrayidx163, align 4, !tbaa !2
+  %arrayidx165 = getelementptr inbounds [100 x float], ptr @MAIN__.a13, i64 0, i64 %inc939
+  %17 = load float, ptr %arrayidx165, align 4, !tbaa !2
   %sub167 = fsub float %16, %17
-  %arrayidx169 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a23, i64 0, i64 %inc939
-  %18 = load float, float* %arrayidx169, align 4, !tbaa !2
+  %arrayidx169 = getelementptr inbounds [100 x float], ptr @MAIN__.a23, i64 0, i64 %inc939
+  %18 = load float, ptr %arrayidx169, align 4, !tbaa !2
   %mul170 = fmul float %18, 2.000000e+00
   %sub171 = fsub float %sub167, %mul170
-  %arrayidx173 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a33, i64 0, i64 %inc939
-  %19 = load float, float* %arrayidx173, align 4, !tbaa !2
+  %arrayidx173 = getelementptr inbounds [100 x float], ptr @MAIN__.a33, i64 0, i64 %inc939
+  %19 = load float, ptr %arrayidx173, align 4, !tbaa !2
   %mul174 = fmul float %19, 3.000000e+00
   %sub175 = fsub float %sub171, %mul174
-  %arrayidx177 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a43, i64 0, i64 %inc939
-  %20 = load float, float* %arrayidx177, align 4, !tbaa !2
+  %arrayidx177 = getelementptr inbounds [100 x float], ptr @MAIN__.a43, i64 0, i64 %inc939
+  %20 = load float, ptr %arrayidx177, align 4, !tbaa !2
   %mul178 = fmul float %20, 4.000000e+00
   %sub179 = fsub float %sub175, %mul178
-  store float %sub179, float* %arrayidx163, align 4, !tbaa !2
-  %arrayidx183 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f23, i64 0, i64 %sub
-  %21 = load float, float* %arrayidx183, align 4, !tbaa !2
+  store float %sub179, ptr %arrayidx163, align 4, !tbaa !2
+  %arrayidx183 = getelementptr inbounds [100 x float], ptr @MAIN__.f23, i64 0, i64 %sub
+  %21 = load float, ptr %arrayidx183, align 4, !tbaa !2
   %sub187 = fsub float %21, %17
   %sub191 = fsub float %sub187, %mul170
   %sub195 = fsub float %sub191, %mul174
   %sub199 = fsub float %sub195, %mul178
-  store float %sub199, float* %arrayidx183, align 4, !tbaa !2
-  %arrayidx203 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f33, i64 0, i64 %sub
-  %22 = load float, float* %arrayidx203, align 4, !tbaa !2
+  store float %sub199, ptr %arrayidx183, align 4, !tbaa !2
+  %arrayidx203 = getelementptr inbounds [100 x float], ptr @MAIN__.f33, i64 0, i64 %sub
+  %22 = load float, ptr %arrayidx203, align 4, !tbaa !2
   %sub207 = fsub float %22, %17
   %sub211 = fsub float %sub207, %mul170
   %sub215 = fsub float %sub211, %mul174
   %sub219 = fsub float %sub215, %mul178
-  store float %sub219, float* %arrayidx203, align 4, !tbaa !2
-  %arrayidx223 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f43, i64 0, i64 %sub
-  %23 = load float, float* %arrayidx223, align 4, !tbaa !2
+  store float %sub219, ptr %arrayidx203, align 4, !tbaa !2
+  %arrayidx223 = getelementptr inbounds [100 x float], ptr @MAIN__.f43, i64 0, i64 %sub
+  %23 = load float, ptr %arrayidx223, align 4, !tbaa !2
   %sub227 = fsub float %23, %17
   %sub231 = fsub float %sub227, %mul170
   %sub235 = fsub float %sub231, %mul174
   %sub239 = fsub float %sub235, %mul178
-  store float %sub239, float* %arrayidx223, align 4, !tbaa !2
-  %arrayidx243 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f14, i64 0, i64 %sub
-  %24 = load float, float* %arrayidx243, align 4, !tbaa !2
-  %arrayidx245 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a14, i64 0, i64 %inc939
-  %25 = load float, float* %arrayidx245, align 4, !tbaa !2
+  store float %sub239, ptr %arrayidx223, align 4, !tbaa !2
+  %arrayidx243 = getelementptr inbounds [100 x float], ptr @MAIN__.f14, i64 0, i64 %sub
+  %24 = load float, ptr %arrayidx243, align 4, !tbaa !2
+  %arrayidx245 = getelementptr inbounds [100 x float], ptr @MAIN__.a14, i64 0, i64 %inc939
+  %25 = load float, ptr %arrayidx245, align 4, !tbaa !2
   %sub247 = fsub float %24, %25
-  %arrayidx249 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a24, i64 0, i64 %inc939
-  %26 = load float, float* %arrayidx249, align 4, !tbaa !2
+  %arrayidx249 = getelementptr inbounds [100 x float], ptr @MAIN__.a24, i64 0, i64 %inc939
+  %26 = load float, ptr %arrayidx249, align 4, !tbaa !2
   %mul250 = fmul float %26, 2.000000e+00
   %sub251 = fsub float %sub247, %mul250
-  %arrayidx253 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a34, i64 0, i64 %inc939
-  %27 = load float, float* %arrayidx253, align 4, !tbaa !2
+  %arrayidx253 = getelementptr inbounds [100 x float], ptr @MAIN__.a34, i64 0, i64 %inc939
+  %27 = load float, ptr %arrayidx253, align 4, !tbaa !2
   %mul254 = fmul float %27, 3.000000e+00
   %sub255 = fsub float %sub251, %mul254
-  %arrayidx257 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a44, i64 0, i64 %inc939
-  %28 = load float, float* %arrayidx257, align 4, !tbaa !2
+  %arrayidx257 = getelementptr inbounds [100 x float], ptr @MAIN__.a44, i64 0, i64 %inc939
+  %28 = load float, ptr %arrayidx257, align 4, !tbaa !2
   %mul258 = fmul float %28, 4.000000e+00
   %sub259 = fsub float %sub255, %mul258
-  store float %sub259, float* %arrayidx243, align 4, !tbaa !2
-  %arrayidx263 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f24, i64 0, i64 %sub
-  %29 = load float, float* %arrayidx263, align 4, !tbaa !2
+  store float %sub259, ptr %arrayidx243, align 4, !tbaa !2
+  %arrayidx263 = getelementptr inbounds [100 x float], ptr @MAIN__.f24, i64 0, i64 %sub
+  %29 = load float, ptr %arrayidx263, align 4, !tbaa !2
   %sub267 = fsub float %29, %25
   %sub271 = fsub float %sub267, %mul250
   %sub275 = fsub float %sub271, %mul254
   %sub279 = fsub float %sub275, %mul258
-  store float %sub279, float* %arrayidx263, align 4, !tbaa !2
-  %arrayidx283 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f34, i64 0, i64 %sub
-  %30 = load float, float* %arrayidx283, align 4, !tbaa !2
+  store float %sub279, ptr %arrayidx263, align 4, !tbaa !2
+  %arrayidx283 = getelementptr inbounds [100 x float], ptr @MAIN__.f34, i64 0, i64 %sub
+  %30 = load float, ptr %arrayidx283, align 4, !tbaa !2
   %sub287 = fsub float %30, %25
   %sub291 = fsub float %sub287, %mul250
   %sub295 = fsub float %sub291, %mul254
   %sub299 = fsub float %sub295, %mul258
-  store float %sub299, float* %arrayidx283, align 4, !tbaa !2
-  %arrayidx303 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f44, i64 0, i64 %sub
-  %31 = load float, float* %arrayidx303, align 4, !tbaa !2
+  store float %sub299, ptr %arrayidx283, align 4, !tbaa !2
+  %arrayidx303 = getelementptr inbounds [100 x float], ptr @MAIN__.f44, i64 0, i64 %sub
+  %31 = load float, ptr %arrayidx303, align 4, !tbaa !2
   %sub307 = fsub float %31, %25
   %sub311 = fsub float %sub307, %mul250
   %sub315 = fsub float %sub311, %mul254
   %sub319 = fsub float %sub315, %mul258
-  store float %sub319, float* %arrayidx303, align 4, !tbaa !2
+  store float %sub319, ptr %arrayidx303, align 4, !tbaa !2
   %inc322 = add nuw nsw i64 %storemerge903938, 1
   %exitcond = icmp ugt i64 %storemerge903938, %storemerge966
   br i1 %exitcond, label %for.end.exitStub, label %for.body4

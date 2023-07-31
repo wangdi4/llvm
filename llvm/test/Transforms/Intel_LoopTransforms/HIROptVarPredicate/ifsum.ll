@@ -32,15 +32,15 @@ entry:
   br i1 %cmp34, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %0 = load i32, i32* @winner, align 4
+  %0 = load i32, ptr @winner, align 4
   %1 = zext i32 %0 to i64
-  %arrayidx11 = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %1
+  %arrayidx11 = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %1
   %wide.trip.count = sext i32 %N to i64
   br label %for.body4.lr.ph
 
 for.body4.lr.ph:                                  ; preds = %for.cond1.preheader.lr.ph, %for.cond.cleanup3
   %indvars.iv38 = phi i64 [ 0, %for.cond1.preheader.lr.ph ], [ %indvars.iv.next39, %for.cond.cleanup3 ]
-  %arrayidx7 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @Y, i64 0, i64 %indvars.iv38, i64 %1
+  %arrayidx7 = getelementptr inbounds [100 x [100 x float]], ptr @Y, i64 0, i64 %indvars.iv38, i64 %1
   br label %for.body4
 
 for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup3
@@ -53,8 +53,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.cond.cleanup3:                                ; preds = %for.inc
   %tsum.2.lcssa = phi float [ %tsum.2, %for.inc ]
-  %arrayidx13 = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %indvars.iv38, !intel-tbaa !2
-  store float %tsum.2.lcssa, float* %arrayidx13, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %indvars.iv38, !intel-tbaa !2
+  store float %tsum.2.lcssa, ptr %arrayidx13, align 4, !tbaa !2
   %indvars.iv.next39 = add nuw nsw i64 %indvars.iv38, 1
   %exitcond41 = icmp eq i64 %indvars.iv.next39, %wide.trip.count
   br i1 %exitcond41, label %for.cond.cleanup.loopexit, label %for.body4.lr.ph
@@ -66,12 +66,12 @@ for.body4:                                        ; preds = %for.inc, %for.body4
   br i1 %cmp5, label %land.lhs.true, label %for.inc
 
 land.lhs.true:                                    ; preds = %for.body4
-  %2 = load float, float* %arrayidx7, align 4, !tbaa !7
+  %2 = load float, ptr %arrayidx7, align 4, !tbaa !7
   %cmp8 = fcmp ogt float %2, 0.000000e+00
   br i1 %cmp8, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %land.lhs.true
-  %3 = load float, float* %arrayidx11, align 4, !tbaa !2
+  %3 = load float, ptr %arrayidx11, align 4, !tbaa !2
   %add = fadd float %tsum.131, %3
   br label %for.inc
 

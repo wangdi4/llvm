@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; llvm.loop.intel.max.trip_count. This test also checks that overflows don't
 ; lead to incorrect behavior when trip counts are extremely high.
 
-define void @const10(i32* %dest) "target-features"="+avx512f" {
+define void @const10(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: const10
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i32 i1 = 0, 9, 1   <DO_LOOP>
@@ -24,8 +24,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, 10
   br i1 %cond, label %exit, label %loop
 
@@ -33,7 +33,7 @@ exit:
   ret void
 }
 
-define void @const9(i32* %dest) "target-features"="+avx512f" {
+define void @const9(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: const9
 ;     CHECK: BEGIN REGION { }
 ;     CHECK:       + DO i32 i1 = 0, 8, 1   <DO_LOOP>
@@ -48,8 +48,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, 9
   br i1 %cond, label %exit, label %loop
 
@@ -57,7 +57,7 @@ exit:
   ret void
 }
 
-define void @loopcount_maximum10(i32* %dest, i32 %n) "target-features"="+avx512f" {
+define void @loopcount_maximum10(ptr %dest, i32 %n) "target-features"="+avx512f" {
 ; CHECK-LABEL: loopcount_maximum10
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10> <max_trip_count = 10>
@@ -72,8 +72,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, %n
   br i1 %cond, label %exit, label %loop, !llvm.loop !0
 
@@ -81,7 +81,7 @@ exit:
   ret void
 }
 
-define void @loopcount_maximum9(i32* %dest, i32 %n) "target-features"="+avx512f" {
+define void @loopcount_maximum9(ptr %dest, i32 %n) "target-features"="+avx512f" {
 ; CHECK-LABEL: loopcount_maximum9
 ;     CHECK: BEGIN REGION { }
 ;     CHECK:       + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>  <LEGAL_MAX_TC = 9> <max_trip_count = 9>
@@ -96,8 +96,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, %n
   br i1 %cond, label %exit, label %loop, !llvm.loop !2
 
@@ -105,7 +105,7 @@ exit:
   ret void
 }
 
-define void @max_trip_count10(i32* %dest, i32 %n) "target-features"="+avx512f" {
+define void @max_trip_count10(ptr %dest, i32 %n) "target-features"="+avx512f" {
 ; CHECK-LABEL: max_trip_count10
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10>
@@ -120,8 +120,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, %n
   br i1 %cond, label %exit, label %loop, !llvm.loop !4
 
@@ -129,7 +129,7 @@ exit:
   ret void
 }
 
-define void @max_trip_count9(i32* %dest, i32 %n) "target-features"="+avx512f" {
+define void @max_trip_count9(ptr %dest, i32 %n) "target-features"="+avx512f" {
 ; CHECK-LABEL: max_trip_count9
 ;     CHECK: BEGIN REGION { }
 ;     CHECK:       + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>  <LEGAL_MAX_TC = 9>
@@ -144,8 +144,8 @@ entry:
 loop:
   %index = phi i32 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i32 %index, 1
-  %addr = getelementptr inbounds i32, i32* %dest, i32 %index
-  store i32 %index, i32* %addr, align 8
+  %addr = getelementptr inbounds i32, ptr %dest, i32 %index
+  store i32 %index, ptr %addr, align 8
   %cond = icmp eq i32 %index.next, %n
   br i1 %cond, label %exit, label %loop, !llvm.loop !6
 
@@ -153,7 +153,7 @@ exit:
   ret void
 }
 
-define void @overflow(i64* %dest) "target-features"="+avx512f" {
+define void @overflow(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: overflow
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i64 i1 = 0, 9223372036854775807, 1   <DO_LOOP>
@@ -168,8 +168,8 @@ entry:
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  store i64 %index, i64* %addr, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  store i64 %index, ptr %addr, align 8
   %cond = icmp eq i64 %index.next, 9223372036854775808 ; 2^63
   br i1 %cond, label %exit, label %loop
 

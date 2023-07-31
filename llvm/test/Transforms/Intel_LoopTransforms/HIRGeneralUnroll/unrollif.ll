@@ -36,8 +36,8 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %j.07
-  store i32 1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %j.07
+  store i32 1, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -50,9 +50,9 @@ for.end:                                          ; preds = %for.inc
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 

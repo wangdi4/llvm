@@ -25,8 +25,8 @@ while.body.126:                                   ; preds = %entry, %if.end.150
   %next_capture.248 = phi i32 [ 0, %entry ], [ %sub130, %if.end.150 ]
   %cmp = icmp slt i32 %storemerge.149, 0
   %sub130 = add nsw i32 %next_capture.248, -1
-  %arrayidx131 = getelementptr inbounds [32 x i32], [32 x i32]* %swap_list, i32 0, i32 %sub130
-  %1 = load i32, i32* %arrayidx131, align 4
+  %arrayidx131 = getelementptr inbounds [32 x i32], ptr %swap_list, i32 0, i32 %sub130
+  %1 = load i32, ptr %arrayidx131, align 4
   br i1 %cmp, label %if.then.128, label %if.else.139
 
 if.then.128:                                      ; preds = %while.body.126
@@ -34,7 +34,7 @@ if.then.128:                                      ; preds = %while.body.126
   br i1 %cmp132, label %if.end.150, label %if.then.134
 
 if.then.134:                                      ; preds = %if.then.128
-  store i32 %0, i32* %arrayidx131, align 4
+  store i32 %0, ptr %arrayidx131, align 4
   br label %if.end.150
 
 if.else.139:                                      ; preds = %while.body.126
@@ -42,7 +42,7 @@ if.else.139:                                      ; preds = %while.body.126
   br i1 %cmp143, label %if.end.150, label %if.then.145
 
 if.then.145:                                      ; preds = %if.else.139
-  store i32 %0, i32* %arrayidx131, align 4
+  store i32 %0, ptr %arrayidx131, align 4
   br label %if.end.150
 
 if.end.150:                                       ; preds = %if.then.145, %if.else.139, %if.then.134, %if.then.128

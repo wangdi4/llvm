@@ -40,7 +40,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @f(float* noalias nocapture %A, float* noalias nocapture readonly %B, i32 %start, i32 %end) local_unnamed_addr #0 {
+define dso_local void @f(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i32 %start, i32 %end) local_unnamed_addr #0 {
 entry:
   %cmp11 = icmp slt i32 %start, %end
   br i1 %cmp11, label %for.body.preheader, label %for.cond.cleanup
@@ -57,10 +57,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !3
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %1, float* %arrayidx2, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %1, ptr %arrayidx2, align 4, !tbaa !3
   %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %indvars.iv.next = add nsw i64 %indvars.iv, 1

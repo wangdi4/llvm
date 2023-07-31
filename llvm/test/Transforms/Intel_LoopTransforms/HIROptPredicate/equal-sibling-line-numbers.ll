@@ -77,7 +77,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i64* nocapture %p, i64* nocapture %q, i64 %n, i64 %m) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %p, ptr nocapture %q, i64 %n, i64 %m) local_unnamed_addr #0 {
 entry:
   %tobool = icmp ne i64 %n, 0
   %tobool2 = icmp eq i64 %m, 0
@@ -91,22 +91,22 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %tobool, label %if.then, label %if.end, !dbg !14
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i64, i64* %p, i64 %i.024
-  store i64 %i.024, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %p, i64 %i.024
+  store i64 %i.024, ptr %arrayidx, align 8
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
-  %arrayidx1 = getelementptr inbounds i64, i64* %q, i64 %i.024
-  store i64 %i.024, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %q, i64 %i.024
+  store i64 %i.024, ptr %arrayidx1, align 8
   br i1 %tobool2, label %for.inc, label %if.then3
 
 if.then3:                                         ; preds = %if.end
-  %arrayidx5 = getelementptr inbounds i64, i64* %p, i64 %i.024
-  store i64 %i.024, i64* %arrayidx5, align 8
+  %arrayidx5 = getelementptr inbounds i64, ptr %p, i64 %i.024
+  store i64 %i.024, ptr %arrayidx5, align 8
   br i1 %tobool, label %if.then7, label %for.inc, !dbg !15
 
 if.then7:                                         ; preds = %if.then3
-  store i64 0, i64* %arrayidx1, align 8
+  store i64 0, ptr %arrayidx1, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end, %if.then7, %if.then3

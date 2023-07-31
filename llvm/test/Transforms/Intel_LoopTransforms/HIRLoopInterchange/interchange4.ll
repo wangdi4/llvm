@@ -66,11 +66,11 @@ for.cond.10.preheader:                            ; preds = %for.inc.24, %for.co
 
 for.body.12:                                      ; preds = %for.body.12, %for.cond.10.preheader
   %i5.0129 = phi i64 [ 1, %for.cond.10.preheader ], [ %inc, %for.body.12 ]
-  %arrayidx16 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], [100 x [100 x [100 x [100 x [100 x float]]]]]* @A, i64 0, i64 %i5.0129, i64 %i4.0130, i64 %i3.0131, i64 %add, i64 %i1.0134
-  %0 = load float, float* %arrayidx16, align 4, !tbaa !1
+  %arrayidx16 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], ptr @A, i64 0, i64 %i5.0129, i64 %i4.0130, i64 %i3.0131, i64 %add, i64 %i1.0134
+  %0 = load float, ptr %arrayidx16, align 4, !tbaa !1
   %add17 = fadd float %0, 1.000000e+00
-  %arrayidx23 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], [100 x [100 x [100 x [100 x [100 x float]]]]]* @A, i64 0, i64 %i5.0129, i64 %i4.0130, i64 %i3.0131, i64 %add18, i64 %i1.0134
-  store float %add17, float* %arrayidx23, align 4, !tbaa !1
+  %arrayidx23 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], ptr @A, i64 0, i64 %i5.0129, i64 %i4.0130, i64 %i3.0131, i64 %add18, i64 %i1.0134
+  store float %add17, ptr %arrayidx23, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i5.0129, 1
   %exitcond139 = icmp eq i64 %inc, 96
   br i1 %exitcond139, label %for.inc.24, label %for.body.12
@@ -118,11 +118,11 @@ for.cond.48.preheader:                            ; preds = %for.inc.67, %for.co
 
 for.body.50:                                      ; preds = %for.body.50, %for.cond.48.preheader
   %i5.1123 = phi i64 [ 1, %for.cond.48.preheader ], [ %inc65, %for.body.50 ]
-  %arrayidx56 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], [100 x [100 x [100 x [100 x [100 x float]]]]]* @A, i64 0, i64 %i5.1123, i64 %i4.1124, i64 %i3.1125, i64 %add51, i64 %i1.1127
-  %1 = load float, float* %arrayidx56, align 4, !tbaa !1
+  %arrayidx56 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], ptr @A, i64 0, i64 %i5.1123, i64 %i4.1124, i64 %i3.1125, i64 %add51, i64 %i1.1127
+  %1 = load float, ptr %arrayidx56, align 4, !tbaa !1
   %add57 = fadd float %1, 1.000000e+00
-  %arrayidx63 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], [100 x [100 x [100 x [100 x [100 x float]]]]]* @A, i64 0, i64 %i5.1123, i64 %i4.1124, i64 %i3.1125, i64 %add58, i64 %i1.1127
-  store float %add57, float* %arrayidx63, align 4, !tbaa !1
+  %arrayidx63 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x float]]]]], ptr @A, i64 0, i64 %i5.1123, i64 %i4.1124, i64 %i3.1125, i64 %add58, i64 %i1.1127
+  store float %add57, ptr %arrayidx63, align 4, !tbaa !1
   %inc65 = add nuw nsw i64 %i5.1123, 1
   %exitcond = icmp eq i64 %inc65, 96
   br i1 %exitcond, label %for.inc.67, label %for.body.50

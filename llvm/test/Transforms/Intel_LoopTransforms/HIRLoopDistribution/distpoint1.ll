@@ -44,21 +44,21 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @b1, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @c1, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @b1, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @c1, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4, !tbaa !2
   %add = fadd float %0, %1
-  %arrayidx4 = getelementptr inbounds [1000 x float], [1000 x float]* @a1, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx4, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1000 x float], ptr @a1, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx4, align 4, !tbaa !2
   %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  %arrayidx6 = getelementptr inbounds [1000 x float], [1000 x float]* @b2, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx6, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds [1000 x float], [1000 x float]* @c2, i64 0, i64 %indvars.iv
-  %4 = load float, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [1000 x float], ptr @b2, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx6, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x float], ptr @c2, i64 0, i64 %indvars.iv
+  %4 = load float, ptr %arrayidx8, align 4, !tbaa !2
   %mul = fmul float %3, %4
-  %arrayidx10 = getelementptr inbounds [1000 x float], [1000 x float]* @a2, i64 0, i64 %indvars.iv
-  store float %mul, float* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [1000 x float], ptr @a2, i64 0, i64 %indvars.iv
+  store float %mul, ptr %arrayidx10, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

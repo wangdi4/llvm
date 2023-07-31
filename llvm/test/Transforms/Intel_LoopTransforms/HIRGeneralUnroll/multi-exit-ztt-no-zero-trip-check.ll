@@ -42,7 +42,7 @@ loop:                                             ; preds = %latch, %loop.pre
 
 latch:                                             ; preds = %loop
   %iv.inc = add nsw i32 %iv, -1
-  store i32 %iv.inc, i32* @glob, align 8
+  store i32 %iv.inc, ptr @glob, align 8
   %tmp40 = icmp eq i32 %iv.inc, 1
   br i1 %tmp40, label %loopexit, label %loop
 

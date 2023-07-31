@@ -58,28 +58,28 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [128 x float], [128 x float]* @B, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [128 x float], [128 x float]* @C, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [128 x float], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [128 x float], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd float %0, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %indvars.iv.next
-  store float %add, float* %arrayidx5, align 4
-  %arrayidx7 = getelementptr inbounds [128 x float], [128 x float]* @DC, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx7, align 4
-  %arrayidx9 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %indvars.iv.next
+  store float %add, ptr %arrayidx5, align 4
+  %arrayidx7 = getelementptr inbounds [128 x float], ptr @DC, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx7, align 4
+  %arrayidx9 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx9, align 4
   %add10 = fadd float %2, %3
-  %arrayidx13 = getelementptr inbounds [128 x float], [128 x float]* @DC, i64 0, i64 %indvars.iv.next
-  store float %add10, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [128 x float], ptr @DC, i64 0, i64 %indvars.iv.next
+  store float %add10, ptr %arrayidx13, align 4
   %exitcond = icmp ne i64 %indvars.iv.next, 128
   br i1 %exitcond, label %for.body, label %for.cond.cleanup
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
