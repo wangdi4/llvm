@@ -5944,22 +5944,27 @@ int32_t LevelZeroProgramTy::addModule(
 #endif // INTEL_INTERNAL_BUILD
   if (!SuppressLog && (BuildFailed || ShowBuildLog)) {
     if (BuildFailed)
-      DP("Error: module creation failed\n");
-    if (DebugLevel > 0 || ShowBuildLog) {
-      MESSAGE0("Target build log:");
-      size_t LogSize = 0;
-      CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize, nullptr);
-      if (LogSize > 1) {
-        std::vector<char> LogString(LogSize);
-        CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize,
-                         LogString.data());
-        std::stringstream Str(LogString.data());
-        std::string Line;
-        while (std::getline(Str, Line, '\n'))
-          MESSAGE("  '%s'", Line.c_str());
-      } else {
-        MESSAGE0("  <empty>");
+      MESSAGE0("Error: module creation failed");
+    MESSAGE0("Target build log:");
+    size_t LogSize = 0;
+    CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize, nullptr);
+    if (LogSize > 1) {
+      std::vector<char> LogString(LogSize);
+      CALL_ZE_RET_FAIL(zeModuleBuildLogGetString, BuildLog, &LogSize,
+                       LogString.data());
+      std::stringstream Str(LogString.data());
+      std::string Line;
+      int NumLines = 0;
+      while (std::getline(Str, Line, '\n')) {
+        // Only show first 10 lines by default
+        if (DebugLevel <= 0 && !ShowBuildLog && ++NumLines > 10) {
+          MESSAGE0("  (suppressed remaining log)");
+          break;
+        }
+        MESSAGE("  '%s'", Line.c_str());
       }
+    } else {
+      MESSAGE0("  <empty>");
     }
   }
   CALL_ZE_RET_FAIL(zeModuleBuildLogDestroy, BuildLog);
