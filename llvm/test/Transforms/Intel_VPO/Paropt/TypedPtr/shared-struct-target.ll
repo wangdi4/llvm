@@ -2,13 +2,11 @@
 ; region, without considering the target clause and the entire enclosing
 ; target region.
 
-; RUN: opt -bugpoint-enable-legacy-pm -S -xmain-opt-level=3 -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
-; RUN: opt -S -xmain-opt-level=3 -passes="function(vpo-cfg-restructuring),vpo-paropt" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -S -xmain-opt-level=3 -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -xmain-opt-level=3 -passes="function(vpo-cfg-restructuring),vpo-paropt" %s | FileCheck %s
 ; CHECK: tmpcast = bitcast {{.*}} %alpha
 ; CHECK: call {{.*}}tgt_target_teams
 ; CHECK: call {{.*}}kmpc_fork_teams{{.*}}tmpcast
-
-; Bitcasts were retained when converting this test to opaque pointers.
 
 ; #include <stdio.h>
 ;
@@ -37,55 +35,55 @@ target device_triples = "spir64"
 define dso_local void @_Z7Compute5cmplx(<2 x float> %alpha.coerce) local_unnamed_addr #0 {
 entry:
   %alpha = alloca <2 x float>, align 8
-  %tmpcast = bitcast ptr %alpha to ptr
+  %tmpcast = bitcast <2 x float>* %alpha to %struct.cmplx*
   %k = alloca i32, align 4
-  store <2 x float> %alpha.coerce, ptr %alpha, align 8
+  store <2 x float> %alpha.coerce, <2 x float>* %alpha, align 8
   %end.dir.temp11 = alloca i1, align 1
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.TOFROM"(ptr @A, ptr @A, i64 400, i64 35),
-    "QUAL.OMP.MAP.TOFROM"(ptr %tmpcast, ptr %tmpcast, i64 8, i64 547),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %k, i32 0, i32 1),
-    "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp11) ]
+    "QUAL.OMP.MAP.TOFROM"([100 x float]* @A, [100 x float]* @A, i64 400, i64 35),
+    "QUAL.OMP.MAP.TOFROM"(%struct.cmplx* %tmpcast, %struct.cmplx* %tmpcast, i64 8, i64 547),
+    "QUAL.OMP.PRIVATE"(i32* %k),
+    "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp11) ]
 
-  %temp.load12 = load volatile i1, ptr %end.dir.temp11, align 1
+  %temp.load12 = load volatile i1, i1* %end.dir.temp11, align 1
   br i1 %temp.load12, label %DIR.OMP.END.TEAMS.6.split, label %DIR.OMP.TARGET.3
 
 DIR.OMP.TARGET.3:                                 ; preds = %entry
   %end.dir.temp = alloca i1, align 1
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.SHARED:TYPED"(ptr @A, float 0.000000e+00, i32 100),
-    "QUAL.OMP.SHARED:TYPED"(ptr %tmpcast, %struct.cmplx zeroinitializer, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %k, i32 0, i32 1),
-    "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp) ]
+    "QUAL.OMP.SHARED"([100 x float]* @A),
+    "QUAL.OMP.SHARED"(%struct.cmplx* %tmpcast),
+    "QUAL.OMP.PRIVATE"(i32* %k),
+    "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
 
-  %temp.load = load volatile i1, ptr %end.dir.temp, align 1
+  %temp.load = load volatile i1, i1* %end.dir.temp, align 1
   br i1 %temp.load, label %for.end.split, label %DIR.OMP.TEAMS.5
 
 DIR.OMP.TEAMS.5:                                  ; preds = %DIR.OMP.TARGET.3
-  %2 = bitcast ptr %k to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr %2) #1
+  %2 = bitcast i32* %k to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %2) #1
   br label %for.cond
 
 for.cond:                                         ; preds = %for.body, %DIR.OMP.TEAMS.5
   %storemerge = phi i32 [ 0, %DIR.OMP.TEAMS.5 ], [ %inc, %for.body ]
-  store i32 %storemerge, ptr %k, align 4, !tbaa !3
+  store i32 %storemerge, i32* %k, align 4, !tbaa !3
   %cmp = icmp slt i32 %storemerge, 100
   br i1 %cmp, label %for.body, label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %2) #1
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2) #1
   br label %for.end.split
 
 for.body:                                         ; preds = %for.cond
-  %x = getelementptr inbounds %struct.cmplx, ptr %tmpcast, i64 0, i32 0
-  %3 = load float, ptr %x, align 4, !tbaa !7
+  %x = getelementptr inbounds %struct.cmplx, %struct.cmplx* %tmpcast, i64 0, i32 0
+  %3 = load float, float* %x, align 4, !tbaa !7
   %idxprom = sext i32 %storemerge to i64
-  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %idxprom
-  %4 = load float, ptr %arrayidx, align 4, !tbaa !10
+  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %idxprom
+  %4 = load float, float* %arrayidx, align 4, !tbaa !10
   %add = fadd float %4, %3
-  store float %add, ptr %arrayidx, align 4, !tbaa !10
-  %5 = load i32, ptr %k, align 4, !tbaa !3
+  store float %add, float* %arrayidx, align 4, !tbaa !10
+  %5 = load i32, i32* %k, align 4, !tbaa !3
   %inc = add nsw i32 %5, 1
   br label %for.cond
 
@@ -102,9 +100,9 @@ declare token @llvm.directive.region.entry() #1
 
 declare void @llvm.directive.region.exit(token) #1
 
-declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #2
+declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
 
-declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #2
+declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="64" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s 2>&1 | FileCheck %s
 
 ; Original code:
 ; void bar(int *x) {
@@ -22,51 +22,64 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local spir_func void @foo(i32 %x) #0 {
+define dso_local spir_func void @foo(i32 %x) {
 entry:
   %x.addr = alloca i32, align 4
-  %x.addr.ascast = addrspacecast i32* %x.addr to i32 addrspace(4)*
+  %x.addr.ascast = addrspacecast ptr %x.addr to ptr addrspace(4)
   %.omp.lb = alloca i32, align 4
-  %.omp.lb.ascast = addrspacecast i32* %.omp.lb to i32 addrspace(4)*
+  %.omp.lb.ascast = addrspacecast ptr %.omp.lb to ptr addrspace(4)
   %.omp.ub = alloca i32, align 4
-  %.omp.ub.ascast = addrspacecast i32* %.omp.ub to i32 addrspace(4)*
+  %.omp.ub.ascast = addrspacecast ptr %.omp.ub to ptr addrspace(4)
   %tmp = alloca i32, align 4
-  %tmp.ascast = addrspacecast i32* %tmp to i32 addrspace(4)*
+  %tmp.ascast = addrspacecast ptr %tmp to ptr addrspace(4)
   %.omp.iv = alloca i32, align 4
-  %.omp.iv.ascast = addrspacecast i32* %.omp.iv to i32 addrspace(4)*
+  %.omp.iv.ascast = addrspacecast ptr %.omp.iv to ptr addrspace(4)
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  store i32 %x, i32 addrspace(4)* %x.addr.ascast, align 4
-  store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4
-  store i32 99, i32 addrspace(4)* %.omp.ub.ascast, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %x.addr.ascast, i32 addrspace(4)* %x.addr.ascast, i64 4, i64 35, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %x.addr.ascast) ]
-  %2 = load i32, i32 addrspace(4)* %.omp.lb.ascast, align 4
-  store i32 %2, i32 addrspace(4)* %.omp.iv.ascast, align 4
+  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  store i32 %x, ptr addrspace(4) %x.addr.ascast, align 4
+  store i32 0, ptr addrspace(4) %.omp.lb.ascast, align 4
+  store i32 99, ptr addrspace(4) %.omp.ub.ascast, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) %x.addr.ascast, ptr addrspace(4) %x.addr.ascast, i64 4, i64 35, ptr null, ptr null),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %x.addr.ascast, i32 0, i32 1) ]
+
+  %2 = load i32, ptr addrspace(4) %.omp.lb.ascast, align 4
+  store i32 %2, ptr addrspace(4) %.omp.iv.ascast, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %3 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4
-  %4 = load i32, i32 addrspace(4)* %.omp.ub.ascast, align 4
+  %3 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
+  %4 = load i32, ptr addrspace(4) %.omp.ub.ascast, align 4
   %cmp = icmp sle i32 %3, %4
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %5 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4
+  %5 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
   %mul = mul nsw i32 %5, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, i32 addrspace(4)* %i.ascast, align 4
-  call spir_func void @bar(i32 addrspace(4)* %x.addr.ascast)
+  store i32 %add, ptr addrspace(4) %i.ascast, align 4
+  call spir_func void @bar(ptr addrspace(4) %x.addr.ascast)
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %6 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4
+  %6 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
   %add1 = add nsw i32 %6, 1
-  store i32 %add1, i32 addrspace(4)* %.omp.iv.ascast, align 4
+  store i32 %add1, ptr addrspace(4) %.omp.iv.ascast, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
@@ -78,42 +91,24 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local void @__atomic_store(i64, ptr addrspace(4), ptr addrspace(4), i32)
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local spir_func void @bar(i32 addrspace(4)* %x) #2 {
+define dso_local spir_func void @bar(ptr addrspace(4) %x) #0 {
 entry:
-  %x.addr = alloca i32 addrspace(4)*, align 8
-  %x.addr.ascast = addrspacecast i32 addrspace(4)** %x.addr to i32 addrspace(4)* addrspace(4)*
+  %x.addr = alloca ptr addrspace(4), align 8
+  %x.addr.ascast = addrspacecast ptr %x.addr to ptr addrspace(4)
   %atomic-temp = alloca i32, align 4
-  %atomic-temp.ascast = addrspacecast i32* %atomic-temp to i32 addrspace(4)*
-  store i32 addrspace(4)* %x, i32 addrspace(4)* addrspace(4)* %x.addr.ascast, align 8
-  %0 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %x.addr.ascast, align 8
-  store i32 1, i32 addrspace(4)* %atomic-temp.ascast, align 4
-  %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
-  %2 = bitcast i32 addrspace(4)* %atomic-temp.ascast to i8 addrspace(4)*
-  call void @__atomic_store(i64 4, i8 addrspace(4)* %1, i8 addrspace(4)* %2, i32 0)
+  %atomic-temp.ascast = addrspacecast ptr %atomic-temp to ptr addrspace(4)
+  store ptr addrspace(4) %x, ptr addrspace(4) %x.addr.ascast, align 8
+  %0 = load ptr addrspace(4), ptr addrspace(4) %x.addr.ascast, align 8
+  store i32 1, ptr addrspace(4) %atomic-temp.ascast, align 4
+  call void @__atomic_store(i64 4, ptr addrspace(4) %0, ptr addrspace(4) %atomic-temp.ascast, i32 0)
   ret void
 }
 
-declare dso_local void @__atomic_store(i64, i8 addrspace(4)*, i8 addrspace(4)*, i32)
-
-attributes #0 = { noinline nounwind optnone uwtable "contains-openmp-target"="true" "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-attributes #2 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { "openmp-target-declare"="true" }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!opencl.used.extensions = !{!2}
-!opencl.used.optional.core.features = !{!2}
-!opencl.compiler.options = !{!2}
-!llvm.ident = !{!3}
-
 !0 = !{i32 0, i32 2052, i32 55982831, !"foo", i32 6, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{}
-!3 = !{!"clang version 8.0.0"}
