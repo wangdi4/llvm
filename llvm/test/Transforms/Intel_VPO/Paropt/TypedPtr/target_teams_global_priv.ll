@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 
@@ -28,21 +28,15 @@ target device_triples = "spir64"
 ; Function Attrs: noinline nounwind optnone uwtable
 define hidden spir_func void @foo() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.TO"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @a to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @a to ptr addrspace(4)), i64 4, i64 1, ptr null, ptr null) ] ; MAP type: 1 = 0x1 = TO (0x1)
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), i64 4, i64 1, i8* null, i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*)) ]
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @a to ptr addrspace(4)), i32 0, i32 1) ]
-
-  store i32 10, ptr addrspace(4) addrspacecast (ptr addrspace(1) @a to ptr addrspace(4)), align 4
+  store i32 10, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), align 4
 ; Check that @a is replaced with @a.priv.__local inside the teams region.
-; CHECK: store i32 10, ptr addrspace(3) @a.priv.__local
+; CHECK: store i32 10, i32 addrspace(3)* @a.priv.__local
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
-
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-
   ret void
 }
 
