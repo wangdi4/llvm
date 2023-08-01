@@ -40,15 +40,15 @@ for.body:                                         ; preds = %for.inc, %for.body.
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 3
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx3, align 4
   %add4 = add nsw i32 %1, %s.013
   br label %for.inc
 

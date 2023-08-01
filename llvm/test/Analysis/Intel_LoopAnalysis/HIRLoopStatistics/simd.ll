@@ -20,8 +20,8 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %priv, i64 0, i64 %indvars.iv
-  store i32 1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %priv, i64 0, i64 %indvars.iv
+  store i32 1, ptr %arrayidx, align 4
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024

@@ -29,7 +29,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %A, i32 %n, i32 %a, i32 %b, i32 %c) {
+define void @foo(ptr nocapture %A, i32 %n, i32 %a, i32 %b, i32 %c) {
 entry:
   %cmp.6 = icmp sgt i32 %n, 0
   br i1 %cmp.6, label %for.body.preheader, label %for.end
@@ -42,8 +42,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %for.body.preheader ]
   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %for.body.preheader ]
   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %a.addr.010, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %a.addr.010, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

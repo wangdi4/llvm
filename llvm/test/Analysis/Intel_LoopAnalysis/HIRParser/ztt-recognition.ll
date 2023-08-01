@@ -8,7 +8,7 @@
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 
-define void @foo(i16* nocapture readonly %InputData, i16* nocapture %AutoCorrData, i16 signext %DataSize, i16 signext %NumberOfLags, i16 signext %Scale) #0 {
+define void @foo(ptr nocapture readonly %InputData, ptr nocapture %AutoCorrData, i16 signext %DataSize, i16 signext %NumberOfLags, i16 signext %Scale) #0 {
 entry:
   %conv = sext i16 %NumberOfLags to i32
   %cmp35 = icmp sgt i16 %NumberOfLags, 0
@@ -32,12 +32,12 @@ for.body6.preheader:                              ; preds = %for.body
 for.body6:                                        ; preds = %for.body6, %for.body6.preheader
   %Accumulator.034 = phi i32 [ %add11, %for.body6 ], [ 0, %for.body6.preheader ]
   %i.033 = phi i32 [ %inc, %for.body6 ], [ 0, %for.body6.preheader ]
-  %arrayidx = getelementptr inbounds i16, i16* %InputData, i32 %i.033
-  %tmp = load i16, i16* %arrayidx, align 2
+  %arrayidx = getelementptr inbounds i16, ptr %InputData, i32 %i.033
+  %tmp = load i16, ptr %arrayidx, align 2
   %conv7 = sext i16 %tmp to i32
   %add = add nuw nsw i32 %i.033, %lag.036
-  %arrayidx8 = getelementptr inbounds i16, i16* %InputData, i32 %add
-  %tmp1 = load i16, i16* %arrayidx8, align 2
+  %arrayidx8 = getelementptr inbounds i16, ptr %InputData, i32 %add
+  %tmp1 = load i16, ptr %arrayidx8, align 2
   %conv9 = sext i16 %tmp1 to i32
   %mul = mul nsw i32 %conv9, %conv7
   %shr = ashr i32 %mul, %conv10
@@ -53,8 +53,8 @@ for.end:                                          ; preds = %for.end.loopexit, %
   %Accumulator.0.lcssa = phi i32 [ 0, %for.body ], [ %add11, %for.end.loopexit ]
   %shr1231 = lshr i32 %Accumulator.0.lcssa, 16
   %conv13 = trunc i32 %shr1231 to i16
-  %arrayidx14 = getelementptr inbounds i16, i16* %AutoCorrData, i32 %lag.036
-  store i16 %conv13, i16* %arrayidx14, align 2
+  %arrayidx14 = getelementptr inbounds i16, ptr %AutoCorrData, i32 %lag.036
+  store i16 %conv13, ptr %arrayidx14, align 2
   %inc16 = add nuw nsw i32 %lag.036, 1
   %indvars.iv.next = add nsw i32 %indvars.iv, -1
   %exitcond38 = icmp ne i32 %inc16, %conv

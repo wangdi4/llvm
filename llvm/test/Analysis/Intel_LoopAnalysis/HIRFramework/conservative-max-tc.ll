@@ -9,14 +9,14 @@
 ; CHECK: + END LOOP
 
 
-define void @foo([10 x i8]* %ptr, i64 %init) {
+define void @foo(ptr %ptr, i64 %init) {
 entry:
   br label %loop
 
 loop:                                             ; preds = %entry, %latch
   %iv = phi i64 [ %iv.inc, %loop ], [ %init, %entry ]
-  %gep = getelementptr inbounds [10 x i8], [10 x i8]* %ptr, i64 0, i64 %iv
-  %ld = load i8, i8* %gep, align 1
+  %gep = getelementptr inbounds [10 x i8], ptr %ptr, i64 0, i64 %iv
+  %ld = load i8, ptr %gep, align 1
   %iv.inc = add nsw i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 10
   br i1 %cmp, label %exit, label %loop

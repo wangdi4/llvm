@@ -34,12 +34,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i64], [1000 x i64]* @B, i64 0, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !2
-  %arrayidx1 = getelementptr inbounds [1000 x float], [1000 x float]* @A, i64 0, i64 %0
-  %1 = load float, float* %arrayidx1, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds [1000 x i64], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !2
+  %arrayidx1 = getelementptr inbounds [1000 x float], ptr @A, i64 0, i64 %0
+  %1 = load float, ptr %arrayidx1, align 4, !tbaa !7
   %add = fadd float %1, %conv
-  store float %add, float* %arrayidx1, align 4, !tbaa !7
+  store float %add, ptr %arrayidx1, align 4, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

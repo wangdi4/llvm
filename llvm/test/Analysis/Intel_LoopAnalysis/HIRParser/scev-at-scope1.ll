@@ -36,7 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @test() #0 {
 entry:
-  store i32 0, i32* @i, align 4
+  store i32 0, ptr @i, align 4
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc10, %entry
@@ -50,12 +50,12 @@ for.body3.lr.ph:                                  ; preds = %for.cond1.preheader
 
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.body3
   %indvars.iv = phi i64 [ 0, %for.body3.lr.ph ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [32 x [32 x float]], [32 x [32 x float]]* @S2, i64 0, i64 %indvars.iv, i64 %indvars.iv22
-  %1 = bitcast float* %arrayidx5 to i32*
-  %2 = load i32, i32* %1, align 4
-  %arrayidx9 = getelementptr inbounds [32 x [32 x float]], [32 x [32 x float]]* @R2, i64 0, i64 %indvars.iv, i64 %indvars.iv22
-  %3 = bitcast float* %arrayidx9 to i32*
-  store i32 %2, i32* %3, align 4
+  %arrayidx5 = getelementptr inbounds [32 x [32 x float]], ptr @S2, i64 0, i64 %indvars.iv, i64 %indvars.iv22
+  %1 = bitcast ptr %arrayidx5 to ptr
+  %2 = load i32, ptr %1, align 4
+  %arrayidx9 = getelementptr inbounds [32 x [32 x float]], ptr @R2, i64 0, i64 %indvars.iv, i64 %indvars.iv22
+  %3 = bitcast ptr %arrayidx9 to ptr
+  store i32 %2, ptr %3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp2 = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp2, label %for.body3, label %for.inc10.loopexit
@@ -73,8 +73,8 @@ for.inc10:                                        ; preds = %for.inc10.loopexit,
 
 for.end12:                                        ; preds = %for.inc10
   %inc.lcssa19.lcssa = phi i32 [ %inc.lcssa19, %for.inc10 ]
-  store i32 %inc.lcssa19.lcssa, i32* @j, align 4
-  store i32 32, i32* @i, align 4
+  store i32 %inc.lcssa19.lcssa, ptr @j, align 4
+  store i32 32, ptr @i, align 4
   ret i32 undef
 }
 

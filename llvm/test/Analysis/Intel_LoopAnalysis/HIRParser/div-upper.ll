@@ -26,7 +26,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %A) {
+define void @foo(ptr nocapture %A) {
 entry:
   br label %do.body
 
@@ -50,20 +50,20 @@ for.body:                                         ; preds = %for.body, %for.body
   %k.038 = phi i64 [ %add1, %for.body.lr.ph ], [ %add12, %for.body ]
   %i.037 = phi i64 [ %add, %for.body.lr.ph ], [ %inc, %for.body ]
   %inc = add nsw i64 %i.037, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %k.038
-  %4 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %k.038
+  %4 = load i32, ptr %arrayidx, align 4
   %sub = add nsw i64 %k.038, -1
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %sub
-  %5 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %sub
+  %5 = load i32, ptr %arrayidx3, align 4
   %mul = mul nsw i32 %5, %4
   %sub4 = sub i32 %4, %mul
   %add5 = add nsw i64 %k.038, 1
-  %arrayidx6 = getelementptr inbounds i32, i32* %A, i64 %add5
-  %6 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %A, i64 %add5
+  %6 = load i32, ptr %arrayidx6, align 4
   %mul9 = mul nsw i32 %6, %6
   %sub10 = sub i32 %sub4, %mul9
-  %arrayidx11 = getelementptr inbounds i32, i32* %A, i64 %inc
-  store i32 %sub10, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds i32, ptr %A, i64 %inc
+  store i32 %sub10, ptr %arrayidx11, align 4
   %add12 = add nsw i64 %k.038, 2
   %exitcond = icmp eq i64 %inc, %3
   br i1 %exitcond, label %do.cond.loopexit, label %for.body

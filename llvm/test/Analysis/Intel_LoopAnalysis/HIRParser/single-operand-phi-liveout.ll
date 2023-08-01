@@ -61,10 +61,10 @@ for.body48:                                       ; preds = %for.body48.preheade
   %0 = trunc i64 %indvars.iv246 to i32
   %add50 = add i64 %indvars.iv246, 1
   %idxprom51 = and i64 %add50, 4294967295
-  %arrayidx53 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %s, i64 0, i64 %idxprom51, i64 %indvars.iv246
-  %1 = load i32, i32* %arrayidx53, align 4
-  %arrayidx55 = getelementptr inbounds [100 x i32], [100 x i32]* %h5, i64 0, i64 %indvars.iv246
-  store i32 %1, i32* %arrayidx55, align 4
+  %arrayidx53 = getelementptr inbounds [100 x [100 x i32]], ptr %s, i64 0, i64 %idxprom51, i64 %indvars.iv246
+  %1 = load i32, ptr %arrayidx53, align 4
+  %arrayidx55 = getelementptr inbounds [100 x i32], ptr %h5, i64 0, i64 %indvars.iv246
+  store i32 %1, ptr %arrayidx55, align 4
   %dec96 = add nsw i32 %0, -1
   %cmp47 = icmp ugt i32 %dec96, 1
   %indvars.iv.next247 = add nsw i64 %indvars.iv246, -1

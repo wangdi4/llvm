@@ -9,20 +9,20 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i8* %init.ptr, i32 %n) {
+define void @foo(ptr %init.ptr, i32 %n) {
 entry:
-  %init.add = getelementptr i8, i8* %init.ptr, i64 2
+  %init.add = getelementptr i8, ptr %init.ptr, i64 2
   br label %loop
 
 loop:                                               ; preds = %loop, %entry
-  %phi.ptr1 = phi i8* [ %phi.ptr1.inc, %loop ], [ %init.add, %entry ]
+  %phi.ptr1 = phi ptr [ %phi.ptr1.inc, %loop ], [ %init.add, %entry ]
   %iv = phi i32 [ %iv.dec, %loop ], [ %n, %entry ]
-  %phi.ptr2 = phi i8* [ %phi.ptr1, %loop ], [ %init.ptr, %entry ]
-  %phi.ptr2.inc = getelementptr inbounds i8, i8* %phi.ptr2, i64 3
-  store i8 0, i8* %phi.ptr1, align 1
-  store i8 1, i8* %phi.ptr2.inc, align 1
+  %phi.ptr2 = phi ptr [ %phi.ptr1, %loop ], [ %init.ptr, %entry ]
+  %phi.ptr2.inc = getelementptr inbounds i8, ptr %phi.ptr2, i64 3
+  store i8 0, ptr %phi.ptr1, align 1
+  store i8 1, ptr %phi.ptr2.inc, align 1
   %iv.dec = add i32 %iv, -1
-  %phi.ptr1.inc = getelementptr inbounds i8, i8* %phi.ptr1, i64 2
+  %phi.ptr1.inc = getelementptr inbounds i8, ptr %phi.ptr1, i64 2
   %cmp = icmp eq i32 %iv.dec, 0
   br i1 %cmp, label %exit, label %loop
 

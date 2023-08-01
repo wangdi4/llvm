@@ -25,27 +25,27 @@ target triple = "csa"
 target device_triples = "csa"
 
 ; Function Attrs: norecurse nounwind
-define weak void @__omp_offloading_8098d6ff_765331__Z5loop1Pii_l20(i64 %n, i32* %ip) {
+define weak void @__omp_offloading_8098d6ff_765331__Z5loop1Pii_l20(i64 %n, ptr %ip) {
 entry:
-  %ip.addr = alloca i32*, align 8
+  %ip.addr = alloca ptr, align 8
   %i = alloca i32, align 4
   %n.addr.sroa.0.0.extract.trunc = trunc i64 %n to i32
-  store i32* %ip, i32** %ip.addr, align 8
+  store ptr %ip, ptr %ip.addr, align 8
   %cmp = icmp sgt i32 %n.addr.sroa.0.0.extract.trunc, 0
   br i1 %cmp, label %DIR.OMP.PARALLEL.LOOP.112, label %omp.precond.end
 
 DIR.OMP.PARALLEL.LOOP.112:                        ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(i32** %ip.addr) ]
-  %1 = bitcast i32* %i to i8*
-  %2 = load i32*, i32** %ip.addr, align 8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE"(ptr %i), "QUAL.OMP.SHARED"(ptr %ip.addr) ]
+  %1 = bitcast ptr %i to ptr
+  %2 = load ptr, ptr %ip.addr, align 8
   %wide.trip.count = and i64 %n, 4294967295
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.PARALLEL.LOOP.112
   %indvars.iv = phi i64 [ 0, %DIR.OMP.PARALLEL.LOOP.112 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %3 = trunc i64 %indvars.iv to i32
-  %arrayidx = getelementptr inbounds i32, i32* %2, i64 %indvars.iv
-  store i32 %3, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %2, i64 %indvars.iv
+  store i32 %3, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

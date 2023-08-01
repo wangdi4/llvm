@@ -43,7 +43,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @main() {
 entry:
-  store i32 0, i32* @a, align 4
+  store i32 0, ptr @a, align 4
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc5
@@ -53,8 +53,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc5
   br i1 %cmp28, label %for.inc5, label %for.body4.lr.ph
 
 for.body4.lr.ph:                                  ; preds = %for.cond1.preheader
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @h, i64 0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @h, i64 0, i64 %indvars.iv
+  store i32 0, ptr %arrayidx, align 4
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4.lr.ph, %for.body4
@@ -74,8 +74,8 @@ for.inc5:                                         ; preds = %for.inc5.loopexit, 
 
 for.end6:                                         ; preds = %for.inc5
   %inc.lcssa12.lcssa = phi i8 [ %inc.lcssa12, %for.inc5 ]
-  store i8 %inc.lcssa12.lcssa, i8* @d, align 1
-  store i32 10, i32* @a, align 4
+  store i8 %inc.lcssa12.lcssa, ptr @d, align 1
+  store i32 10, ptr @a, align 4
   ret i32 0
 }
 

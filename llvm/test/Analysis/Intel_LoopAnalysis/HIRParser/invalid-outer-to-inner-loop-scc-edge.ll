@@ -23,9 +23,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-define void @foo(i32 %div, double* noalias nocapture %ptr1, double* noalias nocapture readonly %ptr2) {
+define void @foo(i32 %div, ptr noalias nocapture %ptr1, ptr noalias nocapture readonly %ptr2) {
 alloca_2:
   %rel = icmp slt i32 %div, 1
   br i1 %rel, label %bb95, label %outerloop.preheader
@@ -43,13 +43,13 @@ innerloop:                                            ; preds = %innerloop, %out
   %indvars.iv = phi i64 [ %indvars.iv.next, %innerloop ], [ 1, %outerloop ]
   %indvars.iv.next = add nsw i64 %indvars.iv, 2
   %1 = add nsw i64 %indvars.iv, 1
-  %gep1 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %ptr1, i64 %indvars.iv.next)
-  %ld1 = load double, double* %gep1, align 1
-  %gep2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %ptr2, i64 %indvars.iv.next)
-  %ld2 = load double, double* %gep2, align 1
+  %gep1 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %ptr1, i64 %indvars.iv.next)
+  %ld1 = load double, ptr %gep1, align 1
+  %gep2 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %ptr2, i64 %indvars.iv.next)
+  %ld2 = load double, ptr %gep2, align 1
   %mul39 = fmul double %ld1, %ld2
   %add41 = fadd double %add41.lcssa78, %mul39
-  store double %add41, double* %gep1, align 1
+  store double %add41, ptr %gep1, align 1
   %exitcond = icmp eq i64 %indvars.iv.next, 21
   br i1 %exitcond, label %bb134, label %innerloop
 

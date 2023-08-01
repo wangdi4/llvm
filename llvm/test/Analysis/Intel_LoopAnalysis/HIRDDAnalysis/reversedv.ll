@@ -39,11 +39,11 @@ for.cond.7.preheader:                             ; preds = %for.inc.20, %for.co
 for.body.9:                                       ; preds = %for.body.9, %for.cond.7.preheader
   %i4.046 = phi i64 [ 1, %for.cond.7.preheader ], [ %inc, %for.body.9 ]
   %sub10 = add nsw i64 %i4.046, -1
-  %arrayidx14 = getelementptr inbounds [50 x [50 x [50 x [50 x double]]]], [50 x [50 x [50 x [50 x double]]]]* @A, i64 0, i64 %add11, i64 %sub10, i64 %sub, i64 %add
-  %0 = load double, double* %arrayidx14, align 8, !tbaa !1
+  %arrayidx14 = getelementptr inbounds [50 x [50 x [50 x [50 x double]]]], ptr @A, i64 0, i64 %add11, i64 %sub10, i64 %sub, i64 %add
+  %0 = load double, ptr %arrayidx14, align 8, !tbaa !1
   %add15 = fadd double %0, 1.000000e+00
-  %arrayidx19 = getelementptr inbounds [50 x [50 x [50 x [50 x double]]]], [50 x [50 x [50 x [50 x double]]]]* @A, i64 0, i64 %i3.047, i64 %i4.046, i64 %i2.048, i64 %i1.049
-  store double %add15, double* %arrayidx19, align 8, !tbaa !1
+  %arrayidx19 = getelementptr inbounds [50 x [50 x [50 x [50 x double]]]], ptr @A, i64 0, i64 %i3.047, i64 %i4.046, i64 %i2.048, i64 %i1.049
+  store double %add15, ptr %arrayidx19, align 8, !tbaa !1
   %inc = add nuw nsw i64 %i4.046, 1
   %exitcond = icmp eq i64 %inc, 44
   br i1 %exitcond, label %for.inc.20, label %for.body.9

@@ -27,7 +27,7 @@
 ; NEGATIVE: DD graph for function foo:
 ; NEGATIVE-NOT:  (%A)[i1 + 100] --> (%A)[i1]
 
-define void @foo(i32* nocapture %A, i32* nocapture readonly %B, i32 %N) {
+define void @foo(ptr nocapture %A, ptr nocapture readonly %B, i32 %N) {
 entry:
   %cmp13 = icmp sgt i32 %N, 0
   br i1 %cmp13, label %for.body.preheader, label %for.cond.cleanup
@@ -44,15 +44,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
-  %ptridx2 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %0, i32* %ptridx2, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %0, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %1 = add nuw nsw i64 %indvars.iv, 100
-  %ptridx5 = getelementptr inbounds i32, i32* %A, i64 %1
+  %ptridx5 = getelementptr inbounds i32, ptr %A, i64 %1
   %2 = trunc i64 %indvars.iv.next to i32
-  store i32 %2, i32* %ptridx5, align 4
+  store i32 %2, ptr %ptridx5, align 4
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count17
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !6
 }

@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @sub1(float* nocapture %B, i32 %n) local_unnamed_addr #0 {
+define void @sub1(ptr nocapture %B, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.body.preheader, label %for.cond1.preheader
@@ -40,16 +40,16 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv23 = phi i64 [ %indvars.iv.next24, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv23
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv23
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next24 = add nuw nsw i64 %indvars.iv23, 1
   %exitcond26 = icmp eq i64 %indvars.iv.next24, %wide.trip.count25
   br i1 %exitcond26, label %for.cond1.preheader.loopexit, label %for.body
 
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %indvars.iv = phi i64 [ %0, %for.body3.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  store float 2.000000e+00, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  store float 2.000000e+00, ptr %arrayidx5, align 4, !tbaa !1
   %indvars.iv.next = add nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end8.loopexit, label %for.body3

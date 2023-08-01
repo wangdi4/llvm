@@ -50,15 +50,15 @@ for.body:                                         ; preds = %for.body.preheader,
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0))
+  %call = tail call i32 (ptr, ...) @printf(ptr @.str)
   br label %sw.bb1
 
 sw.bb1:                                           ; preds = %sw.bb, %for.body
-  %call2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
+  %call2 = tail call i32 (ptr, ...) @printf(ptr @.str1)
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %call3 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0))
+  %call3 = tail call i32 (ptr, ...) @printf(ptr @.str2)
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.default, %sw.bb1
@@ -73,4 +73,4 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare i32 @printf(i8* nocapture readonly, ...)
+declare i32 @printf(ptr nocapture readonly, ...)

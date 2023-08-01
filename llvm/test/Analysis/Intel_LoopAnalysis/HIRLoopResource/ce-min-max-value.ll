@@ -21,7 +21,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture readonly %A, i32* nocapture readonly %B, i32 %n) {
+define void @foo(ptr nocapture readonly %A, ptr nocapture readonly %B, i32 %n) {
 entry:
   %cmp25 = icmp sgt i32 %n, 0
   br i1 %cmp25, label %for.outer.preheader, label %for.end10
@@ -40,10 +40,10 @@ for.body3.pre:
 for.body3:                                        ; preds = %for.body3, %for.body3.pre
   %indvars.iv = phi i64 [ 0, %for.body3.pre ], [ %indvars.iv.next, %for.body3 ]
   %t.024 = phi i32 [ 0, %for.body3.pre ], [ %add6, %for.body3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add i32 %0, %t.024
   %add6 = add i32 %add, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

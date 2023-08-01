@@ -21,8 +21,8 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %for.body
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 %idxprom
-  store i32 %i.01, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [5 x i32], ptr %A, i32 0, i64 %idxprom
+  store i32 %i.01, ptr %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
@@ -34,7 +34,7 @@ for.inc:                                          ; preds = %if.end
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.inc
-  %arrayidx2 = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 0
-  %0 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [5 x i32], ptr %A, i32 0, i64 0
+  %0 = load i32, ptr %arrayidx2, align 4
   ret i32 %0
 }

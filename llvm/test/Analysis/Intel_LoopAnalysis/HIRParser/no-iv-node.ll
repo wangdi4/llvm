@@ -14,12 +14,12 @@
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-define i32 @main(i32* %p)  {
+define i32 @main(ptr %p)  {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
-  %0 = load i32, i32* %p, align 4
+  %0 = load i32, ptr %p, align 4
   %exitcond = icmp eq i32 %0, 5
   br i1 %exitcond, label %for.end, label %for.body
 

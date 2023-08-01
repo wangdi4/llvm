@@ -11,7 +11,7 @@
 ; ModuleID = 'scev-max-tc.ll'
 source_filename = "scev-max-tc.ll"
 
-define void @even(i4 %n, i4* %A) {
+define void @even(i4 %n, ptr %A) {
 entry:
   %m = shl i4 %n, 1
   %s = icmp sgt i4 %m, 0
@@ -24,8 +24,8 @@ loop:                                             ; preds = %loop.preheader, %lo
   %i = phi i4 [ %i.next, %loop ], [ 0, %loop.preheader ]
   %i.next = add i4 %i, 1
   %indvars.iv = zext i4 %i.next to i64
-  %arrayidx = getelementptr inbounds i4, i4* %A, i64 %indvars.iv
-  store i4 %i.next, i4* %arrayidx
+  %arrayidx = getelementptr inbounds i4, ptr %A, i64 %indvars.iv
+  store i4 %i.next, ptr %arrayidx
   %t = icmp slt i4 %i.next, %m
   br i1 %t, label %loop, label %exit.loopexit
 

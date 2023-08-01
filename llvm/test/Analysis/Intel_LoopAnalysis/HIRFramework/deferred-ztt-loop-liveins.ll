@@ -14,7 +14,7 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i1 %cmp, i32 %t1, i32 %t2, i64* %ptr) {
+define void @foo(i1 %cmp, i32 %t1, i32 %t2, ptr %ptr) {
 entry:
   %cmp8123 = icmp sgt i32 %t1, 0
   %t5 = add i32 %t1, -1
@@ -43,7 +43,7 @@ for.inner:                             ; preds = %for.inner, %for.inner.lr.ph
   %indvar146 = phi i64 [ 0, %for.inner.lr.ph ], [ %indvar.next147, %for.inner ]
   %indvars.iv131 = phi i64 [ 0, %for.inner.lr.ph ], [ %indvars.iv.next132, %for.inner ]
   %t25 = mul nuw nsw i64 %indvar146, 4
-  store i64 %t25, i64* %ptr, align 8
+  store i64 %t25, ptr %ptr, align 8
   %indvars.iv.next132 = add nuw nsw i64 %indvars.iv131, 4
   %indvar.next147 = add nuw nsw i64 %indvar146, 1
   %exitcond155 = icmp eq i64 %indvar.next147, %wide.trip.count154

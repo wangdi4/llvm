@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common global [50 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* %B, i64 %n) local_unnamed_addr {
+define void @foo(ptr %B, i64 %n) local_unnamed_addr {
 entry:
   %cmp11 = icmp sgt i64 %n, 0
   br i1 %cmp11, label %for.body.preheader, label %for.end
@@ -37,15 +37,15 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
-  %0 = load i32, i32* %B, align 4
+  %0 = load i32, ptr %B, align 4
   br label %for.inner
 
 for.inner:                                          ; preds = %for.body
   %j = phi i64 [ %j.inc, %for.inner ], [ 0, %for.body ]
   %add = add nsw i64 %indvars.iv, %j
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %add
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %add
   %dec = add nsw i32 %0, -1
-  store i32 %dec, i32* %arrayidx, align 4
+  store i32 %dec, ptr %arrayidx, align 4
   %j.inc =  add nuw nsw i64 %j, 1
   %cmp2 = icmp slt i64 %j.inc, %n
   br i1 %cmp2, label %for.inner, label %for.inc

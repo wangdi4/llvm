@@ -20,24 +20,24 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
-define dso_local i32 @foo(i32 %n, i32* nocapture readonly %a, i32 %val) local_unnamed_addr {
+define dso_local i32 @foo(i32 %n, ptr nocapture readonly %a, i32 %val) local_unnamed_addr {
 entry:
   %.omp.iv = alloca i32, align 4
-  %0 = bitcast i32* %.omp.iv to i8*
+  %0 = bitcast ptr %.omp.iv to ptr
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
   %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  store i32 0, i32* %.omp.iv, align 4
+  store i32 0, ptr %.omp.iv, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.precond.then
   %indvars.iv = phi i64 [ 0, %omp.precond.then ], [ %indvars.iv.next, %omp.inner.for.body ]
   %index.017 = phi i32 [ -1, %omp.precond.then ], [ %spec.select, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp7 = icmp eq i32 %1, %val
   %2 = trunc i64 %indvars.iv to i32
   %spec.select = select i1 %cmp7, i32 %2, i32 %index.017
@@ -47,7 +47,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   %spec.select.lcssa = phi i32 [ %spec.select, %omp.inner.for.body ]
-  store i32 %n, i32* %.omp.iv, align 4
+  store i32 %n, ptr %.omp.iv, align 4
   call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 

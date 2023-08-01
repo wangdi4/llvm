@@ -28,9 +28,9 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = mul nuw nsw i64 %indvars.iv, 10
-  %arrayidx4 = getelementptr inbounds [10 x %struct.A], [10 x %struct.A]* @a, i64 0, i64 %indvars.iv, i32 0, i64 %indvars.iv, i32 0, i64 %0
+  %arrayidx4 = getelementptr inbounds [10 x %struct.A], ptr @a, i64 0, i64 %indvars.iv, i32 0, i64 %indvars.iv, i32 0, i64 %0
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx4, align 8
+  store i32 %1, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

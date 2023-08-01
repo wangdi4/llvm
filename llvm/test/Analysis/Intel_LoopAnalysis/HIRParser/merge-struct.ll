@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.bar = type { [4 x [2 x float]] }
 
-define dso_local void @foo(%struct.bar* %b, i32 %n) {
+define dso_local void @foo(ptr %b, i32 %n) {
 entry:
   %cmp1 = icmp slt i32 0, %n
   br i1 %cmp1, label %for.body.lr.ph, label %for.end
@@ -25,12 +25,12 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
-  %tmp15 = getelementptr inbounds %struct.bar, %struct.bar* %b, i64 0, i32 0, i64 undef, i64 1
-  %tmp16 = load float, float* %tmp15, align 4
-  %tmp17 = getelementptr inbounds %struct.bar, %struct.bar* %b, i64 0, i32 0
-  %tmp18 = getelementptr inbounds [4 x [2 x float]], [4 x [2 x float]]* %tmp17, i64 0, i64 undef
-  %tmp19 = bitcast [2 x float]* %tmp18 to i32*
-  store i32 undef, i32* %tmp19, align 4
+  %tmp15 = getelementptr inbounds %struct.bar, ptr %b, i64 0, i32 0, i64 undef, i64 1
+  %tmp16 = load float, ptr %tmp15, align 4
+  %tmp17 = getelementptr inbounds %struct.bar, ptr %b, i64 0, i32 0
+  %tmp18 = getelementptr inbounds [4 x [2 x float]], ptr %tmp17, i64 0, i64 undef
+  %tmp19 = bitcast ptr %tmp18 to ptr
+  store i32 undef, ptr %tmp19, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

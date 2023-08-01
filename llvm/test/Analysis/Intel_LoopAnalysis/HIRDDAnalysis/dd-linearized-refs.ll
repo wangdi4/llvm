@@ -25,7 +25,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local noundef i32 @_Z3subPfi(float* nocapture noundef %A, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3subPfi(ptr nocapture noundef %A, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp49 = icmp sgt i32 %N, 0
   br i1 %cmp49, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -77,10 +77,10 @@ for.body12:                                       ; preds = %for.body12.lr.ph, %
   %0 = trunc i64 %indvars.iv to i32
   %add17 = add i32 %add16, %0
   %idxprom = sext i32 %add17 to i64
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %idxprom
-  %1 = load float, float* %arrayidx, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %idxprom
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !7
   %add18 = fadd fast float %1, 1.000000e+00
-  store float %add18, float* %arrayidx, align 4, !tbaa !7
+  store float %add18, ptr %arrayidx, align 4, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup11, label %for.body12, !llvm.loop !11

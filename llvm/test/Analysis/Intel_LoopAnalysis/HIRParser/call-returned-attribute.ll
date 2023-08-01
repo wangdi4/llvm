@@ -11,14 +11,14 @@
 
 ; CHECK: + END LOOP
 
-define void @foo(i8* %ptr, i64 %t) {
+define void @foo(ptr %ptr, i64 %t) {
 entry:
  br label %loop
 
 loop:                                               ; preds = %loop, %entry
   %iv = phi i64 [ 0, %entry ], [ %inc, %loop ]
   %add = add nsw i64 %iv, %t
-  %call = call fastcc i64 @shawrite(i8* %ptr, i64 %add)
+  %call = call fastcc i64 @shawrite(ptr %ptr, i64 %add)
   %inc = add nsw i64 %iv, 1
   %cmp = icmp eq i64 %inc, 5
   br i1 %cmp, label %loop, label %exit
@@ -28,4 +28,4 @@ exit:
   ret void
 }
 
-declare hidden fastcc i64 @shawrite(i8*, i64 returned)
+declare hidden fastcc i64 @shawrite(ptr, i64 returned)

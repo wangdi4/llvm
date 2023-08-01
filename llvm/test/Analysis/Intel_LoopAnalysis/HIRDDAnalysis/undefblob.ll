@@ -15,30 +15,30 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #0
 
-declare i32 @undef(i32**) local_unnamed_addr #1
+declare i32 @undef(ptr) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) local_unnamed_addr #2
+declare noalias ptr @malloc(i64) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #0
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #3 {
-  %3 = alloca i32*, align 8
-  %4 = bitcast i32** %3 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %4) #4
-  store i32* null, i32** %3, align 8, !tbaa !2
-  %5 = call i32 @undef(i32** nonnull %3) #4
-  %6 = bitcast i32** %3 to i8**
-  %7 = load i8*, i8** %6, align 8, !tbaa !6
-  %8 = load i8, i8* %7, align 1, !tbaa !8
-  %9 = getelementptr inbounds i8, i8* %7, i64 1
-  store i8* %9, i8** %6, align 8, !tbaa !6
-  %10 = call i8* @malloc(i64 0) #4
-  %11 = bitcast i8* %10 to i32**
+define dso_local i32 @main(i32, ptr nocapture readnone) local_unnamed_addr #3 {
+  %3 = alloca ptr, align 8
+  %4 = bitcast ptr %3 to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %4) #4
+  store ptr null, ptr %3, align 8, !tbaa !2
+  %5 = call i32 @undef(ptr nonnull %3) #4
+  %6 = bitcast ptr %3 to ptr
+  %7 = load ptr, ptr %6, align 8, !tbaa !6
+  %8 = load i8, ptr %7, align 1, !tbaa !8
+  %9 = getelementptr inbounds i8, ptr %7, i64 1
+  store ptr %9, ptr %6, align 8, !tbaa !6
+  %10 = call ptr @malloc(i64 0) #4
+  %11 = bitcast ptr %10 to ptr
   %12 = zext i8 %8 to i32
   %13 = icmp sgt i32 %12, 0
   br i1 %13, label %14, label %24
@@ -47,23 +47,23 @@ define dso_local i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #3 {
   br label %15
 
 ; <label>:15:                                     ; preds = %15, %14
-  %16 = phi i8* [ %9, %14 ], [ %19, %15 ]
+  %16 = phi ptr [ %9, %14 ], [ %19, %15 ]
   %17 = phi i32 [ 0, %14 ], [ %20, %15 ]
-  %18 = load i8, i8* %16, align 1, !tbaa !8
-  store i8 %18, i8* undef, align 1, !tbaa !8
-  %19 = getelementptr inbounds i8, i8* %16, i64 1
-  store i8* %19, i8** %6, align 8, !tbaa !6
+  %18 = load i8, ptr %16, align 1, !tbaa !8
+  store i8 %18, ptr undef, align 1, !tbaa !8
+  %19 = getelementptr inbounds i8, ptr %16, i64 1
+  store ptr %19, ptr %6, align 8, !tbaa !6
   %20 = add nuw nsw i32 %17, 1
   %21 = icmp ne i32 %20, %12
   br i1 %21, label %15, label %22
 
 ; <label>:22:                                     ; preds = %15
-  %23 = bitcast i8* %10 to i8**
+  %23 = bitcast ptr %10 to ptr
   br label %24
 
 ; <label>:24:                                     ; preds = %22, %2
-  %25 = call i32 @undef(i32** %11) #4
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %4) #4
+  %25 = call i32 @undef(ptr %11) #4
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %4) #4
   ret i32 0
 }
 

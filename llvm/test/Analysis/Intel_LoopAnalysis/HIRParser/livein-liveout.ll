@@ -24,8 +24,8 @@ for.body346:                                      ; preds = %entry, %for.body346
   %indvars.iv1204 = phi i64 [ %indvars.iv.next1205, %for.body346 ], [ 0, %entry ]
   %maxLen.01106 = phi i32 [ %conv351.maxLen.0, %for.body346 ], [ 0, %entry ]
   %minLen.01105 = phi i32 [ %1, %for.body346 ], [ 32, %entry ]
-  %arrayidx350 = getelementptr inbounds [6 x [258 x i8]], [6 x [258 x i8]]* @len, i64 0, i64 %indvars.iv1208, i64 %indvars.iv1204
-  %0 = load i8, i8* %arrayidx350, align 1
+  %arrayidx350 = getelementptr inbounds [6 x [258 x i8]], ptr @len, i64 0, i64 %indvars.iv1208, i64 %indvars.iv1204
+  %0 = load i8, ptr %arrayidx350, align 1
   %conv351 = zext i8 %0 to i32
   %cmp352 = icmp sgt i32 %conv351, %maxLen.01106
   %conv351.maxLen.0 = select i1 %cmp352, i32 %conv351, i32 %maxLen.01106
@@ -54,15 +54,15 @@ for.body3.i.preheader:                            ; preds = %for.cond1.preheader
 for.body3.i:                                      ; preds = %for.body3.i.preheader, %for.inc.i
   %indvars.iv.i = phi i64 [ %indvars.iv.next.i, %for.inc.i ], [ 0, %for.body3.i.preheader ]
   %vec.123.i = phi i32 [ %vec.2.i, %for.inc.i ], [ %vec.027.i, %for.body3.i.preheader ]
-  %arrayidx.i = getelementptr inbounds [6 x [258 x i8]], [6 x [258 x i8]]* @len, i64 0, i64 %indvars.iv1208, i64 %indvars.iv.i
-  %2 = load i8, i8* %arrayidx.i, align 1
+  %arrayidx.i = getelementptr inbounds [6 x [258 x i8]], ptr @len, i64 0, i64 %indvars.iv1208, i64 %indvars.iv.i
+  %2 = load i8, ptr %arrayidx.i, align 1
   %conv.i = zext i8 %2 to i32
   %cmp4.i = icmp eq i32 %conv.i, %n.026.i
   br i1 %cmp4.i, label %if.then.i, label %for.inc.i
 
 if.then.i:                                        ; preds = %for.body3.i
-  %arrayidx7.i = getelementptr inbounds [6 x [258 x i32]], [6 x [258 x i32]]* @code, i64 0, i64 %indvars.iv1208, i64 %indvars.iv.i
-  store i32 %vec.123.i, i32* %arrayidx7.i, align 4
+  %arrayidx7.i = getelementptr inbounds [6 x [258 x i32]], ptr @code, i64 0, i64 %indvars.iv1208, i64 %indvars.iv.i
+  store i32 %vec.123.i, ptr %arrayidx7.i, align 4
   %inc.i = add nsw i32 %vec.123.i, 1
   br label %for.inc.i
 

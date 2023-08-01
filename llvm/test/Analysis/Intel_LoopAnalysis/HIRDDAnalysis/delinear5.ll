@@ -26,7 +26,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @_Z3barPfii(float* nocapture %ar, i32 %n, i32 %stride) local_unnamed_addr #0 {
+define void @_Z3barPfii(ptr nocapture %ar, i32 %n, i32 %stride) local_unnamed_addr #0 {
 entry:
   %0 = sext i32 %stride to i64
   %1 = sext i32 %n to i64
@@ -43,8 +43,8 @@ for.body.lr.ph.i:                                 ; preds = %for.body
 
 for.body.i:                                       ; preds = %for.body.i, %for.body.lr.ph.i
   %indvars.iv.i = phi i64 [ 0, %for.body.lr.ph.i ], [ %indvars.iv.next.i, %for.body.i ]
-  %arrayidx.i = getelementptr inbounds float, float* %ar, i64 %indvars.iv.i
-  store float 1.000000e+00, float* %arrayidx.i, align 4, !tbaa !2
+  %arrayidx.i = getelementptr inbounds float, ptr %ar, i64 %indvars.iv.i
+  store float 1.000000e+00, ptr %arrayidx.i, align 4, !tbaa !2
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
   %exitcond.i = icmp eq i64 %indvars.iv.next.i, %2
   br i1 %exitcond.i, label %_Z3fooPfi.exit.loopexit, label %for.body.i
@@ -62,8 +62,8 @@ for.body3.lr.ph:                                  ; preds = %_Z3fooPfi.exit
 for.body3:                                        ; preds = %for.body3, %for.body3.lr.ph
   %indvars.iv19 = phi i64 [ %indvars.iv, %for.body3.lr.ph ], [ %indvars.iv.next20, %for.body3 ]
   %3 = mul nsw i64 %indvars.iv19, %0
-  %arrayidx = getelementptr inbounds float, float* %ar, i64 %3
-  store float 0.000000e+00, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %ar, i64 %3
+  store float 0.000000e+00, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next20 = add nuw nsw i64 %indvars.iv19, 1
   %exitcond = icmp eq i64 %indvars.iv.next20, %1
   br i1 %exitcond, label %for.inc4.loopexit, label %for.body3

@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.Pixel = type { i16, i16, i16 }
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local double @foo(%struct.Pixel* nocapture readonly %pix1, %struct.Pixel* nocapture readonly %pix2, double %mul, i32 %n) local_unnamed_addr #0 {
+define dso_local double @foo(ptr nocapture readonly %pix1, ptr nocapture readonly %pix2, double %mul, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp212 = icmp sgt i32 %n, 0
   br i1 %cmp212, label %for.cond1.preheader.lr.ph, label %for.end105
@@ -67,18 +67,18 @@ for.body9.us:                                     ; preds = %for.body9.us, %for.
   %t2.3174.us = phi double [ %t2.2182.us, %for.cond7.preheader.us ], [ %add17.us, %for.body9.us ]
   %t1.3173.us = phi double [ %t1.2181.us, %for.cond7.preheader.us ], [ %add11.us, %for.body9.us ]
   %0 = add nuw nsw i64 %indvars.iv, %indvars.iv221
-  %a.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix1, i64 %0, i32 0
-  %1 = load i16, i16* %a.us, align 2, !tbaa !2
+  %a.us = getelementptr inbounds %struct.Pixel, ptr %pix1, i64 %0, i32 0
+  %1 = load i16, ptr %a.us, align 2, !tbaa !2
   %conv.us = uitofp i16 %1 to double
   %mul10.us = fmul double %conv.us, %mul
   %add11.us = fadd double %t1.3173.us, %mul10.us
-  %b.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix1, i64 %0, i32 1
-  %2 = load i16, i16* %b.us, align 2, !tbaa !7
+  %b.us = getelementptr inbounds %struct.Pixel, ptr %pix1, i64 %0, i32 1
+  %2 = load i16, ptr %b.us, align 2, !tbaa !7
   %conv15.us = uitofp i16 %2 to double
   %mul16.us = fmul double %conv15.us, %mul
   %add17.us = fadd double %t2.3174.us, %mul16.us
-  %c.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix1, i64 %0, i32 2
-  %3 = load i16, i16* %c.us, align 2, !tbaa !8
+  %c.us = getelementptr inbounds %struct.Pixel, ptr %pix1, i64 %0, i32 2
+  %3 = load i16, ptr %c.us, align 2, !tbaa !8
   %conv21.us = uitofp i16 %3 to double
   %mul22.us = fmul double %conv21.us, %mul
   %add23.us = fadd double %t3.3175.us, %mul22.us
@@ -114,18 +114,18 @@ for.body34.us:                                    ; preds = %for.body34.us, %for
   %t2.5190.us = phi double [ %t2.4199.us, %for.cond31.preheader.us ], [ %add48.us, %for.body34.us ]
   %t1.5189.us = phi double [ %t1.4198.us, %for.cond31.preheader.us ], [ %add41.us, %for.body34.us ]
   %4 = add nuw nsw i64 %indvars.iv225, %indvars.iv230
-  %a38.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix2, i64 %4, i32 0
-  %5 = load i16, i16* %a38.us, align 2, !tbaa !2
+  %a38.us = getelementptr inbounds %struct.Pixel, ptr %pix2, i64 %4, i32 0
+  %5 = load i16, ptr %a38.us, align 2, !tbaa !2
   %conv39.us = uitofp i16 %5 to double
   %mul40.us = fmul double %conv39.us, %mul
   %add41.us = fadd double %t1.5189.us, %mul40.us
-  %b45.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix2, i64 %4, i32 1
-  %6 = load i16, i16* %b45.us, align 2, !tbaa !7
+  %b45.us = getelementptr inbounds %struct.Pixel, ptr %pix2, i64 %4, i32 1
+  %6 = load i16, ptr %b45.us, align 2, !tbaa !7
   %conv46.us = uitofp i16 %6 to double
   %mul47.us = fmul double %conv46.us, %mul
   %add48.us = fadd double %t2.5190.us, %mul47.us
-  %c52.us = getelementptr inbounds %struct.Pixel, %struct.Pixel* %pix2, i64 %4, i32 2
-  %7 = load i16, i16* %c52.us, align 2, !tbaa !8
+  %c52.us = getelementptr inbounds %struct.Pixel, ptr %pix2, i64 %4, i32 2
+  %7 = load i16, ptr %c52.us, align 2, !tbaa !8
   %conv53.us = uitofp i16 %7 to double
   %mul54.us = fmul double %conv53.us, %mul
   %add55.us = fadd double %t3.5191.us, %mul54.us

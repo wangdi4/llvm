@@ -31,7 +31,7 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i64 %t17, double* %t21, double* %t24, i64 %t26, i64 %t590) {
+define void @foo(i64 %t17, ptr %t21, ptr %t24, i64 %t26, i64 %t590) {
 entry:
   br label %loop1
 
@@ -50,9 +50,9 @@ loop2:                                              ; preds = %latch2, %loop2.pr
   %iv22 = phi i64 [ %iv22.inc, %latch2 ], [ 1, %loop2.pre ]
   %max = tail call i64 @llvm.smax.i64(i64 %iv22, i64 2)
   %t601 = add nuw nsw i64 %iv11, %max
-  %t602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %t26, double* elementtype(double) nonnull %t24, i64 %iv2)
-  %t603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t602, i64 %iv11)
-  %t604 = load double, double* %t603, align 1
+  %t602 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %t26, ptr elementtype(double) nonnull %t24, i64 %iv2)
+  %t603 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %t602, i64 %iv11)
+  %t604 = load double, ptr %t603, align 1
   %t605 = sub nuw nsw i64 %iv2, %iv11
   %t606 = icmp eq i64 %iv2, %iv11.inc
   br i1 %t606, label %latch2, label %loop3.pre
@@ -64,10 +64,10 @@ loop3:                                              ; preds = %loop3, %loop3.pre
   %t609 = phi double [ %t617, %loop3 ], [ 0.000000e+00, %loop3.pre ]
   %iv3 = phi i64 [ %iv3.inc, %loop3 ], [ %iv11.inc, %loop3.pre ]
   %iv33 = phi i64 [ %iv33.inc, %loop3 ], [ 1, %loop3.pre ]
-  %t612 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t21, i64 %iv33)
-  %t613 = load double, double* %t612, align 1
-  %t614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t602, i64 %iv3)
-  %t615 = load double, double* %t614, align 1
+  %t612 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %t21, i64 %iv33)
+  %t613 = load double, ptr %t612, align 1
+  %t614 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %t602, i64 %iv3)
+  %t615 = load double, ptr %t614, align 1
   %t616 = fmul fast double %t615, %t613
   %t617 = fadd fast double %t616, %t609
   %iv3.inc = add nuw nsw i64 %iv3, 1
@@ -83,9 +83,9 @@ latch2:                                              ; preds = %exit3, %loop2
   %t624 = phi double [ 0.000000e+00, %loop2 ], [ %t622, %exit3 ]
   %t625 = fadd fast double %t624, %t604
   %t626 = fneg fast double %t625
-  store double %t626, double* %t603, align 1
-  %t627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t21, i64 %t605)
-  store double %t626, double* %t627, align 1
+  store double %t626, ptr %t603, align 1
+  %t627 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %t21, i64 %t605)
+  store double %t626, ptr %t627, align 1
   %iv2.inc = add nuw nsw i64 %iv2, 1
   %iv22.inc = add nuw nsw i64 %iv22, 1
   %t630 = icmp eq i64 %iv2.inc, %t590
@@ -103,9 +103,8 @@ exit1:
   ret void
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
 
 declare i64 @llvm.smax.i64(i64, i64) #1
 

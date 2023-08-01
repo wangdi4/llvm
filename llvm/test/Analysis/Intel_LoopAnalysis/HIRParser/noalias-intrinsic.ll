@@ -23,7 +23,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local void @foo(float* nocapture %x, i32* nocapture readonly %y) local_unnamed_addr #1 {
+define dso_local void @foo(ptr nocapture %x, ptr nocapture readonly %y) local_unnamed_addr #1 {
 entry:
   br label %for.body
 
@@ -32,22 +32,22 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %i.016 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %add.ptr = getelementptr inbounds float, float* %x, i64 %i.016, !intel-tbaa !6
-  %add.ptr1 = getelementptr inbounds i32, i32* %y, i64 %i.016, !intel-tbaa !2
+  %add.ptr = getelementptr inbounds float, ptr %x, i64 %i.016, !intel-tbaa !6
+  %add.ptr1 = getelementptr inbounds i32, ptr %y, i64 %i.016, !intel-tbaa !2
   tail call void @llvm.experimental.noalias.scope.decl(metadata !8)
   tail call void @llvm.experimental.noalias.scope.decl(metadata !11)
-  %0 = load i32, i32* %add.ptr1, align 4, !tbaa !2, !alias.scope !11, !noalias !8
+  %0 = load i32, ptr %add.ptr1, align 4, !tbaa !2, !alias.scope !11, !noalias !8
   %mul.i = shl nsw i32 %0, 1
   %conv.i = sitofp i32 %mul.i to float
-  store float %conv.i, float* %add.ptr, align 4, !tbaa !6, !alias.scope !8, !noalias !11
-  %add.ptr3 = getelementptr inbounds float, float* %add.ptr, i64 -1, !intel-tbaa !6
-  %add.ptr5 = getelementptr inbounds i32, i32* %add.ptr1, i64 -1, !intel-tbaa !2
+  store float %conv.i, ptr %add.ptr, align 4, !tbaa !6, !alias.scope !8, !noalias !11
+  %add.ptr3 = getelementptr inbounds float, ptr %add.ptr, i64 -1, !intel-tbaa !6
+  %add.ptr5 = getelementptr inbounds i32, ptr %add.ptr1, i64 -1, !intel-tbaa !2
   tail call void @llvm.experimental.noalias.scope.decl(metadata !13)
   tail call void @llvm.experimental.noalias.scope.decl(metadata !16)
-  %1 = load i32, i32* %add.ptr5, align 4, !tbaa !2, !alias.scope !16, !noalias !13
+  %1 = load i32, ptr %add.ptr5, align 4, !tbaa !2, !alias.scope !16, !noalias !13
   %mul.i14 = shl nsw i32 %1, 1
   %conv.i15 = sitofp i32 %mul.i14 to float
-  store float %conv.i15, float* %add.ptr3, align 4, !tbaa !6, !alias.scope !13, !noalias !16
+  store float %conv.i15, ptr %add.ptr3, align 4, !tbaa !6, !alias.scope !13, !noalias !16
   %inc = add nuw nsw i64 %i.016, 1
   %exitcond.not = icmp eq i64 %inc, 4096
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body, !llvm.loop !18

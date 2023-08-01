@@ -33,13 +33,13 @@ for.body:                                         ; preds = %for.body.preheader,
   %i.014 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %mul12 = add i64 %i.014, %n
   %add = mul i64 %mul12, 3
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @A1, i64 0, i64 %add
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @A1, i64 0, i64 %add
+  %0 = load float, ptr %arrayidx, align 4
   %add2 = fadd float %0, 1.000000e+00
   %mul3 = shl i64 %i.014, 1
   %add4 = add nsw i64 %mul3, %n
-  %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @A1, i64 0, i64 %add4
-  store float %add2, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [1000 x float], ptr @A1, i64 0, i64 %add4
+  store float %add2, ptr %arrayidx5, align 4
   %inc = add nuw nsw i64 %i.014, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

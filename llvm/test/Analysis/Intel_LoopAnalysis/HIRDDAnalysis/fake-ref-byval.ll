@@ -18,21 +18,21 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: uwtable
-define dso_local void @copy1(i32* %str, i32* nocapture %ptr, i32 %n) local_unnamed_addr {
+define dso_local void @copy1(ptr %str, ptr nocapture %ptr, i32 %n) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %str, i64 %indvars.iv
-  store i32 %1, i32* %arrayidx2, align 4
-  %call = tail call zeroext i1 @_Z4div3Pi(i32* nonnull %arrayidx2)
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %str, i64 %indvars.iv
+  store i32 %1, ptr %arrayidx2, align 4
+  %call = tail call zeroext i1 @_Z4div3Pi(ptr nonnull %arrayidx2)
   %conv = zext i1 %call to i32
-  %arrayidx6 = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
-  store i32 %conv, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
+  store i32 %conv, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 40
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -53,23 +53,23 @@ for.end:                                          ; preds = %for.body
 ; CHECK: (%str)[i1 + 5] --> (%str)[i1] ANTI (<) (5)
 
 ; Function Attrs: uwtable
-define dso_local void @copy2(i32* %str, i32* nocapture %ptr, i32 %n) local_unnamed_addr #0 {
+define dso_local void @copy2(ptr %str, ptr nocapture %ptr, i32 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %str, i64 %indvars.iv
-  store i32 %1, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %str, i64 %indvars.iv
+  store i32 %1, ptr %arrayidx2, align 4
   %2 = add nuw nsw i64 %indvars.iv, 5
-  %arrayidx4 = getelementptr inbounds i32, i32* %str, i64 %2
-  %call = tail call zeroext i1 @_Z4div3Pi(i32* nonnull %arrayidx4)
+  %arrayidx4 = getelementptr inbounds i32, ptr %str, i64 %2
+  %call = tail call zeroext i1 @_Z4div3Pi(ptr nonnull %arrayidx4)
   %conv = zext i1 %call to i32
-  %arrayidx6 = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
-  store i32 %conv, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
+  store i32 %conv, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 40
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -79,5 +79,5 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: noinline
-declare dso_local zeroext i1 @_Z4div3Pi(i32* byval(i32)) local_unnamed_addr
+declare dso_local zeroext i1 @_Z4div3Pi(ptr byval(i32)) local_unnamed_addr
 

@@ -30,7 +30,7 @@
 ; CHECK: (%ub_ptr)[0] --> (%ptr)[%n * i1 + i2]
 
 
-define void @foo(i32* %ptr, i32* %ub_ptr, i32 %n) {
+define void @foo(ptr %ptr, ptr %ub_ptr, i32 %n) {
 entry:
   br label %for.cond8.preheader.i
 
@@ -46,9 +46,9 @@ for.body10.i:                                     ; preds = %for.body10.i, %for.
   %j = phi i32 [ %inc.i, %for.body10.i ], [ 0, %for.body10.i.preheader ]
   %mul11.i = mul i32 %n, %i
   %add12.i = add i32 %mul11.i, %j
-  %add.ptr.i = getelementptr inbounds i32, i32* %ptr, i32 %add12.i
-  store i32 %add12.i, i32* %add.ptr.i, align 4
-  %ub = load i32, i32* %ub_ptr, align 4
+  %add.ptr.i = getelementptr inbounds i32, ptr %ptr, i32 %add12.i
+  store i32 %add12.i, ptr %add.ptr.i, align 4
+  %ub = load i32, ptr %ub_ptr, align 4
   %inc.i = add nuw i32 %j, 1
   %cmp9.i = icmp ugt i32 %ub, %inc.i
   br i1 %cmp9.i, label %for.body10.i, label %for.inc32.loopexit.i

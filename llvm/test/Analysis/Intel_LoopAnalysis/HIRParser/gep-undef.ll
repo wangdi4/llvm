@@ -26,10 +26,10 @@ entry:
 for.body:                                         ; preds = %entry, %for.inc
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %mul = mul nsw i32 5, %i.01
-  %0 = load i32, i32* @x, align 4
+  %0 = load i32, ptr @x, align 4
   %idxprom = sext i32 undef to i64
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* undef, i32 undef, i64 %idxprom
-  store i32 %mul, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [5 x i32], ptr undef, i32 undef, i64 %idxprom
+  store i32 %mul, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -38,7 +38,7 @@ for.inc:                                          ; preds = %for.body
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.inc
-  %arrayidx3 = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 0
-  %1 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [5 x i32], ptr %A, i32 0, i64 0
+  %1 = load i32, ptr %arrayidx3, align 4
   ret i32 %1
 }

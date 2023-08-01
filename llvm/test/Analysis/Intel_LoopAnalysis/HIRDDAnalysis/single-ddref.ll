@@ -27,9 +27,9 @@ for.cond12.preheader:                             ; preds = %entry, %for.inc16
 
 for.body14.preheader:                             ; preds = %for.cond12.preheader
   %1 = add nuw nsw i64 %indvars.iv546, 1
-  %arrayidx15 = getelementptr inbounds [64 x i32], [64 x i32]* %m, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx15, align 4
-  store i32 %2, i32* %gd, align 4
+  %arrayidx15 = getelementptr inbounds [64 x i32], ptr %m, i64 0, i64 %1
+  %2 = load i32, ptr %arrayidx15, align 4
+  store i32 %2, ptr %gd, align 4
   br label %for.inc16
 
 for.inc16:                                        ; preds = %for.body14.preheader, %for.cond12.preheader

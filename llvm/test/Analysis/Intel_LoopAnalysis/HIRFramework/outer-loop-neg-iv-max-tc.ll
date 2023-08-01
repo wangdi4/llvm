@@ -31,8 +31,8 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %j.015 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nuw nsw i64 %j.015, %i.017
   %add4 = sub nsw i64 %j.015, %i.017
-  %arrayidx = getelementptr inbounds [40 x i64], [40 x i64]* @A, i64 0, i64 %add4
-  store i64 %add, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [40 x i64], ptr @A, i64 0, i64 %add4
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %j.015, 1
   %exitcond = icmp eq i64 %inc, 20
   br i1 %exitcond, label %for.inc5, label %for.body3

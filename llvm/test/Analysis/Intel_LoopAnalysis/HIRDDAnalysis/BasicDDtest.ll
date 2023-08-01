@@ -7,17 +7,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common global [10 x [10 x [10 x [10 x [10 x float]]]]] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define void @sub1(float* nocapture %p, float* nocapture readonly %q) #0 {
+define void @sub1(ptr nocapture %p, ptr nocapture readonly %q) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %q, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %q, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add = fadd float %0, 1.000000e+00
-  %arrayidx2 = getelementptr inbounds float, float* %p, i64 %indvars.iv
-  store float %add, float* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds float, ptr %p, i64 %indvars.iv
+  store float %add, ptr %arrayidx2, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 35
   br i1 %exitcond, label %for.end, label %for.body
@@ -34,13 +34,13 @@ for.end:                                          ; preds = %for.body
 ; CHECK-DAG: (%p)[i1] --> (%q)[i1] FLOW (*)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind uwtable
-define void @sub2(float* nocapture %p, i64 %n) #0 {
+define void @sub2(ptr nocapture %p, i64 %n) #0 {
 
 
 ;;     for (i=0; i<n; i++) {
@@ -57,11 +57,11 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %i.09 = phi i64 [ %add, %for.body ], [ 0, %entry ]
   %add = add nuw nsw i64 %i.09, 1
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %add
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %add
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add1 = fadd float %0, 1.000000e+00
-  %arrayidx2 = getelementptr inbounds float, float* %p, i64 %i.09
-  store float %add1, float* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds float, ptr %p, i64 %i.09
+  store float %add1, ptr %arrayidx2, align 4, !tbaa !1
   %exitcond = icmp eq i64 %add, %n
   br i1 %exitcond, label %for.end, label %for.body
 
@@ -70,7 +70,7 @@ for.end:                                          ; preds = %for.body, %entry
 }
 
 ; Function Attrs: nounwind uwtable
-define void @sub3(float* nocapture %p, i32 %n) #0 {
+define void @sub3(ptr nocapture %p, i32 %n) #0 {
 
 
 ;;    for (i=0; i< 45; i++) {
@@ -84,23 +84,23 @@ define void @sub3(float* nocapture %p, i32 %n) #0 {
 
 
 entry:
-  %arrayidx5.phi.trans.insert = getelementptr inbounds float, float* %p, i64 -1
-  %.pre = load float, float* %arrayidx5.phi.trans.insert, align 4, !tbaa !1
+  %arrayidx5.phi.trans.insert = getelementptr inbounds float, ptr %p, i64 -1
+  %.pre = load float, ptr %arrayidx5.phi.trans.insert, align 4, !tbaa !1
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %0 = phi float [ %.pre, %entry ], [ %add1, %for.body ]
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %indvars.iv.next
-  %1 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %indvars.iv.next
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add1 = fadd float %1, 1.000000e+00
-  %arrayidx3 = getelementptr inbounds float, float* %p, i64 %indvars.iv
-  store float %add1, float* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds float, ptr %p, i64 %indvars.iv
+  store float %add1, ptr %arrayidx3, align 4, !tbaa !1
   %2 = add nsw i64 %indvars.iv, -1
-  %arrayidx5 = getelementptr inbounds float, float* %p, i64 %2
+  %arrayidx5 = getelementptr inbounds float, ptr %p, i64 %2
   %add8 = fadd float %0, %add1
-  store float %add8, float* %arrayidx5, align 4, !tbaa !1
+  store float %add8, ptr %arrayidx5, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 45
   br i1 %exitcond, label %for.end, label %for.body
 
@@ -109,7 +109,7 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: nounwind uwtable
-define void @sub4(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
+define void @sub4(ptr nocapture %p, ptr nocapture %q, i32 %n) #0 {
 
 ;;    for (i=1; i <= N; i++) {
 ;;        for (j=1; j <= N; j++) {
@@ -130,20 +130,20 @@ for.cond.1.preheader:                             ; preds = %for.inc.8, %entry
   %i.022 = phi i64 [ 1, %entry ], [ %inc9, %for.inc.8 ]
   %conv = sitofp i64 %i.022 to float
   %mul = mul nuw nsw i64 %i.022, 100
-  %arrayidx7 = getelementptr inbounds float, float* %q, i64 %i.022
-  %0 = bitcast float* %arrayidx7 to i32*
+  %arrayidx7 = getelementptr inbounds float, ptr %q, i64 %i.022
+  %0 = bitcast ptr %arrayidx7 to ptr
   br label %for.body.3
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %j.021 = phi i64 [ 1, %for.cond.1.preheader ], [ %inc, %for.body.3 ]
   %add = add nuw nsw i64 %j.021, %mul
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %add
-  store float %conv, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %add
+  store float %conv, ptr %arrayidx, align 4, !tbaa !1
   %sub = add nsw i64 %add, -1
-  %arrayidx6 = getelementptr inbounds float, float* %p, i64 %sub
-  %1 = bitcast float* %arrayidx6 to i32*
-  %2 = load i32, i32* %1, align 4, !tbaa !1
-  store i32 %2, i32* %0, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds float, ptr %p, i64 %sub
+  %1 = bitcast ptr %arrayidx6 to ptr
+  %2 = load i32, ptr %1, align 4, !tbaa !1
+  store i32 %2, ptr %0, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.021, 1
   %exitcond = icmp eq i64 %inc, 101
   br i1 %exitcond, label %for.inc.8, label %for.body.3
@@ -158,7 +158,7 @@ for.end.10:                                       ; preds = %for.inc.8
 }
 
 ; Function Attrs: nounwind uwtable
-define void @sub5(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
+define void @sub5(ptr nocapture %p, ptr nocapture %q, i32 %n) #0 {
 
 ;;    for (i=1; i <= N; i++) {
 ;;        for (j=1; j <= N; j++) {
@@ -177,20 +177,20 @@ for.cond.1.preheader:                             ; preds = %for.inc.8, %entry
   %conv = sitofp i64 %i.022 to float
   %mul = mul nuw nsw i64 %i.022, 100
   %sub = add nuw nsw i64 %mul, 11
-  %arrayidx7 = getelementptr inbounds float, float* %q, i64 %i.022
-  %0 = bitcast float* %arrayidx7 to i32*
+  %arrayidx7 = getelementptr inbounds float, ptr %q, i64 %i.022
+  %0 = bitcast ptr %arrayidx7 to ptr
   br label %for.body.3
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %j.021 = phi i64 [ 1, %for.cond.1.preheader ], [ %inc, %for.body.3 ]
   %add = add nuw nsw i64 %j.021, %mul
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %add
-  store float %conv, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %add
+  store float %conv, ptr %arrayidx, align 4, !tbaa !1
   %add5 = sub nuw nsw i64 %sub, %j.021
-  %arrayidx6 = getelementptr inbounds float, float* %p, i64 %add5
-  %1 = bitcast float* %arrayidx6 to i32*
-  %2 = load i32, i32* %1, align 4, !tbaa !1
-  store i32 %2, i32* %0, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds float, ptr %p, i64 %add5
+  %1 = bitcast ptr %arrayidx6 to ptr
+  %2 = load i32, ptr %1, align 4, !tbaa !1
+  store i32 %2, ptr %0, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.021, 1
   %exitcond = icmp eq i64 %inc, 101
   br i1 %exitcond, label %for.inc.8, label %for.body.3
@@ -205,7 +205,7 @@ for.end.10:                                       ; preds = %for.inc.8
 }
 
 ; Function Attrs: nounwind uwtable
-define void @sub6(float* nocapture %p, float* nocapture %q, i64 %n) #0 {
+define void @sub6(ptr nocapture %p, ptr nocapture %q, i64 %n) #0 {
 
 ;;    for (i=0; i <  N; i++) {
 ;;        for (j=0; j <  N; j++) {
@@ -225,22 +225,22 @@ for.cond.1.preheader:                             ; preds = %for.inc.9, %entry
   %i.022 = phi i64 [ 0, %entry ], [ %inc10, %for.inc.9 ]
   %mul = shl nsw i64 %i.022, 1
   %mul5 = mul nuw nsw i64 %i.022, 6
-  %arrayidx8 = getelementptr inbounds float, float* %q, i64 %i.022
-  %0 = bitcast float* %arrayidx8 to i32*
+  %arrayidx8 = getelementptr inbounds float, ptr %q, i64 %i.022
+  %0 = bitcast ptr %arrayidx8 to ptr
   br label %for.body.3
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %j.021 = phi i64 [ 0, %for.cond.1.preheader ], [ %inc, %for.body.3 ]
   %mul4 = shl nsw i64 %j.021, 2
   %sub = sub nsw i64 %mul, %mul4
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %sub
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %sub
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !1
   %mul6 = shl i64 %j.021, 3
   %add = add nuw nsw i64 %mul6, %mul5
-  %arrayidx7 = getelementptr inbounds float, float* %p, i64 %add
-  %1 = bitcast float* %arrayidx7 to i32*
-  %2 = load i32, i32* %1, align 4, !tbaa !1
-  store i32 %2, i32* %0, align 4, !tbaa !1
+  %arrayidx7 = getelementptr inbounds float, ptr %p, i64 %add
+  %1 = bitcast ptr %arrayidx7 to ptr
+  %2 = load i32, ptr %1, align 4, !tbaa !1
+  store i32 %2, ptr %0, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.021, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.inc.9, label %for.body.3
@@ -283,12 +283,12 @@ for.body.3:                                       ; preds = %for.body.3, %for.bo
   %j.024 = phi i64 [ 0, %for.body.3.lr.ph ], [ %inc, %for.body.3 ]
   %mul = mul nsw i64 %j.024, 6
   %add = or i64 %mul, 1
-  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %mul4, i64 %add
-  %0 = load float, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %mul4, i64 %add
+  %0 = load float, ptr %arrayidx5, align 4, !tbaa !1
   %add6 = fadd float %0, 1.000000e+00
   %mul7 = shl nsw i64 %j.024, 2
-  %arrayidx10 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %mul8, i64 %mul7
-  store float %add6, float* %arrayidx10, align 16, !tbaa !1
+  %arrayidx10 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %mul8, i64 %mul7
+  store float %add6, ptr %arrayidx10, align 16, !tbaa !1
   %inc = add nuw nsw i64 %j.024, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.inc.11, label %for.body.3
@@ -342,12 +342,12 @@ for.body.12.lr.ph:                                ; preds = %for.cond.10.prehead
 for.body.12:                                      ; preds = %for.body.12, %for.body.12.lr.ph
   %i5.061 = phi i64 [ 0, %for.body.12.lr.ph ], [ %inc, %for.body.12 ]
   %add = add nuw nsw i64 %i5.061, 3
-  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x [10 x [10 x float]]]]], [10 x [10 x [10 x [10 x [10 x float]]]]]* @a, i64 0, i64 %i1.072, i64 %sub14, i64 %add13, i64 %sub, i64 %add
-  %0 = bitcast float* %arrayidx18 to i32*
-  %1 = load i32, i32* %0, align 4, !tbaa !1
-  %arrayidx23 = getelementptr inbounds [10 x [10 x [10 x [10 x [10 x float]]]]], [10 x [10 x [10 x [10 x [10 x float]]]]]* @a, i64 0, i64 %i1.072, i64 %i2.069, i64 %i3.066, i64 %i4.063, i64 %i5.061
-  %2 = bitcast float* %arrayidx23 to i32*
-  store i32 %1, i32* %2, align 4, !tbaa !1
+  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x [10 x [10 x float]]]]], ptr @a, i64 0, i64 %i1.072, i64 %sub14, i64 %add13, i64 %sub, i64 %add
+  %0 = bitcast ptr %arrayidx18 to ptr
+  %1 = load i32, ptr %0, align 4, !tbaa !1
+  %arrayidx23 = getelementptr inbounds [10 x [10 x [10 x [10 x [10 x float]]]]], ptr @a, i64 0, i64 %i1.072, i64 %i2.069, i64 %i3.066, i64 %i4.063, i64 %i5.061
+  %2 = bitcast ptr %arrayidx23 to ptr
+  store i32 %1, ptr %2, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i5.061, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.inc.24, label %for.body.12

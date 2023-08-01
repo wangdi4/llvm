@@ -59,20 +59,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 @n = dso_local local_unnamed_addr global i32 0, align 4
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_a.cpp, i8* null }]
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_a.cpp, ptr null }]
 
-declare dso_local void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"*) unnamed_addr #0
-
-; Function Attrs: nounwind
-declare dso_local void @_ZNSt8ios_base4InitD1Ev(%"class.std::ios_base::Init"*) unnamed_addr #1
+declare dso_local void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #0
 
 ; Function Attrs: nounwind
-declare dso_local i32 @__cxa_atexit(void (i8*)*, i8*, i8*) local_unnamed_addr #2
+declare dso_local void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #1
+
+; Function Attrs: nounwind
+declare dso_local i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #3 {
 entry:
-  %0 = load i32, i32* @n, align 4, !tbaa !2
+  %0 = load i32, ptr @n, align 4, !tbaa !2
   %cmp18 = icmp sgt i32 %0, 0
   br i1 %cmp18, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
 
@@ -82,8 +82,8 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.cond.cleanup3
   %indvars.iv20 = phi i64 [ 0, %for.cond1.preheader.lr.ph ], [ %indvars.iv.next21, %for.cond.cleanup3 ]
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv20
-  %arrayidx6.promoted = load i32, i32* %arrayidx6, align 4, !tbaa !6
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv20
+  %arrayidx6.promoted = load i32, ptr %arrayidx6, align 4, !tbaa !6
   br label %for.body4
 
 for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup3
@@ -94,7 +94,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi i32 [ %add, %for.body4 ]
-  store i32 %add.lcssa, i32* %arrayidx6, align 4, !tbaa !6
+  store i32 %add.lcssa, ptr %arrayidx6, align 4, !tbaa !6
   %indvars.iv.next21 = add nuw nsw i64 %indvars.iv20, 1
   %cmp = icmp slt i64 %indvars.iv.next21, %1
   br i1 %cmp, label %for.cond1.preheader, label %for.cond.cleanup.loopexit
@@ -102,8 +102,8 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %add17 = phi i32 [ %arrayidx6.promoted, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %add = add nsw i32 %add17, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
@@ -113,8 +113,8 @@ for.body4:                                        ; preds = %for.body4, %for.con
 ; Function Attrs: uwtable
 define internal void @_GLOBAL__sub_I_a.cpp() #4 section ".text.startup" {
 entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZSt8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZSt8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
+  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZSt8__ioinit)
+  %0 = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZSt8__ioinit, ptr nonnull @__dso_handle) #2
   ret void
 }
 

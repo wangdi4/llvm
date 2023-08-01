@@ -26,8 +26,8 @@ entry:
 for.body:                                         ; preds = %for.cond, %entry
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.cond ]
   %0 = zext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp slt i32 %1, 0
   br i1 %cmp1, label %exit.loopexit, label %for.cond
 

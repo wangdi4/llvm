@@ -29,11 +29,11 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.ARG_VECTOR.1.7.13.23.29.45.47.49.51.67.77.83.93.109.113.119.135.181 = type { i32, i32, i8**, i32*, %union.ARG_MEMBER_U.0.6.12.22.28.44.46.48.50.66.76.82.92.108.112.118.134.180* }
+%struct.ARG_VECTOR.1.7.13.23.29.45.47.49.51.67.77.83.93.109.113.119.135.181 = type { i32, i32, ptr, ptr, ptr }
 %union.ARG_MEMBER_U.0.6.12.22.28.44.46.48.50.66.76.82.92.108.112.118.134.180 = type { i32 }
 
 ; Function Attrs: uwtable
-define void @_Z17read_command_linejPPKc(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr {
+define void @_Z17read_command_linejPPKc(i32 %argc, ptr nocapture readnone %argv) local_unnamed_addr {
 entry:
   br label %for.body.thread.i
 
@@ -53,8 +53,8 @@ if.then.i:                                        ; preds = %land.lhs.true.threa
   br label %if.end22.preheader.i
 
 land.lhs.true13.i:                                ; preds = %for.body.i.thread
-  %0 = phi i8* [ %1, %for.body.i.thread ]
-  %call14.i = call zeroext i8 @_Z11file_existsPKc(i8* %0)
+  %0 = phi ptr [ %1, %for.body.i.thread ]
+  %call14.i = call zeroext i8 @_Z11file_existsPKc(ptr %0)
   %tobool.i = icmp eq i8 %call14.i, 0
   br i1 %tobool.i, label %if.then15.i, label %land.lhs.true13.i.if.else17.i.loopexit_crit_edge
 
@@ -64,16 +64,16 @@ if.then15.i:                                      ; preds = %land.lhs.true13.i, 
   br label %for.body.i.thread
 
 for.body.i.thread:                                ; preds = %if.then15.i
-  %arrayidx.i17 = getelementptr inbounds i8*, i8** undef, i64 %indvars.iv.next.i
-  %1 = load i8*, i8** %arrayidx.i17, align 8
+  %arrayidx.i17 = getelementptr inbounds ptr, ptr undef, i64 %indvars.iv.next.i
+  %1 = load ptr, ptr %arrayidx.i17, align 8
   br i1 undef, label %land.lhs.true13.i, label %for.body.i.thread.if.else17.i.loopexit_crit_edge
 
 for.body.i.thread.if.else17.i.loopexit_crit_edge: ; preds = %for.body.i.thread
-  %split = phi i8* [ %1, %for.body.i.thread ]
+  %split = phi ptr [ %1, %for.body.i.thread ]
   unreachable
 
 land.lhs.true13.i.if.else17.i.loopexit_crit_edge: ; preds = %land.lhs.true13.i
-  %split25 = phi i8* [ %0, %land.lhs.true13.i ]
+  %split25 = phi ptr [ %0, %land.lhs.true13.i ]
   unreachable
 
 if.else17.i:                                      ; preds = %if.end22.preheader.i, %for.body.thread.i
@@ -86,5 +86,5 @@ if.end22.preheader.i:                             ; preds = %if.then.i
   ]
 }
 
-declare zeroext i8 @_Z11file_existsPKc(i8*) local_unnamed_addr
+declare zeroext i8 @_Z11file_existsPKc(ptr) local_unnamed_addr
 

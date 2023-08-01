@@ -27,12 +27,12 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 entry:
   %a7 = alloca [100 x i32], align 16
   %oi = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %a7 to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 %0, i8 0, i64 400, i1 false)
-  %1 = bitcast [100 x i32]* %oi to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 %1, i8 0, i64 400, i1 false)
-  %arraydecay = getelementptr inbounds [100 x i32], [100 x i32]* %oi, i64 0, i64 0
-  store i32 1, i32* %arraydecay, align 16
+  %0 = bitcast ptr %a7 to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 %0, i8 0, i64 400, i1 false)
+  %1 = bitcast ptr %oi to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 %1, i8 0, i64 400, i1 false)
+  %arraydecay = getelementptr inbounds [100 x i32], ptr %oi, i64 0, i64 0
+  store i32 1, ptr %arraydecay, align 16
   br label %for.body3.preheader
 
 for.body3.preheader:                              ; preds = %for.inc7, %entry
@@ -43,17 +43,17 @@ for.body3.preheader:                              ; preds = %for.inc7, %entry
 
 for.body3:                                        ; preds = %for.inc, %for.body3.preheader
   %indvars.iv23 = phi i64 [ %indvars.iv, %for.body3.preheader ], [ %indvars.iv.next24, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %oi, i64 0, i64 %indvars.iv23
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %oi, i64 0, i64 %indvars.iv23
+  %2 = load i32, ptr %arrayidx, align 4
   %mul = mul i32 %2, %inc
   %tobool = icmp eq i32 %mul, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* %a7, i64 0, i64 %indvars.iv23
-  %3 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr %a7, i64 0, i64 %indvars.iv23
+  %3 = load i32, ptr %arrayidx6, align 4
   %add = add i32 %3, 1
-  store i32 %add, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx6, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body3
@@ -73,5 +73,5 @@ for.end9:                                         ; preds = %for.inc7
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1) #0
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1) #0
 

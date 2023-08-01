@@ -35,14 +35,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32 %inc.us.us, i32 %.pr.us.us) {
 entry:
-  %in = load i32, i32* @x, align 4
+  %in = load i32, ptr @x, align 4
   br label %for.cond.us.us
 
 for.cond.us.us:                                   ; preds = %entry, %for.cond1.us.us
   %storemerge15.us.us53 = phi i32 [ %inc.us.us, %entry ], [ %storemerge15.us.us, %for.cond1.us.us ]
   %0 = phi i32 [ %.pr.us.us, %entry ], [ %inc11.us.us, %for.cond1.us.us ]
   %inc11.us.us = add nsw i32 %0, 1
-  store i32 %inc11.us.us, i32* @i, align 4
+  store i32 %inc11.us.us, ptr @i, align 4
   %cmp.us.us = icmp slt i32 %0, 0
   br i1 %cmp.us.us, label %for.cond1.us.us, label %for.end12.loopexit
 
@@ -57,12 +57,12 @@ for.cond1.us.us.for.body3.us.us_crit_edge:        ; preds = %for.cond1.us.us
   ret void
 
 for.end12.loopexit37:                             ; preds = %for.body3.thread
-  store i32 1, i32* @i, align 4
+  store i32 1, ptr @i, align 4
   br label %for.end12
 
 for.end12.loopexit:                               ; preds = %for.cond.us.us
   %storemerge15.us.us.lcssa48 = phi i32 [ %storemerge15.us.us53, %for.cond.us.us ]
-  store i32 %storemerge15.us.us.lcssa48, i32* @k, align 4
+  store i32 %storemerge15.us.us.lcssa48, ptr @k, align 4
   br label %for.end12
 
 for.end12:                                        ; preds = %for.end12.loopexit, %for.end12.loopexit37

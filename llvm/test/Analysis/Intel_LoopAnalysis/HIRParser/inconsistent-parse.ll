@@ -49,8 +49,8 @@ for.body226:                                      ; preds = %for.body226, %for.c
   %indvars.iv517 = phi i64 [ 0, %for.cond223.preheader ], [ %indvars.iv.next518, %for.body226 ]
   %mul228 = mul i64 %0, %indvars.iv517
   %1 = and i64 %mul228, 4294967292
-  %arrayidx230 = getelementptr inbounds double, double* undef, i64 %1
-  store double* %arrayidx230, double** undef, align 8
+  %arrayidx230 = getelementptr inbounds double, ptr undef, i64 %1
+  store ptr %arrayidx230, ptr undef, align 8
   %indvars.iv.next518 = add nuw nsw i64 %indvars.iv517, 1
   %exitcond519 = icmp eq i64 %indvars.iv.next518, undef
   br i1 %exitcond519, label %for.cond.cleanup225, label %for.body226

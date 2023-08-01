@@ -24,7 +24,7 @@
 ; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (=) (0)
 
 
-define void @fxpAutoCorrelation(i16* %InputData, i16* %AutoCorrData, i16 %DataSize, i16 %NumberOfLags, i16 %Scale) {
+define void @fxpAutoCorrelation(ptr %InputData, ptr %AutoCorrData, i16 %DataSize, i16 %NumberOfLags, i16 %Scale) {
 entry:
   %cmp36 = icmp sgt i16 %NumberOfLags, 0
   br i1 %cmp36, label %for.body.lr.ph, label %for.end19
@@ -48,12 +48,12 @@ for.body6.preheader:                              ; preds = %for.body
 for.body6:                                        ; preds = %for.body6, %for.body6.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body6 ], [ 0, %for.body6.preheader ]
   %Accumulator.035 = phi i64 [ %add12, %for.body6 ], [ 0, %for.body6.preheader ]
-  %ptridx = getelementptr inbounds i16, i16* %InputData, i64 %indvars.iv
-  %2 = load i16, i16* %ptridx, align 2
+  %ptridx = getelementptr inbounds i16, ptr %InputData, i64 %indvars.iv
+  %2 = load i16, ptr %ptridx, align 2
   %conv7 = sext i16 %2 to i64
   %3 = add nuw nsw i64 %indvars.iv, %indvars.iv39
-  %ptridx9 = getelementptr inbounds i16, i16* %InputData, i64 %3
-  %4 = load i16, i16* %ptridx9, align 2
+  %ptridx9 = getelementptr inbounds i16, ptr %InputData, i64 %3
+  %4 = load i16, ptr %ptridx9, align 2
   %conv10 = sext i16 %4 to i64
   %mul = mul nsw i64 %conv10, %conv7
   %shr = ashr i64 %mul, %sh_prom
@@ -70,8 +70,8 @@ for.end:                                          ; preds = %for.end.loopexit, %
   %Accumulator.0.lcssa = phi i64 [ 0, %for.body ], [ %add12.lcssa, %for.end.loopexit ]
   %5 = lshr i64 %Accumulator.0.lcssa, 16
   %conv14 = trunc i64 %5 to i16
-  %ptridx16 = getelementptr inbounds i16, i16* %AutoCorrData, i64 %indvars.iv39
-  store i16 %conv14, i16* %ptridx16, align 2
+  %ptridx16 = getelementptr inbounds i16, ptr %AutoCorrData, i64 %indvars.iv39
+  store i16 %conv14, ptr %ptridx16, align 2
   %indvars.iv.next40 = add nuw nsw i64 %indvars.iv39, 1
   %exitcond43 = icmp eq i64 %indvars.iv.next40, %wide.trip.count4244
   br i1 %exitcond43, label %for.end19.loopexit, label %for.body

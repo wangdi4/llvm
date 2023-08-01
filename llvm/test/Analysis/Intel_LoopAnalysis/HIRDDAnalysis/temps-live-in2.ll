@@ -44,23 +44,23 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc21
   %indvars.iv55 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next56, %for.inc21 ]
-  %arrayidx2 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %indvars.iv55, i64 %indvars.iv55
-  %0 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %indvars.iv55, i64 %indvars.iv55
+  %0 = load i32, ptr %arrayidx2, align 4
   %cmp3 = icmp sgt i32 %0, %n
   br i1 %cmp3, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
   %1 = add nsw i64 %indvars.iv55, -1
-  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %1, i64 %indvars.iv55
-  %2 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %1, i64 %indvars.iv55
+  %2 = load i32, ptr %arrayidx7, align 4
   %3 = trunc i64 %indvars.iv55 to i32
   %add = add nsw i32 %2, %3
   br label %for.body16.preheader
 
 if.else:                                          ; preds = %for.body
   %4 = add nuw nsw i64 %indvars.iv55, 1
-  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %4, i64 %indvars.iv55
-  %5 = load i32, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %4, i64 %indvars.iv55
+  %5 = load i32, ptr %arrayidx12, align 4
   %6 = trunc i64 %indvars.iv55 to i32
   %sub13 = sub nsw i32 %5, %6
   br label %for.body16.preheader
@@ -71,8 +71,8 @@ for.body16.preheader:                             ; preds = %if.then, %if.else
 
 for.body16:                                       ; preds = %for.body16.preheader, %for.body16
   %indvars.iv = phi i64 [ 0, %for.body16.preheader ], [ %indvars.iv.next, %for.body16 ]
-  %arrayidx20 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %indvars.iv55, i64 %indvars.iv
-  store i32 %x.0, i32* %arrayidx20, align 4
+  %arrayidx20 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %indvars.iv55, i64 %indvars.iv
+  store i32 %x.0, ptr %arrayidx20, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count5961
   br i1 %exitcond.not, label %for.inc21, label %for.body16
@@ -89,8 +89,8 @@ for.end23:                                        ; preds = %for.end23.loopexit,
   %idxprom24.pre-phi = phi i64 [ %.pre, %entry.for.end23_crit_edge ], [ %wide.trip.count5961, %for.end23.loopexit ]
   %sub26 = add nsw i32 %n, -1
   %idxprom27 = sext i32 %sub26 to i64
-  %arrayidx28 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %idxprom24.pre-phi, i64 %idxprom27
-  %7 = load i32, i32* %arrayidx28, align 4
+  %arrayidx28 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %idxprom24.pre-phi, i64 %idxprom27
+  %7 = load i32, ptr %arrayidx28, align 4
   ret i32 %7
 }
 
