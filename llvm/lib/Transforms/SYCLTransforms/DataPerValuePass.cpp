@@ -347,11 +347,13 @@ unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
 
   if (AllocaInst *AI = dyn_cast_or_null<AllocaInst>(Val)) {
     if (AI->isArrayAllocation()) {
-      const ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
-      assert(C && "We cannot handle non static allocas in barrier!");
-      assert((C->getValue().getActiveBits() <= 64) &&
-             "The array size cannot be bigger than a uint64_t!");
-      SizeInBits = SizeInBits * (C->getZExtValue());
+      constexpr unsigned VLAMaxSize = 4 * 1024;
+      ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
+      // Temporary solution to handle dynamic size array in barrier pass.
+      // We use fixed 4K size for all dynamic size array. It follows the
+      // same solution in GPU device.
+      // TODO: Support dynamic size arrary.
+      SizeInBits = SizeInBits * (C ? C->getZExtValue() : VLAMaxSize);
     }
   }
 
