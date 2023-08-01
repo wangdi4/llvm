@@ -1,8 +1,8 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=DEFAULT
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=DEFAULT
 
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
 
 ; Test src:
 ;
@@ -52,40 +52,31 @@ target device_triples = "spir64"
 @.str.1 = private unnamed_addr addrspace(1) constant [25 x i8] c"threads in parallel: %d\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define hidden i32 @main(i32 %argv, ptr addrspace(4) %argc) #0 {
+define hidden i32 @main(i32 %argv, i8 addrspace(4)* addrspace(4)* %argc) #0 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
   %argv.addr = alloca i32, align 4
-  %argv.addr.ascast = addrspacecast ptr %argv.addr to ptr addrspace(4)
-  %argc.addr = alloca ptr addrspace(4), align 8
-  %argc.addr.ascast = addrspacecast ptr %argc.addr to ptr addrspace(4)
-  store i32 0, ptr addrspace(4) %retval.ascast, align 4
-  store i32 %argv, ptr addrspace(4) %argv.addr.ascast, align 4
-  store ptr addrspace(4) %argc, ptr addrspace(4) %argc.addr.ascast, align 8
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
-
+  %argv.addr.ascast = addrspacecast i32* %argv.addr to i32 addrspace(4)*
+  %argc.addr = alloca i8 addrspace(4)* addrspace(4)*, align 8
+  %argc.addr.ascast = addrspacecast i8 addrspace(4)* addrspace(4)** %argc.addr to i8 addrspace(4)* addrspace(4)* addrspace(4)*
+  store i32 0, i32 addrspace(4)* %retval.ascast, align 4
+  store i32 %argv, i32 addrspace(4)* %argv.addr.ascast, align 4
+  store i8 addrspace(4)* addrspace(4)* %argc, i8 addrspace(4)* addrspace(4)* addrspace(4)* %argc.addr.ascast, align 8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"() ]
-
   %call = call spir_func i32 @omp_get_num_threads() #1
-  %call1 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %call) #1
+  %call1 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([22 x i8], [22 x i8] addrspace(4)* addrspacecast ([22 x i8] addrspace(1)* @.str to [22 x i8] addrspace(4)*), i64 0, i64 0), i32 %call) #1
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
-
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
-
   fence acquire
   %call2 = call spir_func i32 @omp_get_num_threads() #1
-  %call3 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str.1 to ptr addrspace(4)), i32 %call2) #1
+  %call3 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8] addrspace(4)* addrspacecast ([25 x i8] addrspace(1)* @.str.1 to [25 x i8] addrspace(4)*), i64 0, i64 0), i32 %call2) #1
   fence release
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.MASTER"() ]
-
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
-
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
-
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-
   ret i32 0
 }
 
@@ -95,7 +86,7 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare dso_local spir_func i32 @printf(ptr addrspace(4), ...) #2
+declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...) #2
 
 ; Function Attrs: nounwind
 declare dso_local spir_func i32 @omp_get_num_threads() #3
