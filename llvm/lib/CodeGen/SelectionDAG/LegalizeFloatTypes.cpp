@@ -76,7 +76,8 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     dbgs() << "SoftenFloatResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soften the result of this operator!");
+    report_fatal_error("Do not know how to soften the result of this "
+                       "operator!");
 
     case ISD::ARITH_FENCE: R = SoftenFloatRes_ARITH_FENCE(N); break;
     case ISD::MERGE_VALUES:R = SoftenFloatRes_MERGE_VALUES(N, ResNo); break;
@@ -967,7 +968,7 @@ bool DAGTypeLegalizer::SoftenFloatOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "SoftenFloatOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soften this operator's operand!");
+    report_fatal_error("Do not know how to soften this operator's operand!");
 
   case ISD::BITCAST:     Res = SoftenFloatOp_BITCAST(N); break;
   case ISD::BR_CC:       Res = SoftenFloatOp_BR_CC(N); break;
@@ -1339,7 +1340,8 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
     dbgs() << "ExpandFloatResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to expand the result of this operator!");
+    report_fatal_error("Do not know how to expand the result of this "
+                       "operator!");
 
   case ISD::UNDEF:        SplitRes_UNDEF(N, Lo, Hi); break;
   case ISD::SELECT:       SplitRes_Select(N, Lo, Hi); break;
@@ -1967,7 +1969,7 @@ bool DAGTypeLegalizer::ExpandFloatOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "ExpandFloatOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to expand this operator's operand!");
+    report_fatal_error("Do not know how to expand this operator's operand!");
 
   case ISD::BITCAST:         Res = ExpandOp_BITCAST(N); break;
   case ISD::BUILD_VECTOR:    Res = ExpandOp_BUILD_VECTOR(N); break;
@@ -2288,7 +2290,7 @@ bool DAGTypeLegalizer::PromoteFloatOperand(SDNode *N, unsigned OpNo) {
       dbgs() << "PromoteFloatOperand Op #" << OpNo << ": ";
       N->dump(&DAG); dbgs() << "\n";
   #endif
-      llvm_unreachable("Do not know how to promote this operator's operand!");
+      report_fatal_error("Do not know how to promote this operator's operand!");
 
     case ISD::BITCAST:    R = PromoteFloatOp_BITCAST(N, OpNo); break;
     case ISD::FCOPYSIGN:  R = PromoteFloatOp_FCOPYSIGN(N, OpNo); break;
@@ -2427,7 +2429,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
       dbgs() << "PromoteFloatResult #" << ResNo << ": ";
       N->dump(&DAG); dbgs() << "\n";
 #endif
-      llvm_unreachable("Do not know how to promote this operator's result!");
+      report_fatal_error("Do not know how to promote this operator's result!");
 
     case ISD::BITCAST:    R = PromoteFloatRes_BITCAST(N); break;
     case ISD::ConstantFP: R = PromoteFloatRes_ConstantFP(N); break;
@@ -2814,7 +2816,8 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
     dbgs() << "SoftPromoteHalfResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soft promote this operator's result!");
+    report_fatal_error("Do not know how to soft promote this operator's "
+                       "result!");
 
   case ISD::BITCAST:    R = SoftPromoteHalfRes_BITCAST(N); break;
   case ISD::ConstantFP: R = SoftPromoteHalfRes_ConstantFP(N); break;
@@ -3125,7 +3128,8 @@ bool DAGTypeLegalizer::SoftPromoteHalfOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "SoftPromoteHalfOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
   #endif
-    llvm_unreachable("Do not know how to soft promote this operator's operand!");
+    report_fatal_error("Do not know how to soft promote this operator's "
+                       "operand!");
 
   case ISD::BITCAST:    Res = SoftPromoteHalfOp_BITCAST(N); break;
   case ISD::FCOPYSIGN:  Res = SoftPromoteHalfOp_FCOPYSIGN(N, OpNo); break;
