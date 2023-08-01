@@ -1,17 +1,25 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-apply-config -simplifycfg -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S %s | FileCheck %s
-; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,simplifycfg)' -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-apply-config -simplifycfg -vpo-paropt-config=%S/../Inputs/Intel_paropt_apply_config.yaml -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,simplifycfg)' -vpo-paropt-config=%S/../Inputs/Intel_paropt_apply_config.yaml -S %s | FileCheck %s
 
 ; Original code:
-; Clauses are hand-modified.
-; test() contains IR for untyped ConstantInt clause operands.
-; test_typed() contains IR for constructs with no clauses, or typed clauses.
-
-;void test() {
+; Clauses in test_typed are hand-modified to use the TYPED form.
+;void test(int n, int m) {
+;#pragma omp target
+;  ;
+;#pragma omp target teams
+;  ;
 ;#pragma omp target teams num_teams(1)
 ;  ;
 ;#pragma omp target teams thread_limit(2)
 ;  ;
 ;#pragma omp target teams num_teams(3) thread_limit(4)
+;  ;
+;#pragma omp target teams num_teams(n)
+;  ;
+;#pragma omp target teams thread_limit(m)
+;  ;
+;#pragma omp target teams num_teams(n) thread_limit(m)
+;  ;
 ;}
 ;
 ;void test_typed(int n, int m) {
@@ -35,6 +43,11 @@
 
 ; Check that the specified ThreadLimit/NumTeams are applied:
 ; CHECK-LABEL: @test
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
+; CHECK-NEXT: br label %[[R1L:[0-9a-zA-Z._]+]]
+; CHECK: [[R1L]]:
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 33, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 44, i32 0) ]
+
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2) ]
 ; CHECK-NEXT: br label %[[R2L:[0-9a-zA-Z._]+]]
 ; CHECK: [[R2L]]:
@@ -50,6 +63,20 @@
 ; CHECK: [[R4L]]:
 ; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 99, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 111, i32 0) ]
 
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5){{.*}}
+; CHECK-NEXT: br label %[[R5L:[0-9a-zA-Z._]+]]
+; CHECK: [[R5L]]:
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 222, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 333, i32 0) ]
+
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6){{.*}}
+; CHECK-NEXT: br label %[[R6L:[0-9a-zA-Z._]+]]
+; CHECK: [[R6L]]:
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 444, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 555, i32 0) ]
+
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7){{.*}}
+; CHECK-NEXT: br label %[[R7L:[0-9a-zA-Z._]+]]
+; CHECK: [[R7L]]:
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 666, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 777, i32 0) ]
 
 ; CHECK-LABEL: @test_typed
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 9) ]
@@ -75,45 +102,98 @@
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 13){{.*}}
 ; CHECK-NEXT: br label %[[R13L:[0-9a-zA-Z._]+]]
 ; CHECK: [[R13L]]:
-; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS:TYPED"(ptr addrspace(4) %n.addr.ascast, i32 0), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 222, i32 0) ]
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 addrspace(4)* %n.addr.ascast, i32 0), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 222, i32 0) ]
 
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 14){{.*}}
 ; CHECK-NEXT: br label %[[R14L:[0-9a-zA-Z._]+]]
 ; CHECK: [[R14L]]:
-; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr addrspace(4) %.capture_expr.2.ascast, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 555, i32 0) ]
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 addrspace(4)* %.capture_expr.2.ascast, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 555, i32 0) ]
 
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),{{.}}"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 15){{.*}}
 ; CHECK-NEXT: br label %[[R15L:[0-9a-zA-Z._]+]]
 ; CHECK: [[R15L]]:
-; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr addrspace(4) %.capture_expr.3.ascast, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 777, i32 0) ]
+; CHECK-NEXT: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 addrspace(4)* %.capture_expr.3.ascast, i32 0), "QUAL.OMP.NUM_TEAMS:TYPED"(i32 777, i32 0) ]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
 
-define hidden spir_func void @test() {
+define hidden spir_func void @test(i32 noundef %n, i32 noundef %m) {
 entry:
-  %i0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+  %n.addr = alloca i32, align 4
+  %m.addr = alloca i32, align 4
+  %.capture_expr.0 = alloca i32, align 4
+  %.capture_expr.1 = alloca i32, align 4
+  %n.addr.ascast = addrspacecast i32* %n.addr to i32 addrspace(4)*
+  %m.addr.ascast = addrspacecast i32* %m.addr to i32 addrspace(4)*
+  %.capture_expr.0.ascast = addrspacecast i32* %.capture_expr.0 to i32 addrspace(4)*
+  %.capture_expr.1.ascast = addrspacecast i32* %.capture_expr.1 to i32 addrspace(4)*
+  store i32 %n, i32 addrspace(4)* %n.addr.ascast, align 4, !tbaa !23
+  store i32 %m, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
+
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2) ]
-  %i1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
     "QUAL.OMP.NUM_TEAMS"(i32 1) ]
-  call void @llvm.directive.region.exit(token %i1) [ "DIR.OMP.END.TEAMS"() ]
-  call void @llvm.directive.region.exit(token %i0) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.TARGET"() ]
 
-  %i2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3) ]
-  %i3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
     "QUAL.OMP.THREAD_LIMIT"(i32 2) ]
-  call void @llvm.directive.region.exit(token %i3) [ "DIR.OMP.END.TEAMS"() ]
-  call void @llvm.directive.region.exit(token %i2) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.TARGET"() ]
 
-  %i4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4) ]
-  %i5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
     "QUAL.OMP.NUM_TEAMS"(i32 3),
     "QUAL.OMP.THREAD_LIMIT"(i32 4) ]
-  call void @llvm.directive.region.exit(token %i5) [ "DIR.OMP.END.TEAMS"() ]
-  call void @llvm.directive.region.exit(token %i4) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.TARGET"() ]
+
+  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5),
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %n.addr.ascast) ]
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.NUM_TEAMS"(i32 addrspace(4)* %n.addr.ascast) ]
+  call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %9) [ "DIR.OMP.END.TARGET"() ]
+
+  %11 = load i32, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
+  store i32 %11, i32 addrspace(4)* %.capture_expr.0.ascast, align 4, !tbaa !23
+
+  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6),
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.capture_expr.0.ascast) ]
+  %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.THREAD_LIMIT"(i32 addrspace(4)* %.capture_expr.0.ascast) ]
+  call void @llvm.directive.region.exit(token %13) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.TARGET"() ]
+
+  %14 = load i32, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
+  store i32 %14, i32 addrspace(4)* %.capture_expr.1.ascast, align 4, !tbaa !23
+
+  %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7),
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %n.addr.ascast),
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.capture_expr.1.ascast) ]
+  %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.NUM_TEAMS"(i32 addrspace(4)* %n.addr.ascast),
+    "QUAL.OMP.THREAD_LIMIT"(i32 addrspace(4)* %.capture_expr.1.ascast) ]
+  call void @llvm.directive.region.exit(token %16) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %15) [ "DIR.OMP.END.TARGET"() ]
 
   ret void
 }
@@ -124,12 +204,12 @@ entry:
   %m.addr = alloca i32, align 4
   %.capture_expr.2 = alloca i32, align 4
   %.capture_expr.3 = alloca i32, align 4
-  %n.addr.ascast = addrspacecast ptr %n.addr to ptr addrspace(4)
-  %m.addr.ascast = addrspacecast ptr %m.addr to ptr addrspace(4)
-  %.capture_expr.2.ascast = addrspacecast ptr %.capture_expr.2 to ptr addrspace(4)
-  %.capture_expr.3.ascast = addrspacecast ptr %.capture_expr.3 to ptr addrspace(4)
-  store i32 %n, ptr addrspace(4) %n.addr.ascast, align 4, !tbaa !23
-  store i32 %m, ptr addrspace(4) %m.addr.ascast, align 4, !tbaa !23
+  %n.addr.ascast = addrspacecast i32* %n.addr to i32 addrspace(4)*
+  %m.addr.ascast = addrspacecast i32* %m.addr to i32 addrspace(4)*
+  %.capture_expr.2.ascast = addrspacecast i32* %.capture_expr.2 to i32 addrspace(4)*
+  %.capture_expr.3.ascast = addrspacecast i32* %.capture_expr.3 to i32 addrspace(4)*
+  store i32 %n, i32 addrspace(4)* %n.addr.ascast, align 4, !tbaa !23
+  store i32 %m, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 8) ]
@@ -165,33 +245,33 @@ entry:
 
   %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 13),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %n.addr.ascast, i32 0, i32 1) ]
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32 addrspace(4)* %n.addr.ascast, i32 0, i32 1) ]
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.NUM_TEAMS:TYPED"(ptr addrspace(4) %n.addr.ascast, i32 0) ]
+    "QUAL.OMP.NUM_TEAMS:TYPED"(i32 addrspace(4)* %n.addr.ascast, i32 0) ]
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.TEAMS"() ]
   call void @llvm.directive.region.exit(token %9) [ "DIR.OMP.END.TARGET"() ]
 
-  %11 = load i32, ptr addrspace(4) %m.addr.ascast, align 4, !tbaa !23
-  store i32 %11, ptr addrspace(4) %.capture_expr.2.ascast, align 4, !tbaa !23
+  %11 = load i32, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
+  store i32 %11, i32 addrspace(4)* %.capture_expr.2.ascast, align 4, !tbaa !23
 
   %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 14),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.capture_expr.2.ascast, i32 0, i32 1) ]
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32 addrspace(4)* %.capture_expr.2.ascast, i32 0, i32 1) ]
   %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr addrspace(4) %.capture_expr.2.ascast, i32 0) ]
+    "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 addrspace(4)* %.capture_expr.2.ascast, i32 0) ]
   call void @llvm.directive.region.exit(token %13) [ "DIR.OMP.END.TEAMS"() ]
   call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.TARGET"() ]
 
-  %14 = load i32, ptr addrspace(4) %m.addr.ascast, align 4, !tbaa !23
-  store i32 %14, ptr addrspace(4) %.capture_expr.3.ascast, align 4, !tbaa !23
+  %14 = load i32, i32 addrspace(4)* %m.addr.ascast, align 4, !tbaa !23
+  store i32 %14, i32 addrspace(4)* %.capture_expr.3.ascast, align 4, !tbaa !23
 
   %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 15),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %n.addr.ascast, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.capture_expr.3.ascast, i32 0, i32 1) ]
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32 addrspace(4)* %n.addr.ascast, i32 0, i32 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32 addrspace(4)* %.capture_expr.3.ascast, i32 0, i32 1) ]
   %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.NUM_TEAMS:TYPED"(ptr addrspace(4) %n.addr.ascast, i32 0),
-    "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr addrspace(4) %.capture_expr.3.ascast, i32 0) ]
+    "QUAL.OMP.NUM_TEAMS:TYPED"(i32 addrspace(4)* %n.addr.ascast, i32 0),
+    "QUAL.OMP.THREAD_LIMIT:TYPED"(i32 addrspace(4)* %.capture_expr.3.ascast, i32 0) ]
   call void @llvm.directive.region.exit(token %16) [ "DIR.OMP.END.TEAMS"() ]
   call void @llvm.directive.region.exit(token %15) [ "DIR.OMP.END.TARGET"() ]
 
