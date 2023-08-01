@@ -1,4 +1,4 @@
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,sroa),ipsccp,function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,sroa),ipsccp,function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; void foo() {
@@ -22,31 +22,35 @@ define dso_local void @foo() {
 entry:
   %x = alloca i32, align 4
   %y = alloca i32, align 4
-  call void @llvm.lifetime.start.p0(i64 4, ptr %x)
-  store i32 1, ptr %x, align 4
-  call void @llvm.lifetime.start.p0(i64 4, ptr %y)
-  store i32 1, ptr %y, align 4
-  %0 = load i32, ptr %x, align 4
-  %1 = load i32, ptr %y, align 4
-  %cmp = icmp slt i32 %0, %1
+  %0 = bitcast i32* %x to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
+  store i32 1, i32* %x, align 4
+  %1 = bitcast i32* %y to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1)
+  store i32 1, i32* %y, align 4
+  %2 = load i32, i32* %x, align 4
+  %3 = load i32, i32* %y, align 4
+  %cmp = icmp slt i32 %2, %3
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TARGET"() ]
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  call void @llvm.lifetime.end.p0(i64 4, ptr %y)
-  call void @llvm.lifetime.end.p0(i64 4, ptr %x)
+  %5 = bitcast i32* %y to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %5)
+  %6 = bitcast i32* %x to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %6)
   ret void
 }
 
-declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
+declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
+declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
 
 !omp_offload.info = !{!0}
 !0 = !{i32 0, i32 2052, i32 85987096, !"foo", i32 5, i32 0, i32 0}

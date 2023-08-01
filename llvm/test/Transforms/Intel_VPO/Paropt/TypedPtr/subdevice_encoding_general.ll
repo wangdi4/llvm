@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
 
 ;Test src:
 ;
@@ -43,27 +43,37 @@ target device_triples = "spir64"
 define dso_local void @foo() {
 entry:
   %x = alloca double, align 8
-  %out = alloca ptr, align 8
+  %out = alloca double*, align 8
   %n = alloca i32, align 4
   %m = alloca i32, align 4
   %o = alloca i32, align 4
   %k = alloca i32, align 4
-  store double 0.000000e+00, ptr %x, align 8
-  store ptr %x, ptr %out, align 8
-  %0 = load i32, ptr %m, align 4
-  %1 = load i32, ptr %n, align 4
-  %2 = load ptr, ptr %out, align 8
-  %3 = load ptr, ptr %out, align 8
+  store double 0.000000e+00, double* %x, align 8
+  store double* %x, double** %out, align 8
+  %0 = load i32, i32* %m, align 4
+  %1 = load i32, i32* %n, align 4
+  %2 = load double*, double** %out, align 8
+  %3 = load double*, double** %out, align 8
+  %arrayidx = getelementptr inbounds double, double* %3, i64 0
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
     "QUAL.OMP.DEVICE"(i32 %0),
     "QUAL.OMP.SUBDEVICE"(i32 1, i32 2, i32 %1, i32 4),
-    "QUAL.OMP.MAP.TOFROM"(ptr %2, ptr %3, i64 8, i64 35) ]
+    "QUAL.OMP.MAP.TOFROM"(double* %2, double* %arrayidx, i64 8, i64 35) ]
 
-  %5 = load ptr, ptr %out, align 8
-  store double 1.230000e+02, ptr %5, align 8
+  %5 = load double*, double** %out, align 8
+  %ptridx = getelementptr inbounds double, double* %5, i64 0
+  store double 1.230000e+02, double* %ptridx, align 8
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret void
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+
+define dso_local i32 @main() {
+entry:
+  %retval = alloca i32, align 4
+  store i32 0, i32* %retval, align 4
+  call void @foo()
+  ret i32 0
+}

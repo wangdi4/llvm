@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S -disable-output -debug-only=vpo-paropt-utils %s 2>&1 | FileCheck %s -check-prefix=DEBUG
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -disable-output -debug-only=vpo-paropt-utils %s 2>&1 | FileCheck %s -check-prefix=DEBUG
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S -disable-output -debug-only=vpo-paropt-utils %s 2>&1 | FileCheck %s -check-prefix=DEBUG
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -disable-output -debug-only=vpo-paropt-utils %s 2>&1 | FileCheck %s -check-prefix=DEBUG
 
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=IR
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=IR
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=IR
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=IR
 
 ; Test src:
 
@@ -84,7 +84,7 @@ target device_triples = "spir64"
 define hidden spir_func i32 @f1() #0 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
   %call = call spir_func i32 @omp_get_num_threads() #6
   ret i32 %call
 }
@@ -97,13 +97,13 @@ entry:
 
 
   %call = call spir_func i32 @f1()
-  %call1 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 noundef %call)
+  %call1 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 noundef %call)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
   fence acquire
   %call2 = call spir_func i32 @f1()
-  %call3 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 noundef %call2)
+  %call3 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 noundef %call2)
   fence release
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.MASTER"() ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
@@ -115,11 +115,11 @@ entry:
 define hidden i32 @main() {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
-  store i32 0, ptr addrspace(4) %retval.ascast, align 4
-  %call = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str.1 to ptr addrspace(4)))
+  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
+  store i32 0, i32 addrspace(4)* %retval.ascast, align 4
+  %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([8 x i8], [8 x i8] addrspace(4)* addrspacecast ([8 x i8] addrspace(1)* @.str.1 to [8 x i8] addrspace(4)*), i64 0, i64 0))
   call spir_func void @f2()
-  %call1 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str.2 to ptr addrspace(4)))
+  %call1 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([8 x i8], [8 x i8] addrspace(4)* addrspacecast ([8 x i8] addrspace(1)* @.str.2 to [8 x i8] addrspace(4)*), i64 0, i64 0))
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2) ]
@@ -127,7 +127,7 @@ entry:
   call spir_func void @f2()
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
 
-  %call2 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str.3 to ptr addrspace(4)))
+  %call2 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([8 x i8], [8 x i8] addrspace(4)* addrspacecast ([8 x i8] addrspace(1)* @.str.3 to [8 x i8] addrspace(4)*), i64 0, i64 0))
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3) ]
@@ -145,7 +145,7 @@ entry:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare spir_func i32 @printf(ptr addrspace(4) noundef, ...)
+declare spir_func i32 @printf(i8 addrspace(4)* noundef, ...)
 declare spir_func i32 @omp_get_num_threads()
 
 attributes #0 = { "openmp-target-declare"="true" }
@@ -155,4 +155,4 @@ attributes #1 = { "openmp-target-declare"="true" "contains-openmp-target"="true"
 !0 = !{i32 0, i32 66313, i32 47073819, !"_Z4main", i32 25, i32 2, i32 0}
 !1 = !{i32 0, i32 66313, i32 47073819, !"_Z4main", i32 29, i32 3, i32 0}
 !2 = !{i32 0, i32 66313, i32 47073819, !"_Z2f2", i32 9, i32 1, i32 0}
-!3 = !{i32 1, !"_Z6result", i32 0, i32 0, ptr addrspace(1) @result}
+!3 = !{i32 1, !"_Z6result", i32 0, i32 0, i32 addrspace(1)* @result}

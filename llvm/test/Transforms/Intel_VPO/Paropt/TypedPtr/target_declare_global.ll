@@ -2,8 +2,8 @@
 ;   "globalopt" (Global Variable Optimizer) or
 ;   "ipsccp" (Interprocedural Sparse Conditional Constant Propagation)
 
-; RUN: opt -passes="globalopt" -S %s | FileCheck %s
-; RUN: opt -passes="ipsccp" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="globalopt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="ipsccp" -S %s | FileCheck %s
 
 ; ModuleID = 'target_declare_global.cpp'
 ; test IR obtained with:   icx -Xclang -disable-llvm-passes -fiopenmp \
@@ -35,8 +35,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z3foov() {
 entry:
-  store float 2.000000e+00, ptr @_Z4var2, align 4
-  %0 = load float, ptr @_Z4var2, align 4
+  store float 2.000000e+00, float* @_Z4var2, align 4
+  %0 = load float, float* @_Z4var2, align 4
   call void @_Z3barf(float %0)
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
