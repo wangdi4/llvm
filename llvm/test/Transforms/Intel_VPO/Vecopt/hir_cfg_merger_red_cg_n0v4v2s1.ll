@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
+define float @foo(ptr nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
@@ -105,8 +105,8 @@ entry:
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %sum.07 = phi float [ %add, %for.body ], [ %init, %entry ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %A.i = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %A.i = load float, ptr %arrayidx, align 4
   %add = fadd fast float %A.i, %sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N

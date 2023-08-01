@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @larr = dso_local local_unnamed_addr global [100 x [100 x [100 x i64]]] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readnone %lpp) local_unnamed_addr #0 {
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:  |   %phi.temp = 0;
 ; CHECK-NEXT:  |
@@ -52,8 +52,8 @@ for.cond4.preheader:                              ; preds = %for.cond1.preheader
 for.body6:                                        ; preds = %for.cond4.preheader, %for.body6
   %l3.028 = phi i64 [ 0, %for.cond4.preheader ], [ %inc, %for.body6 ]
   %add7 = add nuw nsw i64 %add, %l3.028
-  %arrayidx9 = getelementptr inbounds [100 x [100 x [100 x i64]]], [100 x [100 x [100 x i64]]]* @larr, i64 0, i64 %l1.030, i64 %l2.029, i64 %l3.028
-  store i64 %add7, i64* %arrayidx9, align 8
+  %arrayidx9 = getelementptr inbounds [100 x [100 x [100 x i64]]], ptr @larr, i64 0, i64 %l1.030, i64 %l2.029, i64 %l3.028
+  store i64 %add7, ptr %arrayidx9, align 8
   %inc = add nuw nsw i64 %l3.028, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.inc10, label %for.body6

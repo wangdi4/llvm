@@ -26,8 +26,8 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1 x i32], [1 x i32]* @arr1, i32 0, i32 %indvars.iv
-  store i32 %indvars.iv, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1 x i32], ptr @arr1, i32 0, i32 %indvars.iv
+  store i32 %indvars.iv, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond = icmp eq i32 %indvars.iv.next, %N
   br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !5

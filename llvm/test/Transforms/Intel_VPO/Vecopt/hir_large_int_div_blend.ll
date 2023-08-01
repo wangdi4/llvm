@@ -26,20 +26,20 @@
 ; CHECK-NEXT:         + END LOOP
 ; CHECK-NEXT:   END REGION
 ;
-define void @foo(i128*  %a) {
+define void @foo(ptr  %a) {
 entry:
   br label %for.body
 
 for.body:
   %i.06 = phi i64 [ 0, %entry ], [ %inc, %if.end ]
-  %arrayidx = getelementptr inbounds i128, i128* %a, i64 %i.06
-  %0 = load i128, i128* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds i128, ptr %a, i64 %i.06
+  %0 = load i128, ptr %arrayidx, align 16
   %cmp = icmp slt i128 %0, 1024
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:
   %div = sdiv i128 %0, 18446744073709551616
-  store i128 %div, i128* %arrayidx, align 16
+  store i128 %div, ptr %arrayidx, align 16
   br label %if.end
 
 if.end:

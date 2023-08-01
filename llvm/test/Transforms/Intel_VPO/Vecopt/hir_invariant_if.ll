@@ -4,7 +4,7 @@
 
 ; This test checks how we decompose invariant HLIfs.
 
-define void @test1(i64* %arr, i64 %n1, i64 %n2) {
+define void @test1(ptr %arr, i64 %n1, i64 %n2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: test1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -43,14 +43,14 @@ header:
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %iv
-  store i64 %iv, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %iv
+  store i64 %iv, ptr %arrayidx, align 4
   br label %latch
 
 if.else:
   %idx = mul i64 %iv, 2
-  %arrayidx2 = getelementptr inbounds i64, i64* %arr, i64 %idx
-  store i64 %iv, i64* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i64, ptr %arr, i64 %idx
+  store i64 %iv, ptr %arrayidx2, align 4
   br label %latch
 
 latch:
@@ -63,7 +63,7 @@ exit:
   ret void
 }
 
-define void @test2(i64* %arr, i64 %n1, i64 %n2, i64 %n3) {
+define void @test2(ptr %arr, i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: test2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -115,14 +115,14 @@ mask:
   br i1 %tobool, label %if.else, label %if.then
 
 if.then:
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %iv
-  store i64 %iv, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %iv
+  store i64 %iv, ptr %arrayidx, align 4
   br label %latch
 
 if.else:
   %idx = mul i64 %iv, 2
-  %arrayidx2 = getelementptr inbounds i64, i64* %arr, i64 %idx
-  store i64 %iv, i64* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i64, ptr %arr, i64 %idx
+  store i64 %iv, ptr %arrayidx2, align 4
   br label %latch
 
 latch:
@@ -135,7 +135,7 @@ exit:
   ret void
 }
 
-define void @test3(i64* %arr, i64 %n1, i64 %n2) {
+define void @test3(ptr %arr, i64 %n1, i64 %n2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: test3:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -175,14 +175,14 @@ header:
   br i1 %cond, label %if.then, label %if.else
 
 if.then:
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %iv
-  store i64 %iv, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %iv
+  store i64 %iv, ptr %arrayidx, align 4
   br label %latch
 
 if.else:
   %idx = mul i64 %iv, 2
-  %arrayidx2 = getelementptr inbounds i64, i64* %arr, i64 %idx
-  store i64 %iv, i64* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i64, ptr %arr, i64 %idx
+  store i64 %iv, ptr %arrayidx2, align 4
   br label %latch
 
 latch:

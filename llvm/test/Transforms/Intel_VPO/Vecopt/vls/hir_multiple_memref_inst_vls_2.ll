@@ -18,7 +18,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo({ float, float }* nocapture %dest, { float, float }* nocapture readonly %src1, { float, float }* nocapture readonly %src2) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %dest, ptr nocapture readonly %src1, ptr nocapture readonly %src2) local_unnamed_addr #0 {
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize> <ivdep>
 ; CHECK-NEXT:        |   [[DOTVLS_LOAD0:%.*]] = (<8 x float>*)([[SRC20:%.*]])[i1].0
@@ -39,20 +39,20 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.08 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %ptridx.realp = getelementptr inbounds { float, float }, { float, float }* %src1, i64 %l1.08, i32 0
-  %ptridx.real = load float, float* %ptridx.realp, align 4
-  %ptridx.imagp = getelementptr inbounds { float, float }, { float, float }* %src1, i64 %l1.08, i32 1
-  %ptridx.imag = load float, float* %ptridx.imagp, align 4
-  %ptridx1.realp = getelementptr inbounds { float, float }, { float, float }* %src2, i64 %l1.08, i32 0
-  %ptridx1.real = load float, float* %ptridx1.realp, align 4
-  %ptridx1.imagp = getelementptr inbounds { float, float }, { float, float }* %src2, i64 %l1.08, i32 1
-  %ptridx1.imag = load float, float* %ptridx1.imagp, align 4
+  %ptridx.realp = getelementptr inbounds { float, float }, ptr %src1, i64 %l1.08, i32 0
+  %ptridx.real = load float, ptr %ptridx.realp, align 4
+  %ptridx.imagp = getelementptr inbounds { float, float }, ptr %src1, i64 %l1.08, i32 1
+  %ptridx.imag = load float, ptr %ptridx.imagp, align 4
+  %ptridx1.realp = getelementptr inbounds { float, float }, ptr %src2, i64 %l1.08, i32 0
+  %ptridx1.real = load float, ptr %ptridx1.realp, align 4
+  %ptridx1.imagp = getelementptr inbounds { float, float }, ptr %src2, i64 %l1.08, i32 1
+  %ptridx1.imag = load float, ptr %ptridx1.imagp, align 4
   %add.r = fadd fast float %ptridx1.real, %ptridx.real
   %add.i = fadd fast float %ptridx1.imag, %ptridx.imag
-  %ptridx2.realp = getelementptr inbounds { float, float }, { float, float }* %dest, i64 %l1.08, i32 0
-  %ptridx2.imagp = getelementptr inbounds { float, float }, { float, float }* %dest, i64 %l1.08, i32 1
-  store float %add.r, float* %ptridx2.realp, align 4
-  store float %add.i, float* %ptridx2.imagp, align 4
+  %ptridx2.realp = getelementptr inbounds { float, float }, ptr %dest, i64 %l1.08, i32 0
+  %ptridx2.imagp = getelementptr inbounds { float, float }, ptr %dest, i64 %l1.08, i32 1
+  store float %add.r, ptr %ptridx2.realp, align 4
+  store float %add.i, ptr %ptridx2.imagp, align 4
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !0

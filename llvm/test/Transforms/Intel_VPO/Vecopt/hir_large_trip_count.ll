@@ -26,14 +26,14 @@
 ; CHECK-NEXT:      + END LOOP
 ; CHECK-NEXT: END REGION
 ;
-define void @foo(i64* %lp) {
+define void @foo(ptr %lp) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.05
-  store i64 %l1.05, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.05
+  store i64 %l1.05, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.05, 1
   %exitcond.not = icmp eq i64 %inc, 2305843009213693952
   br i1 %exitcond.not, label %for.end, label %for.body

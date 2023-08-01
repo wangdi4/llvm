@@ -66,31 +66,31 @@ entry:
 
 for.body:                                         ; preds = %if.end16, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end16 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %mul = mul nsw i32 %0, %1
   %add = add nsw i32 %mul, %constant
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx2, align 4
   %cmp3 = icmp slt i32 %add, %2
   br i1 %cmp3, label %if.end16, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx5, align 4
   %mul6 = shl nsw i32 %3, 1
   %add7 = add nsw i32 %mul6, %1
   %sub = sub nsw i32 %add7, %constant
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* @d, i64 0, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr @d, i64 0, i64 %indvars.iv
+  %4 = load i32, ptr %arrayidx9, align 4
   %cmp10 = icmp slt i32 %sub, %4
   br i1 %cmp10, label %if.then11, label %if.end16
 
 if.then11:                                        ; preds = %if.then
   %sub13 = add i32 %mul6, %mul
-  %arrayidx15 = getelementptr inbounds [1024 x i32], [1024 x i32]* @e, i64 0, i64 %indvars.iv
-  store i32 %sub13, i32* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [1024 x i32], ptr @e, i64 0, i64 %indvars.iv
+  store i32 %sub13, ptr %arrayidx15, align 4
   br label %if.end16
 
 if.end16:                                         ; preds = %if.then, %if.then11, %for.body

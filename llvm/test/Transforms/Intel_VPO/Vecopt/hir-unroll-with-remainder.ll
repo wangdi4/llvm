@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z3vecPlil(i64* nocapture noundef writeonly %A, i32 noundef %c, i64 noundef %N) local_unnamed_addr {
+define dso_local void @_Z3vecPlil(ptr nocapture noundef writeonly %A, i32 noundef %c, i64 noundef %N) local_unnamed_addr {
 ; CHECK-LABEL:  Function: _Z3vecPlil
 ; CHECK:             [[LOOP_UB0:%.*]] = [[VEC_TC20:%.*]]  -  1
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 32   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
@@ -31,8 +31,8 @@ for.cond.cleanup:
 for.body:
   %i.06 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nsw i64 %i.06, %conv
-  %arrayidx = getelementptr inbounds i64, i64* %A, i64 %i.06
-  store i64 %add, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %A, i64 %i.06
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %i.06, 1
   %exitcond.not = icmp eq i64 %inc, %N
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body, !llvm.loop !1

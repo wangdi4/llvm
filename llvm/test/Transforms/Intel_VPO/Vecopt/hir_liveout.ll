@@ -46,11 +46,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr1, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr1, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %conv1 = fadd float %0, 1.000000e+00
-  %arrayidx3 = getelementptr inbounds [1024 x float], [1024 x float]* @arr2, i64 0, i64 %indvars.iv
-  store float %conv1, float* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds [1024 x float], ptr @arr2, i64 0, i64 %indvars.iv
+  store float %conv1, ptr %arrayidx3, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

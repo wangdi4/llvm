@@ -21,20 +21,20 @@
 target triple = "x86_64-unknown-linux-gnu"
 %struct.S1 = type { i64, i64 }
 
-define dso_local void @foo(i32* noalias nocapture %arr, %struct.S1* noalias nocapture readonly %sarr) {
+define dso_local void @foo(ptr noalias nocapture %arr, ptr noalias nocapture readonly %sarr) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %b = getelementptr inbounds %struct.S1, %struct.S1* %sarr, i64 %l1.09, i32 1
-  %0 = load i64, i64* %b, align 8
-  %a = getelementptr inbounds %struct.S1, %struct.S1* %sarr, i64 %l1.09, i32 0
-  %1 = load i64, i64* %a, align 8
+  %b = getelementptr inbounds %struct.S1, ptr %sarr, i64 %l1.09, i32 1
+  %0 = load i64, ptr %b, align 8
+  %a = getelementptr inbounds %struct.S1, ptr %sarr, i64 %l1.09, i32 0
+  %1 = load i64, ptr %a, align 8
   %add = add nsw i64 %1, %0
   %conv = trunc i64 %add to i32
-  %ptridx2 = getelementptr inbounds i32, i32* %arr, i64 %l1.09
-  store i32 %conv, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %arr, i64 %l1.09
+  store i32 %conv, ptr %ptridx2, align 4
   %inc = add nuw nsw i64 %l1.09, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

@@ -27,7 +27,7 @@
 ;    }
 ;  END LOOP
 
-define void @foo(i32* %arr, i32 %n1) {
+define void @foo(ptr %arr, i32 %n1) {
 ; CHECK-LIN:      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-LIN-NEXT: |   %cmp = %n1 != 0;
 ; CHECK-LIN-NEXT: |   (<4 x i32>*)(%arr)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%cmp};
@@ -49,9 +49,9 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

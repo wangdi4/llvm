@@ -23,7 +23,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @foo(i32* nocapture %arr, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %arr, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Function: foo
 ; CHECK:              + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:         |   (%arr)[i1] = (i1 + %n + -3)/u2147483648
@@ -43,8 +43,8 @@ for.body:                                         ; preds = %entry, %for.body
   %0 = trunc i64 %indvars.iv to i32
   %sub = add i32 %add, %0
   %shr = lshr i32 %sub, 31
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  store i32 %shr, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  store i32 %shr, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %for.end, label %for.body

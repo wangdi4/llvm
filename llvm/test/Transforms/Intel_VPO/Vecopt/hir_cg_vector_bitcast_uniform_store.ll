@@ -33,17 +33,17 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @foo(<2 x double>* nocapture %dest, i64* nocapture readonly %src) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %dest, ptr nocapture readonly %src) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %gep = getelementptr inbounds i64, i64* %src, i64 %l1.010
-  %ld = load i64, i64* %gep, align 8
+  %gep = getelementptr inbounds i64, ptr %src, i64 %l1.010
+  %ld = load i64, ptr %gep, align 8
   %insert = insertelement <2 x i64> poison, i64 %ld, i32 0
   %bc = bitcast <2 x i64> %insert to <2 x double>
-  store <2 x double> %bc, <2 x double>* %dest, align 8
+  store <2 x double> %bc, ptr %dest, align 8
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !6

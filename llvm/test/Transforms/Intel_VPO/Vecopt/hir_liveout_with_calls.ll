@@ -3,7 +3,7 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
-define float @foo1(float* nocapture %a) {
+define float @foo1(ptr nocapture %a) {
 ; CHECK-LABEL:   BEGIN REGION { modified }
 ; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x float>*)(%a)[i1];
@@ -19,11 +19,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %l1.010
-  %0 = load float, float* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %l1.010
+  %0 = load float, ptr %arrayidx, align 8
   %call = tail call fast float @llvm.sin.f32(float %0)
   %add = fadd fast float %0, %call
-  store float %add, float* %arrayidx, align 8
+  store float %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body
@@ -32,7 +32,7 @@ for.end:                                          ; preds = %for.body
   ret float %0
 }
 
-define float @foo2(float* nocapture %a) {
+define float @foo2(ptr nocapture %a) {
 ; CHECK-LABEL:   BEGIN REGION { modified }
 ; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x float>*)(%a)[i1];
@@ -48,11 +48,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %l1.010
-  %0 = load float, float* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %l1.010
+  %0 = load float, ptr %arrayidx, align 8
   %call = tail call fast float @llvm.sin.f32(float %0)
   %add = fadd fast float %0, %call
-  store float %add, float* %arrayidx, align 8
+  store float %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

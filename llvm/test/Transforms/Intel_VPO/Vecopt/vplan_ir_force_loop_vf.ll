@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; NOTE that loops are processed in reverse order for LLVM IR input, so the
 ; number only makes sense in sync with -debug-only=LoopVectorizationPlanner.
 
-define hidden void @foo(i1 %loop1.top.test, i32* %base, float *%ptr) {
+define hidden void @foo(i1 %loop1.top.test, ptr %base, ptr %ptr) {
 ; LLVM-LABEL: @foo
 loop1.preheader:
   %tok1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16) ]
@@ -53,8 +53,8 @@ loop1.preheader:
 
 loop1.body:
   %loop1.iv = phi i64 [ 0, %loop1.preheader ], [ %loop1.iv.next, %loop1.body ]
-  %gep1 = getelementptr float, float * %ptr, i64 %loop1.iv
-  %ld1 = load float, float *%gep1
+  %gep1 = getelementptr float, ptr %ptr, i64 %loop1.iv
+  %ld1 = load float, ptr %gep1
 ; LLVM-DAG: %wide.load{{.*}} = load <8 x float>
 ; LLVM-DAG: load float
   %loop1.iv.next = add nsw i64 %loop1.iv, 1
@@ -71,8 +71,8 @@ loop2.preheader:
 
 loop2.body:
   %loop2.iv = phi i64 [ 0, %loop2.preheader ], [ %loop2.iv.next, %loop2.body ]
-  %gep2 = getelementptr float, float * %ptr, i64 %loop2.iv
-  %ld2 = load float, float *%gep2
+  %gep2 = getelementptr float, ptr %ptr, i64 %loop2.iv
+  %ld2 = load float, ptr %gep2
 ; LLVM-DAG: %wide.load{{.*}} = load <2 x float>
 ; LLVM-DAG: load float
   %loop2.iv.next = add nsw i64 %loop2.iv, 1
@@ -89,8 +89,8 @@ loop3.preheader:
 
 loop3.body:
   %loop3.iv = phi i64 [ 0, %loop3.preheader ], [ %loop3.iv.next, %loop3.body ]
-  %gep3 = getelementptr float, float * %ptr, i64 %loop3.iv
-  %ld3 = load float, float *%gep3
+  %gep3 = getelementptr float, ptr %ptr, i64 %loop3.iv
+  %ld3 = load float, ptr %gep3
 ; LLVM-DAG: %wide.load{{.*}} = load <4 x float>
 ; LLVM-DAG: load float
   %loop3.iv.next = add nuw nsw i64 %loop3.iv, 1

@@ -34,14 +34,14 @@
 ; CHECK-NEXT:              + END LOOP
 ; CHECK-NEXT:        END REGION
 
-define void @test_sincosf(float* noalias nocapture readonly %a, float* noalias nocapture readonly %b, i32 %i) {
+define void @test_sincosf(ptr noalias nocapture readonly %a, ptr noalias nocapture readonly %b, i32 %i) {
 entry:
   %vsin = alloca float, align 4
   %vcos = alloca float, align 4
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(float* %vsin, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %vcos, float 0.000000e+00, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %vsin, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %vcos, float 0.000000e+00, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -50,14 +50,14 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %stride.add
-  %0 = load float, float* %arrayidx, align 4
-  tail call void @sincosf(float inreg %0, float* nonnull %vsin, float* nonnull %vcos) #3
-  %sin.load = load float, float* %vsin, align 4
-  %cos.load = load float, float* %vcos, align 4
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %stride.add
+  %0 = load float, ptr %arrayidx, align 4
+  tail call void @sincosf(float inreg %0, ptr nonnull %vsin, ptr nonnull %vcos) #3
+  %sin.load = load float, ptr %vsin, align 4
+  %cos.load = load float, ptr %vcos, align 4
   %res = fadd fast float %sin.load, %cos.load
-  %arrayidx2 = getelementptr inbounds float, float* %b, i64 %stride.add
-  store float %res, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %b, i64 %stride.add
+  store float %res, ptr %arrayidx2, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -73,7 +73,7 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-declare dso_local void @sincosf(float, float*, float*) local_unnamed_addr #1
+declare dso_local void @sincosf(float, ptr, ptr) local_unnamed_addr #1
 
 declare token @llvm.directive.region.entry()
 

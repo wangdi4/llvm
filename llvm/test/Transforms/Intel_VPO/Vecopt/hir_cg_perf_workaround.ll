@@ -28,7 +28,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.S1 = type { i16, i16, i16, i16 }
 
-@s1p = common local_unnamed_addr global %struct.S1* null, align 8
+@s1p = common local_unnamed_addr global ptr null, align 8
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
@@ -58,7 +58,7 @@ entry:
   br i1 %cmp18, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load %struct.S1*, %struct.S1** @s1p, align 8, !tbaa !0
+  %0 = load ptr, ptr @s1p, align 8, !tbaa !0
   %wide.trip.count = sext i32 %n to i64
   br label %for.body
 
@@ -66,13 +66,13 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %sum.020 = phi double [ 0.000000e+00, %for.body.lr.ph ], [ %add9, %for.body ]
   %1 = sub nsw i64 0, %indvars.iv
-  %a3 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 2
-  %2 = load i16, i16* %a3, align 2, !tbaa !4
+  %a3 = getelementptr inbounds %struct.S1, ptr %0, i64 %1, i32 2
+  %2 = load i16, ptr %a3, align 2, !tbaa !4
   %conv1 = uitofp i16 %2 to double
   %mul2 = fmul fast double %conv1, %d
   %add = fadd fast double %sum.020, %mul2
-  %a1 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 0
-  %3 = load i16, i16* %a1, align 2, !tbaa !7
+  %a1 = getelementptr inbounds %struct.S1, ptr %0, i64 %1, i32 0
+  %3 = load i16, ptr %a1, align 2, !tbaa !7
   %conv7 = uitofp i16 %3 to double
   %mul8 = fmul fast double %conv7, %d
   %add9 = fadd fast double %add, %mul8

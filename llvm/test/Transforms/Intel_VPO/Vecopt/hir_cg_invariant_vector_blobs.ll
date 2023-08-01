@@ -33,10 +33,9 @@ entry:
 
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
-  %ptr = getelementptr inbounds [100 x %class.complex], [100 x %class.complex]* %dst, i64 0, i64 %iv
-  %ptr.bc = bitcast %class.complex* %ptr to <2 x float>*
+  %ptr = getelementptr inbounds [100 x %class.complex], ptr %dst, i64 0, i64 %iv
   %add = fadd <2 x float> <float 4.000000e+00, float 6.000000e+00>, %inv.temp
-  store <2 x float> %add, <2 x float>* %ptr.bc, align 8
+  store <2 x float> %add, ptr %ptr, align 8
   %iv.next = add nuw nsw i64 %iv, 1
   %iv.cmp = icmp eq i64 %iv.next, 100
   br i1 %iv.cmp, label %exit, label %header
@@ -76,22 +75,21 @@ exit:
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
 
-define dso_local void @main2(<2 x float>* %inv.addr) local_unnamed_addr #0 {
+define dso_local void @main2(ptr %inv.addr) local_unnamed_addr #0 {
 entry:
   %dst = alloca [100 x %class.complex], align 16
   br label %outer
 
 outer:
   %out.iv = phi i64 [ 0, %entry ], [ %out.iv.next, %outer.exit ]
-  %inv.temp = load <2 x float>, <2 x float>* %inv.addr, align 8
+  %inv.temp = load <2 x float>, ptr %inv.addr, align 8
   br label %header
 
 header:
   %iv = phi i64 [ 0, %outer ], [ %iv.next, %header ]
-  %ptr = getelementptr inbounds [100 x %class.complex], [100 x %class.complex]* %dst, i64 0, i64 %iv
-  %ptr.bc = bitcast %class.complex* %ptr to <2 x float>*
+  %ptr = getelementptr inbounds [100 x %class.complex], ptr %dst, i64 0, i64 %iv
   %add = fadd <2 x float> <float 4.000000e+00, float 6.000000e+00>, %inv.temp
-  store <2 x float> %add, <2 x float>* %ptr.bc, align 8
+  store <2 x float> %add, ptr %ptr, align 8
   %iv.next = add nuw nsw i64 %iv, 1
   %iv.cmp = icmp eq i64 %iv.next, 100
   br i1 %iv.cmp, label %outer.exit, label %header

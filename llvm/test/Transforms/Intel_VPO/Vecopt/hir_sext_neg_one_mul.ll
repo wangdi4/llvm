@@ -32,20 +32,20 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* noalias %out, i32* noalias %in, i8 %t, i32 %t1) {
+define dso_local void @foo(ptr noalias %out, ptr noalias %in, i8 %t, i32 %t1) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %in, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i32, ptr %in, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 1
   %conv = sext i8 %t to i32
   %mul = sub i32 0, %conv
   %add = add i32 %0, %mul
   %mul1 = mul i32 %t1, %add
-  %arrayidx2 = getelementptr inbounds i32, i32* %out, i64 %indvars.iv
-  store i32 %mul1, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %out, i64 %indvars.iv
+  store i32 %mul1, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.end, label %for.body

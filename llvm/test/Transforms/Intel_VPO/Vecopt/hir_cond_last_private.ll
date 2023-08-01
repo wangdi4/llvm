@@ -10,7 +10,7 @@
 ; <7>          |   }
 ; <24>         + END LOOP
 
-define void @foo(i8* %a) {
+define void @foo(ptr %a) {
 ; CHECK:       Function: foo
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK-NEXT:        [[PRIV_MEM_BC0:%.*]] = &((i8*)([[PRIV_MEM0:%.*]])[0])
@@ -53,7 +53,7 @@ entry:
   br label %0
 
 0:
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i8* %ret.lpriv, i8 0, i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i8 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
@@ -62,8 +62,8 @@ omp.inner.for.body:
   br i1 %cmp, label %if.then, label %omp.inner.for.inc
 
 if.then:
-  %2 = load i8, i8* %a
-  store i8 %2, i8* %ret.lpriv
+  %2 = load i8, ptr %a
+  store i8 %2, ptr %ret.lpriv
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:

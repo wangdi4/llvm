@@ -47,8 +47,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 1, i32* @a, align 4, !tbaa !2
-  %0 = load i32, i32* @c, align 4
+  store i32 1, ptr @a, align 4, !tbaa !2
+  %0 = load i32, ptr @c, align 4
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end
@@ -66,12 +66,12 @@ for.body5:                                        ; preds = %for.body5.lr.ph, %i
 
 if.then:                                          ; preds = %for.body5
   %mul = mul nuw nsw i32 %indvars.iv, 3
-  %2 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @b, i64 1, i64 0), align 4, !tbaa !2
+  %2 = load i32, ptr getelementptr inbounds ([1 x i32], ptr @b, i64 1, i64 0), align 4, !tbaa !2
   %mul9 = mul nsw i32 %0, %mul
   %3 = add i32 %mul9, %mul
   %sub10 = sub i32 %2, %3
   %mul11 = mul nsw i32 %sub10, 3
-  store i32 %mul11, i32* @d, align 4, !tbaa !2
+  store i32 %mul11, ptr @d, align 4, !tbaa !2
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body5
@@ -88,7 +88,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
   br i1 %exitcond27, label %for.end14, label %for.body
 
 for.end14:                                        ; preds = %for.end
-  store i32 10, i32* @a, align 4, !tbaa !2
+  store i32 10, ptr @a, align 4, !tbaa !2
   ret i32 0
 }
 

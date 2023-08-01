@@ -16,7 +16,7 @@
 ; CHECK:   [[FPred:%.*]] = [[And]]  ^  -1;
 ; CHECK:   (<4 x i32>*)(%Mask)[i1] = -1, Mask = @{[[FPred]]};
 ; CHECK: END LOOP
-define void @foo(i32* %Mask, i32 %n, i32 %element, i32 %scale) {
+define void @foo(ptr %Mask, i32 %n, i32 %element, i32 %scale) {
 entry:
   %cmp13 = icmp sgt i32 %n, 0
   br i1 %cmp13, label %for.body.preheader, label %for.cond.cleanup
@@ -44,8 +44,8 @@ for.body:                                         ; preds = %for.inc, %for.body.
   br i1 %or.cond, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %Mask, i64 %indvars.iv
-  store i32 -1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %Mask, i64 %indvars.iv
+  store i32 -1, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

@@ -35,27 +35,27 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @sum(float* noalias %lp1, float* noalias %lp2, float* noalias %lp3) {
+define void @sum(ptr noalias %lp1, ptr noalias %lp2, ptr noalias %lp3) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.019 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = shl nuw nsw i64 %l1.019, 1
-  %arrayidx = getelementptr inbounds float, float* %lp1, i64 %mul
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds float, float* %lp2, i64 %l1.019
-  store float %0, float* %arrayidx1, align 4
+  %arrayidx = getelementptr inbounds float, ptr %lp1, i64 %mul
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds float, ptr %lp2, i64 %l1.019
+  store float %0, ptr %arrayidx1, align 4
   %mul2 = mul nuw nsw i64 %l1.019, 3
-  %arrayidx3 = getelementptr inbounds float, float* %lp1, i64 %mul2
-  %1 = load float, float* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds float, ptr %lp1, i64 %mul2
+  %1 = load float, ptr %arrayidx3, align 4
   %mul4 = fmul fast float %1, 3.000000e+00
   %add = add nuw nsw i64 %mul, 1
-  %arrayidx6 = getelementptr inbounds float, float* %lp1, i64 %add
-  %2 = load float, float* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds float, ptr %lp1, i64 %add
+  %2 = load float, ptr %arrayidx6, align 4
   %add7 = fadd fast float %mul4, %2
-  %arrayidx8 = getelementptr inbounds float, float* %lp3, i64 %l1.019
-  store float %add7, float* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds float, ptr %lp3, i64 %l1.019
+  store float %add7, ptr %arrayidx8, align 4
   %inc = add nuw nsw i64 %l1.019, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

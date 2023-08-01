@@ -54,15 +54,15 @@
 ;
 @A = external dso_local local_unnamed_addr global [100 x [100 x i64]], align 16
 
-define void @foo(i64* %ub) {
+define void @foo(ptr %ub) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc5
   %i.016 = phi i64 [ 0, %entry ], [ %inc6, %for.inc5 ]
-  %arrayidx = getelementptr inbounds i64, i64* %ub, i64 %i.016
-  %ubval = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %ub, i64 %i.016
+  %ubval = load i64, ptr %arrayidx, align 8
   %cmp120 = icmp sgt i64 %ubval, 0
   br i1 %cmp120, label %inner.ph, label %for.inc5
 
@@ -71,8 +71,8 @@ inner.ph:
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %j.015 = phi i64 [ 0, %inner.ph ], [ %inc, %for.body3 ]
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.015, i64 %i.016
-  store i64 %i.016, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @A, i64 0, i64 %j.015, i64 %i.016
+  store i64 %i.016, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %j.015, 1
   %exitcond.not = icmp eq i64 %inc, %ubval
   br i1 %exitcond.not, label %inner.exit, label %for.body3

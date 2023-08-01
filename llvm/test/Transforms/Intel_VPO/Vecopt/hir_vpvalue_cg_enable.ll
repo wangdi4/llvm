@@ -9,7 +9,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
-define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture %farr) {
+define void @foo(ptr noalias nocapture readonly %larr, ptr noalias nocapture %farr) {
 ; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec2 = undef;
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
@@ -24,16 +24,16 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %l1.011 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.011
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.011
+  %0 = load i64, ptr %arrayidx, align 8
   %cmp1 = icmp sgt i64 %0, 111
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds float, float* %farr, i64 %l1.011
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %farr, i64 %l1.011
+  %1 = load float, ptr %arrayidx2, align 4
   %fneg = fneg float %1
-  store float %fneg, float* %arrayidx2, align 4
+  store float %fneg, ptr %arrayidx2, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
