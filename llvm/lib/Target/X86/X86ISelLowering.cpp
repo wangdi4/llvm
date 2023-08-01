@@ -21101,15 +21101,12 @@ static SDValue lower512BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
   if (VT == MVT::v32f16 || VT == MVT::v32bf16) {
 #else // INTEL_FEATURE_ISA_BF16_BASE
   if (VT == MVT::v32f16) {
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-=======
     if (!Subtarget.hasBWI())
       return splitAndLowerShuffle(DL, VT, V1, V2, Mask, DAG,
                                   /*SimpleOnly*/ false);
 
->>>>>>> 88b6d291bbdfe97eb804a5b9404604d53dd89a63
     V1 = DAG.getBitcast(MVT::v32i16, V1);
     V2 = DAG.getBitcast(MVT::v32i16, V2);
 #if INTEL_CUSTOMIZATION
