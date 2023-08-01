@@ -9,7 +9,7 @@
 ;   }
 ; }
 
-define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPii(ptr nocapture %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -24,31 +24,31 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1:BB[0-9]+]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = add i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP4]] i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP4]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = icmp slt i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = load i32* [[VP7]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP7:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = load ptr [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = add i32 [[VP8]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP10:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP9]] i32* [[VP10]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP10:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP9]] ptr [[VP10]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP11:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp slt i64 [[VP11]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP13:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP11]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = load i32* [[VP13]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP13:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP11]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = load ptr [[VP13]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP15:%.*]] = add i32 [[VP14]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP11]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP15]] i32* [[VP16]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP16:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP11]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP15]] ptr [[VP16]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP11]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
@@ -88,7 +88,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -97,10 +97,10 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %inc = add nsw i32 %1, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body

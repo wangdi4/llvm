@@ -5,7 +5,7 @@
 ;
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -hir-details %s 2>&1 | FileCheck %s
 
-define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
+define void @foo(i1 %c, i64 %t, ptr %A, ptr %B) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   BEGIN REGION { modified }
@@ -15,22 +15,22 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> {sb:2}
 ; CHECK:                 (<4 x i64>*)([[A0:%.*]])[0] = [[VEC0]];
-; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 0] inbounds  {sb:11}
-; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR ptr [[A0]])[i64 0] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR ptr [[A0]] {sb:8}
 ; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK:                 [[VEC0]] = -3 * <i64 0, i64 1, i64 2, i64 3> + -12  /u  -2;
 ; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> + -12 {sb:2}
 ; CHECK:                 (<4 x i64>*)([[A0]])[4] = [[VEC0]];
-; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 4] inbounds  {sb:11}
-; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR ptr [[A0]])[i64 4] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR ptr [[A0]] {sb:8}
 ; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK:                 [[VEC0]] = -3 * <i64 0, i64 1, i64 2, i64 3> + -24  /u  -2;
 ; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> + -24 {sb:2}
 ; CHECK:                 (<4 x i64>*)([[A0]])[8] = [[VEC0]];
-; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 8] inbounds  {sb:11}
-; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR ptr [[A0]])[i64 8] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR ptr [[A0]] {sb:8}
 ; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
 ; CHECK:              }
 ; CHECK-NEXT:         else
@@ -62,8 +62,8 @@ loop:
 
 then:
   %div = udiv i64 %mul, -2
-  %gep = getelementptr inbounds i64, i64* %A, i64 %iv
-  store i64 %div, i64* %gep
+  %gep = getelementptr inbounds i64, ptr %A, i64 %iv
+  store i64 %div, ptr %gep
   br label %latch
 
 latch:

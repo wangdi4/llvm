@@ -21,7 +21,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
@@ -39,11 +39,11 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*(-8) AdjCost: 4
+; CMCHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP0:%.*]] i64 [[VP5]]
+; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] *OVLS*(-8) AdjCost: 4
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP5]] i64 1
-; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*(-12) AdjCost: 0
+; CMCHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP7]]
+; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 [[VP4]]
 ; CMCHECK-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
@@ -85,12 +85,12 @@ for.body:
   %l1.014 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %sum.013 = phi i32 [ 0, %entry ], [ %add4, %for.body ]
   %mul = shl nuw nsw i64 %l1.014, 1
-  %ptridx = getelementptr inbounds i32, i32* %lp, i64 %mul
-  %0 = load i32, i32* %ptridx, align 8
+  %ptridx = getelementptr inbounds i32, ptr %lp, i64 %mul
+  %0 = load i32, ptr %ptridx, align 8
   %add = add nsw i32 %0, %sum.013
   %add2 = or i64 %mul, 1
-  %ptridx3 = getelementptr inbounds i32, i32* %lp, i64 %add2
-  %1 = load i32, i32* %ptridx3, align 8
+  %ptridx3 = getelementptr inbounds i32, ptr %lp, i64 %add2
+  %1 = load i32, ptr %ptridx3, align 8
   %add4 = add nsw i32 %add, %1
   %inc = add nuw nsw i64 %l1.014, 1
   %exitcond.not = icmp eq i64 %inc, 100

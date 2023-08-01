@@ -8,11 +8,10 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<2 x float>* noalias %fp1, <2 x float>**  %fp2) {
+define void @foo(ptr noalias %fp1, ptr %fp2) {
 ; CHECK:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   %.vec = (<4 x <2 x float>*>*)([[FP20:%.*]])[i1]
-; CHECK-NEXT:        |   %scattergather.cast = bitcast.<4 x <2 x float>*>.<4 x float*>(%.vec)
-; CHECK-NEXT:        |   %.replicated.elts = shufflevector %scattergather.cast,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK-NEXT:        |   %.vec = (<4 x ptr>*)([[FP20:%.*]])[i1]
+; CHECK-NEXT:        |   %.replicated.elts = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK-NEXT:        |   %.vec1 = (<8 x float>*)(%.replicated.elts)[<i64 0, i64 1, i64 0, i64 1, i64 0, i64 1, i64 0, i64 1>]
 ; CHECK-NEXT:        |   (<8 x float>*)([[FP10:%.*]])[i1] = %.vec1
 ; CHECK-NEXT:        + END LOOP
@@ -22,11 +21,11 @@ entry:
 
 for.body:
   %l1.06 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds <2 x float>*, <2 x float>** %fp2, i64 %l1.06
-  %0 = load <2 x float>*, <2 x float>** %arrayidx, align 8
-  %1 = load <2 x float>, <2 x float>* %0, align 8
-  %arrayidx1 = getelementptr inbounds <2 x float>, <2 x float>* %fp1, i64 %l1.06
-  store <2 x float> %1, <2 x float>* %arrayidx1, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %fp2, i64 %l1.06
+  %0 = load ptr, ptr %arrayidx, align 8
+  %1 = load <2 x float>, ptr %0, align 8
+  %arrayidx1 = getelementptr inbounds <2 x float>, ptr %fp1, i64 %l1.06
+  store <2 x float> %1, ptr %arrayidx1, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body
