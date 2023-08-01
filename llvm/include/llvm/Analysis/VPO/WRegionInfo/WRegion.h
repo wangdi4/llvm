@@ -1802,6 +1802,9 @@ private:
   int Collapse = 0;
   WRNLoopInfo WRNLI;
   WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used for Fortran DO Concurrent.
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
@@ -1809,6 +1812,9 @@ public:
 protected:
   void setCollapse(int N) override  { Collapse = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
@@ -1821,6 +1827,9 @@ public:
   int getCollapse() const override  { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;

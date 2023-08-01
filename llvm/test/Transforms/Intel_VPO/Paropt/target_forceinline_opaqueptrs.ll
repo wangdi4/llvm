@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-target-inline -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes="vpo-paropt-target-inline" -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-target-inline -S %s | FileCheck %s
+; RUN: opt -passes="vpo-paropt-target-inline" -S %s | FileCheck %s
 
 ; Check that vpo-paropt-target-inline pass adds alwaysinline attribute to all
 ; functions called from target region unless they have noinline attribute.
