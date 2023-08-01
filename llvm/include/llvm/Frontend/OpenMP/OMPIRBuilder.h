@@ -2100,7 +2100,8 @@ public:
   /// Create a runtime call for kmpc_target_deinit
   ///
   /// \param Loc The insert and source location description.
-  void createTargetDeinit(const LocationDescription &Loc);
+  /// \param IsSPMD Flag to indicate if the kernel is an SPMD kernel or not.
+  void createTargetDeinit(const LocationDescription &Loc, bool IsSPMD);
 
   ///}
 
