@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S
-; RUN: opt -passes='vpo-paropt' -S
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S
 
 ; INTEL_CUSTOMIZATION
 ; Clang-emitted IR for a loop with unsigned UB changed after the
@@ -47,59 +47,59 @@ entry:
   %.omp.lb = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %tiley = alloca i32, align 4
-  store i32 %height, ptr %height.addr, align 4
+  store i32 %height, i32* %height.addr, align 4
   br label %DIR.OMP.TARGET.1.split
 
 DIR.OMP.TARGET.1.split:                           ; preds = %entry
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr., i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %height.addr, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.1, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tiley, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1) ]
+    "QUAL.OMP.PRIVATE"(i32* %.capture_expr.),
+    "QUAL.OMP.FIRSTPRIVATE"(i32* %height.addr),
+    "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1),
+    "QUAL.OMP.PRIVATE"(i32* %.omp.lb),
+    "QUAL.OMP.PRIVATE"(i32* %.omp.ub),
+    "QUAL.OMP.PRIVATE"(i32* %tiley),
+    "QUAL.OMP.PRIVATE"(i32* %tmp) ]
 
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %DIR.OMP.TARGET.1.split
-  %1 = load i32, ptr %height.addr, align 4
-  store i32 %1, ptr %.capture_expr., align 4
-  %2 = load i32, ptr %.capture_expr., align 4
+  %1 = load i32, i32* %height.addr, align 4
+  store i32 %1, i32* %.capture_expr., align 4
+  %2 = load i32, i32* %.capture_expr., align 4
   %sub = sub i32 %2, 0
   %sub2 = sub i32 %sub, 1
   %add = add i32 %sub2, 1
   %div = udiv i32 %add, 1
   %sub3 = sub i32 %div, 1
-  store i32 %sub3, ptr %.capture_expr.1, align 4
-  %3 = load i32, ptr %.capture_expr., align 4
+  store i32 %sub3, i32* %.capture_expr.1, align 4
+  %3 = load i32, i32* %.capture_expr., align 4
   %cmp = icmp ult i32 0, %3
   br i1 %cmp, label %omp.precond.then, label %DIR.OMP.END.TARGET.5
 
 omp.precond.then:                                 ; preds = %DIR.OMP.TARGET.1
-  store i32 0, ptr %.omp.lb, align 4
-  %4 = load i32, ptr %.capture_expr.1, align 4
-  store volatile i32 %4, ptr %.omp.ub, align 4
+  store i32 0, i32* %.omp.lb, align 4
+  %4 = load i32, i32* %.capture_expr.1, align 4
+  store volatile i32 %4, i32* %.omp.ub, align 4
   br label %DIR.OMP.PARALLEL.LOOP.3
 
 DIR.OMP.PARALLEL.LOOP.3:                          ; preds = %omp.precond.then
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tiley, i32 0, i32 1) ]
+    "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb),
+    "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv),
+    "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub),
+    "QUAL.OMP.PRIVATE"(i32* %tiley) ]
 
   br label %DIR.OMP.PARALLEL.LOOP.2
 
 DIR.OMP.PARALLEL.LOOP.2:                          ; preds = %DIR.OMP.PARALLEL.LOOP.3
-  %6 = load i32, ptr %.omp.lb, align 4
-  store volatile i32 %6, ptr %.omp.iv, align 4
+  %6 = load i32, i32* %.omp.lb, align 4
+  store volatile i32 %6, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.body, %DIR.OMP.PARALLEL.LOOP.2
-  %7 = load volatile i32, ptr %.omp.iv, align 4
-  %8 = load volatile i32, ptr %.omp.ub, align 4
+  %7 = load volatile i32, i32* %.omp.iv, align 4
+  %8 = load volatile i32, i32* %.omp.ub, align 4
 
                                           ; NEW IR from Clang:
   %add4 = add i32 %8, 1                   ; <-- UB is an add instead of load
@@ -108,13 +108,13 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.body,
   br i1 %cmp5, label %omp.inner.for.body, label %omp.loop.exit
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %9 = load volatile i32, ptr %.omp.iv, align 4
+  %9 = load volatile i32, i32* %.omp.iv, align 4
   %mul = mul i32 %9, 1
   %add6 = add i32 0, %mul
-  store i32 %add6, ptr %tiley, align 4
-  %10 = load volatile i32, ptr %.omp.iv, align 4
+  store i32 %add6, i32* %tiley, align 4
+  %10 = load volatile i32, i32* %.omp.iv, align 4
   %add7 = add i32 %10, 1
-  store volatile i32 %add7, ptr %.omp.iv, align 4
+  store volatile i32 %add7, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.cond

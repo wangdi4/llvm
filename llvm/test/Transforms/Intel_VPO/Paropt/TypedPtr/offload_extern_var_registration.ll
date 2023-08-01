@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Verify that offload entry for extern variable is not emitted.
 ; Original code:
@@ -15,4 +15,4 @@ target device_triples = "x86_64"
 @a = external dso_local target_declare global i32, align 4
 
 !omp_offload.info = !{!0}
-!0 = !{i32 1, !"a", i32 0, i32 0, ptr @a}
+!0 = !{i32 1, !"a", i32 0, i32 0, i32* @a}
