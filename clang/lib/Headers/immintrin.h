@@ -1696,6 +1696,7 @@ __writemsr(unsigned int __register, unsigned long long __data) {
 #define _FEATURE_WBNOINVD            (1ULL << 54)
 #define _FEATURE_PCONFIG             (1ULL << 55)
 #define _FEATURE_AXV512_VP2INTERSECT (1ULL << 56)
+#define _FEATURE_AXV512_FP16         (1ULL << 60)
 
 /* NOTE: Features with bit_pos >= 64 are defined in Page2       */
 /* Example of how allow_cpu_features uses those features:       */

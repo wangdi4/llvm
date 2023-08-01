@@ -2778,6 +2778,7 @@ bool WRegionNode::canHaveDoConcurrent() const {
   switch (SubClassID) {
   case WRNTarget:
   case WRNTeams:
+  case WRNDistribute:
   case WRNGenericLoop:
   case WRNDistributeParLoop:
   case WRNParallelLoop:
