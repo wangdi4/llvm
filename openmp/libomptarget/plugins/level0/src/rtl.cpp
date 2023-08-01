@@ -6481,10 +6481,13 @@ int32_t LevelZeroProgramTy::readGlobalVariable(const char *Name, size_t Size,
                                                void *HostPtr) {
   size_t SizeDummy = 0;
   void *DevicePtr = nullptr;
-  CALL_ZE_RET_FAIL(zeModuleGetGlobalPointer, GlobalModule, Name, &SizeDummy,
-                   &DevicePtr);
-  if (!DevicePtr)
+  ze_result_t RC;
+  CALL_ZE(RC, zeModuleGetGlobalPointer, GlobalModule, Name, &SizeDummy,
+          &DevicePtr);
+  if (RC != ZE_RESULT_SUCCESS || !DevicePtr) {
+    DP("Warning: cannot read from device global variable %s\n", Name);
     return OFFLOAD_FAIL;
+  }
   return DeviceInfo->enqueueMemCopy(DeviceId, HostPtr, DevicePtr, Size);
 }
 
@@ -6492,10 +6495,13 @@ int32_t LevelZeroProgramTy::writeGlobalVariable(const char *Name, size_t Size,
                                                 const void *HostPtr) {
   size_t SizeDummy = 0;
   void *DevicePtr = nullptr;
-  CALL_ZE_RET_FAIL(zeModuleGetGlobalPointer, GlobalModule, Name, &SizeDummy,
-                   &DevicePtr);
-  if (!DevicePtr)
+  ze_result_t RC;
+  CALL_ZE(RC, zeModuleGetGlobalPointer, GlobalModule, Name, &SizeDummy,
+          &DevicePtr);
+  if (RC != ZE_RESULT_SUCCESS || !DevicePtr) {
+    DP("Warning: cannot write to device global variable %s\n", Name);
     return OFFLOAD_FAIL;
+  }
   return DeviceInfo->enqueueMemCopy(DeviceId, DevicePtr, HostPtr, Size);
 }
 
@@ -6798,13 +6804,21 @@ int32_t LevelZeroProgramTy::initProgramData() {
   };
 
   // Initialize __omp_spirv_program_data.
-  return writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
-                             &PGMData);
+  auto RC = writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                                &PGMData);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot write global program data on device\n");
+  }
+  return OFFLOAD_SUCCESS;
 }
 
 int32_t LevelZeroProgramTy::resetProgramData() {
-  return writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
-                             &PGMData);
+  auto RC = writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                                &PGMData);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot write global program data on device\n");
+  }
+  return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -7597,13 +7611,18 @@ int32_t __tgt_rtl_set_function_ptr_map(
   // Initialize __omp_offloading_fptr_map_p
   RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_p",
                                    sizeof(void *), &FnPtrMapMem);
-  if (RC != OFFLOAD_SUCCESS)
-    return OFFLOAD_FAIL;
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot construct function pointer map on device\n");
+    return OFFLOAD_SUCCESS; // proceed without map
+  }
 
   // Initialize __omp_offloading_fptr_map_size with the table size.
   RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_size",
                                    sizeof(uint64_t), &Size);
-  return RC;
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot construct function pointer map on device\n");
+  }
+  return OFFLOAD_SUCCESS; // proceed without map
 }
 #endif // INTEL_CUSTOMIZATION
 

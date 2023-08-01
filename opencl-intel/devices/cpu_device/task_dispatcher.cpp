@@ -674,12 +674,10 @@ bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
         m_failed = true;
         break;
       }
-      hw_pause();
       std::this_thread::sleep_for(1ms);
     }
   } else {
     while (m_barrier > 0) {
-      hw_pause();
       std::this_thread::sleep_for(1ms);
     }
   }
