@@ -1516,7 +1516,6 @@ def ProcessorFeatures {
   // Graniterapids
   list<SubtargetFeature> GNRAdditionalFeatures = [FeatureAMXFP16,
                                                   FeaturePREFETCHI,
-                                                  FeatureSHA512,
                                                   FeatureAMXCOMPLEX];
   list<SubtargetFeature> GNRFeatures =
     !listconcat(SPRFeatures, GNRAdditionalFeatures);
