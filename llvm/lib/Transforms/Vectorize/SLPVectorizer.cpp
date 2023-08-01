@@ -4527,9 +4527,13 @@ private:
 
   /// Checks if the specified list of the instructions/values can be vectorized
   /// and fills required data before actual scheduling of the instructions.
+#if INTEL_CUSTOMIZATION
   TreeEntry::EntryState getScalarsVectorizationState(
       InstructionsState &S, ArrayRef<Value *> VL, bool IsScatterVectorizeUserTE,
-      OrdersType &CurrentOrder, SmallVectorImpl<Value *> &PointerOps) const;
+      OrdersType &CurrentOrder, SmallVectorImpl<Value *> &PointerOps,
+      SmallVectorImpl<std::tuple<unsigned, unsigned, OrdersType>> &LoadGroups)
+      const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Maps a specific scalar to its tree entry.
   SmallDenseMap<Value *, TreeEntry *> ScalarToTreeEntry;
@@ -7072,9 +7076,13 @@ static bool isAlternateInstruction(const Instruction *I,
                                    const Instruction *AltOp,
                                    const TargetLibraryInfo &TLI);
 
+#if INTEL_CUSTOMIZATION
 BoUpSLP::TreeEntry::EntryState BoUpSLP::getScalarsVectorizationState(
     InstructionsState &S, ArrayRef<Value *> VL, bool IsScatterVectorizeUserTE,
-    OrdersType &CurrentOrder, SmallVectorImpl<Value *> &PointerOps) const {
+    OrdersType &CurrentOrder, SmallVectorImpl<Value *> &PointerOps,
+    SmallVectorImpl<std::tuple<unsigned, unsigned, OrdersType>> &LoadGroups)
+    const {
+#endif // INTEL_CUSTOMIZATION
   assert(S.MainOp && "Expected instructions with same/alternate opcodes only.");
 
   unsigned ShuffleOrOp =
@@ -7131,8 +7139,13 @@ BoUpSLP::TreeEntry::EntryState BoUpSLP::getScalarsVectorizationState(
     // treats loading/storing it as an i8 struct. If we vectorize loads/stores
     // from such a struct, we read/write packed bits disagreeing with the
     // unvectorized version.
+#if INTEL_CUSTOMIZATION
     switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, *TLI, CurrentOrder,
-                              PointerOps)) {
+                              PointerOps, LoadGroups)) {
+    case LoadsState::SplitLoads:
+      assert(!LoadGroups.empty() && "Expected non-empty load groups.");
+    [[fallthrough]];
+#endif // INTEL_CUSTOMIZATION
     case LoadsState::Vectorize:
       return TreeEntry::Vectorize;
     case LoadsState::ScatterVectorize:
@@ -7356,6 +7369,15 @@ BoUpSLP::TreeEntry::EntryState BoUpSLP::getScalarsVectorizationState(
                           << "!=" << *V << '\n');
         return TreeEntry::NeedToGather;
       }
+#if INTEL_CUSTOMIZATION
+      // Different attributes may imply different semantics, e.g. IMF
+      // attributes.
+      if (getIMFAttributes(CI2) != getIMFAttributes(CI)) {
+        LLVM_DEBUG(dbgs() << "SLP: mismatched IMF attributes in call:" << *CI
+                          << "!=" << *V << '\n');
+        return TreeEntry::NeedToGather;
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     return TreeEntry::Vectorize;
@@ -7667,8 +7689,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
   // Perform specific checks for each particular instruction kind.
   OrdersType CurrentOrder;
   SmallVector<Value *> PointerOps;
+#if INTEL_CUSTOMIZATION
+  // Each consecutive group is represented by starting index,
+  // load size (number of consecutive scalar elements) and re-ordering
+  // information (if any).
+  SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
   TreeEntry::EntryState State = getScalarsVectorizationState(
-      S, VL, IsScatterVectorizeUserTE, CurrentOrder, PointerOps);
+      S, VL, IsScatterVectorizeUserTE, CurrentOrder, PointerOps, LoadGroups);
+#endif // INTEL_CUSTOMIZATION
   if (State == TreeEntry::NeedToGather) {
     newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
                  ReuseShuffleIndicies);
@@ -7806,20 +7834,22 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       // from such a struct, we read/write packed bits disagreeing with the
       // unvectorized version.
       TreeEntry *TE = nullptr;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      // Each consecutive group is represented by starting index, load size
-      // (number of consecutive scalar elements) and re-ordering information (if
-      // any).
-      SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
-      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, *TLI,
-                                CurrentOrder, PointerOps, LoadGroups)) {
-#endif // INTEL_CUSTOMIZATION
-      case LoadsState::Vectorize:
-=======
       switch (State) {
       case TreeEntry::Vectorize:
->>>>>>> 44eca64224f4e0714a71d46489be066b3187f4e4
+#if INTEL_CUSTOMIZATION
+        if (!LoadGroups.empty()) {
+          LLVM_DEBUG(dbgs() << "SLP: found a split load group of size "
+                            << LoadGroups.size() << ".\n");
+          TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                            ReuseShuffleIndicies);
+          TE->setOperandsInOrder();
+          TE->SplitLoadGroups = LoadGroups;
+          if (!CurrentOrder.empty())
+          TE->SplitLoadOrder = CurrentOrder;
+          LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
+          break;
+        }
+#endif // INTEL_CUSTOMIZATION
         if (CurrentOrder.empty()) {
           // Original loads are consecutive and does not require reordering.
           TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
@@ -7834,25 +7864,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
         }
         TE->setOperandsInOrder();
         break;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      case LoadsState::SplitLoads:
-        LLVM_DEBUG(dbgs() << "SLP: found a split load group of size "
-                          << LoadGroups.size() << ".\n");
-        TE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
-        TE->setOperandsInOrder();
-        assert(!LoadGroups.empty() && "Unexpected load groups.");
-        TE->SplitLoadGroups = LoadGroups;
-        if (!CurrentOrder.empty())
-          TE->SplitLoadOrder = CurrentOrder;
-
-        LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
-        break;
-#endif // INTEL_CUSTOMIZATION
-      case LoadsState::ScatterVectorize: {
-=======
       case TreeEntry::ScatterVectorize:
->>>>>>> 44eca64224f4e0714a71d46489be066b3187f4e4
         // Vectorizing non-consecutive loads with `llvm.masked.gather`.
         TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle, S,
                           UserTreeIdx, ReuseShuffleIndicies);
@@ -7860,31 +7872,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
         buildTree_rec(PointerOps, Depth + 1, {TE, 0});
         LLVM_DEBUG(dbgs() << "SLP: added a vector of non-consecutive loads.\n");
         break;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-        }
-#endif // INTEL_CUSTOMIZATION
-      case LoadsState::Gather:
-        BS.cancelScheduling(VL, VL0);
-        newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                     ReuseShuffleIndicies);
-#ifndef NDEBUG
-        Type *ScalarTy = VL0->getType();
-        if (DL->getTypeSizeInBits(ScalarTy) !=
-            DL->getTypeAllocSizeInBits(ScalarTy))
-          LLVM_DEBUG(dbgs() << "SLP: Gathering loads of non-packed type.\n");
-        else if (any_of(VL, [](Value *V) {
-                   return !cast<LoadInst>(V)->isSimple();
-                 }))
-          LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple loads.\n");
-        else
-          LLVM_DEBUG(dbgs() << "SLP: Gathering non-consecutive loads.\n");
-#endif // NDEBUG
-        break;
-=======
       case TreeEntry::NeedToGather:
         llvm_unreachable("Unexpected loads state.");
->>>>>>> 44eca64224f4e0714a71d46489be066b3187f4e4
       }
       return;
     }
@@ -8012,6 +8001,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       return;
     }
     case Instruction::GetElementPtr: {
+
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of GEPs.\n");
@@ -8099,82 +8089,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       CallInst *CI = cast<CallInst>(VL0);
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
 
-<<<<<<< HEAD
-      VFShape Shape = VFShape::get(
-          *CI, ElementCount::getFixed(static_cast<unsigned int>(VL.size())),
-          false /*HasGlobalPred*/);
-      Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
-
-      if (!VecFunc && !isTriviallyVectorizable(ID)) {
-        BS.cancelScheduling(VL, VL0);
-        newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                     ReuseShuffleIndicies);
-        LLVM_DEBUG(dbgs() << "SLP: Non-vectorizable call.\n");
-        return;
-      }
-      Function *F = CI->getCalledFunction();
-      unsigned NumArgs = CI->arg_size();
-      SmallVector<Value *, 4> ScalarArgs(NumArgs, nullptr);
-      for (unsigned j = 0; j != NumArgs; ++j)
-        if (isVectorIntrinsicWithScalarOpAtArg(ID, j))
-          ScalarArgs[j] = CI->getArgOperand(j);
-      for (Value *V : VL) {
-        CallInst *CI2 = dyn_cast<CallInst>(V);
-        if (!CI2 || CI2->getCalledFunction() != F ||
-            getVectorIntrinsicIDForCall(CI2, TLI) != ID ||
-            (VecFunc &&
-             VecFunc != VFDatabase(*CI2).getVectorizedFunction(Shape)) ||
-            !CI->hasIdenticalOperandBundleSchema(*CI2)) {
-          BS.cancelScheduling(VL, VL0);
-          newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                       ReuseShuffleIndicies);
-          LLVM_DEBUG(dbgs() << "SLP: mismatched calls:" << *CI << "!=" << *V
-                            << "\n");
-          return;
-        }
-        // Some intrinsics have scalar arguments and should be same in order for
-        // them to be vectorized.
-        for (unsigned j = 0; j != NumArgs; ++j) {
-          if (isVectorIntrinsicWithScalarOpAtArg(ID, j)) {
-            Value *A1J = CI2->getArgOperand(j);
-            if (ScalarArgs[j] != A1J) {
-              BS.cancelScheduling(VL, VL0);
-              newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                           ReuseShuffleIndicies);
-              LLVM_DEBUG(dbgs() << "SLP: mismatched arguments in call:" << *CI
-                                << " argument " << ScalarArgs[j] << "!=" << A1J
-                                << "\n");
-              return;
-            }
-          }
-        }
-        // Verify that the bundle operands are identical between the two calls.
-        if (CI->hasOperandBundles() &&
-            !std::equal(CI->op_begin() + CI->getBundleOperandsStartIndex(),
-                        CI->op_begin() + CI->getBundleOperandsEndIndex(),
-                        CI2->op_begin() + CI2->getBundleOperandsStartIndex())) {
-          BS.cancelScheduling(VL, VL0);
-          newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                       ReuseShuffleIndicies);
-          LLVM_DEBUG(dbgs() << "SLP: mismatched bundle operands in calls:"
-                            << *CI << "!=" << *V << '\n');
-          return;
-        }
-#if INTEL_CUSTOMIZATION
-        // Different attributes may imply different semantics, e.g. IMF
-        // attributes.
-        if (getIMFAttributes(CI2) != getIMFAttributes(CI)) {
-          newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
-                       ReuseShuffleIndicies);
-          LLVM_DEBUG(dbgs() << "SLP: mismatched IMF attributes in call:" << *CI
-                            << "!=" << *V << '\n');
-          return;
-        }
-#endif // INTEL_CUSTOMIZATION
-      }
-
-=======
->>>>>>> 44eca64224f4e0714a71d46489be066b3187f4e4
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
