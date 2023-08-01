@@ -6353,6 +6353,11 @@ def fvec_remainder_loops : Flag<["-"], "fvec-remainder-loops">,
   HelpText<"Enable remainder loop vectorization.">;
 def fno_vec_remainder_loops : Flag<["-"], "fno-vec-remainder-loops">,
   HelpText<"Disable remainder loop vectorization.">;
+def qopt_prefetch_EQ : Joined<["-"], "qopt-prefetch=">,
+  Values<"0,1,2,3,4,5">, HelpText<"Enable levels of prefetch insertion, where "
+  "0 disables.  Values of 1 - 5 are available.  Default is 2.">;
+def qno_opt_prefetch : Flag<["-"], "qno-opt-prefetch">, Alias<qopt_prefetch_EQ>,
+  AliasArgs<["0"]>, HelpText<"Disable prefetching.">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   Group<intel_opt_report_Group>,
   HelpText<"Generate an optimization report, min, med or max.">;
@@ -9541,6 +9546,13 @@ def _SLASH_Qopt_dynamic_align : CLFlag<"Qopt-dynamic-align">,
 def _SLASH_Qopt_dynamic_align_ : CLFlag<"Qopt-dynamic-align-">,
   Alias<qno_opt_dynamic_align>,
   HelpText<"Disable peeling to optimize alignment for vectorization.">;
+def _SLASH_Qopt_prefetch_EQ : CLJoined<"Qopt-prefetch=">,
+  Alias<qopt_prefetch_EQ>;
+def _SLASH_Qopt_prefetch_COL : CLJoined<"Qopt-prefetch:">,
+  Alias<qopt_prefetch_EQ>, HelpText<"Enable levels of prefetch insertion, "
+  "where 0 disables.  Values of 1 - 5 are available.  Default is 2.">;
+def _SLASH_Qopt_prefetch_ : CLFlag<"Qopt-prefetch-">, Alias<qopt_prefetch_EQ>,
+  AliasArgs<["0"]>, HelpText<"Disable prefetching.">;
 def _SLASH_Qvec_with_mask : CLFlag<"Qvec-with-mask">,
   Alias<fvec_with_mask>,
   HelpText<"Enable vectorization for short trip-count loops with masking.">;

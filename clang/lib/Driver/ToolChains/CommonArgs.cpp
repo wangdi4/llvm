@@ -1300,6 +1300,25 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
           << A->getOption().getName();
   }
 
+  // -qopt-prefetch
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_prefetch_EQ)) {
+    StringRef Val = A->getValue();
+    if (Val == "0")
+      addllvmOption("-disable-hir-prefetching");
+    else if (Val == "1" || Val == "2")
+      ; // Default behavior
+    else if (Val == "3" || Val == "4" || Val == "5") {
+      addllvmOption("-hir-prefetching-num-cachelines-threshold=0");
+      addllvmOption("-hir-prefetching-skip-num-memory-streams-check");
+      addllvmOption("-hir-prefetching-trip-count-threshold=0");
+      addllvmOption("-hir-prefetching-skip-non-modified-regions");
+      if (Val == "5")
+        addllvmOption("-hir-prefetching-enable-indirect-prefetching");
+    } else
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << Val << A->getOption().getName();
+  }
+
   // Add designator that we are doing host compilation for SYCL offload.
   if (JA.isOffloading(Action::OFK_SYCL) &&
       !JA.isDeviceOffloading(Action::OFK_SYCL))
