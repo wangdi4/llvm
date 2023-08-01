@@ -28,7 +28,7 @@
 ; -----------------------------------------------------------------------------
 ; After VPlan
 ; CG-CHECK:           BEGIN REGION { modified }
-; CG-CHECK-NEXT:           %arr.base.cast = ptrtoint.%struct2**.i64(&((%t4)[0]));
+; CG-CHECK-NEXT:           %arr.base.cast = ptrtoint.ptr.i64(&((%t4)[0]));
 ; CG-CHECK-NEXT:           %alignment = %arr.base.cast  &  31;
 ; CG-CHECK-NEXT:           %peel.factor = 32  -  %alignment;
 ; CG-CHECK-NEXT:           %peel.factor1 = %peel.factor  >>  3;
@@ -49,7 +49,7 @@
 ; CG-CHECK-NEXT:              if (0 <u 4 * %tgu)
 ; CG-CHECK-NEXT:              {
 ; CG-CHECK-NEXT:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CG-CHECK-NEXT:                 |   %wide.cmp. = (<4 x %struct2*>*)(%t4)[i1 + %peel.factor1] == &((<4 x %struct2*>)(%t1)[0]);
+; CG-CHECK-NEXT:                 |   %wide.cmp. = (<4 x ptr>*)(%t4)[i1 + %peel.factor1] == &((<4 x ptr>)(%t1)[0]);
 ; CG-CHECK-NEXT:                 |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CG-CHECK-NEXT:                 |   if (%intmask != 0)
 ; CG-CHECK-NEXT:                 |   {
@@ -86,15 +86,15 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct2 = type <{ i32, [4 x i8] }>
 
 ; Function Attrs: uwtable
-define %struct2** @foo(%struct2** %t4, %struct2* %t1, i64 %n) {
+define ptr @foo(ptr %t4, ptr %t1, i64 %n) {
 entry:
   br label %header
 
 header:
   %iv = phi i64 [0, %entry], [%iv.next, %latch]
-  %gep = getelementptr %struct2*, %struct2 **%t4, i64 %iv
-  %ptr = load %struct2 *, %struct2** %gep
-  %cmp.found = icmp eq %struct2 *%ptr, %t1
+  %gep = getelementptr ptr, ptr %t4, i64 %iv
+  %ptr = load ptr, ptr %gep
+  %cmp.found = icmp eq ptr %ptr, %t1
   br i1 %cmp.found, label %found, label %latch
 
 latch:
@@ -106,10 +106,10 @@ loop.exit:
   br label %exit
 
 found:
-  %lcssa = phi %struct2 ** [ %gep , %header ]
+  %lcssa = phi ptr [ %gep , %header ]
   br label %exit
 
 exit:
-  %val = phi %struct2 ** [ %lcssa, %found ], [ zeroinitializer, %loop.exit ]
-  ret %struct2 ** %val
+  %val = phi ptr [ %lcssa, %found ], [ zeroinitializer, %loop.exit ]
+  ret ptr %val
 }

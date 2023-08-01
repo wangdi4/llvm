@@ -4,7 +4,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vector-library=SVML -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output < %s 2>&1 | FileCheck %s
 
 
-define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPii(ptr nocapture %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -18,21 +18,21 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1:BB[0-9]+]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] float [[VP_INC:%.*]] = call float [[VP_LOAD]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] float [[VP_INC:%.*]] = call float [[VP_LOAD]] ptr @sinf
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] float* [[VP5:%.*]] = subscript inbounds float* [[A0]] i64 [[VP3]]
-; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = load float* [[VP5]]
-; CHECK-NEXT:     [DA: Div] float [[VP7:%.*]] = call float [[VP6]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP8:%.*]] = subscript inbounds float* [[A0]] i64 [[VP3]]
-; CHECK-NEXT:     [DA: Div] store float [[VP7]] float* [[VP8]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP5:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = load ptr [[VP5]]
+; CHECK-NEXT:     [DA: Div] float [[VP7:%.*]] = call float [[VP6]] ptr @sinf
+; CHECK-NEXT:     [DA: Div] ptr [[VP8:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] store float [[VP7]] ptr [[VP8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP9]], [[BB2]], [[BB4:BB[0-9]+]]
@@ -62,7 +62,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -71,10 +71,10 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %inc = call afn float @sinf(float %1) #3
-  store float %inc, float* %arrayidx, align 4
+  store float %inc, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 80
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body

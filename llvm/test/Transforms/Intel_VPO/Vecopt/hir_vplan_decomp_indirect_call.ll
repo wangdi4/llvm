@@ -7,7 +7,7 @@
 ;
 ;       + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP> <simd>
 ;       |   (%i.lpriv)[0] = i1;
-;       |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%b.priv)[0]));
+;       |   @llvm.lifetime.start.p0(4,  &((%b.priv)[0]));
 ;       |   (%b.priv)[0] = 0;
 ;       |   %3 = (%func)[i1];
 ;       |   %4 = (%c)[i1];
@@ -16,7 +16,7 @@
 ;       |   %6 = (%i.lpriv)[0];
 ;       |   %7 = (%a)[%6];
 ;       |   (%a)[%6] = %call + %5 + %7;
-;       |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%b.priv)[0]));
+;       |   @llvm.lifetime.end.p0(4,  &((%b.priv)[0]));
 ;       + END LOOP
 ;
 ;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
@@ -29,32 +29,30 @@
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = trunc i64 [[VP2]] to i32
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[I_LPRIV0:%.*]]
-; CHECK-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[B_PRIV0:%.*]]
-; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[B_PRIV0]]
-; CHECK-NEXT:     store i32 0 i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = subscript inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     i32 (i32)* [[VP8:%.*]] = load i32 (i32)** [[VP7]]
-; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
-; CHECK-NEXT:     i32 [[VP11:%.*]] = call i32 [[VP10]] i32 (i32)* [[VP8]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[B_PRIV0]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[I_LPRIV0]]
-; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[I_LPRIV0:%.*]]
+; CHECK-NEXT:     store i32 [[VP4]] ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[B_PRIV0:%.*]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_SUBSCRIPT_2]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[B_PRIV0]]
+; CHECK-NEXT:     store i32 0 ptr [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP7:%.*]] = subscript inbounds ptr [[FUNC0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     ptr [[VP8:%.*]] = load ptr [[VP7]]
+; CHECK-NEXT:     ptr [[VP9:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = load ptr [[VP9]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = call i32 [[VP10]] ptr [[VP8]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[B_PRIV0]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = load ptr [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr [[I_LPRIV0]]
+; CHECK-NEXT:     i32 [[VP13:%.*]] = load ptr [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:     i32* [[VP15:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP14]]
-; CHECK-NEXT:     i32 [[VP16:%.*]] = load i32* [[VP15]]
+; CHECK-NEXT:     ptr [[VP15:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP14]]
+; CHECK-NEXT:     i32 [[VP16:%.*]] = load ptr [[VP15]]
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = add i32 [[VP11]] i32 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP16]]
-; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
-; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[B_PRIV0]]
-; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[VP_SUBSCRIPT_6]]
-; CHECK-NEXT:     call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     ptr [[VP20:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP14]]
+; CHECK-NEXT:     store i32 [[VP18]] ptr [[VP20]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds ptr [[B_PRIV0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_SUBSCRIPT_6]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp slt i64 [[VP3]] i64 [[VP1:%vp.*]]
 
@@ -62,7 +60,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
@@ -71,10 +69,10 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %a, i32* nocapture readonly %c, i32 (i32)** nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
+define dso_local void @foo(ptr nocapture %a, ptr nocapture readonly %c, ptr nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.116, label %omp.precond.end
@@ -85,34 +83,33 @@ DIR.OMP.SIMD.116:                                 ; preds = %entry
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %b.priv, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %b.priv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %b.priv to i8*
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %i.lpriv, align 4, !tbaa !2
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #3
-  store i32 0, i32* %b.priv, align 4, !tbaa !2
-  %arrayidx = getelementptr inbounds i32 (i32)*, i32 (i32)** %func, i64 %indvars.iv
-  %3 = load i32 (i32)*, i32 (i32)** %arrayidx, align 8, !tbaa !6
-  %arrayidx7 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx7, align 4, !tbaa !2
-  %call = call i32 %3(i32 %4) #4
-  %5 = load i32, i32* %b.priv, align 4, !tbaa !2
-  %add8 = add nsw i32 %5, %call
-  %6 = load i32, i32* %i.lpriv, align 4, !tbaa !2
-  %idxprom9 = sext i32 %6 to i64
-  %arrayidx10 = getelementptr inbounds i32, i32* %a, i64 %idxprom9
-  %7 = load i32, i32* %arrayidx10, align 4, !tbaa !2
-  %add11 = add nsw i32 %7, %add8
-  store i32 %add11, i32* %arrayidx10, align 4, !tbaa !2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #3
+  %1 = trunc i64 %indvars.iv to i32
+  store i32 %1, ptr %i.lpriv, align 4, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %b.priv) #3
+  store i32 0, ptr %b.priv, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds ptr, ptr %func, i64 %indvars.iv
+  %2 = load ptr, ptr %arrayidx, align 8, !tbaa !6
+  %arrayidx7 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !2
+  %call = call i32 %2(i32 %3) #4
+  %4 = load i32, ptr %b.priv, align 4, !tbaa !2
+  %add8 = add nsw i32 %4, %call
+  %5 = load i32, ptr %i.lpriv, align 4, !tbaa !2
+  %idxprom9 = sext i32 %5 to i64
+  %arrayidx10 = getelementptr inbounds i32, ptr %a, i64 %idxprom9
+  %6 = load i32, ptr %arrayidx10, align 4, !tbaa !2
+  %add11 = add nsw i32 %6, %add8
+  store i32 %add11, ptr %arrayidx10, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %b.priv) #3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

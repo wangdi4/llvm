@@ -7,12 +7,11 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.Vect = type { float, float, float, float }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define <4 x float> @foo(%struct.Vect *%sarr, <4 x float> %.val87) {
+define <4 x float> @foo(ptr %sarr, <4 x float> %.val87) {
 ; CHECK:  Function: foo
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<4 x <4 x float>*>)([[SARR0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0
-; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x float>*)([[EXTRACT_0_0]])[0]
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x float>*)([[SARR0:%.*]])[i1].0;
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[PRIV0:%.*]] = shufflevector [[DOTVEC0]],  undef,  <i32 12, i32 13, i32 14, i32 15>
 ; CHECK:  END REGION
@@ -23,9 +22,8 @@ entry:
 
 for.body:                                         ; preds = %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds %struct.Vect, %struct.Vect* %sarr, i64 %indvars.iv, i32 0
-  %ptr.bc = bitcast float* %ptr to <4 x float>*
-  %priv = load <4 x float>, <4 x float>* %ptr.bc, align 16
+  %ptr = getelementptr inbounds %struct.Vect, ptr %sarr, i64 %indvars.iv, i32 0
+  %priv = load <4 x float>, ptr %ptr, align 16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.end, label %for.body
