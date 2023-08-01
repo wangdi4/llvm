@@ -13716,6 +13716,13 @@ void RISCVTargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
     Known = Known.intersectWith(Known2);
     break;
   }
+  case RISCVISD::CZERO_EQZ:
+  case RISCVISD::CZERO_NEZ:
+    Known = DAG.computeKnownBits(Op.getOperand(0), Depth + 1);
+    // Result is either all zero or operand 0. We can propagate zeros, but not
+    // ones.
+    Known.One.clearAllBits();
+    break;
   case RISCVISD::REMUW: {
     KnownBits Known2;
     Known = DAG.computeKnownBits(Op.getOperand(0), DemandedElts, Depth + 1);
@@ -13814,6 +13821,11 @@ unsigned RISCVTargetLowering::ComputeNumSignBitsForTargetNode(
         DAG.ComputeNumSignBits(Op.getOperand(4), DemandedElts, Depth + 1);
     return std::min(Tmp, Tmp2);
   }
+  case RISCVISD::CZERO_EQZ:
+  case RISCVISD::CZERO_NEZ:
+    // Output is either all zero or operand 0. We can propagate sign bit count
+    // from operand 0.
+    return DAG.ComputeNumSignBits(Op.getOperand(0), DemandedElts, Depth + 1);
   case RISCVISD::ABSW: {
     // We expand this at isel to negw+max. The result will have 33 sign bits
     // if the input has at least 33 sign bits.

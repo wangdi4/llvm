@@ -160,7 +160,7 @@ public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SerializeToCubinPass)
 
   SerializeToCubinPass(StringRef triple = "nvptx64-nvidia-cuda",
-                       StringRef chip = "sm_35", StringRef features = "+ptx60",
+                       StringRef chip = "sm_50", StringRef features = "+ptx60",
                        int optLevel = 2, bool dumpPtx = false,
                        bool usePtxas = true, StringRef ptxasParams = {});
 
@@ -257,8 +257,7 @@ SerializeToCubinPass::serializeISA(const std::string &isa) {
       return std::make_unique<std::vector<char>>(
           maybeCubinImage.value().begin(), maybeCubinImage.value().end());
     }
-    emitError(loc) << message;
-    return {};
+    llvm::errs() << message << ". It fallsback to JIT compilation.\n";
   }
 
   // Fallback to JIT compilation if ptxas fails.
