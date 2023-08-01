@@ -1294,7 +1294,9 @@ Function *llvm::getOrInsertVectorLibFunction(
     // Generate a vector intrinsic.
     assert(!RetTy->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForDecl;
-    TysForDecl.push_back(VecRetTy);
+    // Add return type if intrinsic is overloaded on it.
+    if (isVectorIntrinsicWithOverloadTypeAtArg(ID, -1))
+      TysForDecl.push_back(VecRetTy);
     for (const auto &I : enumerate(ArgTys))
       if (isVectorIntrinsicWithOverloadTypeAtArg(ID, I.index()))
         TysForDecl.push_back(I.value());
