@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -544,6 +544,15 @@ void CallBase::updateProfxWeight(uint64_t S, uint64_t T) {
   uint64_t Count = Val.udiv(APT).getLimitedValue();
   Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
   setMetadata(LLVMContext::MD_intel_profx, MDNode::get(M->getContext(), Vals));
+}
+
+bool CallBase::isDummyCopyCreatedbyHIR() const {
+  // HIR can attach special metadata to annotate these insts if checking for
+  // undef operand is not enough and regresses performance.
+  if (getIntrinsicID() == Intrinsic::ssa_copy && isa<UndefValue>(getOperand(0)))
+    return true;
+
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
