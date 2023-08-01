@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original source:
 ; #pragma omp declare target
@@ -15,17 +15,8 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 @global_x = internal target_declare addrspace(1) global i32 0, align 4
-@.global_x.ref = internal constant i32 addrspace(1)* @global_x
-@llvm.compiler.used = appending global [1 x i8*] [i8* bitcast (i32 addrspace(1)** @.global_x.ref to i8*)], section "llvm.metadata"
+@.global_x.ref = internal constant ptr addrspace(1) @global_x
+@llvm.compiler.used = appending global [1 x ptr] [ptr @.global_x.ref], section "llvm.metadata"
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!opencl.used.extensions = !{!2}
-!opencl.used.optional.core.features = !{!2}
-!opencl.compiler.options = !{!2}
-!llvm.ident = !{!3}
-
-!0 = !{i32 1, !"global_x", i32 0, i32 0, i32 addrspace(1)* @global_x}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{}
-!3 = !{!"clang version 9.0.0"}
+!0 = !{i32 1, !"global_x", i32 0, i32 0, ptr addrspace(1) @global_x}
