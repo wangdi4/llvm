@@ -17,8 +17,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %index.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nuw nsw i64 %index.05, 2
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @ip, i64 0, i64 %index.05
-  store i64 %add, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @ip, i64 0, i64 %index.05
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %index.05, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

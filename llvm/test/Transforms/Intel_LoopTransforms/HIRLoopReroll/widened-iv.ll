@@ -29,7 +29,7 @@ target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f8
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @func2([128 x i32]* nocapture %A) local_unnamed_addr #0 {
+define dso_local void @func2(ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -96,8 +96,8 @@ for.cond.cleanup33:                               ; preds = %for.body34
 for.body34:                                       ; preds = %for.body34, %for.cond30.preheader
   %j2.081 = phi i32 [ %mul23, %for.cond30.preheader ], [ %inc, %for.body34 ]
   %add36 = add nuw nsw i32 %j2.081, %mul35
-  %arrayidx37 = getelementptr inbounds [128 x i32], [128 x i32]* %A, i32 %i2.082, i32 %j2.081
-  store i32 %add36, i32* %arrayidx37, align 4, !tbaa !11
+  %arrayidx37 = getelementptr inbounds [128 x i32], ptr %A, i32 %i2.082, i32 %j2.081
+  store i32 %add36, ptr %arrayidx37, align 4, !tbaa !11
   %inc = add nuw nsw i32 %j2.081, 1
   %exitcond.not = icmp eq i32 %inc, %add31
   br i1 %exitcond.not, label %for.cond.cleanup33, label %for.body34, !llvm.loop !16

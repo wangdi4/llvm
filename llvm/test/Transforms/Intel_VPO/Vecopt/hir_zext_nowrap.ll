@@ -17,7 +17,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -25,8 +25,8 @@ for.body:                                         ; preds = %entry, %for.body
   %i.06 = phi i32 [ %inc, %for.body ], [ 0, %entry ]
   %and = and i32 %i.06, 7
   %0 = zext i32 %and to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %0
-  store i32 %i.06, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %0
+  store i32 %i.06, ptr %arrayidx, align 4, !tbaa !2
   %inc = add nuw nsw i32 %i.06, 1
   %exitcond = icmp eq i32 %inc, 5
   br i1 %exitcond, label %for.end.loopexit, label %for.body

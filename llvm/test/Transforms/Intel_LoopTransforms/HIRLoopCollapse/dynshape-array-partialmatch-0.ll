@@ -40,10 +40,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind readonly uwtable
-define void @sub_(float* noalias nocapture dereferenceable(4) %"sub_$X", float* noalias nocapture dereferenceable(4) %"sub_$Y") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture dereferenceable(4) %"sub_$X", ptr noalias nocapture dereferenceable(4) %"sub_$Y") local_unnamed_addr #0 {
 alloca_0:
-  %"sub_$Y_fetch.7" = load float, float* %"sub_$Y", align 1
-  %"sub_$X_fetch.8" = load float, float* %"sub_$X", align 1
+  %"sub_$Y_fetch.7" = load float, ptr %"sub_$Y", align 1
+  %"sub_$X_fetch.8" = load float, ptr %"sub_$X", align 1
   %"(i32)var$1_fetch.1$" = fptosi float %"sub_$Y_fetch.7" to i32
   %int_sext = sext i32 %"(i32)var$1_fetch.1$" to i64
   %rel.1 = icmp sgt i64 %int_sext, 0
@@ -79,18 +79,18 @@ bb1:                                              ; preds = %bb1.preheader, %bb6
   br i1 %rel.8, label %bb6, label %bb5.preheader
 
 bb5.preheader:                                    ; preds = %bb1
-  %"sub_$B8[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 3, i64 1, i64 %mul.9, float* nonnull elementtype(float) %"sub_$B8", i64 %indvars.iv39)
-  %"sub_$A14[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.7, float* nonnull elementtype(float) %"sub_$A14", i64 %indvars.iv39)
+  %"sub_$B8[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul.9, ptr nonnull elementtype(float) %"sub_$B8", i64 %indvars.iv39)
+  %"sub_$A14[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.7, ptr nonnull elementtype(float) %"sub_$A14", i64 %indvars.iv39)
   br label %bb5
 
 bb5:                                              ; preds = %bb5.preheader, %bb5
   %indvars.iv = phi i64 [ 1, %bb5.preheader ], [ %indvars.iv.next, %bb5 ]
-  %"sub_$B8[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul.8, float* nonnull elementtype(float) %"sub_$B8[]", i64 %indvars.iv)
-  %"sub_$B8[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.7, float* nonnull elementtype(float) %"sub_$B8[][]", i64 %indvars.iv39)
-  %"sub_$B8[][][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$B8[][][]", i64 %indvars.iv)
-  %"sub_$B8[][][][]_fetch.29" = load float, float* %"sub_$B8[][][][]", align 1
-  %"sub_$A14[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A14[]", i64 %indvars.iv)
-  store float %"sub_$B8[][][][]_fetch.29", float* %"sub_$A14[][]", align 1
+  %"sub_$B8[][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.8, ptr nonnull elementtype(float) %"sub_$B8[]", i64 %indvars.iv)
+  %"sub_$B8[][][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.7, ptr nonnull elementtype(float) %"sub_$B8[][]", i64 %indvars.iv39)
+  %"sub_$B8[][][][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$B8[][][]", i64 %indvars.iv)
+  %"sub_$B8[][][][]_fetch.29" = load float, ptr %"sub_$B8[][][][]", align 1
+  %"sub_$A14[][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A14[]", i64 %indvars.iv)
+  store float %"sub_$B8[][][][]_fetch.29", ptr %"sub_$A14[][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %bb6.loopexit, label %bb5
@@ -111,7 +111,7 @@ bb2:                                              ; preds = %bb2.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind readonly uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

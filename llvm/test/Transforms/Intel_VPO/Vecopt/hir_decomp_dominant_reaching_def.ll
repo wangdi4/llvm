@@ -97,17 +97,17 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s2.red, i32 0, i32 1) ]
-  store i32 0, i32* %s2.red, align 4
-  store i32 0, i32* %s.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s2.red, i32 0, i32 1) ]
+  store i32 0, ptr %s2.red, align 4
+  store i32 0, ptr %s.red, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %add426 = phi i32 [ %add4, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %add824 = phi i32 [ %add8, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %mul1 = shl i32 %1, 1
   %2 = trunc i64 %indvars.iv to i32
   %add2 = add nsw i32 %mul1, %2
@@ -122,8 +122,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
   %add4.lcssa = phi i32 [ %add4, %omp.inner.for.body ]
   %add8.lcssa = phi i32 [ %add8, %omp.inner.for.body ]
-  store i32 %add8.lcssa, i32* %s.red, align 4, !tbaa !7
-  store i32 %add4.lcssa, i32* %s2.red, align 4, !tbaa !7
+  store i32 %add8.lcssa, ptr %s.red, align 4, !tbaa !7
+  store i32 %add4.lcssa, ptr %s2.red, align 4, !tbaa !7
   %3 = add i32 %add4.lcssa, 42
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   %add10 = add nsw i32 %3, %add8.lcssa

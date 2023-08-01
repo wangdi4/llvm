@@ -5,7 +5,7 @@
 ;
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec %s 2>&1 | FileCheck %s
 
-define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
+define void @foo(i1 %c, i64 %t, ptr %A, ptr %B) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -37,8 +37,8 @@ loop:
 
 then:
   %add = add i64 %div, 3
-  %gep = getelementptr inbounds i64, i64* %A, i64 %iv
-  store i64 %add, i64* %gep
+  %gep = getelementptr inbounds i64, ptr %A, i64 %iv
+  store i64 %add, ptr %gep
   br label %latch
 
 latch:

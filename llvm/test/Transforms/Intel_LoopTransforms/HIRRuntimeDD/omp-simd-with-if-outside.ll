@@ -36,11 +36,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %a, i64* nocapture readonly %b, i32 %N, i32* %ptr) #0 {
+define void @foo(ptr nocapture %a, ptr nocapture readonly %b, i32 %N, ptr %ptr) #0 {
 entry:
   %simd = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  %arrayidx42 = getelementptr inbounds i32, i32* %ptr, i64 42
-  %arrayv42 = load i32, i32* %arrayidx42, align 4
+  %arrayidx42 = getelementptr inbounds i32, ptr %ptr, i64 42
+  %arrayv42 = load i32, ptr %arrayidx42, align 4
   %cmp42 = icmp ne i32 %arrayv42, 42
   br i1 %cmp42, label %for.end, label %for.body.preheader
 
@@ -49,11 +49,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %b, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %b, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8
   %conv = trunc i64 %0 to i32
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  store i32 %conv, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  store i32 %conv, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %N

@@ -80,7 +80,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define void @foo(i64* %tj, i64* %ttag, i64* noalias %neighptr2, i64* noalias %neighptr) {
+define void @foo(ptr %tj, ptr %ttag, ptr noalias %neighptr2, ptr noalias %neighptr) {
 entry:
   br label %for.body
 
@@ -88,14 +88,14 @@ for.body:                                         ; preds = %entry, %if.end15
   %n.037 = phi i64 [ 0, %entry ], [ %n.1, %if.end15 ]
   %n2.036 = phi i64 [ 0, %entry ], [ %n2.1, %if.end15 ]
   %u.035 = phi i64 [ 0, %entry ], [ %add, %if.end15 ]
-  %arrayidx = getelementptr inbounds i64, i64* %tj, i64 %u.035
-  %tjval = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %tj, i64 %u.035
+  %tjval = load i64, ptr %arrayidx, align 8
   %cmp4 = icmp sgt i64 %tjval, 10
   br i1 %cmp4, label %if.then5, label %if.else12
 
 if.then5:                                         ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i64, i64* %ttag, i64 %u.035
-  %ttagval = load i64, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %ttag, i64 %u.035
+  %ttagval = load i64, ptr %arrayidx3, align 8
   %tobool6.not = icmp eq i64 %ttagval, 0
   br i1 %tobool6.not, label %if.else, label %if.then7
 
@@ -104,14 +104,14 @@ if.then7:                                         ; preds = %if.then5
 
 if.else:                                          ; preds = %if.then5
   %inc9 = add nsw i64 %n.037, 1
-  %arrayidx10 = getelementptr inbounds i64, i64* %neighptr2, i64 %n.037
-  store i64 %tjval, i64* %arrayidx10, align 8
+  %arrayidx10 = getelementptr inbounds i64, ptr %neighptr2, i64 %n.037
+  store i64 %tjval, ptr %arrayidx10, align 8
   br label %if.end15
 
 if.else12:                                        ; preds = %for.body
   %inc13 = add nsw i64 %n2.036, 1
-  %arrayidx14 = getelementptr inbounds i64, i64* %neighptr, i64 %n2.036
-  store i64 %tjval, i64* %arrayidx14, align 8
+  %arrayidx14 = getelementptr inbounds i64, ptr %neighptr, i64 %n2.036
+  store i64 %tjval, ptr %arrayidx14, align 8
   br label %if.end15
 
 if.end15:                                         ; preds = %if.then7, %if.else, %if.else12

@@ -36,12 +36,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree nosync nounwind uwtable
-define void @binom8_(i64* noalias nocapture writeonly dereferenceable(8) %"binom8_$IFA", i64* noalias nocapture readonly dereferenceable(8) %"binom8_$N", i64* noalias nocapture readonly dereferenceable(8) %"binom8_$M") local_unnamed_addr #0 {
+define void @binom8_(ptr noalias nocapture writeonly dereferenceable(8) %"binom8_$IFA", ptr noalias nocapture readonly dereferenceable(8) %"binom8_$N", ptr noalias nocapture readonly dereferenceable(8) %"binom8_$M") local_unnamed_addr #0 {
 alloca_0:
-  %"binom8_$N_fetch.1" = load i64, i64* %"binom8_$N", align 1, !tbaa !0
+  %"binom8_$N_fetch.1" = load i64, ptr %"binom8_$N", align 1, !tbaa !0
   %add.1 = shl i64 %"binom8_$N_fetch.1", 3
   %mul.1 = add i64 %add.1, 8
-  %"binom8_$M_fetch.3" = load i64, i64* %"binom8_$M", align 1, !tbaa !4
+  %"binom8_$M_fetch.3" = load i64, ptr %"binom8_$M", align 1, !tbaa !4
   %rel.1 = icmp slt i64 %"binom8_$M_fetch.3", 0
   br i1 %rel.1, label %bb3, label %bb2.preheader
 
@@ -56,13 +56,13 @@ bb2:                                              ; preds = %bb2.preheader, %bb7
   br i1 %rel.2, label %bb7, label %bb6.preheader
 
 bb6.preheader:                                    ; preds = %bb2
-  %"binom8_$IFA[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 1, i64 0, i64 %mul.1, i64* nonnull elementtype(i64) %"binom8_$IFA", i64 %"binom8_$JJ.0")
+  %"binom8_$IFA[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 %mul.1, ptr nonnull elementtype(i64) %"binom8_$IFA", i64 %"binom8_$JJ.0")
   br label %bb6
 
 bb6:                                              ; preds = %bb6.preheader, %bb6
   %"binom8_$II.0" = phi i64 [ %add.3, %bb6 ], [ 0, %bb6.preheader ]
-  %"binom8_$IFA[][]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* nonnull elementtype(i64) %"binom8_$IFA[]", i64 %"binom8_$II.0")
-  store i64 0, i64* %"binom8_$IFA[][]", align 1, !tbaa !6
+  %"binom8_$IFA[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr nonnull elementtype(i64) %"binom8_$IFA[]", i64 %"binom8_$II.0")
+  store i64 0, ptr %"binom8_$IFA[][]", align 1, !tbaa !6
   %add.3 = add nuw nsw i64 %"binom8_$II.0", 1
   %exitcond = icmp eq i64 %add.3, %0
   br i1 %exitcond, label %bb7.loopexit, label %bb6
@@ -83,7 +83,7 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8, i64, i64, i64*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { argmemonly nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

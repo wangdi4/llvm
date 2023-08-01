@@ -42,7 +42,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local float @sub(float* nocapture %A, float* nocapture readonly %B, float* nocapture %C, i32 %N) local_unnamed_addr #0 {
+define dso_local float @sub(ptr nocapture %A, ptr nocapture readonly %B, ptr nocapture %C, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp18 = icmp sgt i32 %N, 0
   br i1 %cmp18, label %for.body.preheader, label %for.end
@@ -54,17 +54,17 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %q.020 = phi float [ 0.000000e+00, %for.body.preheader ], [ %conv, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !3
   %add = fadd fast float %0, %q.020
-  %arrayidx2 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  store float %add, float* %arrayidx2, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  store float %add, ptr %arrayidx2, align 4, !tbaa !3
   %1 = trunc i64 %indvars.iv to i32
   %mul = mul nsw i32 %1, %1
   %conv = sitofp i32 %mul to float
   %mul3 = fmul fast float %conv, %conv
-  %arrayidx5 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %mul3, float* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %mul3, ptr %arrayidx5, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count21
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !7

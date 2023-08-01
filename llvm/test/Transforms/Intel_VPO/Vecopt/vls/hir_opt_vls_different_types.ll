@@ -4,7 +4,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 %struct.S1 = type { i64, double }
 
-define dso_local void @foo(i32* noalias nocapture %arr, %struct.S1* noalias nocapture readonly %sarr) {
+define dso_local void @foo(ptr noalias nocapture %arr, ptr noalias nocapture readonly %sarr) {
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVLS_LOAD0:%.*]] = undef
@@ -29,16 +29,16 @@ header:
   br i1 %cond, label %latch, label %bb
 
 bb:
-  %b = getelementptr inbounds %struct.S1, %struct.S1* %sarr, i64 %iv, i32 1
-  %0 = load double, double* %b, align 8
-  %a = getelementptr inbounds %struct.S1, %struct.S1* %sarr, i64 %iv, i32 0
-  %1 = load i64, i64* %a, align 8
+  %b = getelementptr inbounds %struct.S1, ptr %sarr, i64 %iv, i32 1
+  %0 = load double, ptr %b, align 8
+  %a = getelementptr inbounds %struct.S1, ptr %sarr, i64 %iv, i32 0
+  %1 = load i64, ptr %a, align 8
 
   %cast = fptosi double %0 to i64
   %add = add nsw i64 %1, %cast
   %conv = trunc i64 %add to i32
-  %ptridx2 = getelementptr inbounds i32, i32* %arr, i64 %iv
-  store i32 %conv, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %arr, i64 %iv
+  store i32 %conv, ptr %ptridx2, align 4
   br label %latch
 
 latch:

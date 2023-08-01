@@ -25,7 +25,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64* noalias %lp1, i64* noalias %lp2, i64 noundef %n1) {
+define void @foo(ptr noalias %lp1, ptr noalias %lp2, i64 noundef %n1) {
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK:             + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<2 x i64>*)([[LP20:%.*]])[i1]
@@ -55,17 +55,16 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp2, i64 %l1.09
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp2, i64 %l1.09
+  %0 = load i64, ptr %arrayidx, align 8
   %tobool.not = icmp eq i64 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx1 = getelementptr inbounds i64, i64* %lp1, i64 0
-  %v = load i64, i64* %arrayidx1, align 8
+  %v = load i64, ptr %lp1, align 8
   %v1 = and i64 %v, 255
   %div = sdiv i64 %v1, %n1
-  store i64 %div, i64* %arrayidx, align 8
+  store i64 %div, ptr %arrayidx, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

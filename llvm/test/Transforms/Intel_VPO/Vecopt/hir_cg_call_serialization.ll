@@ -62,15 +62,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture readonly %arr) {
+define void @foo(ptr nocapture readonly %arr) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %unmasked_call = call i32 @bay(i64 %indvars.iv) #0
   %tobool = icmp eq i32 %0, %unmasked_call
   br i1 %tobool, label %for.inc, label %if.then
@@ -78,7 +78,7 @@ for.body:                                         ; preds = %for.inc, %entry
 if.then:                                          ; preds = %for.body
   %1 = trunc i64 %indvars.iv to i32
   %masked_call = tail call fastcc i32 @baz(i32 %1) #0
-  store i32 %masked_call, i32* %arrayidx, align 4
+  store i32 %masked_call, ptr %arrayidx, align 4
   tail call void @baa(i32 %1) #0
   br label %for.inc
 

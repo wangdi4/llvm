@@ -56,16 +56,16 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc
   %l1.014 = phi i64 [ 0, %entry ], [ %add, %for.inc ]
-  %a = getelementptr inbounds [100 x %struct.S1], [100 x %struct.S1]* @sarr, i64 0, i64 %l1.014, i32 0
-  %0 = load i64, i64* %a, align 16
-  %b = getelementptr inbounds [100 x %struct.S1], [100 x %struct.S1]* @sarr, i64 0, i64 %l1.014, i32 1
-  %1 = load i64, i64* %b, align 8
+  %a = getelementptr inbounds [100 x %struct.S1], ptr @sarr, i64 0, i64 %l1.014, i32 0
+  %0 = load i64, ptr %a, align 16
+  %b = getelementptr inbounds [100 x %struct.S1], ptr @sarr, i64 0, i64 %l1.014, i32 1
+  %1 = load i64, ptr %b, align 8
   %cmp2 = icmp eq i64 %0, %1
   br i1 %cmp2, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds [100 x i64], [100 x i64]* @arr, i64 0, i64 %l1.014
-  store i64 %l1.014, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds [100 x i64], ptr @arr, i64 0, i64 %l1.014
+  store i64 %l1.014, ptr %arrayidx3, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else
@@ -83,16 +83,16 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc
   %l1.014 = phi i64 [ 0, %entry ], [ %add, %for.inc ]
-  %a = getelementptr inbounds [100 x %struct.S1], [100 x %struct.S1]* @sarr, i64 0, i64 %l1.014, i32 0
-  %0 = load i64, i64* %a, align 16
+  %a = getelementptr inbounds [100 x %struct.S1], ptr @sarr, i64 0, i64 %l1.014, i32 0
+  %0 = load i64, ptr %a, align 16
   %cmp2 = icmp eq i64 %0, 10
   br i1 %cmp2, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %b = getelementptr inbounds [100 x %struct.S1], [100 x %struct.S1]* @sarr, i64 0, i64 %l1.014, i32 1
-  %1 = load i64, i64* %b, align 8
-  %arrayidx3 = getelementptr inbounds [100 x i64], [100 x i64]* @arr, i64 0, i64 %l1.014
-  store i64 %1, i64* %arrayidx3, align 8
+  %b = getelementptr inbounds [100 x %struct.S1], ptr @sarr, i64 0, i64 %l1.014, i32 1
+  %1 = load i64, ptr %b, align 8
+  %arrayidx3 = getelementptr inbounds [100 x i64], ptr @arr, i64 0, i64 %l1.014
+  store i64 %1, ptr %arrayidx3, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

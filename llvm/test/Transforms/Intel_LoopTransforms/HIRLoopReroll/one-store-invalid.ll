@@ -61,29 +61,29 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 16, !tbaa !2
   %mul2 = mul nsw i32 %1, %mul
-  %arrayidx4 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 %mul2, i32* %arrayidx4, align 16, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %mul2, ptr %arrayidx4, align 16, !tbaa !2
   %2 = or i64 %indvars.iv, 1
-  %arrayidx7 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %2
-  %3 = load i32, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %2
+  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !2
   %mul8 = mul nsw i32 %mul1, %3
-  %arrayidx11 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %2
-  store i32 %mul8, i32* %arrayidx11, align 4, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %2
+  store i32 %mul8, ptr %arrayidx11, align 4, !tbaa !2
   %4 = or i64 %indvars.iv, 2
-  %arrayidx14 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %4
-  %5 = load i32, i32* %arrayidx14, align 8, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %4
+  %5 = load i32, ptr %arrayidx14, align 8, !tbaa !2
   %mul15 = mul nsw i32 %5, %n
-  %arrayidx18 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %4
-  store i32 %mul15, i32* %arrayidx18, align 8, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %4
+  store i32 %mul15, ptr %arrayidx18, align 8, !tbaa !2
   %6 = or i64 %indvars.iv, 3
-  %arrayidx21 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %6
-  %7 = load i32, i32* %arrayidx21, align 4, !tbaa !2
+  %arrayidx21 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %6
+  %7 = load i32, ptr %arrayidx21, align 4, !tbaa !2
   %mul22 = mul nsw i32 %7, %mul
-  %arrayidx25 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %6
-  store i32 %mul22, i32* %arrayidx25, align 4, !tbaa !2
+  %arrayidx25 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %6
+  store i32 %mul22, ptr %arrayidx25, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit

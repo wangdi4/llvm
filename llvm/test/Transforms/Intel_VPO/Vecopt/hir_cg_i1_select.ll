@@ -3,7 +3,7 @@
 
 
 
-define void @foo(i1 %cond, i1 %a, i64 *%p) {
+define void @foo(i1 %cond, i1 %a, ptr %p) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -26,8 +26,8 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
   %iv.next = add nsw i64 %iv, 1
-  %gep = getelementptr i64, i64 *%p, i64 %iv
-  %ld = load i64, i64 *%gep
+  %gep = getelementptr i64, ptr %p, i64 %iv
+  %ld = load i64, ptr %gep
   %cmp = icmp eq i64 %ld, 42
   %cmp2 = icmp eq i64 %ld, 47
   ; This used to crash because %cmp/%cmp2 were tried to be processed similar to
@@ -37,7 +37,7 @@ header:
   %sel2 = select i1 %cmp, i1 %cmp, i1 %cond
   %xor = xor i1 %sel, %sel2
   %sext = sext i1 %xor to i64
-  store i64 %sext, i64 *%p
+  store i64 %sext, ptr %p
   %exitcond = icmp eq i64 %iv.next, 42
   br i1 %exitcond, label %exit, label %header
 

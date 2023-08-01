@@ -53,19 +53,19 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = shl nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %0, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %0, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 8, !tbaa !2
   %cmp1 = icmp sgt i32 %1, 5
   %cond = select i1 %cmp1, i32 3, i32 5
-  %arrayidx4 = getelementptr inbounds [50 x i32], [50 x i32]* @B, i64 0, i64 %0, !intel-tbaa !2
-  store i32 %cond, i32* %arrayidx4, align 8, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [50 x i32], ptr @B, i64 0, i64 %0, !intel-tbaa !2
+  store i32 %cond, ptr %arrayidx4, align 8, !tbaa !2
   %2 = or i64 %0, 1
-  %arrayidx7 = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %2, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %2, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !2
   %cmp8 = icmp slt i32 %3, 5
   %cond9 = select i1 %cmp8, i32 3, i32 5
-  %arrayidx13 = getelementptr inbounds [50 x i32], [50 x i32]* @B, i64 0, i64 %2, !intel-tbaa !2
-  store i32 %cond9, i32* %arrayidx13, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [50 x i32], ptr @B, i64 0, i64 %2, !intel-tbaa !2
+  store i32 %cond9, ptr %arrayidx13, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.end, label %for.body

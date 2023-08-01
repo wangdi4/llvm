@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; *** Source Code ***
 ;subroutine compute_rhs (N1,N2,N3)
@@ -26,36 +26,34 @@
 ;*** IR Dump Before HIR Loop Collapse (hir-loop-collapse) ***
 ;Function: compute_rhs_
 
-; CHECK:     BEGIN REGION { }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%"compute_rhs_$N1_fetch.1"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"compute_rhs_$N2_fetch.3"), 1   <DO_LOOP>  <MAX_TC_EST = 13>
-; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"compute_rhs_$N3_fetch.5"), 1   <DO_LOOP>  <MAX_TC_EST = 13>
-; CHECK:           |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   %add.1 = (bitcast (i8* getelementptr inbounds ([175760 x i8], [175760 x i8]* @x_, i64 0, i64 87880) to double*))[i1][i2][i3][i4]  +  (bitcast ([175760 x i8]* @x_ to double*))[i1][i2][i3][i4];
-; CHECK:           |   |   |   |   %add.2 = %add.1  +  1.000000e+00;
-; CHECK:           |   |   |   |   (bitcast ([175760 x i8]* @x_ to double*))[i1][i2][i3][i4] = %add.2;
-; CHECK:           |   |   |   + END LOOP
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:     END REGION
-
+; CHECK:         BEGIN REGION { }
+; CHECK:               + DO i1 = 0, zext.i32.i64(%"compute_rhs_$N1_fetch.1"), 1   <DO_LOOP>  <MAX_TC_EST = 175760>  <LEGAL_MAX_TC = 2147483648>
+; CHECK:               |   + DO i2 = 0, sext.i32.i64(%"compute_rhs_$N2_fetch.3"), 1   <DO_LOOP>  <MAX_TC_EST = 13>  <LEGAL_MAX_TC = 2147483648>
+; CHECK:               |   |   + DO i3 = 0, sext.i32.i64(%"compute_rhs_$N3_fetch.5"), 1   <DO_LOOP>  <MAX_TC_EST = 13>  <LEGAL_MAX_TC = 2147483648>
+; CHECK:               |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
+; CHECK:               |   |   |   |   %add.1 = (getelementptr inbounds ([175760 x i8], ptr @x_, i64 0, i64 87880))[i1][i2][i3][i4]  +  (@x_)[i1][i2][i3][i4];
+; CHECK:               |   |   |   |   %add.2 = %add.1  +  1.000000e+00;
+; CHECK:               |   |   |   |   (@x_)[i1][i2][i3][i4] = %add.2;
+; CHECK:               |   |   |   + END LOOP
+; CHECK:               |   |   + END LOOP
+; CHECK:               |   + END LOOP
+; CHECK:               + END LOOP
+; CHECK:         END REGION
 
 ;*** IR Dump After HIR Loop Collapse (hir-loop-collapse) ***
-;Function: compute_rhs_
+; CHECK: Function: compute_rhs_
 
-; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%"compute_rhs_$N1_fetch.1"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"compute_rhs_$N2_fetch.3"), 1   <DO_LOOP>  <MAX_TC_EST = 13>
-; CHECK:           |   |   + DO i3 = 0, 5 * (1 + sext.i32.i64(%"compute_rhs_$N3_fetch.5")) + -1, 1   <DO_LOOP>
-; CHECK:           |   |   |   %add.1 = (bitcast (i8* getelementptr inbounds ([175760 x i8], [175760 x i8]* @x_, i64 0, i64 87880) to double*))[i1][i2][0][i3]  +  (bitcast ([175760 x i8]* @x_ to double*))[i1][i2][0][i3];
-; CHECK:           |   |   |   %add.2 = %add.1  +  1.000000e+00;
-; CHECK:           |   |   |   (bitcast ([175760 x i8]* @x_ to double*))[i1][i2][0][i3] = %add.2;
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:     END REGION
-
+; CHECK:         BEGIN REGION { modified }
+; CHECK:               + DO i1 = 0, zext.i32.i64(%"compute_rhs_$N1_fetch.1"), 1   <DO_LOOP>  <MAX_TC_EST = 175760>  <LEGAL_MAX_TC = 2147483648>
+; CHECK:               |   + DO i2 = 0, sext.i32.i64(%"compute_rhs_$N2_fetch.3"), 1   <DO_LOOP>  <MAX_TC_EST = 13>  <LEGAL_MAX_TC = 2147483648>
+; CHECK:               |   |   + DO i3 = 0, 5 * (1 + sext.i32.i64(%"compute_rhs_$N3_fetch.5")) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 65>
+; CHECK:               |   |   |   %add.1 = (getelementptr inbounds ([175760 x i8], ptr @x_, i64 0, i64 87880))[i1][i2][0][i3]  +  (@x_)[i1][i2][0][i3];
+; CHECK:               |   |   |   %add.2 = %add.1  +  1.000000e+00;
+; CHECK:               |   |   |   (@x_)[i1][i2][0][i3] = %add.2;
+; CHECK:               |   |   + END LOOP
+; CHECK:               |   + END LOOP
+; CHECK:               + END LOOP
+; CHECK:         END REGION
 
 
 ;Module Before HIR
@@ -67,16 +65,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @x_ = common unnamed_addr global [175760 x i8] zeroinitializer, align 32
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @compute_rhs_(i32* noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N1", i32* noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N2", i32* noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N3") local_unnamed_addr #0 {
+define void @compute_rhs_(ptr noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N1", ptr noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N2", ptr noalias nocapture readonly dereferenceable(4) %"compute_rhs_$N3") local_unnamed_addr #0 {
 alloca_0:
-  %"compute_rhs_$N1_fetch.1" = load i32, i32* %"compute_rhs_$N1", align 1
+  %"compute_rhs_$N1_fetch.1" = load i32, ptr %"compute_rhs_$N1", align 1
   %rel.1 = icmp slt i32 %"compute_rhs_$N1_fetch.1", 0
   br i1 %rel.1, label %bb3, label %bb2.preheader
 
 bb2.preheader:                                    ; preds = %alloca_0
-  %"compute_rhs_$N2_fetch.3" = load i32, i32* %"compute_rhs_$N2", align 1
+  %"compute_rhs_$N2_fetch.3" = load i32, ptr %"compute_rhs_$N2", align 1
   %rel.2 = icmp slt i32 %"compute_rhs_$N2_fetch.3", 0
-  %"compute_rhs_$N3_fetch.5" = load i32, i32* %"compute_rhs_$N3", align 1
+  %"compute_rhs_$N3_fetch.5" = load i32, ptr %"compute_rhs_$N3", align 1
   %rel.3 = icmp slt i32 %"compute_rhs_$N3_fetch.5", 0
   %0 = add nuw nsw i32 %"compute_rhs_$N3_fetch.5", 1
   %1 = add nuw nsw i32 %"compute_rhs_$N2_fetch.3", 1
@@ -91,8 +89,8 @@ bb2:                                              ; preds = %bb2.preheader, %bb7
   br i1 %rel.2, label %bb7, label %bb6.preheader
 
 bb6.preheader:                                    ; preds = %bb2
-  %"val$[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* elementtype(double) bitcast (i8* getelementptr inbounds ([175760 x i8], [175760 x i8]* @x_, i64 0, i64 87880) to double*), i64 %indvars.iv46)
-  %"val$[]8" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* elementtype(double) bitcast ([175760 x i8]* @x_ to double*), i64 %indvars.iv46)
+  %"val$[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 0, i64 6760, ptr elementtype(double) getelementptr inbounds ([175760 x i8], ptr @x_, i64 0, i64 87880), i64 %indvars.iv46)
+  %"val$[]8" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 0, i64 6760, ptr elementtype(double) @x_, i64 %indvars.iv46)
   br label %bb6
 
 bb6:                                              ; preds = %bb6.preheader, %bb11
@@ -100,25 +98,25 @@ bb6:                                              ; preds = %bb6.preheader, %bb1
   br i1 %rel.3, label %bb11, label %bb10.preheader
 
 bb10.preheader:                                   ; preds = %bb6
-  %"val$[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* elementtype(double) %"val$[]", i64 %indvars.iv42)
-  %"val$[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* elementtype(double) %"val$[]8", i64 %indvars.iv42)
+  %"val$[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 520, ptr elementtype(double) %"val$[]", i64 %indvars.iv42)
+  %"val$[][]9" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 520, ptr elementtype(double) %"val$[]8", i64 %indvars.iv42)
   br label %bb10
 
 bb10:                                             ; preds = %bb10.preheader, %bb17
   %indvars.iv39 = phi i64 [ 0, %bb10.preheader ], [ %indvars.iv.next40, %bb17 ]
-  %"val$[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* elementtype(double) %"val$[][]", i64 %indvars.iv39)
-  %"val$[][][]10" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* elementtype(double) %"val$[][]9", i64 %indvars.iv39)
+  %"val$[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 40, ptr elementtype(double) %"val$[][]", i64 %indvars.iv39)
+  %"val$[][][]10" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 40, ptr elementtype(double) %"val$[][]9", i64 %indvars.iv39)
   br label %bb14
 
 bb14:                                             ; preds = %bb14, %bb10
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb14 ], [ 1, %bb10 ]
-  %"val$[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"val$[][][]", i64 %indvars.iv)
-  %"val$[][][][]_fetch.11" = load double, double* %"val$[][][][]", align 1
-  %"val$[][][][]11" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"val$[][][]10", i64 %indvars.iv)
-  %"val$[][][][]_fetch.16" = load double, double* %"val$[][][][]11", align 1
+  %"val$[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"val$[][][]", i64 %indvars.iv)
+  %"val$[][][][]_fetch.11" = load double, ptr %"val$[][][][]", align 1
+  %"val$[][][][]11" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"val$[][][]10", i64 %indvars.iv)
+  %"val$[][][][]_fetch.16" = load double, ptr %"val$[][][][]11", align 1
   %add.1 = fadd reassoc ninf nsz arcp contract afn double %"val$[][][][]_fetch.11", %"val$[][][][]_fetch.16"
   %add.2 = fadd reassoc ninf nsz arcp contract afn double %add.1, 1.000000e+00
-  store double %add.2, double* %"val$[][][][]11", align 1
+  store double %add.2, ptr %"val$[][][][]11", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 6
   br i1 %exitcond.not, label %bb17, label %bb14
@@ -152,7 +150,7 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

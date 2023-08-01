@@ -75,7 +75,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
+define i32 @foo(ptr nocapture readonly %A, i64 %N, i32 %init) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
@@ -83,8 +83,8 @@ entry:
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %sum.07 = phi i32 [ %add, %for.body ], [ %init, %entry ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N

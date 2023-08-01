@@ -37,11 +37,11 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
-  %idx = getelementptr inbounds [4 x i32], [4 x i32]* @a, i32 0, i32 %iv
-  %0 = load i32, i32* %idx, align 4
+  %idx = getelementptr inbounds [4 x i32], ptr @a, i32 0, i32 %iv
+  %0 = load i32, ptr %idx, align 4
   %add = add i32 %iv, 4
-  %idx2 = getelementptr inbounds [4 x i32], [4 x i32]* @a, i32 0, i32 %add
-  %1 = load i32, i32* %idx2, align 4
+  %idx2 = getelementptr inbounds [4 x i32], ptr @a, i32 0, i32 %add
+  %1 = load i32, ptr %idx2, align 4
   %iv.next = add nuw nsw i32 %iv, 1
   %exitcond = icmp ne i32 %iv.next, 4
   br i1 %exitcond, label %for.body, label %for.end, !llvm.loop !0

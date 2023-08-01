@@ -19,15 +19,15 @@
 ; CHECK:              %x.07 = @llvm.vector.reduce.add.v4i128(%.vec2);
 ; CHECK-NEXT:   END REGION
 ;
-define { i64, i64 } @foo(i128*  %a) {
+define { i64, i64 } @foo(ptr  %a) {
 entry:
   br label %for.body
 
 for.body:
   %x.07 = phi i128 [ 0, %entry ], [ %add, %for.body ]
   %i.06 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i128, i128* %a, i64 %i.06
-  %0 = load i128, i128* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds i128, ptr %a, i64 %i.06
+  %0 = load i128, ptr %arrayidx, align 16
   %shr = ashr i128 %0, 1
   %add = add nsw i128 %shr, %x.07
   %inc = add nuw nsw i64 %i.06, 1

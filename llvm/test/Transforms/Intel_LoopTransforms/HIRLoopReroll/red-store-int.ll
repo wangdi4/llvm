@@ -57,22 +57,22 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %S.036 = phi i32 [ 0, %entry ], [ %add21, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 8, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx2, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 8, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx2, align 8, !tbaa !2
   %add = add nsw i32 %1, %0
-  %arrayidx4 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add, i32* %arrayidx4, align 8, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add, ptr %arrayidx4, align 8, !tbaa !2
   %add7 = add nsw i32 %add, %S.036
   %2 = or i64 %indvars.iv, 1
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* @C, i64 0, i64 %2, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx10, align 4, !tbaa !2
-  %arrayidx13 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %2, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx13, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr @C, i64 0, i64 %2, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx10, align 4, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %2, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx13, align 4, !tbaa !2
   %add14 = add nsw i32 %4, %3
-  %arrayidx17 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %2, !intel-tbaa !2
-  store i32 %add14, i32* %arrayidx17, align 4, !tbaa !2
+  %arrayidx17 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %2, !intel-tbaa !2
+  store i32 %add14, ptr %arrayidx17, align 4, !tbaa !2
   %add21 = add nsw i32 %add7, %add14
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 100

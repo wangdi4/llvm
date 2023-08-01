@@ -52,18 +52,17 @@ source_filename = "mm2.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._IO_marker = type { ptr, ptr, i32 }
 
-@stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+@stderr = external dso_local local_unnamed_addr global ptr, align 8
 @.str = private unnamed_addr constant [6 x i8] c" %i  \00", align 1
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 !prof !29 {
 entry:
   %A = alloca [10 x [10 x [10 x i32]]], align 16
-  %0 = bitcast [10 x [10 x [10 x i32]]]* %A to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4000, i8* nonnull %0) #3
+  call void @llvm.lifetime.start.p0(i64 4000, ptr nonnull %A) #3
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc20, %entry
@@ -76,10 +75,10 @@ for.cond4.preheader:                              ; preds = %for.inc17, %for.con
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv53 = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next54, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* %A, i64 0, i64 %indvars.iv59, i64 %indvars.iv56, i64 %indvars.iv53, !intel-tbaa !30
-  %1 = load i32, i32* %arrayidx10, align 4, !tbaa !30
-  %add = add nsw i32 %1, 1
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !30
+  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr %A, i64 0, i64 %indvars.iv59, i64 %indvars.iv56, i64 %indvars.iv53, !intel-tbaa !30
+  %0 = load i32, ptr %arrayidx10, align 4, !tbaa !30
+  %add = add nsw i32 %0, 1
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !30
   %indvars.iv.next54 = add nuw nsw i64 %indvars.iv53, 1
   %exitcond55 = icmp eq i64 %indvars.iv.next54, 10
   br i1 %exitcond55, label %for.inc17, label %for.body6, !prof !37
@@ -95,18 +94,18 @@ for.inc20:                                        ; preds = %for.inc17
   br i1 %exitcond61, label %for.end32, label %for.cond1.preheader, !prof !39
 
 for.end32:                                        ; preds = %for.body25
-  call void @llvm.lifetime.end.p0i8(i64 4000, i8* nonnull %0) #3
+  call void @llvm.lifetime.end.p0(i64 4000, ptr nonnull %A) #3
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nounwind
-declare dso_local i32 @fprintf(%struct._IO_FILE* nocapture, i8* nocapture readonly, ...) local_unnamed_addr #2
+declare dso_local i32 @fprintf(ptr nocapture, ptr nocapture readonly, ...) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7" "target-features"="+cx16,+cx8,+fxsr,+mmx,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }

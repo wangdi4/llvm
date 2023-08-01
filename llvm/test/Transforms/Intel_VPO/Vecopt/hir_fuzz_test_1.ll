@@ -70,23 +70,23 @@ entry:
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 100, %entry ], [ %indvars.iv.next, %for.inc ]
   %no.addr.022 = phi i32 [ %no, %entry ], [ %sub, %for.inc ]
-  %arrayidx = getelementptr inbounds [200 x i32], [200 x i32]* @e2, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [200 x i32], ptr @e2, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %sub = sub i32 %no.addr.022, %0
-  %arrayidx2 = getelementptr inbounds [200 x i32], [200 x i32]* @h, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [200 x i32], ptr @h, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !1
   %2 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx7 = getelementptr inbounds [200 x [200 x i32]], [200 x [200 x i32]]* @ek, i64 0, i64 %2, i64 %idxprom3
-  %3 = load i32, i32* %arrayidx7, align 4, !tbaa !6
+  %arrayidx7 = getelementptr inbounds [200 x [200 x i32]], ptr @ek, i64 0, i64 %2, i64 %idxprom3
+  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !6
   %cmp8 = icmp eq i32 %1, %3
   br i1 %cmp8, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %4 = add nsw i64 %indvars.iv, -1
-  %arrayidx11 = getelementptr inbounds [200 x i32], [200 x i32]* @f, i64 0, i64 %4
-  %5 = load i32, i32* %arrayidx11, align 4, !tbaa !1
-  %arrayidx13 = getelementptr inbounds [200 x i32], [200 x i32]* @d, i64 0, i64 %indvars.iv
-  store i32 %5, i32* %arrayidx13, align 4, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [200 x i32], ptr @f, i64 0, i64 %4
+  %5 = load i32, ptr %arrayidx11, align 4, !tbaa !1
+  %arrayidx13 = getelementptr inbounds [200 x i32], ptr @d, i64 0, i64 %indvars.iv
+  store i32 %5, ptr %arrayidx13, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

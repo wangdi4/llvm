@@ -65,37 +65,35 @@ target triple = "x86_64-unknown-linux-gnu"
 %"struct.std::complex" = type { { float, float } }
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @foo(%"struct.std::complex"* nocapture %dest, %"struct.std::complex"* nocapture readonly %src1, %"struct.std::complex"* nocapture readonly %src2) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %dest, ptr nocapture readonly %src1, ptr nocapture readonly %src2) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %ptridx = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"* %src1, i64 %l1.010
-  %0 = bitcast %"struct.std::complex"* %ptridx to <2 x float>*
-  %1 = load <2 x float>, <2 x float>* %0, align 4
-  %_M_value.realp.i.i.i = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"* %src2, i64 %l1.010, i32 0, i32 0
-  %_M_value.real.i.i.i = load float, float* %_M_value.realp.i.i.i, align 4
-  %_M_value.imagp.i.i.i = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"* %src2, i64 %l1.010, i32 0, i32 1
-  %_M_value.imag.i.i.i = load float, float* %_M_value.imagp.i.i.i, align 4
-  %retval.sroa.0.0.vec.extract.i = extractelement <2 x float> %1, i32 0
-  %retval.sroa.0.4.vec.extract.i = extractelement <2 x float> %1, i32 1
-  %2 = fmul fast float %retval.sroa.0.0.vec.extract.i, %_M_value.real.i.i.i
-  %3 = fmul fast float %_M_value.imag.i.i.i, %retval.sroa.0.4.vec.extract.i
-  %4 = fadd fast float %3, %2
-  %5 = fmul fast float %_M_value.real.i.i.i, %_M_value.real.i.i.i
-  %6 = fmul fast float %_M_value.imag.i.i.i, %_M_value.imag.i.i.i
-  %7 = fadd fast float %6, %5
-  %8 = fmul fast float %retval.sroa.0.4.vec.extract.i, %_M_value.real.i.i.i
-  %9 = fmul fast float %_M_value.imag.i.i.i, %retval.sroa.0.0.vec.extract.i
-  %10 = fsub fast float %8, %9
-  %11 = fdiv fast float %4, %7
-  %12 = fdiv fast float %10, %7
-  %retval.sroa.0.0.vec.insert.i = insertelement <2 x float> poison, float %11, i32 0
-  %retval.sroa.0.4.vec.insert.i = insertelement <2 x float> %retval.sroa.0.0.vec.insert.i, float %12, i32 1
-  %ptridx2 = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"* %dest, i64 %l1.010
-  %ref.tmp.sroa.0.0..sroa_cast3 = bitcast %"struct.std::complex"* %ptridx2 to <2 x float>*
-  store <2 x float> %retval.sroa.0.4.vec.insert.i, <2 x float>* %ref.tmp.sroa.0.0..sroa_cast3, align 4
+  %ptridx = getelementptr inbounds %"struct.std::complex", ptr %src1, i64 %l1.010
+  %0 = load <2 x float>, ptr %ptridx, align 4
+  %_M_value.realp.i.i.i = getelementptr inbounds %"struct.std::complex", ptr %src2, i64 %l1.010, i32 0, i32 0
+  %_M_value.real.i.i.i = load float, ptr %_M_value.realp.i.i.i, align 4
+  %_M_value.imagp.i.i.i = getelementptr inbounds %"struct.std::complex", ptr %src2, i64 %l1.010, i32 0, i32 1
+  %_M_value.imag.i.i.i = load float, ptr %_M_value.imagp.i.i.i, align 4
+  %retval.sroa.0.0.vec.extract.i = extractelement <2 x float> %0, i32 0
+  %retval.sroa.0.4.vec.extract.i = extractelement <2 x float> %0, i32 1
+  %1 = fmul fast float %retval.sroa.0.0.vec.extract.i, %_M_value.real.i.i.i
+  %2 = fmul fast float %_M_value.imag.i.i.i, %retval.sroa.0.4.vec.extract.i
+  %3 = fadd fast float %2, %1
+  %4 = fmul fast float %_M_value.real.i.i.i, %_M_value.real.i.i.i
+  %5 = fmul fast float %_M_value.imag.i.i.i, %_M_value.imag.i.i.i
+  %6 = fadd fast float %5, %4
+  %7 = fmul fast float %retval.sroa.0.4.vec.extract.i, %_M_value.real.i.i.i
+  %8 = fmul fast float %_M_value.imag.i.i.i, %retval.sroa.0.0.vec.extract.i
+  %9 = fsub fast float %7, %8
+  %10 = fdiv fast float %3, %6
+  %11 = fdiv fast float %9, %6
+  %retval.sroa.0.0.vec.insert.i = insertelement <2 x float> poison, float %10, i32 0
+  %retval.sroa.0.4.vec.insert.i = insertelement <2 x float> %retval.sroa.0.0.vec.insert.i, float %11, i32 1
+  %ptridx2 = getelementptr inbounds %"struct.std::complex", ptr %dest, i64 %l1.010
+  store <2 x float> %retval.sroa.0.4.vec.insert.i, ptr %ptridx2, align 4
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !6

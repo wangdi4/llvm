@@ -36,16 +36,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind
-define void @interp_(double* noalias nocapture %"interp_$ARR", i32* noalias nocapture readonly %"interp_$M", i32* noalias nocapture readonly %"interp_$N") local_unnamed_addr {
+define void @interp_(ptr noalias nocapture %"interp_$ARR", ptr noalias nocapture readonly %"interp_$M", ptr noalias nocapture readonly %"interp_$N") local_unnamed_addr {
 alloca:
-  %"interp_$M_fetch" = load i32, i32* %"interp_$M", align 4
+  %"interp_$M_fetch" = load i32, ptr %"interp_$M", align 4
   %int_sext = sext i32 %"interp_$M_fetch" to i64
   %mul = shl nsw i64 %int_sext, 3
   %rel = icmp slt i32 %"interp_$M_fetch", 0
   br i1 %rel, label %bb3, label %bb7.preheader
 
 bb7.preheader:                                    ; preds = %alloca
-  %"interp_$N_fetch4" = load i32, i32* %"interp_$N", align 4
+  %"interp_$N_fetch4" = load i32, ptr %"interp_$N", align 4
   %rel6 = icmp slt i32 %"interp_$N_fetch4", 0
   %0 = add i32 %"interp_$N_fetch4", 1
   %1 = add nuw i32 %"interp_$M_fetch", 1
@@ -63,9 +63,9 @@ bb11.preheader:                                   ; preds = %bb7
 bb11:                                             ; preds = %bb11.preheader, %bb11
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb11 ], [ 0, %bb11.preheader ]
   %red.phi = phi double [ 0.000000e+00, %bb11.preheader ], [ %red.add, %bb11 ]
-  %"interp_$ARR[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %mul, double* elementtype(double) %"interp_$ARR", i64 %indvars.iv)
-  %"interp_$ARR[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) %"interp_$ARR[]", i64 %indvars.iv39)
-  %2 = load double, double* %"interp_$ARR[][]", align 8
+  %"interp_$ARR[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 %mul, ptr elementtype(double) %"interp_$ARR", i64 %indvars.iv)
+  %"interp_$ARR[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(double) %"interp_$ARR[]", i64 %indvars.iv39)
+  %2 = load double, ptr %"interp_$ARR[][]", align 8
   %red.add = fadd fast double %red.phi, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -86,5 +86,5 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
   ret void
 }
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 

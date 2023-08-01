@@ -108,86 +108,86 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common dso_local global [16000 x i8] zeroinitializer, align 16
 
-define dso_local i32 @foo(i32* %a, i32* %b, i32* %c, i32* %d, i32* %e, i32* %f, i32* %g, i32* %h, i32* %i, i32* %j, i32* %k, i32* %l, i32* %m, i32* %n, i32* %o, i32* %p, i32* %q, i32* %r, i32* %s) #0 {
+define dso_local i32 @foo(ptr %a, ptr %b, ptr %c, ptr %d, ptr %e, ptr %f, ptr %g, ptr %h, ptr %i, ptr %j, ptr %k, ptr %l, ptr %m, ptr %n, ptr %o, ptr %p, ptr %q, ptr %r, ptr %s) #0 {
 entry:
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i, %entry
   %indvars.iv.i = phi i64 [ 0, %entry ], [ %indvars.iv.next.i, %for.body.i ]
-  %arrayidx.i = getelementptr inbounds i32, i32* %s, i64 %indvars.iv.i
-  %t19 = load i32, i32* %arrayidx.i, align 4
-  %arrayidx2.i = getelementptr inbounds i32, i32* %r, i64 %indvars.iv.i
-  %t20 = load i32, i32* %arrayidx2.i, align 4
+  %arrayidx.i = getelementptr inbounds i32, ptr %s, i64 %indvars.iv.i
+  %t19 = load i32, ptr %arrayidx.i, align 4
+  %arrayidx2.i = getelementptr inbounds i32, ptr %r, i64 %indvars.iv.i
+  %t20 = load i32, ptr %arrayidx2.i, align 4
   %add.i = add nsw i32 %t20, %t19
-  store i32 %add.i, i32* %arrayidx2.i, align 4
-  %arrayidx4.i = getelementptr inbounds i32, i32* %q, i64 %indvars.iv.i
-  %t21 = load i32, i32* %arrayidx4.i, align 4
+  store i32 %add.i, ptr %arrayidx2.i, align 4
+  %arrayidx4.i = getelementptr inbounds i32, ptr %q, i64 %indvars.iv.i
+  %t21 = load i32, ptr %arrayidx4.i, align 4
   %add5.i = add nsw i32 %t21, %add.i
-  store i32 %add5.i, i32* %arrayidx4.i, align 4
-  %arrayidx7.i = getelementptr inbounds i32, i32* %p, i64 %indvars.iv.i
-  %t22 = load i32, i32* %arrayidx7.i, align 4
+  store i32 %add5.i, ptr %arrayidx4.i, align 4
+  %arrayidx7.i = getelementptr inbounds i32, ptr %p, i64 %indvars.iv.i
+  %t22 = load i32, ptr %arrayidx7.i, align 4
   %add8.i = add nsw i32 %t22, %add5.i
-  store i32 %add8.i, i32* %arrayidx7.i, align 4
-  %arrayidx10.i = getelementptr inbounds i32, i32* %o, i64 %indvars.iv.i
-  %t23 = load i32, i32* %arrayidx10.i, align 4
+  store i32 %add8.i, ptr %arrayidx7.i, align 4
+  %arrayidx10.i = getelementptr inbounds i32, ptr %o, i64 %indvars.iv.i
+  %t23 = load i32, ptr %arrayidx10.i, align 4
   %add11.i = add nsw i32 %t23, %add8.i
-  store i32 %add11.i, i32* %arrayidx10.i, align 4
-  %arrayidx13.i = getelementptr inbounds i32, i32* %n, i64 %indvars.iv.i
-  %t24 = load i32, i32* %arrayidx13.i, align 4
+  store i32 %add11.i, ptr %arrayidx10.i, align 4
+  %arrayidx13.i = getelementptr inbounds i32, ptr %n, i64 %indvars.iv.i
+  %t24 = load i32, ptr %arrayidx13.i, align 4
   %add14.i = add nsw i32 %t24, %add11.i
-  store i32 %add14.i, i32* %arrayidx13.i, align 4
-  %arrayidx16.i = getelementptr inbounds i32, i32* %m, i64 %indvars.iv.i
-  %t25 = load i32, i32* %arrayidx16.i, align 4
+  store i32 %add14.i, ptr %arrayidx13.i, align 4
+  %arrayidx16.i = getelementptr inbounds i32, ptr %m, i64 %indvars.iv.i
+  %t25 = load i32, ptr %arrayidx16.i, align 4
   %add17.i = add nsw i32 %t25, %add14.i
-  store i32 %add17.i, i32* %arrayidx16.i, align 4
-  %arrayidx19.i = getelementptr inbounds i32, i32* %l, i64 %indvars.iv.i
-  %t26 = load i32, i32* %arrayidx19.i, align 4
+  store i32 %add17.i, ptr %arrayidx16.i, align 4
+  %arrayidx19.i = getelementptr inbounds i32, ptr %l, i64 %indvars.iv.i
+  %t26 = load i32, ptr %arrayidx19.i, align 4
   %add20.i = add nsw i32 %t26, %add17.i
-  store i32 %add20.i, i32* %arrayidx19.i, align 4
-  %arrayidx22.i = getelementptr inbounds i32, i32* %k, i64 %indvars.iv.i
-  %t27 = load i32, i32* %arrayidx22.i, align 4
+  store i32 %add20.i, ptr %arrayidx19.i, align 4
+  %arrayidx22.i = getelementptr inbounds i32, ptr %k, i64 %indvars.iv.i
+  %t27 = load i32, ptr %arrayidx22.i, align 4
   %add23.i = add nsw i32 %t27, %add20.i
-  store i32 %add23.i, i32* %arrayidx22.i, align 4
-  %arrayidx25.i = getelementptr inbounds i32, i32* %j, i64 %indvars.iv.i
-  %t28 = load i32, i32* %arrayidx25.i, align 4
+  store i32 %add23.i, ptr %arrayidx22.i, align 4
+  %arrayidx25.i = getelementptr inbounds i32, ptr %j, i64 %indvars.iv.i
+  %t28 = load i32, ptr %arrayidx25.i, align 4
   %add26.i = add nsw i32 %t28, %add23.i
-  store i32 %add26.i, i32* %arrayidx25.i, align 4
-  %arrayidx28.i = getelementptr inbounds i32, i32* %i, i64 %indvars.iv.i
-  %t29 = load i32, i32* %arrayidx28.i, align 4
+  store i32 %add26.i, ptr %arrayidx25.i, align 4
+  %arrayidx28.i = getelementptr inbounds i32, ptr %i, i64 %indvars.iv.i
+  %t29 = load i32, ptr %arrayidx28.i, align 4
   %add29.i = add nsw i32 %t29, %add26.i
-  store i32 %add29.i, i32* %arrayidx28.i, align 4
-  %arrayidx31.i = getelementptr inbounds i32, i32* %h, i64 %indvars.iv.i
-  %t30 = load i32, i32* %arrayidx31.i, align 4
+  store i32 %add29.i, ptr %arrayidx28.i, align 4
+  %arrayidx31.i = getelementptr inbounds i32, ptr %h, i64 %indvars.iv.i
+  %t30 = load i32, ptr %arrayidx31.i, align 4
   %add32.i = add nsw i32 %t30, %add29.i
-  store i32 %add32.i, i32* %arrayidx31.i, align 4
-  %arrayidx34.i = getelementptr inbounds i32, i32* %g, i64 %indvars.iv.i
-  %t31 = load i32, i32* %arrayidx34.i, align 4
+  store i32 %add32.i, ptr %arrayidx31.i, align 4
+  %arrayidx34.i = getelementptr inbounds i32, ptr %g, i64 %indvars.iv.i
+  %t31 = load i32, ptr %arrayidx34.i, align 4
   %add35.i = add nsw i32 %t31, %add32.i
-  store i32 %add35.i, i32* %arrayidx34.i, align 4
-  %arrayidx37.i = getelementptr inbounds i32, i32* %f, i64 %indvars.iv.i
-  %t32 = load i32, i32* %arrayidx37.i, align 4
+  store i32 %add35.i, ptr %arrayidx34.i, align 4
+  %arrayidx37.i = getelementptr inbounds i32, ptr %f, i64 %indvars.iv.i
+  %t32 = load i32, ptr %arrayidx37.i, align 4
   %add38.i = add nsw i32 %t32, %add35.i
-  store i32 %add38.i, i32* %arrayidx37.i, align 4
-  %arrayidx40.i = getelementptr inbounds i32, i32* %e, i64 %indvars.iv.i
-  %t33 = load i32, i32* %arrayidx40.i, align 4
+  store i32 %add38.i, ptr %arrayidx37.i, align 4
+  %arrayidx40.i = getelementptr inbounds i32, ptr %e, i64 %indvars.iv.i
+  %t33 = load i32, ptr %arrayidx40.i, align 4
   %add41.i = add nsw i32 %t33, %add38.i
-  store i32 %add41.i, i32* %arrayidx40.i, align 4
-  %arrayidx43.i = getelementptr inbounds i32, i32* %d, i64 %indvars.iv.i
-  %t34 = load i32, i32* %arrayidx43.i, align 4
+  store i32 %add41.i, ptr %arrayidx40.i, align 4
+  %arrayidx43.i = getelementptr inbounds i32, ptr %d, i64 %indvars.iv.i
+  %t34 = load i32, ptr %arrayidx43.i, align 4
   %add44.i = add nsw i32 %t34, %add41.i
-  store i32 %add44.i, i32* %arrayidx43.i, align 4
-  %arrayidx46.i = getelementptr inbounds i32, i32* %c, i64 %indvars.iv.i
-  %t35 = load i32, i32* %arrayidx46.i, align 4
+  store i32 %add44.i, ptr %arrayidx43.i, align 4
+  %arrayidx46.i = getelementptr inbounds i32, ptr %c, i64 %indvars.iv.i
+  %t35 = load i32, ptr %arrayidx46.i, align 4
   %add47.i = add nsw i32 %t35, %add44.i
-  store i32 %add47.i, i32* %arrayidx46.i, align 4
-  %arrayidx49.i = getelementptr inbounds i32, i32* %b, i64 %indvars.iv.i
-  %t36 = load i32, i32* %arrayidx49.i, align 4
+  store i32 %add47.i, ptr %arrayidx46.i, align 4
+  %arrayidx49.i = getelementptr inbounds i32, ptr %b, i64 %indvars.iv.i
+  %t36 = load i32, ptr %arrayidx49.i, align 4
   %add50.i = add nsw i32 %t36, %add47.i
-  store i32 %add50.i, i32* %arrayidx49.i, align 4
-  %arrayidx52.i = getelementptr inbounds i32, i32* %a, i64 %indvars.iv.i
-  %t37 = load i32, i32* %arrayidx52.i, align 4
+  store i32 %add50.i, ptr %arrayidx49.i, align 4
+  %arrayidx52.i = getelementptr inbounds i32, ptr %a, i64 %indvars.iv.i
+  %t37 = load i32, ptr %arrayidx52.i, align 4
   %add53.i = add nsw i32 %t37, %add50.i
-  store i32 %add53.i, i32* %arrayidx52.i, align 4
+  store i32 %add53.i, ptr %arrayidx52.i, align 4
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
   %exitcond.i = icmp eq i64 %indvars.iv.next.i, 100
   br i1 %exitcond.i, label %foo.exit, label %for.body.i

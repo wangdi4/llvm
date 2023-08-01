@@ -35,7 +35,7 @@
 ; CHECK:       DO i3 {{.*}} <nounroll> <novectorize>
 
 
-define void @foo(float* %ptr1, float* %ptr2, float* %ptr3, i64 %t72) {
+define void @foo(ptr %ptr1, ptr %ptr2, ptr %ptr3, i64 %t72) {
 entry:
   br label %outer.loop
 
@@ -47,23 +47,23 @@ outer.loop:                                               ; preds = %outer.latch
 middle.loop:                                               ; preds = %middle.latch, %outer.loop
   %t94 = phi i64 [ 0, %outer.loop ], [ %t77, %middle.latch ]
   %t95 = add nuw nsw i64 %t94, %t75
-  %t96 = getelementptr inbounds float, float* %ptr3, i64 %t95
-  %t97 = load float, float* %t96, align 4
+  %t96 = getelementptr inbounds float, ptr %ptr3, i64 %t95
+  %t97 = load float, ptr %t96, align 4
   br label %inner.loop
 
 inner.loop:                                               ; preds = %middle.loop, %inner.loop
   %t80 = phi float [ %t97, %middle.loop ], [ %t90, %inner.loop ]
   %t81 = phi i64 [ 0, %middle.loop ], [ %t91, %inner.loop ]
   %t82 = add nuw nsw i64 %t81, %t75
-  %t83 = getelementptr inbounds float, float* %ptr1, i64 %t82
-  %t84 = load float, float* %t83, align 4
+  %t83 = getelementptr inbounds float, ptr %ptr1, i64 %t82
+  %t84 = load float, ptr %t83, align 4
   %t85 = mul nuw nsw i64 %t81, %t72
   %t86 = add nuw nsw i64 %t85, %t94
-  %t87 = getelementptr inbounds float, float* %ptr2, i64 %t86
-  %t88 = load float, float* %t87, align 4
+  %t87 = getelementptr inbounds float, ptr %ptr2, i64 %t86
+  %t88 = load float, ptr %t87, align 4
   %t89 = fmul fast float %t88, %t84
   %t90 = fsub fast float %t80, %t89
-  store float %t90, float* %t96, align 4
+  store float %t90, ptr %t96, align 4
   %t91 = add nuw nsw i64 %t81, 1
   %t92 = icmp eq i64 %t91, %t72
   br i1 %t92, label %middle.latch, label %inner.loop

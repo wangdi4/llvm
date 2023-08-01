@@ -3,7 +3,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i8* %p1, i8* %p2, i1* %p3) {
+define void @foo(ptr %p1, ptr %p2, ptr %p3) {
 ; CHECK-LABEL:  BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 1023, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i8>*)([[P10:%.*]])[i1]
@@ -26,15 +26,15 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx1 = getelementptr inbounds i8, i8* %p1, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx1, align 1
-  %arrayidx2 = getelementptr inbounds i8, i8* %p2, i64 %indvars.iv
-  %1 = load i8, i8* %arrayidx2, align 1
+  %arrayidx1 = getelementptr inbounds i8, ptr %p1, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx1, align 1
+  %arrayidx2 = getelementptr inbounds i8, ptr %p2, i64 %indvars.iv
+  %1 = load i8, ptr %arrayidx2, align 1
   %cmp1 = icmp eq i8 %0, 0
   %cmp2 = icmp eq i8 %1, 0
   %or.cond = select i1 %cmp1, i1 true, i1 %cmp2
-  %arrayidx3 = getelementptr inbounds i1, i1* %p3, i64 %indvars.iv
-  store i1 %or.cond, i1* %arrayidx3, align 1
+  %arrayidx3 = getelementptr inbounds i1, ptr %p3, i64 %indvars.iv
+  store i1 %or.cond, ptr %arrayidx3, align 1
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024

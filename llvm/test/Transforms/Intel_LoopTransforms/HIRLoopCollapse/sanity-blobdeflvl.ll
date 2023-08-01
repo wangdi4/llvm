@@ -65,8 +65,8 @@ for.cond4.preheader:                              ; preds = %for.inc11, %for.con
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %sum.232 = phi i32 [ %sum.135, %for.cond4.preheader ], [ %add, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @A, i64 0, i64 %indvars.iv45, i64 %indvars.iv42, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @A, i64 0, i64 %indvars.iv45, i64 %indvars.iv42, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx10, align 4, !tbaa !2
   %add = add nsw i32 %0, %sum.232
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
@@ -95,7 +95,7 @@ for.end16.loopexit:                               ; preds = %for.end13
 
 for.end16:                                        ; preds = %for.end16.loopexit, %entry
   %sum.0.lcssa = phi i32 [ 0, %entry ], [ %sum.1.lcssa.lcssa, %for.end16.loopexit ]
-  %1 = load i32, i32* getelementptr inbounds ([10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @A, i64 0, i64 0, i64 0, i64 0), align 16, !tbaa !2
+  %1 = load i32, ptr @A, align 16, !tbaa !2
   %add17 = add i32 %sum.0.lcssa, 1
   %add18 = add i32 %add17, %1
   ret i32 %add18

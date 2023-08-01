@@ -16,8 +16,8 @@
 
 ; CHECK: Group 0 contains
 ; CHECK: (%p)[0]
-; CHECK: (%p)[0].0
 ; CHECK: (%p)[0].1.0[1]
+; CHECK: (%p)[0]
 ; CHECK: Group 1 contains
 ; CHECK: (%q)[i1]
 
@@ -55,8 +55,7 @@ for.body:                                         ; preds = %for.body, %for.body
   %a = load i64, ptr %p, align 8
   %arrayidx.i = getelementptr inbounds %struct.T, ptr %p, i64 0, i32 1, i32 0, i64 1
   %b = load i64, ptr %arrayidx.i, align 8
-  %arrayidx.i.i = getelementptr inbounds %struct.T, ptr %p, i64 0, i32 0
-  %c = load i64, ptr %arrayidx.i.i, align 8
+  %c = load i64, ptr %p, align 8
   %tmp.b = add nuw nsw i64 %c, %a
   %res   =sub i64 %b, %tmp.b
   store i64 %res, ptr %storeaddr

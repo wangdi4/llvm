@@ -33,7 +33,7 @@
 @larr = global [100 x i64] zeroinitializer, align 16
 @larr2 = global [100 x [100 x i64]] zeroinitializer, align 16
 
-define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
+define void @foo(ptr nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];
@@ -49,16 +49,16 @@ omp.inner.for.body.lr.ph:
 
 omp.inner.for.body:                               ; preds = %if.end, %omp.inner.for.body.lr.ph
   %.omp.iv.local.010 = phi i64 [ 0, %omp.inner.for.body.lr.ph ], [ %add4, %if.end ]
-  %1 = load i64, i64* %unif, align 8
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @larr, i64 0, i64 %.omp.iv.local.010
-  %2 = load i64, i64* %arrayidx, align 8
+  %1 = load i64, ptr %unif, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @larr, i64 0, i64 %.omp.iv.local.010
+  %2 = load i64, ptr %arrayidx, align 8
   %tobool = icmp eq i64 %2, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
   %mul1 = mul nsw i64 %1, %n2
-  %arrayidx3 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @larr2, i64 0, i64 %mul1, i64 %.omp.iv.local.010
-  store i64 %.omp.iv.local.010, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds [100 x [100 x i64]], ptr @larr2, i64 0, i64 %mul1, i64 %.omp.iv.local.010
+  store i64 %.omp.iv.local.010, ptr %arrayidx3, align 8
   br label %if.end
 
 if.end:                                           ; preds = %omp.inner.for.body, %if.then

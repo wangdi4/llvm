@@ -13,7 +13,7 @@
 ;      }
 ;    END LOOP
 ;
-define void @foo(i1 %uni, i64* nocapture readonly %arr) {
+define void @foo(i1 %uni, ptr nocapture readonly %arr) {
 ; CHECK:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:   |   %.vec = (<4 x i64>*)(%arr)[i1];
 ; CHECK-NEXT:   |   %.vec1 = i1 + <i64 0, i64 1, i64 2, i64 3> > %.vec;
@@ -30,8 +30,8 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %l1.09
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %l1.09
+  %0 = load i64, ptr %arrayidx, align 8
   %cmp1 = icmp sgt i64 %l1.09, %0
   br i1 %cmp1, label %if.then, label %for.inc
 

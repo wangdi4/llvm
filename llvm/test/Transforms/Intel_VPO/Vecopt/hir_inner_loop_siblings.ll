@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @larr2 = dso_local local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readnone %lpp) local_unnamed_addr #0 {
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:  |   %phi.temp = 0;
 ; CHECK-NEXT:  |
@@ -52,8 +52,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc14
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %l2.032 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nuw nsw i64 %l2.032, %l1.034
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @larr1, i64 0, i64 %l1.034, i64 %l2.032
-  store i64 %add, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @larr1, i64 0, i64 %l1.034, i64 %l2.032
+  store i64 %add, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %l2.032, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.body7.preheader, label %for.body3
@@ -64,8 +64,8 @@ for.body7.preheader:                              ; preds = %for.body3
 for.body7:                                        ; preds = %for.body7.preheader, %for.body7
   %l2.133 = phi i64 [ %inc12, %for.body7 ], [ 0, %for.body7.preheader ]
   %add8 = add nuw nsw i64 %l2.133, %l1.034
-  %arrayidx10 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @larr2, i64 0, i64 %l1.034, i64 %l2.133
-  store i64 %add8, i64* %arrayidx10, align 8
+  %arrayidx10 = getelementptr inbounds [100 x [100 x i64]], ptr @larr2, i64 0, i64 %l1.034, i64 %l2.133
+  store i64 %add8, ptr %arrayidx10, align 8
   %inc12 = add nuw nsw i64 %l2.133, 1
   %exitcond35.not = icmp eq i64 %inc12, 100
   br i1 %exitcond35.not, label %for.inc14, label %for.body7

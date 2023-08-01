@@ -50,26 +50,26 @@
 ; CHECK-NEXT:                + END LOOP
 ; CHECK-NEXT:           END REGION
 ;
-define void @safelen_3(i64* noalias %lp1, i64* noalias writeonly %lp2, i64* noalias %lp3) {
+define void @safelen_3(ptr noalias %lp1, ptr noalias writeonly %lp2, ptr noalias %lp3) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.018 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp1, i64 %l1.018
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp1, i64 %l1.018
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add nsw i64 %0, 1
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   %add1 = add nuw nsw i64 %l1.018, 9
-  %arrayidx2 = getelementptr inbounds i64, i64* %lp1, i64 %add1
-  store i64 %l1.018, i64* %arrayidx2, align 8
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp3, i64 %l1.018
-  %1 = load i64, i64* %arrayidx3, align 8
-  %arrayidx4 = getelementptr inbounds i64, i64* %lp2, i64 %l1.018
-  store i64 %1, i64* %arrayidx4, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %lp1, i64 %add1
+  store i64 %l1.018, ptr %arrayidx2, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp3, i64 %l1.018
+  %1 = load i64, ptr %arrayidx3, align 8
+  %arrayidx4 = getelementptr inbounds i64, ptr %lp2, i64 %l1.018
+  store i64 %1, ptr %arrayidx4, align 8
   %add5 = add nuw nsw i64 %l1.018, 3
-  %arrayidx6 = getelementptr inbounds i64, i64* %lp3, i64 %add5
-  store i64 %l1.018, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds i64, ptr %lp3, i64 %add5
+  store i64 %l1.018, ptr %arrayidx6, align 8
   %inc = add nuw nsw i64 %l1.018, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

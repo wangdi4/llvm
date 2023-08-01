@@ -27,7 +27,7 @@ define void @foo() {
 ; CHECK:       END REGION
 ;
 entry:
-  %0 = load i32*, i32** undef
+  %0 = load ptr, ptr undef
   br label %for.body.preheader
 
 for.body.preheader:
@@ -38,8 +38,8 @@ for.body:
   %retval.sroa.2.0.copyload.sroa.speculate.load.false = phi i64 [ %retval.sroa.2.0.copyload.sroa.speculated, %for.body ], [ -1, %for.body.preheader ]
   %1 = phi i32 [ %retval.sroa.0.0.copyload.sroa.speculated, %for.body ], [ 7, %for.body.preheader ]
   %storemerge7 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %0, i64 %storemerge7
-  %2 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds i32, ptr %0, i64 %storemerge7
+  %2 = load i32, ptr %arrayidx
   %cmp = icmp sgt i32 %1, %2
   %retval.sroa.0.0.copyload.sroa.speculated = select i1 %cmp, i32 %2, i32 %1
   %retval.sroa.2.0.copyload.sroa.speculated = select i1 %cmp, i64 %storemerge7, i64 %retval.sroa.2.0.copyload.sroa.speculate.load.false

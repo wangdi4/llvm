@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common dso_local global [100 x i32] zeroinitializer, align 16
 
-define dso_local void @foo(i32* nocapture %p, i32* nocapture readonly %q, i32 %n) {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture readonly %q, i32 %n) {
 entry:
   %cmp7 = icmp sgt i32 %n, 0
   br i1 %cmp7, label %for.body.preheader, label %for.cond.cleanup
@@ -62,11 +62,11 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 1
-  %arrayidx2 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count9
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
@@ -74,8 +74,8 @@ for.body:                                         ; preds = %for.body, %for.body
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @main() {
 entry:
-  tail call void @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 10), i32 2)
-  tail call void @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 10), i32 11)
+  tail call void @foo(ptr @A, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 10), i32 2)
+  tail call void @foo(ptr @A, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 10), i32 11)
   ret i32 0
 }
 

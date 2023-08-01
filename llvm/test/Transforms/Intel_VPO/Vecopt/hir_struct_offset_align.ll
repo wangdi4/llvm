@@ -16,14 +16,14 @@
 
 %struct.S1 = type { i64 }
 
-define void @baz(%struct.S1* %sp) {
+define void @baz(ptr %sp) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %a1 = getelementptr inbounds %struct.S1, %struct.S1* %sp, i64 %l1.05, i32 0
-  store i64 %l1.05, i64* %a1, align 8
+  %a1 = getelementptr inbounds %struct.S1, ptr %sp, i64 %l1.05, i32 0
+  store i64 %l1.05, ptr %a1, align 8
   %inc = add nuw nsw i64 %l1.05, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

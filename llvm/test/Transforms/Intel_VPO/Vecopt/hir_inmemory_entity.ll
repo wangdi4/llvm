@@ -2,7 +2,7 @@
 ;
 ; RUN: opt -passes="hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-define dso_local i64 @foo(i64* %arr) {
+define dso_local i64 @foo(ptr %arr) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[PRIV_MEM_BC0:%.*]] = &((i64*)([[PRIV_MEM0:%.*]])[0])
@@ -24,30 +24,30 @@ define dso_local i64 @foo(i64* %arr) {
 ;
 entry:
   %ret = alloca i64, align 8
-  store i64 0, i64* %ret, align 8
+  store i64 0, ptr %ret, align 8
   br label %preheader
 
 preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(i64* %ret, i64 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %ret, i64 0, i32 1) ]
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %i.04 = phi i64 [ 0, %preheader ], [ %inc, %for.body ]
-  %ptridx = getelementptr inbounds i64, i64* %arr, i64 %i.04
-  %val = load i64, i64* %ptridx, align 8
-  %retval = load i64, i64* %ret, align 8
+  %ptridx = getelementptr inbounds i64, ptr %arr, i64 %i.04
+  %val = load i64, ptr %ptridx, align 8
+  %retval = load i64, ptr %ret, align 8
   %add = add nsw i64 %retval, %val
-  store i64 %add, i64* %ret, align 8
+  store i64 %add, ptr %ret, align 8
   %inc = add nuw nsw i64 %i.04, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
-  %0 = load i64, i64* %ret, align 8
+  %0 = load i64, ptr %ret, align 8
   ret i64 %0
 }
 
-declare dso_local i64 @baz(i64*)
+declare dso_local i64 @baz(ptr)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)

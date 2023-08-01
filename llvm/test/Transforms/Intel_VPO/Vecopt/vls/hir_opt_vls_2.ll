@@ -48,18 +48,18 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = mul nuw nsw i64 %indvars.iv, 3
   %1 = add nuw nsw i64 %0, 2
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %1
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %1
   %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %0
+  store i32 %2, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %0
   %3 = trunc i64 %indvars.iv to i32
   %4 = add i32 %3, 2
-  store i32 %4, i32* %arrayidx4, align 4, !tbaa !2
+  store i32 %4, ptr %arrayidx4, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %5 = add nuw nsw i64 %0, 1
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %5
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %5
   %6 = trunc i64 %indvars.iv.next to i32
-  store i32 %6, i32* %arrayidx9, align 4, !tbaa !2
+  store i32 %6, ptr %arrayidx9, align 4, !tbaa !2
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body
 

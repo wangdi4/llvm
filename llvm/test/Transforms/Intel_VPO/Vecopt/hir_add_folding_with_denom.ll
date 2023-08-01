@@ -21,7 +21,7 @@
 ; CHECK-NEXT:      |   (<4 x i64>*)(%lp)[i1] = %.vec;
 ; CHECK-NEXT:      + END LOOP
 ;
-define void @foo(i64* %lp, i64 %n1) {
+define void @foo(ptr %lp, i64 %n1) {
 entry:
   br label %for.body
 
@@ -30,8 +30,8 @@ for.body:                                         ; preds = %entry, %for.body
   %add = add nsw i64 %l1.08, %n1
   %div1 = sdiv i64 %add, 2
   %add2 = add nsw i64 %div1, 1
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.08
-  store i64 %add2, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.08
+  store i64 %add2, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

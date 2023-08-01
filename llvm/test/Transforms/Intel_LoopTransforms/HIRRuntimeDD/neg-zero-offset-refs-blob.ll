@@ -14,7 +14,7 @@
 ; END REGION
 
 ; CHECK:  Group 0 contains (2) refs:
-; CHECK:  (%p)[0].0
+; CHECK:  (%p)[0]
 ; CHECK:  (%p)[%n + -2].0
 ; CHECK:  Group 1 contains (1) refs:
 ; CHECK:  (%q)[i1]
@@ -49,8 +49,7 @@ for.body:                                         ; preds = %for.body, %for.body
   %storeaddr = phi ptr [%q, %for.body.lr.ph], [%storeaddr.next, %for.body]
   %n_1 = sub nuw nsw i64 %n, 2
   %arrayidx.i = getelementptr inbounds %struct.T, ptr %p, i64 %n_1, i32 0
-  %idx.zero = getelementptr inbounds %struct.T, ptr %p, i64 0, i32 0
-  %a = load i64, ptr %idx.zero, align 8
+  %a = load i64, ptr %p, align 8
   %b = load i64, ptr %arrayidx.i, align 8
   %tmp.b = add nuw nsw i64 %b, %a
   store i64 %tmp.b, ptr %storeaddr

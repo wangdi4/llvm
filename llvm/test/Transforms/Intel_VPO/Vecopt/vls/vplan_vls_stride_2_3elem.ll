@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:      |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 4, i32 6, i32 8>;
 ; CHECK-NEXT:      + END LOOP
 ;
-define void @foo(i64* %lp) {
+define void @foo(ptr %lp) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
@@ -29,14 +29,14 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = shl nuw nsw i64 %l1.013, 1
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %mul
-  %ld0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %mul
+  %ld0 = load i64, ptr %arrayidx, align 8
   %add = add nuw nsw i64 %mul, 1
-  %arrayidx2 = getelementptr inbounds i64, i64* %lp, i64 %add
-  %ld1 = load i64, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %lp, i64 %add
+  %ld1 = load i64, ptr %arrayidx2, align 8
   %add2 = add nuw nsw i64 %mul, 2
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp, i64 %add2
-  %ld2 = load i64, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp, i64 %add2
+  %ld2 = load i64, ptr %arrayidx3, align 8
   %inc = add nuw nsw i64 %l1.013, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -61,7 +61,7 @@ for.end:                                          ; preds = %for.body
 ; CHECK-NEXT:      |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 4, i32 6, i32 8>;
 ; CHECK-NEXT:      + END LOOP
 ;
-define void @foo1(i64* %lp) {
+define void @foo1(ptr %lp) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
@@ -69,14 +69,14 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = shl nuw nsw i64 %l1.013, 1
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %mul
-  %ld0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %mul
+  %ld0 = load i64, ptr %arrayidx, align 8
   %add2 = add nuw nsw i64 %mul, 2
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp, i64 %add2
-  %ld2 = load i64, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp, i64 %add2
+  %ld2 = load i64, ptr %arrayidx3, align 8
   %add = add nuw nsw i64 %mul, 1
-  %arrayidx2 = getelementptr inbounds i64, i64* %lp, i64 %add
-  %ld1 = load i64, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %lp, i64 %add
+  %ld1 = load i64, ptr %arrayidx2, align 8
   %inc = add nuw nsw i64 %l1.013, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -101,7 +101,7 @@ for.end:                                          ; preds = %for.body
 ; CHECK-NEXT:      |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 4, i32 6, i32 8>;
 ; CHECK-NEXT:      + END LOOP
 ;
-define void @foo2(i64* %lp) {
+define void @foo2(ptr %lp) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
@@ -110,13 +110,13 @@ for.body:                                         ; preds = %entry, %for.body
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = shl nuw nsw i64 %l1.013, 1
   %add2 = add nuw nsw i64 %mul, 2
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp, i64 %add2
-  %ld2 = load i64, i64* %arrayidx3, align 8
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %mul
-  %ld0 = load i64, i64* %arrayidx, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp, i64 %add2
+  %ld2 = load i64, ptr %arrayidx3, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %mul
+  %ld0 = load i64, ptr %arrayidx, align 8
   %add = add nuw nsw i64 %mul, 1
-  %arrayidx2 = getelementptr inbounds i64, i64* %lp, i64 %add
-  %ld1 = load i64, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %lp, i64 %add
+  %ld1 = load i64, ptr %arrayidx2, align 8
   %inc = add nuw nsw i64 %l1.013, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

@@ -3,7 +3,7 @@
 ; in VPValue based CG.
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
-define void @foo(i64* noalias nocapture %larr) {
+define void @foo(ptr noalias nocapture %larr) {
 ; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr)[i1] = 9 * i1 + 9 * <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:          + END LOOP
@@ -14,8 +14,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = mul i64 %l1.09, 9
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.09
-  store i64 %mul, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.09
+  store i64 %mul, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.09, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

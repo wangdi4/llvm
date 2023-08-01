@@ -91,8 +91,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %mul3 = mul nsw i32 %4, %add
   %add4 = add nuw nsw i32 %mul3, 1
   %5 = zext i32 %add4 to i64
-  %arrayidx = getelementptr inbounds [10 x i64], [10 x i64]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i64 %5, i64* %arrayidx, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i64 %5, ptr %arrayidx, align 16, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %add5 = add nuw nsw i32 %i.028, 2
   %6 = trunc i64 %2 to i32
@@ -100,8 +100,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %mul8 = mul nsw i32 %7, %add5
   %add9 = add nuw nsw i32 %mul8, 2
   %8 = zext i32 %add9 to i64
-  %arrayidx13 = getelementptr inbounds [10 x i64], [10 x i64]* @B, i64 0, i64 %1, !intel-tbaa !2
-  store i64 %8, i64* %arrayidx13, align 8, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %1, !intel-tbaa !2
+  store i64 %8, ptr %arrayidx13, align 8, !tbaa !2
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }

@@ -1,7 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
-;
 ; HIR Loop Collapse Sanity Test: access a variable array
 ;
 ; [Analysis]
@@ -81,7 +79,7 @@ for.cond1.preheader:                              ; preds = %for.inc20, %for.con
 
 for.cond4.preheader.lr.ph:                        ; preds = %for.cond1.preheader
   %6 = mul nsw i64 %5, %indvars.iv52
-  %arrayidx = getelementptr inbounds i32, i32* %vla, i64 %6
+  %arrayidx = getelementptr inbounds i32, ptr %vla, i64 %6
   br label %for.cond4.preheader
 
 for.cond4.preheader:                              ; preds = %for.inc17, %for.cond4.preheader.lr.ph
@@ -90,15 +88,15 @@ for.cond4.preheader:                              ; preds = %for.inc17, %for.con
 
 for.body6.lr.ph:                                  ; preds = %for.cond4.preheader
   %7 = mul nuw nsw i64 %indvars.iv48, %2
-  %arrayidx8 = getelementptr inbounds i32, i32* %arrayidx, i64 %7
+  %arrayidx8 = getelementptr inbounds i32, ptr %arrayidx, i64 %7
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds i32, i32* %arrayidx8, i64 %indvars.iv
-  %8 = load i32, i32* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds i32, ptr %arrayidx8, i64 %indvars.iv
+  %8 = load i32, ptr %arrayidx10, align 4, !tbaa !1
   %add = add nsw i32 %8, 1
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !1
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %2
   br i1 %exitcond, label %for.inc17.loopexit, label %for.body6
@@ -120,7 +118,7 @@ for.inc20:                                        ; preds = %for.inc20.loopexit,
   br i1 %exitcond55, label %for.end22.loopexit, label %for.cond1.preheader
 
 for.end22.loopexit:                               ; preds = %for.inc20
-  %.pre = load i32, i32* %vla, align 16, !tbaa !1
+  %.pre = load i32, ptr %vla, align 16, !tbaa !1
   %phitmp = add i32 %.pre, 1
   br label %for.end22
 
@@ -130,10 +128,10 @@ for.end22:                                        ; preds = %for.end22.loopexit,
 }
 
 ; Function Attrs: nounwind
-declare i8* @llvm.stacksave() #1
+declare ptr @llvm.stacksave() #1
 
 ; Function Attrs: nounwind
-declare void @llvm.stackrestore(i8*) #1
+declare void @llvm.stackrestore(ptr) #1
 
 attributes #0 = { norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
