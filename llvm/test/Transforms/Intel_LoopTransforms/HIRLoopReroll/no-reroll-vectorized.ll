@@ -37,7 +37,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @mkl_unrollcopy(i8* noalias noundef %dest, i64 noundef %dmax, i8* noalias noundef %src, i64 noundef %smax) local_unnamed_addr #0 {
+define void @mkl_unrollcopy(ptr noalias noundef %dest, i64 noundef %dmax, ptr noalias noundef %src, i64 noundef %smax) local_unnamed_addr #0 {
 entry:
   %cmp41 = icmp ugt i64 %smax, 255
   br i1 %cmp41, label %while.body.preheader, label %while.end
@@ -47,63 +47,53 @@ while.body.preheader:                             ; preds = %entry
 
 while.body:                                       ; preds = %while.body.preheader, %while.body
   %tail.044 = phi i64 [ %sub, %while.body ], [ %smax, %while.body.preheader ]
-  %dp.043 = phi i8* [ %add.ptr12, %while.body ], [ %dest, %while.body.preheader ]
-  %sp.042 = phi i8* [ %add.ptr11, %while.body ], [ %src, %while.body.preheader ]
-  %0 = bitcast i8* %sp.042 to <16 x float>*
-  %sp.0.val = load <16 x float>, <16 x float>* %0, align 1, !tbaa !4
-  %__v.i40 = bitcast i8* %dp.043 to <16 x float>*
-  store <16 x float> %sp.0.val, <16 x float>* %__v.i40, align 1, !tbaa !4, !alias.scope !7
-  %add.ptr = getelementptr inbounds i8, i8* %dp.043, i64 64, !intel-tbaa !4
-  %add.ptr1 = getelementptr inbounds i8, i8* %sp.042, i64 64, !intel-tbaa !4
-  %1 = bitcast i8* %add.ptr1 to <16 x float>*
-  %add.ptr1.val = load <16 x float>, <16 x float>* %1, align 1, !tbaa !4
-  %__v.i39 = bitcast i8* %add.ptr to <16 x float>*
-  store <16 x float> %add.ptr1.val, <16 x float>* %__v.i39, align 1, !tbaa !4, !alias.scope !10
-  %add.ptr3 = getelementptr inbounds i8, i8* %dp.043, i64 128, !intel-tbaa !4
-  %add.ptr4 = getelementptr inbounds i8, i8* %sp.042, i64 128, !intel-tbaa !4
-  %2 = bitcast i8* %add.ptr4 to <16 x float>*
-  %add.ptr4.val = load <16 x float>, <16 x float>* %2, align 1, !tbaa !4
-  %__v.i38 = bitcast i8* %add.ptr3 to <16 x float>*
-  store <16 x float> %add.ptr4.val, <16 x float>* %__v.i38, align 1, !tbaa !4, !alias.scope !13
-  %add.ptr7 = getelementptr inbounds i8, i8* %dp.043, i64 192
-  %add.ptr9 = getelementptr inbounds i8, i8* %sp.042, i64 192
-  %3 = bitcast i8* %add.ptr9 to <16 x float>*
-  %add.ptr9.val = load <16 x float>, <16 x float>* %3, align 1, !tbaa !4
-  %__v.i = bitcast i8* %add.ptr7 to <16 x float>*
-  store <16 x float> %add.ptr9.val, <16 x float>* %__v.i, align 1, !tbaa !4, !alias.scope !16
-  %add.ptr11 = getelementptr inbounds i8, i8* %sp.042, i64 256, !intel-tbaa !4
-  %add.ptr12 = getelementptr inbounds i8, i8* %dp.043, i64 256, !intel-tbaa !4
+  %dp.043 = phi ptr [ %add.ptr12, %while.body ], [ %dest, %while.body.preheader ]
+  %sp.042 = phi ptr [ %add.ptr11, %while.body ], [ %src, %while.body.preheader ]
+  %sp.0.val = load <16 x float>, ptr %sp.042, align 1, !tbaa !4
+  store <16 x float> %sp.0.val, ptr %dp.043, align 1, !tbaa !4, !alias.scope !7
+  %add.ptr = getelementptr inbounds i8, ptr %dp.043, i64 64, !intel-tbaa !4
+  %add.ptr1 = getelementptr inbounds i8, ptr %sp.042, i64 64, !intel-tbaa !4
+  %add.ptr1.val = load <16 x float>, ptr %add.ptr1, align 1, !tbaa !4
+  store <16 x float> %add.ptr1.val, ptr %add.ptr, align 1, !tbaa !4, !alias.scope !10
+  %add.ptr3 = getelementptr inbounds i8, ptr %dp.043, i64 128, !intel-tbaa !4
+  %add.ptr4 = getelementptr inbounds i8, ptr %sp.042, i64 128, !intel-tbaa !4
+  %add.ptr4.val = load <16 x float>, ptr %add.ptr4, align 1, !tbaa !4
+  store <16 x float> %add.ptr4.val, ptr %add.ptr3, align 1, !tbaa !4, !alias.scope !13
+  %add.ptr7 = getelementptr inbounds i8, ptr %dp.043, i64 192
+  %add.ptr9 = getelementptr inbounds i8, ptr %sp.042, i64 192
+  %add.ptr9.val = load <16 x float>, ptr %add.ptr9, align 1, !tbaa !4
+  store <16 x float> %add.ptr9.val, ptr %add.ptr7, align 1, !tbaa !4, !alias.scope !16
+  %add.ptr11 = getelementptr inbounds i8, ptr %sp.042, i64 256, !intel-tbaa !4
+  %add.ptr12 = getelementptr inbounds i8, ptr %dp.043, i64 256, !intel-tbaa !4
   %sub = add i64 %tail.044, -256
   %cmp = icmp ugt i64 %sub, 255
   br i1 %cmp, label %while.body, label %while.end.loopexit, !llvm.loop !19
 
 while.end.loopexit:                               ; preds = %while.body
-  %add.ptr11.lcssa = phi i8* [ %add.ptr11, %while.body ]
-  %add.ptr12.lcssa = phi i8* [ %add.ptr12, %while.body ]
+  %add.ptr11.lcssa = phi ptr [ %add.ptr11, %while.body ]
+  %add.ptr12.lcssa = phi ptr [ %add.ptr12, %while.body ]
   %sub.lcssa = phi i64 [ %sub, %while.body ]
   br label %while.end
 
 while.end:                                        ; preds = %while.end.loopexit, %entry
-  %sp.0.lcssa = phi i8* [ %src, %entry ], [ %add.ptr11.lcssa, %while.end.loopexit ]
-  %dp.0.lcssa = phi i8* [ %dest, %entry ], [ %add.ptr12.lcssa, %while.end.loopexit ]
+  %sp.0.lcssa = phi ptr [ %src, %entry ], [ %add.ptr11.lcssa, %while.end.loopexit ]
+  %dp.0.lcssa = phi ptr [ %dest, %entry ], [ %add.ptr12.lcssa, %while.end.loopexit ]
   %tail.0.lcssa = phi i64 [ %smax, %entry ], [ %sub.lcssa, %while.end.loopexit ]
   %div37 = lshr i64 %tail.0.lcssa, 2
   %notmask = shl nsw i64 -1, %div37
-  %4 = trunc i64 %notmask to i16
-  %conv = xor i16 %4, -1
-  %5 = bitcast i8* %sp.0.lcssa to <16 x float>*
-  %6 = bitcast i16 %conv to <16 x i1>
-  %7 = tail call fast <16 x float> @llvm.masked.load.v16f32.p0v16f32(<16 x float>* %5, i32 1, <16 x i1> %6, <16 x float> zeroinitializer) #3, !alias.scope !21
-  %8 = bitcast i8* %dp.0.lcssa to <16 x float>*
-  tail call void @llvm.masked.store.v16f32.p0v16f32(<16 x float> %7, <16 x float>* %8, i32 1, <16 x i1> %6) #3, !alias.scope !24
+  %0 = trunc i64 %notmask to i16
+  %conv = xor i16 %0, -1
+  %1 = bitcast i16 %conv to <16 x i1>
+  %2 = tail call fast <16 x float> @llvm.masked.load.v16f32.p0(ptr %sp.0.lcssa, i32 1, <16 x i1> %1, <16 x float> zeroinitializer) #3, !alias.scope !21
+  tail call void @llvm.masked.store.v16f32.p0(<16 x float> %2, ptr %dp.0.lcssa, i32 1, <16 x i1> %1) #3, !alias.scope !24
   ret void
 }
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn writeonly
-declare void @llvm.masked.store.v16f32.p0v16f32(<16 x float>, <16 x float>*, i32 immarg, <16 x i1>) #1
+declare void @llvm.masked.store.v16f32.p0(<16 x float>, ptr, i32 immarg, <16 x i1>) #1
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind readonly willreturn
-declare <16 x float> @llvm.masked.load.v16f32.p0v16f32(<16 x float>*, i32 immarg, <16 x i1>, <16 x float>) #2
+declare <16 x float> @llvm.masked.load.v16f32.p0(ptr, i32 immarg, <16 x i1>, <16 x float>) #2
 
 attributes #0 = { nofree nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="512" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly mustprogress nocallback nofree nosync nounwind willreturn writeonly }

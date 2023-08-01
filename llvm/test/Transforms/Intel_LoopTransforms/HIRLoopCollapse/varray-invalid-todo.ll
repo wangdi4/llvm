@@ -146,8 +146,8 @@ for.cond1.preheader:                              ; preds = %for.inc13, %for.con
 
 for.cond4.preheader.lr.ph:                        ; preds = %for.cond1.preheader
   %7 = mul nsw i64 %5, %indvars.iv135
-  %arrayidx = getelementptr inbounds i32, i32* %vla, i64 %7
-  %arrayidx7 = getelementptr inbounds i32, i32* %arrayidx, i64 %6
+  %arrayidx = getelementptr inbounds i32, ptr %vla, i64 %7
+  %arrayidx7 = getelementptr inbounds i32, ptr %arrayidx, i64 %6
   br label %for.cond4.preheader
 
 for.cond16.preheader:                             ; preds = %for.inc13
@@ -158,7 +158,7 @@ for.cond19.preheader.lr.ph:                       ; preds = %for.cond16.preheade
   %cmp23105 = icmp eq i32 %Q, 0
   %8 = shl nuw nsw i64 %1, 1
   %9 = mul i64 %8, %2
-  %arrayidx25 = getelementptr inbounds i32, i32* %vla, i64 %9
+  %arrayidx25 = getelementptr inbounds i32, ptr %vla, i64 %9
   br label %for.cond19.preheader
 
 for.cond4.preheader:                              ; preds = %for.inc10, %for.cond4.preheader.lr.ph
@@ -170,8 +170,8 @@ for.body6.preheader:                              ; preds = %for.cond4.preheader
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv130 = phi i64 [ %indvars.iv.next131, %for.body6 ], [ 0, %for.body6.preheader ]
-  %arrayidx9 = getelementptr inbounds i32, i32* %arrayidx7, i64 %indvars.iv130
-  store i32 1, i32* %arrayidx9, align 4, !tbaa !1
+  %arrayidx9 = getelementptr inbounds i32, ptr %arrayidx7, i64 %indvars.iv130
+  store i32 1, ptr %arrayidx9, align 4, !tbaa !1
   %indvars.iv.next131 = add nuw nsw i64 %indvars.iv130, 1
   %exitcond133 = icmp eq i64 %indvars.iv.next131, %2
   br i1 %exitcond133, label %for.inc10.loopexit, label %for.body6
@@ -214,13 +214,13 @@ for.cond22.preheader:                             ; preds = %for.cond22.preheade
 
 for.body24.lr.ph:                                 ; preds = %for.cond22.preheader
   %11 = mul nuw nsw i64 %indvars.iv125, %2
-  %arrayidx27 = getelementptr inbounds i32, i32* %arrayidx25, i64 %11
+  %arrayidx27 = getelementptr inbounds i32, ptr %arrayidx25, i64 %11
   br label %for.body24
 
 for.body24:                                       ; preds = %for.body24, %for.body24.lr.ph
   %indvars.iv121 = phi i64 [ 0, %for.body24.lr.ph ], [ %indvars.iv.next122, %for.body24 ]
-  %arrayidx29 = getelementptr inbounds i32, i32* %arrayidx27, i64 %indvars.iv121
-  store i32 1, i32* %arrayidx29, align 4, !tbaa !1
+  %arrayidx29 = getelementptr inbounds i32, ptr %arrayidx27, i64 %indvars.iv121
+  store i32 1, ptr %arrayidx29, align 4, !tbaa !1
   %indvars.iv.next122 = add nuw nsw i64 %indvars.iv121, 1
   %exitcond124 = icmp eq i64 %indvars.iv.next122, %2
   br i1 %exitcond124, label %for.inc33.loopexit, label %for.body24
@@ -247,7 +247,7 @@ for.cond42.preheader:                             ; preds = %for.inc59, %for.con
 
 for.cond45.preheader.lr.ph:                       ; preds = %for.cond42.preheader
   %12 = mul nsw i64 %10, %indvars.iv117
-  %arrayidx49 = getelementptr inbounds i32, i32* %vla, i64 %12
+  %arrayidx49 = getelementptr inbounds i32, ptr %vla, i64 %12
   br label %for.cond45.preheader
 
 for.cond45.preheader:                             ; preds = %for.inc56, %for.cond45.preheader.lr.ph
@@ -256,9 +256,9 @@ for.cond45.preheader:                             ; preds = %for.inc56, %for.con
 
 for.body47.lr.ph:                                 ; preds = %for.cond45.preheader
   %13 = mul nuw nsw i64 %indvars.iv, %2
-  %arrayidx51 = getelementptr inbounds i32, i32* %arrayidx49, i64 %13
-  %arrayidx52 = getelementptr inbounds i32, i32* %arrayidx51, i64 2
-  store i32 1, i32* %arrayidx52, align 4, !tbaa !1
+  %arrayidx51 = getelementptr inbounds i32, ptr %arrayidx49, i64 %13
+  %arrayidx52 = getelementptr inbounds i32, ptr %arrayidx51, i64 2
+  store i32 1, ptr %arrayidx52, align 4, !tbaa !1
   br label %for.inc56
 
 for.inc56:                                        ; preds = %for.cond45.preheader, %for.body47.lr.ph
@@ -278,16 +278,16 @@ for.end61.loopexit:                               ; preds = %for.inc59
   br label %for.end61
 
 for.end61:                                        ; preds = %for.end61.loopexit, %entry, %for.cond16.preheader, %for.cond39.preheader
-  %14 = load i32, i32* %vla, align 16, !tbaa !1
+  %14 = load i32, ptr %vla, align 16, !tbaa !1
   %add = add nsw i32 %14, 1
   ret i32 %add
 }
 
 ; Function Attrs: nounwind
-declare i8* @llvm.stacksave() #1
+declare ptr @llvm.stacksave() #1
 
 ; Function Attrs: nounwind
-declare void @llvm.stackrestore(i8*) #1
+declare void @llvm.stackrestore(ptr) #1
 
 attributes #0 = { norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

@@ -60,8 +60,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond5.preheader:                              ; preds = %for.cond.cleanup7, %for.cond1.preheader
   %indvars.iv63 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next64, %for.cond.cleanup7 ]
-  %arrayidx18 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @C, i64 0, i64 %indvars.iv65, i64 %indvars.iv63, !intel-tbaa !2
-  %arrayidx18.promoted = load double, double* %arrayidx18, align 8, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [1000 x [1000 x double]], ptr @C, i64 0, i64 %indvars.iv65, i64 %indvars.iv63, !intel-tbaa !2
+  %arrayidx18.promoted = load double, ptr %arrayidx18, align 8, !tbaa !2
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -71,7 +71,7 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
 
 for.cond.cleanup7:                                ; preds = %for.body8
   %add34.lcssa = phi double [ %add34, %for.body8 ]
-  store double %add34.lcssa, double* %arrayidx18, align 8, !tbaa !2
+  store double %add34.lcssa, ptr %arrayidx18, align 8, !tbaa !2
   %indvars.iv.next64 = add nuw nsw i64 %indvars.iv63, 1
   %exitcond = icmp eq i64 %indvars.iv.next64, 1000
   br i1 %exitcond, label %for.cond.cleanup3, label %for.cond5.preheader
@@ -79,17 +79,17 @@ for.cond.cleanup7:                                ; preds = %for.body8
 for.body8:                                        ; preds = %for.cond5.preheader, %for.body8
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ %indvars.iv.next, %for.body8 ]
   %0 = phi double [ %arrayidx18.promoted, %for.cond5.preheader ], [ %add34, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @A, i64 0, i64 %indvars.iv65, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load double, double* %arrayidx10, align 16, !tbaa !2
-  %arrayidx14 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv63, !intel-tbaa !2
-  %2 = load double, double* %arrayidx14, align 8, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [1000 x [1000 x double]], ptr @A, i64 0, i64 %indvars.iv65, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load double, ptr %arrayidx10, align 16, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [1000 x [1000 x double]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv63, !intel-tbaa !2
+  %2 = load double, ptr %arrayidx14, align 8, !tbaa !2
   %mul = fmul double %1, %2
   %add = fadd double %0, %mul
   %3 = or i64 %indvars.iv, 1
-  %arrayidx23 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @A, i64 0, i64 %indvars.iv65, i64 %3, !intel-tbaa !2
-  %4 = load double, double* %arrayidx23, align 8, !tbaa !2
-  %arrayidx28 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @B, i64 0, i64 %3, i64 %indvars.iv63, !intel-tbaa !2
-  %5 = load double, double* %arrayidx28, align 8, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [1000 x [1000 x double]], ptr @A, i64 0, i64 %indvars.iv65, i64 %3, !intel-tbaa !2
+  %4 = load double, ptr %arrayidx23, align 8, !tbaa !2
+  %arrayidx28 = getelementptr inbounds [1000 x [1000 x double]], ptr @B, i64 0, i64 %3, i64 %indvars.iv63, !intel-tbaa !2
+  %5 = load double, ptr %arrayidx28, align 8, !tbaa !2
   %mul29 = fmul double %4, %5
   %add34 = fadd double %add, %mul29
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2

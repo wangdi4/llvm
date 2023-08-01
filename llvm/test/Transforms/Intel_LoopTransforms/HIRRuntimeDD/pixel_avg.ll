@@ -44,7 +44,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @pixel_avg(i8* nocapture %dst, i32 %i_dst_stride, i8* nocapture readonly %src1, i32 %i_src1_stride, i8* nocapture readonly %src2, i32 %i_src2_stride, i32 %i_width, i32 %i_height) local_unnamed_addr #0 {
+define void @pixel_avg(ptr nocapture %dst, i32 %i_dst_stride, ptr nocapture readonly %src1, i32 %i_src1_stride, ptr nocapture readonly %src2, i32 %i_src2_stride, i32 %i_width, i32 %i_height) local_unnamed_addr #0 {
 entry:
   %cmp31 = icmp sgt i32 %i_height, 0
   br i1 %cmp31, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -59,9 +59,9 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %for.cond1.preheader.lr.ph
   %y.035 = phi i32 [ 0, %for.cond1.preheader.lr.ph ], [ %inc17, %for.cond.cleanup3 ]
-  %dst.addr.034 = phi i8* [ %dst, %for.cond1.preheader.lr.ph ], [ %add.ptr, %for.cond.cleanup3 ]
-  %src1.addr.033 = phi i8* [ %src1, %for.cond1.preheader.lr.ph ], [ %add.ptr13, %for.cond.cleanup3 ]
-  %src2.addr.032 = phi i8* [ %src2, %for.cond1.preheader.lr.ph ], [ %add.ptr15, %for.cond.cleanup3 ]
+  %dst.addr.034 = phi ptr [ %dst, %for.cond1.preheader.lr.ph ], [ %add.ptr, %for.cond.cleanup3 ]
+  %src1.addr.033 = phi ptr [ %src1, %for.cond1.preheader.lr.ph ], [ %add.ptr13, %for.cond.cleanup3 ]
+  %src2.addr.032 = phi ptr [ %src2, %for.cond1.preheader.lr.ph ], [ %add.ptr15, %for.cond.cleanup3 ]
   br i1 %cmp229, label %for.body4.preheader, label %for.cond.cleanup3
 
 for.body4.preheader:                              ; preds = %for.cond1.preheader
@@ -77,27 +77,27 @@ for.cond.cleanup3.loopexit:                       ; preds = %for.body4
   br label %for.cond.cleanup3
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.loopexit, %for.cond1.preheader
-  %add.ptr = getelementptr inbounds i8, i8* %dst.addr.034, i64 %idx.ext
-  %add.ptr13 = getelementptr inbounds i8, i8* %src1.addr.033, i64 %idx.ext12
-  %add.ptr15 = getelementptr inbounds i8, i8* %src2.addr.032, i64 %idx.ext14
+  %add.ptr = getelementptr inbounds i8, ptr %dst.addr.034, i64 %idx.ext
+  %add.ptr13 = getelementptr inbounds i8, ptr %src1.addr.033, i64 %idx.ext12
+  %add.ptr15 = getelementptr inbounds i8, ptr %src2.addr.032, i64 %idx.ext14
   %inc17 = add nuw nsw i32 %y.035, 1
   %exitcond36 = icmp eq i32 %inc17, %i_height
   br i1 %exitcond36, label %for.cond.cleanup.loopexit, label %for.cond1.preheader
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body4 ], [ 0, %for.body4.preheader ]
-  %arrayidx = getelementptr inbounds i8, i8* %src1.addr.033, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %src1.addr.033, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx, align 1
   %conv = zext i8 %0 to i32
-  %arrayidx6 = getelementptr inbounds i8, i8* %src2.addr.032, i64 %indvars.iv
-  %1 = load i8, i8* %arrayidx6, align 1
+  %arrayidx6 = getelementptr inbounds i8, ptr %src2.addr.032, i64 %indvars.iv
+  %1 = load i8, ptr %arrayidx6, align 1
   %conv7 = zext i8 %1 to i32
   %add = add nuw nsw i32 %conv, 1
   %add8 = add nuw nsw i32 %add, %conv7
   %2 = lshr i32 %add8, 1
   %conv9 = trunc i32 %2 to i8
-  %arrayidx11 = getelementptr inbounds i8, i8* %dst.addr.034, i64 %indvars.iv
-  store i8 %conv9, i8* %arrayidx11, align 1
+  %arrayidx11 = getelementptr inbounds i8, ptr %dst.addr.034, i64 %indvars.iv
+  store i8 %conv9, ptr %arrayidx11, align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup3.loopexit, label %for.body4

@@ -85,14 +85,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fcnPiS_S_(i32* nocapture %A, i32* nocapture readnone %B, i32* nocapture readonly %LoopCount) local_unnamed_addr #0 {
+define dso_local void @_Z3fcnPiS_S_(ptr nocapture %A, ptr nocapture readnone %B, ptr nocapture readonly %LoopCount) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
   %indvars.iv19 = phi i64 [ 0, %entry ], [ %indvars.iv.next20, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %LoopCount, i64 %indvars.iv19
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %LoopCount, i64 %indvars.iv19
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp216 = icmp sgt i32 %0, 0
   br i1 %cmp216, label %for.body4.preheader, label %for.cond.cleanup3
 
@@ -112,12 +112,12 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.l
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body4 ], [ 0, %for.body4.preheader ]
-  %arrayidx6 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx6, align 4, !tbaa !3
+  %arrayidx6 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx6, align 4, !tbaa !3
   %add = add nsw i32 %1, 100
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !3
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %3 = sext i32 %2 to i64
   %cmp2 = icmp slt i64 %indvars.iv.next, %3
   br i1 %cmp2, label %for.body4, label %for.cond.cleanup3.loopexit, !llvm.loop !9

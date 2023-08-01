@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.A = type opaque
 
-define void @foo(%struct.A* %a, [10 x i32]* nocapture %p, i32 %n) {
+define void @foo(ptr %a, ptr nocapture %p, i32 %n) {
 entry:
   br label %for.cond1.preheader
 
@@ -42,13 +42,13 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %call = tail call i32 @bar(%struct.A* %a)
-  %arrayidx6 = getelementptr inbounds [10 x i32], [10 x i32]* %p, i64 %indvars.iv18, i64 %indvars.iv
-  store i32 %call, i32* %arrayidx6, align 4
+  %call = tail call i32 @bar(ptr %a)
+  %arrayidx6 = getelementptr inbounds [10 x i32], ptr %p, i64 %indvars.iv18, i64 %indvars.iv
+  store i32 %call, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
 }
 
-declare i32 @bar(%struct.A*) local_unnamed_addr
+declare i32 @bar(ptr) local_unnamed_addr
 

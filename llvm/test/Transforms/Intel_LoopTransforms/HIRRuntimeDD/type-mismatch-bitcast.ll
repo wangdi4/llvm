@@ -52,7 +52,7 @@ target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @func123(float* nocapture readonly %pSrc1, i32 %src1Step, float* nocapture readonly %v, float* nocapture %pDst1, i32 %dst1Step, i64 %roi.coerce) local_unnamed_addr #0 {
+define i32 @func123(ptr nocapture readonly %pSrc1, i32 %src1Step, ptr nocapture readonly %v, ptr nocapture %pDst1, i32 %dst1Step, i64 %roi.coerce) local_unnamed_addr #0 {
 entry:
   %roi.sroa.2.0.extract.shift = lshr i64 %roi.coerce, 32
   %roi.sroa.2.0.extract.trunc = trunc i64 %roi.sroa.2.0.extract.shift to i32
@@ -81,8 +81,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.cond.cleanup4, %for.body.lr.ph
   %i.075 = phi i32 [ 0, %for.body.lr.ph ], [ %inc36, %for.cond.cleanup4 ]
   %res.074 = phi i32 [ 0, %for.body.lr.ph ], [ %res.1.lcssa, %for.cond.cleanup4 ]
-  %src1.073 = phi float* [ %pSrc1, %for.body.lr.ph ], [ %add.ptr, %for.cond.cleanup4 ]
-  %dst1.071 = phi float* [ %pDst1, %for.body.lr.ph ], [ %add.ptr35, %for.cond.cleanup4 ]
+  %src1.073 = phi ptr [ %pSrc1, %for.body.lr.ph ], [ %add.ptr, %for.cond.cleanup4 ]
+  %dst1.071 = phi ptr [ %pDst1, %for.body.lr.ph ], [ %add.ptr35, %for.cond.cleanup4 ]
   br i1 %cmp367, label %for.body5.lr.ph, label %for.cond.cleanup4
 
 for.body5.lr.ph:                                  ; preds = %for.body
@@ -94,8 +94,8 @@ for.cond.cleanup4.loopexit:                       ; preds = %for.cond.cleanup8
 
 for.cond.cleanup4:                                ; preds = %for.cond.cleanup4.loopexit, %for.body
   %res.1.lcssa = phi i32 [ %res.074, %for.body ], [ %res.3.lcssa.lcssa, %for.cond.cleanup4.loopexit ]
-  %add.ptr = getelementptr inbounds float, float* %src1.073, i64 %idx.ext
-  %add.ptr35 = getelementptr inbounds float, float* %dst1.071, i64 %idx.ext34
+  %add.ptr = getelementptr inbounds float, ptr %src1.073, i64 %idx.ext
+  %add.ptr35 = getelementptr inbounds float, ptr %dst1.071, i64 %idx.ext34
   %inc36 = add nuw nsw i32 %i.075, 1
   %exitcond80 = icmp eq i32 %inc36, %roi.sroa.2.0.extract.trunc
   br i1 %exitcond80, label %for.cond.cleanup.loopexit, label %for.body
@@ -114,26 +114,25 @@ for.cond.cleanup8:                                ; preds = %for.inc
 for.body9:                                        ; preds = %for.inc, %for.body5
   %indvars.iv = phi i64 [ 0, %for.body5 ], [ %indvars.iv.next, %for.inc ]
   %res.265 = phi i32 [ %res.168, %for.body5 ], [ %res.3, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %v, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !10
+  %arrayidx = getelementptr inbounds float, ptr %v, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !10
   %tobool = fcmp une float %1, 0.000000e+00
   %2 = add nuw nsw i64 %indvars.iv, %indvars.iv78
-  %arrayidx11 = getelementptr inbounds float, float* %src1.073, i64 %2
-  %3 = load float, float* %arrayidx11, align 4, !tbaa !10
+  %arrayidx11 = getelementptr inbounds float, ptr %src1.073, i64 %2
+  %3 = load float, ptr %arrayidx11, align 4, !tbaa !10
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body9
   %div14 = fdiv float %3, %1
-  %arrayidx17 = getelementptr inbounds float, float* %dst1.071, i64 %2
-  store float %div14, float* %arrayidx17, align 4, !tbaa !10
+  %arrayidx17 = getelementptr inbounds float, ptr %dst1.071, i64 %2
+  store float %div14, ptr %arrayidx17, align 4, !tbaa !10
   br label %for.inc
 
 if.else:                                          ; preds = %for.body9
   %cmp21 = fcmp oeq float %3, 0.000000e+00
   %4 = select i1 %cmp21, i32 -4194304, i32 2139095040
-  %arrayidx2964 = getelementptr inbounds float, float* %dst1.071, i64 %2
-  %arrayidx29 = bitcast float* %arrayidx2964 to i32*
-  store i32 %4, i32* %arrayidx29, align 4, !tbaa !14
+  %arrayidx2964 = getelementptr inbounds float, ptr %dst1.071, i64 %2
+  store i32 %4, ptr %arrayidx2964, align 4, !tbaa !14
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else, %if.then

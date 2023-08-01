@@ -80,7 +80,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPA100_iS0_ii([100 x i32]* nocapture noundef writeonly %A, [100 x i32]* nocapture noundef readonly %B, i32 noundef %m, i64 noundef %t) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPA100_iS0_ii(ptr nocapture noundef writeonly %A, ptr nocapture noundef readonly %B, i32 noundef %m, i64 noundef %t) local_unnamed_addr #0 {
 entry:
   %add24 = add nsw i64 %t, 3
   %0 = zext i32 %m to i64
@@ -95,14 +95,14 @@ for.body:                                         ; preds = %entry, %for.cond.cl
   br i1 %cmp1.not, label %if.end, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv53, i64 0
-  store i32 %m, i32* %arrayidx2, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv53, i64 0
+  store i32 %m, ptr %arrayidx2, align 4, !tbaa !3
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
   %1 = shl nsw i64 %indvars.iv53, 2
-  %arrayidx15 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %t
-  %arrayidx26 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %add24
+  %arrayidx15 = getelementptr inbounds [100 x i32], ptr %A, i64 %1, i64 %t
+  %arrayidx26 = getelementptr inbounds [100 x i32], ptr %A, i64 %1, i64 %add24
   br label %for.body6
 
 for.cond.cleanup5:                                ; preds = %for.body6
@@ -113,13 +113,13 @@ for.cond.cleanup5:                                ; preds = %for.body6
 for.body6:                                        ; preds = %if.end, %for.body6
   %indvars.iv = phi i64 [ 0, %if.end ], [ %indvars.iv.next, %for.body6 ]
   %2 = shl nuw nsw i64 %indvars.iv, 1
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 %indvars.iv53, i64 %2
-  %3 = load i32, i32* %arrayidx10, align 4, !tbaa !3
-  store i32 %3, i32* %arrayidx15, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %B, i64 %indvars.iv53, i64 %2
+  %3 = load i32, ptr %arrayidx10, align 4, !tbaa !3
+  store i32 %3, ptr %arrayidx15, align 4, !tbaa !3
   %4 = or i64 %2, 1
-  %arrayidx20 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 %indvars.iv53, i64 %4
-  %5 = load i32, i32* %arrayidx20, align 4, !tbaa !3
-  store i32 %5, i32* %arrayidx26, align 4, !tbaa !3
+  %arrayidx20 = getelementptr inbounds [100 x i32], ptr %B, i64 %indvars.iv53, i64 %4
+  %5 = load i32, ptr %arrayidx20, align 4, !tbaa !3
+  store i32 %5, ptr %arrayidx26, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup5, label %for.body6, !llvm.loop !10

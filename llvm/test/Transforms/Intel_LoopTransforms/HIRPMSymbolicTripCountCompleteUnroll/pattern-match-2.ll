@@ -80,19 +80,19 @@ target triple = "x86_64-unknown-linux-gnu"
 %"class.boost::array.4" = type { [2 x i32] }
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" }
-%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { i32*, i32*, i32* }
+%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { ptr, ptr, ptr }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: nounwind uwtable
-define hidden fastcc void @_ZN9FastBoard13add_neighbourEii(%class.FastBoard* nocapture %0, i32 %1, i32 %2) unnamed_addr #1 align 2 {
+define hidden fastcc void @_ZN9FastBoard13add_neighbourEii(ptr nocapture %0, i32 %1, i32 %2) unnamed_addr #1 align 2 {
   %4 = alloca %"class.boost::array.2", align 4
-  %5 = bitcast %"class.boost::array.2"* %4 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %5) #2
+  %5 = bitcast ptr %4 to ptr
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %5) #2
   %6 = shl nsw i32 %2, 2
   %7 = shl nuw i32 1, %6
   %8 = trunc i32 %7 to i16
@@ -100,23 +100,23 @@ define hidden fastcc void @_ZN9FastBoard13add_neighbourEii(%class.FastBoard* noc
   br label %11
 
 10:                                               ; preds = %47
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %5) #2
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %5) #2
   ret void
 
 11:                                               ; preds = %47, %3
   %12 = phi i64 [ 0, %3 ], [ %49, %47 ]
   %13 = phi i32 [ 0, %3 ], [ %48, %47 ]
-  %14 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 12, i32 0, i64 %12, !intel-tbaa !5
-  %15 = load i32, i32* %14, align 4, !tbaa !5
+  %14 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 12, i32 0, i64 %12, !intel-tbaa !5
+  %15 = load i32, ptr %14, align 4, !tbaa !5
   %16 = add nsw i32 %15, %1
   %17 = sext i32 %16 to i64
-  %18 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 10, i32 0, i64 %17, !intel-tbaa !25
-  %19 = load i16, i16* %18, align 2, !tbaa !25
+  %18 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 10, i32 0, i64 %17, !intel-tbaa !25
+  %19 = load i16, ptr %18, align 2, !tbaa !25
   %20 = add i16 %9, %19
-  store i16 %20, i16* %18, align 2, !tbaa !25
+  store i16 %20, ptr %18, align 2, !tbaa !25
   %21 = icmp sgt i32 %13, 0
-  %22 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 7, i32 0, i64 %17
-  %23 = load i16, i16* %22, align 2, !tbaa !26
+  %22 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 7, i32 0, i64 %17
+  %23 = load i16, ptr %22, align 2, !tbaa !26
   %24 = zext i16 %23 to i32
   br i1 %21, label %27, label %25
 
@@ -134,8 +134,8 @@ define hidden fastcc void @_ZN9FastBoard13add_neighbourEii(%class.FastBoard* noc
 
 31:                                               ; preds = %29, %27
   %32 = phi i64 [ 0, %27 ], [ %36, %29 ]
-  %33 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %4, i64 0, i32 0, i64 %32
-  %34 = load i32, i32* %33, align 4, !tbaa !27
+  %33 = getelementptr inbounds %"class.boost::array.2", ptr %4, i64 0, i32 0, i64 %32
+  %34 = load i32, ptr %33, align 4, !tbaa !27
   %35 = icmp eq i32 %34, %24
   %36 = add nuw nsw i64 %32, 1
   br i1 %35, label %46, label %29
@@ -146,13 +146,13 @@ define hidden fastcc void @_ZN9FastBoard13add_neighbourEii(%class.FastBoard* noc
 38:                                               ; preds = %37, %25
   %39 = phi i64 [ %26, %25 ], [ %28, %37 ]
   %40 = zext i16 %23 to i64
-  %41 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 8, i32 0, i64 %40
-  %42 = load i16, i16* %41, align 2, !tbaa !28
+  %41 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 8, i32 0, i64 %40
+  %42 = load i16, ptr %41, align 2, !tbaa !28
   %43 = add i16 %42, -1
-  store i16 %43, i16* %41, align 2, !tbaa !28
+  store i16 %43, ptr %41, align 2, !tbaa !28
   %44 = add nsw i32 %13, 1
-  %45 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %4, i64 0, i32 0, i64 %39
-  store i32 %24, i32* %45, align 4, !tbaa !27
+  %45 = getelementptr inbounds %"class.boost::array.2", ptr %4, i64 0, i32 0, i64 %39
+  store i32 %24, ptr %45, align 4, !tbaa !27
   br label %47
 
 46:                                               ; preds = %31

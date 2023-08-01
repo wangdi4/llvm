@@ -64,7 +64,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @sub(float* nocapture %A, float* nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
+define dso_local i32 @sub(ptr nocapture %A, ptr nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp27 = icmp sgt i32 %N, 0
   br i1 %cmp27, label %for.body.preheader, label %for.end
@@ -76,19 +76,19 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %q.029 = phi float [ 0.000000e+00, %for.body.preheader ], [ %add9, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !3
   %add = fadd fast float %0, %q.029
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %add, float* %arrayidx2, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %add, ptr %arrayidx2, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds float, float* %A, i64 %indvars.iv.next
-  %1 = load float, float* %arrayidx5, align 4, !tbaa !3
-  %arrayidx8 = getelementptr inbounds float, float* %B, i64 %indvars.iv.next
-  %2 = load float, float* %arrayidx8, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds float, ptr %A, i64 %indvars.iv.next
+  %1 = load float, ptr %arrayidx5, align 4, !tbaa !3
+  %arrayidx8 = getelementptr inbounds float, ptr %B, i64 %indvars.iv.next
+  %2 = load float, ptr %arrayidx8, align 4, !tbaa !3
   %add9 = fadd fast float %2, %1
   %mul = fmul fast float %add9, %add9
-  store float %mul, float* %arrayidx2, align 4, !tbaa !3
+  store float %mul, ptr %arrayidx2, align 4, !tbaa !3
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count30
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !7
 

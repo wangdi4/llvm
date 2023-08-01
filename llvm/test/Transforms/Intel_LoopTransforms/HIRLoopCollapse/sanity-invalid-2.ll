@@ -68,10 +68,10 @@ for.body3:                                        ; preds = %for.inc11, %for.bod
 
 for.body6:                                        ; preds = %for.body6, %for.body3
   %indvars.iv = phi i64 [ 0, %for.body3 ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [10 x [20 x [3 x i32]]], [10 x [20 x [3 x i32]]]* @A, i64 0, i64 %indvars.iv28, i64 %indvars.iv28, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [10 x [20 x [3 x i32]]], ptr @A, i64 0, i64 %indvars.iv28, i64 %indvars.iv28, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx10, align 4, !tbaa !2
   %add = add nsw i32 %0, 1
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !2
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond, label %for.inc11, label %for.body6

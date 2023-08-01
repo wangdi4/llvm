@@ -63,22 +63,22 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %S.035 = phi double [ 0.000000e+00, %entry ], [ %add20, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x double], [100 x double]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load double, double* %arrayidx, align 16, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [100 x double], [100 x double]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load double, double* %arrayidx2, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x double], ptr @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load double, ptr %arrayidx, align 16, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [100 x double], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load double, ptr %arrayidx2, align 16, !tbaa !2
   %mul = fmul double %0, %1
-  %arrayidx4 = getelementptr inbounds [100 x double], [100 x double]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store double %mul, double* %arrayidx4, align 16, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [100 x double], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store double %mul, ptr %arrayidx4, align 16, !tbaa !2
   %add = fadd double %S.035, %mul
   %2 = or i64 %indvars.iv, 1
-  %arrayidx9 = getelementptr inbounds [100 x double], [100 x double]* @C, i64 0, i64 %2, !intel-tbaa !2
-  %3 = load double, double* %arrayidx9, align 8, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [100 x double], [100 x double]* @B, i64 0, i64 %2, !intel-tbaa !2
-  %4 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx9 = getelementptr inbounds [100 x double], ptr @C, i64 0, i64 %2, !intel-tbaa !2
+  %3 = load double, ptr %arrayidx9, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [100 x double], ptr @B, i64 0, i64 %2, !intel-tbaa !2
+  %4 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %mul13 = fmul double %3, %4
-  %arrayidx16 = getelementptr inbounds [100 x double], [100 x double]* @A, i64 0, i64 %2, !intel-tbaa !2
-  store double %mul13, double* %arrayidx16, align 8, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [100 x double], ptr @A, i64 0, i64 %2, !intel-tbaa !2
+  store double %mul13, ptr %arrayidx16, align 8, !tbaa !2
   %add20 = fadd double %add, %mul13
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 100
