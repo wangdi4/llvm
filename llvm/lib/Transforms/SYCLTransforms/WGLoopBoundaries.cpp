@@ -1087,7 +1087,7 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
                                  "left_lt_zero");
         Bound[1] = SelectInst::Create(Cmp, Zero, Bound[1],
                                       "non_negative_left_bound", Loc);
-        // Unsigned overflow is now allowed, i.e. result value must be
+        // Unsigned overflow is not allowed, i.e. result value must be
         // non-negative, otherwise it will result in wrong boundary at unsigned
         // comparison.
         // If overflow has happened, right boundary is less than left boundary,
@@ -1148,30 +1148,55 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
                             Tid->getType(), Instruction::Add))
         return false;
       if (!IsCmpSigned) {
-        // Left bound is needed only if unsigned comparisons.
-        // Compute left (lower) boundary for the id: max(0, a).
-        // Add additional check for unsigned overflow.
-        Bound[1] = LeftBound;
-        Value *Zero = ConstantInt::get(Bound[1]->getType(), 0);
-        auto *Cmp = new ICmpInst(Loc, CmpInst::ICMP_SLT, Bound[1], Zero,
-                                 "left_lt_zero");
-        Bound[1] = SelectInst::Create(Cmp, Zero, Bound[1],
-                                      "non_negative_left_bound", Loc);
-        assert(dyn_cast<CmpInst>(Loc) && "Expect CMP instruction for tid user");
-        CmpInst::Predicate CondPred = dyn_cast<CmpInst>(Loc)->isFalseWhenEqual()
-                                          ? CmpInst::ICMP_SLT
-                                          : CmpInst::ICMP_SLE;
-        auto *RightOverflowCheck =
-            new ICmpInst(Loc, CondPred, Bound[0], RightBound, "right_lt_left");
-        // If overflow has happended for the right boundary computation, set
-        // upper bound to maximum possible value.
-        // Compute right (upper) boundary for the id:
-        //   min(ID_MAX, b + a)
-        // Unsigned overflow is now allowed, otherwise it will result in wrong
-        // boundary at unsigned comparison.
+        Value *Zero = ConstantInt::get(LeftBound->getType(), 0);
+        Value *One = ConstantInt::get(LeftBound->getType(), 1);
         Value *Max = ConstantInt::getAllOnesValue(Bound[0]->getType());
-        Bound[0] = SelectInst::Create(RightOverflowCheck, Max, Bound[0],
-                                      "final_right_bound", Loc);
+        if (ReverseLowerUpperBound) {
+          Bound[0] = LeftBound;
+          Bound[1] = BinaryOperator::Create(
+              Instruction::Sub, LeftBound, RightBound, "left_bound_align", Loc);
+          auto *IsLeftBoundNegative =
+              new ICmpInst(Loc, CmpInst::ICMP_ULT, LeftBound, RightBound,
+                           "is_left_bound_negative");
+          Bound[1] = SelectInst::Create(IsLeftBoundNegative, Zero, Bound[1],
+                                        "left_bound", Loc);
+
+          // Check if it's a valid boundary
+          CmpInst::Predicate CondPred =
+              dyn_cast<CmpInst>(Loc)->isFalseWhenEqual() ? CmpInst::ICMP_UGT
+                                                         : CmpInst::ICMP_UGE;
+          auto *IsValidBound =
+              new ICmpInst(Loc, CondPred, RightBound, Zero, "is_valid_bound");
+
+          Bound[1] = SelectInst::Create(IsValidBound, Bound[1], One,
+                                        "final_left_bound", Loc);
+          Bound[0] = SelectInst::Create(IsValidBound, Bound[0], Zero,
+                                        "final_right_bound", Loc);
+        } else {
+          // Left bound is needed only if unsigned comparisons.
+          // Compute left (lower) boundary for the id: max(0, a).
+          // Add additional check for unsigned overflow.
+          Bound[1] = LeftBound;
+          auto *Cmp = new ICmpInst(Loc, CmpInst::ICMP_SLT, Bound[1], Zero,
+                                   "left_lt_zero");
+          Bound[1] = SelectInst::Create(Cmp, Zero, Bound[1],
+                                        "non_negative_left_bound", Loc);
+          assert(dyn_cast<CmpInst>(Loc) &&
+                 "Expect CMP instruction for tid user");
+          CmpInst::Predicate CondPred =
+              dyn_cast<CmpInst>(Loc)->isFalseWhenEqual() ? CmpInst::ICMP_SLT
+                                                         : CmpInst::ICMP_SLE;
+          auto *RightOverflowCheck = new ICmpInst(Loc, CondPred, Bound[0],
+                                                  RightBound, "right_lt_left");
+          // If overflow has happended for the right boundary computation, set
+          // upper bound to maximum possible value.
+          // Compute right (upper) boundary for the id:
+          //   min(ID_MAX, b + a)
+          // Unsigned overflow is now allowed, otherwise it will result in wrong
+          // boundary at unsigned comparison.
+          Bound[0] = SelectInst::Create(RightOverflowCheck, Max, Bound[0],
+                                        "final_right_bound", Loc);
+        }
       }
       break;
     }
@@ -1301,6 +1326,7 @@ bool WGLoopBoundariesImpl::obtainBoundaryEE(ICmpInst *Cmp, Value **Bound,
   if (!Cmp->isRelational()) {
     assert((Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE) &&
            "unexpected non-relational cmp predicate");
+    auto *EqBound = ReverseLowerUpperBound ? Bound[1] : Bound[0];
     if ((Pred == CmpInst::ICMP_EQ) ^ EETrueSide) {
       // Here is support for cases where bound is the only value for the tid,
       // meaning the branch is one of the two options:
@@ -1309,15 +1335,15 @@ bool WGLoopBoundariesImpl::obtainBoundaryEE(ICmpInst *Cmp, Value **Bound,
 
       // Since bound is the only value for the tid, we can replace all the
       // calls with it.
-      replaceTidWithBound(IsGID, Dim, Bound[0]);
+      replaceTidWithBound(IsGID, Dim, EqBound);
 
       // The bound is the only option for tid, so we will fill it as both
       // upper bound and lower bound, both inclusive. Sign of the comparison
       // is no important, since it is equality. Note that we must still update
       // EEVec with the bounds since the bound might be out of range (not in
       // [0 - local_size]).
-      EEVec.push_back({Bound[0], Dim, true, true, false, IsGID});
-      EEVec.push_back({Bound[0], Dim, false, true, false, IsGID});
+      EEVec.push_back({EqBound, Dim, true, true, false, IsGID});
+      EEVec.push_back({EqBound, Dim, false, true, false, IsGID});
       return true;
     } else {
       // In general we don't support case where single work item does not
@@ -1326,14 +1352,14 @@ bool WGLoopBoundariesImpl::obtainBoundaryEE(ICmpInst *Cmp, Value **Bound,
       // b. if (tid == bound) exit
       // However, if bound=0 we can treat this as exclusive lower bound since
       // tid is known to be >= 0.
-      auto *ConstBound = dyn_cast<Constant>(Bound[0]);
+      auto *ConstBound = dyn_cast<Constant>(EqBound);
       if (!ConstBound) {
-        auto *InstBound = dyn_cast<Instruction>(Bound[0]);
+        auto *InstBound = dyn_cast<Instruction>(EqBound);
         if (InstBound)
           ConstBound = ConstantFoldInstruction(InstBound, DL);
       }
       if (ConstBound && ConstBound->isNullValue()) {
-        EEVec.push_back({Bound[0], Dim, false, false, false, IsGID});
+        EEVec.push_back({EqBound, Dim, false, false, false, IsGID});
         return true;
       }
     }

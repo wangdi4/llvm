@@ -7,14 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 // REQUIRES: intel_feature_esimd_embargo
-// TODO: Enable when CMPLRLLVM-49839 is fixed.
-// UNSUPPORTED: gpu
-
-// See ../intel_README.md for instruction explaining how to use
-// Intel Falcon Shores GPU simulator.
 
 // RUN: %{build} -fsycl-device-code-split=per_kernel -DESIMD_EMBARGO -o %t.out
-// The test requires FCS (Falcon Shores) emulator or FSC GPU!
+// The test verifies the work with FCS (Falcon Shores) specific data types,
+// but it only copies data. Thus, it does not require FCS GPU or simulator.
 // RUN: env IGC_VCApiOptions=-ftranslate-legacy-memory-intrinsics %{run} %t.out
 
 // This test checks simd::copy_from/to methods with alignment flags.
