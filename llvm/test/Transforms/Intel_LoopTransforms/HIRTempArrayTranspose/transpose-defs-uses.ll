@@ -136,15 +136,15 @@
 ;        END REGION
 
 
-%"struct.ml::cpu::Matrix" = type { i32, i32, i8* }
+%"struct.ml::cpu::Matrix" = type { i32, i32, ptr }
 
-define void @_ZN2ml3cpu15gemm_lowp_naiveERKNS0_6MatrixIaEES4_RKNS1_IiEERS2_NS0_8BiasTypeESt6vectorIiSaIiEESC_aSA_IaSaIaEESC_a(%"struct.ml::cpu::Matrix"* %B, i8* %.pre222) {
+define void @_ZN2ml3cpu15gemm_lowp_naiveERKNS0_6MatrixIaEES4_RKNS1_IiEERS2_NS0_8BiasTypeESt6vectorIiSaIiEESC_aSA_IaSaIaEESC_a(ptr %B, ptr %.pre222) {
 entry:
-  %0 = load i32, i32* null, align 8
+  %0 = load i32, ptr null, align 8
   br i1 false, label %for.cond1.preheader.lr.ph, label %delete.end33
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %1 = load i32, i32* null, align 4
+  %1 = load i32, ptr null, align 4
   %2 = icmp sgt i32 0, 0
   br i1 false, label %for.cond1.preheader.preheader, label %delete.end33
 
@@ -170,8 +170,8 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.l
 
 for.body4:                                        ; preds = %for.body4, %for.body4.preheader
   %7 = phi i32 [ 0, %for.body4 ], [ 0, %for.body4.preheader ]
-  %8 = load i8*, i8** null, align 8
-  %9 = load i32, i32* null, align 4
+  %8 = load ptr, ptr null, align 8
+  %9 = load i32, ptr null, align 4
   %cmp2 = icmp slt i32 0, 0
   br i1 %cmp2, label %for.body4, label %for.cond.cleanup3.loopexit
 
@@ -179,32 +179,32 @@ delete.end33.loopexit:                            ; preds = %for.cond.cleanup3
   br label %delete.end33
 
 delete.end33:                                     ; preds = %delete.end33.loopexit, %for.cond1.preheader.lr.ph, %entry
-  %10 = load i32, i32* null, align 8
-  %11 = load i32, i32* null, align 4
+  %10 = load i32, ptr null, align 8
+  %11 = load i32, ptr null, align 4
   %12 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 0, i64 0)
   %13 = extractvalue { i64, i1 } zeroinitializer, 1
   %14 = extractvalue { i64, i1 } zeroinitializer, 0
   %15 = select i1 false, i64 0, i64 0
-  %16 = bitcast i8* null to i32*
-  %17 = bitcast i8* null to i32*
-  %18 = load i32, i32* null, align 8
-  %19 = load i8*, i8** null, align 8
-  %data21 = getelementptr inbounds %"struct.ml::cpu::Matrix", %"struct.ml::cpu::Matrix"* %B, i64 0, i32 2
-  %20 = load i8*, i8** %data21, align 8
-  %21 = load i8*, i8** null, align 8
-  %22 = load i8*, i8** null, align 8
+  %16 = bitcast ptr null to ptr
+  %17 = bitcast ptr null to ptr
+  %18 = load i32, ptr null, align 8
+  %19 = load ptr, ptr null, align 8
+  %data21 = getelementptr inbounds %"struct.ml::cpu::Matrix", ptr %B, i64 0, i32 2
+  %20 = load ptr, ptr %data21, align 8
+  %21 = load ptr, ptr null, align 8
+  %22 = load ptr, ptr null, align 8
   br label %_ZNSt12_Vector_baseIaSaIaEEC2EmRKS0_.exit.i
 
 _ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i: ; No predecessors!
-  %.pre2221 = load i8*, i8** null, align 8
-  %.pre223 = load i8*, i8** null, align 8
+  %.pre2221 = load ptr, ptr null, align 8
+  %.pre223 = load ptr, ptr null, align 8
   br label %_ZNSt12_Vector_baseIaSaIaEEC2EmRKS0_.exit.i
 
 _ZNSt12_Vector_baseIaSaIaEEC2EmRKS0_.exit.i:      ; preds = %_ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i, %delete.end33
-  %23 = phi i8* [ null, %_ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i ], [ %.pre222, %delete.end33 ]
-  %24 = phi i8* [ %.pre222, %_ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i ], [ null, %delete.end33 ]
-  %sub.ptr.lhs.cast.i.i.i.i.i.i.i.i.i = ptrtoint i8* %23 to i64
-  %sub.ptr.rhs.cast.i.i.i.i.i.i.i.i.i = ptrtoint i8* %24 to i64
+  %23 = phi ptr [ null, %_ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i ], [ %.pre222, %delete.end33 ]
+  %24 = phi ptr [ %.pre222, %_ZNSt16allocator_traitsISaIaEE8allocateERS0_m.exit.i.i.i.i ], [ null, %delete.end33 ]
+  %sub.ptr.lhs.cast.i.i.i.i.i.i.i.i.i = ptrtoint ptr %23 to i64
+  %sub.ptr.rhs.cast.i.i.i.i.i.i.i.i.i = ptrtoint ptr %24 to i64
   %sub.ptr.sub.i.i.i.i.i.i.i.i.i = sub i64 %sub.ptr.lhs.cast.i.i.i.i.i.i.i.i.i, %sub.ptr.rhs.cast.i.i.i.i.i.i.i.i.i
   br label %_ZNSt6vectorIaSaIaEEC2ERKS1_.exit
 
@@ -216,7 +216,7 @@ _ZNSt6vectorIiSaIiEE17_S_check_init_lenEmRKS0_.exit.i.i: ; preds = %_ZNSt6vector
   br i1 false, label %_ZNSt6vectorIiSaIiEEC2EmRKS0_.exit.i, label %if.end.i.i.i.i.i.i.i.i
 
 if.end.i.i.i.i.i.i.i.i:                           ; preds = %_ZNSt6vectorIiSaIiEE17_S_check_init_lenEmRKS0_.exit.i.i
-  %25 = bitcast i8* null to i32*
+  %25 = bitcast ptr null to ptr
   br label %_ZNSt6vectorIiSaIiEEC2EmRKS0_.exit.i
 
 _ZNSt6vectorIiSaIiEEC2EmRKS0_.exit.i:             ; preds = %if.end.i.i.i.i.i.i.i.i, %_ZNSt6vectorIiSaIiEE17_S_check_init_lenEmRKS0_.exit.i.i
@@ -227,7 +227,7 @@ _ZNSt6vectorIiSaIiEE17_S_check_init_lenEmRKS0_.exit.i174.i: ; preds = %_ZNSt6vec
   br i1 false, label %for.cond15.preheader.i, label %for.body.lr.ph.i
 
 for.body.lr.ph.i:                                 ; preds = %_ZNSt6vectorIiSaIiEE17_S_check_init_lenEmRKS0_.exit.i174.i
-  %26 = bitcast i8* null to i32*
+  %26 = bitcast ptr null to ptr
   br label %for.body.us.preheader.i
 
 for.body.us.preheader.i:                          ; preds = %for.body.lr.ph.i
@@ -240,8 +240,8 @@ for.body.us.i:                                    ; preds = %for.cond4.for.cond.
 
 for.body7.us.i:                                   ; preds = %for.body7.us.i, %for.body.us.i
   %29 = add nuw nsw i64 0, 0
-  %30 = load i8, i8* null, align 1
-  %31 = load i32, i32* null, align 4
+  %30 = load i8, ptr null, align 1
+  %31 = load i32, ptr null, align 4
   %exitcond336.not.i = icmp eq i64 0, 0
   br i1 %exitcond336.not.i, label %for.cond4.for.cond.cleanup6_crit_edge.us.i, label %for.body7.us.i
 
@@ -275,12 +275,12 @@ for.body25.us.i:                                  ; preds = %for.body25.us.i, %f
   %indvars.iv318.i = phi i64 [ 0, %for.body18.us.i ], [ %indvars.iv.next319.i, %for.body25.us.i ]
   %32 = mul nsw i64 %indvars.iv318.i, %conv.i
   %33 = add nsw i64 %32, %indvars.iv324.i
-  %arrayidx29.us.i = getelementptr inbounds i8, i8* %20, i64 %33
-  %34 = load i8, i8* %arrayidx29.us.i, align 1
+  %arrayidx29.us.i = getelementptr inbounds i8, ptr %20, i64 %33
+  %34 = load i8, ptr %arrayidx29.us.i, align 1
   %conv30.us.i = sext i8 %34 to i32
-  %35 = load i32, i32* null, align 4
+  %35 = load i32, ptr null, align 4
   %add33.us.i = add nsw i32 0, 2
-  store i32 %conv30.us.i, i32* null, align 4
+  store i32 %conv30.us.i, ptr null, align 4
   %indvars.iv.next319.i = add nuw nsw i64 %indvars.iv318.i, 1
   %exitcond323.not.i = icmp eq i64 %indvars.iv.next319.i, %wide.trip.count322.i175
   br i1 %exitcond323.not.i, label %for.cond22.for.cond.cleanup24_crit_edge.us.i, label %for.body25.us.i
@@ -323,17 +323,17 @@ for.body49.us.i.us.preheader:                     ; preds = %for.body49.us.i.pre
 for.body49.us.i.us:                               ; preds = %for.cond.cleanup63.us.i.loopexit.us, %for.body49.us.i.us.preheader
   %indvars.iv307.i.us = phi i64 [ %indvars.iv.next308.i.us, %for.cond.cleanup63.us.i.loopexit.us ], [ 0, %for.body49.us.i.us.preheader ]
   %39 = add nsw i64 0, 0
-  %40 = load i32, i32* null, align 4
+  %40 = load i32, ptr null, align 4
   br label %for.body64.us.i.us
 
 for.body64.us.i.us:                               ; preds = %for.body64.us.i.us, %for.body49.us.i.us
   %indvars.iv300.i.us = phi i64 [ %indvars.iv.next301.i.us, %for.body64.us.i.us ], [ 0, %for.body49.us.i.us ]
   %41 = add nsw i64 0, 0
-  %42 = load i8, i8* null, align 1
+  %42 = load i8, ptr null, align 1
   %43 = mul nsw i64 %indvars.iv300.i.us, undef
   %44 = add nsw i64 %43, %indvars.iv307.i.us
-  %arrayidx73.us.i.us = getelementptr inbounds i8, i8* %20, i64 %44
-  %45 = load i8, i8* %arrayidx73.us.i.us, align 1
+  %arrayidx73.us.i.us = getelementptr inbounds i8, ptr %20, i64 %44
+  %45 = load i8, ptr %arrayidx73.us.i.us, align 1
   %conv74.us.i.us = sext i8 %45 to i32
   %mul75.us.i.us = mul nsw i32 2, 1
   %add76.us.i.us = add nsw i32 1, 0
@@ -343,20 +343,20 @@ for.body64.us.i.us:                               ; preds = %for.body64.us.i.us,
 
 for.cond.cleanup63.us.i.loopexit.us:              ; preds = %for.body64.us.i.us
   %add76.us.i.us.lcssa = phi i32 [ 0, %for.body64.us.i.us ]
-  %46 = load i32, i32* null, align 4
-  %47 = load i32, i32* null, align 4
+  %46 = load i32, ptr null, align 4
+  %47 = load i32, ptr null, align 4
   %add93.us.i.us = add i32 0, 0
   %add98.us.i.us = sub i32 0, 0
-  store i32 %conv74.us.i.us, i32* null, align 4
+  store i32 %conv74.us.i.us, ptr null, align 4
   %indvars.iv.next308.i.us = add nuw nsw i64 %indvars.iv307.i.us, 1
   %exitcond311.not.i.us = icmp eq i64 %indvars.iv.next308.i.us, %sub.ptr.sub.i.i.i.i.i.i.i.i.i
   br i1 %exitcond311.not.i.us, label %for.cond.cleanup48.i.loopexit, label %for.body49.us.i.us
 
 for.body49.us.i:                                  ; preds = %for.body49.us.i, %for.body49.us.i.preheader247
   %48 = add nsw i64 0, 0
-  %49 = load i32, i32* null, align 4
-  %50 = load i32, i32* null, align 4
-  %51 = load i32, i32* null, align 4
+  %49 = load i32, ptr null, align 4
+  %50 = load i32, ptr null, align 4
+  %51 = load i32, ptr null, align 4
   %exitcond311.not.i = icmp eq i64 0, 0
   br i1 %exitcond311.not.i, label %for.cond.cleanup48.i.loopexit248, label %for.body49.us.i
 
@@ -372,17 +372,17 @@ for.body49.us221.i.preheader:                     ; preds = %for.body49.lr.ph.sp
 for.body49.us221.i:                               ; preds = %for.cond61.for.cond.cleanup63_crit_edge.us267.i, %for.body49.us221.i.preheader
   %indvars.iv295.i = phi i64 [ %indvars.iv.next296.i, %for.cond61.for.cond.cleanup63_crit_edge.us267.i ], [ 0, %for.body49.us221.i.preheader ]
   %52 = add nsw i64 0, 0
-  %53 = load i32, i32* null, align 4
+  %53 = load i32, ptr null, align 4
   br label %for.body64.us250.i
 
 for.body64.us250.i:                               ; preds = %for.body64.us250.i, %for.body49.us221.i
   %indvars.iv288.i = phi i64 [ 0, %for.body49.us221.i ], [ %indvars.iv.next289.i, %for.body64.us250.i ]
   %54 = add nsw i64 0, 0
-  %55 = load i8, i8* null, align 1
+  %55 = load i8, ptr null, align 1
   %56 = mul nsw i64 %indvars.iv288.i, undef
   %57 = add nsw i64 %56, %indvars.iv295.i
-  %arrayidx73.us260.i = getelementptr inbounds i8, i8* %20, i64 %57
-  %58 = load i8, i8* %arrayidx73.us260.i, align 1
+  %arrayidx73.us260.i = getelementptr inbounds i8, ptr %20, i64 %57
+  %58 = load i8, ptr %arrayidx73.us260.i, align 1
   %conv74.us261.i = sext i8 %58 to i32
   %mul75.us262.i = mul nsw i32 2, 1
   %add76.us263.i = add nsw i32 1, 0
@@ -394,7 +394,7 @@ for.cond61.for.cond.cleanup63_crit_edge.us267.i:  ; preds = %for.body64.us250.i
   %add76.us263.i.lcssa = phi i32 [ 0, %for.body64.us250.i ]
   %add93.us246.i = add i32 0, 0
   %add98.us247.i = sub i32 0, 0
-  store i32 %conv74.us261.i, i32* null, align 4
+  store i32 %conv74.us261.i, ptr null, align 4
   %indvars.iv.next296.i = add nuw nsw i64 %indvars.iv295.i, 1
   %exitcond299.not.i = icmp eq i64 %indvars.iv.next296.i, %conv.i
   br i1 %exitcond299.not.i, label %for.cond.cleanup48.i.loopexit249, label %for.body49.us221.i
@@ -421,10 +421,10 @@ for.cond.cleanup48.i:                             ; preds = %for.cond.cleanup48.
 declare { i64, i1 } @llvm.umul.with.overflow.i64(i64, i64) #0
 
 ; Function Attrs: argmemonly nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #1
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #1
 
 ; Function Attrs: argmemonly nofree nounwind willreturn
-declare void @llvm.memmove.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memmove.p0.p0.i64(ptr nocapture writeonly, ptr nocapture readonly, i64, i1 immarg) #2
 
 attributes #0 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
 attributes #1 = { argmemonly nofree nounwind willreturn writeonly }

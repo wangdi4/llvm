@@ -47,23 +47,23 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local float @foo_float(float* nocapture readonly %ptr, i32 %n) local_unnamed_addr {
+define dso_local float @foo_float(ptr nocapture readonly %ptr, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca float, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %s.red, float zeroinitializer, i32 1) ]
-  store float 0.000000e+00, float* %s.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, float zeroinitializer, i32 1) ]
+  store float 0.000000e+00, ptr %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %add618 = phi float [ 0.000000e+00, %DIR.OMP.SIMD.1 ], [ %add6, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %ptr, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %ptr, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add6 = fadd float %add618, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -71,7 +71,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit_crit_edge.split.split: ; preds = %omp.inner.for.body
   %add6.lcssa = phi float [ %add6, %omp.inner.for.body ]
-  store float %add6.lcssa, float* %s.red, align 4, !tbaa !2
+  store float %add6.lcssa, ptr %s.red, align 4, !tbaa !2
   %2 = fadd float %add6.lcssa, 1.000000e+01
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end

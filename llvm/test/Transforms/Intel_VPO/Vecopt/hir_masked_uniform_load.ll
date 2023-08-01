@@ -17,7 +17,7 @@
 
 
 
-define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
+define void @foo(ptr nocapture readonly %lp, ptr nocapture %darr, ptr nocapture readonly %arr) {
 ; CHECK:      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT: |   %.vec = (<4 x i64>*)(%arr)[i1];
 ; CHECK-NEXT: |   %.vec1 = i1 + <i64 0, i64 1, i64 2, i64 3> > %.vec;
@@ -37,17 +37,17 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %l1.09
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %l1.09
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !2
   %cmp1 = icmp sgt i64 %l1.09, %0
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %conv = sitofp i64 %l1.09 to double
-  %1 = load i64, i64* %lp, align 8, !tbaa !2
+  %1 = load i64, ptr %lp, align 8, !tbaa !2
   %add = add nsw i64 %1, %l1.09
-  %arrayidx2 = getelementptr inbounds double, double* %darr, i64 %add
-  store double %conv, double* %arrayidx2, align 8, !tbaa !6
+  %arrayidx2 = getelementptr inbounds double, ptr %darr, i64 %add
+  store double %conv, ptr %arrayidx2, align 8, !tbaa !6
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -70,7 +70,7 @@ for.end:                                          ; preds = %for.inc
 ;      }
 ;    END LOOP
 ;
-define void @foo_uniform_if(i64 %n, i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
+define void @foo_uniform_if(i64 %n, ptr nocapture readonly %lp, ptr nocapture %darr, ptr nocapture readonly %arr) {
 ; CHECK:      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT: |   if (%n > 10)
 ; CHECK-NEXT: |   {
@@ -90,10 +90,10 @@ for.body:                                         ; preds = %for.inc, %entry
 
 if.then:                                          ; preds = %for.body
   %conv = sitofp i64 %l1.09 to double
-  %uniform.ldval = load i64, i64* %lp, align 8, !tbaa !2
+  %uniform.ldval = load i64, ptr %lp, align 8, !tbaa !2
   %add = add nsw i64 %uniform.ldval, %l1.09
-  %arrayidx2 = getelementptr inbounds double, double* %darr, i64 %add
-  store double %conv, double* %arrayidx2, align 8, !tbaa !6
+  %arrayidx2 = getelementptr inbounds double, ptr %darr, i64 %add
+  store double %conv, ptr %arrayidx2, align 8, !tbaa !6
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

@@ -29,7 +29,7 @@
 ; CHECK: if ([[AND]] == 0)
 ; CHECK: <ivdep>
 
-define void @smooth3d([4096 x [4096 x double]]* nocapture readonly %in, [4096 x [4096 x double]]* nocapture %out) {
+define void @smooth3d(ptr nocapture readonly %in, ptr nocapture %out) {
 entry:
   br label %for.cond1.preheader
 
@@ -67,38 +67,38 @@ for.cond.cleanup11:                               ; preds = %for.body12
 for.body12:                                       ; preds = %for.cond9.preheader, %for.body12
   %indvars.iv = phi i64 [ 1, %for.cond9.preheader ], [ %indvars.iv.next, %for.body12 ]
   %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx15 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %1, i64 %indvars.iv150, i64 %indvars.iv154
-  %2 = load double, double* %arrayidx15, align 8
+  %arrayidx15 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %1, i64 %indvars.iv150, i64 %indvars.iv154
+  %2 = load double, ptr %arrayidx15, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx21 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv.next, i64 %indvars.iv150, i64 %indvars.iv154
-  %3 = load double, double* %arrayidx21, align 8
+  %arrayidx21 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv.next, i64 %indvars.iv150, i64 %indvars.iv154
+  %3 = load double, ptr %arrayidx21, align 8
   %add22 = fadd fast double %3, %2
-  %arrayidx28 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv, i64 %indvars.iv150, i64 %indvars.iv154
-  %4 = load double, double* %arrayidx28, align 8
+  %arrayidx28 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv, i64 %indvars.iv150, i64 %indvars.iv154
+  %4 = load double, ptr %arrayidx28, align 8
   %add29 = fadd fast double %add22, %4
-  %arrayidx36 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv, i64 %indvars.iv.next151, i64 %indvars.iv154
-  %5 = load double, double* %arrayidx36, align 8
+  %arrayidx36 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv, i64 %indvars.iv.next151, i64 %indvars.iv154
+  %5 = load double, ptr %arrayidx36, align 8
   %add37 = fadd fast double %add29, %5
-  %arrayidx44 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv, i64 %0, i64 %indvars.iv154
-  %6 = load double, double* %arrayidx44, align 8
+  %arrayidx44 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv, i64 %0, i64 %indvars.iv154
+  %6 = load double, ptr %arrayidx44, align 8
   %add45 = fadd fast double %add37, %6
-  %arrayidx53 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %1, i64 %0, i64 %indvars.iv154
-  %7 = load double, double* %arrayidx53, align 8
+  %arrayidx53 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %1, i64 %0, i64 %indvars.iv154
+  %7 = load double, ptr %arrayidx53, align 8
   %add54 = fadd fast double %add45, %7
-  %arrayidx62 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv.next, i64 %indvars.iv.next151, i64 %indvars.iv154
-  %8 = load double, double* %arrayidx62, align 8
+  %arrayidx62 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv.next, i64 %indvars.iv.next151, i64 %indvars.iv154
+  %8 = load double, ptr %arrayidx62, align 8
   %add63 = fadd fast double %add54, %8
-  %arrayidx71 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %1, i64 %indvars.iv.next151, i64 %indvars.iv154
-  %9 = load double, double* %arrayidx71, align 8
+  %arrayidx71 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %1, i64 %indvars.iv.next151, i64 %indvars.iv154
+  %9 = load double, ptr %arrayidx71, align 8
   %add72 = fadd fast double %add63, %9
-  %arrayidx80 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %in, i64 %indvars.iv.next, i64 %0, i64 %indvars.iv154
-  %10 = load double, double* %arrayidx80, align 8
+  %arrayidx80 = getelementptr inbounds [4096 x [4096 x double]], ptr %in, i64 %indvars.iv.next, i64 %0, i64 %indvars.iv154
+  %10 = load double, ptr %arrayidx80, align 8
   %add81 = fadd fast double %add72, %10
   %div = fmul fast double %add81, 0x3FBC71C71C71C71C
-  %arrayidx87 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* %out, i64 %indvars.iv, i64 %indvars.iv150, i64 %indvars.iv154
-  %11 = load double, double* %arrayidx87, align 8
+  %arrayidx87 = getelementptr inbounds [4096 x [4096 x double]], ptr %out, i64 %indvars.iv, i64 %indvars.iv150, i64 %indvars.iv154
+  %11 = load double, ptr %arrayidx87, align 8
   %add88 = fadd fast double %div, %11
-  store double %add88, double* %arrayidx87, align 8
+  store double %add88, ptr %arrayidx87, align 8
   %exitcond.not = icmp eq i64 %indvars.iv.next, 4095
   br i1 %exitcond.not, label %for.cond.cleanup11, label %for.body12, !llvm.loop !7
 }

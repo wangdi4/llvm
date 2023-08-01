@@ -57,8 +57,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc5
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %j.013 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
-  %arrayidx4 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 %i.014, i64 %j.013, !intel-tbaa !2
-  store i32 10, i32* %arrayidx4, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 %i.014, i64 %j.013, !intel-tbaa !2
+  store i32 10, ptr %arrayidx4, align 4, !tbaa !2
   %inc = add nuw nsw i64 %j.013, 1
   %exitcond = icmp eq i64 %inc, 10
   br i1 %exitcond, label %for.inc5, label %for.body3

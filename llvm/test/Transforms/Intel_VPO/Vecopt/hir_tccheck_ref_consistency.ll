@@ -33,18 +33,18 @@
 ;
 ; CHECK:           |      + DO i64 i2 = 0, [[LOOP_UB0:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ;
-define void @foo(i64** %lpp, i64* %lp1, i64* %lp2) {
+define void @foo(ptr %lpp, ptr %lp1, ptr %lp2) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end
   %l1.024 = phi i64 [ 0, %entry ], [ %inc8, %for.end ]
-  %arrayidx = getelementptr inbounds i64*, i64** %lpp, i64 %l1.024
-  %0 = load i64*, i64** %arrayidx, align 8
-  %arrayidx1 = getelementptr inbounds i64, i64* %lp1, i64 %l1.024
-  %1 = load i64, i64* %arrayidx1, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %lp2, i64 %l1.024
-  %2 = load i64, i64* %arrayidx2, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lpp, i64 %l1.024
+  %0 = load ptr, ptr %arrayidx, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %lp1, i64 %l1.024
+  %1 = load i64, ptr %arrayidx1, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %lp2, i64 %l1.024
+  %2 = load i64, ptr %arrayidx2, align 8
   %mul = mul nsw i64 %2, %1
   %cmp422 = icmp sgt i64 %mul, 0
   br i1 %cmp422, label %for.body5.preheader, label %for.end
@@ -54,8 +54,8 @@ for.body5.preheader:                              ; preds = %for.body
 
 for.body5:                                        ; preds = %for.body5.preheader, %for.body5
   %l2.023 = phi i64 [ %inc, %for.body5 ], [ 0, %for.body5.preheader ]
-  %arrayidx6 = getelementptr inbounds i64, i64* %0, i64 %l2.023
-  store i64 %l2.023, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds i64, ptr %0, i64 %l2.023
+  store i64 %l2.023, ptr %arrayidx6, align 8
   %inc = add nuw nsw i64 %l2.023, 1
   %exitcond.not = icmp eq i64 %inc, %mul
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body5

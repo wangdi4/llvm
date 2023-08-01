@@ -49,23 +49,23 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo_int(i32* nocapture readonly %ptr, i32 %n) local_unnamed_addr {
+define dso_local i32 @foo_int(ptr nocapture readonly %ptr, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(i32* %s.red, i32 0, i32 1) ]
-  store i32 -2147483648, i32* %s.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr %s.red, i32 0, i32 1) ]
+  store i32 -2147483648, ptr %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %.23 = phi i32 [ -2147483648, %DIR.OMP.SIMD.1 ], [ %., %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp6 = icmp sgt i32 %.23, %1
   %. = select i1 %cmp6, i32 %.23, i32 %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -74,7 +74,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit_crit_edge.split.split: ; preds = %omp.inner.for.body
   %..lcssa = phi i32 [ %., %omp.inner.for.body ]
-  store i32 %..lcssa, i32* %s.red, align 4, !tbaa !2
+  store i32 %..lcssa, ptr %s.red, align 4, !tbaa !2
   %2 = icmp sgt i32 %..lcssa, 10
   %max = select i1 %2, i32 %..lcssa, i32 10
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]

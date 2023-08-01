@@ -28,7 +28,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define float @matmul(float* %px, float* %vy, float* %cx, i32 %n, i32 %loop) #0 {
+define float @matmul(ptr %px, ptr %vy, ptr %cx, i32 %n, i32 %loop) #0 {
 entry:
   %cmp6 = icmp sle i32 1, %loop
   br i1 %cmp6, label %for.body.lr.ph, label %for.end28
@@ -58,19 +58,19 @@ for.body9:                                        ; preds = %for.inc, %for.body6
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body6 ]
   %2 = mul nsw i64 %indvars.iv9, %0
   %3 = add nsw i64 %2, %indvars.iv5
-  %arrayidx = getelementptr inbounds float, float* %vy, i64 %3
-  %4 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %vy, i64 %3
+  %4 = load float, ptr %arrayidx, align 4
   %5 = mul nuw nsw i64 %indvars.iv, 25
   %6 = add nuw nsw i64 %5, %indvars.iv9
-  %arrayidx13 = getelementptr inbounds float, float* %cx, i64 %6
-  %7 = load float, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %cx, i64 %6
+  %7 = load float, ptr %arrayidx13, align 4
   %mul14 = fmul float %4, %7
   %8 = mul nuw nsw i64 %indvars.iv, 25
   %9 = add nuw nsw i64 %8, %indvars.iv5
-  %arrayidx18 = getelementptr inbounds float, float* %px, i64 %9
-  %10 = load float, float* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds float, ptr %px, i64 %9
+  %10 = load float, ptr %arrayidx18, align 4
   %add19 = fadd float %10, %mul14
-  store float %add19, float* %arrayidx18, align 4
+  store float %add19, ptr %arrayidx18, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body9
@@ -110,8 +110,7 @@ for.cond.for.end28_crit_edge:                     ; preds = %for.inc26
   br label %for.end28
 
 for.end28:                                        ; preds = %for.cond.for.end28_crit_edge, %entry
-  %arrayidx29 = getelementptr inbounds float, float* %px, i64 0
-  %11 = load float, float* %arrayidx29, align 4
+  %11 = load float, ptr %px, align 4
   ret float %11
 }
 

@@ -56,7 +56,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @str = private unnamed_addr constant [13 x i8] c"TEST PASSED \00"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @init(i32* nocapture %a) local_unnamed_addr #0 {
+define void @init(ptr nocapture %a) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -75,9 +75,9 @@ for.body6:                                        ; preds = %for.body6, %for.con
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %3 = add nuw nsw i64 %1, %indvars.iv
   %4 = add nuw nsw i64 %2, %indvars.iv
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %4
   %5 = trunc i64 %3 to i32
-  store i32 %5, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %5, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.inc10, label %for.body6
@@ -97,10 +97,10 @@ for.end15:                                        ; preds = %for.inc13
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() local_unnamed_addr #2 {
@@ -132,15 +132,15 @@ for.inc13.i:                                      ; preds = %for.inc10.i
   br i1 %exitcond41.i, label %for.body.preheader, label %for.cond1.preheader.i
 
 for.body.preheader:                               ; preds = %for.inc13.i
-  %puts = tail call i32 @puts(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @str, i64 0, i64 0))
+  %puts = tail call i32 @puts(ptr @str)
   ret i32 0
 }
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #3
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #3
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly) #4
+declare i32 @puts(ptr nocapture readonly) #4
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

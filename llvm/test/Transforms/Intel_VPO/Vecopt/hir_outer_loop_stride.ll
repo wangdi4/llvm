@@ -54,8 +54,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc5
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %l2.016 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nuw nsw i64 %l2.016, %l1.017
-  %arrayidx4 = getelementptr inbounds [128 x [128 x i64]], [128 x [128 x i64]]* @arr, i64 0, i64 %l1.017, i64 %l2.016
-  store i64 %add, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [128 x [128 x i64]], ptr @arr, i64 0, i64 %l1.017, i64 %l2.016
+  store i64 %add, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %l2.016, 1
   %exitcond.not = icmp eq i64 %inc, 128
   br i1 %exitcond.not, label %for.inc5, label %for.body3

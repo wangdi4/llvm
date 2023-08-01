@@ -50,14 +50,14 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc9
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %l2.020 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %mul = shl nuw nsw i64 %l2.020, 1
-  %arrayidx = getelementptr inbounds [2048 x i64], [2048 x i64]* @arr, i64 0, i64 %mul
-  %0 = load i64, i64* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds [2048 x i64], ptr @arr, i64 0, i64 %mul
+  %0 = load i64, ptr %arrayidx, align 16
   %add = add nuw nsw i64 %mul, 1
-  %arrayidx5 = getelementptr inbounds [2048 x i64], [2048 x i64]* @arr, i64 0, i64 %add
-  %1 = load i64, i64* %arrayidx5, align 8
+  %arrayidx5 = getelementptr inbounds [2048 x i64], ptr @arr, i64 0, i64 %add
+  %1 = load i64, ptr %arrayidx5, align 8
   %add6 = add nsw i64 %1, %0
-  %arrayidx8 = getelementptr inbounds [1024 x [1024 x i64]], [1024 x [1024 x i64]]* @arr2, i64 0, i64 %l2.020, i64 %l1.021
-  store i64 %add6, i64* %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds [1024 x [1024 x i64]], ptr @arr2, i64 0, i64 %l2.020, i64 %l1.021
+  store i64 %add6, ptr %arrayidx8, align 8
   %inc = add nuw nsw i64 %l2.020, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.inc9, label %for.body3

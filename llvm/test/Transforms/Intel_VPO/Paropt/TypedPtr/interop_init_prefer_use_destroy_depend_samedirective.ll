@@ -1,0 +1,75 @@
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-dispatch-codegen-version=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+;
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-dispatch-codegen-version=1 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=VERSION1
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=VERSION1
+;
+; Test Src:
+;
+;  #include <omp.h>
+;  void foo(omp_interop_t obj1, omp_interop_t obj2, omp_interop_t obj3) {
+;  #pragma omp interop init(prefer_type("opencl", "level_zero"), targetsync:obj1) \
+;                      use(obj2) \
+;                      destroy(obj3) \
+;                      depend(in:obj2, obj3) depend(out:obj1)
+;  }
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+;check code generated for depend clauses
+;CHECK: %[[DEPVEC_TYPE:[^ ]+]] = type { %__struct.kmp_depend_info, %__struct.kmp_depend_info, %__struct.kmp_depend_info }
+;CHECK: @[[PREFER_LIST:[^ ]+]] = private unnamed_addr constant [2 x i32] [i32 3, i32 6]
+;CHECK: %task.depend.vec = alloca %[[DEPVEC_TYPE]], align 8
+;CHECK: %[[OBJ2:[^ ]+]] = ptrtoint i8** %obj2.addr to i64
+;CHECK: store i64 %[[OBJ2]], i64* %.dep.base.ptr, align 8
+;CHECK: store i64 8, i64* %.dep.num.bytes, align 8
+;CHECK: store i8 1, i8* %.dep.flags, align 1
+;CHECK: %[[OBJ3:[^ ]+]] = ptrtoint i8** %obj3.addr to i64
+;CHECK: store i64 %[[OBJ3]], i64* %.dep.base.ptr{{[^ ,]*}}, align 8
+;CHECK: store i64 8, i64* %.dep.num.bytes{{[^ ,]*}}, align 8
+;CHECK: store i8 1, i8* %.dep.flags{{[^ ,]*}}, align 1
+;CHECK: %[[OBJ1:[^ ]+]] = ptrtoint i8** %obj1.addr to i64
+;CHECK: store i64 %[[OBJ1]], i64* %.dep.base.ptr{{[^ ,]*}}, align 8
+;CHECK: store i64 8, i64* %.dep.num.bytes{{[^ ,]*}}, align 8
+;CHECK: store i8 3, i8* %.dep.flags{{[^ ,]*}}, align 1
+;CHECK: %[[BITCAST_TASK_DEP_VEC:[^ ]+]] = bitcast %__struct.kmp_depend_info* %{{[^ ,]+}} to i8*
+;CHECK: call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i32 3, i8* %[[BITCAST_TASK_DEP_VEC]], i32 0, i8* null)
+
+;check output IR for interop creation, use and release
+;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
+;CHECK-NEXT:  %{{[^ ,]+}} = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 1, i32 2, i8* bitcast ([2 x i32]* @[[PREFER_LIST]] to i8*))
+;CHECK:   %[[INTEROP_OBJ2:[^ ]+]] = load i8*, i8** %{{[^ ,]+}}, align 8
+;CHECK-NEXT:   %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_OBJ2]])
+;CHECK-NEXT:  %[[INTEROP_OBJ3:[^ ]+]] = load i8*, i8** %obj3.addr, align 8
+;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ3]])
+;CHECK-NEXT: store i8* null, i8** %obj3.addr, align 8
+;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
+
+; With -vpo-paropt-dispatch-codegen-version=1, just check that __tgt_interop_use_async is called instead of __tgt_use_interop
+; VERSION1: call void @__tgt_interop_use_async(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i8* %obj{{.*}}, i8 0, i8* null)
+; VERSION1-NOT: call i32 @__tgt_use_interop
+
+define dso_local void @foo(i8* %obj1, i8* %obj2, i8* %obj3) {
+entry:
+  %obj1.addr = alloca i8*, align 8
+  %obj2.addr = alloca i8*, align 8
+  %obj3.addr = alloca i8*, align 8
+  store i8* %obj1, i8** %obj1.addr, align 8
+  store i8* %obj2, i8** %obj2.addr, align 8
+  store i8* %obj3, i8** %obj3.addr, align 8
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTEROP"(),
+    "QUAL.OMP.INIT:TARGETSYNC.PREFER"(i8** %obj1.addr, i64 3, i64 6),
+    "QUAL.OMP.USE"(i8** %obj2.addr),
+    "QUAL.OMP.DESTROY"(i8** %obj3.addr),
+    "QUAL.OMP.DEPEND.IN"(i8** %obj2.addr),
+    "QUAL.OMP.DEPEND.IN"(i8** %obj3.addr),
+    "QUAL.OMP.DEPEND.OUT"(i8** %obj1.addr) ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTEROP"() ]
+
+  ret void
+}
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

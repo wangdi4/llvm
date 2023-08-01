@@ -37,7 +37,7 @@
 ; CHECK-NEXT:  |   (<4 x i64>*)([[TMP:%.*]])[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  + END LOOP
 ;
-define void @foo(i64** %lpp) {
+define void @foo(ptr %lpp) {
 entry:
   br label %for.body
 
@@ -46,14 +46,14 @@ for.body:                                         ; preds = %entry, %for.end
   %l1.018 = phi i32 [ 0, %entry ], [ %inc6, %for.end ]
   %indvars.iv.ext = sext i32 %indvars.iv to i64
   %l1.018.ext = sext i32 %l1.018 to i64
-  %arrayidx = getelementptr inbounds i64*, i64** %lpp, i64 %l1.018.ext
-  %0 = load i64*, i64** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lpp, i64 %l1.018.ext
+  %0 = load ptr, ptr %arrayidx, align 8
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body, %for.body3
   %l2.017 = phi i64 [ 0, %for.body ], [ %inc, %for.body3 ]
-  %arrayidx4 = getelementptr inbounds i64, i64* %0, i64 %l2.017
-  store i64 %l2.017, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds i64, ptr %0, i64 %l2.017
+  store i64 %l2.017, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %l2.017, 1
   %exitcond = icmp eq i64 %inc, %indvars.iv.ext
   br i1 %exitcond, label %for.end, label %for.body3

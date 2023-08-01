@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i32* noalias nocapture noundef %A, i64* nocapture noundef readonly %B, i32* noalias nocapture noundef readonly %C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C) local_unnamed_addr #0 {
 ;
 ; int A[8], C[8];
 ; long B[8]; // conflict idx
@@ -137,14 +137,14 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %B, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %0
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %B, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %0
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx4, align 4
   %add = add i32 %2, %1
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

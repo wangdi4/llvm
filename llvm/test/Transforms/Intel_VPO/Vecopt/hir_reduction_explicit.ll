@@ -25,22 +25,22 @@ define dso_local float @foo() local_unnamed_addr #0 {
 DIR.OMP.SIMD.122:
   %sum.red = alloca float, align 4
   %index.linear.iv = alloca i32, align 4
-  store float 0.000000e+00, float* %sum.red, align 4
+  store float 0.000000e+00, ptr %sum.red, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.122
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %sum.red, float 0.000000e+00, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %index.linear.iv, i32 0, i32 1, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum.red, float 0.000000e+00, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %index.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %sum.red.promoted = load float, float* %sum.red, align 4, !tbaa !2
+  %sum.red.promoted = load float, ptr %sum.red, align 4, !tbaa !2
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %red.local = phi float [ %sum.red.promoted, %DIR.OMP.SIMD.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %fval = load float, float* %arrayidx, align 4, !tbaa !6, !llvm.access.group !8
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %fval = load float, ptr %arrayidx, align 4, !tbaa !6, !llvm.access.group !8
   %add1 = fadd fast float %red.local, %fval
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024

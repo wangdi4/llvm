@@ -58,10 +58,10 @@ for.body:                                         ; preds = %for.inc6, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [5 x %struct.my_struct], [5 x %struct.my_struct]* @A, i64 0, i64 1, i32 0, i64 %indvars.iv16, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [5 x %struct.my_struct], ptr @A, i64 0, i64 1, i32 0, i64 %indvars.iv16, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   %add = add nsw i32 %0, 1
-  store i32 %add, i32* %arrayidx5, align 4, !tbaa !2
+  store i32 %add, ptr %arrayidx5, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc6, label %for.body3

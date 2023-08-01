@@ -60,9 +60,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @stride = dso_local local_unnamed_addr global i32 16, align 4
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @mulsub_block_ORG(float* noalias nocapture noundef %result, float* nocapture noundef readonly %a, float* nocapture noundef readonly %b) local_unnamed_addr #0 {
+define dso_local void @mulsub_block_ORG(ptr noalias nocapture noundef %result, ptr nocapture noundef readonly %a, ptr nocapture noundef readonly %b) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @stride, align 4, !tbaa !3
+  %0 = load i32, ptr @stride, align 4, !tbaa !3
   %1 = sext i32 %0 to i64
   br label %for.cond1.preheader
 
@@ -80,11 +80,11 @@ for.body6:                                        ; preds = %for.cond4.preheader
   %tmp.038 = phi float [ 0.000000e+00, %for.cond4.preheader ], [ %add12, %for.body6 ]
   %3 = mul nsw i64 %indvars.iv, %1
   %4 = add nsw i64 %3, %indvars.iv48
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %4
-  %5 = load float, float* %arrayidx, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %4
+  %5 = load float, ptr %arrayidx, align 4, !tbaa !7
   %6 = add nsw i64 %3, %indvars.iv44
-  %arrayidx10 = getelementptr inbounds float, float* %b, i64 %6
-  %7 = load float, float* %arrayidx10, align 4, !tbaa !7
+  %arrayidx10 = getelementptr inbounds float, ptr %b, i64 %6
+  %7 = load float, ptr %arrayidx10, align 4, !tbaa !7
   %mul11 = fmul fast float %7, %5
   %add12 = fadd fast float %mul11, %tmp.038
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -94,10 +94,10 @@ for.body6:                                        ; preds = %for.cond4.preheader
 for.end:                                          ; preds = %for.body6
   %add12.lcssa = phi float [ %add12, %for.body6 ]
   %8 = add nsw i64 %2, %indvars.iv44
-  %arrayidx16 = getelementptr inbounds float, float* %result, i64 %8
-  %9 = load float, float* %arrayidx16, align 4, !tbaa !7
+  %arrayidx16 = getelementptr inbounds float, ptr %result, i64 %8
+  %9 = load float, ptr %arrayidx16, align 4, !tbaa !7
   %sub = fsub fast float %9, %add12.lcssa
-  store float %sub, float* %arrayidx16, align 4, !tbaa !7
+  store float %sub, ptr %arrayidx16, align 4, !tbaa !7
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond47.not = icmp eq i64 %indvars.iv.next45, 4
   br i1 %exitcond47.not, label %for.inc20, label %for.cond4.preheader, !llvm.loop !11

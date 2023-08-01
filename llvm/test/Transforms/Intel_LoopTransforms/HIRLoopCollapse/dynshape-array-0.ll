@@ -71,11 +71,11 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define void @sub_(double* noalias nocapture dereferenceable(8) %"sub_$A", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N1", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N2", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N3") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture dereferenceable(8) %"sub_$A", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N1", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N2", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N3") local_unnamed_addr #0 {
 alloca_0:
-  %"sub_$N1_fetch" = load i32, i32* %"sub_$N1", align 1
-  %"sub_$N2_fetch" = load i32, i32* %"sub_$N2", align 1
-  %"sub_$N3_fetch" = load i32, i32* %"sub_$N3", align 1
+  %"sub_$N1_fetch" = load i32, ptr %"sub_$N1", align 1
+  %"sub_$N2_fetch" = load i32, ptr %"sub_$N2", align 1
+  %"sub_$N3_fetch" = load i32, ptr %"sub_$N3", align 1
   %int_sext = sext i32 %"sub_$N1_fetch" to i64
   %mul = shl nsw i64 %int_sext, 3
   %int_sext1 = sext i32 %"sub_$N2_fetch" to i64
@@ -94,8 +94,8 @@ bb24.preheader.lr.ph:                             ; preds = %alloca_0
 
 bb21:                                             ; preds = %bb21.lr.ph, %bb21
   %"var$5.054" = phi i64 [ 1, %bb21.lr.ph ], [ %add14, %bb21 ]
-  %"sub_$A[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub_$A[][]", i64 %"var$5.054")
-  store double 0.000000e+00, double* %"sub_$A[][][]", align 1
+  %"sub_$A[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"sub_$A[][]", i64 %"var$5.054")
+  store double 0.000000e+00, ptr %"sub_$A[][][]", align 1
   %add14 = add nuw nsw i64 %"var$5.054", 1
   %exitcond = icmp eq i64 %add14, %0
   br i1 %exitcond, label %bb22.loopexit, label %bb21
@@ -113,7 +113,7 @@ bb20.preheader:                                   ; preds = %bb20.preheader.lr.p
   br i1 %rel53, label %bb22, label %bb21.lr.ph
 
 bb21.lr.ph:                                       ; preds = %bb20.preheader
-  %"sub_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub_$A[]", i64 %"var$6.056")
+  %"sub_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub_$A[]", i64 %"var$6.056")
   br label %bb21
 
 bb26.loopexit:                                    ; preds = %bb22
@@ -129,7 +129,7 @@ bb24.preheader:                                   ; preds = %bb24.preheader.lr.p
   br i1 %rel1855, label %bb26, label %bb20.preheader.lr.ph
 
 bb20.preheader.lr.ph:                             ; preds = %bb24.preheader
-  %"sub_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul2, double* elementtype(double) nonnull %"sub_$A", i64 %"var$7.059")
+  %"sub_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul2, ptr elementtype(double) nonnull %"sub_$A", i64 %"var$7.059")
   br label %bb20.preheader
 
 bb30.loopexit:                                    ; preds = %bb26
@@ -140,7 +140,7 @@ bb30:                                             ; preds = %bb30.loopexit, %all
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nounwind uwtable "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
 attributes #1 = { nounwind readnone speculatable }

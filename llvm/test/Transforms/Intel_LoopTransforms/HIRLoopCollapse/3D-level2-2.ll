@@ -91,7 +91,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @foo() local_unnamed_addr #0 {
 entry:
-  %.pre = load i32, i32* @C, align 4, !tbaa !1
+  %.pre = load i32, ptr @C, align 4, !tbaa !1
   br label %for.body
 
 for.body:                                         ; preds = %for.inc29, %entry
@@ -109,13 +109,13 @@ for.cond5.preheader:                              ; preds = %for.cond5.preheader
 
 for.body7:                                        ; preds = %for.body7, %for.cond5.preheader
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ %indvars.iv.next, %for.body7 ]
-  %arrayidx11 = getelementptr inbounds [10 x [10 x [10 x float]]], [10 x [10 x [10 x float]]]* @A, i64 0, i64 %indvars.iv58, i64 %indvars.iv55, i64 %indvars.iv
-  %0 = load float, float* %arrayidx11, align 4, !tbaa !5
-  %arrayidx17 = getelementptr inbounds [10 x [10 x [10 x float]]], [10 x [10 x [10 x float]]]* @B, i64 0, i64 %indvars.iv58, i64 %indvars.iv55, i64 %indvars.iv
-  %1 = load float, float* %arrayidx17, align 4, !tbaa !5
+  %arrayidx11 = getelementptr inbounds [10 x [10 x [10 x float]]], ptr @A, i64 0, i64 %indvars.iv58, i64 %indvars.iv55, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx11, align 4, !tbaa !5
+  %arrayidx17 = getelementptr inbounds [10 x [10 x [10 x float]]], ptr @B, i64 0, i64 %indvars.iv58, i64 %indvars.iv55, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx17, align 4, !tbaa !5
   %add = fadd float %0, %1
   %add18 = fadd float %add, 1.000000e+00
-  store float %add18, float* %arrayidx11, align 4, !tbaa !5
+  store float %add18, ptr %arrayidx11, align 4, !tbaa !5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.inc26, label %for.body7
@@ -127,7 +127,7 @@ for.inc26:                                        ; preds = %for.body7
 
 for.inc29.loopexit:                               ; preds = %for.inc26
   %2 = add i32 %C.promoted52, 100
-  store i32 %2, i32* @C, align 4, !tbaa !1
+  store i32 %2, ptr @C, align 4, !tbaa !1
   br label %for.inc29
 
 for.inc29:                                        ; preds = %for.inc29.loopexit, %for.body
@@ -137,8 +137,8 @@ for.inc29:                                        ; preds = %for.inc29.loopexit,
   br i1 %exitcond60, label %for.end31, label %for.body
 
 for.end31:                                        ; preds = %for.inc29
-  %4 = load float, float* getelementptr inbounds ([10 x [10 x [10 x float]]], [10 x [10 x [10 x float]]]* @A, i64 0, i64 0, i64 0, i64 0), align 16, !tbaa !5
-  %5 = load float, float* getelementptr inbounds ([10 x [10 x [10 x float]]], [10 x [10 x [10 x float]]]* @B, i64 0, i64 1, i64 1, i64 1), align 4, !tbaa !5
+  %4 = load float, ptr @A, align 16, !tbaa !5
+  %5 = load float, ptr getelementptr inbounds ([10 x [10 x [10 x float]]], ptr @B, i64 0, i64 1, i64 1, i64 1), align 4, !tbaa !5
   %add32 = fadd float %4, %5
   %add33 = fadd float %add32, 1.000000e+00
   %conv = fptosi float %add33 to i32

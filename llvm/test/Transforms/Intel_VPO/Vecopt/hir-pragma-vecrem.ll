@@ -6,7 +6,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
-define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly %ptr, i32 noundef %n) local_unnamed_addr {
+define dso_local noundef i32 @_Z3fooPiii(ptr noalias nocapture noundef readonly %ptr, i32 noundef %n) local_unnamed_addr {
 ; CHECK-LABEL:  Updated scenario for VF: 2
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=2
@@ -121,8 +121,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %s.09 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %s.09
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond.not = icmp eq i32 %indvars.iv.next, %n

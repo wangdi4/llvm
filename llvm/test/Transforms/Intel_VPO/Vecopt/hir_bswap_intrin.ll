@@ -22,7 +22,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @gl_swap2(i16* nocapture %p, i32 %n) local_unnamed_addr #0 {
+define void @gl_swap2(ptr nocapture %p, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp15 = icmp eq i32 %n, 0
   br i1 %cmp15, label %for.end, label %for.body.preheader
@@ -33,10 +33,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i16, i16* %p, i64 %indvars.iv
-  %0 = load i16, i16* %arrayidx, align 2, !tbaa !1
+  %arrayidx = getelementptr inbounds i16, ptr %p, i64 %indvars.iv
+  %0 = load i16, ptr %arrayidx, align 2, !tbaa !1
   %rev = tail call i16 @llvm.bswap.i16(i16 %0)
-  store i16 %rev, i16* %arrayidx, align 2, !tbaa !1
+  store i16 %rev, ptr %arrayidx, align 2, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body

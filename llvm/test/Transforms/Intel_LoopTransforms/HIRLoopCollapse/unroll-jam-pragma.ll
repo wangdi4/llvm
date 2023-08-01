@@ -22,12 +22,12 @@ for.cond1.preheader:                              ; preds = %for.inc10, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @B, i64 0, i64 %indvars.iv22, i64 %indvars.iv
-  %0 = load float, float* %arrayidx5, align 4
-  %arrayidx9 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %indvars.iv22, i64 %indvars.iv
-  %1 = load float, float* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], ptr @B, i64 0, i64 %indvars.iv22, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx5, align 4
+  %arrayidx9 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %indvars.iv22, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx9, align 4
   %add = fadd float %0, %1
-  store float %add, float* %arrayidx9, align 4
+  store float %add, ptr %arrayidx9, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.inc10, label %for.body3

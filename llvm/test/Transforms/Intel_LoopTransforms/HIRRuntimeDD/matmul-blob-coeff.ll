@@ -31,7 +31,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define float @matmul(float* %px, float* %vy, float* %cx, i32 %n, i32 %loop) #0 {
+define float @matmul(ptr %px, ptr %vy, ptr %cx, i32 %n, i32 %loop) #0 {
 entry:
   %cmp6 = icmp sle i32 1, %loop
   br i1 %cmp6, label %for.body.lr.ph, label %for.end28
@@ -60,21 +60,21 @@ for.body9:                                        ; preds = %for.body6, %for.inc
   %mul = mul nsw i32 %k.04, %n
   %add = add nsw i32 %mul, %i.03
   %idxprom = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds float, float* %vy, i64 %idxprom
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %vy, i64 %idxprom
+  %0 = load float, ptr %arrayidx, align 4
   %mul10 = mul nsw i32 %j.01, 25
   %add11 = add nsw i32 %mul10, %k.04
   %idxprom12 = sext i32 %add11 to i64
-  %arrayidx13 = getelementptr inbounds float, float* %cx, i64 %idxprom12
-  %1 = load float, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %cx, i64 %idxprom12
+  %1 = load float, ptr %arrayidx13, align 4
   %mul14 = fmul float %0, %1
   %mul15 = mul nsw i32 %j.01, 25
   %add16 = add nsw i32 %mul15, %i.03
   %idxprom17 = sext i32 %add16 to i64
-  %arrayidx18 = getelementptr inbounds float, float* %px, i64 %idxprom17
-  %2 = load float, float* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds float, ptr %px, i64 %idxprom17
+  %2 = load float, ptr %arrayidx18, align 4
   %add19 = fadd float %2, %mul14
-  store float %add19, float* %arrayidx18, align 4
+  store float %add19, ptr %arrayidx18, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body9
@@ -113,8 +113,7 @@ for.cond.for.end28_crit_edge:                     ; preds = %for.inc26
   br label %for.end28
 
 for.end28:                                        ; preds = %for.cond.for.end28_crit_edge, %entry
-  %arrayidx29 = getelementptr inbounds float, float* %px, i64 0
-  %3 = load float, float* %arrayidx29, align 4
+  %3 = load float, ptr %px, align 4
   ret float %3
 }
 

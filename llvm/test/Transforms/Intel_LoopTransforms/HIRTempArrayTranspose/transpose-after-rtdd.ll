@@ -120,9 +120,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @.source.0.0.28 = hidden unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @bmod(float* nocapture noundef readonly %row, float* nocapture noundef readonly %col, float* nocapture noundef %inner) local_unnamed_addr #0 {
+define dso_local void @bmod(ptr nocapture noundef readonly %row, ptr nocapture noundef readonly %col, ptr nocapture noundef %inner) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @bots_arg_size_1, align 4, !tbaa !4
+  %0 = load i32, ptr @bots_arg_size_1, align 4, !tbaa !4
   %cmp45 = icmp sgt i32 %0, 0
   br i1 %cmp45, label %for.cond1.preheader.lr.ph, label %for.end25
 
@@ -144,15 +144,15 @@ for.body6.us:                                     ; preds = %for.body6.lr.ph.us,
   %3 = phi float [ %.pre, %for.body6.lr.ph.us ], [ %sub.us, %for.body6.us ]
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph.us ], [ %indvars.iv.next, %for.body6.us ]
   %4 = add nuw nsw i64 %indvars.iv, %2
-  %arrayidx10.us = getelementptr inbounds float, float* %row, i64 %4
-  %5 = load float, float* %arrayidx10.us, align 4, !tbaa !10
+  %arrayidx10.us = getelementptr inbounds float, ptr %row, i64 %4
+  %5 = load float, ptr %arrayidx10.us, align 4, !tbaa !10
   %6 = mul nsw i64 %indvars.iv, %1
   %7 = add nuw nsw i64 %6, %indvars.iv50
-  %arrayidx14.us = getelementptr inbounds float, float* %col, i64 %7
-  %8 = load float, float* %arrayidx14.us, align 4, !tbaa !10
+  %arrayidx14.us = getelementptr inbounds float, ptr %col, i64 %7
+  %8 = load float, ptr %arrayidx14.us, align 4, !tbaa !10
   %mul15.us = fmul fast float %8, %5
   %sub.us = fsub fast float %3, %mul15.us
-  store float %sub.us, float* %arrayidx.us, align 4, !tbaa !10
+  store float %sub.us, ptr %arrayidx.us, align 4, !tbaa !10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %1
   br i1 %exitcond.not, label %for.inc20.us, label %for.body6.us, !llvm.loop !12
@@ -160,8 +160,8 @@ for.body6.us:                                     ; preds = %for.body6.lr.ph.us,
 for.body6.lr.ph.us:                               ; preds = %for.inc20.us, %for.cond1.preheader.us
   %indvars.iv50 = phi i64 [ 0, %for.cond1.preheader.us ], [ %indvars.iv.next51, %for.inc20.us ]
   %9 = add nuw nsw i64 %indvars.iv50, %2
-  %arrayidx.us = getelementptr inbounds float, float* %inner, i64 %9
-  %.pre = load float, float* %arrayidx.us, align 4, !tbaa !10
+  %arrayidx.us = getelementptr inbounds float, ptr %inner, i64 %9
+  %.pre = load float, ptr %arrayidx.us, align 4, !tbaa !10
   br label %for.body6.us
 
 for.cond1.for.inc23_crit_edge.us:                 ; preds = %for.inc20.us

@@ -1,5 +1,6 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck %s
 ;
 ; Regression test for CMPLRLLVM-25276. Check that paropt transform pass adds
 ; correct range metadata to omp_get_num_threads() call.
@@ -33,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare i32 @omp_get_num_threads()
 
-define void @test_target_teams_distribute_parallel_for_IP_target_teams_distribute_parallel_for_() #0 {
+define void @test_target_teams_distribute_parallel_for_IP_target_teams_distribute_parallel_for_() {
 alloca_1:
   %"var$2" = alloca [8 x i64], align 16
   %"target_teams_distribute_parallel_for$I$_228" = alloca i32, align 8
@@ -41,34 +42,33 @@ alloca_1:
   br label %bb10
 
 bb15:                                             ; preds = %bb13
-  store i32 0, i32* %temp38, align 1
-  %temp_fetch = load i32, i32* %temp, align 1
-  %temp_fetch2 = load i32, i32* %temp36, align 1
-  %temp_fetch4 = load i32, i32* %temp38, align 1
+  store i32 0, ptr %temp38, align 1
+  %temp_fetch = load i32, ptr %temp, align 1
+  %temp_fetch2 = load i32, ptr %temp36, align 1
+  %temp_fetch4 = load i32, ptr %temp38, align 1
   %mul = mul nsw i32 %temp_fetch4, %temp_fetch2
   %add = add nsw i32 %mul, %temp_fetch
-  store i32 %add, i32* %"target_teams_distribute_parallel_for$I$_228", align 1
+  store i32 %add, ptr %"target_teams_distribute_parallel_for$I$_228", align 1
   br label %bb19
 
 bb19:                                             ; preds = %bb19, %bb15
-  %temp_fetch6 = load i32, i32* %temp, align 1
-  %temp_fetch8 = load i32, i32* %temp36, align 1
-  %temp_fetch10 = load i32, i32* %temp38, align 1
+  %temp_fetch6 = load i32, ptr %temp, align 1
+  %temp_fetch8 = load i32, ptr %temp36, align 1
+  %temp_fetch10 = load i32, ptr %temp38, align 1
   %mul12 = mul nsw i32 %temp_fetch10, %temp_fetch8
   %add14 = add nsw i32 %mul12, %temp_fetch6
-  store i32 %add14, i32* %"target_teams_distribute_parallel_for$I$_228", align 1
+  store i32 %add14, ptr %"target_teams_distribute_parallel_for$I$_228", align 1
   %func_result = call i32 @omp_get_num_threads()
-  %"target_teams_distribute_parallel_for$I$_228_fetch" = load i32, i32* %"target_teams_distribute_parallel_for$I$_228", align 1
+  %"target_teams_distribute_parallel_for$I$_228_fetch" = load i32, ptr %"target_teams_distribute_parallel_for$I$_228", align 1
   %int_sext = sext i32 %"target_teams_distribute_parallel_for$I$_228_fetch" to i64
-  %"(i32*)target_teams_distribute_parallel_for$NUM_THREADS$_228$" = bitcast [1024 x i32]* %"target_teams_distribute_parallel_for$NUM_THREADS$_228" to i32*
-  %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %"(i32*)target_teams_distribute_parallel_for$NUM_THREADS$_228$", i64 %int_sext)
-  store i32 %func_result, i32* %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]", align 1
-  %temp_fetch18 = load i32, i32* %temp36, align 1
-  %temp_fetch20 = load i32, i32* %temp38, align 1
+  %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %"target_teams_distribute_parallel_for$NUM_THREADS$_228", i64 %int_sext)
+  store i32 %func_result, ptr %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]", align 1
+  %temp_fetch18 = load i32, ptr %temp36, align 1
+  %temp_fetch20 = load i32, ptr %temp38, align 1
   %add22 = add nsw i32 %temp_fetch20, 1
-  store i32 %add22, i32* %temp38, align 1
-  %temp_fetch24 = load i32, i32* %temp39, align 1
-  %temp_fetch26 = load i32, i32* %temp38, align 1
+  store i32 %add22, ptr %temp38, align 1
+  %temp_fetch24 = load i32, ptr %temp39, align 1
+  %temp_fetch26 = load i32, ptr %temp38, align 1
   %rel = icmp sle i32 %temp_fetch26, %temp_fetch24
   br i1 %rel, label %bb19, label %bb16
 
@@ -76,11 +76,18 @@ bb16:                                             ; preds = %bb19
   br label %bb17
 
 bb13:                                             ; preds = %bb10
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NUM_THREADS"(i64 8), "QUAL.OMP.PRIVATE"(i32* %"target_teams_distribute_parallel_for$I$_228"), "QUAL.OMP.SHARED"([1024 x i32]* %"target_teams_distribute_parallel_for$NUM_THREADS$_228"), "QUAL.OMP.NORMALIZED.IV"(i32* %temp38), "QUAL.OMP.NORMALIZED.UB"(i32* %temp39), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp37) ]
-  %temp_fetch31 = load i32, i32* %temp37, align 1
-  store i32 %temp_fetch31, i32* %temp38, align 1
-  %temp_fetch32 = load i32, i32* %temp38, align 1
-  %temp_fetch33 = load i32, i32* %temp39, align 1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
+    "QUAL.OMP.NUM_THREADS"(i64 8),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %"target_teams_distribute_parallel_for$I$_228", i32 0, i32 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr %"target_teams_distribute_parallel_for$NUM_THREADS$_228", i32 0, i32 1024),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %temp38, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %temp39, i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %temp37, i32 0, i32 1) ]
+
+  %temp_fetch31 = load i32, ptr %temp37, align 1
+  store i32 %temp_fetch31, ptr %temp38, align 1
+  %temp_fetch32 = load i32, ptr %temp38, align 1
+  %temp_fetch33 = load i32, ptr %temp39, align 1
   %rel34 = icmp slt i32 %temp_fetch33, %temp_fetch32
   br i1 %rel34, label %bb17, label %bb15
 
@@ -97,35 +104,24 @@ bb10:                                             ; preds = %alloca_1
   %temp37 = alloca i32, align 1
   %temp38 = alloca i32, align 1
   %temp39 = alloca i32, align 1
-  store i32 1, i32* %temp, align 1
-  store i32 1024, i32* %temp35, align 1
-  store i32 1, i32* %temp36, align 1
-  %temp_fetch27 = load i32, i32* %temp, align 1
-  store i32 %temp_fetch27, i32* %"target_teams_distribute_parallel_for$I$_228", align 1
-  store i32 0, i32* %temp37, align 1
-  store i32 0, i32* %temp38, align 1
-  %temp_fetch28 = load i32, i32* %temp36, align 1
-  %temp_fetch29 = load i32, i32* %temp, align 1
-  %temp_fetch30 = load i32, i32* %temp35, align 1
+  store i32 1, ptr %temp, align 1
+  store i32 1024, ptr %temp35, align 1
+  store i32 1, ptr %temp36, align 1
+  %temp_fetch27 = load i32, ptr %temp, align 1
+  store i32 %temp_fetch27, ptr %"target_teams_distribute_parallel_for$I$_228", align 1
+  store i32 0, ptr %temp37, align 1
+  store i32 0, ptr %temp38, align 1
+  %temp_fetch28 = load i32, ptr %temp36, align 1
+  %temp_fetch29 = load i32, ptr %temp, align 1
+  %temp_fetch30 = load i32, ptr %temp35, align 1
   %sub = sub nsw i32 %temp_fetch30, %temp_fetch29
   %div = sdiv i32 %sub, %temp_fetch28
-  store i32 %div, i32* %temp39, align 1
+  store i32 %div, ptr %temp39, align 1
   br label %bb13
 }
 
-declare i32 @for_set_reentrancy(i32*)
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-attributes #0 = { nounwind uwtable "intel-lang"="fortran" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
-attributes #2 = { nounwind readnone speculatable }
-
-!omp_offload.info = !{}
+declare i32 @for_set_reentrancy(ptr)
+declare token @llvm.directive.region.entry()
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
+declare void @llvm.directive.region.exit(token)
+; end INTEL_CUSTOMIZATION

@@ -2,7 +2,7 @@
 
 ; LIT test to check code generated for liveout private.
 ;
-define i64 @foo(i64* nocapture %larr) {
+define i64 @foo(ptr nocapture %larr) {
 ; CHECK:                    BEGIN REGION { modified }
 ; CHECK-NEXT:                     + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                     |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[LARR0:%.*]])[i1]
@@ -16,10 +16,10 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.010
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.010
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add nsw i64 %0, %l1.010
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

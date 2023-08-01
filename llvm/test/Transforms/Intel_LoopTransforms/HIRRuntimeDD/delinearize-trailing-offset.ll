@@ -88,8 +88,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nosync nounwind memory(read, argmem: readwrite, inaccessiblemem: none) uwtable
 define dso_local void @test_bad(ptr nocapture noundef readonly %in, ptr nocapture noundef writeonly %out) local_unnamed_addr {
 entry:
-  %width1 = getelementptr inbounds %struct.input, ptr %in, i64 0, i32 0
-  %0 = load i32, ptr %width1, align 8
+  %0 = load i32, ptr %in, align 8
   %height2 = getelementptr inbounds %struct.input, ptr %in, i64 0, i32 1
   %1 = load i32, ptr %height2, align 4
   %cmp42 = icmp sgt i32 %1, 0

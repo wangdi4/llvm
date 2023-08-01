@@ -28,19 +28,19 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.016 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @uintarr, i64 0, i64 %l1.016
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @uintarr, i64 0, i64 %l1.016
+  %0 = load i32, ptr %arrayidx, align 4
   %zextval = zext i32 %0 to i64
-  %arrayidx1 = getelementptr inbounds [100 x i64], [100 x i64]* @ulongarr, i64 0, i64 %l1.016
-  store i64 %zextval, i64* %arrayidx1, align 8
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @sintarr, i64 0, i64 %l1.016
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx1 = getelementptr inbounds [100 x i64], ptr @ulongarr, i64 0, i64 %l1.016
+  store i64 %zextval, ptr %arrayidx1, align 8
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @sintarr, i64 0, i64 %l1.016
+  %1 = load i32, ptr %arrayidx2, align 4
   %sextval = sext i32 %1 to i64
-  %arrayidx4 = getelementptr inbounds [100 x i64], [100 x i64]* @slongarr, i64 0, i64 %l1.016
-  store i64 %sextval, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x i64], ptr @slongarr, i64 0, i64 %l1.016
+  store i64 %sextval, ptr %arrayidx4, align 8
   %truncval = trunc i32 %0 to i16
-  %arrayidx7 = getelementptr inbounds [100 x i16], [100 x i16]* @ushortarr, i64 0, i64 %l1.016
-  store i16 %truncval, i16* %arrayidx7, align 2
+  %arrayidx7 = getelementptr inbounds [100 x i16], ptr @ushortarr, i64 0, i64 %l1.016
+  store i16 %truncval, ptr %arrayidx7, align 2
   %inc = add nuw nsw i64 %l1.016, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

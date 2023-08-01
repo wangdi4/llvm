@@ -17,7 +17,7 @@ source_filename = "diff-sext.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(float* nocapture %p, float* nocapture %q, i32 %n) {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture %q, i32 %n) {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.cond.cleanup
@@ -34,14 +34,14 @@ for.cond.cleanup:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  store float 0.000000e+00, float* %p, align 4
+  store float 0.000000e+00, ptr %p, align 4
   %sub = add nuw nsw i64 %indvars.iv, 4294967295
   %idxprom = and i64 %sub, 4294967295
-  %arrayidx = getelementptr inbounds float, float* %q, i64 %idxprom
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %q, i64 %idxprom
+  %0 = load float, ptr %arrayidx, align 4
   %conv1 = fadd float %0, 5.000000e-01
-  %arrayidx3 = getelementptr inbounds float, float* %q, i64 %indvars.iv
-  store float %conv1, float* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds float, ptr %q, i64 %indvars.iv
+  store float %conv1, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

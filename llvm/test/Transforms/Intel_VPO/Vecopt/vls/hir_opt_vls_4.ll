@@ -39,13 +39,13 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx1 = getelementptr inbounds [1024 x [2 x i32]], [1024 x [2 x i32]]* @arr, i64 0, i64 %indvars.iv, i64 0
-  %0 = load i32, i32* %arrayidx1, align 8, !tbaa !2
-  %arrayidx4 = getelementptr inbounds [1024 x [2 x i32]], [1024 x [2 x i32]]* @arr, i64 0, i64 %indvars.iv, i64 1
-  %1 = load i32, i32* %arrayidx4, align 4, !tbaa !2
+  %arrayidx1 = getelementptr inbounds [1024 x [2 x i32]], ptr @arr, i64 0, i64 %indvars.iv, i64 0
+  %0 = load i32, ptr %arrayidx1, align 8, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1024 x [2 x i32]], ptr @arr, i64 0, i64 %indvars.iv, i64 1
+  %1 = load i32, ptr %arrayidx4, align 4, !tbaa !2
   %add = add nsw i32 %1, %0
-  %arrayidx6 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !8
+  %arrayidx6 = getelementptr inbounds [1024 x i32], ptr @arr2, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

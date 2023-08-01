@@ -45,7 +45,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @foo(i64* noalias nocapture %lp1, i64* noalias nocapture %lp2, i64* noalias nocapture %lp3, i64* noalias nocapture %lp4, i64 %n1, i64 %n2, i64 %n3, i64 %n4) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %lp1, ptr noalias nocapture %lp2, ptr noalias nocapture %lp3, ptr noalias nocapture %lp4, i64 %n1, i64 %n2, i64 %n3, i64 %n4) local_unnamed_addr #0 {
 entry:
   %tobool.not = icmp eq i64 %n1, 0
   %tobool1.not = icmp eq i64 %n2, 0
@@ -57,23 +57,23 @@ for.body:                                         ; preds = %entry, %for.inc
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i64, i64* %lp1, i64 %l1.020
-  store i64 %l1.020, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp1, i64 %l1.020
+  store i64 %l1.020, ptr %arrayidx, align 8
   br i1 %tobool1.not, label %if.else, label %if.then2
 
 if.then2:                                         ; preds = %if.then
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp2, i64 %l1.020
-  store i64 %l1.020, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp2, i64 %l1.020
+  store i64 %l1.020, ptr %arrayidx3, align 8
   br i1 %tobool4.not, label %for.inc, label %if.then5
 
 if.then5:                                         ; preds = %if.then2
-  %arrayidx6 = getelementptr inbounds i64, i64* %lp3, i64 %l1.020
-  store i64 %l1.020, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds i64, ptr %lp3, i64 %l1.020
+  store i64 %l1.020, ptr %arrayidx6, align 8
   br label %for.inc
 
 if.else:                                          ; preds = %if.then
-  %arrayidx7 = getelementptr inbounds i64, i64* %lp4, i64 %l1.020
-  store i64 %l1.020, i64* %arrayidx7, align 8
+  %arrayidx7 = getelementptr inbounds i64, ptr %lp4, i64 %l1.020
+  store i64 %l1.020, ptr %arrayidx7, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then2, %if.then5, %if.else

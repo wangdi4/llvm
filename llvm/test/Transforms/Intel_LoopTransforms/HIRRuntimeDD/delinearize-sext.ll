@@ -18,7 +18,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(float* nocapture %p, float* nocapture readonly %q, i32 %n) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture readonly %q, i32 %n) local_unnamed_addr {
 entry:
   br label %for.cond1.preheader
 
@@ -40,16 +40,16 @@ for.body4:                                        ; preds = %for.body4, %for.con
   %1 = add nsw i32 %indvars.iv, %0
   %2 = add nsw i32 %1, 1
   %s3 = sext i32 %2 to i64
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %s3
-  %3 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %s3
+  %3 = load float, ptr %arrayidx, align 4
   %indvars.iv.s = zext i32 %indvars.iv to i64
-  %arrayidx7 = getelementptr inbounds float, float* %q, i64 %indvars.iv.s
-  %4 = load float, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %q, i64 %indvars.iv.s
+  %4 = load float, ptr %arrayidx7, align 4
   %add8 = fadd float %3, %4
   %5 = add nsw i32 %1, %n
   %s6 = sext i32 %5 to i64
-  %arrayidx13 = getelementptr inbounds float, float* %p, i64 %s6
-  store float %add8, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %p, i64 %s6
+  store float %add8, ptr %arrayidx13, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond = icmp eq i32 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
