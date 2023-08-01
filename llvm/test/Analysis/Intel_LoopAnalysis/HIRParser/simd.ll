@@ -25,10 +25,10 @@ define i32 @vec_sum(i32 %a, i32 %b) {
 entry:
   %a.addr = alloca i32, align 4
   %b.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  store i32 %b, i32* %b.addr, align 4
-  %0 = load i32, i32* %a.addr, align 4
-  %1 = load i32, i32* %b.addr, align 4
+  store i32 %a, ptr %a.addr, align 4
+  store i32 %b, ptr %b.addr, align 4
+  %0 = load i32, ptr %a.addr, align 4
+  %1 = load i32, ptr %b.addr, align 4
   %add = add nsw i32 %0, %1
   ret i32 %add
 }
@@ -39,13 +39,13 @@ entry:
   %vec_b.addr = alloca <4 x i32>
   %vec_mask = alloca <4 x i32>
   %vec_retval = alloca <4 x i32>
-  store <4 x i32> %a, <4 x i32>* %vec_a.addr, align 4
-  store <4 x i32> %b, <4 x i32>* %vec_b.addr, align 4
-  store <4 x i32> %mask, <4 x i32>* %vec_mask
-  %veccast = bitcast <4 x i32>* %vec_retval to i32*
-  %veccast.1 = bitcast <4 x i32>* %vec_a.addr to i32*
-  %veccast.2 = bitcast <4 x i32>* %vec_b.addr to i32*
-  %veccast.3 = bitcast <4 x i32>* %vec_mask to i32*
+  store <4 x i32> %a, ptr %vec_a.addr, align 4
+  store <4 x i32> %b, ptr %vec_b.addr, align 4
+  store <4 x i32> %mask, ptr %vec_mask
+  %veccast = bitcast ptr %vec_retval to ptr
+  %veccast.1 = bitcast ptr %vec_a.addr to ptr
+  %veccast.2 = bitcast ptr %vec_b.addr to ptr
+  %veccast.3 = bitcast ptr %vec_mask to ptr
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
@@ -54,19 +54,19 @@ simd.begin.region:                                ; preds = %entry
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %maskgep = getelementptr i32, i32* %veccast.3, i32 %index
-  %mask5 = load i32, i32* %maskgep
+  %maskgep = getelementptr i32, ptr %veccast.3, i32 %index
+  %mask5 = load i32, ptr %maskgep
   %maskcond = icmp ne i32 %mask5, 0
   br i1 %maskcond, label %simd.loop.then, label %simd.loop.else
 
 simd.loop.then:                                   ; preds = %simd.loop
-  %vecgep = getelementptr i32, i32* %veccast.1, i32 %index
-  %0 = load i32, i32* %vecgep, align 4
-  %vecgep4 = getelementptr i32, i32* %veccast.2, i32 %index
-  %1 = load i32, i32* %vecgep4, align 4
+  %vecgep = getelementptr i32, ptr %veccast.1, i32 %index
+  %0 = load i32, ptr %vecgep, align 4
+  %vecgep4 = getelementptr i32, ptr %veccast.2, i32 %index
+  %1 = load i32, ptr %vecgep4, align 4
   %add = add nsw i32 %0, %1
-  %vec_gep = getelementptr i32, i32* %veccast, i32 %index
-  store i32 %add, i32* %vec_gep
+  %vec_gep = getelementptr i32, ptr %veccast, i32 %index
+  store i32 %add, ptr %vec_gep
   br label %simd.loop.exit
 
 simd.loop.else:                                   ; preds = %simd.loop
@@ -82,8 +82,8 @@ simd.end.region:                                  ; preds = %simd.loop.exit
   br label %return
 
 return:                                           ; preds = %simd.end.region
-  %cast = bitcast i32* %veccast to <4 x i32>*
-  %vec_ret = load <4 x i32>, <4 x i32>* %cast
+  %cast = bitcast ptr %veccast to ptr
+  %vec_ret = load <4 x i32>, ptr %cast
   ret <4 x i32> %vec_ret
 }
 

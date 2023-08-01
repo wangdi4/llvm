@@ -4,7 +4,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 
-define void @foo(i64 *%a, i64 *%b) {
+define void @foo(ptr %a, ptr %b) {
 ; CHECK:       + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:  |   %ld = (%a)[i1];
 ; CHECK-NEXT:  |   %vec = bitcast.i64.<2 x i32>(%ld);
@@ -17,8 +17,8 @@ header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
   ; Pointers to vectors aren't supported yet, create vectors by bitcasting for now.
-  %ptr = getelementptr i64, i64 *%a, i64 %iv
-  %ld = load i64, i64 *%ptr
+  %ptr = getelementptr i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %ptr
   %vec = bitcast i64 %ld to <2 x i32>
   %shuffle = shufflevector <2 x i32> %vec, <2 x i32> %vec, <2 x i32><i32 3, i32 0>
 

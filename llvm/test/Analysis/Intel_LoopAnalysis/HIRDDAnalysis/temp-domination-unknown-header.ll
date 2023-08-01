@@ -49,22 +49,22 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @temp-domination-unknown-header(double** %As) {
+define i32 @temp-domination-unknown-header(ptr %As) {
 entry:
   br label %L0
 
 L0:
   %n = phi i64 [ 0, %entry ], [ %n.next, %L0.latch ]
   %x = phi i32 [ 0, %entry ], [ %x.lcssa, %L0.latch ]
-  %Asn = getelementptr inbounds double*, double** %As, i64 %n
-  %A = load double*, double** %Asn
+  %Asn = getelementptr inbounds ptr, ptr %As, i64 %n
+  %A = load ptr, ptr %Asn
   br label %L1
 
 L1:
   %i = phi i64 [ 0, %L0 ], [ %i.next, %L1.latch ]
   %x.L1 = phi i32 [ %x, %L0 ], [ %x.CD, %L1.latch ]
-  %Aip = getelementptr inbounds double, double* %A, i64 %i
-  %Ai = load double, double* %Aip
+  %Aip = getelementptr inbounds double, ptr %A, i64 %i
+  %Ai = load double, ptr %Aip
   %AB.cond = fcmp olt double %Ai, 0.5
   br i1 %AB.cond, label %L1.A, label %L1.B
 

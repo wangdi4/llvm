@@ -32,7 +32,7 @@ for.body6:                                        ; preds = %if.end24, %for.body
   br i1 undef, label %if.else, label %if.end24
 
 if.else:                                          ; preds = %for.body6
-  store i32 undef, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @c, i64 2, i64 0), align 4
+  store i32 undef, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0), align 4
   br label %if.end24
 
 if.end24:                                         ; preds = %if.else, %for.body6

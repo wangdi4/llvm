@@ -21,9 +21,9 @@ entry:
 for.body:                                         ; preds = %entry, %for.inc
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [5 x i32], ptr %A, i32 0, i64 %idxprom
   %sel = select i1 undef, i32 %i.01, i32 1
-  store i32 %sel, i32* %arrayidx, align 4
+  store i32 %sel, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -32,7 +32,7 @@ for.inc:                                          ; preds = %for.body
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.inc
-  %arrayidx1 = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 0
-  %0 = load i32, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds [5 x i32], ptr %A, i32 0, i64 0
+  %0 = load i32, ptr %arrayidx1, align 4
   ret i32 %0
 }

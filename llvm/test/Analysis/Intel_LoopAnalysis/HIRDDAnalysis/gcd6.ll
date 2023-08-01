@@ -10,7 +10,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(float* nocapture %A, i32 %n, i32 %m, i32 %mm) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %A, i32 %n, i32 %m, i32 %mm) local_unnamed_addr #0 {
 entry:
   %cmp40 = icmp sgt i32 %mm, 0
   br i1 %cmp40, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -47,13 +47,13 @@ for.body4:                                        ; preds = %for.body4, %for.bod
   %add8 = add i32 %add, %0
   %add11 = add i32 %add9, %add8
   %idxprom = sext i32 %add11 to i64
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %idxprom
-  %1 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %idxprom
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add12 = fadd float %1, 2.000000e+00
   %add19 = add nsw i32 %add8, 3
   %idxprom20 = sext i32 %add19 to i64
-  %arrayidx21 = getelementptr inbounds float, float* %A, i64 %idxprom20
-  store float %add12, float* %arrayidx21, align 4, !tbaa !1
+  %arrayidx21 = getelementptr inbounds float, ptr %A, i64 %idxprom20
+  store float %add12, ptr %arrayidx21, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

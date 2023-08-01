@@ -25,8 +25,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %sub = sub nsw i64 30, %i.06
-  %arrayidx = getelementptr inbounds [40 x i64], [40 x i64]* @A, i64 0, i64 %sub
-  store i64 %i.06, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [40 x i64], ptr @A, i64 0, i64 %sub
+  store i64 %i.06, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %i.06, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body

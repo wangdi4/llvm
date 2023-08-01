@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp14 = icmp sgt i32 %n, 0
   br i1 %cmp14, label %for.body.preheader, label %for.end
@@ -30,14 +30,14 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %0 = add nuw nsw i64 %indvars.iv, 4
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %2 = add nuw nsw i64 %indvars.iv, 8
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %2
-  %3 = load i32, i32* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %2
+  %3 = load i32, ptr %arrayidx3, align 4, !tbaa !1
   %add4 = add nsw i32 %3, %1
-  %arrayidx6 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %add4, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %add4, ptr %arrayidx6, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -51,10 +51,10 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

@@ -7,7 +7,7 @@
 
 @w = dso_local local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
 
-define dso_local i32 @foo(i32* %n) local_unnamed_addr {
+define dso_local i32 @foo(ptr %n) local_unnamed_addr {
 entry:
   br label %for.cond1.preheader
 
@@ -24,7 +24,7 @@ for.cond2.preheader:                              ; preds = %for.cond2.preheader
   %v1 = trunc i64 %indvars.iv1 to i32
   %add = add i64 %indvars.iv1, 1
   %idxprom = and i64 %add, 4294967295
-  %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @w, i64 0, i64 %idxprom, i64 %indvars.iv1
+  %arrayidx = getelementptr inbounds [100 x [100 x i32]], ptr @w, i64 0, i64 %idxprom, i64 %indvars.iv1
   %sub = add nsw i32 %v1, -1
   %idxprom1 = zext i32 %sub to i64
   br label %for.body
@@ -36,9 +36,9 @@ for.cond.cleanup2:                               ; preds = %for.body
 
 for.body:                                       ; preds = %for.cond2.preheader, %for.body
   %indvars.iv2 = phi i64 [ 1, %for.cond2.preheader ], [ %indvars.iv.next2, %for.body ]
-  %v2 = load i32, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @w, i64 0, i64 %indvars.iv2, i64 %idxprom1
-  store i32 %v2, i32* %arrayidx1, align 4
+  %v2 = load i32, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds [100 x [100 x i32]], ptr @w, i64 0, i64 %indvars.iv2, i64 %idxprom1
+  store i32 %v2, ptr %arrayidx1, align 4
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond = icmp eq i64 %indvars.iv.next2, 10
   br i1 %exitcond, label %for.cond.cleanup2, label %for.body
@@ -48,7 +48,7 @@ for.end:                                        ; preds = %for.cond.cleanup2
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.end
-  store i32 5, i32* %n, align 4
+  store i32 5, ptr %n, align 4
   br label %for.inc
 
 for.inc:                                        ; preds = %for.end, %if.then

@@ -19,7 +19,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo([100 x i32]* nocapture %p, i32 %n) {
+define dso_local void @foo(ptr nocapture %p, i32 %n) {
 entry:
   br label %for.body
 
@@ -31,8 +31,8 @@ for.body:                                         ; preds = %for.body, %entry
   %0 = trunc i64 %indvars.iv to i32
   %shl = shl i32 %0, %n
   %idxprom1 = sext i32 %shl to i64
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* %p, i64 %indvars.iv, i64 %idxprom1
-  store i32 %0, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr %p, i64 %indvars.iv, i64 %idxprom1
+  store i32 %0, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

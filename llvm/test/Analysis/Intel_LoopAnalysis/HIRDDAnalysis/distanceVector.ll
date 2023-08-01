@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @M = common local_unnamed_addr global [10 x [10 x [10 x i32]]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define double @sub(double* nocapture readnone %A, double* nocapture readnone %B, i32 %n, i32 %m) local_unnamed_addr #0 {
+define double @sub(ptr nocapture readnone %A, ptr nocapture readnone %B, i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp56 = icmp sgt i32 %n, 0
   br i1 %cmp56, label %for.cond1.preheader.lr.ph, label %for.end33
@@ -43,15 +43,15 @@ for.body6.lr.ph:                                  ; preds = %for.cond4.preheader
 
 for.body6:                                        ; preds = %for.body6.lr.ph, %for.body6
   %indvars.iv = phi i64 [ 1, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @M, i64 0, i64 %2, i64 %indvars.iv59, i64 %indvars.iv
-  %6 = load i32, i32* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @M, i64 0, i64 %2, i64 %indvars.iv59, i64 %indvars.iv
+  %6 = load i32, ptr %arrayidx10, align 4, !tbaa !1
   %7 = add nsw i64 %indvars.iv, -2
-  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @M, i64 0, i64 %3, i64 %4, i64 %7
-  %8 = load i32, i32* %arrayidx18, align 4, !tbaa !1
+  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @M, i64 0, i64 %3, i64 %4, i64 %7
+  %8 = load i32, ptr %arrayidx18, align 4, !tbaa !1
   %add19 = add i32 %6, 1
   %add20 = add i32 %add19, %8
-  %arrayidx27 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @M, i64 0, i64 %indvars.iv63, i64 %5, i64 %indvars.iv
-  store i32 %add20, i32* %arrayidx27, align 4, !tbaa !1
+  %arrayidx27 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @M, i64 0, i64 %indvars.iv63, i64 %5, i64 %indvars.iv
+  store i32 %add20, ptr %arrayidx27, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp5 = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp5, label %for.body6, label %for.inc28.loopexit

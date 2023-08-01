@@ -19,7 +19,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 
 %struct.A = type { [100 x i32], [10 x [10 x i32]] }
 
-define dso_local void @foo(%struct.A* nocapture %a) {
+define dso_local void @foo(ptr nocapture %a) {
 entry:
   br label %for.body
 
@@ -29,10 +29,10 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.body
   %i.011 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
   %idxprom = zext i32 %i.011 to i64
-  %arrayidx2 = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 1, i64 %idxprom, i64 %idxprom, !intel-tbaa !2
-  store i32 5, i32* %arrayidx2, align 4, !tbaa !2
-  %arrayidx4 = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 0, i64 %idxprom, !intel-tbaa !10
-  store i32 2, i32* %arrayidx4, align 4, !tbaa !10
+  %arrayidx2 = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 1, i64 %idxprom, i64 %idxprom, !intel-tbaa !2
+  store i32 5, ptr %arrayidx2, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 0, i64 %idxprom, !intel-tbaa !10
+  store i32 2, ptr %arrayidx4, align 4, !tbaa !10
   %inc = add nuw nsw i32 %i.011, 1
   %exitcond = icmp eq i32 %inc, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

@@ -32,14 +32,14 @@ define void @main() {
 entry:
   %ok = alloca [64 x i32], align 16
   %ee5 = alloca i32, align 4
-  %ee5.promoted = load i32, i32* %ee5, align 4
+  %ee5.promoted = load i32, ptr %ee5, align 4
   %gb = alloca [64 x [64 x i32]], align 16
   %up = alloca i32, align 4
   %v4 = alloca [64 x [64 x i32]], align 16
-  %arrayidx8.phi.trans.insert = getelementptr inbounds [64 x i32], [64 x i32]* %ok, i64 0, i64 3
-  %arrayidx20 = getelementptr inbounds [64 x i32], [64 x i32]* %ok, i64 0, i64 2
-  %arrayidx13 = getelementptr inbounds [64 x i32], [64 x i32]* %ok, i64 0, i64 2
-  %arrayidx16 = getelementptr inbounds [64 x i32], [64 x i32]* %ok, i64 0, i64 1
+  %arrayidx8.phi.trans.insert = getelementptr inbounds [64 x i32], ptr %ok, i64 0, i64 3
+  %arrayidx20 = getelementptr inbounds [64 x i32], ptr %ok, i64 0, i64 2
+  %arrayidx13 = getelementptr inbounds [64 x i32], ptr %ok, i64 0, i64 2
+  %arrayidx16 = getelementptr inbounds [64 x i32], ptr %ok, i64 0, i64 1
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc35
@@ -48,8 +48,8 @@ for.body:                                         ; preds = %entry, %for.inc35
   %0 = phi i32 [ %ee5.promoted, %entry ], [ %sub, %for.inc35 ]
   %1 = sub i32 0, %indvars.iv112
   %2 = or i32 %1, 1
-  %arrayidx = getelementptr inbounds [64 x i32], [64 x i32]* %ok, i64 0, i64 %indvars.iv114
-  %3 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [64 x i32], ptr %ok, i64 0, i64 %indvars.iv114
+  %3 = load i32, ptr %arrayidx, align 4
   %sub = sub i32 %0, %3
   %cmp4100 = icmp ult i64 %indvars.iv114, 2
   br i1 %cmp4100, label %for.body5, label %for.inc35
@@ -58,31 +58,31 @@ for.body5:                                        ; preds = %for.body
   %4 = trunc i64 %indvars.iv114 to i32
   %sub10 = add i64 %indvars.iv114, 4294967288
   %mul = mul i32 %sub, %4
-  %arrayidx25 = getelementptr inbounds [64 x [64 x i32]], [64 x [64 x i32]]* %v4, i64 0, i64 %indvars.iv114, i64 %indvars.iv114
+  %arrayidx25 = getelementptr inbounds [64 x [64 x i32]], ptr %v4, i64 0, i64 %indvars.iv114, i64 %indvars.iv114
   %5 = add nuw nsw i64 %indvars.iv114, 1
   %6 = and i64 %sub10, 4294967294
-  %.pre = load i32, i32* %arrayidx8.phi.trans.insert, align 4
+  %.pre = load i32, ptr %arrayidx8.phi.trans.insert, align 4
   %sub9 = add i32 %.pre, -22
-  store i32 %sub9, i32* %arrayidx8.phi.trans.insert, align 4
+  store i32 %sub9, ptr %arrayidx8.phi.trans.insert, align 4
   %cmp11 = icmp ult i64 %6, 2
   br i1 %cmp11, label %for.inc35.loopexit, label %if.then
 
 if.then:                                          ; preds = %for.body5
-  %7 = load i32, i32* %arrayidx13, align 8
-  store i32 %7, i32* %arrayidx16, align 4
+  %7 = load i32, ptr %arrayidx13, align 8
+  store i32 %7, ptr %arrayidx16, align 4
   br label %for.inc35.loopexit
 
 for.inc35.loopexit:                               ; preds = %if.then, %for.body5
-  %8 = load i32, i32* %arrayidx20, align 8
+  %8 = load i32, ptr %arrayidx20, align 8
   %sub21 = sub i32 %8, %mul
-  store i32 %sub21, i32* %arrayidx20, align 8
-  %9 = load i32, i32* %arrayidx25, align 4
-  %10 = load i32, i32* %up, align 4
+  store i32 %sub21, ptr %arrayidx20, align 8
+  %9 = load i32, ptr %arrayidx25, align 4
+  %10 = load i32, ptr %up, align 4
   %sub26 = sub i32 %10, %9
-  store i32 %sub26, i32* %up, align 4
+  store i32 %sub26, ptr %up, align 4
   %mul27 = mul i32 %sub, %sub26
-  %arrayidx33 = getelementptr inbounds [64 x [64 x i32]], [64 x [64 x i32]]* %gb, i64 0, i64 1, i64 %5
-  store i32 %mul27, i32* %arrayidx33, align 4
+  %arrayidx33 = getelementptr inbounds [64 x [64 x i32]], ptr %gb, i64 0, i64 1, i64 %5
+  store i32 %mul27, ptr %arrayidx33, align 4
   br label %for.inc35
 
 for.inc35:                                        ; preds = %for.inc35.loopexit, %for.body

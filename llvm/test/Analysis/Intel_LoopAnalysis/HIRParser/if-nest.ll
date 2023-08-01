@@ -28,7 +28,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %A, i32* nocapture readonly %B, i32* nocapture readonly %C, i32* nocapture readonly %D, i32 %n) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %A, ptr nocapture readonly %B, ptr nocapture readonly %C, ptr nocapture readonly %D, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.body.preheader, label %for.end
@@ -40,26 +40,26 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
   %t.023 = phi i32 [ %t.1, %for.inc ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %cmp1 = icmp eq i32 %0, 0
   br i1 %cmp1, label %for.inc, label %land.lhs.true
 
 land.lhs.true:                                    ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx3, align 4, !tbaa !1
   %cmp4 = icmp eq i32 %1, 0
   br i1 %cmp4, label %for.inc, label %land.lhs.true5
 
 land.lhs.true5:                                   ; preds = %land.lhs.true
-  %arrayidx7 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx7, align 4, !tbaa !1
+  %arrayidx7 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx7, align 4, !tbaa !1
   %cmp8 = icmp eq i32 %2, 0
   br i1 %cmp8, label %for.inc, label %land.lhs.true9
 
 land.lhs.true9:                                   ; preds = %land.lhs.true5
-  %arrayidx11 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx11, align 4, !tbaa !1
+  %arrayidx11 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx11, align 4, !tbaa !1
   %cmp12 = icmp eq i32 %3, 0
   %add = add nsw i32 %t.023, 3
   %t.0.add = select i1 %cmp12, i32 %t.023, i32 %add

@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 module asm "\09.ident\09\22GCC: (GNU) 4.8.5 LLVM: 4.0.1\22"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @irotlt_([0 x double]* noalias nocapture readonly %f) unnamed_addr {
+define void @irotlt_(ptr noalias nocapture readonly %f) unnamed_addr {
 entry:
   br label %"3"
 
@@ -46,8 +46,8 @@ entry:
   %14 = add i32 %9, %13
   %15 = sext i32 %14 to i64
   %16 = add nsw i64 %15, -1
-  %17 = getelementptr inbounds [0 x double], [0 x double]* %f, i64 0, i64 %16
-  %18 = load double, double* %17, align 8
+  %17 = getelementptr inbounds [0 x double], ptr %f, i64 0, i64 %16
+  %18 = load double, ptr %17, align 8
   %19 = icmp eq i64 %indvars.iv6, undef
   br i1 %19, label %return.loopexit, label %"3"
 

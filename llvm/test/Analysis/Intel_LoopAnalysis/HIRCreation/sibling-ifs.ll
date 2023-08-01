@@ -42,7 +42,7 @@
 
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %A, i32 %n, i32 %a) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %A, i32 %n, i32 %a) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.body.lr.ph, label %for.end
@@ -53,8 +53,8 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.inc, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
-  %arrayidxld = getelementptr inbounds i32, i32* %A, i64 0
-  %ld = load i32, i32* %arrayidxld, align 4
+  %arrayidxld = getelementptr inbounds i32, ptr %A, i64 0
+  %ld = load i32, ptr %arrayidxld, align 4
   %cmp1 = icmp sgt i32 %ld, 0
   %cmp7 = icmp eq i32 %ld, 2
   br label %uncond.jump
@@ -63,30 +63,30 @@ uncond.jump:
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
   br i1 %cmp2, label %if.end6, label %if.then3
 
 if.then3:                                         ; preds = %if.end
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add nsw i32 %1, 2
-  store i32 %add, i32* %arrayidx5, align 4
+  store i32 %add, ptr %arrayidx5, align 4
   br label %if.end6
 
 if.end6:                                          ; preds = %if.end, %if.then3
   br i1 %cmp7, label %if.then8, label %for.inc
 
 if.then8:                                         ; preds = %if.end6
-  %arrayidx10 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx10, align 4
   %add11 = add nsw i32 %2, 3
-  store i32 %add11, i32* %arrayidx10, align 4
+  store i32 %add11, ptr %arrayidx10, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end6, %if.then8

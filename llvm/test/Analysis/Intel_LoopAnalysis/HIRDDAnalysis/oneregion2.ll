@@ -30,27 +30,27 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv22 = phi i64 [ 0, %entry ], [ %indvars.iv.next23, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %indvars.iv22
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %indvars.iv22
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
   %exitcond24 = icmp eq i64 %indvars.iv.next23, 1000
   br i1 %exitcond24, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  store float 3.000000e+00, float* getelementptr inbounds ([1000 x float], [1000 x float]* @B, i64 0, i64 2), align 8, !tbaa !2
+  store float 3.000000e+00, ptr getelementptr inbounds ([1000 x float], ptr @B, i64 0, i64 2), align 8, !tbaa !2
   %idxprom1 = sext i32 %m to i64
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %idxprom1
-  %0 = load float, float* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %idxprom1
+  %0 = load float, ptr %arrayidx2, align 4, !tbaa !2
   %conv = fptosi float %0 to i32
-  store i32 %conv, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @C, i64 0, i64 2), align 8, !tbaa !7
+  store i32 %conv, ptr getelementptr inbounds ([1000 x i32], ptr @C, i64 0, i64 2), align 8, !tbaa !7
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.end
   %indvars.iv = phi i64 [ 0, %for.end ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx8, align 4, !tbaa !2
   %add = fadd float %1, 1.000000e+00
-  store float %add, float* %arrayidx8, align 4, !tbaa !2
+  store float %add, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.end11, label %for.body6

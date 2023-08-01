@@ -59,8 +59,8 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %f
   %j.02 = phi i32 [ 0, %for.body3.lr.ph ], [ %inc, %for.inc ]
   %add = add nsw i32 %call, %j.02
   %idxprom = sext i32 %i.03 to i64
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @a, i64 0, i64 %idxprom
-  store i32 %add, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @a, i64 0, i64 %idxprom
+  store i32 %add, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3
@@ -80,7 +80,7 @@ for.inc4:                                         ; preds = %for.end
   br i1 %cmp, label %for.body, label %for.end6
 
 for.end6:                                         ; preds = %for.inc4
-  %0 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 0), align 16
+  %0 = load i32, ptr @a, align 16
   ret i32 %0
 }
 

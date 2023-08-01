@@ -44,17 +44,17 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @a1, i64 0, i64 %indvars.iv, !intel-tbaa !3
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @a1, i64 0, i64 %indvars.iv, !intel-tbaa !3
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %mul = shl nsw i32 %0, 2
   %1 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %1 to float
   %conv1 = sext i32 %mul to i64
   %add = add nsw i64 %conv1, %foff
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add, !intel-tbaa !8
-  %2 = load float, float* %arrayidx2, align 4, !tbaa !8
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add, !intel-tbaa !8
+  %2 = load float, ptr %arrayidx2, align 4, !tbaa !8
   %add3 = fadd fast float %2, %conv
-  store float %add3, float* %arrayidx2, align 4, !tbaa !8
+  store float %add3, ptr %arrayidx2, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count14
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !11
@@ -63,8 +63,8 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %arrayidx4 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %foff, !intel-tbaa !8
-  %3 = load float, float* %arrayidx4, align 4, !tbaa !8
+  %arrayidx4 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %foff, !intel-tbaa !8
+  %3 = load float, ptr %arrayidx4, align 4, !tbaa !8
   ret float %3
 }
 

@@ -24,17 +24,17 @@
 
 define void @swap_deps() {
 entry:
-  call void @initialize(double* getelementptr inbounds ([1000 x double], [1000 x double]* @Ag, i64 0, i64 0), double* getelementptr inbounds ([1000 x double], [1000 x double]* @Bg, i64 0, i64 0))
+  call void @initialize(ptr @Ag, ptr @Bg)
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
-  %A.028 = phi double* [ getelementptr inbounds ([1000 x double], [1000 x double]* @Ag, i64 0, i64 0), %entry ], [ %B.026, %for.cond.cleanup3 ]
+  %A.028 = phi ptr [ @Ag, %entry ], [ %B.026, %for.cond.cleanup3 ]
   %i.027 = phi i32 [ 0, %entry ], [ %inc8, %for.cond.cleanup3 ]
-  %B.026 = phi double* [ getelementptr inbounds ([1000 x double], [1000 x double]* @Bg, i64 0, i64 0), %entry ], [ %A.028, %for.cond.cleanup3 ]
+  %B.026 = phi ptr [ @Bg, %entry ], [ %A.028, %for.cond.cleanup3 ]
   br label %for.body4
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
-  call void @consume(double* %B.026, double* %A.028)
+  call void @consume(ptr %B.026, ptr %A.028)
   ret void
 
 for.cond.cleanup3:                                ; preds = %for.body4
@@ -44,16 +44,16 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds double, double* %A.028, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %A.028, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %add = fadd double %0, 1.000000e+00
-  %arrayidx6 = getelementptr inbounds double, double* %B.026, i64 %indvars.iv
-  store double %add, double* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds double, ptr %B.026, i64 %indvars.iv
+  store double %add, ptr %arrayidx6, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
 }
 
-declare void @initialize(double*, double*)
+declare void @initialize(ptr, ptr)
 
-declare void @consume(double*, double*)
+declare void @consume(ptr, ptr)

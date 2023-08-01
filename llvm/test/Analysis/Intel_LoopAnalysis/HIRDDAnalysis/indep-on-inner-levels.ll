@@ -41,7 +41,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(float** noalias nocapture noundef readonly %Ap, float** noalias nocapture noundef readonly %Bp, i32* noalias nocapture noundef readonly %c, i32 noundef %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef readonly %Ap, ptr noalias nocapture noundef readonly %Bp, ptr noalias nocapture noundef readonly %c, i32 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -50,10 +50,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup5
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup5
   %indvars.iv41 = phi i64 [ 0, %entry ], [ %indvars.iv.next42, %for.cond.cleanup5 ]
-  %arrayidx = getelementptr inbounds float*, float** %Ap, i64 %indvars.iv41
-  %0 = load float*, float** %arrayidx, align 8, !tbaa !3
-  %arrayidx2 = getelementptr inbounds float*, float** %Bp, i64 %indvars.iv41
-  %1 = load float*, float** %arrayidx2, align 8, !tbaa !3
+  %arrayidx = getelementptr inbounds ptr, ptr %Ap, i64 %indvars.iv41
+  %0 = load ptr, ptr %arrayidx, align 8, !tbaa !3
+  %arrayidx2 = getelementptr inbounds ptr, ptr %Bp, i64 %indvars.iv41
+  %1 = load ptr, ptr %arrayidx2, align 8, !tbaa !3
   br label %for.cond7.preheader
 
 for.cond7.preheader:                              ; preds = %for.body, %for.cond.cleanup9
@@ -73,16 +73,16 @@ for.cond.cleanup9:                                ; preds = %for.body10
 
 for.body10:                                       ; preds = %for.cond7.preheader, %for.body10
   %indvars.iv = phi i64 [ 0, %for.cond7.preheader ], [ %indvars.iv.next, %for.body10 ]
-  %arrayidx12 = getelementptr inbounds float, float* %1, i64 %indvars.iv
-  %2 = load float, float* %arrayidx12, align 4, !tbaa !10, !alias.scope !12, !noalias !15
-  %arrayidx14 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx14, align 4, !tbaa !17
+  %arrayidx12 = getelementptr inbounds float, ptr %1, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx12, align 4, !tbaa !10, !alias.scope !12, !noalias !15
+  %arrayidx14 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx14, align 4, !tbaa !17
   %add = add nsw i32 %3, %mul
   %idxprom15 = sext i32 %add to i64
-  %arrayidx16 = getelementptr inbounds float, float* %0, i64 %idxprom15
-  %4 = load float, float* %arrayidx16, align 4, !tbaa !10, !alias.scope !15, !noalias !12
+  %arrayidx16 = getelementptr inbounds float, ptr %0, i64 %idxprom15
+  %4 = load float, ptr %arrayidx16, align 4, !tbaa !10, !alias.scope !15, !noalias !12
   %add17 = fadd fast float %4, %2
-  store float %add17, float* %arrayidx16, align 4, !tbaa !10, !alias.scope !15, !noalias !12
+  store float %add17, ptr %arrayidx16, align 4, !tbaa !10, !alias.scope !15, !noalias !12
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup9, label %for.body10, !llvm.loop !19

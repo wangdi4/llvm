@@ -23,7 +23,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %p, i32* nocapture readonly %q, i64 %n) {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture readonly %q, i64 %n) {
 entry:
   %cmp9 = icmp eq i64 %n, 0
   br i1 %cmp9, label %for.cond.cleanup, label %for.body.preheader
@@ -39,12 +39,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.010 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 %i.010
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 %i.010
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %i.010 to i32
   %conv1 = add i32 %0, %1
-  %arrayidx2 = getelementptr inbounds i32, i32* %p, i64 %i.010
-  store i32 %conv1, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %p, i64 %i.010
+  store i32 %conv1, ptr %arrayidx2, align 4
   %inc = add nuw i64 %i.010, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

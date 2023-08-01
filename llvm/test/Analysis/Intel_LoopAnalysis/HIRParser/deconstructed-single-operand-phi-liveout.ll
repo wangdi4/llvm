@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @a = common dso_local local_unnamed_addr global i32 0, align 4
 
-define dso_local void @e(i32 %g.027.ph, i32* %t1) {
+define dso_local void @e(i32 %g.027.ph, ptr %t1) {
 entry:
   br label %for.cond6.preheader
 
@@ -35,8 +35,8 @@ for.cond6.preheader:                              ; preds = %entry, %for.end9
 
 for.body8:                                        ; preds = %for.cond6.preheader, %for.body8
   %f.222 = phi i32 [ 0, %for.cond6.preheader ], [ %add, %for.body8 ]
-  store i32 0, i32* %t1, align 4
-  store i32 1, i32* @a, align 4
+  store i32 0, ptr %t1, align 4
+  store i32 1, ptr @a, align 4
   %add = add nuw nsw i32 %f.222, 3
   %cmp7 = icmp ult i32 %add, 8
   br i1 %cmp7, label %for.body8, label %for.end9

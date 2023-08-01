@@ -24,9 +24,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main() local_unnamed_addr #2 {
 entry:
-  store i32 0, i32* @main_v_n, align 4
-  %g_nctlk.promoted = load i64, i64* @g_nctlk, align 8
-  %g_j.promoted = load i64, i64* @g_j, align 8
+  store i32 0, ptr @main_v_n, align 4
+  %g_nctlk.promoted = load i64, ptr @g_nctlk, align 8
+  %g_j.promoted = load i64, ptr @g_j, align 8
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry

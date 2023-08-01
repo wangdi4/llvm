@@ -36,7 +36,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(double* %A, i64 %N) #0 {
+define void @foo(ptr %A, i64 %N) #0 {
 entry:
   %cmp.5 = icmp sgt i64 %N, 0
   br i1 %cmp.5, label %for.body.lr.ph, label %for.end.22
@@ -56,8 +56,8 @@ for.body.6:                                       ; preds = %for.body.6.lr.ph, %
   %i.02 = phi i32 [ 0, %for.body.6.lr.ph ], [ %inc, %for.inc ]
   %conv7 = sitofp i32 %i.02 to double
   %idxprom = sext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %idxprom
-  store double %conv7, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %idxprom
+  store double %conv7, ptr %arrayidx, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body.6
@@ -79,12 +79,12 @@ for.body.12.lr.ph:                                ; preds = %for.end
 for.body.12:                                      ; preds = %for.body.12.lr.ph, %for.inc.17
   %i.14 = phi i32 [ 0, %for.body.12.lr.ph ], [ %inc18, %for.inc.17 ]
   %idxprom13 = sext i32 %i.14 to i64
-  %arrayidx14 = getelementptr inbounds double, double* %A, i64 %idxprom13
-  %0 = load double, double* %arrayidx14, align 8
+  %arrayidx14 = getelementptr inbounds double, ptr %A, i64 %idxprom13
+  %0 = load double, ptr %arrayidx14, align 8
   %mul = fmul double %0, 2.000000e+00
   %idxprom15 = sext i32 %i.14 to i64
-  %arrayidx16 = getelementptr inbounds double, double* %A, i64 %idxprom15
-  store double %mul, double* %arrayidx16, align 8
+  %arrayidx16 = getelementptr inbounds double, ptr %A, i64 %idxprom15
+  store double %mul, ptr %arrayidx16, align 8
   br label %for.inc.17
 
 for.inc.17:                                       ; preds = %for.body.12

@@ -13,9 +13,9 @@ target triple = "i386-unknown-linux-gnu"
 
 %struct.blam.42 = type { %struct.quux }
 %struct.quux = type { %struct.hoge }
-%struct.hoge = type { i32, i32, i32* }
+%struct.hoge = type { i32, i32, ptr }
 
-define dso_local void @barney([4 x %struct.blam.42]* %arg) {
+define dso_local void @barney(ptr %arg) {
 bb:
   br label %bb3
 
@@ -24,9 +24,9 @@ bb2:                                              ; preds = %bb3
 
 bb3:                                              ; preds = %bb3, %bb
   %tmp = phi i32 [ 0, %bb ], [ %tmp33, %bb3 ]
-  %tmp4 = getelementptr inbounds [4 x %struct.blam.42], [4 x %struct.blam.42]* %arg, i32 0, i32 %tmp, i32 0
-  %tmp7 = getelementptr inbounds %struct.quux, %struct.quux* %tmp4, i32 0, i32 0, i32 0
-  store i32 5, i32* %tmp7, align 4
+  %tmp4 = getelementptr inbounds [4 x %struct.blam.42], ptr %arg, i32 0, i32 %tmp, i32 0
+  %tmp7 = getelementptr inbounds %struct.quux, ptr %tmp4, i32 0, i32 0, i32 0
+  store i32 5, ptr %tmp7, align 4
   %tmp33 = add nuw nsw i32 %tmp, 1
   %tmp34 = icmp eq i32 %tmp33, 4
   %tmp35 = bitcast i32 %tmp33 to i32

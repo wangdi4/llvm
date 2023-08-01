@@ -57,8 +57,8 @@ entry:
 
 for.body:                                         ; preds = %for.inc11, %entry
   %indvars.iv26 = phi i64 [ 0, %entry ], [ %indvars.iv.next27, %for.inc11 ]
-  %arrayidx = getelementptr inbounds [25 x i64], [25 x i64]* @reg_class_contents, i64 0, i64 %indvars.iv26
-  store i64 0, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [25 x i64], ptr @reg_class_contents, i64 0, i64 %indvars.iv26
+  store i64 0, ptr %arrayidx, align 8
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.body
@@ -67,8 +67,8 @@ for.body3:                                        ; preds = %for.inc, %for.body
   %1 = trunc i64 %indvars.iv to i32
   %div = lshr i64 %indvars.iv, 5
   %idxprom6 = and i64 %div, 134217727
-  %arrayidx7 = getelementptr inbounds [25 x [2 x i32]], [25 x [2 x i32]]* @int_reg_class_contents, i64 0, i64 %indvars.iv26, i64 %idxprom6
-  %2 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [25 x [2 x i32]], ptr @int_reg_class_contents, i64 0, i64 %indvars.iv26, i64 %idxprom6
+  %2 = load i32, ptr %arrayidx7, align 4
   %shl = shl nuw nsw i32 1, %1
   %and = and i32 %2, %shl
   %tobool = icmp eq i32 %and, 0
@@ -77,7 +77,7 @@ for.body3:                                        ; preds = %for.inc, %for.body
 if.then:                                          ; preds = %for.body3
   %shl8 = shl nuw nsw i64 1, %indvars.iv
   %or = or i64 %0, %shl8
-  store i64 %or, i64* %arrayidx, align 8
+  store i64 %or, ptr %arrayidx, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then

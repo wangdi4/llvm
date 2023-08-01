@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @nab(i32 %N, i64 %foff) local_unnamed_addr #0 {
 entry:
-  store float 0.000000e+00, float* @e_bond, align 4, !tbaa !2
+  store float 0.000000e+00, ptr @e_bond, align 4, !tbaa !2
   %conv = sext i32 %N to i64
   %cmp22 = icmp sgt i32 %N, 0
   br i1 %cmp22, label %for.body.lr.ph, label %for.end
@@ -45,16 +45,16 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %i.023 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i64], [1000 x i64]* @a1, i64 0, i64 %i.023
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !6
+  %arrayidx = getelementptr inbounds [1000 x i64], ptr @a1, i64 0, i64 %i.023
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !6
   %mul = shl nsw i64 %0, 2
   %div = sdiv i64 %mul, 3
   %conv2 = sitofp i64 %i.023 to float
   %add = add nsw i64 %div, %foff
-  %arrayidx3 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add
-  %1 = load float, float* %arrayidx3, align 4, !tbaa !9
+  %arrayidx3 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add
+  %1 = load float, ptr %arrayidx3, align 4, !tbaa !9
   %add4 = fadd float %1, %conv2
-  store float %add4, float* %arrayidx3, align 4, !tbaa !9
+  store float %add4, ptr %arrayidx3, align 4, !tbaa !9
   %inc = add nuw nsw i64 %i.023, 1
   %exitcond = icmp eq i64 %inc, %conv
   br i1 %exitcond, label %for.end.loopexit, label %for.body

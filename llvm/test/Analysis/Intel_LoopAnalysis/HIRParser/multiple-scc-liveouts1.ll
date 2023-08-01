@@ -62,8 +62,8 @@ for.cond.22.preheader:                            ; preds = %for.cond.22.prehead
 for.body.24:                                      ; preds = %for.body.24, %for.cond.22.preheader
   %indvars.iv = phi i64 [ 1, %for.cond.22.preheader ], [ %indvars.iv.next, %for.body.24 ]
   %mul2692 = phi i32 [ %mul26.lcssa95, %for.cond.22.preheader ], [ %mul26, %for.body.24 ]
-  %arrayidx25 = getelementptr inbounds [100 x i32], [100 x i32]* %g, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx25, align 4
+  %arrayidx25 = getelementptr inbounds [100 x i32], ptr %g, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx25, align 4
   %mul26 = mul i32 %mul2692, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 11
@@ -77,7 +77,7 @@ for.inc.28:                                       ; preds = %for.body.24
 
 for.cond.19.for.inc.31_crit_edge:                 ; preds = %for.inc.28
   %mul26.lcssa.lcssa = phi i32 [ %mul26.lcssa, %for.inc.28 ]
-  store i32 11, i32* %j0, align 4
+  store i32 11, ptr %j0, align 4
   br label %for.inc.31
 
 for.inc.31:                                       ; preds = %for.cond.19.for.inc.31_crit_edge, %for.body

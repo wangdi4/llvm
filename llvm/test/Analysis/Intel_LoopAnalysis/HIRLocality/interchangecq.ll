@@ -41,20 +41,20 @@ for.body.4.lr.ph.preheader:                       ; preds = %entry
 
 for.body.4.lr.ph:                                 ; preds = %for.body.4.lr.ph.preheader, %for.cond.cleanup.3
   %i.030 = phi i64 [ %inc12, %for.cond.cleanup.3 ], [ 1, %for.body.4.lr.ph.preheader ]
-  %arrayidx = getelementptr inbounds [10 x i64], [10 x i64]* @C, i64 0, i64 %i.030
-  %arrayidx.promoted = load i64, i64* %arrayidx, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i64], ptr @C, i64 0, i64 %i.030
+  %arrayidx.promoted = load i64, ptr %arrayidx, align 8, !tbaa !1
   br label %for.body.4
 
 for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup.3
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
-  %0 = load i64, i64* getelementptr inbounds ([10 x i64], [10 x i64]* @C, i64 0, i64 2), align 16, !tbaa !1
+  %0 = load i64, ptr getelementptr inbounds ([10 x i64], ptr @C, i64 0, i64 2), align 16, !tbaa !1
   ret i64 %0
 
 for.cond.cleanup.3:                               ; preds = %for.body.4
   %sub.lcssa = phi i64 [ %sub, %for.body.4 ]
-  store i64 %sub.lcssa, i64* %arrayidx, align 8, !tbaa !1
+  store i64 %sub.lcssa, ptr %arrayidx, align 8, !tbaa !1
   %inc12 = add nuw nsw i64 %i.030, 1
   %exitcond32 = icmp eq i64 %inc12, %M
   br i1 %exitcond32, label %for.cond.cleanup.loopexit, label %for.body.4.lr.ph
@@ -62,11 +62,11 @@ for.cond.cleanup.3:                               ; preds = %for.body.4
 for.body.4:                                       ; preds = %for.body.4, %for.body.4.lr.ph
   %sub28 = phi i64 [ %arrayidx.promoted, %for.body.4.lr.ph ], [ %sub, %for.body.4 ]
   %j.027 = phi i64 [ 1, %for.body.4.lr.ph ], [ %inc, %for.body.4 ]
-  %arrayidx6 = getelementptr inbounds [10 x [10 x i64]], [10 x [10 x i64]]* @A, i64 0, i64 %i.030, i64 %j.027
-  %1 = load i64, i64* %arrayidx6, align 8, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [10 x [10 x i64]], ptr @A, i64 0, i64 %i.030, i64 %j.027
+  %1 = load i64, ptr %arrayidx6, align 8, !tbaa !1
   %mul = mul nsw i64 %1, %sub28
-  %arrayidx8 = getelementptr inbounds [10 x [10 x i64]], [10 x [10 x i64]]* @B, i64 0, i64 %i.030, i64 %j.027
-  %2 = load i64, i64* %arrayidx8, align 8, !tbaa !1
+  %arrayidx8 = getelementptr inbounds [10 x [10 x i64]], ptr @B, i64 0, i64 %i.030, i64 %j.027
+  %2 = load i64, ptr %arrayidx8, align 8, !tbaa !1
   %add = sub i64 %2, %sub28
   %sub = add i64 %add, %mul
   %inc = add nuw nsw i64 %j.027, 1
@@ -75,10 +75,10 @@ for.body.4:                                       ; preds = %for.body.4, %for.bo
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

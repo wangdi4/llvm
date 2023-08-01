@@ -29,13 +29,13 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %s.012 = phi i32 [ 0, %for.body.preheader ], [ %add3, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 3
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx2, align 4
   %add3 = add nsw i32 %2, %s.012
   call void @llvm.directive.region.exit(token %1) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

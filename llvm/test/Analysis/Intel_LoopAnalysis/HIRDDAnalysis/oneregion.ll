@@ -23,7 +23,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @sub1(float* nocapture %B, i32* nocapture %C, i32 %n, i32 %m) local_unnamed_addr #0 {
+define void @sub1(ptr nocapture %B, ptr nocapture %C, i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp26 = icmp sgt i32 %n, 0
   br i1 %cmp26, label %for.body.preheader, label %for.end
@@ -34,8 +34,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv28 = phi i64 [ %indvars.iv.next29, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv28
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv28
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next29 = add nuw nsw i64 %indvars.iv28, 1
   %exitcond = icmp eq i64 %indvars.iv.next29, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body
@@ -44,14 +44,14 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %arrayidx1 = getelementptr inbounds float, float* %B, i64 1
-  store float 3.000000e+00, float* %arrayidx1, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds float, ptr %B, i64 1
+  store float 3.000000e+00, ptr %arrayidx1, align 4, !tbaa !1
   %idxprom2 = sext i32 %m to i64
-  %arrayidx3 = getelementptr inbounds float, float* %B, i64 %idxprom2
-  %0 = load float, float* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds float, ptr %B, i64 %idxprom2
+  %0 = load float, ptr %arrayidx3, align 4, !tbaa !1
   %conv = fptosi float %0 to i32
-  %arrayidx4 = getelementptr inbounds i32, i32* %C, i64 1
-  store i32 %conv, i32* %arrayidx4, align 4, !tbaa !5
+  %arrayidx4 = getelementptr inbounds i32, ptr %C, i64 1
+  store i32 %conv, ptr %arrayidx4, align 4, !tbaa !5
   %cmp624 = icmp sgt i32 %n, 0
   br i1 %cmp624, label %for.body8.preheader, label %for.end13
 
@@ -62,8 +62,8 @@ for.body8.preheader:                              ; preds = %for.end
 
 for.body8:                                        ; preds = %for.body8.preheader, %for.body8
   %indvars.iv = phi i64 [ 0, %for.body8.preheader ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  store float 2.000000e+00, float* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  store float 2.000000e+00, ptr %arrayidx10, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp6 = icmp slt i64 %indvars.iv.next, %1
   br i1 %cmp6, label %for.body8, label %for.end13.loopexit

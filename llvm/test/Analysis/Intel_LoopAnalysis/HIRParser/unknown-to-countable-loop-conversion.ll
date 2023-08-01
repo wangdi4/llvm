@@ -43,21 +43,21 @@
 ; PARSER: + END LOOP
 
 
-define void @foo(i32 %t1, double* %t2, i64 %t3) "intel-lang"="fortran" {
+define void @foo(i32 %t1, ptr %t2, i64 %t3) "intel-lang"="fortran" {
 entry:
   br label %dom.block
 
 dom.block:                                             ; preds = %t3228, %t3226
   %t4 = add nsw i32 %t1, 1
   %sxt = sext i32 %t4 to i64
-  %gep1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %t2, i64 %sxt)
-  %gep2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %gep1, i64 1)
+  %gep1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %t2, i64 %sxt)
+  %gep2 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %gep1, i64 1)
   br label %loop1
 
 loop1:                                             ; preds = %loop1, %dom.block
   %iv1 = phi i64 [ 1, %dom.block ], [ %t3242, %loop1 ]
-  %gep3 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %gep2, i64 %iv1)
-  store double 0.000000e+00, double* %gep3, align 1
+  %gep3 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %gep2, i64 %iv1)
+  store double 0.000000e+00, ptr %gep3, align 1
   %t3242 = add nuw nsw i64 %iv1, 1
   %t3243 = icmp eq i64 %t3242, %t3
   br i1 %t3243, label %exit1, label %loop1
@@ -72,9 +72,9 @@ loop2.pre:
 loop2:                                             ; preds = %loop2.pre, %loop2
   %iv2 = phi i64 [ 1, %loop2.pre ], [ %t3257, %loop2 ]
   %t3253 = trunc i64 %iv2 to i32
-  %t3255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %t2, i64 %iv2)
-  %t3256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %t3255, i64 1)
-  call fastcc void @prtri_(double* %t3256) #4
+  %t3255 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %t2, i64 %iv2)
+  %t3256 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %t3255, i64 1)
+  call fastcc void @prtri_(ptr %t3256) #4
   %t3257 = add nuw i64 %iv2, 1
   %t3258 = trunc i64 %t3257 to i32
   %t3259 = icmp slt i32 %t1, %t3258
@@ -87,9 +87,9 @@ exit3:
   ret void
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-declare hidden fastcc void @prtri_(double* noalias) unnamed_addr #4
+declare hidden fastcc void @prtri_(ptr noalias) unnamed_addr #4
 
 attributes #0 = { nounwind readnone speculatable }
 attributes #4 = { nofree nounwind uwtable willreturn }

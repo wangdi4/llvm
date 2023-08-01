@@ -45,8 +45,8 @@ entry:
 
 for.body570:                                ; preds = %for.end846, %entry
   %storemerge1252 = phi i64 [ 6, %entry ], [ %sub.i154.i.i, %for.end846 ]
-  %arrayidx830 = getelementptr inbounds [8 x i16], [8 x i16]* @g_1089, i64 0, i64 %storemerge1252
-  %.pre.i3.i = load i16, i16* %arrayidx830, align 2
+  %arrayidx830 = getelementptr inbounds [8 x i16], ptr @g_1089, i64 0, i64 %storemerge1252
+  %.pre.i3.i = load i16, ptr %arrayidx830, align 2
   br label %for.body575
 
 for.cond572:                                ; preds = %for.body575

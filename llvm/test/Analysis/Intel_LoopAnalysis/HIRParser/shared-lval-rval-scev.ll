@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse uwtable
 define void @foo() local_unnamed_addr {
-  %1 = load i8, i8* @g_jnv, align 1
+  %1 = load i8, ptr @g_jnv, align 1
   %conv = zext i8 %1 to i32
   %add = add nuw nsw i32 %conv, 100
   %add2 = add nuw nsw i32 %conv, 32
@@ -47,12 +47,12 @@ define void @foo() local_unnamed_addr {
 
 .lr.ph:                                           ; preds = %.lr.ph.preheader, %.lr.ph
   %indvars.iv116 = phi i64 [ %indvars.iv.next117, %.lr.ph ], [ %indvars.iv118, %.lr.ph.preheader ]
-  %arrayidx = getelementptr inbounds [192 x i64], [192 x i64]* @a1_ahj, i64 0, i64 %indvars.iv116
-  %3 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [192 x i64], ptr @a1_ahj, i64 0, i64 %indvars.iv116
+  %3 = load i64, ptr %arrayidx, align 8
   %inc = add i64 %3, 1
-  store i64 %inc, i64* %arrayidx, align 8
-  %arrayidx12 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_ob, i64 0, i64 %indvars.iv116
-  store i32 48, i32* %arrayidx12, align 4
+  store i64 %inc, ptr %arrayidx, align 8
+  %arrayidx12 = getelementptr inbounds [192 x i32], ptr @a1_ob, i64 0, i64 %indvars.iv116
+  store i32 48, ptr %arrayidx12, align 4
   %4 = trunc i64 %indvars.iv116 to i8
   %dec = add i8 %4, -1
   %cmp7 = icmp ugt i8 %dec, 24
@@ -65,8 +65,8 @@ define void @foo() local_unnamed_addr {
 ._crit_edge:                                      ; preds = %._crit_edge.loopexit, %2
   %dec.sink.lcssa = phi i32 [ %v_i.0101, %2 ], [ 24, %._crit_edge.loopexit ]
   %conv6 = and i32 %dec.sink.lcssa, 255
-  %arrayidx16 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_ob, i64 0, i64 %indvars.iv118
-  store i32 %conv6, i32* %arrayidx16, align 4
+  %arrayidx16 = getelementptr inbounds [192 x i32], ptr @a1_ob, i64 0, i64 %indvars.iv118
+  store i32 %conv6, ptr %arrayidx16, align 4
   %indvars.iv.next119 = add nsw i64 %indvars.iv118, -1
   %dec18 = add nsw i32 %v_i.0101, -1
   %cmp = icmp eq i64 %indvars.iv.next119, 0

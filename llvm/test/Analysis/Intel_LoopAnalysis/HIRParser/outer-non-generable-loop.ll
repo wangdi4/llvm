@@ -12,7 +12,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* %A, i32 %n, i32 %k) {
+define void @foo(ptr %A, i32 %n, i32 %k) {
 entry:
   %cmp.3 = icmp sgt i32 %n, 0
   br i1 %cmp.3, label %for.body.lr.ph, label %for.end.12
@@ -38,10 +38,10 @@ for.body.5:                                       ; preds = %for.body.5.lr.ph, %
   %add7 = add nsw i32 %add2, %j.02
   %add8 = add nsw i32 %add6, %add7
   %idxprom = sext i32 %j.02 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %add9 = add nsw i32 %0, %add8
-  store i32 %add9, i32* %arrayidx, align 4
+  store i32 %add9, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body.5

@@ -8,15 +8,15 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %ip) local_unnamed_addr #0 !dbg !6 {
+define void @foo(ptr nocapture %ip) local_unnamed_addr #0 !dbg !6 {
 entry:
   br label %for.body, !dbg !8
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv, !dbg !9
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv, !dbg !9
   %0 = trunc i64 %indvars.iv to i32, !dbg !9
-  store i32 %0, i32* %arrayidx, align 4, !dbg !9, !tbaa !10
+  store i32 %0, ptr %arrayidx, align 4, !dbg !9, !tbaa !10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !8
   %exitcond = icmp eq i64 %indvars.iv.next, 100, !dbg !8
   br i1 %exitcond, label %for.end, label %for.body, !dbg !8, !llvm.loop !14

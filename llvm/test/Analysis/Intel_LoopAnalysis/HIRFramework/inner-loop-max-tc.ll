@@ -30,8 +30,8 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %j.014 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
   %add = add nuw nsw i64 %j.014, %i.015
-  %arrayidx = getelementptr inbounds [40 x i64], [40 x i64]* @A, i64 0, i64 %add
-  store i64 %i.015, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [40 x i64], ptr @A, i64 0, i64 %add
+  store i64 %i.015, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %j.014, 1
   %exitcond = icmp eq i64 %inc, %n
   br i1 %exitcond, label %for.inc4.loopexit, label %for.body3

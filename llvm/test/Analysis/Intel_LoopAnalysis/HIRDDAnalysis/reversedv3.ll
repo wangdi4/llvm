@@ -14,12 +14,12 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._IO_marker = type { ptr, ptr, i32 }
 
 @p = common global [10000 x [100 x i64]] zeroinitializer, align 16
 @q = common global [100000 x i64] zeroinitializer, align 16
-@stderr = external global %struct._IO_FILE*, align 8
+@stderr = external global ptr, align 8
 @.str = private unnamed_addr constant [5 x i8] c" %d \00", align 1
 
 ; Function Attrs: nounwind uwtable
@@ -45,13 +45,13 @@ for.cond.4.preheader:                             ; preds = %for.inc.17, %for.co
 for.body.6:                                       ; preds = %for.body.6, %for.cond.4.preheader
   %k.041 = phi i64 [ 0, %for.cond.4.preheader ], [ %inc, %for.body.6 ]
   %sub = add nsw i64 %k.041, -1
-  %arrayidx8 = getelementptr inbounds [10000 x [100 x i64]], [10000 x [100 x i64]]* @p, i64 0, i64 %add, i64 %sub
-  %0 = load i64, i64* %arrayidx8, align 8, !tbaa !1
+  %arrayidx8 = getelementptr inbounds [10000 x [100 x i64]], ptr @p, i64 0, i64 %add, i64 %sub
+  %0 = load i64, ptr %arrayidx8, align 8, !tbaa !1
   %add10 = add nuw nsw i64 %add9, %k.041
-  %arrayidx11 = getelementptr inbounds [100000 x i64], [100000 x i64]* @q, i64 0, i64 %add10
-  store i64 %0, i64* %arrayidx11, align 8, !tbaa !1
-  %arrayidx16 = getelementptr inbounds [10000 x [100 x i64]], [10000 x [100 x i64]]* @p, i64 0, i64 %sub14, i64 %k.041
-  store i64 1, i64* %arrayidx16, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [100000 x i64], ptr @q, i64 0, i64 %add10
+  store i64 %0, ptr %arrayidx11, align 8, !tbaa !1
+  %arrayidx16 = getelementptr inbounds [10000 x [100 x i64]], ptr @p, i64 0, i64 %sub14, i64 %k.041
+  store i64 1, ptr %arrayidx16, align 8, !tbaa !1
   %inc = add nuw nsw i64 %k.041, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.inc.17, label %for.body.6
@@ -67,14 +67,14 @@ for.inc.20:                                       ; preds = %for.inc.17
   br i1 %exitcond45, label %for.end.22, label %for.cond.1.preheader
 
 for.end.22:                                       ; preds = %for.inc.20
-  %1 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8, !tbaa !5
-  %2 = load i64, i64* getelementptr inbounds ([100000 x i64], [100000 x i64]* @q, i64 0, i64 100), align 16, !tbaa !1
-  %call = tail call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %1, i8* nonnull getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0), i64 %2) #2
+  %1 = load ptr, ptr @stderr, align 8, !tbaa !5
+  %2 = load i64, ptr getelementptr inbounds ([100000 x i64], ptr @q, i64 0, i64 100), align 16, !tbaa !1
+  %call = tail call i32 (ptr, ptr, ...) @fprintf(ptr %1, ptr nonnull @.str, i64 %2) #2
   ret i32 0
 }
 
 ; Function Attrs: nounwind
-declare i32 @fprintf(%struct._IO_FILE* nocapture, i8* nocapture readonly, ...) #1
+declare i32 @fprintf(ptr nocapture, ptr nocapture readonly, ...) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -33,17 +33,17 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %if.end, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %if.end ]
   %s.014 = phi i32 [ 0, %for.body.lr.ph ], [ %add, %if.end ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %s.014
   %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx3, align 4
   %add4 = add nsw i32 %2, 3
-  store i32 %add4, i32* %arrayidx3, align 4
+  store i32 %add4, ptr %arrayidx3, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body

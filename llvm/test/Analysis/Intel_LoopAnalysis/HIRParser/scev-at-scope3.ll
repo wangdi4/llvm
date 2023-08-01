@@ -70,7 +70,7 @@ for.inc25:                                        ; preds = %for.cond4.for.inc25
   br i1 %exitcond, label %for.end26, label %for.body
 
 for.end26:                                        ; preds = %for.inc25
-  store i32 %add23.lcssa94, i32* undef, align 4
+  store i32 %add23.lcssa94, ptr undef, align 4
   br label %for.body.i68
 
 for.body.i68:                                     ; preds = %for.body.i68, %for.end26

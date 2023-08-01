@@ -38,7 +38,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(i32* nocapture %a, float* nocapture %b) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr #0 {
 entry:
   br label %while.body
 
@@ -47,8 +47,8 @@ while.body:                                       ; preds = %entry, %for.cond.cl
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds float, float* %b, i64 %indvars.iv40
-  %0 = load float, float* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds float, ptr %b, i64 %indvars.iv40
+  %0 = load float, ptr %arrayidx2, align 4, !tbaa !2
   %cmp3 = fcmp ogt float %0, 5.000000e+01
   br i1 %cmp3, label %while.end, label %if.end
 
@@ -57,8 +57,8 @@ for.body:                                         ; preds = %for.body, %while.bo
   %indvars.iv.tr = trunc i64 %indvars.iv to i32
   %1 = shl i32 %indvars.iv.tr, 1
   %conv = sitofp i32 %1 to float
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  store float %conv, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  store float %conv, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
@@ -73,11 +73,11 @@ for.cond.cleanup9:                                ; preds = %for.body10
 
 for.body10:                                       ; preds = %for.body10, %if.end
   %indvars.iv37 = phi i64 [ 0, %if.end ], [ %indvars.iv.next38, %for.body10 ]
-  %arrayidx12 = getelementptr inbounds float, float* %b, i64 %indvars.iv37
-  %2 = load float, float* %arrayidx12, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds float, ptr %b, i64 %indvars.iv37
+  %2 = load float, ptr %arrayidx12, align 4, !tbaa !2
   %conv13 = fptosi float %2 to i32
-  %arrayidx15 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv37
-  store i32 %conv13, i32* %arrayidx15, align 4, !tbaa !6
+  %arrayidx15 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv37
+  store i32 %conv13, ptr %arrayidx15, align 4, !tbaa !6
   %indvars.iv.next38 = add nuw nsw i64 %indvars.iv37, 1
   %exitcond39 = icmp eq i64 %indvars.iv.next38, 100
   br i1 %exitcond39, label %for.cond.cleanup9, label %for.body10

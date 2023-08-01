@@ -38,19 +38,19 @@ entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %0
-  %2 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %0
+  %2 = load i32, ptr %arrayidx5, align 4
   ret i32 %2
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %3 = add nsw i64 %indvars.iv, %0
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %3
-  %4 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %3
+  %4 = load i32, ptr %arrayidx, align 4
   %mul = shl nsw i32 %4, 1
   %5 = add nsw i64 %indvars.iv, %1
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %5
-  store i32 %mul, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %5
+  store i32 %mul, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

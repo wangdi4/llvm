@@ -8,7 +8,7 @@
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:      END REGION
 
-define void @_Z3fooPii(i32* nocapture %A, i32 %n) {
+define void @_Z3fooPii(ptr nocapture %A, i32 %n) {
 entry:
   %cmp17 = icmp sgt i32 %n, 0
   br i1 %cmp17, label %for.body.preheader, label %for.cond.cleanup
@@ -25,10 +25,10 @@ entry:
 
   for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %1 = tail call i32 @llvm.abs.i32(i32 %0, i1 true)
-  store i32 %1, i32* %ptridx, align 4
+  store i32 %1, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count19
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

@@ -36,10 +36,10 @@ for.body1:                                  ; preds = %for.cond.cleanup, %for.co
 for.body2:                                  ; preds = %for.body2, %for.body1
   %indvars.iv1 = phi i64 [ 0, %for.body1 ], [ %indvars.iv.next1, %for.body2 ]
   %add = add nuw nsw i64 %indvars.iv1, %mul
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @c, i64 0, i64 %add
-  %fload = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @c, i64 0, i64 %add
+  %fload = load float, ptr %arrayidx, align 4
   %fadd = fadd float %fload, 1.0
-  store float %fadd, float* %arrayidx, align 4
+  store float %fadd, ptr %arrayidx, align 4
   %indvars.iv.next1 = add nuw nsw i64 %indvars.iv1, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next1, %ext
   br i1 %exitcond2, label %for.cond.cleanup, label %for.body2

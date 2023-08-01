@@ -28,15 +28,15 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 1, %entry ], [ %indvars.iv.next, %for.body ]
   %rem16 = and i64 %indvars.iv, 1
   %tobool = icmp ne i64 %rem16, 0
-  %cond = select i1 %tobool, double* getelementptr inbounds ([129 x double], [129 x double]* @Ag, i64 0, i64 0), double* getelementptr inbounds ([129 x double], [129 x double]* @Bg, i64 0, i64 0)
-  %cond3 = select i1 %tobool, double* getelementptr inbounds ([129 x double], [129 x double]* @Bg, i64 0, i64 0), double* getelementptr inbounds ([129 x double], [129 x double]* @Ag, i64 0, i64 0)
+  %cond = select i1 %tobool, ptr @Ag, ptr @Bg
+  %cond3 = select i1 %tobool, ptr @Bg, ptr @Ag
   %0 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds double, double* %cond3, i64 %0
-  %1 = bitcast double* %arrayidx to i64*
-  %2 = load i64, i64* %1, align 8
-  %arrayidx5 = getelementptr inbounds double, double* %cond, i64 %indvars.iv
-  %3 = bitcast double* %arrayidx5 to i64*
-  store i64 %2, i64* %3, align 8
+  %arrayidx = getelementptr inbounds double, ptr %cond3, i64 %0
+  %1 = bitcast ptr %arrayidx to ptr
+  %2 = load i64, ptr %1, align 8
+  %arrayidx5 = getelementptr inbounds double, ptr %cond, i64 %indvars.iv
+  %3 = bitcast ptr %arrayidx5 to ptr
+  store i64 %2, ptr %3, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 129
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

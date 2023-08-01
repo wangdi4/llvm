@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @sub8(float* nocapture %a, i64 %n) #0 {
+define void @sub8(ptr nocapture %a, i64 %n) #0 {
 entry:
   %cmp.14 = icmp sgt i64 %n, 3
   br i1 %cmp.14, label %for.end, label %for.body.lr.ph
@@ -27,12 +27,12 @@ for.body:                                         ; preds = %for.body, %for.body
   %i.015 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
   %mul1 = mul nsw i64 %mul, %i.015
   %sub2 = add nsw i64 %mul1, -5
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %sub2
-  %1 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %sub2
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add = fadd float %1, 1.000000e+00
   %add5 = add nsw i64 %mul1, 8
-  %arrayidx6 = getelementptr inbounds float, float* %a, i64 %add5
-  store float %add, float* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds float, ptr %a, i64 %add5
+  store float %add, ptr %arrayidx6, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.015, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.end, label %for.body

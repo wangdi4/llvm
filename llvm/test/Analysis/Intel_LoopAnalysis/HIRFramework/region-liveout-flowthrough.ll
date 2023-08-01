@@ -21,12 +21,12 @@
 ; CHECK-NEXT: + END LOOP
 
 
-define void @foo(i32 %i.0.i437768, i64 %indvars.iv, i32* %in, i32 %t36) {
+define void @foo(i32 %i.0.i437768, i64 %indvars.iv, ptr %in, i32 %t36) {
 entry:
   br label %for.body.i447.pre
 
 for.body.i447.pre:
-  %t41 = phi i32* [ %in, %entry ]
+  %t41 = phi ptr [ %in, %entry ]
   br label %for.body.i447
 
 for.body.i447:                                    ; preds = %for.cond.i439, %for.body.i447.pre
@@ -34,17 +34,17 @@ for.body.i447:                                    ; preds = %for.cond.i439, %for
   %indvars.iv647770 = phi i64 [ %indvars.iv, %for.body.i447.pre ], [ %indvars.iv647, %for.cond.i439 ]
   %add.i.i441 = add nuw i64 %indvars.iv647770, 2
   %idxprom.i.i442 = and i64 %add.i.i441, 4294967295
-  %arrayidx.i.i443 = getelementptr inbounds i32, i32* %t41, i64 %idxprom.i.i442
-  %t46 = load i32, i32* %arrayidx.i.i443, align 4
+  %arrayidx.i.i443 = getelementptr inbounds i32, ptr %t41, i64 %idxprom.i.i442
+  %t46 = load i32, ptr %arrayidx.i.i443, align 4
   %idxprom3.i.i444 = zext i32 %i.0.i437771 to i64
-  %arrayidx4.i.i445 = getelementptr inbounds i32, i32* %t41, i64 %idxprom3.i.i444
-  %t47 = load i32, i32* %arrayidx4.i.i445, align 4
+  %arrayidx4.i.i445 = getelementptr inbounds i32, ptr %t41, i64 %idxprom3.i.i444
+  %t47 = load i32, ptr %arrayidx4.i.i445, align 4
   %cmp3.i446 = icmp eq i32 %t46, %t47
   %indvars.iv.next648 = add nuw nsw i64 %indvars.iv647770, 1
   br i1 %cmp3.i446, label %for.cond.i439, label %for.body.i447.land.lhs.true.i.i.i428_crit_edge
 
 for.cond.i439:                                    ; preds = %for.body.i447
-  %t44 = phi i32* [ %t41, %for.body.i447 ]
+  %t44 = phi ptr [ %t41, %for.body.i447 ]
   %indvars.iv647 = phi i64 [ %indvars.iv.next648, %for.body.i447 ]
   %t45 = trunc i64 %indvars.iv647 to i32
   %i.0.i437 = add i32 %t45, 1
@@ -52,11 +52,11 @@ for.cond.i439:                                    ; preds = %for.body.i447
   br i1 %cmp.i438, label %for.body.i447, label %for.cond.i439.land.lhs.true.i.i.i428_crit_edge
 
 for.body.i447.land.lhs.true.i.i.i428_crit_edge:   ; preds = %for.body.i447
-  %split772 = phi i32* [ %t41, %for.body.i447 ]
+  %split772 = phi ptr [ %t41, %for.body.i447 ]
   %split773 = phi i32 [ %i.0.i437771, %for.body.i447 ]
   ret void
 
 for.cond.i439.land.lhs.true.i.i.i428_crit_edge:   ; preds = %for.cond.i439
-  %split774 = phi i32* [ %t44, %for.cond.i439 ]
+  %split774 = phi ptr [ %t44, %for.cond.i439 ]
   ret void
 }

@@ -19,7 +19,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @sub(float* nocapture %A, float* nocapture readnone %B, i32* nocapture readnone %M) local_unnamed_addr #0 {
+define dso_local void @sub(ptr nocapture %A, ptr nocapture readnone %B, ptr nocapture readnone %M) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -29,13 +29,13 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %0
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %0
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add = fadd float %1, 1.000000e+00
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4, !tbaa !2
   %add3 = fadd float %2, %add
-  store float %add3, float* %arrayidx2, align 4, !tbaa !2
+  store float %add3, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10000
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

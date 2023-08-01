@@ -13,14 +13,14 @@
 
 %struct.PixelWeight = type { i32, i32, [1 x i32] }
 
-define void @foo(i32 %n, %struct.PixelWeight* %ptr) {
+define void @foo(i32 %n, ptr %ptr) {
 entry:
   br label %for.body
 
 for.body:                                       ; preds = %for.body, %entry
   %iv = phi i32 [ 0, %entry ], [ %iv.inc, %for.body ]
-  %arrayidx = getelementptr inbounds %struct.PixelWeight, %struct.PixelWeight* %ptr, i32 0, i32 2, i32 %iv
-  store i32 %iv, i32* %arrayidx
+  %arrayidx = getelementptr inbounds %struct.PixelWeight, ptr %ptr, i32 0, i32 2, i32 %iv
+  store i32 %iv, ptr %arrayidx
   %iv.inc = add nsw i32 %iv, 1
   %exitcond754 = icmp eq i32 %iv.inc, %n
   br i1 %exitcond754, label %exit, label %for.body

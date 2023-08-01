@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; Outer dimension is set to [*:*:*] because not all refs in @fmcom_ group have it.
 
@@ -20,7 +20,7 @@
 ; END REGION
 
 ; CHECK: + DO i3 = 0, sext.i32.i64(%"wtot_$NOC_fetch.i.i") + -1, 1   <DO_LOOP>
-; CHECK: bitcast ([8 x i8]* @fmcom_ to double*): (USE) [*:*:*][i3 + -1,i2 + -1,i1 + -1:-1:i1 + -1]
+; CHECK: @fmcom_: (USE) [*:*:*][i3 + -1,i2 + -1,i1 + -1:-1:i1 + -1]
 ; CHECK: + END LOOP
 
 ; ModuleID = 'groups-diff-num-dims.ll'
@@ -38,19 +38,19 @@ alloca_0:
   %"cisao_$NOC" = alloca i32, align 8
   %"cisao_$NBF2" = alloca i32, align 8
   %"cisao_$NBF" = alloca i32, align 8
-  %"val$[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) bitcast ([8 x i8]* @fmcom_ to double*), i64 0)
-  call void (...) @cisaod_(double* nonnull %"val$[]", double* nonnull %"val$[]", double* nonnull %"val$[]", double* nonnull %"val$[]", double* nonnull %"val$[]", double* nonnull %"val$[]", double* nonnull %"val$[]", i32* nonnull %"cisao_$NBF", i32* nonnull %"cisao_$NBF2", i32* nonnull %"cisao_$NOC", i32* nonnull %"cisao_$NVIR", i32* nonnull @0) #2
-  %"wtot_$NBF_fetch.i.i" = load i32, i32* %"cisao_$NBF", align 8, !alias.scope !0, !noalias !3
+  %"val$[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @fmcom_, i64 0)
+  call void (...) @cisaod_(ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"val$[]", ptr nonnull %"cisao_$NBF", ptr nonnull %"cisao_$NBF2", ptr nonnull %"cisao_$NOC", ptr nonnull %"cisao_$NVIR", ptr nonnull @0) #2
+  %"wtot_$NBF_fetch.i.i" = load i32, ptr %"cisao_$NBF", align 8, !alias.scope !0, !noalias !3
   %int_sext.i.i = sext i32 %"wtot_$NBF_fetch.i.i" to i64
   %mul.i.i = shl nsw i64 %int_sext.i.i, 3
   %rel.i.i = icmp slt i32 %"wtot_$NBF_fetch.i.i", 1
   br i1 %rel.i.i, label %wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit, label %bb39.i.i.preheader
 
 bb39.i.i.preheader:                               ; preds = %alloca_0
-  %"wtot_$NOC_fetch.i.i" = load i32, i32* %"cisao_$NOC", align 8, !alias.scope !9, !noalias !10
+  %"wtot_$NOC_fetch.i.i" = load i32, ptr %"cisao_$NOC", align 8, !alias.scope !9, !noalias !10
   %rel6.i.i = icmp slt i32 %"wtot_$NOC_fetch.i.i", 1
-  %"wtot_$W2[].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"val$[]", i64 0) #2
-  %"wtot_$W2[].i.i.promoted32" = load double, double* %"wtot_$W2[].i.i", align 1, !alias.scope !11, !noalias !12
+  %"wtot_$W2[].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"val$[]", i64 0) #2
+  %"wtot_$W2[].i.i.promoted32" = load double, ptr %"wtot_$W2[].i.i", align 1, !alias.scope !11, !noalias !12
   %0 = add nuw nsw i32 %"wtot_$NOC_fetch.i.i", 1
   %1 = add nuw nsw i32 %"wtot_$NBF_fetch.i.i", 1
   %wide.trip.count44 = sext i32 %1 to i64
@@ -76,14 +76,14 @@ bb47.i.i.preheader:                               ; preds = %bb43.i.i
 bb47.i.i:                                         ; preds = %bb47.i.i, %bb47.i.i.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb47.i.i ], [ 1, %bb47.i.i.preheader ]
   %"wtot_$DUM.2.i.i" = phi double [ %sub.i.i, %bb47.i.i ], [ %"wtot_$DUM.1.i.i", %bb47.i.i.preheader ]
-  %"wtot_$E[].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"val$[]", i64 %indvars.iv) #2
-  %"wtot_$E[]_fetch.i.i" = load double, double* %"wtot_$E[].i.i", align 1, !alias.scope !13, !noalias !14
-  %"wtot_$C[].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.i.i, double* elementtype(double) nonnull %"val$[]", i64 %indvars.iv) #2
-  %"wtot_$C[][].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"wtot_$C[].i.i", i64 %indvars.iv42) #2
-  %"wtot_$C[][]_fetch.i.i" = load double, double* %"wtot_$C[][].i.i", align 1, !alias.scope !15, !noalias !16
+  %"wtot_$E[].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"val$[]", i64 %indvars.iv) #2
+  %"wtot_$E[]_fetch.i.i" = load double, ptr %"wtot_$E[].i.i", align 1, !alias.scope !13, !noalias !14
+  %"wtot_$C[].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.i.i, ptr elementtype(double) nonnull %"val$[]", i64 %indvars.iv) #2
+  %"wtot_$C[][].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"wtot_$C[].i.i", i64 %indvars.iv42) #2
+  %"wtot_$C[][]_fetch.i.i" = load double, ptr %"wtot_$C[][].i.i", align 1, !alias.scope !15, !noalias !16
   %mul17.i.i = fmul fast double %"wtot_$C[][]_fetch.i.i", %"wtot_$E[]_fetch.i.i"
-  %"wtot_$C[]28[].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"wtot_$C[].i.i", i64 %indvars.iv34) #2
-  %"wtot_$C[]28[]_fetch.i.i" = load double, double* %"wtot_$C[]28[].i.i", align 1, !alias.scope !15, !noalias !16
+  %"wtot_$C[]28[].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"wtot_$C[].i.i", i64 %indvars.iv34) #2
+  %"wtot_$C[]28[]_fetch.i.i" = load double, ptr %"wtot_$C[]28[].i.i", align 1, !alias.scope !15, !noalias !16
   %mul30.i.i = fmul fast double %mul17.i.i, %"wtot_$C[]28[]_fetch.i.i"
   %sub.i.i = fsub fast double %"wtot_$DUM.2.i.i", %mul30.i.i
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -112,7 +112,7 @@ bb44.i.i:                                         ; preds = %bb48.i.i
 
 wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit.loopexit:      ; preds = %bb44.i.i
   %add48.i.i.lcssa.lcssa = phi double [ %add48.i.i.lcssa, %bb44.i.i ]
-  store double %add48.i.i.lcssa.lcssa, double* %"wtot_$W2[].i.i", align 1, !alias.scope !11, !noalias !12
+  store double %add48.i.i.lcssa.lcssa, ptr %"wtot_$W2[].i.i", align 1, !alias.scope !11, !noalias !12
   br label %wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit
 
 wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit:               ; preds = %wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit.loopexit, %alloca_0
@@ -120,7 +120,7 @@ wtot_.t0p.t0p.t0p.t1p.t1p.t0p.exit:               ; preds = %wtot_.t0p.t0p.t0p.t
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 declare void @cisaod_(...) local_unnamed_addr
 

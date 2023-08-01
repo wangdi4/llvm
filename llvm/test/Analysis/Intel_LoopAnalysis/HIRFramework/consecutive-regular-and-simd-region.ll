@@ -36,7 +36,7 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup3, 
   br i1 %cmp, label %for.cond.cleanup3, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %for.cond.cleanup3
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %d8.linear.iv, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.LINEAR:IV"(ptr %d8.linear.iv, i32 1) ]
   br label %DIR.OMP.SIMD.129
 
 DIR.OMP.SIMD.129:                                 ; preds = %DIR.OMP.SIMD.1
