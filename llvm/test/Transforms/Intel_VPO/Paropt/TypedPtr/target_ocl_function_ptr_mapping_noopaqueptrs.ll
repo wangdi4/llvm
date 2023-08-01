@@ -16,6 +16,8 @@
 ; CHECK: [[FPTR:%[A-Za-z0-9._]+]] = load void ()*, void ()** [[AI]]
 ; CHECK: call spir_func void [[FPTR]]()
 
+; With opaque-pointers, FE needs to use map-chains for function pointers, not firstprivate clauses.
+
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
@@ -29,7 +31,9 @@ entry:
   %fptr.map.ptr.tmp.ascast = addrspacecast void ()** %fptr.map.ptr.tmp to void ()* addrspace(4)*
   store void ()* @foo, void ()* addrspace(4)* %fptr.ascast, align 8
   %0 = load void ()*, void ()* addrspace(4)* %fptr.ascast, align 8
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(void ()* addrspace(4)* %fptr.ascast) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE"(void ()* addrspace(4)* %fptr.ascast) ]
   %2 = load void ()*, void ()* addrspace(4)* %fptr.ascast, align 8
   call spir_func void %2() #2
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]

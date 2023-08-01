@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @f() {
 entry:
   %a = alloca [2 x [2 x i32]], align 16
-  %array.begin = getelementptr inbounds [2 x [2 x i32]], ptr %a, i32 0, i32 0, i32 0
+
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %a, i32 0, i64 4) ]
 
@@ -35,12 +35,4 @@ entry:
 }
 
 declare token @llvm.directive.region.entry()
-
 declare void @llvm.directive.region.exit(token)
-
-!llvm.module.flags = !{!0, !1, !2, !3}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 2}
-!3 = !{i32 7, !"frame-pointer", i32 2}

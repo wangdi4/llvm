@@ -2,8 +2,8 @@
 ;   "globalopt" (Global Variable Optimizer) or
 ;   "ipsccp" (Interprocedural Sparse Conditional Constant Propagation)
 
-; RUN: opt -opaque-pointers=0 -passes="globalopt" -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes="ipsccp" -S %s | FileCheck %s
+; RUN: opt -passes="globalopt" -S %s | FileCheck %s
+; RUN: opt -passes="ipsccp" -S %s | FileCheck %s
 
 ; ModuleID = 'target_declare_global.cpp'
 ; test IR obtained with:   icx -Xclang -disable-llvm-passes -fiopenmp \
@@ -22,8 +22,6 @@
 ;     bar(3.0);
 ; }
 
-
-source_filename = "target_declare_global.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -35,39 +33,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: @_Z4var2 =
 ; verify that the the regular static variable var2 is optimized away
 
-; Function Attrs: uwtable
-define dso_local void @_Z3foov() #0 {
+define dso_local void @_Z3foov() {
 entry:
-  store float 2.000000e+00, float* @_Z4var2, align 4, !tbaa !4
-  %0 = load float, float* @_Z4var2, align 4, !tbaa !4
+  store float 2.000000e+00, ptr @_Z4var2, align 4
+  %0 = load float, ptr @_Z4var2, align 4
   call void @_Z3barf(float %0)
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
   call void @_Z3barf(float 3.000000e+00)
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 
-declare dso_local void @_Z3barf(float) #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
+declare dso_local void @_Z3barf(float)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 !omp_offload.info = !{!0, !1}
-!llvm.module.flags = !{!2}
-!llvm.ident = !{!3}
-
 !0 = !{i32 0, i32 2051, i32 30414024, !"_Z3foov", i32 11, i32 1}
 !1 = !{i32 1, !"_Z4var1", i32 0, i32 0}
-!2 = !{i32 1, !"wchar_size", i32 4}
-!3 = !{!"clang version 8.0.0"}
-!4 = !{!5, !5, i64 0}
-!5 = !{!"float", !6, i64 0}
-!6 = !{!"omnipotent char", !7, i64 0}
-!7 = !{!"Simple C++ TBAA"}

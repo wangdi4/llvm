@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -instcombine -vpo-cfg-restructuring -vpo-paropt -S <%s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring,instcombine,vpo-cfg-restructuring),vpo-paropt" -S <%s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -instcombine -vpo-cfg-restructuring -vpo-paropt -S <%s 2>&1 | FileCheck %s
+; RUN: opt -passes="function(vpo-cfg-restructuring,instcombine,vpo-cfg-restructuring),vpo-paropt" -S <%s 2>&1 | FileCheck %s
 
 ; Test src:
 
@@ -18,27 +18,31 @@
 ; region (thus causing a code-extractor assert). It may later be updated if we
 ; have a better fix for this issue.
 
+; The test uses opaque pointers, but bitcasts were retained as they are necessary
+; for the test to be useful.
+
 ; CHECK-NOT: CodeExtractor captured out-of-clause
 
 target device_triples = "spir64"
 
 define void @MAIN__() {
 alloca_0:
-  %argblock = alloca <{ i64, i8 addrspace(4)* }>, align 8
-  %"ascastB$val" = addrspacecast <{ i64, i8 addrspace(4)* }>* %argblock to <{ i64, i8 addrspace(4)* }> addrspace(4)*
+  %argblock = alloca <{ i64, ptr addrspace(4) }>, align 8
+  %"ascastB$val" = addrspacecast ptr %argblock to ptr addrspace(4)
   br label %loop_test3
 
 loop_test3:                                       ; preds = %alloca_0
   br label %DIR.OMP.TARGET.15.split
 
 DIR.OMP.TARGET.15.split:                          ; preds = %loop_test3
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   br label %DIR.OMP.TARGET.2.split
 
 DIR.OMP.TARGET.2.split:                           ; preds = %DIR.OMP.TARGET.15.split
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %"(i8 addrspace(4)*)ascastB$val$" = bitcast <{ i64, i8 addrspace(4)* }> addrspace(4)* %"ascastB$val" to i8 addrspace(4)*
-  %func_result = call i32 (i8 addrspace(4)*, ...) @for_write_seq_lis(i8 addrspace(4)* %"(i8 addrspace(4)*)ascastB$val$")
+  %"(ptr addrspace(4))ascastB$val$" = bitcast ptr addrspace(4) %"ascastB$val" to ptr addrspace(4)
+  %func_result = call i32 (ptr addrspace(4), ...) @for_write_seq_lis(ptr addrspace(4) %"(ptr addrspace(4))ascastB$val$")
   ret void
 }
 
@@ -48,7 +52,7 @@ declare token @llvm.directive.region.entry() #0
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #0
 
-declare i32 @for_write_seq_lis(i8 addrspace(4)*, ...)
+declare i32 @for_write_seq_lis(ptr addrspace(4), ...)
 
 attributes #0 = { nounwind }
 
