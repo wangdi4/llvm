@@ -88,7 +88,7 @@ public:
   bool run();
 
 private:
-  using MemRefSet = SmallPtrSet<Instruction *, 32>;
+  using MemRefSet = SmallSetVector<Instruction *, 32>;
 
   // Heuristics for the transpose transformation:
 
@@ -154,13 +154,13 @@ private:
   //     ptr = malloc();  // Displacement of ptr is 0
   //     ptr1 += 128;     // Displacement of ptr1 is 128
   //
-  DenseMap<Value *, int64_t> MallocPtrIncrAliases;
+  MapVector<Value *, int64_t> MallocPtrIncrAliases;
 
   // Processed instructions during the collection of memory references.
   SmallPtrSet<Instruction *, 16> ProcessedInsts;
 
   // All memory references of candidate arrays for each function.
-  DenseMap<Function *, MemRefSet> FunctionMemRefs;
+  MapVector<Function *, MemRefSet> FunctionMemRefs;
 
   // Set of pointer increment and decrement instructions.
   SmallPtrSet<GetElementPtrInst *, 4> PtrIncDecGEPInsts;
@@ -507,7 +507,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
           }
           for (auto CB : Calls) {
             SmallPtrSet<Argument *, 16> Args;
-	    if (CB->isLifetimeStartOrEnd())
+            if (CB->isLifetimeStartOrEnd())
               continue;
             if (!CollectAliasArguments(CB, PtrOp, Args))
               return false;
@@ -1580,13 +1580,15 @@ const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
     // displacement to get correct element offset in the transposed
     // array.
     int64_t TotalOffset = Offset + Disp / MaxElemSize;
-    dbgs() << "TotalOffset: " << TotalOffset << " ";
     int64_t TransposedTotalOffset = computeTransposedOffset(TotalOffset);
-    dbgs() << "TransposedTotalOffset: " << TransposedTotalOffset << " ";
     int64_t TransposedOffset =
         TransposedTotalOffset - computeTransposedOffset(Disp / MaxElemSize);
-    dbgs() << "TransposedOffset: " << TransposedOffset << " ";
-    dbgs() << "Result: " << TransposedOffset * MaxElemSize / ScaledV << "\n";
+    LLVM_DEBUG({
+      dbgs() << "TotalOffset: " << TotalOffset << " ";
+      dbgs() << "TransposedTotalOffset: " << TransposedTotalOffset << " ";
+      dbgs() << "TransposedOffset: " << TransposedOffset << " ";
+      dbgs() << "Result: " << TransposedOffset * MaxElemSize / ScaledV << "\n";
+    });
     // Fix scaling if there is any.
     return SE.getConstant(StartC->getType(),
                           TransposedOffset * MaxElemSize / ScaledV);
