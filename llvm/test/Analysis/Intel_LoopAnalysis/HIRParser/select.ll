@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @kernel24(i64 %n) {
 entry:
-  %0 = load double, double* getelementptr inbounds ([1000 x double], [1000 x double]* @x, i64 0, i64 0), align 16
+  %0 = load double, ptr @x, align 16
   %cmp.9 = icmp sgt i64 %n, 1
   br i1 %cmp.9, label %for.body.preheader, label %for.end
 
@@ -32,8 +32,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %maxval.011 = phi double [ %2, %for.body ], [ %0, %for.body.preheader ]
   %k.010 = phi i64 [ %inc, %for.body ], [ 1, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds [1000 x double], [1000 x double]* @x, i64 0, i64 %k.010
-  %1 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [1000 x double], ptr @x, i64 0, i64 %k.010
+  %1 = load double, ptr %arrayidx, align 8
   %cmp1 = fcmp olt double %maxval.011, %1
   %2 = select i1 %cmp1, double %1, double %maxval.011
   %inc = add nuw nsw i64 %k.010, 1
@@ -45,6 +45,6 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   %maxval.0.lcssa = phi double [ %0, %entry ], [ %2, %for.end.loopexit ]
-  store double %maxval.0.lcssa, double* getelementptr inbounds ([1000 x double], [1000 x double]* @x, i64 0, i64 0), align 16
+  store double %maxval.0.lcssa, ptr @x, align 16
   ret void
 }

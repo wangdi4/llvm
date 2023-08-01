@@ -29,7 +29,7 @@
 ; Check that we throttle nested ifs if threhsold is less than 3.
 ; COST-MODEL: Loop throttled due to presence of too many nested ifs
 
-define void @foo(i32* nocapture %A, i32 %n) {
+define void @foo(ptr nocapture %A, i32 %n) {
 entry:
   %cmp33 = icmp sgt i32 %n, 0
   br i1 %cmp33, label %for.body.preheader, label %for.end
@@ -39,8 +39,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 0
   br i1 %cmp1, label %if.then, label %if.else18
 
@@ -54,21 +54,21 @@ if.then5:                                         ; preds = %if.then
 
 if.then9:                                         ; preds = %if.then5
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %if.then5
-  store i32 2, i32* %arrayidx, align 4
+  store i32 2, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else14:                                        ; preds = %if.then
   %add = add nsw i32 %0, 2
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else18:                                        ; preds = %for.body
   %add21 = add nsw i32 %0, 3
-  store i32 %add21, i32* %arrayidx, align 4
+  store i32 %add21, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else18, %if.then9, %if.else, %if.else14
@@ -90,7 +90,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; COST-MODEL: bar
 ; COST-MODEL: BEGIN REGION
 
-define void @bar(i32* nocapture %A, i32 %n) {
+define void @bar(ptr nocapture %A, i32 %n) {
 entry:
   %cmp33 = icmp sgt i32 %n, 0
   br i1 %cmp33, label %for.body.preheader, label %for.end
@@ -100,8 +100,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 0
   br i1 %cmp1, label %if.then, label %if.else18
 
@@ -115,21 +115,21 @@ if.then5:                                         ; preds = %if.then
 
 if.then9:                                         ; preds = %if.then5
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %if.then5
-  store i32 2, i32* %arrayidx, align 4
+  store i32 2, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else14:                                        ; preds = %if.then
   %add = add nsw i32 %0, 2
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else18:                                        ; preds = %for.body
   %add21 = add nsw i32 %0, 3
-  store i32 %add21, i32* %arrayidx, align 4
+  store i32 %add21, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else18, %if.then9, %if.else, %if.else14

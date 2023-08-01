@@ -30,7 +30,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @matmul(double* nocapture readonly %a, double* nocapture readonly %b, double* nocapture %c) local_unnamed_addr #0 {
+define dso_local void @matmul(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr nocapture %c) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -42,23 +42,23 @@ for.cond1.preheader:                              ; preds = %for.inc20, %entry
 for.cond4.preheader:                              ; preds = %for.inc17, %for.cond1.preheader
   %indvars.iv44 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next45, %for.inc17 ]
   %1 = add nuw nsw i64 %indvars.iv44, %0
-  %arrayidx15 = getelementptr inbounds double, double* %c, i64 %1
-  %.pre = load double, double* %arrayidx15, align 8, !tbaa !2
+  %arrayidx15 = getelementptr inbounds double, ptr %c, i64 %1
+  %.pre = load double, ptr %arrayidx15, align 8, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %2 = phi double [ %.pre, %for.cond4.preheader ], [ %add16, %for.body6 ]
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %3 = add nuw nsw i64 %indvars.iv, %0
-  %arrayidx = getelementptr inbounds double, double* %a, i64 %3
-  %4 = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds double, ptr %a, i64 %3
+  %4 = load double, ptr %arrayidx, align 8, !tbaa !2
   %5 = shl i64 %indvars.iv, 10
   %6 = add nuw nsw i64 %5, %indvars.iv44
-  %arrayidx10 = getelementptr inbounds double, double* %b, i64 %6
-  %7 = load double, double* %arrayidx10, align 8, !tbaa !2
+  %arrayidx10 = getelementptr inbounds double, ptr %b, i64 %6
+  %7 = load double, ptr %arrayidx10, align 8, !tbaa !2
   %mul11 = fmul double %4, %7
   %add16 = fadd double %2, %mul11
-  store double %add16, double* %arrayidx15, align 8, !tbaa !2
+  store double %add16, ptr %arrayidx15, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.inc17, label %for.body6

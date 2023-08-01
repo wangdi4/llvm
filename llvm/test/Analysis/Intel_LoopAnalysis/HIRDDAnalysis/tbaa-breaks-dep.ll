@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.q = type { [1024 x float], [1024 x float] }
 
 ; Function Attrs: nofree norecurse nounwind optsize uwtable
-define dso_local void @foo(%struct.q* nocapture %qA, %struct.q* nocapture %qB) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %qA, ptr nocapture %qB) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -39,13 +39,13 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %qA.addr.012 = phi %struct.q* [ %qA, %entry ], [ %qB.addr.010, %for.body ]
-  %qB.addr.010 = phi %struct.q* [ %qB, %entry ], [ %qA.addr.012, %for.body ]
-  %arrayidx = getelementptr inbounds %struct.q, %struct.q* %qB.addr.010, i64 0, i32 1, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
+  %qA.addr.012 = phi ptr [ %qA, %entry ], [ %qB.addr.010, %for.body ]
+  %qB.addr.010 = phi ptr [ %qB, %entry ], [ %qA.addr.012, %for.body ]
+  %arrayidx = getelementptr inbounds %struct.q, ptr %qB.addr.010, i64 0, i32 1, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add = fadd float %0, 1.000000e+00
-  %arrayidx2 = getelementptr inbounds %struct.q, %struct.q* %qA.addr.012, i64 0, i32 0, i64 %indvars.iv, !intel-tbaa !8
-  store float %add, float* %arrayidx2, align 4, !tbaa !8
+  %arrayidx2 = getelementptr inbounds %struct.q, ptr %qA.addr.012, i64 0, i32 0, i64 %indvars.iv, !intel-tbaa !8
+  store float %add, ptr %arrayidx2, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

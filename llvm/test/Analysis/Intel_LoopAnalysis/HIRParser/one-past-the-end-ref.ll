@@ -22,19 +22,19 @@ entry:
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i, %entry
-  %p.03.i = phi i16* [ getelementptr inbounds ([9 x i16], [9 x i16]* @A, i32 1, i32 0), %entry ], [ %incdec.ptr2.i, %for.body.i ]
+  %p.03.i = phi ptr [ getelementptr inbounds ([9 x i16], ptr @A, i32 1, i32 0), %entry ], [ %incdec.ptr2.i, %for.body.i ]
   %i.02.i = phi i32 [ 2, %entry ], [ %inc.i, %for.body.i ]
-  %x.addr.01.i = phi i16* [ getelementptr inbounds ([9 x i16], [9 x i16]* @A, i32 0, i32 8), %entry ], [ %incdec.ptr.i, %for.body.i ]
-  %incdec.ptr.i = getelementptr inbounds i16, i16* %x.addr.01.i, i32 -1
-  %0 = load i16, i16* %incdec.ptr.i, align 2
-  %incdec.ptr2.i = getelementptr inbounds i16, i16* %p.03.i, i32 -1
-  store i16 %0, i16* %incdec.ptr2.i, align 2
+  %x.addr.01.i = phi ptr [ getelementptr inbounds ([9 x i16], ptr @A, i32 0, i32 8), %entry ], [ %incdec.ptr.i, %for.body.i ]
+  %incdec.ptr.i = getelementptr inbounds i16, ptr %x.addr.01.i, i32 -1
+  %0 = load i16, ptr %incdec.ptr.i, align 2
+  %incdec.ptr2.i = getelementptr inbounds i16, ptr %p.03.i, i32 -1
+  store i16 %0, ptr %incdec.ptr2.i, align 2
   %inc.i = add nuw nsw i32 %i.02.i, 1
   %exitcond.i = icmp eq i32 %inc.i, 8
   br i1 %exitcond.i, label %eshdn6.exit, label %for.body.i
 
 eshdn6.exit:                                      ; preds = %for.body.i
-  store i16 0, i16* getelementptr inbounds ([9 x i16], [9 x i16]* @A, i32 0, i32 2), align 2
+  store i16 0, ptr getelementptr inbounds ([9 x i16], ptr @A, i32 0, i32 2), align 2
   ret void
 }
 

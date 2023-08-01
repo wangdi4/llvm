@@ -24,16 +24,16 @@ for.cond1.preheader:                              ; preds = %for.inc6, %entry
   %sum.022 = phi float [ 0.000000e+00, %entry ], [ %add, %for.inc6 ]
   %i.021 = phi i64 [ 1, %entry ], [ %inc7, %for.inc6 ]
   %sub = add nsw i64 %i.021, -1
-  %arrayidx4 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %sub
-  %arrayidx4.promoted = load float, float* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %sub
+  %arrayidx4.promoted = load float, ptr %arrayidx4, align 4, !tbaa !1
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %add520 = phi float [ %arrayidx4.promoted, %for.cond1.preheader ], [ %add5, %for.body3 ]
   %sum.119 = phi float [ %sum.022, %for.cond1.preheader ], [ %add, %for.body3 ]
   %k.018 = phi i64 [ 1, %for.cond1.preheader ], [ %inc, %for.body3 ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @y, i64 0, i64 %k.018
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @y, i64 0, i64 %k.018
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add = fadd float %sum.119, %0
   %add5 = fadd float %add520, %add
   %inc = add nuw nsw i64 %k.018, 1
@@ -41,7 +41,7 @@ for.body3:                                        ; preds = %for.body3, %for.con
   br i1 %exitcond, label %for.inc6, label %for.body3
 
 for.inc6:                                         ; preds = %for.body3
-  store float %add5, float* %arrayidx4, align 4, !tbaa !1
+  store float %add5, ptr %arrayidx4, align 4, !tbaa !1
   %inc7 = add nuw nsw i64 %i.021, 1
   %exitcond23 = icmp eq i64 %inc7, 1000
   br i1 %exitcond23, label %for.end8, label %for.cond1.preheader

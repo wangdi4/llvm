@@ -16,12 +16,12 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { double, [10 x double] }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @Vsub(%struct.S* %a, double %n) local_unnamed_addr #0 {
+define dso_local void @Vsub(ptr %a, double %n) local_unnamed_addr #0 {
 entry:
-  %gep = getelementptr inbounds %struct.S, %struct.S* %a, i64 0, i32 1, i64 0
-  store double %n, double* %gep, align 8
-  %gep1 = getelementptr inbounds %struct.S, %struct.S* %a, i64 0, i32 1, i64 1
-  store double %n, double* %gep1, align 8
+  %gep = getelementptr inbounds %struct.S, ptr %a, i64 0, i32 1, i64 0
+  store double %n, ptr %gep, align 8
+  %gep1 = getelementptr inbounds %struct.S, ptr %a, i64 0, i32 1, i64 1
+  store double %n, ptr %gep1, align 8
   ret void
 }
 

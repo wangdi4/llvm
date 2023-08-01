@@ -14,7 +14,7 @@
 declare void @bar(i32)
 
 ; Function Attrs: nounwind uwtable
-define void @foo([10 x i32]* nocapture %A, [10 x i32]* nocapture %B, [10 x i32]* nocapture readnone %C, i32 %k) #0 {
+define void @foo(ptr nocapture %A, ptr nocapture %B, ptr nocapture readnone %C, i32 %k) #0 {
 entry:
   %rem17 = and i32 %k, 1
   %tobool = icmp eq i32 %rem17, 0
@@ -25,7 +25,7 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
-  %C.addr.0 = phi [10 x i32]* [ %A, %if.then ], [ %B, %entry ]
+  %C.addr.0 = phi ptr [ %A, %if.then ], [ %B, %entry ]
   br label %for.cond.1.preheader
 
 for.cond.1.preheader:                             ; preds = %for.inc.6, %if.end
@@ -35,9 +35,9 @@ for.cond.1.preheader:                             ; preds = %for.inc.6, %if.end
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond.1.preheader ], [ %indvars.iv.next, %for.body.3 ]
   %0 = add nuw nsw i64 %indvars.iv, %indvars.iv21
-  %arrayidx5 = getelementptr inbounds [10 x i32], [10 x i32]* %C.addr.0, i64 %indvars.iv21, i64 %indvars.iv
+  %arrayidx5 = getelementptr inbounds [10 x i32], ptr %C.addr.0, i64 %indvars.iv21, i64 %indvars.iv
   %1 = trunc i64 %0 to i32
-  store i32 %1, i32* %arrayidx5, align 4
+  store i32 %1, ptr %arrayidx5, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.inc.6, label %for.body.3

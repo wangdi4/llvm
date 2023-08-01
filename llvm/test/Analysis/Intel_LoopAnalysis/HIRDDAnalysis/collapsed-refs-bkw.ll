@@ -38,17 +38,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @n = dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nosync nounwind readonly uwtable
 define dso_local i32 @main() local_unnamed_addr #2 {
 entry:
   %array = alloca [9 x [4 x i64]], align 16
-  %0 = bitcast [9 x [4 x i64]]* %array to i8*
-  call void @llvm.lifetime.start.p0i8(i64 288, i8* nonnull %0) #3
+  %0 = bitcast ptr %array to ptr
+  call void @llvm.lifetime.start.p0(i64 288, ptr nonnull %0) #3
   br label %for.cond2.preheader
 
 for.cond2.preheader:                              ; preds = %entry, %for.cond.cleanup4
@@ -57,12 +57,12 @@ for.cond2.preheader:                              ; preds = %entry, %for.cond.cl
   br label %for.body5
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup4
-  %1 = load i32, i32* @n, align 4, !tbaa !14
+  %1 = load i32, ptr @n, align 4, !tbaa !14
   %idxprom17 = sext i32 %1 to i64
-  %arrayidx20 = getelementptr inbounds [9 x [4 x i64]], [9 x [4 x i64]]* %array, i64 0, i64 %idxprom17, i64 %idxprom17, !intel-tbaa !11
-  %2 = load i64, i64* %arrayidx20, align 8, !tbaa !11
+  %arrayidx20 = getelementptr inbounds [9 x [4 x i64]], ptr %array, i64 0, i64 %idxprom17, i64 %idxprom17, !intel-tbaa !11
+  %2 = load i64, ptr %arrayidx20, align 8, !tbaa !11
   %conv = trunc i64 %2 to i32
-  call void @llvm.lifetime.end.p0i8(i64 288, i8* nonnull %0) #3
+  call void @llvm.lifetime.end.p0(i64 288, ptr nonnull %0) #3
   ret i32 %conv
 
 for.cond.cleanup4:                                ; preds = %for.body5
@@ -71,11 +71,11 @@ for.cond.cleanup4:                                ; preds = %for.body5
 
 for.body5:                                        ; preds = %for.cond2.preheader, %for.body5
   %indvars.iv = phi i64 [ 0, %for.cond2.preheader ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx8 = getelementptr inbounds [9 x [4 x i64]], [9 x [4 x i64]]* %array, i64 0, i64 %indvars.iv32, i64 %indvars.iv, !intel-tbaa !11
-  %3 = load i64, i64* %arrayidx8, align 8, !tbaa !11
+  %arrayidx8 = getelementptr inbounds [9 x [4 x i64]], ptr %array, i64 0, i64 %indvars.iv32, i64 %indvars.iv, !intel-tbaa !11
+  %3 = load i64, ptr %arrayidx8, align 8, !tbaa !11
   %add = add i64 %3, 1
-  %arrayidx13 = getelementptr inbounds [9 x [4 x i64]], [9 x [4 x i64]]* %array, i64 0, i64 %indvars.iv.next33, i64 %indvars.iv, !intel-tbaa !11
-  store i64 %add, i64* %arrayidx13, align 8, !tbaa !11
+  %arrayidx13 = getelementptr inbounds [9 x [4 x i64]], ptr %array, i64 0, i64 %indvars.iv.next33, i64 %indvars.iv, !intel-tbaa !11
+  store i64 %add, ptr %arrayidx13, align 8, !tbaa !11
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond.not, label %for.cond.cleanup4, label %for.body5, !llvm.loop !17

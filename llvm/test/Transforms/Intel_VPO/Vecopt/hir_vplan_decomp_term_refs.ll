@@ -21,7 +21,7 @@
 ; }
 
 ; CHECK: [[IVPhi:%.*]] = phi
-; CHECK: [[ALoad:%.*]] = load i32
+; CHECK: [[ALoad:%.*]] = load ptr
 ; CHECK-NEXT: [[MulAF:%.*]] = mul i32 [[ALoad]] i32 {{%.*}}
 ; CHECK-NEXT: [[AddM6:%.*]] = add i32 [[MulAF]] i32 6
 ; CHECK-NEXT: [[Div7:%.*]] = sdiv i32 [[AddM6]] i32 7
@@ -46,8 +46,8 @@ entry:
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds [1600 x i32], [1600 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds [1600 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx
   %mul1 = mul nsw i32 %0, %factor
   %add2 = add nsw i32 %mul1, 6
   %div = sdiv i32 %add2, 7
@@ -55,8 +55,8 @@ omp.inner.for.body:
   %mul4 = mul i32 %mul3, %1
   %div5 = sdiv i32 %mul4, 2
   %add6 = add nsw i32 %div, %div5
-  %arrayidx8 = getelementptr inbounds [1600 x i32], [1600 x i32]* @c, i64 0, i64 %indvars.iv
-  store i32 %add6, i32* %arrayidx8
+  %arrayidx8 = getelementptr inbounds [1600 x i32], ptr @c, i64 0, i64 %indvars.iv
+  store i32 %add6, ptr %arrayidx8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1600
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

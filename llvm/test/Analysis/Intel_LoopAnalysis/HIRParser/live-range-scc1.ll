@@ -30,7 +30,7 @@ entry:
   %nx = alloca [100 x i32], align 16
   %m3 = alloca [100 x i32], align 16
   %b9 = alloca [100 x i32], align 16
-  %arrayidx48 = getelementptr inbounds [100 x i32], [100 x i32]* %b9, i64 0, i64 6
+  %arrayidx48 = getelementptr inbounds [100 x i32], ptr %b9, i64 0, i64 6
   br label %for.body
 
 for.body:                                         ; preds = %if.end, %entry
@@ -39,35 +39,35 @@ for.body:                                         ; preds = %if.end, %entry
   %add20330 = phi i32 [ %am.promoted329, %entry ], [ %add20, %if.end ]
   %add11328 = phi i32 [ %ql.promoted, %entry ], [ %add11327, %if.end ]
   %0 = add nuw nsw i64 %indvars.iv372, 1
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %pb, i64 0, i64 %0
-  %1 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %pb, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx10, align 4
   %add11 = add i32 %add11328, %1
-  %arrayidx17 = getelementptr inbounds [100 x i32], [100 x i32]* %jg7, i64 0, i64 %0
-  %2 = load i32, i32* %arrayidx17, align 4
+  %arrayidx17 = getelementptr inbounds [100 x i32], ptr %jg7, i64 0, i64 %0
+  %2 = load i32, ptr %arrayidx17, align 4
   %add19 = sub i32 %add11, %2
   %add20 = add i32 %add19, %add20330
-  %arrayidx23 = getelementptr inbounds [100 x i32], [100 x i32]* %fp, i64 0, i64 %0
-  %3 = load i32, i32* %arrayidx23, align 4
+  %arrayidx23 = getelementptr inbounds [100 x i32], ptr %fp, i64 0, i64 %0
+  %3 = load i32, ptr %arrayidx23, align 4
   %sub24 = sub i32 %3, %add11
-  store i32 %sub24, i32* %arrayidx23, align 4
+  store i32 %sub24, ptr %arrayidx23, align 4
   %cmp25 = icmp eq i64 %indvars.iv372, 9
   br i1 %cmp25, label %for.cond44.preheader, label %if.end
 
 for.cond44.preheader:                             ; preds = %for.body
-  store i32 89, i32* %arrayidx48, align 8
+  store i32 89, ptr %arrayidx48, align 8
   br label %if.end
 
 if.end:                                           ; preds = %for.cond44.preheader, %for.body
   %add11327 = phi i32 [ 0, %for.cond44.preheader ], [ %add11, %for.body ]
-  %arrayidx54 = getelementptr inbounds [100 x i32], [100 x i32]* %nx, i64 0, i64 %indvars.iv372
-  %4 = load i32, i32* %arrayidx54, align 4
+  %arrayidx54 = getelementptr inbounds [100 x i32], ptr %nx, i64 0, i64 %indvars.iv372
+  %4 = load i32, ptr %arrayidx54, align 4
   %add58 = add i32 %sub24, %4
-  store i32 %add58, i32* %arrayidx23, align 4
+  store i32 %add58, ptr %arrayidx23, align 4
   %sub60 = add i32 %add11327, -94
-  %arrayidx63 = getelementptr inbounds [100 x i32], [100 x i32]* %m3, i64 0, i64 %0
-  %5 = load i32, i32* %arrayidx63, align 4
+  %arrayidx63 = getelementptr inbounds [100 x i32], ptr %m3, i64 0, i64 %0
+  %5 = load i32, ptr %arrayidx63, align 4
   %add64 = add i32 %sub60, %5
-  store i32 %add64, i32* %arrayidx63, align 4
+  store i32 %add64, ptr %arrayidx63, align 4
   %indvars.iv.next373 = add nsw i64 %indvars.iv372, -1
   %indvars.iv.next369 = add nsw i32 %indvars.iv368, 1
   %exitcond378 = icmp eq i32 %indvars.iv.next369, 2

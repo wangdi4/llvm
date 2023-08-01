@@ -40,8 +40,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next.pre-phi, %if.end ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, %n
   br i1 %cmp1, label %if.then, label %if.else
 
@@ -60,7 +60,7 @@ if.else:                                          ; preds = %for.body
 if.end:                                           ; preds = %if.else, %if.then
   %indvars.iv.next.pre-phi = phi i64 [ %else.pre, %if.else ], [ %if.pre, %if.then ]
   %x.0 = phi i32 [ %sub7, %if.else ], [ %add, %if.then ]
-  store i32 %x.0, i32* %arrayidx, align 4
+  store i32 %x.0, ptr %arrayidx, align 4
   %exitcond.not = icmp eq i64 %indvars.iv.next.pre-phi, %wide.trip.count32
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body
 
@@ -69,8 +69,8 @@ for.end.loopexit:                                 ; preds = %if.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry.for.end_crit_edge
   %idxprom10.pre-phi = phi i64 [ %.pre31, %entry.for.end_crit_edge ], [ %wide.trip.count32, %for.end.loopexit ]
-  %arrayidx11 = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %idxprom10.pre-phi
-  %ld = load i32, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %idxprom10.pre-phi
+  %ld = load i32, ptr %arrayidx11, align 4
   ret i32 %ld
 }
 

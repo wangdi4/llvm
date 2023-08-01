@@ -37,15 +37,15 @@
 
 define i32 @main() {
 entry:
-  %0 = bitcast i8* undef to double*
+  %0 = load ptr, ptr undef
   br label %for.cond5.preheader
 
 for.cond5.preheader:                              ; preds = %entry
   br label %for.body7
 
 for.cond.cleanup:                                 ; preds = %for.body7
-  %1 = load double, double* undef
-  %.pr = load i32, i32* @c
+  %1 = load double, ptr undef
+  %.pr = load i32, ptr @c
   br label %for.body15.lr.ph
 
 for.body15.lr.ph:                                 ; preds = %for.cond.cleanup
@@ -62,26 +62,26 @@ for.body15:                                       ; preds = %for.end29, %for.bod
   br label %for.cond19.preheader
 
 for.cond19.preheader:                             ; preds = %for.inc27, %for.body15
-  %incdec.ptr.lcssa63 = phi double* [ %0, %for.body15 ], [ %scevgep, %for.inc27 ]
+  %incdec.ptr.lcssa63 = phi ptr [ %0, %for.body15 ], [ %scevgep, %for.inc27 ]
   %storemerge57 = phi i32 [ 0, %for.body15 ], [ %inc28, %for.inc27 ]
   br label %for.body21
 
 for.body21:                                       ; preds = %for.body21, %for.cond19.preheader
   %indvars.iv67 = phi i64 [ 0, %for.cond19.preheader ], [ %indvars.iv.next68, %for.body21 ]
-  %incdec.ptr61 = phi double* [ %incdec.ptr.lcssa63, %for.cond19.preheader ], [ %incdec.ptr, %for.body21 ]
-  %incdec.ptr = getelementptr inbounds double, double* %incdec.ptr61, i64 1
-  %2 = load double, double* %incdec.ptr61
+  %incdec.ptr61 = phi ptr [ %incdec.ptr.lcssa63, %for.cond19.preheader ], [ %incdec.ptr, %for.body21 ]
+  %incdec.ptr = getelementptr inbounds double, ptr %incdec.ptr61, i64 1
+  %2 = load double, ptr %incdec.ptr61
   %mul = fmul fast double %2, %1
-  %add.ptr23 = getelementptr inbounds double, double* undef, i64 %indvars.iv67
-  %3 = load double, double* %add.ptr23
+  %add.ptr23 = getelementptr inbounds double, ptr undef, i64 %indvars.iv67
+  %3 = load double, ptr %add.ptr23
   %add = fadd fast double %3, %mul
-  store double %add, double* %add.ptr23
+  store double %add, ptr %add.ptr23
   %indvars.iv.next68 = add nuw nsw i64 %indvars.iv67, 1
   %exitcond69.not = icmp eq i64 %indvars.iv.next68, 4
   br i1 %exitcond69.not, label %for.inc27, label %for.body21
 
 for.inc27:                                        ; preds = %for.body21
-  %scevgep = getelementptr double, double* %incdec.ptr.lcssa63, i64 4
+  %scevgep = getelementptr double, ptr %incdec.ptr.lcssa63, i64 4
   %inc28 = add nuw nsw i32 %storemerge57, 1
   %exitcond71.not = icmp eq i32 %inc28, 4
   br i1 %exitcond71.not, label %for.end29, label %for.cond19.preheader, !llvm.loop !0

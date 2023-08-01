@@ -19,7 +19,7 @@
 ; CG: loop{{.*}}:
 ; CG: udiv i32 {{.*}}, -2
 
-define dso_local void @foo(i32* nocapture %arr) {
+define dso_local void @foo(ptr nocapture %arr) {
 entry:
   br label %for.body
 
@@ -28,8 +28,8 @@ for.body:                                         ; preds = %entry, %for.body
   %0 = trunc i64 %indvars.iv to i32
   %1 = add i32 %0, -3
   %div = udiv i32 %1, -2
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  store i32 %div, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  store i32 %div, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %for.end, label %for.body

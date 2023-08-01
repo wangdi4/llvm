@@ -23,9 +23,9 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.08 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50 x i32], [50 x i32]* @A, i64 0, i64 10), %for.body.preheader ]
-  store i32 %i.08, i32* %p.07, align 4
-  %incdec.ptr = getelementptr inbounds i32, i32* %p.07, i64 1
+  %p.07 = phi ptr [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50 x i32], ptr @A, i64 0, i64 10), %for.body.preheader ]
+  store i32 %i.08, ptr %p.07, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %p.07, i64 1
   %inc = add nuw nsw i32 %i.08, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body

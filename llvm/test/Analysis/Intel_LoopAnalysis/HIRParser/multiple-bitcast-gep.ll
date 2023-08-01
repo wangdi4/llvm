@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.CCGElem = type opaque
 
-define hidden void @ccgDM_getMinMax(i8* %ptr, float* %stptr, i64 %mul, i64 %mul1, i64 %n) {
+define hidden void @ccgDM_getMinMax(ptr %ptr, ptr %stptr, i64 %mul, i64 %mul1, i64 %n) {
 entry:
   br label %for.body46.lr.ph.us
 
@@ -31,11 +31,11 @@ for.body46.us:                                    ; preds = %for.body46.us, %for
   %indvars.iv.us = phi i64 [ 0, %for.body46.lr.ph.us ], [ %indvars.iv.next.us, %for.body46.us ]
   %1 = add nsw i64 %indvars.iv.us, %0
   %2 = mul nsw i64 %1, %mul1
-  %add.ptr.i.i.i.us = getelementptr inbounds i8, i8* %ptr, i64 %2
-  %3 = bitcast i8* %add.ptr.i.i.i.us to %struct.CCGElem*
-  %4 = bitcast %struct.CCGElem* %3 to float*
-  %5 = load float, float* %4, align 4
-  store float %5, float* %stptr, align 4
+  %add.ptr.i.i.i.us = getelementptr inbounds i8, ptr %ptr, i64 %2
+  %3 = bitcast ptr %add.ptr.i.i.i.us to ptr
+  %4 = bitcast ptr %3 to ptr
+  %5 = load float, ptr %4, align 4
+  store float %5, ptr %stptr, align 4
   %indvars.iv.next.us = add nuw nsw i64 %indvars.iv.us, 1
   %exitcond.us = icmp eq i64 %indvars.iv.next.us, %n
   br i1 %exitcond.us, label %for.inc51.us, label %for.body46.us

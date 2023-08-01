@@ -60,14 +60,14 @@
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @a, align 4, !tbaa !3
+  %.pr = load i32, ptr @a, align 4, !tbaa !3
   %tobool.not59 = icmp eq i32 %.pr, 0
   br i1 %tobool.not59, label %for.end23, label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
-  %b.promoted = load i32, i32* @b, align 4, !tbaa !3
-  %d.promoted49 = load i32, i32* @d, align 4, !tbaa !3
-  %c.promoted45 = load i32, i32* @c, align 4, !tbaa !3
+  %b.promoted = load i32, ptr @b, align 4, !tbaa !3
+  %d.promoted49 = load i32, ptr @d, align 4, !tbaa !3
+  %c.promoted45 = load i32, ptr @c, align 4, !tbaa !3
   br label %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc21
@@ -87,7 +87,7 @@ for.cond4thread-pre-split.preheader:              ; preds = %for.cond1thread-pre
 
 for.cond10.preheader:                             ; preds = %for.inc7
   %d.promoted51.lcssa = phi i32 [ %d.promoted51, %for.inc7 ]
-  store i32 0, i32* @c, align 4, !tbaa !3
+  store i32 0, ptr @c, align 4, !tbaa !3
   %cmp1142 = icmp slt i32 %inc225561, 8
   br i1 %cmp1142, label %for.cond13.preheader.preheader, label %for.inc21.loopexit
 
@@ -102,7 +102,7 @@ for.cond4thread-pre-split:                        ; preds = %for.cond4thread-pre
   br i1 %tobool5.not29, label %for.inc7, label %for.inc.preheader
 
 for.inc.preheader:                                ; preds = %for.cond4thread-pre-split
-  store i32 0, i32* @d, align 4, !tbaa !3
+  store i32 0, ptr @d, align 4, !tbaa !3
   br label %for.inc7
 
 for.inc7:                                         ; preds = %for.inc.preheader, %for.cond4thread-pre-split
@@ -119,7 +119,7 @@ for.cond13.preheader:                             ; preds = %for.cond13.preheade
 for.body15:                                       ; preds = %for.cond13.preheader, %for.body15
   %storemerge2639 = phi i32 [ 1, %for.cond13.preheader ], [ %inc, %for.body15 ]
   %mul3738 = phi i32 [ %mul37.lcssa4143, %for.cond13.preheader ], [ %mul, %for.body15 ]
-  %mul = mul nsw i32 %mul3738, ptrtoint (i32 (i8*, ...)* @__isoc99_scanf to i32)
+  %mul = mul nsw i32 %mul3738, ptrtoint (ptr @__isoc99_scanf to i32)
   %inc = add i32 %storemerge2639, 1
   %tobool14.not = icmp eq i32 %inc, 0
   br i1 %tobool14.not, label %for.inc18, label %for.body15, !llvm.loop !9
@@ -132,15 +132,15 @@ for.inc18:                                        ; preds = %for.body15
 
 for.cond10.for.inc21.loopexit_crit_edge:          ; preds = %for.inc18
   %mul.lcssa.lcssa = phi i32 [ %mul.lcssa, %for.inc18 ]
-  store i32 0, i32* @f, align 4, !tbaa !3
-  store i32 %mul.lcssa.lcssa, i32* @b, align 4, !tbaa !3
+  store i32 0, ptr @f, align 4, !tbaa !3
+  store i32 %mul.lcssa.lcssa, ptr @b, align 4, !tbaa !3
   br label %for.inc21.loopexit
 
 for.inc21.loopexit:                               ; preds = %for.cond1thread-pre-split, %for.cond10.for.inc21.loopexit_crit_edge, %for.cond10.preheader
   %d.promoted5369 = phi i32 [ %d.promoted51.lcssa, %for.cond10.for.inc21.loopexit_crit_edge ], [ %d.promoted51.lcssa, %for.cond10.preheader ], [ %d.promoted5464, %for.cond1thread-pre-split ]
   %mul37.lcssa.lcssa57 = phi i32 [ %mul.lcssa.lcssa, %for.cond10.for.inc21.loopexit_crit_edge ], [ %mul37.lcssa.lcssa5860, %for.cond10.preheader ], [ %mul37.lcssa.lcssa5860, %for.cond1thread-pre-split ]
   %storemerge.lcssa = phi i32 [ %inc225561, %for.cond10.for.inc21.loopexit_crit_edge ], [ 8, %for.cond10.preheader ], [ 8, %for.cond1thread-pre-split ]
-  store i32 %storemerge.lcssa, i32* @e, align 4, !tbaa !3
+  store i32 %storemerge.lcssa, ptr @e, align 4, !tbaa !3
   br label %for.inc21
 
 for.inc21:                                        ; preds = %for.inc21.loopexit, %for.body
@@ -152,7 +152,7 @@ for.inc21:                                        ; preds = %for.inc21.loopexit,
   br i1 %tobool.not, label %for.cond.for.end23_crit_edge, label %for.body, !llvm.loop !11
 
 for.cond.for.end23_crit_edge:                     ; preds = %for.inc21
-  store i32 0, i32* @a, align 4, !tbaa !3
+  store i32 0, ptr @a, align 4, !tbaa !3
   br label %for.end23
 
 for.end23:                                        ; preds = %for.cond.for.end23_crit_edge, %entry
@@ -160,7 +160,7 @@ for.end23:                                        ; preds = %for.cond.for.end23_
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @__isoc99_scanf(i8* nocapture noundef readonly, ...) #1
+declare dso_local noundef i32 @__isoc99_scanf(ptr nocapture noundef readonly, ...) #1
 
 attributes #0 = { nofree norecurse nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nofree nounwind "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

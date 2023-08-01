@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -679,6 +679,11 @@ static const Value *stripPointerCastsAndOffsets(
       V = cast<PHINode>(V)->getIncomingValue(0);
     } else {
       if (const auto *Call = dyn_cast<CallBase>(V)) {
+#if INTEL_CUSTOMIZATION
+        // We want AA to consider dummy insts as unknown pointers.
+        if (Call->isDummyCopyCreatedbyHIR())
+          return V;
+#endif // INTEL_CUSTOMIZATION
         if (const Value *RV = Call->getReturnedArgOperand()) {
           V = RV;
           continue;

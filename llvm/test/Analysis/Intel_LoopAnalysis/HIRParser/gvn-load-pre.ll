@@ -12,66 +12,66 @@
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 
-%struct.internal_state = type { %struct.z_stream_s*, i32, i8*, i32, i8*, i32, i32, %struct.gz_header_s*, i32, i8, i32, i32, i32, i32, i8*, i32, i16*, i16*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [573 x %struct.ct_data_s], [61 x %struct.ct_data_s], [39 x %struct.ct_data_s], %struct.tree_desc_s, %struct.tree_desc_s, %struct.tree_desc_s, [16 x i16], [573 x i32], i32, i32, [573 x i8], i8*, i32, i32, i16*, i32, i32, i32, i32, i16, i32, i32 }
-%struct.z_stream_s = type { i8*, i32, i32, i8*, i32, i32, i8*, %struct.internal_state*, i8* (i8*, i32, i32)*, void (i8*, i8*)*, i8*, i32, i32, i32 }
-%struct.gz_header_s = type { i32, i32, i32, i32, i8*, i32, i32, i8*, i32, i8*, i32, i32, i32 }
+%struct.internal_state = type { ptr, i32, ptr, i32, ptr, i32, i32, ptr, i32, i8, i32, i32, i32, i32, ptr, i32, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [573 x %struct.ct_data_s], [61 x %struct.ct_data_s], [39 x %struct.ct_data_s], %struct.tree_desc_s, %struct.tree_desc_s, %struct.tree_desc_s, [16 x i16], [573 x i32], i32, i32, [573 x i8], ptr, i32, i32, ptr, i32, i32, i32, i32, i16, i32, i32 }
+%struct.z_stream_s = type { ptr, i32, i32, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, i32 }
+%struct.gz_header_s = type { i32, i32, i32, i32, ptr, i32, i32, ptr, i32, ptr, i32, i32, i32 }
 %struct.ct_data_s = type { %union.anon, %union.anon.0 }
 %union.anon = type { i16 }
 %union.anon.0 = type { i16 }
-%struct.tree_desc_s = type { %struct.ct_data_s*, i32, %struct.static_tree_desc_s* }
+%struct.tree_desc_s = type { ptr, i32, ptr }
 %struct.static_tree_desc_s = type { i32 }
 
 
-define i32 @foo(%struct.internal_state* %s, i32 %sub112, i32 %sub71) {
+define i32 @foo(ptr %s, i32 %sub112, i32 %sub71) {
 entry:
-  %ins_h = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 18
-  %hash_shift = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 22
-  %window = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 14
-  %strstart = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 27
-  %hash_mask = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 21
-  %head = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 17
-  %prev = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 16
-  %w_mask = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 13
-  %prev_length = getelementptr inbounds %struct.internal_state, %struct.internal_state* %s, i32 0, i32 30
+  %ins_h = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 18
+  %hash_shift = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 22
+  %window = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 14
+  %strstart = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 27
+  %hash_mask = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 21
+  %head = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 17
+  %prev = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 16
+  %w_mask = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 13
+  %prev_length = getelementptr inbounds %struct.internal_state, ptr %s, i32 0, i32 30
   br label %do.body
 
 do.body:                                          ; preds = %do.cond, %entry
   %0 = phi i32 [ %dec146, %do.cond ], [ %sub112, %entry ]
-  %1 = load i32, i32* %strstart, align 4, !tbaa !68
+  %1 = load i32, ptr %strstart, align 4, !tbaa !68
   %inc114 = add i32 %1, 1
-  store i32 %inc114, i32* %strstart, align 4, !tbaa !68
+  store i32 %inc114, ptr %strstart, align 4, !tbaa !68
   %cmp115 = icmp ugt i32 %inc114, %sub71
   br i1 %cmp115, label %do.cond, label %if.then117
 
 if.then117:                                       ; preds = %do.body
-  %2 = load i32, i32* %ins_h, align 4, !tbaa !75
-  %3 = load i32, i32* %hash_shift, align 4, !tbaa !34
+  %2 = load i32, ptr %ins_h, align 4, !tbaa !75
+  %3 = load i32, ptr %hash_shift, align 4, !tbaa !34
   %4 = and i32 %3, 31
   %shl120 = shl i32 %2, %4
-  %5 = load i8*, i8** %window, align 4, !tbaa !35
+  %5 = load ptr, ptr %window, align 4, !tbaa !35
   %add123 = add i32 %1, 3
-  %arrayidx124 = getelementptr inbounds i8, i8* %5, i32 %add123
-  %6 = load i8, i8* %arrayidx124, align 1, !tbaa !1
+  %arrayidx124 = getelementptr inbounds i8, ptr %5, i32 %add123
+  %6 = load i8, ptr %arrayidx124, align 1, !tbaa !1
   %conv125 = zext i8 %6 to i32
   %xor126 = xor i32 %conv125, %shl120
-  %7 = load i32, i32* %hash_mask, align 4, !tbaa !33
+  %7 = load i32, ptr %hash_mask, align 4, !tbaa !33
   %and128 = and i32 %xor126, %7
-  store i32 %and128, i32* %ins_h, align 4, !tbaa !75
-  %8 = load i16*, i16** %head, align 4, !tbaa !37
-  %arrayidx132 = getelementptr inbounds i16, i16* %8, i32 %and128
-  %9 = load i16, i16* %arrayidx132, align 2, !tbaa !58
-  %10 = load i16*, i16** %prev, align 4, !tbaa !36
-  %11 = load i32, i32* %w_mask, align 4, !tbaa !30
+  store i32 %and128, ptr %ins_h, align 4, !tbaa !75
+  %8 = load ptr, ptr %head, align 4, !tbaa !37
+  %arrayidx132 = getelementptr inbounds i16, ptr %8, i32 %and128
+  %9 = load i16, ptr %arrayidx132, align 2, !tbaa !58
+  %10 = load ptr, ptr %prev, align 4, !tbaa !36
+  %11 = load i32, ptr %w_mask, align 4, !tbaa !30
   %and136 = and i32 %11, %inc114
-  %arrayidx137 = getelementptr inbounds i16, i16* %10, i32 %and136
-  store i16 %9, i16* %arrayidx137, align 2, !tbaa !58
+  %arrayidx137 = getelementptr inbounds i16, ptr %10, i32 %and136
+  store i16 %9, ptr %arrayidx137, align 2, !tbaa !58
   %conv140 = trunc i32 %inc114 to i16
-  store i16 %conv140, i16* %arrayidx132, align 2, !tbaa !58
+  store i16 %conv140, ptr %arrayidx132, align 2, !tbaa !58
   br label %do.cond
 
 do.cond:                                          ; preds = %do.body, %if.then117
   %dec146 = add i32 %0, -1
-  store i32 %dec146, i32* %prev_length, align 4
+  store i32 %dec146, ptr %prev_length, align 4
   %cmp147 = icmp eq i32 %dec146, 0
   br i1 %cmp147, label %do.end, label %do.body
 

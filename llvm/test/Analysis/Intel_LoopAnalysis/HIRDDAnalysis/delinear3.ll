@@ -13,13 +13,13 @@ source_filename = "delinear3.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@A = common local_unnamed_addr global double* null, align 8
+@A = common local_unnamed_addr global ptr null, align 8
 
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo(i64 %n1, i64 %n2, i64 %n3) local_unnamed_addr #0 {
 entry:
   %cmp235 = icmp sgt i64 %n1, 1
-  %0 = load double*, double** @A, align 8
+  %0 = load ptr, ptr @A, align 8
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
@@ -54,12 +54,12 @@ for.body8:                                        ; preds = %for.body8, %for.bod
   %k.034 = phi i64 [ 1, %for.body8.lr.ph ], [ %add, %for.body8 ]
   %add = add nuw nsw i64 %k.034, 1
   %add9 = add nsw i64 %add, %mul
-  %arrayidx = getelementptr inbounds double, double* %0, i64 %add9
-  %1 = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds double, ptr %0, i64 %add9
+  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
   %add10 = fadd double %1, 1.000000e+00
   %add12 = add nsw i64 %k.034, %mul
-  %arrayidx13 = getelementptr inbounds double, double* %0, i64 %add12
-  store double %add10, double* %arrayidx13, align 8, !tbaa !2
+  %arrayidx13 = getelementptr inbounds double, ptr %0, i64 %add12
+  store double %add10, ptr %arrayidx13, align 8, !tbaa !2
   %exitcond = icmp eq i64 %add, %n1
   br i1 %exitcond, label %for.cond.cleanup7, label %for.body8
 }

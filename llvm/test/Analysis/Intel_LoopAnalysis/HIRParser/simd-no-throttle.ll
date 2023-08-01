@@ -34,40 +34,40 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(float* nocapture readonly %a, float* nocapture readonly %b, float* nocapture readonly %c, float* nocapture %d) local_unnamed_addr #0 {
+define void @foo(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr nocapture readonly %c, ptr nocapture %d) local_unnamed_addr #0 {
 entry:
   %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %tobool = fcmp une float %0, 0.000000e+00
   br i1 %tobool, label %land.lhs.true, label %if.else
 
 land.lhs.true:                                    ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %tobool3 = fcmp une float %1, 0.000000e+00
   br i1 %tobool3, label %if.then, label %if.else
 
 if.then:                                          ; preds = %land.lhs.true
-  %arrayidx9 = getelementptr inbounds float, float* %c, i64 %indvars.iv
-  %2 = load float, float* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds float, ptr %c, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx9, align 4
   %mul = fmul float %1, %2
   %add = fadd float %0, %mul
-  %arrayidx11 = getelementptr inbounds float, float* %d, i64 %indvars.iv
-  store float %add, float* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds float, ptr %d, i64 %indvars.iv
+  store float %add, ptr %arrayidx11, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %land.lhs.true, %for.body
-  %arrayidx13 = getelementptr inbounds float, float* %c, i64 %indvars.iv
-  %3 = bitcast float* %arrayidx13 to i32*
-  %4 = load i32, i32* %3, align 4
-  %arrayidx15 = getelementptr inbounds float, float* %d, i64 %indvars.iv
-  %5 = bitcast float* %arrayidx15 to i32*
-  store i32 %4, i32* %5, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %c, i64 %indvars.iv
+  %3 = bitcast ptr %arrayidx13 to ptr
+  %4 = load i32, ptr %3, align 4
+  %arrayidx15 = getelementptr inbounds float, ptr %d, i64 %indvars.iv
+  %5 = bitcast ptr %arrayidx15 to ptr
+  store i32 %4, ptr %5, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else, %if.then

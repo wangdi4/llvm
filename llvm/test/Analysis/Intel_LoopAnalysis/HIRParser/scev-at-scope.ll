@@ -34,9 +34,9 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i32(i8* nocapture, i8, i32, i32, i1) #0
+declare void @llvm.memset.p0.i32(ptr nocapture, i8, i32, i32, i1) #0
 
-define void @Perl_repeatcpy(i8* nocapture %to, i8* nocapture readonly %from, i32 %len, i32 %count) {
+define void @Perl_repeatcpy(ptr nocapture %to, ptr nocapture readonly %from, i32 %len, i32 %count) {
 entry:
   %cmp = icmp eq i32 %len, 1
   %cmp121 = icmp sgt i32 %count, 0
@@ -51,7 +51,7 @@ for.cond.preheader.lr.ph:                         ; preds = %while.cond2.prehead
 
 for.cond.preheader:                               ; preds = %while.cond2.loopexit, %for.cond.preheader.lr.ph
   %dec331.in = phi i32 [ %count, %for.cond.preheader.lr.ph ], [ %dec331, %while.cond2.loopexit ]
-  %to.addr.130 = phi i8* [ %to, %for.cond.preheader.lr.ph ], [ %to.addr.2.lcssa, %while.cond2.loopexit ]
+  %to.addr.130 = phi ptr [ %to, %for.cond.preheader.lr.ph ], [ %to.addr.2.lcssa, %while.cond2.loopexit ]
   %dec331 = add nsw i32 %dec331.in, -1
   br i1 %cmp624, label %for.body.preheader, label %while.cond2.loopexit
 
@@ -59,13 +59,13 @@ for.body.preheader:                               ; preds = %for.cond.preheader
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
-  %to.addr.227 = phi i8* [ %incdec.ptr8, %for.body ], [ %to.addr.130, %for.body.preheader ]
-  %from.addr.126 = phi i8* [ %incdec.ptr7, %for.body ], [ %from, %for.body.preheader ]
+  %to.addr.227 = phi ptr [ %incdec.ptr8, %for.body ], [ %to.addr.130, %for.body.preheader ]
+  %from.addr.126 = phi ptr [ %incdec.ptr7, %for.body ], [ %from, %for.body.preheader ]
   %todo.025 = phi i32 [ %dec9, %for.body ], [ %len, %for.body.preheader ]
-  %incdec.ptr7 = getelementptr inbounds i8, i8* %from.addr.126, i32 1
-  %0 = load i8, i8* %from.addr.126, align 1
-  %incdec.ptr8 = getelementptr inbounds i8, i8* %to.addr.227, i32 1
-  store i8 %0, i8* %to.addr.227, align 1
+  %incdec.ptr7 = getelementptr inbounds i8, ptr %from.addr.126, i32 1
+  %0 = load i8, ptr %from.addr.126, align 1
+  %incdec.ptr8 = getelementptr inbounds i8, ptr %to.addr.227, i32 1
+  store i8 %0, ptr %to.addr.227, align 1
   %dec9 = add nsw i32 %todo.025, -1
   %cmp6 = icmp sgt i32 %todo.025, 1
   br i1 %cmp6, label %for.body, label %while.cond2.loopexit.loopexit
@@ -74,7 +74,7 @@ while.cond2.loopexit.loopexit:                    ; preds = %for.body
   br label %while.cond2.loopexit
 
 while.cond2.loopexit:                             ; preds = %for.cond.preheader, %while.cond2.loopexit.loopexit
-  %to.addr.2.lcssa = phi i8* [ %to.addr.130, %for.cond.preheader ], [ %incdec.ptr8, %while.cond2.loopexit.loopexit ]
+  %to.addr.2.lcssa = phi ptr [ %to.addr.130, %for.cond.preheader ], [ %incdec.ptr8, %while.cond2.loopexit.loopexit ]
   %cmp4 = icmp sgt i32 %dec331.in, 1
   br i1 %cmp4, label %for.cond.preheader, label %cleanup.loopexit
 
@@ -85,8 +85,8 @@ if.then:                                          ; preds = %entry
   br i1 %cmp121, label %while.body.preheader, label %cleanup
 
 while.body.preheader:                             ; preds = %if.then
-  %1 = load i8, i8* %from, align 1
-  call void @llvm.memset.p0i8.i32(i8* %to, i8 %1, i32 %count, i32 1, i1 false)
+  %1 = load i8, ptr %from, align 1
+  call void @llvm.memset.p0.i32(ptr %to, i8 %1, i32 %count, i32 1, i1 false)
   br label %cleanup
 
 cleanup:                                          ; preds = %cleanup.loopexit, %while.body.preheader, %if.then, %while.cond2.preheader

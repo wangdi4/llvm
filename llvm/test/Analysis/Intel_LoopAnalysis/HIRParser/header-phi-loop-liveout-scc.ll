@@ -77,16 +77,16 @@ for.inc11:                                        ; preds = %for.inc11.loopexit,
 
 for.end13:                                        ; preds = %for.inc11
   %x0.1.lcssa.lcssa = phi i32 [ %x0.1.lcssa, %for.inc11 ]
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 %x0.1.lcssa.lcssa)
+  %call = tail call i32 (ptr, ...) @printf(ptr @.str, i32 %x0.1.lcssa.lcssa)
   %cmp14 = icmp eq i32 %x0.1.lcssa.lcssa, 55
   br i1 %cmp14, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.end13
-  %call15 = tail call i32 @puts(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i64 0, i64 0))
+  %call15 = tail call i32 @puts(ptr @.str.1)
   br label %cleanup
 
 if.else:                                          ; preds = %for.end13
-  %call16 = tail call i32 @puts(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.2, i64 0, i64 0))
+  %call16 = tail call i32 @puts(ptr @.str.2)
   br label %cleanup
 
 cleanup:                                          ; preds = %if.else, %if.then
@@ -95,11 +95,11 @@ cleanup:                                          ; preds = %if.else, %if.then
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1)
+declare void @llvm.memset.p0.i64(ptr nocapture, i8, i64, i32, i1)
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...)
+declare i32 @printf(ptr nocapture readonly, ...)
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly)
+declare i32 @puts(ptr nocapture readonly)
 

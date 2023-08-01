@@ -13,17 +13,17 @@
 
 @A = global [256 x double] zeroinitializer
 
-define void @foo(double** %sp) {
+define void @foo(ptr %sp) {
 entry:
   br label %loop
 
 loop:
   %i = phi i32 [0, %entry], [%ip, %loop]
 
-  %p = getelementptr inbounds [256 x double], [256 x double]* @A, i64 0, i64 1
-  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 512, double* elementtype(double) nonnull %p, i64 2)
-  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 128, double* elementtype(double) nonnull %p1, i64 3)
-  store double* %p2, double** %sp
+  %p = getelementptr inbounds [256 x double], ptr @A, i64 0, i64 1
+  %p1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 0, i64 512, ptr elementtype(double) nonnull %p, i64 2)
+  %p2 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 128, ptr elementtype(double) nonnull %p1, i64 3)
+  store ptr %p2, ptr %sp
 
   %ip = add nsw nuw i32 %i, 1
   %cmp = icmp ult i32 %ip, 2
@@ -33,5 +33,5 @@ exit:
   ret void
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 

@@ -49,7 +49,7 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
-define void @foo(float* noalias nocapture %arr, i32 %n1) {
+define void @foo(ptr noalias nocapture %arr, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -66,16 +66,16 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] float [[VP1:%.*]] = phi  [ float [[VP0]], [[BB1]] ],  [ float [[VP2:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[ARR0:%.*]] i64 [[VP3]]
-; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARR0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = hir-copy float [[VP_LOAD]] , OriginPhiId: -1
 ; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = hir-copy float [[VP5]] , OriginPhiId: 1
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7:%.*]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = fadd float [[VP_LOAD]] float 0.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP3]]
-; CHECK-NEXT:       [DA: Div] store float [[VP8]] float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[ARR0]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Div] store float [[VP8]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP9:%.*]] = fcmp oeq float [[VP_LOAD]] float 0.000000e+00
 ; CHECK-NEXT:       [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP9]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
@@ -83,16 +83,16 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = block-predicate i1 [[VP__NOT]]
 ; CHECK-NEXT:       [DA: Div] float [[VP11:%.*]] = fadd float [[VP8]] float 2.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP3]]
-; CHECK-NEXT:       [DA: Div] store float [[VP11]] float* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[ARR0]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Div] store float [[VP11]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = hir-copy float [[VP11]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP9]]
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP8]] float 1.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP3]]
-; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[ARR0]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Div] store float [[VP14]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       [DA: Div] float [[VP15:%.*]] = hir-copy float [[VP14]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Uni] br [[BLEND_BB0:blend.bb[0-9]+]]
 ; CHECK-EMPTY:
@@ -155,24 +155,24 @@ entry:
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %red.phi = phi float [0.0, %entry], [%red.add, %for.inc]
-  %arrayidx = getelementptr inbounds float, float* %arr, i64 %indvars.iv
-  %ld = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %arr, i64 %indvars.iv
+  %ld = load float, ptr %arrayidx, align 4
   %div.cond = fcmp oeq float %ld, 0.0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %0 = fadd float %ld, 0.0
-  store float %0, float* %arrayidx, align 4
+  store float %0, ptr %arrayidx, align 4
   br i1 %div.cond, label %div.then, label %div.else
 
 div.then:
   %1 = fadd float %0, 1.0
-  store float %1, float* %arrayidx, align 4
+  store float %1, ptr %arrayidx, align 4
   br label %for.inc
 
 div.else:
   %2 = fadd float %0, 2.0
-  store float %2, float* %arrayidx, align 4
+  store float %2, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

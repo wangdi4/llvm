@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %A) {
+define void @foo(ptr nocapture %A) {
 entry:
   br label %for.cond.1.preheader
 
@@ -33,11 +33,11 @@ for.body.3.preheader:                             ; preds = %for.cond.1.preheade
 for.body.3:                                       ; preds = %for.body.3.preheader, %for.body.3
   %indvars.iv19 = phi i64 [ %indvars.iv.next20, %for.body.3 ], [ %indvars.iv22, %for.body.3.preheader ]
   %0 = mul nsw i64 %indvars.iv19, %indvars.iv22
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv19
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv19
+  %1 = load i32, ptr %arrayidx, align 4
   %2 = trunc i64 %0 to i32
   %add = add nsw i32 %1, %2
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next20 = add nuw nsw i64 %indvars.iv19, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next20 to i32
   %exitcond = icmp eq i32 %lftr.wideiv, 40

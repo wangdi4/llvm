@@ -5,7 +5,7 @@
 ;
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 -hir-details %s 2>&1 | FileCheck %s
 
-define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
+define void @foo(i1 %c, i64 %t, ptr %A, ptr %B) {
 ; CHECK-LABEL: Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -19,8 +19,8 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-NEXT:           |   <RVAL-REG> LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3> + -3 {sb:2}
 ; CHECK-NEXT:           |
 ; CHECK-NEXT:           |   (<4 x i64>*)([[A0:%.*]])[i1] = [[VEC0]];
-; CHECK-NEXT:           |   <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[LINEAR i64 i1] inbounds  {sb:12}
-; CHECK-NEXT:           |      <BLOB> LINEAR i64* [[A0]] {sb:9}
+; CHECK-NEXT:           |   <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR ptr [[A0]])[LINEAR i64 i1] inbounds  {sb:12}
+; CHECK-NEXT:           |      <BLOB> LINEAR ptr [[A0]] {sb:9}
 ; CHECK-NEXT:           |   <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:24}
 ; CHECK-NEXT:           |
 ; CHECK-NEXT:           + END LOOP
@@ -63,8 +63,8 @@ loop:
 
 then:
   %div = udiv i64 %add, -2
-  %gep = getelementptr inbounds i64, i64* %A, i64 %iv
-  store i64 %div, i64* %gep
+  %gep = getelementptr inbounds i64, ptr %A, i64 %iv
+  store i64 %div, ptr %gep
   br label %latch
 
 latch:

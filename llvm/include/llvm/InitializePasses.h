@@ -571,8 +571,6 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineOptReportEmitterPass(PassRegistry &);
-// Add/Sub reassociation pass
-void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass
 void initializeForcedCMOVGenerationLegacyPassPass(PassRegistry&);
 void initializeRAReportEmitterPass(PassRegistry&);

@@ -31,12 +31,12 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.s1 = type { %struct.s1*, i32 }
+%struct.s1 = type { ptr, i32 }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(%struct.s1* %list, i32 %t, i32* nocapture %p, i32** nocapture %q) {
+define dso_local void @foo(ptr %list, i32 %t, ptr nocapture %p, ptr nocapture %q) {
 entry:
-  %cmp10 = icmp eq %struct.s1* %list, null
+  %cmp10 = icmp eq ptr %list, null
   br i1 %cmp10, label %while.end, label %while.body.preheader
 
 while.body.preheader:                             ; preds = %entry
@@ -44,17 +44,17 @@ while.body.preheader:                             ; preds = %entry
 
 while.body:                                       ; preds = %while.body.preheader, %while.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %while.body ], [ 0, %while.body.preheader ]
-  %list.addr.011 = phi %struct.s1* [ %1, %while.body ], [ %list, %while.body.preheader ]
-  %a = getelementptr inbounds %struct.s1, %struct.s1* %list.addr.011, i64 0, i32 1
-  %0 = load i32, i32* %a, align 8
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  store i32 %0, i32* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds i32*, i32** %q, i64 %indvars.iv
-  store i32* %a, i32** %arrayidx3, align 8
-  %next = getelementptr inbounds %struct.s1, %struct.s1* %list.addr.011, i64 0, i32 0
-  %1 = load %struct.s1*, %struct.s1** %next, align 8
+  %list.addr.011 = phi ptr [ %1, %while.body ], [ %list, %while.body.preheader ]
+  %a = getelementptr inbounds %struct.s1, ptr %list.addr.011, i64 0, i32 1
+  %0 = load i32, ptr %a, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx, align 4
+  %arrayidx3 = getelementptr inbounds ptr, ptr %q, i64 %indvars.iv
+  store ptr %a, ptr %arrayidx3, align 8
+  %next = getelementptr inbounds %struct.s1, ptr %list.addr.011, i64 0, i32 0
+  %1 = load ptr, ptr %next, align 8
   %indvars.iv.next = add nuw i64 %indvars.iv, 1
-  %cmp = icmp eq %struct.s1* %1, null
+  %cmp = icmp eq ptr %1, null
   br i1 %cmp, label %while.end.loopexit, label %while.body
 
 while.end.loopexit:                               ; preds = %while.body

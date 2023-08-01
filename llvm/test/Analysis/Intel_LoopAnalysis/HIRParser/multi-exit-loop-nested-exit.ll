@@ -31,7 +31,7 @@
 
 ; CHECK-CG: region.0
 
-define i32 @voo(i32* nocapture readonly %A, i32 %n) {
+define i32 @voo(ptr nocapture readonly %A, i32 %n) {
 entry:
   %cmp26 = icmp sgt i32 %n, 0
   br i1 %cmp26, label %for.body.preheader, label %for.end
@@ -42,22 +42,22 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.cond.backedge
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.cond.backedge ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %1, 0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %t.1.in = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  %t.1 = load i32, i32* %t.1.in, align 4
+  %t.1.in = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  %t.1 = load i32, ptr %t.1.in, align 4
   %cmp9 = icmp eq i32 %1, 4
   br i1 %cmp9, label %for.end.loopexit, label %for.cond.backedge
 
 if.else:                                          ; preds = %for.body
   %2 = add nuw nsw i64 %indvars.iv, 2
-  %t.1.in22 = getelementptr inbounds i32, i32* %A, i64 %2
-  %t.123 = load i32, i32* %t.1.in22, align 4
+  %t.1.in22 = getelementptr inbounds i32, ptr %A, i64 %2
+  %t.123 = load i32, ptr %t.1.in22, align 4
   br label %for.cond.backedge
 
 for.cond.backedge:                                ; preds = %if.else, %if.then

@@ -34,9 +34,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo() {
 entry:
-  %0 = load i32, i32* @n, align 4
+  %0 = load i32, ptr @n, align 4
   %tobool.i = icmp eq i32 %0, 0
-  %sum.promoted = load i32, i32* @sum, align 4
+  %sum.promoted = load i32, ptr @sum, align 4
   br label %for.body
 
 for.body:                                         ; preds = %entry, %thorough_check.exit
@@ -62,7 +62,7 @@ thorough_check.exit:                              ; preds = %for.cond.i, %for.bo
 
 for.end:                                          ; preds = %thorough_check.exit
   %add.lcssa = phi i32 [ %add, %thorough_check.exit ]
-  store i32 %add.lcssa, i32* @sum, align 4
+  store i32 %add.lcssa, ptr @sum, align 4
   ret void
 }
 

@@ -30,7 +30,7 @@ define i32 @_Z6searchi(i32 %v) #0 {
 ; CHECK:       Function: _Z6searchi
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:        %arr.base.cast = ptrtoint.i32*.i64(&((@b)[0][0]));
+; CHECK-NEXT:        %arr.base.cast = ptrtoint.ptr.i64(&((@b)[0][0]));
 ; CHECK-NEXT:        %alignment = %arr.base.cast  &  127;
 ; CHECK-NEXT:        %peel.factor = 128  -  %alignment;
 ; CHECK-NEXT:        %peel.factor1 = %peel.factor  >>  2;
@@ -79,8 +79,8 @@ entry:
 
 land.rhs:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @b, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1.not = icmp sgt i32 %0, %v
   br i1 %cmp1.not, label %for.end.split.loop.exit8, label %for.inc
 
@@ -144,7 +144,7 @@ for.end:
 define i32 @_Z6searchil(i32 %v, i64 %n) #0 {
 ; CHECK:       Function: _Z6searchil
 ; CHECK:  BEGIN REGION { modified }
-; CHECK-NEXT:      %arr.base.cast = ptrtoint.i32*.i64(&((@b)[0][0]));
+; CHECK-NEXT:      %arr.base.cast = ptrtoint.ptr.i64(&((@b)[0][0]));
 ; CHECK-NEXT:      %alignment = %arr.base.cast  &  127;
 ; CHECK-NEXT:      %peel.factor = 128  -  %alignment;
 ; CHECK-NEXT:      %peel.factor1 = %peel.factor  >>  2;
@@ -193,8 +193,8 @@ entry:
 
 land.rhs:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @b, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1.not = icmp sgt i32 %0, %v
   br i1 %cmp1.not, label %for.end.split.loop.exit8, label %for.inc
 

@@ -17,7 +17,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
@@ -32,12 +32,12 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
-; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 12 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-12) AdjCost: 0
+; CMCHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARR0:%.*]] i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12 for store i64 [[VP0]] ptr [[VP_SUBSCRIPT]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
-; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 12 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+8) AdjCost: 20
+; CMCHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[ARR0]] i64 [[VP5]]
+; CMCHECK-NEXT:    Cost 12 for store i64 [[VP3]] ptr [[VP_SUBSCRIPT_1]] *OVLS*(+8) AdjCost: 20
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 8 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -70,12 +70,12 @@ entry:
 for.body:
   %l1.011 = phi i64 [ 0, %entry ], [ %add, %for.body ]
   %mul = shl nuw nsw i64 %l1.011, 1
-  %ptridx = getelementptr inbounds i64, i64* %arr, i64 %mul
-  store i64 %l1.011, i64* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr %arr, i64 %mul
+  store i64 %l1.011, ptr %ptridx, align 8
   %add = add nuw nsw i64 %l1.011, 1
   %add2 = or i64 %mul, 1
-  %ptridx3 = getelementptr inbounds i64, i64* %arr, i64 %add2
-  store i64 %add, i64* %ptridx3, align 8
+  %ptridx3 = getelementptr inbounds i64, ptr %arr, i64 %add2
+  store i64 %add, ptr %ptridx3, align 8
   %exitcond.not = icmp eq i64 %add, 100
   br i1 %exitcond.not, label %for.end, label %for.body
 

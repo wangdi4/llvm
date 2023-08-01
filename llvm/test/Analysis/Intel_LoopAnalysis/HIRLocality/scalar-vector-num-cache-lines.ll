@@ -38,13 +38,13 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv.next
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv.next
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %add3 = fadd float %0, %1
-  %arrayidx5 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  store float %add3, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  store float %add3, ptr %arrayidx5, align 4
   %exitcond = icmp eq i64 %indvars.iv.next, 48
   br i1 %exitcond, label %for.end, label %for.body
 

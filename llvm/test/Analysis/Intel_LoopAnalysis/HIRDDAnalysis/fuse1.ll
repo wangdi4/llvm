@@ -47,8 +47,8 @@ for.body3:                                        ; preds = %for.body3, %for.bod
   %0 = add nuw nsw i64 %indvars.iv63, %indvars.iv68
   %1 = trunc i64 %0 to i32
   %conv = sitofp i32 %1 to float
-  %arrayidx5 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %indvars.iv68, i64 %indvars.iv63
-  store float %conv, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %indvars.iv68, i64 %indvars.iv63
+  store float %conv, ptr %arrayidx5, align 4, !tbaa !1
   %indvars.iv.next64 = add nuw nsw i64 %indvars.iv63, 1
   %exitcond67 = icmp eq i64 %indvars.iv.next64, %wide.trip.count66
   br i1 %exitcond67, label %for.inc6, label %for.body3
@@ -67,10 +67,10 @@ for.body16:                                       ; preds = %for.body16, %for.bo
   %2 = mul nuw nsw i64 %indvars.iv, %indvars.iv59
   %3 = trunc i64 %2 to i32
   %conv17 = sitofp i32 %3 to float
-  %arrayidx21 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %indvars.iv59, i64 %indvars.iv
-  %4 = load float, float* %arrayidx21, align 4, !tbaa !1
+  %arrayidx21 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %indvars.iv59, i64 %indvars.iv
+  %4 = load float, ptr %arrayidx21, align 4, !tbaa !1
   %add22 = fadd float %4, %conv17
-  store float %add22, float* %arrayidx21, align 4, !tbaa !1
+  store float %add22, ptr %arrayidx21, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.inc26, label %for.body16

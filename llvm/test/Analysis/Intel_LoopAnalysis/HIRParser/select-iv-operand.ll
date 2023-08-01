@@ -33,8 +33,8 @@ if.then:                                    ; preds = %for.body
 for.inc:                                    ; preds = %for.body, %if.then
   %4 = phi i32 [ -256, %for.body ], [ %3, %if.then ]
   %5 = trunc i32 %4 to i16
-  %6 = getelementptr inbounds i16, i16* getelementptr inbounds ([1024 x i16], [1024 x i16]* @iclip, i32 0, i32 512), i32 %0
-  store i16 %5, i16* %6, align 2
+  %6 = getelementptr inbounds i16, ptr getelementptr inbounds ([1024 x i16], ptr @iclip, i32 0, i32 512), i32 %0
+  store i16 %5, ptr %6, align 2
   %7 = add nsw i32 %0, 1
   %8 = icmp eq i32 %7, 512
   br i1 %8, label %exit, label %for.body

@@ -17,43 +17,43 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.md5_ctx = type { i32, i32, i32, i32, [2 x i32], i32, [128 x i8] }
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md5_ctx* nocapture %2) unnamed_addr #0 {
-  %4 = bitcast i8* %0 to i32*
+define hidden fastcc void @md5_process_block(ptr readonly %0, i64 %1, ptr nocapture %2) unnamed_addr #0 {
+  %4 = bitcast ptr %0 to ptr
   %5 = lshr i64 %1, 2
-  %6 = getelementptr inbounds i32, i32* %4, i64 %5
-  %7 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 0
-  %8 = load i32, i32* %7, align 4
-  %9 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 1
-  %10 = load i32, i32* %9, align 4
-  %11 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 2
-  %12 = load i32, i32* %11, align 4
-  %13 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 3
-  %14 = load i32, i32* %13, align 4
-  %15 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 4, i64 0
-  %16 = load i32, i32* %15, align 4
+  %6 = getelementptr inbounds i32, ptr %4, i64 %5
+  %7 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 0
+  %8 = load i32, ptr %7, align 4
+  %9 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 1
+  %10 = load i32, ptr %9, align 4
+  %11 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 2
+  %12 = load i32, ptr %11, align 4
+  %13 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 3
+  %14 = load i32, ptr %13, align 4
+  %15 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 4, i64 0
+  %16 = load i32, ptr %15, align 4
   %17 = trunc i64 %1 to i32
   %18 = add i32 %16, %17
-  store i32 %18, i32* %15, align 4
+  store i32 %18, ptr %15, align 4
   %19 = zext i32 %18 to i64
   %20 = icmp ult i64 %19, %1
   br i1 %20, label %21, label %25
 
 21:                                               ; preds = %3
-  %22 = getelementptr inbounds %struct.md5_ctx, %struct.md5_ctx* %2, i64 0, i32 4, i64 1
-  %23 = load i32, i32* %22, align 4
+  %22 = getelementptr inbounds %struct.md5_ctx, ptr %2, i64 0, i32 4, i64 1
+  %23 = load i32, ptr %22, align 4
   %24 = add i32 %23, 1
-  store i32 %24, i32* %22, align 4
+  store i32 %24, ptr %22, align 4
   br label %25
 
 25:                                               ; preds = %21, %3
-  %26 = icmp ugt i32* %6, %4
+  %26 = icmp ugt ptr %6, %4
   br i1 %26, label %27, label %699
 
 27:                                               ; preds = %25
   br label %28
 
 28:                                               ; preds = %28, %27
-  %29 = phi i32* [ %221, %28 ], [ %4, %27 ]
+  %29 = phi ptr [ %221, %28 ], [ %4, %27 ]
   %30 = phi i32 [ %687, %28 ], [ %8, %27 ]
   %31 = phi i32 [ %690, %28 ], [ %10, %27 ]
   %32 = phi i32 [ %691, %28 ], [ %12, %27 ]
@@ -61,11 +61,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %34 = xor i32 %32, %33
   %35 = and i32 %31, %34
   %36 = xor i32 %35, %33
-  %37 = load i32, i32* %29, align 4
+  %37 = load i32, ptr %29, align 4
   %38 = add i32 %30, -680876936
   %39 = add i32 %38, %36
   %40 = add i32 %39, %37
-  %41 = getelementptr inbounds i32, i32* %29, i64 1
+  %41 = getelementptr inbounds i32, ptr %29, i64 1
   %42 = shl i32 %40, 7
   %43 = lshr i32 %40, 25
   %44 = add i32 %43, %31
@@ -73,11 +73,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %46 = xor i32 %31, %32
   %47 = and i32 %45, %46
   %48 = xor i32 %47, %32
-  %49 = load i32, i32* %41, align 4
+  %49 = load i32, ptr %41, align 4
   %50 = add i32 %33, -389564586
   %51 = add i32 %50, %49
   %52 = add i32 %51, %48
-  %53 = getelementptr inbounds i32, i32* %29, i64 2
+  %53 = getelementptr inbounds i32, ptr %29, i64 2
   %54 = shl i32 %52, 12
   %55 = lshr i32 %52, 20
   %56 = add i32 %55, %45
@@ -85,11 +85,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %58 = xor i32 %45, %31
   %59 = and i32 %57, %58
   %60 = xor i32 %59, %31
-  %61 = load i32, i32* %53, align 4
+  %61 = load i32, ptr %53, align 4
   %62 = add i32 %32, 606105819
   %63 = add i32 %62, %61
   %64 = add i32 %63, %60
-  %65 = getelementptr inbounds i32, i32* %29, i64 3
+  %65 = getelementptr inbounds i32, ptr %29, i64 3
   %66 = shl i32 %64, 17
   %67 = lshr i32 %64, 15
   %68 = add i32 %67, %57
@@ -97,11 +97,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %70 = xor i32 %57, %45
   %71 = and i32 %69, %70
   %72 = xor i32 %71, %45
-  %73 = load i32, i32* %65, align 4
+  %73 = load i32, ptr %65, align 4
   %74 = add i32 %31, -1044525330
   %75 = add i32 %74, %73
   %76 = add i32 %75, %72
-  %77 = getelementptr inbounds i32, i32* %29, i64 4
+  %77 = getelementptr inbounds i32, ptr %29, i64 4
   %78 = shl i32 %76, 22
   %79 = lshr i32 %76, 10
   %80 = add i32 %79, %69
@@ -109,11 +109,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %82 = xor i32 %69, %57
   %83 = and i32 %81, %82
   %84 = xor i32 %83, %57
-  %85 = load i32, i32* %77, align 4
+  %85 = load i32, ptr %77, align 4
   %86 = add i32 %85, -176418897
   %87 = add i32 %86, %45
   %88 = add i32 %87, %84
-  %89 = getelementptr inbounds i32, i32* %29, i64 5
+  %89 = getelementptr inbounds i32, ptr %29, i64 5
   %90 = shl i32 %88, 7
   %91 = lshr i32 %88, 25
   %92 = add i32 %91, %81
@@ -121,11 +121,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %94 = xor i32 %81, %69
   %95 = and i32 %93, %94
   %96 = xor i32 %95, %69
-  %97 = load i32, i32* %89, align 4
+  %97 = load i32, ptr %89, align 4
   %98 = add i32 %97, 1200080426
   %99 = add i32 %98, %57
   %100 = add i32 %99, %96
-  %101 = getelementptr inbounds i32, i32* %29, i64 6
+  %101 = getelementptr inbounds i32, ptr %29, i64 6
   %102 = shl i32 %100, 12
   %103 = lshr i32 %100, 20
   %104 = add i32 %103, %93
@@ -133,11 +133,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %106 = xor i32 %93, %81
   %107 = and i32 %105, %106
   %108 = xor i32 %107, %81
-  %109 = load i32, i32* %101, align 4
+  %109 = load i32, ptr %101, align 4
   %110 = add i32 %109, -1473231341
   %111 = add i32 %110, %69
   %112 = add i32 %111, %108
-  %113 = getelementptr inbounds i32, i32* %29, i64 7
+  %113 = getelementptr inbounds i32, ptr %29, i64 7
   %114 = shl i32 %112, 17
   %115 = lshr i32 %112, 15
   %116 = add i32 %115, %105
@@ -145,11 +145,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %118 = xor i32 %105, %93
   %119 = and i32 %117, %118
   %120 = xor i32 %119, %93
-  %121 = load i32, i32* %113, align 4
+  %121 = load i32, ptr %113, align 4
   %122 = add i32 %121, -45705983
   %123 = add i32 %122, %81
   %124 = add i32 %123, %120
-  %125 = getelementptr inbounds i32, i32* %29, i64 8
+  %125 = getelementptr inbounds i32, ptr %29, i64 8
   %126 = shl i32 %124, 22
   %127 = lshr i32 %124, 10
   %128 = add i32 %127, %117
@@ -157,11 +157,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %130 = xor i32 %117, %105
   %131 = and i32 %129, %130
   %132 = xor i32 %131, %105
-  %133 = load i32, i32* %125, align 4
+  %133 = load i32, ptr %125, align 4
   %134 = add i32 %133, 1770035416
   %135 = add i32 %134, %93
   %136 = add i32 %135, %132
-  %137 = getelementptr inbounds i32, i32* %29, i64 9
+  %137 = getelementptr inbounds i32, ptr %29, i64 9
   %138 = shl i32 %136, 7
   %139 = lshr i32 %136, 25
   %140 = add i32 %139, %129
@@ -169,11 +169,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %142 = xor i32 %129, %117
   %143 = and i32 %141, %142
   %144 = xor i32 %143, %117
-  %145 = load i32, i32* %137, align 4
+  %145 = load i32, ptr %137, align 4
   %146 = add i32 %145, -1958414417
   %147 = add i32 %146, %105
   %148 = add i32 %147, %144
-  %149 = getelementptr inbounds i32, i32* %29, i64 10
+  %149 = getelementptr inbounds i32, ptr %29, i64 10
   %150 = shl i32 %148, 12
   %151 = lshr i32 %148, 20
   %152 = add i32 %151, %141
@@ -181,11 +181,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %154 = xor i32 %141, %129
   %155 = and i32 %153, %154
   %156 = xor i32 %155, %129
-  %157 = load i32, i32* %149, align 4
+  %157 = load i32, ptr %149, align 4
   %158 = add i32 %157, -42063
   %159 = add i32 %158, %117
   %160 = add i32 %159, %156
-  %161 = getelementptr inbounds i32, i32* %29, i64 11
+  %161 = getelementptr inbounds i32, ptr %29, i64 11
   %162 = shl i32 %160, 17
   %163 = lshr i32 %160, 15
   %164 = add i32 %163, %153
@@ -193,11 +193,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %166 = xor i32 %153, %141
   %167 = and i32 %165, %166
   %168 = xor i32 %167, %141
-  %169 = load i32, i32* %161, align 4
+  %169 = load i32, ptr %161, align 4
   %170 = add i32 %169, -1990404162
   %171 = add i32 %170, %129
   %172 = add i32 %171, %168
-  %173 = getelementptr inbounds i32, i32* %29, i64 12
+  %173 = getelementptr inbounds i32, ptr %29, i64 12
   %174 = shl i32 %172, 22
   %175 = lshr i32 %172, 10
   %176 = add i32 %175, %165
@@ -205,11 +205,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %178 = xor i32 %165, %153
   %179 = and i32 %177, %178
   %180 = xor i32 %179, %153
-  %181 = load i32, i32* %173, align 4
+  %181 = load i32, ptr %173, align 4
   %182 = add i32 %181, 1804603682
   %183 = add i32 %182, %141
   %184 = add i32 %183, %180
-  %185 = getelementptr inbounds i32, i32* %29, i64 13
+  %185 = getelementptr inbounds i32, ptr %29, i64 13
   %186 = shl i32 %184, 7
   %187 = lshr i32 %184, 25
   %188 = add i32 %187, %177
@@ -217,11 +217,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %190 = xor i32 %177, %165
   %191 = and i32 %189, %190
   %192 = xor i32 %191, %165
-  %193 = load i32, i32* %185, align 4
+  %193 = load i32, ptr %185, align 4
   %194 = add i32 %193, -40341101
   %195 = add i32 %194, %153
   %196 = add i32 %195, %192
-  %197 = getelementptr inbounds i32, i32* %29, i64 14
+  %197 = getelementptr inbounds i32, ptr %29, i64 14
   %198 = shl i32 %196, 12
   %199 = lshr i32 %196, 20
   %200 = add i32 %199, %189
@@ -229,11 +229,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %202 = xor i32 %189, %177
   %203 = and i32 %201, %202
   %204 = xor i32 %203, %177
-  %205 = load i32, i32* %197, align 4
+  %205 = load i32, ptr %197, align 4
   %206 = add i32 %205, -1502002290
   %207 = add i32 %206, %165
   %208 = add i32 %207, %204
-  %209 = getelementptr inbounds i32, i32* %29, i64 15
+  %209 = getelementptr inbounds i32, ptr %29, i64 15
   %210 = shl i32 %208, 17
   %211 = lshr i32 %208, 15
   %212 = add i32 %211, %201
@@ -241,11 +241,11 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %214 = xor i32 %201, %189
   %215 = and i32 %213, %214
   %216 = xor i32 %215, %189
-  %217 = load i32, i32* %209, align 4
+  %217 = load i32, ptr %209, align 4
   %218 = add i32 %217, 1236535329
   %219 = add i32 %218, %177
   %220 = add i32 %219, %216
-  %221 = getelementptr inbounds i32, i32* %29, i64 16
+  %221 = getelementptr inbounds i32, ptr %29, i64 16
   %222 = shl i32 %220, 22
   %223 = lshr i32 %220, 10
   %224 = add i32 %223, %213
@@ -717,7 +717,7 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %690 = add i32 %689, %685
   %691 = add i32 %678, %32
   %692 = add i32 %668, %33
-  %693 = icmp ult i32* %221, %6
+  %693 = icmp ult ptr %221, %6
   br i1 %693, label %28, label %694
 
 694:                                              ; preds = %28
@@ -732,9 +732,9 @@ define hidden fastcc void @md5_process_block(i8* readonly %0, i64 %1, %struct.md
   %701 = phi i32 [ %12, %25 ], [ %697, %694 ]
   %702 = phi i32 [ %10, %25 ], [ %696, %694 ]
   %703 = phi i32 [ %8, %25 ], [ %695, %694 ]
-  store i32 %703, i32* %7, align 4
-  store i32 %702, i32* %9, align 4
-  store i32 %701, i32* %11, align 4
-  store i32 %700, i32* %13, align 4
+  store i32 %703, ptr %7, align 4
+  store i32 %702, ptr %9, align 4
+  store i32 %701, ptr %11, align 4
+  store i32 %700, ptr %13, align 4
   ret void
 }

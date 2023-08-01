@@ -13,13 +13,13 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @main(i32* %ptr) local_unnamed_addr {
+define dso_local void @main(ptr %ptr) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.inc21, %entry
   %inc2240 = phi i32 [ 0, %for.inc21 ], [ undef, %entry ]
-  %ld = load i32, i32* %ptr
+  %ld = load i32, ptr %ptr
   %cmp = icmp sgt i32 %inc2240, 16
   br i1 %cmp, label %for.cond1thread-pre-split, label %for.inc21
 

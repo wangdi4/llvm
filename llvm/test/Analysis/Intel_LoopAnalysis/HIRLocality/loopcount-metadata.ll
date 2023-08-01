@@ -17,7 +17,7 @@
 ; cache lines; 7 in this case.
 ; CHECK: Locality Info for Loop level: 1     NumCacheLines: 111724
 
-define void @test1(float* %P, i32 %N) {
+define void @test1(ptr %P, i32 %N) {
 entry:
   %cmp5 = icmp sgt i32 %N, 0
   br i1 %cmp5, label %for.body.preheader, label %for.cond.cleanup
@@ -36,8 +36,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to float
-  %ptridx = getelementptr inbounds float, float* %P, i64 %indvars.iv
-  store float %conv, float* %ptridx, align 4
+  %ptridx = getelementptr inbounds float, ptr %P, i64 %indvars.iv
+  store float %conv, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count7
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !0

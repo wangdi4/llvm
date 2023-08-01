@@ -25,12 +25,10 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
   %ar = alloca [255 x i32], align 16
   %yarrrr = alloca [255 x i32], align 16
-  %0 = bitcast [255 x i32]* %ar to i8*
-  call void @llvm.lifetime.start.p0i8(i64 1020, i8* nonnull %0) #2
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 %0, i8 0, i64 1020, i1 false)
-  %1 = bitcast [255 x i32]* %yarrrr to i8*
-  call void @llvm.lifetime.start.p0i8(i64 1020, i8* nonnull %1) #2
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 %1, i8 0, i64 1020, i1 false)
+  call void @llvm.lifetime.start.p0(i64 1020, ptr nonnull %ar) #2
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 %ar, i8 0, i64 1020, i1 false)
+  call void @llvm.lifetime.start.p0(i64 1020, ptr nonnull %yarrrr) #2
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 %yarrrr, i8 0, i64 1020, i1 false)
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -38,33 +36,33 @@ for.body:                                         ; preds = %for.body, %entry
   %k.014 = phi i32 [ -1, %entry ], [ %inc, %for.body ]
   %inc = add nsw i32 %k.014, 1
   %idxprom = zext i32 %k.014 to i64
-  %arrayidx = getelementptr inbounds [255 x i32], [255 x i32]* %yarrrr, i64 0, i64 %idxprom
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [255 x i32], [255 x i32]* %ar, i64 0, i64 %indvars.iv
-  store i32 %2, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [255 x i32], ptr %yarrrr, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [255 x i32], ptr %ar, i64 0, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 42
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %arrayidx4 = getelementptr inbounds [255 x i32], [255 x i32]* %ar, i64 0, i64 0
-  %3 = load i32, i32* %arrayidx4, align 16, !tbaa !2
-  %arrayidx6 = getelementptr inbounds [255 x i32], [255 x i32]* %ar, i64 0, i64 255
-  %4 = load i32, i32* %arrayidx6, align 4, !tbaa !2
-  %add7 = add nsw i32 %3, %4
-  call void @llvm.lifetime.end.p0i8(i64 1020, i8* nonnull %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 1020, i8* nonnull %0) #2
+  %arrayidx4 = getelementptr inbounds [255 x i32], ptr %ar, i64 0, i64 0
+  %1 = load i32, ptr %arrayidx4, align 16, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [255 x i32], ptr %ar, i64 0, i64 255
+  %2 = load i32, ptr %arrayidx6, align 4, !tbaa !2
+  %add7 = add nsw i32 %1, %2
+  call void @llvm.lifetime.end.p0(i64 1020, ptr nonnull %yarrrr) #2
+  call void @llvm.lifetime.end.p0(i64 1020, ptr nonnull %ar) #2
   ret i32 %add7
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1) #1
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

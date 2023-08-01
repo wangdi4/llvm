@@ -15,7 +15,7 @@
 
 ; Input HIR
 ; <12>      + DO i1 = 0, 1023, 1   <DO_LOOP>
-; <5>       |   (i32**)(@ip)[0][i1] = &((@arr)[0][i1]);
+; <5>       |   (@ip)[0][i1] = &((@arr)[0][i1]);
 ; <12>      + END LOOP
 
 
@@ -23,17 +23,16 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds [1024 x i32]* @arr {i64 0 : i64 0 : i64 4096 : [1024 x i32]*([1024 x i32])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x i32](i32)}
-; CHECK-NEXT: float** [[ADDR2:%vp.*]] = subscript inbounds [1024 x float*]* @ip {i64 0 : i64 0 : i64 8192 : [1024 x float*]*([1024 x float*])} {i64 0 : i64 [[I1]] : i64 8 : [1024 x float*](float*)}
-; CHECK-NEXT: i32** [[BITCAST:%vp.*]] = bitcast float** [[ADDR2]]
-; CHECK-NEXT: store i32* [[ADDR1]] i32** [[BITCAST]]
+; CHECK-NEXT: ptr [[ADDR1:%vp.*]] = subscript inbounds ptr @arr {i64 0 : i64 0 : i64 4096 : ptr([1024 x i32])} {i64 0 : i64 [[I1]] : i64 4 : [1024 x i32](i32)}
+; CHECK-NEXT: ptr [[ADDR2:%vp.*]] = subscript inbounds ptr @ip {i64 0 : i64 0 : i64 8192 : ptr([1024 x ptr])} {i64 0 : i64 [[I1]] : i64 8 : [1024 x ptr](ptr)}
+; CHECK-NEXT: store ptr [[ADDR1]] ptr [[ADDR2]]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @arr = common dso_local global [1024 x i32] zeroinitializer, align 16
-@ip = common dso_local local_unnamed_addr global [1024 x float*] zeroinitializer, align 16
+@ip = common dso_local local_unnamed_addr global [1024 x ptr] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable writeonly
 define dso_local void @foo() local_unnamed_addr {
@@ -42,10 +41,9 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %arrayidx2 = getelementptr inbounds [1024 x float*], [1024 x float*]* @ip, i64 0, i64 %indvars.iv, !intel-tbaa !7
-  %0 = bitcast float** %arrayidx2 to i32**
-  store i32* %arrayidx, i32** %0, align 8, !tbaa !7
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %arrayidx2 = getelementptr inbounds [1024 x ptr], ptr @ip, i64 0, i64 %indvars.iv, !intel-tbaa !7
+  store ptr %arrayidx, ptr %arrayidx2, align 8, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

@@ -44,7 +44,7 @@ for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup.3
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
-  %0 = load i64, i64* getelementptr inbounds ([10 x [10 x i64]], [10 x [10 x i64]]* @D, i64 0, i64 2, i64 3), align 8, !tbaa !1
+  %0 = load i64, ptr getelementptr inbounds ([10 x [10 x i64]], ptr @D, i64 0, i64 2, i64 3), align 8, !tbaa !1
   ret i64 %0
 
 for.cond.cleanup.3:                               ; preds = %for.body.4
@@ -54,20 +54,20 @@ for.cond.cleanup.3:                               ; preds = %for.body.4
 
 for.body.4:                                       ; preds = %for.body.4, %for.body.4.lr.ph
   %i.021 = phi i64 [ 1, %for.body.4.lr.ph ], [ %inc, %for.body.4 ]
-  %arrayidx5 = getelementptr inbounds [10 x [10 x i64]], [10 x [10 x i64]]* @C, i64 0, i64 %j.023, i64 %i.021
-  %1 = load i64, i64* %arrayidx5, align 8, !tbaa !1
-  %arrayidx7 = getelementptr inbounds [10 x [10 x i64]], [10 x [10 x i64]]* @D, i64 0, i64 %i.021, i64 %j.023
-  store i64 %1, i64* %arrayidx7, align 8, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [10 x [10 x i64]], ptr @C, i64 0, i64 %j.023, i64 %i.021
+  %1 = load i64, ptr %arrayidx5, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [10 x [10 x i64]], ptr @D, i64 0, i64 %i.021, i64 %j.023
+  store i64 %1, ptr %arrayidx7, align 8, !tbaa !1
   %inc = add nuw nsw i64 %i.021, 1
   %exitcond = icmp eq i64 %inc, %M
   br i1 %exitcond, label %for.cond.cleanup.3, label %for.body.4
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

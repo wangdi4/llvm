@@ -24,7 +24,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64* %p) {
+define void @foo(ptr %p) {
 entry:
   br label %loop.outer
 
@@ -36,7 +36,7 @@ loop.outer:                                              ; preds = %outer.latch,
 
 loop.inner:                                   ; preds = %loop.inner, %loop.outer
   %iv.inner = phi i64 [ %add.13, %loop.outer ], [ %add.92, %loop.inner ]
-  store i64 %iv.inner, i64* %p
+  store i64 %iv.inner, ptr %p
   %rel.5 = icmp sgt i64 %iv.inner, 0
   %add.92 = add nsw i64 %iv.inner, -1
   br i1 %rel.5, label %loop.inner, label %outer.latch

@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32 %b) {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   %conv = sext i32 %b to i64
   %cmp7 = icmp sgt i32 %b, 0
   br i1 %cmp7, label %for.end.preheader, label %for.end4
@@ -23,7 +23,7 @@ for.end.preheader:                                ; preds = %entry
 
 for.end:                                          ; preds = %for.end.preheader, %for.end
   %c.08 = phi i64 [ %inc, %for.end ], [ 0, %for.end.preheader ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
   %inc = add nuw nsw i64 %c.08, 1
   %exitcond.not = icmp eq i64 %inc, %conv

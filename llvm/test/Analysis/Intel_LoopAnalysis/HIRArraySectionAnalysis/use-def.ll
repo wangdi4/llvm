@@ -16,7 +16,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %p) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %p) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -26,12 +26,12 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = add nuw nsw i64 %indvars.iv, 200
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
   %2 = trunc i64 %indvars.iv to i32
   %add1 = add nsw i32 %1, %2
-  %arrayidx3 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  store i32 %add1, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  store i32 %add1, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -6093,9 +6093,9 @@ bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
   // MustPreserveNullness (and, at time of writing, they are not), but we
   // document this fact out of an abundance of caution.
   case Intrinsic::amdgcn_make_buffer_rsrc:
+  case Intrinsic::ssa_copy: // INTEL
     return true;
   case Intrinsic::ptrmask:
-  case Intrinsic::ssa_copy:  // INTEL
     return !MustPreserveNullness;
   default:
     return false;
@@ -6167,6 +6167,11 @@ const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
           continue;
         }
       } else if (auto *Call = dyn_cast<CallBase>(V)) {
+#if INTEL_CUSTOMIZATION
+        // We want AA to consider dummy insts as unknown pointers.
+        if (Call->isDummyCopyCreatedbyHIR())
+          return V;
+#endif // INTEL_CUSTOMIZATION
         // CaptureTracking can know about special capturing properties of some
         // intrinsics like launder.invariant.group, that can't be expressed with
         // the attributes, but have properties like returning aliasing pointer.

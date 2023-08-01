@@ -27,7 +27,7 @@
 ; CHECK:   Linked values: i32 [[VP3:%.*]], i32 [[VP_LOAD:%.*]], i32 [[VP1:%.*]], i32 [[VP2:%.*]],
 
 ; CHECK: i32 [[VP1:%.*]] = reduction-init i32 %min.013
-; CHECK: i32 [[VP_LOAD:%.*]] = call i32 [[VP4:%.*]] i32 [[VP3:%.*]] i32 (i32, i32)* @llvm.umin.i32
+; CHECK: i32 [[VP_LOAD:%.*]] = call i32 [[VP4:%.*]] i32 [[VP3:%.*]] ptr @llvm.umin.i32
 ; CHECK: i32 [[VP2:%.*]] = reduction-final{u_umin} i32 [[VP_LOAD:%.*]]
 
 ; Check for vectorized code
@@ -49,7 +49,7 @@ source_filename = "simple.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local noundef i32 @_Z3fooPjj(i32* nocapture noundef readonly %a, i32 noundef %n) {
+define dso_local noundef i32 @_Z3fooPjj(ptr nocapture noundef readonly %a, i32 noundef %n) {
 entry:
   %cmp12.not = icmp eq i32 %n, 0
   br i1 %cmp12.not, label %for.cond.cleanup, label %for.body.preheader
@@ -69,8 +69,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %min.013 = phi i32 [ 1000, %for.body.preheader ], [ %1, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = tail call i32 @llvm.umin.i32(i32 %0, i32 %min.013)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count

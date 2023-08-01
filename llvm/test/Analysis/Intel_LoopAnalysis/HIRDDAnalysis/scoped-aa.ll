@@ -18,21 +18,21 @@
 ; |   (%a)[i1 + %i] = %add34.i;
 ; + END LOOP
 
-define void @dgefa(float* nocapture %a, i64 %i, i64 %j, i32 %n, float %mul) {
+define void @dgefa(ptr nocapture %a, i64 %i, i64 %j, i32 %n, float %mul) {
 entry:
-  %arrayidx79 = getelementptr inbounds float, float* %a, i64 %i
-  %arrayidx43 = getelementptr inbounds float, float* %a, i64 %j
+  %arrayidx79 = getelementptr inbounds float, ptr %a, i64 %i
+  %arrayidx43 = getelementptr inbounds float, ptr %a, i64 %j
   br label %for.body28.i
 
 for.body28.i:                                     ; preds = %entry, %for.body28.i
   %indvars.iv.i196 = phi i64 [ %indvars.iv.next.i197, %for.body28.i ], [ 0, %entry ]
-  %arrayidx30.i = getelementptr inbounds float, float* %arrayidx79, i64 %indvars.iv.i196
-  %0 = load float, float* %arrayidx30.i, align 4, !tbaa !22, !alias.scope !62, !noalias !65
-  %arrayidx32.i = getelementptr inbounds float, float* %arrayidx43, i64 %indvars.iv.i196
-  %1 = load float, float* %arrayidx32.i, align 4, !tbaa !22, !alias.scope !65, !noalias !62
+  %arrayidx30.i = getelementptr inbounds float, ptr %arrayidx79, i64 %indvars.iv.i196
+  %0 = load float, ptr %arrayidx30.i, align 4, !tbaa !22, !alias.scope !62, !noalias !65
+  %arrayidx32.i = getelementptr inbounds float, ptr %arrayidx43, i64 %indvars.iv.i196
+  %1 = load float, ptr %arrayidx32.i, align 4, !tbaa !22, !alias.scope !65, !noalias !62
   %mul33.i = fmul float %mul, %1
   %add34.i = fadd float %0, %mul33.i
-  store float %add34.i, float* %arrayidx30.i, align 4, !tbaa !22, !alias.scope !62, !noalias !65
+  store float %add34.i, ptr %arrayidx30.i, align 4, !tbaa !22, !alias.scope !62, !noalias !65
   %indvars.iv.next.i197 = add nuw nsw i64 %indvars.iv.i196, 1
   %lftr.wideiv210 = trunc i64 %indvars.iv.next.i197 to i32
   %exitcond211 = icmp eq i32 %lftr.wideiv210, %n

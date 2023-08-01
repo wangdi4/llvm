@@ -46,7 +46,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture readonly %A, i32* nocapture %B, i32 %n) #0 {
+define void @foo(ptr nocapture readonly %A, ptr nocapture %B, i32 %n) #0 {
 entry:
   %cmp33 = icmp sgt i32 %n, 0
   br i1 %cmp33, label %for.body3.preheader.preheader, label %for.end15
@@ -62,8 +62,8 @@ for.body3.preheader:                              ; preds = %for.body3.preheader
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %indvars.iv = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next, %for.body3 ]
   %t1.130 = phi i32 [ %t1.035, %for.body3.preheader ], [ %add, %for.body3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add = add nsw i32 %0, %t1.130
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
@@ -75,10 +75,10 @@ for.body6.preheader:                              ; preds = %for.body3
 
 for.body6:                                        ; preds = %for.body6, %for.body6.preheader
   %indvars.iv36 = phi i64 [ %indvars.iv.next37, %for.body6 ], [ 0, %for.body6.preheader ]
-  %arrayidx8 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv36
-  %1 = load i32, i32* %arrayidx8, align 4, !tbaa !1
+  %arrayidx8 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv36
+  %1 = load i32, ptr %arrayidx8, align 4, !tbaa !1
   %add9 = add nsw i32 %1, %add
-  store i32 %add9, i32* %arrayidx8, align 4, !tbaa !1
+  store i32 %add9, ptr %arrayidx8, align 4, !tbaa !1
   %indvars.iv.next37 = add nuw nsw i64 %indvars.iv36, 1
   %lftr.wideiv38 = trunc i64 %indvars.iv.next37 to i32
   %exitcond39 = icmp eq i32 %lftr.wideiv38, %n
@@ -97,10 +97,10 @@ for.end15:                                        ; preds = %for.end15.loopexit,
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

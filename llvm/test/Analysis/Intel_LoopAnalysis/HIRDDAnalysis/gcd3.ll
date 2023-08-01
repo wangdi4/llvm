@@ -27,12 +27,12 @@ for.body:                                         ; preds = %for.body, %for.body
   %i.012 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
   %mul1 = mul nsw i64 %i.012, %mul
   %add = or i64 %mul1, 1
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @a, i64 0, i64 %add
-  %0 = bitcast float* %arrayidx to i32*
-  %1 = load i32, i32* %0, align 4, !tbaa !1
-  %arrayidx4 = getelementptr inbounds [100 x float], [100 x float]* @a, i64 0, i64 %mul1
-  %2 = bitcast float* %arrayidx4 to i32*
-  store i32 %1, i32* %2, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x float], ptr @a, i64 0, i64 %add
+  %0 = bitcast ptr %arrayidx to ptr
+  %1 = load i32, ptr %0, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [100 x float], ptr @a, i64 0, i64 %mul1
+  %2 = bitcast ptr %arrayidx4 to ptr
+  store i32 %1, ptr %2, align 8, !tbaa !1
   %inc = add nuw nsw i64 %i.012, 1
   %exitcond = icmp eq i64 %i.012, %n
   br i1 %exitcond, label %for.end, label %for.body

@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @nab(i32 %N, i64 %foff) local_unnamed_addr #0 {
 entry:
-  store float 0.000000e+00, float* @e_bond, align 4, !tbaa !2
+  store float 0.000000e+00, ptr @e_bond, align 4, !tbaa !2
   %conv = sext i32 %N to i64
   %cmp21 = icmp sgt i32 %N, 0
   br i1 %cmp21, label %for.body.lr.ph, label %for.end
@@ -37,10 +37,10 @@ for.body:                                         ; preds = %for.body, %for.body
   %div = udiv i64 %mul, 3
   %conv2 = sitofp i64 %i.022 to float
   %add = add nsw i64 %div, %foff
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add
-  %0 = load float, float* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !6
   %add3 = fadd float %0, %conv2
-  store float %add3, float* %arrayidx, align 4, !tbaa !6
+  store float %add3, ptr %arrayidx, align 4, !tbaa !6
   %inc = add nuw nsw i64 %i.022, 1
   %exitcond = icmp eq i64 %inc, %conv
   br i1 %exitcond, label %for.end.loopexit, label %for.body

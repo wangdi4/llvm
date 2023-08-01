@@ -37,7 +37,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common dso_local global [100 x i32] zeroinitializer, align 16
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(i32* nocapture %p) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %p) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -46,16 +46,16 @@ for.cond.cleanup:                                 ; preds = %for.inc
 
 for.body:                                         ; preds = %for.inc, %entry
   %i.07 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
-  %0 = load i32, i32* %p, align 4, !tbaa !2
+  %0 = load i32, ptr %p, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %0, 3
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %call = tail call i32 (i8*, ...) bitcast (i32 (...)* @puts to i32 (i8*, ...)*)(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0)) #3
+  %call = tail call i32 (ptr, ...) @puts(ptr @.str) #3
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  store i32 %i.07, i32* %p, align 4, !tbaa !2
+  store i32 %i.07, ptr %p, align 4, !tbaa !2
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else
@@ -69,8 +69,8 @@ declare dso_local i32 @puts(...) local_unnamed_addr #1
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #2 {
 entry:
-  store i32 0, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), align 16, !tbaa !6
-  tail call void @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0))
+  store i32 0, ptr @A, align 16, !tbaa !6
+  tail call void @foo(ptr @A)
   ret i32 0
 }
 

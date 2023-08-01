@@ -10,7 +10,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @sub_(i32* %A, i32 %N1, i32 %N2) "intel-lang"="fortran" {
+define void @sub_(ptr %A, i32 %N1, i32 %N2) "intel-lang"="fortran" {
 alloca_0:
   %rel = icmp slt i32 %N1, 1
   br i1 %rel, label %bb1, label %bb4.preheader
@@ -32,7 +32,7 @@ bb8.preheader:                                    ; preds = %bb4
 
 bb8:                                              ; preds = %bb8.preheader, %bb8
   %indvars.iv = phi i64 [ 1, %bb8.preheader ], [ %indvars.iv.next, %bb8 ]
-  store i32 5, i32* %A, align 4
+  store i32 5, ptr %A, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %bb9.loopexit, label %bb8

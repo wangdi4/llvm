@@ -47,7 +47,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo() {
 entry:
   %s = alloca float, align 4
-  %t1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(float* %s), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 16), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 32) ]
+  %t1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(ptr %s), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 16), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 32) ]
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc21, %entry
@@ -61,10 +61,10 @@ for.body3:                                        ; preds = %for.end, %for.cond1
 for.body6:                                        ; preds = %for.body6, %for.body3
   %indvars.iv = phi i64 [ 0, %for.body3 ], [ %indvars.iv.next, %for.body6 ]
   %add37 = phi float [ 0.000000e+00, %for.body3 ], [ %add, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [256 x [256 x float]], [256 x [256 x float]]* @B, i64 0, i64 %indvars.iv44, i64 %indvars.iv
-  %t2 = load float, float* %arrayidx8, align 4
-  %arrayidx12 = getelementptr inbounds [256 x [256 x float]], [256 x [256 x float]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv41
-  %t3 = load float, float* %arrayidx12, align 4
+  %arrayidx8 = getelementptr inbounds [256 x [256 x float]], ptr @B, i64 0, i64 %indvars.iv44, i64 %indvars.iv
+  %t2 = load float, ptr %arrayidx8, align 4
+  %arrayidx12 = getelementptr inbounds [256 x [256 x float]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv41
+  %t3 = load float, ptr %arrayidx12, align 4
   %mul = fmul float %t2, %t3
   %add = fadd float %add37, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -73,10 +73,10 @@ for.body6:                                        ; preds = %for.body6, %for.bod
 
 for.end:                                          ; preds = %for.body6
   %add.lcssa = phi float [ %add, %for.body6 ]
-  %arrayidx16 = getelementptr inbounds [256 x [256 x float]], [256 x [256 x float]]* @A, i64 0, i64 %indvars.iv44, i64 %indvars.iv41
-  %t4 = load float, float* %arrayidx16, align 4
+  %arrayidx16 = getelementptr inbounds [256 x [256 x float]], ptr @A, i64 0, i64 %indvars.iv44, i64 %indvars.iv41
+  %t4 = load float, ptr %arrayidx16, align 4
   %add17 = fadd float %add.lcssa, %t4
-  store float %add17, float* %arrayidx16, align 4
+  store float %add17, ptr %arrayidx16, align 4
   %indvars.iv.next42 = add nuw nsw i64 %indvars.iv41, 1
   %exitcond43 = icmp eq i64 %indvars.iv.next42, 256
   br i1 %exitcond43, label %for.inc21, label %for.body3

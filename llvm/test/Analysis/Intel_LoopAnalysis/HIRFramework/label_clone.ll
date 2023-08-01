@@ -37,8 +37,8 @@ entry:
 do.body:                                          ; preds = %do.cond, %entry
   %i.0 = phi i32 [ 0, %entry ], [ %inc15, %do.cond ]
   %idxprom = sext i32 %i.0 to i64
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom
-  store i32 %i.0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom
+  store i32 %i.0, ptr %arrayidx, align 4
   %cmp = icmp sgt i32 %i.0, 100
   br i1 %cmp, label %if.then, label %if.end
 
@@ -64,26 +64,26 @@ if.end.6:                                         ; preds = %if.end.3
 
 L1:                                               ; preds = %if.end.6, %if.then
   %idxprom7 = sext i32 %i.0 to i64
-  %arrayidx8 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom7
-  %0 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom7
+  %0 = load i32, ptr %arrayidx8, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx8, align 4
+  store i32 %inc, ptr %arrayidx8, align 4
   br label %L2
 
 L2:                                               ; preds = %L1, %if.then.2
   %idxprom9 = sext i32 %i.0 to i64
-  %arrayidx10 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom9
-  %1 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom9
+  %1 = load i32, ptr %arrayidx10, align 4
   %inc11 = add nsw i32 %1, 1
-  store i32 %inc11, i32* %arrayidx10, align 4
+  store i32 %inc11, ptr %arrayidx10, align 4
   br label %L2.63
 
 L2.63:                                            ; preds = %L2, %if.then.5
   %idxprom12 = sext i32 %i.0 to i64
-  %arrayidx13 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom12
-  %2 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom12
+  %2 = load i32, ptr %arrayidx13, align 4
   %inc14 = add nsw i32 %2, 1
-  store i32 %inc14, i32* %arrayidx13, align 4
+  store i32 %inc14, ptr %arrayidx13, align 4
   %inc15 = add nsw i32 %i.0, 1
   br label %do.cond
 
@@ -92,7 +92,7 @@ do.cond:                                          ; preds = %L2.63
   br i1 %cmp16, label %do.body, label %do.end
 
 do.end:                                           ; preds = %do.cond
-  %3 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i32 0, i64 0), align 4
+  %3 = load i32, ptr @A, align 4
   ret i32 %3
 }
 

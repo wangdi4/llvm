@@ -29,13 +29,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(i32* nocapture readnone %A, i32 %n, float* nocapture readonly %p) {
+define float @foo(ptr nocapture readnone %A, i32 %n, ptr nocapture readonly %p) {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load float, float* %p, align 4
+  %0 = load float, ptr %p, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph

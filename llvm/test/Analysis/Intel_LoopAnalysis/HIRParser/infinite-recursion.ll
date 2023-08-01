@@ -31,7 +31,7 @@ for.cond.8.preheader.preheader:                   ; preds = %cond.end
 
 for.cond.8.preheader:                             ; preds = %for.inc.24, %for.cond.8.preheader.preheader
   %i.161 = phi i64 [ %inc25, %for.inc.24 ], [ 0, %for.cond.8.preheader.preheader ]
-  %add.ptr = getelementptr inbounds [150 x i8], [150 x i8]* @DestBuffer, i64 0, i64 %i.161
+  %add.ptr = getelementptr inbounds [150 x i8], ptr @DestBuffer, i64 0, i64 %i.161
   br label %for.cond.12.preheader
 
 for.cond.12.preheader:                            ; preds = %for.inc.21, %for.cond.8.preheader
@@ -53,9 +53,9 @@ while.body.9.lr.ph.i.preheader:                   ; preds = %while.cond.6.prehea
   br label %while.body.9.lr.ph.i
 
 while.body.i:                                     ; preds = %while.body.i, %while.body.i.preheader
-  %ptr.082.i = phi i8* [ %incdec.ptr.i, %while.body.i ], [ getelementptr inbounds ([150 x i8], [150 x i8]* @DestBuffer, i64 0, i64 0), %while.body.i.preheader ], !in.de.ssa !1
-  %incdec.ptr.i = getelementptr inbounds i8, i8* %ptr.082.i, i64 1
-  %cmp1.i = icmp eq i8* %incdec.ptr.i, %add.ptr
+  %ptr.082.i = phi ptr [ %incdec.ptr.i, %while.body.i ], [ @DestBuffer, %while.body.i.preheader ], !in.de.ssa !1
+  %incdec.ptr.i = getelementptr inbounds i8, ptr %ptr.082.i, i64 1
+  %cmp1.i = icmp eq ptr %incdec.ptr.i, %add.ptr
   br i1 %cmp1.i, label %while.cond.6.preheader.i.loopexit, label %while.body.i
 
 while.cond.30.preheader.i.loopexit:               ; preds = %if.else.i

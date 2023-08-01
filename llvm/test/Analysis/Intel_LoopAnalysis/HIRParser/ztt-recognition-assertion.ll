@@ -63,8 +63,8 @@ for.body7:                                        ; preds = %for.body7.lr.ph, %f
   %i.013 = phi i32 [ %0, %for.body7.lr.ph ], [ %dec, %for.body7 ]
   %1 = icmp ult i32 %i.013, 193
   tail call void @llvm.assume(i1 %1)
-  %arrayidx = getelementptr inbounds [192 x i32], [192 x i32]* @a1_n, i64 0, i64 %conv514
-  store i32 29, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [192 x i32], ptr @a1_n, i64 0, i64 %conv514
+  store i32 29, ptr %arrayidx, align 4
   %dec = add nsw i32 %i.013, -1
   %conv5 = zext i32 %dec to i64
   %cmp6 = icmp ult i64 %v_i.016, %conv5

@@ -33,7 +33,7 @@
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:       %valid.padding = (@__Intel_PaddedMallocCounter)[0] <u 250;
 ; CHECK:       + DO i1 = 0, 0, 1   <DO_MULTI_EXIT_LOOP>
-; CHECK:       |   if ((%pv1)[i1] != (%pv1)[i1])
+; CHECK:       |   if ((%t0)[i1] != (%t0)[i1])
 ; CHECK:       |   {
 ; CHECK:       |      goto bb3;
 ; CHECK:       |   }
@@ -42,7 +42,7 @@
 ; CHECK:       {
 ; CHECK:          %tgu = 2;
 ; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <novectorize>
-; CHECK:          |   %wide.cmp. = (<4 x i8>*)(%pv1)[i1] != (<4 x i8>*)(%pv1)[i1];
+; CHECK:          |   %wide.cmp. = (<4 x i8>*)(%t0)[i1] != (<4 x i8>*)(%t0)[i1];
 ; CHECK:          |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CHECK:          |   if (%intmask != 0)
 ; CHECK:          |   {
@@ -56,7 +56,7 @@
 ; CHECK:          %tgu = 0;
 ; CHECK:       }
 ; CHECK:       + DO i1 = 4 * %tgu, 9, 1   <DO_MULTI_EXIT_LOOP> <nounroll> <novectorize>
-; CHECK:       |   if ((%pv1)[i1] != (%pv1)[i1])
+; CHECK:       |   if ((%t0)[i1] != (%t0)[i1])
 ; CHECK:       |   {
 ; CHECK:       |      goto bb3;
 ; CHECK:       |   }
@@ -70,10 +70,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [10 x i8] c"bitcast.c\00"
 @__Intel_PaddedMallocCounter = internal global i32 0
 
-define internal zeroext i1 @searchloop(i32* %p) {
+define internal zeroext i1 @searchloop(ptr %p) {
 entry:
-  %t0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
-  %pv1 = bitcast i32* %t0 to i8*
+  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([10 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
   br label %bb2
 
 bb1:
@@ -82,10 +81,10 @@ bb1:
 
 bb2:
   %t4 = phi i64 [ 0, %entry ], [ %t10, %bb1 ]
-  %t5 = getelementptr inbounds i8, i8* %pv1, i64 %t4
-  %t6 = load i8, i8* %t5, align 4
-  %t7 = getelementptr inbounds i8, i8* %pv1, i64 %t4
-  %t8 = load i8, i8* %t7, align 4
+  %t5 = getelementptr inbounds i8, ptr %t0, i64 %t4
+  %t6 = load i8, ptr %t5, align 4
+  %t7 = getelementptr inbounds i8, ptr %t0, i64 %t4
+  %t8 = load i8, ptr %t7, align 4
   %t9 = icmp ne i8 %t6, %t8
   %t10 = add nuw nsw i64 %t4, 1
   br i1 %t9, label %bb3, label %bb1
@@ -97,13 +96,13 @@ bb3:
 
 define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !0 {
 entry:
-  %0 = load i32, i32* @__Intel_PaddedMallocCounter
+  %0 = load i32, ptr @__Intel_PaddedMallocCounter
   %1 = icmp ult i32 %0, 250
   ret i1 %1
 }
 
 ; Function Attrs: nounwind
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*) #0
+declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
 
 attributes #0 = { nounwind }
 

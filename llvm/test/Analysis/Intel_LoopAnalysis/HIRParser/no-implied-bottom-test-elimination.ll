@@ -27,27 +27,27 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @main() {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @nz, i64 0, i64 0), align 16
+  %0 = load i32, ptr @nz, align 16
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc5
   %indvars.iv = phi i64 [ 10, %entry ], [ %indvars.iv.next, %for.inc5 ]
   %cmp29 = phi i1 [ true, %entry ], [ false, %for.inc5 ]
   %storemerge12 = phi i64 [ 1, %entry ], [ 6, %for.inc5 ]
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @nz, i64 0, i64 %storemerge12
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @nz, i64 0, i64 %storemerge12
   br i1 %cmp29, label %for.inc5, label %for.end7
 
 for.inc5:                                         ; preds = %for.cond1.preheader
-  %1 = load i32, i32* %arrayidx, align 4
+  %1 = load i32, ptr %arrayidx, align 4
   %add = add i32 %1, %0
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 5
   br i1 %cmp29, label %for.cond1.preheader, label %for.end7
 
 for.end7:                                         ; preds = %for.cond1.preheader, %for.inc5
   %storemerge8.lcssa18 = phi i64 [ %indvars.iv, %for.inc5 ], [ %storemerge12, %for.cond1.preheader ]
-  store i64 11, i64* @o, align 8
-  store i64 %storemerge8.lcssa18, i64* @s, align 8
+  store i64 11, ptr @o, align 8
+  store i64 %storemerge8.lcssa18, ptr @s, align 8
   ret i32 0
 }
 

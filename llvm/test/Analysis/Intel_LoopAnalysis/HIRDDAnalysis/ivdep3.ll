@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @C = common dso_local local_unnamed_addr global [1000 x [100 x float]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @sub(i32 %N1, float* nocapture %A, float* nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @sub(i32 %N1, ptr nocapture %A, ptr nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -33,8 +33,8 @@ for.cond1.preheader:                              ; preds = %for.end, %entry
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
   %s.027 = phi float [ 0.000000e+00, %for.cond1.preheader ], [ %add, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [1000 x [100 x float]], [1000 x [100 x float]]* @C, i64 0, i64 %indvars.iv29, i64 %indvars.iv
-  %0 = load float, float* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [1000 x [100 x float]], ptr @C, i64 0, i64 %indvars.iv29, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx5, align 4, !tbaa !2
   %add = fadd float %s.027, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 6
@@ -42,14 +42,14 @@ for.body3:                                        ; preds = %for.body3, %for.con
 
 for.end:                                          ; preds = %for.body3
   %add.lcssa = phi float [ %add, %for.body3 ]
-  %arrayidx7 = getelementptr inbounds float, float* %B, i64 %indvars.iv29
-  %1 = load float, float* %arrayidx7, align 4, !tbaa !8
+  %arrayidx7 = getelementptr inbounds float, ptr %B, i64 %indvars.iv29
+  %1 = load float, ptr %arrayidx7, align 4, !tbaa !8
   %add8 = fadd float %add.lcssa, %1
   %add9 = fadd float %add8, 1.000000e+03
-  %arrayidx11 = getelementptr inbounds float, float* %A, i64 %indvars.iv29
-  %2 = load float, float* %arrayidx11, align 4, !tbaa !8
+  %arrayidx11 = getelementptr inbounds float, ptr %A, i64 %indvars.iv29
+  %2 = load float, ptr %arrayidx11, align 4, !tbaa !8
   %add12 = fadd float %2, %add9
-  store float %add12, float* %arrayidx11, align 4, !tbaa !8
+  store float %add12, ptr %arrayidx11, align 4, !tbaa !8
   %indvars.iv.next30 = add nuw nsw i64 %indvars.iv29, 1
   %exitcond31 = icmp eq i64 %indvars.iv.next30, 2000
   br i1 %exitcond31, label %for.end15, label %for.cond1.preheader, !llvm.loop !9
