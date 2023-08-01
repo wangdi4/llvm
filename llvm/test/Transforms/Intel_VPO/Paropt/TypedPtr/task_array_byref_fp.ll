@@ -1,0 +1,66 @@
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+;
+; Test src:
+;
+; #include <stdio.h>
+;
+; void foo(int (&a)[10]) {
+; #pragma omp task firstprivate(a)
+;   {
+;     a[1] += 1;
+;     printf("%d\n", a[1]);
+;   }
+; }
+;
+;  //int main() {
+;  //  int a[10];
+;  //  a[1] = 0;
+;  //  foo(a);
+;  //  return 0;
+;  //}
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
+; Check for the space allocated for the private copy.
+; CHECK: %__struct.kmp_privates.t = type { [10 x i32] }
+
+define dso_local void @_Z3fooRA10_i([10 x i32]* dereferenceable(40) %a) {
+entry:
+  %a.addr = alloca [10 x i32]*, align 8
+  store [10 x i32]* %a, [10 x i32]** %a.addr, align 8
+  %0 = load [10 x i32]*, [10 x i32]** %a.addr, align 8
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.FIRSTPRIVATE:BYREF"([10 x i32]** %a.addr) ]
+
+; For the outlined function for the task, check that the address of the local
+; copy for '%a.addr' is stored to an [10 x i32]**, and then that is used instead
+; of '%a.addr' in the region.
+; CHECK: define internal void @{{.*}}DIR.OMP.TASK{{.*}}
+; CHECK: [[A_PRIVATE:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 0
+; CHECK: store [10 x i32]* [[A_PRIVATE]], [10 x i32]** [[A_PRIVATE_ADDR:%[^ ]+]]
+
+; CHECK: [[A_PRIVATE_ADDR_LOAD:%[^ ]+]] = load [10 x i32]*, [10 x i32]** [[A_PRIVATE_ADDR]]
+; CHECK: [[A_PRIVATE_ADDR_LOAD_GEP:%[^ ]+]] = getelementptr inbounds [10 x i32], [10 x i32]* [[A_PRIVATE_ADDR_LOAD]], i64 0, i64 1
+; CHECK: [[A_PRIVATE_ADDR_LOAD_GEP_LOAD:%[^ ]+]] = load i32, i32* [[A_PRIVATE_ADDR_LOAD_GEP]]
+; CHECK: %{{[^ ]+}} = add nsw i32 [[A_PRIVATE_ADDR_LOAD_GEP_LOAD]], 1
+
+  %2 = load [10 x i32]*, [10 x i32]** %a.addr, align 8
+  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %2, i64 0, i64 1
+  %3 = load i32, i32* %arrayidx, align 4
+  %add = add nsw i32 %3, 1
+
+  store i32 %add, i32* %arrayidx, align 4
+  %4 = load [10 x i32]*, [10 x i32]** %a.addr, align 8
+  %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* %4, i64 0, i64 1
+  %5 = load i32, i32* %arrayidx1, align 4
+  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %5)
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASK"() ]
+  ret void
+}
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local i32 @printf(i8*, ...)

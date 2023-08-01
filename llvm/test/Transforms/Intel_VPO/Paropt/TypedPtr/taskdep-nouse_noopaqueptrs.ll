@@ -25,7 +25,6 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define dso_local void @_Z3foov() local_unnamed_addr {
 entry:
   %y1 = alloca float, align 4
@@ -37,7 +36,10 @@ DIR.OMP.TASK.1:                                   ; preds = %entry
   br label %DIR.OMP.TASK.2
 
 DIR.OMP.TASK.2:                                   ; preds = %DIR.OMP.TASK.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.DEPEND.OUT"(float* %y1), "QUAL.OMP.FIRSTPRIVATE"(float* %y1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.DEPEND.OUT"(float* %y1),
+    "QUAL.OMP.FIRSTPRIVATE"(float* %y1) ]
+
   br label %DIR.OMP.TASK.34
 
 DIR.OMP.TASK.34:                                  ; preds = %DIR.OMP.TASK.2
@@ -59,19 +61,7 @@ DIR.OMP.END.TASK.5:                               ; preds = %DIR.OMP.END.TASK.4
   ret void
 }
 
-; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
-
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
-
-
-!llvm.module.flags = !{!0}
-
-!0 = !{i32 1, !"wchar_size", i32 4}

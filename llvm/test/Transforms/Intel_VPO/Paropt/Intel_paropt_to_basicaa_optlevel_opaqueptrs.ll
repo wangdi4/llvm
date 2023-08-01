@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -passes='default<O0>' -paropt=31 -debug-only=basicaa-opt-level -S %s 2>&1 | FileCheck %s -check-prefix=NPM
+; RUN: opt -passes='default<O0>' -paropt=31 -debug-only=basicaa-opt-level -S %s 2>&1 | FileCheck %s -check-prefix=NPM
 
 ; Check that with legacy pass manager, basic-aa gets the opt-level 0
 ; propagated from Paropt.
