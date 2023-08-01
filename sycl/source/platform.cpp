@@ -95,9 +95,6 @@ context platform::ext_oneapi_get_default_context() const {
   return detail::createSyclObjFromImpl<context>(It->second);
 }
 
-<<<<<<< HEAD
-} // namespace _V1
-=======
 namespace detail {
 
 void enable_ext_oneapi_default_context(bool Val) {
@@ -107,6 +104,5 @@ void enable_ext_oneapi_default_context(bool Val) {
 }
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
->>>>>>> c07989a85721abe302aa7a30a3754e212e988465
+} // namespace _V1
 } // namespace sycl
