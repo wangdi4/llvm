@@ -1,6 +1,6 @@
 //===- AddSubReassociate.h - Reassociate add/sub expressions ----*- C++ -*-===//
 //
-// Copyright (C) 2018 - 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -454,18 +454,6 @@ public:
   // Entry point for AddSub reassociation.
   bool runImpl(Function *F, ScalarEvolution *SE);
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
-
-class AddSubReassociateLegacyPass : public FunctionPass {
-  AddSubReassociatePass Impl;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  AddSubReassociateLegacyPass();
-
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // end namespace llvm

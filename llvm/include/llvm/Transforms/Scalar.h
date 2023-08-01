@@ -178,16 +178,6 @@ FunctionPass *createReassociatePass();
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
-// SmartReassociate - Targeted reassociation that increases reuse across
-// statements containing Adds and Subs.
-//
-// For example:  X = A - B - C  -> X = A - (B + C)
-//               Y = A + B + C     X = A + (B + C)
-//
-FunctionPass *createAddSubReassociatePass();
-
-//===----------------------------------------------------------------------===//
-//
 // ForcedCMOVGeneration - CMOV generation for special cases
 //
 FunctionPass *createForcedCMOVGenerationPass();

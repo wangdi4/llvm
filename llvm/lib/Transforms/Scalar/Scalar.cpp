@@ -105,7 +105,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeOptReportEmitterLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);
-  initializeAddSubReassociateLegacyPassPass(Registry);
   initializeForcedCMOVGenerationLegacyPassPass(Registry);
   initializeTransformSinAndCosCallsLegacyPassPass(Registry);
   initializeHandlePragmaVectorAlignedLegacyPassPass(Registry);

@@ -1,6 +1,6 @@
 //===- Intel_AddSubReassociate.cpp - Reassociate AddSub expressions -------===//
 //
-// Copyright (C) 2018 - 2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1814,36 +1814,4 @@ PreservedAnalyses AddSubReassociatePass::run(Function &F,
   }
 
   return PreservedAnalyses::all();
-}
-
-char AddSubReassociateLegacyPass::ID = 0;
-
-AddSubReassociateLegacyPass::AddSubReassociateLegacyPass() : FunctionPass(ID) {
-  initializeAddSubReassociateLegacyPassPass(*PassRegistry::getPassRegistry());
-}
-
-bool AddSubReassociateLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  return Impl.runImpl(&F, SE);
-}
-
-void AddSubReassociateLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  FunctionPass::getAnalysisUsage(AU);
-  AU.addRequired<ScalarEvolutionWrapperPass>();
-  AU.setPreservesCFG();
-  AU.addPreserved<GlobalsAAWrapperPass>();
-}
-
-INITIALIZE_PASS_BEGIN(AddSubReassociateLegacyPass, "addsub-reassoc",
-                      "AddSub Reassociation", false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_END(AddSubReassociateLegacyPass, "addsub-reassoc",
-                    "AddSub Reassociation", false, false)
-
-// Public interface to the Reassociate pass
-FunctionPass *llvm::createAddSubReassociatePass() {
-  return new AddSubReassociateLegacyPass();
 }

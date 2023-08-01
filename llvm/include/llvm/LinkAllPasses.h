@@ -125,7 +125,6 @@ namespace {
       (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
-      (void) llvm::createAddSubReassociatePass();
       (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
       (void) llvm::createTransformSinAndCosCallsPass();
