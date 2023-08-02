@@ -2077,8 +2077,6 @@ void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
   }
 }
 
-void OpenMPLateOutliner::emitOMPXAttributeClause(const OMPXAttributeClause *) {}
-
 void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *Cl) {
   auto Kind = Cl->getDependenceType();
   bool IsSource = Kind == OMPC_DOACROSS_source ||
