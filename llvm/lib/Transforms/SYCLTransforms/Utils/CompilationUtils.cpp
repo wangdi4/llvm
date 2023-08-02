@@ -110,6 +110,18 @@ const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX =
     "work_group_scan_exclusive_max";
 const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX =
     "work_group_scan_inclusive_max";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_AND =
+    "work_group_scan_exclusive_bitwise_and";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_AND =
+    "work_group_scan_inclusive_bitwise_and";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_OR =
+    "work_group_scan_exclusive_bitwise_or";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_OR =
+    "work_group_scan_inclusive_bitwise_or";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_XOR =
+    "work_group_scan_exclusive_bitwise_xor";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_XOR =
+    "work_group_scan_inclusive_bitwise_xor";
 const StringRef NAME_ASYNC_WORK_GROUP_COPY = "async_work_group_copy";
 const StringRef NAME_ASYNC_WORK_GROUP_STRIDED_COPY =
     "async_work_group_strided_copy";
@@ -485,6 +497,30 @@ bool isWorkGroupScanInclusiveMax(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
 }
 
+bool isWorkGroupScanExclusiveBitwiseAnd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_AND);
+}
+
+bool isWorkGroupScanInclusiveBitwiseAnd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_AND);
+}
+
+bool isWorkGroupScanExclusiveBitwiseOr(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_OR);
+}
+
+bool isWorkGroupScanInclusiveBitwiseOr(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_OR);
+}
+
+bool isWorkGroupScanExclusiveBitwiseXor(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_BITWISE_XOR);
+}
+
+bool isWorkGroupScanInclusiveBitwiseXor(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_BITWISE_XOR);
+}
+
 bool isWorkGroupReserveReadPipe(StringRef S) {
   return S == NAME_WORK_GROUP_RESERVE_READ_PIPE;
 }
@@ -798,7 +834,13 @@ bool isWorkGroupScan(StringRef S) {
   return isWorkGroupScanExclusiveAdd(S) || isWorkGroupScanInclusiveAdd(S) ||
          isWorkGroupScanExclusiveMin(S) || isWorkGroupScanInclusiveMin(S) ||
          isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S) ||
-         isWorkGroupScanExclusiveMul(S) || isWorkGroupScanInclusiveMul(S);
+         isWorkGroupScanExclusiveMul(S) || isWorkGroupScanInclusiveMul(S) ||
+         isWorkGroupScanExclusiveBitwiseAnd(S) ||
+         isWorkGroupScanInclusiveBitwiseAnd(S) ||
+         isWorkGroupScanExclusiveBitwiseOr(S) ||
+         isWorkGroupScanInclusiveBitwiseOr(S) ||
+         isWorkGroupScanExclusiveBitwiseXor(S) ||
+         isWorkGroupScanInclusiveBitwiseXor(S);
 }
 
 bool isWorkGroupBuiltinUniform(StringRef S) {
