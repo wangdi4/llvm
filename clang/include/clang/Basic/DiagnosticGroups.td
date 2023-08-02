@@ -1313,10 +1313,9 @@ def OpenMP51Ext : DiagGroup<"openmp-51-extensions">;
 // INTEL_COLLAB
 def OpenMPAllocate : DiagGroup<"openmp-allocate">;
 // end INTEL_COLLAB
-def OpenMPExtensions : DiagGroup<"openmp-extensions">;
 def OpenMP : DiagGroup<"openmp", [
     SourceUsesOpenMP, OpenMPClauses, OpenMPLoopForm, OpenMPTarget,
-    OpenMPMapping, OpenMP51Ext, OpenMPExtensions
+    OpenMPMapping, OpenMP51Ext
   ]>;
 
 // SYCL warnings
