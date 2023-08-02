@@ -71,7 +71,6 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   return EncodedID;
 }
 #endif // INTEL_COLLAB
-
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
 EXTERN void __tgt_register_requires(int64_t Flags) {
