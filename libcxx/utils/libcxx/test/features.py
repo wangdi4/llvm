@@ -388,14 +388,7 @@ DEFAULT_FEATURES += [
         ),
         actions=[AddCompileFlag("-DTEST_WINDOWS_DLL")],
     ),
-    # INTEL_CUSTOMIZATION
-    # Disable fast float point in libcxx lit testing since Werror
-    # "comparison with NaN always evaluates to false in fast floating point
-    # modes" will break tests build
-    Feature(name="linux", when=lambda cfg: "__linux__" in compilerMacros(cfg),
-            actions=[AddCompileFlag("-ffp-model=precise"),
-                    AddLinkFlag("-lirc")]),
-    # end INTEL_CUSTOMIZATION
+    Feature(name="linux", when=lambda cfg: "__linux__" in compilerMacros(cfg)),
     Feature(name="netbsd", when=lambda cfg: "__NetBSD__" in compilerMacros(cfg)),
     Feature(name="freebsd", when=lambda cfg: "__FreeBSD__" in compilerMacros(cfg)),
     Feature(
