@@ -232,6 +232,7 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
 constexpr FeatureBitset FeaturesGraniteRapids =
+<<<<<<< HEAD
     FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
     FeatureAMX_COMPLEX;
 #if INTEL_CUSTOMIZATION
@@ -339,6 +340,9 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
+=======
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
+>>>>>>> 6d23a3faa4e699681df88054611d35da46278d92
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -576,6 +580,9 @@ constexpr ProcInfo Processors[] = {
   { {"grandridge"}, CK_Grandridge, FEATURE_AVX2, FeaturesGrandridge, 'p', false },
   // Granite Rapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids, 'n', false },
+  // Granite Rapids D microarchitecture based processors.
+  { {"graniterapids-d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, '\0', false },
+  { {"graniterapids_d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, 'n', true },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, 'n', false },
   // Knights Landing processor.
