@@ -23,7 +23,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable
-define dso_local noundef float @_Z3subPfi(float* nocapture noundef readonly %A, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local noundef float @_Z3subPfi(ptr nocapture noundef readonly %A, i32 noundef %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: _Z3subPfi:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -61,8 +61,8 @@ define dso_local noundef float @_Z3subPfi(float* nocapture noundef readonly %A, 
 ; CHECK-NEXT:     i64 [[VP7]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP6]], [[BB0]] ]
 ; CHECK-NEXT:     float [[VP10]] = fadd float [[VP9]] float [[VP__IND_INIT_STEP_1]]
 ; CHECK-NEXT:     float [[VP8]] = fadd float [[VP9]] float 1.000000e+00
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     float [[VP12:%.*]] = fmul float [[VP8]] float [[VP8]]
 ; CHECK-NEXT:     float [[VP13:%.*]] = fmul float [[VP12]] float [[VP_LOAD]]
 ; CHECK-NEXT:     float [[VP4]] = fadd float [[VP13]] float [[VP5]]
@@ -132,8 +132,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %r.014 = phi float [ -1.000000e+00, %for.body.preheader ], [ %conv1, %for.body ]
   %sum.013 = phi float [ 0.000000e+00, %for.body.preheader ], [ %add3, %for.body ]
   %conv1 = fadd fast float %r.014, 1.000000e+00
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %mul = fmul fast float %conv1, %conv1
   %mul2 = fmul fast float %mul, %0
   %add3 = fadd fast float %mul2, %sum.013

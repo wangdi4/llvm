@@ -8,21 +8,21 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i64* noalias nocapture noundef readonly %idx, i64* noalias nocapture noundef %out, i64* noalias nocapture noundef readonly %cond) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef readonly %idx, ptr noalias nocapture noundef %out, ptr noalias nocapture noundef readonly %cond) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]], [[BB3:BB[0-9]+]]
-; CHECK:          [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[COND0:%.*]] i64 [[IV:%.*]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK:          [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[COND0:%.*]] i64 [[IV:%.*]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp ne i64 [[VP_LOAD]] i64 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[IDX0:%.*]] i64 [[IV]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = load i64* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[OUT0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i64* [[OUT0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[IDX0:%.*]] i64 [[IV]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[OUT0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[OUT0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_MASK_TO_INT:%.*]] = convert-mask-to-int i1 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_CONFLICT_AND_MASK:%.*]] = and i64 [[VP_VPCONFICT_INTRINSIC]] i64 [[VP_MASK_TO_INT]]
@@ -30,7 +30,7 @@ define dso_local void @foo(i64* noalias nocapture noundef readonly %idx, i64* no
 ; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = add i64 [[VP_POP_COUNT]] i64 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = mul i64 [[VP7]] i64 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP_LOAD_1]] i64 [[VP8]]
-; CHECK-NEXT:     [DA: Div] store i64 [[VP9]] i64* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP9]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 
 ; Checks for outgoing vector HIR.
@@ -61,18 +61,18 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc
   %l1.07 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %cond, i64 %l1.07
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %cond, i64 %l1.07
+  %0 = load i64, ptr %arrayidx, align 8
   %tobool.not = icmp eq i64 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx1 = getelementptr inbounds i64, i64* %idx, i64 %l1.07
-  %1 = load i64, i64* %arrayidx1, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %out, i64 %1
-  %2 = load i64, i64* %arrayidx2, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %idx, i64 %l1.07
+  %1 = load i64, ptr %arrayidx1, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %out, i64 %1
+  %2 = load i64, ptr %arrayidx2, align 8
   %add = add nsw i64 %2, 1
-  store i64 %add, i64* %arrayidx2, align 8
+  store i64 %add, ptr %arrayidx2, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

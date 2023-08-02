@@ -50,14 +50,14 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = phi  [ i32 [[TMP0:%.*]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [20 x i32]* @q i64 0 i64 [[VP8]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @q i64 0 i64 [[VP8]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp eq i32 [[VP_LOAD]] i32 0
 ; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* @s
-; CHECK-NEXT:       store i32 [[ADD0:%.*]] i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @s
+; CHECK-NEXT:       store i32 [[ADD0:%.*]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP10:%.*]] = hir-copy i32 [[ADD0]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
@@ -124,13 +124,13 @@ entry:
 for.body3:                                        ; preds = %entry, %for.inc6
   %0 = phi i32 [ 20, %entry ], [ %2, %for.inc6 ]
   %indvars.iv = phi i64 [ 1, %entry ], [ %indvars.iv.next, %for.inc6 ]
-  %arrayidx5 = getelementptr inbounds [20 x i32], [20 x i32]* @q, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [20 x i32], ptr @q, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx5, align 4
   %tobool = icmp eq i32 %1, 0
   br i1 %tobool, label %if.then, label %for.inc6
 
 if.then:                                          ; preds = %for.body3
-  store i32 %add, i32* @s, align 4
+  store i32 %add, ptr @s, align 4
   br label %for.inc6
 
 for.inc6:                                         ; preds = %for.body3, %if.then

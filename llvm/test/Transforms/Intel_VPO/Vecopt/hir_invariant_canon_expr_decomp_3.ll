@@ -33,8 +33,8 @@ define dso_local void @foo(i64 %n1) local_unnamed_addr #0 {
 ; CHECK-DAG:   [[VP1:%.*]] = {@arr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP3:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP4:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i64 [[VP0]] i64* [[VP4]]
+; CHECK-NEXT:     ptr [[VP4:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i64 [[VP0]] ptr [[VP4]]
 ;
 entry:
   br label %for.body
@@ -46,8 +46,8 @@ for.body:                                         ; preds = %for.inc5, %entry
 
 for.body4:                                        ; preds = %for.body4, %for.body
   %i2.015 = phi i64 [ 0, %for.body ], [ %inc, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @arr, i64 0, i64 %i2.015
-  store i64 %mul1, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @arr, i64 0, i64 %i2.015
+  store i64 %mul1, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %i2.015, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.inc5, label %for.body4

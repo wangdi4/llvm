@@ -25,8 +25,8 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP4:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP5:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP0]] i64 [[VP4]]
-; CHECK-NEXT:     i64* [[VP7:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[I10:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     store i64 [[VP3]] i64* [[VP7]]
+; CHECK-NEXT:     ptr [[VP7:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[I10:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     store i64 [[VP3]] ptr [[VP7]]
 ;
 
 ; CHECK:        DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
@@ -45,8 +45,8 @@ for.cond1.preheader:                              ; preds = %for.inc7, %entry
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %i2.019 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add5 = add nsw i64 %i2.019, %mul
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr, i64 0, i64 %i1.020, i64 %add5
-  store i64 %add, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], ptr @arr, i64 0, i64 %i1.020, i64 %add5
+  store i64 %add, ptr %arrayidx6, align 8
   %inc = add nuw nsw i64 %i2.019, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.inc7, label %for.body3

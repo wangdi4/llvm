@@ -40,8 +40,8 @@ define dso_local void @init() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i3 [[VP5:%.*]] = trunc i64 [[VP2]] to i3
 ; CHECK-NEXT:     i3 [[VP6:%.*]] = add i3 [[VP4]] i3 [[VP5]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = zext i3 [[VP6]] to i64
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x [100 x i64]]* @larr i64 0 i64 [[I10]] i64 [[VP2]]
-; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @larr i64 0 i64 [[I10]] i64 [[VP2]]
+; CHECK-NEXT:     store i64 [[VP7]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP3]] i64 96
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -65,8 +65,8 @@ define dso_local void @init() local_unnamed_addr #0 {
 ; CHECK-NEXT:         |   <RVAL-REG> LINEAR i3 i2 {sb:2}
 ; CHECK-NEXT:         |
 ; CHECK-NEXT:         |   (<4 x i64>*)(@larr)[0][i1][i2] = %.vec;
-; CHECK-NEXT:         |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR [100 x [100 x i64]]* @larr)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  {sb:13}
-; CHECK-NEXT:         |      <BLOB> LINEAR [100 x [100 x i64]]* @larr {sb:8}
+; CHECK-NEXT:         |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR ptr @larr)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  {sb:13}
+; CHECK-NEXT:         |      <BLOB> LINEAR ptr @larr {sb:8}
 ; CHECK-NEXT:         |   <RVAL-REG> NON-LINEAR zext.<4 x i3>.<4 x i64>(%.vec) {sb:2}
 ; CHECK-NEXT:         |      <BLOB> NON-LINEAR <4 x i3> %.vec {sb:15}
 ; CHECK-NEXT:         |
@@ -83,8 +83,8 @@ for.body3:                                        ; preds = %for.cond1.preheader
   %j.017 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nuw nsw i64 %j.017, %i.018
   %and = and i64 %add, 7
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @larr, i64 0, i64 %i.018, i64 %j.017
-  store i64 %and, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @larr, i64 0, i64 %i.018, i64 %j.017
+  store i64 %and, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %j.017, 1
   %exitcond.not = icmp eq i64 %inc, 96
   br i1 %exitcond.not, label %for.inc5, label %for.body3
@@ -149,9 +149,9 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %iv.inner = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %iv.inner.inc, %omp.inner.for.body ]
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr, i64 0, i64 %iv.outer, i64 %iv.inner
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @arr, i64 0, i64 %iv.outer, i64 %iv.inner
   %mul3 = mul nsw i64 %iv.outer, %iv.outer
-  store i64 %mul3, i64* %arrayidx4, align 8
+  store i64 %mul3, ptr %arrayidx4, align 8
   %iv.inner.inc = add nuw nsw i64 %iv.inner, 1
   %exitcond.not = icmp eq i64 %iv.inner.inc, 100
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body

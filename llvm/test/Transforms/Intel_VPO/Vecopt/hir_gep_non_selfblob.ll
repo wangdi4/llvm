@@ -25,8 +25,8 @@
 ;
 ; CHECK:                     DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                  %.vec = (<4 x i64>*)(%neighbor)[i1];
-; CHECK-NEXT:                  %nsbgepcopy = &((<4 x i8*>)(%lattice)[%.vec]);
-; CHECK-NEXT:                  (<4 x i8*>*)(%dest)[i1] = &((<4 x i8*>)(%nsbgepcopy)[%field]);
+; CHECK-NEXT:                  %nsbgepcopy = &((<4 x ptr>)(%lattice)[%.vec]);
+; CHECK-NEXT:                  (<4 x ptr>*)(%dest)[i1] = &((<4 x ptr>)(%nsbgepcopy)[%field]);
 ; CHECK-NEXT:                END LOOP
 ;
 %struct.site = type { i16, i16, i16, i16 }
@@ -42,19 +42,18 @@
 ; OPAQUE:     END REGION
 ;
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @start_gather(i64 %field, i64* nocapture readonly %neighbor, i8** nocapture %dest, %struct.site* %lattice) local_unnamed_addr #0 {
+define dso_local void @start_gather(i64 %field, ptr nocapture readonly %neighbor, ptr nocapture %dest, ptr %lattice) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %neighbor, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !0
-  %add.ptr = getelementptr inbounds %struct.site, %struct.site* %lattice, i64 %0, !intel-tbaa !4
-  %1 = bitcast %struct.site* %add.ptr to i8*
-  %add.ptr1 = getelementptr inbounds i8, i8* %1, i64 %field, !intel-tbaa !7
-  %arrayidx3 = getelementptr inbounds i8*, i8** %dest, i64 %indvars.iv
-  store i8* %add.ptr1, i8** %arrayidx3, align 8, !tbaa !8
+  %arrayidx = getelementptr inbounds i64, ptr %neighbor, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !0
+  %add.ptr = getelementptr inbounds %struct.site, ptr %lattice, i64 %0, !intel-tbaa !4
+  %add.ptr1 = getelementptr inbounds i8, ptr %add.ptr, i64 %field, !intel-tbaa !7
+  %arrayidx3 = getelementptr inbounds ptr, ptr %dest, i64 %indvars.iv
+  store ptr %add.ptr1, ptr %arrayidx3, align 8, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

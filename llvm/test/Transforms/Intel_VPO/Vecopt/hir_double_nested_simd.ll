@@ -17,7 +17,7 @@ entry:
   br i1 %cmp31, label %for.body.lr.ph, label %for.cond.cleanup
 
 for.body.lr.ph:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i64* %l1.linear.iv, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i64 0, i32 1, i32 1) ]
   %cmp4 = icmp sgt i32 %n, 0
   %wide.trip.count3638 = zext i32 %m to i64
   %wide.trip.count39 = zext i32 %n to i64
@@ -36,7 +36,7 @@ for.body:                                         ; preds = %omp.precond.end, %f
 
 DIR.OMP.SIMD.2:                                   ; preds = %for.body
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  %ld = load i64, i64* %l1.linear.iv, align 8
+  %ld = load i64, ptr %l1.linear.iv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2

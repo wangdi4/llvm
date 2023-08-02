@@ -24,8 +24,8 @@
 ; CHECK:        |   [[TMP0:%.*]] = ([[LPP0:%.*]])[i1]
 ; CHECK:        |   [[TMP1:%.*]] = ([[LP0:%.*]])[i1]
 ; CHECK:        |   <LVAL-REG> NON-LINEAR i64 [[TMP1]] {sb:9}
-; CHECK:        |   <RVAL-REG> {al:8}(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  {sb:17}
-; CHECK:        |      <BLOB> LINEAR i64* [[LP0]] {sb:8}
+; CHECK:        |   <RVAL-REG> {al:8}(LINEAR ptr [[LP0]])[LINEAR i64 i1] inbounds  {sb:17}
+; CHECK:        |      <BLOB> LINEAR ptr [[LP0]] {sb:8}
 ; CHECK:        |   if ([[TMP1]] > 0)
 ; CHECK:        |   {
 ; CHECK:        |      [[TGU0:%.*]] = [[TMP1]]  /u  4
@@ -83,16 +83,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPlPS_(i64* nocapture noundef readonly %lp, i64** nocapture noundef readonly %lpp) local_unnamed_addr {
+define dso_local void @_Z3fooPlPS_(ptr nocapture noundef readonly %lp, ptr nocapture noundef readonly %lpp) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end
   %l1.021 = phi i64 [ 0, %entry ], [ %inc7, %for.end ]
-  %arrayidx = getelementptr inbounds i64*, i64** %lpp, i64 %l1.021
-  %0 = load i64*, i64** %arrayidx, align 8
-  %arrayidx1 = getelementptr inbounds i64, i64* %lp, i64 %l1.021
-  %1 = load i64, i64* %arrayidx1, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lpp, i64 %l1.021
+  %0 = load ptr, ptr %arrayidx, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %lp, i64 %l1.021
+  %1 = load i64, ptr %arrayidx1, align 8
   %cmp319 = icmp sgt i64 %1, 0
   br i1 %cmp319, label %for.body4.preheader, label %for.end
 
@@ -101,8 +101,8 @@ for.body4.preheader:                              ; preds = %for.body
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
   %l2.020 = phi i64 [ %inc, %for.body4 ], [ 0, %for.body4.preheader ]
-  %arrayidx5 = getelementptr inbounds i64, i64* %0, i64 %l2.020
-  store i64 %l2.020, i64* %arrayidx5, align 8
+  %arrayidx5 = getelementptr inbounds i64, ptr %0, i64 %l2.020
+  store i64 %l2.020, ptr %arrayidx5, align 8
   %inc = add nuw nsw i64 %l2.020, 1
   %exitcond.not = icmp eq i64 %inc, %1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body4

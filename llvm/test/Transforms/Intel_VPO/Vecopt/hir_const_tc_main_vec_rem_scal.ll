@@ -5,7 +5,7 @@
 ; constant trip count loop with simple scenario of main vector and scalar remainder.
 ;
 
-define void @foo(i64* %lp) {
+define void @foo(ptr %lp) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -24,8 +24,8 @@ define void @foo(i64* %lp) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] store i64 [[VP1]] i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP0:%.*]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP1]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -77,8 +77,8 @@ entry:
 
 for.body:
   %iv = phi i64 [ %inc, %for.body ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %iv
-  store i64 %iv, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %iv
+  store i64 %iv, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %inc, 82
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body

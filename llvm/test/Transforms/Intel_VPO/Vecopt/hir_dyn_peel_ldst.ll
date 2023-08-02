@@ -3,7 +3,7 @@
 ; LIT test to check dynamic peeling in VPlan HIR path for the case a[i] = a[i] + 1.
 ;
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:        [[DOTVEC0:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[LP0:%.*]])[0]))
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[LP0:%.*]])[0]))
 ; CHECK-NEXT:        [[DOTVEC10:%.*]] = [[DOTVEC0]]  /u  8
 ; CHECK-NEXT:        [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  3
 ; CHECK-NEXT:        [[DOTVEC30:%.*]] = [[DOTVEC20]]  [[U0:%.*]]  4
@@ -70,7 +70,7 @@
 ; CHECK:             [[PHI_TEMP200]] = 399
 ; CHECK-NEXT:        [[FINAL_MERGE]]:
 ; CHECK-NEXT:  END REGION
-define void @foo(i64* %lp) {
+define void @foo(ptr %lp) {
 entry:
   br label %for.body.preheader
 
@@ -79,10 +79,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.06
-  %val = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.06
+  %val = load i64, ptr %arrayidx, align 8
   %add = add i64 %val, 1
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 400
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !0

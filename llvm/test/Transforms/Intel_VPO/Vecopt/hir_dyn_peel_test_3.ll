@@ -3,23 +3,23 @@
 ; LIT test to check dynamic peeling in VPlan HIR path. The test specifically checks
 ; that having outer loop IVs as part of an array index works fine.
 ; Incoming HIR looks like:
-; 
+;
 ;         + DO i1 = 0, 399, 1   <DO_LOOP>
 ;         |   + DO i2 = 0, 399, 1   <DO_LOOP>
-;         |   |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ] 
-;         |   |   
+;         |   |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+;         |   |
 ;         |   |   + DO i3 = 0, 399, 1   <DO_LOOP>
 ;         |   |   |   (%lp)[100 * i1 + i3] = i1 + i2 + i3;
 ;         |   |   + END LOOP
-;         |   |   
-;         |   |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ] 
+;         |   |
+;         |   |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;         |   + END LOOP
 ;         + END LOOP
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK-NEXT:            + DO i1 = 0, 399, 1   <DO_LOOP>
 ; CHECK-NEXT:            |   + DO i2 = 0, 399, 1   <DO_LOOP>
-; CHECK-NEXT:            |   |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%lp)[100 * i1]));
+; CHECK-NEXT:            |   |   %.vec = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)(%lp)[100 * i1]));
 ; CHECK-NEXT:            |   |   %.vec3 = %.vec  /u  8;
 ; CHECK-NEXT:            |   |   %.vec4 = %.vec3  *  3;
 ; CHECK-NEXT:            |   |   %.vec5 = %.vec4  %u  4;
@@ -31,7 +31,7 @@
 ; CHECK-NEXT:            |   |      goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK-NEXT:            |   |   }
 ;
-define void @foo(i64* %lp) {
+define void @foo(ptr %lp) {
 entry:
   br label %for.cond1.preheader
 
@@ -49,8 +49,8 @@ for.body6:                                        ; preds = %for.cond4.preheader
   %l3.026 = phi i64 [ 0, %for.cond4.preheader ], [ %inc, %for.body6 ]
   %add7 = add nuw nsw i64 %add, %l3.026
   %add8 = add nuw nsw i64 %l3.026, %mul
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %add8
-  store i64 %add7, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %add8
+  store i64 %add7, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l3.026, 1
   %exitcond.not = icmp eq i64 %inc, 400
   br i1 %exitcond.not, label %for.inc9, label %for.body6, !llvm.loop !0
