@@ -2786,7 +2786,7 @@ static void printFaultMaps(const ObjectFile *Obj) {
   outs() << FMP;
 }
 
-void Dumper::printPrivateHeaders(bool) {
+void Dumper::printPrivateHeaders() {
   reportError(O.getFileName(), "Invalid/Unsupported object file format");
 }
 
@@ -2921,7 +2921,7 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
   if (FileHeaders)
     printFileHeaders(O);
   if (PrivateHeaders || FirstPrivateHeader)
-    D.printPrivateHeaders(FirstPrivateHeader);
+    D.printPrivateHeaders();
   if (SectionHeaders)
     printSectionHeaders(*O);
   if (SymbolTable)

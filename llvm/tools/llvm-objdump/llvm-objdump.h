@@ -102,7 +102,7 @@ public:
   void reportUniqueWarning(Error Err);
   void reportUniqueWarning(const Twine &Msg);
 
-  virtual void printPrivateHeaders(bool MachOOnlyFirst);
+  virtual void printPrivateHeaders();
   virtual void printDynamicRelocations() {}
   void printSymbolTable(StringRef ArchiveName,
                         StringRef ArchitectureName = StringRef(),
