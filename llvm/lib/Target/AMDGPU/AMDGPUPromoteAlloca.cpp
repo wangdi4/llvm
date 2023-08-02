@@ -725,98 +725,6 @@ bool AMDGPUPromoteAllocaImpl::tryPromoteAllocaToVector(AllocaInst &Alloca) {
                     << *VectorTy << '\n');
   const unsigned VecStoreSize = DL->getTypeStoreSize(VectorTy);
 
-<<<<<<< HEAD
-  for (Instruction *Inst : WorkList) {
-    IRBuilder<> Builder(Inst);
-    switch (Inst->getOpcode()) {
-    case Instruction::Load: {
-      Value *Ptr = cast<LoadInst>(Inst)->getPointerOperand();
-      Value *Index = calculateVectorIndex(Ptr, GEPVectorIdx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-       Value *VecValue =
-          Builder.CreateAlignedLoad(VectorTy, &Alloca, Alloca.getAlign());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Type *VecPtrTy = VectorTy->getPointerTo(Alloca.getAddressSpace());
-      Value *BitCast = Builder.CreateBitCast(&Alloca, VecPtrTy);
-      Value *VecValue =
-          Builder.CreateAlignedLoad(VectorTy, BitCast, Alloca.getAlign());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *ExtractElement = Builder.CreateExtractElement(VecValue, Index);
-      if (Inst->getType() != VecEltTy)
-        ExtractElement =
-            Builder.CreateBitOrPointerCast(ExtractElement, Inst->getType());
-      Inst->replaceAllUsesWith(ExtractElement);
-      Inst->eraseFromParent();
-      break;
-    }
-    case Instruction::Store: {
-      StoreInst *SI = cast<StoreInst>(Inst);
-      Value *Ptr = SI->getPointerOperand();
-      Value *Index = calculateVectorIndex(Ptr, GEPVectorIdx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *VecValue =
-          Builder.CreateAlignedLoad(VectorTy, &Alloca, Alloca.getAlign());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Type *VecPtrTy = VectorTy->getPointerTo(Alloca.getAddressSpace());
-      Value *BitCast = Builder.CreateBitCast(&Alloca, VecPtrTy);
-      Value *VecValue =
-          Builder.CreateAlignedLoad(VectorTy, BitCast, Alloca.getAlign());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *Elt = SI->getValueOperand();
-      if (Elt->getType() != VecEltTy)
-        Elt = Builder.CreateBitOrPointerCast(Elt, VecEltTy);
-      Value *NewVecValue = Builder.CreateInsertElement(VecValue, Elt, Index);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.CreateAlignedStore(NewVecValue, &Alloca, Alloca.getAlign());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.CreateAlignedStore(NewVecValue, BitCast, Alloca.getAlign());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-      Inst->eraseFromParent();
-      break;
-    }
-    case Instruction::Call: {
-      if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(Inst)) {
-        ConstantInt *Length = cast<ConstantInt>(MTI->getLength());
-        unsigned NumCopied = Length->getZExtValue() / ElementSize;
-        MemTransferInfo *TI = &TransferInfo[cast<MemTransferInst>(Inst)];
-        unsigned SrcBegin = TI->SrcIndex->getZExtValue();
-        unsigned DestBegin = TI->DestIndex->getZExtValue();
-
-        SmallVector<int> Mask;
-        for (unsigned Idx = 0; Idx < VectorTy->getNumElements(); ++Idx) {
-          if (Idx >= DestBegin && Idx < DestBegin + NumCopied) {
-            Mask.push_back(SrcBegin++);
-          } else {
-            Mask.push_back(Idx);
-          }
-        }
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        Value *VecValue =
-            Builder.CreateAlignedLoad(VectorTy, &Alloca, Alloca.getAlign());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        Type *VecPtrTy = VectorTy->getPointerTo(Alloca.getAddressSpace());
-        Value *BitCast = Builder.CreateBitCast(&Alloca, VecPtrTy);
-        Value *VecValue =
-            Builder.CreateAlignedLoad(VectorTy, BitCast, Alloca.getAlign());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-        Value *NewVecValue = Builder.CreateShuffleVector(VecValue, Mask);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        Builder.CreateAlignedStore(NewVecValue, &Alloca, Alloca.getAlign());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        Builder.CreateAlignedStore(NewVecValue, BitCast, Alloca.getAlign());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-        Inst->eraseFromParent();
-      } else if (MemSetInst *MSI = dyn_cast<MemSetInst>(Inst)) {
-        // Ensure the length parameter of the memsets matches the new vector
-        // type's. In general, the type size shouldn't change so this is a
-        // no-op, but it's better to be safe.
-        MSI->setOperand(2, Builder.getInt64(DL->getTypeStoreSize(VectorTy)));
-      } else {
-        llvm_unreachable("Unsupported call when promoting alloca to vector");
-      }
-      break;
-    }
-=======
   // Alloca is uninitialized memory. Imitate that by making the first value
   // undef.
   SSAUpdater Updater;
@@ -849,7 +757,6 @@ bool AMDGPUPromoteAllocaImpl::tryPromoteAllocaToVector(AllocaInst &Alloca) {
       Updater.AddAvailableValue(BB, Result);
     assert(NewDLs.empty() && "No more deferred loads should be queued!");
   });
->>>>>>> 3890a3b11398a58811098ff4d3a7ff949fea1143
 
   // Delete all instructions. On the first pass, new dummy loads may have been
   // added so we need to collect them too.
