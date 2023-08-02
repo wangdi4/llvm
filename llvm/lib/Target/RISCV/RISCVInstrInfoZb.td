@@ -38,6 +38,9 @@ def riscv_orc_b  : SDNode<"RISCVISD::ORC_B",  SDTIntUnaryOp>;
 def riscv_zip    : SDNode<"RISCVISD::ZIP",    SDTIntUnaryOp>;
 def riscv_unzip  : SDNode<"RISCVISD::UNZIP",  SDTIntUnaryOp>;
 def riscv_absw   : SDNode<"RISCVISD::ABSW",   SDTIntUnaryOp>;
+def riscv_clmul  : SDNode<"RISCVISD::CLMUL",  SDTIntBinOp>;
+def riscv_clmulh : SDNode<"RISCVISD::CLMULH", SDTIntBinOp>;
+def riscv_clmulr : SDNode<"RISCVISD::CLMULR", SDTIntBinOp>;
 
 def UImmLog2XLenHalfAsmOperand : AsmOperandClass {
   let Name = "UImmLog2XLenHalf";
@@ -348,7 +351,7 @@ def BINV : ALU_rr<0b0110100, 0b001, "binv">,
            Sched<[WriteSingleBit, ReadSingleBit, ReadSingleBit]>;
 let IsSignExtendingOpW = 1 in
 def BEXT : ALU_rr<0b0100100, 0b101, "bext">,
-           Sched<[WriteSingleBit, ReadSingleBit, ReadSingleBit]>;
+           Sched<[WriteBEXT, ReadSingleBit, ReadSingleBit]>;
 
 def BCLRI : RVBShift_ri<0b01001, 0b001, OPC_OP_IMM, "bclri">,
             Sched<[WriteSingleBitImm, ReadSingleBitImm]>;
@@ -358,7 +361,7 @@ def BINVI : RVBShift_ri<0b01101, 0b001, OPC_OP_IMM, "binvi">,
             Sched<[WriteSingleBitImm, ReadSingleBitImm]>;
 let IsSignExtendingOpW = 1 in
 def BEXTI : RVBShift_ri<0b01001, 0b101, OPC_OP_IMM, "bexti">,
-            Sched<[WriteSingleBitImm, ReadSingleBitImm]>;
+            Sched<[WriteBEXTI, ReadSingleBitImm]>;
 } // Predicates = [HasStdExtZbs]
 
 // These instructions were named xperm.n and xperm.b in the last version of
@@ -790,12 +793,12 @@ def : Pat<(i64 (mul (and_oneuse GPR:$r, 0xFFFFFFFF), C9LeftShiftUW:$i)),
 } // Predicates = [HasStdExtZba, IsRV64]
 
 let Predicates = [HasStdExtZbcOrZbkc] in {
-def : PatGprGpr<int_riscv_clmul, CLMUL>;
-def : PatGprGpr<int_riscv_clmulh, CLMULH>;
+def : PatGprGpr<riscv_clmul, CLMUL>;
+def : PatGprGpr<riscv_clmulh, CLMULH>;
 } // Predicates = [HasStdExtZbcOrZbkc]
 
 let Predicates = [HasStdExtZbc] in
-def : PatGprGpr<int_riscv_clmulr, CLMULR>;
+def : PatGprGpr<riscv_clmulr, CLMULR>;
 
 let Predicates = [HasStdExtZbkx] in {
 def : PatGprGpr<int_riscv_xperm4, XPERM4>;

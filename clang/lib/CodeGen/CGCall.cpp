@@ -34,6 +34,7 @@
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGRecordLayout.h"
+#include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -1403,7 +1404,7 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
         auto *UndefVec = llvm::UndefValue::get(ScalableDst);
         auto *Zero = llvm::Constant::getNullValue(CGF.CGM.Int64Ty);
         llvm::Value *Result = CGF.Builder.CreateInsertVector(
-            ScalableDst, UndefVec, Load, Zero, "castScalableSve");
+            ScalableDst, UndefVec, Load, Zero, "cast.scalable");
         if (NeedsBitcast)
           Result = CGF.Builder.CreateBitCast(Result, OrigType);
         return Result;
@@ -2504,9 +2505,21 @@ static llvm::fp::FPAccuracy convertFPAccuracy(StringRef FPAccuracyStr) {
       .Case("cuda", llvm::fp::FPAccuracy::CUDA);
 }
 
+static int32_t convertFPAccuracyToAspect(StringRef FPAccuracyStr) {
+  assert(FPAccuracyStr.equals("high") || FPAccuracyStr.equals("medium") ||
+         FPAccuracyStr.equals("low") || FPAccuracyStr.equals("sycl") ||
+         FPAccuracyStr.equals("cuda"));
+  return llvm::StringSwitch<int32_t>(FPAccuracyStr)
+      .Case("high", SYCLInternalAspect::fp_intrinsic_accuracy_high)
+      .Case("medium", SYCLInternalAspect::fp_intrinsic_accuracy_medium)
+      .Case("low", SYCLInternalAspect::fp_intrinsic_accuracy_low)
+      .Case("sycl", SYCLInternalAspect::fp_intrinsic_accuracy_sycl)
+      .Case("cuda", SYCLInternalAspect::fp_intrinsic_accuracy_cuda);
+}
+
 void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
-    StringRef Name, llvm::AttrBuilder &FuncAttrs, unsigned ID,
-    const llvm::Type *FuncType) {
+    StringRef Name, llvm::AttrBuilder &FuncAttrs, llvm::Metadata *&MD,
+    unsigned ID, const llvm::Type *FuncType) {
   // Priority is given to to the accuracy specific to the function.
   // So, if the command line is something like this:
   // 'clang -fp-accuracy = high -fp-accuracy = low:[sin]'.
@@ -2521,7 +2534,9 @@ void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
       StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
           ID, FuncType, convertFPAccuracy(FuncMapIt->second));
       assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
-      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+      FuncAttrs.addAttribute("fpbuiltin-max-error", FPAccuracyVal);
+      MD = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+          Int32Ty, convertFPAccuracyToAspect(FuncMapIt->second)));
     }
   }
   if (FuncAttrs.attrs().size() == 0)
@@ -2529,7 +2544,9 @@ void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
       StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
           ID, FuncType, convertFPAccuracy(getLangOpts().FPAccuracyVal));
       assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
-      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+      FuncAttrs.addAttribute("fpbuiltin-max-error", FPAccuracyVal);
+      MD = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+          Int32Ty, convertFPAccuracyToAspect(getLangOpts().FPAccuracyVal)));
     }
 }
 
@@ -3931,7 +3948,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
             assert(NumIRArgs == 1);
             Coerced->setName(Arg->getName() + ".coerce");
             ArgVals.push_back(ParamValue::forDirect(Builder.CreateExtractVector(
-                VecTyTo, Coerced, Zero, "castFixedSve")));
+                VecTyTo, Coerced, Zero, "cast.fixed")));
             break;
           }
         }
@@ -6752,6 +6769,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         }
         }
         llvm_unreachable("bad evaluation kind");
+      }
+
+      // If coercing a fixed vector from a scalable vector for ABI
+      // compatibility, and the types match, use the llvm.vector.extract
+      // intrinsic to perform the conversion.
+      if (auto *FixedDst = dyn_cast<llvm::FixedVectorType>(RetIRTy)) {
+        llvm::Value *V = CI;
+        if (auto *ScalableSrc = dyn_cast<llvm::ScalableVectorType>(V->getType())) {
+          if (FixedDst->getElementType() == ScalableSrc->getElementType()) {
+            llvm::Value *Zero = llvm::Constant::getNullValue(CGM.Int64Ty);
+            V = Builder.CreateExtractVector(FixedDst, V, Zero, "cast.fixed");
+            return RValue::get(V);
+          }
+        }
       }
 
       Address DestPtr = ReturnValue.getValue();

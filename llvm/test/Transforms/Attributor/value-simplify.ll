@@ -800,7 +800,8 @@ define void @user() {
 ; TUNIT: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(write)
 ; TUNIT-LABEL: define {{[^@]+}}@user
 ; TUNIT-SAME: () #[[ATTR4]] {
-; TUNIT-NEXT:    store i32 0, ptr addrspacecast (ptr addrspace(3) @ConstAS3Ptr to ptr), align 4
+; TUNIT-NEXT:    [[TMP1:%.*]] = addrspacecast ptr addrspacecast (ptr addrspace(3) @ConstAS3Ptr to ptr) to ptr addrspace(3)
+; TUNIT-NEXT:    store i32 0, ptr addrspace(3) [[TMP1]], align 4
 ; TUNIT-NEXT:    ret void
 ;
 ; CGSCC: Function Attrs: mustprogress nofree nosync nounwind willreturn memory(write)
@@ -1066,7 +1067,7 @@ define i32 @test(i1 %c) {
 ; TUNIT-LABEL: define {{[^@]+}}@test
 ; TUNIT-SAME: (i1 [[C:%.*]]) {
 ; TUNIT-NEXT:    [[R1:%.*]] = call i32 @ctx_test1(i1 noundef [[C]])
-; TUNIT-NEXT:    [[R2:%.*]] = call i32 @ctx_test2(i1 noundef [[C]])
+; TUNIT-NEXT:    [[R2:%.*]] = call i32 @ctx_test2(i1 noundef [[C]]), !range [[RNG0:![0-9]+]]
 ; TUNIT-NEXT:    [[ADD:%.*]] = add i32 [[R1]], [[R2]]
 ; TUNIT-NEXT:    ret i32 [[ADD]]
 ;
@@ -1150,9 +1151,7 @@ define i1 @test_liveness(i1 %c) {
 ; TUNIT:       t:
 ; TUNIT-NEXT:    br label [[F]]
 ; TUNIT:       f:
-; TUNIT-NEXT:    [[P:%.*]] = phi i1 [ true, [[ENTRY:%.*]] ], [ false, [[T]] ]
-; TUNIT-NEXT:    [[RC1:%.*]] = call i1 @ret(i1 noundef [[P]]) #[[ATTR9]]
-; TUNIT-NEXT:    ret i1 [[RC1]]
+; TUNIT-NEXT:    ret i1 false
 ;
 ; CGSCC: Function Attrs: mustprogress nofree nosync nounwind willreturn memory(none)
 ; CGSCC-LABEL: define {{[^@]+}}@test_liveness
@@ -1177,16 +1176,16 @@ f:
 }
 
 define internal i1 @ret(i1 %c) {
-; CHECK: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
-; CHECK-LABEL: define {{[^@]+}}@ret
-; CHECK-SAME: (i1 noundef [[C:%.*]]) #[[ATTR1]] {
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br i1 [[C]], label [[T:%.*]], label [[F:%.*]]
-; CHECK:       t:
-; CHECK-NEXT:    br label [[F]]
-; CHECK:       f:
-; CHECK-NEXT:    [[P:%.*]] = phi i1 [ [[C]], [[ENTRY:%.*]] ], [ false, [[T]] ]
-; CHECK-NEXT:    ret i1 [[P]]
+; CGSCC: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+; CGSCC-LABEL: define {{[^@]+}}@ret
+; CGSCC-SAME: (i1 noundef [[C:%.*]]) #[[ATTR1]] {
+; CGSCC-NEXT:  entry:
+; CGSCC-NEXT:    br i1 [[C]], label [[T:%.*]], label [[F:%.*]]
+; CGSCC:       t:
+; CGSCC-NEXT:    br label [[F]]
+; CGSCC:       f:
+; CGSCC-NEXT:    [[P:%.*]] = phi i1 [ [[C]], [[ENTRY:%.*]] ], [ false, [[T]] ]
+; CGSCC-NEXT:    ret i1 false
 ;
 entry:
   br i1 %c, label %t, label %f
@@ -1384,11 +1383,11 @@ define internal void @indirect() {
 ; CGSCC-NEXT:    store i32 0, ptr @x, align 4
 ; CGSCC-NEXT:    ret void
 ;
-  store i32 0, i32* @x
+  store i32 0, ptr @x
   ret void
 }
 
-define internal void @broker(void ()* %ptr) {
+define internal void @broker(ptr %ptr) {
 ; TUNIT-LABEL: define {{[^@]+}}@broker() {
 ; TUNIT-NEXT:  entry:
 ; TUNIT-NEXT:    call void @indirect()
@@ -1414,7 +1413,7 @@ define void @entry() {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  call void @broker(void ()* @indirect)
+  call void @broker(ptr @indirect)
   ret void
 }
 
@@ -1470,4 +1469,6 @@ define i1 @constexpr_icmp2() {
 ; CGSCC: attributes #[[ATTR14]] = { nofree nounwind willreturn memory(write) }
 ; CGSCC: attributes #[[ATTR15]] = { nofree willreturn memory(readwrite) }
 ; CGSCC: attributes #[[ATTR16]] = { nounwind }
+;.
+; TUNIT: [[RNG0]] = !{i32 0, i32 -2147483648}
 ;.

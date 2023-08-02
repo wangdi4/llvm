@@ -1373,9 +1373,12 @@ private:
                              BG.Batches.front()->getCount();
 
       if (NumBlocks == MaxContainedBlocks) {
-        for (const auto &It : BG.Batches)
+        for (const auto &It : BG.Batches) {
+          if (&It != BG.Batches.front())
+            DCHECK_EQ(It.getCount(), BG.MaxCachedPerBatch);
           for (u16 I = 0; I < It.getCount(); ++I)
             DCHECK_EQ(compactPtrGroup(It.get(I)), BG.CompactPtrGroupBase);
+        }
 
         Context.markRangeAsAllCounted(BatchGroupBase, BatchGroupUsedEnd,
                                       Region->RegionBeg, /*RegionIndex=*/0,
@@ -1435,6 +1438,7 @@ private:
       }
 
       BatchGroup *Cur = GroupsToRelease.front();
+      TransferBatch *UnusedTransferBatch = nullptr;
       GroupsToRelease.pop_front();
 
       if (BG->CompactPtrGroupBase == Cur->CompactPtrGroupBase) {
@@ -1442,19 +1446,50 @@ private:
         // We have updated `BatchGroup::BytesInBGAtLastCheckpoint` while
         // collecting the `GroupsToRelease`.
         BG->BytesInBGAtLastCheckpoint = Cur->BytesInBGAtLastCheckpoint;
-        // Note that the first TransferBatches in both `Batches` may not be
-        // full.
-        // TODO: We may want to merge them if they can fit into one
-        // `TransferBatch`.
-        BG->Batches.append_back(&Cur->Batches);
+        const uptr MaxCachedPerBatch = BG->MaxCachedPerBatch;
 
-        if (Idx == MaxUnusedSize) {
+        // Note that the first TransferBatches in both `Batches` may not be
+        // full and only the first TransferBatch can have non-full blocks. Thus
+        // we have to merge them before appending one to another.
+        if (Cur->Batches.front()->getCount() == MaxCachedPerBatch) {
+          BG->Batches.append_back(&Cur->Batches);
+        } else {
+          TransferBatch *NonFullBatch = Cur->Batches.front();
+          Cur->Batches.pop_front();
+          const u16 NonFullBatchCount = NonFullBatch->getCount();
+          // The remaining Batches in `Cur` are full.
+          BG->Batches.append_back(&Cur->Batches);
+
+          if (BG->Batches.front()->getCount() == MaxCachedPerBatch) {
+            // Only 1 non-full TransferBatch, push it to the front.
+            BG->Batches.push_front(NonFullBatch);
+          } else {
+            const u16 NumBlocksToMove = static_cast<u16>(
+                Min(static_cast<u16>(MaxCachedPerBatch -
+                                     BG->Batches.front()->getCount()),
+                    NonFullBatchCount));
+            BG->Batches.front()->appendFromTransferBatch(NonFullBatch,
+                                                         NumBlocksToMove);
+            if (NonFullBatch->isEmpty())
+              UnusedTransferBatch = NonFullBatch;
+            else
+              BG->Batches.push_front(NonFullBatch);
+          }
+        }
+
+        const u32 NeededSlots = UnusedTransferBatch == nullptr ? 1U : 2U;
+        if (UNLIKELY(Idx + NeededSlots > MaxUnusedSize)) {
           ScopedLock L(BatchClassRegion->FLLock);
           pushBatchClassBlocks(BatchClassRegion, Blocks, Idx);
           Idx = 0;
         }
         Blocks[Idx++] =
             compactPtr(SizeClassMap::BatchClassId, reinterpret_cast<uptr>(Cur));
+        if (UnusedTransferBatch) {
+          Blocks[Idx++] =
+              compactPtr(SizeClassMap::BatchClassId,
+                         reinterpret_cast<uptr>(UnusedTransferBatch));
+        }
         Prev = BG;
         BG = BG->Next;
         continue;

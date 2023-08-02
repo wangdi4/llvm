@@ -269,6 +269,31 @@ static StringRef ToolName;
 std::unique_ptr<BuildIDFetcher> BIDFetcher;
 ExitOnError ExitOnErr;
 
+void Dumper::reportUniqueWarning(Error Err) {
+  reportUniqueWarning(toString(std::move(Err)));
+}
+
+void Dumper::reportUniqueWarning(const Twine &Msg) {
+  if (Warnings.insert(StringRef(Msg.str())).second)
+    reportWarning(Msg, O.getFileName());
+}
+
+static Expected<std::unique_ptr<Dumper>> createDumper(const ObjectFile &Obj) {
+  if (const auto *O = dyn_cast<COFFObjectFile>(&Obj))
+    return createCOFFDumper(*O);
+  if (const auto *O = dyn_cast<ELFObjectFileBase>(&Obj))
+    return createELFDumper(*O);
+  if (const auto *O = dyn_cast<MachOObjectFile>(&Obj))
+    return createMachODumper(*O);
+  if (const auto *O = dyn_cast<WasmObjectFile>(&Obj))
+    return createWasmDumper(*O);
+  if (const auto *O = dyn_cast<XCOFFObjectFile>(&Obj))
+    return createXCOFFDumper(*O);
+
+  return createStringError(errc::invalid_argument,
+                           "unsupported object file format");
+}
+
 namespace {
 struct FilterResult {
   // True if the section should not be skipped.
@@ -2234,23 +2259,22 @@ getRelocationMapForTraceBack(const ObjectFile *Obj) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void objdump::printRelocations(const ObjectFile *Obj) {
-  StringRef Fmt = Obj->getBytesInAddress() > 4 ? "%016" PRIx64 :
-                                                 "%08" PRIx64;
+void Dumper::printRelocations() {
+  StringRef Fmt = O.getBytesInAddress() > 4 ? "%016" PRIx64 : "%08" PRIx64;
 
   // Build a mapping from relocation target to a vector of relocation
   // sections. Usually, there is an only one relocation section for
   // each relocated section.
   MapVector<SectionRef, std::vector<SectionRef>> SecToRelSec;
   uint64_t Ndx;
-  for (const SectionRef &Section : ToolSectionFilter(*Obj, &Ndx)) {
-    if (Obj->isELF() && (ELFSectionRef(Section).getFlags() & ELF::SHF_ALLOC))
+  for (const SectionRef &Section : ToolSectionFilter(O, &Ndx)) {
+    if (O.isELF() && (ELFSectionRef(Section).getFlags() & ELF::SHF_ALLOC))
       continue;
     if (Section.relocation_begin() == Section.relocation_end())
       continue;
     Expected<section_iterator> SecOrErr = Section.getRelocatedSection();
     if (!SecOrErr)
-      reportError(Obj->getFileName(),
+      reportError(O.getFileName(),
                   "section (" + Twine(Ndx) +
                       "): unable to get a relocation target: " +
                       toString(SecOrErr.takeError()));
@@ -2258,9 +2282,9 @@ void objdump::printRelocations(const ObjectFile *Obj) {
   }
 
   for (std::pair<SectionRef, std::vector<SectionRef>> &P : SecToRelSec) {
-    StringRef SecName = unwrapOrError(P.first.getName(), Obj->getFileName());
+    StringRef SecName = unwrapOrError(P.first.getName(), O.getFileName());
     outs() << "\nRELOCATION RECORDS FOR [" << SecName << "]:\n";
-    uint32_t OffsetPadding = (Obj->getBytesInAddress() > 4 ? 16 : 8);
+    uint32_t OffsetPadding = (O.getBytesInAddress() > 4 ? 16 : 8);
     uint32_t TypePadding = 24;
     outs() << left_justify("OFFSET", OffsetPadding) << " "
            << left_justify("TYPE", TypePadding) << " "
@@ -2275,7 +2299,7 @@ void objdump::printRelocations(const ObjectFile *Obj) {
           continue;
         Reloc.getTypeName(RelocName);
         if (Error E = getRelocationValueString(Reloc, ValueStr))
-          reportError(std::move(E), Obj->getFileName());
+          reportUniqueWarning(std::move(E));
 
         outs() << format(Fmt.data(), Address) << " "
                << left_justify(RelocName, TypePadding) << " " << ValueStr
@@ -2283,43 +2307,6 @@ void objdump::printRelocations(const ObjectFile *Obj) {
       }
     }
   }
-}
-
-void objdump::printDynamicRelocations(const ObjectFile *Obj) {
-  // For the moment, this option is for ELF only
-  if (!Obj->isELF())
-    return;
-
-  const auto *Elf = dyn_cast<ELFObjectFileBase>(Obj);
-  if (!Elf || !any_of(Elf->sections(), [](const ELFSectionRef Sec) {
-        return Sec.getType() == ELF::SHT_DYNAMIC;
-      })) {
-    reportError(Obj->getFileName(), "not a dynamic object");
-    return;
-  }
-
-  std::vector<SectionRef> DynRelSec = Obj->dynamic_relocation_sections();
-  if (DynRelSec.empty())
-    return;
-
-  outs() << "\nDYNAMIC RELOCATION RECORDS\n";
-  const uint32_t OffsetPadding = (Obj->getBytesInAddress() > 4 ? 16 : 8);
-  const uint32_t TypePadding = 24;
-  outs() << left_justify("OFFSET", OffsetPadding) << ' '
-         << left_justify("TYPE", TypePadding) << " VALUE\n";
-
-  StringRef Fmt = Obj->getBytesInAddress() > 4 ? "%016" PRIx64 : "%08" PRIx64;
-  for (const SectionRef &Section : DynRelSec)
-    for (const RelocationRef &Reloc : Section.relocations()) {
-      uint64_t Address = Reloc.getOffset();
-      SmallString<32> RelocName;
-      SmallString<32> ValueStr;
-      Reloc.getTypeName(RelocName);
-      if (Error E = getRelocationValueString(Reloc, ValueStr))
-        reportError(std::move(E), Obj->getFileName());
-      outs() << format(Fmt.data(), Address) << ' '
-             << left_justify(RelocName, TypePadding) << ' ' << ValueStr << '\n';
-    }
 }
 
 // Returns true if we need to show LMA column when dumping section headers. We
@@ -2440,8 +2427,8 @@ void objdump::printSectionContents(const ObjectFile *Obj) {
   }
 }
 
-void objdump::printSymbolTable(const ObjectFile &O, StringRef ArchiveName,
-                               StringRef ArchitectureName, bool DumpDynamic) {
+void Dumper::printSymbolTable(StringRef ArchiveName, StringRef ArchitectureName,
+                              bool DumpDynamic) {
   if (O.isCOFF() && !DumpDynamic) {
     outs() << "\nSYMBOL TABLE:\n";
     printCOFFSymbolTable(cast<const COFFObjectFile>(O));
@@ -2453,8 +2440,7 @@ void objdump::printSymbolTable(const ObjectFile &O, StringRef ArchiveName,
   if (!DumpDynamic) {
     outs() << "\nSYMBOL TABLE:\n";
     for (auto I = O.symbol_begin(); I != O.symbol_end(); ++I)
-      printSymbol(O, *I, {}, FileName, ArchiveName, ArchitectureName,
-                  DumpDynamic);
+      printSymbol(*I, {}, FileName, ArchiveName, ArchitectureName, DumpDynamic);
     return;
   }
 
@@ -2476,17 +2462,21 @@ void objdump::printSymbolTable(const ObjectFile &O, StringRef ArchiveName,
     (void)!SymbolVersionsOrErr;
   }
   for (auto &Sym : Symbols)
-    printSymbol(O, Sym, *SymbolVersionsOrErr, FileName, ArchiveName,
+    printSymbol(Sym, *SymbolVersionsOrErr, FileName, ArchiveName,
                 ArchitectureName, DumpDynamic);
 }
 
-void objdump::printSymbol(const ObjectFile &O, const SymbolRef &Symbol,
-                          ArrayRef<VersionEntry> SymbolVersions,
-                          StringRef FileName, StringRef ArchiveName,
-                          StringRef ArchitectureName, bool DumpDynamic) {
+void Dumper::printSymbol(const SymbolRef &Symbol,
+                         ArrayRef<VersionEntry> SymbolVersions,
+                         StringRef FileName, StringRef ArchiveName,
+                         StringRef ArchitectureName, bool DumpDynamic) {
   const MachOObjectFile *MachO = dyn_cast<const MachOObjectFile>(&O);
-  uint64_t Address = unwrapOrError(Symbol.getAddress(), FileName, ArchiveName,
-                                   ArchitectureName);
+  Expected<uint64_t> AddrOrErr = Symbol.getAddress();
+  if (!AddrOrErr) {
+    reportUniqueWarning(AddrOrErr.takeError());
+    return;
+  }
+  uint64_t Address = *AddrOrErr;
   if ((Address < StartAddress) || (Address > StopAddress))
     return;
   SymbolRef::Type Type =
@@ -2752,24 +2742,8 @@ static void printFaultMaps(const ObjectFile *Obj) {
   outs() << FMP;
 }
 
-static void printPrivateFileHeaders(const ObjectFile *O, bool OnlyFirst) {
-  if (O->isELF()) {
-    printELFFileHeader(O);
-    printELFDynamicSection(O);
-    printELFSymbolVersionInfo(O);
-    return;
-  }
-  if (O->isCOFF())
-    return printCOFFFileHeader(cast<object::COFFObjectFile>(*O));
-  if (O->isWasm())
-    return printWasmFileHeader(O);
-  if (O->isMachO()) {
-    printMachOFileHeader(O);
-    if (!OnlyFirst)
-      printMachOLoadCommands(O);
-    return;
-  }
-  reportError(O->getFileName(), "Invalid/Unsupported object file format");
+void Dumper::printPrivateHeaders(bool) {
+  reportError(O.getFileName(), "Invalid/Unsupported object file format");
 }
 
 static void printFileHeaders(const ObjectFile *O) {
@@ -2872,6 +2846,14 @@ static void checkForInvalidStartStopAddress(ObjectFile *Obj,
 
 static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
                        const Archive::Child *C = nullptr) {
+  Expected<std::unique_ptr<Dumper>> DumperOrErr = createDumper(*O);
+  if (!DumperOrErr) {
+    reportError(DumperOrErr.takeError(), O->getFileName(),
+                A ? A->getFileName() : "");
+    return;
+  }
+  Dumper &D = **DumperOrErr;
+
   // Avoid other output when using a raw option.
   if (!RawClangAST) {
     outs() << '\n';
@@ -2885,6 +2867,9 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
   if (HasStartAddressFlag || HasStopAddressFlag)
     checkForInvalidStartStopAddress(O, StartAddress, StopAddress);
 
+  // TODO: Change print* free functions to Dumper member functions to utilitize
+  // stateful functions like reportUniqueWarning.
+
   // Note: the order here matches GNU objdump for compatability.
   StringRef ArchiveName = A ? A->getFileName() : "";
   if (ArchiveHeaders && !MachOOpt && C)
@@ -2892,14 +2877,14 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
   if (FileHeaders)
     printFileHeaders(O);
   if (PrivateHeaders || FirstPrivateHeader)
-    printPrivateFileHeaders(O, FirstPrivateHeader);
+    D.printPrivateHeaders(FirstPrivateHeader);
   if (SectionHeaders)
     printSectionHeaders(*O);
   if (SymbolTable)
-    printSymbolTable(*O, ArchiveName);
+    D.printSymbolTable(ArchiveName);
   if (DynamicSymbolTable)
-    printSymbolTable(*O, ArchiveName, /*ArchitectureName=*/"",
-                     /*DumpDynamic=*/true);
+    D.printSymbolTable(ArchiveName, /*ArchitectureName=*/"",
+                       /*DumpDynamic=*/true);
   if (DwarfDumpType != DIDT_Null) {
     std::unique_ptr<DIContext> DICtx = DWARFContext::create(*O);
     // Dump the complete DWARF structure.
@@ -2908,9 +2893,9 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
     DICtx->dump(outs(), DumpOpts);
   }
   if (Relocations && !Disassemble)
-    printRelocations(O);
+    D.printRelocations();
   if (DynamicRelocations)
-    printDynamicRelocations(O);
+    D.printDynamicRelocations();
   if (SectionContents)
     printSectionContents(O);
 #if INTEL_CUSTOMIZATION

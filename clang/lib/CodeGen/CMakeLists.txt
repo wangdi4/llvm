@@ -164,6 +164,7 @@ add_clang_library(clangCodeGen
   DEPENDS
   ${codegen_deps}
   intrinsics_gen
+  ClangDriverOptions
 
   LINK_LIBS
   clangAST

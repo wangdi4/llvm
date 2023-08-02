@@ -111,6 +111,8 @@ std::string getTrapFuncName();
 
 bool getUseCtors();
 
+bool getDisableIntegratedAS();
+
 bool getRelaxELFRelocations();
 
 bool getDataSections();

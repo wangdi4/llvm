@@ -344,6 +344,9 @@ module std [system] {
       module pstl_backends_cpu_backends_for_each {
         private header "__algorithm/pstl_backends/cpu_backends/for_each.h"
       }
+      module pstl_backends_cpu_backends_libdispatch {
+        private header "__algorithm/pstl_backends/cpu_backends/libdispatch.h"
+      }
       module pstl_backends_cpu_backends_merge {
         private header "__algorithm/pstl_backends/cpu_backends/merge.h"
       }
@@ -1143,55 +1146,56 @@ module std [system] {
         export type_traits.is_reference
         export type_traits.remove_cvref
       }
-      module counted_iterator      { private header "__iterator/counted_iterator.h" }
-      module data                  { private header "__iterator/data.h" }
-      module default_sentinel      { private header "__iterator/default_sentinel.h" }
-      module distance              {
+      module counted_iterator       { private header "__iterator/counted_iterator.h" }
+      module data                   { private header "__iterator/data.h" }
+      module default_sentinel       { private header "__iterator/default_sentinel.h" }
+      module distance               {
         private header "__iterator/distance.h"
         export ranges.__ranges.size
       }
-      module empty                 { private header "__iterator/empty.h" }
-      module erase_if_container    { private header "__iterator/erase_if_container.h" }
-      module front_insert_iterator { private header "__iterator/front_insert_iterator.h" }
-      module incrementable_traits  { private header "__iterator/incrementable_traits.h" }
-      module indirectly_comparable { private header "__iterator/indirectly_comparable.h" }
-      module insert_iterator       { private header "__iterator/insert_iterator.h" }
-      module istream_iterator      { private header "__iterator/istream_iterator.h" }
-      module istreambuf_iterator   { private header "__iterator/istreambuf_iterator.h" }
-      module iter_move             { private header "__iterator/iter_move.h" }
-      module iter_swap             { private header "__iterator/iter_swap.h" }
-      module iterator              { private header "__iterator/iterator.h" }
-      module iterator_traits       {
+      module empty                  { private header "__iterator/empty.h" }
+      module erase_if_container     { private header "__iterator/erase_if_container.h" }
+      module front_insert_iterator  { private header "__iterator/front_insert_iterator.h" }
+      module incrementable_traits   { private header "__iterator/incrementable_traits.h" }
+      module indirectly_comparable  { private header "__iterator/indirectly_comparable.h" }
+      module insert_iterator        { private header "__iterator/insert_iterator.h" }
+      module istream_iterator       { private header "__iterator/istream_iterator.h" }
+      module istreambuf_iterator    { private header "__iterator/istreambuf_iterator.h" }
+      module iter_move              { private header "__iterator/iter_move.h" }
+      module iter_swap              { private header "__iterator/iter_swap.h" }
+      module iterator               { private header "__iterator/iterator.h" }
+      module iterator_traits        {
         private header "__iterator/iterator_traits.h"
         export type_traits.is_primary_template
       }
-      module iterator_with_data    { private header "__iterator/iterator_with_data.h" }
+      module iterator_with_data     { private header "__iterator/iterator_with_data.h" }
       module mergeable {
         private header "__iterator/mergeable.h"
         export functional.__functional.ranges_operations
       }
-      module move_iterator         { private header "__iterator/move_iterator.h" }
-      module move_sentinel         { private header "__iterator/move_sentinel.h" }
-      module next                  { private header "__iterator/next.h" }
-      module ostream_iterator      { private header "__iterator/ostream_iterator.h" }
-      module ostreambuf_iterator   {
+      module move_iterator          { private header "__iterator/move_iterator.h" }
+      module move_sentinel          { private header "__iterator/move_sentinel.h" }
+      module next                   { private header "__iterator/next.h" }
+      module ostream_iterator       { private header "__iterator/ostream_iterator.h" }
+      module ostreambuf_iterator    {
         private header "__iterator/ostreambuf_iterator.h"
         export iosfwd
       }
-      module permutable            { private header "__iterator/permutable.h" }
-      module prev                  { private header "__iterator/prev.h" }
-      module projected             { private header "__iterator/projected.h" }
-      module readable_traits       { private header "__iterator/readable_traits.h" }
-      module reverse_access        { private header "__iterator/reverse_access.h" }
-      module reverse_iterator      { private header "__iterator/reverse_iterator.h" }
-      module segmented_iterator    { private header "__iterator/segmented_iterator.h" }
-      module size                  { private header "__iterator/size.h" }
+      module permutable             { private header "__iterator/permutable.h" }
+      module prev                   { private header "__iterator/prev.h" }
+      module projected              { private header "__iterator/projected.h" }
+      module ranges_iterator_traits { private header "__iterator/ranges_iterator_traits.h" }
+      module readable_traits        { private header "__iterator/readable_traits.h" }
+      module reverse_access         { private header "__iterator/reverse_access.h" }
+      module reverse_iterator       { private header "__iterator/reverse_iterator.h" }
+      module segmented_iterator     { private header "__iterator/segmented_iterator.h" }
+      module size                   { private header "__iterator/size.h" }
       module sortable {
         private header "__iterator/sortable.h"
         export functional.__functional.ranges_operations
       }
-      module unreachable_sentinel  { private header "__iterator/unreachable_sentinel.h" }
-      module wrap_iter             { private header "__iterator/wrap_iter.h" }
+      module unreachable_sentinel   { private header "__iterator/unreachable_sentinel.h" }
+      module wrap_iter              { private header "__iterator/wrap_iter.h" }
     }
   }
   module latch {
@@ -1236,6 +1240,7 @@ module std [system] {
     export *
 
     module __mdspan {
+      module default_accessor                { private header "__mdspan/default_accessor.h" }
       module extents                         {
         private header "__mdspan/extents.h"
         export array
@@ -1366,6 +1371,10 @@ module std [system] {
     @requires_LIBCXX_ENABLE_LOCALIZATION@
     header "ostream"
     // FIXME: should re-export ios, streambuf?
+    export *
+  }
+  module print {
+    header "print"
     export *
   }
   module queue {
@@ -1619,6 +1628,7 @@ module std [system] {
 
     module __thread {
       module formatter            { private header "__thread/formatter.h" }
+      module id                   { private header "__thread/id.h" }
       module poll_with_backoff    { private header "__thread/poll_with_backoff.h" }
       module this_thread          { private header "__thread/this_thread.h" }
       module thread               { private header "__thread/thread.h" }

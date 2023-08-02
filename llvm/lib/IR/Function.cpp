@@ -947,11 +947,13 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
   std::string Result;
   if (PointerType *PTyp = dyn_cast<PointerType>(Ty)) {
     Result += "p" + utostr(PTyp->getAddressSpace());
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     // Opaque pointer doesn't have pointee type information, so we just mangle
     // address space for opaque pointer.
     if (!PTyp->isOpaque())
       Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
                                   HasUnnamedType);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);
@@ -1242,6 +1244,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
                                              ArgInfo));
     return;
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IIT_PTR_TO_ARG: {
     unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::PtrToArgument,
@@ -1260,6 +1263,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
         IITDescriptor::get(IITDescriptor::AnyPtrToElt, ArgNo, RefNo));
     return;
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   case IIT_VEC_OF_ANYPTRS_TO_ELT: {
     unsigned short ArgNo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     unsigned short RefNo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
@@ -1426,6 +1430,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
       return VectorType::get(EltTy, VTy->getElementCount());
     return EltTy;
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::PtrToArgument: {
     Type *Ty = Tys[D.getArgumentNumber()];
     return PointerType::getUnqual(Ty);
@@ -1438,6 +1443,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
     Type *EltTy = VTy->getElementType();
     return PointerType::getUnqual(EltTy);
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::VecElementArgument: {
     Type *Ty = Tys[D.getArgumentNumber()];
     if (VectorType *VTy = dyn_cast<VectorType>(Ty))
@@ -1453,9 +1459,11 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::VecOfAnyPtrsToElt:
     // Return the overloaded type (which determines the pointers address space)
     return Tys[D.getOverloadArgNumber()];
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::AnyPtrToElt:
     // Return the overloaded type (which determines the pointers address space)
     return Tys[D.getOverloadArgNumber()];
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
   llvm_unreachable("unhandled");
 }
@@ -1684,6 +1692,7 @@ static bool matchIntrinsicType(
       return matchIntrinsicType(EltTy, Infos, ArgTys, DeferredChecks,
                                 IsDeferredCheck);
     }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     case IITDescriptor::PtrToArgument: {
       if (D.getArgumentNumber() >= ArgTys.size())
         return IsDeferredCheck || DeferCheck(Ty);
@@ -1728,6 +1737,7 @@ static bool matchIntrinsicType(
       return !ThisArgType->isOpaqueOrPointeeTypeMatches(
           ReferenceType->getElementType());
     }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     case IITDescriptor::VecOfAnyPtrsToElt: {
       unsigned RefArgNumber = D.getRefArgNumber();
       if (RefArgNumber >= ArgTys.size()) {
@@ -1753,12 +1763,7 @@ static bool matchIntrinsicType(
       if (!ThisArgVecTy || !ReferenceType ||
           (ReferenceType->getElementCount() != ThisArgVecTy->getElementCount()))
         return true;
-      PointerType *ThisArgEltTy =
-          dyn_cast<PointerType>(ThisArgVecTy->getElementType());
-      if (!ThisArgEltTy)
-        return true;
-      return !ThisArgEltTy->isOpaqueOrPointeeTypeMatches(
-          ReferenceType->getElementType());
+      return !ThisArgVecTy->getElementType()->isPointerTy();
     }
     case IITDescriptor::VecElementArgument: {
       if (D.getArgumentNumber() >= ArgTys.size())

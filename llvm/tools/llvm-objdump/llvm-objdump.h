@@ -35,6 +35,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/FormattedStream.h"
+#include <memory>
 
 namespace llvm {
 class StringRef;
@@ -47,6 +48,12 @@ class Arg;
 namespace object {
 class RelocationRef;
 struct VersionEntry;
+
+class COFFObjectFile;
+class ELFObjectFileBase;
+class MachOObjectFile;
+class WasmObjectFile;
+class XCOFFObjectFile;
 } // namespace object
 
 namespace objdump {
@@ -84,6 +91,35 @@ extern bool UnwindInfo;
 
 extern StringSet<> FoundSectionSet;
 
+class Dumper {
+  const object::ObjectFile &O;
+  StringSet<> Warnings;
+
+public:
+  Dumper(const object::ObjectFile &O) : O(O) {}
+  virtual ~Dumper() {}
+
+  void reportUniqueWarning(Error Err);
+  void reportUniqueWarning(const Twine &Msg);
+
+  virtual void printPrivateHeaders(bool MachOOnlyFirst);
+  virtual void printDynamicRelocations() {}
+  void printSymbolTable(StringRef ArchiveName,
+                        StringRef ArchitectureName = StringRef(),
+                        bool DumpDynamic = false);
+  void printSymbol(const object::SymbolRef &Symbol,
+                   ArrayRef<object::VersionEntry> SymbolVersions,
+                   StringRef FileName, StringRef ArchiveName,
+                   StringRef ArchitectureName, bool DumpDynamic);
+  void printRelocations();
+};
+
+std::unique_ptr<Dumper> createCOFFDumper(const object::COFFObjectFile &Obj);
+std::unique_ptr<Dumper> createELFDumper(const object::ELFObjectFileBase &Obj);
+std::unique_ptr<Dumper> createMachODumper(const object::MachOObjectFile &Obj);
+std::unique_ptr<Dumper> createWasmDumper(const object::WasmObjectFile &Obj);
+std::unique_ptr<Dumper> createXCOFFDumper(const object::XCOFFObjectFile &Obj);
+
 // Various helper functions.
 
 /// Creates a SectionFilter with a standard predicate that conditionally skips
@@ -96,17 +132,8 @@ object::SectionFilter ToolSectionFilter(const llvm::object::ObjectFile &O,
                                         uint64_t *Idx = nullptr);
 
 bool isRelocAddressLess(object::RelocationRef A, object::RelocationRef B);
-void printRelocations(const object::ObjectFile *O);
-void printDynamicRelocations(const object::ObjectFile *O);
 void printSectionHeaders(object::ObjectFile &O);
 void printSectionContents(const object::ObjectFile *O);
-void printSymbolTable(const object::ObjectFile &O, StringRef ArchiveName,
-                      StringRef ArchitectureName = StringRef(),
-                      bool DumpDynamic = false);
-void printSymbol(const object::ObjectFile &O, const object::SymbolRef &Symbol,
-                 ArrayRef<object::VersionEntry> SymbolVersions,
-                 StringRef FileName, StringRef ArchiveName,
-                 StringRef ArchitectureName, bool DumpDynamic);
 [[noreturn]] void reportError(StringRef File, const Twine &Message);
 [[noreturn]] void reportError(Error E, StringRef FileName,
                               StringRef ArchiveName = "",

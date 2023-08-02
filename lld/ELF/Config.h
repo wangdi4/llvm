@@ -31,6 +31,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/ELF.h"
@@ -40,6 +41,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include <atomic>
@@ -111,6 +113,9 @@ enum class SeparateSegmentKind { None, Code, Loadable };
 // For -z *stack
 enum class GnuStackKind { None, Exec, NoExec };
 
+// For --lto=
+enum LtoKind : uint8_t {UnifiedThin, UnifiedRegular, Default};
+
 struct SymbolVersion {
   llvm::StringRef name;
   bool isExternCpp;
@@ -146,7 +151,6 @@ private:
 
   std::unique_ptr<BitcodeCompiler> lto;
   std::vector<InputFile *> files;
-  std::optional<InputFile *> armCmseImpLib;
 
 #if INTEL_CUSTOMIZATION
   // Helper function for finding the ELF target used for GNU LTO files and
@@ -206,8 +210,6 @@ struct Config {
   llvm::StringRef thinLTOCacheDir;
   llvm::StringRef thinLTOIndexOnlyArg;
   llvm::StringRef whyExtract;
-  llvm::StringRef cmseInputLib;
-  llvm::StringRef cmseOutputLib;
   StringRef zBtiReport = "none";
   StringRef zCetReport = "none";
   llvm::StringRef ltoBasicBlockSections;
@@ -230,13 +232,11 @@ struct Config {
   llvm::MapVector<std::pair<const InputSectionBase *, const InputSectionBase *>,
                   uint64_t>
       callGraphProfile;
-  bool cmseImplib = false;
   bool allowMultipleDefinition;
   bool androidPackDynRelocs = false;
   bool armHasBlx = false;
   bool armHasMovtMovw = false;
   bool armJ1J2BranchEncoding = false;
-  bool armCMSESupport = false;
   bool asNeeded = false;
   bool armBe8 = false;
   BsymbolicKind bsymbolic = BsymbolicKind::None;
@@ -452,6 +452,9 @@ struct Config {
   // not supported on Android 11 & 12.
   bool androidMemtagStack;
 
+  // When using a unified pre-link LTO pipeline, specify the backend LTO mode.
+  LtoKind ltoKind = LtoKind::Default;
+
   unsigned threadCount;
 
   // If an input file equals a key, remap it to the value.
@@ -499,6 +502,7 @@ struct Ctx {
   llvm::DenseMap<const Symbol *,
                  std::pair<const InputFile *, const InputFile *>>
       backwardReferences;
+  llvm::SmallSet<llvm::StringRef, 0> auxiliaryFiles;
   // True if SHT_LLVM_SYMPART is used.
   std::atomic<bool> hasSympart{false};
   // True if there are TLS IE relocations. Set DF_STATIC_TLS if -shared.
@@ -507,6 +511,8 @@ struct Ctx {
   std::atomic<bool> needsTlsLd{false};
 
   void reset();
+
+  llvm::raw_fd_ostream openAuxiliaryFile(llvm::StringRef, std::error_code &);
 };
 
 LLVM_LIBRARY_VISIBILITY extern Ctx ctx;

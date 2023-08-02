@@ -28,6 +28,7 @@ add_llvm_component_library(LLVMCore
   ConstantRange.cpp
   Constants.cpp
   Core.cpp
+  CycleInfo.cpp
   DIBuilder.cpp
   DataLayout.cpp
   DebugInfo.cpp

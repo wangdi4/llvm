@@ -24,7 +24,7 @@ define void @test_01(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_NEXT:%.*]], [[IN_BOUNDS:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IDX_NEXT]] = add i32 [[IDX]], 7
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], 7
 ; CHECK-NEXT:    [[ABC:%.*]] = icmp slt i32 [[IDX]], [[EXIT_MAINLOOP_AT]]
 ; CHECK-NEXT:    br i1 true, label [[IN_BOUNDS]], label [[OUT_OF_BOUNDS_LOOPEXIT1:%.*]]
 ; CHECK:       in.bounds:
@@ -62,7 +62,7 @@ define void @test_01(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    [[ADDR_POSTLOOP:%.*]] = getelementptr i32, ptr [[ARR]], i32 [[IDX_POSTLOOP]]
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_POSTLOOP:%.*]] = icmp slt i32 [[IDX_NEXT_POSTLOOP]], 100
-; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP1:![0-9]+]], !irce.loop.clone [[META6:![0-9]+]] ;INTEL
+; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP1:![0-9]+]], !irce.loop.clone [[META6:![0-9]+]]
 ;
 
 entry:
@@ -100,7 +100,7 @@ define void @test_02(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_NEXT:%.*]], [[IN_BOUNDS:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IDX_NEXT]] = add i32 [[IDX]], 7
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], 7
 ; CHECK-NEXT:    [[ABC:%.*]] = icmp slt i32 [[IDX]], [[EXIT_MAINLOOP_AT]]
 ; CHECK-NEXT:    br i1 true, label [[IN_BOUNDS]], label [[OUT_OF_BOUNDS_LOOPEXIT1:%.*]]
 ; CHECK:       in.bounds:
@@ -138,7 +138,7 @@ define void @test_02(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    [[ADDR_POSTLOOP:%.*]] = getelementptr i32, ptr [[ARR]], i32 [[IDX_POSTLOOP]]
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_POSTLOOP:%.*]] = icmp slt i32 [[IDX_NEXT_POSTLOOP]], 2147483640
-; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP7:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP7:![0-9]+]], !irce.loop.clone [[META6]]
 ;
 
 entry:
@@ -177,7 +177,7 @@ define void @test_03(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_NEXT:%.*]], [[IN_BOUNDS:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IDX_NEXT]] = add i32 [[IDX]], 7
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], 7
 ; CHECK-NEXT:    [[ABC:%.*]] = icmp slt i32 [[IDX]], [[EXIT_MAINLOOP_AT]]
 ; CHECK-NEXT:    br i1 true, label [[IN_BOUNDS]], label [[OUT_OF_BOUNDS_LOOPEXIT1:%.*]]
 ; CHECK:       in.bounds:
@@ -215,7 +215,7 @@ define void @test_03(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    [[ADDR_POSTLOOP:%.*]] = getelementptr i32, ptr [[ARR]], i32 [[IDX_POSTLOOP]]
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_POSTLOOP:%.*]] = icmp slt i32 [[IDX_NEXT_POSTLOOP]], 2147483647
-; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP9:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP9:![0-9]+]], !irce.loop.clone [[META6]]
 ;
 
 entry:
@@ -255,7 +255,7 @@ define void @test_04(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_NEXT:%.*]], [[IN_BOUNDS:%.*]] ], [ 0, [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[IDX_NEXT]] = add i32 [[IDX]], 7
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], 7
 ; CHECK-NEXT:    [[ABC:%.*]] = icmp slt i32 [[IDX]], [[EXIT_MAINLOOP_AT]]
 ; CHECK-NEXT:    br i1 true, label [[IN_BOUNDS]], label [[OUT_OF_BOUNDS_LOOPEXIT1:%.*]]
 ; CHECK:       in.bounds:
@@ -293,7 +293,7 @@ define void @test_04(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    [[ADDR_POSTLOOP:%.*]] = getelementptr i32, ptr [[ARR]], i32 [[IDX_POSTLOOP]]
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_POSTLOOP:%.*]] = icmp slt i32 [[IDX_NEXT_POSTLOOP]], 2147483647
-; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP11:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[NEXT_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT:%.*]], !llvm.loop [[LOOP11:![0-9]+]], !irce.loop.clone [[META6]]
 ;
 
 
@@ -336,7 +336,7 @@ define void @test_05(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IDX:%.*]] = phi i32 [ [[IDX_PRELOOP_COPY:%.*]], [[MAINLOOP:%.*]] ], [ [[IDX_NEXT:%.*]], [[IN_BOUNDS:%.*]] ]
-; CHECK-NEXT:    [[IDX_NEXT]] = add i32 [[IDX]], -7
+; CHECK-NEXT:    [[IDX_NEXT]] = add nsw i32 [[IDX]], -7
 ; CHECK-NEXT:    [[ABC:%.*]] = icmp slt i32 [[IDX]], [[LEN]]
 ; CHECK-NEXT:    br i1 true, label [[IN_BOUNDS]], label [[OUT_OF_BOUNDS_LOOPEXIT1:%.*]]
 ; CHECK:       in.bounds:
@@ -364,7 +364,7 @@ define void @test_05(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_PRELOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_PRELOOP:%.*]] = icmp sgt i32 [[IDX_NEXT_PRELOOP]], -1
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[IDX_NEXT_PRELOOP]], [[EXIT_PRELOOP_AT]]
-; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP12:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP12:![0-9]+]], !irce.loop.clone [[META6]]
 ; CHECK:       preloop.exit.selector:
 ; CHECK-NEXT:    [[IDX_NEXT_PRELOOP_LCSSA:%.*]] = phi i32 [ [[IDX_NEXT_PRELOOP]], [[IN_BOUNDS_PRELOOP]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp sgt i32 [[IDX_NEXT_PRELOOP_LCSSA]], -1
@@ -441,7 +441,7 @@ define void @test_06(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_PRELOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_PRELOOP:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP]], 6
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP]], [[EXIT_PRELOOP_AT]]
-; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP14:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP14:![0-9]+]], !irce.loop.clone [[META6]]
 ; CHECK:       preloop.exit.selector:
 ; CHECK-NEXT:    [[IDX_NEXT_PRELOOP_LCSSA:%.*]] = phi i32 [ [[IDX_NEXT_PRELOOP]], [[IN_BOUNDS_PRELOOP]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP_LCSSA]], 6
@@ -565,7 +565,7 @@ define void @test_08(ptr %arr, ptr %a_len_ptr) {
 ; CHECK-NEXT:    store i32 0, ptr [[ADDR_PRELOOP]], align 4
 ; CHECK-NEXT:    [[NEXT_PRELOOP:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP]], 6
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP]], [[EXIT_PRELOOP_AT]]
-; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP15:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP_PRELOOP]], label [[PRELOOP_EXIT_SELECTOR:%.*]], !llvm.loop [[LOOP15:![0-9]+]], !irce.loop.clone [[META6]]
 ; CHECK:       preloop.exit.selector:
 ; CHECK-NEXT:    [[IDX_NEXT_PRELOOP_LCSSA:%.*]] = phi i32 [ [[IDX_NEXT_PRELOOP]], [[IN_BOUNDS_PRELOOP]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ugt i32 [[IDX_NEXT_PRELOOP_LCSSA]], 6
@@ -674,7 +674,7 @@ define i32 @test_09(ptr %p, ptr %capacity_p, ptr %num_elements_p) {
 ; CHECK-NEXT:    store i32 1, ptr [[EL_PTR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[IV_NEXT_POSTLOOP]] = add nuw nsw i32 [[IV_POSTLOOP]], 4
 ; CHECK-NEXT:    [[LOOP_COND_POSTLOOP:%.*]] = icmp slt i32 [[IV_NEXT_POSTLOOP]], [[NUM_ELEMENTS]]
-; CHECK-NEXT:    br i1 [[LOOP_COND_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT]], !llvm.loop [[LOOP18:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[LOOP_COND_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT]], !llvm.loop [[LOOP18:![0-9]+]], !irce.loop.clone [[META6]]
 ;
 entry:
   %capacity = load i32, ptr %capacity_p, !range !4
@@ -827,7 +827,7 @@ define i32 @test_11(ptr %p, ptr %capacity_p, ptr %num_elements_p) {
 ; CHECK-NEXT:    store i32 1, ptr [[EL_PTR_POSTLOOP]], align 4
 ; CHECK-NEXT:    [[IV_NEXT_POSTLOOP]] = add nuw nsw i32 [[IV_POSTLOOP]], 4
 ; CHECK-NEXT:    [[LOOP_COND_POSTLOOP:%.*]] = icmp slt i32 [[IV_NEXT_POSTLOOP]], [[NUM_ELEMENTS]]
-; CHECK-NEXT:    br i1 [[LOOP_COND_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT]], !llvm.loop [[LOOP19:![0-9]+]], !irce.loop.clone [[META6]] ;INTEL
+; CHECK-NEXT:    br i1 [[LOOP_COND_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT]], !llvm.loop [[LOOP20:![0-9]+]], !irce.loop.clone [[META6]]
 ;
 entry:
   %capacity = load i32, ptr %capacity_p, !range !4

@@ -23,7 +23,7 @@ using namespace __llvm_libc;
 static_assert(sizeof(rpc_buffer_t) == sizeof(rpc::Buffer),
               "Buffer size mismatch");
 
-static_assert(RPC_MAXIMUM_PORT_COUNT == rpc::DEFAULT_PORT_COUNT,
+static_assert(RPC_MAXIMUM_PORT_COUNT == rpc::MAX_PORT_COUNT,
               "Incorrect maximum port count");
 
 // The client needs to support different lane sizes for the SIMT model. Because
@@ -231,7 +231,7 @@ rpc_status_t rpc_init(uint32_t num_devices) {
 }
 
 rpc_status_t rpc_shutdown(void) {
-  if (state->reference_count-- == 1)
+  if (state && state->reference_count-- == 1)
     delete state;
 
   return RPC_STATUS_SUCCESS;

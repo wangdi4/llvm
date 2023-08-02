@@ -55,8 +55,9 @@ The new requirements are as follows:
 Changes to the LLVM IR
 ----------------------
 
-* Typed pointers are no longer supported. See the `opaque pointers
-  <OpaquePointers.html>`__ documentation for migration instructions.
+* Typed pointers are no longer supported and the ``-opaque-pointers`` option
+  has been removed. See the `opaque pointers <OpaquePointers.html>`__
+  documentation for migration instructions.
 
 * The ``nofpclass`` attribute was introduced. This allows more
   optimizations around special floating point value comparisons.
@@ -69,6 +70,10 @@ Changes to the LLVM IR
   removed:
 
   * ``select``
+
+* Introduced a set of experimental `convergence control intrinsics
+  <ConvergentOperations.html>`__ to explicitly define the semantics of convergent
+  operations.
 
 Changes to LLVM infrastructure
 ------------------------------
@@ -259,7 +264,10 @@ Changes to the RISC-V Backend
 Changes to the WebAssembly Backend
 ----------------------------------
 
-* ...
+* Function annotations (``__attribute__((annotate(<name>)))``)
+  now generate custom sections in the Wasm output file. A custom section
+  for each unique name will be created that contains each function
+  index the annotation applies to.
 
 Changes to the Windows Target
 -----------------------------

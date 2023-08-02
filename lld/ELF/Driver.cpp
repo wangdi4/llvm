@@ -126,6 +126,14 @@ void Ctx::reset() {
   needsTlsLd.store(false, std::memory_order_relaxed);
 }
 
+llvm::raw_fd_ostream Ctx::openAuxiliaryFile(llvm::StringRef filename,
+                                            std::error_code &ec) {
+  using namespace llvm::sys::fs;
+  OpenFlags flags =
+      auxiliaryFiles.insert(filename).second ? OF_None : OF_Append;
+  return {filename, ec, flags};
+}
+
 namespace lld {
 namespace elf {
 bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
@@ -461,22 +469,6 @@ static void checkOptions() {
   // table which is a relatively new feature.
   if (config->emachine == EM_MIPS && config->gnuHash)
     error("the .gnu.hash section is not compatible with the MIPS target");
-
-  if (config->emachine == EM_ARM) {
-    if (!config->cmseImplib) {
-      if (!config->cmseInputLib.empty())
-        error("--in-implib may not be used without --cmse-implib");
-      if (!config->cmseOutputLib.empty())
-        error("--out-implib may not be used without --cmse-implib");
-    }
-  } else {
-    if (config->cmseImplib)
-      error("--cmse-implib is only supported on ARM targets");
-    if (!config->cmseInputLib.empty())
-      error("--in-implib is only supported on ARM targets");
-    if (!config->cmseOutputLib.empty())
-      error("--out-implib is only supported on ARM targets");
-  }
 
   if (config->fixCortexA53Errata843419 && config->emachine != EM_AARCH64)
     error("--fix-cortex-a53-843419 is only supported on AArch64 targets");
@@ -1297,9 +1289,6 @@ static void readConfigs(opt::InputArgList &args) {
   config->fini = args.getLastArgValue(OPT_fini, "_fini");
   config->fixCortexA53Errata843419 = args.hasArg(OPT_fix_cortex_a53_843419) &&
                                      !args.hasArg(OPT_relocatable);
-  config->cmseImplib = args.hasArg(OPT_cmse_implib);
-  config->cmseInputLib = args.getLastArgValue(OPT_in_implib);
-  config->cmseOutputLib = args.getLastArgValue(OPT_out_implib);
   config->fixCortexA8 =
       args.hasArg(OPT_fix_cortex_a8) && !args.hasArg(OPT_relocatable);
   config->fortranCommon =
@@ -1618,6 +1607,19 @@ static void readConfigs(opt::InputArgList &args) {
     config->mllvmOpts.emplace_back(arg->getValue());
   }
 
+  config->ltoKind = LtoKind::Default;
+  if (auto *arg = args.getLastArg(OPT_lto)) {
+    StringRef s = arg->getValue();
+    if (s == "thin")
+      config->ltoKind = LtoKind::UnifiedThin;
+    else if (s == "full")
+      config->ltoKind = LtoKind::UnifiedRegular;
+    else if (s == "default")
+      config->ltoKind = LtoKind::Default;
+    else
+      error("unknown LTO mode: " + s);
+  }
+
   // --threads= takes a positive integer and provides the default value for
   // --thinlto-jobs=. If unspecified, cap the number of threads since
   // overhead outweighs optimization for used parallel algorithms for the
@@ -1906,12 +1908,6 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
         files.push_back(createObjFile(*mb));
         files.back()->justSymbols = true;
       }
-      break;
-    case OPT_in_implib:
-      if (armCmseImpLib)
-        error("multiple CMSE import libraries not supported");
-      else if (std::optional<MemoryBufferRef> mb = readFile(arg->getValue()))
-        armCmseImpLib = createObjFile(*mb);
       break;
     case OPT_start_group:
       if (InputFile::isInGroup)
@@ -2371,7 +2367,7 @@ static void writeArchiveStats() {
     return;
 
   std::error_code ec;
-  raw_fd_ostream os(config->printArchiveStats, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->printArchiveStats, ec);
   if (ec) {
     error("--print-archive-stats=: cannot open " + config->printArchiveStats +
           ": " + ec.message());
@@ -2401,7 +2397,7 @@ static void writeWhyExtract() {
     return;
 
   std::error_code ec;
-  raw_fd_ostream os(config->whyExtract, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->whyExtract, ec);
   if (ec) {
     error("cannot open --why-extract= file " + config->whyExtract + ": " +
           ec.message());
@@ -2460,7 +2456,7 @@ static void reportBackrefs() {
 // easily.
 static void writeDependencyFile() {
   std::error_code ec;
-  raw_fd_ostream os(config->dependencyFile, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->dependencyFile, ec);
   if (ec) {
     error("cannot open " + config->dependencyFile + ": " + ec.message());
     return;
@@ -3035,8 +3031,6 @@ void LinkerDriver::link(opt::InputArgList &args) {
       llvm::TimeTraceScope timeScope("Parse input files", files[i]->getName());
       parseFile(files[i]);
     }
-    if (armCmseImpLib)
-      parseArmCMSEImportLib(*armCmseImpLib);
   }
 
   // Now that we have every file, we can decide if we will need a
@@ -3200,9 +3194,6 @@ void LinkerDriver::link(opt::InputArgList &args) {
   // versionId set by scanVersionScript().
   if (args.hasArg(OPT_exclude_libs))
     excludeLibs(args);
-
-  // Record [__acle_se_<sym>, <sym>] pairs for later processing.
-  processArmCmseSymbols();
 
   // Apply symbol renames for --wrap and combine foo@v1 and foo@@v1.
   redirectSymbols(wrapped);

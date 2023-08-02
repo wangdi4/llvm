@@ -130,7 +130,6 @@
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/ExtractFeatures.h" // INTEL
-#include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -230,7 +229,6 @@ cl::opt<bool> PGOWarnMissing("pgo-warn-missing-function", cl::init(false),
                              cl::desc("Use this option to turn on/off "
                                       "warnings about missing profile data for "
                                       "functions."));
-
 #if INTEL_CUSTOMIZATION
 // Debug trace messages for value profiling loop trip counts.
 #define DEBUG_VP_LOOPTC "pgo-vp-looptc"
@@ -2292,7 +2290,7 @@ static bool InstrumentAllFunctions(
 }
 
 PreservedAnalyses
-PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
+PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &MAM) {
   createProfileFileNameVar(M, CSInstrName);
   // The variable in a comdat may be discarded by LTO. Ensure the declaration
   // will be retained.
@@ -2304,8 +2302,8 @@ PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 PreservedAnalyses PGOInstrumentationGen::run(Module &M,
-                                             ModuleAnalysisManager &AM) {
-  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+                                             ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto LookupTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
@@ -2518,7 +2516,7 @@ static bool annotateAllFunctions(
     return false;
 
   // TODO: might need to change the warning once the clang option is finalized.
-  if (!PGOReader->isIRLevelProfile() && !PGOReader->hasMemoryProfile()) {
+  if (!PGOReader->isIRLevelProfile()) {
     Ctx.diagnose(DiagnosticInfoPGOProfile(
         ProfileFileName.data(), "Not an IR level instrumentation profile"));
     return false;
@@ -2576,14 +2574,6 @@ static bool annotateAllFunctions(
 #endif // INTEL_CUSTOMIZATION
     PGOUseFunc Func(F, &M, TLI, ComdatMembers, BPI, BFI, PSI, IsCS,
                     InstrumentFuncEntry, HasSingleByteCoverage);
-    // Read and match memprof first since we do this via debug info and can
-    // match even if there is an IR mismatch detected for regular PGO below.
-    if (PGOReader->hasMemoryProfile())
-      readMemprof(M, F, PGOReader.get(), TLI);
-
-    if (!PGOReader->isIRLevelProfile())
-      continue;
-
     if (HasSingleByteCoverage) {
       Func.populateCoverage(PGOReader.get());
       continue;
@@ -2762,9 +2752,9 @@ PGOInstrumentationUse::PGOInstrumentationUse(
 }
 
 PreservedAnalyses PGOInstrumentationUse::run(Module &M,
-                                             ModuleAnalysisManager &AM) {
+                                             ModuleAnalysisManager &MAM) {
 
-  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto LookupTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
@@ -2775,8 +2765,8 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
     return &FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
-  auto &CG = AM.getResult<CallGraphAnalysis>(M); // INTEL
-  auto *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
+  auto &CG = MAM.getResult<CallGraphAnalysis>(M); // INTEL
+  auto *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
 
   if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName, *FS,
                             LookupTLI, LookupBPI, LookupBFI, CG, PSI, // INTEL

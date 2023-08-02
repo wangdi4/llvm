@@ -45,7 +45,7 @@ struct PGOOptions {
   enum PGOAction { NoAction, IRInstr, IRUse, SampleUse, MLUse }; // INTEL
   enum CSPGOAction { NoCSAction, CSIRInstr, CSIRUse };
   PGOOptions(std::string ProfileFile, std::string CSProfileGenFile,
-             std::string ProfileRemappingFile,
+             std::string ProfileRemappingFile, std::string MemoryProfile,
              IntrusiveRefCntPtr<vfs::FileSystem> FS,
              PGOAction Action = NoAction, CSPGOAction CSAction = NoCSAction,
              bool DebugInfoForProfiling = false,
@@ -57,6 +57,7 @@ struct PGOOptions {
   std::string ProfileFile;
   std::string CSProfileGenFile;
   std::string ProfileRemappingFile;
+  std::string MemoryProfile;
   PGOAction Action;
   CSPGOAction CSAction;
   bool DebugInfoForProfiling;

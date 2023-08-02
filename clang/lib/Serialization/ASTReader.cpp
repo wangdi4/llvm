@@ -1901,6 +1901,21 @@ ASTReader::getGlobalPreprocessedEntityID(ModuleFile &M,
   return LocalID + I->second;
 }
 
+const FileEntry *HeaderFileInfoTrait::getFile(const internal_key_type &Key) {
+  FileManager &FileMgr = Reader.getFileManager();
+  if (!Key.Imported) {
+    if (auto File = FileMgr.getFile(Key.Filename))
+      return *File;
+    return nullptr;
+  }
+
+  std::string Resolved = std::string(Key.Filename);
+  Reader.ResolveImportedPath(M, Resolved);
+  if (auto File = FileMgr.getFile(Resolved))
+    return *File;
+  return nullptr;
+}
+
 unsigned HeaderFileInfoTrait::ComputeHash(internal_key_ref ikey) {
   return llvm::hash_combine(ikey.Size, ikey.ModTime);
 }
@@ -1921,23 +1936,8 @@ bool HeaderFileInfoTrait::EqualKey(internal_key_ref a, internal_key_ref b) {
     return true;
 
   // Determine whether the actual files are equivalent.
-  FileManager &FileMgr = Reader.getFileManager();
-  auto GetFile = [&](const internal_key_type &Key) -> const FileEntry* {
-    if (!Key.Imported) {
-      if (auto File = FileMgr.getFile(Key.Filename))
-        return *File;
-      return nullptr;
-    }
-
-    std::string Resolved = std::string(Key.Filename);
-    Reader.ResolveImportedPath(M, Resolved);
-    if (auto File = FileMgr.getFile(Resolved))
-      return *File;
-    return nullptr;
-  };
-
-  const FileEntry *FEA = GetFile(a);
-  const FileEntry *FEB = GetFile(b);
+  const FileEntry *FEA = getFile(a);
+  const FileEntry *FEB = getFile(b);
   return FEA && FEA == FEB;
 }
 
@@ -1966,6 +1966,14 @@ HeaderFileInfoTrait::ReadData(internal_key_ref key, const unsigned char *d,
   const unsigned char *End = d + DataLen;
   HeaderFileInfo HFI;
   unsigned Flags = *d++;
+
+  bool Included = (Flags >> 6) & 0x01;
+  if (Included)
+    if (const FileEntry *FE = getFile(key))
+      // Not using \c Preprocessor::markIncluded(), since that would attempt to
+      // deserialize this header file info again.
+      Reader.getPreprocessor().getIncludedFiles().insert(FE);
+
   // FIXME: Refactor with mergeHeaderFileInfo in HeaderSearch.cpp.
   HFI.isImport |= (Flags >> 5) & 0x01;
   HFI.isPragmaOnce |= (Flags >> 4) & 0x01;
@@ -3008,6 +3016,9 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       BaseDirectoryAsWritten = Blob;
       assert(!F.ModuleName.empty() &&
              "MODULE_DIRECTORY found before MODULE_NAME");
+      F.BaseDirectory = std::string(Blob);
+      if (!PP.getPreprocessorOpts().ModulesCheckRelocated)
+        break;
       // If we've already loaded a module map file covering this module, we may
       // have a better path for it (relative to the current build).
       Module *M = PP.getHeaderSearchInfo().lookupModule(
@@ -3029,8 +3040,6 @@ ASTReader::ReadControlBlock(ModuleFile &F,
           }
         }
         F.BaseDirectory = std::string(M->Directory->getName());
-      } else {
-        F.BaseDirectory = std::string(Blob);
       }
       break;
     }
@@ -3051,22 +3060,6 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       F.NumUserInputFiles = NumUserInputs;
       break;
     }
-  }
-}
-
-void ASTReader::readIncludedFiles(ModuleFile &F, StringRef Blob,
-                                  Preprocessor &PP) {
-  using namespace llvm::support;
-
-  const unsigned char *D = (const unsigned char *)Blob.data();
-  unsigned FileCount = endian::readNext<uint32_t, little, unaligned>(D);
-
-  for (unsigned I = 0; I < FileCount; ++I) {
-    size_t ID = endian::readNext<uint32_t, little, unaligned>(D);
-    InputFileInfo IFI = getInputFileInfo(F, ID);
-    if (llvm::ErrorOr<const FileEntry *> File =
-            PP.getFileManager().getFile(IFI.Filename))
-      PP.getIncludedFiles().insert(*File);
   }
 }
 
@@ -3821,10 +3814,6 @@ llvm::Error ASTReader::ReadASTBlock(ModuleFile &F,
       break;
     }
 
-    case PP_INCLUDED_FILES:
-      readIncludedFiles(F, Blob, PP);
-      break;
-
     case LATE_PARSED_TEMPLATE:
       LateParsedTemplates.emplace_back(
           std::piecewise_construct, std::forward_as_tuple(&F),
@@ -4028,7 +4017,8 @@ ASTReader::ReadModuleMapFileBlock(RecordData &Record, ModuleFile &F,
   // usable header search context.
   assert(!F.ModuleName.empty() &&
          "MODULE_NAME should come before MODULE_MAP_FILE");
-  if (F.Kind == MK_ImplicitModule && ModuleMgr.begin()->Kind != MK_MainFile) {
+  if (PP.getPreprocessorOpts().ModulesCheckRelocated &&
+      F.Kind == MK_ImplicitModule && ModuleMgr.begin()->Kind != MK_MainFile) {
     // An implicitly-loaded module file should have its module listed in some
     // module map file that we've already loaded.
     Module *M =
@@ -5645,7 +5635,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
       break;
 
     case SUBMODULE_DEFINITION: {
-      if (Record.size() < 12)
+      if (Record.size() < 13)
         return llvm::createStringError(std::errc::illegal_byte_sequence,
                                        "malformed module definition");
 
@@ -5654,6 +5644,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
       SubmoduleID GlobalID = getGlobalSubmoduleID(F, Record[Idx++]);
       SubmoduleID Parent = getGlobalSubmoduleID(F, Record[Idx++]);
       Module::ModuleKind Kind = (Module::ModuleKind)Record[Idx++];
+      SourceLocation DefinitionLoc = ReadSourceLocation(F, Record[Idx++]);
       bool IsFramework = Record[Idx++];
       bool IsExplicit = Record[Idx++];
       bool IsSystem = Record[Idx++];
@@ -5674,8 +5665,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
           ModMap.findOrCreateModule(Name, ParentModule, IsFramework, IsExplicit)
               .first;
 
-      // FIXME: set the definition loc for CurrentModule, or call
-      // ModMap.setInferredModuleAllowedBy()
+      // FIXME: Call ModMap.setInferredModuleAllowedBy()
 
       SubmoduleID GlobalIndex = GlobalID - NUM_PREDEF_SUBMODULE_IDS;
       if (GlobalIndex >= SubmodulesLoaded.size() ||
@@ -5704,6 +5694,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
       }
 
       CurrentModule->Kind = Kind;
+      CurrentModule->DefinitionLoc = DefinitionLoc;
       CurrentModule->Signature = F.Signature;
       CurrentModule->IsFromModuleFile = true;
       CurrentModule->IsSystem = IsSystem || CurrentModule->IsSystem;

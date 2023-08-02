@@ -1616,7 +1616,7 @@ bool MemCpyOptPass::processByValArgument(CallBase &CB, unsigned ArgNo) {
   //    foo(*a)
   // It would be invalid to transform the second memcpy into foo(*b).
   if (writtenBetween(MSSA, BAA, MemoryLocation::getForSource(MDep),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                      MSSA->getMemoryAccess(MDep), CallAccess))
 #else
                      MSSA->getMemoryAccess(MDep), MSSA->getMemoryAccess(&CB)))

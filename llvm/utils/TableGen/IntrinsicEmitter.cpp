@@ -410,6 +410,9 @@ std::optional<bool> compareFnAttributes(const CodeGenIntrinsic *L,
   if (L->hasSideEffects != R->hasSideEffects)
     return R->hasSideEffects;
 
+  if (L->isStrictFP != R->isStrictFP)
+    return R->isStrictFP;
+
   // Try to order by readonly/readnone attribute.
   uint32_t LK = L->ME.toIntValue();
   uint32_t RK = R->ME.toIntValue();
@@ -548,6 +551,8 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
       OS << "      Attribute::get(C, Attribute::Convergent),\n";
     if (Intrinsic.isSpeculatable)
       OS << "      Attribute::get(C, Attribute::Speculatable),\n";
+    if (Intrinsic.isStrictFP)
+      OS << "      Attribute::get(C, Attribute::StrictFP),\n";
 
     MemoryEffects ME = Intrinsic.ME;
     // TODO: IntrHasSideEffects should affect not only readnone intrinsics.
@@ -621,7 +626,8 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
         Intrinsic.isNoReturn || Intrinsic.isNoCallback || Intrinsic.isNoSync ||
         Intrinsic.isNoFree || Intrinsic.isWillReturn || Intrinsic.isCold ||
         Intrinsic.isNoDuplicate || Intrinsic.isNoMerge ||
-        Intrinsic.isConvergent || Intrinsic.isSpeculatable) {
+        Intrinsic.isConvergent || Intrinsic.isSpeculatable ||
+        Intrinsic.isStrictFP) {
       unsigned ID = UniqFnAttributes.find(&Intrinsic)->second;
       OS << "      AS[" << numAttrs++ << "] = {AttributeList::FunctionIndex, "
          << "getIntrinsicFnAttributeSet(C, " << ID << ")};\n";

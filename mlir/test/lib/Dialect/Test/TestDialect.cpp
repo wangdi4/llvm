@@ -1385,6 +1385,19 @@ LogicalResult OpWithInferTypeInterfaceOp::inferReturnTypes(
   return success();
 }
 
+LogicalResult OpWithInferTypeAdaptorInterfaceOp::inferReturnTypes(
+    MLIRContext *, std::optional<Location> location,
+    OpWithInferTypeAdaptorInterfaceOp::Adaptor adaptor,
+    SmallVectorImpl<Type> &inferredReturnTypes) {
+  if (adaptor.getX().getType() != adaptor.getY().getType()) {
+    return emitOptionalError(location, "operand type mismatch ",
+                             adaptor.getX().getType(), " vs ",
+                             adaptor.getY().getType());
+  }
+  inferredReturnTypes.assign({adaptor.getX().getType()});
+  return success();
+}
+
 // TODO: We should be able to only define either inferReturnType or
 // refineReturnType, currently only refineReturnType can be omitted.
 LogicalResult OpWithRefineTypeInterfaceOp::inferReturnTypes(
@@ -1931,6 +1944,46 @@ static ParseResult customParseProperties(OpAsmParser &parser,
     return failure();
   prop.label = std::make_shared<std::string>(std::move(label));
   return success();
+}
+
+static bool parseUsingPropertyInCustom(OpAsmParser &parser, int64_t value[3]) {
+  return parser.parseLSquare() || parser.parseInteger(value[0]) ||
+         parser.parseComma() || parser.parseInteger(value[1]) ||
+         parser.parseComma() || parser.parseInteger(value[2]) ||
+         parser.parseRSquare();
+}
+
+static void printUsingPropertyInCustom(OpAsmPrinter &printer, Operation *op,
+                                       ArrayRef<int64_t> value) {
+  printer << '[' << value << ']';
+}
+
+static bool parseIntProperty(OpAsmParser &parser, int64_t &value) {
+  return failed(parser.parseInteger(value));
+}
+
+static void printIntProperty(OpAsmPrinter &printer, Operation *op,
+                             int64_t value) {
+  printer << value;
+}
+
+static bool parseSumProperty(OpAsmParser &parser, int64_t &second,
+                             int64_t first) {
+  int64_t sum;
+  auto loc = parser.getCurrentLocation();
+  if (parser.parseInteger(second) || parser.parseEqual() ||
+      parser.parseInteger(sum))
+    return true;
+  if (sum != second + first) {
+    parser.emitError(loc, "Expected sum to equal first + second");
+    return true;
+  }
+  return false;
+}
+
+static void printSumProperty(OpAsmPrinter &printer, Operation *op,
+                             int64_t second, int64_t first) {
+  printer << second << " = " << (second + first);
 }
 
 #include "TestOpEnums.cpp.inc"

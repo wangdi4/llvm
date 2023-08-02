@@ -2267,11 +2267,13 @@ static std::vector<NMSymbol> dumpSymbolNamesFromFile(StringRef Filename) {
   if (error(BufferOrErr.getError(), Filename))
     return SymbolList;
 
+  LLVMContext Context;
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Always enable opaque pointers, to handle archives with mixed typed and
   // opaque pointer bitcode files gracefully. As we're only reading symbols,
   // the used pointer types don't matter.
-  LLVMContext Context;
   Context.setOpaquePointers(true);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   LLVMContext *ContextPtr = NoLLVMBitcode ? nullptr : &Context;
   Expected<std::unique_ptr<Binary>> BinaryOrErr =
       createBinary(BufferOrErr.get()->getMemBufferRef(), ContextPtr);

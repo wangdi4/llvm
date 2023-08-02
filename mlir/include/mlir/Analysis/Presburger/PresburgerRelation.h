@@ -64,6 +64,8 @@ public:
   /// exceeds that of some disjunct, an assert failure will occur.
   void setSpace(const PresburgerSpace &oSpace);
 
+  void insertVarInPlace(VarKind kind, unsigned pos, unsigned num = 1);
+
   /// Return a reference to the list of disjuncts.
   ArrayRef<IntegerRelation> getAllDisjuncts() const;
 
@@ -82,6 +84,18 @@ public:
 
   /// Return the intersection of this set and the given set.
   PresburgerRelation intersect(const PresburgerRelation &set) const;
+
+  /// Intersect the given `set` with the range in-place.
+  ///
+  /// Formally, let the relation `this` be R: A -> B and `set` is C, then this
+  /// operation modifies R to be A -> (B intersection C).
+  PresburgerRelation intersectRange(PresburgerSet &set);
+
+  /// Intersect the given `set` with the domain in-place.
+  ///
+  /// Formally, let the relation `this` be R: A -> B and `set` is C, then this
+  /// operation modifies R to be (A intersection C) -> B.
+  PresburgerRelation intersectDomain(const PresburgerSet &set);
 
   /// Invert the relation, i.e. swap its domain and range.
   ///
@@ -130,6 +144,17 @@ public:
   /// Return true if all the sets in the union are known to be integer empty
   /// false otherwise.
   bool isIntegerEmpty() const;
+
+  /// Return true if there is no disjunct, false otherwise.
+  bool isPlainEmpty() const;
+
+  /// Return true if the set is known to have one unconstrained disjunct, false
+  /// otherwise.
+  bool isPlainUniverse() const;
+
+  /// Return true if the set is consist of a single disjunct, without any local
+  /// variables, false otherwise.
+  bool isConvexNoLocals() const;
 
   /// Find an integer sample from the given set. This should not be called if
   /// any of the disjuncts in the union are unbounded.

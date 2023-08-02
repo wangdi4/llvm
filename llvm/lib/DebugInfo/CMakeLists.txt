@@ -24,3 +24,4 @@ add_subdirectory(Intel_Debug)     # INTEL
 add_subdirectory(Intel_TraceBack) # INTEL
 add_subdirectory(PDB)
 add_subdirectory(Symbolize)
+add_subdirectory(BTF)

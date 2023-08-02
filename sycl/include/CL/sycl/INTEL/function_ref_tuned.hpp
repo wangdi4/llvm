@@ -43,7 +43,7 @@
 #include <utility>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace INTEL {
 
 // Tag types to declare SIMD signature
@@ -203,5 +203,5 @@ constexpr auto make_function_ref_tuned() noexcept {
 }
 
 } // namespace INTEL
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

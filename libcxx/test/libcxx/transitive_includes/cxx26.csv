@@ -32,7 +32,6 @@ atomic cstdint
 atomic cstdlib
 atomic cstring
 atomic ctime
-atomic iosfwd
 atomic limits
 atomic ratio
 atomic version
@@ -40,7 +39,6 @@ barrier cstddef
 barrier cstdint
 barrier cstring
 barrier ctime
-barrier iosfwd
 barrier limits
 barrier new
 barrier ratio
@@ -58,6 +56,7 @@ bitset limits
 bitset new
 bitset stdexcept
 bitset string
+bitset string_view
 bitset version
 ccomplex complex
 charconv cerrno
@@ -72,7 +71,6 @@ chrono cmath
 chrono compare
 chrono cstddef
 chrono cstdint
-chrono cstdlib
 chrono ctime
 chrono initializer_list
 chrono limits
@@ -215,7 +213,6 @@ format array
 format cmath
 format cstddef
 format cstdint
-format cstdlib
 format initializer_list
 format limits
 format locale
@@ -330,7 +327,6 @@ latch cstddef
 latch cstdint
 latch cstring
 latch ctime
-latch iosfwd
 latch limits
 latch ratio
 latch version
@@ -427,7 +423,6 @@ numeric cstring
 numeric ctime
 numeric execution
 numeric initializer_list
-numeric iosfwd
 numeric limits
 numeric new
 numeric ratio
@@ -457,6 +452,22 @@ ostream streambuf
 ostream string
 ostream typeinfo
 ostream version
+print array
+print cerrno
+print cmath
+print cstddef
+print cstdint
+print cstdio
+print initializer_list
+print limits
+print locale
+print new
+print optional
+print stdexcept
+print string
+print string_view
+print tuple
+print version
 queue compare
 queue cstddef
 queue cstdint
@@ -519,7 +530,6 @@ semaphore cstddef
 semaphore cstdint
 semaphore cstring
 semaphore ctime
-semaphore iosfwd
 semaphore limits
 semaphore ratio
 semaphore version
@@ -536,7 +546,6 @@ set version
 shared_mutex cerrno
 shared_mutex cstddef
 shared_mutex ctime
-shared_mutex iosfwd
 shared_mutex limits
 shared_mutex ratio
 shared_mutex stdexcept
@@ -614,7 +623,6 @@ thread cerrno
 thread compare
 thread cstddef
 thread cstdint
-thread cstdlib
 thread ctime
 thread initializer_list
 thread iosfwd
@@ -622,6 +630,7 @@ thread limits
 thread locale
 thread new
 thread ratio
+thread sstream
 thread stdexcept
 thread string
 thread string_view
@@ -689,7 +698,6 @@ vector climits
 vector compare
 vector cstddef
 vector cstdint
-vector cstdlib
 vector cstring
 vector cwchar
 vector initializer_list

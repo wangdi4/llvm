@@ -53,6 +53,16 @@ public:
         kindMap{getKindMapping(mod)} {
     setListener(this);
   }
+  explicit FirOpBuilder(mlir::OpBuilder &builder, fir::KindMapping kindMap,
+                        mlir::Operation *op)
+      : OpBuilder(builder), OpBuilder::Listener(), kindMap{std::move(kindMap)} {
+    setListener(this);
+    auto fmi = mlir::dyn_cast<mlir::arith::ArithFastMathInterface>(*op);
+    if (fmi) {
+      // Set the builder with FastMathFlags attached to the operation.
+      setFastMathFlags(fmi.getFastMathFlagsAttr().getValue());
+    }
+  }
 
   // The listener self-reference has to be updated in case of copy-construction.
   FirOpBuilder(const FirOpBuilder &other)
@@ -455,6 +465,20 @@ public:
 
   /// Get current FastMathFlags value.
   mlir::arith::FastMathFlags getFastMathFlags() const { return fastMathFlags; }
+
+  /// Stringify FastMathFlags set in a way
+  /// that the string may be used for mangling a function name.
+  /// If FastMathFlags are set to 'none', then the result is an empty
+  /// string.
+  std::string getFastMathFlagsString() {
+    mlir::arith::FastMathFlags flags = getFastMathFlags();
+    if (flags == mlir::arith::FastMathFlags::none)
+      return {};
+
+    std::string fmfString{mlir::arith::stringifyFastMathFlags(flags)};
+    std::replace(fmfString.begin(), fmfString.end(), ',', '_');
+    return fmfString;
+  }
 
   /// Dump the current function. (debug)
   LLVM_DUMP_METHOD void dumpFunc();
