@@ -28,11 +28,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include "OmptCallback.h"
+#include "OmptInterface.h"
+>>>>>>> 00ccfcf9a6ee61c56cbe01d1e01b074797465fa4
 #include "device.h"
 #include "omptarget.h"
 #include "private.h"
@@ -46,6 +51,7 @@
 #include <mutex>
 #include <type_traits>
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #include <string.h>
 #endif  // INTEL_COLLAB
@@ -71,6 +77,9 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   return EncodedID;
 }
 #endif // INTEL_COLLAB
+=======
+using namespace llvm::omp::target::ompt;
+>>>>>>> 00ccfcf9a6ee61c56cbe01d1e01b074797465fa4
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
@@ -215,6 +224,11 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
                                            map_var_info_t *ArgNames,
                                            void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
+  /// RAII to establish tool anchors before and after data begin
+  InterfaceRAII TargetDataEnterRAII(
+      RegionInterface.getCallbacks<ompt_target_enter_data>(), DeviceId,
+      /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));
+
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataBegin,
                                 "Entering OpenMP data region", "begin");
@@ -241,6 +255,11 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
+  /// RAII to establish tool anchors before and after data end
+  InterfaceRAII TargetDataExitRAII(
+      RegionInterface.getCallbacks<ompt_target_exit_data>(), DeviceId,
+      /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));
+
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataEnd,
                                 "Exiting OpenMP data region", "end");
@@ -264,6 +283,11 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
+  /// RAII to establish tool anchors before and after data update
+  InterfaceRAII TargetDataUpdateRAII(
+      RegionInterface.getCallbacks<ompt_target_update>(), DeviceId,
+      /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));
+
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
       ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
@@ -380,6 +404,9 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
+  InterfaceRAII TargetDataAllocRAII(RegionInterface.getCallbacks<ompt_target>(),
+                                    DeviceId,
+                                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));
 
   int Rc = OFFLOAD_SUCCESS;
   Rc = target(Loc, Device, HostPtr, *KernelArgs, AsyncInfo);
@@ -462,6 +489,9 @@ EXTERN int __tgt_target_kernel_replay(ident_t *Loc, int64_t DeviceId,
     return OMP_TGT_FAIL;
   }
   DeviceTy &Device = *PM->Devices[DeviceId];
+  InterfaceRAII TargetDataAllocRAII(RegionInterface.getCallbacks<ompt_target>(),
+                                    DeviceId,
+                                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));
 
   AsyncInfoTy AsyncInfo(Device);
   int Rc = target_replay(Loc, Device, HostPtr, DeviceMemory, DeviceMemorySize,
