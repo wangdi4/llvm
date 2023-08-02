@@ -28,16 +28,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 
-=======
 #include "OmptCallback.h"
 #include "OmptInterface.h"
->>>>>>> 1dec417ac4a533e40f637cd1a7f0628803d9e634
 #include "device.h"
 #include "omptarget.h"
 #include "private.h"
@@ -51,7 +48,6 @@
 #include <mutex>
 #include <type_traits>
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #include <string.h>
 #endif  // INTEL_COLLAB
@@ -77,12 +73,10 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   return EncodedID;
 }
 #endif // INTEL_COLLAB
-=======
 #ifdef OMPT_SUPPORT
 using namespace llvm::omp::target::ompt;
 #endif
 
->>>>>>> 1dec417ac4a533e40f637cd1a7f0628803d9e634
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
 EXTERN void __tgt_register_requires(int64_t Flags) {
