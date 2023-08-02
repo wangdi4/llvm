@@ -2487,8 +2487,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     for (const auto &I : *TgtClauseArgs) {
       if (I.second) {
         OrderedInputs.insert(I.first);
-      } else if (any_of(inputs.begin(), inputs.end(),
-                        [I](Value *V) { return V == I.first; })) {
+      } else if (any_of(inputs, [I](Value *V) { return V == I.first; })) {
         OrderedInputs.insert(I.first);
       }
     }

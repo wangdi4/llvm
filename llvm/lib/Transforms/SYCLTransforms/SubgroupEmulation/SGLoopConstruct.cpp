@@ -199,7 +199,7 @@ void SGLoopConstructPass::createSGLoop() {
                                              "sg.loop.src.");
         auto *Switch = Builder.CreateSwitch(SGLoopSrc, FirstTarget,
                                             JumpTargets.size() - 1);
-        for (auto It = ++JumpTargets.begin(), End = JumpTargets.end();
+        for (auto It = std::next(JumpTargets.begin()), End = JumpTargets.end();
              It != End; ++It) {
           BasicBlock *JumpTarget = (*It)->getParent();
           JumpTarget->setName("sg.loop.header.");

@@ -56,7 +56,7 @@ void WIRelatedValue::updateDeps() {
   // As long as we have values to update.
   while (!Changed.empty()) {
     // Move the list aside and clear original list for next iteration.
-    std::vector<Value *> ChangedValues = Changed.takeVector();
+    const auto ChangedValues = Changed.takeVector();
     // Update all changed values.
     for (Value *V : ChangedValues)
       calculateDep(V);
