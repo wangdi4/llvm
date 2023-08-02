@@ -60,6 +60,7 @@ Using Clang as a Compiler
    OpenCLSupport
    OpenMPSupport
    SYCLSupport
+   HIPSupport
    HLSL/HLSLDocs
    ThinLTO
    APINotes
