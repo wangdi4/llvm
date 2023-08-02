@@ -17,10 +17,13 @@ defvar work_group_v1_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u
 
 // Functions for add/mul operations (in order to have all per-WI helper functions uniformal)
 
-foreach name = ["add", "mul"] in {
+foreach name = ["add", "mul", "bitwise_and", "bitwise_or", "bitwise_xor"] in {
   defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [1, 4, 8, 16, 32, 64]>.Tout;
   defvar op = !cond(!eq(name, "add") : "+",
-                    !eq(name, "mul") : "*");
+                    !eq(name, "mul") : "*",
+                    !eq(name, "bitwise_and") : "&",
+                    !eq(name, "bitwise_or") : "|",
+                    !eq(name, "bitwise_xor") : "^");
   def wg_#name#_helper_util_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_" # name # "_helper_util"), types, 0, binary_op_code, [["$Op", op]]>;
 }
 
@@ -31,6 +34,14 @@ foreach name = ["add", "mul"] in {
   foreach clusive = ["exclusive", "inclusive"] in {
     defvar scalar_code = !cond(!eq(clusive, "exclusive") : work_group_scan_exclusive_function_op_scalar, true : work_group_inclusive_function_op_scalar);
     def wg_scan_#clusive#_#name#_scalar_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name # "_helper"), work_group_v1_types, 0, scalar_code, [["$FUNC", "work_group_" # name # "_util"]]>;
+  }
+}
+
+foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+  foreach clusive = ["exclusive", "inclusive"] in {
+    defvar scalar_code = !cond(!eq(clusive, "exclusive") : work_group_scan_exclusive_function_op_scalar, true : work_group_inclusive_function_op_scalar);
+    def wg_scan_#clusive#_#name#_scalar_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name # "_helper"), work_group_v1_types, 0, scalar_code, [["$FUNC", "work_group_" # name # "_util"]]>;
+    def wg_scan_#clusive#_#name#_fake : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name), work_group_v1_types, 0, ret_arg0_code>;
   }
 }
 
@@ -133,6 +144,11 @@ foreach vf = [4, 8, 16, 32, 64] in {
   foreach clusive = ["exclusive", "inclusive"] in {
     defvar vector_code = !cond(!eq(clusive, "exclusive") : exclusive_vector_code, true : inclusive_vector_code);
     defvar mask_code = !cond(!eq(clusive, "exclusive") : exclusive_mask_code, true : inclusive_mask_code);
+    foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+      defvar helper = "work_group_scan_" # clusive # "_" # name # "_helper";
+      defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [vf]>.Tout;
+      def wg_scan_#clusive#_#name#vf#_impl : OclBuiltinImpl<!cast<OclBuiltin>(helper), types, 0, vector_code, [["$FUNC", "work_group_" # name # "_util"]]>;
+    }
     foreach name = ["add", "mul"] in {
       defvar helper = "work_group_scan_" # clusive # "_" # name # "_helper";
       defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [vf]>.Tout;
