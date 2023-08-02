@@ -133,6 +133,7 @@ X86_CPU_SUBTYPE(INTEL_RYL_ROYAL,             "royal")
 X86_CPU_SUBTYPE(INTEL_COREI7_LUNARLAKE,      "lunarlake")
 #endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
+X86_CPU_SUBTYPE(INTEL_COREI7_GRANITERAPIDS_D,"graniterapids-d")
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
 X86_CPU_SUBTYPE_ALIAS(INTEL_COREI7_ALDERLAKE, "raptorlake")

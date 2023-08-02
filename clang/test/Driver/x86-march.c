@@ -141,6 +141,10 @@
 // gracemont: "-target-cpu" "gracemont"
 // end INTEL_CUSTOMIZATION
 //
+// RUN: %clang --target=x86_64-unknown-unknown -c -### %s -march=graniterapids-d 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=graniterapids-d
+// graniterapids-d: "-target-cpu" "graniterapids-d"
+//
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=emeraldrapids 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=emeraldrapids
 // emeraldrapids: "-target-cpu" "emeraldrapids"

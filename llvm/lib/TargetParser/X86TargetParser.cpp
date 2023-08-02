@@ -232,8 +232,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
 constexpr FeatureBitset FeaturesGraniteRapids =
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
-    FeatureAMX_COMPLEX;
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI ;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 constexpr FeatureBitset FeaturesCommonAVX256 =
@@ -576,6 +576,9 @@ constexpr ProcInfo Processors[] = {
   { {"grandridge"}, CK_Grandridge, FEATURE_AVX2, FeaturesGrandridge, 'p', false },
   // Granite Rapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids, 'n', false },
+  // Granite Rapids D microarchitecture based processors.
+  { {"graniterapids-d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, '\0', false },
+  { {"graniterapids_d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, 'n', true },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, 'n', false },
   // Knights Landing processor.

@@ -81,3 +81,4 @@ ATTR(cpu_specific(grandridge)) void CPU31(void){}
 ATTR(cpu_specific(graniterapids)) void CPU32(void){}
 ATTR(cpu_specific(emeraldrapids)) void CPU33(void){}
 ATTR(cpu_specific(gracemont)) void CPU100(void){} // INTEL
+ATTR(cpu_specific(graniterapids_d)) void CPU34(void){}

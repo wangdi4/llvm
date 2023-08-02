@@ -147,6 +147,7 @@ enum ProcessorSubtypes {
   INTEL_COREI7_LUNARLAKE,
 #endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
+  INTEL_COREI7_GRANITERAPIDS_D,
   CPU_SUBTYPE_MAX
 };
 
@@ -529,7 +530,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
     // Granite Rapids:
-    case 0xae:
     case 0xad:
       CPU = "graniterapids";
       *Type = INTEL_COREI7;
@@ -546,6 +546,13 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
+
+    // Granite Rapids D:
+    case 0xae:
+      CPU = "graniterapids-d";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_GRANITERAPIDS_D;
+      break;
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
