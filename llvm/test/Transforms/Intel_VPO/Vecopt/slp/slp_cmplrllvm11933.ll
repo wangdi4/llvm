@@ -35,7 +35,6 @@ define i32 @rayobject_bb_intersect_test(ptr nocapture readonly %isec, ptr nocapt
 ; CHECK-LABEL: define i32 @rayobject_bb_intersect_test
 ; CHECK-SAME: (ptr nocapture readonly [[ISEC:%.*]], ptr nocapture readonly [[_BB:%.*]]) #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_ISECT:%.*]], ptr [[ISEC]], i64 0, i32 0, i64 0
 entry:
 
   %0 = load float, ptr %isec, align 8
@@ -46,7 +45,7 @@ entry:
   %2 = load float, ptr %arrayidx3, align 4
   %arrayidx5 = getelementptr inbounds %struct.Isect, ptr %isec, i64 0, i32 6, i64 1
 
-; CHECK:         [[ARRAYIDX3:%.*]] = getelementptr inbounds [[STRUCT_ISECT]], ptr [[ISEC]], i64 0, i32 0, i64 1
+; CHECK:         [[ARRAYIDX3:%.*]] = getelementptr inbounds [[STRUCT_ISECT:%.*]], ptr [[ISEC]], i64 0, i32 0, i64 1
 ; CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [[STRUCT_ISECT]], ptr [[ISEC]], i64 0, i32 6, i64 1
 ; CHECK:         [[TMP9:%.*]] = load float, ptr %arrayidx36, align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = load <2 x float>, ptr [[ARRAYIDX3]], align 4
