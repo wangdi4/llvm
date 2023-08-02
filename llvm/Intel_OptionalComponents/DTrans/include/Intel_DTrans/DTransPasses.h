@@ -20,7 +20,6 @@
 #ifndef INTEL_DTRANS_DTRANS_PASSES_H
 #define INTEL_DTRANS_DTRANS_PASSES_H
 
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"

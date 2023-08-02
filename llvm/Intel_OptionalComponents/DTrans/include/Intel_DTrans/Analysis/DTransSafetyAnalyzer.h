@@ -20,6 +20,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
@@ -28,7 +29,6 @@ namespace llvm {
 class BlockFrequencyInfo;
 class DTransImmutableInfo;
 class Function;
-class GEPOperator;
 class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;

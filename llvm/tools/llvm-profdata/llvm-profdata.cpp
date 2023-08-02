@@ -62,6 +62,10 @@
 #include <optional>
 #include <queue>
 
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Demangle/Demangle.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 // We use this string to indicate that there are
@@ -2428,6 +2432,26 @@ static void showValueSitesStats(raw_fd_ostream &OS, uint32_t VK,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// If 'Demangle' is 'true' use the demangler to return a
+// demangled name. Otherwise, just return the input name.
+static std::string getDisplayedName(StringRef Name, bool Demangle) {
+  if (!Demangle)
+    return std::string(Name);
+
+  // Names for static functions are of the form 'filename:name',
+  // just pass the function name to the demangler.
+  size_t Demimiter = Name.find_last_of(':');
+  std::string Filename;
+  if (Demimiter != std::string::npos) {
+    Filename = Name.substr(0, Demimiter + 1);
+    Name = Name.substr(Demimiter + 1);
+  }
+
+  return Filename + ::demangle(std::string(Name));
+}
+#endif // INTEL_CUSTOMIZATION
+
 static int showInstrProfile(
     const std::string &Filename, bool ShowCounts, uint32_t TopN,
     bool ShowIndirectCallTargets, bool ShowMemOPSizes, bool ShowDetailedSummary,
@@ -2435,12 +2459,16 @@ static int showInstrProfile(
     bool ShowCS, uint64_t ValueCutoff, bool OnlyListBelow,
     const std::string &ShowFunction, bool TextFormat, bool ShowBinaryIds,
     bool ShowCovered, bool ShowProfileVersion, bool ShowTemporalProfTraces,
-    bool ShowLoopTripCounts, // INTEL
+    bool ShowLoopTripCounts, bool Demangle, // INTEL
     ShowFormat SFormat, raw_fd_ostream &OS) {
   if (SFormat == ShowFormat::Json)
     exitWithError("JSON output is not supported for instr profiles");
   if (SFormat == ShowFormat::Yaml)
     exitWithError("YAML output is not supported for instr profiles");
+#if INTEL_CUSTOMIZATION
+  if (TextFormat && Demangle)
+    exitWithError("Text format does not support demangled names");
+#endif // INTEL_CUSTOMIZATION
   auto FS = vfs::getRealFileSystem();
   auto ReaderOrErr = InstrProfReader::create(Filename, *FS);
   std::vector<uint32_t> Cutoffs = std::move(DetailedSummaryCutoffs);
@@ -2500,7 +2528,7 @@ static int showInstrProfile(
 
     if (ShowCovered) {
       if (llvm::any_of(Func.Counts, [](uint64_t C) { return C; }))
-        OS << Func.Name << "\n";
+        OS << getDisplayedName(Func.Name, Demangle) << "\n"; // INTEL
       continue;
     }
 
@@ -2513,7 +2541,7 @@ static int showInstrProfile(
         if (!ShownFunctions)
           OS << "Counters:\n";
         ++ShownFunctions;
-        OS << "  " << Func.Name << ":\n"
+        OS << "  " << getDisplayedName(Func.Name, Demangle) << ":\n" // INTEL
            << "    Hash: " << format("0x%016" PRIx64, Func.Hash) << "\n"
            << "    Counters: " << Func.Counts.size();
         if (PseudoKind == InstrProfRecord::PseudoHot)
@@ -2534,8 +2562,10 @@ static int showInstrProfile(
     if (FuncMax < ValueCutoff) {
       ++BelowCutoffFunctions;
       if (OnlyListBelow) {
-        OS << "  " << Func.Name << ": (Max = " << FuncMax
-           << " Sum = " << FuncSum << ")\n";
+#if INTEL_CUSTOMIZATION
+        OS << "  " << getDisplayedName(Func.Name, Demangle)
+           << ": (Max = " << FuncMax << " Sum = " << FuncSum << ")\n";
+#endif // INTEL_CUSTOMIZATION
       }
       continue;
     } else if (OnlyListBelow)
@@ -2557,7 +2587,7 @@ static int showInstrProfile(
 
       ++ShownFunctions;
 
-      OS << "  " << Func.Name << ":\n"
+      OS << "  " << getDisplayedName(Func.Name, Demangle) << ":\n" // INTEL
          << "    Hash: " << format("0x%016" PRIx64, Func.Hash) << "\n"
          << "    Counters: " << Func.Counts.size() << "\n";
       if (!IsIRInstr)
@@ -2972,6 +3002,9 @@ static int show_main(int argc, const char *argv[]) {
       "loop-trip-counts", cl::init(false),
       cl::desc(
           "Show the loop trip counts values collected for shown functions"));
+
+  cl::opt<bool> ShowDemangledNames("demangle", cl::init(false),
+                                   cl::desc("Print demangled function names"));
 #endif // INTEL_CUSTOMIZATION
   cl::opt<bool> ShowDetailedSummary("detailed-summary", cl::init(false),
                                     cl::desc("Show detailed profile summary"));
@@ -3068,7 +3101,9 @@ static int show_main(int argc, const char *argv[]) {
         ShowMemOPSizes, ShowDetailedSummary, DetailedSummaryCutoffs,
         ShowAllFunctions, ShowCS, ValueCutoff, OnlyListBelow, ShowFunction,
         TextFormat, ShowBinaryIds, ShowCovered, ShowProfileVersion,
-        ShowTemporalProfTraces, ShowLoopTripCounts, SFormat, OS); // INTEL
+        ShowTemporalProfTraces,                 // INTEL
+        ShowLoopTripCounts, ShowDemangledNames, // INTEL
+        SFormat, OS);                           // INTEL
   if (ProfileKind == sample)
     return showSampleProfile(Filename, ShowCounts, TopNFunctions,
                              ShowAllFunctions, ShowDetailedSummary,
