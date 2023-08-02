@@ -189,13 +189,21 @@ namespace Intrinsic {
              Kind == SameVecWidthArgument ||
              Kind == VecElementArgument || Kind == Subdivide2Argument ||
              Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
+<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else
+>>>>>>> 005c27002e3a33909e177e9810dc2aff08665f4d
       assert(Kind == Argument || Kind == ExtendArgument ||
              Kind == TruncArgument || Kind == HalfVecArgument ||
              Kind == SameVecWidthArgument ||
              Kind == VecElementArgument || Kind == Subdivide2Argument ||
              Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
+<<<<<<< HEAD
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#endif
+>>>>>>> 005c27002e3a33909e177e9810dc2aff08665f4d
       return (ArgKind)(Argument_Info & 7);
     }
 
