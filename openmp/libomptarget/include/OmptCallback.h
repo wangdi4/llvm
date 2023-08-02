@@ -89,11 +89,6 @@ extern bool Initialized;
 } // namespace omp
 } // namespace llvm
 
-<<<<<<< HEAD
-=======
-#endif // OMPT_SUPPORT
-
->>>>>>> cf119df548030eee0059d317d691dcbd2160b0d7
 #pragma pop_macro("DEBUG_PREFIX")
 
 #endif // OMPT_SUPPORT
