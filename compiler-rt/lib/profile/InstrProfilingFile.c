@@ -719,20 +719,12 @@ static void initializeProfileForContinuousMode(void) {
 static const char *DefaultProfileName = "default.profraw";
 static void resetFilenameToDefault(void) {
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
-<<<<<<< HEAD
-#ifdef __GNUC__
-=======
-#if defined( __GNUC__) || defined(__clang__)
->>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
     free((void *)lprofCurFilename.FilenamePat);
-<<<<<<< HEAD
-#ifdef __GNUC__
-=======
-#if defined( __GNUC__) || defined(__clang__)
->>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
   }
@@ -779,11 +771,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   int MergingEnabled = 0;
   int FilenamePatLen = strlen(FilenamePat);
 
-<<<<<<< HEAD
-#ifdef __GNUC__
-=======
-#if defined( __GNUC__) || defined(__clang__)
->>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
@@ -794,11 +782,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
     free((void *)lprofCurFilename.FilenamePat);
   }
-<<<<<<< HEAD
-#ifdef __GNUC__
-=======
-#if defined( __GNUC__) || defined(__clang__)
->>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
 
