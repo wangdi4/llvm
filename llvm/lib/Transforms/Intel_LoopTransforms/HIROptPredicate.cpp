@@ -1436,6 +1436,8 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
                     dbgs() << Answer << "\n");
   LLVM_DEBUG_DETAIL(dbgs() << "MinLevel: " << Constraints.MinLevel << "\n");
 
+  unsigned CurLevel = CurrLoop->getNestingLevel();
+
   if (IsCandidate) {
     // Determine target level to unswitch.
     if (auto *If = dyn_cast<HLIf>(Node))
@@ -1446,34 +1448,51 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
       llvm_unreachable("Trying to unswitch a Node that is not If or Switch");
 
     // The hoisting level needs to be less than the the current node level.
-    IsCandidate = Level < CurrLoop->getNestingLevel();
+    IsCandidate = Level < CurLevel;
   } else {
-    Level = CurrLoop->getNestingLevel();
+    Level = CurLevel;
   }
 
   // Check if there is any restriction that we shouldn't do the transformation
   if (IsCandidate && isRestrictedByConstraints(Node, Level, PUC, Constraints)) {
     IsCandidate = false;
-    Level = CurrLoop->getNestingLevel();
+    Level = CurLevel;
   }
 
-  bool IsValidLevel = DisableUnswitchRegionSIMD ? Level >= 0 : Level > 0;
-  if (IsCandidate && IsValidLevel &&
-      Node->getParentLoopAtLevel(Level + 1)->isSIMD()) {
-    // We don't support hoisting outside non-innermost loop
-    // with SIMD pragma as it can inhibit the outer-loop vectorization
-    // of that outer loop. We update the level to CurrLoop's level
-    // so that inner-if see some valid opportunities.
-    // TODO: enhance the logic so that SIMD pragma can be moved/copied
-    //       with Opt Pred when possible (JR-47148)
-    //       Level updating logic can be further relaxed to hoist
-    //       inner-if to outside of outer-if when needed.
-    LLVM_DEBUG(
-        dbgs()
-        << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
+  if (IsCandidate) {
+    auto *TargetLoop = Node->getParentLoopAtLevel(Level + 1);
+    bool IsValidLevel = DisableUnswitchRegionSIMD ? Level >= 0 : Level > 0;
 
-    IsCandidate = false;
-    Level = CurrLoop->getNestingLevel();
+    if (IsValidLevel && TargetLoop->isSIMD()) {
+      // We don't support hoisting outside non-innermost loop
+      // with SIMD pragma as it can inhibit the outer-loop vectorization
+      // of that outer loop. We update the level to CurrLoop's level
+      // so that inner-if see some valid opportunities.
+      // TODO: enhance the logic so that SIMD pragma can be moved/copied
+      //       with Opt Pred when possible (JR-47148)
+      //       Level updating logic can be further relaxed to hoist
+      //       inner-if to outside of outer-if when needed.
+      LLVM_DEBUG(
+          dbgs()
+          << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
+
+      IsCandidate = false;
+      Level = CurLevel;
+
+      // We only need to check the TargetLoop if it is not the same as the
+      // parent loop of candidate, (nesting level check below). This is because
+      // visit(HLLoop *) disables all candidates within it if it has convergent
+      // calls. Ideally, we should do the same for SIMD loops as well.
+    } else if ((Level != CurLevel - 1) &&
+               HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
+
+      LLVM_DEBUG(
+          dbgs()
+          << "Hoisting disabled as target loop contains convergent calls.\n");
+
+      IsCandidate = false;
+      Level = CurLevel;
+    }
   }
 
   if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
@@ -1482,8 +1501,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // passes.
     uint64_t TC;
     bool IsCompleteUnrollCandidate =
-        (CurrLoop->isInnermost() &&
-         (Level == CurrLoop->getNestingLevel() - 1) &&
+        (CurrLoop->isInnermost() && (Level == CurLevel - 1) &&
          CurrLoop->isConstTripLoop(&TC) && TC < 4);
 
     // Check if unswitching breaks the existing loopnest perfectness.
@@ -1854,6 +1872,11 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     auto SIMDTy = getSupportedSIMDType(Loop);
     NewLoopConstraints.CanTransformParent = SIMDTy != SIMDType::NotSupported;
     NewLoopConstraints.RequiresRegionInvariant = SIMDTy == SIMDType::Region;
+  }
+
+  if (NewLoopConstraints.CanTransformParent &&
+      HLS.getTotalStatistics(Loop).hasConvergentCalls()) {
+    NewLoopConstraints.CanTransformParent = false;
   }
 
   CandidateLookup Lookup(Pass, HLS, NewLoopConstraints, Loop, CostOfRegion);

@@ -4,6 +4,7 @@
 
 ; CHECK: + DO i1 = 0, 1023, 1
 ; CHECK:   Has unsafe calls: no
+; CHECK:   Has convergent calls: no
 ; CHECK: + END LOOP
 
 
