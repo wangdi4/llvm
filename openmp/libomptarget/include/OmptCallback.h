@@ -27,6 +27,13 @@
   FOREACH_OMPT_NOEMI_EVENT(macro)                                              \
   FOREACH_OMPT_EMI_EVENT(macro)
 
+#define performIfOmptInitialized(stmt)                                         \
+  do {                                                                         \
+    if (llvm::omp::target::ompt::Initialized) {                                \
+      stmt;                                                                    \
+    }                                                                          \
+  } while (0)
+
 #define performOmptCallback(CallbackName, ...)                                 \
   do {                                                                         \
     if (ompt_callback_##CallbackName##_fn)                                     \
@@ -89,6 +96,13 @@ extern bool Initialized;
 } // namespace omp
 } // namespace llvm
 
+<<<<<<< HEAD
+=======
+#else
+#define performIfOmptInitialized(stmt)
+#endif // OMPT_SUPPORT
+
+>>>>>>> 1dec417ac4a533e40f637cd1a7f0628803d9e634
 #pragma pop_macro("DEBUG_PREFIX")
 
 #endif // OMPT_SUPPORT
