@@ -50,8 +50,9 @@ public:
                                 DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
-        IsInlined(IsInlined), IsCompact(false), Reason(Reason), InlineCost(-1),
-        OuterInlineCost(-1), InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
+        IRBrokerTarget(nullptr), IsInlined(IsInlined), IsCompact(false),
+        Reason(Reason), InlineCost(-1), OuterInlineCost(-1),
+        InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
         EarlyExitInlineThreshold(INT_MAX), CostBenefit(std::nullopt),
         ICSMethod(InlICSNone), Call(CB), M(Module),
         SuppressPrint(SuppressPrint) {
@@ -77,6 +78,10 @@ public:
 
   InlineReportCallSite *getIRParent() const { return IRParent; }
   void setIRParent(InlineReportCallSite *IRCS) { IRParent = IRCS; }
+
+  InlineReportFunction *getIRBrokerTarget() const { return IRBrokerTarget; }
+  void setIRBrokerTarget(InlineReportFunction *IRF) { IRBrokerTarget = IRF; }
+  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned ReportLevel);
 
   InlineReason getReason() const { return Reason; }
   void setReason(InlineReason MyReason) { Reason = MyReason; }
@@ -183,6 +188,7 @@ private:
   InlineReportFunction *IRCallee;
   InlineReportFunction *IRCaller;
   InlineReportCallSite *IRParent;
+  InlineReportFunction *IRBrokerTarget;
   bool IsInlined;
   bool IsCompact;
   InlineReason Reason;
@@ -578,6 +584,19 @@ public:
     removeCallback(&F);
   }
 
+  // Indicate that 'F' has been replaced.
+  void replaceFunctionReference(Function &F) {
+    LLVM_DEBUG(dbgs() << "replaceFunctionReference: " << &F << " ");
+    LLVM_DEBUG(dbgs() << F.getName());
+    LLVM_DEBUG(dbgs() << "\n");
+    if (!isClassicIREnabled())
+      return;
+    auto MapIt = IRFunctionMap.find(&F);
+    if (MapIt != IRFunctionMap.end())
+      IRFunctionMap.erase(&F);
+    removeCallback(&F);
+  }
+
   // Create or update the exiting representation of 'F'.
   InlineReportFunction *initFunction(Function *F);
 
@@ -614,6 +633,9 @@ public:
   InlineReportCallSite *cloneBase(InlineReportCallSite *OldIRCS,
                                   const ValueToValueMapTy &IIMap,
                                   CallBase *ActiveInlineCallBase);
+
+  // Set the target of the broken function bring called by 'CB' to 'F"
+  void setBrokerTarget(CallBase *CB, Function *F);
 
 private:
   /// The Level is specified by the option -inline-report=N.

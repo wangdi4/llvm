@@ -308,6 +308,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSpecial, "Indirect call conversion"},
     // NinlrDeletedDeadCode
     {InlPrtDeleted, "Dead code"},
+    // NinlrBrokerFunction
+    {InlPrtSpecial, "Broker function"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

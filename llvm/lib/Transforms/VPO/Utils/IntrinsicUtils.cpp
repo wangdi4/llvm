@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -46,6 +46,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
 
@@ -309,10 +313,13 @@ CallInst *VPOUtils::addOperandBundlesInCall(
   NewI->setAttributes(CI->getAttributes());
   NewI->setDebugLoc(CI->getDebugLoc());
   NewI->copyMetadata(*CI);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceCallBaseWithCallBase(CI, NewI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(CI, NewI);
+#endif // INTEL_CUSTOMIZATION
 
   CI->replaceAllUsesWith(NewI);
   CI->eraseFromParent();
-
   return NewI;
 }
 

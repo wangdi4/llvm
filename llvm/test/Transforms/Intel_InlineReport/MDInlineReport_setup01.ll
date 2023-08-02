@@ -25,7 +25,7 @@
 ; CHECK: [[MAIN_FIR]] = distinct !{!"intel.function.inlining.report", [[MAIN_NAME:![0-9]+]], [[MAIN_CSs:![0-9]+]], [[MODULE_NAME:![0-9]+]], [[ISDEAD_0:![0-9]+]], [[ISDECL_0:![0-9]+]], [[LINK_A:![0-9]+]], [[LANG_C:![0-9]+]], [[SUPPRESS_PRINT:![0-9]+]], [[ISCOMPACT:![0-9]+]], null, null}
 ; CHECK-NEXT: [[MAIN_NAME]] = !{!"name: main"}
 ; CHECK-NEXT: [[MAIN_CSs]] = distinct !{!"intel.callsites.inlining.report", [[A1_MAIN_CS:![0-9]+]], [[B_MAIN_CS:![0-9]+]], [[A2_MAIN_CS:![0-9]+]]}
-; CHECK-NEXT: [[A1_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME:![0-9]+]], null, [[INL_0:![0-9]+]], [[REASON_NO_REASON:![0-9]+]], [[INL_COST:![0-9]+]], [[OUT_INL_COST:![0-9]+]], [[INL_TR:![0-9]+]], [[EE_COST:![0-9]+]], [[EE_TR:![0-9]+]], !"line: 11 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT:![0-9]+]], [[CBPAIRCOST:![0-9]+]], [[CBPAIRBENEFIT:![0-9]+]], [[ICSMETHOD:![0-9]+]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[A1_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME:![0-9]+]], null, [[INL_0:![0-9]+]], [[REASON_NO_REASON:![0-9]+]], [[INL_COST:![0-9]+]], [[OUT_INL_COST:![0-9]+]], [[INL_TR:![0-9]+]], [[EE_COST:![0-9]+]], [[EE_TR:![0-9]+]], !"line: 11 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT:![0-9]+]], [[CBPAIRCOST:![0-9]+]], [[CBPAIRBENEFIT:![0-9]+]], [[ICSMETHOD:![0-9]+]], [[ISCOMPACT]], [[BROKER:![0-9]+]]}
 ; CHECK-NEXT: [[A_NAME]] = !{!"name: a"}
 ; CHECK-NEXT: [[INL_0]] = !{!"isInlined: 0"}
 ; CHECK-NEXT: [[REASON_NO_REASON]] = !{!"reason: {{[0-9]+}}"}
@@ -41,11 +41,12 @@
 ; CHECK-NEXT: [[CBPAIRBENEFIT]] = !{!"CBPairBenefit: -1"}
 ; CHECK-NEXT: [[ICSMETHOD]] = !{!"icsMethod: 0"}
 ; CHECK-NEXT: [[ISCOMPACT]] = !{!"isCompact: 0"}
+; CHECK-NEXT: [[BROKER]] = !{!""}
 
-; CHECK-NEXT: [[B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[B_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN:![0-9]+]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 12 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[B_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN:![0-9]+]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 12 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]], [[BROKER]]}
 ; CHECK-NEXT: [[B_NAME]] = !{!"name: b"}
 ; CHECK-NEXT: [[REASON_EXTRN]] = !{!"reason: {{[0-9]+}}"}
-; CHECK-NEXT: [[A2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 13 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[A2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 13 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]], [[BROKER]]}
 ; CHECK-NEXT: [[ISDEAD_0]] = !{!"isDead: 0"}
 ; CHECK-NEXT: [[ISDECL_0]] = !{!"isDeclaration: 0"}
 ; CHECK-NEXT: [[LINK_A]] = !{!"linkage: A"}
@@ -54,14 +55,14 @@
 ; CHECK-NEXT: [[ISDECL_1]] = !{!"isDeclaration: 1"}
 ; CHECK-NEXT: [[A_FIR]] = distinct !{!"intel.function.inlining.report", [[A_NAME]], [[A_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_A]], [[LANG_C]], [[SUPPRESS_PRINT]], [[ISCOMPACT]], null, null}
 ; CHECK-NEXT: [[A_CSs]] = distinct !{!"intel.callsites.inlining.report", [[X_A_CS:![0-9]+]], [[Y_A_CS:![0-9]+]]}
-; CHECK-NEXT: [[X_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[X_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 18 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[X_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[X_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 18 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]], [[BROKER]]}
 ; CHECK-NEXT: [[X_NAME]] = !{!"name: x"}
-; CHECK-NEXT: [[Y_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 19 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[Y_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 19 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]], [[BROKER]]}
 ; CHECK-NEXT: [[Y_NAME]] = !{!"name: y"}
 ; CHECK-NEXT: [[X_FIR]] = distinct !{!"intel.function.inlining.report", [[X_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]], [[LANG_C]], [[SUPPRESS_PRINT]], [[ISCOMPACT]], null, null}
 ; CHECK-NEXT: [[Y_FIR]] = distinct !{!"intel.function.inlining.report", [[Y_NAME]], [[Y_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_L:![0-9]+]], [[LANG_C]], [[SUPPRESS_PRINT]], [[ISCOMPACT]], null, null}
 ; CHECK-NEXT: [[Y_CSs]] = distinct !{!"intel.callsites.inlining.report", [[Z_Y_CS:![0-9]+]]}
-; CHECK-NEXT: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 23 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]]}
+; CHECK-NEXT: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 23 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]], [[ISCOSTBENEFIT]], [[CBPAIRCOST]], [[CBPAIRBENEFIT]], [[ICSMETHOD]], [[ISCOMPACT]], [[BROKER]]}
 ; CHECK-NEXT: [[Z_NAME]] = !{!"name: z"}
 ; CHECK-NEXT: [[LINK_L]] = !{!"linkage: L"}
 ; CHECK-NEXT: [[Z_FIR]] = distinct !{!"intel.function.inlining.report", [[Z_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]], [[LANG_C]], [[SUPPRESS_PRINT]], [[ISCOMPACT]], null, null}

@@ -79,6 +79,10 @@ private:
   // and column info.
   void printCalleeNameModuleLineCol(MDTuple *MD);
 
+  // Print the name of the target function called by the broker function.
+  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned Level,
+                             MDTuple *MD);
+
   // Print a simple message for a callsite. 'Message' is the message,
   // 'IsInlined' is 'true' if the callsite was inlined. 'IndentCount' is
   // the number of spaces the message should be indented.
@@ -259,6 +263,13 @@ void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
   OS << ")";
 }
 
+void IREmitterInfo::printBrokerTargetName(formatted_raw_ostream &OS,
+                                          unsigned Level, MDTuple *MD) {
+  StringRef Name =
+      llvm::getOpStr(MD->getOperand(CSMDIR_BrokerTargetName), "name: ");
+  OS << "(" << Name << ")\n";
+}
+
 void IREmitterInfo::printOuterCostAndThreshold(MDTuple *MD) {
   int64_t OuterCost = -1;
   getOpVal(MD->getOperand(CSMDIR_OuterInlineCost),
@@ -345,6 +356,12 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         printOuterCostAndThreshold(CSIR);
         printSimpleMessage(InlineReasonText[Reason].Message, false,
                            IndentCount);
+        break;
+      case NinlrBrokerFunction:
+        printIndentCount(OS, IndentCount);
+        OS << "-> BROKER: ";
+        printCalleeNameModuleLineCol(CSIR);
+        printBrokerTargetName(OS, Level, CSIR);
         break;
       default:
         assert(0);

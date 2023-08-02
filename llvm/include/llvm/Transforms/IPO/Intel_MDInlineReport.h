@@ -63,6 +63,7 @@ enum CallSiteField {
   CSMDIR_CBPairBenefit,
   CSMDIR_ICSMethod,
   CSMDIR_IsCompact,
+  CSMDIR_BrokerTargetName,
   CSMDIR_Last,
 };
 
@@ -264,6 +265,8 @@ public:
 
   bool getIsCompact(Metadata *CurrentCallInstReport);
   void setIsCompact(Metadata *CurrentCallInstReport, bool Value);
+
+  void setBrokerTarget(CallBase *CB, Function *F);
 
   // Return 'true' if the inlining of 'Callee' into 'Caller' should be done
   // after compacting the representation of 'Callee'. If 'ForceCompact',

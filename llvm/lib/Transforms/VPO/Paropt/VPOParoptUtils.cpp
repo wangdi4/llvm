@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -7027,6 +7027,9 @@ Function *VPOParoptUtils::genOutlineFunction(
     W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
         Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(F);
+#endif // INTEL_CUSTOMIZATION
   auto *NewFunction = CE.extractCodeRegion(
       UseEmptyCodeExtractorAnalysisCache
           ? CodeExtractorAnalysisCache()
@@ -7034,6 +7037,10 @@ Function *VPOParoptUtils::genOutlineFunction(
       /* hoistAlloca */ true);
 
   auto *CallSite = getSingleCallSite(NewFunction);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->doOutlining(F, NewFunction, CallSite);
+  getMDInlineReport()->doOutlining(F, NewFunction, CallSite);
+#endif // INTEL_CUSTOMIZATION
 
   // Remove the extracted blocks from the LoopInfo of enclosing regions. The
   // Loops and Blocks in the extracted function are no longer valid

@@ -1,25 +1,20 @@
-; RUN: opt  -passes='vpo-paropt,cgscc(inline)' -disable-output -inline-report=0x2f847 < %s 2>&1 | FileCheck --check-prefix=CHECK-CL %s
-; RUN: opt -passes='inlinereportsetup,vpo-paropt,cgscc(inline),inlinereportemitter' -disable-output -inline-report=0x2f8c6 < %s 2>&1 | FileCheck --check-prefix=CHECK-MD %s
+; RUN: opt -passes='vpo-paropt,cgscc(inline)' -disable-output -inline-report=0x2f847 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,vpo-paropt,cgscc(inline),inlinereportemitter' -disable-output -inline-report=0x2f8c6 < %s 2>&1 | FileCheck %s
 
 ; Tests below are run with inline report compacting enabled, to test that
 ; the feature does not lead to a compfail.
 
 ; Check that INLINE of myfoo into _Z3foov.DIR.OMP.TASK.2.split is recognized
-; for the classic inlining report, and that myfoo is dead static eliminated.
+; for the classic and metadata inlining reports, and that myfoo is dead static
+; eliminated.
 
-; CHECK-CL: DEAD STATIC FUNC: myfoo
-; CHECK-CL: COMPILE FUNC: _Z3foov.DIR.OMP.TASK.2.split
-; CHECK-CL: INLINE: myfoo {{.*}}Callee has single callsite and local linkage
-; CHECK-CL: COMPILE FUNC: _Z3foov
-
-; Check that INLINE of myfoo into _Z3foox is recognized for the metadata
-; inlining report, and that myfoo is dead static eliminated. Note that for
-; now, _Z3foov.DIR.OMP.TASK.2.split is unseen in the metadata inlining
-; report, but the compiler should tolerate that without compfailing.
-
-; CHECK-MD: DEAD STATIC FUNC: myfoo
-; CHECK-MD: COMPILE FUNC: _Z3foov
-; CHECK-MD: INLINE: myfoo {{.*}}Callee has single callsite and local linkage
+; CHECK: DEAD STATIC FUNC: myfoo
+; CHECK: COMPILE FUNC: _Z3foov
+; CHECK: BROKER: __kmpc_omp_task_alloc(_Z3foov.DIR.OMP.TASK.2.split)
+; CHECK: COMPILE FUNC: _Z3foov.DIR.OMP.TASK.2.split
+; CHECK: DELETE: llvm.directive.region.entry
+; CHECK: INLINE: myfoo {{.*}}Callee has single callsite and local linkage
+; CHECK: DELETE: llvm.directive.region.exit
 
 ; void foo()
 ;
@@ -28,6 +23,7 @@
 ;  #pragma omp task depend(out:y1)
 ;  {
 ;    y1 = 1;
+;    myfoo();
 ;  }
 ; }
 
@@ -41,8 +37,6 @@ define internal void @myfoo() {
   ret void
 }
 
-
-; Function Attrs: nounwind uwtable
 define dso_local void @_Z3foov() local_unnamed_addr {
 entry:
   %y1 = alloca float, align 4
@@ -54,7 +48,10 @@ DIR.OMP.TASK.1:                                   ; preds = %entry
   br label %DIR.OMP.TASK.2
 
 DIR.OMP.TASK.2:                                   ; preds = %DIR.OMP.TASK.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.DEPEND.OUT"(float* %y1), "QUAL.OMP.FIRSTPRIVATE"(float* %y1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.DEPEND.OUT"(float* %y1),
+    "QUAL.OMP.FIRSTPRIVATE"(float* %y1) ]
+
   br label %DIR.OMP.TASK.34
 
 DIR.OMP.TASK.34:                                  ; preds = %DIR.OMP.TASK.2
@@ -70,6 +67,7 @@ DIR.OMP.END.TASK.4.split:                         ; preds = %DIR.OMP.TASK.3
 
 DIR.OMP.END.TASK.4:                               ; preds = %DIR.OMP.END.TASK.4.split
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASK"() ]
+
   br label %DIR.OMP.END.TASK.5
 
 DIR.OMP.END.TASK.5:                               ; preds = %DIR.OMP.END.TASK.4
@@ -77,18 +75,20 @@ DIR.OMP.END.TASK.5:                               ; preds = %DIR.OMP.END.TASK.4
   ret void
 }
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
+declare void @llvm.directive.region.exit(token) #1
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
 
+attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { nounwind }
 
 !llvm.module.flags = !{!0}
 

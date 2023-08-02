@@ -56,6 +56,7 @@ InlineReportCallSite::copyBase(CallBase *CB,
   NewCS->Children.clear();
   NewCS->IsCompact = IsCompact;
   NewCS->ICSMethod = ICSMethod;
+  NewCS->IRBrokerTarget = IRBrokerTarget;
   return NewCS;
 }
 
@@ -98,6 +99,15 @@ InlineReportCallSite *InlineReport::cloneBase(InlineReportCallSite *OldIRCS,
       IRCSk->setReason(NinlrDeleted);
   }
   return IRCSk;
+}
+
+void InlineReport::setBrokerTarget(CallBase *CB, Function *F) {
+  if (!isClassicIREnabled())
+    return;
+  InlineReportCallSite *IRCS = getOrAddCallSite(CB);
+  InlineReportFunction *IRF = getOrAddFunction(F);
+  IRCS->setIRBrokerTarget(IRF);
+  IRCS->setReason(NinlrBrokerFunction);
 }
 
 ///
@@ -247,6 +257,13 @@ void InlineReportCallSite::printCalleeNameModuleLineCol(
     OS << " (" << Line << "," << Col << ")";
 }
 
+void InlineReportCallSite::printBrokerTargetName(formatted_raw_ostream &OS,
+                                                 unsigned Level) {
+  OS << "(";
+  getIRBrokerTarget()->printName(OS, Level);
+  OS << ")\n";
+}
+
 ///
 /// Print a representation of the inlining instance.
 ///
@@ -307,6 +324,12 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
         printOuterCostAndThreshold(OS, Level);
         printSimpleMessage(OS, InlineReasonText[getReason()].Message,
                            IndentCount, Level, false);
+        break;
+      case NinlrBrokerFunction:
+        printIndentCount(OS, IndentCount);
+        OS << "-> BROKER: ";
+        printCalleeNameModuleLineCol(OS, Level);
+        printBrokerTargetName(OS, Level);
         break;
       default:
         assert(0);
@@ -436,6 +459,7 @@ void InlineReportFunction::moveOutlinedCallSites(
     if (OutFCBSet.count(IRCS)) {
       if (IRCS->getCall()) {
         IRCS->move(this, NewIRF);
+        IRCS->setIRCaller(NewIRF);
       } else {
         InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
         NewIRF->addCallSite(NewIRCS);
@@ -1093,7 +1117,7 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   IRF->setLinkageChar(NewFunction);
   IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
-  removeFunctionReference(*OldFunction);
+  replaceFunctionReference(*OldFunction);
   addCallback(NewFunction);
 }
 
