@@ -1020,8 +1020,6 @@ void OMPClauseProfiler::VisitOMPXDynCGroupMemClause(
 void OMPClauseProfiler::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPXAttributeClause(const OMPXAttributeClause *C) {
-}
 } // namespace
 
 void
