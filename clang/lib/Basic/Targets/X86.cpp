@@ -1505,6 +1505,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasCF)
     Builder.defineMacro("__CF__");
 #endif // INTEL_FEATURE_ISA_APX_F
+#if INTEL_FEATURE_ISA_SM4_EVEX
+  Builder.defineMacro("__SM4_EVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_SM4_EVEX
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

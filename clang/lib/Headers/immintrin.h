@@ -664,7 +664,7 @@ typedef struct __tile1024i_str {
 /* end INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
 
 /* INTEL_FEATURE_ISA_SM4_EVEX */
-#if defined(__SM4_SUPPORTED__)
+#if defined(__SM4_EVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__SM4__) && defined(__AVX512F__)) ||                              \
     defined(__M_INTRINSIC_PROMOTE__)

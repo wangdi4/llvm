@@ -17629,7 +17629,7 @@ defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  X86vdphf8ps,  avx512vl_
 #if INTEL_FEATURE_ISA_SM4_EVEX
 multiclass avx512_sm4_base<string OpStr> {
   // SM4_Base is in X86InstrSSE.td.
-  let Predicates = [HasAVX256P_Or_HasSM4] in {
+  let Predicates = [HasSM4, HasVLX] in {
     defm Z128 : SM4_Base<OpStr, avx512vl_i32_info.info128.RC,
                 "128", avx512vl_i32_info.info128.LdFrag,
                 avx512vl_i32_info.info128.MemOp>, EVEX_V128;
