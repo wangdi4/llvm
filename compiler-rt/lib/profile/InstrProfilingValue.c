@@ -77,12 +77,20 @@ COMPILER_RT_VISIBILITY void lprofSetMaxValsPerSite(uint32_t MaxVals) {
 COMPILER_RT_VISIBILITY void
 __llvm_profile_set_num_value_sites(__llvm_profile_data *Data,
                                    uint32_t ValueKind, uint16_t NumValueSites) {
+<<<<<<< HEAD
 #ifdef __GNUC__
+=======
+#if defined(__GNUC__) || defined(__clang__)
+>>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
   *((uint16_t *)&Data->NumValueSites[ValueKind]) = NumValueSites;
+<<<<<<< HEAD
 #ifdef __GNUC__
+=======
+#if defined(__GNUC__) || defined(__clang__)
+>>>>>>> e6ffec02c80c73a10b1d81c1ae373521ae6b9cbf
 #pragma GCC diagnostic pop
 #endif
 }

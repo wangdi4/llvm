@@ -107,7 +107,8 @@ include_directories(../../include)
 if(FUCHSIA OR UNIX)
  set(EXTRA_FLAGS
      -fPIC
-     -Wno-pedantic)
+     -Wno-pedantic
+     -Wno-cast-qual)
 endif()
 
 if(COMPILER_RT_TARGET_HAS_ATOMICS)
