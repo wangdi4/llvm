@@ -2662,6 +2662,9 @@
 // RUN: %clang -march=sierraforest -m32 -E -dM %s -o - 2>&1 \
 // RUN:     --target=i386 \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SRF_M32
+// RUN: %clang -march=grandridge -m32 -E -dM %s -o - 2>&1 \
+// RUN:     --target=i386 \
+// RUN:   | FileCheck -match-full-lines %s -check-prefixes=CHECK_SRF_M32,CHECK_GRR_M32
 // CHECK_SRF_M32: #define __ADX__ 1
 // CHECK_SRF_M32: #define __AES__ 1
 // CHECK_SRF_M32: #define __AVX2__ 1
@@ -2679,6 +2682,7 @@
 // CHECK_SRF_M32: #define __CLFLUSHOPT__ 1
 // CHECK_SRF_M32: #define __CLWB__ 1
 // CHECK_SRF_M32: #define __CMPCCXADD__ 1
+// CHECK_SRF_M32: #define __ENQCMD__ 1
 // CHECK_SRF_M32: #define __F16C__ 1
 // CHECK_SRF_M32: #define __FMA__ 1
 // CHECK_SRF_M32: #define __FSGSBASE__ 1
@@ -2698,6 +2702,8 @@
 // CHECK_SRF_M32: #define __POPCNT__ 1
 // CHECK_SRF_M32: #define __PRFCHW__ 1
 // CHECK_SRF_M32: #define __PTWRITE__ 1
+// CHECK_SRF_M32-NOT: #define __RAOINT__ 1
+// CHECK_GRR_M32: #define __RAOINT__ 1
 // CHECK_SRF_M32: #define __RDPID__ 1
 // CHECK_SRF_M32: #define __RDRND__ 1
 // CHECK_SRF_M32: #define __RDSEED__ 1
@@ -2712,6 +2718,7 @@
 // CHECK_SRF_M32: #define __SSE_MATH__ 1
 // CHECK_SRF_M32: #define __SSE__ 1
 // CHECK_SRF_M32: #define __SSSE3__ 1
+// CHECK_SRF_M32: #define __UINTR__ 1
 // CHECK_SRF_M32: #define __VAES__ 1
 // CHECK_SRF_M32: #define __VPCLMULQDQ__ 1
 // CHECK_SRF_M32: #define __WAITPKG__ 1
@@ -2730,6 +2737,9 @@
 // RUN: %clang -march=sierraforest -m64 -E -dM %s -o - 2>&1 \
 // RUN:     --target=i386 \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SRF_M64
+// RUN: %clang -march=grandridge -m64 -E -dM %s -o - 2>&1 \
+// RUN:     --target=i386 \
+// RUN:   | FileCheck -match-full-lines %s -check-prefixes=CHECK_SRF_M64,CHECK_GRR_M64
 // CHECK_SRF_M64: #define __ADX__ 1
 // CHECK_SRF_M64: #define __AES__ 1
 // CHECK_SRF_M64: #define __AVX2__ 1
@@ -2747,6 +2757,7 @@
 // CHECK_SRF_M64: #define __CLFLUSHOPT__ 1
 // CHECK_SRF_M64: #define __CLWB__ 1
 // CHECK_SRF_M64: #define __CMPCCXADD__ 1
+// CHECK_SRF_M64: #define __ENQCMD__ 1
 // CHECK_SRF_M64: #define __F16C__ 1
 // CHECK_SRF_M64: #define __FMA__ 1
 // CHECK_SRF_M64: #define __FSGSBASE__ 1
@@ -2766,6 +2777,8 @@
 // CHECK_SRF_M64: #define __POPCNT__ 1
 // CHECK_SRF_M64: #define __PRFCHW__ 1
 // CHECK_SRF_M64: #define __PTWRITE__ 1
+// CHECK_SRF_M64-NOT: #define __RAOINT__ 1
+// CHECK_GRR_M64: #define __RAOINT__ 1
 // CHECK_SRF_M64: #define __RDPID__ 1
 // CHECK_SRF_M64: #define __RDRND__ 1
 // CHECK_SRF_M64: #define __RDSEED__ 1
@@ -2781,6 +2794,7 @@
 // CHECK_SRF_M64: #define __SSE_MATH__ 1
 // CHECK_SRF_M64: #define __SSE__ 1
 // CHECK_SRF_M64: #define __SSSE3__ 1
+// CHECK_SRF_M64: #define __UINTR__ 1
 // CHECK_SRF_M64: #define __VAES__ 1
 // CHECK_SRF_M64: #define __VPCLMULQDQ__ 1
 // CHECK_SRF_M64: #define __WAITPKG__ 1
@@ -2797,6 +2811,7 @@
 // CHECK_SRF_M64: #define __x86_64 1
 // CHECK_SRF_M64: #define __x86_64__ 1
 
+<<<<<<< HEAD
 // RUN: %clang -march=grandridge -m32 -E -dM %s -o - 2>&1 \
 // RUN:     --target=i386 \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_GRR_M32
@@ -2937,6 +2952,8 @@
 // CHECK_GRR_M64: #define __x86_64 1
 // CHECK_GRR_M64: #define __x86_64__ 1
 
+=======
+>>>>>>> 5cc4b1059b2842418514a54599a37900b8c608a0
 // RUN: %clang -march=geode -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_GEODE_M32
