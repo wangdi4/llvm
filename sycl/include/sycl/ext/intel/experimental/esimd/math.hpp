@@ -1895,24 +1895,12 @@ __ESIMD_API std::enable_if_t<std::is_integral_v<T>, __ESIMD_NS::simd<T, N>> bfn(
 /// @param s1 Second boolean function argument.
 /// @param s2 Third boolean function argument.
 template <bfn_t FuncControl, typename T>
-<<<<<<< HEAD
 __SYCL_DEPRECATED(
     "Please use sycl::ext::intel::esimd::bfn<FuncControl>(src0, src1, src2);")
 __ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T>::value &&
                                  std::is_integral_v<T>,
                              T> bfn(T src0, T src1, T src2) {
   return __ESIMD_NS::bfn<FuncControl>(src0, src1, src2);
-=======
-__ESIMD_API std::enable_if_t<
-    __ESIMD_DNS::is_esimd_scalar<T>::value && std::is_integral_v<T>, T>
-bfn(T src0, T src1, T src2) {
-  __ESIMD_NS::simd<T, 1> Src0 = src0;
-  __ESIMD_NS::simd<T, 1> Src1 = src1;
-  __ESIMD_NS::simd<T, 1> Src2 = src2;
-  __ESIMD_NS::simd<T, 1> Result =
-      esimd::bfn<FuncControl, T, 1>(Src0, Src1, Src2);
-  return Result[0];
->>>>>>> 76976a22ba2e86059d655aa7d5f71250160f4864
 }
 
 /// @} sycl_esimd_logical
