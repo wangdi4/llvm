@@ -719,12 +719,12 @@ static void initializeProfileForContinuousMode(void) {
 static const char *DefaultProfileName = "default.profraw";
 static void resetFilenameToDefault(void) {
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
-#ifdef __GNUC__
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
     free((void *)lprofCurFilename.FilenamePat);
-#ifdef __GNUC__
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
   }
@@ -771,7 +771,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   int MergingEnabled = 0;
   int FilenamePatLen = strlen(FilenamePat);
 
-#ifdef __GNUC__
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
@@ -782,7 +782,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
     free((void *)lprofCurFilename.FilenamePat);
   }
-#ifdef __GNUC__
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
 

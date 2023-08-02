@@ -38,7 +38,7 @@ uint64_t lprofGetLoadModuleSignature(void) {
          __llvm_profile_get_magic();
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
@@ -189,6 +189,6 @@ int __llvm_profile_merge_from_buffer(const char *ProfileData,
   return 0;
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
