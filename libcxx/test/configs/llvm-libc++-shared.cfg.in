@@ -6,15 +6,9 @@ lit_config.load_config(config, '@CMAKE_CURRENT_BINARY_DIR@/cmake-bridge.cfg')
 config.substitutions.append(('%{flags}',
     '-pthread' + (' -isysroot {}'.format('@CMAKE_OSX_SYSROOT@') if '@CMAKE_OSX_SYSROOT@' else '')
 ))
-# INTEL_CUSTOMIZATION
-# JIRA: CMPLRLLVM-48592
-# Adding -O0 because icx/icpx has a default optimization level while clang
-# has not. Adding -O0 will make sure libc++ lit test have the closest behavior as 
-# LLORG.
 config.substitutions.append(('%{compile_flags}',
-    '-nostdinc++ -O0 -I %{include} -I %{target-include} -I %{libcxx}/test/support'
+    '-nostdinc++ -I %{include} -I %{target-include} -I %{libcxx}/test/support'
 ))
-# end INTEL_CUSTOMIZATION
 config.substitutions.append(('%{link_flags}',
     '-nostdlib++ -L %{lib} -Wl,-rpath,%{lib} -lc++'
 ))

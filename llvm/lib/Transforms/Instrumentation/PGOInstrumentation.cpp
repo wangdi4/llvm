@@ -2022,17 +2022,18 @@ void PGOUseFunc::annotateLoopTripCountMetadata() {
     unsigned int NumValues = 0;
     uint64_t MaxTC = 0;
     for (unsigned i = 3; i < NumOperands; i += 2) {
-      uint64_t ExecCount =
-          mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i + 1))
-              ->getValue()
-              .getZExtValue();
       uint64_t TripCount =
           mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i))
               ->getValue()
               .getZExtValue();
-      dbgs() << "  Value: " << TripCount << "  ExecCount: " << ExecCount
-             << "\n";
-
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC, {
+        uint64_t ExecCount =
+            mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i + 1))
+                ->getValue()
+                .getZExtValue();
+        dbgs() << "  Value: " << TripCount << "  ExecCount: " << ExecCount
+               << "\n";
+      });
       if (TripCount > MaxTC)
         MaxTC = TripCount;
       ++NumValues;
