@@ -790,8 +790,6 @@ void dtrans::PaddedMallocGlobals<InfoClass>::buildGlobalsInfo(Module &M) {
   PaddedMallocFunc->setMetadata("dtrans.paddedmallocsize", Node);
 }
 
-template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    buildGlobalsInfo(Module&);
 template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     buildGlobalsInfo(Module&);
 
@@ -966,8 +964,6 @@ void dtrans::PaddedMallocGlobals<InfoClass>::destroyGlobalsInfo(Module &M) {
   BadCastValidatedFuncs.clear();
 }
 
-template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    destroyGlobalsInfo(Module &M);
 template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     destroyGlobalsInfo(Module &M);
 
@@ -1002,9 +998,6 @@ dtrans::PaddedMallocGlobals<InfoClass>::getPaddedMallocVariable(Module &M) {
   return PaddedMallocVariable;
 }
 
-template unsigned
-dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    getPaddedMallocSize(Module &M);
 template unsigned
 dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     getPaddedMallocSize(Module &M);

@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransPasses.h"
 #include "llvm/IR/IRPrintingPasses.h"
