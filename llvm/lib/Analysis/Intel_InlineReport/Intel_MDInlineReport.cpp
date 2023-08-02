@@ -254,6 +254,10 @@ MDTuple *CallSiteInliningReport::initCallSite(
   IsCompactStr.append(std::to_string(IsCompact));
   auto IsCompactMD = MDNode::get(*C, llvm::MDString::get(*C, IsCompactStr));
   Ops.push_back(IsCompactMD);
+  // Op 18: broker target name
+  Name.insert(0, "name: ");
+  auto BTNameMD = MDNode::get(*C, llvm::MDString::get(*C, ""));
+  Ops.push_back(BTNameMD);
   return MDTuple::getDistinct(*C, Ops);
 }
 
@@ -1133,8 +1137,12 @@ void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
   auto *OldCallMDIR = dyn_cast<MDTuple>(OldCallMD);
   if (!OldCallMDIR)
     return;
-  // Copy the metadata from OldCall to NewCall.
   assert(OldCall->getCaller() == NewCall->getCaller());
+  Function *Caller = OldCall->getCaller();
+  Metadata *CallerMD = Caller->getMetadata(FunctionTag);
+  if (!CallerMD)
+    return;
+  // Copy the metadata from OldCall to NewCall.
   LLVMContext &Ctx = OldCall->getFunction()->getParent()->getContext();
   auto *NewCallMDIR = cast<MDTuple>(copyMD(Ctx, OldCallMDIR));
   // Update the metdata for NewCall to reflect its callee.
@@ -1145,8 +1153,6 @@ void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
   NewCallMDIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
   NewCall->setMetadata(MDInliningReport::CallSiteTag, NewCallMDIR);
   // Update the list of callsites for the caller.
-  Function *Caller = OldCall->getCaller();
-  Metadata *CallerMD = Caller->getMetadata(FunctionTag);
   auto *CallerMDTuple = cast<MDTuple>(CallerMD);
   SmallVector<Metadata *, 100> Ops;
   Metadata *MDCSs = CallerMDTuple->getOperand(FMDIR_CSs).get();
@@ -1364,6 +1370,21 @@ bool InlineReportBuilder::shouldSkipCallBase(CallBase *CB) {
   if (!II)
     return false;
   return !(getLevel() & DontSkipIntrin) && shouldSkipIntrinsic(II);
+}
+
+void InlineReportBuilder::setBrokerTarget(CallBase *CB, Function *F) {
+  if (!isMDIREnabled())
+    return;
+  Metadata *CBMD = CB->getMetadata(CallSiteTag);
+  if (!CBMD)
+    return;
+  auto CSIR = cast<MDTuple>(CBMD);
+  std::string FuncName = std::string(F ? F->getName() : "");
+  FuncName.insert(0, "name: ");
+  LLVMContext &Ctx = CB->getModule()->getContext();
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  CSIR->replaceOperandWith(CSMDIR_BrokerTargetName, FuncNameMD);
+  setMDReasonNotInlined(CB, NinlrBrokerFunction);
 }
 
 extern cl::opt<unsigned> IntelInlineReportLevel;

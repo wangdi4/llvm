@@ -166,6 +166,7 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
       SelfStats->HasCallsWithUnsafeSideEffects |= HasUnsafeSideEffects;
 
       SelfStats->HasCallsWithNoDuplicate |= Call->cannotDuplicate();
+      SelfStats->HasConvergentCalls |= Call->isConvergent();
 
       SelfStats->HasCallsWithUnknownAliasing |=
           HLInst::hasUnknownAliasing(Call);
@@ -230,6 +231,9 @@ void LoopStatistics::print(formatted_raw_ostream &OS,
   Node->indent(OS, Depth);
   OS << "Has noduplicate calls: "
      << (HasCallsWithNoDuplicate ? "yes\n" : "no\n");
+
+  Node->indent(OS, Depth);
+  OS << "Has convergent calls: " << (HasConvergentCalls ? "yes\n" : "no\n");
 
   Node->indent(OS, Depth);
   OS << "Has unknown aliasing calls: "

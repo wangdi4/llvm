@@ -33,6 +33,7 @@
 ; CHECK-NEXT: [[CBPAIRBENEFIT:![0-9]+]] = !{!"CBPairBenefit: -1"}
 ; CHECK-NEXT: [[ICSMETHOD:![0-9]+]] = !{!"icsMethod: 0"}
 ; CHECK-NEXT: [[ISCOMPACT]] = !{!"isCompact: 0"}
+; CHECK-NEXT: [[BROKER:[0-9]+]] = !{!""}
 ; CHECK-NEXT: [[Y_A_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], [[Y_A_MAIN_CSs:![0-9]+]], [[IS_INL_1]]{{.*}}
 ; CHECK-NEXT: [[Y_NAME]]  = !{!"name: y"}
 ; CHECK-NEXT: [[Y_A_MAIN_CSs]] = distinct !{!"intel.callsites.inlining.report", [[Z_Y_A_MAIN_CS:![0-9]+]]}
@@ -107,7 +108,7 @@ declare !intel.function.inlining.report !43 dso_local void @z(...)
 !8 = distinct !{!"intel.function.inlining.report", !9, !10, !20, !25, !26, !27, !28, !21, !64, null, null}
 !9 = !{!"name: main"}
 !10 = distinct !{!"intel.callsites.inlining.report", !11, !22}
-!11 = distinct !{!"intel.callsite.inlining.report", !12, null, !13, !14, !15, !16, !17, !18, !19, !"line: 10 col: 3", !20, !21, !60, !61, !62, !63, !64}
+!11 = distinct !{!"intel.callsite.inlining.report", !12, null, !13, !14, !15, !16, !17, !18, !19, !"line: 10 col: 3", !20, !21, !60, !61, !62, !63, !64, !65}
 !12 = !{!"name: a"}
 !13 = !{!"isInlined: 0"}
 !14 = !{!"reason: 24"}
@@ -118,7 +119,7 @@ declare !intel.function.inlining.report !43 dso_local void @z(...)
 !19 = !{!"earlyExitThreshold: 2147483647"}
 !20 = !{!"moduleName: test1.c"}
 !21 = !{!"isSuppressPrint: 0"}
-!22 = distinct !{!"intel.callsite.inlining.report", !23, null, !13, !24, !15, !16, !17, !18, !19, !"line: 11 col: 3", !20, !21, !60, !61, !62, !63, !64}
+!22 = distinct !{!"intel.callsite.inlining.report", !23, null, !13, !24, !15, !16, !17, !18, !19, !"line: 11 col: 3", !20, !21, !60, !61, !62, !63, !64, !65}
 !23 = !{!"name: b"}
 !24 = !{!"reason: 39"}
 !25 = !{!"isDead: 0"}
@@ -129,14 +130,14 @@ declare !intel.function.inlining.report !43 dso_local void @z(...)
 !30 = !{!"isDeclaration: 1"}
 !31 = distinct !{!"intel.function.inlining.report", !12, !32, !20, !25, !26, !27, !28, !21, !64, null, null}
 !32 = distinct !{!"intel.callsites.inlining.report", !33, !35}
-!33 = distinct !{!"intel.callsite.inlining.report", !34, null, !13, !24, !15, !16, !17, !18, !19, !"line: 16 col: 3", !20, !21, !60, !61, !62, !63, !64}
+!33 = distinct !{!"intel.callsite.inlining.report", !34, null, !13, !24, !15, !16, !17, !18, !19, !"line: 16 col: 3", !20, !21, !60, !61, !62, !63, !64, !65}
 !34 = !{!"name: x"}
-!35 = distinct !{!"intel.callsite.inlining.report", !36, null, !13, !14, !15, !16, !17, !18, !19, !"line: 17 col: 3", !20, !21, !60, !61, !62, !63, !64}
+!35 = distinct !{!"intel.callsite.inlining.report", !36, null, !13, !14, !15, !16, !17, !18, !19, !"line: 17 col: 3", !20, !21, !60, !61, !62, !63, !64, !65}
 !36 = !{!"name: y"}
 !37 = distinct !{!"intel.function.inlining.report", !34, null, !20, !25, !30, !27, !28, !21, !64, null, null}
 !38 = distinct !{!"intel.function.inlining.report", !36, !39, !20, !25, !26, !42, !28, !21, !64, null, null}
 !39 = distinct !{!"intel.callsites.inlining.report", !40}
-!40 = distinct !{!"intel.callsite.inlining.report", !41, null, !13, !24, !15, !16, !17, !18, !19, !"line: 21 col: 3", !20, !21, !60, !61, !62, !63, !64}
+!40 = distinct !{!"intel.callsite.inlining.report", !41, null, !13, !24, !15, !16, !17, !18, !19, !"line: 21 col: 3", !20, !21, !60, !61, !62, !63, !64, !65}
 !41 = !{!"name: z"}
 !42 = !{!"linkage: L"}
 !43 = distinct !{!"intel.function.inlining.report", !41, null, !20, !25, !30, !27, !28, !21, !64, null, null}
@@ -161,4 +162,5 @@ declare !intel.function.inlining.report !43 dso_local void @z(...)
 !62 = !{!"CBPairBenefit: -1"}
 !63 = !{!"icsMethod: 0"}
 !64 = !{!"isCompact: 0"}
+!65 = !{!""}
 

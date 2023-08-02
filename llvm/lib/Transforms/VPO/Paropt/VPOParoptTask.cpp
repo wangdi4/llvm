@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -54,7 +54,10 @@
 
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
-
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -2082,6 +2085,14 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getMDInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getInlineReport()->replaceCallBaseWithCallBase(NewCall, TaskAllocCI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(NewCall, TaskAllocCI);
+  getInlineReport()->setBrokerTarget(TaskAllocCI, MTFn);
+  getMDInlineReport()->setBrokerTarget(TaskAllocCI, MTFn);
+#endif // INTEL_CUSTOMIZATION
   NewCall->eraseFromParent();
   NewF->eraseFromParent();
   MTFnCI->eraseFromParent();

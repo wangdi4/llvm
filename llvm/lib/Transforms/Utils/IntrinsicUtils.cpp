@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -28,19 +28,23 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/Directives.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"  // INTEL
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "IntrinsicUtils"
 
@@ -240,7 +244,10 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
   NewI->setAttributes(CI->getAttributes());
   NewI->setDebugLoc(CI->getDebugLoc());
   NewI->copyMetadata(*CI);
-
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceCallBaseWithCallBase(CI, NewI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(CI, NewI);
+#endif // INTEL_CUSTOMIZATION
   CI->replaceAllUsesWith(NewI);
   CI->eraseFromParent();
   return NewI;

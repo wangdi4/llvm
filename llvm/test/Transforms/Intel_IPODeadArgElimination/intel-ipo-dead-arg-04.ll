@@ -43,24 +43,24 @@
 ; CHECK-IR-MD: ; Function Attrs: noinline
 ; CHECK-IR-MD: define internal float @foo(ptr %0, i64 %1, i64 %2) #0 !intel.function.inlining.report !0 {
 
-; CHECK-IR-MD: define float @bas(ptr %0, float %1, i64 %2, i64 %3) !intel.function.inlining.report !25 {
-; CHECK-IR-MD:   %5 = call float @foo(ptr %0, i64 %2, i64 %3), !intel.callsite.inlining.report !30
+; CHECK-IR-MD: define float @bas(ptr %0, float %1, i64 %2, i64 %3) !intel.function.inlining.report !26 {
+; CHECK-IR-MD:   %5 = call float @foo(ptr %0, i64 %2, i64 %3), !intel.callsite.inlining.report !31
 
-; CHECK-IR-MD: !intel.module.inlining.report = !{!0, !9, !25, !37}
+; CHECK-IR-MD: !intel.module.inlining.report = !{!0, !9, !26, !38}
 
 ; CHECK-IR-MD: !0 = distinct !{!"intel.function.inlining.report", !1, null, !2, !3, !4, !5, !6, !7, !8, null, null}
 ; CHECK-IR-MD: !1 = !{!"name: foo"}
-; CHECK-IR-MD: !2 = !{!"moduleName: <stdin>"}
+; CHECK-IR-MD: !2 = !{!"moduleName:
 ; CHECK-IR-MD: !3 = !{!"isDead: 0"}
 ; CHECK-IR-MD: !4 = !{!"isDeclaration: 0"}
 ; CHECK-IR-MD: !5 = !{!"linkage: L"}
 ; CHECK-IR-MD: !6 = !{!"language: C"}
 ; CHECK-IR-MD: !7 = !{!"isSuppressPrint: 0"}
 ; CHECK-IR-MD: !8 = !{!"isCompact: 0"}
-; CHECK-IR-MD: !9 = distinct !{!"intel.function.inlining.report", !10, !11, !2, !24, !4, !5, !6, !7, !8, null, null}
+; CHECK-IR-MD: !9 = distinct !{!"intel.function.inlining.report", !10, !11, !2, !25, !4, !5, !6, !7, !8, null, null}
 ; CHECK-IR-MD: !10 = !{!"name: bar"}
 ; CHECK-IR-MD: !11 = distinct !{!"intel.callsites.inlining.report", !12}
-; CHECK-IR-MD: !12 = distinct !{!"intel.callsite.inlining.report", !1, null, !13, !14, !15, !16, !17, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8}
+; CHECK-IR-MD: !12 = distinct !{!"intel.callsite.inlining.report", !1, null, !13, !14, !15, !16, !17, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8, !24}
 ; CHECK-IR-MD: !13 = !{!"isInlined: 0"}
 ; CHECK-IR-MD: !14 = !{!"reason: 44"}
 ; CHECK-IR-MD: !15 = !{!"inlineCost: -1"}
@@ -72,22 +72,23 @@
 ; CHECK-IR-MD: !21 = !{!"CBPairCost: -1"}
 ; CHECK-IR-MD: !22 = !{!"CBPairBenefit: -1"}
 ; CHECK-IR-MD: !23 = !{!"icsMethod: 0"}
-; CHECK-IR-MD: !24 = !{!"isDead: 1"}
-; CHECK-IR-MD: !25 = distinct !{!"intel.function.inlining.report", !26, !27, !2, !3, !4, !36, !6, !7, !8, null, null}
-; CHECK-IR-MD: !26 = !{!"name: bas"}
-; CHECK-IR-MD: !27 = distinct !{!"intel.callsites.inlining.report", !28}
-; CHECK-IR-MD: !28 = distinct !{!"intel.callsite.inlining.report", !10, !29, !32, !33, !34, !16, !35, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8}
-; CHECK-IR-MD: !29 = distinct !{!"intel.callsites.inlining.report", !30}
-; CHECK-IR-MD: !30 = distinct !{!"intel.callsite.inlining.report", !1, null, !13, !31, !15, !16, !17, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8}
-; CHECK-IR-MD: !31 = !{!"reason: 63"}
-; CHECK-IR-MD: !32 = !{!"isInlined: 1"}
-; CHECK-IR-MD: !33 = !{!"reason: 10"}
-; CHECK-IR-MD: !34 = !{!"inlineCost: -15000"}
-; CHECK-IR-MD: !35 = !{!"inlineThreshold: 337"}
-; CHECK-IR-MD: !36 = !{!"linkage: A"}
-; CHECK-IR-MD: !37 = distinct !{!"intel.function.inlining.report", !38, null, !2, !3, !39, !36, !6, !7, !8, null, null}
-; CHECK-IR-MD: !38 = !{!"name: llvm.intel.subscript.p0.i64.i64.p0.i64"}
-; CHECK-IR-MD: !39 = !{!"isDeclaration: 1"}
+; CHECK-IR-MD: !24 = !{!""}
+; CHECK-IR-MD: !25 = !{!"isDead: 1"}
+; CHECK-IR-MD: !26 = distinct !{!"intel.function.inlining.report", !27, !28, !2, !3, !4, !37, !6, !7, !8, null, null}
+; CHECK-IR-MD: !27 = !{!"name: bas"}
+; CHECK-IR-MD: !28 = distinct !{!"intel.callsites.inlining.report", !29}
+; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !10, !30, !33, !34, !35, !16, !36, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8, !24}
+; CHECK-IR-MD: !30 = distinct !{!"intel.callsites.inlining.report", !31}
+; CHECK-IR-MD: !31 = distinct !{!"intel.callsite.inlining.report", !1, null, !13, !32, !15, !16, !17, !18, !19, !"line: 0 col: 0", !2, !7, !20, !21, !22, !23, !8, !24}
+; CHECK-IR-MD: !32 = !{!"reason: 63"}
+; CHECK-IR-MD: !33 = !{!"isInlined: 1"}
+; CHECK-IR-MD: !34 = !{!"reason: 10"}
+; CHECK-IR-MD: !35 = !{!"inlineCost: -15000"}
+; CHECK-IR-MD: !36 = !{!"inlineThreshold: 337"}
+; CHECK-IR-MD: !37 = !{!"linkage: A"}
+; CHECK-IR-MD: !38 = distinct !{!"intel.function.inlining.report", !39, null, !2, !3, !40, !37, !6, !7, !8, null, null}
+; CHECK-IR-MD: !39 = !{!"name: llvm.intel.subscript.p0.i64.i64.p0.i64"}
+; CHECK-IR-MD: !40 = !{!"isDeclaration: 1"}
 
 ; ModuleID = 'intel-ipo-dead-arg-04.ll'
 source_filename = "intel-ipo-dead-arg-04.ll"

@@ -246,6 +246,7 @@ typedef enum {
   NinlrDeletedZeroLengthWrite,
   NinlrDeletedIndCallConv,
   NinlrDeletedDeadCode,
+  NinlrBrokerFunction,
   NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 

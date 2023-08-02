@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -11918,7 +11918,19 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     }
   }
 
+  // Generate __kmpc_fork_call for multithreaded execution of MTFn call
   CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);
+  CallInst *ForkCI = genForkCallInst(W, MTFnCI);
+  MTFnCI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+  // Update inline report
+  getInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getMDInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getInlineReport()->replaceCallBaseWithCallBase(NewCall, ForkCI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(NewCall, ForkCI);
+  getInlineReport()->setBrokerTarget(ForkCI, MTFn);
+  getMDInlineReport()->setBrokerTarget(ForkCI, MTFn);
+#endif // INTEL_CUSTOMIZATION
 
   // Remove the orginal serial call to extracted NewF from the program,
   // reducing the use-count of NewF
@@ -11926,10 +11938,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Finally, nuke the original extracted function.
   NewF->eraseFromParent();
-
-  // Generate __kmpc_fork_call for multithreaded execution of MTFn call
-  CallInst* ForkCI = genForkCallInst(W, MTFnCI);
-  MTFnCI->eraseFromParent();
 
   // If Proc_Bind clause is set to Master, Close or Spread, Generate
   // __kmpc_push_proc_bind(LOC, TID, i32 policy) and insert it before
@@ -12378,6 +12386,9 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
+#if INTEL_CUSTOMIZATION
+  NFn->copyMetadata(Fn, 0);
+#endif // INTEL_CUSTOMIZATION
 
   // Propagate old parameter attributes to the new function.
   for (auto &P : Param2Attrs) {

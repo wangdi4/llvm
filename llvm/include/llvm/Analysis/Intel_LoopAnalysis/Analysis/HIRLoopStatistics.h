@@ -49,6 +49,7 @@ private:
   bool HasCallsWithUnsafeSideEffects = false;
   bool HasNonSIMDCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
+  bool HasConvergentCalls = false;
   bool HasCallsWithUnknownAliasing = false;
 
   SmallVector<const HLGoto *, 2> ForwardGotos;
@@ -121,6 +122,12 @@ public:
     return HasCallsWithNoDuplicate;
   }
 
+  bool hasConvergentCalls() const {
+    assert((!HasConvergentCalls || hasCalls()) &&
+           "Number of calls and HasConvergentCalls are out of sync!");
+    return HasConvergentCalls;
+  }
+
   bool hasCallsWithUnknownAliasing() const {
     assert((!HasCallsWithUnknownAliasing || hasCalls()) &&
            "Number of calls and HasUnknownAliasing are out of sync!");
@@ -144,6 +151,7 @@ public:
     HasNonSIMDCallsWithUnsafeSideEffects |=
         LS.HasNonSIMDCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
+    HasConvergentCalls |= LS.HasConvergentCalls;
     HasCallsWithUnknownAliasing |= LS.HasCallsWithUnknownAliasing;
 
     ForwardGotos.append(LS.ForwardGotos);
