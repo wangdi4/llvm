@@ -27,7 +27,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias nocapture readonly %larr2, i64* noalias nocapture readonly %larr3, <2 x i64> %l2n, i64 %n1, i64 %n0) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture readonly %larr1, ptr noalias nocapture readonly %larr2, ptr noalias nocapture readonly %larr3, <2 x i64> %l2n, i64 %n1, i64 %n0) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -53,18 +53,16 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP8:%.*]] = mul i64 2 i64 [[VP6]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR20:%.*]] i64 [[VP8]]
-; CHECK-NEXT:       [DA: Div] <2 x i64>* [[VP9:%.*]] = bitcast i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP_LOAD:%.*]] = load <2 x i64>* [[VP9]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LARR20:%.*]] i64 [[VP8]]
+; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP10:%.*]] = hir-copy <2 x i64> [[VP_LOAD]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP11:%.*]] = hir-copy <2 x i64> [[VP10]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = mul i64 2 i64 [[VP6]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LARR10:%.*]] i64 [[VP12]]
-; CHECK-NEXT:       [DA: Div] <2 x i64>* [[VP13:%.*]] = bitcast i64* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP_LOAD_1:%.*]] = load <2 x i64>* [[VP13]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LARR10:%.*]] i64 [[VP12]]
+; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP14:%.*]] = hir-copy <2 x i64> [[VP_LOAD_1]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] <2 x i64> [[VP15:%.*]] = hir-copy <2 x i64> [[VP14]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
@@ -73,9 +71,8 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:     [DA: Div] <2 x i64> [[VP16:%.*]] = phi  [ <2 x i64> [[VP15]], [[BB4]] ],  [ <2 x i64> [[VP11]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] <2 x i64> [[VP17:%.*]] = add <2 x i64> [[VP16]] <2 x i64> [[L2N0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP18:%.*]] = mul i64 2 i64 [[VP6]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[LARR30:%.*]] i64 [[VP18]]
-; CHECK-NEXT:     [DA: Div] <2 x i64>* [[VP19:%.*]] = bitcast i64* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] store <2 x i64> [[VP17]] <2 x i64>* [[VP19]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[LARR30:%.*]] i64 [[VP18]]
+; CHECK-NEXT:     [DA: Div] store <2 x i64> [[VP17]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp slt i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP20]], [[BB2]], [[BB6:BB[0-9]+]]
@@ -118,23 +115,20 @@ for.body:                                         ; preds = %entry, %for.body
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i64, i64* %larr1, i64 %l1.mul
-  %arrayidx.bc = bitcast i64* %arrayidx to <2 x i64>*
-  %0 = load <2 x i64>, <2 x i64>* %arrayidx.bc, align 16
+  %arrayidx = getelementptr inbounds i64, ptr %larr1, i64 %l1.mul
+  %0 = load <2 x i64>, ptr %arrayidx, align 16
   br label %if.end
 
 if.else:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds i64, i64* %larr2, i64 %l1.mul
-  %arrayidx2.bc = bitcast i64* %arrayidx2 to <2 x i64>*
-  %1 = load <2 x i64>, <2 x i64>* %arrayidx2.bc, align 16
+  %arrayidx2 = getelementptr inbounds i64, ptr %larr2, i64 %l1.mul
+  %1 = load <2 x i64>, ptr %arrayidx2, align 16
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   %l2.0 = phi <2 x i64> [ %0, %if.then ], [ %1, %if.else ]
   %add = add <2 x i64> %l2.0, %l2n
-  %arrayidx3 = getelementptr inbounds i64,  i64* %larr3, i64 %l1.mul
-  %arrayidx3.bc = bitcast i64* %arrayidx3 to <2 x i64>*
-  store <2 x i64> %add, <2 x i64>* %arrayidx3.bc, align 16
+  %arrayidx3 = getelementptr inbounds i64,  ptr %larr3, i64 %l1.mul
+  store <2 x i64> %add, ptr %arrayidx3, align 16
   %inc = add nuw nsw i64 %l1.013, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body

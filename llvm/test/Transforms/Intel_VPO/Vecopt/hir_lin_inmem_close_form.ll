@@ -21,12 +21,12 @@ newFuncRoot:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %newFuncRoot
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %n.linear.iv, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %n.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.ORDERED.2351
 
 DIR.OMP.ORDERED.2351:                             ; preds = %DIR.OMP.ORDERED.2351, %DIR.OMP.SIMD.1
   %.omp.iv.local.0720 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %add438, %DIR.OMP.ORDERED.2351 ]
-  store i32 %.omp.iv.local.0720, i32* %n.linear.iv, align 4
+  store i32 %.omp.iv.local.0720, ptr %n.linear.iv, align 4
   %add438 = add nuw i32 %.omp.iv.local.0720, 1
   %exitcond.not = icmp eq i32 %add438, %N
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.7, label %DIR.OMP.ORDERED.2351

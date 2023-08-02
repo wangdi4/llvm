@@ -5,14 +5,14 @@
 ; CHECK:         (<4 x i32>*)(%ip)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{{{.*}}};
 ; CHECK:     END LOOP
 ; check llvm IR
-; CHECK:     call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> {{.*}}, <4 x i32>* {{.*}}, {{.*}}, <4 x i1>
+; CHECK:     call void @llvm.masked.store.v4i32.p0(<4 x i32> {{.*}}, ptr {{.*}}, {{.*}}, <4 x i1>
 ; ModuleID = 'tif.c'
 source_filename = "tif.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %ip, i32 %N1, i32 %N2) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %ip, i32 %N1, i32 %N2) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -24,9 +24,9 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %1, ptr %arrayidx, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

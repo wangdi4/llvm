@@ -18,7 +18,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(<2 x i64>* noalias nocapture %larr, <2 x i64> %val, i64 %n1) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %larr, <2 x i64> %val, i64 %n1) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    BEGIN REGION { modified }
@@ -26,16 +26,15 @@ define dso_local void @foo(<2 x i64>* noalias nocapture %larr, <2 x i64> %val, i
 ; CHECK-NEXT:         |   %.vec2 = undef
 ; CHECK-NEXT:         |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3> < %n1
 ; CHECK-NEXT:         |   %.replicated.elts = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK-NEXT:         |   %.vec2 = (<8 x i64>*)(%larr.bc)[2 * i1], Mask = @{%.replicated.elts};
+; CHECK-NEXT:         |   %.vec2 = (<8 x i64>*)(%larr)[2 * i1], Mask = @{%.replicated.elts};
 ; CHECK-NEXT:         |   %.replicated = shufflevector %val,  undef,  <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
 ; CHECK-NEXT:         |   %.replicated.elts3 = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK-NEXT:         |   (<8 x i64>*)(%larr.bc)[2 * i1] = %.vec2 + %.replicated, Mask = @{%.replicated.elts3};
+; CHECK-NEXT:         |   (<8 x i64>*)(%larr)[2 * i1] = %.vec2 + %.replicated, Mask = @{%.replicated.elts3};
 ; CHECK-NEXT:         + END LOOP
 ; CHECK:              ret
 ; CHECK-NEXT:    END REGION
 ;
 entry:
-  %larr.bc = bitcast <2 x i64>* %larr to i64*
   br label %for.ph
 
 for.ph:
@@ -49,11 +48,10 @@ for.body:
 
 if.then:
   %idx = mul nsw i64 %l1.06, 2
-  %arrayidx.tmp = getelementptr inbounds i64,  i64* %larr.bc, i64 %idx
-  %arrayidx = bitcast i64* %arrayidx.tmp to <2 x i64>*
-  %0 = load <2 x i64>, <2 x i64>* %arrayidx, align 16
+  %arrayidx.tmp = getelementptr inbounds i64,  ptr %larr, i64 %idx
+  %0 = load <2 x i64>, ptr %arrayidx.tmp, align 16
   %add = add <2 x i64> %0, %val
-  store <2 x i64> %add, <2 x i64>* %arrayidx, align 16
+  store <2 x i64> %add, ptr %arrayidx.tmp, align 16
   br label %for.inc
 
 for.inc:

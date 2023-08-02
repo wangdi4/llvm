@@ -3,7 +3,7 @@
 ;
 ; LIT test to check dynamic peeling in VPlan HIR path.
 ;
-define void @foo(i64* %lp, i64 %n1) {
+define void @foo(ptr %lp, i64 %n1) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -17,8 +17,8 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKZ0:peel.checkz[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[PEEL_CHECKZ0]]: # preds: [[PEEL_CHECK_TC]]
-; CHECK-NEXT:       [DA: Uni] i64* [[VP_PEEL_BASE_PTR:%.*]] = inv-scev-wrapper{([[LP0:%.*]]),+,0}
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_BASEPTR_INT:%.*]] = ptrtoint i64* [[VP_PEEL_BASE_PTR]] to i64
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_PEEL_BASE_PTR:%.*]] = inv-scev-wrapper{([[LP0:%.*]]),+,0}
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_BASEPTR_INT:%.*]] = ptrtoint ptr [[VP_PEEL_BASE_PTR]] to i64
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_QUOTIENT:%.*]] = udiv i64 [[VP_BASEPTR_INT]] i64 8
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_QMULTIPLIER:%.*]] = mul i64 [[VP_QUOTIENT]] i64 3
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_PEEL_COUNT:%.*]] = urem i64 [[VP_QMULTIPLIER]] i64 4
@@ -62,8 +62,8 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]], [[BB4]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP7:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB3]] ],  [ i64 [[VP8:%.*]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP7]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP7]] i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP7]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP7]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP8]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP9]], [[BB4]], [[BB5:BB[0-9]+]]
@@ -113,7 +113,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:             {
 ; CHECK:                goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK:             }
-; CHECK:             [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[LP0]])[0]))
+; CHECK:             [[DOTVEC10:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[LP0]])[0]))
 ; CHECK:             [[DOTVEC20:%.*]] = [[DOTVEC10]]  /u  8
 ; CHECK:             [[DOTVEC30:%.*]] = [[DOTVEC20]]  *  3
 ; CHECK:             [[DOTVEC40:%.*]] = [[DOTVEC30]]  [[U0:%.*]]  4
@@ -158,7 +158,7 @@ define void @foo(i64* %lp, i64 %n1) {
 
 ; CHECK:             + DO i64 i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:             |   (<4 x i64>*)([[LP0]])[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>
-; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
+; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR ptr [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
 ; CHECK:             + END LOOP
 
 ; CHECK:             [[IND_FINAL0:%.*]] = 0  +  [[ADJ_TC170]]
@@ -190,8 +190,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.06
-  store i64 %l1.06, i64* %arrayidx, align 8, !tbaa !3
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.06
+  store i64 %l1.06, ptr %arrayidx, align 8, !tbaa !3
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !7

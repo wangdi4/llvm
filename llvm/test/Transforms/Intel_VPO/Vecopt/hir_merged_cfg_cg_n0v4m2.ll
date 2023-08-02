@@ -22,7 +22,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_store(i64* nocapture %ary, i32 %c) {
+define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
 ; CHECK-NEXT:  VPlan IR for: test_store:HIR.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:  External Defs Start:
@@ -48,8 +48,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP0]] i64 [[VP_NEW_IND]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP10:%.*]] = subscript inbounds i64* [[ARY0:%.*]] i64 [[VP_NEW_IND]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP9]] i64* [[VP10]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP10:%.*]] = subscript inbounds ptr [[ARY0:%.*]] i64 [[VP_NEW_IND]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP9]] ptr [[VP10]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]], [[BB2]]
@@ -124,10 +124,10 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
   %cc = sext i32 %c to i64
   %add = add i64 %cc, %indvars.iv
-  store i64 %add, i64* %ptr, align 8
+  store i64 %add, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, %cc
   br i1 %cmp, label %for.body, label %for.end
