@@ -1128,7 +1128,6 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   MachineBasicBlock *PrevFallthrough = getNextNode();
   DebugLoc DL;  // FIXME: this is nowhere
 
-<<<<<<< HEAD
   const BasicBlock *BaseBB = getBasicBlock(); // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -1198,10 +1197,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
 #endif // INTEL_CUSTOMIZATION
 
   MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
-=======
-  MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock();
   NMBB->setCallFrameSize(Succ->getCallFrameSize());
->>>>>>> 2dcf0512599280ba68a5028f24ea96dfdb37b7b7
 
   // Is there an indirect jump with jump table?
   bool ChangedIndirectJump = false;
