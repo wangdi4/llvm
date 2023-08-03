@@ -416,9 +416,7 @@ AArch64TargetMachine::getSubtargetImpl(const Function &F) const {
          "Minimum SVE vector size should not be larger than its maximum!");
 
   // Sanitize user input in case of no asserts
-  if (MaxSVEVectorSize == 0)
-    MinSVEVectorSize = MinSVEVectorSize;
-  else {
+  if (MaxSVEVectorSize != 0) {
     MinSVEVectorSize = std::min(MinSVEVectorSize, MaxSVEVectorSize);
     MaxSVEVectorSize = std::max(MinSVEVectorSize, MaxSVEVectorSize);
   }
