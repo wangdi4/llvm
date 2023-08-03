@@ -898,12 +898,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_RYL
   case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-  case CK_Lunarlake:
-#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
   case CK_Raptorlake:
   case CK_Meteorlake:
+  case CK_Arrowlake:
+  case CK_ArrowlakeS:
+  case CK_Lunarlake:
   case CK_Sierraforest:
   case CK_Grandridge:
   case CK_Graniterapids:
@@ -2571,12 +2571,12 @@ std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_FEATURE_CPU_RYL
     case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-    case CK_Lunarlake:
-#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
     case CK_Raptorlake:
     case CK_Meteorlake:
+    case CK_Arrowlake:
+    case CK_ArrowlakeS:
+    case CK_Lunarlake:
     case CK_Sierraforest:
     case CK_Grandridge:
     case CK_Graniterapids:

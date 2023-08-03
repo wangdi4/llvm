@@ -148,6 +148,8 @@ enum ProcessorSubtypes {
 #endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
   INTEL_COREI7_GRANITERAPIDS_D,
+  INTEL_COREI7_ARROWLAKE,
+  INTEL_COREI7_ARROWLAKE_S,
   CPU_SUBTYPE_MAX
 };
 
@@ -497,7 +499,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #if INTEL_FEATURE_CPU_LNL
     // Lunarlake:
     case 0xbc:
-    case 0xbd:
       CPU = "lunarlake";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_LUNARLAKE;
@@ -513,6 +514,22 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+
+    // Arrowlake:
+    case 0xc5:
+      CPU = "arrowlake";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_ARROWLAKE;
+      break;
+
+    // Arrowlake S:
+    case 0xc6:
+    // Lunarlake:
+    case 0xbd:
+      CPU = "arrowlake-s";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_ARROWLAKE_S;
+      break;
 
     // Icelake Xeon:
     case 0x6a:

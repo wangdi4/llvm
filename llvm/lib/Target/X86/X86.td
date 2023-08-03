@@ -1810,17 +1810,13 @@ def ProcessorFeatures {
   list<SubtargetFeature> GRRFeatures =
     !listconcat(SRFFeatures, GRRAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_LNL
-  // Lunarlake
-  list<SubtargetFeature> LNLAdditionalFeatures = [FeatureSHA512,
-                                                  FeatureSM3,
-                                                  FeatureSM4,
-                                                  FeatureAVXVNNIINT16];
-  list<SubtargetFeature> LNLFeatures =
-    !listconcat(SRFFeatures, LNLAdditionalFeatures);
-#endif // INTEL_FEATURE_CPU_LNL
-#endif // INTEL_CUSTOMIZATION
+  // Arrowlake S
+  list<SubtargetFeature> ARLSAdditionalFeatures = [FeatureAVXVNNIINT16,
+                                                   FeatureSHA512,
+                                                   FeatureSM3,
+                                                   FeatureSM4];
+  list<SubtargetFeature> ARLSFeatures =
+    !listconcat(SRFFeatures, ARLSAdditionalFeatures);
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
@@ -2340,10 +2336,6 @@ def : ProcModel<"diamondrapids", SapphireRapidsModel,
 def : ProcModel<"royal", RYLModel,
                 ProcessorFeatures.RYLFeatures, ProcessorFeatures.RYLTuning>;
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-def : ProcModel<"lunarlake", AlderlakePModel,
-                ProcessorFeatures.LNLFeatures, ProcessorFeatures.ADLTuning>;
-#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
 def : ProcModel<"alderlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
@@ -2351,6 +2343,12 @@ def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"meteorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+def : ProcModel<"arrowlake", AlderlakePModel,
+                ProcessorFeatures.SRFFeatures, ProcessorFeatures.ADLTuning>;
+foreach P = ["arrowlake-s", "arrowlake_s", "lunarlake"] in {
+def : ProcModel<P, AlderlakePModel,
+                ProcessorFeatures.ARLSFeatures, ProcessorFeatures.ADLTuning>;
+}
 def : ProcModel<"graniterapids", SapphireRapidsModel,
                 ProcessorFeatures.GNRFeatures, ProcessorFeatures.SPRTuning>;
 def : ProcModel<"emeraldrapids", SapphireRapidsModel,
