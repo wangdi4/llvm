@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [8 x i8] c"x = %f\0A\00", align 1
 
 ; Function Attrs: nounwind uwtable
-define float @foo(float* nocapture %a) #0 {
+define float @foo(ptr nocapture %a) #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ], !dbg [[DBG24:![0-9]+]]
@@ -20,9 +20,8 @@ define float @foo(float* nocapture %a) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = sitofp <4 x i32> [[TMP0]] to <4 x double>, !dbg [[DBG27]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul <4 x double> [[TMP1]], <double 1.800000e+00, double 1.800000e+00, double 1.800000e+00, double 1.800000e+00>, !dbg [[DBG28:![0-9]+]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = fptrunc <4 x double> [[TMP2]] to <4 x float>, !dbg [[DBG27]]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI1]], !dbg [[DBG29:![0-9]+]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*, !dbg [[DBG30:![0-9]+]]
-; CHECK-NEXT:    store <4 x float> [[TMP3]], <4 x float>* [[TMP4]], align 4, !dbg [[DBG30]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[UNI_PHI1]], !dbg [[DBG29:![0-9]+]]
+; CHECK-NEXT:    store <4 x float> [[TMP3]], ptr [[SCALAR_GEP]], align 4, !dbg [[DBG30:![0-9]+]]
 ; CHECK-NEXT:    [[TMP5]] = fadd <4 x float> [[TMP3]], [[VEC_PHI3]], !dbg [[DBG31]]
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>, !dbg [[DBG23:![0-9]+]]
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4, !dbg [[DBG23]]
@@ -31,18 +30,18 @@ define float @foo(float* nocapture %a) #0 {
 ;
 entry:
   %x = alloca float, align 4
-  tail call void @llvm.dbg.value(metadata float* %a, i64 0, metadata !13, metadata !14), !dbg !15
+  tail call void @llvm.dbg.value(metadata ptr %a, i64 0, metadata !13, metadata !14), !dbg !15
   tail call void @llvm.dbg.value(metadata float 0.000000e+00, i64 0, metadata !16, metadata !14), !dbg !17
-  store float 0.000000e+00, float* %x, align 4, !dbg !17
+  store float 0.000000e+00, ptr %x, align 4, !dbg !17
   br label %entry.split
 
 entry.split:
-  %tok =  call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ], !dbg !18
+  %tok =  call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ], !dbg !18
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
   call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !19, metadata !14), !dbg !21
-  %x.promoted = load float, float* %x, align 4, !dbg !22
+  %x.promoted = load float, ptr %x, align 4, !dbg !22
   br label %for.body, !dbg !26
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
@@ -52,9 +51,9 @@ for.body:                                         ; preds = %for.body, %DIR.QUAL
   %conv2 = sitofp i32 %0 to double, !dbg !30
   %mul = fmul double %conv2, 1.800000e+00, !dbg !31
   %conv3 = fptrunc double %mul to float, !dbg !30
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv, !dbg !32
-  store float %conv3, float* %arrayidx, align 4, !dbg !33
-  call void @llvm.dbg.value(metadata float* %x, i64 0, metadata !16, metadata !14), !dbg !17
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %indvars.iv, !dbg !32
+  store float %conv3, ptr %arrayidx, align 4, !dbg !33
+  call void @llvm.dbg.value(metadata ptr %x, i64 0, metadata !16, metadata !14), !dbg !17
   %add = fadd float %conv3, %add7, !dbg !34
   call void @llvm.dbg.value(metadata float %add, i64 0, metadata !16, metadata !14), !dbg !17
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !26
@@ -63,7 +62,7 @@ for.body:                                         ; preds = %for.body, %DIR.QUAL
 
 for.end:                                          ; preds = %for.body
   %add.lcssa = phi float [ %add, %for.body ], !dbg !34
-  store float %add.lcssa, float* %x, align 4, !dbg !22
+  store float %add.lcssa, ptr %x, align 4, !dbg !22
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:
@@ -71,11 +70,11 @@ DIR.OMP.END.SIMD.2:
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
-  call void @llvm.dbg.value(metadata float* %x, i64 0, metadata !16, metadata !14), !dbg !17
+  call void @llvm.dbg.value(metadata ptr %x, i64 0, metadata !16, metadata !14), !dbg !17
   %conv6 = fpext float %add.lcssa to double, !dbg !36
-  %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6) #4, !dbg !37
-  call void @llvm.dbg.value(metadata float* %x, i64 0, metadata !16, metadata !14), !dbg !17
-  %1 = load float, float* %x, align 4, !dbg !38
+  %call = call i32 (ptr, ...) @printf(ptr nonnull @.str, double %conv6) #4, !dbg !37
+  call void @llvm.dbg.value(metadata ptr %x, i64 0, metadata !16, metadata !14), !dbg !17
+  %1 = load float, ptr %x, align 4, !dbg !38
   ret float %1, !dbg !39
 }
 
@@ -86,7 +85,7 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) #2
+declare i32 @printf(ptr nocapture readonly, ...) #2
 
 ; Function Attrs: nounwind readnone
 declare void @llvm.dbg.value(metadata, i64, metadata, metadata) #3

@@ -66,13 +66,32 @@ if(WIN32)
 else()
     file(COPY ${onnxruntime_LIBRARY}  DESTINATION ${CMAKE_BINARY_DIR}/lib FOLLOW_SYMLINK_CHAIN)
 endif()
-# Install the onnxruntime to where the compiler (not the driver) is.
-# It is important that it is in the same folder as the compiler app so that
-# the right library is found and loaded.
+
 install(IMPORTED_RUNTIME_ARTIFACTS onnxruntime
-    RUNTIME DESTINATION "bin/compiler" COMPONENT onnxruntime
+    RUNTIME DESTINATION "bin" COMPONENT onnxruntime
     LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT onnxruntime
 )
+
+if(WIN32)
+# Some Windows distributions carry their own onnxruntime.dll in C:/Windows/system32.
+# Those can clash with our onnxruntime.dll because the DLL are searched in
+# the system folders before they are searched in PATH. But even higher preference is
+# given to DLL that are in the same folder as the app using it. We already installed
+# it to "bin", so do the same to "bin/compiler".
+#
+# NOTE: oddly the symbolic links while are being created not loaded correctly afterwards.
+# So install a copy of onnxruntime.dll until we have a better solution.
+#
+#   install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+#       \"../onnxruntime.dll\"
+#       \"${CMAKE_INSTALL_PREFIX}/bin/compiler/onnxruntime.dll\")"
+#       COMPONENT onnxruntime)
+
+    install(FILES "${ONNX_DIR}/lib/onnxruntime.dll"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/compiler/"
+        COMPONENT onnxruntime)
+endif()
+
 find_package_handle_standard_args(onnxruntime DEFAULT_MSG onnxruntime_LIBRARY onnxruntime_INCLUDE_DIRS)
 
 #############################
@@ -81,7 +100,7 @@ if(NOT DEFINED ONNX_MODEL_PATH)
     message(FATAL_ERROR "The ONNX_MODEL_PATH var should point to the directory containing ONNX model")
 endif()
 
-set(ONNX_MODEL_PATH ${ONNX_MODEL_PATH}/icx_bp_0.1.2.onnx)
+cmake_path(SET ONNX_MODEL_PATH "${ONNX_MODEL_PATH}/icx_bp_0.1.2.onnx")
 message("MLPGO. Using model: ${ONNX_MODEL_PATH}")
 
 set(BINARY_BLOB_NAME OnnxModel)

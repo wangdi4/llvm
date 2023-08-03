@@ -14,9 +14,8 @@ define void @foo() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] [12 x i16]* [[VP0:%.*]] = allocate-priv [12 x i16], OrigAlign = 2
-; CHECK-NEXT:     [DA: Div] i8* [[VP1:%.*]] = bitcast [12 x i16]* [[VP0]]
-; CHECK-NEXT:     [DA: Div] call i64 24 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     [DA: Div] ptr [[VP0:%.*]] = allocate-priv [12 x i16], OrigAlign = 2
+; CHECK-NEXT:     [DA: Div] call i64 24 ptr [[VP0]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 undef i32 live-in0
@@ -29,8 +28,8 @@ define void @foo() {
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP4]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i16* [[VP_ARRAYIDX_I:%.*]] = getelementptr inbounds [12 x i16]* [[VP0]] i64 0 i64 1
-; CHECK-NEXT:       [DA: Div] store i16 1 i16* [[VP_ARRAYIDX_I]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX_I:%.*]] = getelementptr inbounds [12 x i16], ptr [[VP0]] i64 0 i64 1
+; CHECK-NEXT:       [DA: Div] store i16 1 ptr [[VP_ARRAYIDX_I]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
@@ -44,7 +43,7 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] private-final-array-masked [12 x i16]* [[VP0]] [12 x i16]* [[B3_I_LPRIV0:%.*]] i1 [[VP4]]
+; CHECK-NEXT:     [DA: Uni] private-final-array-masked ptr [[VP0]] ptr [[B3_I_LPRIV0:%.*]] i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -60,10 +59,10 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  array.last.private.loop22:
 ; CHECK-NEXT:    [[TMP23:%.*]] = phi i64 [ 0, [[VPLANNEDBB210:%.*]] ], [ [[TMP27:%.*]], %[[ARRAY_LAST_PRIVATE_LOOP220]] ]
-; CHECK-NEXT:    [[TMP24:%.*]] = getelementptr [12 x <2 x i16>], [12 x <2 x i16>]* [[DOTSOA_VEC0:%.*]], i64 0, i64 [[TMP23]], i2 [[TMP22]]
-; CHECK-NEXT:    [[TMP25:%.*]] = load i16, i16* [[TMP24]], align 2
-; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV0:%.*]], i64 0, i64 [[TMP23]]
-; CHECK-NEXT:    store i16 [[TMP25]], i16* [[TMP26]], align 2
+; CHECK-NEXT:    [[TMP24:%.*]] = getelementptr [12 x <2 x i16>], ptr [[DOTSOA_VEC0:%.*]], i64 0, i64 [[TMP23]], i2 [[TMP22]]
+; CHECK-NEXT:    [[TMP25:%.*]] = load i16, ptr [[TMP24]], align 2
+; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr [12 x i16], ptr [[B3_I_LPRIV0:%.*]], i64 0, i64 [[TMP23]]
+; CHECK-NEXT:    store i16 [[TMP25]], ptr [[TMP26]], align 2
 ; CHECK-NEXT:    [[TMP27]] = add i64 [[TMP23]], 1
 ; CHECK-NEXT:    [[TMP28:%.*]] = icmp ult i64 [[TMP27]], 12
 ; CHECK-NEXT:    br i1 [[TMP28]], label %[[ARRAY_LAST_PRIVATE_LOOP220]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT230:%.*]]
@@ -73,13 +72,13 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"([12 x i16]* %b3.i.lpriv, i16 0, i32 12) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %b3.i.lpriv, i16 0, i32 12) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %omp.body.continue.i, %DIR.OMP.SIMD.112
   %.omp.iv.i.local.03 = phi i32 [ %add5.i, %omp.body.continue.i ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 1
-  store i16 1, i16* %arrayidx.i, align 2
+  %arrayidx.i = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i64 0, i64 1
+  store i16 1, ptr %arrayidx.i, align 2
   br label %omp.body.continue.i
 
 omp.body.continue.i:                              ; preds = %if.then.i, %omp.inner.for.body.i

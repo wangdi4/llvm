@@ -81,6 +81,15 @@ let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
     def work_group_scan_inclusive_max_mask : OclBuiltin<"work_group_scan_inclusive_max", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_scan_inclusive_mul_mask : OclBuiltin<"work_group_scan_inclusive_mul", (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
   }
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
+      Attrs = [OVERLOADABLE] in {
+    def work_group_scan_exclusive_bitwise_and_mask : OclBuiltin<"work_group_scan_exclusive_bitwise_and",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_exclusive_bitwise_or_mask  : OclBuiltin<"work_group_scan_exclusive_bitwise_or",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_exclusive_bitwise_xor_mask : OclBuiltin<"work_group_scan_exclusive_bitwise_xor",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_inclusive_bitwise_and_mask : OclBuiltin<"work_group_scan_inclusive_bitwise_and",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_inclusive_bitwise_or_mask  : OclBuiltin<"work_group_scan_inclusive_bitwise_or",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_scan_inclusive_bitwise_xor_mask : OclBuiltin<"work_group_scan_inclusive_bitwise_xor",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
+  }
 }
 
 //
@@ -105,6 +114,8 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
     foreach op = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
      defvar vector_builtin = !cast<OclBuiltin>("work_group_"#func#_#op);
      def work_group_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), vector_builtin, vector_builtin, vector_builtin, vector_builtin, vector_builtin>;
+     defvar mask_builtin = !cast<OclBuiltin>("work_group_"#func#_#op#"_mask");
+     def work_group_#func#_#op#_mask_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), mask_builtin, mask_builtin, mask_builtin, mask_builtin, mask_builtin>;
     }
   }
 }
@@ -240,6 +251,16 @@ foreach op = ["logical_and", "logical_or", "logical_xor"] in {
 foreach func = ["reduce", "scan_exclusive", "scan_inclusive"] in {
   foreach op = ["add", "min", "max", "mul"] in {
     let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [1, 4, 8, 16, 32, 64]>.Tout,
+        Attrs = [OVERLOADABLE] in {
+      def work_group_#func#_#op#_helper_mask :
+                OclBuiltin<"work_group_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask, ppgentype:$accum), [], [], 1, 0>;
+    }
+  }
+}
+
+foreach func = ["reduce", "scan_exclusive", "scan_inclusive"] in {
+  foreach op = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+    let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
         Attrs = [OVERLOADABLE] in {
       def work_group_#func#_#op#_helper_mask :
                 OclBuiltin<"work_group_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask, ppgentype:$accum), [], [], 1, 0>;

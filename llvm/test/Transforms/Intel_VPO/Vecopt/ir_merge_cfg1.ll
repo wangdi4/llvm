@@ -4,7 +4,7 @@
 
 ; test for basic functionality of cfg merge, liveout reduction and induction
 
-define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
+define i32 @foo(ptr nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -27,8 +27,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]], [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_SUM_07:%.*]] = phi  [ i32 [[VP_ADD:%.*]], [[BB3]] ],  [ i32 [[VP_SUM_07RED_INIT]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_A_I:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD]] = add i32 [[VP_A_I]] i32 [[VP_SUM_07]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -84,8 +84,8 @@ entry:
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %sum.07 = phi i32 [ %add, %for.body ], [ %init, %entry ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N

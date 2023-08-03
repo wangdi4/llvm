@@ -24,33 +24,29 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
+define void @foo(ptr nocapture %ip, ptr nocapture readonly %ip2) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAL:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    [[VAL_VEC:%.*]] = alloca <4 x i64>, align 32
-; CHECK-NEXT:    [[VAL_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i64*
-; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[VAL_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, ptr [[VAL_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR_EXTRACT:%.*]] = extractelement <4 x ptr> [[VAL_VEC_BASE_ADDR]], i32 0
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[VAL_VEC_BCAST:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[VAL_VEC_BCAST]])
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 32, ptr [[VAL_VEC_BASE_ADDR_EXTRACT]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP8:%.*]], [[VPLANNEDBB5:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP7:%.*]], [[VPLANNEDBB5]] ]
-; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[VAL_VEC]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[IP:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i64>, <4 x i64>* [[TMP2]], align 8
+; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], ptr [[VAL_VEC]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[IP:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i64>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <4 x i64> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = xor <4 x i1> [[TMP3]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB3:%.*]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds i64, i64* [[IP2:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i64* [[SCALAR_GEP4]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0v4i64(<4 x i64>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i64> poison)
-; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[WIDE_MASKED_LOAD]], <4 x i64>* [[VAL_VEC]], i32 8, <4 x i1> [[TMP4]])
+; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds i64, ptr [[IP2:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr [[SCALAR_GEP4]], i32 8, <4 x i1> [[TMP4]], <4 x i64> poison)
+; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> [[WIDE_MASKED_LOAD]], ptr [[VAL_VEC]], i32 8, <4 x i1> [[TMP4]])
 ; CHECK:         [[TMP7]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI]], 4
 ;
@@ -59,32 +55,31 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(i64* %val, i64 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %val, i64 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
-  %0 = bitcast i64* %val to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end, %DIR.QUAL.LIST.END.2
   %.omp.iv.012 = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %add3, %if.end ]
-  call void @llvm.lifetime.start(i64 8, i8* nonnull %0)
-  store i64 %.omp.iv.012, i64* %val, align 8
-  %arrayidx = getelementptr inbounds i64, i64* %ip, i64 %.omp.iv.012
-  %1 = load i64, i64* %arrayidx, align 8
-  %tobool = icmp eq i64 %1, 0
+  call void @llvm.lifetime.start(i64 8, ptr nonnull %val)
+  store i64 %.omp.iv.012, ptr %val, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %ip, i64 %.omp.iv.012
+  %0 = load i64, ptr %arrayidx, align 8
+  %tobool = icmp eq i64 %0, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx1 = getelementptr inbounds i64, i64* %ip2, i64 %.omp.iv.012
-  %2 = load i64, i64* %arrayidx1, align 8
-  store i64 %2, i64* %val, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %ip2, i64 %.omp.iv.012
+  %1 = load i64, ptr %arrayidx1, align 8
+  store i64 %1, ptr %val, align 8
   br label %if.end
 
 if.end:                                           ; preds = %omp.inner.for.body, %if.then
-  %3 = phi i64 [ %.omp.iv.012, %omp.inner.for.body ], [ %2, %if.then ]
-  store i64 %3, i64* %arrayidx, align 8
-  call void @llvm.lifetime.end(i64 8, i8* nonnull %0)
+  %2 = phi i64 [ %.omp.iv.012, %omp.inner.for.body ], [ %1, %if.then ]
+  store i64 %2, ptr %arrayidx, align 8
+  call void @llvm.lifetime.end(i64 8, ptr nonnull %val)
   %add3 = add nuw nsw i64 %.omp.iv.012, 1
   %exitcond = icmp eq i64 %add3, 1024
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -98,10 +93,10 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 ; Function Attrs: argmemonly nounwind
 declare token @llvm.directive.region.entry()

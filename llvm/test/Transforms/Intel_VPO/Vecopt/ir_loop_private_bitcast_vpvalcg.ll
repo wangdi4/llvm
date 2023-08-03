@@ -9,38 +9,35 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* nocapture readonly %iarr) {
+define void @foo(i64 %n1, i32 %k1, ptr nocapture %accumulated_grid, ptr nocapture readonly %iarr) {
 ; CHECK:       target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NEXT:  target triple = "x86_64-unknown-linux-gnu"
 ;
-; CHECK:  define void @foo(i64 [[N10:%.*]], i32 [[K10:%.*]], float* nocapture [[ACCUMULATED_GRID0:%.*]], i32* nocapture readonly [[IARR0:%.*]]) {
+; CHECK:  define void @foo(i64 [[N10:%.*]], i32 [[K10:%.*]], ptr nocapture [[ACCUMULATED_GRID0:%.*]], ptr nocapture readonly [[IARR0:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[COUNT0:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT0:%.*]] = alloca float, align 4
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT0:%.*]] = alloca float, align 4
 ; CHECK-NEXT:    [[A20:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[COUNT0]] to i8*
 ; CHECK-NEXT:    [[CMP0:%.*]] = icmp sgt i64 [[N10]], 0
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC0:%.*]] = alloca <4 x float>, align 16
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]] to float*
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0]], i32 0
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, ptr [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <4 x ptr> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    [[A2_VEC0:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[A2_VEC_BC0:%.*]] = bitcast <4 x i32>* [[A2_VEC0]] to i32*
-; CHECK-NEXT:    [[A2_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[A2_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[A2_VEC_BASE_ADDR0:%.*]] = getelementptr i32, ptr [[A2_VEC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[A2_VEC_BASE_ADDR0_EXTRACT:%.*]] = extractelement <4 x ptr> [[A2_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0:%.*]] = alloca <4 x float>, align 16
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]] to float*
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, ptr [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0_EXTRACT:%.*]] = extractelement <4 x ptr> [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    [[COUNT_VEC0:%.*]] = alloca <4 x i64>, align 32
-; CHECK-NEXT:    [[COUNT_VEC_BC0:%.*]] = bitcast <4 x i64>* [[COUNT_VEC0]] to i64*
-; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR0:%.*]] = getelementptr i64, i64* [[COUNT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR0:%.*]] = getelementptr i64, ptr [[COUNT_VEC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR0_EXTRACT:%.*]] = extractelement <4 x ptr> [[COUNT_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br i1 [[CMP0]], label [[OMP_PRECOND_THEN0:%.*]], label [[OMP_PRECOND_END0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.precond.then:
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.QUAL.LIST.END.1:
-; CHECK-NEXT:    [[X30:%.*]] = bitcast float* [[ACCUMULATED_OCCUPANCY_INPUT0]] to i32*
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -52,36 +49,27 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC0_BCAST:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0_BCAST]])
-; CHECK-NEXT:    [[A2_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[A2_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[A2_VEC0_BCAST]])
-; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0_BCAST:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0_BCAST]])
-; CHECK-NEXT:    [[COUNT_VEC0_BCAST:%.*]] = bitcast <4 x i64>* [[COUNT_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[COUNT_VEC0_BCAST]])
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0]] to i32*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[A2_VEC_BASE_ADDR0_EXTRACT]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC_BASE_ADDR0_EXTRACT]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 32, ptr [[COUNT_VEC_BASE_ADDR0_EXTRACT]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[N10]], 4294967292
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20]] ], [ [[TMP15:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB20]] ], [ [[TMP14:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    store <4 x i64> [[VEC_PHI0]], <4 x i64>* [[COUNT_VEC0]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[IARR0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP5]], align 4
+; CHECK-NEXT:    store <4 x i64> [[VEC_PHI0]], ptr [[COUNT_VEC0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[IARR0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD0]], i32 3
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_2_0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD0]], i32 2
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD0]], i32 0
-; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[A2_VEC0]], align 4
-; CHECK-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds float, float* [[ACCUMULATED_GRID0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast float* [[SCALAR_GEP40]] to i32*
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[TMP6]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <4 x i32>, <4 x i32>* [[TMP7]], align 4
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD50]], <4 x i32>* [[TMP8]], align 4
+; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD0]], ptr [[A2_VEC0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds float, ptr [[ACCUMULATED_GRID0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP40]], align 4
+; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD50]], ptr [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast <4 x i32> [[WIDE_LOAD50]] to <4 x float>
 ; CHECK-NEXT:    [[DOTEXTRACT_3_0:%.*]] = extractelement <4 x float> [[TMP9]], i32 3
 ; CHECK-NEXT:    [[DOTEXTRACT_2_0:%.*]] = extractelement <4 x float> [[TMP9]], i32 2
@@ -101,28 +89,25 @@ entry:
   %accumulated_occupancy_input = alloca float, align 4
   %accumulated_occupancy_output = alloca float, align 4
   %a2 = alloca i32, align 4
-  %0 = bitcast i64* %count to i8*
   %cmp = icmp sgt i64 %n1, 0
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i64* %count, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %accumulated_occupancy_output, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32 *%a2, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %accumulated_occupancy_input, float 0.000000e+00, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %count, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %accumulated_occupancy_output, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %a2, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %accumulated_occupancy_input, float 0.000000e+00, i32 1) ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.precond.then
-  %x3 = bitcast float* %accumulated_occupancy_input to i32*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.1
   %.omp.iv.018 = phi i64 [ 0, %DIR.QUAL.LIST.END.1 ], [ %add9, %omp.inner.for.body ]
-  store i64 %.omp.iv.018, i64* %count, align 8
-  %arrayidx = getelementptr inbounds i32, i32* %iarr, i64 %.omp.iv.018
-  %x5 = load i32, i32* %arrayidx, align 4
-  store i32 %x5, i32* %a2, align 4
-  %arrayidx7 = getelementptr inbounds float, float* %accumulated_grid, i64 %.omp.iv.018
-  %x6 = bitcast float* %arrayidx7 to i32*
-  %x7 = load i32, i32* %x6, align 4
-  store i32 %x7, i32* %x3, align 4
+  store i64 %.omp.iv.018, ptr %count, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %iarr, i64 %.omp.iv.018
+  %x5 = load i32, ptr %arrayidx, align 4
+  store i32 %x5, ptr %a2, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %accumulated_grid, i64 %.omp.iv.018
+  %x7 = load i32, ptr %arrayidx7, align 4
+  store i32 %x7, ptr %accumulated_occupancy_input, align 4
   %.cast = bitcast i32 %x7 to float
   %call = call float @baz(float %.cast, i32 %x5)
   %add9 = add nuw nsw i64 %.omp.iv.018, 1

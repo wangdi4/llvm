@@ -2555,17 +2555,19 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
       !Directive.hasClausesOfKind<OMPDependClause>())
     return;
 
-  OMPTaskDataTy Data;
+  bool IsDoacrossType = false;
   for (const auto *C : Directive.getClausesOfKind<OMPDependClause>()) {
     auto DepKind = C->getDependencyKind();
     if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
+      IsDoacrossType = true;
       emitDoacrossClause(C, DepKind == OMPC_DEPEND_source);
-      continue;
     }
-    OMPTaskDataTy::DependData &DD =
-        Data.Dependences.emplace_back(DepKind, C->getModifier());
-    DD.DepExprs.append(C->varlist_begin(), C->varlist_end());
   }
+  if (IsDoacrossType)
+    return;
+
+  OMPTaskDataTy Data;
+  CGF.BuildOMPDepArray(Directive, Data);
   if (Data.Dependences.size() == 0)
     return;
 

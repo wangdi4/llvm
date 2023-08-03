@@ -4927,6 +4927,8 @@ public:
   RValue EmitOMPIndirectCall(llvm::FunctionType *IRFuncTy,
                              const SmallVectorImpl<llvm::Value *> &IRArgs,
                              llvm::Value *FnPtr);
+  static void BuildOMPDepArray(const OMPExecutableDirective &S,
+                               OMPTaskDataTy &Data);
 #endif // INTEL_COLLAB
 
   RValue EmitIntelSYCLPtrAnnotationBuiltin(const CallExpr *E);

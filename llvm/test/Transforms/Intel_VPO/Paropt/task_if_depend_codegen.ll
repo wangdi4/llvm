@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
-; This file tests the implementation of omp task if and depend clause.
+; Test Src:
 ; void fn10();
 ; int Arg;
 ; void foo() {
@@ -9,52 +9,46 @@
 ;  fn10();
 ; }
 
-target triple = "x86_64-unknown-linux-gnu"
-
-@Arg = common global i32 0, align 4
-@.source.0.0 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0 = private unnamed_addr constant { i32, i32, i32, i32, i8* } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0, i32 0, i32 0) }
-
-; Function Attrs: nounwind uwtable
-define void @foo() #0 {
-entry:
-  %tid.val = tail call i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0)
-  %0 = load i32, i32* @Arg, align 4, !tbaa !1
-  br label %DIR.OMP.TASK.3
-
-DIR.OMP.TASK.3:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.IF"(i32 %0), "QUAL.OMP.DEPEND.INOUT"(i32* @Arg) ]
-  call void (...) @fn10()
-  br label %DIR.OMP.END.TASK.1
-
-DIR.OMP.END.TASK.1:                               ; preds = %DIR.OMP.TASK.3
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASK"() ]
-  ret void
-}
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-declare void @fn10(...) #2
-
-declare i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }*)
-
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 4.0.0 (cfe/trunk)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"int", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
+; This file tests the implementation of omp task if and depend clause.
+; The IR is obtained from Frontend.
 
 ; CHECK:  call void @__kmpc_omp_task_with_deps({{.*}})
 ; CHECK:  call void @__kmpc_omp_wait_deps({{.*}})
 ; CHECK:  call void @__kmpc_omp_task_begin_if0({{.*}})
 ; CHECK:  call void @__kmpc_omp_task_complete_if0({{.*}})
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.kmp_depend_info = type { i64, i64, i8 }
+
+@Arg = dso_local global i32 0, align 4
+
+define dso_local void @foo() {
+entry:
+  %.dep.arr.addr = alloca [1 x %struct.kmp_depend_info], align 8
+  %dep.counter.addr = alloca i64, align 8
+  %0 = load i32, ptr @Arg, align 4
+  %tobool = icmp ne i32 %0, 0
+  %1 = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  %2 = getelementptr %struct.kmp_depend_info, ptr %1, i64 0
+  %3 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 0
+  store i64 ptrtoint (ptr @Arg to i64), ptr %3, align 8
+  %4 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 1
+  store i64 4, ptr %4, align 8
+  %5 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 2
+  store i8 3, ptr %5, align 8
+  store i64 1, ptr %dep.counter.addr, align 8
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.IF"(i1 %tobool),
+    "QUAL.OMP.DEPARRAY"(i32 1, ptr %1) ]
+
+  call void (...) @fn10() #1
+  call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.TASK"() ]
+
+  ret void
+}
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local void @fn10(...)
