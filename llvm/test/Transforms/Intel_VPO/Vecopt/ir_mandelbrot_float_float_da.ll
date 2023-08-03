@@ -14,23 +14,23 @@ target triple = "x86_64-unknown-linux-gnu"
 @count = dso_local local_unnamed_addr global [3000 x [3000 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse uwtable
-define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+define dso_local i32 @main() local_unnamed_addr #0 personality ptr @__gxx_personality_v0 {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB2]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB5:BB[0-9]+]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP0:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP0:%.*]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] float [[VP_CONV3:%.*]] = sitofp i32 [[VP1]] to float
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float [[VP_MUL4:%.*]] = fmul float [[VP_CONV3]] float 0x3F5063B3E0000000
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float [[VP_ADD5:%.*]] = fadd float [[VP_MUL4]] float -2.000000e+00
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[VP_ADD5]] float* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP2:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[SUB0:%.*]] float* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[VP_ADD5]] ptr [[VP_IN_VALS_TMP_REAL_PRIV_PRIV:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP2:%.*]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[SUB0:%.*]] ptr [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL_I:%.*]] = fmul float [[VP_ADD5]] float [[VP_ADD5]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD_I:%.*]] = fadd float [[MUL1_I0:%.*]] float [[VP_MUL_I]]
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL_I:%.*]] = call float [[VP_ADD_I]] float (float)* @sqrtf
+; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL_I:%.*]] = call float [[VP_ADD_I]] ptr @sqrtf
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I33:%.*]] = fcmp olt float [[VP_CALL_I]] float 2.000000e+00
 ; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMP_I33]], [[BB1]], [[BB4]]
 ; CHECK-EMPTY:
@@ -51,7 +51,7 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL9_I:%.*]] = fmul float [[VP_ADD5_I]] float [[VP_ADD5_I]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL10_I:%.*]] = fmul float [[VP_ADD8_I]] float [[VP_ADD8_I]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD11_I:%.*]] = fadd float [[VP_MUL9_I]] float [[VP_MUL10_I]]
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL12_I:%.*]] = call float [[VP_ADD11_I]] float (float)* @sqrtf
+; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CALL12_I:%.*]] = call float [[VP_ADD11_I]] ptr @sqrtf
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC_I]] = add i32 [[VP_COUNT_0_I35]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP_I:%.*]] = fcmp olt float [[VP_CALL12_I]] float 2.000000e+00
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP2_I:%.*]] = icmp ult i32 [[VP_INC_I]] i32 3000
@@ -64,20 +64,18 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_COUNT_0_I_LCSSA:%.*]] = phi  [ i32 1, [[BB0]] ],  [ i32 [[VP_INC_I_LCSSA]], [[BB3]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX8:%.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 [[INDVARS_IV390:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP_COUNT_0_I_LCSSA]] i32* [[VP_ARRAYIDX8]]
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP2]] void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX8:%.*]] = getelementptr inbounds [3000 x [3000 x i32]], ptr @count i64 0 i64 [[INDVARS_IV390:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP_COUNT_0_I_LCSSA]] ptr [[VP_ARRAYIDX8]]
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP2]] ptr @llvm.lifetime.end.p0
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP0]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i8* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV_BCAST:%.*]] = bitcast float* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i8* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV_BCAST:%.*]] = bitcast float* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP_IN_VALS_TMP_REAL_PRIV_PRIV]] ptr @llvm.lifetime.end.p0
+; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 ptr [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
@@ -106,25 +104,23 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
   br label %DIR.OMP.SIMD.142
 
 DIR.OMP.SIMD.142:                                 ; preds = %DIR.OMP.SIMD.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(float* %in_vals_tmp_real.priv.priv), "QUAL.OMP.PRIVATE"(float* %in_vals_tmp_imagine.priv.priv) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.PRIVATE:TYPED"(ptr %in_vals_tmp_real.priv.priv, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %in_vals_tmp_imagine.priv.priv, float 0.000000e+00, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.142
-  %2 = bitcast float* %in_vals_tmp_real.priv.priv to i8*
-  %3 = bitcast float* %in_vals_tmp_imagine.priv.priv to i8*
   %mul1.i = fmul float %sub, %sub
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %_ZL6mandelffj.exit, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ %indvars.iv.next, %_ZL6mandelffj.exit ], [ 0, %DIR.OMP.SIMD.2 ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %2) #2
-  %4 = trunc i64 %indvars.iv to i32
-  %conv3 = sitofp i32 %4 to float
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %in_vals_tmp_real.priv.priv) #2
+  %2 = trunc i64 %indvars.iv to i32
+  %conv3 = sitofp i32 %2 to float
   %mul4 = fmul float %conv3, 0x3F5063B3E0000000
   %add5 = fadd float %mul4, -2.000000e+00
-  store float %add5, float* %in_vals_tmp_real.priv.priv, align 4
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %3) #2
-  store float %sub, float* %in_vals_tmp_imagine.priv.priv, align 4
+  store float %add5, ptr %in_vals_tmp_real.priv.priv, align 4
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %in_vals_tmp_imagine.priv.priv) #2
+  store float %sub, ptr %in_vals_tmp_imagine.priv.priv, align 4
   %mul.i = fmul float %add5, %add5
   %add.i = fadd float %mul1.i, %mul.i
   %call.i = call float @sqrtf(float %add.i) #2
@@ -161,10 +157,10 @@ _ZL6mandelffj.exit.loopexit:                      ; preds = %while.body.i
 
 _ZL6mandelffj.exit:                               ; preds = %_ZL6mandelffj.exit.loopexit, %omp.inner.for.body
   %count.0.i.lcssa = phi i32 [ 1, %omp.inner.for.body ], [ %inc.i.lcssa, %_ZL6mandelffj.exit.loopexit ]
-  %arrayidx8 = getelementptr inbounds [3000 x [3000 x i32]], [3000 x [3000 x i32]]* @count, i64 0, i64 %indvars.iv39, i64 %indvars.iv
-  store i32 %count.0.i.lcssa, i32* %arrayidx8, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %3) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2) #2
+  %arrayidx8 = getelementptr inbounds [3000 x [3000 x i32]], ptr @count, i64 0, i64 %indvars.iv39, i64 %indvars.iv
+  store i32 %count.0.i.lcssa, ptr %arrayidx8, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %in_vals_tmp_imagine.priv.priv) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %in_vals_tmp_real.priv.priv) #2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 3000
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -180,7 +176,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -191,7 +187,7 @@ declare void @llvm.directive.region.exit(token) #2
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 declare dso_local void @_Z3foov() local_unnamed_addr #3
 

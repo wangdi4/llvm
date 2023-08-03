@@ -59,7 +59,10 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing
 // CHECK-DEFAULT-SAME:,+SPV_KHR_uniform_group_instructions
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_masked_gather_scatter
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_tensor_float32_conversion"
+// INTEL_CUSTOMIZATION
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_tensor_float32_conversion
+// CHECK-DEFAULT-SAME:,+SPV_KHR_non_semantic_info"
+// end INTEL_CUSTOMIZATION
 // CHECK-FPGA-HW: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-FPGA-HW-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-FPGA-HW-SAME:,+SPV_EXT_shader_atomic_float_min_max

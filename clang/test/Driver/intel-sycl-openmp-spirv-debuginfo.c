@@ -10,6 +10,5 @@
 // RUN:  | FileCheck %s -check-prefix=CHECK-NONSEMANTIC
 
 // CHECK-DEFAULT: llvm-spirv{{.*}}-spirv-debug-info-version=ocl-100
-// CHECK-DEFAULT-NOT: +SPV_KHR_non_semantic_info
+// CHECK-DEFAULT: +SPV_KHR_non_semantic_info
 // CHECK-NONSEMANTIC: llvm-spirv{{.*}}-spirv-debug-info-version=nonsemantic-shader-200
-// CHECK-NONSEMANTIC-SAME: +SPV_KHR_non_semantic_info
