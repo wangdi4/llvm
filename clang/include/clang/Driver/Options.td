@@ -942,6 +942,7 @@ def Xspirv_translator : Separate<["-"], "Xspirv-translator">,
 def Xspirv_translator_EQ : JoinedAndSeparate<["-"], "Xspirv-translator=">,
   HelpText<"Pass <arg> to the LLVM IR to SPIR-V translation backend identified by <triple>.">,
   MetaVarName<"<triple> <arg>">, Flags<[CoreOption, HelpHidden]>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def Xopenmp_backend : Separate<["-"], "Xopenmp-target-backend">,
   HelpText<"Pass <arg> to the OpenMP based target backend.">,
@@ -950,6 +951,17 @@ def Xopenmp_backend_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-backend=">,
   HelpText<"Pass <arg> to the OpenMP based backend identified by <triple>. "
   "Depending on the triple (spir64, spir64_gen, spir64_x86_64), the arg passed "
   "will be interpreted by the corresponding AOT tool or runtime consumer.">,
+=======
+def Xspirv_to_ir_wrapper : Separate<["-"], "Xspirv-to-ir-wrapper">,
+  HelpText<"Pass <arg> to the SPIR-V to LLVM IR translation backend.">, MetaVarName<"<arg>">, Flags<[CoreOption, HelpHidden]>;
+def Xspirv_to_ir_wrapper_EQ : JoinedAndSeparate<["-"], "Xspirv-to-ir-wrapper=">,
+  HelpText<"Pass <arg> to the SPIR-V to LLVM IR translation backend identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">, Flags<[CoreOption, HelpHidden]>;
+def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
+  HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">, Flags<[CoreOption]>;
+def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
+  HelpText<"Pass <arg> to the SYCL based backend identified by <triple>.">,
+>>>>>>> 37bedf8d22b452bb82e574f49ab4874de90d334b
   MetaVarName<"<triple> <arg>">, Flags<[CoreOption]>;
 def Xopenmp_frontend : Separate<["-"], "Xopenmp-target-frontend">,
   HelpText<"Pass <arg> to the OpenMP based target frontend.">,
