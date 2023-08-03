@@ -30,17 +30,10 @@ using namespace SYCLKernelMetadataAPI;
 
 extern cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize;
 
-// Cloned kernel isn't vectorized if it has openmp directives or
-// llvm.loop.vectorize.enable metadata.
-static bool isKernelVectorized(LoopInfo &LI, Function *Clone) {
-  for (Instruction &I : instructions(Clone))
-    if (vpo::VPOAnalysisUtils::isOpenMPDirective(&I))
-      return false;
-
-  return llvm::none_of(LI, [](Loop *L) {
-    // The check is similar as in WarnMissedTransformationsPass.
-    return hasVectorizeTransformation(L) == TM_ForcedByUser;
-  });
+// Cloned kernel isn't vectorized if it is marked with "vector-variant-failure"
+// attribute.
+static bool isKernelVectorized(Function *Clone) {
+  return !Clone->hasFnAttribute(KernelAttribute::VectorVariantFailure);
 }
 
 static void removeRecommendedVLMetadata(Function *F) {
@@ -130,8 +123,7 @@ static bool optimizeGIDShlAshr(Function *F, Function *GetGID) {
 }
 
 PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
-                                             ModuleAnalysisManager &MAM) {
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+                                             ModuleAnalysisManager &) {
   bool Changed = false;
   bool IsOCL = !CompilationUtils::isGeneratedFromOCLCPP(M) &&
                !CompilationUtils::isGeneratedFromOMP(M);
@@ -148,8 +140,7 @@ PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
     auto RemoveNotVectorizedClone = [&](Function *Clone, StringRef MDName) {
       if (!Clone)
         return;
-      LoopInfo &LI = FAM.getResult<LoopAnalysis>(*Clone);
-      if (isKernelVectorized(LI, Clone)) {
+      if (isKernelVectorized(Clone)) {
         removeRecommendedVLMetadata(Clone);
         return;
       }

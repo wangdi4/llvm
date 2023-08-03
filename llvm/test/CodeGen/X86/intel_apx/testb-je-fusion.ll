@@ -92,8 +92,8 @@ define i32 @macrofuse_alu_je(i32 %flags, ptr %p) nounwind {
 ;
 ; MACROFUSION_NOPOSTRA-LABEL: macrofuse_alu_je:
 ; MACROFUSION_NOPOSTRA:       # %bb.0: # %entry
-; MACROFUSION_NOPOSTRA-NEXT:    addl $-512, %edi, %eax # imm = 0xFE00
 ; MACROFUSION_NOPOSTRA-NEXT:    movb $1, (%rsi)
+; MACROFUSION_NOPOSTRA-NEXT:    addl $-512, %edi, %eax # imm = 0xFE00
 ; MACROFUSION_NOPOSTRA-NEXT:    je .LBB2_2
 ; MACROFUSION_NOPOSTRA-NEXT:  # %bb.1: # %if.then
 ; MACROFUSION_NOPOSTRA-NEXT:    movl $1, %eax
@@ -126,8 +126,8 @@ define i32 @macrofuse_dec_je(i32 %flags, ptr %p) nounwind {
 ;
 ; MACROFUSION_NOPOSTRA-LABEL: macrofuse_dec_je:
 ; MACROFUSION_NOPOSTRA:       # %bb.0: # %entry
-; MACROFUSION_NOPOSTRA-NEXT:    decl %edi, %eax
 ; MACROFUSION_NOPOSTRA-NEXT:    movb $1, (%rsi)
+; MACROFUSION_NOPOSTRA-NEXT:    decl %edi, %eax
 ; MACROFUSION_NOPOSTRA-NEXT:    je .LBB3_2
 ; MACROFUSION_NOPOSTRA-NEXT:  # %bb.1: # %if.then
 ; MACROFUSION_NOPOSTRA-NEXT:    movl $1, %eax

@@ -13,7 +13,7 @@ entry:
   ret void
 }
 
-define void @_ZGVeN16_test() {
+define void @_ZGVeN16_test() #2 {
 entry:
   br label %simd.begin.region
 
@@ -26,6 +26,7 @@ declare token @llvm.directive.region.entry() #1
 
 attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "vector-variants"="_ZGVeN16_test" }
 attributes #1 = { nounwind }
+attributes #2 = { "vector-variant-failure"="Bailout" }
 
 !sycl.kernels = !{!0}
 

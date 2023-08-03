@@ -98,6 +98,11 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 #if INTEL_CUSTOMIZATION
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
   vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization);
+  vpo::VPlanDriverPass::setVecErrorHandler(
+      [](Function *F, vpo::VecErrorKind K) {
+        F->addFnAttr(KernelAttribute::VectorVariantFailure,
+                     K == vpo::VecErrorKind::Bailout ? "Bailout" : "Fatal");
+      });
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               getVerifyEachPass(), PrintPassOpts);
