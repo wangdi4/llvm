@@ -38,6 +38,7 @@ class LitConfig(object):
         parallelism_groups={},
         show_final_subst = False, #INTEL
         echo_all_commands=False,
+        per_test_coverage=False,
     ):
         # The name of the test runner.
         self.progname = progname
@@ -88,7 +89,11 @@ class LitConfig(object):
         self.maxIndividualTestTime = maxIndividualTestTime
         self.parallelism_groups = parallelism_groups
         self.echo_all_commands = echo_all_commands
+<<<<<<< HEAD
         self.show_final_subst = show_final_subst #INTEL
+=======
+        self.per_test_coverage = per_test_coverage
+>>>>>>> 64d19542e78a43edb7ae26ea6762a2b1c360a916
 
     @property
     def maxIndividualTestTime(self):
@@ -129,6 +134,22 @@ class LitConfig(object):
                 self.fatal("Setting a timeout per test not supported. " + errormsg)
         elif self.maxIndividualTestTime < 0:
             self.fatal("The timeout per test must be >= 0 seconds")
+
+    @property
+    def per_test_coverage(self):
+        """
+        Interface for getting the per_test_coverage value
+        """
+        return self._per_test_coverage
+
+    @per_test_coverage.setter
+    def per_test_coverage(self, value):
+        """
+        Interface for setting the per_test_coverage value
+        """
+        if not isinstance(value, bool):
+            self.fatal("per_test_coverage must set to a value of type bool.")
+        self._per_test_coverage = value
 
     def load_config(self, config, path):
         """load_config(config, path) - Load a config object from an alternate
