@@ -4,7 +4,7 @@
 ; The consecutive parallel-if and parallel regions are causing the dominator
 ; tree to be rebuilt incorrectly.
 
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -vpo-paropt-enable-outline-verification=true -vpo-paropt-strict-outline-verification=true -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -vpo-paropt-enable-outline-verification=true -vpo-paropt-strict-outline-verification=true -S %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: DominatorTree is different
 ; CHECK-LABEL: codeRepl
@@ -24,7 +24,8 @@ DIR.OMP.PARALLEL.3.split:
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.3.split
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.IF"(i1 true) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.IF"(i1 true) ]
   br label %DIR.OMP.END.PARALLEL.4
 
 DIR.OMP.END.PARALLEL.4:                           ; preds = %DIR.OMP.PARALLEL.2
