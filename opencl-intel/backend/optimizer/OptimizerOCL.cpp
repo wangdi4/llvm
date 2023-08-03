@@ -106,6 +106,11 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
   vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization &&
                                     Level == OptimizationLevel::O0);
+  vpo::VPlanDriverPass::setVecErrorHandler(
+      [](Function *F, vpo::VecErrorKind K) {
+        F->addFnAttr(KernelAttribute::VectorVariantFailure,
+                     K == vpo::VecErrorKind::Bailout ? "Bailout" : "Fatal");
+      });
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               getVerifyEachPass(), PrintPassOpts);
@@ -505,11 +510,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
           /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
     }
     FPM2.addPass(VPOCFGRestructuringPass());
-    // TODO support FatalErrorHandler
-    // [](Function *F) {
-    //      F->addFnAttr(llvm::KernelAttribute::VectorVariantFailure,
-    //                   "failed to vectorize");
-    // }
     FPM2.addPass(vpo::VPlanDriverPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
     MPM.addPass(SYCLKernelPostVecPass());

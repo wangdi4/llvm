@@ -14,7 +14,7 @@ entry:
   ret void
 }
 
-define void @_ZGVeN16___omp_offloading_804_230a44c__Z4main_l31() {
+define void @_ZGVeN16___omp_offloading_804_230a44c__Z4main_l31() #1 {
 entry:
   br label %simd.loop.header
 
@@ -22,7 +22,7 @@ simd.loop.header:                                 ; preds = %simd.loop.header, %
   br label %simd.loop.header, !llvm.loop !3
 }
 
-define void @_ZGVeM16___omp_offloading_804_230a44c__Z4main_l31() {
+define void @_ZGVeM16___omp_offloading_804_230a44c__Z4main_l31() #1 {
 entry:
   br label %simd.loop.header
 
@@ -31,7 +31,7 @@ simd.loop.header:                                 ; preds = %simd.loop.header, %
 }
 
 attributes #0 = { convergent noinline nounwind "has-sub-groups" "kernel-call-once" "kernel-convergent-call" "prefer-vector-width"="512" "vector-variants"="_ZGVeN16___omp_offloading_804_230a44c__Z4main_l31,_ZGVeM16___omp_offloading_804_230a44c__Z4main_l31" }
-
+attributes #1 = { "vector-variant-failure"="Bailout" }
 !sycl.kernels = !{!0}
 
 !0 = !{ptr @__omp_offloading_804_230a44c__Z4main_l31}
