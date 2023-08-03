@@ -8874,7 +8874,7 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
 #if INTEL_COLLAB
     return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-    return llvm::Constant::getNullValue(GlobalsInt8PtrTy);
+    return llvm::Constant::getNullValue(Int8PtrTy);
 #endif // INTEL_COLLAB
 
   if (ForEH && Ty->isObjCObjectPointerType() &&
