@@ -1630,7 +1630,7 @@ struct RTLOptionTy {
       std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
                      [](unsigned char C) { return std::tolower(C); });
       std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
-      for (const auto Term : OdsStr) {
+      for (const auto &Term : OdsStr) {
         std::vector<std::string_view> Backend = tokenize(Term, ":");
         if (Backend.size() != 2) {
           DP("Warning: Invalid ONEAPI_DEVICE_SELECTOR Backend  Pair\n");
@@ -1640,7 +1640,7 @@ struct RTLOptionTy {
               (!strncmp(Backend[0].data(), "level_zero", Backend[0].length()))))
           break;
         std::vector<std::string_view> Devices = tokenize(Backend[1], ",");
-        for (const auto DeviceId : Devices) {
+        for (const auto &DeviceId : Devices) {
           std::vector<std::string_view> SubDevices = tokenize(DeviceId, ".");
           int32_t RootD[3] = {-1, -1, -1};
           if (SubDevices.empty() || (SubDevices.size() > 3) ||

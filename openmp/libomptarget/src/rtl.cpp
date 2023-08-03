@@ -260,7 +260,7 @@ void getPlugInNameFromEnv(std::vector<const char *> &RTLChecked) {
     std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
                    [](unsigned char C) { return std::tolower(C); });
     std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
-    for (const auto Filter : OdsStr) {
+    for (const auto &Filter : OdsStr) {
       std::vector<std::string_view> Backend = tokenize(Filter, ":");
       if (Backend.empty() || (Backend.size() == 1)) {
         continue;
