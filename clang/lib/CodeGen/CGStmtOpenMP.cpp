@@ -8661,6 +8661,10 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
     }
   }
 }
+void CodeGenFunction::BuildOMPDepArray(const OMPExecutableDirective &S,
+                                       OMPTaskDataTy &Data) {
+  buildDependences(S, Data);
+}
 #endif // INTEL_COLLAB
 
 void CodeGenFunction::EmitOMPGenericLoopDirective(

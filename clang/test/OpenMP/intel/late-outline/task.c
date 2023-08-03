@@ -231,6 +231,22 @@ void foo(int ifval, int finalval, int priorityval)
     bar();
   }
 
+  // CHECK-NEW: getelementptr inbounds %struct.kmp_depend_info, {{.*}}, i32 0, i32 0
+  // CHECK-NEW-NEXT: store i64 0
+  // CHECK-NEW: getelementptr inbounds %struct.kmp_depend_info, {{.*}}, i32 0, i32 1
+  // CHECK-NEW-NEXT: store i64 0
+  // CHECK-NEW: getelementptr inbounds %struct.kmp_depend_info, {{.*}}, i32 0, i32 2
+  // CHECK-NEW-NEXT: store i8 -128
+  // CHECK-NEW: store i64 1, ptr %dep.counter.addr{{.*}}, align 8
+
+  // CHECK: DIR.OMP.TASK
+  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1
+  // CHECK: DIR.OMP.END.TASK
+  #pragma omp task depend(inout:omp_all_memory)
+  {
+    bar();
+  }
+
   // CHECK: DIR.OMP.PARALLEL
   #pragma omp parallel
   {
