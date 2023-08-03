@@ -98,10 +98,6 @@ public:
 private:
   using ImplT = GenericUniformityAnalysisImpl<ContextT>;
 
-<<<<<<< HEAD
-  FunctionT *F = nullptr; // INTEL
-=======
->>>>>>> b14e30f10dafb67101c5fbf29877226b7ea803e5
   std::unique_ptr<ImplT, GenericUniformityAnalysisImplDeleter<ImplT>> DA;
 
   GenericUniformityInfo(const GenericUniformityInfo &) = delete;
