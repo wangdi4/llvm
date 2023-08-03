@@ -68,7 +68,7 @@ bool execute_command(const SharedPtr<ITaskBase> &pCmd,
   bool runNextCommand = true;
   bool cancel = cmdList.Is_canceled();
 
-  if (cancel) {
+  if (cancel || Intel::OpenCL::Utils::IsShuttingDown()) {
     pCmd->Cancel();
   } else if (pCmd->IsTaskSet()) {
     const SharedPtr<ITaskSet> &pTaskSet = pCmd.StaticCast<ITaskSet>();
