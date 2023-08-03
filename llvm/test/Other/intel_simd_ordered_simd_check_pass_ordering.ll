@@ -26,7 +26,7 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK:  Running pass: VPlanPragmaOmpSimdIfPass on var_tripcount (1 instruction)
 ; HIR:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass on [module]
 ; HIR:  Running pass: HIRSSADeconstructionPass on var_tripcount (1 instruction)
-; HIR:  Running analysis: HIRParVecAnalysisPass on var_tripcount
+; HIR:  Skipping pass: HIRVecDirInsertPass on var_tripcount
 ; HIR:  Skipping pass: vpo::VPlanDriverHIRPass on var_tripcount
 ; HIR:  Running pass: HIRPostVecCompleteUnrollPass on var_tripcount (1 instruction)
 ; HIR:  Running pass: HIRGeneralUnrollPass on var_tripcount (1 instruction)

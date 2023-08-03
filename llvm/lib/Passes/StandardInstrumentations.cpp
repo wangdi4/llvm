@@ -967,6 +967,11 @@ bool LimitingInstrumentation::shouldRun(StringRef PassID, LoopOptLimiter Limiter
         F->getFnAttribute("loopopt-pipeline").getValueAsString() != "light")
       ShouldRun = false;
     break;
+  case LoopOptLimiter::LoopOpt:
+    if (!F->hasFnAttribute("loopopt-pipeline") ||
+        F->getFnAttribute("loopopt-pipeline").getValueAsString() == "none")
+      ShouldRun = false;
+    break;
   default:
     llvm_unreachable("Unknown enum value!");
   }
