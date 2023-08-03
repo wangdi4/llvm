@@ -139,12 +139,12 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 2
+; CHECK-NEXT:       [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP7]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP8:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP8:%.*]] = add i64 [[VP6]] i64 4
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2:%.*]] = icmp ugt i64 [[VP8]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK2:merge.blk[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
@@ -155,7 +155,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]], [[BB3]]
@@ -178,7 +178,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB15]]: # preds: [[BB5]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP9:%.*]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP9:%.*]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP9]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK3:merge.blk[0-9]+]], [[MERGE_BLK2]]
@@ -197,7 +197,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB17]]: # preds: [[MERGE_BLK3]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 1024 i64 [[VP12]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK1]]
@@ -252,12 +252,12 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP7]] = add i64 [[VP_PEEL_COUNT]] i64 2
+; CHECK-NEXT:       [DA: Uni] i64 [[VP7]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1]] = icmp ugt i64 [[VP7]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP8]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP8]] = add i64 [[VP6]] i64 4
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2]] = icmp ugt i64 [[VP8]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK2]], [[BB1]]
 ; CHECK-EMPTY:
@@ -268,7 +268,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 [[VP6]] i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]], [[BB3]]
@@ -291,7 +291,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB15]]: # preds: [[BB5]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP9]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP9]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK]] = icmp eq i64 [[VP9]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK3]], [[MERGE_BLK2]]
@@ -307,7 +307,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP0]] = induction-init{add} i64 [[VP10]] i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP1]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB9]]: # preds: [[BB8]], [[BB9]]
@@ -334,7 +334,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB17]]: # preds: [[MERGE_BLK3]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP12]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP12]] = vector-trip-count i64 1024 i64 [[VP6]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1]] = icmp eq i64 1024 i64 [[VP12]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK1]]

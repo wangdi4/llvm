@@ -89,7 +89,7 @@ bool runImpl(Module &M,
     LLVM_DEBUG(dbgs() << "  ScalarCost: " << ScalarCost
                       << "  VectorCost: " << VectorCost << '\n');
     if (ScalarCost * ScalarCostMultiplier <= VectorCost) {
-      F->removeFnAttr("vector-variants");
+      F->removeFnAttr(VectorUtils::VectorVariantsAttrName);
       MDValueGlobalObjectStrategy::unset(F, KIMD.VectorizedKernel.getID());
       VecF->eraseFromParent();
       Changed = true;

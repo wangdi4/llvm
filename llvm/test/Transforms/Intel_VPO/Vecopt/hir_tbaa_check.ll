@@ -15,12 +15,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: DO i1 = 0, 1023, 4
-; CHECK:  %[[ARRIDX:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %1
-; CHECK:  %[[BITCAST:.*]] = bitcast i32* %[[ARRIDX]] to <4 x i32>*
-; CHECK:  %{{.*}} = load <4 x i32>, <4 x i32>* %[[BITCAST]], align 4, !tbaa ![[TBAA:.*]]
-; CHECK:  %[[ARRIDX1:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %4
-; CHECK:  %[[BITCAST1:.*]] = bitcast i32* %[[ARRIDX1]] to <4 x i32>*
-; CHECK:  store <4 x i32> {{.*}}, <4 x i32>* %[[BITCAST1]], align 4, !tbaa ![[TBAA]]
+; CHECK:  %[[ARRIDX:.*]] = getelementptr inbounds [1024 x i32], ptr @arr2, i64 0, i64 %1
+; CHECK:  %{{.*}} = load <4 x i32>, ptr %[[ARRIDX]], align 4, !tbaa ![[TBAA:.*]]
+; CHECK:  %[[ARRIDX1:.*]] = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %3
+; CHECK:  store <4 x i32> {{.*}}, ptr %[[ARRIDX1]], align 4, !tbaa ![[TBAA]]
 ; CHECK: ![[TBAA]] = !{![[TBAA1:.*]], !{{.*}}
 ; CHECK: ![[TBAA1]] = !{!"array@_ZTSA1024_i", {{.*}}
 
@@ -39,11 +37,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr2, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add = add nsw i32 %0, 1
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

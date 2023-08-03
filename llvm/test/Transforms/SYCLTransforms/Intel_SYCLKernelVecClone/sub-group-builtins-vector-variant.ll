@@ -1,25 +1,23 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone,vplan-vec -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone,vplan-vec -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
-%opencl.image2d_ro_t.4 = type opaque
-%opencl.image2d_wo_t.5 = type opaque
 ; CHECK: declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #[[SCALAR_ALL_ATTR:.*]]
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b, %opencl.image2d_ro_t.4 addrspace(1)* %c, %opencl.image2d_wo_t.5 addrspace(1)* %d) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !recommended_vector_length !15 {
+define spir_kernel void @a(ptr addrspace(1) nocapture readonly%a, ptr addrspace(1) nocapture %b, ptr addrspace(1) %c, ptr addrspace(1) %d) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !recommended_vector_length !15 !arg_type_null_val !16 {
 entry:
 ; CHECK-LABEL: vector.body
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, {{.*}} ], [ [[VEC_IND_NEXT:%.*]], {{.*}} ]
-; CHECK-NEXT: [[VEC_IND_I64:%.*]] = sext <4 x i32> [[VEC_IND]] to <4 x i64>
-; CHECK-NEXT: [[VGID:%.*]] = add nuw <4 x i64> [[VEC_IND_I64]], [[GID_BROADCAST:%.*]]
+; CHECK-NEXT: [[VGID:%.*]] = add nuw <4 x i32> [[GID_BROADCAST:%.*]], [[VEC_IND]]
+; CHECK-NEXT: [[VEC_IND_I64:%.*]] = sext <4 x i32> [[VGID]] to <4 x i64>
 ;
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
   %slid.reverse = sub nuw i32 16, %slid
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !10
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !10
   %1 = trunc i32 %0 to i16
 ; CHECK: [[WIDE_LOAD_TRUNCi16:%.*]] = trunc <4 x i32> %wide.load to <4 x i16>
   %2 = trunc i32 %0 to i8
@@ -79,26 +77,25 @@ entry:
   %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse)
 ; CHECK: = call {{(spir_func )?}}<16 x i32> @_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_(
 
-  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %a)
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1KjDv4_j(i32 addrspace(1)* [[LOAD_a:%.*]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1) %a)
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1KjDv4_j(ptr addrspace(1) [[LOAD_a:%.*]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %blk_read.x2 = mul <2 x i32> %blk_read, <i32 2, i32 2>
-  call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
-; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_jDv4_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-  %short_ptr = bitcast i32 addrspace(1)* %a to i16 addrspace(1)*
-  %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr)
-; CHECK: call <8 x i16> @_Z32intel_sub_group_block_read_us2_4PU3AS1KtDv4_j(i16 addrspace(1)* {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1) %b, <2 x i32> %blk_read.x2)
+; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_jDv4_j(ptr addrspace(1) [[LOAD_b:%.*]], <8 x i32> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1) %a)
+; CHECK: call <8 x i16> @_Z32intel_sub_group_block_read_us2_4PU3AS1KtDv4_j(ptr addrspace(1) {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %blk_read_short.x2 = mul <2 x i16> %blk_read_short, <i16 2, i16 2>
-  call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2)
-; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j(i16 addrspace(1)* {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1) %a, <2 x i16> %blk_read_short.x2)
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_tDv4_j(ptr addrspace(1) {{%.*}}, <8 x i16> {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
-  %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_iDv4_j(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-   call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i32> <i32 4, i32 4>)
-; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_jDv4_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-  %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %c, <2 x i32> <i32 0, i32 0>)
-; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_iDv4_j(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
-   call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)* %d, <2 x i32> <i32 0, i32 0>, <2 x i16> <i16 4, i16 4>)
-; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_tDv4_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <8 x i16> <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(ptr addrspace(1) %c, <2 x i32> <i32 0, i32 0>)
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_414ocl_image2d_roDv2_iDv4_j(ptr addrspace(1) %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+   call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(ptr addrspace(1) %d, <2 x i32> <i32 0, i32 0>, <2 x i32> <i32 4, i32 4>)
+; CHECK: call void @_Z30intel_sub_group_block_write2_414ocl_image2d_woDv2_iDv8_jDv4_j(ptr addrspace(1) %load.d, <2 x i32> zeroinitializer, <8 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+  %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(ptr addrspace(1) %c, <2 x i32> <i32 0, i32 0>)
+; CHECK: = call <8 x i16> @_Z32intel_sub_group_block_read_us2_414ocl_image2d_roDv2_iDv4_j(ptr addrspace(1) %load.c, <2 x i32> zeroinitializer, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+   call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(ptr addrspace(1) %d, <2 x i32> <i32 0, i32 0>, <2 x i16> <i16 4, i16 4>)
+; CHECK: call void @_Z33intel_sub_group_block_write_us2_414ocl_image2d_woDv2_iDv8_tDv4_j(ptr addrspace(1) %load.d, <2 x i32> zeroinitializer, <8 x i16> <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
 ; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
@@ -109,8 +106,8 @@ entry:
   %mul = mul i32 %call4, 1000
   %conv = zext i32 %mul to i64
   %add = add i64 %call, %conv
-  %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
-  store i32 %call1, i32 addrspace(1)* %arrayidx4, align 4, !tbaa !10
+  %arrayidx4 = getelementptr inbounds i32, ptr addrspace(1) %b, i64 %add
+  store i32 %call1, ptr addrspace(1) %arrayidx4, align 4, !tbaa !10
 ; CHECK: store <4 x i32> [[VECTOR_ALL]]
 
   %cmp = icmp eq i32 %slid, 0
@@ -123,7 +120,7 @@ slid.zero:
   br label %end
 
 slid.nonzero:
-  %masked_load = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !10
+  %masked_load = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !10
   %masked_shuffle = call i32 @_Z23intel_sub_group_shuffleij(i32 %0, i32 4)
 ; CHECK: call {{(spir_func )?}}<4 x i32> @_Z23intel_sub_group_shuffleDv4_iDv4_jS0_(<4 x i32> %wide.load, <4 x i32> <i32 4, i32 4, i32 4, i32 4>, <4 x i32> [[MASKEXT]])
   br label %end
@@ -132,7 +129,7 @@ slid.nonzero:
 ; attributes with hardcoded numbers, which was brittle to attribute changes.
 ; These CHECK lines are added to make sure the attributes being checked are the
 ; intended ones even if the numbering changes.
-; CHECK: [[V54:%.*]] = load i32, i32 addrspace(1)* %arrayidx, align 4
+; CHECK: [[V54:%.*]] = load i32, ptr addrspace(1) %arrayidx, align 4
 ; CHECK: [[V55:%.*]] = trunc i32 [[V54]] to i16
 ; CHECK: [[V56:%.*]] = trunc i32 [[V54]] to i8
 ; CHECK: [[V57:%.*]] = zext i32 [[V54]] to i64
@@ -153,16 +150,16 @@ slid.nonzero:
 ; CHECK:  %call13 = tail call spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32 [[V54]]) [[AT26:#.*]]
 ; CHECK:  %call14 = tail call spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16 [[V55]]) [[AT27:#.*]]
 ; CHECK:  %call15 = tail call spir_func i8 @_Z34intel_sub_group_scan_inclusive_maxc(i8 [[V56]]) [[AT28:#.*]]
-; CHECK:  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %add1, i64 42, i32 %slid.reverse) [[AT29:#.*]]
+; CHECK:  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 {{.*}}, i64 42, i32 %slid.reverse) [[AT29:#.*]]
 ; CHECK:  %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse) [[AT30:#.*]]
-; CHECK:  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %load.a) [[AT31:#.*]]
-; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %load.b, <2 x i32> %blk_read.x2) [[AT32:#.*]]
-; CHECK: %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr) [[AT33:#.*]]
-; CHECK: call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2) [[AT34:#.*]]
-; CHECK: %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer) [[AT35:#.*]]
-; CHECK: call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <2 x i32> <i32 4, i32 4>) [[AT36:#.*]]
-; CHECK: %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)* %load.c, <2 x i32> zeroinitializer) [[AT37:#.*]]
-; CHECK: call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)* %load.d, <2 x i32> zeroinitializer, <2 x i16> <i16 4, i16 4>) [[AT38:#.*]]
+; CHECK:  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1) %load.a) [[AT31:#.*]]
+; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1) %load.b, <2 x i32> %blk_read.x2) [[AT32:#.*]]
+; CHECK: %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1) %load.a) [[AT33:#.*]]
+; CHECK: call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1) %load.a, <2 x i16> %blk_read_short.x2) [[AT34:#.*]]
+; CHECK: %blk_img_read = call <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(ptr addrspace(1) %load.c, <2 x i32> zeroinitializer) [[AT35:#.*]]
+; CHECK: call void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(ptr addrspace(1) %load.d, <2 x i32> zeroinitializer, <2 x i32> <i32 4, i32 4>) [[AT36:#.*]]
+; CHECK: %blk_img_read1 = call <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(ptr addrspace(1) %load.c, <2 x i32> zeroinitializer) [[AT37:#.*]]
+; CHECK: call void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(ptr addrspace(1) %load.d, <2 x i32> zeroinitializer, <2 x i16> <i16 4, i16 4>) [[AT38:#.*]]
 ; CHECK: %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 [[V54]]) [[AT39:#.*]]
 ; CHECK: %call19 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool) [[AT40:#.*]]
 ; CHECK: %masked_shuffle = call i32 @_Z23intel_sub_group_shuffleij(i32 [[V54]], i32 4) [[AT11:#.*]]
@@ -216,15 +213,15 @@ declare spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64, i64, i32) local_
 
 declare spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32>, <4 x i32>, i32) local_unnamed_addr #1
 
-declare <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)*) local_unnamed_addr #1
-declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
-declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)*) local_unnamed_addr #1
-declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)*, <2 x i16>) local_unnamed_addr #1
+declare <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1)) local_unnamed_addr #1
+declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1), <2 x i32>) local_unnamed_addr #1
+declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1)) local_unnamed_addr #1
+declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1), <2 x i16>) local_unnamed_addr #1
 
-declare <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
-declare void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(%opencl.image2d_wo_t.5 addrspace(1)*, <2 x i32>, <2 x i32>) local_unnamed_addr #1
-declare <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(%opencl.image2d_ro_t.4 addrspace(1)*, <2 x i32>) local_unnamed_addr #1
-declare void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(%opencl.image2d_wo_t.5 addrspace(1)*, <2 x i32>, <2 x i16>) local_unnamed_addr #1
+declare <2 x i32> @_Z27intel_sub_group_block_read214ocl_image2d_roDv2_i(ptr addrspace(1), <2 x i32>) local_unnamed_addr #1
+declare void @_Z28intel_sub_group_block_write214ocl_image2d_woDv2_iDv2_j(ptr addrspace(1), <2 x i32>, <2 x i32>) local_unnamed_addr #1
+declare <2 x i16> @_Z30intel_sub_group_block_read_us214ocl_image2d_roDv2_i(ptr addrspace(1), <2 x i32>) local_unnamed_addr #1
+declare void @_Z31intel_sub_group_block_write_us214ocl_image2d_woDv2_iDv2_t(ptr addrspace(1), <2 x i32>, <2 x i16>) local_unnamed_addr #1
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false"  "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87"}
@@ -277,21 +274,21 @@ attributes #4 = { convergent nounwind }
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !4 = !{i32 1, i32 1}
-!5 = !{!"none", !"none"}
-!6 = !{!"int*", !"int*"}
-!7 = !{!"", !""}
+!5 = !{!"none", !"none", !"none", !"none"}
+!6 = !{!"int*", !"int*", !"image2d_t", !"image2d_t"}
+!7 = !{!"", !"", !"", !""}
 !8 = !{i1 false, i1 false}
 !9 = !{i32 0, i32 0}
 !10 = !{!11, !11, i64 0}
 !11 = !{!"int", !12, i64 0}
 !12 = !{!"omnipotent char", !13, i64 0}
 !13 = !{!"Simple C/C++ TBAA"}
-!14 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, %opencl.image2d_ro_t.4 addrspace(1)*, %opencl.image2d_wo_t.5 addrspace(1)*)* @a}
+!14 = !{ptr @a}
 !15 = !{i32 4}
+!16 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) zeroinitializer, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 1) zeroinitializer}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br

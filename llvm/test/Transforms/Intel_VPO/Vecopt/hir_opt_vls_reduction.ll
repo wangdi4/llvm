@@ -30,11 +30,10 @@
 ; CHECK-NEXT:        |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:        |   [[VLS_EXTRACT60:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 4, i32 7, i32 10>
 ; CHECK-NEXT:        |   [[VLS_EXTRACT70:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 2, i32 5, i32 8, i32 11>
-; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[VLS_EXTRACT60]] + [[VLS_EXTRACT70]]  +  [[DOTCOPY50]]
-; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = [[DOTVEC80]]  +  [[VLS_EXTRACT0]]
-; CHECK-NEXT:        |   [[PHI_TEMP30]] = [[DOTVEC90]]
+; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[DOTCOPY50]] + [[VLS_EXTRACT60]] + [[VLS_EXTRACT70]]  +  [[VLS_EXTRACT0]]
+; CHECK-NEXT:        |   [[PHI_TEMP30]] = [[DOTVEC80]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[SUM_0220]] = @llvm.vector.reduce.add.v4i32([[DOTVEC90]])
+; CHECK:             [[SUM_0220]] = @llvm.vector.reduce.add.v4i32([[DOTVEC80]])
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -53,13 +52,13 @@ for.body:                                         ; preds = %for.body, %entry
   %sum.022 = phi i32 [ 0, %entry ], [ %add10, %for.body ]
   %0 = mul nuw nsw i64 %indvars.iv, 3
   %1 = add nuw nsw i64 %0, 1
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %1
+  %2 = load i32, ptr %arrayidx, align 4
   %3 = add nuw nsw i64 %0, 2
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %3
-  %4 = load i32, i32* %arrayidx4, align 4
-  %arrayidx8 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %0
-  %5 = load i32, i32* %arrayidx8, align 4
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %3
+  %4 = load i32, ptr %arrayidx4, align 4
+  %arrayidx8 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %0
+  %5 = load i32, ptr %arrayidx8, align 4
   %add5 = add i32 %2, %sum.022
   %add9 = add i32 %add5, %4
   %add10 = add i32 %add9, %5

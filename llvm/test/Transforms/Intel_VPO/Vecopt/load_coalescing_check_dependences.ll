@@ -10,59 +10,53 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 
 ; <label>:1:                                      ; preds = %0, %1
   %indvars.iv = phi i64 [ 0, %0 ], [ %indvars.iv.next, %1 ]
-  %2 = getelementptr inbounds [1024 x double], [1024 x double]* @B, i64 0, i64 %indvars.iv
-  %3 = getelementptr inbounds [1024 x double], [1024 x double]* @C, i64 0, i64 %indvars.iv
-  %4 = getelementptr inbounds [1024 x double], [1024 x double]* @A, i64 0, i64 %indvars.iv
+  %2 = getelementptr inbounds [1024 x double], ptr @B, i64 0, i64 %indvars.iv
+  %3 = getelementptr inbounds [1024 x double], ptr @C, i64 0, i64 %indvars.iv
+  %4 = getelementptr inbounds [1024 x double], ptr @A, i64 0, i64 %indvars.iv
   %5 = or i64 %indvars.iv, 1
-  %6 = getelementptr inbounds [1024 x double], [1024 x double]* @B, i64 0, i64 %5
-  %7 = bitcast double* %2 to <2 x double>*
+  %6 = getelementptr inbounds [1024 x double], ptr @B, i64 0, i64 %5
   ; load B[i+0:i+1]
-  %8 = load <2 x double>, <2 x double>* %7, align 16, !tbaa !2
-  %9 = getelementptr inbounds [1024 x double], [1024 x double]* @C, i64 0, i64 %5
-  %10 = bitcast double* %3 to <2 x double>*
+  %7 = load <2 x double>, ptr %2, align 16, !tbaa !2
+  %8 = getelementptr inbounds [1024 x double], ptr @C, i64 0, i64 %5
   ; load C[i+0:i+1]
-  %11 = load <2 x double>, <2 x double>* %10, align 16, !tbaa !2
-  %12 = fadd <2 x double> %8, %11
-  %13 = getelementptr inbounds [1024 x double], [1024 x double]* @A, i64 0, i64 %5
-  %14 = bitcast double* %4 to <2 x double>*
+  %9 = load <2 x double>, ptr %3, align 16, !tbaa !2
+  %10 = fadd <2 x double> %7, %9
+  %11 = getelementptr inbounds [1024 x double], ptr @A, i64 0, i64 %5
   ; store A[i+0:i+1]
-  store <2 x double> %12, <2 x double>* %14, align 16, !tbaa !2
+  store <2 x double> %10, ptr %4, align 16, !tbaa !2
 
 
 
-  %15 = or i64 %indvars.iv, 2
-  %16 = getelementptr inbounds [1024 x double], [1024 x double]* @B, i64 0, i64 %15
-  %17 = getelementptr inbounds [1024 x double], [1024 x double]* @C, i64 0, i64 %15
-  %18 = or i64 %indvars.iv, 4
-  %19 = getelementptr inbounds [1024 x double], [1024 x double]* @A, i64 0, i64 %18
-  %20 = or i64 %indvars.iv, 3
-  %21 = getelementptr inbounds [1024 x double], [1024 x double]* @B, i64 0, i64 %20
-  %22 = bitcast double* %16 to <2 x double>*
+  %12 = or i64 %indvars.iv, 2
+  %13 = getelementptr inbounds [1024 x double], ptr @B, i64 0, i64 %12
+  %14 = getelementptr inbounds [1024 x double], ptr @C, i64 0, i64 %12
+  %15 = or i64 %indvars.iv, 4
+  %16 = getelementptr inbounds [1024 x double], ptr @A, i64 0, i64 %15
+  %17 = or i64 %indvars.iv, 3
+  %18 = getelementptr inbounds [1024 x double], ptr @B, i64 0, i64 %17
 
-; RAW dependency with %11.
-  store <2 x double> %11, <2 x double>* %22, align 16, !tbaa !2
+; RAW dependency with %9.
+  store <2 x double> %9, ptr %13, align 16, !tbaa !2
 
-; load B[i+2:i+3] . No dependency with %8. This should be coalesced with %8.
+; load B[i+2:i+3] . No dependency with %7. This should be coalesced with %7.
 ; So, this along with the store should be moved up by the scheduler.
-  %23 = load <2 x double>, <2 x double>* %22, align 16, !tbaa !2
-  %24 = getelementptr inbounds [1024 x double], [1024 x double]* @C, i64 0, i64 %20
-  %25 = bitcast double* %17 to <2 x double>*
+  %19 = load <2 x double>, ptr %13, align 16, !tbaa !2
+  %20 = getelementptr inbounds [1024 x double], ptr @C, i64 0, i64 %17
 
-; RAW dependency with %11.
-  store <2 x double> %11, <2 x double>* %25, align 16, !tbaa !2
+; RAW dependency with %9.
+  store <2 x double> %9, ptr %14, align 16, !tbaa !2
 
-; load C[i+2:i+3]. MEM RAW dependency with the previous store and a transient dependency with %11.
-; So it should not be coalesced with load %11.
-  %26 = load <2 x double>, <2 x double>* %25, align 16, !tbaa !2
-  %27 = fadd <2 x double> %23, %26
-  %28 = or i64 %indvars.iv, 5
-  %29 = getelementptr inbounds [1024 x double], [1024 x double]* @A, i64 0, i64 %28
-  %30 = bitcast double* %19 to <2 x double>*
+; load C[i+2:i+3]. MEM RAW dependency with the previous store and a transient dependency with %9.
+; So it should not be coalesced with load %9.
+  %21 = load <2 x double>, ptr %14, align 16, !tbaa !2
+  %22 = fadd <2 x double> %19, %21
+  %23 = or i64 %indvars.iv, 5
+  %24 = getelementptr inbounds [1024 x double], ptr @A, i64 0, i64 %23
   ; Store A[i+4:i+5]
-  store <2 x double> %27, <2 x double>* %30, align 16, !tbaa !2
+  store <2 x double> %22, ptr %16, align 16, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 8
-  %31 = icmp eq i64 %indvars.iv.next, 1024
-  br i1 %31, label %32, label %1
+  %25 = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %25, label %26, label %1
 
 ; <label>:32:                                     ; preds = %1
   ret i32 0
@@ -74,6 +68,6 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 !5 = !{!"Simple C/C++ TBAA"}
 
 ; We expect one coalesced load and 2 non-coalesced
-; CHECK:  [[L0:%.*]] = load <2 x double>, <2 x double>*
-; CHECK:  [[L1:%.*]] = load <4 x double>, <4 x double>*
-; CHECK:  [[L2:%.*]] = load <2 x double>, <2 x double>*
+; CHECK:  [[L0:%.*]] = load <2 x double>, ptr
+; CHECK:  [[L1:%.*]] = load <4 x double>, ptr
+; CHECK:  [[L2:%.*]] = load <2 x double>, ptr

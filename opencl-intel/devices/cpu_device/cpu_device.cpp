@@ -142,9 +142,9 @@ GetCPUDevInfo(CPUDeviceConfig &config) {
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = {
     CL_DEVICE_PARTITION_BY_COUNTS, CL_DEVICE_PARTITION_EQUALLY,
     CL_DEVICE_PARTITION_BY_NAMES_INTEL,
-#ifndef WIN32
+#ifndef _WIN32
     CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN
-#endif // WIN32
+#endif
 };
 
 typedef enum {
@@ -449,7 +449,7 @@ void CPUDevice::calculateComputeUnitMap() {
   bool hasEnvPlaces = getEnvVar(places, "SYCL_CPU_PLACES") ||
                       getEnvVar(places, "DPCPP_CPU_PLACES");
 
-#ifndef WIN32
+#ifndef _WIN32
   // For Linux, respect the process affinity mask in determining which cores to
   // run on
   affinityMask_t myParentMask;
@@ -580,7 +580,7 @@ void CPUDevice::calculateComputeUnitMap() {
   const unsigned numCoresPerSocket = m_numCores / numSockets;
   std::vector<std::vector<int>> coresPerSocket(numSockets);
   if (HTEnabled && "sockets" == places) {
-    std::map<int, int> coreToSocket = GetProcessorToSocketMap();
+    std::unordered_map<int, int> coreToSocket = GetProcessorToSocketMap();
     for (unsigned i = 0; i < m_numCores; ++i)
       coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
     for (auto &C : coresPerSocket) {
@@ -871,7 +871,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   size_t internalRetunedValueSize = valSize;
   size_t *pinternalRetunedValueSize;
   unsigned int viCPUInfo[4] = {(unsigned int)-1};
-  const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
 
   // Do static initialize of the OpenCL Version
   static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
@@ -1738,7 +1737,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   // The IP version for the device. The meaning of this version is
   // implementation-defined, but newer devices should have a higher
   // version than older devices.
-  case CL_DEVICE_IP_VERSION_INTEL:
+  case CL_DEVICE_IP_VERSION_INTEL: {
+    ECPU curCPUEnum = CPUDetect::GetInstance()->GetCPU();
+
+    *pinternalRetunedValueSize = sizeof(curCPUEnum);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      MEMCPY_S(paramVal, valSize, &curCPUEnum, *pinternalRetunedValueSize);
+    }
+    return CL_DEV_SUCCESS;
+  }
   case CL_DEVICE_NUMERIC_VERSION: {
     cl_version openclVerNum = 0;
     switch (ver) {
@@ -1875,7 +1886,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     std::vector<cl_device_partition_property> supportedProperties(
         std::begin(CPU_SUPPORTED_FISSION_MODES),
         std::end(CPU_SUPPORTED_FISSION_MODES));
-#ifndef WIN32
+#ifndef _WIN32
     if (GetMaxNumaNode() <= 1) {
       auto it =
           std::find(supportedProperties.begin(), supportedProperties.end(),
@@ -1910,12 +1921,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       *((cl_device_affinity_domain *)paramVal) =
-#ifndef WIN32
+#ifndef _WIN32
           GetMaxNumaNode() > 1
               ? (cl_device_affinity_domain)(CL_DEVICE_AFFINITY_DOMAIN_NUMA |
                                             CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE)
               :
-#endif // WIN32
+#endif
               (cl_device_affinity_domain)0;
     }
     return CL_DEV_SUCCESS;
@@ -2269,6 +2280,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     if (paramVal && valSize < *pinternalRetunedValueSize)
       return CL_DEV_INVALID_VALUE;
     if (paramVal) {
+      const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
       const static cl_uint NumPhysicalCores =
           (cl_uint)GetNumberOfProcessors() / ThreadsPerCore;
       const static cl_uint PhysicalCoresPerNode =
@@ -2280,8 +2292,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     *pinternalRetunedValueSize = sizeof(cl_uint);
     if (paramVal && valSize < *pinternalRetunedValueSize)
       return CL_DEV_INVALID_VALUE;
-    if (paramVal)
+    if (paramVal) {
+      const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
       *reinterpret_cast<cl_uint *>(paramVal) = ThreadsPerCore;
+    }
     return CL_DEV_SUCCESS;
   case CL_DEVICE_FEATURE_CAPABILITIES_INTEL:
     *pinternalRetunedValueSize = sizeof(cl_device_feature_capabilities_intel);
@@ -2356,7 +2370,7 @@ static void rollBackSubdeviceAllocation(cl_dev_subdevice_id *IN subdevice_ids,
 
 bool CPUDevice::CoreToCoreIndex(unsigned int *core) {
   // Only support affinity masks on Linux
-#ifdef WIN32
+#ifdef _WIN32
   return true;
 #else
   // Todo: maybe use binary search here

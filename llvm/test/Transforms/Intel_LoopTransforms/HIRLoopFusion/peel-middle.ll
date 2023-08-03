@@ -55,8 +55,8 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv52 = phi i64 [ 1, %entry ], [ %indvars.iv.next53, %for.body ]
   %0 = trunc i64 %indvars.iv52 to i32
   %conv = sitofp i32 %0 to double
-  %arrayidx = getelementptr inbounds [25 x double], [25 x double]* @A, i64 0, i64 %indvars.iv52
-  store double %conv, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [25 x double], ptr @A, i64 0, i64 %indvars.iv52
+  store double %conv, ptr %arrayidx, align 8
   %indvars.iv.next53 = add nuw nsw i64 %indvars.iv52, 1
   %exitcond54 = icmp eq i64 %indvars.iv.next53, 25
   br i1 %exitcond54, label %for.body6.preheader, label %for.body
@@ -66,11 +66,11 @@ for.body6.preheader:                              ; preds = %for.body
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv48 = phi i64 [ %indvars.iv.next49, %for.body6 ], [ 1, %for.body6.preheader ]
-  %arrayidx8 = getelementptr inbounds [25 x double], [25 x double]* @A, i64 0, i64 %indvars.iv48
-  %1 = load double, double* %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds [25 x double], ptr @A, i64 0, i64 %indvars.iv48
+  %1 = load double, ptr %arrayidx8, align 8
   %2 = add nsw i64 %indvars.iv48, -1
-  %arrayidx10 = getelementptr inbounds [25 x double], [25 x double]* @B, i64 0, i64 %2
-  store double %1, double* %arrayidx10, align 8
+  %arrayidx10 = getelementptr inbounds [25 x double], ptr @B, i64 0, i64 %2
+  store double %1, ptr %arrayidx10, align 8
   %indvars.iv.next49 = add nuw nsw i64 %indvars.iv48, 1
   %exitcond51 = icmp eq i64 %indvars.iv.next49, 26
   br i1 %exitcond51, label %for.body21.preheader, label %for.body6
@@ -83,13 +83,13 @@ for.cond.cleanup20:                               ; preds = %for.body21
 
 for.body21:                                       ; preds = %for.body21.preheader, %for.body21
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body21 ], [ 1, %for.body21.preheader ]
-  %arrayidx23 = getelementptr inbounds [25 x double], [25 x double]* @B, i64 0, i64 %indvars.iv
-  %3 = bitcast double* %arrayidx23 to i64*
-  %4 = load i64, i64* %3, align 8
-  %arrayidx25 = getelementptr inbounds [25 x double], [25 x double]* @C, i64 0, i64 %indvars.iv
-  %5 = bitcast double* %arrayidx25 to i64*
-  store i64 %4, i64* %5, align 8
-  store double 0.000000e+00, double* %arrayidx23, align 8
+  %arrayidx23 = getelementptr inbounds [25 x double], ptr @B, i64 0, i64 %indvars.iv
+  %3 = bitcast ptr %arrayidx23 to ptr
+  %4 = load i64, ptr %3, align 8
+  %arrayidx25 = getelementptr inbounds [25 x double], ptr @C, i64 0, i64 %indvars.iv
+  %5 = bitcast ptr %arrayidx25 to ptr
+  store i64 %4, ptr %5, align 8
+  store double 0.000000e+00, ptr %arrayidx23, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 26
   br i1 %exitcond, label %for.cond.cleanup20, label %for.body21

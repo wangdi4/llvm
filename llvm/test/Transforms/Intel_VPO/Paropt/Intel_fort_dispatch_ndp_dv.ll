@@ -1,6 +1,8 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
 
 ; Test src:
 
@@ -54,27 +56,28 @@
 ;
 ; end program
 
-; CHECK: [[DV_NEW:%.+]] = alloca %"QNCA_a0$i32*$rank1$", align 8
+; ALL: [[DV_NEW:%.+]] = alloca %"QNCA_a0$i32*$rank1$", align 8
 
-; CHECK: [[INTEROP_OBJ:%interop.obj.sync]] = call ptr @__tgt_create_interop_obj(i64 0, i8 0, ptr null)
-; CHECK: [[ADDR0_GEP:%.+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"submodule_$z_$argptr", i32 0, i32 0
-; CHECK: [[ADDR0:%.+]] = load ptr, ptr [[ADDR0_GEP]], align 8
+; OCG: [[INTEROP_OBJ:%interop.obj.sync]] = call ptr @__tgt_create_interop_obj(i64 0, i8 0, ptr null)
+; NCG: [[INTEROP_OBJ:%interop.obj]] = call ptr @__tgt_get_interop_obj(ptr @{{.*}}, i32 0, i32 0, ptr null, i64 0, i32 %my.tid, ptr %current.task)
+; ALL: [[ADDR0_GEP:%.+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"submodule_$z_$argptr", i32 0, i32 0
+; ALL: [[ADDR0:%.+]] = load ptr, ptr [[ADDR0_GEP]], align 8
 
-; CHECK: [[MAP_GEP:%.+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
-; CHECK: store ptr [[ADDR0]], ptr [[MAP_GEP]], align 8
+; ALL: [[MAP_GEP:%.+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
+; ALL: store ptr [[ADDR0]], ptr [[MAP_GEP]], align 8
 
-; CHECK: call void @__tgt_target_data_begin_mapper
+; ALL: call void @__tgt_target_data_begin_mapper
 
-; CHECK: [[ADDR0_UPDATED:%.+]] = load ptr, ptr [[MAP_GEP]], align 8
+; ALL: [[ADDR0_UPDATED:%.+]] = load ptr, ptr [[MAP_GEP]], align 8
 
-; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[DV_NEW]], ptr align 8 %"submodule_$z_$argptr", i64 72, i1 false)
+; ALL: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[DV_NEW]], ptr align 8 %"submodule_$z_$argptr", i64 72, i1 false)
 
-; CHECK: [[DV_NEW_ADDR0_GEP:%.+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[DV_NEW]], i32 0, i32 0
-; CHECK: store ptr [[ADDR0_UPDATED]], ptr [[DV_NEW_ADDR0_GEP]], align 8
+; ALL: [[DV_NEW_ADDR0_GEP:%.+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[DV_NEW]], i32 0, i32 0
+; ALL: store ptr [[ADDR0_UPDATED]], ptr [[DV_NEW_ADDR0_GEP]], align 8
 
-; CHECK: call void @submodule_mp_work_gpu_(ptr [[DV_NEW]], ptr [[INTEROP_OBJ]])
+; ALL: call void @submodule_mp_work_gpu_(ptr [[DV_NEW]], ptr [[INTEROP_OBJ]])
 
-; CHECK: call void @__tgt_target_data_end_mapper
+; ALL: call void @__tgt_target_data_end_mapper
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

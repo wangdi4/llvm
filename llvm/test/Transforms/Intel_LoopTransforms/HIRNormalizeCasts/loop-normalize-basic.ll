@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-normalize-casts,print<hir>" -debug-only=hir-normalize-casts %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-normalize-casts" -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test case checks that the zext casting in the loop upperbound was
 ; converted into sext. It was created from the following C++ code, but the
@@ -30,6 +31,11 @@
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRNormalizeCasts
+
 ;Module Before HIR
 ; ModuleID = 'simple.cpp'
 source_filename = "simple.cpp"
@@ -37,7 +43,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable
-define dso_local noundef i32 @_Z3fooPji(i32* nocapture noundef readonly %a, i32 noundef %n) local_unnamed_addr {
+define dso_local noundef i32 @_Z3fooPji(ptr nocapture noundef readonly %a, i32 noundef %n) local_unnamed_addr {
 entry:
   %cmp8 = icmp sgt i32 %n, 0
   br i1 %cmp8, label %for.body.preheader, label %for.cond.cleanup
@@ -59,8 +65,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %res.09 = phi i32 [ 0, %for.body.preheader ], [ %add1, %for.body ]
   %1 = add nuw nsw i64 %indvars.iv, %0
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %1
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %1
+  %2 = load i32, ptr %arrayidx, align 4
   %add1 = add i32 %2, %res.09
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %ub

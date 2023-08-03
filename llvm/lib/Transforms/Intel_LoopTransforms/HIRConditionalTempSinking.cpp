@@ -499,7 +499,7 @@ bool HIRConditionalTempSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+  auto &LoopStats = HLS.getTotalStatistics(Lp);
 
   // Nothing to sink.
   if (!LoopStats.hasIfs()) {
@@ -558,7 +558,8 @@ bool HIRConditionalTempSinkingLegacyPass::runOnFunction(Function &F) {
 
 PreservedAnalyses HIRConditionalTempSinkingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  doConditionalTempSinking(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F));
+  ModifiedHIR = doConditionalTempSinking(
+      HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
 

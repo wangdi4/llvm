@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare i32 @__intel_indirect_call_i32(i32(i32)*, ...) #2
+declare i32 @__intel_indirect_call_i32(ptr, ...) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
@@ -12,8 +12,8 @@ declare token @llvm.directive.region.entry() #3
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #3
 ; Function Attrs: nounwind uwtable
-define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly %c, i32 (i32)** nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
-; CHECK:  define dso_local void @_ZGVbN4_direct(i32* nocapture [[A0:%.*]], i32* nocapture readonly [[C0:%.*]], i32 (i32)** nocapture readonly [[FUNC0:%.*]], i32 [[N0:%.*]]) local_unnamed_addr #2 {
+define dso_local void @_ZGVbN4_direct(ptr nocapture %a, ptr nocapture readonly %c, ptr nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
+; CHECK:  define dso_local void @_ZGVbN4_direct(ptr nocapture [[A0:%.*]], ptr nocapture readonly [[C0:%.*]], ptr nocapture readonly [[FUNC0:%.*]], i32 [[N0:%.*]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[PREHEADER0:%.*]]
 ; CHECK-EMPTY:
@@ -35,15 +35,14 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ [[TMP12:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ [[TMP11:%.*]], [[VECTOR_BODY0]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[TMP3:%.*]] = load i32 (i32)*, i32 (i32)** [[FUNC0]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[C0]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[FUNC0]], align 8
+; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[C0]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 (i32)* [[TMP3]] to <4 x i32> (<4 x i32>)**
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr <4 x i32> (<4 x i32>)*, <4 x i32> (<4 x i32>)** [[TMP5]], i32 1
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x i32> (<4 x i32>)*, <4 x i32> (<4 x i32>)** [[TMP6]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr ptr, ptr [[TMP3]], i32 1
+; CHECK-NEXT:    [[TMP7:%.*]] = load ptr, ptr [[TMP6]], align 8
 ; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x i32> [[TMP7]](<4 x i32> [[BROADCAST_SPLAT0]])
-; CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[A0]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT40:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT50:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT40]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT50]], [[TMP8]]
@@ -80,10 +79,10 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.body:
 ; CHECK-NEXT:    [[IV_PHI0:%.*]] = phi i32 [ [[IV0]], [[FOR_BODY0]] ], [ [[UNI_PHI90]], %[[REMBLK0]] ]
-; CHECK-NEXT:    [[LD_FUNC0:%.*]] = load i32 (i32)*, i32 (i32)** [[FUNC0]], align 8
-; CHECK-NEXT:    [[LD_C0:%.*]] = load i32, i32* [[C0]], align 4
-; CHECK-NEXT:    [[CALL0:%.*]] = call i32 (i32 (i32)*, ...) @__intel_indirect_call_i32(i32 (i32)* [[LD_FUNC0]], i32 [[LD_C0]]) #0
-; CHECK-NEXT:    [[LD_A0:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[LD_FUNC0:%.*]] = load ptr, ptr [[FUNC0]], align 8
+; CHECK-NEXT:    [[LD_C0:%.*]] = load i32, ptr [[C0]], align 4
+; CHECK-NEXT:    [[CALL0:%.*]] = call i32 (ptr, ...) @__intel_indirect_call_i32(ptr [[LD_FUNC0]], i32 [[LD_C0]]) #0
+; CHECK-NEXT:    [[LD_A0:%.*]] = load i32, ptr [[A0]], align 4
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i32 [[LD_A0]], [[CALL0]]
 ; CHECK-NEXT:    [[IV0]] = add nsw i32 [[IV_PHI0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i32 [[IV0]], [[N0]]
@@ -105,10 +104,10 @@ preheader:
 
 for.body:
   %iv.phi = phi i32 [ %iv, %for.body ], [ 0, %preheader ]
-  %ld.func = load i32 (i32)*, i32 (i32)** %func, align 8
-  %ld.c = load i32, i32* %c, align 4
-  %call = call i32 (i32(i32)*, ...) @__intel_indirect_call_i32(i32 (i32)* %ld.func, i32 %ld.c) #2
-  %ld.a = load i32, i32* %a, align 4
+  %ld.func = load ptr, ptr %func, align 8
+  %ld.c = load i32, ptr %c, align 4
+  %call = call i32 (ptr, ...) @__intel_indirect_call_i32(ptr %ld.func, i32 %ld.c) #2
+  %ld.a = load i32, ptr %a, align 4
   %add = add nsw i32 %ld.a, %call
   %iv = add nsw i32 %iv.phi, 1
   %exitcond = icmp eq i32 %iv, %n

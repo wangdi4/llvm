@@ -34,6 +34,7 @@
 #include "llvm/TargetParser/Triple.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Operator.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -45,6 +46,10 @@ static cl::opt<TargetLibraryInfoImpl::AltMathLibrary> ClAltMathLibrary(
     cl::init(TargetLibraryInfoImpl::NoAltMathLibrary),
     cl::values(clEnumValN(TargetLibraryInfoImpl::NoAltMathLibrary, "none",
                           "No alternate math library"),
+#if INTEL_CUSTOMIZATION
+               clEnumValN(TargetLibraryInfoImpl::SVMLAltMathLibrary, "svml",
+                          "Intel SVML library"),
+#endif // INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::TestAltMathLibrary, "test",
                           "Fake library used for testing")));
 
@@ -65,6 +70,8 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "Intel SVML library"),
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
                           "SIMD Library for Evaluating Elementary Functions"),
+               clEnumValN(TargetLibraryInfoImpl::ArmPL, "ArmPL",
+                          "Arm Performance Libraries"),
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
                           "Glibc vector math library")));            // INTEL
 
@@ -145,9 +152,7 @@ static bool hasBcmp(const Triple &TT) {
 }
 
 #if INTEL_CUSTOMIZATION
-bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
-                                               const ElementCount &VF,
-                                               bool IsMasked) const {
+bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   // Track if call allows substitution with approximate functions. We use
   // FastMathFlags to determine this property for FP computations.
   bool CallAllowsApproxFn = true;
@@ -165,13 +170,55 @@ bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
   LibFunc LibF;
   Function *F = CB.getCalledFunction();
   StringRef CalledFnName = F->getName();
+
+  // If we have a Fortran specific library function, check if the caller is
+  // marked with an attribute to indicate that we're compiling Fortran input
+  // language.
+  if (isFortranOnlyVectorFunction(CalledFnName) && !CB.getCaller()->isFortran())
+    return false;
+
   // Call is valid for vector library-based vectorization if it represents a
   // known library function, is an LLVM intrinsic or an OCL vector function.
   bool IsValidMathLibFunc = getLibFunc(*F, LibF) || F->isIntrinsic() ||
                             isOCLVectorFunction(CalledFnName);
+  return IsValidMathLibFunc;
+}
 
-  return IsValidMathLibFunc &&
+static bool isCpuFeatureAvailableForTarget(StringRef CpuFeature,
+                                           const TargetTransformInfo *TTI) {
+  if (CpuFeature.empty())
+    return true;
+  if (!TTI)
+    return false;
+
+  bool IsAvailableForTgt = true;
+  if (CpuFeature == "avx" &&
+      !TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX))
+    IsAvailableForTgt = false;
+
+  return IsAvailableForTgt;
+}
+
+bool TargetLibraryInfo::isFunctionVectorizable(
+    const CallBase &CB, const ElementCount &VF, bool IsMasked,
+    const TargetTransformInfo *TTI) const {
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  // If the vector library function needs any specific CPU feature then check
+  // for its availability in the target being compiled for.
+  StringRef ReqdCpuFeature = getVectorFuncReqdCpuFeature(CalledFnName, VF);
+  return isValidCallForVectorization(CB) &&
+         isCpuFeatureAvailableForTarget(ReqdCpuFeature, TTI) &&
          isFunctionVectorizable(CalledFnName, VF, IsMasked);
+}
+
+bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
+                                               bool IsMasked) const {
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  return isValidCallForVectorization(CB) &&
+         isFunctionVectorizable(CalledFnName, IsMasked);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -373,7 +420,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     if (!isARM)
       TLI.setUnavailable(LibFunc_fabsf);
     TLI.setUnavailable(LibFunc_frexpf);
-    TLI.setUnavailable(LibFunc_ldexpf);
 
     // Win32 does not support long double C89 math functions.
     TLI.setUnavailable(LibFunc_acosl);
@@ -827,6 +873,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZnajSt11align_val_tRKSt9nothrow_t);
     TLI.setUnavailable(LibFunc_Znam);
     TLI.setUnavailable(LibFunc_ZnamRKSt9nothrow_t);
+    TLI.setUnavailable(LibFunc_ZnamRKSt9nothrow_t12__hot_cold_t);
     TLI.setUnavailable(LibFunc_ZnamSt11align_val_t);
     TLI.setUnavailable(LibFunc_ZnamSt11align_val_tRKSt9nothrow_t);
     TLI.setUnavailable(LibFunc_Znwj);
@@ -835,8 +882,15 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZnwjSt11align_val_tRKSt9nothrow_t);
     TLI.setUnavailable(LibFunc_Znwm);
     TLI.setUnavailable(LibFunc_ZnwmRKSt9nothrow_t);
+    TLI.setUnavailable(LibFunc_ZnwmRKSt9nothrow_t12__hot_cold_t);
     TLI.setUnavailable(LibFunc_ZnwmSt11align_val_t);
     TLI.setUnavailable(LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t);
+    TLI.setUnavailable(LibFunc_Znwm12__hot_cold_t);
+    TLI.setUnavailable(LibFunc_ZnwmSt11align_val_t12__hot_cold_t);
+    TLI.setUnavailable(LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t12__hot_cold_t);
+    TLI.setUnavailable(LibFunc_Znam12__hot_cold_t);
+    TLI.setUnavailable(LibFunc_ZnamSt11align_val_t12__hot_cold_t);
+    TLI.setUnavailable(LibFunc_ZnamSt11align_val_tRKSt9nothrow_t12__hot_cold_t);
   } else {
     // Not MSVC, assume it's Itanium.
     TLI.setUnavailable(LibFunc_msvc_new_int);
@@ -1355,6 +1409,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_const_ptr_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_istreambuf_iterator_operator_equals);
     TLI.setUnavailable(LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_decref);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_incref);
@@ -1512,6 +1567,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
 #if INTEL_CUSTOMIZATION
   if (T.isSPIR())
     TLI.setUseSVMLDevice(true);
+
+  // Set complex type library call signature info. So far we support only
+  // non-Windows X86_64 ABI.
+  if (!T.isOSWindows()) {
+    TLI.setCmplxFloatSignInfo(ComplexLibCallSignatureInfo::X86NonWinFloat);
+    TLI.setCmplxDoubleSignInfo(ComplexLibCallSignatureInfo::X86NonWinDouble);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary, T);
@@ -1538,7 +1600,8 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
       ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
-      SizeOfInt(TLI.SizeOfInt),
+      SizeOfInt(TLI.SizeOfInt), CmplxFloatSignInfo(TLI.CmplxFloatSignInfo),
+      CmplxDoubleSignInfo(TLI.CmplxDoubleSignInfo),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
@@ -1556,7 +1619,8 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
       ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
-      SizeOfInt(TLI.SizeOfInt),
+      SizeOfInt(TLI.SizeOfInt), CmplxFloatSignInfo(TLI.CmplxFloatSignInfo),
+      CmplxDoubleSignInfo(TLI.CmplxDoubleSignInfo),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
@@ -1574,6 +1638,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
 #if INTEL_CUSTOMIZATION
+  CmplxFloatSignInfo = TLI.CmplxFloatSignInfo;
+  CmplxDoubleSignInfo = TLI.CmplxDoubleSignInfo;
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
@@ -1593,6 +1659,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
 #if INTEL_CUSTOMIZATION
+  CmplxFloatSignInfo = TLI.CmplxFloatSignInfo;
+  CmplxDoubleSignInfo = TLI.CmplxDoubleSignInfo;
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
@@ -1681,6 +1749,78 @@ static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
 
   llvm_unreachable("Invalid type");
 }
+
+#if INTEL_CUSTOMIZATION
+// Determine if provided function's signature matches the expected prototype
+// described by corresponding complex type library call signature info.
+static bool
+isValidProtoForComplexTyLibFunc(const FunctionType &FTy,
+                                ComplexLibCallSignatureInfo SignInfo) {
+  unsigned NumParams = FTy.getNumParams();
+
+  switch (SignInfo) {
+  case X86NonWinFloat: {
+    // Expected call signature for single-precision FP type in non-Windows X86
+    // ABI -
+    // <2 x float> %ret = call @called_func(<2 x float> %arg)
+
+    if (NumParams != 1)
+      return false;
+
+    auto *ParamTy = dyn_cast<FixedVectorType>(FTy.getParamType(0));
+    if (!ParamTy)
+      return false;
+
+    if (ParamTy->getNumElements() != 2)
+      return false;
+
+    if (!ParamTy->getElementType()->isFloatTy())
+      return false;
+
+    if (FTy.getReturnType() != ParamTy)
+      return false;
+
+    // All checks passed.
+    return true;
+  }
+
+  case X86NonWinDouble: {
+    // Expected call signature for double-precision FP type in non-Windows X86
+    // ABI -
+    // {double, double} %ret = call @called_func(double %real, double %imag)
+
+    if (NumParams != 2)
+      return false;
+
+    auto *Param0Ty = FTy.getParamType(0);
+    if (!Param0Ty->isDoubleTy())
+      return false;
+
+    if (FTy.getParamType(1) != Param0Ty)
+      return false;
+
+    auto *RetTy = dyn_cast<StructType>(FTy.getReturnType());
+    if (!RetTy)
+      return false;
+
+    if (RetTy->getNumElements() != 2)
+      return false;
+
+    if (!RetTy->hasIdenticalElementTypes())
+      return false;
+
+    if (RetTy->getElementType(0) != Param0Ty)
+      return false;
+
+    // All checks passed.
+    return true;
+  }
+
+  case UnknownSign:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
                                                    LibFunc F,
@@ -2230,6 +2370,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_msvc_std_istreambuf_iterator_operator_equals:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -2717,11 +2862,11 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getReturnType() == FTy.getParamType(0) &&
             FTy.getReturnType() == FTy.getParamType(1));
   case LibFunc_cexp:
-    return (NumParams == 2 && FTy.getParamType(0)->isDoubleTy() &&
-            FTy.getParamType(1)->isDoubleTy() &&
-            FTy.getReturnType()->isArrayTy() &&
-            FTy.getReturnType()->getArrayNumElements() == 2 &&
-            FTy.getReturnType()->getArrayElementType()->isDoubleTy());
+  case LibFunc_clog:
+    return isValidProtoForComplexTyLibFunc(FTy, getCmplxDoubleSignInfo());
+  case LibFunc_cexpf:
+  case LibFunc_clogf:
+    return isValidProtoForComplexTyLibFunc(FTy, getCmplxFloatSignInfo());
   // Note: These are being placed after the case for LibFunc::NumLibFuncs to
   // avoid conflicts during community pulldowns, which otherwise occur
   // every time a new entry is added to the enumeration.
@@ -3120,6 +3265,19 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(4)->isPointerTy() &&
             FTy.getParamType(5)->isPointerTy());
 
+  case LibFunc_kmpc_dist_for_static_init_4:
+    return (NumParams == 10 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isPointerTy() &&
+            FTy.getParamType(8)->isIntegerTy() &&
+            FTy.getParamType(9)->isIntegerTy());
+
   case LibFunc_kmpc_end_critical:
     if (NumParams == 1)
       return (NumParams == FTy.getReturnType()->isVoidTy() &&
@@ -3180,6 +3338,12 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(8)->isIntegerTy());
 
   case LibFunc_kmpc_fork_call:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_fork_teams:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
@@ -4900,7 +5064,10 @@ case LibFunc_under_commit:
             FTy.getParamType(4)->isPointerTy());
 
   case LibFunc_for_random_number:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+    return (NumParams == 0 && FTy.getReturnType()->isDoubleTy());
+
+  case LibFunc_for_random_number_single:
+    return (NumParams == 0 && FTy.getReturnType()->isFloatTy());
 
   case LibFunc_for_random_seed_bit_size:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
@@ -5827,6 +5994,16 @@ void TargetLibraryInfoImpl::addAltMathFunctionsFromLib(
     addAltMathFunctions(AltMathFuncs);
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case SVMLAltMathLibrary: {
+    const AltMathDesc AltMathFuncs[] = {
+#define TLI_DEFINE_SVML_ALTMATHFUNCS
+#include "llvm/Analysis/AltMathLibFuncs.def"
+    };
+    addAltMathFunctions(AltMathFuncs);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case NoAltMathLibrary:
     break;
   }
@@ -5943,10 +6120,17 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   case SLEEFGNUABI: {
     const VecDesc VecFuncs_VF2[] = {
 #define TLI_DEFINE_SLEEFGNUABI_VF2_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF) {SCAL, VEC, VF, /* MASK = */ false},
 #include "llvm/Analysis/VecFuncs.def"
     };
     const VecDesc VecFuncs_VF4[] = {
 #define TLI_DEFINE_SLEEFGNUABI_VF4_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF) {SCAL, VEC, VF, /* MASK = */ false},
+#include "llvm/Analysis/VecFuncs.def"
+    };
+    const VecDesc VecFuncs_VFScalable[] = {
+#define TLI_DEFINE_SLEEFGNUABI_SCALABLE_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF, MASK) {SCAL, VEC, VF, MASK},
 #include "llvm/Analysis/VecFuncs.def"
     };
 
@@ -5957,6 +6141,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     case llvm::Triple::aarch64_be:
       addVectorizableFunctions(VecFuncs_VF2);
       addVectorizableFunctions(VecFuncs_VF4);
+      addVectorizableFunctions(VecFuncs_VFScalable);
       break;
     }
     break;
@@ -5972,6 +6157,23 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+  case ArmPL: {
+    const VecDesc VecFuncs[] = {
+#define TLI_DEFINE_ARMPL_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF, MASK) {SCAL, VEC, VF, MASK},
+#include "llvm/Analysis/VecFuncs.def"
+    };
+
+    switch (TargetTriple.getArch()) {
+    default:
+      break;
+    case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
+      addVectorizableFunctions(VecFuncs);
+      break;
+    }
+    break;
+  }
   case NoLibrary:
     break;
   }
@@ -5990,9 +6192,54 @@ bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
-    return I->IsOCLFn;
+    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsOCLFn));
   }
   return false;
+}
+
+bool TargetLibraryInfoImpl::doesVectorFuncNeedArgRepacking(
+    StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->AttrBits.test(
+        static_cast<unsigned>(VecDescAttrs::NeedsArgRepacking));
+  }
+  return false;
+}
+
+bool TargetLibraryInfoImpl::isFortranOnlyVectorFunction(
+    StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsFortranOnly));
+  }
+  return false;
+}
+
+StringRef TargetLibraryInfoImpl::getVectorFuncReqdCpuFeature(
+    StringRef FuncName, const ElementCount &VF) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return "";
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    if (I->VectorizationFactor == VF)
+      return I->ReqdCpuFeature;
+    ++I;
+  }
+  return "";
 }
 
 bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
@@ -6008,6 +6255,7 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
     case LibFunc_kmpc_dispatch_next_4u:
     case LibFunc_kmpc_dispatch_next_8:
     case LibFunc_kmpc_dispatch_next_8u:
+    case LibFunc_kmpc_dist_for_static_init_4:
     case LibFunc_kmpc_end_critical:
     case LibFunc_kmpc_end_reduce:
     case LibFunc_kmpc_end_reduce_nowait:
@@ -6019,6 +6267,7 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
     case LibFunc_kmpc_for_static_init_8:
     case LibFunc_kmpc_for_static_init_8u:
     case LibFunc_kmpc_fork_call:
+    case LibFunc_kmpc_fork_teams:
     case LibFunc_kmpc_global_thread_num:
     case LibFunc_kmpc_ok_to_fork:
     case LibFunc_kmpc_omp_task:
@@ -6047,6 +6296,26 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
       return false;
   }
 }
+
+bool TargetLibraryInfoImpl::isComplexFloatLibFunc(LibFunc F) const {
+  switch (F) {
+    case LibFunc_cexpf:
+    case LibFunc_clogf:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool TargetLibraryInfoImpl::isFortranRNGLibFunc(LibFunc F) const {
+  switch (F) {
+  case LibFunc_for_random_number:
+  case LibFunc_for_random_number_single:
+      return true;
+  default:
+      return false;
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
@@ -6069,22 +6338,24 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 #endif
 }
 
-StringRef
-TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                             const ElementCount &VF,
-                                             bool Masked) const { // INTEL
+#if INTEL_CUSTOMIZATION
+StringRef TargetLibraryInfoImpl::getVectorizedFunction(
+    StringRef F, const ElementCount &VF, bool Masked,
+    const TargetTransformInfo *TTI) const {
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
-    if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
+    if ((I->VectorizationFactor == VF) && (I->Masked == Masked) &&
+        isCpuFeatureAvailableForTarget(I->ReqdCpuFeature, TTI))
       return I->VectorFnName;
     ++I;
   }
   return StringRef();
 }
+#endif // INTEL_CUSTOMIZATION
 
 TargetLibraryInfo TargetLibraryAnalysis::run(const Function &F,
                                              FunctionAnalysisManager &) {

@@ -25,7 +25,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float -0.000000e+00

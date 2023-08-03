@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -222,27 +222,6 @@ static const BranchProbability
 static const ProbabilityTable FCmpTable{
     {FCmpInst::FCMP_ORD, {FPOrdTakenProb, FPOrdUntakenProb}}, /// !isnan -> Likely
     {FCmpInst::FCMP_UNO, {FPOrdUntakenProb, FPOrdTakenProb}}, /// isnan -> Unlikely
-};
-
-/// Set of dedicated "absolute" execution weights for a block. These weights are
-/// meaningful relative to each other and their derivatives only.
-enum class BlockExecWeight : std::uint32_t {
-  /// Special weight used for cases with exact zero probability.
-  ZERO = 0x0,
-  /// Minimal possible non zero weight.
-  LOWEST_NON_ZERO = 0x1,
-  /// Weight to an 'unreachable' block.
-  UNREACHABLE = ZERO,
-  /// Weight to a block containing non returning call.
-  NORETURN = LOWEST_NON_ZERO,
-  /// Weight to 'unwind' block of an invoke instruction.
-  UNWIND = LOWEST_NON_ZERO,
-  /// Weight to a 'cold' block. Cold blocks are the ones containing calls marked
-  /// with attribute 'cold'.
-  COLD = 0xffff,
-  /// Default weight is used in cases when there is no dedicated execution
-  /// weight set. It is not propagated through the domination line either.
-  DEFAULT = 0xfffff
 };
 
 #if INTEL_CUSTOMIZATION
@@ -679,6 +658,12 @@ computeUnlikelySuccessors(const BasicBlock *BB, Loop *L,
 }
 
 #if INTEL_CUSTOMIZATION
+void BranchProbabilityInfo::computeUnlikelySuccessorsWrapper(
+    const BasicBlock *BB, Loop *L,
+    SmallPtrSetImpl<const BasicBlock *> &UnlikelyBlocks) const {
+  computeUnlikelySuccessors(BB, L, UnlikelyBlocks);
+}
+
 static void
 computeLikelySuccessors(const BasicBlock *BB, Loop *L,
                           SmallPtrSetImpl<const BasicBlock*> &LikelyBlocks) {
@@ -1488,6 +1473,17 @@ BranchProbabilityInfo::getEdgeProbability(const BasicBlock *Src,
   return Prob;
 }
 
+#if INTEL_CUSTOMIZATION
+std::optional<uint32_t>
+BranchProbabilityInfo::getLLVMEstimatedWeight(const BasicBlock *Src,
+                                              const BasicBlock *Dst,
+                                              const bool isEnterLoop) const {
+  if (isEnterLoop)
+    return getEstimatedLoopWeight(getLoopBlock(Dst).getLoopData());
+  return getEstimatedBlockWeight(Dst);
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Set the edge probability for all edges at once.
 void BranchProbabilityInfo::setEdgeProbability(
     const BasicBlock *Src, const SmallVectorImpl<BranchProbability> &Probs) {
@@ -1535,6 +1531,14 @@ void BranchProbabilityInfo::copyEdgeProbabilities(BasicBlock *Src,
   }
 }
 
+void BranchProbabilityInfo::swapSuccEdgesProbabilities(const BasicBlock *Src) {
+  assert(Src->getTerminator()->getNumSuccessors() == 2);
+  if (!Probs.contains(std::make_pair(Src, 0)))
+    return; // No probability is set for edges from Src
+  assert(Probs.contains(std::make_pair(Src, 1)));
+  std::swap(Probs[std::make_pair(Src, 0)], Probs[std::make_pair(Src, 1)]);
+}
+
 raw_ostream &
 BranchProbabilityInfo::printEdgeProbability(raw_ostream &OS,
                                             const BasicBlock *Src,
@@ -1578,6 +1582,16 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LoopI,
                     << " ----\n\n");
   LastF = &F; // Store the last function we ran on for printing.
   LI = &LoopI;
+
+#if INTEL_CUSTOMIZATION
+  // Original every time we call calculate, in the end it will clear these data
+  // storage, however, in that way we can't get these information through BPI
+  // object so I remove the clear process to the beginning to clear all the data
+  // in the previous call.
+  SccI.reset();
+  EstimatedBlockWeight.clear();
+  EstimatedLoopWeight.clear();
+#endif // INTEL_CUSTOMIZATION
 
   SccI = std::make_unique<SccInfo>(F);
 
@@ -1634,10 +1648,6 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LoopI,
       continue;
 #endif // INTEL_CUSTOMIZATION
   }
-
-  EstimatedLoopWeight.clear();
-  EstimatedBlockWeight.clear();
-  SccI.reset();
 
 #if INTEL_CUSTOMIZATION
   CurrentDT = nullptr;

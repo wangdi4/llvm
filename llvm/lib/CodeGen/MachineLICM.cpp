@@ -134,26 +134,26 @@ STATISTIC(NumNotHoistedDueToHotness,
 namespace {
 
   class MachineLICMBase : public MachineFunctionPass {
-    const TargetInstrInfo *TII;
-    const TargetLoweringBase *TLI;
-    const TargetRegisterInfo *TRI;
-    const MachineFrameInfo *MFI;
-    MachineRegisterInfo *MRI;
+    const TargetInstrInfo *TII = nullptr;
+    const TargetLoweringBase *TLI = nullptr;
+    const TargetRegisterInfo *TRI = nullptr;
+    const MachineFrameInfo *MFI = nullptr;
+    MachineRegisterInfo *MRI = nullptr;
     TargetSchedModel SchedModel;
-    bool PreRegAlloc;
-    bool HasProfileData;
+    bool PreRegAlloc = false;
+    bool HasProfileData = false;
 
     // Various analyses that we use...
-    AliasAnalysis        *AA;      // Alias analysis info.
-    MachineBlockFrequencyInfo *MBFI; // Machine block frequncy info
-    MachineLoopInfo      *MLI;     // Current MachineLoopInfo
-    MachineDominatorTree *DT;      // Machine dominator tree for the cur loop
+    AliasAnalysis *AA = nullptr;               // Alias analysis info.
+    MachineBlockFrequencyInfo *MBFI = nullptr; // Machine block frequncy info
+    MachineLoopInfo *MLI = nullptr;            // Current MachineLoopInfo
+    MachineDominatorTree *DT = nullptr; // Machine dominator tree for the cur loop
 
     // State that is updated as we process loops
-    bool         Changed;          // True if a loop is changed.
-    bool         FirstInLoop;      // True if it's the first LICM in the loop.
-    MachineLoop *CurLoop;          // The current loop we are working on.
-    MachineBasicBlock *CurPreheader; // The preheader for CurLoop.
+    bool Changed = false;           // True if a loop is changed.
+    bool FirstInLoop = false;       // True if it's the first LICM in the loop.
+    MachineLoop *CurLoop = nullptr; // The current loop we are working on.
+    MachineBasicBlock *CurPreheader = nullptr; // The preheader for CurLoop.
 
     // Exit blocks for CurLoop.
     SmallVector<MachineBasicBlock *, 8> ExitBlocks;
@@ -185,7 +185,7 @@ namespace {
     // If a MBB does not dominate loop exiting blocks then it may not safe
     // to hoist loads from this block.
     // Tri-state: 0 - false, 1 - true, 2 - unknown
-    unsigned SpeculationState;
+    unsigned SpeculationState = SpeculateUnknown;
 
   public:
     MachineLICMBase(char &PassID, bool PreRegAlloc)
@@ -374,17 +374,19 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-/// Test if the given loop is the outer-most loop that has a unique predecessor.
-static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
-  // Check whether this loop even has a unique predecessor.
-  if (!CurLoop->getLoopPredecessor())
-    return false;
-  // Ok, now check to see if any of its outer loops do.
-  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
-    if (L->getLoopPredecessor())
-      return false;
-  // None of them did, so this is the outermost with a unique predecessor.
-  return true;
+static void addSubLoopsToWorkList(MachineLoop *Loop,
+                                  SmallVectorImpl<MachineLoop *> &Worklist,
+                                  bool PreRA) {
+  // Add loop to worklist
+  Worklist.push_back(Loop);
+
+  // If it is pre-ra LICM, add sub loops to worklist.
+  if (PreRA && !Loop->isInnermost()) {
+    MachineLoop::iterator MLI = Loop->begin();
+    MachineLoop::iterator MLE = Loop->end();
+    for (; MLI != MLE; ++MLI)
+      addSubLoopsToWorkList(*MLI, Worklist, PreRA);
+  }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -464,21 +466,17 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   IAOpt = MF.getTarget().Options.IntelAdvancedOptim && // INTEL
           MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive; // INTEL
 
-  SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
+  SmallVector<MachineLoop *, 8> Worklist;
+
+  MachineLoopInfo::iterator MLII = MLI->begin();
+  MachineLoopInfo::iterator MLIE = MLI->end();
+  for (; MLII != MLIE; ++MLII)
+    addSubLoopsToWorkList(*MLII, Worklist, PreRegAlloc);
+
   while (!Worklist.empty()) {
     CurLoop = Worklist.pop_back_val();
     CurPreheader = nullptr;
     ExitBlocks.clear();
-
-#if INTEL_CUSTOMIZATION
-    Worklist.append(CurLoop->begin(), CurLoop->end());
-    if (PreRegAlloc) {
-      // If this is done before regalloc, only visit outer-most
-      // preheader-sporting loops.
-      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
-        continue;
-    }
-#endif
 
     CurLoop->getExitBlocks(ExitBlocks);
 
@@ -719,8 +717,8 @@ void MachineLICMBase::HoistRegionPostRA() {
     if (!PhysRegClobbers.test(Def) && !TermRegs.test(Def)) {
       bool Safe = true;
       MachineInstr *MI = Candidate.MI;
-      for (const MachineOperand &MO : MI->operands()) {
-        if (!MO.isReg() || MO.isDef() || !MO.getReg())
+      for (const MachineOperand &MO : MI->all_uses()) {
+        if (!MO.getReg())
           continue;
         Register Reg = MO.getReg();
         if (PhysRegDefs.test(Reg) ||
@@ -819,8 +817,9 @@ void MachineLICMBase::AddToLiveIns(MCRegister Reg) {
     if (!BB->isLiveIn(Reg))
       BB->addLiveIn(Reg);
     for (MachineInstr &MI : *BB) {
-      for (MachineOperand &MO : MI.operands()) {
-        if (!MO.isReg() || !MO.getReg() || MO.isDef()) continue;
+      for (MachineOperand &MO : MI.all_uses()) {
+        if (!MO.getReg())
+          continue;
         if (MO.getReg() == Reg || TRI->isSuperRegister(Reg, MO.getReg()))
           MO.setIsKill(false);
       }
@@ -888,8 +887,8 @@ bool MachineLICMBase::isTriviallyReMaterializable(
   if (!TII->isTriviallyReMaterializable(MI))
     return false;
 
-  for (const MachineOperand &MO : MI.operands()) {
-    if (MO.isReg() && MO.isUse() && MO.getReg().isVirtual())
+  for (const MachineOperand &MO : MI.all_uses()) {
+    if (MO.getReg().isVirtual())
       return false;
   }
 
@@ -1233,9 +1232,7 @@ bool MachineLICMBase::HasLoopPHIUse(const MachineInstr *MI) const {
   SmallVector<const MachineInstr*, 8> Work(1, MI);
   do {
     MI = Work.pop_back_val();
-    for (const MachineOperand &MO : MI->operands()) {
-      if (!MO.isReg() || !MO.isDef())
-        continue;
+    for (const MachineOperand &MO : MI->all_defs()) {
       Register Reg = MO.getReg();
       if (!Reg.isVirtual())
         continue;
@@ -1705,8 +1702,8 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     // Clear the kill flags of any register this instruction defines,
     // since they may need to be live throughout the entire loop
     // rather than just live for part of it.
-    for (MachineOperand &MO : MI->operands())
-      if (MO.isReg() && MO.isDef() && !MO.isDead())
+    for (MachineOperand &MO : MI->all_defs())
+      if (!MO.isDead())
         MRI->clearKillFlags(MO.getReg());
 
     // Add to the CSE map.

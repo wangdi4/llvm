@@ -12,7 +12,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1a.o %t2a.o -o %t3a 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1a.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -26,7 +26,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1b.o %t2b.o -o %t3b 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1b.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -39,7 +39,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1c.o %t2c.o -o %t3c 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3c.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -49,7 +49,7 @@
 ;; Check that WPD fails with when linking against a shared library
 ;; containing the strong defs of the vtables.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   %t2c.o -o %t.so -shared -plugin-opt=opaque-pointers 
+; RUN:   %t2c.o -o %t.so -shared 
 
 ;; Index based WPD
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
@@ -57,7 +57,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1a.o %t.so -o %t4a \
 ; RUN:   --export-dynamic 2>&1 | count 0
 
@@ -66,7 +66,7 @@
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:   --plugin-opt=whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN:   %intel_plugin_devirt_options -plugin-opt=opaque-pointers \
+; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1b.o %t.so -o %t4b \
@@ -79,7 +79,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t1c.o %t.so -o %t4c \
 ; RUN:   --export-dynamic 2>&1 | count 0
 

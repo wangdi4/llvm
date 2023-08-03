@@ -1,5 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-nested-simd-strategy=bailout < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-nested-simd-strategy=bailout -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ;
 ; We currently have a compiler crash when we see a nested begin directive in the
 ; VPlan HIR path. LLVM IR path bails out for such cases. Until we properly
@@ -35,15 +35,15 @@
 ;
 ; OPTRPTMED: remark #15574: HIR: simd loop was not vectorized: unsupported nested OpenMP (simd) loop or region.
 ;
-define void @foo(i64**  %lpp) {
+define void @foo(ptr  %lpp) {
 entry:
   %tok.outer = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.for.body
 
 outer.for.body:
   %iv.outer = phi i64 [ 0, %entry ], [ %add4, %outer.for.end ]
-  %arrayidx = getelementptr inbounds i64*, i64** %lpp, i64 %iv.outer
-  %lp = load i64*, i64** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lpp, i64 %iv.outer
+  %lp = load ptr, ptr %arrayidx, align 8
   br label %inner.ph
 
 inner.ph:
@@ -53,8 +53,8 @@ inner.ph:
 inner.for.body:
   %iv.inner = phi i64 [ 0, %inner.ph ], [ %inc, %inner.for.body ]
   %add2 = add nuw nsw i64 %iv.inner, %iv.outer
-  %arrayidx3 = getelementptr inbounds i64, i64* %lp, i64 %iv.inner
-  store i64 %add2, i64* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds i64, ptr %lp, i64 %iv.inner
+  store i64 %add2, ptr %arrayidx3, align 8
   %inc = add nuw nsw i64 %iv.inner, 1
   %exitcond.not = icmp eq i64 %inc, 200
   br i1 %exitcond.not, label %inner.exit, label %inner.for.body

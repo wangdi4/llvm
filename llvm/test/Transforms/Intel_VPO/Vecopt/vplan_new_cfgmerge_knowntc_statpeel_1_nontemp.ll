@@ -5,7 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
+define dso_local void @_Z7ntstorePd(ptr %A) local_unnamed_addr #0 {
 ; CHECK-LABEL: @_Z7ntstorePd(
 ; CHECK-NEXT:  DIR.OMP.SIMD.113:
 ; CHECK-NEXT:    [[I_LINEAR_IV:%.*]] = alloca i64, align 8
@@ -13,7 +13,7 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK:       DIR.OMP.SIMD.1:
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_2:%.*]]
 ; CHECK:       DIR.OMP.SIMD.2:
-; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(double* [[A:%.*]], i64 64) ]
+; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(ptr [[A:%.*]], i64 64) ]
 ; CHECK-NEXT:    br label [[PEEL_CHECKZ11:%.*]]
 ; CHECK:       peel.checkz18:
 ; CHECK-NEXT:    br label [[PEELBLK6:%.*]]
@@ -39,9 +39,8 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = sitofp <4 x i64> [[TMP3]] to <4 x double>
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds double, double* [[A]], i64 [[DOTEXTRACT_0_]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast double* [[SCALAR_GEP]] to <4 x double>*
-; CHECK-NEXT:    store <4 x double> [[TMP4]], <4 x double>* [[TMP5]], align 32, !nontemporal !0
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds double, ptr [[A]], i64 [[DOTEXTRACT_0_]]
+; CHECK-NEXT:    store <4 x double> [[TMP4]], ptr [[SCALAR_GEP]], align 32, !nontemporal !0
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP2]], 131071
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB5:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP1:![0-9]+]]
 ; CHECK:       VPlannedBB5:
@@ -55,8 +54,8 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_08:%.*]] = phi i64 [ 0, [[PEELBLK6]] ], [ [[ADD]], [[OMP_INNER_FOR_BODY]] ]
 ; CHECK-NEXT:    [[ADD]] = add nuw nsw i64 [[DOTOMP_IV_LOCAL_08]], 1
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i64 [[ADD]] to double
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds double, double* [[A]], i64 [[ADD]]
-; CHECK-NEXT:    store double [[CONV]], double* [[ARRAYIDX]], align 8, !nontemporal !0
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds double, ptr [[A]], i64 [[ADD]]
+; CHECK-NEXT:    store double [[CONV]], ptr [[ARRAYIDX]], align 8, !nontemporal !0
 ; CHECK-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[ADD]], 3
 ; CHECK-NEXT:    br i1 [[EXITCOND_NOT]], label [[VPLANNEDBB]], label [[OMP_INNER_FOR_BODY]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       DIR.OMP.END.SIMD.2:
@@ -69,19 +68,19 @@ DIR.OMP.SIMD.113:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.113
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  call void @llvm.assume(i1 true) [ "align"(double* %A, i64 64) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %A, i64 64) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.08 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add, %omp.inner.for.body ]
   %add = add nuw nsw i64 %.omp.iv.local.08, 1
   %conv = sitofp i64 %add to double
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %add
-  store double %conv, double* %arrayidx, align 8, !nontemporal !0
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %add
+  store double %conv, ptr %arrayidx, align 8, !nontemporal !0
   %exitcond.not = icmp eq i64 %add, 131071
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 

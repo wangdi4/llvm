@@ -122,28 +122,12 @@ bool X86FrameLowering::hasFP(const MachineFunction &MF) const {
           (isWin64Prologue(MF) && MFI.hasCopyImplyingStackAdjustment()));
 }
 
-static unsigned getSUBriOpcode(bool IsLP64, int64_t Imm) {
-  if (IsLP64) {
-    if (isInt<8>(Imm))
-      return X86::SUB64ri8;
-    return X86::SUB64ri32;
-  } else {
-    if (isInt<8>(Imm))
-      return X86::SUB32ri8;
-    return X86::SUB32ri;
-  }
+static unsigned getSUBriOpcode(bool IsLP64) {
+  return IsLP64 ? X86::SUB64ri32 : X86::SUB32ri;
 }
 
-static unsigned getADDriOpcode(bool IsLP64, int64_t Imm) {
-  if (IsLP64) {
-    if (isInt<8>(Imm))
-      return X86::ADD64ri8;
-    return X86::ADD64ri32;
-  } else {
-    if (isInt<8>(Imm))
-      return X86::ADD32ri8;
-    return X86::ADD32ri;
-  }
+static unsigned getADDriOpcode(bool IsLP64) {
+  return IsLP64 ? X86::ADD64ri32 : X86::ADD32ri;
 }
 
 static unsigned getSUBrrOpcode(bool IsLP64) {
@@ -155,14 +139,7 @@ static unsigned getADDrrOpcode(bool IsLP64) {
 }
 
 static unsigned getANDriOpcode(bool IsLP64, int64_t Imm) {
-  if (IsLP64) {
-    if (isInt<8>(Imm))
-      return X86::AND64ri8;
-    return X86::AND64ri32;
-  }
-  if (isInt<8>(Imm))
-    return X86::AND32ri8;
-  return X86::AND32ri;
+  return IsLP64 ? X86::AND64ri32 : X86::AND32ri;
 }
 
 static unsigned getLEArOpcode(bool IsLP64) {
@@ -380,8 +357,8 @@ MachineInstrBuilder X86FrameLowering::BuildStackAdjustment(
   } else {
     bool IsSub = Offset < 0;
     uint64_t AbsOffset = IsSub ? -Offset : Offset;
-    const unsigned Opc = IsSub ? getSUBriOpcode(Uses64BitFramePtr, AbsOffset)
-                               : getADDriOpcode(Uses64BitFramePtr, AbsOffset);
+    const unsigned Opc = IsSub ? getSUBriOpcode(Uses64BitFramePtr)
+                               : getADDriOpcode(Uses64BitFramePtr);
     MI = BuildMI(MBB, MBBI, DL, TII.get(Opc), StackPtr)
              .addReg(StackPtr)
              .addImm(AbsOffset);
@@ -417,9 +394,8 @@ int X86FrameLowering::mergeSPUpdates(MachineBasicBlock &MBB,
   unsigned Opc = PI->getOpcode();
   int Offset = 0;
 
-  if ((Opc == X86::ADD64ri32 || Opc == X86::ADD64ri8 ||
-       Opc == X86::ADD32ri || Opc == X86::ADD32ri8) &&
-      PI->getOperand(0).getReg() == StackPtr){
+  if ((Opc == X86::ADD64ri32 || Opc == X86::ADD32ri) &&
+      PI->getOperand(0).getReg() == StackPtr) {
     assert(PI->getOperand(1).getReg() == StackPtr);
     Offset = PI->getOperand(2).getImm();
   } else if ((Opc == X86::LEA32r || Opc == X86::LEA64_32r) &&
@@ -430,8 +406,7 @@ int X86FrameLowering::mergeSPUpdates(MachineBasicBlock &MBB,
              PI->getOperand(5).getReg() == X86::NoRegister) {
     // For LEAs we have: def = lea SP, FI, noreg, Offset, noreg.
     Offset = PI->getOperand(4).getImm();
-  } else if ((Opc == X86::SUB64ri32 || Opc == X86::SUB64ri8 ||
-              Opc == X86::SUB32ri || Opc == X86::SUB32ri8) &&
+  } else if ((Opc == X86::SUB64ri32 || Opc == X86::SUB32ri) &&
              PI->getOperand(0).getReg() == StackPtr) {
     assert(PI->getOperand(1).getReg() == StackPtr);
     Offset = -PI->getOperand(2).getImm();
@@ -459,6 +434,10 @@ void X86FrameLowering::BuildCFI(MachineBasicBlock &MBB,
                                 MachineInstr::MIFlag Flag) const {
   MachineFunction &MF = *MBB.getParent();
   unsigned CFIIndex = MF.addFrameInst(CFIInst);
+
+  if (CFIInst.getOperation() == MCCFIInstruction::OpAdjustCfaOffset)
+    MF.getInfo<X86MachineFunctionInfo>()->setHasCFIAdjustCfa(true);
+
   BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
       .addCFIIndex(CFIIndex)
       .setMIFlag(Flag);
@@ -850,7 +829,7 @@ void X86FrameLowering::emitStackProbeInlineGenericLoop(
   // save loop bound
   {
     const unsigned BoundOffset = alignDown(Offset, StackProbeSize);
-    const unsigned SUBOpc = getSUBriOpcode(Uses64BitFramePtr, BoundOffset);
+    const unsigned SUBOpc = getSUBriOpcode(Uses64BitFramePtr);
     BuildMI(MBB, MBBI, DL, TII.get(SUBOpc), FinalStackProbed)
         .addReg(FinalStackProbed)
         .addImm(BoundOffset)
@@ -1273,11 +1252,19 @@ uint64_t X86FrameLowering::calculateMaxStackAlign(const MachineFunction &MF) con
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   Align MaxAlign = MFI.getMaxAlign(); // Desired stack alignment.
   Align StackAlign = getStackAlign();
-  if (MF.getFunction().hasFnAttribute("stackrealign")) {
+  bool HasRealign = MF.getFunction().hasFnAttribute("stackrealign");
+  if (HasRealign) {
     if (MFI.hasCalls())
       MaxAlign = (StackAlign > MaxAlign) ? StackAlign : MaxAlign;
     else if (MaxAlign < SlotSize)
       MaxAlign = Align(SlotSize);
+  }
+
+  if (!Is64Bit && MF.getFunction().getCallingConv() == CallingConv::X86_INTR) {
+    if (HasRealign)
+      MaxAlign = (MaxAlign > 16) ? MaxAlign : Align(16);
+    else
+      MaxAlign = Align(16);
   }
   return MaxAlign.value();
 }
@@ -1353,7 +1340,7 @@ void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
 
       {
         const unsigned SUBOpc =
-            getSUBriOpcode(Uses64BitFramePtr, StackProbeSize);
+            getSUBriOpcode(Uses64BitFramePtr);
         BuildMI(headMBB, DL, TII.get(SUBOpc), StackPtr)
             .addReg(StackPtr)
             .addImm(StackProbeSize)
@@ -1384,7 +1371,7 @@ void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
             .setMIFlag(MachineInstr::FrameSetup);
 
         const unsigned SUBOpc =
-            getSUBriOpcode(Uses64BitFramePtr, StackProbeSize);
+            getSUBriOpcode(Uses64BitFramePtr);
         BuildMI(bodyMBB, DL, TII.get(SUBOpc), StackPtr)
             .addReg(StackPtr)
             .addImm(StackProbeSize)
@@ -1661,7 +1648,19 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       Fn.arg_size() == 2) {
     StackSize += 8;
     MFI.setStackSize(StackSize);
-    emitSPUpdate(MBB, MBBI, DL, -8, /*InEpilogue=*/false);
+
+    // Update the stack pointer by pushing a register. This is the instruction
+    // emitted that would be end up being emitted by a call to `emitSPUpdate`.
+    // Hard-coding the update to a push avoids emitting a second
+    // `STACKALLOC_W_PROBING` instruction in the save block: We know that stack
+    // probing isn't needed anyways for an 8-byte update.
+    // Pushing a register leaves us in a similar situation to a regular
+    // function call where we know that the address at (rsp-8) is writeable.
+    // That way we avoid any off-by-ones with stack probing for additional
+    // stack pointer updates later on.
+    BuildMI(MBB, MBBI, DL, TII.get(X86::PUSH64r))
+        .addReg(X86::RAX, RegState::Undef)
+        .setMIFlag(MachineInstr::FrameSetup);
   }
 
   // If this is x86-64 and the Red Zone is not disabled, if we are a leaf
@@ -1678,13 +1677,6 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     uint64_t MinSize =
         X86FI->getCalleeSavedFrameSize() - X86FI->getTCReturnAddrDelta();
     if (HasFP) MinSize += SlotSize;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // A 8-byte slot is request before first CSR push
-    if (X86FI->padForPush2Pop2())
-      MinSize += SlotSize;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     X86FI->setUsesRedZone(MinSize > 0 || StackSize > 0);
     StackSize = std::max(MinSize, StackSize > 128 ? StackSize - 128 : 0);
     MFI.setStackSize(StackSize);
@@ -1739,16 +1731,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
 
     // Calculate required stack adjustment.
     uint64_t FrameSize = StackSize - SlotSize;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    NumBytes = FrameSize -
-               (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize +
-                static_cast<unsigned>(X86FI->padForPush2Pop2()) * SlotSize);
-#else // INTEL_FEATURE_ISA_APX_F
     NumBytes = FrameSize -
                (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
     // Callee-saved registers are pushed on stack before the stack is realigned.
     if (TRI->hasStackRealignment(MF) && !IsWin64Prologue)
@@ -1801,7 +1785,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
         } else {
           // No initial context, store null so that there's no pointer that
           // could be misused.
-          BuildMI(MBB, MBBI, DL, TII.get(X86::PUSH64i8))
+          BuildMI(MBB, MBBI, DL, TII.get(X86::PUSH64i32))
               .addImm(0)
               .setMIFlag(MachineInstr::FrameSetup);
         }
@@ -1820,7 +1804,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
             .addImm(8)
             .addUse(X86::NoRegister)
             .setMIFlag(MachineInstr::FrameSetup);
-        BuildMI(MBB, MBBI, DL, TII.get(X86::SUB64ri8), X86::RSP)
+        BuildMI(MBB, MBBI, DL, TII.get(X86::SUB64ri32), X86::RSP)
             .addUse(X86::RSP)
             .addImm(8)
             .setMIFlag(MachineInstr::FrameSetup);
@@ -1872,16 +1856,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     }
   } else {
     assert(!IsFunclet && "funclets without FPs not yet implemented");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    NumBytes = StackSize -
-               (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize +
-                static_cast<unsigned>(X86FI->padForPush2Pop2()) * SlotSize);
-#else // INTEL_FEATURE_ISA_APX_F
     NumBytes = StackSize -
                (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Update the offset adjustment, which is mainly used by codeview to translate
@@ -1929,45 +1905,15 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     ++MBBI;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // Semantic of
-    // PUSH2 v64, b64, K, N
-    //
-    // SUB RSP, 8*K
-    // PUSH v64
-    // PUSH b64
-    // SUB RSP, 16*N
-    //
-    // where K=0,1 and N = 0,1,2,3
-    //
-    // Use N of the last push2 to adjust the stack offset here.
-    //
-    // If the stack needs realignment, an align instruction is inserted after
-    // CSR pushes and before the stack allocation. We can't combine the
-    // alloction into N in this case.
-    if (!TRI->hasStackRealignment(MF) && !IsCSPush(MBBI) &&
-        LastCSPush->getOpcode() == X86::PUSH2 && NumBytes >= 16) {
-      unsigned Push2Offset =
-          alignDown(std::min(NumBytes, static_cast<uint64_t>(48)), 16);
-      X86FI->setOffsetForPush2Pop2(Push2Offset);
-      LastCSPush->getOperand(3).setImm(Push2Offset / 16);
-      NumBytes -= Push2Offset;
-    }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
     if (!HasFP && NeedsDwarfCFI) {
       // Mark callee-saved push instruction.
       // Define the current CFA rule to use the provided offset.
       assert(StackSize);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-      // Compared to push, push2 introduces more stack offset (K, N and one more
-      // register).
+      // Compared to push, push2 introduces more stack offset (one more register).
       if (LastCSPush->getOpcode() == X86::PUSH2)
-        StackOffset += stackGrowth * (1 + LastCSPush->getOperand(2).getImm() +
-                                      2 * LastCSPush->getOperand(3).getImm());
+        StackOffset += stackGrowth;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       BuildCFI(MBB, MBBI, DL,
@@ -2447,13 +2393,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
     // Calculate required stack adjustment.
     uint64_t FrameSize = StackSize - SlotSize;
     NumBytes = FrameSize - CSSize - TailCallArgReserveSize;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // A 8-byte slot is already allocated before first CSR push
-    if (X86FI->padForPush2Pop2())
-      NumBytes -= SlotSize;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
     // Callee-saved registers were pushed on stack before the stack was
     // realigned.
@@ -2461,13 +2400,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       NumBytes = alignTo(FrameSize, MaxAlign);
   } else {
     NumBytes = StackSize - CSSize - TailCallArgReserveSize;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // A 8-byte slot is already allocated before first CSR push
-    if (X86FI->padForPush2Pop2())
-      NumBytes -= SlotSize;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   }
   uint64_t SEHStackAllocAmt = NumBytes;
 
@@ -2525,7 +2457,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
           (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
           (Opc != X86::BTR64ri8 || !PI->getFlag(MachineInstr::FrameDestroy)) &&
 #if INTEL_CUSTOMIZATION
-          (Opc != X86::ADD64ri8 || !PI->getFlag(MachineInstr::FrameDestroy))
+          (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
 #if INTEL_FEATURE_ISA_APX_F
           &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -2537,32 +2469,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 
     --MBBI;
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  // Semantic of
-  // POP2 v64, b64, K, N
-  //
-  // ADD RSP, 16*N
-  // POP v64
-  // POP b64
-  // ADD RSP, 8*K
-  //
-  // where K=0,1 and N = 0,1,2,3
-  //
-  // Use N of the first pop2 to adjust the stack offset here.
-  //
-  // If dynamic alloca is used, then rsp is restored based on the value of rbp
-  // in epilogue, e.g. "leaq -32(%rbp), %rsp". In this case, we can not set N
-  // for pop2.
-  unsigned Pop2Offset = 0;
-  if (FirstCSPop != MBB.end() && FirstCSPop->getOpcode() == X86::POP2 &&
-      !MFI.hasVarSizedObjects()) {
-    Pop2Offset = X86FI->getOffsetForPush2Pop2();
-    FirstCSPop->getOperand(3).setImm(Pop2Offset / 16);
-    NumBytes -= Pop2Offset;
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   if (ArgBaseReg.isValid()) {
     // Restore argument base pointer.
     auto *MI = X86FI->getStackPtrSaveMI();
@@ -2641,15 +2547,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 
   if (!HasFP && NeedsDwarfCFI) {
     MBBI = FirstCSPop;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    int64_t Offset = -CSSize - SlotSize - Pop2Offset;
-    if (X86FI->padForPush2Pop2())
-      Offset -= SlotSize;
-#else // INTEL_FEATURE_ISA_APX_F
     int64_t Offset = -CSSize - SlotSize;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     // Mark callee-saved pop instruction.
     // Define the current CFA rule to use the provided offset.
     while (MBBI != MBB.end()) {
@@ -2666,11 +2564,9 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
         Offset += SlotSize;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-        // Compared to pop, pop2 introduces more stack offset (K, N and one more
-        // register).
+        // Compared to pop, pop2 introduces more stack offset (one more register).
         if (Opc == X86::POP2)
-          Offset += SlotSize * (1 + PI->getOperand(2).getImm() +
-                                2 * PI->getOperand(3).getImm());
+          Offset += SlotSize;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         BuildCFI(MBB, MBBI, DL,
@@ -3082,12 +2978,13 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
   unsigned Opc = STI.is64Bit() ? X86::PUSH64r : X86::PUSH32r;
 
 #if INTEL_CUSTOMIZATION
+  const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
 #if INTEL_FEATURE_ISA_APX_F
   MachineInstrBuilder MIB;
   bool IncompletePush2 = false;
-  bool IsFirstPush2 = true;
+  if (X86FI->padForPush2Pop2())
+    emitSPUpdate(MBB, MI, DL, -(int64_t)SlotSize, /*InEpilogue=*/false);
 #endif // INTEL_FEATURE_ISA_APX_F
-  const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
 #endif // INTEL_CUSTOMIZATION
 
   for (const CalleeSavedInfo &I : llvm::reverse(CSI)) {
@@ -3117,11 +3014,8 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
 #if INTEL_FEATURE_ISA_APX_F
     if (X86FI->isCandidateForPush2Pop2(Reg)) {
       if (MIB.getInstr() && IncompletePush2) {
-        MIB.addReg(Reg, getKillRegState(CanKill))
-            .addImm(IsFirstPush2 && X86FI->padForPush2Pop2())
-            .addImm(0);
+        MIB.addReg(Reg, getKillRegState(CanKill));
         IncompletePush2 = false;
-        IsFirstPush2 = false;
       } else {
         MIB = BuildMI(MBB, MI, DL, TII.get(X86::PUSH2))
                   .addReg(Reg, getKillRegState(CanKill))
@@ -3287,7 +3181,7 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
 #if INTEL_FEATURE_ISA_APX_F
     if (X86FI->isCandidateForPush2Pop2(Reg)) {
       if (MIB.getInstr() && IncompletePop2) {
-        MIB.addReg(Reg, RegState::Define).addImm(0).addImm(0);
+        MIB.addReg(Reg, RegState::Define);
         IncompletePop2 = false;
       } else {
         MIB = BuildMI(MBB, MI, DL, TII.get(X86::POP2), Reg)
@@ -3305,10 +3199,8 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  if (MIB.getInstr()) {
-    assert(MIB->getOpcode() == X86::POP2 && "Expect a pop2 instruction");
-    MIB->getOperand(2).setImm(X86FI->padForPush2Pop2());
-  }
+  if (X86FI->padForPush2Pop2())
+    emitSPUpdate(MBB, MI, DL, SlotSize, /*InEpilogue=*/true);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   return true;
@@ -3560,9 +3452,9 @@ void X86FrameLowering::adjustForSegmentedStacks(
             Reg11)
         .addImm(X86FI->getArgumentStackSize());
   } else {
-    BuildMI(allocMBB, DL, TII.get(X86::PUSHi32))
+    BuildMI(allocMBB, DL, TII.get(X86::PUSH32i))
       .addImm(X86FI->getArgumentStackSize());
-    BuildMI(allocMBB, DL, TII.get(X86::PUSHi32))
+    BuildMI(allocMBB, DL, TII.get(X86::PUSH32i))
       .addImm(StackSize);
   }
 
@@ -4077,7 +3969,7 @@ MachineBasicBlock::iterator X86FrameLowering::restoreWin32EHStackPointers(
 
   if (UsedReg == FramePtr) {
     // ADD $offset, %ebp
-    unsigned ADDri = getADDriOpcode(false, EndOffset);
+    unsigned ADDri = getADDriOpcode(false);
     BuildMI(MBB, MBBI, DL, TII.get(ADDri), FramePtr)
         .addReg(FramePtr)
         .addImm(EndOffset)
@@ -4112,7 +4004,23 @@ int X86FrameLowering::getInitialCFAOffset(const MachineFunction &MF) const {
 
 Register
 X86FrameLowering::getInitialCFARegister(const MachineFunction &MF) const {
-  return TRI->getDwarfRegNum(StackPtr, true);
+  return StackPtr;
+}
+
+TargetFrameLowering::DwarfFrameBase
+X86FrameLowering::getDwarfFrameBase(const MachineFunction &MF) const {
+  const TargetRegisterInfo *RI = MF.getSubtarget().getRegisterInfo();
+  Register FrameRegister = RI->getFrameRegister(MF);
+  if (getInitialCFARegister(MF) == FrameRegister &&
+      MF.getInfo<X86MachineFunctionInfo>()->hasCFIAdjustCfa()) {
+    DwarfFrameBase FrameBase;
+    FrameBase.Kind = DwarfFrameBase::CFA;
+    FrameBase.Location.Offset =
+        -MF.getFrameInfo().getStackSize() - getInitialCFAOffset(MF);
+    return FrameBase;
+  }
+
+  return DwarfFrameBase{DwarfFrameBase::Register, {FrameRegister}};
 }
 
 namespace {

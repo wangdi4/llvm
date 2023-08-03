@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ;#if 0
 ;void bone_matrix_translate_y(float mat[4][4], float y)
@@ -59,6 +60,12 @@
 ; OPTREPORT:    remark #25397: Materialized a loop with a trip count of 3
 ; OPTREPORT: LOOP END
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopRematerialize
+
 ;Module Before HIR
 ; ModuleID = 'matrix.c'
 source_filename = "matrix.c"
@@ -66,29 +73,29 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @bone_matrix_translate_y([4 x float]* noalias nocapture %mat, float %y) local_unnamed_addr #0 {
+define dso_local void @bone_matrix_translate_y(ptr noalias nocapture %mat, float %y) local_unnamed_addr #0 {
 entry:
-  %arrayidx1 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 1, i64 0
-  %0 = load float, float* %arrayidx1, align 4, !tbaa !2
-  %arrayidx4 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 1, i64 1
-  %1 = load float, float* %arrayidx4, align 4, !tbaa !2
-  %arrayidx7 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 1, i64 2
-  %2 = load float, float* %arrayidx7, align 4, !tbaa !2
+  %arrayidx1 = getelementptr inbounds [4 x float], ptr %mat, i64 1, i64 0
+  %0 = load float, ptr %arrayidx1, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [4 x float], ptr %mat, i64 1, i64 1
+  %1 = load float, ptr %arrayidx4, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [4 x float], ptr %mat, i64 1, i64 2
+  %2 = load float, ptr %arrayidx7, align 4, !tbaa !2
   %mul = fmul float %0, %y
   %mul11 = fmul float %1, %y
   %mul13 = fmul float %2, %y
-  %arrayidx16 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 3, i64 0
-  %3 = load float, float* %arrayidx16, align 4, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [4 x float], ptr %mat, i64 3, i64 0
+  %3 = load float, ptr %arrayidx16, align 4, !tbaa !2
   %add = fadd float %mul, %3
-  store float %add, float* %arrayidx16, align 4, !tbaa !2
-  %arrayidx19 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 3, i64 1
-  %4 = load float, float* %arrayidx19, align 4, !tbaa !2
+  store float %add, ptr %arrayidx16, align 4, !tbaa !2
+  %arrayidx19 = getelementptr inbounds [4 x float], ptr %mat, i64 3, i64 1
+  %4 = load float, ptr %arrayidx19, align 4, !tbaa !2
   %add20 = fadd float %mul11, %4
-  store float %add20, float* %arrayidx19, align 4, !tbaa !2
-  %arrayidx23 = getelementptr inbounds [4 x float], [4 x float]* %mat, i64 3, i64 2
-  %5 = load float, float* %arrayidx23, align 4, !tbaa !2
+  store float %add20, ptr %arrayidx19, align 4, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [4 x float], ptr %mat, i64 3, i64 2
+  %5 = load float, ptr %arrayidx23, align 4, !tbaa !2
   %add24 = fadd float %mul13, %5
-  store float %add24, float* %arrayidx23, align 4, !tbaa !2
+  store float %add24, ptr %arrayidx23, align 4, !tbaa !2
   ret void
 }
 

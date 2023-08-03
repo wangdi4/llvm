@@ -345,7 +345,7 @@ PreservedAnalyses HIRNormalizeCasts::runImpl(Function &F,
                                              FunctionAnalysisManager &AM,
                                              HIRFramework &HIRF) {
 
-  NormalizeCasts(HIRF).run();
+  ModifiedHIR = NormalizeCasts(HIRF).run();
 
   return PreservedAnalyses::all();
 }

@@ -34,7 +34,7 @@
 ; CHECK:       Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP6]], i64 [[VP5]],
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i32 [[VP7:%.*]] = phi  [ i32 [[J_0140]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP8:%.*]], [[BB2:BB[0-9]+]] ]
@@ -76,21 +76,20 @@
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP13]] = sext i32 [[VP7]] to i64
-; CHECK-NEXT:       i64 [[VP18:%.*]] = compress-expand-index i64 [[VP13]] i64 9
+; CHECK-NEXT:       i64 [[VP18:%.*]] = compress-expand-index {stride: 9} i64 [[VP13]]
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B0]] i64 [[VP18]]
 ; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP10]] = add i32 [[VP7]] i32 2
 ; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP10]] i32 3
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
-; CHECK-NEXT:       i64 [[VP20:%.*]] = compress-expand-index i64 [[VP12]] i64 9
+; CHECK-NEXT:       i64 [[VP20:%.*]] = compress-expand-index {stride: 9} i64 [[VP12]]
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP20]]
 ; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
-; CHECK-NEXT:       i32 [[VP11]] = add i32 4 i32 [[VP9]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP11]], [[BB4]] ],  [ i32 [[VP7]], [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc i32 [[VP8]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc {stride: 9} i32 [[VP7]] i1 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp slt i64 [[VP5]] i64 [[VP14]]
 ; CHECK-NEXT:     br i1 [[VP16]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -116,42 +115,43 @@
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[TGU30:%.*]] = zext.i32.i64([[N0]])  /u  8
 ; CHECK-NEXT:        [[VEC_TC40:%.*]] = [[TGU30]]  *  8
-; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[J_0140]],  0
-; CHECK-NEXT:        [[PHI_TEMP50:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP50:%.*]] = [[J_0140]]
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[VEC_TC40]]  -  1
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = undef
+; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC70:%.*]] = (<8 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[DOTVEC70]] != 0
 ; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC80]])
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i8([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
-; CHECK-NEXT:        |   [[CAST100:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[DOTVEC90]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC80]]}
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[CAST90:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
+; CHECK-NEXT:        |   [[DOTVEC100]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC80]]}
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC90]],  undef,  [[DOTVEC80]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS0]],  &((<8 x double*>)([[B0]])[%add]),  0,  [[CAST100]])
-; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS0]],  &((<8 x double*>)([[B0]])[%add]),  0,  [[CAST90]])
+; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD120:%.*]] = [[SHUFFLE110]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
-; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC90]],  undef,  [[DOTVEC80]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST100]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP50]] + 9 : [[PHI_TEMP50]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v8i32([[SELECT0]])
-; CHECK-NEXT:        |   [[INSERT190:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
-; CHECK-NEXT:        |   [[PHI_TEMP50]] = [[INSERT190]]
+; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST90]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
+; CHECK-NEXT:        |   [[CAST140:%.*]] = bitcast.<8 x i1>.i8([[SELECT0]])
+; CHECK-NEXT:        |   [[POPCNT150:%.*]] = @llvm.ctpop.i8([[CAST140]])
+; CHECK-NEXT:        |   [[ZEXT0:%.*]] = zext.i8.i32([[POPCNT150]])
+; CHECK-NEXT:        |   [[MUL0:%.*]] = [[ZEXT0]]  *  9
+; CHECK-NEXT:        |   [[ADD160:%.*]] = [[PHI_TEMP50]]  +  [[MUL0]]
+; CHECK-NEXT:        |   [[PHI_TEMP50]] = [[ADD160]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC40]]
-; CHECK-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[INSERT190]],  0
-; CHECK-NEXT:        [[J_0140]] = [[EXTRACT_0_210]]
-; CHECK-NEXT:        [[DOTVEC230:%.*]] = zext.i32.i64([[N0]]) == [[VEC_TC40]]
+; CHECK:             [[IND_FINAL0:%.*]] = 0  +  [[VEC_TC40]]
+; CHECK-NEXT:        [[J_0140]] = [[ADD160]]
+; CHECK-NEXT:        [[DOTVEC190:%.*]] = zext.i32.i64([[N0]]) == [[VEC_TC40]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[IND_FINAL0]]
-; CHECK-NEXT:        [[PHI_TEMP10]] = [[EXTRACT_0_210]]
-; CHECK-NEXT:        [[PHI_TEMP260:%.*]] = [[IND_FINAL0]]
-; CHECK-NEXT:        [[PHI_TEMP280:%.*]] = [[EXTRACT_0_210]]
-; CHECK-NEXT:        [[EXTRACT_0_300:%.*]] = extractelement [[DOTVEC230]],  0
-; CHECK-NEXT:        if ([[EXTRACT_0_300]] == 1)
+; CHECK-NEXT:        [[PHI_TEMP10]] = [[ADD160]]
+; CHECK-NEXT:        [[PHI_TEMP220:%.*]] = [[IND_FINAL0]]
+; CHECK-NEXT:        [[PHI_TEMP240:%.*]] = [[ADD160]]
+; CHECK-NEXT:        [[EXTRACT_0_260:%.*]] = extractelement [[DOTVEC190]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_260]] == 1)
 ; CHECK-NEXT:        {
 ; CHECK-NEXT:           goto [[FINAL_MERGE:final.merge.[0-9]+]]
 ; CHECK-NEXT:        }
@@ -168,33 +168,35 @@
 ; CHECK-NEXT:        |      [[J_0140]] = 4  +  [[J_0140]]
 ; CHECK-NEXT:        |   }
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[PHI_TEMP260]] = zext.i32.i64([[N0]]) + -1
-; CHECK-NEXT:        [[PHI_TEMP280]] = [[J_0140]]
+; CHECK:             [[PHI_TEMP220]] = zext.i32.i64([[N0]]) + -1
+; CHECK-NEXT:        [[PHI_TEMP240]] = [[J_0140]]
 ; CHECK-NEXT:        [[FINAL_MERGE]]:
 ; CHECK-NEXT:  END REGION
 
-; CM4: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM4: Cost 0 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
-; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
+; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index {stride: 9} i64 [[VP8:%.*]]
 ; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
-; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
+; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index {stride: 9} i64 [[VP12:%.*]]
 ; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
 ; CM4: Block total cost includes HW GS Cost: 8
-; CM4: Cost 4 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
+; CM4: Cost 3 for i32 [[VP3:%.*]] = compress-expand-index-inc {stride: 9} i32 [[VP__BLEND_BB4:%.*]]
 ; CM4: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
 
-; CM8: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM8: Cost 0 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
-; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
+; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index {stride: 9} i64 [[VP8:%.*]]
 ; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
-; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
+; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index {stride: 9} i64 [[VP12:%.*]]
 ; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
 ; CM8: Block total cost includes HW GS Cost: 16
-; CM8: Cost 6 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
+; CM8: Cost 3 for i32 [[VP3:%.*]] = compress-expand-index-inc {stride: 9} i32 [[VP__BLEND_BB4:%.*]]
 ; CM8: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
 
+; OPTREPORT: remark #15447: --- begin vector loop memory reference summary ---
 ; OPTREPORT: remark #15497: vector compress: 2
-; OPTREPORT: remark #15498: vector expand: 0
+; OPTREPORT-NOT: remark #15498: vector expand
+; OPTREPORT: remark #15474: --- end vector loop memory reference summary ---
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

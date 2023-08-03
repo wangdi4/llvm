@@ -91,7 +91,7 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    movl %edi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    callq foo2
 ; CHECK-NEXT:    jmp .LBB0_5
-; CHECK-NEXT:  .LBB0_3: # %if.else
+; CHECK-NEXT:  .LBB0_3:
 ; CHECK-NEXT:    vpxorq %xmm16, %xmm16, %xmm16
 ; CHECK-NEXT:    vmovdqu64 %ymm16, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    vmovdqa64 %xmm16, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill

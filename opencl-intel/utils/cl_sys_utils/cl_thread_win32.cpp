@@ -139,7 +139,8 @@ int OclThread::Join() {
   if (m_running) {
     // If I called to join myself or more than one thread try to join than
     // return error.
-    if ((isSelf()) || (0 != m_join.test_and_set(0, 1))) {
+    long OldValue = 0;
+    if ((isSelf()) || !m_join.compare_exchange_strong(OldValue, 1)) {
       return THREAD_RESULT_FAIL;
     }
     return WaitForCompletion();

@@ -49,7 +49,7 @@ static const unsigned DefaultAddressSpace = 0;
 static const size_t MINIMUM_ELEMENTS_FOR_XDEREF = 4;
 
 static void append(DebugExpr &DE, const DIExpression *E) {
-  for (auto EO : E->expr_ops()) {
+  for (auto &EO : E->expr_ops()) {
     DebugExprOp DEO;
     DEO.push_back(EO.getOp());
     for (unsigned I = 0, E = EO.getNumArgs(); I < E; ++I)
@@ -60,8 +60,8 @@ static void append(DebugExpr &DE, const DIExpression *E) {
 
 static DIExpression *create(LLVMContext &Context, DebugExpr &DE) {
   SmallVector<uint64_t> Elements;
-  for (auto Op : DE)
-    for (auto V : Op)
+  for (auto &Op : DE)
+    for (auto &V : Op)
       Elements.push_back(V);
   return DIExpression::get(Context, Elements);
 }
@@ -143,9 +143,7 @@ bool IntelDebugRemoveXDeref::run(DbgVariableIntrinsic &DVI) {
 
   DebugExpr DE;
   append(DE, E);
-
   bool Changed = maybeRemoveXDeref(DE, SrcAS, TM);
-
   if (Changed) {
     DVI.setExpression(create(E->getContext(), DE));
     LLVM_DEBUG(dbgs() << " ==> " << DVI << "\n");

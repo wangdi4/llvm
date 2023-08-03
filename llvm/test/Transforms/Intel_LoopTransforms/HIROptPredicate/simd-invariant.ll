@@ -1,12 +1,14 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-opt-predicate-region-simd=false -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that SIMD loop will not be unswitched by hir-opt-predicate because
-; the directives aren't a loop pre-header nor loop post-exit instructions.
+; This test checks that the SIMD directives where moved inside the If condition
+; that was hoisted outside of the loop.
+
+; HIR before transformation
 
 ; BEGIN REGION { }
 ;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ;
-;       + DO i1 = 0, 99, 1   <DO_LOOP>
+;       + DO i1 = 0, 99, 1   <DO_LOOP> <simd>
 ;       |   if (%n != 20)
 ;       |   {
 ;       |      (%a)[i1] = i1;
@@ -14,21 +16,29 @@
 ;       + END LOOP
 ;
 ;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+;       ret ;
 ; END REGION
 
-; CHECK: BEGIN REGION
-; CHECK-NOT: modified
-; CHECK-NOT: if (%n != 20)
-; CHECK: DO i1
-; CHECK: if (%n != 20)
+; HIR after transformation
+
+; CHECK: BEGIN REGION { modified }
+; CHECK:       if (%n != 20)
+; CHECK:       {
+; CHECK:          %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP> <simd>
+; CHECK:          |   (%a)[i1] = i1;
+; CHECK:          + END LOOP
+; CHECK:          @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; CHECK:       }
+; CHECK:       ret ;
 ; CHECK: END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a, i32 %n) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %cmp1 = icmp eq i32 %n, 20
   br label %omp.inner.for.body
 
@@ -37,9 +47,9 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
   br i1 %cmp1, label %omp.inner.for.inc, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.inner.for.body, %if.then

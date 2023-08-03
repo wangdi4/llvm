@@ -390,18 +390,21 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     if (NeedRemainderLoop) {
       // Loop unrolled with remainder by %d
-      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25439u,
+      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                    OptRemarkID::LoopUnrollFactorWithRemainder,
                                     UnrollOrVecFactor);
     } else {
       // Loop unrolled without remainder by %d
-      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25438u,
-                                    UnrollOrVecFactor);
+      ORBuilder(*NewLoop).addRemark(
+          OptReportVerbosity::Low,
+          OptRemarkID::LoopUnrollFactorWithoutRemainder, UnrollOrVecFactor);
     }
 
   } else if (OptTy == OptimizationType::UnrollAndJam) {
 
     // Loop has been unrolled and jammed by %d
-    ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25540u,
+    ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                  OptRemarkID::LoopUnrollAndJamFactor,
                                   UnrollOrVecFactor);
   } else {
     assert(OptTy == OptimizationType::Vectorizer &&
@@ -559,7 +562,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       assert((OptTy == OptimizationType::Vectorizer) &&
              "OptimizationType should be Vectorizer");
       // Remark: Peeled loop for vectorization
-      ORBuilder(*PeelLp).addOrigin(25518u);
+      ORBuilder(*PeelLp).addOrigin(OptRemarkID::VectorizerPeelLoop);
     }
 
     // After peeling a new ZTT was created for the main loop, extract it and add
@@ -619,13 +622,13 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     ORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
       // Remark: Remainder loop for vectorization
-      ORBuilder(*OrigLoop).addOrigin(25519u);
+      ORBuilder(*OrigLoop).addOrigin(OptRemarkID::VectorizerRemainderLoop);
     } else {
       assert(((OptTy == OptimizationType::Unroll) ||
               (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
       // Remark: Remainder loop
-      ORBuilder(*OrigLoop).addOrigin(25491u);
+      ORBuilder(*OrigLoop).addOrigin(OptRemarkID::RemainderLoop);
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&
@@ -875,6 +878,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
 
+  uint64_t OrigMaxTCEst = FirstLoop->getMaxTripCountEstimate();
+
   HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
   HLNodeUtils::insertBefore(FirstLoop, NewLoop);
@@ -936,6 +941,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   // stripmined loop will be the same as the factor.
   bool MinInstRequired = (!IsConstTrip || (TripCount % StripmineSize != 0));
   unsigned MinBlobSymbase = InvalidSymbase;
+  uint64_t NewMaxTCEst = StripmineSize;
 
   if (MinInstRequired) {
     // -StripmineSize *i1 + original UB
@@ -965,6 +971,12 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     UBRefCE->setDefinedAtLevel(Level);
 
     InnerUBRef->addBlobDDRef(MinBlobIndex, Level);
+
+    // Use OrigMaxTCEst for the chunks if it is smaller than StripmineSize.
+    if (OrigMaxTCEst && OrigMaxTCEst < StripmineSize) {
+      NewMaxTCEst = OrigMaxTCEst;
+    }
+
   } else {
     InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
   }
@@ -994,7 +1006,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
     if (MinInstRequired) {
       Lp->addLiveInTemp(MinBlobSymbase);
-      Lp->setMaxTripCountEstimate(StripmineSize, true);
+      Lp->setMaxTripCountEstimate(NewMaxTCEst, true);
       Lp->setLegalMaxTripCount(StripmineSize);
     }
 
@@ -1116,6 +1128,8 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
                                   : HNU.createZExt(NewIVType, OldUpperRef);
 
     HLNodeUtils::insertAsLastPreheaderNode(Lp, UpperInst);
+    OldUpperRef->makeConsistent();
+
     auto *NewUpperRef = UpperInst->getLvalDDRef()->clone();
 
     NewUpperRef->getSingleCanonExpr()->setDefinedAtLevel(Lp->getNestingLevel() -

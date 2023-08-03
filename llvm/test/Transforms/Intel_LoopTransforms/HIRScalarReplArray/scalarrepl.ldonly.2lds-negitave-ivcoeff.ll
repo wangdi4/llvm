@@ -67,31 +67,31 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = sub nuw nsw i64 1000, %indvars.iv
-  %arrayidx = getelementptr inbounds [1002 x i32], [1002 x i32]* @A, i64 0, i64 %0
-  %1 = load  i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1002 x i32], ptr @A, i64 0, i64 %0
+  %1 = load  i32, ptr %arrayidx, align 4, !tbaa !1
   %2 = sub nuw nsw i64 999, %indvars.iv
-  %arrayidx3 = getelementptr inbounds [1002 x i32], [1002 x i32]* @A, i64 0, i64 %2
-  %3 = load  i32, i32* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds [1002 x i32], ptr @A, i64 0, i64 %2
+  %3 = load  i32, ptr %arrayidx3, align 4, !tbaa !1
   %add = add nsw i32 %3, %1
-  %arrayidx5 = getelementptr inbounds [1002 x i32], [1002 x i32]* @B, i64 0, i64 %indvars.iv
-  store  i32 %add, i32* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [1002 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store  i32 %add, ptr %arrayidx5, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 101
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %4 = load  i32, i32* getelementptr inbounds ([1002 x i32], [1002 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %5 = load  i32, i32* getelementptr inbounds ([1002 x i32], [1002 x i32]* @B, i64 0, i64 0), align 16, !tbaa !1
+  %4 = load  i32, ptr @A, align 16, !tbaa !1
+  %5 = load  i32, ptr @B, align 16, !tbaa !1
   %add6 = add i32 %4, 1
   %add7 = add i32 %add6, %5
   ret i32 %add7
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

@@ -70,18 +70,16 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         // Need to create a cache entry for implicit arg values
         if (UseTLSGlobals) {
           ValuePair &ImplicitArgs = FuncToImplicitArgs[CallingF];
-          Value *WorkInfo = CompilationUtils::getTLSGlobal(
+          GlobalValue *WorkInfo = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
-          Value *RuntimeHandle = CompilationUtils::getTLSGlobal(
+          GlobalValue *RuntimeHandle = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
           assert(WorkInfo && "WorkInfo should be nullptr");
           assert(RuntimeHandle && "RuntimeHandle should not be null");
           IRBuilder<> B(&*CallingF->getEntryBlock().begin());
-          ImplicitArgs.first = B.CreateLoad(
-              WorkInfo->getType()->getNonOpaquePointerElementType(), WorkInfo);
-          ImplicitArgs.second = B.CreateLoad(
-              RuntimeHandle->getType()->getNonOpaquePointerElementType(),
-              RuntimeHandle);
+          ImplicitArgs.first = B.CreateLoad(WorkInfo->getValueType(), WorkInfo);
+          ImplicitArgs.second =
+              B.CreateLoad(RuntimeHandle->getValueType(), RuntimeHandle);
         } else {
           Value *WorkInfo;      // Used to access CallbackContext
           Value *RuntimeHandle; // Needed by some callbacks

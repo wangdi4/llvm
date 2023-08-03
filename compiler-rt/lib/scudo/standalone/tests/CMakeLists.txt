@@ -105,10 +105,17 @@ set(SCUDO_UNIT_TEST_SOURCES
   size_class_map_test.cpp
   stats_test.cpp
   strings_test.cpp
+  timing_test.cpp
   tsd_test.cpp
   vector_test.cpp
   scudo_unit_test_main.cpp
   )
+
+# Temporary hack until LLVM libc supports inttypes.h print format macros
+# See: https://github.com/llvm/llvm-project/issues/63317#issuecomment-1591906241
+if(LLVM_LIBC_INCLUDE_SCUDO)
+  list(REMOVE_ITEM SCUDO_UNIT_TEST_SOURCES timing_test.cpp)
+endif()
 
 add_scudo_unittest(ScudoUnitTest
   SOURCES ${SCUDO_UNIT_TEST_SOURCES})

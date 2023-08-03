@@ -45,8 +45,7 @@ DeviceProgram::DeviceProgram()
       m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
       m_parentProgramContext(0), m_uiBuildLogSize(0), m_szBuildLog(nullptr),
       m_emptyString('\0'), m_szBuildOptions(nullptr), m_pBinaryBits(nullptr),
-      m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
-      m_currentAccesses(0) {}
+      m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE) {}
 
 DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp)
     : m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false),
@@ -54,7 +53,7 @@ DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp)
       m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0),
       m_uiBuildLogSize(0), m_szBuildLog(nullptr), m_emptyString('\0'),
       m_szBuildOptions(nullptr), m_pBinaryBits(nullptr), m_uiBinaryBitsSize(0),
-      m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE), m_currentAccesses(0) {
+      m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE) {
   SetDevice(dp.m_pDevice);
   SetHandle(dp.m_parentProgramHandle);
   SetContext(dp.m_parentProgramContext);
@@ -267,6 +266,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const {
   case DEVICE_PROGRAM_BE_BUILDING:
     return CL_BUILD_IN_PROGRESS;
 
+  case DEVICE_PROGRAM_CREATING_AUTORUN:
   case DEVICE_PROGRAM_COMPILED:
   case DEVICE_PROGRAM_LINKED:
   case DEVICE_PROGRAM_BUILD_DONE:

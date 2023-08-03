@@ -64,21 +64,21 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @test_sinf(float* noalias nocapture %a, float* noalias nocapture readonly %b) local_unnamed_addr #0 {
+define void @test_sinf(ptr noalias nocapture %a, ptr noalias nocapture readonly %b) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %cmp1 = fcmp fast ogt float %0, 3.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %call = tail call fast float @sinf(float %0) #3
-  %arrayidx5 = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  store float %call, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  store float %call, ptr %arrayidx5, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -91,21 +91,21 @@ for.end:                                          ; preds = %for.inc
 }
 
 ; Function Attrs: nounwind uwtable
-define void @test_sin(double* noalias nocapture %a, double* noalias nocapture readonly %b) local_unnamed_addr #0 {
+define void @test_sin(ptr noalias nocapture %a, ptr noalias nocapture readonly %b) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds double, double* %b, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds double, ptr %b, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8, !tbaa !1
   %cmp1 = fcmp fast ogt double %0, 3.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %call = tail call fast double @sin(double %0) #3
-  %arrayidx5 = getelementptr inbounds double, double* %a, i64 %indvars.iv
-  store double %call, double* %arrayidx5, align 8, !tbaa !1
+  %arrayidx5 = getelementptr inbounds double, ptr %a, i64 %indvars.iv
+  store double %call, ptr %arrayidx5, align 8, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

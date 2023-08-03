@@ -19,6 +19,7 @@
 #include "BuiltinModules.h"
 #include "LLDJITBuilder.h"
 #include "ObjectCodeCache.h"
+#include "VectorizerUtils.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
@@ -50,7 +51,7 @@ namespace DeviceBackend {
 /*
  *  Constants
  */
-extern const char *CPU_ARCH_AUTO;
+const char *CPU_ARCH_AUTO = "auto";
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags();
 JITEventListener *getGDBRegistrationListenerInstance();
@@ -80,6 +81,31 @@ Intel::OpenCL::Utils::ECPU GetOrDetectCpuId(const std::string &cpuArch) {
   }
 
   return cpuId;
+}
+
+// Temporary solution for WeightedInstCountAnalysis pass to obtain correct ISA.
+static void applyCpuIdLLVMOptions(const CPUDetect *CPUId) {
+  SmallVector<const char *, 3> Args;
+  Args.push_back("CPUCompiler");
+
+  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
+  switch (VectorizerUtils::getCPUIdISA(CPUId)) {
+  case VFISAKind::AVX512:
+    ISA += "AVX512Core";
+    break;
+  case VFISAKind::AVX2:
+    ISA += "AVX2";
+    break;
+  case VFISAKind::AVX:
+    ISA += "AVX1";
+    break;
+  default:
+    ISA += "SSE42";
+  }
+  Args.push_back(ISA.c_str());
+
+  Args.push_back(nullptr);
+  cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 }
 
 /**
@@ -115,16 +141,22 @@ BuiltinModules *CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad) {
   }
   return m_builtinModules[TID].get();
 }
-// If binary not matchs current cpu arch
-// and cpu is backwards compatible,load builtin modules again
+
+// If binary doesn't match current cpu arch but its maximum supported
+// instruction can be supported by current cpu, load builtin modules again
+// for backwards compatibility.
 void CPUCompiler::SetBuiltinModules(const std::string &cpuName,
                                     const std::string &cpuFeatures = "") {
   // config.GetLoadBuiltins should be true
   SelectCpu(cpuName, cpuFeatures);
+  Utils::applyCpuIdLLVMOptions(m_CpuId);
+  GetOrLoadBuiltinModules(true);
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
   SelectCpu(config.GetCpuArch(), config.GetCpuFeatures());
+  Utils::applyCpuIdLLVMOptions(m_CpuId);
+
   // Initialize the BuiltinModules
   if (config.GetLoadBuiltins()) {
     std::lock_guard<sys::Mutex> Locked(m_builtinModuleMutex);
@@ -181,7 +213,14 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
     m_forcedCpuFeatures.push_back("+avx512bw");
     m_forcedCpuFeatures.push_back("+avx512dq");
     m_forcedCpuFeatures.push_back("+avx512vl");
+    m_forcedCpuFeatures.push_back("+pku");
   }
+
+  if (selectedCpuId == Intel::OpenCL::Utils::CPU_SKX)
+    m_forcedCpuFeatures.push_back("+clwb");
+
+  if (selectedCpuId >= Intel::OpenCL::Utils::CPU_CLX)
+    m_forcedCpuFeatures.push_back("+avx512vnni");
 
   if (selectedCpuId >= Intel::OpenCL::Utils::CPU_ICL) {
     // CNL features
@@ -191,18 +230,24 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
     m_forcedCpuFeatures.push_back("+avx512vbmi2");
     m_forcedCpuFeatures.push_back("+avx512bitalg");
     m_forcedCpuFeatures.push_back("+avx512vpopcntdq");
-    m_forcedCpuFeatures.push_back("+clwb");
   }
   if (selectedCpuId == Intel::OpenCL::Utils::CPU_ICX) {
     // ICX features
     m_forcedCpuFeatures.push_back("+wbnoinvd");
+    m_forcedCpuFeatures.push_back("+clwb");
+    m_forcedCpuFeatures.push_back("+pconfig");
   }
-  if (selectedCpuId == Intel::OpenCL::Utils::CPU_SPR) {
+  if (selectedCpuId >= Intel::OpenCL::Utils::CPU_SPR) {
     // SPR features
-    m_forcedCpuFeatures.push_back("+avx512f");
     m_forcedCpuFeatures.push_back("+amx-tile");
     m_forcedCpuFeatures.push_back("+amx-int8");
     m_forcedCpuFeatures.push_back("+amx-bf16");
+    m_forcedCpuFeatures.push_back("+avx512fp16");
+    m_forcedCpuFeatures.push_back("+avx512bf16");
+  }
+  if (selectedCpuId >= Intel::OpenCL::Utils::CPU_GNR) {
+    m_forcedCpuFeatures.push_back("+amx-fp16");
+    m_forcedCpuFeatures.push_back("+prefetchi");
   }
 
   // When CL_CONFIG_CPU_TARGET_ARCH env is set, we need to reset CPU according
@@ -242,6 +287,15 @@ CPUCompiler::CreateLLJIT(Module *M, std::unique_ptr<TargetMachine> TM,
                       std::unique_ptr<orc::IRCompileLayer::IRCompiler>> {
                 return std::make_unique<orc::TMOwningSimpleCompiler>(
                     std::move(TM), ObjCache);
+              })
+          .setObjectLinkingLayerCreator(
+              [&](orc::ExecutionSession &ES, const Triple &) {
+                // TODO switch to default JITLink.
+                auto GetMemMgr = []() {
+                  return std::make_unique<SectionMemoryManager>();
+                };
+                return std::make_unique<orc::RTDyldObjectLinkingLayer>(
+                    ES, std::move(GetMemMgr));
               })
           .create();
   if (!LLJITOrErr)

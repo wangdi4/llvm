@@ -26,4 +26,4 @@ define void @reqd_sg_size() !intel_reqd_sub_group_size !{i32 8} {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @heuristic, void ()* @vec_len_hint, void ()* @reqd_sg_size}
+!0 = !{ptr @heuristic, ptr @vec_len_hint, ptr @reqd_sg_size}

@@ -25,16 +25,6 @@
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 
-extern bool SYCLEnableSubGroupEmulation;
-
-// Static container storing all the vector info entries.
-// Each entry would be a tuple of three strings:
-// 1. scalar variant name
-// 2. "kernel-call-once" | ""
-// 3. mangled vector variant name
-static std::vector<std::tuple<std::string, std::string, std::string>>
-    ExtendedVectInfos;
-
 SGBuiltinPass::SGBuiltinPass(ArrayRef<VectItem> VectInfos)
     : VectInfos(VectInfos) {}
 
@@ -46,15 +36,6 @@ PreservedAnalyses SGBuiltinPass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!SYCLEnableSubGroupEmulation)
-    return false;
-
-  // Load all vector info into ExtendedVectInfo, at most once.
-  static llvm::once_flag InitializeVectInfoFlag;
-  llvm::call_once(InitializeVectInfoFlag, [&]() {
-    CompilationUtils::initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
-  });
-
   Helper.initialize(M);
 
   bool Changed = false;
@@ -79,7 +60,11 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
     if (!F.isDeclaration() || !FnName.contains("sub_group"))
       continue;
 
+    // If kernel have SG builtin, load all vector info into ExtendedVectInfo
+    CompilationUtils::initializeVectInfo(VectInfos, M);
+
     // Find all vectorization infos for this function.
+    auto &ExtendedVectInfos = CompilationUtils::getExtendedVectInfos();
     auto CandidateVariants = make_filter_range(
         ExtendedVectInfos,
         [FnName](
@@ -128,7 +113,7 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
         VecVariantsStr.insert(std::get<2>(Info));
 
       // Add vector-variants attributes.
-      assert(!CI->hasFnAttr(KernelAttribute::VectorVariants) &&
+      assert(!CI->hasFnAttr(VectorUtils::VectorVariantsAttrName) &&
              "Unexpected vector-variants attribute for sub-group calls!");
 
       AttributeList AL = CI->getAttributes();
@@ -144,10 +129,10 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
 
     if (VecVariantsStr.empty())
       continue;
-    assert(!F.hasFnAttribute(KernelAttribute::VectorVariants) &&
+    assert(!F.hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
            "Unexpected vector-variants attribute for sub-group function!");
     auto VecVariants = join(VecVariantsStr.begin(), VecVariantsStr.end(), ",");
-    F.addFnAttr(KernelAttribute::VectorVariants, VecVariants);
+    F.addFnAttr(VectorUtils::VectorVariantsAttrName, VecVariants);
     Changed = true;
   }
   return Changed;

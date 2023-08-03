@@ -44,7 +44,7 @@ void FunctionWidener::run(FuncSet &Functions,
     LLVM_DEBUG(dbgs() << "Expanding Function: " << Fn->getName() << "\n");
 
     SmallVector<StringRef, 8> VecVariantsStr;
-    Fn->getFnAttribute("vector-variants")
+    Fn->getFnAttribute(VectorUtils::VectorVariantsAttrName)
         .getValueAsString()
         .split(VecVariantsStr, ',');
 

@@ -22,8 +22,8 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv54 = phi i64 [ 0, %entry ], [ %indvars.iv.next55, %for.body ]
-  %arrayidx = getelementptr inbounds [10000 x i64], [10000 x i64]* %array, i64 0, i64 %indvars.iv54
-  store i64 %indvars.iv54, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [10000 x i64], ptr %array, i64 0, i64 %indvars.iv54
+  store i64 %indvars.iv54, ptr %arrayidx, align 8
   %indvars.iv.next55 = add nuw nsw i64 %indvars.iv54, 1
   %exitcond56 = icmp eq i64 %indvars.iv.next55, 10000
   br i1 %exitcond56, label %barrier, label %for.body
@@ -49,8 +49,8 @@ for.body3.end:                                    ; preds = %for.body3, %do.inc
   br i1 %exitcond53, label %for.end28, label %for.body3
 
 for.end28:                                        ; preds = %for.body23
-  %arrayidx.2 = getelementptr inbounds [10000 x i64], [10000 x i64]* %array, i64 0, i64 %idx.phi
-  %val = load i64, i64* %arrayidx.2, align 8
+  %arrayidx.2 = getelementptr inbounds [10000 x i64], ptr %array, i64 0, i64 %idx.phi
+  %val = load i64, ptr %arrayidx.2, align 8
   ret i64 %val
 }
 

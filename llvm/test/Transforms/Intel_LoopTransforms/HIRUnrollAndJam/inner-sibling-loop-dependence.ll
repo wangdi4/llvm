@@ -43,10 +43,10 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc17
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %cgep = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @C, i64 0, i64 %indvars.iv38, i64 %indvars.iv
-  %ld = load i32, i32* %cgep, align 4
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 %ld, i32* %arrayidx, align 4
+  %cgep = getelementptr inbounds [100 x [100 x i32]], ptr @C, i64 0, i64 %indvars.iv38, i64 %indvars.iv
+  %ld = load i32, ptr %cgep, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %ld, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.body6.preheader, label %for.body3
@@ -57,10 +57,10 @@ for.body6.preheader:                              ; preds = %for.body3
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv35 = phi i64 [ %indvars.iv.next36, %for.body6 ], [ 0, %for.body6.preheader ]
   %indvars.iv.next36 = add nuw nsw i64 %indvars.iv35, 1
-  %arrayidx8 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv.next36
-  %ld1 = load i32, i32* %arrayidx8, align 4
-  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %indvars.iv38, i64 %indvars.iv35
-  store i32 %ld1, i32* %arrayidx12, align 4
+  %arrayidx8 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv.next36
+  %ld1 = load i32, ptr %arrayidx8, align 4
+  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %indvars.iv38, i64 %indvars.iv35
+  store i32 %ld1, ptr %arrayidx12, align 4
   %exitcond37.not = icmp eq i64 %indvars.iv.next36, 99
   br i1 %exitcond37.not, label %for.inc17, label %for.body6
 

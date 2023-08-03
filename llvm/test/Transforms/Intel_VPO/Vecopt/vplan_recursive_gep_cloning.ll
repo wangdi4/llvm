@@ -2,7 +2,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @main(<2 x i32>* %a) local_unnamed_addr {
+define i32 @main(ptr %a) local_unnamed_addr {
 entry:
   br label %DIR.OMP.SIMD.1
 
@@ -14,14 +14,12 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %trunc = trunc i64 %indvars.iv to i32
 
-  %cast = bitcast <2 x i32> * %a to i32 *
 ; Verify that %gep isn't just cloned because that will make the clone to use
-; %cast which isn't defined in the vector loop.
-  %gep = getelementptr i32, i32* %cast, i32 1
+; %a which isn't defined in the vector loop.
+  %gep = getelementptr i32, ptr %a, i32 1
 ; DA recognizes all operands of the GEP to be uniform and hence we generate scalar GEP.
-; CHECK: [[BC1:%.*]] = bitcast <2 x i32>* [[A:%.*]] to i32*
-; CHECK-NEXT: [[GEP1:%.*]] = getelementptr i32, i32* [[BC1]], i32 1
-  %gep.vec = getelementptr i32, i32* %gep, i32 %trunc
+; CHECK: [[GEP1:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 1
+  %gep.vec = getelementptr i32, ptr %gep, i32 %trunc
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000

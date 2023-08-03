@@ -40,7 +40,7 @@ bb1:                                              ; preds = %bb14, %bb
   br i1 undef, label %bb2, label %bb3
 
 bb2:                                              ; preds = %bb1
-  %tmp = load i32, i32* undef, align 4
+  %tmp = load i32, ptr undef, align 4
   br label %bb3
 
 bb3:                                              ; preds = %bb2, %bb1

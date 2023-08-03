@@ -10,7 +10,7 @@
 ; REQUIRES:asserts
 
 
-; CHECK: [2520 x double]* [[PRIV_PTR:%.*]] = allocate-priv [2520 x double]*
+; CHECK: [2520 x double]* [[PRIV_PTR:%.*]] = allocate-priv [2520 x double]
 ; CHECK: i8* {{.*}} = bitcast [2520 x double]* [[PRIV_PTR]]
 ; CHECK: double* {{.*}} = getelementptr inbounds [2520 x double]* [[PRIV_PTR]] i64 0 i64 {{.*}}
 

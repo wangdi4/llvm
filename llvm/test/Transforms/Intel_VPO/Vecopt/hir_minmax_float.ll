@@ -6,12 +6,12 @@
 ; CHECK-NOT: experimental.vector.reduce.
 ;
 ; Function Attrs: nounwind readonly uwtable
-define dso_local double @_Z3fooPdi(double* nocapture readonly %x, i32 %n) local_unnamed_addr #0 {
+define dso_local double @_Z3fooPdi(ptr nocapture readonly %x, i32 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
-  %0 = load double, double* %x, align 8
+  %0 = load double, ptr %x, align 8
   %wide.trip.count20 = zext i32 %n to i64
   br label %for.body
 
@@ -24,8 +24,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 1, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %max.018 = phi double [ %0, %for.body.preheader ], [ %4, %for.body ]
   %indmax.017 = phi i32 [ 0, %for.body.preheader ], [ %3, %for.body ]
-  %ptridx1 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  %1 = load double, double* %ptridx1, align 8
+  %ptridx1 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  %1 = load double, ptr %ptridx1, align 8
   %cmp2 = fcmp ogt double %1, %max.018
   %2 = trunc i64 %indvars.iv to i32
   %3 = select i1 %cmp2, i32 %2, i32 %indmax.017

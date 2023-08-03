@@ -8,7 +8,7 @@
 ; CHECK: |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%A)[i1][i2];
 ; CHECK: |   |   %1 = (%B)[i1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 ; CHECK: END REGION
@@ -20,16 +20,16 @@
 ; CHECK: |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%A)[4 * i1][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 1][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 2][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 2][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 3][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 3][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
@@ -38,7 +38,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @foo([1000 x i32]* nocapture readonly %A, [1000 x i32]* nocapture readonly %B) local_unnamed_addr {
+define dso_local i32 @foo(ptr nocapture readonly %A, ptr nocapture readonly %B) local_unnamed_addr {
 entry:
   br label %for.cond1.preheader
 
@@ -60,10 +60,10 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %r.124 = phi i32 [ %r.026, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* %A, i64 %indvars.iv28, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx6, align 4
-  %arrayidx10 = getelementptr inbounds [1000 x i32], [1000 x i32]* %B, i64 %indvars.iv28, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx10, align 4
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr %A, i64 %indvars.iv28, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx6, align 4
+  %arrayidx10 = getelementptr inbounds [1000 x i32], ptr %B, i64 %indvars.iv28, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx10, align 4
   %mul = mul nsw i32 %1, %0
   %add = add nsw i32 %mul, %r.124
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

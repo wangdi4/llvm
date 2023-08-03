@@ -60,37 +60,37 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = sub nuw nsw i64 10, %indvars.iv
-  %arrayidx2 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !1
   %2 = trunc i64 %indvars.iv to i32
   %sub3 = sub nsw i32 %1, %2
-  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %0, i64 2
-  store i32 %sub3, i32* %arrayidx7, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %0, i64 2
+  store i32 %sub3, ptr %arrayidx7, align 8, !tbaa !1
   %3 = sub nuw nsw i64 20, %indvars.iv
-  %arrayidx11 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %3, i64 2
-  %4 = load i32, i32* %arrayidx11, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %3, i64 2
+  %4 = load i32, ptr %arrayidx11, align 8, !tbaa !1
   %5 = shl i64 %indvars.iv, 1
   %6 = trunc i64 %5 to i32
   %add = add nsw i32 %4, %6
-  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 1, i64 %3
-  store i32 %add, i32* %arrayidx14, align 4, !tbaa !1
+  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 1, i64 %3
+  store i32 %add, ptr %arrayidx14, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %7 = load i32, i32* getelementptr inbounds ([100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 0, i64 0), align 16, !tbaa !1
-  %8 = load i32, i32* getelementptr inbounds ([100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 1, i64 1), align 4, !tbaa !1
+  %7 = load i32, ptr @A, align 16, !tbaa !1
+  %8 = load i32, ptr getelementptr inbounds ([100 x [100 x i32]], ptr @B, i64 0, i64 1, i64 1), align 4, !tbaa !1
   %add15 = add i32 %7, 1
   %add16 = add i32 %add15, %8
   ret i32 %add16
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

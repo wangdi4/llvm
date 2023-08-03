@@ -1,6 +1,6 @@
 //===- Intel_InlineReportCommon.h - Inlining report utils ------*- C++ -*-===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -51,7 +51,8 @@ typedef enum {
   DeadStatics = 0x2000, // Print dead static functions
   Externs = 0x4000,     // Print external function callsites
   Indirects = 0x8000,   // Print indirect function callsites
-  Demangle = 0x10000    // Demangle C++ names
+  Demangle = 0x10000,   // Demangle C++ names
+  Compact = 0x20000     // Use compact representation of nested inlines
 } InlineReportOptions;
 }
 
@@ -89,10 +90,22 @@ typedef enum {
                  //   special cased code to handle it
 } InlPrtType;
 
+// Types of Indirect Call Specialization. The names are chosen be consistent
+// with those used in the classic compiler.
+typedef enum {
+  InlICSNone = 0,
+  InlICSGPT, // Global points to analysis (Andersen's analysis)
+  InlICSSFA, // Structure field analysis
+  InlICSPGO  // Profile guided optimization
+} InlICSType;
+
 typedef struct {
   InlPrtType Type;     // Classification of inlining reason
   const char *Message; // Text message for inlining reason (or nullptr)
 } InlPrtRecord;
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+extern cl::opt<unsigned> IntelInlineReportCompactThreshold;
 
 ///
 /// \brief A table of entries, one for each possible (non-)inlining reason
@@ -163,6 +176,12 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Exposes local arrays"},
     // InlrUnderTBBParallelFor
     {InlPrtCost, "Under TBB parallel for"},
+    // InlrCSSampleBeneficial,
+    {InlPrtSimple, "CS-sample-based inlining is beneficial"},
+    // InlrSampleBeneficial,
+    {InlPrtCost, "Sample-based inlining is beneficial"},
+    // InlrBeneficial,
+    {InlPrtCost, "Inlining is beneficial"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -235,6 +254,12 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is not always_inline"},
     // NinlrNewlyCreated,
     {InlPrtSimple, "Newly created callsite"},
+    // NinlrCSSampleNotBeneficial,
+    {InlPrtSimple, "CS-sample-based inlining is not beneficial"},
+    // NinlrSampleNotBeneficial,
+    {InlPrtCost, "Sample-based inlining is not beneficial"},
+    // NinlrNotBeneficial,
+    {InlPrtCost, "Inlining is not beneficial"},
     // NinlrNotProfitable,
     {InlPrtCost, "Inlining is not profitable"},
     // NinlrOpBundles,
@@ -249,6 +274,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Caller/callee null pointer mismatch"},
     // NinlrPreferMultiversioning,
     {InlPrtSimple, "Callsite preferred for multiversioning"},
+    // NinlrPreferIPPredOpt,
+    {InlPrtSimple, "Callsite preferred for IPPredOpt"},
     // NinlrPreferSOAToAOS,
     {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
     // NinlrStackComputations
@@ -278,9 +305,11 @@ const static InlPrtRecord InlineReasonText[] = {
     // NinlrDeletedZeroLengthWrite
     {InlPrtDeleted, "Zero length write"},
     // NinlrDeletedIndCallConv
-    {InlPrtDeleted, "Indirect call conversion"},
+    {InlPrtSpecial, "Indirect call conversion"},
     // NinlrDeletedDeadCode
     {InlPrtDeleted, "Dead code"},
+    // NinlrBrokerFunction
+    {InlPrtSpecial, "Broker function"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

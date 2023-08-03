@@ -191,6 +191,11 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
             auto *VPInst = dyn_cast<VPInstruction>(User);
             if (VPInst && VPInst->getOpcode() == Instruction::Store) {
               auto StoredValShape = DA->getVectorShape(*VPInst->getOperand(0));
+              if (auto *Op0Inst =
+                      dyn_cast<VPInstruction>(VPInst->getOperand(0))) {
+                if (Op0Inst->getOpcode() == Instruction::Trunc)
+                  StoredValShape = getShapeFromTrunc(Plan, Op0Inst);
+              }
               if (!StoredValShape.hasKnownStride() ||
                   StoredValShape.isUniform()) {
                 AdjustedStrides.clear();
@@ -414,6 +419,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
+  // llvm.stacksave and llvm.stackrestore intrinsics should not be widened.
+  if (VPCall->isIntrinsicFromList(
+          {Intrinsic::stacksave, Intrinsic::stackrestore})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   StringRef CalledFuncName = F->getName();
   // Currently we assume CallVecDecisions analysis is run after predication. So
   // call is masked only if its parent VPBB has predicate.
@@ -477,22 +489,22 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties.
   if (TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
-                                  IsMasked)) {
+                                  IsMasked, TTI)) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
-        CalledFuncName, ElementCount::getFixed(VF), IsMasked));
+        CalledFuncName, ElementCount::getFixed(VF), IsMasked, TTI));
     return;
   }
 
   // Vectorize by pumping the call for a lower VF.
-  unsigned PumpFactor = getPumpFactor(*UnderlyingCI, IsMasked, VF, TLI);
+  unsigned PumpFactor = getPumpFactor(*UnderlyingCI, IsMasked, VF, TLI, TTI);
   if (PumpFactor > 1) {
     unsigned LowerVF = VF / PumpFactor;
     assert(TLI->isFunctionVectorizable(
-               *UnderlyingCI, ElementCount::getFixed(LowerVF), IsMasked) &&
+               *UnderlyingCI, ElementCount::getFixed(LowerVF), IsMasked, TTI) &&
            "Library function cannot be vectorized with lower VF.");
     VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName,
-                                   ElementCount::getFixed(LowerVF), IsMasked),
+        TLI->getVectorizedFunction(
+            CalledFuncName, ElementCount::getFixed(LowerVF), IsMasked, TTI),
         PumpFactor);
     return;
   }

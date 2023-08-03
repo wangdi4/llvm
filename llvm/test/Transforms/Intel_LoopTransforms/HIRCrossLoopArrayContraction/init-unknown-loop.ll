@@ -137,7 +137,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = dso_local global [100 x [100 x [100 x [10 x [10 x i32]]]]] zeroinitializer, align 16
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @shell(i32* %b) #0 {
+define dso_local void @shell(ptr %b) #0 {
 entry:
   %A = alloca [100 x [100 x [100 x [10 x [10 x i32]]]]], align 16
   br label %for.body
@@ -161,16 +161,16 @@ for.body9:                                        ; preds = %for.body6, %for.inc
 for.body12:                                       ; preds = %for.body9, %for.inc
   %j.048 = phi i32 [ 0, %for.body9 ], [ %inc, %for.inc ]
   %idxprom = sext i32 %m.052 to i64
-  %arrayidx = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A, i64 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr %A, i64 0, i64 %idxprom
   %idxprom13 = sext i32 %l.051 to i64
-  %arrayidx14 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], [100 x [100 x [10 x [10 x i32]]]]* %arrayidx, i64 0, i64 %idxprom13
+  %arrayidx14 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], ptr %arrayidx, i64 0, i64 %idxprom13
   %idxprom15 = sext i32 %k.050 to i64
-  %arrayidx16 = getelementptr inbounds [100 x [10 x [10 x i32]]], [100 x [10 x [10 x i32]]]* %arrayidx14, i64 0, i64 %idxprom15
+  %arrayidx16 = getelementptr inbounds [100 x [10 x [10 x i32]]], ptr %arrayidx14, i64 0, i64 %idxprom15
   %idxprom17 = sext i32 %i.049 to i64
-  %arrayidx18 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %arrayidx16, i64 0, i64 %idxprom17
+  %arrayidx18 = getelementptr inbounds [10 x [10 x i32]], ptr %arrayidx16, i64 0, i64 %idxprom17
   %idxprom19 = sext i32 %j.048 to i64
-  %arrayidx20 = getelementptr inbounds [10 x i32], [10 x i32]* %arrayidx18, i64 0, i64 %idxprom19
-  store i32 0, i32* %arrayidx20, align 4
+  %arrayidx20 = getelementptr inbounds [10 x i32], ptr %arrayidx18, i64 0, i64 %idxprom19
+  store i32 0, ptr %arrayidx20, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body12
@@ -236,16 +236,16 @@ for.body52:                                       ; preds = %for.body48, %for.in
   %j49.038 = phi i32 [ 0, %for.body48 ], [ %inc64, %for.inc63 ]
   %add = add nsw i32 %j49.038, %i45.039
   %idxprom53 = sext i32 %m33.042 to i64
-  %arrayidx54 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A, i64 0, i64 %idxprom53
+  %arrayidx54 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr %A, i64 0, i64 %idxprom53
   %idxprom55 = sext i32 %l37.041 to i64
-  %arrayidx56 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], [100 x [100 x [10 x [10 x i32]]]]* %arrayidx54, i64 0, i64 %idxprom55
+  %arrayidx56 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], ptr %arrayidx54, i64 0, i64 %idxprom55
   %idxprom57 = sext i32 %k41.040 to i64
-  %arrayidx58 = getelementptr inbounds [100 x [10 x [10 x i32]]], [100 x [10 x [10 x i32]]]* %arrayidx56, i64 0, i64 %idxprom57
+  %arrayidx58 = getelementptr inbounds [100 x [10 x [10 x i32]]], ptr %arrayidx56, i64 0, i64 %idxprom57
   %idxprom59 = sext i32 %i45.039 to i64
-  %arrayidx60 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %arrayidx58, i64 0, i64 %idxprom59
+  %arrayidx60 = getelementptr inbounds [10 x [10 x i32]], ptr %arrayidx58, i64 0, i64 %idxprom59
   %idxprom61 = sext i32 %j49.038 to i64
-  %arrayidx62 = getelementptr inbounds [10 x i32], [10 x i32]* %arrayidx60, i64 0, i64 %idxprom61
-  store i32 %add, i32* %arrayidx62, align 4
+  %arrayidx62 = getelementptr inbounds [10 x i32], ptr %arrayidx60, i64 0, i64 %idxprom61
+  store i32 %add, ptr %arrayidx62, align 4
   br label %for.inc63
 
 for.inc63:                                        ; preds = %for.body52
@@ -307,28 +307,28 @@ for.body93:                                       ; preds = %for.body89, %for.in
 for.body97:                                       ; preds = %for.body93, %for.inc119
   %j94.043 = phi i32 [ 0, %for.body93 ], [ %inc120, %for.inc119 ]
   %idxprom98 = sext i32 %m78.047 to i64
-  %arrayidx99 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A, i64 0, i64 %idxprom98
+  %arrayidx99 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr %A, i64 0, i64 %idxprom98
   %idxprom100 = sext i32 %l82.046 to i64
-  %arrayidx101 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], [100 x [100 x [10 x [10 x i32]]]]* %arrayidx99, i64 0, i64 %idxprom100
+  %arrayidx101 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], ptr %arrayidx99, i64 0, i64 %idxprom100
   %idxprom102 = sext i32 %k86.045 to i64
-  %arrayidx103 = getelementptr inbounds [100 x [10 x [10 x i32]]], [100 x [10 x [10 x i32]]]* %arrayidx101, i64 0, i64 %idxprom102
+  %arrayidx103 = getelementptr inbounds [100 x [10 x [10 x i32]]], ptr %arrayidx101, i64 0, i64 %idxprom102
   %idxprom104 = sext i32 %j94.043 to i64
-  %arrayidx105 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %arrayidx103, i64 0, i64 %idxprom104
+  %arrayidx105 = getelementptr inbounds [10 x [10 x i32]], ptr %arrayidx103, i64 0, i64 %idxprom104
   %idxprom106 = sext i32 %i90.044 to i64
-  %arrayidx107 = getelementptr inbounds [10 x i32], [10 x i32]* %arrayidx105, i64 0, i64 %idxprom106
-  %0 = load i32, i32* %arrayidx107, align 4
+  %arrayidx107 = getelementptr inbounds [10 x i32], ptr %arrayidx105, i64 0, i64 %idxprom106
+  %0 = load i32, ptr %arrayidx107, align 4
   %add108 = add nsw i32 %0, 1
   %idxprom109 = sext i32 %m78.047 to i64
-  %arrayidx110 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* @B, i64 0, i64 %idxprom109
+  %arrayidx110 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr @B, i64 0, i64 %idxprom109
   %idxprom111 = sext i32 %l82.046 to i64
-  %arrayidx112 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], [100 x [100 x [10 x [10 x i32]]]]* %arrayidx110, i64 0, i64 %idxprom111
+  %arrayidx112 = getelementptr inbounds [100 x [100 x [10 x [10 x i32]]]], ptr %arrayidx110, i64 0, i64 %idxprom111
   %idxprom113 = sext i32 %k86.045 to i64
-  %arrayidx114 = getelementptr inbounds [100 x [10 x [10 x i32]]], [100 x [10 x [10 x i32]]]* %arrayidx112, i64 0, i64 %idxprom113
+  %arrayidx114 = getelementptr inbounds [100 x [10 x [10 x i32]]], ptr %arrayidx112, i64 0, i64 %idxprom113
   %idxprom115 = sext i32 %i90.044 to i64
-  %arrayidx116 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %arrayidx114, i64 0, i64 %idxprom115
+  %arrayidx116 = getelementptr inbounds [10 x [10 x i32]], ptr %arrayidx114, i64 0, i64 %idxprom115
   %idxprom117 = sext i32 %j94.043 to i64
-  %arrayidx118 = getelementptr inbounds [10 x i32], [10 x i32]* %arrayidx116, i64 0, i64 %idxprom117
-  store i32 %add108, i32* %arrayidx118, align 4
+  %arrayidx118 = getelementptr inbounds [10 x i32], ptr %arrayidx116, i64 0, i64 %idxprom117
+  store i32 %add108, ptr %arrayidx118, align 4
   br label %for.inc119
 
 for.inc119:                                       ; preds = %for.body97
@@ -372,7 +372,7 @@ for.end133:                                       ; preds = %for.inc131
   br label %do.cond
 
 do.cond:                                          ; preds = %for.end133
-  %1 = load i32, i32* %b, align 4
+  %1 = load i32, ptr %b, align 4
   %tobool = icmp ne i32 %1, 0
   br i1 %tobool, label %do.body, label %do.end
 

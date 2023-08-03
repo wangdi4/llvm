@@ -45,8 +45,8 @@ namespace llvm {
 static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
 
 struct InstCombineOptions {
-  bool UseLoopInfo;
-  unsigned MaxIterations;
+  bool UseLoopInfo = false;
+  unsigned MaxIterations = InstCombineDefaultMaxIterations;
 #if INTEL_CUSTOMIZATION
   bool PreserveForDTrans;
   bool PreserveAddrCompute;
@@ -119,7 +119,6 @@ class InstructionCombiningPass : public FunctionPass {
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const bool EnableCanonicalizeSwap; // INTEL
-  const unsigned MaxIterations;
 
 public:
   static char ID; // Pass identification, replacement for typeid

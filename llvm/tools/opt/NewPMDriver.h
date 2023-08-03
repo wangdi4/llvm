@@ -73,7 +73,8 @@ bool runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                      bool ShouldPreserveAssemblyUseListOrder,
                      bool ShouldPreserveBitcodeUseListOrder,
                      bool EmitSummaryIndex, bool EmitModuleHash,
-                     bool EnableDebugify, bool VerifyDIPreserve);
+                     bool EnableDebugify, bool VerifyDIPreserve,
+                     bool UnifiedLTO = false);
 } // namespace llvm
 
 #endif

@@ -14,9 +14,9 @@
 ;   }
 ; }
 
-; CHECK: PRIVATE clause (size=1): (ptr %{{.*}}) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: FIRSTPRIVATE clause (size=1): (ptr %{{.*}}) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: LINEAR clause (size=1): (ptr @y, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
+; CHECK: PRIVATE clause (size=1): TYPED(ptr %{{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: FIRSTPRIVATE clause (size=1): TYPED(ptr %{{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: LINEAR clause (size=1): (TYPED(ptr @y, TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
 ; CHECK: IV clause:   %.omp.iv = alloca i32, align 4, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
 ; CHECK: UB clause:   %.omp.ub = alloca i32, align 4, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
 

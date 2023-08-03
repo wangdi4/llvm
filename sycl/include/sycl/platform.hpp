@@ -17,12 +17,11 @@
 #include <sycl/detail/owner_less_base.hpp>
 #include <sycl/device_selector.hpp>
 #include <sycl/ext/oneapi/weak_object_base.hpp>
-#include <sycl/stl.hpp>
 
-// 4.6.2 Platform class
 #include <utility>
+
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 // TODO: make code thread-safe
 
 // Forward declaration
@@ -33,7 +32,16 @@ auto get_native(const SyclObjectT &Obj)
     -> backend_return_t<BackendName, SyclObjectT>;
 namespace detail {
 class platform_impl;
-}
+
+/// Allows to enable/disable "Default Context" extension
+///
+/// This API is in detail:: namespace because it's never supposed
+/// to be called by end-user. It's necessary for internal use of
+/// oneAPI components
+///
+/// \param Val Indicates if extension should be enabled/disabled
+void __SYCL_EXPORT enable_ext_oneapi_default_context(bool Val);
+} // namespace detail
 namespace ext::oneapi {
 // Forward declaration
 class filter_selector;
@@ -141,6 +149,15 @@ public:
   /// \return the backend associated with this platform
   backend get_backend() const noexcept;
 
+// Clang may warn about the use of diagnose_if in __SYCL_WARN_IMAGE_ASPECT, so
+// we disable that warning as we make appropriate checks to ensure its
+// existence.
+// TODO: Remove this diagnostics when __SYCL_WARN_IMAGE_ASPECT is removed.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgcc-compat"
+#endif // defined(__clang__)
+
   /// Indicates if all of the SYCL devices on this platform have the
   /// given feature.
   ///
@@ -149,7 +166,12 @@ public:
   ///
   /// \return true if all of the SYCL devices on this platform have the
   /// given feature.
-  bool has(aspect Aspect) const;
+  bool has(aspect Aspect) const __SYCL_WARN_IMAGE_ASPECT(Aspect);
+
+// TODO: Remove this diagnostics when __SYCL_WARN_IMAGE_ASPECT is removed.
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif // defined(__clang__)
 
   /// Return this platform's default context
   ///
@@ -173,7 +195,7 @@ private:
   friend auto get_native(const SyclObjectT &Obj)
       -> backend_return_t<BackendName, SyclObjectT>;
 }; // class platform
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 namespace std {

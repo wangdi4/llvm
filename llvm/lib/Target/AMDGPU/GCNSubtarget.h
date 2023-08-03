@@ -65,7 +65,6 @@ protected:
   unsigned MaxPrivateElementSize = 0;
 
   // Possibly statically set by tablegen, but may want to be overridden.
-  bool FastFMAF32 = false;
   bool FastDenormalF32 = false;
   bool HalfRate64Ops = false;
   bool FullRate64Ops = false;
@@ -206,6 +205,7 @@ protected:
   bool HasMADIntraFwdBug = false;
   bool HasVOPDInsts = false;
   bool HasVALUTransUseHazard = false;
+  bool HasForceStoreSC0SC1 = false;
 
   // Dummy feature to use for assembler in tablegen.
   bool FeatureDisable = false;
@@ -325,10 +325,6 @@ public:
 
   bool hasHWFP64() const {
     return FP64;
-  }
-
-  bool hasFastFMAF32() const {
-    return FastFMAF32;
   }
 
   bool hasHalfRate64Ops() const {
@@ -1097,6 +1093,8 @@ public:
   }
 
   bool hasVALUTransUseHazard() const { return HasVALUTransUseHazard; }
+
+  bool hasForceStoreSC0SC1() const { return HasForceStoreSC0SC1; }
 
   bool hasVALUMaskWriteHazard() const { return getGeneration() >= GFX11; }
 

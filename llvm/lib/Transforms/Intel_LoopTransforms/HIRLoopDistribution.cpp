@@ -64,19 +64,19 @@ cl::opt<bool> AlwaysStripmine(
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
-const unsigned OptReportMsg[Last] = {
+const OptRemarkID OptReportMsg[PragmaReturnCode::Last] = {
     //"Distribute point pragma not processed",
-    25481u,
+    OptRemarkID::DistributePointPragmaNotProcessed,
     //"No Distribution as requested by pragma",
-    25482u,
+    OptRemarkID::NoDistributionAsRequested,
     //"Distribute point pragma processed",
-    25483u,
+    OptRemarkID::DistributePointPragmaProcessed,
     //"Distribute point pragma not processed: Unsupported constructs in loops",
-    25484u,
+    OptRemarkID::DistribPragmaFailUnsupportedConstructs,
     //"Distribute point pragma not processed: Loopnest too large for stripmine",
-    25485u,
+    OptRemarkID::DistribPragmaFailLoopNestTooLarge,
     //"Distribute point pragma not processed: Too many Distribute points"
-    25486u};
+    OptRemarkID::DistribPragmaFailExcessDistribPoints};
 
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
@@ -1133,10 +1133,12 @@ void HIRLoopDistribution::distributeLoop(
 
       // Loop distributed (%d way) for <Reason>
       if (DistCostModel == DistHeuristics::NestFormation) {
-        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
+                                       OptRemarkID::LoopDistributionPerfectNest,
                                        LoopCount);
       } else {
-        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25427u,
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
+                                       OptRemarkID::LoopDistributionEnableVec,
                                        LoopCount);
       }
     }
@@ -1181,7 +1183,8 @@ void HIRLoopDistribution::distributeLoop(
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
                                    StripmineSize, StripmineRequiresExtraSetup);
       // Loop stripmined by <StripmineSize>
-      ORBuilder(*NewLoops[0]->getParentLoop()).addOrigin(25428u, StripmineSize);
+      ORBuilder(*NewLoops[0]->getParentLoop())
+          .addOrigin(OptRemarkID::LoopStripMineFactor, StripmineSize);
     }
 
     SCEX.replaceWithArrayTemps();

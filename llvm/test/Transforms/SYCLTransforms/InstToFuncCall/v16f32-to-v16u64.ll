@@ -2,12 +2,15 @@
 ; RUN: opt -passes=sycl-kernel-inst-to-func-call -sycl-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(<16 x float> %x, <16 x i64>* %y) nounwind {
+define void @sample_test(<16 x float> %x, ptr %y) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
   %tmp = fptoui <16 x float> %x to <16 x i64>
-  store <16 x i64> %tmp, <16 x i64> * %y
+  store <16 x i64> %tmp, ptr %y
   ret void
 }
 
 ; CHECK: call <16 x i64> @_Z15convert_ulong16Dv16_f(<16 x float> %x)
 
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"float16", !"ulong16*"}
+!1 = !{<16 x float> zeroinitializer, <16 x i64>* null}

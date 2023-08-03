@@ -68,12 +68,11 @@
 ; CHECK-NEXT:       float [[VP9]] = fadd float [[VP_LOAD_2]] float [[VP15]]
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[B0]] i64 [[VP10]]
 ; CHECK-NEXT:       compress-store float [[VP9]] float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP8]], [[BB4]] ],  [ i32 [[VP6]], [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP16]] = compress-expand-index-inc i32 [[VP7]]
+; CHECK-NEXT:     i1 [[VP7:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP16]] = compress-expand-index-inc {stride: 1} i32 [[VP6]] i1 [[VP7]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP4]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -87,25 +86,24 @@
 ; CHECK-NEXT:     br <External Block>
 
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[K_0130]],  0
-; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[K_0130]]
 ; CHECK:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC40:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC0]] != 0
 ; CHECK-NEXT:        |   [[DOTVEC40]] = (<4 x float>*)([[A0]])[i1], Mask = @{[[DOTVEC30]]}
-; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<4 x float*>)([[B0]])[%phi.temp]),  0
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_0]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  poison)
 ; CHECK-NEXT:        |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  [[EXP_LOAD0]]
-; CHECK-NEXT:        |   [[EXTRACT_0_60:%.*]] = extractelement &((<4 x float*>)([[B0]])[%phi.temp]),  0
-; CHECK-NEXT:        |   @llvm.masked.compressstore.v4f32([[DOTVEC50]],  [[EXTRACT_0_60]],  [[DOTVEC30]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])
-; CHECK-NEXT:        |   [[INSERT70:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
-; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[INSERT70]]
+; CHECK-NEXT:        |   @llvm.masked.compressstore.v4f32([[DOTVEC50]],  &((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
+; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<4 x i1>.i4([[SELECT0]])
+; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i4([[CAST0]])
+; CHECK-NEXT:        |   [[ZEXT0:%.*]] = zext.i4.i32([[POPCNT0]])
+; CHECK-NEXT:        |   [[MUL0:%.*]] = [[ZEXT0]]  *  1
+; CHECK-NEXT:        |   [[ADD60:%.*]] = [[PHI_TEMP0]]  +  [[MUL0]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[ADD60]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[EXTRACT_0_90:%.*]] = extractelement [[INSERT70]],  0
-; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_90]]
+; CHECK:             [[K_0130]] = [[ADD60]]
 ; CHECK-NEXT:  END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

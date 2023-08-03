@@ -18,12 +18,11 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ; CHECK-NEXT:           [[LOOP_UB290:%.*]] = [[VEC_TC260:%.*]]  -  1
 ;
 ; CHECK:                + DO i1 = 0, [[LOOP_UB290]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   [[DOTVEC300:%.*]] = [[PHI_TEMP270]]  +  1
-; CHECK-NEXT:           |   [[DOTVEC310:%.*]] = [[DOTVEC300]]  +  0
-; CHECK-NEXT:           |   [[PHI_TEMP270]] = [[DOTVEC310]]
+; CHECK-NEXT:           |   [[DOTVEC300:%.*]] = [[PHI_TEMP270]]  +  1  +  0
+; CHECK-NEXT:           |   [[PHI_TEMP270]] = [[DOTVEC300]]
 ; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:                %"sum_pairs_0_$OFF.0.i.i" = @llvm.vector.reduce.add.v8i64([[DOTVEC310]])
+; CHECK:                %"sum_pairs_0_$OFF.0.i.i" = @llvm.vector.reduce.add.v8i64([[DOTVEC300]])
 ; CHECK-NEXT:           [[IND_FINAL330:%.*]] = 0  +  [[VEC_TC260]]
 ; CHECK-NEXT:           [[DOTVEC340:%.*]] = %"sum_pairs_0_$JHI_fetch.9.i.i" + 1 == [[VEC_TC260]]
 ; CHECK-NEXT:           [[PHI_TEMP200:%.*]] = [[IND_FINAL330]]
@@ -33,7 +32,7 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ; CHECK-NEXT:           [[EXTRACT_0_410:%.*]] = extractelement [[DOTVEC340]],  0
 ; CHECK-NEXT:           if ([[EXTRACT_0_410]] == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.122
+; CHECK-NEXT:              goto final.merge.121
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           [[MERGE_BLK1:.*]].92:
 ; CHECK-NEXT:           [[LB_TMP160:%.*]] = [[PHI_TEMP200]]
@@ -45,7 +44,7 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ;
 ; CHECK:                [[PHI_TEMP370]] = %"sum_pairs_0_$JHI_fetch.9.i.i"
 ; CHECK-NEXT:           [[PHI_TEMP390]] = %"sum_pairs_0_$OFF.0.i.i"
-; CHECK-NEXT:           final.merge.122:
+; CHECK-NEXT:           final.merge.121:
 ; CHECK-NEXT:           [[ADD_4_I_I2_LCSSA50:.*]] = 0.000000e+00
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:  END REGION
@@ -59,8 +58,8 @@ bb5.i.i:                                          ; preds = %bb10.i.i, %alloca_0
   br i1 %rel.3.i.i, label %bb10.i.i, label %bb_new56_then.i.i
 
 bb_new56_then.i.i:                                ; preds = %bb5.i.i
-  %"sum_pairs_0_$PAIR[].i.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 0, double* elementtype(double) null, i64 %"sum_pairs_0_$OFF.0.i.i")
-  %"sum_pairs_0_$PAIR[]_fetch.30.i.i" = load double, double* %"sum_pairs_0_$PAIR[].i.i", align 1
+  %"sum_pairs_0_$PAIR[].i.i" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(double) null, i64 %"sum_pairs_0_$OFF.0.i.i")
+  %"sum_pairs_0_$PAIR[]_fetch.30.i.i" = load double, ptr %"sum_pairs_0_$PAIR[].i.i", align 1
   br label %bb10.i.i
 
 bb10.i.i:                                         ; preds = %bb_new56_then.i.i, %bb5.i.i
@@ -78,7 +77,7 @@ sum_pairs_0_.t0p.t0p.t0p.t0p.t0p.t1p.t0p.t1p.t0p.exit.loopexit: ; preds = %bb10.
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { "target-cpu"="skylake-avx512" }
 attributes #1 = { nounwind readnone speculatable }

@@ -188,24 +188,56 @@ cl_dev_err_code CPUCompileService::CheckProgramBinary(const void *pBinary,
       static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
   Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
 
-  if (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL) {
+  switch (headerFlag) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  case CLElfLib::EH_FLAG_DMR:
+    valid &= cpuId->HasDMR();
+    cpu = Intel::OpenCL::Utils::CPU_DMR;
+    break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
+  case CLElfLib::EH_FLAG_GNR:
+    valid &= cpuId->HasGNR();
+    cpu = Intel::OpenCL::Utils::CPU_GNR;
+    break;
+  case CLElfLib::EH_FLAG_SPR:
+    valid &= cpuId->HasSPR();
+    cpu = Intel::OpenCL::Utils::CPU_SPR;
+    break;
+  case CLElfLib::EH_FLAG_AVX512_ICX:
+    valid &= cpuId->HasAVX512ICX();
+    cpu = Intel::OpenCL::Utils::CPU_ICX;
+    break;
+  case CLElfLib::EH_FLAG_AVX512_ICL:
     valid &= cpuId->HasAVX512ICL();
     cpu = Intel::OpenCL::Utils::CPU_ICL;
-  } else if (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX) {
+    break;
+  case CLElfLib::EH_FLAG_AVX512_CLX:
+    valid &= cpuId->HasAVX512CLX();
+    cpu = Intel::OpenCL::Utils::CPU_CLX;
+    break;
+  case CLElfLib::EH_FLAG_AVX512_SKX:
     valid &= cpuId->HasAVX512SKX();
     cpu = Intel::OpenCL::Utils::CPU_SKX;
-  } else if (headerFlag == CLElfLib::EH_FLAG_AVX2) {
+    break;
+  case CLElfLib::EH_FLAG_AVX2:
     valid &= cpuId->HasAVX2();
     cpu = Intel::OpenCL::Utils::CPU_HSW;
-  } else if (headerFlag == CLElfLib::EH_FLAG_AVX1) {
+    break;
+  case CLElfLib::EH_FLAG_AVX1:
     valid &= cpuId->HasAVX1();
     cpu = Intel::OpenCL::Utils::CPU_SNB;
-  } else if (headerFlag == CLElfLib::EH_FLAG_SSE4) {
+    break;
+  case CLElfLib::EH_FLAG_SSE4:
     valid &= (cpuId->HasSSE41() || cpuId->HasSSE42());
     cpu = Intel::OpenCL::Utils::CPU_COREI7;
-  } else {
+    break;
+  default:
     valid = false;
+    break;
   }
+
   if (valid && cpuId->GetCPU() != cpu)
     m_programBuilder.GetCompiler()->SetBuiltinModules(
         CPUDetect::GetCPUName(cpu));

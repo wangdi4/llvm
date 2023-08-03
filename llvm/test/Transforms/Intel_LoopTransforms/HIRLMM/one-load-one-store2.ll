@@ -71,21 +71,21 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %if.end
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %add1, %if.end ]
-  %0 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 4), align 16
+  %0 = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 4), align 16
   %add = add nsw i32 %0, %N
   %add1 = add nuw nsw i32 %i.02, 1
   %1 = zext i32 %add1 to i64
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %1
-  store i32 %add, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %1
+  store i32 %add, ptr %arrayidx, align 4
   %2 = zext i32 %i.02 to i64
-  %arrayidx3 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %2
-  %3 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %2
+  %3 = load i32, ptr %arrayidx3, align 4
   %cmp4 = icmp sgt i32 %3, 0
   br i1 %cmp4, label %for.body.for.end_crit_edge, label %if.end
 
 if.end:                                           ; preds = %for.body
   %add7 = add nsw i32 %3, 1
-  store i32 %add7, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @C, i64 0, i64 5), align 4
+  store i32 %add7, ptr getelementptr inbounds ([1000 x i32], ptr @C, i64 0, i64 5), align 4
   %cmp = icmp slt i32 %add1, %N
   br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge
 

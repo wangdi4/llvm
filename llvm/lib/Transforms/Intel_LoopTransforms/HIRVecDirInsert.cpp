@@ -121,11 +121,12 @@ PreservedAnalyses HIRVecDirInsertPass::runImpl(Function &F,
                                                HIRFramework &HIRF) {
   auto HPVA = &AM.getResult<HIRParVecAnalysisPass>(F);
   const bool OuterVec = this->OuterVec && !OuterVecDisabled;
+  ModifiedHIR = false;
   if (shouldRunOnFunction(F, OuterVec)) {
-    ParVecDirectiveInsertion(OuterVec
-                                 ? ParVecInfo::VectorForVectorizer
-                                 : ParVecInfo::VectorForVectorizerInnermost)
-        .runOnFunction(F, &HIRF, HPVA);
+    ModifiedHIR = ParVecDirectiveInsertion(
+                      OuterVec ? ParVecInfo::VectorForVectorizer
+                               : ParVecInfo::VectorForVectorizerInnermost)
+                      .runOnFunction(F, &HIRF, HPVA);
   }
   return PreservedAnalyses::all();
 }

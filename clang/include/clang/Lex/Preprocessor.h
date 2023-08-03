@@ -516,7 +516,7 @@ private:
     };
 
   public:
-    ModuleDeclSeq() : State(NotAModuleDecl) {}
+    ModuleDeclSeq() = default;
 
     void handleExport() {
       if (State == NotAModuleDecl)
@@ -603,7 +603,7 @@ private:
     }
 
   private:
-    ModuleDeclState State;
+    ModuleDeclState State = NotAModuleDecl;
     std::string Name;
   };
 
@@ -642,7 +642,7 @@ private:
   /// The directory that the main file should be considered to occupy,
   /// if it does not correspond to a real file (as happens when building a
   /// module).
-  const DirectoryEntry *MainFileDir = nullptr;
+  OptionalDirectoryEntryRef MainFileDir;
 
   /// The number of bytes that we will initially skip when entering the
   /// main file, along with a flag that indicates whether skipping this number
@@ -746,7 +746,7 @@ private:
   /// Only one of CurLexer, or CurTokenLexer will be non-null.
   std::unique_ptr<Lexer> CurLexer;
 
-  /// The current top of the stack what we're lexing from
+  /// The current top of the stack that we're lexing from
   /// if not expanding a macro.
   ///
   /// This is an alias for CurLexer.
@@ -1503,6 +1503,7 @@ public:
 
   /// Return true if this header has already been included.
   bool alreadyIncluded(const FileEntry *File) const {
+    HeaderInfo.getFileInfo(File);
     return IncludedFiles.count(File);
   }
 
@@ -2029,9 +2030,7 @@ public:
 
   /// Set the directory in which the main file should be considered
   /// to have been found, if it is not a real file.
-  void setMainFileDir(const DirectoryEntry *Dir) {
-    MainFileDir = Dir;
-  }
+  void setMainFileDir(DirectoryEntryRef Dir) { MainFileDir = Dir; }
 
   /// Instruct the preprocessor to skip part of the main source file.
   ///

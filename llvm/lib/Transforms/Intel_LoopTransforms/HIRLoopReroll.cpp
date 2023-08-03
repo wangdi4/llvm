@@ -1947,7 +1947,7 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Loop);
   if (LS.hasIfs() || LS.hasSwitches() || LS.hasForwardGotos() ||
       LS.hasCalls()) {
     return false;
@@ -2125,7 +2125,8 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
   OptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              OptRemarkID::LoopRerollFactor, RerollFactor);
 
   return true;
 }
@@ -2185,6 +2186,7 @@ bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,
                                              HIRFramework &HIRF) {
+  ModifiedHIR = false;
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
@@ -2197,6 +2199,7 @@ PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                    AM.getResult<HIRSafeReductionAnalysisPass>(F));
   LoopsRerolled += NumRerolled;
   if (NumRerolled > 0) {
+    ModifiedHIR = true;
     LLVM_DEBUG(dbgs() << "Reroll happend\n");
   }
 

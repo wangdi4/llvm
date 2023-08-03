@@ -1,185 +1,125 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose"  -print-after=hir-temp-array-transpose -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose"  -print-after=hir-temp-array-transpose -disable-output 2>&1 | FileCheck %s
 
 
-; Check that we transpose the array with following dims: [i4][i3 + sext.i32.i64(%tmp1884) + -1].
-; Even though i3 is not standalone and %tmp1884 is non-linear, the dimsizes are constant,
+; Check that we transpose the array with following dims: [i4][i3 + sext.i32.i64(%phi73) + -1]
+; Even though i3 is not standalone and %phi73 is non-linear, the dimsizes are constant,
 ; which allows us to copy the contents of the array and use the transposed copy.
 
 ; Note that there are 3 uses in 3 loops where we reuse the copied transpose temparray.
 
-; Before Transformation
-;    BEGIN REGION { }
-;          + DO i1 = 0, zext.i32.i64(%tmp1866) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 150>  <LEGAL_MAX_TC = 2147483647>
-;          |      %tmp1884 = 1;
-;          |      %tmp1885 = 0;
-;          |   + DO i2 = 0, sext.i32.i64(%tmp1871) + -1, 1   <DO_LOOP>
-;          |   |   %tmp1885.out = %tmp1885;
-;          |   |   %tmp1887 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*))[i2];
-;          |   |   %tmp1885 = %tmp1887 + %tmp1885  +  1;
-;          |   |   if (%tmp1885 >= %tmp1884)
-;          |   |   {
-;          |   |      %tmp1894 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*))[i2];
-;          |   |
-;          |   |      + DO i3 = 0, zext.i32.i64((1 + (-1 * %tmp1884) + %tmp1887 + %tmp1885.out)), 1
-;  <MAX_TC_EST = 150>
-;          |   |      |   %tmp1919 = 0.000000e+00;
-;          |   |      |
-;          |   |      |      %tmp1905 = 0.000000e+00;
-;          |   |      |   + DO i4 = 0, sext.i32.i64(%tmp1887), 1   <DO_LOOP>  <MAX_TC_EST = 150>
-;          |   |      |   |   %tmp1913 = (bitcast ([1092056 x i8]* @global.42 to double*))[i1][i4 + sext.i32.i64(%tmp1884) + -1]  *  (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[i4][i3 + sext.i32.i64(%tmp1884) + -1];
-;          |   |      |   |   %tmp1905 = %tmp1913  +  %tmp1905;
-;          |   |      |   + END LOOP
-;          |   |      |      %tmp1919 = %tmp1905;
-;          |   |      |
-;          |   |      |   %tmp1920 = %tmp1894  *  %tmp1919;
-;          |   |      |   (@global.50)[0][i1][i3 + sext.i32.i64(%tmp1884) + -1] = %tmp1920;
-;          |   |      + END LOOP
-;          |   |   }
-;          |   |   %tmp1884 = %tmp1887 + %tmp1884  +  1;
-;          |   + END LOOP
-;          + END LOOP
-;
-;
-;          + DO i1 = 0, zext.i32.i64(%tmp1866) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 150>  <LEGAL_MAX_TC = 2147483647>
-;          |      %tmp1943 = 1;
-;          |      %tmp1944 = 0;
-;          |   + DO i2 = 0, sext.i32.i64(%tmp1871) + -1, 1   <DO_LOOP>
-;          |   |   %tmp1944.out = %tmp1944;
-;          |   |   %tmp1946 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*))[i2];
-;          |   |   %tmp1944 = %tmp1946 + %tmp1944  +  1;
-;          |   |   if (%tmp1944 >= %tmp1943)
-;          |   |   {
-;          |   |      %tmp1953 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*))[i2];
-;          |   |
-;          |   |      + DO i3 = 0, zext.i32.i64((1 + (-1 * %tmp1943) + %tmp1946 + %tmp1944.out)), 1   <DO_LOOP>  <MAX_TC_EST = 150>
-;          |   |      |   %tmp1978 = 0.000000e+00;
-;          |   |      |
-;          |   |      |      %tmp1964 = 0.000000e+00;
-;          |   |      |   + DO i4 = 0, sext.i32.i64(%tmp1946), 1   <DO_LOOP>  <MAX_TC_EST = 150>
-;          |   |      |   |   %tmp1972 = (bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 180000) to double*))[i1][i4 + sext.i32.i64(%tmp1943) + -1]  *  (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[i4][i3 + sext.i32.i64(%tmp1943) + -1];
-;          |   |      |   |   %tmp1964 = %tmp1972  +  %tmp1964;
-;          |   |      |   + END LOOP
-;          |   |      |      %tmp1978 = %tmp1964;
-;          |   |      |
-;          |   |      |   %tmp1979 = %tmp1953  *  %tmp1978;
-;          |   |      |   (@global.48)[0][i1][i3 + sext.i32.i64(%tmp1943) + -1] = %tmp1979;
-;          |   |      + END LOOP
-;          |   |   }
-;          |   |   %tmp1943 = %tmp1946 + %tmp1943  +  1;
-;          |   + END LOOP
-;          + END LOOP
-;
-;
-;          + DO i1 = 0, zext.i32.i64(%tmp1866) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 150>  <LEGAL_MAX_TC = 2147483647>
-;          |      %tmp2002 = 1;
-;          |      %tmp2003 = 0;
-;          |   + DO i2 = 0, sext.i32.i64(%tmp1871) + -1, 1   <DO_LOOP>
-;          |   |   %tmp2003.out = %tmp2003;
-;          |   |   %tmp2005 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*))[i2];
-;          |   |   %tmp2003 = %tmp2005 + %tmp2003  +  1;
-;          |   |   if (%tmp2003 >= %tmp2002)
-;          |   |   {
-;          |   |      %tmp2012 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*))[i2];
-;          |   |
-;          |   |      + DO i3 = 0, zext.i32.i64((1 + (-1 * %tmp2002) + %tmp2005 + %tmp2003.out)), 1   <DO_LOOP>  <MAX_TC_EST = 150>
-;          |   |      |   %tmp2037 = 0.000000e+00;
-;          |   |      |
-;          |   |      |      %tmp2023 = 0.000000e+00;
-;          |   |      |   + DO i4 = 0, sext.i32.i64(%tmp2005), 1   <DO_LOOP>  <MAX_TC_EST = 150>
-;          |   |      |   |   %tmp2031 = (bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 720000) to double*))[i1][i4 + sext.i32.i64(%tmp2002) + -1]  *  (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[i4][i3 + sext.i32.i64(%tmp2002) + -1];
-;          |   |      |   |   %tmp2023 = %tmp2031  +  %tmp2023;
-;          |   |      |   + END LOOP
-;          |   |      |      %tmp2037 = %tmp2023;
-;          |   |      |
-;          |   |      |   %tmp2038 = %tmp2012  *  %tmp2037;
-;          |   |      |   (@global.46)[0][i1][i3 + sext.i32.i64(%tmp2002) + -1] = %tmp2038;
-;          |   |      + END LOOP
-;          |   |   }
-;          |   |   %tmp2002 = %tmp2005 + %tmp2002  +  1;
-;          |   + END LOOP
-;          + END LOOP
-;    END REGION
+; HIR before transformation
+;        BEGIN REGION { }
+;              + DO i1 = 0, zext.i32.i64(%load4) + -1, 1
+;              |      %phi17 = 1;
+;              |      %phi18 = 0;
+;              |   + DO i2 = 0, sext.i32.i64(%load8) + -1, 1
+;              |   |   %phi18.out = %phi18;
+;              |   |   %load20 = (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523600))[i2];
+;              |   |   %phi18 = %load20 + %phi18  +  1;
+;              |   |   if (%phi18 >= %phi17)
+;              |   |   {
+;              |   |      %load27 = (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523720))[i2];
+;              |   |
+;              |   |      + DO i3 = 0, zext.i32.i64((1 + (-1 * %phi17) + %load20 + %phi18.out)), 1
+;              |   |      |   %phi50 = 0.000000e+00;
+;              |   |      |
+;              |   |      |      %phi38 = 0.000000e+00;
+;              |   |      |   + DO i4 = 0, sext.i32.i64(%load20), 1
+;              |   |      |   |   %fmul = (@global.2)[i1][i4 + sext.i32.i64(%phi17) + -1]  *  (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2484000))[i4][i3 + sext.i32.i64(%phi17) + -1];
+;              |   |      |   |   %phi38 = %fmul  +  %phi38;
+;              |   |      |   + END LOOP
+;              |   |      |      %phi50 = %phi38;
+;              |   |      |
+;              |   |      |   %fmul51 = %load27  *  %phi50;
+;              |   |      |   (@global.5)[i1][i3 + sext.i32.i64(%phi17) + -1] = %fmul51;
+;              |   |      + END LOOP
+;              |   |   }
+;              |   |   %phi17 = %load20 + %phi17  +  1;
+;              |   + END LOOP
+;              + END LOOP
 
-; Region After Transpose:
-; CHECK:  BEGIN REGION { modified }
-; CHECK:        %call = @llvm.stacksave();
-; CHECK:        %TranspTmpArr = alloca 39600;
+; CHECK: BEGIN REGION { modified }
+; CHECK:       %call15 = @llvm.stacksave();
+; CHECK:       %TranspTmpArr = alloca 39600;
 ;
-; CHECK:        + DO i1 = 0, 149, 1   <DO_LOOP>
-; CHECK:        |   + DO i2 = 0, 32, 1   <DO_LOOP>
-; CHECK:        |   |   (%TranspTmpArr)[i1][i2] = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[i2][i1];
-; CHECK:        |   + END LOOP
-; CHECK:        + END LOOP
+;              + DO i1 = 0, 149, 1
+;              |   + DO i2 = 0, 32, 1
+;              |   |   (%TranspTmpArr)[i1][i2] = (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2484000))[i2][i1];
+;              |   + END LOOP
+;              + END LOOP
 ;
 ;
-; CHECK:        + DO i1
-; CHECK:        |   + DO i2
-; CHECK:        |   |      + DO i3
-; CHECK:        |   |      |   + DO i4
-; CHECK:        |   |      |   |   %tmp1913 = (bitcast ([1092056 x i8]* @global.42 to double*))[i1][i4 + sext.i32.i64(%tmp1884) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%tmp1884) + -1][i4];
+;              + DO i1 = 0, zext.i32.i64(%load4) + -1, 1
+;              |      %phi17 = 1;
+;              |      %phi18 = 0;
+;              |   + DO i2 = 0, sext.i32.i64(%load8) + -1, 1
+;              |   |   %phi18.out = %phi18;
+;              |   |   %load20 = (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523600))[i2];
+;              |   |   %phi18 = %load20 + %phi18  +  1;
+;              |   |   if (%phi18 >= %phi17)
+;              |   |   {
+;              |   |      %load27 = (getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523720))[i2];
+;              |   |
+;              |   |      + DO i3 = 0, zext.i32.i64((1 + (-1 * %phi17) + %load20 + %phi18.out)), 1
+;              |   |      |   %phi50 = 0.000000e+00;
+;              |   |      |
+;              |   |      |      %phi38 = 0.000000e+00;
+;              |   |      |   + DO i4 = 0, sext.i32.i64(%load20), 1
+; CHECK:       |   |      |   |   %fmul = (@global.2)[i1][i4 + sext.i32.i64(%phi17) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%phi17) + -1][i4];
 
-; CHECK:        + DO i1
-; CHECK:        |   + DO i2
-; CHECK:        |   |      + DO i3
-; CHECK:        |   |      |   + DO i4
-; CHECK:        |   |      |   |   %tmp1972 = (bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 180000) to double*))[i1][i4 + sext.i32.i64(%tmp1943) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%tmp1943) + -1][i4];
+; CHECK:       |   |      |   |   %fmul102 = (getelementptr inbounds ([1092056 x i8], ptr @global.2, i64 0, i64 180000))[i1][i4 + sext.i32.i64(%phi73) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%phi73) + -1][i4];
 
-; CHECK:        + DO i1
-; CHECK:        |   + DO i2
-; CHECK:        |   |      + DO i3
-; CHECK:        |   |      |   + DO i4
-; CHECK:        |   |      |   |   %tmp2031 = (bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 720000) to double*))[i1][i4 + sext.i32.i64(%tmp2002) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%tmp2002) + -1][i4];
+; CHECK:       |   |      |   |   %fmul161 = (getelementptr inbounds ([1092056 x i8], ptr @global.2, i64 0, i64 720000))[i1][i4 + sext.i32.i64(%phi132) + -1]  *  (%TranspTmpArr)[i3 + sext.i32.i64(%phi132) + -1][i4];
 
-; CHECK:        @llvm.stackrestore(&((%call)[0]));
-; CHECK:  END REGION
+
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@global.40 = external hidden unnamed_addr global [2523968 x i8], align 32
-@global.41 = external hidden unnamed_addr global [2523968 x i8], align 32
-@global.42 = external hidden unnamed_addr global [1092056 x i8], align 32
-@global.46 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.48 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.50 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.103 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.104 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.105 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
-@global.106 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global = external hidden unnamed_addr global [2523968 x i8], align 32
+@global.1 = external hidden unnamed_addr global [2523968 x i8], align 32
+@global.2 = external hidden unnamed_addr global [1092056 x i8], align 32
+@global.3 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.4 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.5 = external hidden unnamed_addr global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.6 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.7 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.8 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
+@global.9 = external hidden global [150 x [150 x double]], align 16, !llfort.type_idx !0
 
-; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+; Function Attrs: nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+; Function Attrs: nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
 
-; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite)
 declare void @llvm.experimental.noalias.scope.decl(metadata) #1
 
 ; Function Attrs: nofree nosync nounwind uwtable
-declare hidden fastcc void @wobble(i32, i32, double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
+declare hidden fastcc void @hoge(i32, i32, ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
 
 ; Function Attrs: nofree nosync nounwind uwtable
-declare hidden fastcc void @pluto(i32, double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
+declare hidden fastcc void @barney(i32, ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
 
 ; Function Attrs: nofree nosync nounwind uwtable
-declare hidden fastcc void @spam(i32, i32, double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
+declare hidden fastcc void @wibble(i32, i32, ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
 
 ; Function Attrs: nofree nosync nounwind uwtable
-declare hidden fastcc void @wombat(i32, i32, double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8), double* noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
+declare hidden fastcc void @spam(i32, i32, ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8), ptr noalias nocapture writeonly dereferenceable(8)) unnamed_addr #2
 
 ; Function Attrs: nounwind uwtable
-define dso_local i1 @zot.bb1863(i32* %tmp1866.out, i1* %tmp1867.out, i32* %tmp2055.out) #3 {
-newFuncRoot:
-  br label %bb1863
+define dso_local i1 @wobble(ptr %arg, ptr %arg1, ptr %arg2) #3 {
+bb:
+  br label %bb3
 
-bb1863:                                           ; preds = %newFuncRoot
-  call fastcc void @wobble(i32 1, i32 1, double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.106, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.105, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.104, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.103, i64 0, i64 0, i64 0)) #4
-  call fastcc void @pluto(i32 1, double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.106, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.105, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.104, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.103, i64 0, i64 0, i64 0)) #4
-  call fastcc void @spam(i32 1, i32 1, double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.106, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.105, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.104, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.103, i64 0, i64 0, i64 0)) #4
-  %tmp1864 = load i32, i32* bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.41, i64 0, i64 2523964) to i32*), align 4, !tbaa !4, !llfort.type_idx !9
-  %tmp1865 = add nsw i32 %tmp1864, -1
-  call fastcc void @wombat(i32 2, i32 %tmp1865, double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.106, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.105, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.104, i64 0, i64 0, i64 0), double* getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.103, i64 0, i64 0, i64 0)) #4
+bb3:                                              ; preds = %bb
+  call fastcc void @hoge(i32 1, i32 1, ptr @global.9, ptr @global.8, ptr @global.7, ptr @global.6) #4
+  call fastcc void @barney(i32 1, ptr @global.9, ptr @global.8, ptr @global.7, ptr @global.6) #4
+  call fastcc void @wibble(i32 1, i32 1, ptr @global.9, ptr @global.8, ptr @global.7, ptr @global.6) #4
+  %load = load i32, ptr getelementptr inbounds ([2523968 x i8], ptr @global.1, i64 0, i64 2523964), align 4, !tbaa !4, !llfort.type_idx !9
+  %add = add nsw i32 %load, -1
+  call fastcc void @spam(i32 2, i32 %add, ptr @global.9, ptr @global.8, ptr @global.7, ptr @global.6) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !10) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !13) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !15) #4
@@ -187,314 +127,314 @@ bb1863:                                           ; preds = %newFuncRoot
   call void @llvm.experimental.noalias.scope.decl(metadata !19) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !21) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !23) #4
-  %tmp1866 = load i32, i32* bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523964) to i32*), align 4, !tbaa !25, !alias.scope !23, !noalias !30, !llfort.type_idx !31
-  store i32 %tmp1866, i32* %tmp1866.out, align 4
-  %tmp1867 = icmp slt i32 %tmp1866, 1
-  store i1 %tmp1867, i1* %tmp1867.out, align 1
-  br i1 %tmp1867, label %bb1868, label %bb1870
+  %load4 = load i32, ptr getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523964), align 4, !tbaa !25, !alias.scope !23, !noalias !30, !llfort.type_idx !31
+  store i32 %load4, ptr %arg, align 4
+  %icmp = icmp slt i32 %load4, 1
+  store i1 %icmp, ptr %arg1, align 1
+  br i1 %icmp, label %bb5, label %bb7
 
-bb1868:                                           ; preds = %bb1863
-  %tmp1869 = load i32, i32* bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523960) to i32*), align 8, !tbaa !32
-  br label %bb2054
+bb5:                                              ; preds = %bb3
+  %load6 = load i32, ptr getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523960), align 8, !tbaa !32
+  br label %bb184
 
-bb1870:                                           ; preds = %bb1863
-  %tmp1871 = load i32, i32* bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523960) to i32*), align 8, !tbaa !34, !alias.scope !21, !noalias !36, !llfort.type_idx !37
-  %tmp1872 = icmp slt i32 %tmp1871, 1
-  %tmp1873 = add nuw nsw i32 %tmp1871, 1
-  %tmp1874 = add nuw nsw i32 %tmp1866, 1
-  %tmp1875 = zext i32 %tmp1874 to i64
-  %tmp1876 = sext i32 %tmp1873 to i64
-  br label %bb1877
+bb7:                                              ; preds = %bb3
+  %load8 = load i32, ptr getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523960), align 8, !tbaa !34, !alias.scope !21, !noalias !36, !llfort.type_idx !37
+  %icmp9 = icmp slt i32 %load8, 1
+  %add10 = add nuw nsw i32 %load8, 1
+  %add11 = add nuw nsw i32 %load4, 1
+  %zext = zext i32 %add11 to i64
+  %sext = sext i32 %add10 to i64
+  br label %bb12
 
-bb1877:                                           ; preds = %bb1932, %bb1870
-  %tmp1878 = phi i64 [ 1, %bb1870 ], [ %tmp1933, %bb1932 ]
-  br i1 %tmp1872, label %bb1932, label %bb1879
+bb12:                                             ; preds = %bb62, %bb7
+  %phi = phi i64 [ 1, %bb7 ], [ %add63, %bb62 ]
+  br i1 %icmp9, label %bb62, label %bb13
 
-bb1879:                                           ; preds = %bb1877
-  %tmp1880 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.50, i64 0, i64 0, i64 0), i64 %tmp1878) #4
-  %tmp1881 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast ([1092056 x i8]* @global.42 to double*), i64 %tmp1878) #4
-  br label %bb1882
+bb13:                                             ; preds = %bb12
+  %call = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) @global.5, i64 %phi) #4
+  %call14 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) @global.2, i64 %phi) #4
+  br label %bb15
 
-bb1882:                                           ; preds = %bb1926, %bb1879
-  %tmp1883 = phi i64 [ 1, %bb1879 ], [ %tmp1929, %bb1926 ]
-  %tmp1884 = phi i32 [ 1, %bb1879 ], [ %tmp1928, %bb1926 ]
-  %tmp1885 = phi i32 [ 0, %bb1879 ], [ %tmp1889, %bb1926 ]
-  %tmp1886 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*), i64 %tmp1883) #4, !llfort.type_idx !38, !ifx.array_extent !39
-  %tmp1887 = load i32, i32* %tmp1886, align 1, !tbaa !40, !alias.scope !19, !noalias !42
-  %tmp1888 = add nsw i32 %tmp1885, %tmp1887
-  %tmp1889 = add nsw i32 %tmp1888, 1
-  %tmp1890 = icmp slt i32 %tmp1889, %tmp1884
-  br i1 %tmp1890, label %bb1926, label %bb1891
+bb15:                                             ; preds = %bb56, %bb13
+  %phi16 = phi i64 [ 1, %bb13 ], [ %add59, %bb56 ]
+  %phi17 = phi i32 [ 1, %bb13 ], [ %add58, %bb56 ]
+  %phi18 = phi i32 [ 0, %bb13 ], [ %add22, %bb56 ]
+  %call19 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523600), i64 %phi16) #4, !llfort.type_idx !38, !ifx.array_extent !39
+  %load20 = load i32, ptr %call19, align 1, !tbaa !40, !alias.scope !19, !noalias !42
+  %add21 = add nsw i32 %phi18, %load20
+  %add22 = add nsw i32 %add21, 1
+  %icmp23 = icmp slt i32 %add22, %phi17
+  br i1 %icmp23, label %bb56, label %bb24
 
-bb1891:                                           ; preds = %bb1882
-  %tmp1892 = icmp slt i32 %tmp1887, 0
-  %tmp1893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*), i64 %tmp1883) #4, !llfort.type_idx !43, !ifx.array_extent !39
-  %tmp1894 = load double, double* %tmp1893, align 1, !tbaa !44, !alias.scope !17, !noalias !46, !llfort.type_idx !47
-  %tmp1895 = sext i32 %tmp1884 to i64
-  %tmp1896 = add nuw nsw i32 %tmp1887, 1
-  %tmp1897 = add i32 %tmp1885, 2
-  %tmp1898 = add nsw i32 %tmp1897, %tmp1887
-  %tmp1899 = sext i32 %tmp1896 to i64
-  br label %bb1900
+bb24:                                             ; preds = %bb15
+  %icmp25 = icmp slt i32 %load20, 0
+  %call26 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523720), i64 %phi16) #4, !llfort.type_idx !43, !ifx.array_extent !39
+  %load27 = load double, ptr %call26, align 1, !tbaa !44, !alias.scope !17, !noalias !46, !llfort.type_idx !47
+  %sext28 = sext i32 %phi17 to i64
+  %add29 = add nuw nsw i32 %load20, 1
+  %add30 = add i32 %phi18, 2
+  %add31 = add nsw i32 %add30, %load20
+  %sext32 = sext i32 %add29 to i64
+  br label %bb33
 
-bb1900:                                           ; preds = %bb1918, %bb1891
-  %tmp1901 = phi i64 [ %tmp1895, %bb1891 ], [ %tmp1922, %bb1918 ]
-  br i1 %tmp1892, label %bb1918, label %bb1902
+bb33:                                             ; preds = %bb49, %bb24
+  %phi34 = phi i64 [ %sext28, %bb24 ], [ %add53, %bb49 ]
+  br i1 %icmp25, label %bb49, label %bb35
 
-bb1902:                                           ; preds = %bb1900
-  br label %bb1903
+bb35:                                             ; preds = %bb33
+  br label %bb36
 
-bb1903:                                           ; preds = %bb1903, %bb1902
-  %tmp1904 = phi i64 [ %tmp1906, %bb1903 ], [ 0, %bb1902 ]
-  %tmp1905 = phi double [ %tmp1914, %bb1903 ], [ 0.000000e+00, %bb1902 ]
-  %tmp1906 = add nuw nsw i64 %tmp1904, 1
-  %tmp1907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*), i64 %tmp1906) #4, !llfort.type_idx !48, !ifx.array_extent !49
-  %tmp1908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1907, i64 %tmp1901) #4, !llfort.type_idx !50
-  %tmp1909 = load double, double* %tmp1908, align 1, !tbaa !51, !alias.scope !10, !noalias !53, !llfort.type_idx !54
-  %tmp1910 = add nsw i64 %tmp1904, %tmp1895
-  %tmp1911 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1881, i64 %tmp1910) #4, !llfort.type_idx !55
-  %tmp1912 = load double, double* %tmp1911, align 1, !tbaa !56, !alias.scope !13, !noalias !58, !llfort.type_idx !59
-  %tmp1913 = fmul fast double %tmp1912, %tmp1909
-  %tmp1914 = fadd fast double %tmp1913, %tmp1905
-  %tmp1915 = icmp eq i64 %tmp1906, %tmp1899
-  br i1 %tmp1915, label %bb1916, label %bb1903
+bb36:                                             ; preds = %bb36, %bb35
+  %phi37 = phi i64 [ %add39, %bb36 ], [ 0, %bb35 ]
+  %phi38 = phi double [ %fadd, %bb36 ], [ 0.000000e+00, %bb35 ]
+  %add39 = add nuw nsw i64 %phi37, 1
+  %call40 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2484000), i64 %add39) #4, !llfort.type_idx !48, !ifx.array_extent !49
+  %call41 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call40, i64 %phi34) #4, !llfort.type_idx !50
+  %load42 = load double, ptr %call41, align 1, !tbaa !51, !alias.scope !10, !noalias !53, !llfort.type_idx !54
+  %add43 = add nsw i64 %phi37, %sext28
+  %call44 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call14, i64 %add43) #4, !llfort.type_idx !55
+  %load45 = load double, ptr %call44, align 1, !tbaa !56, !alias.scope !13, !noalias !58, !llfort.type_idx !59
+  %fmul = fmul fast double %load45, %load42
+  %fadd = fadd fast double %fmul, %phi38
+  %icmp46 = icmp eq i64 %add39, %sext32
+  br i1 %icmp46, label %bb47, label %bb36
 
-bb1916:                                           ; preds = %bb1903
-  %tmp1917 = phi double [ %tmp1914, %bb1903 ]
-  br label %bb1918
+bb47:                                             ; preds = %bb36
+  %phi48 = phi double [ %fadd, %bb36 ]
+  br label %bb49
 
-bb1918:                                           ; preds = %bb1916, %bb1900
-  %tmp1919 = phi double [ 0.000000e+00, %bb1900 ], [ %tmp1917, %bb1916 ]
-  %tmp1920 = fmul fast double %tmp1894, %tmp1919
-  %tmp1921 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1880, i64 %tmp1901) #4, !llfort.type_idx !60
-  store double %tmp1920, double* %tmp1921, align 1, !tbaa !61, !alias.scope !15, !noalias !63
-  %tmp1922 = add nsw i64 %tmp1901, 1
-  %tmp1923 = trunc i64 %tmp1922 to i32
-  %tmp1924 = icmp eq i32 %tmp1898, %tmp1923
-  br i1 %tmp1924, label %bb1925, label %bb1900
+bb49:                                             ; preds = %bb47, %bb33
+  %phi50 = phi double [ 0.000000e+00, %bb33 ], [ %phi48, %bb47 ]
+  %fmul51 = fmul fast double %load27, %phi50
+  %call52 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call, i64 %phi34) #4, !llfort.type_idx !60
+  store double %fmul51, ptr %call52, align 1, !tbaa !61, !alias.scope !15, !noalias !63
+  %add53 = add nsw i64 %phi34, 1
+  %trunc = trunc i64 %add53 to i32
+  %icmp54 = icmp eq i32 %add31, %trunc
+  br i1 %icmp54, label %bb55, label %bb33
 
-bb1925:                                           ; preds = %bb1918
-  br label %bb1926
+bb55:                                             ; preds = %bb49
+  br label %bb56
 
-bb1926:                                           ; preds = %bb1925, %bb1882
-  %tmp1927 = add nsw i32 %tmp1884, %tmp1887
-  %tmp1928 = add nsw i32 %tmp1927, 1
-  %tmp1929 = add nuw nsw i64 %tmp1883, 1
-  %tmp1930 = icmp eq i64 %tmp1929, %tmp1876
-  br i1 %tmp1930, label %bb1931, label %bb1882
+bb56:                                             ; preds = %bb55, %bb15
+  %add57 = add nsw i32 %phi17, %load20
+  %add58 = add nsw i32 %add57, 1
+  %add59 = add nuw nsw i64 %phi16, 1
+  %icmp60 = icmp eq i64 %add59, %sext
+  br i1 %icmp60, label %bb61, label %bb15
 
-bb1931:                                           ; preds = %bb1926
-  br label %bb1932
+bb61:                                             ; preds = %bb56
+  br label %bb62
 
-bb1932:                                           ; preds = %bb1931, %bb1877
-  %tmp1933 = add nuw nsw i64 %tmp1878, 1
-  %tmp1934 = icmp eq i64 %tmp1933, %tmp1875
-  br i1 %tmp1934, label %bb1935, label %bb1877
+bb62:                                             ; preds = %bb61, %bb12
+  %add63 = add nuw nsw i64 %phi, 1
+  %icmp64 = icmp eq i64 %add63, %zext
+  br i1 %icmp64, label %bb65, label %bb12
 
-bb1935:                                           ; preds = %bb1932
+bb65:                                             ; preds = %bb62
   call void @llvm.experimental.noalias.scope.decl(metadata !64) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !67) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !69) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !71) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !73) #4
-  br label %bb1936
+  br label %bb66
 
-bb1936:                                           ; preds = %bb1991, %bb1935
-  %tmp1937 = phi i64 [ 1, %bb1935 ], [ %tmp1992, %bb1991 ]
-  br i1 %tmp1872, label %bb1991, label %bb1938
+bb66:                                             ; preds = %bb121, %bb65
+  %phi67 = phi i64 [ 1, %bb65 ], [ %add122, %bb121 ]
+  br i1 %icmp9, label %bb121, label %bb68
 
-bb1938:                                           ; preds = %bb1936
-  %tmp1939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.48, i64 0, i64 0, i64 0), i64 %tmp1937) #4
-  %tmp1940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 180000) to double*), i64 %tmp1937) #4
-  br label %bb1941
+bb68:                                             ; preds = %bb66
+  %call69 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) @global.4, i64 %phi67) #4
+  %call70 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) getelementptr inbounds ([1092056 x i8], ptr @global.2, i64 0, i64 180000), i64 %phi67) #4
+  br label %bb71
 
-bb1941:                                           ; preds = %bb1985, %bb1938
-  %tmp1942 = phi i64 [ 1, %bb1938 ], [ %tmp1988, %bb1985 ]
-  %tmp1943 = phi i32 [ 1, %bb1938 ], [ %tmp1987, %bb1985 ]
-  %tmp1944 = phi i32 [ 0, %bb1938 ], [ %tmp1948, %bb1985 ]
-  %tmp1945 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*), i64 %tmp1942) #4, !llfort.type_idx !38, !ifx.array_extent !39
-  %tmp1946 = load i32, i32* %tmp1945, align 1, !tbaa !75, !alias.scope !73, !noalias !80
-  %tmp1947 = add nsw i32 %tmp1944, %tmp1946
-  %tmp1948 = add nsw i32 %tmp1947, 1
-  %tmp1949 = icmp slt i32 %tmp1948, %tmp1943
-  br i1 %tmp1949, label %bb1985, label %bb1950
+bb71:                                             ; preds = %bb115, %bb68
+  %phi72 = phi i64 [ 1, %bb68 ], [ %add118, %bb115 ]
+  %phi73 = phi i32 [ 1, %bb68 ], [ %add117, %bb115 ]
+  %phi74 = phi i32 [ 0, %bb68 ], [ %add78, %bb115 ]
+  %call75 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523600), i64 %phi72) #4, !llfort.type_idx !38, !ifx.array_extent !39
+  %load76 = load i32, ptr %call75, align 1, !tbaa !75, !alias.scope !73, !noalias !80
+  %add77 = add nsw i32 %phi74, %load76
+  %add78 = add nsw i32 %add77, 1
+  %icmp79 = icmp slt i32 %add78, %phi73
+  br i1 %icmp79, label %bb115, label %bb80
 
-bb1950:                                           ; preds = %bb1941
-  %tmp1951 = icmp slt i32 %tmp1946, 0
-  %tmp1952 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*), i64 %tmp1942) #4, !llfort.type_idx !43, !ifx.array_extent !39
-  %tmp1953 = load double, double* %tmp1952, align 1, !tbaa !83, !alias.scope !71, !noalias !85, !llfort.type_idx !47
-  %tmp1954 = sext i32 %tmp1943 to i64
-  %tmp1955 = add nuw nsw i32 %tmp1946, 1
-  %tmp1956 = add i32 %tmp1944, 2
-  %tmp1957 = add nsw i32 %tmp1956, %tmp1946
-  %tmp1958 = sext i32 %tmp1955 to i64
-  br label %bb1959
+bb80:                                             ; preds = %bb71
+  %icmp81 = icmp slt i32 %load76, 0
+  %call82 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523720), i64 %phi72) #4, !llfort.type_idx !43, !ifx.array_extent !39
+  %load83 = load double, ptr %call82, align 1, !tbaa !83, !alias.scope !71, !noalias !85, !llfort.type_idx !47
+  %sext84 = sext i32 %phi73 to i64
+  %add85 = add nuw nsw i32 %load76, 1
+  %add86 = add i32 %phi74, 2
+  %add87 = add nsw i32 %add86, %load76
+  %sext88 = sext i32 %add85 to i64
+  br label %bb89
 
-bb1959:                                           ; preds = %bb1977, %bb1950
-  %tmp1960 = phi i64 [ %tmp1954, %bb1950 ], [ %tmp1981, %bb1977 ]
-  br i1 %tmp1951, label %bb1977, label %bb1961
+bb89:                                             ; preds = %bb107, %bb80
+  %phi90 = phi i64 [ %sext84, %bb80 ], [ %add111, %bb107 ]
+  br i1 %icmp81, label %bb107, label %bb91
 
-bb1961:                                           ; preds = %bb1959
-  br label %bb1962
+bb91:                                             ; preds = %bb89
+  br label %bb92
 
-bb1962:                                           ; preds = %bb1962, %bb1961
-  %tmp1963 = phi i64 [ %tmp1965, %bb1962 ], [ 0, %bb1961 ]
-  %tmp1964 = phi double [ %tmp1973, %bb1962 ], [ 0.000000e+00, %bb1961 ]
-  %tmp1965 = add nuw nsw i64 %tmp1963, 1
-  %tmp1966 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*), i64 %tmp1965) #4, !llfort.type_idx !48, !ifx.array_extent !49
-  %tmp1967 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1966, i64 %tmp1960) #4, !llfort.type_idx !50
-  %tmp1968 = load double, double* %tmp1967, align 1, !tbaa !86, !alias.scope !64, !noalias !88, !llfort.type_idx !54
-  %tmp1969 = add nsw i64 %tmp1963, %tmp1954
-  %tmp1970 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1940, i64 %tmp1969) #4, !llfort.type_idx !55
-  %tmp1971 = load double, double* %tmp1970, align 1, !tbaa !89, !alias.scope !67, !noalias !91, !llfort.type_idx !59
-  %tmp1972 = fmul fast double %tmp1971, %tmp1968
-  %tmp1973 = fadd fast double %tmp1972, %tmp1964
-  %tmp1974 = icmp eq i64 %tmp1965, %tmp1958
-  br i1 %tmp1974, label %bb1975, label %bb1962
+bb92:                                             ; preds = %bb92, %bb91
+  %phi93 = phi i64 [ %add95, %bb92 ], [ 0, %bb91 ]
+  %phi94 = phi double [ %fadd103, %bb92 ], [ 0.000000e+00, %bb91 ]
+  %add95 = add nuw nsw i64 %phi93, 1
+  %call96 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2484000), i64 %add95) #4, !llfort.type_idx !48, !ifx.array_extent !49
+  %call97 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call96, i64 %phi90) #4, !llfort.type_idx !50
+  %load98 = load double, ptr %call97, align 1, !tbaa !86, !alias.scope !64, !noalias !88, !llfort.type_idx !54
+  %add99 = add nsw i64 %phi93, %sext84
+  %call100 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call70, i64 %add99) #4, !llfort.type_idx !55
+  %load101 = load double, ptr %call100, align 1, !tbaa !89, !alias.scope !67, !noalias !91, !llfort.type_idx !59
+  %fmul102 = fmul fast double %load101, %load98
+  %fadd103 = fadd fast double %fmul102, %phi94
+  %icmp104 = icmp eq i64 %add95, %sext88
+  br i1 %icmp104, label %bb105, label %bb92
 
-bb1975:                                           ; preds = %bb1962
-  %tmp1976 = phi double [ %tmp1973, %bb1962 ]
-  br label %bb1977
+bb105:                                            ; preds = %bb92
+  %phi106 = phi double [ %fadd103, %bb92 ]
+  br label %bb107
 
-bb1977:                                           ; preds = %bb1975, %bb1959
-  %tmp1978 = phi double [ 0.000000e+00, %bb1959 ], [ %tmp1976, %bb1975 ]
-  %tmp1979 = fmul fast double %tmp1953, %tmp1978
-  %tmp1980 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1939, i64 %tmp1960) #4, !llfort.type_idx !60
-  store double %tmp1979, double* %tmp1980, align 1, !tbaa !92, !alias.scope !69, !noalias !94
-  %tmp1981 = add nsw i64 %tmp1960, 1
-  %tmp1982 = trunc i64 %tmp1981 to i32
-  %tmp1983 = icmp eq i32 %tmp1957, %tmp1982
-  br i1 %tmp1983, label %bb1984, label %bb1959
+bb107:                                            ; preds = %bb105, %bb89
+  %phi108 = phi double [ 0.000000e+00, %bb89 ], [ %phi106, %bb105 ]
+  %fmul109 = fmul fast double %load83, %phi108
+  %call110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call69, i64 %phi90) #4, !llfort.type_idx !60
+  store double %fmul109, ptr %call110, align 1, !tbaa !92, !alias.scope !69, !noalias !94
+  %add111 = add nsw i64 %phi90, 1
+  %trunc112 = trunc i64 %add111 to i32
+  %icmp113 = icmp eq i32 %add87, %trunc112
+  br i1 %icmp113, label %bb114, label %bb89
 
-bb1984:                                           ; preds = %bb1977
-  br label %bb1985
+bb114:                                            ; preds = %bb107
+  br label %bb115
 
-bb1985:                                           ; preds = %bb1984, %bb1941
-  %tmp1986 = add nsw i32 %tmp1943, %tmp1946
-  %tmp1987 = add nsw i32 %tmp1986, 1
-  %tmp1988 = add nuw nsw i64 %tmp1942, 1
-  %tmp1989 = icmp eq i64 %tmp1988, %tmp1876
-  br i1 %tmp1989, label %bb1990, label %bb1941
+bb115:                                            ; preds = %bb114, %bb71
+  %add116 = add nsw i32 %phi73, %load76
+  %add117 = add nsw i32 %add116, 1
+  %add118 = add nuw nsw i64 %phi72, 1
+  %icmp119 = icmp eq i64 %add118, %sext
+  br i1 %icmp119, label %bb120, label %bb71
 
-bb1990:                                           ; preds = %bb1985
-  br label %bb1991
+bb120:                                            ; preds = %bb115
+  br label %bb121
 
-bb1991:                                           ; preds = %bb1990, %bb1936
-  %tmp1992 = add nuw nsw i64 %tmp1937, 1
-  %tmp1993 = icmp eq i64 %tmp1992, %tmp1875
-  br i1 %tmp1993, label %bb1994, label %bb1936
+bb121:                                            ; preds = %bb120, %bb66
+  %add122 = add nuw nsw i64 %phi67, 1
+  %icmp123 = icmp eq i64 %add122, %zext
+  br i1 %icmp123, label %bb124, label %bb66
 
-bb1994:                                           ; preds = %bb1991
+bb124:                                            ; preds = %bb121
   call void @llvm.experimental.noalias.scope.decl(metadata !95) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !98) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !100) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !102) #4
   call void @llvm.experimental.noalias.scope.decl(metadata !104) #4
-  br label %bb1995
+  br label %bb125
 
-bb1995:                                           ; preds = %bb2050, %bb1994
-  %tmp1996 = phi i64 [ 1, %bb1994 ], [ %tmp2051, %bb2050 ]
-  br i1 %tmp1872, label %bb2050, label %bb1997
+bb125:                                            ; preds = %bb180, %bb124
+  %phi126 = phi i64 [ 1, %bb124 ], [ %add181, %bb180 ]
+  br i1 %icmp9, label %bb180, label %bb127
 
-bb1997:                                           ; preds = %bb1995
-  %tmp1998 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.46, i64 0, i64 0, i64 0), i64 %tmp1996) #4
-  %tmp1999 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([1092056 x i8], [1092056 x i8]* @global.42, i64 0, i64 720000) to double*), i64 %tmp1996) #4
-  br label %bb2000
+bb127:                                            ; preds = %bb125
+  %call128 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) @global.3, i64 %phi126) #4
+  %call129 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) getelementptr inbounds ([1092056 x i8], ptr @global.2, i64 0, i64 720000), i64 %phi126) #4
+  br label %bb130
 
-bb2000:                                           ; preds = %bb2044, %bb1997
-  %tmp2001 = phi i64 [ 1, %bb1997 ], [ %tmp2047, %bb2044 ]
-  %tmp2002 = phi i32 [ 1, %bb1997 ], [ %tmp2046, %bb2044 ]
-  %tmp2003 = phi i32 [ 0, %bb1997 ], [ %tmp2007, %bb2044 ]
-  %tmp2004 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*), i64 %tmp2001) #4, !llfort.type_idx !38, !ifx.array_extent !39
-  %tmp2005 = load i32, i32* %tmp2004, align 1, !tbaa !106, !alias.scope !104, !noalias !111
-  %tmp2006 = add nsw i32 %tmp2003, %tmp2005
-  %tmp2007 = add nsw i32 %tmp2006, 1
-  %tmp2008 = icmp slt i32 %tmp2007, %tmp2002
-  br i1 %tmp2008, label %bb2044, label %bb2009
+bb130:                                            ; preds = %bb174, %bb127
+  %phi131 = phi i64 [ 1, %bb127 ], [ %add177, %bb174 ]
+  %phi132 = phi i32 [ 1, %bb127 ], [ %add176, %bb174 ]
+  %phi133 = phi i32 [ 0, %bb127 ], [ %add137, %bb174 ]
+  %call134 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523600), i64 %phi131) #4, !llfort.type_idx !38, !ifx.array_extent !39
+  %load135 = load i32, ptr %call134, align 1, !tbaa !106, !alias.scope !104, !noalias !111
+  %add136 = add nsw i32 %phi133, %load135
+  %add137 = add nsw i32 %add136, 1
+  %icmp138 = icmp slt i32 %add137, %phi132
+  br i1 %icmp138, label %bb174, label %bb139
 
-bb2009:                                           ; preds = %bb2000
-  %tmp2010 = icmp slt i32 %tmp2005, 0
-  %tmp2011 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*), i64 %tmp2001) #4, !llfort.type_idx !43, !ifx.array_extent !39
-  %tmp2012 = load double, double* %tmp2011, align 1, !tbaa !114, !alias.scope !102, !noalias !116, !llfort.type_idx !47
-  %tmp2013 = sext i32 %tmp2002 to i64
-  %tmp2014 = add nuw nsw i32 %tmp2005, 1
-  %tmp2015 = add i32 %tmp2003, 2
-  %tmp2016 = add nsw i32 %tmp2015, %tmp2005
-  %tmp2017 = sext i32 %tmp2014 to i64
-  br label %bb2018
+bb139:                                            ; preds = %bb130
+  %icmp140 = icmp slt i32 %load135, 0
+  %call141 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2523720), i64 %phi131) #4, !llfort.type_idx !43, !ifx.array_extent !39
+  %load142 = load double, ptr %call141, align 1, !tbaa !114, !alias.scope !102, !noalias !116, !llfort.type_idx !47
+  %sext143 = sext i32 %phi132 to i64
+  %add144 = add nuw nsw i32 %load135, 1
+  %add145 = add i32 %phi133, 2
+  %add146 = add nsw i32 %add145, %load135
+  %sext147 = sext i32 %add144 to i64
+  br label %bb148
 
-bb2018:                                           ; preds = %bb2036, %bb2009
-  %tmp2019 = phi i64 [ %tmp2013, %bb2009 ], [ %tmp2040, %bb2036 ]
-  br i1 %tmp2010, label %bb2036, label %bb2020
+bb148:                                            ; preds = %bb166, %bb139
+  %phi149 = phi i64 [ %sext143, %bb139 ], [ %add170, %bb166 ]
+  br i1 %icmp140, label %bb166, label %bb150
 
-bb2020:                                           ; preds = %bb2018
-  br label %bb2021
+bb150:                                            ; preds = %bb148
+  br label %bb151
 
-bb2021:                                           ; preds = %bb2021, %bb2020
-  %tmp2022 = phi i64 [ %tmp2024, %bb2021 ], [ 0, %bb2020 ]
-  %tmp2023 = phi double [ %tmp2032, %bb2021 ], [ 0.000000e+00, %bb2020 ]
-  %tmp2024 = add nuw nsw i64 %tmp2022, 1
-  %tmp2025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull elementtype(double) bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*), i64 %tmp2024) #4, !llfort.type_idx !48, !ifx.array_extent !49
-  %tmp2026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp2025, i64 %tmp2019) #4, !llfort.type_idx !50
-  %tmp2027 = load double, double* %tmp2026, align 1, !tbaa !117, !alias.scope !95, !noalias !119, !llfort.type_idx !54
-  %tmp2028 = add nsw i64 %tmp2022, %tmp2013
-  %tmp2029 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1999, i64 %tmp2028) #4, !llfort.type_idx !55
-  %tmp2030 = load double, double* %tmp2029, align 1, !tbaa !120, !alias.scope !98, !noalias !122, !llfort.type_idx !59
-  %tmp2031 = fmul fast double %tmp2030, %tmp2027
-  %tmp2032 = fadd fast double %tmp2031, %tmp2023
-  %tmp2033 = icmp eq i64 %tmp2024, %tmp2017
-  br i1 %tmp2033, label %bb2034, label %bb2021
+bb151:                                            ; preds = %bb151, %bb150
+  %phi152 = phi i64 [ %add154, %bb151 ], [ 0, %bb150 ]
+  %phi153 = phi double [ %fadd162, %bb151 ], [ 0.000000e+00, %bb150 ]
+  %add154 = add nuw nsw i64 %phi152, 1
+  %call155 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1200, ptr nonnull elementtype(double) getelementptr inbounds ([2523968 x i8], ptr @global, i64 0, i64 2484000), i64 %add154) #4, !llfort.type_idx !48, !ifx.array_extent !49
+  %call156 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call155, i64 %phi149) #4, !llfort.type_idx !50
+  %load157 = load double, ptr %call156, align 1, !tbaa !117, !alias.scope !95, !noalias !119, !llfort.type_idx !54
+  %add158 = add nsw i64 %phi152, %sext143
+  %call159 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call129, i64 %add158) #4, !llfort.type_idx !55
+  %load160 = load double, ptr %call159, align 1, !tbaa !120, !alias.scope !98, !noalias !122, !llfort.type_idx !59
+  %fmul161 = fmul fast double %load160, %load157
+  %fadd162 = fadd fast double %fmul161, %phi153
+  %icmp163 = icmp eq i64 %add154, %sext147
+  br i1 %icmp163, label %bb164, label %bb151
 
-bb2034:                                           ; preds = %bb2021
-  %tmp2035 = phi double [ %tmp2032, %bb2021 ]
-  br label %bb2036
+bb164:                                            ; preds = %bb151
+  %phi165 = phi double [ %fadd162, %bb151 ]
+  br label %bb166
 
-bb2036:                                           ; preds = %bb2034, %bb2018
-  %tmp2037 = phi double [ 0.000000e+00, %bb2018 ], [ %tmp2035, %bb2034 ]
-  %tmp2038 = fmul fast double %tmp2012, %tmp2037
-  %tmp2039 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %tmp1998, i64 %tmp2019) #4, !llfort.type_idx !60
-  store double %tmp2038, double* %tmp2039, align 1, !tbaa !123, !alias.scope !100, !noalias !125
-  %tmp2040 = add nsw i64 %tmp2019, 1
-  %tmp2041 = trunc i64 %tmp2040 to i32
-  %tmp2042 = icmp eq i32 %tmp2016, %tmp2041
-  br i1 %tmp2042, label %bb2043, label %bb2018
+bb166:                                            ; preds = %bb164, %bb148
+  %phi167 = phi double [ 0.000000e+00, %bb148 ], [ %phi165, %bb164 ]
+  %fmul168 = fmul fast double %load142, %phi167
+  %call169 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %call128, i64 %phi149) #4, !llfort.type_idx !60
+  store double %fmul168, ptr %call169, align 1, !tbaa !123, !alias.scope !100, !noalias !125
+  %add170 = add nsw i64 %phi149, 1
+  %trunc171 = trunc i64 %add170 to i32
+  %icmp172 = icmp eq i32 %add146, %trunc171
+  br i1 %icmp172, label %bb173, label %bb148
 
-bb2043:                                           ; preds = %bb2036
-  br label %bb2044
+bb173:                                            ; preds = %bb166
+  br label %bb174
 
-bb2044:                                           ; preds = %bb2043, %bb2000
-  %tmp2045 = add nsw i32 %tmp2002, %tmp2005
-  %tmp2046 = add nsw i32 %tmp2045, 1
-  %tmp2047 = add nuw nsw i64 %tmp2001, 1
-  %tmp2048 = icmp eq i64 %tmp2047, %tmp1876
-  br i1 %tmp2048, label %bb2049, label %bb2000
+bb174:                                            ; preds = %bb173, %bb130
+  %add175 = add nsw i32 %phi132, %load135
+  %add176 = add nsw i32 %add175, 1
+  %add177 = add nuw nsw i64 %phi131, 1
+  %icmp178 = icmp eq i64 %add177, %sext
+  br i1 %icmp178, label %bb179, label %bb130
 
-bb2049:                                           ; preds = %bb2044
-  br label %bb2050
+bb179:                                            ; preds = %bb174
+  br label %bb180
 
-bb2050:                                           ; preds = %bb2049, %bb1995
-  %tmp2051 = add nuw nsw i64 %tmp1996, 1
-  %tmp2052 = icmp eq i64 %tmp2051, %tmp1875
-  br i1 %tmp2052, label %bb2053, label %bb1995
+bb180:                                            ; preds = %bb179, %bb125
+  %add181 = add nuw nsw i64 %phi126, 1
+  %icmp182 = icmp eq i64 %add181, %zext
+  br i1 %icmp182, label %bb183, label %bb125
 
-bb2053:                                           ; preds = %bb2050
-  br label %bb2054
+bb183:                                            ; preds = %bb180
+  br label %bb184
 
-bb2054:                                           ; preds = %bb2053, %bb1868
-  %tmp2055 = phi i32 [ %tmp1869, %bb1868 ], [ %tmp1871, %bb2053 ]
-  store i32 %tmp2055, i32* %tmp2055.out, align 4
-  %tmp2056 = icmp slt i32 %tmp2055, 2
-  br i1 %tmp2056, label %bb2093.exitStub, label %bb2057.exitStub
+bb184:                                            ; preds = %bb183, %bb5
+  %phi185 = phi i32 [ %load6, %bb5 ], [ %load8, %bb183 ]
+  store i32 %phi185, ptr %arg2, align 4
+  %icmp186 = icmp slt i32 %phi185, 2
+  br i1 %icmp186, label %bb187, label %bb188
 
-bb2093.exitStub:                                  ; preds = %bb2054
+bb187:                                            ; preds = %bb184
   ret i1 true
 
-bb2057.exitStub:                                  ; preds = %bb2054
+bb188:                                            ; preds = %bb184
   ret i1 false
 }
 
-attributes #0 = { nounwind readnone speculatable }
-attributes #1 = { inaccessiblememonly nocallback nofree nosync nounwind willreturn }
+attributes #0 = { nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite) }
 attributes #2 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #3 = { nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #4 = { nounwind }

@@ -5,13 +5,15 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// REQUIRES: gpu && !gpu-intel-pvc
-// UNSUPPORTED: cuda || hip
+// https://github.com/intel/llvm/issues/10369
+// UNSUPPORTED: gpu
+//
+// UNSUPPORTED: gpu-intel-pvc
 // TODO: remove fno-fast-math option once the issue is investigated and the test
 // is fixed.
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
-// RUN: %clangxx -fsycl -fsycl-device-code-split=per_kernel %{mathflags} %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -fsycl-device-code-split=per_kernel %{mathflags} -o %t.out
+// RUN: %{run} %t.out
 //
 // The test checks main functionality of the esimd::replicate_vs_w_hs function.
 
@@ -179,7 +181,7 @@ template <class T> bool test(queue q) {
       });
   return passed;
 }
-
+#ifndef SKIP_MAIN
 int main(int argc, char **argv) {
   queue q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
   auto dev = q.get_device();
@@ -205,3 +207,4 @@ int main(int argc, char **argv) {
   std::cout << (passed ? "Test passed\n" : "Test FAILED\n");
   return passed ? 0 : 1;
 }
+#endif

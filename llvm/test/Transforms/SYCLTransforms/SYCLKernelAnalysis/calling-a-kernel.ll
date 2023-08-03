@@ -32,6 +32,6 @@ define void @foo() {
 }
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @kernel_call_kernel, void ()* @kernel_to_call, void ()* @kernel_call_function}
+!0 = !{ptr @kernel_call_kernel, ptr @kernel_to_call, ptr @kernel_call_function}
 
 ; DEBUGIFY-NOT: WARNING

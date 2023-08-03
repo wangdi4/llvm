@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.h ----------------------------------------------===//
 //
-//   Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -34,13 +35,10 @@ class VPLoop;
 class VPLoopInfo;
 class CfgMergerPlanDescr;
 
-// Data to be passed to VPlanOptReportBuilder::addRemark().  At present, we
-// support a single string argument, which suffices for the remark strings
-// that we utilize.
-struct VPlanBailoutData {
+// Data to be passed to VPlanOptReportBuilder::addRemark().
+struct VPlanBailoutRemark {
   OptReportVerbosity::Level BailoutLevel = OptReportVerbosity::High;
-  unsigned BailoutID = 0;
-  std::string BailoutMessage;
+  OptRemark BailoutRemark;
 };
 
 class VPlanDriverImpl {
@@ -55,7 +53,6 @@ private:
   ProfileSummaryInfo *PSI;
   LoopAccessInfoManager *LAIs;
   OptimizationRemarkEmitter *ORE;
-  FatalErrorHandlerTy FatalErrorHandler;
 
   template <class Loop>
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
@@ -75,8 +72,7 @@ private:
 
   template <class Loop>
   bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
-               OptReportVerbosity::Level Level, unsigned ID,
-               std::string Reason);
+               VPlanBailoutRemark RemarkData);
 
   // Helper functions for isSupported().
   bool hasDedicatedAndUniqueExits(Loop *Lp, WRNVecLoopNode *WRLp);
@@ -94,8 +90,12 @@ protected:
   TargetLibraryInfo *TLI;
   const DataLayout *DL;
 
+  /// Error handler. Is invoked (if set) on bailouts and is passed to CG
+  /// to react on unrecoverable errors.
+  VecErrorHandlerTy VecErrorHandler;
+
   OptReportBuilder ORBuilder;
-  VPlanBailoutData BD;
+  VPlanBailoutRemark BR;
 
   template <typename Loop = llvm::Loop>
   bool processFunction(Function &Fn);
@@ -152,12 +152,22 @@ protected:
   DominatorTree *getDT() const { return DT; }
   void setDT(DominatorTree *NewDT) { DT = NewDT; }
 
-  void setBailoutData(OptReportVerbosity::Level BailoutLevel,
-                      unsigned BailoutID, std::string BailoutMessage) {
-    BD.BailoutLevel = BailoutLevel;
-    BD.BailoutID = BailoutID;
-    BD.BailoutMessage = BailoutMessage;
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  // Store a variadic remark indicating the reason for not vectorizing a loop.
+  // Clients should pass string constants as std::string to avoid extra
+  // instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark = OptRemark::get(
+        ORBuilder.getContext(), static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
   }
+
+  /// Convenience function for optimization remark substitution strings.
+  std::string getAuxMsg(AuxRemarkID ID) { return OptReportAuxDiag::getMsg(ID); }
 
 public:
   bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
@@ -167,136 +177,42 @@ public:
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               FatalErrorHandlerTy FatalErrorHandler);
+               VecErrorHandlerTy VecErrorHandler);
 
-  // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
+  /// Whether to emit debug remarks into the opt report.
+  static inline bool EmitDebugOptRemarks = false;
 
-  /// 15305: vectorization support: vector length %s
-  static constexpr unsigned VectorLengthRemarkID = 15305;
+  /// Utility functions for adding/constructing debug remarks.
+  template <typename RemarkRecordT, typename... ArgsT>
+  static RemarkRecordT getDebugRemark(LLVMContext &C, ArgsT &&...Args) {
+    std::string Remark;
+    ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
+    return RemarkRecordT{C, OptRemarkID::GenericDebug, Remark};
+  }
 
-  /// 15313: %s was not vectorized: unsupported data type
-  static constexpr unsigned BadTypeRemarkID = 15313;
-
-  /// 15315: %s was not vectorized: low trip count
-  static constexpr unsigned LowTripCountRemarkID = 15315;
-
-  /// 15330: %s was not vectorized: the reduction operator is not supported yet
-  static constexpr unsigned BadRednRemarkID = 15330;
-
-  /// 15332: %s was not vectorized: loop is not within user-defined range
-  static constexpr unsigned OutOfRangeRemarkID = 15332;
-
-  /// 15335: %s was not vectorized: vectorization possible but seems
-  ///        inefficient. Use vector always directive or -vec-threshold0 to
-  ///        override
-  static constexpr unsigned NoProfitRemarkID = 15335;
-
-  /// 15353: loop was not vectorized: loop is not in canonical form from
-  ///        OpenMP specification, may be as a result of previous
-  ///        optimization(s)
-  static constexpr unsigned BadSimdRemarkID = 15353;
-
-  /// 15407: vectorization support: type complex float is not supported for
-  ///        operation %s
-  static constexpr unsigned CmplxFltRemarkID = 15407;
-
-  /// 15408: vectorization support: type complex double is not supported for
-  ///        operation %s
-  static constexpr unsigned CmplxDblRemarkID = 15408;
-
-  /// 15436: loop was not vectorized: %s
-  static constexpr unsigned BailoutRemarkID = 15436;
-
-  /// 15437: peel loop was vectorized
-  static constexpr unsigned PeelLoopWasVectorizedRemarkID = 15437;
-
-  /// 15439: remainder loop was vectorized (unmasked)
-  static constexpr unsigned RemainderLoopVectorizedUnmaskedRemarkID = 15439;
-
-  /// 15440: remainder loop was vectorized (masked)
-  static constexpr unsigned RemainderLoopVectorizedMaskedRemarkID = 15440;
-
-  /// 15520: %s was not vectorized: loop with multiple exits cannot be
-  ///        vectorized unless it meets search loop idiom criteria
-  static constexpr unsigned BadSearchRemarkID = 15520;
-
-  /// 15521: %s was not vectorized: loop control variable was not identified.
-  ///        Explicitly compute the iteration count before executing the loop
-  ///        or try using canonical loop form from OpenMP specification%s
-  static constexpr unsigned LoopIVRemarkID = 15521;
-
-  /// 15522: %s was not vectorized: loop control flow is too complex. Try
-  ///        using canonical loop form from OpenMP specification%s
-  static constexpr unsigned ComplexFlowRemarkID = 15522;
-
-  /// 15535: %s was not vectorized: loop contains switch statement. Consider
-  ///        using if-else statement.
-  static constexpr unsigned SwitchRemarkID = 15535;
-
-  /// 15560: Indirect call cannot be vectorized
-  static constexpr unsigned IndCallRemarkID = 15560;
-
-  /// 15571: %s was not vectorized: loop contains a recurrent computation that
-  ///        could not be identified as an induction or reduction.  Try using
-  ///        #pragma omp simd reduction/linear/private to clarify recurrence.
-  static constexpr unsigned BadRecurPhiRemarkID = 15571;
-
-  /// 15572: %s was not vectorized: loop contains a live-out value that could
-  ///        not be identified as an induction or reduction.  Try using #pragma
-  ///        omp simd reduction/linear/private to clarify recurrence.
-  static constexpr unsigned BadLiveOutRemarkID = 15572;
-
-  /// 15573: %s was not vectorized: a reduction or induction of a vector type
-  ///        is not supported.
-  static constexpr unsigned VecTypeRednRemarkID = 15573;
-
-  /// 15574: %s was not vectorized: unsupported nested OpenMP (simd) loop or
-  ///        region.
-  static constexpr unsigned NestedSimdRemarkID = 15574;
-
-  /// 15575: peel loop is static
-  static constexpr unsigned PeelLoopIsStaticRemarkID = 15575;
-
-  /// 15576: peel loop is dynamic
-  static constexpr unsigned PeelLoopIsDynamicRemarkID = 15576;
-
-  /// 15577: estimated number of scalar loop iterations peeled: %s
-  static constexpr unsigned EstimatedPeelCountRemarkID = 15577;
-
-  /// 25518: Peel loop for vectorization
-  static constexpr unsigned PeelLoopForVectorizationRemarkID = 25518;
-
-  /// 25519: Remainder loop for vectorization
-  static constexpr unsigned RemainderLoopForVectorizationRemarkID = 25519;
+  template <typename... ArgsT, typename RemarkRecordT>
+  static void addDebugRemark(SmallVectorImpl<RemarkRecordT> &Remarks,
+                             LLVMContext &C, ArgsT &&...Args) {
+    Remarks.push_back(
+        getDebugRemark<RemarkRecordT>(C, std::forward<ArgsT>(Args)...));
+  }
 };
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
   VPlanDriverImpl Impl;
   static bool RunForSycl;
   static bool RunForO0;
+  /// Error handler, see the corresponding commment in VPlanDriverImpl.
+  static VecErrorHandlerTy VecErrorHandler;
 
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
   static void setRunForO0(bool isO0Vec) { RunForO0 = isO0Vec; }
-  static bool isRequired() {
-    return (RunForSycl || RunForO0);
-    }
-};
 
-class VPlanDriver : public FunctionPass {
-  VPlanDriverImpl Impl;
-  FatalErrorHandlerTy FatalErrorHandler;
+  static bool isRequired() { return (RunForSycl || RunForO0); }
 
-protected:
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr);
-
-  bool runOnFunction(Function &Fn) override;
-  bool skipFunction(const Function &F) const override;
+  static void setVecErrorHandler(VecErrorHandlerTy H) { VecErrorHandler = H; }
 };
 
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
@@ -317,8 +233,8 @@ private:
   // Delete intel intrinsic directives before/after the given loop.
   void eraseLoopIntrins(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
   bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
-               WRNVecLoopNode *WRLp, OptReportVerbosity::Level Level,
-               unsigned ID, std::string Reason);
+               WRNVecLoopNode *WRLp, VPlanBailoutRemark RemarkData);
+  OptRemark prependHIR(OptRemark R);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,
@@ -327,8 +243,7 @@ public:
                loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-               AssumptionCache *AC, DominatorTree *DT,
-               FatalErrorHandlerTy FatalErrorHandler);
+               AssumptionCache *AC, DominatorTree *DT);
 
   VPlanDriverHIRImpl(bool LightWeightMode, bool WillRunLLVMIRVPlan)
       : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),
@@ -346,26 +261,6 @@ public:
                             loopopt::HIRFramework &);
   VPlanDriverHIRPass(bool LightWeightMode, bool WillRunLLVMIRVPlan)
       : Impl(LightWeightMode, WillRunLLVMIRVPlan){};
-};
-
-class VPlanDriverHIR : public FunctionPass {
-  VPlanDriverHIRImpl Impl;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  VPlanDriverHIR(bool LightWeightMode = false, bool WillRunLLVMIRVPlan = true);
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// \brief Overrides FunctionPass's printer pass to return one which prints
-  /// HIR instead of LLVM IR.
-  FunctionPass *createPrinterPass(raw_ostream &OS,
-                                  const std::string &Banner) const override;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-  bool runOnFunction(Function &Fn) override;
 };
 
 } // namespace vpo

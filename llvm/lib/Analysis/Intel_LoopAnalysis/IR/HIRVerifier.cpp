@@ -305,8 +305,13 @@ public:
 
       HLLoop *DefLoop = Iter->second->getLexicalParentLoop();
       while (DefLoop != nullptr) {
-        assert(DefLoop->isLiveOut(Symbase) &&
-               "The loop expected to be a liveout loop");
+        if (!DefLoop->isLiveOut(Symbase)) {
+          LLVM_DEBUG(dbgs()
+                         << " Temp with symbase: " << Symbase << " DefNode:\n";
+                     Iter->second->dump(true));
+          LLVM_DEBUG(dbgs() << " DefLoop:\n"; DefLoop->dump());
+          llvm_unreachable("Temp expected to be liveout of loop");
+        }
         DefLoop = DefLoop->getParentLoop();
       }
     }
@@ -386,8 +391,12 @@ void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
     auto &BU = UseNode->getBlobUtils();
 
     if (BU.isInstBlob(BU.findTempBlobIndex(UseSB))) {
-      assert(UseNode->getParentRegion()->isLiveIn(UseSB) &&
-             "Temp expected to be livein to region.");
+      if (!UseNode->getParentRegion()->isLiveIn(UseSB)) {
+        LLVM_DEBUG(dbgs() << " UseSB: " << UseSB << " UseNode:\n";
+                   UseNode->dump(true));
+        LLVM_DEBUG(dbgs() << " UseLoop:\n"; UseLoop->dump());
+        llvm_unreachable("Temp expected to be livein to region.");
+      }
     }
   }
 

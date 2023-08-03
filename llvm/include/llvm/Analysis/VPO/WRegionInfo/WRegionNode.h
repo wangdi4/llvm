@@ -280,6 +280,7 @@ public:
   bool canHaveLastprivate() const;
   bool canHaveInReduction() const;
   bool canHaveReduction() const;
+  bool canHaveReductionTask() const;
   bool canHaveReductionInscan() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;
@@ -535,6 +536,8 @@ public:
   virtual bool getIsDoacross()     const { WRNERROR("DOACROSS(SOURCE|SINK)"); }
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual void setIsTargetNowaitTask(bool Flg){WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual bool getIsTargetNowaitTask()  const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
@@ -888,6 +891,15 @@ public:
     if (Changed)
       BBlockSet.clear();
   }
+
+  /// Updates the basic blocks of this region and child regions to reflect
+  /// \p OrigBB being split into \p OrigBB and \p SplitBB.
+  ///
+  /// Depending on where the split happens relative to the regions' entry/exit
+  /// directives, this could involve updating the regions' entry/exit blocks.
+  /// Returns true if this region or any of its children have entry/exit
+  /// directives in either \p OrigBB or \p SplitBB.
+  bool updateBBsAfterSplit(BasicBlock *OrigBB, BasicBlock *SplitBB);
 
   /// Routines to set WRN primary attributes
   void setAttributes(unsigned A) { Attributes = A; }

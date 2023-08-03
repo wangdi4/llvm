@@ -293,7 +293,19 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
       cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
   }
 
+  bool CanSetNoWrap = false;
+  if (DecompIV && isa<VPConstant>(DecompIV) && IVConstCoeff == -1 &&
+      OutermostHLp->hasSignedIV())
+    // We have expr of form: -1 * iv, which is treated as signed. Thus, there
+    // will be no wrap in either signed/unsigned ranges for the resulting mul.
+    CanSetNoWrap = true;
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
+  if (auto *DecompIVInst = dyn_cast<VPInstruction>(DecompIV)) {
+    if (CanSetNoWrap) {
+      DecompIVInst->setHasNoSignedWrap(true);
+      DecompIVInst->setHasNoUnsignedWrap(true);
+    }
+  }
   return DecompIV;
 }
 
@@ -498,6 +510,29 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   assert(DecompDef && "CanonExpr has not been decomposed");
   if (IsIdiomCE)
     addVPValueForCEIdiom(CE, DecompDef);
+
+  // Add nowrap flags to the final instruction decomposed from the CE. Note:
+  // Generally, this should only be done for the entire CanonExpr because
+  // each subexpression (blob) could wrap, but not the overall CE (or
+  // vice-versa). We could create a CanonExpr for each subexpression to
+  // determine if it wraps, but this would be expensive. E.g., (i1 + i2 - 5),
+  // the 'i1 + i2' subexpression may wrap, but the complete expression may not.
+  // This is why the nowraps flags are set on the final decomposed instruction
+  // here. Note: this is a relatively benign change w.r.t DA because any Random
+  // operands feeding this instruction won't override that Random behavior and
+  // shape propagation will remain conservative.
+  if (auto *VPInst = dyn_cast<VPInstruction>(DecompDef)) {
+    if (VPInst->isOverflowingOperation()) {
+      bool FitsIn32Bits = CE->getSrcType()->getScalarSizeInBits() == 32;
+      if (CE->isLinearAtLevel(VecLoopLevel) &&
+          !HLNodeUtils::mayWraparound(CE, VecLoopLevel, RDDR->getHLDDNode(),
+                                      FitsIn32Bits)) {
+        VPInst->setHasNoSignedWrap(true);
+        VPInst->setHasNoUnsignedWrap(true);
+      }
+    }
+  }
+
   return DecompDef;
 }
 
@@ -641,7 +676,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   auto *Subscript = Builder.create<VPSubscriptInst>(
       "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
   Subscript->setIsInBounds(Ref->isInBounds());
-  Subscript->HIR().setSymbase(Ref->getSymbase());
+  Subscript->HIR().setGepRefSpecifics(Ref);
   MemOpVPI = Subscript;
 
   // Create a bitcast instruction if needed
@@ -683,7 +718,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       RefToVPLoadConflict[Ref] = MemOpVPInst;
 
     // Save away scalar memref symbase and original alignment for later use.
-    MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
+    MemOpVPInst->HIR().setGepRefSpecifics(Ref);
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
@@ -947,6 +982,20 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
       // Make subscript the master instruction since it was already created.
       NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else if (isa<InsertValueInst>(LLVMInst)) {
+      // Obtain the implicit indices field and pass them to VPInsertExtractValue
+      // instruction.
+      ArrayRef<unsigned> Idxs = HInst->getInsertValueIndices();
+      NewVPInst = Builder.createHIR<VPInsertExtractValue>(
+          DDNode, "vpinsert", Instruction::InsertValue, LLVMInst->getType(),
+          VPOperands, Idxs);
+    } else if (isa<ExtractValueInst>(LLVMInst)) {
+      // Obtain the implicit indices field and pass them to VPInsertExtractValue
+      // instruction.
+      ArrayRef<unsigned> Idxs = HInst->getExtractValueIndices();
+      NewVPInst = Builder.createHIR<VPInsertExtractValue>(
+          DDNode, "vpextract", Instruction::ExtractValue, LLVMInst->getType(),
+          VPOperands, Idxs);
     } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
@@ -1003,7 +1052,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
-        NewVPInst->HIR().setSymbase(LvalDDR->getSymbase());
+        NewVPInst->HIR().setGepRefSpecifics(LvalDDR);
         cast<VPLoadStoreInst>(NewVPInst)->setAlignment(
             getAlignForMemref(LvalDDR));
       }
@@ -1314,6 +1363,9 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 
   if (UpperCE->isIntConstant(&Upper))
     EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Upper));
+  else
+    EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(),
+                                 HLp->getLegalMaxTripCount()));
 
   // Add to the induction descriptors. Push it at the beginning as main
   // induction.
@@ -2285,7 +2337,9 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
     if (auto *CallI = HInst->getCallInst()) {
       int DirID = vpo::VPOAnalysisUtils::getDirectiveID(CallI);
       if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
-          DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+          DirID == DIR_VPO_END_GUARD_MEM_MOTION ||
+          NestedSimdStrategy == NestedSimdStrategies::Outermost &&
+              (DirID == DIR_OMP_SIMD || DirID == DIR_OMP_END_SIMD))
         return nullptr;
     }
   }

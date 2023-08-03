@@ -14,12 +14,12 @@
 ;   }
 ; }
 
-; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details -disable-output 2>&1 | FileCheck %s
 
-; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 0\].*}} {sb:[[Base1:[0-9]+]]}
-; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 1\].*}} {sb:[[Base1]]}
+; CHECK-DAG: {{\(NON-LINEAR ptr %first.*\[i64 0\].*}} {sb:[[Base1:[0-9]+]]}
+; CHECK-DAG: {{\(NON-LINEAR ptr %first.*\[i64 1\].*}} {sb:[[Base1]]}
 
-define void @foo(float** %A, i32 %n) {
+define void @foo(ptr %A, i32 %n) {
 entry:
   %cmp8 = icmp sgt i32 %n, 0
   br i1 %cmp8, label %for.body.preheader, label %for.cond.cleanup
@@ -36,11 +36,11 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds float*, float** %A, i64 %indvars.iv
-  %first = load float*, float** %arrayidx, align 8
-  store float 1.000000e+00, float* %first, align 4
-  %second = getelementptr inbounds float, float* %first, i64 1
-  store float 2.000000e+00, float* %second, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %A, i64 %indvars.iv
+  %first = load ptr, ptr %arrayidx, align 8
+  store float 1.000000e+00, ptr %first, align 4
+  %second = getelementptr inbounds float, ptr %first, i64 1
+  store float 2.000000e+00, ptr %second, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count10
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

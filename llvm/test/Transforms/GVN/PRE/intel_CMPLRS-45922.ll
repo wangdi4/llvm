@@ -1,55 +1,52 @@
-; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="gvn" -S < %s | FileCheck %s
+; RUN: opt -aa-pipeline="tbaa" -passes="gvn" -S < %s | FileCheck %s
 
 ; When a null pointer value is initialized by a non-ANSI compliant pointer
 ; store, TBAA reports the corresponding load and store as 'no alias'. When
 ; PRE removes that non aliasing load, it leads to segmentation fault.
 
 
-; CHECK-NOT: %7 = phi float* [ null, %for.body20.us.preheader ], [ %.pre, %for.cond24.for.cond.cleanup28_crit_edge.us.for.body20.us_crit_edge ]
-; CHECK: %9 = load float*, float** %arrayidx36.us, align 8, !tbaa !12
+; CHECK-NOT: phi ptr [ null, %for.body20.us.preheader ], [ %.pre, %for.cond24.for.cond.cleanup28_crit_edge.us.for.body20.us_crit_edge ]
+; CHECK: load ptr, ptr %arrayidx36.us, align 8, !tbaa !12
 
 
-%struct.S = type { i32, i32, float** }
+%struct.S = type { i32, i32, ptr }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @func(%struct.S* nocapture %s) local_unnamed_addr #0 {
+define dso_local i32 @func(ptr nocapture %s) local_unnamed_addr #0 {
 entry:
-  %d1 = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 0
-  %0 = load i32, i32* %d1, align 8, !tbaa !2
-  %d2 = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 1
-  %1 = load i32, i32* %d2, align 4, !tbaa !8
+  %0 = load i32, ptr %s, align 8, !tbaa !2
+  %d2 = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 1
+  %1 = load i32, ptr %d2, align 4, !tbaa !8
   %mul = mul nsw i32 %1, %0
   %conv = sext i32 %mul to i64
-  %call = tail call noalias i8* @calloc(i64 %conv, i64 4) #3
+  %call = tail call noalias ptr @calloc(i64 %conv, i64 4) #3
   %conv2 = sext i32 %0 to i64
-  %call3 = tail call noalias i8* @calloc(i64 %conv2, i64 8) #3
-  %2 = bitcast i8* %call3 to i8**
+  %call3 = tail call noalias ptr @calloc(i64 %conv2, i64 8) #3
   %cmp33 = icmp sgt i32 %0, 0
   br i1 %cmp33, label %for.body.preheader, label %for.cond.cleanup
 
 for.body.preheader:                               ; preds = %entry
-  %3 = sext i32 %1 to i64
+  %2 = sext i32 %1 to i64
   br label %for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %for.body
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
-  %ptr = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 2
-  %4 = bitcast float*** %ptr to i8**
-  store i8* %call3, i8** %4, align 8, !tbaa !9
-  %tobool = icmp eq i8* %call3, null
+  %ptr = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 2
+  store ptr %call3, ptr %ptr, align 8, !tbaa !9
+  %tobool = icmp eq ptr %call3, null
   br i1 %tobool, label %cleanup, label %if.end
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv44 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next45, %for.body ]
   %indvars.iv42 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next43, %for.body ]
   %mul7 = shl nsw i64 %indvars.iv44, 2
-  %arrayidx = getelementptr inbounds i8, i8* %call, i64 %mul7
-  %arrayidx8 = getelementptr inbounds i8*, i8** %2, i64 %indvars.iv42
-  store i8* %arrayidx, i8** %arrayidx8, align 8, !tbaa !10
+  %arrayidx = getelementptr inbounds i8, ptr %call, i64 %mul7
+  %arrayidx8 = getelementptr inbounds ptr, ptr %call3, i64 %indvars.iv42
+  store ptr %arrayidx, ptr %arrayidx8, align 8, !tbaa !10
   %indvars.iv.next43 = add nuw nsw i64 %indvars.iv42, 1
-  %indvars.iv.next45 = add nsw i64 %indvars.iv44, %3
+  %indvars.iv.next45 = add nsw i64 %indvars.iv44, %2
   %wide.trip.count46 = sext i32 %0 to i64
   %exitcond47 = icmp ne i64 %indvars.iv.next43, %wide.trip.count46
   br i1 %exitcond47, label %for.body, label %for.cond.cleanup.loopexit
@@ -60,7 +57,7 @@ if.end:                                           ; preds = %for.cond.cleanup
 
 for.body20.lr.ph:                                 ; preds = %if.end
   %conv12 = sitofp i32 %1 to double
-  %5 = fdiv fast double 5.000000e-01, %conv12
+  %3 = fdiv fast double 5.000000e-01, %conv12
   %cmp2629 = icmp sgt i32 %1, 0
   br i1 %cmp2629, label %for.body20.us.preheader, label %for.body20.preheader
 
@@ -72,25 +69,25 @@ for.body20.us.preheader:                          ; preds = %for.body20.lr.ph
 
 for.body20.us:                                    ; preds = %for.body20.us.preheader, %for.cond24.for.cond.cleanup28_crit_edge.us
   %indvars.iv37 = phi i64 [ 0, %for.body20.us.preheader ], [ %indvars.iv.next38, %for.cond24.for.cond.cleanup28_crit_edge.us ]
-  %6 = trunc i64 %indvars.iv37 to i32
-  %conv21.us = sitofp i32 %6 to double
+  %4 = trunc i64 %indvars.iv37 to i32
+  %conv21.us = sitofp i32 %4 to double
   %mul22.us = fmul fast double %conv21.us, 0x401921FB54442D18
-  %7 = fmul fast double %mul22.us, %5
-  %8 = load float**, float*** %ptr, align 8, !tbaa !9
-  %arrayidx36.us = getelementptr inbounds float*, float** %8, i64 %indvars.iv37
-  %9 = load float*, float** %arrayidx36.us, align 8, !tbaa !12
+  %5 = fmul fast double %mul22.us, %3
+  %6 = load ptr, ptr %ptr, align 8, !tbaa !9
+  %arrayidx36.us = getelementptr inbounds ptr, ptr %6, i64 %indvars.iv37
+  %7 = load ptr, ptr %arrayidx36.us, align 8, !tbaa !12
   br label %for.body29.us
 
 for.body29.us:                                    ; preds = %for.body20.us, %for.body29.us
   %indvars.iv = phi i64 [ 0, %for.body20.us ], [ %indvars.iv.next, %for.body29.us ]
-  %10 = trunc i64 %indvars.iv to i32
-  %conv30.us = sitofp i32 %10 to double
+  %8 = trunc i64 %indvars.iv to i32
+  %conv30.us = sitofp i32 %8 to double
   %add31.us = fadd fast double %conv30.us, 5.000000e-01
-  %mul32.us = fmul fast double %add31.us, %7
-  %11 = tail call fast double @llvm.cos.f64(double %mul32.us)
-  %conv33.us = fptrunc double %11 to float
-  %arrayidx38.us = getelementptr inbounds float, float* %9, i64 %indvars.iv
-  store float %conv33.us, float* %arrayidx38.us, align 4, !tbaa !14
+  %mul32.us = fmul fast double %add31.us, %5
+  %9 = tail call fast double @llvm.cos.f64(double %mul32.us)
+  %conv33.us = fptrunc double %9 to float
+  %arrayidx38.us = getelementptr inbounds float, ptr %7, i64 %indvars.iv
+  store float %conv33.us, ptr %arrayidx38.us, align 4, !tbaa !14
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %wide.trip.count = sext i32 %1 to i64
   %exitcond = icmp ne i64 %indvars.iv.next, %wide.trip.count
@@ -113,7 +110,7 @@ cleanup:                                          ; preds = %cleanup.loopexit36,
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64) local_unnamed_addr #1
+declare dso_local noalias ptr @calloc(i64, i64) local_unnamed_addr #1
 
 ; Function Attrs: nounwind readnone speculatable
 declare double @llvm.cos.f64(double) #2

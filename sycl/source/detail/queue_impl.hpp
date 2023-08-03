@@ -11,6 +11,7 @@
 #include <detail/config.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/device_impl.hpp>
+#include <detail/device_info.hpp>
 #include <detail/event_impl.hpp>
 #include <detail/global_handler.hpp>
 #include <detail/kernel_impl.hpp>
@@ -31,6 +32,8 @@
 #include <sycl/queue.hpp>
 #include <sycl/stl.hpp>
 
+#include "detail/graph_impl.hpp"
+
 #include <utility>
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
@@ -39,7 +42,14 @@
 #endif
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
+
+// forward declaration
+
+namespace ext::oneapi::experimental::detail {
+class graph_impl;
+}
+
 namespace detail {
 
 using ContextImplPtr = std::shared_ptr<detail::context_impl>;
@@ -81,9 +91,8 @@ public:
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
   /// \param PropList is a list of properties to use for queue construction.
   queue_impl(const DeviceImplPtr &Device, const async_handler &AsyncHandler,
-             const property_list &PropList, bool Backend_L0_V3 = false)
-      : queue_impl(Device, getDefaultOrNew(Device), AsyncHandler, PropList,
-                   Backend_L0_V3){};
+             const property_list &PropList)
+      : queue_impl(Device, getDefaultOrNew(Device), AsyncHandler, PropList){};
 
   /// Constructs a SYCL queue with an async_handler and property_list provided
   /// form a device and a context.
@@ -95,11 +104,10 @@ public:
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
   /// \param PropList is a list of properties to use for queue construction.
   queue_impl(const DeviceImplPtr &Device, const ContextImplPtr &Context,
-             const async_handler &AsyncHandler, const property_list &PropList,
-             bool Backend_L0_V3 = false)
-      : MBackend_L0_V3(Backend_L0_V3), MDevice(Device), MContext(Context),
-        MAsyncHandler(AsyncHandler), MPropList(PropList),
-        MHostQueue(MDevice->is_host()), MAssertHappenedBuffer(range<1>{1}),
+             const async_handler &AsyncHandler, const property_list &PropList)
+      : MDevice(Device), MContext(Context), MAsyncHandler(AsyncHandler),
+        MPropList(PropList), MHostQueue(MDevice->is_host()),
+        MAssertHappenedBuffer(range<1>{1}),
         MIsInorder(has_property<property::queue::in_order>()),
         MDiscardEvents(
             has_property<ext::oneapi::property::queue::discard_events>()),
@@ -111,29 +119,32 @@ public:
 #if XPTI_ENABLE_INSTRUMENTATION
     /// This section of code is relying on scoped objects, so they cannot be
     /// encapsulated in a function
-    XPTIScope PrepareNotify((void *)this,
-                            (uint16_t)xpti::trace_point_type_t::queue_create,
+    constexpr uint16_t NotificationTraceType =
+        static_cast<uint16_t>(xpti::trace_point_type_t::queue_create);
+    XPTIScope PrepareNotify((void *)this, NotificationTraceType,
                             SYCL_STREAM_NAME, "queue_create");
     // Cache the trace event, stream id and instance IDs for the destructor
-    if (xptiTraceEnabled()) {
+    if (xptiCheckTraceEnabled(PrepareNotify.streamID(),
+                              NotificationTraceType)) {
       MTraceEvent = (void *)PrepareNotify.traceEvent();
       MStreamID = PrepareNotify.streamID();
       MInstanceID = PrepareNotify.instanceID();
+      // Add the function to capture meta data for the XPTI trace event
+      PrepareNotify.addMetadata([&](auto TEvent) {
+        xpti::addMetadata(TEvent, "sycl_context",
+                          reinterpret_cast<size_t>(MContext->getHandleRef()));
+        if (MDevice) {
+          xpti::addMetadata(TEvent, "sycl_device_name",
+                            MDevice->getDeviceName());
+          xpti::addMetadata(
+              TEvent, "sycl_device",
+              reinterpret_cast<size_t>(
+                  MDevice->is_host() ? 0 : MDevice->getHandleRef()));
+        }
+        xpti::addMetadata(TEvent, "is_inorder", MIsInorder);
+      });
+      PrepareNotify.notify();
     }
-    // Add the function to capture meta data for the XPTI trace event
-    PrepareNotify.addMetadata([&](auto TEvent) {
-      xpti::addMetadata(TEvent, "sycl_context",
-                        reinterpret_cast<size_t>(MContext->getHandleRef()));
-      if (MDevice) {
-        xpti::addMetadata(TEvent, "sycl_device_name", MDevice->getDeviceName());
-        xpti::addMetadata(
-            TEvent, "sycl_device",
-            reinterpret_cast<size_t>(
-                MDevice->is_host() ? 0 : MDevice->getHandleRef()));
-      }
-      xpti::addMetadata(TEvent, "is_inorder", MIsInorder);
-    });
-    PrepareNotify.notify();
 #endif
     if (has_property<property::queue::enable_profiling>()) {
       if (has_property<ext::oneapi::property::queue::discard_events>())
@@ -142,9 +153,7 @@ public:
                               "discard_events and enable_profiling.");
       if (!MDevice->has(aspect::queue_profiling)) {
         // TODO temporary workaround, see MLimitedProfiling
-        if (MDevice->is_accelerator() &&
-            checkNativeQueueProfiling(MDevice->getHandleRef(),
-                                      Context->getPlugin())) {
+        if (MDevice->is_accelerator() && checkNativeQueueProfiling(MDevice)) {
           MLimitedProfiling = true;
         } else {
           throw sycl::exception(
@@ -167,8 +176,7 @@ public:
             "device's number of available compute queue indices.");
     }
     if (!Context->isDeviceValid(Device)) {
-      if (!Context->is_host() &&
-          Context->getPlugin().getBackend() == backend::opencl)
+      if (!Context->is_host() && Context->getBackend() == backend::opencl)
         throw sycl::invalid_object_error(
             "Queue cannot be constructed with the given context and device "
             "since the device is not a member of the context (descendants of "
@@ -190,7 +198,7 @@ public:
   }
 
 private:
-  void queue_impl_interop(RT::PiQueue PiQueue) {
+  void queue_impl_interop(sycl::detail::pi::PiQueue PiQueue) {
     // The following commented section provides a guideline on how to use the
     // TLS enabled mechanism to create a tracepoint and notify using XPTI. This
     // is the prolog section and the epilog section will initiate the
@@ -198,29 +206,33 @@ private:
 #if XPTI_ENABLE_INSTRUMENTATION
     /// This section of code is relying on scoped objects, so they cannot be
     /// encapsulated in a function
-    XPTIScope PrepareNotify((void *)this,
-                            (uint16_t)xpti::trace_point_type_t::queue_create,
+    constexpr uint16_t NotificationTraceType =
+        static_cast<uint16_t>(xpti::trace_point_type_t::queue_create);
+    XPTIScope PrepareNotify((void *)this, NotificationTraceType,
                             SYCL_STREAM_NAME, "queue_create");
-    if (xptiTraceEnabled()) {
+    if (xptiCheckTraceEnabled(PrepareNotify.streamID(),
+                              NotificationTraceType)) {
       // Cache the trace event, stream id and instance IDs for the destructor
       MTraceEvent = (void *)PrepareNotify.traceEvent();
       MStreamID = PrepareNotify.streamID();
       MInstanceID = PrepareNotify.instanceID();
+
+      // Add the function to capture meta data for the XPTI trace event
+      PrepareNotify.addMetadata([&](auto TEvent) {
+        xpti::addMetadata(TEvent, "sycl_context",
+                          reinterpret_cast<size_t>(MContext->getHandleRef()));
+        if (MDevice) {
+          xpti::addMetadata(TEvent, "sycl_device_name",
+                            MDevice->getDeviceName());
+          xpti::addMetadata(
+              TEvent, "sycl_device",
+              reinterpret_cast<size_t>(
+                  MDevice->is_host() ? 0 : MDevice->getHandleRef()));
+        }
+        xpti::addMetadata(TEvent, "is_inorder", MIsInorder);
+      });
+      PrepareNotify.notify();
     }
-    // Add the function to capture meta data for the XPTI trace event
-    PrepareNotify.addMetadata([&](auto TEvent) {
-      xpti::addMetadata(TEvent, "sycl_context",
-                        reinterpret_cast<size_t>(MContext->getHandleRef()));
-      if (MDevice) {
-        xpti::addMetadata(TEvent, "sycl_device_name", MDevice->getDeviceName());
-        xpti::addMetadata(
-            TEvent, "sycl_device",
-            reinterpret_cast<size_t>(
-                MDevice->is_host() ? 0 : MDevice->getHandleRef()));
-      }
-      xpti::addMetadata(TEvent, "is_inorder", MIsInorder);
-    });
-    PrepareNotify.notify();
 #endif
     if (has_property<ext::oneapi::property::queue::discard_events>() &&
         has_property<property::queue::enable_profiling>()) {
@@ -229,12 +241,12 @@ private:
                             "discard_events and enable_profiling.");
     }
 
-    MQueues.push_back(pi::cast<RT::PiQueue>(PiQueue));
+    MQueues.push_back(pi::cast<sycl::detail::pi::PiQueue>(PiQueue));
 
-    RT::PiDevice DevicePI{};
-    const detail::plugin &Plugin = getPlugin();
+    sycl::detail::pi::PiDevice DevicePI{};
+    const PluginPtr &Plugin = getPlugin();
     // TODO catch an exception and put it to list of asynchronous exceptions
-    Plugin.call<PiApiKind::piQueueGetInfo>(
+    Plugin->call<PiApiKind::piQueueGetInfo>(
         MQueues[0], PI_QUEUE_INFO_DEVICE, sizeof(DevicePI), &DevicePI, nullptr);
     MDevice = MContext->findMatchingDeviceImpl(DevicePI);
     if (MDevice == nullptr) {
@@ -251,7 +263,7 @@ public:
   /// \param Context is a SYCL context to associate with the queue being
   /// constructed.
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
-  queue_impl(RT::PiQueue PiQueue, const ContextImplPtr &Context,
+  queue_impl(sycl::detail::pi::PiQueue PiQueue, const ContextImplPtr &Context,
              const async_handler &AsyncHandler)
       : MContext(Context), MAsyncHandler(AsyncHandler), MHostQueue(false),
         MAssertHappenedBuffer(range<1>{1}),
@@ -271,7 +283,7 @@ public:
   /// constructed.
   /// \param AsyncHandler is a SYCL asynchronous exception handler.
   /// \param PropList is the queue properties.
-  queue_impl(RT::PiQueue PiQueue, const ContextImplPtr &Context,
+  queue_impl(sycl::detail::pi::PiQueue PiQueue, const ContextImplPtr &Context,
              const async_handler &AsyncHandler, const property_list &PropList)
       : MContext(Context), MAsyncHandler(AsyncHandler), MPropList(PropList),
         MHostQueue(false), MAssertHappenedBuffer(range<1>{1}),
@@ -289,17 +301,19 @@ public:
     // lifetime of the queue object as member variables when ABI breakage is
     // allowed. This example shows MTraceEvent as a member variable.
 #if XPTI_ENABLE_INSTRUMENTATION
-    if (xptiTraceEnabled()) {
+    constexpr uint16_t NotificationTraceType =
+        static_cast<uint16_t>(xpti::trace_point_type_t::queue_destroy);
+    if (xptiCheckTraceEnabled(MStreamID, NotificationTraceType)) {
       // Used cached information in member variables
-      xptiNotifySubscribers(
-          MStreamID, (uint16_t)xpti::trace_point_type_t::queue_destroy, nullptr,
-          (xpti::trace_event_data_t *)MTraceEvent, MInstanceID,
-          static_cast<const void *>("queue_destroy"));
+      xptiNotifySubscribers(MStreamID, NotificationTraceType, nullptr,
+                            (xpti::trace_event_data_t *)MTraceEvent,
+                            MInstanceID,
+                            static_cast<const void *>("queue_destroy"));
     }
 #endif
     throw_asynchronous();
     if (!MHostQueue) {
-      getPlugin().call<PiApiKind::piQueueRelease>(MQueues[0]);
+      getPlugin()->call<PiApiKind::piQueueRelease>(MQueues[0]);
     }
   }
 
@@ -310,7 +324,7 @@ public:
           "This instance of queue doesn't support OpenCL interoperability",
           PI_ERROR_INVALID_QUEUE);
     }
-    getPlugin().call<PiApiKind::piQueueRetain>(MQueues[0]);
+    getPlugin()->call<PiApiKind::piQueueRetain>(MQueues[0]);
     return pi::cast<cl_command_queue>(MQueues[0]);
   }
 
@@ -319,7 +333,7 @@ public:
     return createSyclObjFromImpl<context>(MContext);
   }
 
-  const plugin &getPlugin() const { return MContext->getPlugin(); }
+  const PluginPtr &getPlugin() const { return MContext->getPlugin(); }
 
   const ContextImplPtr &getContextImplPtr() const { return MContext; }
 
@@ -428,9 +442,9 @@ public:
   /// \param PropList SYCL properties.
   /// \param Order specifies whether queue is in-order or out-of-order.
   /// \param Properties PI properties array created from SYCL properties.
-  static RT::PiQueueProperties
+  static sycl::detail::pi::PiQueueProperties
   createPiQueueProperties(const property_list &PropList, QueueOrder Order) {
-    RT::PiQueueProperties CreationFlags = 0;
+    sycl::detail::pi::PiQueueProperties CreationFlags = 0;
 
     if (Order == QueueOrder::OOO) {
       CreationFlags = PI_QUEUE_FLAG_OUT_OF_ORDER_EXEC_MODE_ENABLE;
@@ -471,6 +485,23 @@ public:
       }
       CreationFlags |= PI_EXT_ONEAPI_QUEUE_FLAG_PRIORITY_HIGH;
     }
+    // Track that submission modes do not conflict.
+    bool SubmissionSeen = false;
+    if (PropList.has_property<
+            ext::intel::property::queue::no_immediate_command_list>()) {
+      SubmissionSeen = true;
+      CreationFlags |= PI_EXT_QUEUE_FLAG_SUBMISSION_NO_IMMEDIATE;
+    }
+    if (PropList.has_property<
+            ext::intel::property::queue::immediate_command_list>()) {
+      if (SubmissionSeen) {
+        throw sycl::exception(
+            make_error_code(errc::invalid),
+            "Queue cannot be constructed with different submission modes.");
+      }
+      SubmissionSeen = true;
+      CreationFlags |= PI_EXT_QUEUE_FLAG_SUBMISSION_IMMEDIATE;
+    }
     return CreationFlags;
   }
 
@@ -478,26 +509,23 @@ public:
   ///
   /// \param Order specifies whether the queue being constructed as in-order
   /// or out-of-order.
-  RT::PiQueue createQueue(QueueOrder Order) {
-    RT::PiQueue Queue{};
-    RT::PiContext Context = MContext->getHandleRef();
-    RT::PiDevice Device = MDevice->getHandleRef();
-    const detail::plugin &Plugin = getPlugin();
+  sycl::detail::pi::PiQueue createQueue(QueueOrder Order) {
+    sycl::detail::pi::PiQueue Queue{};
+    sycl::detail::pi::PiContext Context = MContext->getHandleRef();
+    sycl::detail::pi::PiDevice Device = MDevice->getHandleRef();
+    const PluginPtr &Plugin = getPlugin();
 
-    assert(Plugin.getBackend() == MDevice->getPlugin().getBackend());
-    RT::PiQueueProperties Properties[] = {
+    sycl::detail::pi::PiQueueProperties Properties[] = {
         PI_QUEUE_FLAGS, createPiQueueProperties(MPropList, Order), 0, 0, 0};
     if (has_property<ext::intel::property::queue::compute_index>()) {
       int Idx = get_property<ext::intel::property::queue::compute_index>()
                     .get_index();
       Properties[2] = PI_QUEUE_COMPUTE_INDEX;
-      Properties[3] = static_cast<RT::PiQueueProperties>(Idx);
+      Properties[3] = static_cast<sycl::detail::pi::PiQueueProperties>(Idx);
     }
-    RT::PiResult Error =
-        MBackend_L0_V3 ? Plugin.call_nocheck<PiApiKind::piextQueueCreate>(
-                             Context, Device, Properties, &Queue)
-                       : Plugin.call_nocheck<PiApiKind::piextQueueCreate2>(
-                             Context, Device, Properties, &Queue);
+    sycl::detail::pi::PiResult Error =
+        Plugin->call_nocheck<PiApiKind::piextQueueCreate>(Context, Device,
+                                                          Properties, &Queue);
 
     // If creating out-of-order queue failed and this property is not
     // supported (for example, on FPGA), it will return
@@ -506,7 +534,7 @@ public:
       MEmulateOOO = true;
       Queue = createQueue(QueueOrder::Ordered);
     } else {
-      Plugin.checkPiResult(Error);
+      Plugin->checkPiResult(Error);
     }
 
     return Queue;
@@ -514,8 +542,8 @@ public:
 
   /// \return a raw PI handle for a free queue. The returned handle is not
   /// retained. It is caller responsibility to make sure queue is still alive.
-  RT::PiQueue &getExclusiveQueueHandleRef() {
-    RT::PiQueue *PIQ = nullptr;
+  sycl::detail::pi::PiQueue &getExclusiveQueueHandleRef() {
+    sycl::detail::pi::PiQueue *PIQ = nullptr;
     bool ReuseQueue = false;
     {
       std::lock_guard<std::mutex> Lock(MMutex);
@@ -538,14 +566,14 @@ public:
     if (!ReuseQueue)
       *PIQ = createQueue(QueueOrder::Ordered);
     else
-      getPlugin().call<PiApiKind::piQueueFinish>(*PIQ);
+      getPlugin()->call<PiApiKind::piQueueFinish>(*PIQ);
 
     return *PIQ;
   }
 
   /// \return a raw PI queue handle. The returned handle is not retained. It
   /// is caller responsibility to make sure queue is still alive.
-  RT::PiQueue &getHandleRef() {
+  sycl::detail::pi::PiQueue &getHandleRef() {
     if (!MEmulateOOO)
       return MQueues[0];
 
@@ -618,13 +646,7 @@ public:
   /// Gets the native handle of the SYCL queue.
   ///
   /// \return a native handle.
-  pi_native_handle getNative() const;
-
-  // The getNative2 function is added as a temporary measure so that the
-  // existing getNative function can co-exist with it. At the next ABI
-  // redefinition getNative will be removed and getNative2 will be renamed as
-  // getNative.
-  pi_native_handle getNative2(int32_t &NativeHandleDesc) const;
+  pi_native_handle getNative(int32_t &NativeHandleDesc) const;
 
   buffer<AssertHappened, 1> &getAssertHappenedBuffer() {
     return MAssertHappenedBuffer;
@@ -659,6 +681,16 @@ public:
 
   bool isProfilingLimited() { return MLimitedProfiling; }
 
+  void setCommandGraph(
+      std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> Graph) {
+    MGraph = Graph;
+  }
+
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl>
+  getCommandGraph() const {
+    return MGraph;
+  }
+
 protected:
   // template is needed for proper unit testing
   template <typename HandlerType = handler>
@@ -667,8 +699,7 @@ protected:
     if (MIsInorder) {
 
       auto IsExpDepManaged = [](const CG::CGTYPE &Type) {
-        return (Type == CG::CGTYPE::CodeplayHostTask ||
-                Type == CG::CGTYPE::CodeplayInteropTask);
+        return Type == CG::CGTYPE::CodeplayHostTask;
       };
 
       // Accessing and changing of an event isn't atomic operation.
@@ -727,9 +758,9 @@ protected:
 
       if (IsKernel)
         // Kernel only uses assert if it's non interop one
-        KernelUsesAssert = !(Handler.MKernel && Handler.MKernel->isInterop()) &&
-                           ProgramManager::getInstance().kernelUsesAssert(
-                               Handler.MOSModuleHandle, Handler.MKernelName);
+        KernelUsesAssert =
+            !(Handler.MKernel && Handler.MKernel->isInterop()) &&
+            ProgramManager::getInstance().kernelUsesAssert(Handler.MKernelName);
 
       finalizeHandler(Handler, Type, Event);
 
@@ -765,12 +796,6 @@ protected:
   /// Protects all the fields that can be changed by class' methods.
   mutable std::mutex MMutex;
 
-  // This flag indicates whether we are dealing with queues constructed by code
-  // that predates this release. This is a temporary fix to be able to
-  // distinguish between old and new binaries and build queues in different
-  // ways.
-  bool MBackend_L0_V3;
-
   DeviceImplPtr MDevice;
   const ContextImplPtr MContext;
 
@@ -786,7 +811,7 @@ protected:
   const property_list MPropList;
 
   /// List of queues created for FPGA device from a single SYCL queue.
-  std::vector<RT::PiQueue> MQueues;
+  std::vector<sycl::detail::pi::PiQueue> MQueues;
   /// Iterator through MQueues.
   size_t MNextQueueIdx = 0;
 
@@ -839,8 +864,15 @@ protected:
   // able to discard events, because the final decision is made right before the
   // operation itself.
   const bool MHasDiscardEventsSupport;
+
+  // Command graph which is associated with this queue for the purposes of
+  // recording commands to it.
+  std::shared_ptr<ext::oneapi::experimental::detail::graph_impl> MGraph =
+      nullptr;
+
+  friend class sycl::ext::oneapi::experimental::detail::node_impl;
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

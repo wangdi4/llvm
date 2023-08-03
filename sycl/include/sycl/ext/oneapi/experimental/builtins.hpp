@@ -27,7 +27,7 @@
 #endif
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi::experimental {
 
 // Provides functionality to print data from kernels in a C way:
@@ -87,9 +87,9 @@ namespace native {
 // backends we revert to the sycl::tanh impl.
 template <typename T>
 inline __SYCL_ALWAYS_INLINE
-    sycl::detail::enable_if_t<sycl::detail::is_svgenfloatf<T>::value ||
-                                  sycl::detail::is_svgenfloath<T>::value,
-                              T>
+    std::enable_if_t<sycl::detail::is_svgenfloatf<T>::value ||
+                         sycl::detail::is_svgenfloath<T>::value,
+                     T>
     tanh(T x) __NOEXC {
 #if defined(__NVPTX__)
   using _ocl_T = sycl::detail::ConvertToOpenCLType_t<T>;
@@ -139,7 +139,7 @@ inline __SYCL_ALWAYS_INLINE
 // For other backends we revert to the sycl::exp2 impl.
 template <typename T>
 inline __SYCL_ALWAYS_INLINE
-    sycl::detail::enable_if_t<sycl::detail::is_svgenfloath<T>::value, T>
+    std::enable_if_t<sycl::detail::is_svgenfloath<T>::value, T>
     exp2(T x) __NOEXC {
 #if defined(__NVPTX__)
   using _ocl_T = sycl::detail::ConvertToOpenCLType_t<T>;
@@ -179,7 +179,7 @@ exp2(sycl::marray<half, N> x) __NOEXC {
 } // namespace native
 
 } // namespace ext::oneapi::experimental
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 #undef __SYCL_CONSTANT_AS

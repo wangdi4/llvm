@@ -24,6 +24,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#include <iomanip>
 
 using namespace llvm;
 using namespace MDInliningReport;
@@ -70,16 +71,27 @@ private:
   // Print the language character for the Function with name 'CalleeName'.
   void printFunctionLanguageChar(StringRef CalleeName);
 
+  // Print the indirect call specialization method.
+  void printICSMethod(InlICSType ICSMethod);
+
   // Print the name of the callee, module name, line, and column for the
   // callee. 'MD' is the metadata tuple with callee name, module name, line,
   // and column info.
   void printCalleeNameModuleLineCol(MDTuple *MD);
+
+  // Print the name of the target function called by the broker function.
+  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned Level,
+                             MDTuple *MD);
 
   // Print a simple message for a callsite. 'Message' is the message,
   // 'IsInlined' is 'true' if the callsite was inlined. 'IndentCount' is
   // the number of spaces the message should be indented.
   void printSimpleMessage(const char *Message, bool IsInlined,
                           unsigned IndentCount);
+
+  // Print the cost and benefit info. 'MD' is a metadata tuple including
+  // the info. 'IsInlined' is 'true' if the callsite was inlined.
+  void printCostAndBenefit(MDTuple *MD, bool IsInlined);
 
   // Print the cost and threshold info. 'MD' is a metadata tuple including
   // the info. 'IsInlined' is 'true' if the callsite was inlined.
@@ -134,6 +146,24 @@ void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
   OS << (IsFortran ? "F" : "C") << ' ';
 }
 
+void IREmitterInfo::printICSMethod(InlICSType ICSMethod) {
+  if (!(Level & InlineReportOptions::Indirects))
+    return;
+  switch (ICSMethod) {
+  case InlICSNone:
+    break;
+  case InlICSGPT:
+    OS << "(GPT) ";
+    break;
+  case InlICSSFA:
+    OS << "(SFA) ";
+    break;
+  case InlICSPGO:
+    OS << "(PGO) ";
+    break;
+  }
+}
+
 std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
   if (Function *F = M.getFunction(CalleeName))
     return llvm::getLanguageStr(F);
@@ -146,6 +176,9 @@ std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
+  int64_t ICSMethod = 0;
+  getOpVal(MD->getOperand(CSMDIR_ICSMethod), "icsMethod: ", &ICSMethod);
+  printICSMethod(static_cast<InlICSType>(ICSMethod));
   printFunctionLinkageChar(CalleeName);
   printFunctionLanguageChar(CalleeName);
   if ((Level & InlineReportOptions::Demangle) &&
@@ -181,6 +214,23 @@ void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
   OS << "\n";
 }
 
+void IREmitterInfo::printCostAndBenefit(MDTuple *MD, bool IsInlined) {
+  if (!(Level & InlineReportOptions::EarlyExitCost))
+    return;
+  int64_t CBPairCost = -1;
+  getOpVal(MD->getOperand(CSMDIR_CBPairCost), "CBPairCost: ", &CBPairCost);
+  int64_t CBPairBenefit = -1;
+  getOpVal(MD->getOperand(CSMDIR_CBPairBenefit),
+           "CBPairBenefit: ", &CBPairBenefit);
+  OS << " (" << CBPairCost;
+  if (IsInlined)
+    OS << "<=";
+  else
+    OS << ">";
+  OS << CBPairBenefit;
+  OS << ")";
+}
+
 void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
@@ -211,6 +261,13 @@ void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
     OS << EEThreshold << "]";
   }
   OS << ")";
+}
+
+void IREmitterInfo::printBrokerTargetName(formatted_raw_ostream &OS,
+                                          unsigned Level, MDTuple *MD) {
+  StringRef Name =
+      llvm::getOpStr(MD->getOperand(CSMDIR_BrokerTargetName), "name: ");
+  OS << "(" << Name << ")\n";
 }
 
 void IREmitterInfo::printOuterCostAndThreshold(MDTuple *MD) {
@@ -246,10 +303,21 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
     printIndentCount(OS, IndentCount);
-    OS << "-> INLINE: ";
+    int64_t IsCompact = 0;
+    getOpVal(CSIR->getOperand(CSMDIR_IsCompact), "isCompact: ", &IsCompact);
+    if (IsCompact)
+      OS << "-> <C> INLINE: ";
+    else
+      OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
-      printCostAndThreshold(CSIR, true);
+      int64_t IsCostBenefit = 0;
+      getOpVal(CSIR->getOperand(CSMDIR_IsCostBenefit),
+               "isCostBenefit: ", &IsCostBenefit);
+      if (IsCostBenefit)
+        printCostAndBenefit(CSIR, true);
+      else
+        printCostAndThreshold(CSIR, true);
     }
     printSimpleMessage(InlineReasonText[Reason].Message, true, IndentCount);
   } else {
@@ -266,7 +334,16 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
           printIndentCount(OS, IndentCount);
-          OS << "-> INDIRECT: ";
+          OS << "-> INDIRECT:";
+          printCalleeNameModuleLineCol(CSIR);
+          printSimpleMessage(InlineReasonText[Reason].Message, false,
+                             IndentCount);
+        }
+        break;
+      case NinlrDeletedIndCallConv:
+        if (Level & InlineReportOptions::Indirects) {
+          printIndentCount(OS, IndentCount);
+          OS << "-> INDIRECT: DELETE:";
           printCalleeNameModuleLineCol(CSIR);
           printSimpleMessage(InlineReasonText[Reason].Message, false,
                              IndentCount);
@@ -279,6 +356,12 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         printOuterCostAndThreshold(CSIR);
         printSimpleMessage(InlineReasonText[Reason].Message, false,
                            IndentCount);
+        break;
+      case NinlrBrokerFunction:
+        printIndentCount(OS, IndentCount);
+        OS << "-> BROKER: ";
+        printCalleeNameModuleLineCol(CSIR);
+        printBrokerTargetName(OS, Level, CSIR);
         break;
       default:
         assert(0);
@@ -296,8 +379,15 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       printIndentCount(OS, IndentCount);
       OS << "-> ";
       printCalleeNameModuleLineCol(CSIR);
-      if (InlineReasonText[Reason].Type == InlPrtCost)
-        printCostAndThreshold(CSIR, false);
+      if (InlineReasonText[Reason].Type == InlPrtCost) {
+        int64_t IsCostBenefit = 0;
+        getOpVal(CSIR->getOperand(CSMDIR_IsCostBenefit),
+                 "isCostBenefit: ", &IsCostBenefit);
+        if (IsCostBenefit)
+          printCostAndBenefit(CSIR, false);
+        else
+          printCostAndThreshold(CSIR, false);
+      }
       printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount);
     }
   }
@@ -441,8 +531,33 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
   else
     OS << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
+  // Print out the summarized inlines for this function.
+  if (Metadata *MDCIs = FuncReport->getOperand(FMDIR_CompactIndexes).get()) {
+     OS << "  SUMMARIZED INLINED CALL SITE COUNTS\n";
+     auto CIs = cast<MDTuple>(MDCIs);
+     Metadata *MDCCs = FuncReport->getOperand(FMDIR_CompactCounts).get();
+     auto CCs = cast<MDTuple>(MDCCs);
+     assert(CIs->getNumOperands() == CCs->getNumOperands() &&
+            "Expecting op match");
+     NamedMDNode *ModuleInlineReport =
+       M.getOrInsertNamedMetadata("intel.module.inlining.report");
+     for (unsigned I = 0, E = CIs->getNumOperands(); I < E; ++I) {
+       std::stringstream SS;
+       unsigned CompactIndex = 0;
+       StringRef CI = getOpStr(CIs->getOperand(I).get(), "Index: ");
+       CI.getAsInteger<unsigned>(0, CompactIndex);
+       auto FR = cast<MDTuple>(ModuleInlineReport->getOperand(CompactIndex));
+       std::string Name =
+           std::string(getOpStr(FR->getOperand(FMDIR_FuncName), "name: "));
+       unsigned CompactCount = 0;
+       StringRef CC = getOpStr(CCs->getOperand(I).get(), "Count: ");
+       CC.getAsInteger<unsigned>(0, CompactCount);
+       OS << "    ";
+       SS << std::setw(5) << " " << CompactCount << " ";
+       OS << SS.str() << Name << "\n";
+     }
+  }
   OS << '\n';
-
   return;
 }
 
@@ -463,11 +578,25 @@ bool IREmitterInfo::runImpl() {
   }
 
   findDeadFunctionInfo(ModuleInlineReport);
+  SmallPtrSet<Function *, 16> FS;
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     printFunctionInlineReportFromMetadata(Node);
+    MDTuple *FR = cast<MDTuple>(Node);
+    std::string Name =
+        std::string(getOpStr(FR->getOperand(FMDIR_FuncName), "name: "));
+    if (Function *F = M.getFunction(Name))
+       FS.insert(F);
   }
-
+  // Make one last pass through the functions looking for "rogue"
+  // functions that have inlining report metadata, but were not inserted
+  // into the module inlining report table.
+  for (auto &F : M.functions()) {
+    if (FS.count(&F) || F.isDeclaration())
+       continue;
+    if (auto MDN = dyn_cast_or_null<MDTuple>(F.getMetadata(FunctionTag)))
+       printFunctionInlineReportFromMetadata(MDN);
+  }
   OS << "---- End Inlining Report ------ (via metadata)\n";
   delete getMDInlineReport();
   return true;

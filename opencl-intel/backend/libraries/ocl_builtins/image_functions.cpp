@@ -21,8 +21,6 @@
 
 #define NORMALIZED_SAMPLER 0x08
 
-#define ALIGN16 __attribute__((aligned(16)))
-
 const constant int fVec4FloatZeroCoordMask3D[4] ALIGN16 = {
     0xffffffff, 0xffffffff, 0xffffffff, 0};
 ALIGN16 const constant int4 UndefCoordInt = {0, 0, 0, 0};
@@ -3140,4 +3138,484 @@ mask_soa16_read_imageui(int16 mask, __write_only image2d_t image, int16 coord_x,
                         __private uint16 *res_w) {
   mask_soa16_read_imageui(mask, __builtin_astype(image, __read_only image2d_t),
                           coord_x, coord_y, res_x, res_y, res_z, res_w);
+}
+
+half4 __attribute__((overloadable)) convert_half4(float4 x);
+float4 __attribute__((overloadable)) convert_float4(half4 x);
+
+/************** HALF IMAGE READ FUNCTIONS *********************/
+
+// Call read_imagef to implement read_imageh
+half4 __attribute__((overloadable))
+read_imageh_2d(__private image_aux_data *pImage, sampler_t sampler,
+               int2 coord) {
+  return convert_half4(read_imagef_2d(pImage, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh_2d(__private image_aux_data *pImage, sampler_t sampler,
+               float2 coord) {
+  return convert_half4(read_imagef_2d(pImage, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image3d_t image, sampler_t sampler, int4 coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image3d_t image, sampler_t sampler, float4 coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh_2d_array(__private image_aux_data *pImage, sampler_t sampler,
+                     int4 coord) {
+  return convert_half4(read_imagef_2d_array(pImage, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh_2d_array(__private image_aux_data *pImage, sampler_t sampler,
+                     float4 coord) {
+  return convert_half4(read_imagef_2d_array(pImage, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_t image, sampler_t sampler, int coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_t image, sampler_t sampler, float coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_array_t image, sampler_t sampler, int2 coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(image1d_array_t image, sampler_t sampler, float2 coord) {
+  return convert_half4(read_imagef(image, sampler, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh_2d(__private image_aux_data *pImage, int2 coord) {
+  return convert_half4(read_imagef_2d(pImage, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image3d_t image, int4 coord) {
+  return convert_half4(read_imagef(image, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh_2d_array(__private image_aux_data *pImage, int4 coord) {
+  return convert_half4(read_imagef_2d_array(pImage, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_t image, int coord) {
+  return convert_half4(read_imagef(image, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_buffer_t image, int coord) {
+  return convert_half4(read_imagef(image, coord));
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image1d_array_t image, int2 coord) {
+  return convert_half4(read_imagef(image, coord));
+}
+
+// Call basic read_imageh to implement other read_imageh
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_t image, sampler_t sampler, int2 coord) {
+  return read_imageh_2d(__builtin_astype(image, __private image_aux_data *),
+                        sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_t image, sampler_t sampler, int2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_t), sampler,
+                     coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_depth_t image, sampler_t sampler, int2 coord) {
+  return read_imageh_2d(__builtin_astype(image, __private image_aux_data *),
+                        sampler, coord)
+      .x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_depth_t image, sampler_t sampler, int2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_depth_t),
+                     sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, read_only image2d_t image, sampler_t sampler,
+                 int2 coord) {
+  if (mask)
+    return read_imageh(image, sampler, coord);
+  return (half4)(0.0f, 0.0f, 0.0f, 0.0f);
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, read_write image2d_t image, sampler_t sampler,
+                 int2 coord) {
+  if (mask)
+    return read_imageh(image, sampler, coord);
+  return (half4)(0.0f, 0.0f, 0.0f, 0.0f);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image3d_t image, sampler_t sampler, int4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image3d_t), sampler,
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_t image, sampler_t sampler, float2 coord) {
+  return read_imageh_2d(__builtin_astype(image, __private image_aux_data *),
+                        sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__write_only image2d_t image, sampler_t sampler, float2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_t), sampler,
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_t image, sampler_t sampler, float2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_t), sampler,
+                     coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_depth_t image, sampler_t sampler,
+            float2 coord) {
+  return read_imageh_2d(__builtin_astype(image, __private image_aux_data *),
+                        sampler, coord)
+      .x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__write_only image2d_depth_t image, sampler_t sampler,
+            float2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_depth_t),
+                     sampler, coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_depth_t image, sampler_t sampler,
+            float2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_depth_t),
+                     sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, read_only image2d_t image, sampler_t sampler,
+                 float2 coord) {
+  if (mask)
+    return read_imageh(image, sampler, coord);
+  return (half4)(0.f, 0.f, 0.f, 0.f);
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, read_write image2d_t image, sampler_t sampler,
+                 float2 coord) {
+  if (mask)
+    return read_imageh(image, sampler, coord);
+  return (half4)(0.f, 0.f, 0.f, 0.f);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image3d_t image, sampler_t sampler, float4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image3d_t), sampler,
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_array_t image, sampler_t sampler, int4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_array_t image, sampler_t sampler, int4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_array_t),
+                     sampler, coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_array_depth_t image, sampler_t sampler,
+            int4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, sampler, coord).x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_array_depth_t image, sampler_t sampler,
+            int4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_array_depth_t),
+                     sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_array_t image, sampler_t sampler,
+            float4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_array_t image, sampler_t sampler,
+            float4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_array_t),
+                     sampler, coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_array_depth_t image, sampler_t sampler,
+            float4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, sampler, coord).x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_array_depth_t image, sampler_t sampler,
+            float4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_array_depth_t),
+                     sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_t image, sampler_t sampler, int coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_t), sampler,
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_t image, sampler_t sampler, float coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_t), sampler,
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_array_t image, sampler_t sampler, int2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_array_t),
+                     sampler, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_t image, int2 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d(pImage, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_t image, int2 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d(pImage, coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_depth_t image, int2 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d(pImage, coord).x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_depth_t image, int2 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d(pImage, coord).x;
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, __read_only image2d_t image, int2 coord) {
+  if (mask)
+    return read_imageh(image, coord);
+  return (half4)(0.f, 0.f, 0.f, 0.f);
+}
+
+half4 __attribute__((overloadable))
+mask_read_imageh(int mask, __read_write image2d_t image, int2 coord) {
+  if (mask)
+    return read_imageh(image, coord);
+  return (half4)(0.f, 0.f, 0.f, 0.f);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image3d_t image, int4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image3d_t), coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_only image2d_array_t image, int4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image2d_array_t image, int4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, coord);
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_only image2d_array_depth_t image, int4 coord) {
+  __private image_aux_data *pImage =
+      __builtin_astype(image, __private image_aux_data *);
+  return read_imageh_2d_array(pImage, coord).x;
+}
+
+half __attribute__((overloadable))
+read_imageh(__read_write image2d_array_depth_t image, int4 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image2d_array_depth_t),
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_t image, int coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_t), coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_buffer_t image, int coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_buffer_t),
+                     coord);
+}
+
+half4 __attribute__((overloadable))
+read_imageh(__read_write image1d_array_t image, int2 coord) {
+  return read_imageh(__builtin_astype(image, __read_only image1d_array_t),
+                     coord);
+}
+
+/************** HALF IMAGE WRITE FUNCTIONS *********************/
+
+// Call write_imagef to implement wirte_imageh
+void __attribute__((overloadable))
+write_imageh(__write_only image2d_t image, int2 coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image2d_depth_t image, int2 coord, half hdepth) {
+  float depth = (float)hdepth;
+  write_imagef(image, coord, depth);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image2d_array_t image, int4 coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image2d_array_depth_t image, int4 coord,
+             half hdepth) {
+  float depth = (float)hdepth;
+  write_imagef(image, coord, depth);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image1d_t image, int coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image1d_buffer_t image, int coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image1d_array_t image, int2 coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__write_only image3d_t image, int4 coord, half4 hcolor) {
+  float4 color = convert_float4(hcolor);
+  write_imagef(image, coord, color);
+}
+
+// Call basic write_imageh to implement other wirte_imageh
+void __attribute__((overloadable))
+write_imageh(__read_write image2d_t image, int2 coord, half4 color) {
+  return write_imageh(__builtin_astype(image, __write_only image2d_t), coord,
+                      color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image2d_depth_t image, int2 coord, half depth) {
+  write_imageh(__builtin_astype(image, __write_only image2d_depth_t), coord,
+               depth);
+}
+
+void __attribute__((overloadable))
+mask_write_imageh(int mask, __write_only image2d_t image, int2 coord,
+                  half4 color) {
+  if (mask)
+    write_imageh(image, coord, color);
+}
+
+void __attribute__((overloadable))
+mask_write_imageh(int mask, __read_write image2d_t image, int2 coord,
+                  half4 color) {
+  if (mask)
+    write_imageh(image, coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image2d_array_t image, int4 coord, half4 color) {
+  write_imageh(__builtin_astype(image, __write_only image2d_array_t), coord,
+               color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image2d_array_depth_t image, int4 coord, half depth) {
+  write_imageh(__builtin_astype(image, __write_only image2d_array_depth_t),
+               coord, depth);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image1d_t image, int coord, half4 color) {
+  write_imageh(__builtin_astype(image, __write_only image1d_t), coord, color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image1d_buffer_t image, int coord, half4 color) {
+  write_imageh(__builtin_astype(image, __write_only image1d_buffer_t), coord,
+               color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image1d_array_t image, int2 coord, half4 color) {
+  write_imageh(__builtin_astype(image, __write_only image1d_array_t), coord,
+               color);
+}
+
+void __attribute__((overloadable))
+write_imageh(__read_write image3d_t image, int4 coord, half4 color) {
+  write_imageh(__builtin_astype(image, __write_only image3d_t), coord, color);
 }

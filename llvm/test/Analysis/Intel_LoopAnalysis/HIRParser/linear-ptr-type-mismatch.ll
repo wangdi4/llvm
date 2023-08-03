@@ -12,22 +12,22 @@
 
 
 ; Function Attrs: nounwind
-define void @foo(i64* %ptr) {
+define void @foo(ptr %ptr) {
 entry:
-  %0 = bitcast i64* %ptr to i32*
-  %1 = bitcast i64* %ptr to i32*
+  %0 = bitcast ptr %ptr to ptr
+  %1 = bitcast ptr %ptr to ptr
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %i.018 = phi i32 [ 5, %entry ], [ %dec, %for.body ]
-  %ptBlist2.017 = phi i32* [ %0, %entry ], [ %incdec.ptr, %for.body ]
-  %ptBlist1.016 = phi i32* [ %1, %entry ], [ %incdec.ptr71, %for.body ]
-  %incdec.ptr = getelementptr i32, i32* %ptBlist2.017, i32 1
-  %2 = load i32, i32* %ptBlist2.017, align 4
-  %incdec.ptr71 = getelementptr i32, i32* %ptBlist1.016, i32 1
-  %3 = load i32, i32* %ptBlist1.016, align 4
+  %ptBlist2.017 = phi ptr [ %0, %entry ], [ %incdec.ptr, %for.body ]
+  %ptBlist1.016 = phi ptr [ %1, %entry ], [ %incdec.ptr71, %for.body ]
+  %incdec.ptr = getelementptr i32, ptr %ptBlist2.017, i32 1
+  %2 = load i32, ptr %ptBlist2.017, align 4
+  %incdec.ptr71 = getelementptr i32, ptr %ptBlist1.016, i32 1
+  %3 = load i32, ptr %ptBlist1.016, align 4
   %or = or i32 %3, %2
-  store i32 %or, i32* %ptBlist1.016, align 4
+  store i32 %or, ptr %ptBlist1.016, align 4
   %dec = add i32 %i.018, -1
   %cmp69 = icmp eq i32 %dec, 0
   br i1 %cmp69, label %for.end.loopexit, label %for.body

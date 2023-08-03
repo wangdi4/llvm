@@ -21,7 +21,7 @@
 ;   }
 ; }
 
-; CHECK: LINEAR clause (size=4): ({{.*}}, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (ptr @z, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (ptr %m, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (PTR_TO_PTR(ptr %p), TYPED (TYPE: ptr, POINTEE_TYPE: i32, NUM_ELEMENTS: i32 1), i32 3)
+; CHECK: LINEAR clause (size=4): (TYPED({{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(ptr @z, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(ptr %m, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(PTR_TO_PTR(ptr %p), TYPE: ptr, POINTEE_TYPE: i32, NUM_ELEMENTS: i32 1), i32 3)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

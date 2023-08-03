@@ -21,7 +21,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %B, i32* %C) {
+define void @foo(ptr %B, ptr %C) {
 entry:
   %A = alloca [10 x i32], align 16
   br label %loop
@@ -29,13 +29,13 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry], [ %iv.inc, %loop]
   %iv.inc = add i64 %iv, 1
-  %gepb = getelementptr inbounds i32, i32* %B, i64 %iv
-  %ld1 = load i32, i32* %gepb, align 4
-  %gepa = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 %iv
-  store i32 %ld1, i32* %gepa, align 4
-  %ld2 = load i32, i32* %gepa, align 4
-  %gepc = getelementptr inbounds i32, i32* %C, i64 %iv
-  store i32 %ld2, i32* %gepc, align 4
+  %gepb = getelementptr inbounds i32, ptr %B, i64 %iv
+  %ld1 = load i32, ptr %gepb, align 4
+  %gepa = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 %iv
+  store i32 %ld1, ptr %gepa, align 4
+  %ld2 = load i32, ptr %gepa, align 4
+  %gepc = getelementptr inbounds i32, ptr %C, i64 %iv
+  store i32 %ld2, ptr %gepc, align 4
   %cmp = icmp eq i64 %iv.inc, 5
   br i1 %cmp, label %exit, label %loop
 

@@ -87,52 +87,6 @@ Type *getIndTy(Module *M) {
   return IntegerType::get(M->getContext(), PointerSizeInBits);
 }
 
-void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
-                      SmallVectorImpl<CallInst *> &Calls) {
-  Function *F = FuncToSearch->getParent()->getFunction(FuncName);
-  if (!F)
-    return;
-
-  for (auto *U : F->users()) {
-    CallInst *CI = cast<CallInst>(U);
-    Function *ParentFunc = CI->getFunction();
-    if (ParentFunc == FuncToSearch)
-      Calls.push_back(CI);
-  }
-}
-
-void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
-  InstVec EmptyVec;
-  TidCalls.assign(MAX_WORK_DIM, EmptyVec);
-  SmallVector<CallInst *, 4> AllDimTIDCalls;
-  getAllCallInFunc(TIDName, F, AllDimTIDCalls);
-
-  for (CallInst *CI : AllDimTIDCalls) {
-    unsigned Dim = 0;
-    if (CI->arg_size() == 0) {
-      // No-operand version - does not really matter what dimension we will be
-      // vectorizing over. Some examples:
-      //   * <something>_linear_id,
-      //   * get_sub_group_local_id.
-      //
-      // FIXME: Separate index for such kind of functions. Currently we're
-      // vectorizing over 0-dimension only.
-      Dim = 0;
-    } else {
-      assert(CI->arg_size() == 1 && "Expected one-operand call!");
-      ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-      // Do not expect a non-const arg in current SYCL HOST impl.
-      assert(C && "tid arg must be constant");
-      // But skip it if we have it.
-      if (!C)
-        continue;
-      Dim = C->getValue().getZExtValue();
-      assert(Dim < MAX_WORK_DIM && "tid not in range");
-    }
-    TidCalls[Dim].push_back(CI);
-  }
-}
-
 // transforms code as follows:
 // prehead:
 //     br head

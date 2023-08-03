@@ -16,7 +16,7 @@
 
 #include "hw_defs.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "intrin.h"
 #endif
 
@@ -24,7 +24,7 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
-#ifdef WIN32
+#ifdef _WIN32
 #pragma pack(push)
 #endif
 
@@ -35,7 +35,7 @@ typedef struct {
   UINT64 m_rdx;
 } PACKED CPUID_PARAMS;
 
-#ifdef WIN32
+#ifdef _WIN32
 inline void cpuid(UINT32 cpuid_info[], UINT32 type, UINT32 ecxVal = 0) {
   cpuid_info[0] = type;
   cpuid_info[2] = ecxVal;
@@ -71,7 +71,7 @@ inline unsigned int hw_cpu_idx() {
 #endif
 
 inline unsigned long long RDTSC(void) {
-#ifdef WIN32
+#ifdef _WIN32
   return __rdtsc();
 #else
   unsigned int a, d;
@@ -82,13 +82,13 @@ inline unsigned long long RDTSC(void) {
 
 extern "C" void ASM_FUNCTION hw_pause();
 
-#ifdef WIN32
+#ifdef _WIN32
 extern "C" void *ASM_FUNCTION get_next_line_address();
 #else
 extern "C" void *ASM_FUNCTION get_next_line_address() __attribute__((noinline));
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #pragma pack(pop)
 #endif
 

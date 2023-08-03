@@ -35,7 +35,7 @@
 
 ; Debug trace
 
-; CHECK: Opportunity: <3>          if (%m == 5) --> Level 0, Candidate: 1
+; CHECK: Opportunity: <3>          if (%m == 5) --> Level 0, Candidate: Yes
 ; CHECK-NEXT:   - Code size will NOT increase, thresholds NOT needed
 
 ; HIR after transformation

@@ -71,65 +71,69 @@
 ; This produces a partial inlining of foo into bar rather than fully inlining.
 ;
 ; This test checks that the IR was generated correctly from the partial
-; inliner pass.
+; inliner pass. It is the same test case as intel_simple_partial_inline_ir.ll,
+; but it checks for opaque pointers.
 ;
-; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1
 ;
-; CHECK: define i1 @_Z3barP4Node(%struct.Node* %List) #1
-; CHECK:  %call = call zeroext i1 @_Z3fooP4Node.1(%struct.Node* %0)
+; CHECK: define i1 @_Z3barP4Node(ptr %List) #1
+; CHECK:  %call = call zeroext i1 @_Z3fooP4Node.1(ptr %0)
 
 ; Check that foo was cloned correctly and foo.1 was marked as
 ; "prefer-partial-inline-inlined-clone"
 ;
-; CHECK: define i1 @_Z3fooP4Node.1(%struct.Node* %List) #2
+; CHECK: define i1 @_Z3fooP4Node.1(ptr %List) #2
 ; CHECK: codeRepl:
-; CHECK: call void @_Z3fooP4Node.1.for.body(%struct.Node* %List, i1* %phitmp.loc)
+; CHECK: call void @_Z3fooP4Node.1.for.body(ptr %List, ptr %phitmp.loc)
 ; CHECK: %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp.reload, %for.body.for.end_crit_edge ]
 ; CHECK: ret i1 %Num.0.lcssa
 
 ; Check that the loop body was extracted correctly and foo.1.for.body is
 ; marked as "prefer-partial-inline-outlined-func"
 ;
-; CHECK: define internal void @_Z3fooP4Node.1.for.body(%struct.Node* %List, i1* %phitmp.out) #3
+; CHECK: define internal void @_Z3fooP4Node.1.for.body(ptr %List, ptr %phitmp.out) #3
 
 ; Check the attributes were created
 ;
 ; CHECK: attributes #2 = { "prefer-partial-inline-inlined-clone"
 ; CHECK: attributes #3 = { "prefer-partial-inline-outlined-func"
 
-%struct.Node = type { i32, %struct.Node* }
+; ModuleID = 'intel_simple_partial_inline_ir.ll'
+source_filename = "intel_simple_partial_inline_ir.ll"
 
-define i1 @_Z3fooP4Node(%struct.Node* %List) {
+%struct.Node = type { i32, ptr }
+
+define i1 @_Z3fooP4Node(ptr %List) {
 entry:
-  %cmp8 = icmp eq %struct.Node* %List, null
+  %cmp8 = icmp eq ptr %List, null
   br i1 %cmp8, label %for.end, label %for.body
 
-for.body:                                         ; preds = %entry, %for.body
+for.body:                                         ; preds = %for.body, %entry
   %Num.010 = phi i32 [ %add, %for.body ], [ 0, %entry ]
-  %Head.09 = phi %struct.Node* [ %1, %for.body ], [ %List, %entry ]
-  %Num1 = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 0
-  %0 = load i32, i32* %Num1
+  %Head.09 = phi ptr [ %1, %for.body ], [ %List, %entry ]
+  %Num1 = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 0
+  %0 = load i32, ptr %Num1, align 4
   %add = add nsw i32 %0, %Num.010
   %phitmp = icmp eq i32 %add, 0
-  %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
-  %1 = load %struct.Node*, %struct.Node** %Next
-  %cmp = icmp eq %struct.Node* %1, null
+  %Next = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 1
+  %1 = load ptr, ptr %Next, align 8
+  %cmp = icmp eq ptr %1, null
   br i1 %cmp, label %for.end, label %for.body
 
-for.end:                                          ; preds = %for.end, %entry
+for.end:                                          ; preds = %for.body, %entry
   %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp, %for.body ]
   ret i1 %Num.0.lcssa
 }
 
-
-define i1 @_Z3barP4Node(%struct.Node* %List) #0 {
+; Function Attrs: noinline
+define i1 @_Z3barP4Node(ptr %List) #0 {
 entry:
-  %List.addr = alloca %struct.Node*
-  store %struct.Node* %List, %struct.Node** %List.addr
-  %0 = load %struct.Node*, %struct.Node** %List.addr
-  %call = call zeroext i1 @_Z3fooP4Node(%struct.Node* %0)
+  %List.addr = alloca ptr, align 8
+  store ptr %List, ptr %List.addr, align 8
+  %0 = load ptr, ptr %List.addr, align 8
+  %call = call zeroext i1 @_Z3fooP4Node(ptr %0)
   ret i1 %call
 }
 

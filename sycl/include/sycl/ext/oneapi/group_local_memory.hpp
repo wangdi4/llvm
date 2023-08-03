@@ -20,12 +20,11 @@
 #include <utility>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi {
 template <typename T, typename Group>
 std::enable_if_t<
-    std::is_trivially_destructible<T>::value &&
-        sycl::detail::is_group<Group>::value,
+    std::is_trivially_destructible_v<T> && sycl::detail::is_group<Group>::value,
     multi_ptr<T, access::address_space::local_space, access::decorated::legacy>>
     __SYCL_ALWAYS_INLINE group_local_memory_for_overwrite(Group g) {
   (void)g;
@@ -48,15 +47,14 @@ std::enable_if_t<
 
 template <typename T, typename Group, typename... Args>
 std::enable_if_t<
-    std::is_trivially_destructible<T>::value &&
-        sycl::detail::is_group<Group>::value,
+    std::is_trivially_destructible_v<T> && sycl::detail::is_group<Group>::value,
     multi_ptr<T, access::address_space::local_space, access::decorated::legacy>>
     __SYCL_ALWAYS_INLINE group_local_memory(Group g, Args &&...args) {
 #ifdef __SYCL_DEVICE_ONLY__
   __attribute__((opencl_local)) std::uint8_t *AllocatedMem =
       __sycl_allocateLocalMemory(sizeof(T), alignof(T));
   if (g.get_local_linear_id() == 0)
-    new (AllocatedMem) T(std::forward<Args>(args)...);
+    new (AllocatedMem) T{std::forward<Args>(args)...};
   sycl::detail::workGroupBarrier();
   return reinterpret_cast<__attribute__((opencl_local)) T *>(AllocatedMem);
 #else
@@ -69,5 +67,5 @@ std::enable_if_t<
 #endif
 }
 } // namespace ext::oneapi
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

@@ -10,7 +10,7 @@
 ; CHECK: |   |   |   %0 = (@A)[0][i1][i3];
 ; CHECK: |   |   |   %1 = (@B)[0][i3][i2];
 ; CHECK: |   |   |   %2 = (@C)[0][i1][i2];
-; CHECK: |   |   |   (@C)[0][i1][i2] = %2 + (%1 * %0);
+; CHECK: |   |   |   (@C)[0][i1][i2] = %2 + (%0 * %1);
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
@@ -58,19 +58,19 @@ for.body.6:                                       ; preds = %for.inc, %for.body.
   %k.01 = phi i32 [ 0, %for.body.3 ], [ %inc, %for.inc ]
   %idxprom = sext i32 %k.01 to i64
   %idxprom7 = sext i32 %i.03 to i64
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %idxprom7, i64 %idxprom
-  %0 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %idxprom7, i64 %idxprom
+  %0 = load i32, ptr %arrayidx8, align 4
   %idxprom9 = sext i32 %j.02 to i64
   %idxprom10 = sext i32 %k.01 to i64
-  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %idxprom10, i64 %idxprom9
-  %1 = load i32, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %idxprom10, i64 %idxprom9
+  %1 = load i32, ptr %arrayidx12, align 4
   %mul = mul nsw i32 %0, %1
   %idxprom13 = sext i32 %j.02 to i64
   %idxprom14 = sext i32 %i.03 to i64
-  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @C, i64 0, i64 %idxprom14, i64 %idxprom13
-  %2 = load i32, i32* %arrayidx16, align 4
+  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], ptr @C, i64 0, i64 %idxprom14, i64 %idxprom13
+  %2 = load i32, ptr %arrayidx16, align 4
   %add = add nsw i32 %2, %mul
-  store i32 %add, i32* %arrayidx16, align 4
+  store i32 %add, ptr %arrayidx16, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body.6

@@ -27,6 +27,9 @@
 namespace llvm {
 namespace SYCLChannelPipeUtils {
 
+/// Suffix of new pipe global variable that replaces channel global variable.
+static constexpr StringRef PipeGVSuffix = ".pipe";
+
 struct ChannelPipeMD {
   int PacketSize;
   int PacketAlign;
@@ -88,6 +91,9 @@ public:
   }
 };
 
+/// Return true if 'GV' is global pipe.
+bool isGlobalPipe(GlobalVariable *GV);
+
 /// Extract pipe metadata attached to the SYCL pipe storage GV.
 void getSYCLPipeMetadata(GlobalVariable *SYCLPipeStorageVar, ChannelPipeMD &MD);
 
@@ -120,14 +126,21 @@ class PipeTypesHelper {
   PointerType *PipeRWTy;
   PointerType *PipeROTy;
   PointerType *PipeWOTy;
+  Type *OpaquePipeRWTy = nullptr;
+  Type *OpaquePipeROTy = nullptr;
+  Type *OpaquePipeWOTy = nullptr;
+  Type *GlobalPipeTy = nullptr;
 
   PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
                   Type *PipeWOStorageTy);
 
 public:
-  PipeTypesHelper(const Module &M);
+  PipeTypesHelper(Module &M);
 
-  bool hasPipeTypes() const { return PipeRWTy || PipeROTy || PipeWOTy; }
+  bool hasPipeTypes() const {
+    return PipeRWTy || PipeROTy || PipeWOTy || OpaquePipeRWTy ||
+           OpaquePipeROTy || OpaquePipeWOTy || GlobalPipeTy;
+  }
 
   /// Check if Ty is read_only or write_only pipe type.
   bool isLocalPipeType(Type *Ty) const;
@@ -136,8 +149,6 @@ public:
   bool isGlobalPipeType(Type *Ty) const;
 
   bool isPipeType(Type *Ty) const;
-
-  bool isPipeArrayType(Type *Ty) const;
 };
 
 Function *getPipeBuiltin(Module &M, RuntimeService &RTS,

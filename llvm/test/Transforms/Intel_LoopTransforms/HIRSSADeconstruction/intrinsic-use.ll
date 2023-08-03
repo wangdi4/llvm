@@ -26,22 +26,22 @@
  
 ; CHECK: @llvm.smax.i32(i32 %length.016.i.out
 
-define void @foo(i32* %add.ptr.i, i32* %t14) {
+define void @foo(ptr %add.ptr.i, ptr %t14) {
 entry:
   br label %for.body.i34
 
 for.body.i34:                                     ; preds = %for.body.i34, %entry
   %max.017.i = phi i32 [ %t19, %for.body.i34 ], [ 0, %entry ]
   %length.016.i = phi i32 [ %t18, %for.body.i34 ], [ 0, %entry ]
-  %itemp.015.i = phi i32* [ %incdec.ptr.i, %for.body.i34 ], [ %t14, %entry ]
-  %t16 = load i32, i32* %itemp.015.i, align 4
+  %itemp.015.i = phi ptr [ %incdec.ptr.i, %for.body.i34 ], [ %t14, %entry ]
+  %t16 = load i32, ptr %itemp.015.i, align 4
   %cmp1.i = icmp sgt i32 %t16, -1
   %inc.i = add nsw i32 %length.016.i, 1
   %t17 = tail call i32 @llvm.smax.i32(i32 %length.016.i, i32 %max.017.i)
   %t18 = select i1 %cmp1.i, i32 %inc.i, i32 0
   %t19 = select i1 %cmp1.i, i32 %max.017.i, i32 %t17
-  %incdec.ptr.i = getelementptr inbounds i32, i32* %itemp.015.i, i64 1
-  %cmp.i = icmp ult i32* %incdec.ptr.i, %add.ptr.i
+  %incdec.ptr.i = getelementptr inbounds i32, ptr %itemp.015.i, i64 1
+  %cmp.i = icmp ult ptr %incdec.ptr.i, %add.ptr.i
   br i1 %cmp.i, label %for.body.i34, label %set_maxrhs.exit.loopexit
 
 set_maxrhs.exit.loopexit:                         ; preds = %for.body.i34

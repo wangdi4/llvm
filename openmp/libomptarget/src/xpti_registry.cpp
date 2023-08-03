@@ -181,10 +181,10 @@ void XPTIRegistryTy::traceMemAssociate(uintptr_t HostPtr, uintptr_t TargetPtr) {
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (xptiTraceEnabled()) {
     uint64_t CorrID = xptiGetUniqueId();
-    xpti::offload_buffer_association_data_t Map{HostPtr, TargetPtr};
+    xpti::offload_association_data_t Map{HostPtr, TargetPtr};
     xptiNotifySubscribers(
         OMPStreamID,
-        xpti::trace_offload_alloc_associate,
+        xpti::trace_offload_alloc_memory_object_associate,
         XPTIRegistry->getEvent(), nullptr, CorrID, &Map);
   }
 #endif

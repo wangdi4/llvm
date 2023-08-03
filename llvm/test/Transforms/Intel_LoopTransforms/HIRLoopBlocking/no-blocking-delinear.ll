@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -hir-print-only=41 -aa-pipeline="scoped-noalias-aa" %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -hir-print-only=37 -aa-pipeline="scoped-noalias-aa" -disable-output %s 2>&1 | FileCheck %s
 
 ; The i2-i3 loopnests are not vectorized. When delinearized, LoopDepth (=2) <= MaxNumDimensions (=2).
 
@@ -62,13 +62,13 @@ source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.TCDef = type { [16 x i8], [16 x i8], [16 x i8], [16 x i8], [64 x i8], i16, %struct.version_number, %struct.version_number, %struct.version_number, i32, i32, i32, i32, i16, i64, i64, i64, i64, i16, %struct.snr_result_s, [4 x double], %struct.ee_connection_s** }
+%struct.TCDef = type { [16 x i8], [16 x i8], [16 x i8], [16 x i8], [64 x i8], i16, %struct.version_number, %struct.version_number, %struct.version_number, i32, i32, i32, i32, i16, i64, i64, i64, i64, i16, %struct.snr_result_s, [4 x double], ptr }
 %struct.version_number = type { i8, i8, i8, i8 }
 %struct.snr_result_s = type { double, double, double, i32, i32, i32, double, double, i32, i32, double, i32 }
-%struct.ee_connection_s = type { i32, i32, i8*, i32, i32, %union.pthread_mutex_t, %union.pthread_cond_t, i8*, i32 }
+%struct.ee_connection_s = type { i32, i32, ptr, i32, i32, %union.pthread_mutex_t, %union.pthread_cond_t, ptr, i32 }
 %union.pthread_mutex_t = type { %struct.__pthread_mutex_s }
 %struct.__pthread_mutex_s = type { i32, i32, i32, i32, i32, i16, i16, %struct.__pthread_internal_list }
-%struct.__pthread_internal_list = type { %struct.__pthread_internal_list*, %struct.__pthread_internal_list* }
+%struct.__pthread_internal_list = type { ptr, ptr }
 %union.pthread_cond_t = type { %struct.__pthread_cond_s }
 %struct.__pthread_cond_s = type { %union.anon, %union.anon, [2 x i32], [2 x i32], i32, i32, [2 x i32] }
 %union.anon = type { i64 }
@@ -77,15 +77,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.22 = external hidden unnamed_addr constant [58 x i8], align 1
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture readonly %1) #0 {
-  %3 = getelementptr inbounds i8, i8* %1, i64 16
-  %4 = bitcast i8* %3 to i32*
-  %5 = load i32, i32* %4, align 8, !tbaa !6
-  %6 = bitcast i8* %1 to double**
-  %7 = load double*, double** %6, align 8, !tbaa !15
-  %8 = getelementptr inbounds i8, i8* %1, i64 8
-  %9 = bitcast i8* %8 to double**
-  %10 = load double*, double** %9, align 8, !tbaa !16
+define hidden ptr @t_run_test_radix2(ptr writeonly %0, ptr nocapture readonly %1) #0 {
+  %3 = getelementptr inbounds i8, ptr %1, i64 16
+  %4 = bitcast ptr %3 to ptr
+  %5 = load i32, ptr %4, align 8, !tbaa !6
+  %6 = bitcast ptr %1 to ptr
+  %7 = load ptr, ptr %6, align 8, !tbaa !15
+  %8 = getelementptr inbounds i8, ptr %1, i64 8
+  %9 = bitcast ptr %8 to ptr
+  %10 = load ptr, ptr %9, align 8, !tbaa !16
   tail call void @llvm.experimental.noalias.scope.decl(metadata !17)
   %11 = sdiv i32 %5, 2
   %12 = icmp eq i32 %11, 1
@@ -117,7 +117,7 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   br i1 %27, label %29, label %28
 
 28:                                               ; preds = %24
-  tail call void (i32, i8*, ...) @th_exit(i32 1, i8* getelementptr inbounds ([58 x i8], [58 x i8]* @.str.22, i64 0, i64 0), i32 %11) #4, !noalias !17
+  tail call void (i32, ptr, ...) @th_exit(i32 1, ptr @.str.22, i32 %11) #4, !noalias !17
   unreachable
 
 29:                                               ; preds = %24
@@ -142,22 +142,22 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   br i1 %41, label %42, label %55
 
 42:                                               ; preds = %35
-  %43 = getelementptr inbounds double, double* %7, i64 %38
-  %44 = load double, double* %43, align 8, !tbaa !20, !alias.scope !22
+  %43 = getelementptr inbounds double, ptr %7, i64 %38
+  %44 = load double, ptr %43, align 8, !tbaa !20, !alias.scope !22
   %45 = or i64 %38, 1
-  %46 = getelementptr inbounds double, double* %7, i64 %45
-  %47 = load double, double* %46, align 8, !tbaa !20, !alias.scope !22
+  %46 = getelementptr inbounds double, ptr %7, i64 %45
+  %47 = load double, ptr %46, align 8, !tbaa !20, !alias.scope !22
   %48 = sext i32 %39 to i64
-  %49 = getelementptr inbounds double, double* %7, i64 %48
-  %50 = load double, double* %49, align 8, !tbaa !20, !alias.scope !22
-  store double %50, double* %43, align 8, !tbaa !20, !alias.scope !22
+  %49 = getelementptr inbounds double, ptr %7, i64 %48
+  %50 = load double, ptr %49, align 8, !tbaa !20, !alias.scope !22
+  store double %50, ptr %43, align 8, !tbaa !20, !alias.scope !22
   %51 = or i32 %39, 1
   %52 = sext i32 %51 to i64
-  %53 = getelementptr inbounds double, double* %7, i64 %52
-  %54 = load double, double* %53, align 8, !tbaa !20, !alias.scope !22
-  store double %54, double* %46, align 8, !tbaa !20, !alias.scope !22
-  store double %44, double* %49, align 8, !tbaa !20, !alias.scope !22
-  store double %47, double* %53, align 8, !tbaa !20, !alias.scope !22
+  %53 = getelementptr inbounds double, ptr %7, i64 %52
+  %54 = load double, ptr %53, align 8, !tbaa !20, !alias.scope !22
+  store double %54, ptr %46, align 8, !tbaa !20, !alias.scope !22
+  store double %44, ptr %49, align 8, !tbaa !20, !alias.scope !22
+  store double %47, ptr %53, align 8, !tbaa !20, !alias.scope !22
   br label %55
 
 55:                                               ; preds = %42, %35
@@ -195,7 +195,7 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   br label %75
 
 75:                                               ; preds = %159, %74
-  %76 = phi double* [ %160, %159 ], [ %10, %74 ]
+  %76 = phi ptr [ %160, %159 ], [ %10, %74 ]
   %77 = phi i32 [ %161, %159 ], [ 0, %74 ]
   %78 = phi i32 [ %162, %159 ], [ 1, %74 ]
   %79 = zext i32 %78 to i64
@@ -209,27 +209,27 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   %85 = add nuw nsw i32 %78, %83
   %86 = shl nsw i32 %85, 1
   %87 = sext i32 %86 to i64
-  %88 = getelementptr inbounds double, double* %7, i64 %87
-  %89 = load double, double* %88, align 8, !tbaa !20, !alias.scope !17
+  %88 = getelementptr inbounds double, ptr %7, i64 %87
+  %89 = load double, ptr %88, align 8, !tbaa !20, !alias.scope !17
   %90 = or i32 %86, 1
   %91 = sext i32 %90 to i64
-  %92 = getelementptr inbounds double, double* %7, i64 %91
-  %93 = load double, double* %92, align 8, !tbaa !20, !alias.scope !17
+  %92 = getelementptr inbounds double, ptr %7, i64 %91
+  %93 = load double, ptr %92, align 8, !tbaa !20, !alias.scope !17
   %94 = sext i32 %84 to i64
-  %95 = getelementptr inbounds double, double* %7, i64 %94
-  %96 = load double, double* %95, align 8, !tbaa !20, !alias.scope !17
+  %95 = getelementptr inbounds double, ptr %7, i64 %94
+  %96 = load double, ptr %95, align 8, !tbaa !20, !alias.scope !17
   %97 = fsub fast double %96, %89
-  store double %97, double* %88, align 8, !tbaa !20, !alias.scope !17
+  store double %97, ptr %88, align 8, !tbaa !20, !alias.scope !17
   %98 = or i32 %84, 1
   %99 = sext i32 %98 to i64
-  %100 = getelementptr inbounds double, double* %7, i64 %99
-  %101 = load double, double* %100, align 8, !tbaa !20, !alias.scope !17
+  %100 = getelementptr inbounds double, ptr %7, i64 %99
+  %101 = load double, ptr %100, align 8, !tbaa !20, !alias.scope !17
   %102 = fsub fast double %101, %93
-  store double %102, double* %92, align 8, !tbaa !20, !alias.scope !17
+  store double %102, ptr %92, align 8, !tbaa !20, !alias.scope !17
   %103 = fadd fast double %96, %89
-  store double %103, double* %95, align 8, !tbaa !20, !alias.scope !17
+  store double %103, ptr %95, align 8, !tbaa !20, !alias.scope !17
   %104 = fadd fast double %101, %93
-  store double %104, double* %100, align 8, !tbaa !20, !alias.scope !17
+  store double %104, ptr %100, align 8, !tbaa !20, !alias.scope !17
   %105 = add nuw nsw i64 %82, %80
   %106 = icmp slt i64 %105, %73
   br i1 %106, label %81, label %107
@@ -243,11 +243,11 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   br label %111
 
 111:                                              ; preds = %150, %109
-  %112 = phi double* [ %151, %150 ], [ %76, %109 ]
+  %112 = phi ptr [ %151, %150 ], [ %76, %109 ]
   %113 = phi i32 [ %152, %150 ], [ 1, %109 ]
-  %114 = getelementptr inbounds double, double* %112, i64 1
-  %115 = load double, double* %112, align 8, !tbaa !20, !noalias !17
-  %116 = load double, double* %114, align 8, !tbaa !20, !noalias !17
+  %114 = getelementptr inbounds double, ptr %112, i64 1
+  %115 = load double, ptr %112, align 8, !tbaa !20, !noalias !17
+  %116 = load double, ptr %114, align 8, !tbaa !20, !noalias !17
   br label %117
 
 117:                                              ; preds = %117, %111
@@ -258,12 +258,12 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   %122 = add nuw nsw i32 %120, %78
   %123 = shl nsw i32 %122, 1
   %124 = sext i32 %123 to i64
-  %125 = getelementptr inbounds double, double* %7, i64 %124
-  %126 = load double, double* %125, align 8, !tbaa !20, !alias.scope !17
+  %125 = getelementptr inbounds double, ptr %7, i64 %124
+  %126 = load double, ptr %125, align 8, !tbaa !20, !alias.scope !17
   %127 = or i32 %123, 1
   %128 = sext i32 %127 to i64
-  %129 = getelementptr inbounds double, double* %7, i64 %128
-  %130 = load double, double* %129, align 8, !tbaa !20, !alias.scope !17
+  %129 = getelementptr inbounds double, ptr %7, i64 %128
+  %130 = load double, ptr %129, align 8, !tbaa !20, !alias.scope !17
   %131 = fmul fast double %126, %115
   %132 = fmul fast double %130, %116
   %133 = fsub fast double %131, %132
@@ -271,26 +271,26 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   %135 = fmul fast double %126, %116
   %136 = fadd fast double %134, %135
   %137 = sext i32 %121 to i64
-  %138 = getelementptr inbounds double, double* %7, i64 %137
-  %139 = load double, double* %138, align 8, !tbaa !20, !alias.scope !17
+  %138 = getelementptr inbounds double, ptr %7, i64 %137
+  %139 = load double, ptr %138, align 8, !tbaa !20, !alias.scope !17
   %140 = fsub fast double %139, %133
-  store double %140, double* %125, align 8, !tbaa !20, !alias.scope !17
+  store double %140, ptr %125, align 8, !tbaa !20, !alias.scope !17
   %141 = or i32 %121, 1
   %142 = sext i32 %141 to i64
-  %143 = getelementptr inbounds double, double* %7, i64 %142
-  %144 = load double, double* %143, align 8, !tbaa !20, !alias.scope !17
+  %143 = getelementptr inbounds double, ptr %7, i64 %142
+  %144 = load double, ptr %143, align 8, !tbaa !20, !alias.scope !17
   %145 = fsub fast double %144, %136
-  store double %145, double* %129, align 8, !tbaa !20, !alias.scope !17
+  store double %145, ptr %129, align 8, !tbaa !20, !alias.scope !17
   %146 = fadd fast double %133, %139
-  store double %146, double* %138, align 8, !tbaa !20, !alias.scope !17
+  store double %146, ptr %138, align 8, !tbaa !20, !alias.scope !17
   %147 = fadd fast double %144, %136
-  store double %147, double* %143, align 8, !tbaa !20, !alias.scope !17
+  store double %147, ptr %143, align 8, !tbaa !20, !alias.scope !17
   %148 = add nuw nsw i64 %118, %80
   %149 = icmp slt i64 %148, %73
   br i1 %149, label %117, label %150
 
 150:                                              ; preds = %117
-  %151 = getelementptr inbounds double, double* %112, i64 2
+  %151 = getelementptr inbounds double, ptr %112, i64 2
   %152 = add nuw nsw i32 %113, 1
   %153 = icmp eq i32 %152, %78
   br i1 %153, label %154, label %111
@@ -298,12 +298,12 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
 154:                                              ; preds = %150
   %155 = zext i32 %110 to i64
   %156 = shl nuw nsw i64 %155, 1
-  %157 = getelementptr double, double* %76, i64 2
-  %158 = getelementptr double, double* %157, i64 %156
+  %157 = getelementptr double, ptr %76, i64 2
+  %158 = getelementptr double, ptr %157, i64 %156
   br label %159
 
 159:                                              ; preds = %154, %107
-  %160 = phi double* [ %76, %107 ], [ %158, %154 ]
+  %160 = phi ptr [ %76, %107 ], [ %158, %154 ]
   %161 = add nuw nsw i32 %77, 1
   %162 = shl nsw i32 %78, 1
   %163 = icmp eq i32 %161, %25
@@ -325,8 +325,8 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   %171 = phi double [ 0.000000e+00, %167 ], [ %180, %169 ]
   %172 = phi double [ -1.000000e+100, %167 ], [ %179, %169 ]
   %173 = phi double [ 1.000000e+100, %167 ], [ %177, %169 ]
-  %174 = getelementptr inbounds double, double* %7, i64 %170
-  %175 = load double, double* %174, align 8, !tbaa !20
+  %174 = getelementptr inbounds double, ptr %7, i64 %170
+  %175 = load double, ptr %174, align 8, !tbaa !20
   %176 = fcmp fast ogt double %173, %175
   %177 = select fast i1 %176, double %175, double %173
   %178 = fcmp fast olt double %172, %175
@@ -348,37 +348,37 @@ define hidden i8* @t_run_test_radix2(%struct.TCDef* writeonly %0, i8* nocapture 
   %190 = phi double [ 0.000000e+00, %165 ], [ 0.000000e+00, %29 ], [ %186, %183 ]
   %191 = uitofp i32 %5 to double
   %192 = fdiv fast double %190, %191
-  %193 = getelementptr inbounds i8, i8* %1, i64 56
-  %194 = bitcast i8* %193 to %struct.intparts_s*
-  %195 = tail call fastcc i32 @fp_iaccurate_bits_dp(double %192, %struct.intparts_s* nonnull %194) #4
-  %196 = getelementptr inbounds i8, i8* %1, i64 68
-  %197 = bitcast i8* %196 to i32*
-  %198 = load i32, i32* %197, align 4, !tbaa !27
+  %193 = getelementptr inbounds i8, ptr %1, i64 56
+  %194 = bitcast ptr %193 to ptr
+  %195 = tail call fastcc i32 @fp_iaccurate_bits_dp(double %192, ptr nonnull %194) #4
+  %196 = getelementptr inbounds i8, ptr %1, i64 68
+  %197 = bitcast ptr %196 to ptr
+  %198 = load i32, ptr %197, align 4, !tbaa !27
   %199 = icmp ult i32 %195, %198
   %200 = zext i1 %199 to i16
-  %201 = getelementptr inbounds %struct.TCDef, %struct.TCDef* %0, i64 0, i32 13, !intel-tbaa !28
-  store i16 %200, i16* %201, align 8
+  %201 = getelementptr inbounds %struct.TCDef, ptr %0, i64 0, i32 13, !intel-tbaa !28
+  store i16 %200, ptr %201, align 8
   %202 = zext i32 %195 to i64
-  %203 = getelementptr inbounds %struct.TCDef, %struct.TCDef* %0, i64 0, i32 14, !intel-tbaa !37
-  store i64 %202, i64* %203, align 8, !tbaa !37
-  %204 = getelementptr inbounds %struct.TCDef, %struct.TCDef* %0, i64 0, i32 20, i64 0, !intel-tbaa !38
-  store double %192, double* %204, align 8, !tbaa !38
-  %205 = getelementptr inbounds %struct.TCDef, %struct.TCDef* %0, i64 0, i32 20, i64 1, !intel-tbaa !38
-  store double %188, double* %205, align 8, !tbaa !38
-  %206 = getelementptr inbounds %struct.TCDef, %struct.TCDef* %0, i64 0, i32 20, i64 2, !intel-tbaa !38
-  store double %189, double* %206, align 8, !tbaa !38
-  %207 = getelementptr %struct.TCDef, %struct.TCDef* %0, i64 0, i32 0, i64 0
-  ret i8* %207
+  %203 = getelementptr inbounds %struct.TCDef, ptr %0, i64 0, i32 14, !intel-tbaa !37
+  store i64 %202, ptr %203, align 8, !tbaa !37
+  %204 = getelementptr inbounds %struct.TCDef, ptr %0, i64 0, i32 20, i64 0, !intel-tbaa !38
+  store double %192, ptr %204, align 8, !tbaa !38
+  %205 = getelementptr inbounds %struct.TCDef, ptr %0, i64 0, i32 20, i64 1, !intel-tbaa !38
+  store double %188, ptr %205, align 8, !tbaa !38
+  %206 = getelementptr inbounds %struct.TCDef, ptr %0, i64 0, i32 20, i64 2, !intel-tbaa !38
+  store double %189, ptr %206, align 8, !tbaa !38
+  %207 = getelementptr %struct.TCDef, ptr %0, i64 0, i32 0, i64 0
+  ret ptr %207
 }
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
 declare void @llvm.experimental.noalias.scope.decl(metadata) #1
 
 ; Function Attrs: nofree noreturn nounwind uwtable
-declare hidden void @th_exit(i32, i8* nocapture readonly, ...) unnamed_addr #2
+declare hidden void @th_exit(i32, ptr nocapture readonly, ...) unnamed_addr #2
 
 ; Function Attrs: nofree nosync nounwind uwtable
-declare hidden fastcc i32 @fp_iaccurate_bits_dp(double, %struct.intparts_s* nocapture readonly) unnamed_addr #3
+declare hidden fastcc i32 @fp_iaccurate_bits_dp(double, ptr nocapture readonly) unnamed_addr #3
 
 attributes #0 = { nofree nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 attributes #1 = { inaccessiblememonly nofree nosync nounwind willreturn }

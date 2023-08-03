@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
+#include "IntelVPlan.h"
 #include "IntelVPlanLegalityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
@@ -41,6 +42,8 @@ class VPOVectorizationLegality;
 
 extern bool ForceUDSReductionVec;
 extern bool EnableHIRPrivateArrays;
+extern bool EnableF90DVSupport;
+extern bool EnableHIRF90DVSupport;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -68,32 +71,38 @@ protected:
   }
 
   /// Cached bailout reason data.
-  VPlanBailoutData BD;
+  VPlanBailoutRemark BR;
+
+  /// Convenience function for optimization remark substitution strings.
+  std::string getAuxMsg(AuxRemarkID ID) { return OptReportAuxDiag::getMsg(ID); }
 
 private:
   /// Imports any SIMD loop private amd listprivate information into Legality
   /// Return true on success.
   bool visitPrivates(const WRNVecLoopNode *WRLp) {
     for (LastprivateItem *Item : WRLp->getLpriv().items()) {
-      if (Item->getIsF90DopeVector())
+      if (Item->getIsF90DopeVector()) {
         // See CMPLRLLVM-10783.
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
-                       "F90 dope vector privates are not supported.");
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("F90 dope vector privates are not supported."));
+      }
       if (!visitLastPrivate(Item)) {
-        assert(BD.BailoutID && "visitLastPrivate didn't set bailout data!");
+        assert(BR.BailoutRemark && "visitLastPrivate didn't set bailout data!");
         return false;
       }
     }
 
     for (PrivateItem *Item : WRLp->getPriv().items()) {
-      if (Item->getIsF90DopeVector())
+      if ((!EnableF90DVSupport ||
+           (!EnableHIRF90DVSupport && IR == IRKind::HIR)) &&
+          Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
-                       "F90 dope vector reductions are not supported.");
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("F90 dope vector privates are not supported."));
       if (!visitPrivate(Item)) {
-        assert(BD.BailoutID && "visitPrivate didn't set bailout data!");
+        assert(BR.BailoutRemark && "visitPrivate didn't set bailout data!");
         return false;
       }
     }
@@ -113,9 +122,9 @@ private:
     auto IsSupportedReduction = [this, WRLp](const ReductionItem *Item) {
       if (Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
-        return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
-                       "F90 dope vector reductions are not supported.");
+        return bailout(
+            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+            INTERNAL("F90 dope vector reductions are not supported."));
       switch (Item->getType()) {
       case ReductionItem::WRNReductionMin:
       case ReductionItem::WRNReductionMax:
@@ -128,16 +137,17 @@ private:
       case ReductionItem::WRNReductionUdr:
         return true;
       default:
-        return bailout(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::BadRednRemarkID,
-                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
-                       "A reduction of this operation is not supported");
+        return bailoutWithDebug(
+            OptReportVerbosity::Medium, OptRemarkID::VecFailBadReduction,
+            INTERNAL("A reduction of this operation is not supported"),
+            WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
+                                          : getAuxMsg(AuxRemarkID::Loop));
       }
     };
 
     for (ReductionItem *Item : WRLp->getRed().items())
       if (!IsSupportedReduction(Item) || !visitReduction(Item, WRLp)) {
-        assert(BD.BailoutID && "visitReduction didn't set bailout data!");
+        assert(BR.BailoutRemark && "visitReduction didn't set bailout data!");
         return false;
       }
     return true;
@@ -200,127 +210,143 @@ private:
   /// Register an explicit private variable
   /// Return true if successfully consumed.
   bool visitPrivate(const PrivateItem *Item) {
-    Type *Type = nullptr;
+    Type *PrivType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(PrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+    Type *F90DVElementType = nullptr;
+    if (Item->getIsF90DopeVector())
+      std::tie(std::ignore, F90DVElementType) =
+          VPOParoptUtils::getF90DVItemInfo(Item);
 
-    assert(Type && "Missed OMP clause item type!");
+    assert(PrivType && "Missed OMP clause item type!");
 
-    Type = adjustTypeIfArray(Type, NumElements);
-    if (!Type)
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Cannot handle array privates yet.");
+    PrivType = adjustTypeIfArray(PrivType, NumElements);
+    if (!PrivType)
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
-                     Item->getIsF90NonPod());
+      addLoopPrivate(Val, PrivType, Item->getConstructor(),
+                     Item->getDestructor(), nullptr /* no CopyAssign */,
+                     PrivateKindTy::NonLast, Item->getIsF90NonPod());
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Private array is not supported");
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
+        isa<ArrayType>(PrivType))
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Private array is not supported"));
 
-    addLoopPrivate(Val, Type, PrivateKindTy::NonLast,
-                   Item->getIsF90DopeVector());
+    addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast, F90DVElementType);
     return true;
   }
 
   /// Register an explicit last private variable
   /// Return true if successfully consumed.
   bool visitLastPrivate(const LastprivateItem *Item) {
-    Type *Type = nullptr;
+    Type *LPrivType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(LPrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
-    assert(Type && "Missed OMP clause item type!");
+    assert(LPrivType && "Missed OMP clause item type!");
+    Type *F90DVElementType = nullptr;
+    if (Item->getIsF90DopeVector())
+      std::tie(std::ignore, F90DVElementType) =
+          VPOParoptUtils::getF90DVItemInfo(Item);
 
-    Type = adjustTypeIfArray(Type, NumElements);
-    if (!Type)
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Cannot handle array privates yet.");
+    LPrivType = adjustTypeIfArray(LPrivType, NumElements);
+    if (!LPrivType)
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     Item->getCopyAssign(), PrivateKindTy::Last,
-                     Item->getIsF90NonPod());
+      addLoopPrivate(Val, LPrivType, Item->getConstructor(),
+                     Item->getDestructor(), Item->getCopyAssign(),
+                     PrivateKindTy::Last, Item->getIsF90NonPod());
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Private array is not supported");
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
+        isa<ArrayType>(LPrivType))
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Private array is not supported"));
 
     // Until CG to extract vector by non-const index is implemented.
-    if (Item->getIsConditional() && Type->isVectorTy())
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Conditional lastprivate of a vector type is not "
-                     "supported.");
+    if (Item->getIsConditional() && LPrivType->isVectorTy())
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Conditional lastprivate of a vector type is "
+                              "not supported."));
 
-    addLoopPrivate(Val, Type,
+    addLoopPrivate(Val, LPrivType,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
                                             : PrivateKindTy::Last,
-                   Item->getIsF90DopeVector());
+                   F90DVElementType);
     return true;
   }
 
   /// Register explicit linear variable
   void visitLinear(const LinearItem *Item) {
     Type *PointeeTy = nullptr;
-    Type *Type = nullptr;
+    Type *LinType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(LinType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
     // TODO: Move to VPOParoptUtils::getItemInfo
     if (Item->getIsTyped() && Item->getIsPointerToPointer()) {
       PointeeTy = Item->getPointeeElementTypeFromIR();
     }
-    assert(Type && "Missed OMP clause item type!");
+    assert(LinType && "Missed OMP clause item type!");
 
     // NumElements == nullptr by convention means the number is 1.
     // Arrays are not allowed by OMP standard thus any values including
     // a constant are illegal for linears.
-    assert(!isa<ArrayType>(Type) && !NumElements &&
+    assert(!isa<ArrayType>(LinType) && !NumElements &&
            "Unexpected number of elements");
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
     bool IsIV = Item->getIsIV();
-    addLinear(Val, Type, PointeeTy, Step, IsIV);
+    addLinear(Val, LinType, PointeeTy, Step, IsIV);
   }
 
   /// Register explicit reduction variable
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item,
                       const WRNVecLoopNode *WRLp) {
-    Type *Type = nullptr;
+    Type *RedType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(RedType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
-    assert(Type && "Missed OMP clause item type!");
+    assert(RedType && "Missed OMP clause item type!");
 
-    Type = adjustTypeIfArray(Type, NumElements);
+    RedType = adjustTypeIfArray(RedType, NumElements);
     // Bailout for unknown array size.
-    if (!Type)
+    if (!RedType)
       // CMPLRLLVM-20621.
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Cannot handle array reductions.");
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Cannot handle array reductions."));
 
+    Type *ElemType = RedType;
     // Other temporary bailouts for array reductions.
-    if (auto *ArrTy = dyn_cast<ArrayType>(Type)) {
+    if (auto *ArrTy = dyn_cast<ArrayType>(RedType)) {
       // Prototype supported only for POD type arrays.
-      Type = ArrTy->getElementType();
-      if (!Type->isSingleValueType())
+      ElemType = ArrTy->getElementType();
+      if (!ElemType->isSingleValueType())
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
-                       "Cannot handle array reduction with non-single value "
-                       "type.");
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("Cannot handle array reduction with "
+                                "non-single value type."));
 
       // Bailouts from HIR path for cases where memory aliases concept is
       // needed. So far, these include -
@@ -332,13 +358,13 @@ private:
           OrigIsAllocaInst = isa<AllocaInst>(OrigI);
 
         if (!OrigIsAllocaInst)
-          return bailout(OptReportVerbosity::High,
-                         VPlanDriverImpl::BailoutRemarkID,
-                         "Non-alloca instruction in reduction clause.");
+          return bailout(
+              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+              INTERNAL("Non-alloca instruction in reduction clause."));
         if (Item->getIsArraySection())
-          return bailout(OptReportVerbosity::High,
-                         VPlanDriverImpl::BailoutRemarkID,
-                         "Array sections with offsets not supported.");
+          return bailout(
+              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+              INTERNAL("Array sections with offsets not supported."));
       }
 
       // VPEntities framework can only handle single-element allocas. This check
@@ -346,30 +372,32 @@ private:
       auto *OrigAlloca = dyn_cast<AllocaInst>(Item->getOrig());
       if (OrigAlloca && OrigAlloca->isArrayAllocation())
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
-                       "Array alloca detected.");
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("Array alloca detected."));
     }
 
     ValueTy *Val = Item->getOrig<IR>();
-    RecurKind Kind = getReductionRecurKind(Item, Type);
+    RecurKind Kind = getReductionRecurKind(Item, ElemType);
 
     if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
         Item->getIsInscan())
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Scan reduction with user-defined operation is not "
-                     "supported.");
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Scan reduction with user-defined operation "
+                              "is not supported."));
 
     // We currently don't support mul/div reduction of complex types. TODO:
     // Remove this bailout when complex intrinsics are enabled by default in FE
     // and VPlan CGs are updated to emit these intrinsics during finalization.
     if (Item->getIsComplex() && Kind == RecurKind::FMul)
-      // TODO: Better is to add a medium remark of type CmplxFltRemarkID
-      // or CmplxDblRemarkID, depending on the underlying type.  These
-      // remarks also require passing a string identifying the reduction
-      // kind.  There's some complexity in getting this information from
-      // "Item" for all possible cases.
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Complex mul/div type reductions are not supported.");
+      // TODO: Better is to add a medium remark of type VecFailBadComplexFloatOp
+      // or VecFailBadComplexDoubleOp, depending on the underlying type.  These
+      // remarks also require passing a string identifying the reduction kind.
+      // There's some complexity in getting this information from "Item" for
+      // all possible cases.
+      return bailout(
+          OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+          INTERNAL("Complex mul/div type reductions are not supported."));
 
     if (Kind == RecurKind::Udr) {
       // Check for UDR and inscan flags, that would make this UDS.
@@ -383,12 +411,12 @@ private:
                 : InscanReductionKind::Exclusive;
       }
       // Capture functions for init/finalization for UDRs.
-      addReduction(Val, Item->getCombiner(), Item->getInitializer(),
+      addReduction(Val, RedType, Item->getCombiner(), Item->getInitializer(),
                    Item->getConstructor(), Item->getDestructor(),
                    InscanRedKind);
     } else if (Item->getIsInscan()) {
       // Add an ordinary inscan reduction.
-      addReduction(Val, Kind,
+      addReduction(Val, RedType, Kind,
                    isa<InclusiveItem>(
                        WRegionUtils::getInclusiveExclusiveItemForReductionItem(
                            WRLp, Item))
@@ -396,14 +424,23 @@ private:
                        : InscanReductionKind::Exclusive,
                    Item->getIsComplex());
     } else
-      addReduction(Val, Kind, std::nullopt, Item->getIsComplex());
+      addReduction(Val, RedType, Kind, std::nullopt, Item->getIsComplex());
     return true;
   }
 
   // Set of thunks to a parent methods
-  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
-               std::string Message, std::string Debug = "") {
-    return static_cast<LegalityTy *>(this)->bailout(Level, ID, Message, Debug);
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               std::string Message, Args &&...BailoutArgs) {
+    return static_cast<LegalityTy *>(this)->bailout(
+        Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  }
+
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
+                        std::string Debug, Args &&...BailoutArgs) {
+    return static_cast<LegalityTy *>(this)->bailoutWithDebug(
+        Level, ID, Debug, std::forward<Args>(BailoutArgs)...);
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
@@ -412,9 +449,10 @@ private:
         Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90);
   }
 
-  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind, bool IsF90) {
+  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind,
+                      Type *F90DVElementType) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind,
-                                                           IsF90);
+                                                           F90DVElementType);
   }
 
   void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step,
@@ -423,18 +461,18 @@ private:
                                                       Step, IsIV);
   }
 
-  void addReduction(ValueTy *V, RecurKind Kind,
+  void addReduction(ValueTy *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanRedKind,
                     bool IsComplex) {
-    return static_cast<LegalityTy *>(this)->addReduction(V, Kind, InscanRedKind,
-                                                         IsComplex);
+    return static_cast<LegalityTy *>(this)->addReduction(
+        V, Ty, Kind, InscanRedKind, IsComplex);
   }
 
-  void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr,
+  void addReduction(ValueTy *V, Type *Ty, Function *Combiner,
+                    Function *Initializer, Function *Constr, Function *Destr,
                     std::optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
-        V, Combiner, Initializer, Constr, Destr, InscanRedKind);
+        V, Ty, Combiner, Initializer, Constr, Destr, InscanRedKind);
   }
 };
 
@@ -445,11 +483,13 @@ class VPOVectorizationLegality final
   template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
 
 public:
-  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
-      : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
+  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F,
+                           LLVMContext *C)
+      : TheLoop(L), PSE(PSE), Context(C), Induction(nullptr),
+        WidestIndTy(nullptr) {}
 
   struct ExplicitReductionDescr {
-    RecurrenceDescriptor RD;
+    RecurrenceDescriptor RD; // Contains type info.
     Value *RedVarPtr;
     std::optional<InscanReductionKind> InscanRedKind;
   };
@@ -458,6 +498,7 @@ public:
     std::optional<InscanReductionKind> InscanRedKind;
     Instruction *UpdateInst;
     bool IsComplex;
+    Type *Ty;
   };
 
   /// Returns true if it is legal to vectorize this loop.
@@ -467,6 +508,7 @@ public:
   using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
+  using PrivDescrF90DVTy = PrivDescrF90DV<Value>;
   using UDRDescrTy = RedDescrUDR<Value>;
 
   /// Container-class for storing the different types of Privates
@@ -572,6 +614,8 @@ private:
   /// of new predicates if this is required to enable vectorization and
   /// unrolling.
   PredicatedScalarEvolution &PSE;
+  /// Context object for the current function.
+  LLVMContext *Context;
   /// Holds the integer induction variable. This is the counter of the
   /// loop.
   PHINode *Induction;
@@ -637,14 +681,7 @@ public:
   // variables to the explicit SIMD descriptor.
   void collectPostExitLoopDescrAliases();
 
-  // Bailout data accessors.
-  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
-                      std::string Message) {
-    BD.BailoutLevel = Level;
-    BD.BailoutID = ID;
-    BD.BailoutMessage = Message;
-  }
-  VPlanBailoutData &getBailoutData() { return BD; }
+  VPlanBailoutRemark &getBailoutRemark() { return BR; }
 
   // Return the iterator-range to the list of privates loop-entities.
   // TODO: Windows compiler explicitly doesn't allow for const type specifier.
@@ -690,7 +727,31 @@ public:
 
 private:
   /// Reports a reason for vectorization bailout. Always returns false.
-  bool bailout(OptReportVerbosity::Level, unsigned, std::string, std::string);
+  /// \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               std::string Message, Args &&...BailoutArgs);
+
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
+                        std::string Debug, Args &&...BailoutArgs);
+
+  /// Initialize cached bailout remark data.
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  /// Store a variadic remark indicating the reason for not vectorizing a loop.
+  /// Clients should pass string constants as std::string to avoid extra
+  /// instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark = OptRemark::get(
+        *Context, static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
@@ -703,9 +764,13 @@ private:
 
   /// Add an in memory POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind,
-                      bool IsF90) {
-    Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind, IsF90)});
+                      Type *F90DVElementType) {
+    if (F90DVElementType)
+      Privates.insert({PrivVal, std::make_unique<PrivDescrF90DVTy>(
+                                    PrivVal, PrivTy, Kind, F90DVElementType)});
+    else
+      Privates.insert({PrivVal, std::make_unique<PrivDescrTy>(
+                                    PrivVal, PrivTy, Kind, false /* isF90 */)});
   }
 
   /// Add linear value to Linears map
@@ -718,26 +783,27 @@ private:
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
   /// Additionally track if this is an inscan or complex type reduction.
-  void addReduction(Value *V, RecurKind Kind,
+  void addReduction(Value *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanRedKind,
                     bool IsComplex);
 
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
-  void addReduction(Value *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr,
+  void addReduction(Value *V, Type *Ty, Function *Combiner,
+                    Function *Initializer, Function *Constr, Function *Destr,
                     std::optional<InscanReductionKind> InscanRedKind) {
     UserDefinedReductions.emplace_back(std::make_unique<UDRDescrTy>(
-        V, Combiner, Initializer, Constr, Destr, InscanRedKind));
+        V, Ty, Combiner, Initializer, Constr, Destr, InscanRedKind));
   }
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind,
-                            std::optional<InscanReductionKind> InscanRedKind);
+                            std::optional<InscanReductionKind> InscanRedKind,
+                            Type *Ty);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
                            std::optional<InscanReductionKind> InscanRedKind,
-                           bool IsComplex);
+                           bool IsComplex, Type *Ty);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

@@ -10,19 +10,19 @@
 ; CHECK: Remainder loop cost without peel = {{0-9}+} (masked vector remainder loop)
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_Z4initPll(i64* nocapture %in, i64 %N) local_unnamed_addr #0 {
+define dso_local void @_Z4initPll(ptr nocapture %in, i64 %N) local_unnamed_addr #0 {
 entry:
   %cmp3.not14 = icmp slt i64 %N, 1
   br i1 %cmp3.not14, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %.omp.iv.local.015 = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %add5, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %in, i64 %.omp.iv.local.015
-  store i64 %.omp.iv.local.015, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %in, i64 %.omp.iv.local.015
+  store i64 %.omp.iv.local.015, ptr %arrayidx, align 8
   %add5 = add nuw nsw i64 %.omp.iv.local.015, 1
   %exitcond.not = icmp eq i64 %add5, %N
   br i1 %exitcond.not, label %omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge, label %omp.inner.for.body, !llvm.loop !1

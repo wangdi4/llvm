@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S < %s | FileCheck %s
+; RUN: opt -passes="hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S < %s | FileCheck %s
 
 ; Verify that CG is able to code generate the implicit call correctly. There is no explicit declaration of bar() in the test case-
 
@@ -14,13 +14,13 @@
 
 ; CHECK: region.0:
 ; CHECK: loop.{{[0-9]+}}
-; CHECK: call i32 (i64, ...) bitcast (i32 (...)* @bar to i32 (i64, ...)*)
+; CHECK: call i32 (i64, ...) @bar
 
 ; ModuleID = 'implicit-call.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64 %n, i32* nocapture %A) {
+define void @foo(i64 %n, ptr nocapture %A) {
 entry:
   %cmp.6 = icmp sgt i64 %n, 0
   br i1 %cmp.6, label %for.body.preheader, label %for.end
@@ -30,15 +30,15 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %i.07 = phi i64 [ %inc1, %for.inc ], [ 0, %for.body.preheader ]
-  %call = tail call i32 (i64, ...) bitcast (i32 (...)* @bar to i32 (i64, ...)*)(i64 %i.07)
+  %call = tail call i32 (i64, ...) @bar(i64 %i.07)
   %tobool = icmp eq i32 %call, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %i.07
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %i.07
+  %0 = load i32, ptr %arrayidx, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body
@@ -54,7 +54,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #0
+declare void @llvm.lifetime.start(i64, ptr nocapture) #0
 
 declare i32 @bar(...)
 

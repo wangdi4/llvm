@@ -5,44 +5,44 @@
 ; devirtualization in one caller function (@_ZNSt13runtime_errorC1EPKc),
 ; while it is removed in the other caller because is not a libfunc (@foo).
 
-; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-@vt1 = constant [1 x i8*] [i8* bitcast (void (i8*, i8*)* @vf to i8*)], !type !8
+@vt1 = constant [1 x ptr] [ptr bitcast (ptr @vf to ptr)], !type !8
 
-define internal default void @vf(i8* %a, i8* %b) {
+define internal default void @vf(ptr %a, ptr %b) {
   ret void
 }
 
-define void @_ZNSt13runtime_errorC1EPKc(i8* %obj, i8* %alloc) #1 !dbg !5 {
-  %vtableptr = bitcast i8* %obj to [1 x i8*]**
-  %vtable = load [1 x i8*]*, [1 x i8*]** %vtableptr
-  %vtablei8 = bitcast [1 x i8*]* %vtable to i8*
-  %p = call i1 @llvm.type.test(i8* %vtablei8, metadata !"typeid")
+define void @_ZNSt13runtime_errorC1EPKc(ptr %obj, ptr %alloc) #1 !dbg !5 {
+  %vtableptr = bitcast ptr %obj to ptr
+  %vtable = load ptr, ptr %vtableptr
+  %vtablei8 = bitcast ptr %vtable to ptr
+  %p = call i1 @llvm.type.test(ptr %vtablei8, metadata !"typeid")
   call void @llvm.assume(i1 %p)
-  %fptrptr = getelementptr [1 x i8*], [1 x i8*]* %vtable, i32 0, i32 0
-  %fptr = load i8*, i8** %fptrptr
-  %fptr_casted = bitcast i8* %fptr to void (i8*, i8*)*
-  call void %fptr_casted(i8* %obj, i8* %alloc), !dbg !6
+  %fptrptr = getelementptr [1 x ptr], ptr %vtable, i32 0, i32 0
+  %fptr = load ptr, ptr %fptrptr
+  %fptr_casted = bitcast ptr %fptr to ptr
+  call void %fptr_casted(ptr %obj, ptr %alloc), !dbg !6
   ret void
 }
 
-define internal default void @foo(i8* %obj, i8* %alloc) #1 !dbg !5 {
-  %vtableptr = bitcast i8* %obj to [1 x i8*]**
-  %vtable = load [1 x i8*]*, [1 x i8*]** %vtableptr
-  %vtablei8 = bitcast [1 x i8*]* %vtable to i8*
-  %p = call i1 @llvm.type.test(i8* %vtablei8, metadata !"typeid")
+define internal default void @foo(ptr %obj, ptr %alloc) #1 !dbg !5 {
+  %vtableptr = bitcast ptr %obj to ptr
+  %vtable = load ptr, ptr %vtableptr
+  %vtablei8 = bitcast ptr %vtable to ptr
+  %p = call i1 @llvm.type.test(ptr %vtablei8, metadata !"typeid")
   call void @llvm.assume(i1 %p)
-  %fptrptr = getelementptr [1 x i8*], [1 x i8*]* %vtable, i32 0, i32 0
-  %fptr = load i8*, i8** %fptrptr
-  %fptr_casted = bitcast i8* %fptr to void (i8*, i8*)*
-  call void %fptr_casted(i8* %obj, i8* %alloc), !dbg !6
+  %fptrptr = getelementptr [1 x ptr], ptr %vtable, i32 0, i32 0
+  %fptr = load ptr, ptr %fptrptr
+  %fptr_casted = bitcast ptr %fptr to ptr
+  call void %fptr_casted(ptr %obj, ptr %alloc), !dbg !6
   ret void
 }
 
-declare i1 @llvm.type.test(i8*, metadata)
+declare i1 @llvm.type.test(ptr, metadata)
 declare void @llvm.assume(i1)
 
 !llvm.dbg.cu = !{!0}
@@ -60,18 +60,18 @@ declare void @llvm.assume(i1)
 !8 = !{i32 0, !"typeid"}
 
 ; Check that the branching to vf is generated in @_ZNSt13runtime_errorC1EPKc
-; CHECK: define void @_ZNSt13runtime_errorC1EPKc(i8* %obj, i8* %alloc)
-; CHECK: [[T1:%[^ ]*]] = bitcast void (i8*, i8*)* %fptr_casted to i8*
-; CHECK: [[T2:%[^ ]*]] = bitcast void (i8*, i8*)* @vf to i8*
-; CHECK: [[T3:%[^ ]*]] = icmp eq i8* [[T1]], [[T2]]
+; CHECK: define void @_ZNSt13runtime_errorC1EPKc(ptr %obj, ptr %alloc)
+; CHECK: [[T1:%[^ ]*]] = bitcast ptr %fptr_casted to ptr
+; CHECK: [[T2:%[^ ]*]] = bitcast ptr @vf to ptr
+; CHECK: [[T3:%[^ ]*]] = icmp eq ptr [[T1]], [[T2]]
 ; CHECK: br i1 [[T3]], label %BBDevirt_vf, label %DefaultBB
 
 ; Check that the call to vf is generated
-; CHECK: call void @vf(i8* %obj, i8* %alloc)
+; CHECK: call void @vf(ptr %obj, ptr %alloc)
 ; CHECK: br label %MergeBB
 
 ; Check that the default branch is generated
-; CHECK: call void %fptr_casted(i8* %obj, i8* %alloc)
+; CHECK: call void %fptr_casted(ptr %obj, ptr %alloc)
 ; CHECK: br label %MergeBB
 
 ; Check the merge
@@ -79,8 +79,8 @@ declare void @llvm.assume(i1)
 
 ; Check that the direct call to @vf is generated in @foo without the
 ; multiversioning
-; CHECK: define internal void @foo(i8* %obj, i8* %alloc)
-; CHECK: call void @vf(i8* %obj, i8* %alloc)
-; CHECK-NOT: call void %fptr_casted(i8* %obj, i8* %alloc)
+; CHECK: define internal void @foo(ptr %obj, ptr %alloc)
+; CHECK: call void @vf(ptr %obj, ptr %alloc)
+; CHECK-NOT: call void %fptr_casted(ptr %obj, ptr %alloc)
 
 ; end INTEL_FEATURE_SW_DTRANS

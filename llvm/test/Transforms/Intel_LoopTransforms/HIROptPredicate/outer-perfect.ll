@@ -30,7 +30,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %q, i32 %n, i32 %k) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %q, i32 %n, i32 %k) local_unnamed_addr #0 {
 entry:
   %mul = shl i32 %n, 24
   %sext = mul i32 %mul, %k
@@ -50,11 +50,11 @@ for.body8.preheader:                              ; preds = %for.body
 
 for.body8:                                        ; preds = %for.body8.preheader, %for.body8
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body8 ], [ 0, %for.body8.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.inc9.loopexit, label %for.body8

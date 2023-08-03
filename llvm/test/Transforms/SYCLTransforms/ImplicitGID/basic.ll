@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; Compiled from:
 ; ----------------------------------------------------
@@ -15,17 +15,17 @@
 
 ; CHECK: define {{.*}} void @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2{{.*}}
 ; CHECK-NEXT: %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2
 ; CHECK: ret void
 ; CHECK: !{{[0-9]+}} = !DILocalVariable(name: "__ocl_dbg_gid0", {{.*}}
 ; CHECK: !{{[0-9]+}} = !DILocalVariable(name: "__ocl_dbg_gid1", {{.*}}

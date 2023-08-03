@@ -42,7 +42,7 @@ define dso_local noundef i64 @_Z3fooRl(i64* noundef nonnull align 8 dereferencea
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[INDVAR0]] = add nuw nsw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 8
 ; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
@@ -51,8 +51,7 @@ define dso_local noundef i64 @_Z3fooRl(i64* noundef nonnull align 8 dereferencea
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i64* [[RET_CAST0]] to <8 x i64>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RETVAL0]], align 64
 ; CHECK-NEXT:    ret <8 x i64> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

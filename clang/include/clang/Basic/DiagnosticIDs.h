@@ -53,7 +53,7 @@ namespace clang {
       DIAG_SIZE_SERIALIZATION =  120,
       DIAG_SIZE_LEX           =  400,
       DIAG_SIZE_PARSE         =  800, // INTEL
-      DIAG_SIZE_AST           =  250,
+      DIAG_SIZE_AST           =  300,
       DIAG_SIZE_COMMENT       =  100,
       DIAG_SIZE_CROSSTU       =  100,
       DIAG_SIZE_SEMA          = 4500, // INTEL
@@ -176,6 +176,10 @@ public:
     Result.Severity = Bits & 0x7;
     return Result;
   }
+
+  bool operator==(DiagnosticMapping Other) const {
+    return serialize() == Other.serialize();
+  }
 };
 
 /// Used for handling and querying diagnostic IDs.
@@ -224,6 +228,9 @@ public:
   /// Return true if the specified diagnostic is mapped to errors by
   /// default.
   static bool isDefaultMappingAsError(unsigned DiagID);
+
+  /// Get the default mapping for this diagnostic.
+  static DiagnosticMapping getDefaultMapping(unsigned DiagID);
 
   /// Determine whether the given built-in diagnostic ID is a Note.
   static bool isBuiltinNote(unsigned DiagID);

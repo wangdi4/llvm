@@ -1,33 +1,33 @@
-; RUN: opt -opaque-pointers -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xe807 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xe807 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that various calls to fputc are deleted as dead code.
 
 ; CHECK-LABEL: COMPILE FUNC: i_send_buf_as_file
-; CHECK: EXTERN: t_printf
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: DELETE: fputc {{.*}}Dead code{{.*}}
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: fputc
-; CHECK: EXTERN: t_printf
+; CHECK-DAG: EXTERN: t_printf
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: DELETE: fputc {{.*}}Dead code{{.*}}
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: EXTERN: t_printf
 
 @.str.1.89 = private unnamed_addr constant [14 x i8] c"begin %lo %s\0A\00", align 1
 @.str.86 = private unnamed_addr constant [35 x i8] c"Uuencode buffer parameters error.\0A\00", align 1

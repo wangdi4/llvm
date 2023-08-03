@@ -29,6 +29,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/Triple.h"
 #include <optional>
 
@@ -354,13 +355,13 @@ private:
 };
 
 // Align an address to conform with block alignment requirements.
-inline uint64_t alignToBlock(uint64_t Addr, Block &B) {
+inline uint64_t alignToBlock(uint64_t Addr, const Block &B) {
   uint64_t Delta = (B.getAlignmentOffset() - Addr) % B.getAlignment();
   return Addr + Delta;
 }
 
 // Align a orc::ExecutorAddr to conform with block alignment requirements.
-inline orc::ExecutorAddr alignToBlock(orc::ExecutorAddr Addr, Block &B) {
+inline orc::ExecutorAddr alignToBlock(orc::ExecutorAddr Addr, const Block &B) {
   return orc::ExecutorAddr(alignToBlock(Addr.getValue(), B));
 }
 
@@ -563,6 +564,11 @@ public:
   /// Returns the offset for this symbol within the underlying addressable.
   orc::ExecutorAddrDiff getOffset() const { return Offset; }
 
+  void setOffset(orc::ExecutorAddrDiff NewOffset) {
+    assert(NewOffset < getBlock().getSize() && "Offset out of range");
+    Offset = NewOffset;
+  }
+
   /// Returns the address of this symbol.
   orc::ExecutorAddr getAddress() const { return Base->getAddress() + Offset; }
 
@@ -660,11 +666,6 @@ private:
   }
 
   void setBlock(Block &B) { Base = &B; }
-
-  void setOffset(orc::ExecutorAddrDiff NewOffset) {
-    assert(NewOffset <= MaxOffset && "Offset out of range");
-    Offset = NewOffset;
-  }
 
   static constexpr uint64_t MaxOffset = (1ULL << 59) - 1;
 
@@ -984,11 +985,18 @@ public:
 
   using GetEdgeKindNameFunction = const char *(*)(Edge::Kind);
 
+  LinkGraph(std::string Name, const Triple &TT, SubtargetFeatures Features,
+            unsigned PointerSize, support::endianness Endianness,
+            GetEdgeKindNameFunction GetEdgeKindName)
+      : Name(std::move(Name)), TT(TT), Features(std::move(Features)),
+        PointerSize(PointerSize), Endianness(Endianness),
+        GetEdgeKindName(std::move(GetEdgeKindName)) {}
+
   LinkGraph(std::string Name, const Triple &TT, unsigned PointerSize,
             support::endianness Endianness,
             GetEdgeKindNameFunction GetEdgeKindName)
-      : Name(std::move(Name)), TT(TT), PointerSize(PointerSize),
-        Endianness(Endianness), GetEdgeKindName(std::move(GetEdgeKindName)) {}
+      : LinkGraph(std::move(Name), TT, SubtargetFeatures(), PointerSize,
+                  Endianness, GetEdgeKindName) {}
 
   LinkGraph(const LinkGraph &) = delete;
   LinkGraph &operator=(const LinkGraph &) = delete;
@@ -1001,6 +1009,9 @@ public:
 
   /// Returns the target triple for this Graph.
   const Triple &getTargetTriple() const { return TT; }
+
+  /// Return the subtarget features for this Graph.
+  const SubtargetFeatures &getFeatures() const { return Features; }
 
   /// Returns the pointer size for use in this graph.
   unsigned getPointerSize() const { return PointerSize; }
@@ -1102,7 +1113,7 @@ public:
                                    orc::ExecutorAddr Address,
                                    uint64_t Alignment, uint64_t AlignmentOffset,
                                    bool ZeroInitialize = true) {
-    auto Content = allocateContent(ContentSize);
+    auto Content = allocateBuffer(ContentSize);
     if (ZeroInitialize)
       memset(Content.data(), 0, Content.size());
     return createBlock(Parent, Content, Address, Alignment, AlignmentOffset);
@@ -1507,6 +1518,7 @@ private:
 
   std::string Name;
   Triple TT;
+  SubtargetFeatures Features;
   unsigned PointerSize;
   support::endianness Endianness;
   GetEdgeKindNameFunction GetEdgeKindName = nullptr;

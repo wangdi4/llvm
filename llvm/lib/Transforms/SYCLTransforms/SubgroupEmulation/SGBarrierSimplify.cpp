@@ -9,14 +9,11 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGBarrierSimplify.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 using namespace CompilationUtils;
-
-extern bool SYCLEnableSubGroupEmulation;
 
 #define DEBUG_TYPE "sycl-kernel-sg-emu-barrier-simplify"
 
@@ -31,9 +28,6 @@ PreservedAnalyses SGBarrierSimplifyPass::run(Module &M,
 }
 
 bool SGBarrierSimplifyPass::runImpl(Module &M) {
-  if (!SYCLEnableSubGroupEmulation)
-    return false;
-
   Helper.initialize(M);
 
   FuncSet FunctionsToHandle = Helper.getAllFunctionsNeedEmulation();

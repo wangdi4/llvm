@@ -42,7 +42,7 @@ TEST(BuildCompilerInvocationTest, ProbePrecompiled) {
   std::vector<const char *> Args = {"clang", "-include", "foo.h", "foo.cpp"};
   auto FS = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
   FS->addFile("foo.h", 0, llvm::MemoryBuffer::getMemBuffer(""));
-  FS->addFile("foo.h.pch", 0, llvm::MemoryBuffer::getMemBuffer(""));
+  FS->addFile("foo.h.pchi", 0, llvm::MemoryBuffer::getMemBuffer("")); // INTEL
 
   clang::IgnoringDiagConsumer D;
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> CommandLineDiagsEngine =
@@ -61,7 +61,9 @@ TEST(BuildCompilerInvocationTest, ProbePrecompiled) {
   CI = createInvocation(Args, CIOpts);
   ASSERT_TRUE(CI);
   EXPECT_THAT(CI->getPreprocessorOpts().Includes, ElementsAre());
-  EXPECT_EQ(CI->getPreprocessorOpts().ImplicitPCHInclude, "foo.h.pch");
+  // INTEL_CUSTOMIZATION
+  EXPECT_EQ(CI->getPreprocessorOpts().ImplicitPCHInclude, "foo.h.pchi");
+  // end INTEL_CUSTOMIZATION
 }
 
 } // namespace

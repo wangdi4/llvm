@@ -44,14 +44,14 @@ for.body.i.lr.ph:                                 ; preds = %entry
 
 for.body.i:                                       ; preds = %for.body.i, %for.body.i.lr.ph
   %indvars.iv = phi i64 [ 1, %for.body.i.lr.ph ], [ %indvars.iv.next, %for.body.i ]
-  %arrayidx.i = getelementptr inbounds [64 x i32], [64 x i32]* @sour, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx.i, align 4, !tbaa !3
+  %arrayidx.i = getelementptr inbounds [64 x i32], ptr @sour, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx.i, align 4, !tbaa !3
   %2 = add nsw i64 %indvars.iv, -1
-  %arrayidx11.i = getelementptr inbounds [64 x [64 x i32]], [64 x [64 x i32]]* @dest, i64 0, i64 %idxprom7.i, i64 %2
-  %3 = load i32, i32* %arrayidx11.i, align 4, !tbaa !8
+  %arrayidx11.i = getelementptr inbounds [64 x [64 x i32]], ptr @dest, i64 0, i64 %idxprom7.i, i64 %2
+  %3 = load i32, ptr %arrayidx11.i, align 4, !tbaa !8
   %add12.i = add nsw i32 %3, %1
-  %arrayidx18.i = getelementptr inbounds [64 x [64 x i32]], [64 x [64 x i32]]* @dest, i64 0, i64 %idxprom7.i, i64 %indvars.iv
-  store i32 %add12.i, i32* %arrayidx18.i, align 4, !tbaa !8
+  %arrayidx18.i = getelementptr inbounds [64 x [64 x i32]], ptr @dest, i64 0, i64 %idxprom7.i, i64 %indvars.iv
+  store i32 %add12.i, ptr %arrayidx18.i, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %exit, label %for.body.i, !llvm.loop !10

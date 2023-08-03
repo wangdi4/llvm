@@ -18,18 +18,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 
-define void @foo(i32* %ptr) {
+define void @foo(ptr %ptr) {
 entry:
   br label %for.body
 
 for.body:                                         
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr.iv = phi i32* [ %ptr, %entry ], [ %incdec.ptr, %for.body ]
-  %ld = load i32, i32* %ptr.iv, align 4
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
-  store i32 %ld, i32* %arrayidx, align 4
+  %ptr.iv = phi ptr [ %ptr, %entry ], [ %incdec.ptr, %for.body ]
+  %ld = load i32, ptr %ptr.iv, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
+  store i32 %ld, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %incdec.ptr = getelementptr inbounds i32, i32* %ptr.iv, i64 1
+  %incdec.ptr = getelementptr inbounds i32, ptr %ptr.iv, i64 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %exit, label %for.body
 

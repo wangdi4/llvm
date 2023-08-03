@@ -11,19 +11,19 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NOT: define void @__test_separated_args
 ; CHECK-NOT: define void @____Vectorized_.test_separated_args
 
-define void @__test_separated_args(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #0 !kernel_wrapper !{void(i8*, i64*, {}*)* @test} {
+define void @__test_separated_args(ptr addrspace(1) noalias %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 !kernel_wrapper !{ptr @test} !kernel_arg_base_type !1 !arg_type_null_val !2 {
   ret void
 }
 
-define void @____Vectorized_.test_separated_args(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #1 !kernel_wrapper !{void(i8*, i64*, {}*)* @__Vectorized_.test} {
+define void @____Vectorized_.test_separated_args(ptr addrspace(1) noalias %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #1 !kernel_wrapper !{ptr @__Vectorized_.test} !kernel_arg_base_type !1 !arg_type_null_val !2 {
   ret void
 }
 
-define void @test(i8* noalias %UniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
+define void @test(ptr noalias %UniformArgs, ptr noalias %pWGId, ptr noalias %RuntimeHandle) {
   ret void
 }
 
-define void @__Vectorized_.test(i8* noalias %UniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
+define void @__Vectorized_.test(ptr noalias %UniformArgs, ptr noalias %pWGId, ptr noalias %RuntimeHandle) {
   ret void
 }
 
@@ -32,7 +32,9 @@ attributes #0 = { alwaysinline "kernel_wrapper"="test" }
 attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" }
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @__test_separated_args, void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @____Vectorized_.test_separated_args}
+!0 = !{ptr @__test_separated_args, ptr @____Vectorized_.test_separated_args}
+!1 = !{!"int*"}
+!2 = !{i32 addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing line 2

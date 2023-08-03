@@ -25,7 +25,7 @@
 #include <vector>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 // Forward declaration
 template <backend Backend> class backend_traits;
 template <backend Backend, bundle_state State>
@@ -271,7 +271,7 @@ public:
   /// \returns a kernel object which represents the kernel identified by
   /// kernel_id passed
   template <bundle_state _State = State,
-            typename = detail::enable_if_t<_State == bundle_state::executable>>
+            typename = std::enable_if_t<_State == bundle_state::executable>>
   kernel get_kernel(const kernel_id &KernelID) const {
     return detail::kernel_bundle_plain::get_kernel(KernelID);
   }
@@ -279,7 +279,7 @@ public:
   /// \returns a kernel object which represents the kernel identified by
   /// KernelName.
   template <typename KernelName, bundle_state _State = State,
-            typename = detail::enable_if_t<_State == bundle_state::executable>>
+            typename = std::enable_if_t<_State == bundle_state::executable>>
   kernel get_kernel() const {
     return detail::kernel_bundle_plain::get_kernel(get_kernel_id<KernelName>());
   }
@@ -295,7 +295,7 @@ public:
   /// for this bundle. If the specialization constant’s value was previously set
   /// in this bundle, the value is overwritten.
   template <auto &SpecName, bundle_state _State = State,
-            typename = detail::enable_if_t<_State == bundle_state::input>>
+            typename = std::enable_if_t<_State == bundle_state::input>>
   void set_specialization_constant(
       typename std::remove_reference_t<decltype(SpecName)>::value_type Value) {
     const char *SpecSymName = detail::get_spec_constant_symbolic_ID<SpecName>();
@@ -736,7 +736,7 @@ build(const kernel_bundle<bundle_state::input> &InputBundle,
   return build(InputBundle, InputBundle.get_devices(), PropList);
 }
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 namespace std {

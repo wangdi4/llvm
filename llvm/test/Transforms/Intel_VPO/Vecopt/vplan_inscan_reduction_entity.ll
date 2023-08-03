@@ -29,11 +29,11 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:    Linked values:
 ; CHECK-EMPTY:
-; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:%.*]] Step: i32 1 StartVal: ? EndVal: ? need close form
+; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:undef]] Step: i32 1 StartVal: ? EndVal: ? need close form
 ; CHECK-NEXT:    Linked values:
 ; CHECK-NEXT:   Memory: i32* [[I_LINEAR_IV0:%.*]]
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]]
-; CHECK:          [DA: Div, SVA: (F )] float* [[VP_X_RED:%.*]] = allocate-priv float*, OrigAlign = 4 (SVAOpBits )
+; CHECK:          [DA: Div, SVA: (F )] float* [[VP_X_RED:%.*]] = allocate-priv float, OrigAlign = 4 (SVAOpBits )
 ; CHECK:          [DA: Uni, SVA: (F  )] float [[VP_LOAD:%.*]] = load float* [[X_RED0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP_X_REDINSCAN_RED_INIT:%.*]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]] (SVAOpBits 0->F 1->F )
 ; CHECK:          [DA: Uni, SVA: (F  )] br [[BB0:BB[0-9]+]] (SVAOpBits 0->F )
@@ -53,8 +53,8 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB15:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]]: # preds: [[BB14]]
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0]] i32* [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0_1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0_1]] i32* [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP6:%.*]] = load float* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP7:%.*]] = load float* [[VP_X_RED]] (SVAOpBits 0->F )

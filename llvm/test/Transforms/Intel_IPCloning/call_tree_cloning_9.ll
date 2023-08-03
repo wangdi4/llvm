@@ -21,21 +21,21 @@
 ; 3) -call-tree-clone-seed option works as expected
 
 
-; *** IR Dump After IP Cloning ***; ModuleID = 'ld-temp.o'
+source_filename = "call_tree_cloning_9.ll"
 
 ; Function Attrs: noinline norecurse nounwind readnone uwtable
-define internal i32 @a(i32 returned) unnamed_addr #0 {
+define internal i32 @a(i32 returned %0) unnamed_addr #0 {
   ret i32 %0
 }
 
 ; Function Attrs: noinline norecurse nounwind readnone uwtable
-define internal i32 @b(i32, i32) unnamed_addr #0 {
+define internal i32 @b(i32 %0, i32 %1) unnamed_addr #0 {
   %3 = add nsw i32 %1, %0
   ret i32 %3
 }
 
 ; Function Attrs: noinline norecurse nounwind readnone uwtable
-define internal i32 @y(i32, i32) unnamed_addr #0 {
+define internal i32 @y(i32 %0, i32 %1) unnamed_addr #0 {
   %3 = add nsw i32 %1, 1
   %4 = call i32 @a(i32 %3)
   %5 = sub nsw i32 %1, %0
@@ -46,7 +46,7 @@ define internal i32 @y(i32, i32) unnamed_addr #0 {
 }
 
 ; Function Attrs: noinline norecurse nounwind readnone uwtable
-define internal i32 @x(i32, i32) unnamed_addr #0 {
+define internal i32 @x(i32 %0, i32 %1) unnamed_addr #0 {
   %3 = sdiv i32 %1, 2
   %4 = add nsw i32 %1, %0
   %5 = shl nsw i32 %4, 1
@@ -56,7 +56,7 @@ define internal i32 @x(i32, i32) unnamed_addr #0 {
 }
 
 ; Function Attrs: norecurse nounwind readnone uwtable
-define i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #1 {
+define i32 @main(i32 %0, ptr nocapture readnone %1) local_unnamed_addr #1 {
   %3 = call i32 @x(i32 3, i32 5)
   ret i32 %3
 }

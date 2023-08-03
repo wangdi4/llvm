@@ -72,6 +72,9 @@ def warn_fe_backend_unsupported_fp_exceptions : Warning<
 def warn_fe_backend_invalid_feature_flag : Warning<
     "feature flag '%0' must start with either '+' to enable the feature or '-'"
     " to disable it; flag ignored">, InGroup<InvalidCommandLineArgument>;
+def warn_fe_backend_readonly_feature_flag : Warning<
+    "feature flag '%0' is ignored since the feature is read only">,
+    InGroup<InvalidCommandLineArgument>;
 
 def err_incompatible_fp_eval_method_options : Error<
     "option 'ffp-eval-method' cannot be used with option "
@@ -258,8 +261,10 @@ def warn_module_config_macro_undef : Warning<
 def note_module_def_undef_here : Note<
   "macro was %select{defined|#undef'd}0 here">;
 def remark_module_build : Remark<"building module '%0' as '%1'">,
+  ShowInSystemHeader,
   InGroup<ModuleBuild>;
 def remark_module_build_done : Remark<"finished building module '%0'">,
+  ShowInSystemHeader,
   InGroup<ModuleBuild>;
 def remark_module_lock : Remark<"locking '%0' to build module '%1'">,
   InGroup<ModuleLock>;

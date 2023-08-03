@@ -30,6 +30,7 @@
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_CODEVIEWDEBUG_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_CODEVIEWDEBUG_H
 
+#include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -211,6 +212,8 @@ private:
     bool HasStackRealignment = false;
 
     bool HaveLineInfo = false;
+
+    bool HasFramePointer = false;
   };
   FunctionInfo *CurFn = nullptr;
 

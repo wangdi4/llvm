@@ -320,7 +320,7 @@
 ;            Running analysis: DominatorTreeAnalysis
 ;            Running analysis: LoopAnalysis
 ;            <Loopopt passes>
-;CHECK:      Running analysis: HIRParVecAnalysisPass
+;CHECK:      Skipping pass: HIRVecDirInsertPass
 ;CHECK:      Skipping pass vpo::VPlanDriverHIRPass
 ;            <Loopopt passes>
 ;CHECK:      Running pass: VPOCFGRestructuringPass

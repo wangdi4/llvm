@@ -104,14 +104,12 @@ public:
   unsigned allocateLDSGlobal(const DataLayout &DL, const GlobalVariable &GV,
                              Align Trailing);
 
-  void allocateKnownAddressLDSGlobal(const Function &F);
-
   static std::optional<uint32_t> getLDSKernelIdMetadata(const Function &F);
   static std::optional<uint32_t> getLDSAbsoluteAddress(const GlobalValue &GV);
 
   Align getDynLDSAlign() const { return DynLDSAlign; }
 
-  void setDynLDSAlign(const DataLayout &DL, const GlobalVariable &GV);
+  void setDynLDSAlign(const Function &F, const GlobalVariable &GV);
 };
 
 }

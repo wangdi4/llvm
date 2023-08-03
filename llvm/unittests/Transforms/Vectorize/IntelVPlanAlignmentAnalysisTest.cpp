@@ -359,7 +359,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 -> 16 (cost -= 2)
   //   %ptr4: 4 ->  8 (cost -= 1)
   //   %ptr5: 4 -> 16 (cost -= 2)
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P4 =
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P4 =
       VPPA->selectBestDynamicPeelingVariant(4, CM);
   EXPECT_EQ(P4->second, 5);
 
@@ -378,7 +378,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 ->  4 (cost -= 0)
   //   %ptr4: 4 ->  4 (cost -= 0)
   //   %ptr5: 4 ->  4 (cost -= 0)
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P16 =
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P16 =
       VPPA->selectBestDynamicPeelingVariant(16, CM);
   EXPECT_EQ(P16->second, 8);
 
@@ -951,26 +951,46 @@ TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
   EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP0));
   EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP0));
   EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP0));
+  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &SP0));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &SP0));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP0));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP1));
   EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP1));
   EXPECT_EQ(Align(8), AA4.getAlignmentUnitStride(*S, &SP1));
   EXPECT_EQ(Align(8), AA8.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP1));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*S, &SP1));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &SP1));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP1));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP2));
   EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP2));
   EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP2));
   EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP2));
+  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &SP2));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &SP2));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP2));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP3));
   EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP3));
   EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP3));
   EXPECT_EQ(Align(32), AA8.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP3));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*S, &SP3));
+  EXPECT_TRUE(AA4.isAlignedUnitStride(*S, &SP3));
+  EXPECT_TRUE(AA8.isAlignedUnitStride(*S, &SP3));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP7));
   EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP7));
   EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP7));
   EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP7));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*S, &SP7));
+  EXPECT_TRUE(AA4.isAlignedUnitStride(*S, &SP7));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP7));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
@@ -1020,11 +1040,19 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
   EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP16));
   EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP16));
   EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*L, &DP16));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*L, &DP16));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*L, &DP16));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*L, &DP16));
 
   EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(32), AA4.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(64), AA8.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA4.isAlignedUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA8.isAlignedUnitStride(*L, &DP64));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
@@ -1073,6 +1101,10 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
   EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*L, &DP64));
+  EXPECT_TRUE(AA2.isAlignedUnitStride(*L, &DP64));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*L, &DP64));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*L, &DP64));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, AlignedVal) {
@@ -1153,6 +1185,109 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignedLinearMemref) {
     expectAlignment("gep.i8.null", VF, Align(1 * VF));
     expectAlignment("gep.i32.null", VF, Align(4 * VF));
     expectAlignment("gep.i64.null", VF, Align(8 * VF));
+  }
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
+  buildVPlanFromString(R"(
+      @A = external global [100 x float], align 16
+      define void @foo() {
+      entry:
+        br label %for.body
+      for.body:
+        %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
+        %arrayidx = getelementptr [100 x float], ptr @A, i64 0, i32 %iv
+        load float, ptr %arrayidx, align 4
+        %iv.next = add nuw nsw i32 %iv, 1
+        %cond = icmp eq i32 %iv.next, 1024
+        br i1 %cond, label %exit, label %for.body
+      exit:
+        ret void
+      })");
+
+  commonSetup();
+
+  // DA is needed for alignment propagation
+  Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
+  Plan->computeDA();
+
+  auto It = find_if(vpinstructions(Plan.get()), [](const VPInstruction &I) {
+    return isa<VPLoadStoreInst>(&I);
+  });
+  ASSERT_NE(It, vpinstructions(Plan.get()).end());
+  VPLoadStoreInst &LS = cast<VPLoadStoreInst>(*It);
+  const auto ResetAlign = [OrigAlign = LS.getAlignment()](VPLoadStoreInst &LS) {
+    LS.setAlignment(OrigAlign);
+  };
+
+  // Static peel tests
+  {
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanStaticPeeling, uint64_t>
+        InputAndExpecteds[] = {
+            {1, VPlanStaticPeeling::NoPeelLoop, 4},
+            {1, VPlanStaticPeeling{0}, 4},
+            {2, VPlanStaticPeeling::NoPeelLoop, 8},
+            {2, VPlanStaticPeeling{0}, 8},
+            {2, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling::NoPeelLoop, 16},
+            {4, VPlanStaticPeeling{0}, 16},
+            {4, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling{2}, 8},
+            {4, VPlanStaticPeeling{3}, 4},
+            {8, VPlanStaticPeeling::NoPeelLoop, 16},
+            {8, VPlanStaticPeeling{0}, 16},
+            {8, VPlanStaticPeeling{1}, 4},
+            {8, VPlanStaticPeeling{2}, 8},
+            {8, VPlanStaticPeeling{4}, 16},
+            {8, VPlanStaticPeeling{5}, 4},
+            {8, VPlanStaticPeeling{6}, 8},
+            {8, VPlanStaticPeeling{7}, 4},
+        };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << ", VF = " << VF << ", peel count = " << Peel.peelCount()
+          << " (static)";
+    }
+  }
+
+  // Dynamic peel tests
+  {
+    const auto Ind = VPSE->asConstStepInduction(LS.getAddressSCEV());
+    ASSERT_TRUE(Ind.has_value());
+    const auto DynamicPeel = [&](uint64_t TargetAlign) {
+      return VPlanDynamicPeeling(&LS, *Ind, Align(TargetAlign));
+    };
+
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanDynamicPeeling, uint64_t>
+        InputAndExpecteds[] = {
+            {1, DynamicPeel(8), 4},   {1, DynamicPeel(16), 4},
+            {1, DynamicPeel(32), 4},  {2, DynamicPeel(8), 8},
+            {2, DynamicPeel(16), 16}, // FIXME: should be 8 (VF * Step == 8)
+            {2, DynamicPeel(32), 32}, // FIXME: should be 8 (VF * Step == 8)
+            {4, DynamicPeel(8), 8},   {4, DynamicPeel(16), 16},
+            {4, DynamicPeel(32), 32}, // FIXME: should be 16 (VF * Step == 16)
+            {8, DynamicPeel(8), 8},   {8, DynamicPeel(16), 16},
+            {8, DynamicPeel(32), 32},
+        };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << "VF = " << VF
+          << ", target align = " << Peel.targetAlignment().value()
+          << " (dynamic)";
+    }
+  }
+
+  // Null alignment tests
+  for (const unsigned VF : {1, 2, 4, 8}) {
+    ResetAlign(LS);
+    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, nullptr);
+    EXPECT_EQ(LS.getAlignment().value(), (uint64_t)4) << "peel = nullptr";
   }
 }
 

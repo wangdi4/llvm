@@ -2,6 +2,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; int foo(int N) {
 ;   int i, r = 0;
@@ -13,6 +14,13 @@
 
 ; CHECK: Runtime DD for loop [[LOOP:[0-9]+]]:
 ; CHECK: LOOPOPT_OPTREPORT: [RTDD] Loop [[LOOP]]: No opportunities
+
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRRuntimeDD
+
 
 ; ModuleID = 'one-ref.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

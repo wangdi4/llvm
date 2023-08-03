@@ -70,8 +70,6 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -693,8 +691,9 @@ static bool AllUsesOfValueWillTrapIfNull(const Value *V,
       if (II->getCalledOperand() != V) {
         return false;  // Not calling the ptr
       }
-    } else if (const BitCastInst *CI = dyn_cast<BitCastInst>(U)) {
-      if (!AllUsesOfValueWillTrapIfNull(CI, PHIs)) return false;
+    } else if (const AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(U)) {
+      if (!AllUsesOfValueWillTrapIfNull(CI, PHIs))
+        return false;
     } else if (const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (!AllUsesOfValueWillTrapIfNull(GEPI, PHIs)) return false;
     } else if (const PHINode *PN = dyn_cast<PHINode>(U)) {
@@ -807,10 +806,9 @@ static bool OptimizeAwayTrappingUsesOfValue(Value *V, Constant *NewV) {
           UI = V->user_begin();
         }
       }
-    } else if (CastInst *CI = dyn_cast<CastInst>(I)) {
-      Changed |= OptimizeAwayTrappingUsesOfValue(CI,
-                                ConstantExpr::getCast(CI->getOpcode(),
-                                                      NewV, CI->getType()));
+    } else if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(I)) {
+      Changed |= OptimizeAwayTrappingUsesOfValue(
+          CI, ConstantExpr::getAddrSpaceCast(NewV, CI->getType()));
       if (CI->use_empty()) {
         Changed = true;
         CI->eraseFromParent();
@@ -875,7 +873,8 @@ static bool OptimizeAwayTrappingUsesOfLoads(
       assert((isa<PHINode>(GlobalUser) || isa<SelectInst>(GlobalUser) ||
               isa<ConstantExpr>(GlobalUser) || isa<CmpInst>(GlobalUser) ||
               isa<BitCastInst>(GlobalUser) ||
-              isa<GetElementPtrInst>(GlobalUser)) &&
+              isa<GetElementPtrInst>(GlobalUser) ||
+              isa<AddrSpaceCastInst>(GlobalUser)) &&
              "Only expect load and stores!");
     }
   }
@@ -1175,6 +1174,7 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
           nullptr /* F */,
           GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       if (GV->getInitializer()->getType() != SOVC->getType())
 #if INTEL_CUSTOMIZATION
       {
@@ -1187,7 +1187,7 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
 #if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
-
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       // Optimize away any trapping uses of the loaded value.
       if (OptimizeAwayTrappingUsesOfLoads(GV, SOVC, DL, GetTLI))
         return true;
@@ -2473,22 +2473,21 @@ static void setUsedInitializer(GlobalVariable &V,
   }
 
   // Get address space of pointers in the array of pointers.
-  unsigned ElemAddrSpace = 0;
   const Type *UsedArrayType = V.getValueType();
-
-  if (const auto *VAT = dyn_cast<ArrayType>(UsedArrayType))
-    if (const auto *VEPT = dyn_cast<PointerType>(VAT->getArrayElementType()))
-      ElemAddrSpace = VEPT->getAddressSpace();
+  const auto *VAT = cast<ArrayType>(UsedArrayType);
+  const auto *VEPT = cast<PointerType>(VAT->getArrayElementType());
 
   // Type of pointer to the array of pointers.
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(V.getContext(), ElemAddrSpace);
+  PointerType *Int8PtrTy =
+      Type::getInt8PtrTy(V.getContext(), VEPT->getAddressSpace());
 
   SmallVector<Constant *, 8> UsedArray;
   for (GlobalValue *GV : Init) {
-    Constant *Cast
-      = ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
+    Constant *Cast =
+        ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
     UsedArray.push_back(Cast);
   }
+
   // Sort to get deterministic order.
   array_pod_sort(UsedArray.begin(), UsedArray.end(), compareNames);
   ArrayType *ATy = ArrayType::get(Int8PtrTy, UsedArray.size());
@@ -2587,22 +2586,11 @@ static bool hasUseOtherThanLLVMUsed(GlobalAlias &GA, const LLVMUsed &U) {
   return !U.usedCount(&GA) && !U.compilerUsedCount(&GA);
 }
 
-static bool hasMoreThanOneUseOtherThanLLVMUsed(GlobalValue &V,
-                                               const LLVMUsed &U) {
-  unsigned N = 2;
-  assert((!U.usedCount(&V) || !U.compilerUsedCount(&V)) &&
-         "We should have removed the duplicated "
-         "element from llvm.compiler.used");
-  if (U.usedCount(&V) || U.compilerUsedCount(&V))
-    ++N;
-  return V.hasNUsesOrMore(N);
-}
-
-static bool mayHaveOtherReferences(GlobalAlias &GA, const LLVMUsed &U) {
-  if (!GA.hasLocalLinkage())
+static bool mayHaveOtherReferences(GlobalValue &GV, const LLVMUsed &U) {
+  if (!GV.hasLocalLinkage())
     return true;
 
-  return U.usedCount(&GA) || U.compilerUsedCount(&GA);
+  return U.usedCount(&GV) || U.compilerUsedCount(&GV);
 }
 
 static bool hasUsesToReplace(GlobalAlias &GA, const LLVMUsed &U,
@@ -2616,21 +2604,16 @@ static bool hasUsesToReplace(GlobalAlias &GA, const LLVMUsed &U,
   if (!mayHaveOtherReferences(GA, U))
     return Ret;
 
-  // If the aliasee has internal linkage, give it the name and linkage
-  // of the alias, and delete the alias.  This turns:
+  // If the aliasee has internal linkage and no other references (e.g.,
+  // @llvm.used, @llvm.compiler.used), give it the name and linkage of the
+  // alias, and delete the alias. This turns:
   //   define internal ... @f(...)
   //   @a = alias ... @f
   // into:
   //   define ... @a(...)
   Constant *Aliasee = GA.getAliasee();
   GlobalValue *Target = cast<GlobalValue>(Aliasee->stripPointerCasts());
-  if (!Target->hasLocalLinkage())
-    return Ret;
-
-  // Do not perform the transform if multiple aliases potentially target the
-  // aliasee. This check also ensures that it is safe to replace the section
-  // and other attributes of the aliasee with those of the alias.
-  if (hasMoreThanOneUseOtherThanLLVMUsed(*Target, U))
+  if (mayHaveOtherReferences(*Target, U))
     return Ret;
 
   RenameTarget = true;

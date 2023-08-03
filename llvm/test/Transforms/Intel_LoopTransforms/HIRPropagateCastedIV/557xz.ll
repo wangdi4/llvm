@@ -1,6 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-propagate-casted-iv,print<hir>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-propagate-casted-iv,print<hir>" 2>&1 < %s | FileCheck %s
 ;*** IR Dump Before HIR Propagate Casted IV ***
 ;
 ;<0>       BEGIN REGION { }
@@ -29,17 +28,17 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-define void @foo(i32 %t108, i64 %t112, i32 %t23, i8* %t27) {
+define void @foo(i32 %t108, i64 %t112, i32 %t23, ptr %t27) {
 entry:
   br label %t113
 
 t113:                                    ; preds = %t121, %entry
   %t114 = phi i32 [ %t108, %entry ], [ %t122, %t121 ]
   %t115 = zext i32 %t114 to i64
-  %t116 = getelementptr inbounds i8, i8* %t27, i64 %t115
-  %t117 = getelementptr inbounds i8, i8* %t116, i64 %t112
-  %t118 = load i8, i8* %t117, align 1
-  %t119 = load i8, i8* %t116, align 1
+  %t116 = getelementptr inbounds i8, ptr %t27, i64 %t115
+  %t117 = getelementptr inbounds i8, ptr %t116, i64 %t112
+  %t118 = load i8, ptr %t117, align 1
+  %t119 = load i8, ptr %t116, align 1
   %t120 = icmp eq i8 %t118, %t119
   br i1 %t120, label %t121, label %t124
 

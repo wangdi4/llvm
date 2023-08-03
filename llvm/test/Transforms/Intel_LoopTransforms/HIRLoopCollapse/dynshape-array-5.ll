@@ -77,10 +77,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @sub_(float* noalias nocapture dereferenceable(4) %"sub_$A", i32* noalias nocapture readonly dereferenceable(4) %"sub_$LB", float* noalias nocapture readonly dereferenceable(4) %"sub_$UB") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture dereferenceable(4) %"sub_$A", ptr noalias nocapture readonly dereferenceable(4) %"sub_$LB", ptr noalias nocapture readonly dereferenceable(4) %"sub_$UB") local_unnamed_addr #0 {
 alloca_0:
-  %"sub_$LB_fetch.1" = load i32, i32* %"sub_$LB", align 1
-  %"sub_$UB_fetch.2" = load float, float* %"sub_$UB", align 1
+  %"sub_$LB_fetch.1" = load i32, ptr %"sub_$LB", align 1
+  %"sub_$UB_fetch.2" = load float, ptr %"sub_$UB", align 1
   %"(i32)var$2_fetch.3$" = fptosi float %"sub_$UB_fetch.2" to i32
   %sub.1 = sub i32 1, %"sub_$LB_fetch.1"
   %add.1 = add i32 %sub.1, %"(i32)var$2_fetch.3$"
@@ -102,8 +102,8 @@ loop_test11.preheader.preheader:                  ; preds = %alloca_0
 loop_body8:                                       ; preds = %loop_body8.preheader, %loop_body8
   %"$loop_ctr.035" = phi i64 [ %add.17, %loop_body8 ], [ 1, %loop_body8.preheader ]
   %"var$9.034" = phi i64 [ %add.16, %loop_body8 ], [ %int_sext5, %loop_body8.preheader ]
-  %"sub_$A[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %int_sext5, i64 4, float* elementtype(float) nonnull %"sub_$A[][]", i64 %"var$9.034")
-  store float 1.000000e+00, float* %"sub_$A[][][]", align 1
+  %"sub_$A[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %int_sext5, i64 4, ptr elementtype(float) nonnull %"sub_$A[][]", i64 %"var$9.034")
+  store float 1.000000e+00, ptr %"sub_$A[][][]", align 1
   %add.16 = add nsw i64 %"var$9.034", 1
   %add.17 = add nuw nsw i64 %"$loop_ctr.035", 1
   %exitcond = icmp eq i64 %add.17, %1
@@ -118,7 +118,7 @@ loop_exit9:                                       ; preds = %loop_body8
 loop_body8.preheader:                             ; preds = %loop_exit9, %loop_test7.preheader.preheader
   %"var$10.038" = phi i64 [ %add.18, %loop_exit9 ], [ %int_sext5, %loop_test7.preheader.preheader ]
   %"$loop_ctr1.037" = phi i64 [ %add.19, %loop_exit9 ], [ 1, %loop_test7.preheader.preheader ]
-  %"sub_$A[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %int_sext5, i64 %mul.1, float* elementtype(float) nonnull %"sub_$A[]", i64 %"var$10.038")
+  %"sub_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %int_sext5, i64 %mul.1, ptr elementtype(float) nonnull %"sub_$A[]", i64 %"var$10.038")
   br label %loop_body8
 
 loop_exit13:                                      ; preds = %loop_exit9
@@ -130,7 +130,7 @@ loop_exit13:                                      ; preds = %loop_exit9
 loop_test7.preheader.preheader:                   ; preds = %loop_exit13, %loop_test11.preheader.preheader
   %"var$11.041" = phi i64 [ %add.20, %loop_exit13 ], [ %int_sext5, %loop_test11.preheader.preheader ]
   %"$loop_ctr2.040" = phi i64 [ %add.21, %loop_exit13 ], [ 1, %loop_test11.preheader.preheader ]
-  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %int_sext5, i64 %mul.2, float* elementtype(float) nonnull %"sub_$A", i64 %"var$11.041")
+  %"sub_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %int_sext5, i64 %mul.2, ptr elementtype(float) nonnull %"sub_$A", i64 %"var$11.041")
   br label %loop_body8.preheader
 
 loop_exit17.loopexit:                             ; preds = %loop_exit13
@@ -141,7 +141,7 @@ loop_exit17:                                      ; preds = %loop_exit17.loopexi
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

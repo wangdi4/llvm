@@ -18,7 +18,7 @@
 #include <type_traits>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi::experimental {
 
 namespace detail {
@@ -77,11 +77,10 @@ template <typename... Ts> struct RuntimePropertyStorage<std::tuple<Ts...>> {
 };
 template <typename T, typename... Ts>
 struct RuntimePropertyStorage<std::tuple<T, Ts...>>
-    : sycl::detail::conditional_t<
-          IsRuntimeProperty<T>::value,
-          PrependTuple<
-              T, typename RuntimePropertyStorage<std::tuple<Ts...>>::type>,
-          RuntimePropertyStorage<std::tuple<Ts...>>> {};
+    : std::conditional_t<IsRuntimeProperty<T>::value,
+                         PrependTuple<T, typename RuntimePropertyStorage<
+                                             std::tuple<Ts...>>::type>,
+                         RuntimePropertyStorage<std::tuple<Ts...>>> {};
 
 // Helper class to extract a subset of elements from a tuple.
 // NOTES: This assumes no duplicate properties and that all properties in the
@@ -132,6 +131,8 @@ template <typename PropertiesT> class properties {
                 "Properties in property list are not sorted.");
   static_assert(detail::SortedAllUnique<PropertiesT>::value,
                 "Duplicate properties in property list.");
+  static_assert(detail::NoConflictingProperties<PropertiesT>::value,
+                "Conflicting properties in property list.");
 
 public:
   template <typename... PropertyValueTs>
@@ -246,8 +247,8 @@ struct ValueOrDefault<
 template <typename PropertiesT>
 struct is_device_copyable<
     ext::oneapi::experimental::properties<PropertiesT>,
-    std::enable_if_t<!std::is_trivially_copyable<
-        ext::oneapi::experimental::properties<PropertiesT>>::value>>
+    std::enable_if_t<!std::is_trivially_copyable_v<
+        ext::oneapi::experimental::properties<PropertiesT>>>>
     : is_device_copyable<PropertiesT> {};
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

@@ -38,6 +38,10 @@ class Type;
 class Value;
 class raw_ostream;
 
+namespace loopopt {
+class DDGraph;
+} // namespace loopopt
+
 namespace vpo {
 class VPlan;
 class VPBasicBlock;
@@ -81,6 +85,9 @@ public:
   /// Get TTI based cost of a single instruction \p VPInst.
   VPInstructionCost getTTICost(const VPInstruction *VPInst);
 
+  /// Returns TTI Cost of VPInst for arbitrary VF.
+  VPInstructionCost getTTICostForVF(const VPInstruction *VPInst, unsigned VF);
+
   /// Return cost of all-zero check instruction
   VPInstructionCost getAllZeroCheckInstrCost(Type *VecSrcTy, Type *DestTy);
 
@@ -98,6 +105,10 @@ public:
                                      unsigned VF,
                                      bool GSCostOnly = false) const;
 
+  // The utility checks whether the Cost Model can assume that 32-bit indexes
+  // will be used instead of 64-bit indexes for gather/scatter HW instructions.
+  unsigned getLoadStoreIndexSize(const VPLoadStoreInst *LoadStore) const;
+
   const VPlanVector *const Plan;
   const unsigned VF;
   const unsigned UF;
@@ -105,6 +116,7 @@ public:
   const DataLayout *const DL;
   const TargetTransformInfo &TTI;
   const VPlanVLSAnalysis *const VLSA;
+  const loopopt::DDGraph *const DDG;
 
   /// \Returns if the given instruction \p VPInst is zero-cost in this context.
   bool hasZeroCost(const VPInstruction *VPInst) const;
@@ -147,11 +159,19 @@ public:
                                                  const unsigned VF);
 
 #if INTEL_FEATURE_SW_ADVANCED
-  /// \Returns the RecurrenceAnalysis for Plan.
-  const VPlanCostModelHeuristics::RecurrenceAnalysis &getVPRA() {
+  /// \Returns the target unrolling preferences.
+  const TargetTransformInfo::VectorUnrollingPreferences &
+  getVectorUnrollingPreferences() const {
+    return UP;
+  }
+
+  /// \Returns the PartialSumAnalysis, which will be populated if enabled and
+  /// not already populated.
+  const VPlanCostModelHeuristics::PartialSumAnalysis &
+  getOrCreatePartialSumAnalysis() {
     // analyze() is a noop after the first invocation on Plan.
-    VPRA.analyze(this, *Plan);
-    return VPRA;
+    PSA.analyze(this, *Plan);
+    return PSA;
   }
 #endif // INTEL_FEATURE_SW_ADVANCED
 
@@ -162,9 +182,10 @@ protected:
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const unsigned UF, const TargetTransformInfo *TTIin,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
-                    VPlanVLSAnalysis *VLSAin)
+                    VPlanVLSAnalysis *VLSAin,
+                    const loopopt::DDGraph *DDG = nullptr)
     : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
-      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
+      DDG(DDG), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
@@ -183,6 +204,10 @@ protected:
     // Groups when VLSA is available.
     if (VLSAin)
       VLSAin->getOVLSMemrefs(Plan, VF);
+
+#if INTEL_FEATURE_SW_ADVANCED
+    TTI.getVectorUnrollingPreferences(UP);
+#endif // INTEL_FEATURE_SW_ADVANCED
   }
 
   // We prefer protected dtor over virtual one as there is no plan to
@@ -196,14 +221,13 @@ private:
   VPlanAlignmentAnalysis VPAA;
 
 #if INTEL_FEATURE_SW_ADVANCED
-  // Shared analysis of recurrences (i.e. reductions/inductions) for
-  // heuristics. This is populated when a heuristic calls getRecurrences().
-  VPlanCostModelHeuristics::RecurrenceAnalysis VPRA;
-#endif // INTEL_FEATURE_SW_ADVANCED
+  // Analaysis of partial sum candidates. This is populated
+  // on a call to getOrCreatePartialSumAnalysis().
+  VPlanCostModelHeuristics::PartialSumAnalysis PSA;
 
-  // The utility checks whether the Cost Model can assume that 32-bit indexes
-  // will be used instead of 64-bit indexes for gather/scatter HW instructions.
-  unsigned getLoadStoreIndexSize(const VPLoadStoreInst *LoadStore) const;
+  // Target unroll preferences.
+  TargetTransformInfo::VectorUnrollingPreferences UP;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // Calculates the sum of the cost of extracting VF elements of Ty type
   // or the cost of inserting VF elements of Ty type into a vector.
@@ -221,9 +245,6 @@ private:
   // Get Cost for Intrinsic (ID) call.
   VPInstructionCost getIntrinsicInstrCost(
     Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF);
-
-  // Returns TTI Cost in VPInst arbitrary VF.
-  VPInstructionCost getTTICostForVF(const VPInstruction *VPInst, unsigned VF);
 
   // Determine cost adjustment for a memref with specific Alignment.
   VPInstructionCost getNonMaskedMemOpCostAdj(
@@ -516,8 +537,9 @@ private:
                                const TargetTransformInfo *TTI,
                                const TargetLibraryInfo *TLI,
                                const DataLayout *DL,
-                               VPlanVLSAnalysis *VLSA = nullptr) :
-    VPlanTTICostModel(Plan, VF, UF, TTI, TLI, DL, VLSA),
+                               VPlanVLSAnalysis *VLSA = nullptr,
+                               const loopopt::DDGraph *DDG = nullptr) :
+    VPlanTTICostModel(Plan, VF, UF, TTI, TLI, DL, VLSA, DDG),
     HeuristicsListVPInst(this), HeuristicsListVPBlock(this),
     HeuristicsListVPlan(this) {}
 
@@ -534,9 +556,10 @@ protected:
                             const TargetTransformInfo *TTI,
                             const TargetLibraryInfo *TLI,
                             const DataLayout *DL,
-                            VPlanVLSAnalysis *VLSA = nullptr) {
+                            VPlanVLSAnalysis *VLSA = nullptr,
+                            const loopopt::DDGraph *DDG = nullptr) {
     std::unique_ptr<VPlanCostModelWithHeuristics> CMPtr(
-      new VPlanCostModelWithHeuristics(Plan, VF, UF, TTI, TLI, DL, VLSA));
+      new VPlanCostModelWithHeuristics(Plan, VF, UF, TTI, TLI, DL, VLSA, DDG));
     return CMPtr;
   }
 

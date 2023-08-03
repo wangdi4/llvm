@@ -36,6 +36,7 @@
 #include "Utilities.h"
 #endif // INTEL_COLLAB
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/bit.h"
 
 #include <cassert>
@@ -135,8 +136,18 @@ static const int64_t MaxAlignment = 16;
 /// Return the alignment requirement of partially mapped structs, see
 /// MaxAlignment above.
 static uint64_t getPartialStructRequiredAlignment(void *HstPtrBase) {
-  auto BaseAlignment = reinterpret_cast<uintptr_t>(HstPtrBase) % MaxAlignment;
-  return BaseAlignment == 0 ? MaxAlignment : BaseAlignment;
+#if INTEL_COLLAB
+  // Return MaxAlignment for nullptr.
+  if (!HstPtrBase)
+    return MaxAlignment;
+  int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
+  // [Coverity] Unintended integer overflow
+  uint64_t BaseAlignment = static_cast<uint64_t>(1) << (LowestOneBit - 1);
+#else  // INTEL_COLLAB
+  int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
+  uint64_t BaseAlignment = 1 << (LowestOneBit - 1);
+#endif // INTEL_COLLAB
+  return MaxAlignment < BaseAlignment ? MaxAlignment : BaseAlignment;
 }
 
 /// Map global data and execute pending ctors
@@ -234,6 +245,7 @@ static int initLibrary(DeviceTy &Device) {
               (uintptr_t)CurrHostEntry->addr /*HstPtrBegin*/,
               (uintptr_t)CurrHostEntry->addr +
                   CurrHostEntry->size /*HstPtrEnd*/,
+              (uintptr_t)CurrDeviceEntry->addr /*TgtAllocBegin*/,
               (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
               false /*UseHoldRefCount*/, CurrHostEntry->name,
               true /*IsRefCountINF*/));
@@ -472,15 +484,6 @@ void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-#if INTEL_COLLAB
-  if (Kind == TARGET_ALLOC_DEFAULT &&
-      PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-    Rc = Device.dataAllocManaged(Size);
-    DP("%s returns managed ptr " DPxMOD "\n", Name, DPxPTR(Rc));
-    return Rc;
-  }
-#endif // INTEL_COLLAB
-
   Rc = Device.allocData(Size, nullptr, Kind);
   DP("%s returns device ptr " DPxMOD "\n", Name, DPxPTR(Rc));
   return Rc;
@@ -699,18 +702,16 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     // Adjust for proper alignment if this is a combined entry (for structs).
     // Look at the next argument - if that is MEMBER_OF this one, then this one
     // is a combined entry.
-    int64_t Padding = 0;
+    int64_t TgtPadding = 0;
     const int NextI = I + 1;
     if (getParentIndex(ArgTypes[I]) < 0 && NextI < ArgNum &&
         getParentIndex(ArgTypes[NextI]) == I) {
       int64_t Alignment = getPartialStructRequiredAlignment(HstPtrBase);
-      Padding = (int64_t)HstPtrBegin % Alignment;
-      if (Padding) {
+      TgtPadding = (int64_t)HstPtrBegin % Alignment;
+      if (TgtPadding) {
         DP("Using a padding of %" PRId64 " bytes for begin address " DPxMOD
            "\n",
-           Padding, DPxPTR(HstPtrBegin));
-        HstPtrBegin = (char *)HstPtrBegin - Padding;
-        DataSize += Padding;
+           TgtPadding, DPxPTR(HstPtrBegin));
       }
     }
 
@@ -750,7 +751,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       // PTR_AND_OBJ entry is handled below, and so the allocation might fail
       // when HasPresentModifier.
       PointerTpr = Device.getTargetPointer(
-          HDTTMap, HstPtrBase, HstPtrBase, sizeof(void *),
+          HDTTMap, HstPtrBase, HstPtrBase, /*TgtPadding=*/0, sizeof(void *),
           /*HstPtrName=*/nullptr,
           /*HasFlagTo=*/false, /*HasFlagAlways=*/false, IsImplicit, UpdateRef,
           HasCloseModifier, HasPresentModifier, HasHoldModifier, AsyncInfo,
@@ -795,8 +796,8 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 #endif // INTEL_COLLAB
     // Note that HDTTMap will be released in getTargetPointer.
     auto TPR = Device.getTargetPointer(
-        HDTTMap, HstPtrBegin, HstPtrBase, DataSize, HstPtrName, HasFlagTo,
-        HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
+        HDTTMap, HstPtrBegin, HstPtrBase, TgtPadding, DataSize, HstPtrName,
+        HasFlagTo, HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
 #if INTEL_COLLAB
         HasPresentModifier, HasHoldModifier, AsyncInfo, PointerTpr.getEntry(),
         /* ReleaseHDTTMap */ false, UseHostMem);
@@ -862,6 +863,15 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           return OFFLOAD_FAIL;
       }
     }
+
+    // Check if variable can be used on the device:
+    bool IsStructMember = ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF;
+    if (getInfoLevel() & OMP_INFOTYPE_EMPTY_MAPPING && ArgTypes[I] != 0 &&
+        !IsStructMember && !IsImplicit && !TPR.isPresent() &&
+        !TPR.isContained() && !TPR.isHostPointer())
+      INFO(OMP_INFOTYPE_EMPTY_MAPPING, Device.DeviceID,
+           "variable %s does not have a valid device counterpart\n",
+           (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
   }
 #if INTEL_COLLAB
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
@@ -1036,25 +1046,7 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     }
 
     void *HstPtrBegin = Args[I];
-    void *HstPtrBase = ArgBases[I];
     int64_t DataSize = ArgSizes[I];
-    // Adjust for proper alignment if this is a combined entry (for structs).
-    // Look at the next argument - if that is MEMBER_OF this one, then this one
-    // is a combined entry.
-    const int NextI = I + 1;
-    if (getParentIndex(ArgTypes[I]) < 0 && NextI < ArgNum &&
-        getParentIndex(ArgTypes[NextI]) == I) {
-      int64_t Alignment = getPartialStructRequiredAlignment(HstPtrBase);
-      int64_t Padding = (int64_t)HstPtrBegin % Alignment;
-      if (Padding) {
-        DP("Using a Padding of %" PRId64 " bytes for begin address " DPxMOD
-           "\n",
-           Padding, DPxPTR(HstPtrBegin));
-        HstPtrBegin = (char *)HstPtrBegin - Padding;
-        DataSize += Padding;
-      }
-    }
-
     bool IsImplicit = ArgTypes[I] & OMP_TGT_MAPTYPE_IMPLICIT;
     bool UpdateRef = (!(ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF) ||
                       (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) &&

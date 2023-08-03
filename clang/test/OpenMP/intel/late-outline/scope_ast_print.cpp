@@ -2,31 +2,31 @@
 // expected-no-diagnostics
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp-late-outline \
-//RUN:   -fopenmp -fopenmp-version=51 \
+//RUN:   -fopenmp -fopenmp-version=52 \
 //RUN:   -x c++ -std=c++14 -fexceptions -fcxx-exceptions                   \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses                       \
 //RUN:   -ast-print %s | FileCheck %s --check-prefix=PRINT
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp-late-outline \
-//RUN:   -fopenmp -fopenmp-version=51 \
+//RUN:   -fopenmp -fopenmp-version=52 \
 //RUN:   -x c++ -std=c++14 -fexceptions -fcxx-exceptions                   \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses                       \
 //RUN:   -ast-dump %s | FileCheck %s --check-prefix=DUMP
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp-late-outline \
-//RUN:   -fopenmp -fopenmp-version=51 \
+//RUN:   -fopenmp -fopenmp-version=52 \
 //RUN:   -x c++ -std=c++14 -fexceptions -fcxx-exceptions                   \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses                       \
 //RUN:   -emit-pch -o %t %s
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp-late-outline \
-//RUN:   -fopenmp -fopenmp-version=51 \
+//RUN:   -fopenmp -fopenmp-version=52 \
 //RUN:   -x c++ -std=c++14 -fexceptions -fcxx-exceptions                   \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses                       \
 //RUN:   -include-pch %t -ast-print %s | FileCheck %s --check-prefix=PRINT
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp-late-outline \
-//RUN:   -fopenmp -fopenmp-version=51 \
+//RUN:   -fopenmp -fopenmp-version=52 \
 //RUN:   -x c++ -std=c++14 -fexceptions -fcxx-exceptions                   \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses                       \
 //RUN:   -include-pch %t -ast-dump-all %s | FileCheck %s --check-prefix=DUMP
@@ -35,9 +35,14 @@
 #define HEADER
 int foo1() {
   int a;
-  int i = 1;
-  #pragma omp scope private(a) reduction(+:i) nowait
-  { a = 123; ++i; }
+  int i = 1, j=2;
+  char v1 = 0;
+  #pragma omp scope private(a) firstprivate(j, v1) reduction(+:i) allocate(v1) nowait
+  { 
+    a = 123; 
+    ++i; 
+    j++;
+  }
   return i;
 }
 
@@ -45,18 +50,29 @@ int foo1() {
 //DUMP: OMPScopeDirective
 //DUMP: OMPPrivateClause
 //DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'a' 'int'
+//DUMP: OMPFirstprivateClause
+//DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'j' 'int'
+//DUMP: DeclRefExpr {{.*}}'char' lvalue Var {{.*}}'v1' 'char'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'i' 'int'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'char' lvalue Var {{.*}}'v1' 'char'
 //DUMP: OMPNowaitClause
-//PRINT: #pragma omp scope private(a) reduction(+: i) nowait
+//PRINT: #pragma omp scope private(a) firstprivate(j,v1) reduction(+: i) allocate(v1) nowait
 
 template <typename T>
 T run() {
   T a;
   T b;
+  T c;
+  T v1;
 
-  #pragma omp scope private(a) reduction(*:b)
-  { b *= a; }
+  #pragma omp scope private(a) firstprivate(c, v1) allocate(v1) reduction(*:b)
+  { 
+    b *= a; 
+    c = a;
+    v1 = a;
+  }
   return b;
 }
 
@@ -72,6 +88,11 @@ int template_test() {
 //DUMP: OMPScopeDirective
 //DUMP: OMPPrivateClause
 //DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'a' 'T'
+//DUMP: OMPFirstprivateClause
+//DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'c' 'T'
+//DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}}'v1' 'T'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}}'v1' 'T'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'b' 'T'
 //DUMP: FunctionDecl {{.*}}used run 'double ()'
@@ -80,8 +101,13 @@ int template_test() {
 //DUMP: OMPScopeDirective
 //DUMP: OMPPrivateClause
 //DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'a' 'double':'double'
+//DUMP: OMPFirstprivateClause
+//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'c' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'b' 'double':'double'
-//PRINT: #pragma omp scope private(a) reduction(*: b)
+//PRINT: #pragma omp scope private(a) firstprivate(c,v1) allocate(v1) reduction(*: b)
 #endif // HEADER
 // end INTEL_COLLAB

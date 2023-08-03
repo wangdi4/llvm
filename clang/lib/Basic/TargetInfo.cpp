@@ -23,7 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file implements the TargetInfo and TargetInfoImpl interfaces.
+//  This file implements the TargetInfo interface.
 //
 //===----------------------------------------------------------------------===//
 
@@ -81,6 +81,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : Triple(T) {
   HasIbm128 = false;
   HasFloat16 = false;
   HasBFloat16 = false;
+  HasFullBFloat16 = false;
   HasLongDouble = true;
   HasFPReturn = true;
   HasStrictFP = false;

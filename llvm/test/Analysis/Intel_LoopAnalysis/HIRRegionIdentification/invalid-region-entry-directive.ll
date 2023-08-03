@@ -20,7 +20,7 @@ bb:
   br label %bb339
 
 bb339:                                            ; preds = %bb
-  %i340 = call token @llvm.directive.region.entry() #1 [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %i340 = call token @llvm.directive.region.entry() #1 [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   switch i32 %arg4, label %bb359 [
     i32 4, label %bb401
     i32 2, label %bb358

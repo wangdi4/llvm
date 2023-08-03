@@ -5,11 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// REQUIRES: gpu && !gpu-intel-pvc
-// UNSUPPORTED: gpu-intel-gen9 && windows
-// UNSUPPORTED: cuda || hip
-// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// UNSUPPORTED: gpu-intel-pvc
+// Use -O2 to avoid huge stack usage under -O0.
+// RUN: %{build} -O2 -fsycl-device-code-split=per_kernel -o %t.out
+// RUN: %{run} %t.out
 
 // Regression test for SVM gather/scatter API.
 
@@ -90,6 +89,7 @@ template <typename T, int N> bool test(queue &Q) {
   return NumErrs == 0;
 }
 
+#ifndef SKIP_MAIN
 int main(void) {
   queue Q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
   auto Dev = Q.get_device();
@@ -157,3 +157,4 @@ int main(void) {
   std::cout << (Pass ? "Test Passed\n" : "Test FAILED\n");
   return Pass ? 0 : 1;
 }
+#endif

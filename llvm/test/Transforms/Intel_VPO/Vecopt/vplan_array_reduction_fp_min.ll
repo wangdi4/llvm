@@ -29,7 +29,7 @@ define float @test(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK:   Linked values: [9 x float]* [[VPMINALLOCA:%.*]],
 ; CHECK:  Memory: [9 x float]* %min
 
-; CHECK: [9 x float]* [[VPMINALLOCA]] = allocate-priv [9 x float]*, OrigAlign = 4
+; CHECK: [9 x float]* [[VPMINALLOCA]] = allocate-priv [9 x float], OrigAlign = 4
 ; CHECK: reduction-init-arr float 0x7FF0000000000000 [9 x float]* [[VPMINALLOCA]]
 ; CHECK: [9 x float] [[VPMINFIN:%.*]] = reduction-final-arr{fmin} [9 x float]* [[VPMINALLOCA]] [9 x float]* %min
 

@@ -14,14 +14,14 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK:      if (%0 > 1 && 10 < %0
+; CHECK:      if (%0 > 1 & 10 < %0
 ; CHECK-NEXT: <RVAL-REG> NON-LINEAR i64 %0 {sb:6}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i64* nocapture %p, i64* nocapture readonly %q, i64 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture readonly %q, i64 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -30,8 +30,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.body:                                         ; preds = %for.cond.cleanup3, %entry
   %indvars.iv37 = phi i64 [ 0, %entry ], [ %indvars.iv.next38, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds i64, i64* %p, i64 %indvars.iv37
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %p, i64 %indvars.iv37
+  %0 = load i64, ptr %arrayidx, align 8
   %mul = mul nsw i64 %0, %indvars.iv37
   br label %for.body4
 
@@ -42,16 +42,16 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx6 = getelementptr inbounds i64, i64* %q, i64 %indvars.iv
-  %1 = load i64, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds i64, ptr %q, i64 %indvars.iv
+  %1 = load i64, ptr %arrayidx6, align 8
   %add = add nsw i64 %1, 1
   %add8 = add nsw i64 %mul, %indvars.iv
   %add9 = add nsw i64 %add8, 1
-  %arrayidx10 = getelementptr inbounds i64, i64* %p, i64 %add9
-  store i64 %add, i64* %arrayidx10, align 8
+  %arrayidx10 = getelementptr inbounds i64, ptr %p, i64 %add9
+  store i64 %add, ptr %arrayidx10, align 8
   %add15 = add nsw i64 %add8, %0
-  %arrayidx16 = getelementptr inbounds i64, i64* %p, i64 %add15
-  store i64 1, i64* %arrayidx16, align 8
+  %arrayidx16 = getelementptr inbounds i64, ptr %p, i64 %add15
+  store i64 1, ptr %arrayidx16, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

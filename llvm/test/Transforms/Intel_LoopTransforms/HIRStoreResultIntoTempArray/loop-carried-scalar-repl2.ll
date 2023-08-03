@@ -117,9 +117,9 @@
 ;<126:34>           |   |
 ;<126:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ;<30:19>            |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
-;<37:20>            |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
-;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:0:8(double:5)];
+;<37:20>            |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:1:8(double:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:2:8(double:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
 ;<43:22>            |   |   |   %mul99 = %div  *  %div;
 ;<44:22>            |   |   |   %mul101 = %div87  *  %div87;
 ;<45:22>            |   |   |   %add102 = %mul99  +  %mul101;
@@ -127,9 +127,9 @@
 ;<48:23>            |   |   |   %mul107 = %mul103  *  2.000000e+00;
 ;<49:23>            |   |   |   %div106 = %mul107  /  %"jacobian_$Q[]53[][][]_fetch";
 ;<51:24>            |   |   |   %func_result = @llvm.pow.f64(%div106,  2.500000e+00);
-;<59:27>            |   |   |   %"jacobian_$Q[]147[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):40(double*:0)][0:0:8(double*:5)];
-;<60:27>            |   |   |   %div155 = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]147[][][]_fetch";
-;<64:28>            |   |   |   %div208 = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]147[][][]_fetch";
+;<59:27>            |   |   |   %"jacobian_$Q[]147[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:zext.i32.i64(%mod27):40(double:0)][0:0:8(double:5)];
+;<60:27>            |   |   |   %div155 = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:zext.i32.i64(%mod27):40(double:0)][0:1:8(double:5)]  /  %"jacobian_$Q[]147[][][]_fetch";
+;<64:28>            |   |   |   %div208 = (%"jacobian_$Q")[0:i1 + 2:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:zext.i32.i64(%mod27):40(double:0)][0:2:8(double:5)]  /  %"jacobian_$Q[]147[][][]_fetch";
 ;<66:29>            |   |   |   %mul221 = %div155  *  %div155;
 ;<67:29>            |   |   |   %mul223 = %div208  *  %div208;
 ;<68:29>            |   |   |   %add224 = %mul221  +  %mul223;
@@ -156,16 +156,16 @@
 ; CHECK-DETAIL:    + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + 1, 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-; CHECK-DETAIL:    |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
-; CHECK-DETAIL:    |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK-DETAIL:    |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK-DETAIL:    |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:0:8(double:5)];
+; CHECK-DETAIL:    |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:1:8(double:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK-DETAIL:    |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:40(double:0)][0:2:8(double:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
 ; CHECK-DETAIL:    |   |   |   %mul99 = %div  *  %div;
 ; CHECK-DETAIL:    |   |   |   %mul101 = %div87  *  %div87;
 ; CHECK-DETAIL:    |   |   |   %add102 = %mul99  +  %mul101;
 ; CHECK-DETAIL:    |   |   |   %mul103 = %add102  *  2.000000e+00;
 ; CHECK-DETAIL:    |   |   |   %mul107 = %mul103  *  2.000000e+00;
 ; CHECK-DETAIL:    |   |   |   %div106 = %mul107  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK-DETAIL:    |   |   |   (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)] = @llvm.pow.f64(%div106,  2.500000e+00);
+; CHECK-DETAIL:    |   |   |   (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:8(double:0)] = @llvm.pow.f64(%div106,  2.500000e+00);
 ; CHECK-DETAIL:    |   |   + END LOOP
 ; CHECK-DETAIL:    |   + END LOOP
 ; CHECK-DETAIL:    + END LOOP
@@ -177,15 +177,15 @@
 ; CHECK-DETAIL:    |   |
 ; CHECK-DETAIL:    |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-; CHECK-DETAIL:    |   |   |   %func_result = (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)];
-; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:zext.i32.i64(%mod) + -1:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):8(double*:0)];
+; CHECK-DETAIL:    |   |   |   %func_result = (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:i3:8(double:0)];
+; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double:0)][0:zext.i32.i64(%mod) + -1:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double:0)][0:zext.i32.i64(%mod27):8(double:0)];
 ; CHECK-DETAIL:    |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK-DETAIL:    |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK-DETAIL:    |   |   + END LOOP
 ; CHECK-DETAIL:    |   + END LOOP
 ; CHECK-DETAIL:    + END LOOP
 ;
-; CHECK-DETAIL:    @llvm.stackrestore(&((%call)[0:0:1(i8*:0)]));
+; CHECK-DETAIL:    @llvm.stackrestore(&((%call)[0:0:1(i8:0)]));
 ; CHECK-DETAIL: END REGION
 ;
 ;Module Before HIR

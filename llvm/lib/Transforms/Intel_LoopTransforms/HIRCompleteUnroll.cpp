@@ -41,18 +41,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-// TODO: Extensions to be added later.
-//  (1) Extend it for non normalized loops.
-//  (2) Add opt report.
-
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -62,7 +60,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #if INTEL_FEATURE_SW_DTRANS
@@ -281,15 +278,18 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
 /// Visitor to update the CanonExpr.
 struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
   const unsigned TopLoopLevel;
+  HLLoop *ParentOfTopLevelLoop;
   // Contains values of IVs at each loop level for the current unrolled
   // iteration. Value of -1 represents a loop which isn't being unrolled.
   SmallVectorImpl<int64_t> &IVValues;
+  // Contains a map for NoAlias scopes mapped to their cloned versions.
+  NoAliasScopeMapTy NoAliasScopeMap;
   const bool IsPragmaEnabledUnrolling;
 
-  CanonExprUpdater(unsigned TopLoopLevel, SmallVectorImpl<int64_t> &IVValues,
-                   bool IsPragma)
-      : TopLoopLevel(TopLoopLevel), IVValues(IVValues),
-        IsPragmaEnabledUnrolling(IsPragma) {}
+  CanonExprUpdater(unsigned TopLoopLevel, HLLoop *ParentOfTopLevelLoop,
+                   SmallVectorImpl<int64_t> &IVValues, bool IsPragma)
+      : TopLoopLevel(TopLoopLevel), ParentOfTopLevelLoop(ParentOfTopLevelLoop),
+        IVValues(IVValues), IsPragmaEnabledUnrolling(IsPragma) {}
 
   // Computes the new definition level of a blob based on where it would exist
   // in the unrolled loopnest.
@@ -810,6 +810,8 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
 
     RegDD->makeConsistent({}, TopLoopLevel - 1 + NonUnrollableLevels);
   }
+
+  RegDD->replaceNoAliasScopeInfo(NoAliasScopeMap);
 }
 
 void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
@@ -1929,7 +1931,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     }
 
     if (IsCandidateLoop) {
-      if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfLoopStatistics(ParLoop))
+      if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfStatistics(ParLoop))
                                     .hasProfitableVectorizableCalls())) {
         FoundIdenticalUse = DDRefUtils::areEqual(CurStore, Ref);
       }
@@ -2929,7 +2931,7 @@ bool HIRCompleteUnroll::run() {
   // Process Loop Complete Unrolling
   processCompleteUnroll(OuterLoops);
 
-  return false;
+  return !CandidateLoops.empty();
 }
 
 /// processCompleteUnroll - Main routine to perform unrolling.
@@ -3104,7 +3106,7 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  auto &LS = HLS.getSelfLoopStatistics(Loop);
+  auto &LS = HLS.getSelfStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -3412,12 +3414,15 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
 
       if (Lp->isConstTripLoop(&TC)) {
         // Loop completely unrolled by %d
-        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25436u, (unsigned)TC);
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::CompleteUnrollFactor,
+                                 (unsigned)TC);
       } else {
         // This is some inner loop of triangular loopnest.
 
         // Loop completely unrolled
-        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25508u);
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::LoopCompletelyUnrolled);
       }
     }
   }
@@ -3440,8 +3445,9 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
       Loop->isMultiExit() ? Loop->getOutermostParentLoop() : nullptr;
 
   SmallVector<int64_t, MaxLoopNestLevel> IVValues;
-  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues,
-                             Loop->hasCompleteUnrollEnablingPragma());
+
+  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), Loop->getParentLoop(),
+                             IVValues, Loop->hasCompleteUnrollEnablingPragma());
 
   transformLoop(Loop, CEUpdater, true);
 
@@ -3468,6 +3474,7 @@ void HIRCompleteUnroll::transformLoops() {
 
     HLLoop *ParentLoop = Loop->getParentLoop();
     HLNode *ParentNode = ParentLoop;
+
     if (!ParentNode) {
       ParentNode = Loop->getParentRegion();
     }
@@ -3520,6 +3527,43 @@ int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, unsigned TopLoopLevel,
   return UBVal;
 }
 
+// Adds information about new scope lists in \p NoAliasScopeMap into HIR.
+// If \p Loop exists, the scopes are added to it so the actual NoAliasScopeDecl
+// insts will be generated during CG. Otherwise, the insts are generated and
+// inserted before \p InsertPos.
+static void addClonedScopesInfo(ArrayRef<MDNode *> CurNoAliasScopeLists,
+                                NoAliasScopeMapTy &NoAliasScopeMap,
+                                HLLoop *Loop, HLNode *InsertPos,
+                                LLVMContext &Context) {
+  if (Loop) {
+    Loop->addMappedNoAliasScopes(CurNoAliasScopeLists, NoAliasScopeMap);
+
+  } else {
+
+    auto &HNU = InsertPos->getHLNodeUtils();
+    auto &DDRU = HNU.getDDRefUtils();
+
+    for (auto *OrigScopeList : CurNoAliasScopeLists) {
+      auto *OrigScope = cast<MDNode>(OrigScopeList->getOperand(0));
+      auto *NewScopeList = MDNode::get(Context, {NoAliasScopeMap[OrigScope]});
+
+      auto *ScopeListRef =
+          DDRU.createConstDDRef(MetadataAsValue::get(Context, NewScopeList));
+
+      auto *NoAliasScopeDecl = HNU.createNoAliasScopeDeclInst(ScopeListRef);
+      HLNodeUtils::insertBefore(InsertPos, NoAliasScopeDecl);
+    }
+  }
+}
+
+static void eraseCurNoAliasScopes(ArrayRef<MDNode *> CurNoAliasScopeLists,
+                                  NoAliasScopeMapTy &NoAliasScopeMap) {
+  for (auto *OrigScopeList : CurNoAliasScopeLists) {
+    auto *OrigScope = cast<MDNode>(OrigScopeList->getOperand(0));
+    NoAliasScopeMap.erase(OrigScope);
+  }
+}
+
 // Complete Unroll the given Loop, using provided LD as helper data
 void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
                                       bool IsTopLevelLoop) {
@@ -3528,6 +3572,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   assert(Loop && " Loop is null.");
 
   auto &IVValues = CEUpdater.IVValues;
+  auto &NoAliasScopeMap = CEUpdater.NoAliasScopeMap;
 
   if (CEUpdater.IsPragmaEnabledUnrolling && !IsTopLevelLoop &&
       !Loop->hasCompleteUnrollEnablingPragma()) {
@@ -3604,9 +3649,12 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   auto OrigLastChild = Loop->getLastChild();
 
   IVValues.push_back(LB);
+  auto CurNoAliasScopeLists = Loop->getNoAliasScopeLists();
 
   // Container for cloning body.
   HLContainerTy LoopBody;
+
+  auto &Context = Loop->getHLNodeUtils().getContext();
 
   // This may be different than UB when Step is not 1.
   int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
@@ -3617,24 +3665,39 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     // Clone iteration
     HLNodeUtils::cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
+    // Update IV value of loop for the current unrolled iteration for
+    // substitution inside the canon expr.
+    IVValues.back() = IVVal;
+    // Clone NoAlias scope metadata for the current unrolled iteration.
+    cloneNoAliasScopes(CurNoAliasScopeLists, NoAliasScopeMap, "cu", Context);
+
+    addClonedScopesInfo(CurNoAliasScopeLists, NoAliasScopeMap,
+                        CEUpdater.ParentOfTopLevelLoop, OrigFirstChild,
+                        Context);
+
     // Store references as LoopBody will be empty after insertion.
     HLNode *CurFirstChild = &(LoopBody.front());
     HLNode *CurLastChild = &(LoopBody.back());
 
     HLNodeUtils::insertBefore(OrigFirstChild, &LoopBody);
 
-    // Update IV value of loop for the current unrolled iteration for
-    // substitution inside the canon expr.
-    IVValues.back() = IVVal;
-
     // Update the CanonExpr
     // There is a recursive call of this function through CEUpdater
     HLNodeUtils::visitRange<true, false>(CEUpdater, CurFirstChild,
                                          CurLastChild);
+
+    // We need to do this for cloneNoAliasScopes() to be able to add entries for
+    // the next unrolled iteration.
+    eraseCurNoAliasScopes(CurNoAliasScopeLists, NoAliasScopeMap);
   }
 
   // Reuse original children for last iteration.
   IVValues.back() = LastIVVal;
+
+  cloneNoAliasScopes(CurNoAliasScopeLists, NoAliasScopeMap, "cu", Context);
+  addClonedScopesInfo(CurNoAliasScopeLists, NoAliasScopeMap,
+                      CEUpdater.ParentOfTopLevelLoop, OrigFirstChild, Context);
+
   HLNodeUtils::visitRange<true, false>(CEUpdater, OrigFirstChild,
                                        OrigLastChild);
 

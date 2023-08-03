@@ -19,4 +19,4 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #define SDA_VPLAN_INSTANCE
-#include "../../../Analysis/SyncDependenceAnalysis.cpp"
+#include "SyncDependenceAnalysis.cpp"

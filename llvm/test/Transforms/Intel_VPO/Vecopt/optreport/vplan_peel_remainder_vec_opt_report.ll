@@ -86,17 +86,17 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_store(i64* nocapture %ary, i32 %c) {
+define void @test_store(ptr nocapture %ary, i32 %c) {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
   %cc = sext i32 %c to i64
   %add = add i64 %cc, %indvars.iv
-  store i64 %add, i64* %ptr, align 8
+  store i64 %add, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1026
   br i1 %cmp, label %for.body, label %for.end

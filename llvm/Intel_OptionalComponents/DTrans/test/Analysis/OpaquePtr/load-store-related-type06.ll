@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
 
 ; This test case checks that "Bad casting (related types) -- Pointer type for
 ; field load/store contains related types" was not printed for the store in
@@ -20,8 +20,10 @@
 ; CHECK-NOT: Bad casting (related types) -- Pointer type for field load/store contains related types
 ; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
 ; CHECK:   [foo]   store ptr %5, ptr %2, align 8
-; CHECK: dtrans-safety: Cascading pointer carried safety condition: From: %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*, %class.TestClass.Inner*, %class.TestClass.Inner* } To: %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] } :: Bad casting
 ; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK:  [foo]   store ptr %5, ptr %2, align 8
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

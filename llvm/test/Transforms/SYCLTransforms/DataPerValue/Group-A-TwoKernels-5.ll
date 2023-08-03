@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the DataPerValue pass
@@ -137,4 +137,4 @@ declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

@@ -29,7 +29,7 @@ verifySymbolRefs(Operation *op, StringRef name, ArrayAttr symbolRefs,
   // names processed here (e.g. 'tbaa'). This verification
   // is redundant in some cases.
   if (!llvm::all_of(symbolRefs, [](Attribute attr) {
-        return attr && attr.isa<SymbolRefAttr>();
+        return attr && llvm::isa<SymbolRefAttr>(attr);
       }))
     return op->emitOpError() << name
                              << " attribute failed to satisfy constraint: "
@@ -87,9 +87,13 @@ LogicalResult verifySymbolRefsPointTo(Operation *op, StringRef name,
 
 LogicalResult mlir::LLVM::detail::verifyAccessGroupOpInterface(Operation *op) {
   auto iface = cast<AccessGroupOpInterface>(op);
-  if (failed(verifySymbolRefsPointTo<LLVM::AccessGroupMetadataOp>(
-          iface, "access groups", iface.getAccessGroupsOrNull())))
-    return failure();
+  ArrayAttr accessGroups = iface.getAccessGroupsOrNull();
+  if (!accessGroups)
+    return success();
+  for (Attribute iter : accessGroups)
+    if (!isa<AccessGroupAttr>(iter))
+      return op->emitOpError("expected op to return array of ")
+             << AccessGroupAttr::getMnemonic() << " attributes";
   return success();
 }
 
@@ -100,12 +104,6 @@ LogicalResult mlir::LLVM::detail::verifyAccessGroupOpInterface(Operation *op) {
 LogicalResult
 mlir::LLVM::detail::verifyAliasAnalysisOpInterface(Operation *op) {
   auto iface = cast<AliasAnalysisOpInterface>(op);
-  if (failed(verifySymbolRefsPointTo<LLVM::AliasScopeMetadataOp>(
-          iface, "alias scopes", iface.getAliasScopesOrNull())))
-    return failure();
-  if (failed(verifySymbolRefsPointTo<LLVM::AliasScopeMetadataOp>(
-          iface, "noalias scopes", iface.getNoAliasScopesOrNull())))
-    return failure();
   if (failed(verifySymbolRefsPointTo<LLVM::TBAATagOp>(
           iface, "tbaa tags", iface.getTBAATagsOrNull())))
     return failure();

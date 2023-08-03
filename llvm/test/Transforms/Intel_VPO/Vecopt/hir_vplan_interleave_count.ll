@@ -16,21 +16,21 @@ define i32 @main() {
 ; CHECK:       END REGION
 ;
 entry:
-  %b = alloca i64*, align 8
-  %0 = load i64*, i64** %b, align 8
+  %b = alloca ptr, align 8
+  %0 = load ptr, ptr %b, align 8
   br label %for.end
 
 for.end:                                          ; preds = %entry
-  %.lcssa68 = phi i64* [ %0, %entry ]
+  %.lcssa68 = phi ptr [ %0, %entry ]
   br label %for.body30
 
 for.body30:                                       ; preds = %for.body30, %for.end
   %i.463 = phi i64 [ 0, %for.end ], [ %inc36, %for.body30 ]
-  %arrayidx31 = getelementptr inbounds i64, i64* %.lcssa68, i64 %i.463
-  %1 = load i64, i64* %arrayidx31, align 8
-  %2 = load i64, i64* %arrayidx31, align 8
+  %arrayidx31 = getelementptr inbounds i64, ptr %.lcssa68, i64 %i.463
+  %1 = load i64, ptr %arrayidx31, align 8
+  %2 = load i64, ptr %arrayidx31, align 8
   %xor33 = xor i64 %2, %1
-  store i64 %xor33, i64* %arrayidx31, align 8
+  store i64 %xor33, ptr %arrayidx31, align 8
   %inc36 = add nuw nsw i64 %i.463, 1
   %exitcond.not = icmp eq i64 %inc36, 20000
   br i1 %exitcond.not, label %for.end37, label %for.body30, !llvm.loop !0

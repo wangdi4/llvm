@@ -19,7 +19,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR:         [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[MIN0:%.*]]
 ; HIR-NEXT:     i32 [[VP_MINMINMAX_RED_INIT:%.*]] = reduction-init i32 [[VP_LOAD]]
 ; HIR-NEXT:     store i32 [[VP_MINMINMAX_RED_INIT]] i32* [[VP_MIN]]
@@ -72,7 +72,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_MIN_BCAST:%.*]] = bitcast i32* [[VP_MIN]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_MIN_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[MIN0:%.*]]

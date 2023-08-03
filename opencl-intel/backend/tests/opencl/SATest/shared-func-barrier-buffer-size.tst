@@ -1,8 +1,5 @@
 ; Checks that auto-memory is working as expected when the kernel requires a large barrier buffer.
 
-; Temporarily disable in debug build since it is too slow. TODO re-enable.
-; UNSUPPORTED: debug-build
-
 ; RUN: SATest --VAL --config=%s.cfg -noref -llvm-option='-debug-only=sycl-kernel-prepare-args,sycl-kernel-barrier' 2>&1 | FileCheck %s
 
 ; The local sizes for kernel execution are {1, 1, 1}
@@ -14,7 +11,7 @@
 ; CHECK: Set metadata for kernel k1: BarrierBufferSize=[[#BUFFER_SIZE_PER_WI:]]
 
 ; Dump the allocated barrier buffer size when running the kernel.
-; CHECK: PRINT SPECIAL BUFFER SIZE:{{.*}} [[#mul(BUFFER_SIZE_PER_WI, 64)]]
+; CHECK: PRINT SPECIAL BUFFER: [ADDR]{{.*}}[SIZE]{{.*}} [[#mul(BUFFER_SIZE_PER_WI, 64)]]
 
 ; Auto-memory should opt-in because of the large stack usage,
 ; checks that kernel execution doesn't fail with a stack overflow (segfault).

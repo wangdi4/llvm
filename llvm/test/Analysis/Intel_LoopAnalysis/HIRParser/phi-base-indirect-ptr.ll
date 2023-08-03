@@ -10,7 +10,7 @@
 
 
 ; Function Attrs: nounwind uwtable
-define i32 @sub(i32** nocapture readonly %p, i32 %n) {
+define i32 @sub(ptr nocapture readonly %p, i32 %n) {
 entry:
   %cmp.5 = icmp sgt i32 %n, 0
   br i1 %cmp.5, label %for.body.preheader, label %for.end
@@ -20,10 +20,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.07 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %p.addr.06 = phi i32** [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
-  %0 = load i32*, i32** %p.addr.06, align 8
-  store i32 %i.07, i32* %0, align 4
-  %incdec.ptr = getelementptr inbounds i32*, i32** %p.addr.06, i64 1
+  %p.addr.06 = phi ptr [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
+  %0 = load ptr, ptr %p.addr.06, align 8
+  store i32 %i.07, ptr %0, align 4
+  %incdec.ptr = getelementptr inbounds ptr, ptr %p.addr.06, i64 1
   %inc = add nuw nsw i32 %i.07, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body

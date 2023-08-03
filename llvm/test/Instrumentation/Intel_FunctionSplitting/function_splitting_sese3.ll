@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=function-splitting -function-splitting-min-size=5 -function-splitting-only-hot=false -S | FileCheck %s
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=5 -function-splitting-only-hot=false -S | FileCheck %s
 
 ; This is a basic test for the Intel Function Splitting pass.
 ;
@@ -8,7 +8,7 @@
 ;
 ; This test verifies function splitting does occur on this case.
 
-; CHECK-LABEL: define void @test(i32 %x, i32* %y)
+; CHECK-LABEL: define void @test(i32 %x, ptr %y)
 ; CHECK-LABEL: codeRepl:
 ; CHECK: call i1 @test.if.else
 ; CHECK: define internal i1 @test.if.else
@@ -27,66 +27,66 @@ target triple = "x86_64-unknown-linux-gnu"
 @str.4 = private unnamed_addr constant [26 x i8] c"only reached via hot path\00"
 
 ; Function Attrs: inlinehint nounwind uwtable
-define void @test(i32 %x, i32* %y) local_unnamed_addr #0 !prof !29 {
+define void @test(i32 %x, ptr %y) local_unnamed_addr #0 !prof !29 {
 entry:
   %cmp = icmp slt i32 %x, 100
   br i1 %cmp, label %if.then, label %if.else, !prof !30
 
 if.then:                                          ; preds = %entry
-  %puts38 = call i32 @puts(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @str.3, i64 0, i64 0))
-  %0 = load i32, i32* %y, align 4
-  store i32 %0, i32* @gValue1, align 4
-  %puts39 = call i32 @puts(i8* getelementptr inbounds ([26 x i8], [26 x i8]* @str.4, i64 0, i64 0))
-  store i32 0, i32* @gValue2, align 4
-  store i32 0, i32* @gValue3, align 4
+  %puts38 = call i32 @puts(ptr getelementptr inbounds ([9 x i8], ptr @str.3, i64 0, i64 0))
+  %0 = load i32, ptr %y, align 4
+  store i32 %0, ptr @gValue1, align 4
+  %puts39 = call i32 @puts(ptr getelementptr inbounds ([26 x i8], ptr @str.4, i64 0, i64 0))
+  store i32 0, ptr @gValue2, align 4
+  store i32 0, ptr @gValue3, align 4
   ret void
 
 if.else:                                          ; preds = %entry
-  %puts = call i32 @puts(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @str, i64 0, i64 0))
-  %1 = load i32, i32* %y, align 4
+  %puts = call i32 @puts(ptr getelementptr inbounds ([10 x i8], ptr @str, i64 0, i64 0))
+  %1 = load i32, ptr %y, align 4
   %cmp3 = icmp eq i32 %1, 0
   br i1 %cmp3, label %if.else16, label %if.then4
 
 if.then4:                                         ; preds = %if.else
   %add = add nsw i32 %1, %x
-  %arrayidx6 = getelementptr inbounds i32, i32* %y, i64 1
-  %2 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %y, i64 1
+  %2 = load i32, ptr %arrayidx6, align 4
   %add7 = add nsw i32 %add, %2
-  %arrayidx8 = getelementptr inbounds i32, i32* %y, i64 2
-  %3 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %y, i64 2
+  %3 = load i32, ptr %arrayidx8, align 4
   %add9 = add nsw i32 %add7, %3
-  %arrayidx10 = getelementptr inbounds i32, i32* %y, i64 3
-  %4 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %y, i64 3
+  %4 = load i32, ptr %arrayidx10, align 4
   %add11 = add nsw i32 %add9, %4
-  %arrayidx12 = getelementptr inbounds i32, i32* %y, i64 4
-  %5 = load i32, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds i32, ptr %y, i64 4
+  %5 = load i32, ptr %arrayidx12, align 4
   %add13 = add nsw i32 %add11, %5
-  %arrayidx14 = getelementptr inbounds i32, i32* %y, i64 5
-  %6 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds i32, ptr %y, i64 5
+  %6 = load i32, ptr %arrayidx14, align 4
   %add15 = add nsw i32 %add13, %6
-  store i32 %add15, i32* @gValue2, align 4
+  store i32 %add15, ptr @gValue2, align 4
   ret void
 
 if.else16:                                        ; preds = %if.else
-  store i32 0, i32* @gValue1, align 4
-  %arrayidx17 = getelementptr inbounds i32, i32* %y, i64 10
-  %7 = load i32, i32* %arrayidx17, align 4
+  store i32 0, ptr @gValue1, align 4
+  %arrayidx17 = getelementptr inbounds i32, ptr %y, i64 10
+  %7 = load i32, ptr %arrayidx17, align 4
   %sub = sub nsw i32 %x, %7
-  %arrayidx18 = getelementptr inbounds i32, i32* %y, i64 9
-  %8 = load i32, i32* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds i32, ptr %y, i64 9
+  %8 = load i32, ptr %arrayidx18, align 4
   %sub19 = sub nsw i32 %sub, %8
-  %arrayidx20 = getelementptr inbounds i32, i32* %y, i64 8
-  %9 = load i32, i32* %arrayidx20, align 4
+  %arrayidx20 = getelementptr inbounds i32, ptr %y, i64 8
+  %9 = load i32, ptr %arrayidx20, align 4
   %sub21 = sub nsw i32 %sub19, %9
-  store i32 %sub21, i32* @gValue3, align 4
+  store i32 %sub21, ptr @gValue3, align 4
   ret void
 }
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly) #2
+declare i32 @puts(ptr nocapture readonly) #2
 
 attributes #0 = { inlinehint nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

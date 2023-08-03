@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @sub(float* nocapture %A) local_unnamed_addr #0 {
+define void @sub(ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -26,14 +26,14 @@ for.body:                                         ; preds = %for.body, %entry
   %conv = sitofp i64 %add to float
   %0 = mul nsw i64 %i.013, -3
   %sub = add nsw i64 %0, 63
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %sub
-  store float %conv, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %sub
+  store float %conv, ptr %arrayidx, align 4, !tbaa !1
   %add1 = add nuw nsw i64 %i.013, 5
   %conv2 = sitofp i64 %add1 to float
   %1 = mul nsw i64 %i.013, -6
   %sub4 = add nsw i64 %1, 126
-  %arrayidx5 = getelementptr inbounds float, float* %A, i64 %sub4
-  store float %conv2, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds float, ptr %A, i64 %sub4
+  store float %conv2, ptr %arrayidx5, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.013, 1
   %exitcond = icmp eq i64 %inc, 22
   br i1 %exitcond, label %for.end, label %for.body

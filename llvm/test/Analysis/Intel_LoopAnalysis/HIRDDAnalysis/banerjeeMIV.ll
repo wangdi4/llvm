@@ -20,8 +20,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32* nocapture) unnamed_addr #0 {
-  store i32 0, i32* %4, align 4, !tbaa !4
+define hidden fastcc void @dgefa(ptr nocapture, i32, i32, ptr nocapture, ptr nocapture) unnamed_addr #0 {
+  store i32 0, ptr %4, align 4, !tbaa !4
   %6 = add i32 %2, -1
   %7 = icmp sgt i32 %2, 0
   %8 = icmp sgt i32 %6, 0
@@ -49,7 +49,7 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   %24 = trunc i64 %19 to i32
   %25 = sext i32 %24 to i64
   %26 = add nsw i64 %23, %25
-  %27 = getelementptr inbounds float, float* %0, i64 %26
+  %27 = getelementptr inbounds float, ptr %0, i64 %26
   %28 = icmp slt i64 %22, 1
   br i1 %28, label %50, label %29
 
@@ -59,7 +59,7 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   br i1 %31, label %50, label %32
 
 ; <label>:32:                                     ; preds = %29
-  %33 = load float, float* %27, align 4, !tbaa !8
+  %33 = load float, ptr %27, align 4, !tbaa !8
   %34 = tail call fast float @llvm.fabs.f32(float %33) #2
   br label %35
 
@@ -67,8 +67,8 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   %36 = phi i64 [ 1, %32 ], [ %46, %35 ]
   %37 = phi i32 [ 0, %32 ], [ %45, %35 ]
   %38 = phi float [ %34, %32 ], [ %43, %35 ]
-  %39 = getelementptr inbounds float, float* %27, i64 %36
-  %40 = load float, float* %39, align 4, !tbaa !8
+  %39 = getelementptr inbounds float, ptr %27, i64 %36
+  %40 = load float, ptr %39, align 4, !tbaa !8
   %41 = tail call fast float @llvm.fabs.f32(float %40) #2
   %42 = fcmp fast ogt float %41, %38
   %43 = select i1 %42, float %41, float %38
@@ -86,13 +86,13 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   %51 = phi i32 [ -1, %18 ], [ 0, %29 ], [ %49, %48 ]
   %52 = add nsw i32 %51, %24
   %53 = trunc i32 %52 to i16
-  %54 = getelementptr inbounds i16, i16* %3, i64 %19
-  store i16 %53, i16* %54, align 2, !tbaa !10
+  %54 = getelementptr inbounds i16, ptr %3, i64 %19
+  store i16 %53, ptr %54, align 2, !tbaa !10
   %55 = mul i32 %24, %1
   %56 = add nsw i32 %52, %55
   %57 = sext i32 %56 to i64
-  %58 = getelementptr inbounds float, float* %0, i64 %57
-  %59 = load float, float* %58, align 4, !tbaa !8
+  %58 = getelementptr inbounds float, ptr %0, i64 %57
+  %59 = load float, ptr %58, align 4, !tbaa !8
   %60 = fcmp fast une float %59, 0.000000e+00
   br i1 %60, label %61, label %119
 
@@ -101,19 +101,19 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   br i1 %62, label %63, label %67
 
 ; <label>:63:                                     ; preds = %61
-  %64 = bitcast float* %27 to i32*
-  %65 = load i32, i32* %64, align 4, !tbaa !8
-  %66 = bitcast float* %58 to i32*
-  store i32 %65, i32* %66, align 4, !tbaa !8
-  store float %59, float* %27, align 4, !tbaa !8
+  %64 = bitcast ptr %27 to ptr
+  %65 = load i32, ptr %64, align 4, !tbaa !8
+  %66 = bitcast ptr %58 to ptr
+  store i32 %65, ptr %66, align 4, !tbaa !8
+  store float %59, ptr %27, align 4, !tbaa !8
   br label %67
 
 ; <label>:67:                                     ; preds = %63, %61
-  %68 = load float, float* %27, align 4, !tbaa !8
+  %68 = load float, ptr %27, align 4, !tbaa !8
   %69 = fdiv fast float -1.000000e+00, %68
   %70 = sub nsw i64 %14, %21
   %71 = add nsw i64 %26, 1
-  %72 = getelementptr inbounds float, float* %0, i64 %71
+  %72 = getelementptr inbounds float, ptr %0, i64 %71
   %73 = icmp sgt i64 %70, 0
   br i1 %73, label %74, label %83
 
@@ -122,10 +122,10 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
 
 ; <label>:75:                                     ; preds = %75, %74
   %76 = phi i64 [ %80, %75 ], [ 0, %74 ]
-  %77 = getelementptr inbounds float, float* %72, i64 %76
-  %78 = load float, float* %77, align 4, !tbaa !8
+  %77 = getelementptr inbounds float, ptr %72, i64 %76
+  %78 = load float, ptr %77, align 4, !tbaa !8
   %79 = fmul fast float %78, %69
-  store float %79, float* %77, align 4, !tbaa !8
+  store float %79, ptr %77, align 4, !tbaa !8
   %80 = add nuw nsw i64 %76, 1
   %81 = icmp eq i64 %80, %70
   br i1 %81, label %82, label %75
@@ -145,23 +145,23 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   %88 = phi i64 [ %20, %85 ], [ %117, %116 ]
   %89 = mul nsw i64 %88, %13
   %90 = add nsw i64 %89, %86
-  %91 = getelementptr inbounds float, float* %0, i64 %90
-  %92 = load float, float* %91, align 4, !tbaa !8
+  %91 = getelementptr inbounds float, ptr %0, i64 %90
+  %92 = load float, ptr %91, align 4, !tbaa !8
   %93 = add nsw i64 %89, %19
   br i1 %62, label %94, label %99
 
 ; <label>:94:                                     ; preds = %87
-  %95 = getelementptr inbounds float, float* %0, i64 %93
-  %96 = bitcast float* %95 to i32*
-  %97 = load i32, i32* %96, align 4, !tbaa !8
-  %98 = bitcast float* %91 to i32*
-  store i32 %97, i32* %98, align 4, !tbaa !8
-  store float %92, float* %95, align 4, !tbaa !8
+  %95 = getelementptr inbounds float, ptr %0, i64 %93
+  %96 = bitcast ptr %95 to ptr
+  %97 = load i32, ptr %96, align 4, !tbaa !8
+  %98 = bitcast ptr %91 to ptr
+  store i32 %97, ptr %98, align 4, !tbaa !8
+  store float %92, ptr %95, align 4, !tbaa !8
   br label %99
 
 ; <label>:99:                                     ; preds = %94, %87
   %100 = add nsw i64 %93, 1
-  %101 = getelementptr inbounds float, float* %0, i64 %100
+  %101 = getelementptr inbounds float, ptr %0, i64 %100
   %102 = fcmp fast une float %92, 0.000000e+00
   %103 = and i1 %73, %102
   br i1 %103, label %104, label %116
@@ -171,13 +171,13 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
 
 ; <label>:105:                                    ; preds = %105, %104
   %106 = phi i64 [ %113, %105 ], [ 0, %104 ]
-  %107 = getelementptr inbounds float, float* %101, i64 %106
-  %108 = load float, float* %107, align 4, !tbaa !8, !alias.scope !12, !noalias !15
-  %109 = getelementptr inbounds float, float* %72, i64 %106
-  %110 = load float, float* %109, align 4, !tbaa !8, !alias.scope !15, !noalias !12
+  %107 = getelementptr inbounds float, ptr %101, i64 %106
+  %108 = load float, ptr %107, align 4, !tbaa !8, !alias.scope !12, !noalias !15
+  %109 = getelementptr inbounds float, ptr %72, i64 %106
+  %110 = load float, ptr %109, align 4, !tbaa !8, !alias.scope !15, !noalias !12
   %111 = fmul fast float %110, %92
   %112 = fadd fast float %111, %108
-  store float %112, float* %107, align 4, !tbaa !8, !alias.scope !12, !noalias !15
+  store float %112, ptr %107, align 4, !tbaa !8, !alias.scope !12, !noalias !15
   %113 = add nuw nsw i64 %106, 1
   %114 = icmp eq i64 %113, %70
   br i1 %114, label %115, label %105
@@ -191,7 +191,7 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
   br i1 %118, label %120, label %87
 
 ; <label>:119:                                    ; preds = %50
-  store i32 %24, i32* %4, align 4, !tbaa !4
+  store i32 %24, ptr %4, align 4, !tbaa !4
   br label %121
 
 ; <label>:120:                                    ; preds = %116
@@ -208,18 +208,18 @@ define hidden fastcc void @dgefa(float* nocapture, i32, i32, i16* nocapture, i32
 ; <label>:125:                                    ; preds = %124, %10
   %126 = phi i64 [ %11, %10 ], [ %16, %124 ]
   %127 = trunc i32 %6 to i16
-  %128 = getelementptr inbounds i16, i16* %3, i64 %126
-  store i16 %127, i16* %128, align 2, !tbaa !10
+  %128 = getelementptr inbounds i16, ptr %3, i64 %126
+  store i16 %127, ptr %128, align 2, !tbaa !10
   %129 = mul nsw i32 %6, %1
   %130 = add nsw i32 %129, %6
   %131 = sext i32 %130 to i64
-  %132 = getelementptr inbounds float, float* %0, i64 %131
-  %133 = load float, float* %132, align 4, !tbaa !8
+  %132 = getelementptr inbounds float, ptr %0, i64 %131
+  %133 = load float, ptr %132, align 4, !tbaa !8
   %134 = fcmp fast oeq float %133, 0.000000e+00
   br i1 %134, label %135, label %136
 
 ; <label>:135:                                    ; preds = %125
-  store i32 %6, i32* %4, align 4, !tbaa !4
+  store i32 %6, ptr %4, align 4, !tbaa !4
   br label %136
 
 ; <label>:136:                                    ; preds = %135, %125

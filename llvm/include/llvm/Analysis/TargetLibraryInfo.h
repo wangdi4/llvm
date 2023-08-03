@@ -33,6 +33,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/IR/AttributeMask.h" // INTEL
 #include <optional>
 
 namespace llvm {
@@ -41,6 +42,7 @@ template <typename T> class ArrayRef;
 class Function;
 class Module;
 class Triple;
+class TargetTransformInfo; // INTEL
 
 /// Describes a possible implementation of a floating point builtin operation.
 struct AltMathDesc {
@@ -51,6 +53,24 @@ struct AltMathDesc {
   float Accuracy;
 };
 
+#if INTEL_CUSTOMIZATION
+/// Enum for the various bits that represent additional attributes of a
+/// vectorizable function described by VecDesc.
+enum class VecDescAttrs {
+  // Scalar/vector function is an OCL library function.
+  IsOCLFn = 0,
+  // Vector function needs argument repacking feature.
+  NeedsArgRepacking = 1,
+  IsFortranOnly = 2,
+  LastAttr = IsFortranOnly
+};
+
+/// Bitset to represent and track status of each attribute for a VecDesc.
+/// Default value for all attributes is false.
+using VecDescAttrBits =
+    std::bitset<static_cast<unsigned>(VecDescAttrs::LastAttr) + 1>;
+#endif // INTEL_CUSTOMIZATION
+
 /// Describes a possible vectorization of a function.
 /// Function 'VectorFnName' is equivalent to 'ScalarFnName' vectorized
 /// by a factor 'VectorizationFactor'.
@@ -58,10 +78,9 @@ struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
-#if INTEL_CUSTOMIZATION
   bool Masked;
-  bool IsOCLFn = false;
-#endif
+  VecDescAttrBits AttrBits = 0;  // INTEL
+  StringRef ReqdCpuFeature = ""; // INTEL
 };
 
   enum LibFunc : unsigned {
@@ -71,6 +90,17 @@ struct VecDesc {
     NumLibFuncs,
     NotLibFunc
   };
+
+#if INTEL_CUSTOMIZATION
+/// Describes different possible signatures for complex type math library
+/// functions. This is determined based on ABI of target being compiled for.
+enum ComplexLibCallSignatureInfo {
+  X86NonWinFloat,
+  X86NonWinDouble,
+  // Use this enum value for unsupported ABIs.
+  UnknownSign
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// Implementation of the target library information.
 ///
@@ -86,6 +116,12 @@ class TargetLibraryInfoImpl {
   static StringLiteral const StandardNames[NumLibFuncs];
   bool ShouldExtI32Param, ShouldExtI32Return, ShouldSignExtI32Param, ShouldSignExtI32Return;
   unsigned SizeOfInt;
+#if INTEL_CUSTOMIZATION
+  // Complex type library call signature for single-precision FP type.
+  ComplexLibCallSignatureInfo CmplxFloatSignInfo = UnknownSign;
+  // Complex type library call signature for double-precision FP type.
+  ComplexLibCallSignatureInfo CmplxDoubleSignInfo = UnknownSign;
+#endif // INTEL_CUSTOMIZATION
 
   enum AvailabilityState {
     StandardName = 3, // (memset to all ones)
@@ -130,7 +166,8 @@ public:
     LIBMVEC_X86,      // GLIBC Vector Math library.
     MASSV,            // IBM MASS vector library.
     SVML,             // Intel short vector math library.
-    SLEEFGNUABI,      // SLEEF - SIMD Library for Evaluating Elementary Functions.
+    SLEEFGNUABI, // SLEEF - SIMD Library for Evaluating Elementary Functions.
+    ArmPL,        // Arm Performance Libraries.
 #if INTEL_CUSTOMIZATION
     Libmvec,          // Glibc vector math library.
 #endif
@@ -157,6 +194,9 @@ public:
   /// math function implementations.
   enum AltMathLibrary {
     NoAltMathLibrary,  // Don't use any alternate math library
+#if INTEL_CUSTOMIZATION
+    SVMLAltMathLibrary,// INTEL SVML Library
+#endif // INTEL_CUSTOMIZATION
     TestAltMathLibrary // Use a fake alternate math library for testing
   };
 
@@ -253,19 +293,46 @@ public:
   /// vectorized using its vector library equivalent.
   bool isOCLVectorFunction(StringRef F) const;
 
+  /// True if the provided function \p F needs arguments repacking feature in
+  /// order to be vectorized using its vector library equivalent. Refer to
+  /// VPTransformLibraryCalls::transformCallsWithArgRepacking to learn more
+  /// about argument repacking feature.
+  bool doesVectorFuncNeedArgRepacking(StringRef F) const;
+
+  /// True if the provided function \p F is a Fortran specific library function
+  /// that can be vectorized using its vector library equivalent.
+  bool isFortranOnlyVectorFunction(StringRef F) const;
+
+  /// Return the CPU feature that is required to invoke the vector library
+  /// function that corresponds to scalar function \p F for given \p VF. Returns
+  /// empty string if no specific CPU feature is needed.
+  StringRef getVectorFuncReqdCpuFeature(StringRef F,
+                                        const ElementCount &VF) const;
+
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const;
+
+  // True if the provided LibFunc \p F identifies a complex float type math
+  // library function.
+  bool isComplexFloatLibFunc(LibFunc F) const;
+
+  // True if the provided LibFunc \p F identifies a Fortran random number
+  // generator library function.
+  bool isFortranRNGLibFunc(LibFunc F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.
   bool isFunctionVectorizable(StringRef F, bool IsMasked) const; // INTEL
 
+#if INTEL_CUSTOMIZATION
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked = false) const; // INTEL
+  StringRef
+  getVectorizedFunction(StringRef F, const ElementCount &VF, bool Masked,
+                        const TargetTransformInfo *TTI = nullptr) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Set to true iff i32 parameters to library functions should have signext
   /// or zeroext attributes if they correspond to C-level int or unsigned int,
@@ -309,6 +376,26 @@ public:
   void setIntSize(unsigned Bits) {
     SizeOfInt = Bits;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Get complex type library call signature info for single-precision FP type.
+  ComplexLibCallSignatureInfo getCmplxFloatSignInfo() const {
+    return CmplxFloatSignInfo;
+  }
+  /// Get complex type library call signature info for double-precision FP type.
+  ComplexLibCallSignatureInfo getCmplxDoubleSignInfo() const {
+    return CmplxDoubleSignInfo;
+  }
+
+  /// Set complex type library call signature info for single-precision FP type.
+  void setCmplxFloatSignInfo(ComplexLibCallSignatureInfo I) {
+    CmplxFloatSignInfo = I;
+  }
+  /// Set complex type library call signature info for double-precision FP type.
+  void setCmplxDoubleSignInfo(ComplexLibCallSignatureInfo I) {
+    CmplxDoubleSignInfo = I;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns the largest vectorization factor used in the list of
   /// vector functions.
@@ -442,14 +529,30 @@ public:
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
 
-  /// A wrapper method for isFunctionVectorizable where the scalar call
-  /// instruction is checked for following properties in addition to checking
-  /// for a valid entry the vector library table -
+private:
+  /// A helper method for isFunctionVectorizable where the scalar call
+  /// instruction is checked for following properties -
   /// 1. Call allows substitution with approximate functions (afn FastMathFlag).
   /// 2. Call is known to read memory only. This is optional and can be enforced
   /// by -tli-vectorize-non-readonly-libcalls=0 switch.
+  /// 3. Call represents a known library function, intrinsic or OCL vector
+  /// function.
+  bool isValidCallForVectorization(const CallBase &CB) const;
+
+public:
+  /// A wrapper method for isFunctionVectorizable where the scalar call is
+  /// checked based on its properties in addition to checking for a valid entry
+  /// in the vector library table. This version checks for a specific match
+  /// using given vectorization factor.
   bool isFunctionVectorizable(const CallBase &CB, const ElementCount &VF,
-                              bool IsMasked = false) const;
+                              bool IsMasked = false,
+                              const TargetTransformInfo *TTI = nullptr) const;
+
+  /// A wrapper method for isFunctionVectorizable where the scalar call is
+  /// checked based on its properties in addition to checking for a valid entry
+  /// in the vector library table. This version looks for a generic match for
+  /// any vectorization factor.
+  bool isFunctionVectorizable(const CallBase &CB, bool IsMasked = false) const;
 
   /// \p IsMasked defaults to 'false'. This is to leave many of the current
   /// callsites which do not necessarily care about the availability of
@@ -469,22 +572,58 @@ public:
     return Impl->isOCLVectorFunction(F);
   }
 
+  /// True if the provided function \p F needs arguments repacking feature in
+  /// order to be vectorized using its vector library equivalent. Refer to
+  /// VPTransformLibraryCalls::transformCallsWithArgRepacking to learn more
+  /// about argument repacking feature.
+  bool doesVectorFuncNeedArgRepacking(StringRef F) const {
+    return Impl->doesVectorFuncNeedArgRepacking(F);
+  }
+
+  /// True if the provided function \p F is a Fortran specific library function
+  /// that can be vectorized using its vector library equivalent.
+  bool isFortranOnlyVectorFunction(StringRef F) const {
+    return Impl->isFortranOnlyVectorFunction(F);
+  }
+
+  /// Return the CPU feature that is required to invoke the vector library
+  /// function that corresponds to scalar function \p F for given \p VF. Returns
+  /// empty string if no specific CPU feature is needed.
+  StringRef getVectorFuncReqdCpuFeature(StringRef F,
+                                        const ElementCount &VF) const {
+    return Impl->getVectorFuncReqdCpuFeature(F, VF);
+  }
+
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const {
     return Impl->isOMPLibFunc(F);
+  }
+
+  // True if the provided LibFunc \p F identifies a complex float type math
+  // library function.
+  bool isComplexFloatLibFunc(LibFunc F) const {
+    return Impl->isComplexFloatLibFunc(F);
+  }
+
+  // True if the provided LibFunc \p F identifies a Fortran random number
+  // generator library function.
+  bool isFortranRNGLibFunc(LibFunc F) const {
+    return Impl->isFortranRNGLibFunc(F);
   }
 #endif // INTEL_CUSTOMIZATION
 
   StringRef selectFPBuiltinImplementation(FPBuiltinIntrinsic *Builtin) const {
     return Impl->selectFPBuiltinImplementation(Builtin);
   }
-
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
+#if INTEL_CUSTOMIZATION
+  StringRef
+  getVectorizedFunction(StringRef F, const ElementCount &VF,
+                        bool Masked = false,
+                        const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->getVectorizedFunction(F, VF, Masked, TTI);
   }
-
+#endif // INTEL_CUSTOMIZATION
 
   /// Tests if the function is both available and a candidate for optimized code
   /// generation.
@@ -519,6 +658,7 @@ public:
     case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
     case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
 #endif  // INTEL_CUSTOMIZATION
+    case LibFunc_ldexp:        case LibFunc_ldexpf:     case LibFunc_ldexpl:
     case LibFunc_memcpy:       case LibFunc_memset:     case LibFunc_memmove:
     case LibFunc_memcmp:       case LibFunc_bcmp:       case LibFunc_strcmp:
     case LibFunc_strcpy:       case LibFunc_stpcpy:     case LibFunc_strlen:
@@ -553,14 +693,14 @@ public:
       ShouldExtI32Param = true;
       ShouldExtI32Return = true;
     }
-    // Mips and riscv64, on the other hand, needs signext on i32 parameters
-    // corresponding to both signed and unsigned ints.
-    if (T.isMIPS() || T.isRISCV64()) {
+    // LoongArch, Mips, and riscv64, on the other hand, need signext on i32
+    // parameters corresponding to both signed and unsigned ints.
+    if (T.isLoongArch() || T.isMIPS() || T.isRISCV64()) {
       ShouldSignExtI32Param = true;
     }
-    // riscv64 needs signext on i32 returns corresponding to both signed and
-    // unsigned ints.
-    if (T.isRISCV64()) {
+    // LoongArch and riscv64 need signext on i32 returns corresponding to both
+    // signed and unsigned ints.
+    if (T.isLoongArch() || T.isRISCV64()) {
       ShouldSignExtI32Return = true;
     }
   }

@@ -370,7 +370,7 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
 // Returns false if \p Lp has any control-flow or side effects.
 static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
                                         HIRLoopStatistics &HLS) {
-  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+  auto &LoopStats = HLS.getTotalStatistics(Lp);
 
   if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
       LoopStats.hasForwardGotos() || LoopStats.hasCalls()) {
@@ -1803,11 +1803,12 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
 
 PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
     Function &F, FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRCrossLoopArrayContraction(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                               AM.getResult<HIRArraySectionAnalysisPass>(F),
-                               AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                               AM.getResult<TargetIRAnalysis>(F), IsMultiJob)
-      .run();
+  ModifiedHIR = HIRCrossLoopArrayContraction(
+                    HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                    AM.getResult<HIRArraySectionAnalysisPass>(F),
+                    AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                    AM.getResult<TargetIRAnalysis>(F), IsMultiJob)
+                    .run();
   return PreservedAnalyses::all();
 }
 #endif // INTEL_FEATURE_SW_ADVANCED

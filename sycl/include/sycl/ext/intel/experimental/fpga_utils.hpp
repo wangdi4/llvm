@@ -15,7 +15,7 @@
 #include <tuple>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::intel::experimental::detail {
 
 template <template <int32_t> class _Type, class _T>
@@ -28,8 +28,8 @@ template <template <int32_t> class _Type, class... _T> struct _GetValue {
 template <template <int32_t> class _Type, class _T1, class... _T>
 struct _GetValue<_Type, _T1, _T...> {
   static constexpr auto value =
-      sycl::detail::conditional_t<_MatchType<_Type, _T1>::value, _T1,
-                                  _GetValue<_Type, _T...>>::value;
+      std::conditional_t<_MatchType<_Type, _T1>::value, _T1,
+                         _GetValue<_Type, _T...>>::value;
 };
 
 // Get the specified property from the given compile-time property list. If
@@ -56,5 +56,5 @@ using defaultLatencyConstraintProperty =
     latency_constraint_key::value_t<0, latency_control_type::none, 0>;
 
 } // namespace ext::intel::experimental::detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

@@ -61,12 +61,12 @@ target triple = "x86_64-pc-linux"
 ; CHECK-LABEL: define void @test1(
 ; CHECK-SAME: [[ATTR_HAS_SG:#[0-9]+]]
 ; CHECK-SAME: !kernel_has_sub_groups [[SGMD_TRUE:![0-9]+]]
-define void @test1(i32 addrspace(1)* noalias %sub_groups_sizes) {
+define void @test1(ptr addrspace(1) noalias %sub_groups_sizes) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0)
   %call1 = tail call i32 @_Z22get_max_sub_group_sizev()
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call
-  store i32 %call1, i32 addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %sub_groups_sizes, i64 %call
+  store i32 %call1, ptr addrspace(1) %arrayidx, align 4
   ret void
 }
 
@@ -79,110 +79,110 @@ entry:
 }
 
 ; CHECK: define void @test3({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test3(i32 addrspace(1)* noalias %sub_groups_sizes) {
+define void @test3(ptr addrspace(1) noalias %sub_groups_sizes) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call void @callee(i32 addrspace(1)* noalias %sub_groups_sizes)
+  tail call void @callee(ptr addrspace(1) noalias %sub_groups_sizes)
   ret void
 }
 
-; CHECK: define void @callee({{.*}} [[ATTR_HAS_SG]] {
-define void @callee(i32 addrspace(1)* noalias %sub_groups_sizes) {
+; CHECK: define void @callee({{.*}} [[ATTR_HAS_SG]]
+define void @callee(ptr addrspace(1) noalias %sub_groups_sizes) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0)
   %call1 = tail call i32 @_Z22get_max_sub_group_sizev()
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call
-  store i32 %call1, i32 addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %sub_groups_sizes, i64 %call
+  store i32 %call1, ptr addrspace(1) %arrayidx, align 4
   ret void
 }
 
 ; CHECK: define void @test4({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test4(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test4(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   %call = tail call <4 x i32> @_Z16sub_group_balloti(i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test5({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test5(i32 addrspace(1)* noundef align 4 %src) {
+define void @test5(ptr addrspace(1) noundef align 4 %src) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  %call = tail call i32 @_Z26intel_sub_group_block_readPU3AS1Kj(i32 addrspace(1)* noundef %src) #0
+  %call = tail call i32 @_Z26intel_sub_group_block_readPU3AS1Kj(ptr addrspace(1) noundef %src) #0
   ret void
 }
 
 ; CHECK: define void @test6({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test6(i32 addrspace(1)* noundef align 4 %src) {
+define void @test6(ptr addrspace(1) noundef align 4 %src) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  %call = tail call <4 x i32> @_Z27intel_sub_group_block_read4PU3AS1Kj(i32 addrspace(1)* noundef %src) #0
+  %call = tail call <4 x i32> @_Z27intel_sub_group_block_read4PU3AS1Kj(ptr addrspace(1) noundef %src) #0
   ret void
 }
 
 ; CHECK: define void @test7({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test7(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test7(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call void @_Z27intel_sub_group_block_writePU3AS1jj(i32 addrspace(1)* noundef %dst, i32 noundef 0) #0
+  tail call void @_Z27intel_sub_group_block_writePU3AS1jj(ptr addrspace(1) noundef %dst, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test8({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test8(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test8(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call void @_Z28intel_sub_group_block_write4PU3AS1jDv4_j(i32 addrspace(1)* noundef %dst, <4 x i32> noundef zeroinitializer) #0
+  tail call void @_Z28intel_sub_group_block_write4PU3AS1jDv4_j(ptr addrspace(1) noundef %dst, <4 x i32> noundef zeroinitializer) #0
   ret void
 }
 
 ; CHECK: define void @test9({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test9(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test9(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z17sub_group_shuffleij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z17sub_group_shuffleij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test10({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test10(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test10(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z21sub_group_shuffle_xorij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z21sub_group_shuffle_xorij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test11({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test11(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test11(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z20sub_group_shuffle_upij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z20sub_group_shuffle_upij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test12({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test12(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test12(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z22sub_group_shuffle_downij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z22sub_group_shuffle_downij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test13({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test13(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test13(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z23intel_sub_group_shuffleij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z23intel_sub_group_shuffleij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test14({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test14(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test14(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z27intel_sub_group_shuffle_xorij(i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z27intel_sub_group_shuffle_xorij(i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test15({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test15(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test15(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z26intel_sub_group_shuffle_upiij(i32 noundef 0, i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z26intel_sub_group_shuffle_upiij(i32 noundef 0, i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
 ; CHECK: define void @test16({{.*}} [[ATTR_HAS_SG]] {{.*}} !kernel_has_sub_groups [[SGMD_TRUE]]
-define void @test16(i32 addrspace(1)* noundef align 4 %dst) {
+define void @test16(ptr addrspace(1) noundef align 4 %dst) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call i32 @_Z28intel_sub_group_shuffle_downiij(i32 noundef 0, i32 noundef 0, i32 noundef 0) #0
+  %0 = tail call i32 @_Z28intel_sub_group_shuffle_downiij(i32 noundef 0, i32 noundef 0, i32 noundef 0) #0
   ret void
 }
 
@@ -192,30 +192,43 @@ declare i32 @_Z22get_max_sub_group_sizev()
 
 declare i64 @_Z14get_local_sizej(i32)
 
+; Function Attrs: convergent
 declare <4 x i32> @_Z16sub_group_balloti(i32 noundef) #0
 
-declare i32 @_Z26intel_sub_group_block_readPU3AS1Kj(i32 addrspace(1)* noundef) #0
+; Function Attrs: convergent
+declare i32 @_Z26intel_sub_group_block_readPU3AS1Kj(ptr addrspace(1) noundef) #0
 
-declare <4 x i32> @_Z27intel_sub_group_block_read4PU3AS1Kj(i32 addrspace(1)* noundef) #0
+; Function Attrs: convergent
+declare <4 x i32> @_Z27intel_sub_group_block_read4PU3AS1Kj(ptr addrspace(1) noundef) #0
 
-declare void @_Z27intel_sub_group_block_writePU3AS1jj(i32 addrspace(1)* noundef, i32 noundef) #0
+; Function Attrs: convergent
+declare void @_Z27intel_sub_group_block_writePU3AS1jj(ptr addrspace(1) noundef, i32 noundef) #0
 
-declare void @_Z28intel_sub_group_block_write4PU3AS1jDv4_j(i32 addrspace(1)* noundef, <4 x i32> noundef) #0
+; Function Attrs: convergent
+declare void @_Z28intel_sub_group_block_write4PU3AS1jDv4_j(ptr addrspace(1) noundef, <4 x i32> noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z17sub_group_shuffleij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z21sub_group_shuffle_xorij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z20sub_group_shuffle_upij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z22sub_group_shuffle_downij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z23intel_sub_group_shuffleij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z27intel_sub_group_shuffle_xorij(i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z26intel_sub_group_shuffle_upiij(i32 noundef, i32 noundef, i32 noundef) #0
 
+; Function Attrs: convergent
 declare i32 @_Z28intel_sub_group_shuffle_downiij(i32 noundef, i32 noundef, i32 noundef) #0
 
 ; CHECK: attributes [[ATTR_HAS_SG]] = { "has-sub-groups" }
@@ -223,7 +236,9 @@ declare i32 @_Z28intel_sub_group_shuffle_downiij(i32 noundef, i32 noundef, i32 n
 attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32 addrspace(1)*)* @test1, void ()* @test2, void (i32 addrspace(1)*)* @test3, void (i32 addrspace(1)*)* @test4, void (i32 addrspace(1)*)* @test5, void (i32 addrspace(1)*)* @test6, void (i32 addrspace(1)*)* @test7, void (i32 addrspace(1)*)* @test8, void (i32 addrspace(1)*)* @test9, void (i32 addrspace(1)*)* @test10, void (i32 addrspace(1)*)* @test11, void (i32 addrspace(1)*)* @test12, void (i32 addrspace(1)*)* @test13, void (i32 addrspace(1)*)* @test14, void (i32 addrspace(1)*)* @test15, void (i32 addrspace(1)*)* @test16}
+!0 = !{ptr @test1, ptr @test2, ptr @test3, ptr @test4, ptr @test5, ptr @test6, ptr @test7, ptr @test8, ptr @test9, ptr @test10, ptr @test11, ptr @test12, ptr @test13, ptr @test14, ptr @test15, ptr @test16}
+!1 = !{!"int*"}
+!2 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[SGMD_FALSE]] = !{i1 false}
 ; CHECK-DAG: [[SGMD_TRUE]] = !{i1 true}

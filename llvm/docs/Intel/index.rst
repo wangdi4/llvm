@@ -27,6 +27,7 @@ Xmain
    Clang/index
    GapAnalysis/index
    Tools/index
+   MLPGO/index
 
 .. INTEL_FEATURE_MARKERCOUNT
 

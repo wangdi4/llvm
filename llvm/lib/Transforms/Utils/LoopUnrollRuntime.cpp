@@ -485,7 +485,7 @@ static bool canProfitablyUnrollMultiExitLoop(
   // call.
   return (OtherExits.size() == 1 &&
           (UnrollRuntimeOtherExitPredictable ||
-           OtherExits[0]->getTerminatingDeoptimizeCall()));
+           OtherExits[0]->getPostdominatingDeoptimizeCall()));
   // TODO: These can be fine-tuned further to consider code size or deopt states
   // that are captured by the deoptimize exit block.
   // Also, we can extend this to support more cases, if we actually
@@ -1025,8 +1025,7 @@ bool llvm::UnrollRuntimeLoopRemainder(
     // Loop, so we move all the next siblings (if there are any)
     // to the remainder Loop.
     LORB(*L, *LI).moveSiblingsTo(*remainderLoop, *LI);
-    LORB(*remainderLoop, *LI).addOrigin("LLorg: Remainder loop for partial "
-                                        "unrolling");
+    LORB(*remainderLoop, *LI).addOrigin(OptRemarkID::LLORGRemainderLoop);
   }
 #endif  // INTEL_CUSTOMIZATION
 

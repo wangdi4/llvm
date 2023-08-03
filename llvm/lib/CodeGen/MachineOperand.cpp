@@ -28,7 +28,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/CodeGen/MIRFormatter.h"
@@ -1044,10 +1043,10 @@ unsigned MachinePointerInfo::getAddrSpace() const { return AddrSpace; }
 /// Offset + Size byte.
 bool MachinePointerInfo::isDereferenceable(unsigned Size, LLVMContext &C,
                                            const DataLayout &DL) const {
-  if (!V.is<const Value *>())
+  if (!isa<const Value *>(V))
     return false;
 
-  const Value *BasePtr = V.get<const Value *>();
+  const Value *BasePtr = cast<const Value *>(V);
   if (BasePtr == nullptr)
     return false;
 
@@ -1092,8 +1091,8 @@ MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
                                      AtomicOrdering FailureOrdering)
     : PtrInfo(ptrinfo), MemoryType(type), FlagVals(f), BaseAlign(a),
       AAInfo(AAInfo), Ranges(Ranges) {
-  assert((PtrInfo.V.isNull() || PtrInfo.V.is<const PseudoSourceValue *>() ||
-          isa<PointerType>(PtrInfo.V.get<const Value *>()->getType())) &&
+  assert((PtrInfo.V.isNull() || isa<const PseudoSourceValue *>(PtrInfo.V) ||
+          isa<PointerType>(cast<const Value *>(PtrInfo.V)->getType())) &&
          "invalid pointer value");
   assert((isLoad() || isStore()) && "Not a load/store!");
 
@@ -1120,16 +1119,6 @@ MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
     : MachineMemOperand(ptrinfo, f,
                         s == ~UINT64_C(0) ? LLT() : LLT::scalar(8 * s), a,
                         AAInfo, Ranges, SSID, Ordering, FailureOrdering) {}
-
-/// Profile - Gather unique data for the object.
-///
-void MachineMemOperand::Profile(FoldingSetNodeID &ID) const {
-  ID.AddInteger(getOffset());
-  ID.AddInteger(getMemoryType().getUniqueRAWLLTData());
-  ID.AddPointer(getOpaqueValue());
-  ID.AddInteger(getFlags());
-  ID.AddInteger(getBaseAlign().value());
-}
 
 void MachineMemOperand::refineAlignment(const MachineMemOperand *MMO) {
   // The Value and Offset may differ due to CSE. But the flags and size

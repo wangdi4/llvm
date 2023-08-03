@@ -24,6 +24,7 @@ llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_EXPENSIVE_CHECKS
 # INTEL_CUSTOMIZATION
   LLVM_ENABLE_NEW_PASS_MANAGER
+  SPIRV_ENABLE_OPAQUE_POINTERS
   INTEL_ENABLE_PROTO_BIN_OPTRPT
 # INTEL_FEATURE_SW_DTRANS
   INTEL_DTRANS_EXTRA_OPTS
@@ -88,7 +89,6 @@ set(LLVM_TEST_DEPENDS
           llvm-cxxfilt
           llvm-cxxmap
           llvm-debuginfo-analyzer
-          llvm-debuginfod
           llvm-debuginfod-find
           llvm-diff
           llvm-dis
@@ -117,7 +117,6 @@ set(LLVM_TEST_DEPENDS
           llvm-modextract
           llvm-mt
           llvm-nm
-          llvm-no-spir-kernel
           llvm-objcopy
           llvm-objdump
           llvm-opt-fuzzer
@@ -209,7 +208,6 @@ if(LLVM_BUILD_EXAMPLES)
     OrcV2CBindingsBasicUsage
     OrcV2CBindingsAddObjectFile
     OrcV2CBindingsRemovableCode
-    OrcV2CBindingsReflectProcessSymbols
     OrcV2CBindingsLazy
     OrcV2CBindingsVeryLazy
     )
@@ -248,6 +246,10 @@ endif()
 
 if (LLVM_INCLUDE_DXIL_TESTS)
   list(APPEND LLVM_TEST_DEPENDS dxil-dis)
+endif()
+
+if(LLVM_ENABLE_HTTPLIB)
+  list(APPEND LLVM_TEST_DEPENDS llvm-debuginfod)
 endif()
 
 add_custom_target(llvm-test-depends DEPENDS ${LLVM_TEST_DEPENDS})

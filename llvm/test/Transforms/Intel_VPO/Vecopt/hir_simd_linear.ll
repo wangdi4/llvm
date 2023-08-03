@@ -29,7 +29,7 @@ define void @_Z3fooPlS_(i64* nocapture noundef writeonly %lp1, i64* nocapture no
 ; CHECK:       Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 99 BinOp: i64 [[VP3:%.*]] = add i64 [[VP4:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP4]], i64 [[VP3]],
-; CHECK:       IntInduction(+) Start: i64 [[VP_LOAD:%.*]] Step: i64 2 StartVal: ? EndVal: ? need close form  Memory: i64* [[L2_LINEAR0:%.*]]
+; CHECK:       IntInduction(+) Start: i64 [[VP_LOAD:undef]] Step: i64 2 StartVal: ? EndVal: ? need close form  Memory: i64* [[L2_LINEAR0:%.*]]
 
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[PRIV_MEM_BC0:%.*]] = &((i64*)([[PRIV_MEM0:%.*]])[0])

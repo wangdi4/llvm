@@ -37,18 +37,18 @@ declare void @llvm.directive.region.exit(token) #0
 define hidden void @diffusivities_.DIR.OMP.DISTRIBUTE.PARLOOP.27.split1714.split(i32 %c1, i32 %c2, i64 %N, float %f) #1 {
 ; CHECK-LABEL:  Function: diffusivities_.DIR.OMP.DISTRIBUTE.PARLOOP.27.split1714.split
 ; CHECK:        [[CMP0:%.*]] = [[C10:%.*]] == [[C20:%.*]];
-; CHECK:        <LVAL-REG> NON-LINEAR i1 [[CMP0]] {sb:21}
+; CHECK:        <LVAL-REG> NON-LINEAR i1 [[CMP0]] {sb:25}
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C10]] {sb:8}
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C20]] {sb:10}
-; CHECK:        + LiveIn symbases: 5, 8, 10, 11, 21, 22, 24, 25
+; CHECK:        + LiveIn symbases: 5, 8, 10, 11, 25, 26, 28, 29
 ; CHECK:        + DO i64 i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK:        + END LOOP
 ; Here is the clone of CMP0 in remainder, it's correctly marked as livein
 ; CHECK:        [[CMP150:%.*]] = [[C10]] == [[C20]]
-; CHECK:        <LVAL-REG> NON-LINEAR i1 [[CMP150]] {sb:35}
+; CHECK:        <LVAL-REG> NON-LINEAR i1 [[CMP150]] {sb:42}
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C10]] {sb:8}
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C20]] {sb:10}
-; CHECK:             + LiveIn symbases: 5, 8, 10, 11, 19, 25, 35, 36, 37, 39
+; CHECK:             + LiveIn symbases: 5, 8, 10, 11, 20, 29, 42, 43, 44, 46
 ; CHECK:             + DO i64 i1 = 0, [[LOOP_UB190:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK:        + END LOOP
 DIR.OMP.DISTRIBUTE.PARLOOP.14.split:
@@ -78,7 +78,7 @@ bb16_endif:
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.216, label %omp.pdo.body58
 
 DIR.OMP.SIMD.1:
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.pdo.body58
 
 DIR.OMP.END.SIMD.216:

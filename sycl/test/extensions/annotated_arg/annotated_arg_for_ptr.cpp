@@ -3,9 +3,6 @@
 
 #include "sycl/sycl.hpp"
 #include <sycl/ext/intel/fpga_extensions.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
-#include <sycl/ext/oneapi/annotated_arg/properties.hpp>
 
 #include <iostream>
 
@@ -13,6 +10,7 @@
 
 using namespace sycl;
 using namespace ext::oneapi::experimental;
+using namespace ext::intel::experimental;
 
 using annotated_arg_t1 =
     annotated_arg<int *, decltype(properties(awidth<32>, dwidth<32>))>;

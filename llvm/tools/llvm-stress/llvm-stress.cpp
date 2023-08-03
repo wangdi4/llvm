@@ -222,7 +222,7 @@ protected:
     } else if (Tp->isFloatingPointTy()) {
       if (getRandom() & 1)
         return ConstantFP::getAllOnesValue(Tp);
-      return ConstantFP::getNullValue(Tp);
+      return ConstantFP::getZero(Tp);
     }
     return UndefValue::get(Tp);
   }
@@ -244,7 +244,7 @@ protected:
     } else if (Tp->isFloatingPointTy()) {
       if (getRandom() & 1)
         return ConstantFP::getAllOnesValue(Tp);
-      return ConstantFP::getNullValue(Tp);
+      return ConstantFP::getZero(Tp);
     } else if (auto *VTp = dyn_cast<FixedVectorType>(Tp)) {
       std::vector<Constant*> TempValues;
       TempValues.reserve(VTp->getNumElements());
@@ -341,9 +341,13 @@ struct LoadModifier: public Modifier {
   void Act() override {
     // Try to use predefined pointers. If non-exist, use undef pointer value;
     Value *Ptr = getRandomPointerValue();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *Ty = pickType();
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Type *Ty = Ptr->getType()->isOpaquePointerTy()
                    ? pickType()
                    : Ptr->getType()->getNonOpaquePointerElementType();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Value *V = new LoadInst(Ty, Ptr, "L", BB->getTerminator());
     PT->push_back(V);
   }
@@ -356,9 +360,13 @@ struct StoreModifier: public Modifier {
   void Act() override {
     // Try to use predefined pointers. If non-exist, use undef pointer value;
     Value *Ptr = getRandomPointerValue();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *ValTy = pickType();
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Type *ValTy = Ptr->getType()->isOpaquePointerTy()
                       ? pickType()
                       : Ptr->getType()->getNonOpaquePointerElementType();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Do not store vectors of i1s because they are unsupported
     // by the codegen.
@@ -442,7 +450,7 @@ struct ConstModifier: public Modifier {
       APFloat RandomFloat(Ty->getFltSemantics(), RandomInt);
 
       if (getRandom() & 1)
-        return PT->push_back(ConstantFP::getNullValue(Ty));
+        return PT->push_back(ConstantFP::getZero(Ty));
       return PT->push_back(ConstantFP::get(Ty->getContext(), RandomFloat));
     }
 

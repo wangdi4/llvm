@@ -45,7 +45,7 @@
 ; CHECK: %mv.test6 = &((%prow)[zext.i32.i64(%height) + zext.i32.i64(%smax) + -1 * sext.i32.i64(%channels) + (zext.i32.i64(%width) * sext.i32.i64(%channels)) + -2]) >=u &((@vrow)[0][0][-1 * smin(0, sext.i32.i64(%other_channels)) + (zext.i32.i64(%width) * smin(0, sext.i32.i64(%other_channels)))]);
 ; CHECK: %mv.test7 = &((@vrow)[0][zext.i32.i64(%height) + -1][zext.i32.i64(%smax) + -1 * smax(0, sext.i32.i64(%other_channels)) + (zext.i32.i64(%width) * smax(0, sext.i32.i64(%other_channels)))]) >=u &((%prow)[0]);
 ; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
-; CHECK: if (%mv.and == 0 && %mv.and8 == 0)  <MVTag: 70>
+; CHECK: if (%mv.and == 0 & %mv.and8 == 0)  <MVTag: 70>
 ; CHECK: {
 ; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 70>
 ; CHECK:    |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 71>
@@ -87,7 +87,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @vrow = external dso_local local_unnamed_addr global [2000 x [8000 x i8]], align 16
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z19composite_referenceiiiiPvPhj(i32 %width, i32 %height, i32 %channels, i32 %other_channels, i8* nocapture readnone %highP, i8* nocapture %prow, i32 %t) local_unnamed_addr #0 {
+define dso_local void @_Z19composite_referenceiiiiPvPhj(i32 %width, i32 %height, i32 %channels, i32 %other_channels, ptr nocapture readnone %highP, ptr nocapture %prow, i32 %t) local_unnamed_addr #0 {
 entry:
   %cmp1473 = icmp sgt i32 %channels, 0
   %idx.ext = sext i32 %channels to i64
@@ -116,8 +116,8 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %cmp575, label %for.body7.preheader, label %for.cond.cleanup6
 
 for.body7.preheader:                              ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i8, i8* %prow, i64 %indvars.iv87
-  %arrayidx1 = getelementptr inbounds [2000 x [8000 x i8]], [2000 x [8000 x i8]]* @vrow, i64 0, i64 %indvars.iv87, i64 0, !intel-tbaa !3
+  %arrayidx3 = getelementptr inbounds i8, ptr %prow, i64 %indvars.iv87
+  %arrayidx1 = getelementptr inbounds [2000 x [8000 x i8]], ptr @vrow, i64 0, i64 %indvars.iv87, i64 0, !intel-tbaa !3
   br label %for.body7
 
 for.cond.cleanup6.loopexit:                       ; preds = %for.cond.cleanup15
@@ -130,14 +130,14 @@ for.cond.cleanup6:                                ; preds = %for.cond.cleanup6.l
 
 for.body7:                                        ; preds = %for.body7.preheader, %for.cond.cleanup15
   %indvars.iv82 = phi i64 [ 0, %for.body7.preheader ], [ %indvars.iv.next83, %for.cond.cleanup15 ]
-  %other_row.078 = phi i8* [ %arrayidx1, %for.body7.preheader ], [ %add.ptr34, %for.cond.cleanup15 ]
-  %this_row.077 = phi i8* [ %arrayidx3, %for.body7.preheader ], [ %add.ptr, %for.cond.cleanup15 ]
-  %arrayidx9 = getelementptr inbounds i8, i8* %other_row.078, i64 %indvars.iv82
-  %2 = load i8, i8* %arrayidx9, align 1, !tbaa !10
+  %other_row.078 = phi ptr [ %arrayidx1, %for.body7.preheader ], [ %add.ptr34, %for.cond.cleanup15 ]
+  %this_row.077 = phi ptr [ %arrayidx3, %for.body7.preheader ], [ %add.ptr, %for.cond.cleanup15 ]
+  %arrayidx9 = getelementptr inbounds i8, ptr %other_row.078, i64 %indvars.iv82
+  %2 = load i8, ptr %arrayidx9, align 1, !tbaa !10
   %conv = zext i8 %2 to i32
   %indvars.iv.next83 = add nuw nsw i64 %indvars.iv82, 1
-  %arrayidx11 = getelementptr inbounds i8, i8* %other_row.078, i64 %indvars.iv.next83
-  %3 = load i8, i8* %arrayidx11, align 1, !tbaa !10
+  %arrayidx11 = getelementptr inbounds i8, ptr %other_row.078, i64 %indvars.iv.next83
+  %3 = load i8, ptr %arrayidx11, align 1, !tbaa !10
   %conv12 = zext i8 %3 to i32
   br i1 %cmp1473, label %for.body16.preheader, label %for.cond.cleanup15
 
@@ -148,30 +148,30 @@ for.cond.cleanup15.loopexit:                      ; preds = %for.body16
   br label %for.cond.cleanup15
 
 for.cond.cleanup15:                               ; preds = %for.cond.cleanup15.loopexit, %for.body7
-  %add.ptr = getelementptr inbounds i8, i8* %this_row.077, i64 %idx.ext, !intel-tbaa !10
-  %add.ptr34 = getelementptr inbounds i8, i8* %other_row.078, i64 %idx.ext33, !intel-tbaa !10
+  %add.ptr = getelementptr inbounds i8, ptr %this_row.077, i64 %idx.ext, !intel-tbaa !10
+  %add.ptr34 = getelementptr inbounds i8, ptr %other_row.078, i64 %idx.ext33, !intel-tbaa !10
   %exitcond86.not = icmp eq i64 %indvars.iv.next83, %wide.trip.count8593
   br i1 %exitcond86.not, label %for.cond.cleanup6.loopexit, label %for.body7, !llvm.loop !11
 
 for.body16:                                       ; preds = %for.body16.preheader, %for.body16
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body16 ], [ 0, %for.body16.preheader ]
-  %arrayidx18 = getelementptr inbounds i8, i8* %other_row.078, i64 %indvars.iv
-  %4 = load i8, i8* %arrayidx18, align 1, !tbaa !10
+  %arrayidx18 = getelementptr inbounds i8, ptr %other_row.078, i64 %indvars.iv
+  %4 = load i8, ptr %arrayidx18, align 1, !tbaa !10
   %conv19 = zext i8 %4 to i32
   %mul = mul nuw nsw i32 %conv19, %conv
   %add20 = add nuw nsw i32 %mul, %conv12
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx23 = getelementptr inbounds i8, i8* %other_row.078, i64 %indvars.iv.next
-  %5 = load i8, i8* %arrayidx23, align 1, !tbaa !10
+  %arrayidx23 = getelementptr inbounds i8, ptr %other_row.078, i64 %indvars.iv.next
+  %5 = load i8, ptr %arrayidx23, align 1, !tbaa !10
   %conv24 = zext i8 %5 to i32
   %add25 = add nuw nsw i32 %add20, %conv24
-  %arrayidx27 = getelementptr inbounds i8, i8* %this_row.077, i64 %indvars.iv
-  %6 = load i8, i8* %arrayidx27, align 1, !tbaa !10
+  %arrayidx27 = getelementptr inbounds i8, ptr %this_row.077, i64 %indvars.iv
+  %6 = load i8, ptr %arrayidx27, align 1, !tbaa !10
   %conv28 = zext i8 %6 to i32
   %add29 = add nuw nsw i32 %add25, %conv28
   %div = udiv i32 %add29, 255
   %conv30 = trunc i32 %div to i8
-  store i8 %conv30, i8* %arrayidx27, align 1, !tbaa !10
+  store i8 %conv30, ptr %arrayidx27, align 1, !tbaa !10
   %exitcond.not = icmp eq i64 %indvars.iv.next, %1
   br i1 %exitcond.not, label %for.cond.cleanup15.loopexit, label %for.body16, !llvm.loop !12
 }

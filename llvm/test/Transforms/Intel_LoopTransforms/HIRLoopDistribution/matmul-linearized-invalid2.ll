@@ -29,7 +29,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @_Z15matrix_multiplyiPdS_S_(i32 %N, double* noalias nocapture readonly %b, double* noalias nocapture readonly %c, double* noalias nocapture %a, i32 %K) local_unnamed_addr #0 {
+define dso_local void @_Z15matrix_multiplyiPdS_S_(i32 %N, ptr noalias nocapture readonly %b, ptr noalias nocapture readonly %c, ptr noalias nocapture %a, i32 %K) local_unnamed_addr #0 {
 entry:
   %cmp55 = icmp sgt i32 %N, 0
   br i1 %cmp55, label %for.cond1.preheader.us.us.preheader, label %for.cond.cleanup
@@ -52,8 +52,8 @@ for.cond1.for.cond.cleanup3_crit_edge.us.us:      ; preds = %for.cond5.for.cond.
 for.body4.us.us:                                  ; preds = %for.cond5.for.cond.cleanup7_crit_edge.us.us, %for.cond1.preheader.us.us
   %indvars.iv61 = phi i64 [ %indvars.iv.next62, %for.cond5.for.cond.cleanup7_crit_edge.us.us ], [ 0, %for.cond1.preheader.us.us ]
   %f = add nuw nsw i64 %indvars.iv61, %e
-  %ptridx.us.us = getelementptr inbounds double, double* %a, i64 %f
-  store double 0.000000e+00, double* %ptridx.us.us, align 8, !tbaa !4
+  %ptridx.us.us = getelementptr inbounds double, ptr %a, i64 %f
+  store double 0.000000e+00, ptr %ptridx.us.us, align 8, !tbaa !4
   br label %for.body8.us.us
 
 for.cond5.for.cond.cleanup7_crit_edge.us.us:      ; preds = %for.body8.us.us
@@ -64,16 +64,16 @@ for.cond5.for.cond.cleanup7_crit_edge.us.us:      ; preds = %for.body8.us.us
 for.body8.us.us:                                  ; preds = %for.body8.us.us, %for.body4.us.us
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body8.us.us ], [ 0, %for.body4.us.us ]
   %add = add nuw nsw i64 %indvars.iv, %e
-  %ptridx12.us.us = getelementptr inbounds double, double* %b, i64 %add
-  %load = load double, double* %ptridx12.us.us, align 8, !tbaa !4
+  %ptridx12.us.us = getelementptr inbounds double, ptr %b, i64 %add
+  %load = load double, ptr %ptridx12.us.us, align 8, !tbaa !4
   %mul = mul nsw i64 %indvars.iv, %g
   %add2 = add nuw nsw i64 %mul, %indvars.iv61
-  %ptridx16.us.us = getelementptr inbounds double, double* %c, i64 %add2
-  %load2 = load double, double* %ptridx16.us.us, align 8, !tbaa !4
+  %ptridx16.us.us = getelementptr inbounds double, ptr %c, i64 %add2
+  %load2 = load double, ptr %ptridx16.us.us, align 8, !tbaa !4
   %mul.mm = fmul fast double %load2, %load
-  %load3 = load double, double* %ptridx.us.us, align 8
+  %load3 = load double, ptr %ptridx.us.us, align 8
   %add.mm = fadd fast double %load3, %mul.mm
-  store double %add.mm, double* %ptridx.us.us, align 8
+  store double %add.mm, ptr %ptridx.us.us, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 99
   br i1 %exitcond.not, label %for.cond5.for.cond.cleanup7_crit_edge.us.us, label %for.body8.us.us, !llvm.loop !9

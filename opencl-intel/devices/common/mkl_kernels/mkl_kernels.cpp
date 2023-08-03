@@ -92,7 +92,7 @@ template <> bool InitLibrary<true>() {
 
 #if 0
     // Check if MKL library in the system path
-#ifdef WIN32
+#ifdef _WIN32
     if (g_mklRT.Load("mkl_intel_ilp64.dll") != 0)
 #else
     if (g_mklRT.Load("libmkl_intel_ilp64.so") != 0 )

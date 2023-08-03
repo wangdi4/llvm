@@ -1357,6 +1357,7 @@ public:
     std::string Str;
     CGM.getContext().getObjCEncodingForType(E->getEncodedType(), Str);
     const ConstantArrayType *CAT = CGM.getContext().getAsConstantArrayType(T);
+    assert(CAT && "String data not of constant array type!");
 
     // Resize the string to the right size, adding zeros at the end, or
     // truncating as needed.
@@ -1747,7 +1748,7 @@ llvm::Constant *ConstantEmitter::emitForMemory(CodeGenModule &CGM,
   }
 
   // Zero-extend bool.
-  if (C->getType()->isIntegerTy(1)) {
+  if (C->getType()->isIntegerTy(1) && !destType->isBitIntType()) {
     llvm::Type *boolTy = CGM.getTypes().ConvertTypeForMem(destType);
     if (!boolTy->isIntegerTy(1)) // INTEL
     return llvm::ConstantExpr::getZExt(C, boolTy);
@@ -1850,9 +1851,11 @@ private:
       return C;
 
     llvm::Type *origPtrTy = C->getType();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     unsigned AS = origPtrTy->getPointerAddressSpace();
     llvm::Type *charPtrTy = CGM.Int8Ty->getPointerTo(AS);
     C = llvm::ConstantExpr::getBitCast(C, charPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     C = llvm::ConstantExpr::getGetElementPtr(CGM.Int8Ty, C, getOffset());
     C = llvm::ConstantExpr::getPointerCast(C, origPtrTy);
     return C;
@@ -1970,6 +1973,10 @@ ConstantLValueEmitter::tryEmitBase(const APValue::LValueBase &base) {
   }
 
   // Handle typeid(T).
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  if (TypeInfoLValue TI = base.dyn_cast<TypeInfoLValue>())
+    return CGM.GetAddrOfRTTIDescriptor(QualType(TI.getType(), 0));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   if (TypeInfoLValue TI = base.dyn_cast<TypeInfoLValue>()) {
     llvm::Type *StdTypeInfoPtrTy =
         CGM.getTypes().ConvertType(base.getTypeInfoType())->getPointerTo();
@@ -1979,6 +1986,7 @@ ConstantLValueEmitter::tryEmitBase(const APValue::LValueBase &base) {
       TypeInfo = llvm::ConstantExpr::getBitCast(TypeInfo, StdTypeInfoPtrTy);
     return TypeInfo;
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Otherwise, it must be an expression.
   return Visit(base.get<const Expr*>());
@@ -2012,7 +2020,7 @@ static ConstantLValue emitConstantObjCStringLiteral(const StringLiteral *S,
                                                     QualType T,
                                                     CodeGenModule &CGM) {
   auto C = CGM.getObjCRuntime().GenerateConstantString(S);
-  return C.getElementBitCast(CGM.getTypes().ConvertTypeForMem(T));
+  return C.withElementType(CGM.getTypes().ConvertTypeForMem(T));
 }
 
 ConstantLValue
@@ -2215,6 +2223,11 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
 
     llvm::ArrayType *Desired =
         cast<llvm::ArrayType>(CGM.getTypes().ConvertType(DestType));
+
+    // Fix the type of incomplete arrays if the initializer isn't empty.
+    if (DestType->isIncompleteArrayType() && !Elts.empty())
+      Desired = llvm::ArrayType::get(Desired->getElementType(), Elts.size());
+
     return EmitArrayConstant(CGM, Desired, CommonElementType, NumElements, Elts,
                              Filler);
   }

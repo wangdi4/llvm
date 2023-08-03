@@ -168,8 +168,8 @@ private:
   static constexpr int64_t InvalidImmShape = -1;
   MachineOperand *Row;
   MachineOperand *Col;
-  int64_t RowImm;
-  int64_t ColImm;
+  int64_t RowImm = -1;
+  int64_t ColImm = -1;
 #if INTEL_CUSTOMIZATION
   // Multi Shapes
   SmallVector<MachineOperand *, 0> Shapes;

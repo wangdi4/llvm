@@ -54,10 +54,10 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %j.018 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
   %add = add nuw nsw i64 %j.018, %indvars.iv
-  %arrayidx4 = getelementptr inbounds [50 x [50 x i64]], [50 x [50 x i64]]* @A, i64 0, i64 %indvars.iv, i64 %j.018
-  %0 = load i64, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [50 x [50 x i64]], ptr @A, i64 0, i64 %indvars.iv, i64 %j.018
+  %0 = load i64, ptr %arrayidx4, align 8
   %add5 = add nsw i64 %add, %0
-  store i64 %add5, i64* %arrayidx4, align 8
+  store i64 %add5, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %j.018, 1
   %exitcond = icmp eq i64 %inc, %indvars.iv
   br i1 %exitcond, label %for.inc6.loopexit, label %for.body3

@@ -91,14 +91,10 @@ declare i32 @llvm.abs.i32(i32, i1))";
     (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
   auto DL = std::make_unique<DataLayout>(&M);
 
-  LoopVectorizationPlanner LVP(nullptr /* WRL */,
-                               nullptr /* Loop */,
-                               nullptr /* LoopInfo */,
-                               nullptr /* LibraryInfo */,
-                               &TTI, DL.get(),
-                               nullptr /* DominatorTree */,
-                               nullptr /* legality */,
-                               nullptr /* VLSA*/);
+  LoopVectorizationPlanner LVP(
+      nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
+      nullptr /* LibraryInfo */, &TTI, DL.get(), nullptr /* DominatorTree */,
+      nullptr /* legality */, nullptr /* VLSA*/, &F->getContext());
 
   // Base CM is expected to be created.
   TM.get()->Options.IntelAdvancedOptim = false;

@@ -35,8 +35,8 @@ for.body3.preheader:                              ; preds = %for.inc5, %for.body
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %sum.121 = phi double [ %add, %for.body3 ], [ %sum.025, %for.body3.preheader ]
   %i2.020 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx4 = getelementptr inbounds [1000 x [1000 x double]], [1000 x [1000 x double]]* @A, i64 0, i64 %i2.020, i64 %i1.023
-  %0 = load double, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [1000 x [1000 x double]], ptr @A, i64 0, i64 %i2.020, i64 %i1.023
+  %0 = load double, ptr %arrayidx4, align 8
   %add = fadd double %sum.121, %0
   %inc = add nuw nsw i64 %i2.020, 1
   %exitcond = icmp eq i64 %inc, %n
@@ -54,6 +54,6 @@ for.end7.loopexit:                                ; preds = %for.inc5
 
 for.end7:                                         ; preds = %for.end7.loopexit, %entry
   %sum.0.lcssa = phi double [ 0.000000e+00, %entry ], [ %add.lcssa.lcssa, %for.end7.loopexit ]
-  store double %sum.0.lcssa, double* @Gsum, align 8
+  store double %sum.0.lcssa, ptr @Gsum, align 8
   ret void
 }

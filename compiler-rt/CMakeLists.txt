@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -50,23 +50,18 @@
 #
 # end INTEL_CUSTOMIZATION
 
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.20.0)
+
+set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
+  NO_POLICY_SCOPE)
 
 # Check if compiler-rt is built as a standalone project.
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR COMPILER_RT_STANDALONE_BUILD)
   project(CompilerRT C CXX ASM)
   set(COMPILER_RT_STANDALONE_BUILD TRUE)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-  if ("${CMAKE_VERSION}" VERSION_LESS "3.20.0")
-    message(WARNING
-      "Your CMake version is ${CMAKE_VERSION}. Starting with LLVM 17.0.0, the "
-      "minimum version of CMake required to build LLVM will become 3.20.0, and "
-      "using an older CMake will become an error. Please upgrade your CMake to "
-      "at least 3.20.0 now to avoid issues in the future!")
-  endif()
 endif()
-
-set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 # Add path for custom compiler-rt modules.
 list(INSERT CMAKE_MODULE_PATH 0
@@ -91,10 +86,6 @@ option(COMPILER_RT_BUILD_BUILTINS "Build builtins" ON)
 mark_as_advanced(COMPILER_RT_BUILD_BUILTINS)
 option(COMPILER_RT_DISABLE_AARCH64_FMV "Disable AArch64 Function Multi Versioning support" OFF)
 mark_as_advanced(COMPILER_RT_DISABLE_AARCH64_FMV)
-option(COMPILER_RT_BUILD_CRT "Build crtbegin.o/crtend.o" ON)
-mark_as_advanced(COMPILER_RT_BUILD_CRT)
-option(COMPILER_RT_CRT_USE_EH_FRAME_REGISTRY "Use eh_frame in crtbegin.o/crtend.o" ON)
-mark_as_advanced(COMPILER_RT_CRT_USE_EH_FRAME_REGISTRY)
 option(COMPILER_RT_BUILD_SANITIZERS "Build sanitizers" ON)
 mark_as_advanced(COMPILER_RT_BUILD_SANITIZERS)
 option(COMPILER_RT_BUILD_XRAY "Build xray" ON)
@@ -209,7 +200,7 @@ pythonize_bool(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR)
 # We support running instrumented tests when we're not cross-compiling
 # and target a UNIX-like system or Windows.
 # We can run tests on Android even when we are cross-compiling.
-if(("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "${CMAKE_SYSTEM_NAME}" AND (UNIX OR WIN32))
+if((NOT "${CMAKE_CROSSCOMPILING}" AND (UNIX OR WIN32))
    OR ANDROID OR COMPILER_RT_EMULATOR)
   option(COMPILER_RT_CAN_EXECUTE_TESTS "Can we execute instrumented tests" ON)
 else()
@@ -479,20 +470,19 @@ if("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "s390x")
 endif()
 
 if(MSVC)
-  # Replace the /M[DT][d] flags with /MT, and strip any definitions of _DEBUG,
-  # which cause definition mismatches at link time.
   # FIXME: In fact, sanitizers should support both /MT and /MD, see PR20214.
-  if(COMPILER_RT_HAS_MT_FLAG)
-    foreach(flag_var
-      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "/M[DT]d" "/MT" ${flag_var} "${${flag_var}}")
-      string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-      string(REGEX REPLACE "/D_DEBUG" "" ${flag_var} "${${flag_var}}")
-    endforeach()
-  endif()
+  set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+  # Remove any /M[DT][d] flags, and strip any definitions of _DEBUG.
+  # TODO: We probably could remove this altogether.
+  foreach(flag_var
+    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    string(REGEX REPLACE "[/-]M[DT]d" "" ${flag_var} "${${flag_var}}")
+    string(REGEX REPLACE "[/-]MD" "" ${flag_var} "${${flag_var}}")
+    string(REGEX REPLACE "[/-]D_DEBUG" "" ${flag_var} "${${flag_var}}")
+  endforeach()
   append_list_if(COMPILER_RT_HAS_Oy_FLAG /Oy- SANITIZER_COMMON_CFLAGS)
   append_list_if(COMPILER_RT_HAS_GS_FLAG /GS- SANITIZER_COMMON_CFLAGS)
 
@@ -541,31 +531,38 @@ else()
   set(SANITIZER_USE_SYMBOLS FALSE)
 endif()
 
-# Build sanitizer runtimes with debug info.
-if(MSVC)
-  # Use /Z7 instead of /Zi for the asan runtime. This avoids the LNK4099
-  # warning from the MS linker complaining that it can't find the 'vc140.pdb'
-  # file used by our object library compilations.
-  list(APPEND SANITIZER_COMMON_CFLAGS /Z7)
-  foreach(var_to_update
-    CMAKE_CXX_FLAGS
-    CMAKE_CXX_FLAGS_DEBUG
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-    string(REGEX REPLACE "(^| )/Z[i7I]($| )" " /Z7 "
-           "${var_to_update}" "${${var_to_update}}")
-  endforeach()
-elseif(APPLE)
-  # On Apple platforms use full debug info (i.e. not `-gline-tables-only`)
-  # for all build types so that the runtime can be debugged.
-  if(NOT COMPILER_RT_HAS_G_FLAG)
-    message(FATAL_ERROR "-g is not supported by host compiler")
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-42333
+# To avoid any possible IP leak from the debug info, we only enable the debug info
+# for debug build
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # Build sanitizer runtimes with debug info.
+  if(MSVC)
+    # Use /Z7 instead of /Zi for the asan runtime. This avoids the LNK4099
+    # warning from the MS linker complaining that it can't find the 'vc140.pdb'
+    # file used by our object library compilations.
+    list(APPEND SANITIZER_COMMON_CFLAGS /Z7)
+    foreach(var_to_update
+      CMAKE_CXX_FLAGS
+      CMAKE_CXX_FLAGS_DEBUG
+      CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "(^| )/Z[i7I]($| )" " /Z7 "
+            "${var_to_update}" "${${var_to_update}}")
+    endforeach()
+  elseif(APPLE)
+    # On Apple platforms use full debug info (i.e. not `-gline-tables-only`)
+    # for all build types so that the runtime can be debugged.
+    if(NOT COMPILER_RT_HAS_G_FLAG)
+      message(FATAL_ERROR "-g is not supported by host compiler")
+    endif()
+    list(APPEND SANITIZER_COMMON_CFLAGS -g)
+  elseif(COMPILER_RT_HAS_GLINE_TABLES_ONLY_FLAG AND NOT COMPILER_RT_DEBUG)
+    list(APPEND SANITIZER_COMMON_CFLAGS -gline-tables-only)
+  elseif(COMPILER_RT_HAS_G_FLAG)
+    list(APPEND SANITIZER_COMMON_CFLAGS -g)
   endif()
-  list(APPEND SANITIZER_COMMON_CFLAGS -g)
-elseif(COMPILER_RT_HAS_GLINE_TABLES_ONLY_FLAG AND NOT COMPILER_RT_DEBUG)
-  list(APPEND SANITIZER_COMMON_CFLAGS -gline-tables-only)
-elseif(COMPILER_RT_HAS_G_FLAG)
-  list(APPEND SANITIZER_COMMON_CFLAGS -g)
 endif()
+# end INTEL_CUSTOMIZATION
 
 if(LLVM_ENABLE_MODULES)
   # Sanitizers cannot be built with -fmodules. The interceptors intentionally

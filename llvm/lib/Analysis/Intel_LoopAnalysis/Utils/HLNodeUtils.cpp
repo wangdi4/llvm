@@ -1184,6 +1184,20 @@ HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
   return HInst;
 }
 
+HLInst *HLNodeUtils::createNoAliasScopeDeclInst(RegDDRef *ScopeList) {
+  Function *NoAliasScopeDeclFunc = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::experimental_noalias_scope_decl);
+
+  SmallVector<RegDDRef *, 1> Ops = {ScopeList};
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(NoAliasScopeDeclFunc, Ops);
+
+  Call->setDebugLoc(ScopeList->getDebugLoc());
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
                                    HLRegion *Region, StringRef Message) {
   auto &Ctx = getContext();
@@ -2801,114 +2815,6 @@ HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
                                       static_cast<const HLNode *>(Node)));
 }
 
-// For domination we care about single entry i.e. absence of labels in the scope
-// of interest.
-// For post domination we care about single exit i.e. absence of jumps from
-// inside to outside the scope of interest.
-// TODO: handle intrinsics/calls/exception handling semantics.
-struct StructuredFlowChecker final : public HLNodeVisitorBase {
-  bool IsPDom;
-  const HLNode *TargetNode;
-  // Target node is being for 2 different purposes-
-  // 1) To signify end of traveral (early-exit from the visitor).
-  // 2) To check jumps across target in post-domination mode.
-  // This flag indicates whether it can be used for 1) or just 2).
-  bool TargetEndsTraversal;
-  bool IsStructured;
-  bool IsDone;
-
-  StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                        bool TargetEndsTraversal, const HLLoop *ParentLoop,
-                        HIRLoopStatistics *HLS);
-
-  // Returns true if visitor is done.
-  bool visit(const HLNode *Node);
-
-  void visit(const HLLabel *Label);
-  void visit(const HLGoto *Goto);
-  void visit(const HLLoop *Lp);
-
-  void postVisit(const HLNode *) {}
-
-  bool isDone() const { return (IsDone || !isStructured()); }
-  bool isStructured() const { return IsStructured; }
-};
-
-StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                                             bool TargetEndsTraversal,
-                                             const HLLoop *ParentLoop,
-                                             HIRLoopStatistics *HLS)
-    : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
-      IsStructured(true), IsDone(false) {
-  // Query HIRLoopStatistics for a possible faster response.
-  if (HLS && ParentLoop) {
-    if (IsPDom) {
-      auto &TLS = HLS->getTotalLoopStatistics(ParentLoop);
-
-      // Should we store statistics for multi-exit children loops to only
-      // require self statistics?
-      if (!TLS.hasForwardGotos()) {
-        IsDone = true;
-      }
-    } else {
-      auto &SLS = HLS->getSelfLoopStatistics(ParentLoop);
-
-      if (!SLS.hasLabels()) {
-        IsDone = true;
-      }
-    }
-  }
-}
-
-bool StructuredFlowChecker::visit(const HLNode *Node) {
-  if (TargetEndsTraversal && (Node == TargetNode)) {
-    IsDone = true;
-  }
-
-  return IsDone;
-}
-
-void StructuredFlowChecker::visit(const HLLabel *Label) {
-  if (visit(static_cast<const HLNode *>(Label)) || IsPDom) {
-    return;
-  }
-
-  // Ignore unknown loop header labels as they are still a part of structured
-  // control flow.
-  if (Label->isUnknownLoopHeaderLabel())
-    return;
-
-  IsStructured = false;
-}
-
-void StructuredFlowChecker::visit(const HLGoto *Goto) {
-  if (visit(static_cast<const HLNode *>(Goto)) || !IsPDom) {
-    return;
-  }
-
-  if (Goto->isExternal()) {
-    IsStructured = false;
-    return;
-  }
-
-  auto Label = Goto->getTargetLabel();
-
-  if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
-    IsStructured = false;
-  }
-}
-
-void StructuredFlowChecker::visit(const HLLoop *Lp) {
-  if (visit(static_cast<const HLNode *>(Lp)) || !IsPDom) {
-    return;
-  }
-
-  // Be conservative in the presence of multi-exit loops.
-  if (Lp->getNumExits() > 1) {
-    IsStructured = false;
-  }
-}
-
 /// Returns \p Node if it is an HLLoop or the parent loop of \p Node if it is
 /// not.
 static const HLLoop *getNearestLoop(const HLNode *Node) {
@@ -2919,95 +2825,12 @@ static const HLLoop *getNearestLoop(const HLNode *Node) {
   return Node->getParentLoop();
 }
 
-bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
-                                    const HLNode *TargetNode,
-                                    bool PostDomination, bool UpwardTraversal,
-                                    HIRLoopStatistics *HLS) {
-
-  // If TargetNode precedes a loop containing Parent (or Parent itself if it is
-  // a loop), this is enough to prove structured flow for dominance queries as
-  // all loops are single-entry.
-  if (!PostDomination && TargetNode)
-    if (const HLLoop *const NearestLoop = getNearestLoop(Parent))
-      if (TargetNode->getTopSortNum() < NearestLoop->getTopSortNum())
-        return true;
-
-  const HLNode *FirstNode = nullptr, *LastNode = nullptr;
-
-  // For parent loops we should retrieve the absolute first/last lexical child
-  // of the loop rather than returning the first/last preheader/postexit child.
-  // Consider a domination query for this case-
-  // + DO LOOP
-  // |  goto L:
-  // |  Node1
-  // |  L:
-  // + END DO
-  //   Node2
-  //
-  // Node2 lies in postexit so if we only check the postexit nodes of the loop
-  // while tracing Node2 to the common parent of Node1 and itself (do loop), the
-  // query will return true which would be wrong.
-  if (UpwardTraversal) {
-    FirstNode = isa<HLLoop>(Parent) ? getFirstLexicalChild(Parent)
-                                    : getFirstLexicalChild(Parent, Node);
-
-    LastNode = Node ? Node : getLastLexicalChild(Parent);
-
-  } else {
-    FirstNode = Node ? Node : getFirstLexicalChild(Parent);
-
-    LastNode = isa<HLLoop>(Parent) ? getLastLexicalChild(Parent)
-                                   : getLastLexicalChild(Parent, Node);
-  }
-
-  assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
-
-  if (Node && (FirstNode == LastNode)) {
-    // Both are set to 'Node' which we don't need to check.
-    return true;
-  }
-
-  // 'Upward' traversal is backward traversal of HIR. If TargetNode is the
-  // LastNode of the range, StructuredFlowChecker will exit early using 'IsDone'
-  // mechanism and skip all the checks which is not the intention.
-  bool TargetEndsTraversal = (!UpwardTraversal || (TargetNode != LastNode));
-
-  StructuredFlowChecker SFC(PostDomination, TargetNode, TargetEndsTraversal,
-                            FirstNode->getParentLoop(), HLS);
-
-  // Don't need to recurse into loops.
-  // TODO: We probably need to enhance it to recurse into multi-exit loops.
-  if (UpwardTraversal) {
-    // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. If Node is a parent node and same as LastNode we skip it so as
-    // so avoid traversing nodes outside range of interest.
-    auto EndIt = (Node == LastNode && Node->isParentNode())
-                     ? LastNode->getIterator()
-                     : ++(LastNode->getIterator());
-
-    visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
-
-  } else {
-    // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. If Node is a parent node and same as FirstNode we skip it so
-    // as so avoid traversing nodes outside range of interest.
-    auto BeginIt = (Node == FirstNode && Node->isParentNode())
-                       ? ++(FirstNode->getIterator())
-                       : FirstNode->getIterator();
-
-    visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
-  }
-
-  return SFC.isStructured();
-}
-
 const HLNode *HLNodeUtils::getOutermostSafeParent(
     const HLNode *Node1, const HLNode *Node2, bool PostDomination,
     HIRLoopStatistics *HLS, const HLNode **LastParent1,
     SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt) {
   const HLNode *Parent = Node1->getParent();
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
-  const HLNode *TargetNode;
 
   *LastParent1 = Node1;
 
@@ -3016,7 +2839,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
 
     auto *Loop = dyn_cast<HLLoop>(Parent);
 
-    if (!Loop || Loop->isMultiExit()) {
+    if (!Loop) {
       break;
     }
 
@@ -3031,14 +2854,6 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
     // Node2 is in range, no need to move up the parent chain.
     if (isInTopSortNumMaxRange(Node2, FirstNode, LastNode)) {
       break;
-    }
-
-    TargetNode = PostDomination ? *LastParent1 : nullptr;
-    // Keep checking for structured flow for the nodes we come acoss while
-    // moving up the chain.
-    if (!hasStructuredFlow(Parent, *LastParent1, TargetNode, PostDomination,
-                           PostDomination, HLS)) {
-      return nullptr;
     }
 
     // We are crossing over a loop with Ztt. Add it to the vector which will
@@ -3091,13 +2906,6 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
   // Trace back Node2 to Parent1.
   while (CommonParent) {
 
-    // Keep checking for structured flow for the nodes we come acoss while
-    // moving up the chain.
-    if (!hasStructuredFlow(CommonParent, *LastParent2, LastParent1,
-                           PostDomination, !PostDomination, HLS)) {
-      return nullptr;
-    }
-
     if (CommonParent == Parent1) {
       break;
     }
@@ -3115,6 +2923,90 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
   // Check whether Node2 is under the same conditions we crossed over to get to
   // outermost parent of Node1.
   return Parent1LoopsWithZtt.empty() ? CommonParent : nullptr;
+}
+
+// Checks whether Labels/Gotos between Node1 and Node2 disprove
+// domination/post-domination.
+static bool hasStructuredControlFlow(const HLNode *Node1, const HLNode *Node2,
+                                     const HLNode *CommonParent,
+                                     bool PostDomination,
+                                     HIRLoopStatistics *HLS) {
+
+  auto *ParentLp = getNearestLoop(CommonParent);
+
+  auto &TLS = ParentLp ? HLS->getTotalStatistics(ParentLp)
+                       : HLS->getTotalStatistics(Node1->getParentRegion());
+
+  if (PostDomination) {
+    if (!TLS.hasForwardGotos()) {
+      return true;
+    }
+  } else if (!TLS.hasLabels()) {
+    return true;
+  }
+
+  unsigned TSNum1 = Node1->getTopSortNum();
+  unsigned TSNum2 = Node2->getTopSortNum();
+
+  if (PostDomination) {
+    // Check if there is a goto between Node2 and Node1 which jumps after Node1.
+    // Note that Node1 comes lexically after Node2.
+    //
+    // Example-
+    //
+    //  A[i] = // Node2
+    //  if () {
+    //    goto L;
+    //  }
+    //  A[i] = // Node1
+    //  L:
+    for (auto *Goto : TLS.getForwardGotos()) {
+      unsigned GotoTSNum = Goto->getTopSortNum();
+
+      if (GotoTSNum < TSNum2) {
+        continue;
+      }
+
+      if (GotoTSNum >= TSNum1) {
+        break;
+      }
+
+      if (Goto->isExternal() ||
+          Goto->getTargetLabel()->getTopSortNum() > TSNum1) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // Check if there is a goto before Node1 which jumps between Node1 and Node2.
+  // Note that Node2 comes lexically after Node1.
+  // Example-
+  //
+  //  if () {
+  //    goto L;
+  //  }
+  //  A[i] = // Node1
+  //  L:
+  //  A[i] = // Node2
+  for (auto *Goto : TLS.getForwardGotos()) {
+    if (Goto->getTopSortNum() > TSNum1) {
+      break;
+    }
+
+    if (Goto->isExternal()) {
+      continue;
+    }
+
+    unsigned LabelTSNum = Goto->getTargetLabel()->getTopSortNum();
+
+    if (LabelTSNum > TSNum1 && LabelTSNum <= TSNum2) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
@@ -3148,6 +3040,8 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                   .getHIRAnalysisProvider()
                   .get<HIRLoopStatistics>();
 
+  assert(HLS && "Loop statistics is not available!");
+
   // We need to find out the common parent of Node1 and Node2 and their last
   // parents which tell us the path taken to reach the common parent.
   // The following example demonstrates the usage-
@@ -3166,25 +3060,28 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   const HLNode *Parent1 = getOutermostSafeParent(
       Node1, Node2, PostDomination, HLS, &LastParent1, Parent1LoopsWithZtt);
 
-  // Could't find an appropriate parent for Node1.
-  if (!Parent1) {
-    return false;
-  }
+  assert(Parent1 && "Could not find appropriate parent for Node1!");
 
   const HLNode *LastParent2 = nullptr;
   const HLNode *CommonParent =
       getCommonDominatingParent(Parent1, LastParent1, Node2, PostDomination,
                                 HLS, &LastParent2, Parent1LoopsWithZtt);
 
-  const HLIf *IfParent = dyn_cast_or_null<HLIf>(CommonParent);
-  const HLSwitch *SwitchParent = dyn_cast_or_null<HLSwitch>(CommonParent);
-
   // Couldn't find a common parent.
   if (!CommonParent) {
     return false;
   }
+
+  if (!hasStructuredControlFlow(Node1, Node2, CommonParent, PostDomination,
+                                HLS)) {
+    return false;
+  }
+
+  const HLIf *IfParent = dyn_cast<HLIf>(CommonParent);
+  const HLSwitch *SwitchParent = dyn_cast<HLSwitch>(CommonParent);
+
   // For region and loops parents we can deduce the result right away.
-  else if (!IfParent && !SwitchParent) {
+  if (!IfParent && !SwitchParent) {
     return true;
 
   } else if (IfParent) {
@@ -3675,8 +3572,11 @@ static bool getMinMaxBlobVal(unsigned BlobIdx, int64_t Coeff,
 bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
                                      const HLNode *ParentNode, bool IsMin,
                                      bool IsExact, int64_t &Val) {
-
   assert(CE && "CE is null!");
+
+  LLVM_DEBUG(dbgs() << "\n\tget" << (IsMin ? "Min" : "Max")
+                    << "Value() called for ";
+             CE->dump(););
 
   if (!ParentNode) {
     return CE->isIntConstant(&Val);
@@ -3694,24 +3594,47 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     return false;
   }
 
-  int64_t MinOrMax = 0;
+  auto *ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
+                                             : ParentNode->getParentLoop();
+
+  unsigned Bitsize = 64;
+  APInt MinOrMax(Bitsize, 0);
 
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
     unsigned Index = CE->getBlobIndex(Blob);
-    int64_t Coeff = CE->getBlobCoeff(Blob);
+    int64_t CoeffVal = CE->getBlobCoeff(Blob);
     int64_t BlobVal;
 
-    if (!getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+    // If upper looks like this: (%n + -1 * %s)
+    // and CE looks like this: (i1 + %s)
+    //
+    // We can ignore %s blob as it has already been taken into account in the
+    // loop's legal max trip count.
+    if (!IsMin && (CoeffVal == 1) && ParentLoop && !ParentLoop->isUnknown() &&
+        (ParentLoop->getUpperCanonExpr()->getBlobCoeff(Index) == -1) &&
+        (CE->getIVConstCoeff(ParentLoop->getNestingLevel()) == 1) &&
+        (CE->getIVBlobCoeff(ParentLoop->getNestingLevel()) ==
+         InvalidBlobIndex)) {
+      continue;
+    }
+
+    if (!getMinMaxBlobVal(Index, CoeffVal, ParentNode, IsMin, BlobVal)) {
       return false;
     }
 
-    MinOrMax += (Coeff * BlobVal);
+    // Calculate MinOrMax += (Coeff * BlobVal) checking for overflow.
+    bool Overflow = false;
+    APInt Coeff(Bitsize, CoeffVal);
+    APInt BlobInt(Bitsize, BlobVal);
+    BlobInt = BlobInt.smul_ov(Coeff, Overflow);
+    if (Overflow)
+      return false;
+    MinOrMax = MinOrMax.sadd_ov(BlobInt, Overflow);
+    if (Overflow)
+      return false;
   }
 
   if (CE->hasIV()) {
-    auto ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
-                                              : ParentNode->getParentLoop();
-
     assert(ParentLoop && "Parent loop of CE containing IV not found!");
 
     auto *Lp = ParentLoop;
@@ -3719,16 +3642,16 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
          --Level, Lp = Lp->getParentLoop()) {
 
       unsigned Index;
-      int64_t Coeff, BlobVal = 1;
+      int64_t CoeffVal, BlobVal = 1;
 
-      CE->getIVCoeff(Level, &Index, &Coeff);
+      CE->getIVCoeff(Level, &Index, &CoeffVal);
 
-      if (!Coeff) {
+      if (!CoeffVal) {
         continue;
       }
 
       if (Index != InvalidBlobIndex &&
-          !getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+          !getMinMaxBlobVal(Index, CoeffVal, ParentNode, IsMin, BlobVal)) {
         return false;
       }
 
@@ -3736,8 +3659,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         continue;
       }
 
-      bool HasPositiveCoeff =
-          ((Coeff > 0) && (BlobVal > 0)) || ((Coeff < 0) && (BlobVal < 0));
+      bool HasPositiveCoeff = ((CoeffVal > 0) && (BlobVal > 0)) ||
+                              ((CoeffVal < 0) && (BlobVal < 0));
 
       bool UseLowerBound =
           ((IsMin && HasPositiveCoeff) || (!IsMin && !HasPositiveCoeff));
@@ -3757,7 +3680,13 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
       } else if (Lp->isUnknown() ||
                  !getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
                                      IsExact, BoundVal)) {
-        return false;
+        if (IsExact)
+          return false;
+
+        int64_t LegalMaxTC = Lp->getLegalMaxTripCount();
+        if (!LegalMaxTC)
+          return false;
+        BoundVal = LegalMaxTC - 1;
       }
 
       // Conservatively return false if bound is too big.
@@ -3766,21 +3695,53 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         return false;
       }
 
-      MinOrMax += (Coeff * BlobVal * BoundVal);
+      // Calculate MinOrMax += (CoeffVal * BlobVal * BoundVal) checking for
+      // overflow.
+      bool Overflow = false;
+      APInt Coeff(Bitsize, CoeffVal);
+      APInt BlobInt(Bitsize, BlobVal);
+      BlobInt = BlobInt.smul_ov(Coeff, Overflow);
+      if (Overflow)
+        return false;
+      APInt Bound(Bitsize, BoundVal);
+      BlobInt = BlobInt.smul_ov(Bound, Overflow);
+      if (Overflow)
+        return false;
+      MinOrMax = MinOrMax.sadd_ov(BlobInt, Overflow);
+      if (Overflow)
+        return false;
     }
   }
 
-  MinOrMax += CE->getConstant();
+  bool Overflow = false;
+  APInt Const(Bitsize, CE->getConstant());
+  MinOrMax = MinOrMax.sadd_ov(Const, Overflow);
+  if (Overflow)
+    return false;
 
-  if (CE->getDenominator() != 1) {
-    if ((MinOrMax < 0) && CE->isUnsignedDiv()) {
+  int64_t DenomVal = CE->getDenominator();
+  if (DenomVal != 1) {
+    if (MinOrMax.isNegative() && CE->isUnsignedDiv()) {
       return false;
     }
 
-    MinOrMax = MinOrMax / CE->getDenominator();
+    APInt Denom(Bitsize, DenomVal);
+    MinOrMax = MinOrMax.sdiv_ov(Denom, Overflow);
+    if (Overflow)
+      return false;
   }
 
-  Val = MinOrMax;
+  unsigned SrcTypeWidth = CE->getSrcType()->getPrimitiveSizeInBits();
+  unsigned DestTypeWidth = CE->getDestType()->getPrimitiveSizeInBits();
+  unsigned MinWidth =
+      (SrcTypeWidth < DestTypeWidth) ? SrcTypeWidth : DestTypeWidth;
+
+  if (MinOrMax.getSignificantBits() > MinWidth)
+    return false;
+
+  Val = MinOrMax.getSExtValue();
+
+  LLVM_DEBUG(dbgs() << "\t\t returned " << Val << "\n";);
 
   return true;
 }
@@ -4459,7 +4420,7 @@ void HLNodeUtils::findInner2DIdentityMatrix(
     return;
   }
 
-  auto &OuterLS = HLS->getTotalLoopStatistics(OuterLp);
+  auto &OuterLS = HLS->getTotalStatistics(OuterLp);
 
   if (OuterLS.hasSwitches() || OuterLS.hasIfs() || OuterLS.hasCalls() ||
       OuterLS.hasLabels()) {
@@ -4819,6 +4780,42 @@ bool HLNodeUtils::areEqualConditions(const HLInst *Select, const HLIf *If) {
   return areEqualConditions(If, Select);
 }
 
+// Collect the LHS ref, RHS ref and predicate, at position PredPos if the
+// predicate position is available.
+// NOTE: Perhaps this helper function can be added as a member of HLIf.
+static void getIfPredicateOperandsAtPos(const HLIf *If, unsigned PredPos,
+                                        RegDDRef **LHS, RegDDRef **RHS,
+                                        HLPredicate &Pred) {
+
+  assert(PredPos < If->getNumPredicates() &&
+         "Trying to access a predicate outside of the range");
+
+  // Collect the predicate that will be partially unswitched
+  auto PredIt = If->pred_begin() + PredPos;
+  *LHS = If->getLHSPredicateOperandDDRef(PredIt);
+  *RHS = If->getRHSPredicateOperandDDRef(PredIt);
+  Pred = *PredIt;
+}
+
+bool HLNodeUtils::areEqualConditionsAtPos(const HLIf *IfA, unsigned PosPredA,
+                                          const HLIf *IfB, unsigned PosPredB) {
+
+  RegDDRef *LHSRefA = nullptr, *RHSRefA = nullptr;
+  HLPredicate PredA;
+
+  RegDDRef *LHSRefB = nullptr, *RHSRefB = nullptr;
+  HLPredicate PredB;
+
+  getIfPredicateOperandsAtPos(IfA, PosPredA, &LHSRefA, &RHSRefA, PredA);
+  getIfPredicateOperandsAtPos(IfB, PosPredB, &LHSRefB, &RHSRefB, PredB);
+
+  assert(LHSRefA && RHSRefA && "Predicate for IfA collected incorrectly");
+  assert(LHSRefB && RHSRefB && "Predicate for IfB collected incorrectly");
+
+  return PredA == PredB && DDRefUtils::areEqual(LHSRefA, LHSRefB) &&
+         DDRefUtils::areEqual(RHSRefA, RHSRefB);
+}
+
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
@@ -5146,8 +5143,12 @@ public:
 
     bool ZttIsTrue = false;
     bool IsTrivialZtt = Loop->isKnownZttPredicate(&ZttIsTrue);
+    int64_t UpperVal;
+    bool HasNonSensicalBounds =
+        (Loop->hasSignedIV() && !Loop->isUnknown() &&
+         Loop->getUpperCanonExpr()->isIntConstant(&UpperVal) && (UpperVal < 0));
 
-    if (IsTrivialZtt && !ZttIsTrue) {
+    if (HasNonSensicalBounds || (IsTrivialZtt && !ZttIsTrue)) {
       RedundantLoops++;
       notifyWillRemoveNode(Loop);
 

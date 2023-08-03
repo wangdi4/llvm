@@ -16,10 +16,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK:        [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK:        [[SCALAR_GEP:%.*]] = getelementptr i32, ptr [[A:%.*]], i64 [[UNI_PHI:%.*]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = trunc <4 x i64> [[VEC_PHI:%.*]] to <4 x i32>
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT:%.*]], <4 x i32>* [[TMP5]], align 4
+; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT:%.*]], ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    br i1 [[CMP116:%.*]], label %[[VPLANNEDBB4:.*]], label %[[VPLANNEDBB5:.*]]
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
@@ -28,8 +27,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[UNI_PHI7:%.*]] = phi i64 [ [[TMP9:%.*]], %[[VPLANNEDBB6]] ], [ 0, %[[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    [[VEC_PHI8:%.*]] = phi <4 x i32> [ [[TMP8:%.*]], %[[VPLANNEDBB6]] ], [ [[BROADCAST_SPLAT21]], %[[VPLANNEDBB4]] ]
-; CHECK-NEXT:    [[SCALAR_GEP9:%.*]] = getelementptr i32, i32* [[B:%.*]], i64 [[UNI_PHI7]]
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[SCALAR_GEP9]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP9:%.*]] = getelementptr i32, ptr [[B:%.*]], i64 [[UNI_PHI7]]
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[SCALAR_GEP9]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <4 x i32> poison, i32 [[TMP6]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT11:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT10]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[BROADCAST_SPLAT11]], [[TMP4]]
@@ -37,10 +36,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:         br i1 [[TMP10:%.*]], label %[[VPLANNEDBB12:.*]], label %[[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB12:
 ; CHECK-NEXT:    [[VEC_PHI13:%.*]] = phi <4 x i32> [ [[TMP8]], %[[VPLANNEDBB6]] ]
-; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[VEC_PHI13]], <4 x i32>* [[TMP11]], align 4
+; CHECK-NEXT:    store <4 x i32> [[VEC_PHI13]], ptr [[SCALAR_GEP]], align 4
 ;
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %iCount, i32 %jCount, i32 %c) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i32 %iCount, i32 %jCount, i32 %c) local_unnamed_addr #0 {
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
@@ -56,9 +54,9 @@ outer_loop.ph:                                         ; preds = %DIR.QUAL.LIST.
 
 outer_1:                                      ; preds = %outer_2, %outer_loop.ph
   %indvars.iv23 = phi i64 [ 0, %outer_loop.ph ], [ %indvars.iv.next24, %outer_2 ]
-  %arrayidx = getelementptr i32, i32* %A, i64 %indvars.iv23
+  %arrayidx = getelementptr i32, ptr %A, i64 %indvars.iv23
   %iv.i = trunc i64 %indvars.iv23 to i32
-  store i32 %c, i32* %arrayidx, align 4
+  store i32 %c, ptr %arrayidx, align 4
   br i1 %cmp116, label %inner.preheader, label %outer_2
 
 inner.preheader:                                 ; preds = %1
@@ -68,8 +66,8 @@ inner.preheader:                                 ; preds = %1
 inner_loop:                                           ; preds = %inner.preheader, %inner_loop
   %indvars.iv = phi i64 [ %indvars.iv.next, %inner_loop ], [ 0, %inner.preheader ]
   %A_val = phi i32 [ %add6, %inner_loop ], [ %c, %inner.preheader ]
-  %arrayidx3 = getelementptr i32, i32* %B, i64 %indvars.iv
-  %B_val = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr i32, ptr %B, i64 %indvars.iv
+  %B_val = load i32, ptr %arrayidx3, align 4
   %add = add i32 %B_val, %iv.i
   %add6 = add i32 %add, %A_val
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -78,7 +76,7 @@ inner_loop:                                           ; preds = %inner.preheader
 
 inner_loop_exit:                                      ; preds = %inner_loop
   %add6.lcssa = phi i32 [ %add6, %inner_loop ]
-  store i32 %add6.lcssa, i32* %arrayidx, align 4
+  store i32 %add6.lcssa, ptr %arrayidx, align 4
   br label %outer_2
 
 outer_2:                                      ; preds = %inner_loop_exit, %1

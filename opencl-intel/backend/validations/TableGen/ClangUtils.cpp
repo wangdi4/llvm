@@ -51,15 +51,17 @@ void build(const std::string &code, std::string fileName) {
   std::stringstream options;
   options << "-cc1 -emit-llvm-bc -include opencl-c.h "
              "-disable-intel-proprietary-opts " // INTEL
-             "-cl-std=CL2.0";
+             "-cl-std=CL3.0";
   options << " "
           << "-triple"
           << " "
           << ((sizeof(size_t) * 8 == 64) ? "spir64-unknown-unknown"
                                          : "spir-unknown-unknown")
           << " ";
+#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
   // TODO: remove this option when opaque pointer is supported
   options << "-no-opaque-pointers";
+#endif
 
   llvm::SmallString<128> tmpfile;
   std::error_code ec;

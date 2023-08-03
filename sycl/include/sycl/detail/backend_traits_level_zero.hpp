@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <sycl/accessor.hpp>
 #include <sycl/context.hpp>
 #include <sycl/detail/backend_traits.hpp>
 #include <sycl/detail/defines.hpp>
@@ -38,7 +37,7 @@ typedef struct _ze_kernel_handle_t *ze_kernel_handle_t;
 typedef struct _ze_module_handle_t *ze_module_handle_t;
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 // Forward declarations
@@ -46,9 +45,7 @@ class device_impl;
 
 // TODO the interops for context, device, event, platform and program
 // may be removed after removing the deprecated 'get_native()' methods
-// from the corresponding classes. The interop<backend, queue> specialization
-// is also used in the get_queue() method of the deprecated class
-// interop_handler and also can be removed after API cleanup.
+// from the corresponding classes.
 template <> struct interop<backend::ext_oneapi_level_zero, context> {
   using type = ze_context_handle_t;
 };
@@ -68,30 +65,6 @@ template <> struct interop<backend::ext_oneapi_level_zero, queue> {
 
 template <> struct interop<backend::ext_oneapi_level_zero, platform> {
   using type = ze_driver_handle_t;
-};
-
-// TODO the interops for accessor is used in the already deprecated class
-// interop_handler and can be removed after API cleanup.
-template <typename DataT, int Dimensions, access::mode AccessMode>
-struct interop<backend::ext_oneapi_level_zero,
-               accessor<DataT, Dimensions, AccessMode, access::target::device,
-                        access::placeholder::false_t>> {
-  using type = char *;
-};
-
-template <typename DataT, int Dimensions, access::mode AccessMode>
-struct interop<
-    backend::ext_oneapi_level_zero,
-    accessor<DataT, Dimensions, AccessMode, access::target::constant_buffer,
-             access::placeholder::false_t>> {
-  using type = char *;
-};
-
-template <typename DataT, int Dimensions, access::mode AccessMode>
-struct interop<backend::ext_oneapi_level_zero,
-               accessor<DataT, Dimensions, AccessMode, access::target::image,
-                        access::placeholder::false_t>> {
-  using type = ze_image_handle_t;
 };
 
 template <> struct interop<backend::ext_oneapi_level_zero, kernel> {
@@ -165,6 +138,27 @@ struct BackendReturn<backend::ext_oneapi_level_zero,
   using type = void *;
 };
 
+template <int Dimensions, typename AllocatorT>
+struct BackendInput<backend::ext_oneapi_level_zero,
+                    image<Dimensions, AllocatorT>> {
+  // LevelZero has no way of getting image description FROM a ZeImageHandle so
+  // it must be provided.
+  struct type {
+    ze_image_handle_t ZeImageHandle;
+    sycl::image_channel_order ChanOrder;
+    sycl::image_channel_type ChanType;
+    range<Dimensions> Range;
+    ext::oneapi::level_zero::ownership Ownership{
+        ext::oneapi::level_zero::ownership::transfer};
+  };
+};
+
+template <int Dimensions, typename AllocatorT>
+struct BackendReturn<backend::ext_oneapi_level_zero,
+                     image<Dimensions, AllocatorT>> {
+  using type = ze_image_handle_t;
+};
+
 template <> struct BackendReturn<backend::ext_oneapi_level_zero, queue> {
   using type =
       std::variant<ze_command_queue_handle_t, ze_command_list_handle_t>;
@@ -214,8 +208,9 @@ template <> struct InteropFeatureSupportMap<backend::ext_oneapi_level_zero> {
   static constexpr bool MakeKernelBundle = true;
   static constexpr bool MakeKernel = true;
   static constexpr bool MakeBuffer = true;
+  static constexpr bool MakeImage = true;
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

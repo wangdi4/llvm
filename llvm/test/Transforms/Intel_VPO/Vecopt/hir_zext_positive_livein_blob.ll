@@ -13,7 +13,7 @@
 ; CHECK: + END LOOP
 
 
-define dso_local void @foo(i32 %t, i32 %N, i32* %p) {
+define dso_local void @foo(i32 %t, i32 %N, ptr %p) {
 entry:
   %cmp = icmp eq i32 %t, 2
   br i1 %cmp, label %if.then, label %if.else
@@ -39,8 +39,8 @@ for.body.lr.ph:                                   ; preds = %if.end3
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %i.02 = phi i32 [ %s.0, %for.body.lr.ph ], [ %inc, %for.body ]
   %idxprom = zext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %idxprom
-  store i32 %i.02, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %idxprom
+  store i32 %i.02, ptr %arrayidx, align 4
   %inc = add i32 %i.02, 1
   %cmp4 = icmp ult i32 %inc, %N
   br i1 %cmp4, label %for.body, label %for.cond.for.end_crit_edge

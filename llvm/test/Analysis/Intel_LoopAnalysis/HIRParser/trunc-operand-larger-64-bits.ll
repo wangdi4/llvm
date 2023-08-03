@@ -7,7 +7,7 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i128 %t, i32* %A) {
+define void @foo(i128 %t, ptr %A) {
 entry:
   %t.lshr = lshr i128 %t, 80
   %t.trunc = trunc i128 %t.lshr to i32
@@ -15,7 +15,7 @@ entry:
 
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.inc, %loop ]
-  store i32 %t.trunc, i32* %A, align 8
+  store i32 %t.trunc, ptr %A, align 8
   %iv.inc = add nsw i64 %iv, 1
   %cmp17.i.i = icmp eq i64 %iv.inc, 4
   br i1 %cmp17.i.i, label %exit, label %loop

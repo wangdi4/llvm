@@ -1,5 +1,3 @@
-link_directories(${TBB_LIB_DIR})
-
 set(TARGET task_executor_test_type)
 
 use_rtti(TRUE)
@@ -18,18 +16,6 @@ set(TARGET_LIBS
   cl_logger
   cl_sys_utils
   task_executor)
-
-if(NOT WIN32)
-  if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    list(APPEND TARGET_LIBS
-      ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX}
-      ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
-  else()
-    list(APPEND TARGET_LIBS
-      ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
-      ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX})
-  endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-endif()
 
 add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
                  ${TARGET_LIBS})

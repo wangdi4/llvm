@@ -1610,8 +1610,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (!isPointsToType(LI->getType()))
           NonPointerAssignments.insert(LI);
 
-        CE = dyn_cast<ConstantExpr>(V);
-        if (LI->getOperand(0) == V && CE) {
+        if (LI->getOperand(0) == V &&
+            (isa<ConstantExpr>(V) || isa<GlobalValue>(V))) {
           if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
                                   Cache)) {
             escapes = true;
@@ -2449,7 +2449,12 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     // Make sure load has single use to simplify the implementation.
     if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())
       return false;
-    auto *BC = dyn_cast<BitCastInst>(LI->getPointerOperand());
+    Value *PtrOp = LI->getPointerOperand();
+    // Check if pointer operand is a pointer type GlobalVariable.
+    auto *GV = dyn_cast<GlobalVariable>(PtrOp->stripPointerCasts());
+    if (GV && GV->getValueType()->isPointerTy())
+      return true;
+    auto *BC = dyn_cast<BitCastInst>(PtrOp);
     if (!BC)
       return false;
     // Check source type of Bitcast is pointer to pointer to some type.
@@ -4060,10 +4065,19 @@ void AndersensAAResult::ProcessIndirectCall(CallBase *CB) {
   assert(call_fptr && "Expecting function fptr");
   const Node *N = &GraphNodes[FindNode(getNode(call_fptr))];
 
-  PointsToDiff.intersectWithComplement(N->PointsTo, N->OldPointsTo);
-  if (PointsToDiff.empty()) {
-    return;
+  auto *FPtrOldPointsTo = IndirectFPtrOldPointsTo[CB];
+  if (!FPtrOldPointsTo) {
+    // Allocate memory if not allocated yet.
+    FPtrOldPointsTo = new SparseBitVector<>;
+    IndirectFPtrOldPointsTo[CB] = FPtrOldPointsTo;
   }
+
+  PointsToDiff.intersectWithComplement(N->PointsTo, FPtrOldPointsTo);
+  if (PointsToDiff.empty())
+    return;
+
+  // Update old points-to info.
+  *FPtrOldPointsTo |= PointsToDiff;
 
   for (SparseBitVector<>::iterator bi = PointsToDiff.begin(),
        EP = PointsToDiff.end();
@@ -4429,6 +4443,13 @@ void AndersensAAResult::SolveConstraints() {
     WorkList* t = CurrWL; CurrWL = NextWL; NextWL = t;
   }
 
+  // Free up allocated memory for IndirectFPtrOldPointsTo.
+  for (unsigned I = 0, E = IndirectCallList.size(); I != E; ++I) {
+    auto *FPtrOldPointsTo = IndirectFPtrOldPointsTo[IndirectCallList[I]];
+    if (FPtrOldPointsTo)
+      delete FPtrOldPointsTo;
+  }
+  IndirectFPtrOldPointsTo.clear();
 
   Node2DFS.clear();
   Node2Deleted.clear();

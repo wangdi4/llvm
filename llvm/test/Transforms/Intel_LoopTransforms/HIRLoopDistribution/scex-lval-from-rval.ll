@@ -50,7 +50,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(float* nocapture %b, i32* nocapture %a, i32 %n) {
+define float @foo(ptr nocapture %b, ptr nocapture %a, i32 %n) {
 entry:
   %tobool = icmp eq i32 %n, 0
   br label %for.body
@@ -63,9 +63,9 @@ for.cond.cleanup:                                 ; preds = %if.end
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ], !in.de.ssa !1
   %z = phi i32 [ 0, %entry ], [ 0, %if.end ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
   %t.1.in1 = call i32 @llvm.ssa.copy.i32(i32 %z), !in.de.ssa !2
   %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   br i1 %tobool, label %if.end, label %if.then
@@ -75,10 +75,10 @@ if.then:                                          ; preds = %for.body
   %2 = trunc i64 %indvars.iv to i32
   %conv3 = sitofp i32 %2 to float
   %add = fadd float %conv3, 1.000000e+00
-  store float %add, float* %arrayidx, align 4
+  store float %add, ptr %arrayidx, align 4
   %3 = add nsw i64 %indvars.iv, -1
-  %arrayidx7 = getelementptr inbounds i32, i32* %a, i64 %3
-  store i32 100, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %a, i64 %3
+  store i32 100, ptr %arrayidx7, align 4
   %add8 = add nsw i32 %conv, 1
   %t.1.in = call i32 @llvm.ssa.copy.i32(i32 %add8), !in.de.ssa !2
   br label %if.end

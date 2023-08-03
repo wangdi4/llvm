@@ -200,12 +200,6 @@ bool oclErr::operator==(const oclErr &other) const {
   return os << OclErr.gerErrString();
 }
 
-::std::ostream &operator<<(::std::ostream &os, const clMemWrapper &mem) {
-  return mem.print(os);
-}
-
-bool operator==(const int num, const clMemWrapper &mem) { return mem == num; }
-
 Ocl2DImage::Ocl2DImage(size_t size_, bool Random /*= false*/) {
   init(size_, Random);
   if (Random == false) {

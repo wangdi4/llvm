@@ -6,7 +6,8 @@ target triple = "spir64-unknown-unknown"
 
 ; CHECK: define {{.*}} void @test1({{.*}} !kernel_execution_length [[ExecutionLength1:![0-9]+]]
 
-define dso_local spir_kernel void @test1(i32 addrspace(1)* noundef align 4 %a) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_kernel void @test1(ptr addrspace(1) noundef align 4 %a) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !arg_type_null_val !13 {
 entry:
   %call = call spir_func i64 @_Z13get_global_idj(i32 noundef 0) #1
   br label %for.cond
@@ -18,8 +19,8 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %gid.0
-  store i32 1, i32 addrspace(1)* %arrayidx, align 4, !tbaa !8
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %gid.0
+  store i32 1, ptr addrspace(1) %arrayidx, align 4, !tbaa !8
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -66,6 +67,7 @@ attributes #1 = { convergent nounwind readnone willreturn }
 !10 = !{!"omnipotent char", !11, i64 0}
 !11 = !{!"Simple C/C++ TBAA"}
 !12 = !{}
+!13 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[ExecutionLength1]] = !{i32 123}
 ; CHECK-DAG: [[ExecutionLength2]] = !{i32 1}

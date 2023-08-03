@@ -8,6 +8,7 @@
 ; Expect function specialization happened on foo(4)
 ; CHECK: %1 = shl nsw i32 4, 1
 
+
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,19 +17,19 @@ target triple = "x86_64-unknown-linux-gnu"
 @GUB = internal global i32 2, align 4
 
 ; Function Attrs: noinline nounwind uwtable
-define internal fastcc void @foo(i32) unnamed_addr #0 {
+define internal fastcc void @foo(i32 %0) unnamed_addr #0 {
   %2 = shl nsw i32 %0, 1
   %3 = icmp sgt i32 %0, 0
   br i1 %3, label %4, label %9
 
-; <label>:4:                                      ; preds = %4, %1
+4:                                                ; preds = %4, %1
   %5 = phi i32 [ %7, %4 ], [ 0, %1 ]
-  %6 = tail call i32 (i8*, i32, ...) bitcast (i32 (...)* @printf1 to i32 (i8*, i32, ...)*)(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str, i64 0, i64 0), i32 %5) #3
+  %6 = tail call i32 (ptr, i32, ...) @printf1(ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 %5) #3
   %7 = add nuw nsw i32 %5, 1
   %8 = icmp slt i32 %7, %2
   br i1 %8, label %4, label %9
 
-; <label>:9:                                      ; preds = %4, %1
+9:                                                ; preds = %4, %1
   ret void
 }
 
@@ -37,25 +38,25 @@ declare dso_local i32 @printf1(...) local_unnamed_addr #1
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #2 {
   tail call fastcc void @foo.1(i32 4)
-  %1 = load volatile i32, i32* @GUB, align 4, !tbaa !3
+  %1 = load volatile i32, ptr @GUB, align 4, !tbaa !3
   tail call fastcc void @foo(i32 %1)
   ret i32 0
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define internal fastcc void @foo.1(i32) unnamed_addr #0 {
+define internal fastcc void @foo.1(i32 %0) unnamed_addr #0 {
   %2 = shl nsw i32 %0, 1
   %3 = icmp sgt i32 %0, 0
   br i1 %3, label %4, label %9
 
-; <label>:4:                                      ; preds = %4, %1
+4:                                                ; preds = %4, %1
   %5 = phi i32 [ %7, %4 ], [ 0, %1 ]
-  %6 = tail call i32 (i8*, i32, ...) bitcast (i32 (...)* @printf1 to i32 (i8*, i32, ...)*)(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str, i64 0, i64 0), i32 %5) #3
+  %6 = tail call i32 (ptr, i32, ...) @printf1(ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 %5) #3
   %7 = add nuw nsw i32 %5, 1
   %8 = icmp slt i32 %7, %2
   br i1 %8, label %4, label %9
 
-; <label>:9:                                      ; preds = %4, %1
+9:                                                ; preds = %4, %1
   ret void
 }
 

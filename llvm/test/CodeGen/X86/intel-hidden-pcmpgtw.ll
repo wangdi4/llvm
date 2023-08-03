@@ -19,8 +19,8 @@ define <8 x i32> @hidden_cmpw_v8i32(<8 x i32> %x) {
 ; NOOPT-NEXT:    vpsrld $15, %ymm0, %ymm0
 ; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [65537,65537,65537,65537,65537,65537,65537,65537]
 ; NOOPT-NEXT:    vpand %ymm1, %ymm0, %ymm0
-; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [65535,65535,65535,65535,65535,65535,65535,65535]
-; NOOPT-NEXT:    vpmulld %ymm1, %ymm0, %ymm0
+; NOOPT-NEXT:    vpslld $16, %ymm0, %ymm1
+; NOOPT-NEXT:    vpsubd %ymm0, %ymm1, %ymm0
 ; NOOPT-NEXT:    retq
   %a = lshr <8 x i32> %x, <i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15>
   %b = and <8 x i32> %a, <i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537>
@@ -63,9 +63,10 @@ define <16 x i32> @hidden_cmpw_v16i32(<16 x i32> %x) {
 ; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [65537,65537,65537,65537,65537,65537,65537,65537]
 ; NOOPT-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; NOOPT-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [65535,65535,65535,65535,65535,65535,65535,65535]
-; NOOPT-NEXT:    vpmulld %ymm2, %ymm0, %ymm0
-; NOOPT-NEXT:    vpmulld %ymm2, %ymm1, %ymm1
+; NOOPT-NEXT:    vpslld $16, %ymm0, %ymm2
+; NOOPT-NEXT:    vpsubd %ymm0, %ymm2, %ymm0
+; NOOPT-NEXT:    vpslld $16, %ymm1, %ymm2
+; NOOPT-NEXT:    vpsubd %ymm1, %ymm2, %ymm1
 ; NOOPT-NEXT:    retq
   %a = lshr <16 x i32> %x, <i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15>
   %b = and <16 x i32> %a, <i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537>

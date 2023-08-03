@@ -40,7 +40,7 @@ static bool runImpl(Module &M) {
                                            "log", "log2", "pow",   "sincos",
                                            "sin", "tan",  "divide"};
 
-  bool HasOcl20 = fetchCLVersionFromMetadata(M) >= OclVersion::CL_VER_2_0;
+  bool HasOcl20 = hasOcl20Support(M);
   const StringSet<> &Builtins = HasOcl20 ? RelaxedBuiltins : NativeBuiltins;
 
   // Use work list since we don't need to iterate over newly inserted functions.

@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that the "array struct args" heuristic is applied for "foo", both in
 ; the compile and link step.

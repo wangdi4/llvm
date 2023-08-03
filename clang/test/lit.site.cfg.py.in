@@ -47,6 +47,7 @@ config.intel_llvm_has_libompdevice = @INTEL_LLVM_HAS_LIBOMPDEVICE@
 # INTEL_FEATURE_SW_DTRANS
 config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
+config.intel_deploy_unified_layout = "@INTEL_DEPLOY_UNIFIED_LAYOUT@"
 # end INTEL_CUSTOMIZATION
 
 import lit.llvm

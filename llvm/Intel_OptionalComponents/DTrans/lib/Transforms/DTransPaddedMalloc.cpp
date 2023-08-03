@@ -12,7 +12,6 @@
 
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -719,49 +718,6 @@ bool PaddedMallocImpl<InfoClass>::run(Module &M,
 
 namespace llvm {
 
-namespace dtrans { 
-
-bool PaddedMallocPass::runImpl(
-    Module &M, DTransAnalysisInfo &DTInfo, dtrans::LoopInfoFuncType &GetLI,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    WholeProgramInfo &WPInfo) {
-
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  PaddedMallocImpl<DTransAnalysisInfoAdapter> PaddedMallocI(AIAdaptor);
-  return PaddedMallocI.run(M, GetLI, GetTLI, WPInfo);
-} 
-
-PreservedAnalyses PaddedMallocPass::run(Module &M,
-                                        ModuleAnalysisManager &AM) {
-
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-
-  FunctionAnalysisManager &FAM =
-      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-
-  dtrans::LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
-    return FAM.getResult<LoopAnalysis>(F);
-  };
-
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
-  };
-
-  if (!runImpl(M, DTransInfo, GetLI, GetTLI, WPInfo))
-    return PreservedAnalyses::all();
-
-  // TODO: Mark the actual preserved analyses.
-  PreservedAnalyses PA;
-  PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
-  return PA;
-}
-
-} // namespace dtrans
-
 namespace dtransOP { 
 
 bool PaddedMallocOPPass::runImpl(
@@ -799,7 +755,6 @@ PreservedAnalyses PaddedMallocOPPass::run(Module &M,
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }
 
@@ -835,8 +790,6 @@ void dtrans::PaddedMallocGlobals<InfoClass>::buildGlobalsInfo(Module &M) {
   PaddedMallocFunc->setMetadata("dtrans.paddedmallocsize", Node);
 }
 
-template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    buildGlobalsInfo(Module&);
 template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     buildGlobalsInfo(Module&);
 
@@ -1011,8 +964,6 @@ void dtrans::PaddedMallocGlobals<InfoClass>::destroyGlobalsInfo(Module &M) {
   BadCastValidatedFuncs.clear();
 }
 
-template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    destroyGlobalsInfo(Module &M);
 template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     destroyGlobalsInfo(Module &M);
 
@@ -1047,9 +998,6 @@ dtrans::PaddedMallocGlobals<InfoClass>::getPaddedMallocVariable(Module &M) {
   return PaddedMallocVariable;
 }
 
-template unsigned
-dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
-    getPaddedMallocSize(Module &M);
 template unsigned
 dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
     getPaddedMallocSize(Module &M);

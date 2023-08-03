@@ -27,7 +27,7 @@ entry:
   ret i32 %add
 }
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
   ret i32 %call1

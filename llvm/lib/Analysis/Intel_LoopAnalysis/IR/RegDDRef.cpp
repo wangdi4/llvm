@@ -13,12 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -28,7 +29,7 @@
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
-using namespace llvm;
+    using namespace llvm;
 using namespace llvm::loopopt;
 
 static cl::opt<bool>
@@ -68,7 +69,8 @@ RegDDRef::GEPInfo::GEPInfo()
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
       NumCollapsedLevels(0), MaxVecLenAllowed(0), Alignment(0),
       HighestDimNumElements(0), CanUsePointeeSize(false),
-      AnyVarDimStrideMayBeZero(false), DummyGepLoc(nullptr) {}
+      AnyVarDimStrideMayBeZero(false), AnyDimStrideReversed(false),
+      DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
@@ -79,6 +81,7 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       AnyVarDimStrideMayBeZero(Info.AnyVarDimStrideMayBeZero),
+      AnyDimStrideReversed(Info.AnyDimStrideReversed),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
       DimElementTypes(Info.DimElementTypes),
       StrideIsExactMultiple(Info.StrideIsExactMultiple), MDNodes(Info.MDNodes),
@@ -309,12 +312,18 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";
         }
+        if (Detailed && getNumCollapsedLevels()) {
+          OS << "{Collapsed levels:" << getNumCollapsedLevels() << "}";
+        }
         if (Detailed && isFake() && canUsePointeeSize()) {
           OS << "{canUsePointeeSize}";
         }
       }
       if (Detailed && anyVarDimStrideMayBeZero()) {
         OS << "{anyVarDimStrideMayBeZero}";
+      }
+      if (Detailed && anyDimStrideReversed()) {
+        OS << "{anyDimStrideReversed}";
       }
 
       if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
@@ -365,7 +374,11 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
       // Print Type and Number of elements in dimensions
       if (HasGEP && DimDetails) {
         OS << "(";
-        getDimensionType(DimNum)->print(OS, true, false);
+        if (auto *DimElemTy = getDimensionElementType(DimNum)) {
+          DimElemTy->print(OS, true, true);
+        } else {
+          OS << "null";
+        }
         OS << ":" << getNumDimensionElements(DimNum) << ")";
       }
 
@@ -480,6 +493,12 @@ bool RegDDRef::anyVarDimStrideMayBeZero() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
   return getGEPInfo()->AnyVarDimStrideMayBeZero;
+}
+
+bool RegDDRef::anyDimStrideReversed() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  return getGEPInfo()->AnyDimStrideReversed;
 }
 
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
@@ -703,7 +722,7 @@ Value *RegDDRef::getLocationPtr(bool &IsPrecise) const {
 
   IsPrecise = false;
   if (!canCreateLocationGEP()) {
-    return getBaseValue();
+    return llvm::getUnderlyingObject(getBaseValue(), 0);
   }
 
   IsPrecise = true;
@@ -1217,6 +1236,22 @@ const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef() const {
   return NonLinearBlobRef;
 }
 
+const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef(unsigned Level) const {
+  const BlobDDRef *NonLinearBlobRef = nullptr;
+
+  for (auto *BlobRef : blobs()) {
+    if (BlobRef->getDefinedAtLevel() >= Level) {
+      if (NonLinearBlobRef) {
+        return nullptr;
+      }
+
+      NonLinearBlobRef = BlobRef;
+    }
+  }
+
+  return NonLinearBlobRef;
+}
+
 bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
                             bool AssumeLvalIfDetached) const {
 
@@ -1487,8 +1522,8 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
   // Refine Defined At Level, when DefLevel returned from
   // findTempBlobLevel is NonLinearLevel.
-  auto RefineDefLevel = [](const RegDDRef *AuxRef, unsigned DefLevel,
-                           unsigned Index) {
+  auto RefineDefLevel = [&](const RegDDRef *AuxRef, unsigned DefLevel,
+                            unsigned Index) {
     const HLDDNode *AuxNode = AuxRef->getHLDDNode();
     unsigned AuxNodeLevel = 0;
 
@@ -1496,6 +1531,17 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
         AuxRef->isSelfBlob()) {
 
       assert(Index == AuxRef->getSingleCanonExpr()->getSingleBlobIndex());
+
+      // If auxiliary temp definition is in a sibling loop, we should use the
+      // LCA loop to set a more precise def level.
+      auto *RefNode = getHLDDNode();
+
+      if (RefNode && RefNode->isAttached() &&
+          (NewLevel == RefNode->getNodeLevel())) {
+        auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(
+            getParentLoop(), AuxRef->getParentLoop());
+        return LCALoop ? LCALoop->getNestingLevel() : 0;
+      }
 
       AuxNodeLevel = AuxNode->getNodeLevel();
 
@@ -2098,7 +2144,7 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
         (CurDimStride == 0) ||
         !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride) ||
-        (NextDimStride == 0)) {
+        (NextDimStride == 0) || anyDimStrideReversed()) {
       return 0;
     }
 
@@ -2127,7 +2173,6 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     // TODO: How to get extent information?
     //
     bool IsEvenlyDivisible = (NextDimStride % CurDimStride == 0);
-
     return ((NextDimStride / CurDimStride) + (IsEvenlyDivisible ? 0 : 1));
   }
 
@@ -2271,5 +2316,43 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
   bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
   if (!IsLval) {
     setSymbase(ConstantSymbase);
+  }
+}
+
+// Returns a new scope list by replacing original scopes in \p ScopeList by
+// the cloned scopes as specified in \p NoAliasScopeMap. Returns \p ScopeList
+// back if no scopes were replaced.
+static MDNode *cloneScopeList(MDNode *ScopeList,
+                              NoAliasScopeMapTy &NoAliasScopeMap) {
+  SmallVector<Metadata *, 8> NewScopeList;
+
+  bool ReplacedMD = false;
+
+  for (const auto &MDOp : ScopeList->operands()) {
+    MDNode *MD = cast<MDNode>(MDOp);
+    if (auto *NewMD = NoAliasScopeMap[MD]) {
+      ReplacedMD = true;
+      NewScopeList.push_back(NewMD);
+    } else {
+      NewScopeList.push_back(MD);
+    }
+  }
+
+  return ReplacedMD ? MDNode::get(ScopeList->getContext(), NewScopeList)
+                    : ScopeList;
+}
+
+void RegDDRef::replaceNoAliasScopeInfo(NoAliasScopeMapTy &NoAliasScopeMap) {
+  if (!isMemRef() || NoAliasScopeMap.empty()) {
+    return;
+  }
+
+  if (auto *MD = getMetadata(LLVMContext::MD_noalias)) {
+    setMetadata(LLVMContext::MD_noalias, cloneScopeList(MD, NoAliasScopeMap));
+  }
+
+  if (auto *MD = getMetadata(LLVMContext::MD_alias_scope)) {
+    setMetadata(LLVMContext::MD_alias_scope,
+                cloneScopeList(MD, NoAliasScopeMap));
   }
 }

@@ -31,6 +31,11 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Tracing
   ${OCL_BINARY_DIR})
 
+# If llvm is built as shared libs, the shutdown process can't work properly.
+if(BUILD_SHARED_LIBS)
+  add_definitions(-DDISABLE_SHUTDOWN)
+endif()
+
 # For debug only
 if(USE_ITT_INTERNAL)
   add_definitions(-DUSE_ITT_INTERNAL)
@@ -69,8 +74,6 @@ if(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
   )
 endif(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED
                                              CMAKE_IMPORT_LIBRARY_SUFFIX)
-
-link_directories(${TBB_LIB_DIR})
 
 set(FRAMEWORK_LINK_LIBS
     ${COMMON_CLANG_LIB}
@@ -147,14 +150,7 @@ endif(WIN32)
 set(CL_CFG_OUTPUT_DIR ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
 set(CL_CFG_INSTALL_DIR ${OCL_INSTALL_LIBRARY_DIR})
 
-# INTEL_CUSTOMIZATION
-# Intel new unified requires different TBB version
-if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  set(CL_CONFIG_TBB_VERSION 2021.11.0-beta)
-else()
-  set(CL_CONFIG_TBB_VERSION 2021.10.0)
-endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-# end INTEL_CUSTOMIZATION
+set(CL_CONFIG_TBB_VERSION ${TBB_VERSION})
 
 # For cpu
 set(CL_CONFIG_DEVICES cpu)

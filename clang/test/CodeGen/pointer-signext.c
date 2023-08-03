@@ -1,7 +1,4 @@
-// INTEL_CUSTOMIZATION
-// Added -mllvm -xmain-enable-gep0-removal.
-// RUN: %clang_cc1 -mllvm -xmain-enable-gep0-removal -triple x86_64-pc-win32 -emit-llvm -O2 -o - %s | FileCheck %s
-// end INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -triple x86_64-pc-win32 -emit-llvm -O2 -o - %s | FileCheck %s
 
 // Under Windows 64, int and long are 32-bits.  Make sure pointer math doesn't
 // cause any sign extensions.

@@ -4,19 +4,13 @@
 lit_config.load_config(config, '@CMAKE_CURRENT_BINARY_DIR@/cmake-bridge.cfg')
 
 config.substitutions.append(('%{flags}',
-    '-isysroot {}'.format('@CMAKE_OSX_SYSROOT@') if '@CMAKE_OSX_SYSROOT@' else ''
+    '-pthread' + (' -isysroot {}'.format('@CMAKE_OSX_SYSROOT@') if '@CMAKE_OSX_SYSROOT@' else '')
 ))
-# INTEL_CUSTOMIZATION
-# CMPLRLLVM-47181: -fno-assume-sane-operator-new was added because the lit
-# tests overload the operator new. The overloaded operator can modify a global,
-# but the compiler treats new as it won't modify a value. It is assuming that
-# new is conformant with the C++ standards.
 config.substitutions.append(('%{compile_flags}',
-    '-nostdinc++ -fno-assume-sane-operator-new -I %{include} -I %{target-include} -I %{libcxx}/test/support'
+    '-nostdinc++ -I %{include} -I %{target-include} -I %{libcxx}/test/support'
 ))
-# end INTEL_CUSTOMIZATION
 config.substitutions.append(('%{link_flags}',
-    '-nostdlib++ -L %{lib} -Wl,-rpath,%{lib} -lc++ -pthread'
+    '-nostdlib++ -L %{lib} -Wl,-rpath,%{lib} -lc++'
 ))
 config.substitutions.append(('%{exec}',
     '%{executor} --execdir %T -- '

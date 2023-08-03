@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; int X;
@@ -13,9 +13,8 @@
 ; Verify that 'X' is privatized for teams as addrspace(3) variable,
 ; and that the uses relinking adjusts the original addrspace(1) correctly:
 ; CHECK-LABEL: @__omp_offloading_806_1c0cbe__Z3foov_l3
-; CHECK: [[PTR:%[a-zA-Z._0-9]+]] = bitcast i32 addrspace(3)* @X.priv.__local to i8 addrspace(3)*
-; CHECK: [[GEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds i8, i8 addrspace(3)* [[PTR]], i64 3
-; CHECK: store i8 10, i8 addrspace(3)* [[GEP]]
+; CHECK: [[GEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds i8, ptr addrspace(3) @X.priv.__local, i64 3
+; CHECK: store i8 10, ptr addrspace(3) [[GEP]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
@@ -27,12 +26,19 @@ target device_triples = "spir64"
 define hidden spir_func i32 @_Z3foov() #0 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @X to i32 addrspace(4)*)) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @X to i32 addrspace(4)*)) ]
-  store i8 10, i8 addrspace(4)* getelementptr inbounds (i8, i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @X to i8 addrspace(1)*) to i8 addrspace(4)*), i64 3), align 1
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @X to ptr addrspace(4)), i32 0, i32 1) ]
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @X to ptr addrspace(4)), i32 0, i32 1) ]
+
+  store i8 10, ptr addrspace(4) getelementptr inbounds (i8, ptr addrspace(4) addrspacecast (ptr addrspace(1) @X to ptr addrspace(4)), i64 3), align 1
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret i32 0
 }
 

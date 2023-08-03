@@ -2,16 +2,14 @@
 ; _before.AddImplicitArgs function declaration.
 
 ; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 $_ZTS13dummy_functorIN14program_info__12program_infoEE = comdat any
 
-@llvm.used = appending global [1 x i8*] [i8* bitcast (void ()* @_ZTS13dummy_functorIN14program_info__12program_infoEE to i8*)], section "llvm.metadata"
+@llvm.used = appending global [1 x ptr] [ptr @_ZTS13dummy_functorIN14program_info__12program_infoEE], section "llvm.metadata"
 
 ; CHECK: declare void @___ZTS13dummy_functorIN14program_info__12program_infoEE_before.AddImplicitArgs() #0
 ; CHECK-NOT: comdat
@@ -27,7 +25,7 @@ attributes #0 = { mustprogress norecurse }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @_ZTS13dummy_functorIN14program_info__12program_infoEE}
+!0 = !{ptr @_ZTS13dummy_functorIN14program_info__12program_infoEE}
 !1 = !{}
 
 ; DEBUGIFY-NOT: WARNING

@@ -19,20 +19,20 @@ source_filename = "simple2.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._ZTS10TestStruct.TestStruct = type { double* }
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct._ZTS10TestStruct.TestStruct = type { ptr }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
-@glob = dso_local local_unnamed_addr global %struct._ZTS10TestStruct.TestStruct* null, align 8, !intel_dtrans_type !0
+@glob = dso_local local_unnamed_addr global ptr null, align 8, !intel_dtrans_type !0
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
 define dso_local double @_Z3bari(i32 %i) local_unnamed_addr #0 {
 entry:
-  %0 = load %struct._ZTS10TestStruct.TestStruct*, %struct._ZTS10TestStruct.TestStruct** @glob, align 8, !tbaa !8
-  %ptr = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* %0, i64 0, i32 0, !intel-tbaa !12
-  %1 = load double*, double** %ptr, align 8, !tbaa !12
+  %0 = load ptr, ptr @glob, align 8, !tbaa !8
+  %ptr = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, ptr %0, i64 0, i32 0, !intel-tbaa !12
+  %1 = load ptr, ptr %ptr, align 8, !tbaa !12
   %idxprom = sext i32 %i to i64
-  %arrayidx = getelementptr inbounds double, double* %1, i64 %idxprom
-  %2 = load double, double* %arrayidx, align 8, !tbaa !15
+  %arrayidx = getelementptr inbounds double, ptr %1, i64 %idxprom
+  %2 = load double, ptr %arrayidx, align 8, !tbaa !15
   ret double %2
 }
 

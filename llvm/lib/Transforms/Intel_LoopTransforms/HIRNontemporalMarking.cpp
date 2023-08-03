@@ -103,7 +103,7 @@ class HIRNontemporalMarking {
 public:
   HIRNontemporalMarking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                         HIRLoopLocality &HLL, TargetTransformInfo &TTI)
-    : HIRF(HIRF), HDDA(HDDA), HLL(HLL), TTI(TTI) {}
+      : HIRF(HIRF), HDDA(HDDA), HLL(HLL), TTI(TTI), OnlyVectorAligned(false) {}
   bool run();
 };
 
@@ -380,6 +380,6 @@ PreservedAnalyses HIRNontemporalMarkingPass::runImpl(
   HIRNontemporalMarking NTM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                             AM.getResult<HIRLoopLocalityAnalysis>(F),
                             AM.getResult<TargetIRAnalysis>(F));
-  NTM.run();
+  ModifiedHIR = NTM.run();
   return PreservedAnalyses::all();
 }

@@ -17,10 +17,19 @@ namespace llvm {
 
 class Module;
 
-/// A pass that multiversions functions(auto-cpu-dispatch).
+/// A pass that multi-versions functions for auto-arch, auto-cpu-dispatch and,
+/// -vecabi=cmdtarget support.
 class AutoCPUClonePass : public PassInfoMixin<AutoCPUClonePass> {
 public:
+  AutoCPUClonePass(bool GVV = false);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+
+private:
+  // When true, AutoCPUClonePass multi-versions functions per the targets
+  // specified in llvm.vec.auto.cpu.dispatch metadata. Otherwise, pass
+  // multi-versions functions per the targets listed in llvm.auto.arch and
+  // llvm.auto.cpu.dispatch metadata.
+  bool GenerateVectorVariants;
 };
 } // end namespace llvm
 

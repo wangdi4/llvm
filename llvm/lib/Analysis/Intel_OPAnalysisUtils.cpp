@@ -1,6 +1,6 @@
 //===------------------ Intel_OPAnalysisUtils.cpp -------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -90,7 +90,8 @@ static std::optional<Type *> mergeTypes(const std::optional<Type *> &X,
 //
 static std::optional<Type *>
 inferPtrElementTypeX(Value *V,
-                     DenseMap<const Value *, std::optional<Type *>> &M) {
+                     DenseMap<const Value *, std::optional<Type *>> &M,
+                     bool FunctionOnly) {
   constexpr auto AnyTy = std::optional<Type *>();
   auto IT = M.find(V);
   if (IT != M.end()) {
@@ -123,6 +124,8 @@ inferPtrElementTypeX(Value *V,
         continue;
       NTy = SuI->getElementType();
     } else if (auto CB = dyn_cast<CallBase>(U)) {
+      if (FunctionOnly)
+        continue;
       auto *CalledF = CB->getCalledFunction();
       if (!CalledF || CalledF->isVarArg())
         continue;
@@ -130,7 +133,10 @@ inferPtrElementTypeX(Value *V,
         continue;
       unsigned ANo = CB->getArgOperandNo(&Use);
       auto *A = CalledF->getArg(ANo);
-      NTy = inferPtrElementTypeX(A, M);
+      NTy = inferPtrElementTypeX(A, M, FunctionOnly);
+    } else if (isa<FreezeInst>(U)) {
+      // Check the uses of FreezeInst to get type info.
+      NTy = inferPtrElementTypeX(U, M, FunctionOnly);
     } else
       continue;
 
@@ -146,7 +152,7 @@ inferPtrElementTypeX(Value *V,
         if (auto *CB = dyn_cast<CallBase>(U)) {
           if (CB->getCalledFunction() == F) {
             auto *ActArg = CB->getArgOperand(Arg->getArgNo());
-            auto NTy = inferPtrElementTypeX(ActArg, M);
+            auto NTy = inferPtrElementTypeX(ActArg, M, FunctionOnly);
             Ty = mergeTypes(Ty, NTy);
           }
         }
@@ -161,7 +167,7 @@ inferPtrElementTypeX(Value *V,
     // which is actually dead code, we can try to infer type from
     // the BitCast argument.
       if (BC->getSrcTy()->isPointerTy() && BC->getDestTy()->isPointerTy())
-        Ty = inferPtrElementTypeX(BC->getOperand(0), M); 
+        Ty = inferPtrElementTypeX(BC->getOperand(0), M, FunctionOnly);
   }
 
   M[V] = Ty;
@@ -178,14 +184,14 @@ inferPtrElementTypeX(Value *V,
 //   Arg.getType()->getPointerElementType()
 // which will be removed when the community moves to opaque pointers.
 //
-Type *inferPtrElementType(Value &V) {
+Type *inferPtrElementType(Value &V, bool FunctionOnly) {
   llvm::Type *Ty = V.getType();
   if (!Ty->isPointerTy())
     return nullptr;
   if (Ty->getContext().supportsTypedPointers())
     return Ty->getNonOpaquePointerElementType();
   auto VMap = DenseMap<const Value *, std::optional<Type *>>();
-  auto RT = inferPtrElementTypeX(&V, VMap);
+  auto RT = inferPtrElementTypeX(&V, VMap, FunctionOnly);
   return RT.has_value() ? RT.value() : nullptr;
 }
 

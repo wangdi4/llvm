@@ -4,7 +4,7 @@
 ; Verify that legality does not crash on non AllocaInst used in simd-reduction declaration.
 
 
-define internal void @test_legality_non_alloca(i8** %arr) #3 {
+define internal void @test_legality_non_alloca(ptr %arr) #3 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: test_legality_non_alloca:omp.inner.for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -46,20 +46,19 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-NEXT:  Id: 0     [[ADD4_LCSSA0:%.*]] = phi i32 [ [[ADD40:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ] i32 [[VP_ZII_RED_CAST_RED_FINAL]] -> i32 [[ADD40]]
 ;
 DIR.OMP.SIMD.4:
-  %zii.shr3 = load i8*, i8** %arr, align 8
-  %zii.red = tail call i8* @bar(i8* %zii.shr3) #2
-  %zii.red.cast = bitcast i8* %zii.red to i32*
+  %zii.shr3 = load ptr, ptr %arr, align 8
+  %zii.red = tail call ptr @bar(ptr %zii.shr3) #2
   br label %omp.inner.for.body.lr.ph
 
 DIR.OMP.END.TASKLOOP.8.exitStub:                  ; preds = %DIR.OMP.SIMD.4, %DIR.OMP.END.SIMD.2
   ret void
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %zii.red.cast, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %zii.red, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %zii.red.cast.promoted = load i32, i32* %zii.red.cast, align 4
+  %zii.red.cast.promoted = load i32, ptr %zii.red, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
@@ -72,7 +71,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit.split_crit_edge: ; preds = %omp.inner.for.body
   %add4.lcssa = phi i32 [ %add4, %omp.inner.for.body ]
-  store i32 %add4.lcssa, i32* %zii.red.cast, align 4
+  store i32 %add4.lcssa, ptr %zii.red, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.cond.omp.loop.exit.split_crit_edge
@@ -82,4 +81,4 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.cond.
 
 declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind
-declare i8* @bar(i8*)
+declare ptr @bar(ptr)

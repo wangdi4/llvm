@@ -10,13 +10,12 @@
 
 #include "llvm/Transforms/SYCLTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/SYCLTransforms/DataPerValuePass.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/BarrierRegionInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/SYCLTransforms/WIRelatedValuePass.h"
 
@@ -51,137 +50,6 @@ ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
   PA.preserve<WIRelatedValueAnalysis>();
   return PA;
 }
-
-static bool isBarrierOrDummyBarrierCall(Value *Val) {
-  static std::string Barriers[] = {
-      CompilationUtils::mangledBarrier(),
-      CompilationUtils::mangledWGBarrier(
-          CompilationUtils::BarrierType::NoScope),
-      CompilationUtils::mangledWGBarrier(
-          CompilationUtils::BarrierType::WithScope),
-      DUMMY_BARRIER_FUNC_NAME,
-  };
-  CallInst *CI;
-  Function *F;
-  if (!(CI = dyn_cast<CallInst>(Val)) || !(F = CI->getCalledFunction()))
-    return false;
-  StringRef FName = F->getName();
-  return any_of(Barriers, [&](std::string &B) { return FName == B; });
-}
-
-namespace {
-class BarrierRegionInfo {
-public:
-  BarrierRegionInfo(Function *F, DominanceFrontier *DF, DominatorTree *DT) {
-    analyze(F, DF, DT);
-  }
-
-  inline bool isRegionHeader(BasicBlock *BB) {
-    return Regions.find(BB) != Regions.end();
-  }
-
-  inline BasicBlock *getRegionHeaderFor(BasicBlock *BB) {
-    if (isRegionHeader(BB))
-      return BB;
-    assert(HeaderMap.find(BB) != HeaderMap.end() &&
-           "BB doesn't belong to any region?");
-    return HeaderMap[BB];
-  }
-
-  /// Returns true if the region header of \p LHS comes before the one of \p
-  /// RHS in member variable \p Regions. See comments of \p Regions for
-  /// details.
-  bool compare(BasicBlock *LHS, BasicBlock *RHS) {
-    auto LIt = Regions.find(getRegionHeaderFor(LHS)),
-         RIt = Regions.find(getRegionHeaderFor(RHS));
-    assert(LIt != Regions.end() && RIt != Regions.end() &&
-           "Expected region headers");
-    return LIt < RIt;
-  }
-
-private:
-  void analyze(Function *F, DominanceFrontier *DF, DominatorTree *DT) {
-    SetVector<BasicBlock *> Headers = collectRegionHeaders(F, DF);
-    constructRegions(F, Headers, DT);
-  }
-
-  void constructRegions(Function *F, SetVector<BasicBlock *> &Headers,
-                        DominatorTree *DT) {
-    // Create regions in order.
-    for (auto *Header : Headers)
-      Regions[Header];
-
-    for (auto &BB : *F) {
-      auto *HeaderNode = DT->getNode(&BB);
-      assert(HeaderNode != nullptr && "Invalid header node!");
-      BasicBlock *Header = HeaderNode->getBlock();
-      while (!Headers.contains(Header)) {
-        HeaderNode = HeaderNode->getIDom();
-        Header = HeaderNode->getBlock();
-      }
-
-      if (Header != &BB) {
-        auto &BlockSet = Regions[Header];
-        BlockSet.insert(&BB);
-        HeaderMap[&BB] = Header;
-      }
-    }
-  }
-
-  /// Returns all region headers in order. See comments of member variable
-  /// \p Regions for details.
-  static SetVector<BasicBlock *> collectRegionHeaders(Function *F,
-                                                      DominanceFrontier *DF) {
-    std::list<BasicBlock *> Headers;
-    Headers.push_back(&F->getEntryBlock());
-
-    DenseSet<BasicBlock *> Visited;
-    for (BasicBlock &BB : *F) {
-      if (isBarrierOrDummyBarrierCall(&*BB.begin())) {
-        Headers.push_back(&BB);
-        Visited.insert(&BB);
-      }
-    }
-
-    auto FrontierEnd = --Headers.end();
-    SmallVector<BasicBlock *, 16> WorkList(Headers.begin(), Headers.end());
-    do {
-      auto *BB = WorkList.pop_back_val();
-      for (BasicBlock *Frontier : DF->find(BB)->second) {
-        if (Visited.insert(Frontier).second) {
-          Headers.push_back(Frontier);
-          WorkList.push_back(Frontier);
-        }
-      }
-    } while (!WorkList.empty());
-
-    // Remove duplicate dominance frontiers. We don't prevent inserting
-    // duplicated elements above because we need to preserve the topological
-    // order (see comments of the member Regions), so only the last occurrence
-    // should be kept.
-    Visited.clear();
-    auto It = --Headers.end();
-    while (It != FrontierEnd) {
-      auto Next = --It;
-      if (!Visited.insert(*It).second)
-        Headers.erase(It);
-      It = Next;
-    }
-    return {Headers.begin(), Headers.end()};
-  }
-
-private:
-  /// A map between region headers and basic blocks belonging to them.
-  /// Region headers are sorted in the following order:
-  ///   Entry, Sync BBs ..., Dominance frontiers ...
-  /// Dominance frontiers are also in topological order (ignoring loop
-  /// backedges).
-  MapVector<BasicBlock *, DenseSet<BasicBlock *>> Regions;
-
-  /// A map between basic blocks and the region headers they belong to
-  DenseMap<BasicBlock *, BasicBlock *> HeaderMap;
-};
-} // namespace
 
 using UseSet = DataPerValue::UseSet;
 using InstMap = DenseMap<Instruction *, Instruction *>;
@@ -276,7 +144,7 @@ static void copyAndReplaceUses(
     InstMap &CopyToOriginMap, WIRelatedValue *WIRV, BarrierRegionInfo *BRI) {
 
   auto IsDomFrontier = [](BasicBlock *RegionHeader) {
-    return !isBarrierOrDummyBarrierCall(&*RegionHeader->begin());
+    return !BarrierUtils::isBarrierOrDummyBarrierCall(&*RegionHeader->begin());
   };
 
   InstMap &OriginToCopyMap = OriginToCopyMaps[RegionHeader];
@@ -467,7 +335,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     Instruction *&InsertPt = InsertPoints[RegionHeader];
     if (LLVM_UNLIKELY(!InsertPt)) {
       InsertPt = RegionHeader->getFirstNonPHI();
-      if (isBarrierOrDummyBarrierCall(InsertPt))
+      if (BarrierUtils::isBarrierOrDummyBarrierCall(InsertPt))
         InsertPt = InsertPt->getNextNode();
     }
 

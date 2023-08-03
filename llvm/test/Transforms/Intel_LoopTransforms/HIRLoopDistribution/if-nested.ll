@@ -66,24 +66,24 @@ if.then:                                          ; preds = %for.body
 
 if.then3:                                         ; preds = %if.then
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %idxprom
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %idxprom
+  %0 = load float, ptr %arrayidx, align 4
   %idxprom4 = sext i32 %i.01 to i64
-  %arrayidx5 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %idxprom4
-  %1 = load float, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %idxprom4
+  %1 = load float, ptr %arrayidx5, align 4
   %add = fadd float %0, %1
   %idxprom6 = sext i32 %i.01 to i64
-  %arrayidx7 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %idxprom6
-  store float %add, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %idxprom6
+  store float %add, ptr %arrayidx7, align 4
   %add8 = add nsw i32 %i.01, 1
   %idxprom9 = sext i32 %add8 to i64
-  %arrayidx10 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %idxprom9
-  %2 = load float, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %idxprom9
+  %2 = load float, ptr %arrayidx10, align 4
   %conv = sitofp i32 %i.01 to float
   %add11 = fadd float %2, %conv
   %idxprom12 = sext i32 %i.01 to i64
-  %arrayidx13 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %idxprom12
-  store float %add11, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %idxprom12
+  store float %add11, ptr %arrayidx13, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then3, %if.then

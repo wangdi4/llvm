@@ -334,12 +334,12 @@ TEST_F(SpecializationConstant, CheckSpecialization) {
 // kernel.
 TEST_F(SpecializationConstant, CheckOverriding) {
   int spec_i = -43;
-  float spec_f = -46.75;
+  float spec_f = -46.75f;
   setSpecConst(103, &spec_i);
   setSpecConst(106, &spec_f);
 
   int spec_i2 = 55;
-  float spec_f2 = 3.14;
+  float spec_f2 = 3.14f;
   setSpecConst(103, &spec_i2);
   setSpecConst(106, &spec_f2);
 

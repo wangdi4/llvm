@@ -56,10 +56,12 @@ void build(const std::string &code, std::string fileName) {
   options
       << "-cc1 -x cl -emit-llvm-bc "
          "-disable-intel-proprietary-opts " // INTEL
-         "-no-opaque-pointers -include opencl-c.h -include long_vector_types.h";
-  options
-      << " "
-      << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
+         "-include opencl-c.h -include long_vector_types.h";
+#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
+  options << " -no-opaque-pointers";
+#endif
+  options << " "
+          << "-opencl-builtins -fblocks -cl-std=CL3.0";
   options << " "
           << "-triple"
           << " "

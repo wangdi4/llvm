@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

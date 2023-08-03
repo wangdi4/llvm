@@ -112,6 +112,9 @@
 /// Default alignment
 #define KMP_MAX_ALIGNMENT 16
 
+/// Subgroup extension
+#define KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED 0
+
 /// Enable extensions if available
 #if KMP_ATOMIC_FIXED8_SUPPORTED
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable

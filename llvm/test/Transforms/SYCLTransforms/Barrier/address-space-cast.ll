@@ -1,8 +1,8 @@
 ; This test checks that debug instrinsic of addrspacecast of an alloca is used
 ; to create DbgDeclare for new alloca.
 
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -11,13 +11,13 @@ target triple = "x86_64-pc-linux"
 define dso_local void @test() #0 !dbg !7 {
 entry:
 
-; CHECK: %a.addr = alloca i32*, align 8
-; CHECK: call void @llvm.dbg.declare(metadata i32** %a.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
+; CHECK: %a.addr = alloca ptr, align 8
+; CHECK: call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
 
   call void @dummy_barrier.()
   %a = alloca i32, align 4
-  %a.ascast = addrspacecast i32* %a to i32 addrspace(4)*
-  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %a.ascast, metadata !12, metadata !DIExpression()), !dbg !13
+  %a.ascast = addrspacecast ptr %a to ptr addrspace(4)
+  call void @llvm.dbg.declare(metadata ptr addrspace(4) %a.ascast, metadata !12, metadata !DIExpression()), !dbg !13
   br label %"Barrier BB", !dbg !14
 
 "Barrier BB":                                     ; preds = %entry

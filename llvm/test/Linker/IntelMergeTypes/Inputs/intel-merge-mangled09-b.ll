@@ -30,12 +30,12 @@ target triple = "x86_64-unknown-linux-gnu"
 %union._ZTSN10TestStructUt_E.anon.0 = type { i32 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
-define dso_local i32 @_Z3barP10TestStruct(%struct._ZTS10TestStruct.TestStruct* nocapture readonly "intel_dtrans_func_index"="1" %T) local_unnamed_addr #0 !intel.dtrans.func.type !11 {
+define dso_local i32 @_Z3barP10TestStruct(ptr nocapture readonly "intel_dtrans_func_index"="1" %T) local_unnamed_addr #0 !intel.dtrans.func.type !11 {
 entry:
-  %i = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* %T, i64 0, i32 0, i32 0
-  %0 = load i32, i32* %i, align 4, !tbaa !13
-  %j = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* %T, i64 0, i32 1, i32 0
-  %1 = load i32, i32* %j, align 4, !tbaa !13
+  %i = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, ptr %T, i64 0, i32 0, i32 0
+  %0 = load i32, ptr %i, align 4, !tbaa !13
+  %j = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, ptr %T, i64 0, i32 1, i32 0
+  %1 = load i32, ptr %j, align 4, !tbaa !13
   %add = add nsw i32 %1, %0
   ret i32 %add
 }

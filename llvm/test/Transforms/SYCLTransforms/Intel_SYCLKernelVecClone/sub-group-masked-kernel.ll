@@ -1,21 +1,21 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 ; CHECK: define void @_ZGVeN4u_test
 ; CHECK: define void @_ZGVeM4u_test
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !no_barrier_path !12 !kernel_has_sub_groups !12 !recommended_vector_length !13 {
+define void @test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !no_barrier_path !12 !kernel_has_sub_groups !12 !recommended_vector_length !13 !arg_type_null_val !18 {
 entry:
   %call = tail call i32 @_Z22get_max_sub_group_sizev() #2
-  store i32 %call, i32 addrspace(1)* %a, align 4, !tbaa !14
+  store i32 %call, ptr addrspace(1) %a, align 4, !tbaa !14
   ret void
 }
 
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !13 {
+define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %0) !recommended_vector_length !13 !kernel_arg_base_type !7 !arg_type_null_val !18{
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -55,7 +55,7 @@ attributes #2 = { convergent nounwind }
 !1 = !{}
 !2 = !{!"-cl-std=CL2.0"}
 !3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!4 = !{void (i32 addrspace(1)*)* @test}
+!4 = !{ptr @test}
 !5 = !{i32 1}
 !6 = !{!"none"}
 !7 = !{!"uint*"}
@@ -69,6 +69,7 @@ attributes #2 = { convergent nounwind }
 !15 = !{!"int", !16, i64 0}
 !16 = !{!"omnipotent char", !17, i64 0}
 !17 = !{!"Simple C/C++ TBAA"}
+!18 = !{i32 addrspace(1)* null}
 
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4u_test {{.*}} br
@@ -81,7 +82,6 @@ attributes #2 = { convergent nounwind }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} alloca
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4u_test {{.*}} call

@@ -16,23 +16,23 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @rijndaelKeySched() local_unnamed_addr {
 entry:
   %tk = alloca [4 x [8 x i8]], align 16
-  %0 = getelementptr inbounds [4 x [8 x i8]], [4 x [8 x i8]]* %tk, i64 0, i64 0, i64 0
-  call void @llvm.memset.p0i8.i64(i8* nonnull %0, i8 0, i64 32, i32 16, i1 false)
+  %0 = getelementptr inbounds [4 x [8 x i8]], ptr %tk, i64 0, i64 0, i64 0
+  call void @llvm.memset.p0.i64(ptr nonnull %0, i8 0, i64 32, i32 16, i1 false)
   br label %for.body55
 
 for.body55:                                       ; preds = %for.body55, %while.body.lr.ph
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body55 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %rem57 = and i64 %indvars.iv.next, 3
-  %arrayidx61 = getelementptr inbounds [4 x [8 x i8]], [4 x [8 x i8]]* %tk, i64 0, i64 %rem57, i64 0
-  %1 = load i8, i8* %arrayidx61, align 1, !tbaa !6
+  %arrayidx61 = getelementptr inbounds [4 x [8 x i8]], ptr %tk, i64 0, i64 %rem57, i64 0
+  %1 = load i8, ptr %arrayidx61, align 1, !tbaa !6
   %idxprom62 = zext i8 %1 to i64
-  %arrayidx63 = getelementptr inbounds [0 x i8], [0 x i8]* @S, i64 0, i64 %idxprom62
-  %2 = load i8, i8* %arrayidx63, align 1, !tbaa !8
-  %arrayidx66 = getelementptr inbounds [4 x [8 x i8]], [4 x [8 x i8]]* %tk, i64 0, i64 %indvars.iv, i64 0
-  %3 = load i8, i8* %arrayidx66, align 8, !tbaa !6
+  %arrayidx63 = getelementptr inbounds [0 x i8], ptr @S, i64 0, i64 %idxprom62
+  %2 = load i8, ptr %arrayidx63, align 1, !tbaa !8
+  %arrayidx66 = getelementptr inbounds [4 x [8 x i8]], ptr %tk, i64 0, i64 %indvars.iv, i64 0
+  %3 = load i8, ptr %arrayidx66, align 8, !tbaa !6
   %xor324 = xor i8 %3, %2
-  store i8 %xor324, i8* %arrayidx66, align 8, !tbaa !6
+  store i8 %xor324, ptr %arrayidx66, align 8, !tbaa !6
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.end71, label %for.body55
 
@@ -41,7 +41,7 @@ for.end71:                                        ; preds = %for.body55
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #0
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i32, i1) #0
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}

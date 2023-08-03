@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define dso_local void @test(float addrspace(1)* %kb) local_unnamed_addr #0 {
+define dso_local void @test(ptr addrspace(1) %kb) local_unnamed_addr #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 vect_if:
   %0 = call i64 @get_base_global_id.(i32 0)
   %1 = call i64 @_Z14get_local_sizej(i32 0)
@@ -35,9 +35,8 @@ entryvector_func:                                 ; preds = %entryvector_func, %
 ; CHECK-NEXT: [[FMUL:%[0-9]+]] = fmul <8 x float> [[SITOFP]], <float 0x3F35D867C0000000,
 ; CHECK-NEXT: %{{[0-9]+}} = fadd <8 x float> [[FMUL]], <float -1.000000e+00,
 
-  %scalar.gepvector_func = getelementptr inbounds float, float addrspace(1)* %kb, i64 %.extract.0.vector_func
-  %8 = bitcast float addrspace(1)* %scalar.gepvector_func to <8 x float> addrspace(1)*
-  store <8 x float> %7, <8 x float> addrspace(1)* %8, align 4
+  %scalar.gepvector_func = getelementptr inbounds float, ptr addrspace(1) %kb, i64 %.extract.0.vector_func
+  store <8 x float> %7, ptr addrspace(1) %scalar.gepvector_func, align 4
   %dim_0_vector_inc_ind_var = add nuw nsw i64 %dim_0_vector_ind_var, 1
   %dim_0_vector_cmp.to.max = icmp eq i64 %dim_0_vector_inc_ind_var, %vector.size
   %dim0_inc_tid = add nuw nsw i64 %dim0__tid, 8
@@ -58,6 +57,8 @@ attributes #0 = { convergent norecurse nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (float addrspace(1)*)* @test}
+!0 = !{ptr @test}
+!1 = !{!"float*"}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

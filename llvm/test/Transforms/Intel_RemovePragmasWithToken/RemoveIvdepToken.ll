@@ -19,22 +19,22 @@
 %opencl.pipe_wo_t = type opaque
 
 ; Function Attrs: convergent noinline nounwind optnone
-define spir_kernel void @kernel(%opencl.pipe_wo_t addrspace(1)* %woPipe) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 {
+define spir_kernel void @kernel(ptr addrspace(1) %woPipe) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 {
 entry:
-  %woPipe.addr = alloca %opencl.pipe_wo_t addrspace(1)*, align 4
+  %woPipe.addr = alloca ptr addrspace(1), align 4
   %Array = alloca [10 x i32], align 4
   %i = alloca i32, align 4
   %anotherArray = alloca [10 x i32], align 4
   %j = alloca i32, align 4
-  store %opencl.pipe_wo_t addrspace(1)* %woPipe, %opencl.pipe_wo_t addrspace(1)** %woPipe.addr, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([10 x i32]* %Array) ]
+  store ptr addrspace(1) %woPipe, ptr %woPipe.addr, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(ptr %Array) ]
 ; CHECK-LABEL: entry:
-; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([10 x i32]* %Array) ]
-  store i32 0, i32* %i, align 4
+; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(ptr %Array) ]
+  store i32 0, ptr %i, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32, i32* %i, align 4
+  %1 = load i32, ptr %i, align 4
   %cmp = icmp slt i32 %1, 10
   br i1 %cmp, label %for.body, label %for.end
 
@@ -42,23 +42,23 @@ for.body:                                         ; preds = %for.cond
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %2 = load i32, i32* %i, align 4
+  %2 = load i32, ptr %i, align 4
   %inc = add nsw i32 %2, 1
-  store i32 %inc, i32* %i, align 4
+  store i32 %inc, ptr %i, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.IVDEP"() ]
 ; CHECK-LABEL: for.end:
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.IVDEP"() ]
-  %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([10 x i32]* %anotherArray) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(ptr %anotherArray) ]
 ; CHECK-LABEL: entry:
-; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([10 x i32]* %anotherArray) ]
-  store i32 0, i32* %j, align 4
+; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(ptr %anotherArray) ]
+  store i32 0, ptr %j, align 4
   br label %for.cond1
 
 for.cond1:                                        ; preds = %for.inc4, %for.end
-  %4 = load i32, i32* %j, align 4
+  %4 = load i32, ptr %j, align 4
   %cmp2 = icmp slt i32 %4, 10
   br i1 %cmp2, label %for.body3, label %for.end6
 
@@ -66,9 +66,9 @@ for.body3:                                        ; preds = %for.cond1
   br label %for.inc4
 
 for.inc4:                                         ; preds = %for.body3
-  %5 = load i32, i32* %j, align 4
+  %5 = load i32, ptr %j, align 4
   %inc5 = add nsw i32 %5, 1
-  store i32 %inc5, i32* %j, align 4
+  store i32 %inc5, ptr %j, align 4
   br label %for.cond1
 
 for.end6:                                         ; preds = %for.cond1

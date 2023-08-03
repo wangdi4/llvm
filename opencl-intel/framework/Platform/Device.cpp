@@ -34,7 +34,7 @@ PlatformModule *Device::m_pPlatformModule = nullptr;
 
 Device::Device(_cl_platform_id_int *platform)
     : FissionableDevice(platform), m_bFrontEndCompilerDone(false),
-      m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(nullptr) {
+      m_iNextClientId(1), m_devId(0), m_pDevice(nullptr) {
   // initialize logger client
   INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
   m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
@@ -480,7 +480,10 @@ cl_err_code FissionableDevice::FissionDevice(
     const cl_device_partition_property *props, cl_uint num_entries,
     cl_dev_subdevice_id *out_devices, cl_uint *num_devices, size_t *sizes) {
   cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
-  m_default_command_queue = nullptr;
+  {
+    std::lock_guard<std::mutex> CS(m_changeDefaultDeviceMutex);
+    m_default_command_queue = nullptr;
+  }
   // identify the partition mode and translate to device enum
   cl_dev_partition_prop partitionMode;
 

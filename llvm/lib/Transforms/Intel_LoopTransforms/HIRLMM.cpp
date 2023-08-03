@@ -474,7 +474,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp,
   if (Lp->hasDistributePoint()) {
     return false;
   }
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Lp);
   if (!AllowUnknownAliasingCalls && LS.hasCallsWithUnknownAliasing()) {
     return false;
   }
@@ -835,7 +835,6 @@ HLInst *HIRLMM::canHoistLoadsUsingExistingTemp(
   }
 
   HLInst *SingleLoadInst = nullptr;
-
   for (auto *Ref : Group) {
 
     HLInst *LoadHInst = dyn_cast<HLInst>(Ref->getHLDDNode());
@@ -844,9 +843,12 @@ HLInst *HIRLMM::canHoistLoadsUsingExistingTemp(
       continue;
     }
 
-    if (!isa<LoadInst>(LoadHInst->getLLVMInstruction())) {
+    // Casts can only be hoisted if there is one load in the group. The lval
+    // of the hoisted temp will be used to replace other loads.
+    auto *LLVMInst = LoadHInst->getLLVMInstruction();
+    if (!isa<LoadInst>(LLVMInst) &&
+        (Group.size() != 1 || !isa<CastInst>(LLVMInst)))
       continue;
-    }
 
     if (SingleLoadInst) {
       return nullptr;
@@ -1009,7 +1011,7 @@ HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
       break;
     }
 
-    const LoopStatistics &LS = HLS.getSelfLoopStatistics(ParentLp);
+    const LoopStatistics &LS = HLS.getSelfStatistics(ParentLp);
 
     if (LS.hasCallsWithUnknownAliasing()) {
       break;
@@ -1090,7 +1092,8 @@ bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
   LoadRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25563u, remark string: Load hoisted out of the loop
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoadHoistedFromLoop);
 
   return true;
 }
@@ -1115,7 +1118,8 @@ bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   TempRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25564u, remark string: Store sinked out of the loop
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoadSunkFromLoop);
   return true;
 }
 
@@ -1183,7 +1187,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
 
     // ID: 25563u, remark string: Load hoisted out of the loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoadHoistedFromLoop);
   }
 
   // Create a TempDDRef if needed
@@ -1210,7 +1215,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
 
     // ID: 25564u, remark string: Store sinked out of the loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoadSunkFromLoop);
   }
 
   // LMM process each Ref in Group
@@ -1486,13 +1492,14 @@ PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
 #endif // INTEL_FEATURE_SW_DTRANS
 
-  HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-         AM.getResult<HIRLoopStatisticsAnalysis>(F),
+  ModifiedHIR =
+      HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+             AM.getResult<HIRLoopStatisticsAnalysis>(F),
 #if INTEL_FEATURE_SW_DTRANS
-         MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
+             MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
 #endif // INTEL_FEATURE_SW_DTRANS
-         &AM.getResult<DominatorTreeAnalysis>(F),
-         (LoopNestHoistingOnly || ForceLoopNestHoisting))
-      .run();
+             &AM.getResult<DominatorTreeAnalysis>(F),
+             (LoopNestHoistingOnly || ForceLoopNestHoisting))
+          .run();
   return PreservedAnalyses::all();
 }

@@ -613,6 +613,8 @@ void LoopStridedCodeMotionImpl::screenNonProfitableValues() {
     for (unsigned Idx = 0, E = I->getNumOperands(); Idx != E && !IsProfitable;
          ++Idx) {
       Value *Op = I->getOperand(Idx);
+      if (isa<ConstantData>(Op))
+        continue;
       // Obtain non-hoisted users of this operand.
       SmallVector<User *, 4> NonHoistedUsers;
       obtainNonHoistedUsers(Op, NonHoistedUsers);

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -opaque-pointers=0 -S --wholeprogramdevirt-downcasting-filter  -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
+; RUN: opt -S --wholeprogramdevirt-downcasting-filter  -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 
 ; This test case checks that the assume intrinsic was removed and the virtual
 ; call wasn't devirtualized since it presents a possible downcasting. This test
@@ -36,115 +36,96 @@
 ;   ptr->foo();
 ; }
 
-; CHECK: define internal void @_Z3barP4Base(%class._ZTS4Base.Base* "intel_dtrans_func_index"="1" %p) local_unnamed_addr #0 !intel.dtrans.func.type !74 {
+; CHECK: define internal void @_Z3barP4Base(ptr "intel_dtrans_func_index"="1" %p) local_unnamed_addr #0 !intel.dtrans.func.type !74 {
 ; CHECK-NEXT: entry:
-; CHECK-NEXT:   %tmp = bitcast %class._ZTS4Base.Base* %p to %class._ZTS8DerivedB.DerivedB*
-; CHECK-NEXT:   %tmp1 = bitcast %class._ZTS4Base.Base* %p to void (%class._ZTS8DerivedB.DerivedB*)***
-; CHECK-NEXT:   %tmp2 = load void (%class._ZTS8DerivedB.DerivedB*)**, void (%class._ZTS8DerivedB.DerivedB*)*** %tmp1, align 8, !tbaa !75
-; CHECK-NEXT:   %tmp5 = load void (%class._ZTS8DerivedB.DerivedB*)*, void (%class._ZTS8DerivedB.DerivedB*)** %tmp2, align 8
-; CHECK-NEXT:   tail call void %tmp5(%class._ZTS8DerivedB.DerivedB* nonnull align 8 dereferenceable(8) %tmp), !intel_dtrans_type !78
+; CHECK-NEXT:   %tmp = bitcast ptr %p to ptr
+; CHECK-NEXT:   %tmp1 = bitcast ptr %p to ptr
+; CHECK-NEXT:   %tmp2 = load ptr, ptr %tmp1, align 8, !tbaa !75
+; CHECK-NEXT:   %tmp5 = load ptr, ptr %tmp2, align 8
+; CHECK-NEXT:   tail call void %tmp5(ptr nonnull align 8 dereferenceable(8) %tmp), !intel_dtrans_type !78
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 
-; ModuleID = 'simple.cpp'
-source_filename = "simple.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 %"class._ZTSNSt8ios_base4InitE.std::ios_base::Init" = type { i8 }
-%class._ZTS4Base.Base = type { i32 (...)** }
-%"class._ZTSSi.std::basic_istream" = type { i32 (...)**, i64, %"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" }
-%"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" = type { %"class._ZTSSt8ios_base.std::ios_base", %"class._ZTSSo.std::basic_ostream"*, i8, i8, %"class._ZTSSt15basic_streambufIcSt11char_traitsIcEE.std::basic_streambuf"*, %"class._ZTSSt5ctypeIcE.std::ctype"*, %"class._ZTSSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE.std::num_put"*, %"class._ZTSSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE.std::num_get"* }
-%"class._ZTSSt8ios_base.std::ios_base" = type { i32 (...)**, i64, i64, i32, i32, i32, %"struct._ZTSNSt8ios_base14_Callback_listE.std::ios_base::_Callback_list"*, %"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words", [8 x %"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words"], i32, %"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words"*, %"class._ZTSSt6locale.std::locale" }
-%"struct._ZTSNSt8ios_base14_Callback_listE.std::ios_base::_Callback_list" = type { %"struct._ZTSNSt8ios_base14_Callback_listE.std::ios_base::_Callback_list"*, void (i32, %"class._ZTSSt8ios_base.std::ios_base"*, i32)*, i32, i32 }
-%"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words" = type { i8*, i64 }
-%"class._ZTSSt6locale.std::locale" = type { %"class._ZTSNSt6locale5_ImplE.std::locale::_Impl"* }
-%"class._ZTSNSt6locale5_ImplE.std::locale::_Impl" = type { i32, %"class._ZTSNSt6locale5facetE.std::locale::facet"**, i64, %"class._ZTSNSt6locale5facetE.std::locale::facet"**, i8** }
-%"class._ZTSNSt6locale5facetE.std::locale::facet" = type <{ i32 (...)**, i32, [4 x i8] }>
-%"class._ZTSSo.std::basic_ostream" = type { i32 (...)**, %"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" }
-%"class._ZTSSt15basic_streambufIcSt11char_traitsIcEE.std::basic_streambuf" = type { i32 (...)**, i8*, i8*, i8*, i8*, i8*, i8*, %"class._ZTSSt6locale.std::locale" }
-%"class._ZTSSt5ctypeIcE.std::ctype" = type <{ %"class._ZTSNSt6locale5facetE.std::locale::facet.base", [4 x i8], %struct._ZTS15__locale_struct.__locale_struct*, i8, [7 x i8], i32*, i32*, i16*, i8, [256 x i8], [256 x i8], i8, [6 x i8] }>
-%"class._ZTSNSt6locale5facetE.std::locale::facet.base" = type <{ i32 (...)**, i32 }>
-%struct._ZTS15__locale_struct.__locale_struct = type { [13 x %struct._ZTS13__locale_data.__locale_data*], i16*, i32*, i32*, [13 x i8*] }
-%struct._ZTS13__locale_data.__locale_data = type opaque
+%"class._ZTSSi.std::basic_istream" = type { ptr, i64, %"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" }
+%"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" = type { %"class._ZTSSt8ios_base.std::ios_base", ptr, i8, i8, ptr, ptr, ptr, ptr }
+%"class._ZTSSt8ios_base.std::ios_base" = type { ptr, i64, i64, i32, i32, i32, ptr, %"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words", [8 x %"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words"], i32, ptr, %"class._ZTSSt6locale.std::locale" }
+%"struct._ZTSNSt8ios_base6_WordsE.std::ios_base::_Words" = type { ptr, i64 }
+%"class._ZTSSt6locale.std::locale" = type { ptr }
+%"class._ZTSSo.std::basic_ostream" = type { ptr, %"class._ZTSSt9basic_iosIcSt11char_traitsIcEE.std::basic_ios" }
+%class._ZTS8DerivedB.DerivedB = type { %class._ZTS4Base.Base }
+%class._ZTS4Base.Base = type { ptr }
+%class._ZTS8DerivedA.DerivedA = type { %class._ZTS4Base.Base }
+%"class._ZTSSt15basic_streambufIcSt11char_traitsIcEE.std::basic_streambuf" = type { ptr, ptr, ptr, ptr, ptr, ptr, ptr, %"class._ZTSSt6locale.std::locale" }
+%"class._ZTSSt5ctypeIcE.std::ctype" = type <{ %"class._ZTSNSt6locale5facetE.std::locale::facet.base", [4 x i8], ptr, i8, [7 x i8], ptr, ptr, ptr, i8, [256 x i8], [256 x i8], i8, [6 x i8] }>
+%"class._ZTSNSt6locale5facetE.std::locale::facet.base" = type <{ ptr, i32 }>
 %"class._ZTSSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE.std::num_put" = type { %"class._ZTSNSt6locale5facetE.std::locale::facet.base", [4 x i8] }
 %"class._ZTSSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE.std::num_get" = type { %"class._ZTSNSt6locale5facetE.std::locale::facet.base", [4 x i8] }
-%class._ZTS8DerivedB.DerivedB = type { %class._ZTS4Base.Base }
-%class._ZTS8DerivedA.DerivedA = type { %class._ZTS4Base.Base }
-
-$_ZTS4Base = comdat any
-
-$_ZTI4Base = comdat any
+%"struct._ZTSNSt8ios_base14_Callback_listE.std::ios_base::_Callback_list" = type { ptr, ptr, i32, i32 }
+%"class._ZTSNSt6locale5_ImplE.std::locale::_Impl" = type { i32, ptr, i64, ptr, ptr }
+%"class._ZTSNSt6locale5facetE.std::locale::facet" = type <{ ptr, i32, [4 x i8] }>
+%struct._ZTS15__locale_struct.__locale_struct = type { [13 x ptr], ptr, ptr, ptr, [13 x ptr] }
+%struct._ZTS13__locale_data.__locale_data = type opaque
 
 @_ZStL8__ioinit = internal global %"class._ZTSNSt8ios_base4InitE.std::ios_base::Init" zeroinitializer, align 1
 @__dso_handle = external hidden global i8
 @var = dso_local local_unnamed_addr global i32 0, align 4
-@ptr = dso_local local_unnamed_addr global %class._ZTS4Base.Base* null, align 8, !intel_dtrans_type !0
+@ptr = dso_local local_unnamed_addr global ptr null, align 8, !intel_dtrans_type !0
 @_ZSt3cin = external dso_local global %"class._ZTSSi.std::basic_istream", align 8
 @_ZSt4cout = external dso_local global %"class._ZTSSo.std::basic_ostream", align 8
 @.str = private unnamed_addr constant [2 x i8] c"\0A\00", align 1
-@_ZTV8DerivedA = internal unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI8DerivedA to i8*), i8* bitcast (void (%class._ZTS8DerivedA.DerivedA*)* @_ZN8DerivedA3fooEv to i8*)] }, align 8, !type !1, !type !2, !type !3, !type !4, !intel_dtrans_type !5
-@_ZTVN10__cxxabiv120__si_class_type_infoE = external dso_local global i8*
+@_ZTV8DerivedA = internal unnamed_addr constant { [3 x ptr] } { [3 x ptr] [ptr null, ptr @_ZTI8DerivedA, ptr @_ZN8DerivedA3fooEv] }, align 8, !type !1, !type !2, !type !3, !type !4, !intel_dtrans_type !5
+@_ZTVN10__cxxabiv120__si_class_type_infoE = external dso_local global ptr
 @_ZTS8DerivedA = internal constant [10 x i8] c"8DerivedA\00", align 1
-@_ZTVN10__cxxabiv117__class_type_infoE = external dso_local global i8*
+@_ZTVN10__cxxabiv117__class_type_infoE = external dso_local global ptr
 @_ZTS4Base = internal constant [6 x i8] c"4Base\00", align 1
-@_ZTI4Base = internal constant { i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv117__class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @_ZTS4Base, i32 0, i32 0) }, align 8, !intel_dtrans_type !8
-@_ZTI8DerivedA = internal constant { i8*, i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @_ZTS8DerivedA, i32 0, i32 0), i8* bitcast ({ i8*, i8* }* @_ZTI4Base to i8*) }, align 8, !intel_dtrans_type !9
-@_ZTV8DerivedB = internal unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI8DerivedB to i8*), i8* bitcast (void (%class._ZTS8DerivedB.DerivedB*)* @_ZN8DerivedB3fooEv to i8*)] }, align 8, !type !1, !type !2, !type !10, !type !11, !intel_dtrans_type !5
+@_ZTI4Base = internal constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv117__class_type_infoE, i64 2), ptr @_ZTS4Base }, align 8, !intel_dtrans_type !8
+@_ZTI8DerivedA = internal constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2), ptr @_ZTS8DerivedA, ptr @_ZTI4Base }, align 8, !intel_dtrans_type !9
+@_ZTV8DerivedB = internal unnamed_addr constant { [3 x ptr] } { [3 x ptr] [ptr null, ptr @_ZTI8DerivedB, ptr @_ZN8DerivedB3fooEv] }, align 8, !type !1, !type !2, !type !10, !type !11, !intel_dtrans_type !5
 @_ZTS8DerivedB = internal constant [10 x i8] c"8DerivedB\00", align 1
-@_ZTI8DerivedB = internal constant { i8*, i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @_ZTS8DerivedB, i32 0, i32 0), i8* bitcast ({ i8*, i8* }* @_ZTI4Base to i8*) }, align 8, !intel_dtrans_type !9
+@_ZTI8DerivedB = internal constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2), ptr @_ZTS8DerivedB, ptr @_ZTI4Base }, align 8, !intel_dtrans_type !9
 
 ; Function Attrs: mustprogress noinline uwtable
-define internal void @_Z3barP4Base(%class._ZTS4Base.Base* "intel_dtrans_func_index"="1" %p) local_unnamed_addr #3 !intel.dtrans.func.type !77 {
+define internal void @_Z3barP4Base(ptr "intel_dtrans_func_index"="1" %p) local_unnamed_addr #0 !intel.dtrans.func.type !74 {
 entry:
-  %tmp = bitcast %class._ZTS4Base.Base* %p to %class._ZTS8DerivedB.DerivedB*
-
-  %tmp1 = bitcast %class._ZTS4Base.Base* %p to void (%class._ZTS8DerivedB.DerivedB*)***
-
-  %tmp2 = load void (%class._ZTS8DerivedB.DerivedB*)**, void (%class._ZTS8DerivedB.DerivedB*)*** %tmp1, align 8, !tbaa !78
-  %tmp3 = bitcast void (%class._ZTS8DerivedB.DerivedB*)** %tmp2 to i8*
-  %tmp4 = tail call i1 @llvm.type.test(i8* %tmp3, metadata !"_ZTS8DerivedB")
+  %tmp = bitcast ptr %p to ptr
+  %tmp1 = bitcast ptr %p to ptr
+  %tmp2 = load ptr, ptr %tmp1, align 8, !tbaa !75
+  %tmp3 = bitcast ptr %tmp2 to ptr
+  %tmp4 = tail call i1 @llvm.type.test(ptr %tmp3, metadata !"_ZTS8DerivedB")
   tail call void @llvm.assume(i1 %tmp4)
-  %tmp5 = load void (%class._ZTS8DerivedB.DerivedB*)*, void (%class._ZTS8DerivedB.DerivedB*)** %tmp2, align 8
-
-  tail call void %tmp5(%class._ZTS8DerivedB.DerivedB* nonnull align 8 dereferenceable(8) %tmp), !intel_dtrans_type !81
+  %tmp5 = load ptr, ptr %tmp2, align 8
+  tail call void %tmp5(ptr nonnull align 8 dereferenceable(8) %tmp), !intel_dtrans_type !78
   ret void
 }
 
-; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
-declare i1 @llvm.type.test(i8*, metadata) #6
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare i1 @llvm.type.test(ptr, metadata) #1
 
-; Function Attrs: inaccessiblememonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.assume(i1 noundef) #7
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite)
+declare void @llvm.assume(i1 noundef) #2
 
 ; Function Attrs: mustprogress noinline nounwind uwtable
-define internal void @_ZN8DerivedA3fooEv(%class._ZTS8DerivedA.DerivedA* nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" %this) unnamed_addr #11 align 2 !intel.dtrans.func.type !95 {
+define internal void @_ZN8DerivedA3fooEv(ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" %this) unnamed_addr #3 align 2 !intel.dtrans.func.type !80 {
 entry:
-  store i32 1, i32* @var, align 4, !tbaa !86
+  store i32 1, ptr @var, align 4, !tbaa !82
   ret void
 }
 
 ; Function Attrs: mustprogress noinline nounwind uwtable
-define internal void @_ZN8DerivedB3fooEv(%class._ZTS8DerivedB.DerivedB* nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" %this) unnamed_addr #11 align 2 !intel.dtrans.func.type !96 {
+define internal void @_ZN8DerivedB3fooEv(ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" %this) unnamed_addr #3 align 2 !intel.dtrans.func.type !85 {
 entry:
-  store i32 2, i32* @var, align 4, !tbaa !86
+  store i32 2, ptr @var, align 4, !tbaa !82
   ret void
 }
 
-attributes #0 = { nofree "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "intel-mempool-constructor" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "intel-mempool-destructor" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #2 = { nofree nounwind }
-attributes #3 = { mustprogress noinline uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #4 = { argmemonly mustprogress nofree nosync nounwind willreturn }
-attributes #5 = { nounwind }
-attributes #6 = { mustprogress nofree nosync nounwind readnone speculatable willreturn }
-attributes #7 = { inaccessiblememonly mustprogress nofree nosync nounwind willreturn }
-attributes #8 = { norecurse uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #9 = { nofree "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #10 = { nobuiltin allocsize(0) "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #11 = { mustprogress noinline nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #12 = { nofree uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #13 = { builtin allocsize(0) }
+attributes #0 = { mustprogress noinline uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #2 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite) }
+attributes #3 = { mustprogress noinline nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 !llvm.module.flags = !{!12, !13, !14, !15, !16}
 !intel.dtrans.types = !{!17, !19, !23, !25, !26, !29, !36, !42, !47, !48, !50, !53, !55, !56, !57, !58, !66, !70, !71, !72}
@@ -224,29 +205,17 @@ attributes #13 = { builtin allocsize(0) }
 !71 = !{!"S", %"class._ZTSSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE.std::num_put" zeroinitializer, i32 2, !59, !54}
 !72 = !{!"S", %"class._ZTSSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE.std::num_get" zeroinitializer, i32 2, !59, !54}
 !73 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!74 = distinct !{!75}
-!75 = !{%"class._ZTSNSt8ios_base4InitE.std::ios_base::Init" zeroinitializer, i32 1}
-!76 = distinct !{!75}
-!77 = distinct !{!0}
-!78 = !{!79, !79, i64 0}
-!79 = !{!"vtable pointer", !80, i64 0}
-!80 = !{!"Simple C++ TBAA"}
-!81 = !{!"F", i1 false, i32 1, !45, !82}
-!82 = !{%class._ZTS8DerivedB.DerivedB zeroinitializer, i32 1}
-!83 = distinct !{!0}
-!84 = !{!"F", i1 false, i32 1, !45, !85}
-!85 = !{%class._ZTS8DerivedA.DerivedA zeroinitializer, i32 1}
-!86 = !{!87, !87, i64 0}
-!87 = !{!"int", !88, i64 0}
-!88 = !{!"omnipotent char", !80, i64 0}
-!89 = !{!90, !90, i64 0}
-!90 = !{!"pointer@_ZTSP4Base", !88, i64 0}
-!91 = distinct !{!92, !92, !62}
-!92 = !{%"class._ZTSSi.std::basic_istream" zeroinitializer, i32 1}
-!93 = distinct !{!7}
-!94 = distinct !{!31, !31}
-!95 = distinct !{!85}
-!96 = distinct !{!82}
-!97 = distinct !{!31, !31, !7}
+!74 = distinct !{!0}
+!75 = !{!76, !76, i64 0}
+!76 = !{!"vtable pointer", !77, i64 0}
+!77 = !{!"Simple C++ TBAA"}
+!78 = !{!"F", i1 false, i32 1, !45, !79}
+!79 = !{%class._ZTS8DerivedB.DerivedB zeroinitializer, i32 1}
+!80 = distinct !{!81}
+!81 = !{%class._ZTS8DerivedA.DerivedA zeroinitializer, i32 1}
+!82 = !{!83, !83, i64 0}
+!83 = !{!"int", !84, i64 0}
+!84 = !{!"omnipotent char", !77, i64 0}
+!85 = distinct !{!79}
 
 ; end INTEL_FEATURE_SW_DTRANS

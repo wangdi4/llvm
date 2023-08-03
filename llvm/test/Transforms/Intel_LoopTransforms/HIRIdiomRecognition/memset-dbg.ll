@@ -1,17 +1,17 @@
 ; Check that line number of store is preserved after memset transform.
 
-; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:       BEGIN REGION { modified }
-; CHECK: :3>      @llvm.memset.p0i8.i32(&((i8*)(%a)[0]),  -1,  400,  0);
+; CHECK: :3>      @llvm.memset.p0.i32(&((i8*)(%a)[0]),  -1,  400,  0);
 ; CHECK:       END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* %a) !dbg !8 {
+define dso_local void @foo(ptr %a) !dbg !8 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %a, metadata !13, metadata !DIExpression()), !dbg !14
+  call void @llvm.dbg.value(metadata ptr %a, metadata !13, metadata !DIExpression()), !dbg !14
   call void @llvm.dbg.value(metadata i32 0, metadata !15, metadata !DIExpression()), !dbg !18
   br label %for.body, !dbg !19
 
@@ -19,8 +19,8 @@ for.body:                                         ; preds = %entry, %for.inc
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   call void @llvm.dbg.value(metadata i32 %i.01, metadata !15, metadata !DIExpression()), !dbg !18
   %idxprom = sext i32 %i.01 to i64, !dbg !20
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %idxprom, !dbg !20
-  store i32 -1, i32* %arrayidx, align 4, !dbg !22
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %idxprom, !dbg !20
+  store i32 -1, ptr %arrayidx, align 4, !dbg !22
   br label %for.inc, !dbg !20
 
 for.inc:                                          ; preds = %for.body

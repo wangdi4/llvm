@@ -47,10 +47,10 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %mul = shl nsw i64 %j.018, 1
   %add = add nuw nsw i64 %mul, %i.019
   %sub = add nsw i64 %add, -1
-  %arrayidx = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %sub
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx6 = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %add
-  store i32 %0, i32* %arrayidx6, align 4
+  %arrayidx = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %sub
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx6 = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %add
+  store i32 %0, ptr %arrayidx6, align 4
   %inc = add nuw nsw i64 %j.018, 1
   %exitcond = icmp eq i64 %inc, 5
   br i1 %exitcond, label %for.inc7, label %for.body3
@@ -65,7 +65,7 @@ for.end9:                                         ; preds = %for.inc7
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)

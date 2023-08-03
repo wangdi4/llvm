@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu %s \
 // RUN:   | FileCheck %s --check-prefix=CHECK
 

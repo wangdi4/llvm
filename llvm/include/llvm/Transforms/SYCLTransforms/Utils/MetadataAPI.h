@@ -56,6 +56,7 @@ struct KernelMetadataAPI {
       ArgBaseTypeListTy;
   typedef NamedMDList<std::string, MDValueGlobalObjectStrategy>
       ArgIOAttributeListTy;
+  typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> ArgAddrSpaceTy;
 
   // optional attributes
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> WorkGroupSizeHintTy;
@@ -72,6 +73,7 @@ struct KernelMetadataAPI {
   KernelMetadataAPI(llvm::Function *Func)
       : ArgBaseTypeList(Func, "kernel_arg_base_type"),
         ArgIOAttributeList(Func, "kernel_arg_pipe_io"),
+        ArgAddrSpaceList(Func, "kernel_arg_addr_space"),
 
         WorkGroupSizeHint(Func, "work_group_size_hint"),
         ReqdWorkGroupSize(Func, "reqd_work_group_size"),
@@ -86,6 +88,7 @@ struct KernelMetadataAPI {
   // required attributes
   ArgBaseTypeListTy ArgBaseTypeList;
   ArgIOAttributeListTy ArgIOAttributeList;
+  ArgAddrSpaceTy ArgAddrSpaceList;
 
   // optional attributes
   WorkgroupSizeMDAccessor<WorkGroupSizeHintTy> WorkGroupSizeHint;
@@ -162,6 +165,8 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> UseFPGAPipesTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy>
       SubGroupConstructionModeTy;
+  typedef NamedMDList<llvm::Constant, MDValueGlobalObjectStrategy>
+      ArgTypeNullValListTy;
 
   KernelInternalMetadataAPI(llvm::Function *Func)
       : LocalBufferSize(Func, "local_buffer_size"),
@@ -184,7 +189,8 @@ struct KernelInternalMetadataAPI {
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarKernel(Func, "scalar_kernel"),
         UseFPGAPipes(Func, "use_fpga_pipes"),
-        SubGroupConstructionMode(Func, "sg_construction_mode") {}
+        SubGroupConstructionMode(Func, "sg_construction_mode"),
+        ArgTypeNullValList(Func, "arg_type_null_val") {}
 
   // internal attributes
   NamedMDValueAccessor<LocalBufferSizeTy> LocalBufferSize;
@@ -208,6 +214,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarKernel;
   NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;
   NamedMDValueAccessor<SubGroupConstructionModeTy> SubGroupConstructionMode;
+  ArgTypeNullValListTy ArgTypeNullValList;
 
 public:
   const llvm::SmallVectorImpl<llvm::StringRef> &getMDNames() const {
@@ -223,7 +230,8 @@ public:
           CanUniteWorkgroups.getID(),     VectorizedKernel.getID(),
           VectorizedMaskedKernel.getID(), KernelWrapper.getID(),
           ScalarKernel.getID(),           UseFPGAPipes.getID(),
-          HasMatrixCall.getID(),          SubGroupConstructionMode.getID()};
+          HasMatrixCall.getID(),          SubGroupConstructionMode.getID(),
+          ArgTypeNullValList.getID()};
     }
     return MDNames;
   }

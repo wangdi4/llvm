@@ -2247,10 +2247,9 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:  Cost Model for Loop postexit [[BB6]] : [[BB7]] for VF = 1 resulted Cost = 0
 ;
 ; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_total_cost_branch_probabilities':
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[COND_INST0:%.*]] = xor i1 [[COND0:%.*]], true
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY0:%.*]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[UNI_PHI0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[ARR_I32_2_ARR_I32_10:%.*]] = select i1 [[COND0]], [1024 x i32]* @arr.i32.2, [1024 x i32]* @arr.i32.1
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[ARR_I32_2_ARR_I32_10:%.*]] = select i1 [[COND0:%.*]], [1024 x i32]* @arr.i32.2, [1024 x i32]* @arr.i32.1
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[VEC_PHI8_IN_IN0:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[ARR_I32_2_ARR_I32_10]], i64 0, i64 [[UNI_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[VEC_PHI8_IN0:%.*]] = bitcast i32* [[VEC_PHI8_IN_IN0]] to <4 x i32>*
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[VEC_PHI80:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_PHI8_IN0]], align 16

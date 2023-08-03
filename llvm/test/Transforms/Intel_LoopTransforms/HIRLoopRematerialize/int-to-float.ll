@@ -19,13 +19,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable writeonly
-define dso_local void @set(double* nocapture %knobs) local_unnamed_addr #0 {
+define dso_local void @set(ptr nocapture %knobs) local_unnamed_addr #0 {
 entry:
-  store double 1.000000e+01, double* %knobs, align 8, !tbaa !2
-  %arrayidx1 = getelementptr inbounds double, double* %knobs, i64 1
-  store double 1.000000e+01, double* %arrayidx1, align 8, !tbaa !2
-  %arrayidx2 = getelementptr inbounds double, double* %knobs, i64 2
-  store double 1.000000e+00, double* %arrayidx2, align 8, !tbaa !2
+  store double 1.000000e+01, ptr %knobs, align 8, !tbaa !2
+  %arrayidx1 = getelementptr inbounds double, ptr %knobs, i64 1
+  store double 1.000000e+01, ptr %arrayidx1, align 8, !tbaa !2
+  %arrayidx2 = getelementptr inbounds double, ptr %knobs, i64 2
+  store double 1.000000e+00, ptr %arrayidx2, align 8, !tbaa !2
   ret void
 }
 

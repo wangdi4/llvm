@@ -48,6 +48,12 @@ void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
   int64_t Imm = MI->getOperand(Op).getImm();
   bool Flavor = MI->getOpcode() == X86::CMPCCXADDmr32 ||
                 MI->getOpcode() == X86::CMPCCXADDmr64;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool IsCCMPOrCTEST =
+      X86::isCCMPCC(MI->getOpcode()) || X86::isCTESTCC(MI->getOpcode());
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   switch (Imm) {
   default: llvm_unreachable("Invalid condcode argument!");
   case    0: O << "o";  break;
@@ -60,14 +66,46 @@ void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
   case    7: O << (Flavor ? "nbe" : "a"); break;
   case    8: O << "s";  break;
   case    9: O << "ns"; break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case  0xa: O << (IsCCMPOrCTEST ? "t" : "p");  break;
+  case  0xb: O << (IsCCMPOrCTEST ? "f" : "np"); break;
+#else  // INTEL_FEATURE_ISA_APX_F
   case  0xa: O << "p";  break;
   case  0xb: O << "np"; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case  0xc: O << "l";  break;
   case  0xd: O << (Flavor ? "nl" : "ge"); break;
   case  0xe: O << "le"; break;
   case  0xf: O << (Flavor ? "nle" : "g"); break;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+void X86InstPrinterCommon::printCondFlags(const MCInst *MI, unsigned Op,
+                                          raw_ostream &O) {
+  // +----+----+----+----+
+  // | OF | SF | ZF | CF |
+  // +----+----+----+----+
+  int64_t Imm = MI->getOperand(Op).getImm();
+  assert(Imm >= 0 && Imm < 16 && "Invalid condition flags");
+  O << "{";
+  std::string Flags;
+  if (Imm & 0x8)
+    Flags += "of,";
+  if (Imm & 0x4)
+    Flags += "sf,";
+  if (Imm & 0x2)
+    Flags += "zf,";
+  if (Imm & 0x1)
+    Flags += "cf,";
+  StringRef SimplifiedFlags = StringRef(Flags).rtrim(",");
+  O << SimplifiedFlags << "}";
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 void X86InstPrinterCommon::printSSEAVXCC(const MCInst *MI, unsigned Op,
                                          raw_ostream &O) {
@@ -404,7 +442,7 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
     O << "\trep\t";
 
 #if INTEL_FEATURE_ISA_APX_F
-  if (TSFlags & X86II::EVEX_NF)
+  if (TSFlags & X86II::EVEX_NF && !X86::isCFCMOVCC(MI->getOpcode()))
     O << "\t{nf}";
 #endif // INTEL_FEATURE_ISA_APX_F
 

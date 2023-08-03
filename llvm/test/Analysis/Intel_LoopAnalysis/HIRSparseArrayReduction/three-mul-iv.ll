@@ -37,15 +37,15 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = add nuw nsw i64 %indvars.iv, %n
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4
   %idxprom3 = sext i32 %1 to i64
-  %arrayidx4 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %idxprom3
-  %3 = load float, float* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %idxprom3
+  %3 = load float, ptr %arrayidx4, align 4
   %add = fadd float %2, %3
-  store float %add, float* %arrayidx4, align 4
+  store float %add, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

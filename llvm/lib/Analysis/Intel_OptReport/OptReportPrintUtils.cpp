@@ -41,7 +41,7 @@ static const unsigned IntentationStep = 4;
 //                 Add unit tests for this function.
 std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
   std::string FormatString;
-  if (RemarkID == OptReportDiag::InvalidRemarkID) {
+  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID)) {
     // Valid remark ID was not provided, format string is obtained from metadata
     // operands (2nd operand).
     // TODO: Remove this code when all remarks have valid IDs i.e. legacy
@@ -144,10 +144,8 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   FOS.indent(IntentationStep * Depth);
   std::string RemarkPrefixStr;
-  const ConstantAsMetadata *CRemarkID =
-      cast<ConstantAsMetadata>(Remark.getOperand(0));
-  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
-  if (RemarkID == OptReportDiag::InvalidRemarkID)
+  unsigned RemarkID = Remark.getRemarkID();
+  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID))
     RemarkPrefixStr = "remark: ";
   else
     RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
@@ -158,9 +156,7 @@ void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   FOS.indent(IntentationStep * Depth);
-  const ConstantAsMetadata *CRemarkID =
-      cast<ConstantAsMetadata>(Origin.getOperand(0));
-  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
+  unsigned RemarkID = Origin.getRemarkID();
   FOS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
 }
 

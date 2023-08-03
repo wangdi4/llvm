@@ -44,63 +44,6 @@ class WIRelatedValue;
 ///   i_copy = id_copy * 10;
 ///   ... b[i_copy] ...
 ///
-/// The algorithm is described as follows.
-///
-/// Assumption
-/// ==========
-/// All barriers must be at the beginning of basic blocks. This is already done
-/// by SplitBBonBarrier pass.
-///
-/// Terms
-/// =====
-/// - Sync basic block
-///   A sync basic block (Sync BB) is a basic block who contains a barrier or a
-///   dummy barrier. And the barrier is the first instruction of the basic
-///   block according to the assumption above.
-///
-/// - Barrier region header
-///   A basic block is a barrier region header iff it's
-///     1) the entry block of a function, or
-///     2) a sync BB, or
-///     3) a dominance frontier of another region header.
-///
-/// - Barrier region
-///   A barrier region starts with a region header, and contains a set of basic
-///   blocks. A basic block (not a header) belongs to a barrier region iff its
-///   idom
-///     1) is the region header, or
-///     2) belongs to the region.
-///
-/// Example
-/// =======
-/// Given a CFG as follows,
-///
-///       A
-///   ,.-'|
-///  |   *B
-///  |   / \
-///  |  C   D-.
-///  |  |   |  | (backedge from F to D)
-///  | *E  *F-'
-///  |   \ /
-///  |    G
-///   `.  |
-///     '-H
-///       |
-///      *I
-///   (Blocks with * are sync BBs, i.e.,
-///    block B, E, F and I start with barrier.)
-///
-/// barrier region headers are
-///  - A (entry block)
-///  - B, E, F, I (sync BB)
-///  - D (dominance frontier of F)
-///  - G (dominance frontier of A)
-///  - H (dominance frontier of G)
-///
-/// so there are 8 barrier regions in total:
-///  {A}, {B C}, {D}, {E}, {F}, {G}, {H} and {I}
-///
 /// Notes
 /// =====
 /// The reason to construct barrier region is to share a same copy of a def

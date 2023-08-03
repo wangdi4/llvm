@@ -62,8 +62,8 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc17
   %indvars.iv58 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next59, %for.inc17 ]
   %k.050 = phi i32 [ undef, %for.body.lr.ph ], [ %k.1.lcssa, %for.inc17 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv58, !intel-tbaa !3
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv58, !intel-tbaa !3
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   br i1 %cmp245, label %for.cond4.preheader.lr.ph, label %for.inc17
 
 for.cond4.preheader.lr.ph:                        ; preds = %for.body
@@ -82,9 +82,9 @@ for.body6.lr.ph:                                  ; preds = %for.cond4.preheader
 for.body6:                                        ; preds = %for.body6.lr.ph, %for.body6
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
   %2 = add nuw nsw i64 %1, %indvars.iv
-  %arrayidx13 = getelementptr inbounds [100 x [100 x [3 x i32]]], [100 x [100 x [3 x i32]]]* @a, i64 0, i64 %indvars.iv58, i64 %indvars.iv53, i64 %indvars.iv, !intel-tbaa !8
+  %arrayidx13 = getelementptr inbounds [100 x [100 x [3 x i32]]], ptr @a, i64 0, i64 %indvars.iv58, i64 %indvars.iv53, i64 %indvars.iv, !intel-tbaa !8
   %3 = trunc i64 %2 to i32
-  store i32 %3, i32* %arrayidx13, align 4, !tbaa !8
+  store i32 %3, ptr %arrayidx13, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.inc14.loopexit, label %for.body6, !llvm.loop !12
@@ -117,8 +117,8 @@ for.end19:                                        ; preds = %for.end19.loopexit,
   %idxprom20 = sext i32 %sub to i64
   %sub22 = sub nsw i32 %l, %n
   %idxprom23 = sext i32 %sub22 to i64
-  %arrayidx25 = getelementptr inbounds [100 x [100 x [3 x i32]]], [100 x [100 x [3 x i32]]]* @a, i64 0, i64 %idxprom20, i64 %idxprom23, i64 2, !intel-tbaa !8
-  %4 = load i32, i32* %arrayidx25, align 4, !tbaa !8
+  %arrayidx25 = getelementptr inbounds [100 x [100 x [3 x i32]]], ptr @a, i64 0, i64 %idxprom20, i64 %idxprom23, i64 2, !intel-tbaa !8
+  %4 = load i32, ptr %arrayidx25, align 4, !tbaa !8
   ret i32 %4
 }
 

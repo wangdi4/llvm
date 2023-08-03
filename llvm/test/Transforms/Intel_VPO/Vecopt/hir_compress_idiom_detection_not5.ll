@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @c = dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local noundef i32 @_Z3fooPiiS_(i32* nocapture noundef writeonly %f, i32 noundef %n, i32* nocapture noundef readonly %a) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3fooPiiS_(ptr nocapture noundef writeonly %f, i32 noundef %n, ptr nocapture noundef readonly %a) local_unnamed_addr #0 {
 entry:
   %wide.trip.count = zext i32 %n to i64
   br label %for.body
@@ -37,15 +37,15 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %k.016 = phi i32 [ 0, %entry ], [ %k.0, %for.inc ]
   %add = add nsw i32 %k.016, 2
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %idxprom3 = sext i32 %add to i64
-  %arrayidx4 = getelementptr inbounds i32, i32* %f, i64 %idxprom3
-  store i32 %0, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %f, i64 %idxprom3
+  store i32 %0, ptr %arrayidx4, align 4
   %inc = add nsw i32 %add, 1
   br label %for.inc
 

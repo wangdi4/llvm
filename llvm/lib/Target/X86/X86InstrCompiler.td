@@ -346,6 +346,18 @@ let Predicates = [OptForSize, Not64BitMode],
   def : Pat<(i16 -1), (EXTRACT_SUBREG (MOV32r_1), sub_16bit)>;
 }
 
+// INTEL_CUSTOMIZATION
+let Predicates = [IntelAdvOpt], AddedComplexity = 1 in {
+  let SchedRW = [WriteMove], isReMaterializable = 1, isPseudo = 1 in {
+    def MOV32ri16 : I<0, Pseudo, (outs GR32:$dst), (ins i16imm:$src), "", []>;
+    def MOV32ri8  : I<0, Pseudo, (outs GR32:$dst), (ins i8imm:$src),  "", []>;
+  } // SchedRW
+
+  def : Pat<(i16 imm:$src), (EXTRACT_SUBREG (MOV32ri16 imm:$src), sub_16bit)>;
+  def : Pat<(i8 imm:$src), (EXTRACT_SUBREG (MOV32ri8 imm:$src), sub_8bit)>;
+}
+// end INTEL_CUSTOMIZATION
+
 let isReMaterializable = 1, isPseudo = 1, AddedComplexity = 5,
     SchedRW = [WriteALU] in {
 // AddedComplexity higher than MOV64ri but lower than MOV32r0 and MOV32r1.
@@ -1296,12 +1308,12 @@ def : Pat<(f64 (bitconvert (i64 (atomic_load_64 addr:$src)))),
 // binary size compared to a regular MOV, but it introduces an unnecessary
 // load, so is not suitable for regular or optsize functions.
 let Predicates = [OptForMinSize] in {
-def : Pat<(simple_store (i16 0), addr:$dst), (AND16mi8 addr:$dst, 0)>;
-def : Pat<(simple_store (i32 0), addr:$dst), (AND32mi8 addr:$dst, 0)>;
-def : Pat<(simple_store (i64 0), addr:$dst), (AND64mi8 addr:$dst, 0)>;
-def : Pat<(simple_store (i16 -1), addr:$dst), (OR16mi8 addr:$dst, -1)>;
-def : Pat<(simple_store (i32 -1), addr:$dst), (OR32mi8 addr:$dst, -1)>;
-def : Pat<(simple_store (i64 -1), addr:$dst), (OR64mi8 addr:$dst, -1)>;
+def : Pat<(simple_store (i16 0), addr:$dst), (AND16mi addr:$dst, 0)>;
+def : Pat<(simple_store (i32 0), addr:$dst), (AND32mi addr:$dst, 0)>;
+def : Pat<(simple_store (i64 0), addr:$dst), (AND64mi32 addr:$dst, 0)>;
+def : Pat<(simple_store (i16 -1), addr:$dst), (OR16mi addr:$dst, -1)>;
+def : Pat<(simple_store (i32 -1), addr:$dst), (OR32mi addr:$dst, -1)>;
+def : Pat<(simple_store (i64 -1), addr:$dst), (OR64mi32 addr:$dst, -1)>;
 }
 
 // In kernel code model, we can get the address of a label
@@ -1597,35 +1609,16 @@ def ADD64rr_DB  : I<0, Pseudo, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2),
                     [(set GR64:$dst, (or_is_add GR64:$src1, GR64:$src2))]>;
 } // isCommutable
 
-// NOTE: These are order specific, we want the ri8 forms to be listed
-// first so that they are slightly preferred to the ri forms.
-
 def ADD8ri_DB :   I<0, Pseudo,
                     (outs GR8:$dst), (ins GR8:$src1, i8imm:$src2),
                     "", // orb/addb REG, imm8
                     [(set GR8:$dst, (or_is_add GR8:$src1, imm:$src2))]>;
-def ADD16ri8_DB : I<0, Pseudo,
-                    (outs GR16:$dst), (ins GR16:$src1, i16i8imm:$src2),
-                    "", // orw/addw REG, imm8
-                    [(set GR16:$dst,(or_is_add GR16:$src1,i16immSExt8:$src2))]>;
 def ADD16ri_DB  : I<0, Pseudo, (outs GR16:$dst), (ins GR16:$src1, i16imm:$src2),
                     "", // orw/addw REG, imm
                     [(set GR16:$dst, (or_is_add GR16:$src1, imm:$src2))]>;
-
-def ADD32ri8_DB : I<0, Pseudo,
-                    (outs GR32:$dst), (ins GR32:$src1, i32i8imm:$src2),
-                    "", // orl/addl REG, imm8
-                    [(set GR32:$dst,(or_is_add GR32:$src1,i32immSExt8:$src2))]>;
 def ADD32ri_DB  : I<0, Pseudo, (outs GR32:$dst), (ins GR32:$src1, i32imm:$src2),
                     "", // orl/addl REG, imm
                     [(set GR32:$dst, (or_is_add GR32:$src1, imm:$src2))]>;
-
-
-def ADD64ri8_DB : I<0, Pseudo,
-                    (outs GR64:$dst), (ins GR64:$src1, i64i8imm:$src2),
-                    "", // orq/addq REG, imm8
-                    [(set GR64:$dst, (or_is_add GR64:$src1,
-                                                i64immSExt8:$src2))]>;
 def ADD64ri32_DB : I<0, Pseudo,
                      (outs GR64:$dst), (ins GR64:$src1, i64i32imm:$src2),
                      "", // orq/addq REG, imm
@@ -1656,26 +1649,26 @@ def : Pat<(xor GR32:$src1, -2147483648),
 // Odd encoding trick: -128 fits into an 8-bit immediate field while
 // +128 doesn't, so in this special case use a sub instead of an add.
 def : Pat<(add GR16:$src1, 128),
-          (SUB16ri8 GR16:$src1, -128)>;
+          (SUB16ri GR16:$src1, -128)>;
 def : Pat<(store (add (loadi16 addr:$dst), 128), addr:$dst),
-          (SUB16mi8 addr:$dst, -128)>;
+          (SUB16mi addr:$dst, -128)>;
 
 def : Pat<(add GR32:$src1, 128),
-          (SUB32ri8 GR32:$src1, -128)>;
+          (SUB32ri GR32:$src1, -128)>;
 def : Pat<(store (add (loadi32 addr:$dst), 128), addr:$dst),
-          (SUB32mi8 addr:$dst, -128)>;
+          (SUB32mi addr:$dst, -128)>;
 
 def : Pat<(add GR64:$src1, 128),
-          (SUB64ri8 GR64:$src1, -128)>;
+          (SUB64ri32 GR64:$src1, -128)>;
 def : Pat<(store (add (loadi64 addr:$dst), 128), addr:$dst),
-          (SUB64mi8 addr:$dst, -128)>;
+          (SUB64mi32 addr:$dst, -128)>;
 
 def : Pat<(X86add_flag_nocf GR16:$src1, 128),
-          (SUB16ri8 GR16:$src1, -128)>;
+          (SUB16ri GR16:$src1, -128)>;
 def : Pat<(X86add_flag_nocf GR32:$src1, 128),
-          (SUB32ri8 GR32:$src1, -128)>;
+          (SUB32ri GR32:$src1, -128)>;
 def : Pat<(X86add_flag_nocf GR64:$src1, 128),
-          (SUB64ri8 GR64:$src1, -128)>;
+          (SUB64ri32 GR64:$src1, -128)>;
 
 // The same trick applies for 32-bit immediate fields in 64-bit
 // instructions.
@@ -1683,7 +1676,6 @@ def : Pat<(add GR64:$src1, 0x0000000080000000),
           (SUB64ri32 GR64:$src1, 0xffffffff80000000)>;
 def : Pat<(store (add (loadi64 addr:$dst), 0x0000000080000000), addr:$dst),
           (SUB64mi32 addr:$dst, 0xffffffff80000000)>;
-
 def : Pat<(X86add_flag_nocf GR64:$src1, 0x0000000080000000),
           (SUB64ri32 GR64:$src1, 0xffffffff80000000)>;
 
@@ -1695,15 +1687,12 @@ def : Pat<(X86add_flag_nocf GR64:$src1, 0x0000000080000000),
 // prefix.
 
 // AddedComplexity is needed to give priority over i64immSExt8 and i64immSExt32.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 let AddedComplexity = 1 in {
-def : Pat<(and GR64:$src, i64immZExt32SExt8:$imm),
-          (SUBREG_TO_REG
-            (i64 0),
-            (AND32ri8
-              (EXTRACT_SUBREG GR64:$src, sub_32bit),
-              (i32 (GetLo32XForm imm:$imm))),
-            sub_32bit)>;
-
 def : Pat<(and GR64:$src, i64immZExt32:$imm),
           (SUBREG_TO_REG
             (i64 0),
@@ -1712,6 +1701,20 @@ def : Pat<(and GR64:$src, i64immZExt32:$imm),
               (i32 (GetLo32XForm imm:$imm))),
             sub_32bit)>;
 } // AddedComplexity = 1
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+let Predicates = [HasNDD], AddedComplexity = 1 in {
+def : Pat<(and GR64:$src, i64immZExt32:$imm),
+          (SUBREG_TO_REG
+            (i64 0),
+            (AND32ri_ND
+              (EXTRACT_SUBREG GR64:$src, sub_32bit),
+              (i32 (GetLo32XForm imm:$imm))),
+            sub_32bit)>;
+} // Predicates, AddedComplexity = 1
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 
 // AddedComplexity is needed due to the increased complexity on the
@@ -1916,10 +1919,26 @@ def : Pat<(X86xor_flag (i8 (trunc GR32:$src)),
 // where the least significant bit is not 0. However, the probability of this
 // happening is considered low enough that this is officially not a
 // "real problem".
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasNDD] in {
+def : Pat<(shl GR8 :$src1, (i8 1)), (ADD8rr_ND  GR8 :$src1, GR8 :$src1)>;
+def : Pat<(shl GR16:$src1, (i8 1)), (ADD16rr_ND GR16:$src1, GR16:$src1)>;
+def : Pat<(shl GR32:$src1, (i8 1)), (ADD32rr_ND GR32:$src1, GR32:$src1)>;
+def : Pat<(shl GR64:$src1, (i8 1)), (ADD64rr_ND GR64:$src1, GR64:$src1)>;
+}
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(shl GR8 :$src1, (i8 1)), (ADD8rr  GR8 :$src1, GR8 :$src1)>;
 def : Pat<(shl GR16:$src1, (i8 1)), (ADD16rr GR16:$src1, GR16:$src1)>;
 def : Pat<(shl GR32:$src1, (i8 1)), (ADD32rr GR32:$src1, GR32:$src1)>;
 def : Pat<(shl GR64:$src1, (i8 1)), (ADD64rr GR64:$src1, GR64:$src1)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 def shiftMask8 : PatFrag<(ops node:$lhs), (and node:$lhs, imm), [{
   return isUnneededShiftMask(N, 3);
@@ -2107,7 +2126,11 @@ defm : one_bit_patterns<GR64, i64, BTR64rr, BTS64rr, BTC64rr, shiftMask64>;
 //===----------------------------------------------------------------------===//
 // EFLAGS-defining Patterns
 //===----------------------------------------------------------------------===//
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // add reg, reg
 def : Pat<(add GR8 :$src1, GR8 :$src2), (ADD8rr  GR8 :$src1, GR8 :$src2)>;
 def : Pat<(add GR16:$src1, GR16:$src2), (ADD16rr GR16:$src1, GR16:$src2)>;
@@ -2128,14 +2151,7 @@ def : Pat<(add GR64:$src1, (loadi64 addr:$src2)),
 def : Pat<(add GR8 :$src1, imm:$src2), (ADD8ri  GR8:$src1 , imm:$src2)>;
 def : Pat<(add GR16:$src1, imm:$src2), (ADD16ri GR16:$src1, imm:$src2)>;
 def : Pat<(add GR32:$src1, imm:$src2), (ADD32ri GR32:$src1, imm:$src2)>;
-def : Pat<(add GR16:$src1, i16immSExt8:$src2),
-          (ADD16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(add GR32:$src1, i32immSExt8:$src2),
-          (ADD32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(add GR64:$src1, i64immSExt8:$src2),
-          (ADD64ri8 GR64:$src1, i64immSExt8:$src2)>;
-def : Pat<(add GR64:$src1, i64immSExt32:$src2),
-          (ADD64ri32 GR64:$src1, i64immSExt32:$src2)>;
+def : Pat<(add GR64:$src1, i64immSExt32:$src2), (ADD64ri32 GR64:$src1, i64immSExt32:$src2)>;
 
 // sub reg, reg
 def : Pat<(sub GR8 :$src1, GR8 :$src2), (SUB8rr  GR8 :$src1, GR8 :$src2)>;
@@ -2160,20 +2176,9 @@ def : Pat<(sub GR16:$src1, imm:$src2),
           (SUB16ri GR16:$src1, imm:$src2)>;
 def : Pat<(sub GR32:$src1, imm:$src2),
           (SUB32ri GR32:$src1, imm:$src2)>;
-def : Pat<(sub GR16:$src1, i16immSExt8:$src2),
-          (SUB16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(sub GR32:$src1, i32immSExt8:$src2),
-          (SUB32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(sub GR64:$src1, i64immSExt8:$src2),
-          (SUB64ri8 GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(sub GR64:$src1, i64immSExt32:$src2),
           (SUB64ri32 GR64:$src1, i64immSExt32:$src2)>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-let Predicates = [NoNDD] in {
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 // sub 0, reg
 def : Pat<(X86sub_flag 0, GR8 :$src), (NEG8r  GR8 :$src)>;
 def : Pat<(X86sub_flag 0, GR16:$src), (NEG16r GR16:$src)>;
@@ -2200,6 +2205,56 @@ def : Pat<(mul GR64:$src1, (loadi64 addr:$src2)),
 }
 
 let Predicates = [HasNDD] in {
+
+// add reg, reg
+def : Pat<(add GR8 :$src1, GR8 :$src2), (ADD8rr_ND  GR8 :$src1, GR8 :$src2)>;
+def : Pat<(add GR16:$src1, GR16:$src2), (ADD16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(add GR32:$src1, GR32:$src2), (ADD32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(add GR64:$src1, GR64:$src2), (ADD64rr_ND GR64:$src1, GR64:$src2)>;
+
+// add reg, mem
+def : Pat<(add GR8:$src1, (loadi8 addr:$src2)),
+          (ADD8rm_ND GR8:$src1, addr:$src2)>;
+def : Pat<(add GR16:$src1, (loadi16 addr:$src2)),
+          (ADD16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(add GR32:$src1, (loadi32 addr:$src2)),
+          (ADD32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(add GR64:$src1, (loadi64 addr:$src2)),
+          (ADD64rm_ND GR64:$src1, addr:$src2)>;
+
+// add reg, imm
+def : Pat<(add GR8 :$src1, imm:$src2), (ADD8ri_ND  GR8:$src1 , imm:$src2)>;
+def : Pat<(add GR16:$src1, imm:$src2), (ADD16ri_ND GR16:$src1, imm:$src2)>;
+def : Pat<(add GR32:$src1, imm:$src2), (ADD32ri_ND GR32:$src1, imm:$src2)>;
+def : Pat<(add GR64:$src1, i64immSExt32:$src2),
+          (ADD64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
+
+// sub reg, reg
+def : Pat<(sub GR8 :$src1, GR8 :$src2), (SUB8rr_ND  GR8 :$src1, GR8 :$src2)>;
+def : Pat<(sub GR16:$src1, GR16:$src2), (SUB16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(sub GR32:$src1, GR32:$src2), (SUB32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(sub GR64:$src1, GR64:$src2), (SUB64rr_ND GR64:$src1, GR64:$src2)>;
+
+// sub reg, mem
+def : Pat<(sub GR8:$src1, (loadi8 addr:$src2)),
+          (SUB8rm_ND GR8:$src1, addr:$src2)>;
+def : Pat<(sub GR16:$src1, (loadi16 addr:$src2)),
+          (SUB16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(sub GR32:$src1, (loadi32 addr:$src2)),
+          (SUB32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(sub GR64:$src1, (loadi64 addr:$src2)),
+          (SUB64rm_ND GR64:$src1, addr:$src2)>;
+
+// sub reg, imm
+def : Pat<(sub GR8:$src1, imm:$src2),
+          (SUB8ri_ND GR8:$src1, imm:$src2)>;
+def : Pat<(sub GR16:$src1, imm:$src2),
+          (SUB16ri_ND GR16:$src1, imm:$src2)>;
+def : Pat<(sub GR32:$src1, imm:$src2),
+          (SUB32ri_ND GR32:$src1, imm:$src2)>;
+def : Pat<(sub GR64:$src1, i64immSExt32:$src2),
+          (SUB64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
+
 def : Pat<(X86sub_flag 0, GR8 :$src), (NEG8r_ND  GR8 :$src)>;
 def : Pat<(X86sub_flag 0, GR16:$src), (NEG16r_ND GR16:$src)>;
 def : Pat<(X86sub_flag 0, GR32:$src), (NEG32r_ND GR32:$src)>;
@@ -2228,12 +2283,6 @@ def : Pat<(mul GR16:$src1, imm:$src2),
           (IMUL16rri GR16:$src1, imm:$src2)>;
 def : Pat<(mul GR32:$src1, imm:$src2),
           (IMUL32rri GR32:$src1, imm:$src2)>;
-def : Pat<(mul GR16:$src1, i16immSExt8:$src2),
-          (IMUL16rri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(mul GR32:$src1, i32immSExt8:$src2),
-          (IMUL32rri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(mul GR64:$src1, i64immSExt8:$src2),
-          (IMUL64rri8 GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(mul GR64:$src1, i64immSExt32:$src2),
           (IMUL64rri32 GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2242,12 +2291,6 @@ def : Pat<(mul (loadi16 addr:$src1), imm:$src2),
           (IMUL16rmi addr:$src1, imm:$src2)>;
 def : Pat<(mul (loadi32 addr:$src1), imm:$src2),
           (IMUL32rmi addr:$src1, imm:$src2)>;
-def : Pat<(mul (loadi16 addr:$src1), i16immSExt8:$src2),
-          (IMUL16rmi8 addr:$src1, i16immSExt8:$src2)>;
-def : Pat<(mul (loadi32 addr:$src1), i32immSExt8:$src2),
-          (IMUL32rmi8 addr:$src1, i32immSExt8:$src2)>;
-def : Pat<(mul (loadi64 addr:$src1), i64immSExt8:$src2),
-          (IMUL64rmi8 addr:$src1, i64immSExt8:$src2)>;
 def : Pat<(mul (loadi64 addr:$src1), i64immSExt32:$src2),
           (IMUL64rmi32 addr:$src1, i64immSExt32:$src2)>;
 
@@ -2303,6 +2346,11 @@ let Predicates = [UseIncDec, HasNDD] in {
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // or reg/reg.
 def : Pat<(or GR8 :$src1, GR8 :$src2), (OR8rr  GR8 :$src1, GR8 :$src2)>;
 def : Pat<(or GR16:$src1, GR16:$src2), (OR16rr GR16:$src1, GR16:$src2)>;
@@ -2323,12 +2371,6 @@ def : Pat<(or GR64:$src1, (loadi64 addr:$src2)),
 def : Pat<(or GR8:$src1 , imm:$src2), (OR8ri  GR8 :$src1, imm:$src2)>;
 def : Pat<(or GR16:$src1, imm:$src2), (OR16ri GR16:$src1, imm:$src2)>;
 def : Pat<(or GR32:$src1, imm:$src2), (OR32ri GR32:$src1, imm:$src2)>;
-def : Pat<(or GR16:$src1, i16immSExt8:$src2),
-          (OR16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(or GR32:$src1, i32immSExt8:$src2),
-          (OR32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(or GR64:$src1, i64immSExt8:$src2),
-          (OR64ri8 GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(or GR64:$src1, i64immSExt32:$src2),
           (OR64ri32 GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2355,12 +2397,6 @@ def : Pat<(xor GR16:$src1, imm:$src2),
           (XOR16ri GR16:$src1, imm:$src2)>;
 def : Pat<(xor GR32:$src1, imm:$src2),
           (XOR32ri GR32:$src1, imm:$src2)>;
-def : Pat<(xor GR16:$src1, i16immSExt8:$src2),
-          (XOR16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(xor GR32:$src1, i32immSExt8:$src2),
-          (XOR32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(xor GR64:$src1, i64immSExt8:$src2),
-          (XOR64ri8 GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(xor GR64:$src1, i64immSExt32:$src2),
           (XOR64ri32 GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2387,14 +2423,90 @@ def : Pat<(and GR16:$src1, imm:$src2),
           (AND16ri GR16:$src1, imm:$src2)>;
 def : Pat<(and GR32:$src1, imm:$src2),
           (AND32ri GR32:$src1, imm:$src2)>;
-def : Pat<(and GR16:$src1, i16immSExt8:$src2),
-          (AND16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(and GR32:$src1, i32immSExt8:$src2),
-          (AND32ri8 GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(and GR64:$src1, i64immSExt8:$src2),
-          (AND64ri8 GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(and GR64:$src1, i64immSExt32:$src2),
           (AND64ri32 GR64:$src1, i64immSExt32:$src2)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+
+let Predicates = [HasNDD] in {
+// or reg/reg.
+def : Pat<(or GR8 :$src1, GR8 :$src2), (OR8rr_ND  GR8 :$src1, GR8 :$src2)>;
+def : Pat<(or GR16:$src1, GR16:$src2), (OR16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(or GR32:$src1, GR32:$src2), (OR32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(or GR64:$src1, GR64:$src2), (OR64rr_ND GR64:$src1, GR64:$src2)>;
+
+// or reg/mem
+def : Pat<(or GR8:$src1, (loadi8 addr:$src2)),
+          (OR8rm_ND GR8:$src1, addr:$src2)>;
+def : Pat<(or GR16:$src1, (loadi16 addr:$src2)),
+          (OR16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(or GR32:$src1, (loadi32 addr:$src2)),
+          (OR32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(or GR64:$src1, (loadi64 addr:$src2)),
+          (OR64rm_ND GR64:$src1, addr:$src2)>;
+
+// or reg/imm
+def : Pat<(or GR8:$src1 , imm:$src2), (OR8ri_ND  GR8 :$src1, imm:$src2)>;
+def : Pat<(or GR16:$src1, imm:$src2), (OR16ri_ND GR16:$src1, imm:$src2)>;
+def : Pat<(or GR32:$src1, imm:$src2), (OR32ri_ND GR32:$src1, imm:$src2)>;
+def : Pat<(or GR64:$src1, i64immSExt32:$src2),
+          (OR64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
+
+// xor reg/reg
+def : Pat<(xor GR8 :$src1, GR8 :$src2), (XOR8rr_ND  GR8 :$src1, GR8 :$src2)>;
+def : Pat<(xor GR16:$src1, GR16:$src2), (XOR16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(xor GR32:$src1, GR32:$src2), (XOR32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(xor GR64:$src1, GR64:$src2), (XOR64rr_ND GR64:$src1, GR64:$src2)>;
+
+// xor reg/mem
+def : Pat<(xor GR8:$src1, (loadi8 addr:$src2)),
+          (XOR8rm_ND GR8:$src1, addr:$src2)>;
+def : Pat<(xor GR16:$src1, (loadi16 addr:$src2)),
+          (XOR16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(xor GR32:$src1, (loadi32 addr:$src2)),
+          (XOR32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(xor GR64:$src1, (loadi64 addr:$src2)),
+          (XOR64rm_ND GR64:$src1, addr:$src2)>;
+
+// xor reg/imm
+def : Pat<(xor GR8:$src1, imm:$src2),
+          (XOR8ri_ND GR8:$src1, imm:$src2)>;
+def : Pat<(xor GR16:$src1, imm:$src2),
+          (XOR16ri_ND GR16:$src1, imm:$src2)>;
+def : Pat<(xor GR32:$src1, imm:$src2),
+          (XOR32ri_ND GR32:$src1, imm:$src2)>;
+def : Pat<(xor GR64:$src1, i64immSExt32:$src2),
+          (XOR64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
+
+// and reg/reg
+def : Pat<(and GR8 :$src1, GR8 :$src2), (AND8rr_ND  GR8 :$src1, GR8 :$src2)>;
+def : Pat<(and GR16:$src1, GR16:$src2), (AND16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(and GR32:$src1, GR32:$src2), (AND32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(and GR64:$src1, GR64:$src2), (AND64rr_ND GR64:$src1, GR64:$src2)>;
+
+// and reg/mem
+def : Pat<(and GR8:$src1, (loadi8 addr:$src2)),
+          (AND8rm_ND GR8:$src1, addr:$src2)>;
+def : Pat<(and GR16:$src1, (loadi16 addr:$src2)),
+          (AND16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(and GR32:$src1, (loadi32 addr:$src2)),
+          (AND32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(and GR64:$src1, (loadi64 addr:$src2)),
+          (AND64rm_ND GR64:$src1, addr:$src2)>;
+
+// and reg/imm
+def : Pat<(and GR8:$src1, imm:$src2),
+          (AND8ri_ND GR8:$src1, imm:$src2)>;
+def : Pat<(and GR16:$src1, imm:$src2),
+          (AND16ri_ND GR16:$src1, imm:$src2)>;
+def : Pat<(and GR32:$src1, imm:$src2),
+          (AND32ri_ND GR32:$src1, imm:$src2)>;
+def : Pat<(and GR64:$src1, i64immSExt32:$src2),
+          (AND64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // Bit scan instruction patterns to match explicit zero-undef behavior.
 def : Pat<(cttz_zero_undef GR16:$src), (BSF16rr GR16:$src)>;

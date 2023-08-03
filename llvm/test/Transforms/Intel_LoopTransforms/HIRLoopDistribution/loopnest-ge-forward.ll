@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -S -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-loopnest" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that DO i2 loop will not be distributed because of forward edge with i2 direction (>=).
 
@@ -25,6 +26,12 @@
 ; CHECK:   DO i2
 ; CHECK-NOT: DO i2
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopDistributionForLoopNest
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -34,10 +41,10 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
   %z3 = alloca [100 x [100 x i32]], align 16
   %j = alloca [100 x [100 x i32]], align 16
-  %0 = bitcast [100 x [100 x i32]]* %z3 to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) %0, i8 0, i64 40000, i1 false)
-  %1 = bitcast [100 x [100 x i32]]* %j to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) %1, i8 0, i64 40000, i1 false)
+  %0 = bitcast ptr %z3 to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) %0, i8 0, i64 40000, i1 false)
+  %1 = bitcast ptr %j to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) %1, i8 0, i64 40000, i1 false)
   br label %for.cond3.preheader
 
 for.cond3.preheader:                              ; preds = %for.cond.cleanup5, %entry
@@ -52,8 +59,8 @@ for.cond7.preheader.lr.ph:                        ; preds = %for.cond3.preheader
 for.body.i74:                                     ; preds = %for.body.i74.preheader, %cond.end.i
   %indvars.iv.i72 = phi i64 [ %indvars.iv.next.i76, %cond.end.i ], [ 0, %for.body.i74.preheader ]
   %sum.015.i = phi i32 [ %add.i, %cond.end.i ], [ 0, %for.body.i74.preheader ]
-  %ptridx.i75 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %z3, i64 0, i64 0, i64 %indvars.iv.i72
-  %3 = load i32, i32* %ptridx.i75, align 4
+  %ptridx.i75 = getelementptr inbounds [100 x [100 x i32]], ptr %z3, i64 0, i64 0, i64 %indvars.iv.i72
+  %3 = load i32, ptr %ptridx.i75, align 4
   br label %cond.end.i
 
 cond.end.i:                                       ; preds = %for.body.i74
@@ -64,7 +71,7 @@ cond.end.i:                                       ; preds = %for.body.i74
 
 checkSum.exit:                                    ; preds = %cond.end.i
   %add.i.lcssa = phi i32 [ %add.i, %cond.end.i ]
-  %call48 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 %add.i.lcssa)
+  %call48 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str, i32 %add.i.lcssa)
   ret i32 0
 
 for.cond7.preheader:                              ; preds = %for.cond.cleanup9, %for.cond7.preheader.lr.ph
@@ -97,8 +104,8 @@ for.cond.cleanup9.loopexit:                       ; preds = %for.cond.cleanup13
 for.cond.cleanup9:                                ; preds = %for.cond.cleanup9.loopexit, %for.cond7.preheader
   %indvars.iv.next114 = add nuw nsw i64 %indvars.iv113, 1
   %5 = add nsw i64 %indvars.iv113, -1
-  %arrayidx31 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %z3, i64 0, i64 %5, i64 %2
-  store i32 0, i32* %arrayidx31, align 4
+  %arrayidx31 = getelementptr inbounds [100 x [100 x i32]], ptr %z3, i64 0, i64 %5, i64 %2
+  store i32 0, ptr %arrayidx31, align 4
   %exitcond124.not = icmp eq i64 %indvars.iv.next114, 10
   br i1 %exitcond124.not, label %for.cond.cleanup5.loopexit, label %for.cond7.preheader
 
@@ -108,16 +115,16 @@ for.cond.cleanup13:                               ; preds = %for.body14
 for.body14:                                       ; preds = %for.body14, %for.cond11.preheader
   %indvars.iv = phi i64 [ 3, %for.cond11.preheader ], [ %indvars.iv.next, %for.body14 ]
   %inc = add i32 0, 1
-  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %z3, i64 0, i64 %indvars.iv, i64 %4
+  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], ptr %z3, i64 0, i64 %indvars.iv, i64 %4
   %add = add i32 0, %inc
-  store i32 %add, i32* %arrayidx16, align 4
+  store i32 %add, ptr %arrayidx16, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond.not, label %for.cond.cleanup13, label %for.body14
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
-declare dso_local i32 @printf(i8*, ...) local_unnamed_addr #0
+declare dso_local i32 @printf(ptr, ...) local_unnamed_addr #0
 

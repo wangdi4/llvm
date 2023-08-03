@@ -4,6 +4,8 @@
 ; c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; REQUIRES: asserts
 ;
 ; No refs either in pre/post loop of the innermost or in the innermost loop itself
@@ -21,7 +23,13 @@
 ;
 ; CHECK: Interchange Needed=0
 ; CHECK-NOT: Interchanged:
-;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopInterchange
+
 ; ModuleID = 'matmul3.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -42,19 +50,19 @@ for.cond.4.preheader.preheader:                   ; preds = %entry, %for.inc.17
 
 for.body.6.lr.ph:                                 ; preds = %for.inc.14, %for.cond.4.preheader.preheader
   %i.040 = phi i64 [ %inc15, %for.inc.14 ], [ 0, %for.cond.4.preheader.preheader ]
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %k.043, i64 %i.040
-  %0 = load double, double* %arrayidx9, align 8, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %k.043, i64 %i.040
+  %0 = load double, ptr %arrayidx9, align 8, !tbaa !1
   br label %for.body.6
 
 for.body.6:                                       ; preds = %for.body.6, %for.body.6.lr.ph
   %j.038 = phi i64 [ 0, %for.body.6.lr.ph ], [ %inc, %for.body.6 ]
-  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %i.040, i64 %j.038
-  %1 = load double, double* %arrayidx7, align 8, !tbaa !1
-  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %k.043, i64 %j.038
-  %2 = load double, double* %arrayidx11, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %i.040, i64 %j.038
+  %1 = load double, ptr %arrayidx7, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %k.043, i64 %j.038
+  %2 = load double, ptr %arrayidx11, align 8, !tbaa !1
   %mul = fmul double %0, %2
   %add = fadd double %1, %mul
-  store double %add, double* %arrayidx7, align 8, !tbaa !1
+  store double %add, ptr %arrayidx7, align 8, !tbaa !1
   %inc = add nuw nsw i64 %j.038, 1
   %exitcond = icmp eq i64 %inc, %N
   br i1 %exitcond, label %for.inc.14, label %for.body.6

@@ -26,13 +26,13 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx0 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv.next
-  %t0 = load i32, i32* %arrayidx0, align 4
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  %t1 = load i32, i32* %arrayidx, align 4
+  %arrayidx0 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv.next
+  %t0 = load i32, ptr %arrayidx0, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %t1 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %t1, %t0
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 0 
-  store i32 %add, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 0 
+  store i32 %add, ptr %arrayidx2, align 4
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.end, label %for.body
 

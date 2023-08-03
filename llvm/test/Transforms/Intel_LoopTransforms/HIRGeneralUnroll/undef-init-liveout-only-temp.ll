@@ -33,7 +33,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i64 %n1, i64 %n2, i64* nocapture %larr) {
+define void @foo(i64 %n1, i64 %n2, ptr nocapture %larr) {
 entry:
   %l1.linear.iv = alloca i64, align 8
   %cmp = icmp sgt i64 %n1, 0
@@ -63,14 +63,14 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %omp.inner.for.body
   %tmp.priv.0.lcssa = phi i64 [ 1111, %omp.inner.for.body ], [ %call.lcssa, %for.end.loopexit ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %.omp.iv.local.020
-  store i64 %tmp.priv.0.lcssa, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %.omp.iv.local.020
+  store i64 %tmp.priv.0.lcssa, ptr %arrayidx, align 8
   %add8 = add nuw nsw i64 %.omp.iv.local.020, 1
   %exitcond28 = icmp eq i64 %add8, %n1
   br i1 %exitcond28, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.3:                               ; preds = %for.end
-  store i64 %n1, i64* %l1.linear.iv, align 8
+  store i64 %n1, ptr %l1.linear.iv, align 8
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3, %entry

@@ -266,7 +266,9 @@ protected:
   SmallVector<DirectionVector, 16> DVs;
   SmallVector<const DDEdge *, 16> Edges;
 
-  bool shouldInterchange(const HLLoop *);
+  bool shouldInterchange(const HLLoop *, const HLLoop *);
+  bool isMatmulForInt16(const HLLoop *InnermostLoop);
+
   bool getPermutation(const HLLoop *, const HLLoop *);
 
   // returns true means legal for any permutation
@@ -469,7 +471,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
 
-    if (LIP.HLS.getSelfLoopStatistics(InnermostLoop)
+    if (LIP.HLS.getSelfStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(
           dbgs() << "\nSkipping loop with calls that have side effects\n");
@@ -512,7 +514,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
           std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop));
       if (std::find(CandidateLoops.begin(), CandidateLoops.end(), LoopPair) ==
           CandidateLoops.end()) {
-       CandidateLoops.push_back(LoopPair);
+        CandidateLoops.push_back(LoopPair);
       }
     }
 
@@ -535,7 +537,7 @@ bool HIRLoopInterchange::CollectCandidateLoops::isJumpThreadingFriendly(
     const HLLoop *OutermostLoop, const HLLoop *InnermostLoop) {
 
   // Loop body has at least 2 ifs.
-  auto NumIfs = LIP.HLS.getSelfLoopStatistics(InnermostLoop).getNumIfs();
+  auto NumIfs = LIP.HLS.getSelfStatistics(InnermostLoop).getNumIfs();
   if (NumIfs < 2)
     return false;
 
@@ -1320,10 +1322,12 @@ bool HIRLoopInterchange::run(void) {
     InnermostNestingLevel = InnermostLoop->getNestingLevel();
     LLVM_DEBUG(dbgs() << "\nIn CandidateLoop:\n"; OutermostLp->dump());
 
-    if (shouldInterchange(OutermostLp) &&
+    if (shouldInterchange(OutermostLp, InnermostLoop) &&
         getPermutation(OutermostLp, InnermostLoop)) {
       transformLoop(OutermostLp);
     } else {
+      // TODO: remove logic related to PerfectLoopsEnabled. It looks like dead
+      // code to me.
       if (std::find(PerfectLoopsEnabled.begin(), PerfectLoopsEnabled.end(),
                     OutermostLp) != PerfectLoopsEnabled.end()) {
         HIRInvalidationUtils::invalidateBody(OutermostLp);
@@ -1337,15 +1341,136 @@ bool HIRLoopInterchange::run(void) {
   return AnyLoopInterchanged;
 }
 
-bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
+static bool getIVLevels(const RegDDRef *RRef, std::array<unsigned, 2> &Levels) {
+
+  auto *CE = RRef->getDimensionIndex(1);
+  if (CE->numIVs() != 2) {
+    return false;
+  }
+  int I = 0;
+
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    if (CE->hasIV(CE->getLevel(CurIVPair))) {
+      Levels[I++] = CE->getLevel(CurIVPair);
+    }
+  }
+  return true;
+}
+
+bool HIRLoopInterchange::isMatmulForInt16(const HLLoop *Loop) {
+
+  // Loop is innermost loop
+
+  // Matmul for arrays with 2 byte integer type and small trip count
+  // is best in performance in this form:
+  // Dotproduct, unroll & Jam,  no blocking, no vectorization,
+  // Ideally the fix can be in locality analysis but based on the
+  // big difference computed for cache lines, it's easy to cause
+  // performance drops. Current matmul permutation favors the DAXPY form.
+  // The trip count information is not available but
+  // we can assume INT matmul has small trip count in general
+
+  unsigned LoopLevel = Loop->getNestingLevel();
+
+  // A prelimarily filter
+  if (LoopLevel < 3 || HLR.getSelfLoopResource(Loop).getNumMemReads() > 3 ||
+      HLR.getSelfLoopResource(Loop).getNumMemWrites() < 1 ||
+      HLR.getSelfLoopResource(Loop).getNumFPMemOps() > 0 ||
+      HLR.getSelfLoopResource(Loop).getNumIntMemOps() > 4) {
+    return false;
+  }
+
+  //  Limit to this pattern for now
+  //  DO i3 = 0, N
+  //    %1 = (%C)[%N * i1 + i2];
+  //    %3 = (%A)[%N * i1 + i3];
+  //    %4 = (%B)[i2 + %N * i3];
+  //    %1 =  Any computation
+  //    (%C)[%N * i1 + i2] = %1;
+  //   END LOOP
+
+  const HLInst *Inst = dyn_cast<HLInst>(Loop->getFirstChild());
+  const RegDDRef *RRef, *FirstRRef;
+
+  std::array<std::array<unsigned, 2>, 3> Levels;
+
+  int TotalTypeSize = 0;
+
+  // Gather IV levels per Memref
+  for (int I = 0; I < 3; I++) {
+
+    if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction()))
+      return false;
+
+    RRef = Inst->getRvalDDRef();
+    if (RRef->getNumDimensions() != 1)
+      return false;
+    if (!getIVLevels(RRef, Levels[I]))
+      return false;
+
+    if (I == 0)
+      FirstRRef = RRef;
+
+    TotalTypeSize += RRef->getSrcTypeSizeInBytes();
+
+    Inst = dyn_cast<HLInst>(Inst->getNextNode());
+  }
+
+  // Allow one of the Refs to be I32
+  if (TotalTypeSize > 8)
+    return false;
+
+  // Adjust for level difference when matmul is nested
+
+  unsigned Lvl = LoopLevel - 3;
+
+  if (Levels[0][0] != Lvl + 1 || Levels[0][1] != Lvl + 2 ||
+      Levels[1][0] != Lvl + 1 || Levels[1][1] != Lvl + 3 ||
+      Levels[2][0] != Lvl + 2 || Levels[2][1] != Lvl + 3) {
+    return false;
+  }
+
+  if (!Inst)
+    return false;
+
+  const RegDDRef *LRef = Inst->getLvalDDRef();
+  if (!LRef || !(LRef->isTerminalRef()))
+    return false;
+
+  Inst = dyn_cast<HLInst>(Inst->getNextNode());
+  if (!Inst)
+    return false;
+
+  // Load & Store for C[N*I1 + i2] should match
+
+  LRef = Inst->getLvalDDRef();
+  if (!DDRefUtils::areEqual(FirstRRef, LRef)) {
+    return false;
+  }
+
+  // Last Inst?
+  if (Inst->getNextNode())
+    return false;
+
+  return true;
+}
+
+bool HIRLoopInterchange::shouldInterchange(const HLLoop *OutermostLoop,
+                                           const HLLoop *InnermostLoop) {
   SortedLoops.clear();
   bool InterchangeNeeded = true;
 
+  if (isMatmulForInt16(InnermostLoop)) {
+    return false;
+  }
+
   // Call Util in Locality Analysis to get Best Permutation
-  HLA.sortedLocalityLoops(Loop, SortedLoops);
+  HLA.sortedLocalityLoops(OutermostLoop, SortedLoops);
 
   if (isInPresentOrder(SortedLoops)) {
-    printDiag(ALREADY_IN_RIGHT_ORDER, HIRF.getFunction().getName(), Loop);
+    printDiag(ALREADY_IN_RIGHT_ORDER, HIRF.getFunction().getName(),
+              OutermostLoop);
     InterchangeNeeded = false;
   }
 
@@ -1635,19 +1760,22 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop,
 }
 
 void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
-  HLLoop *Lp = const_cast<HLLoop*>(Loop);
+  HLLoop *Lp = const_cast<HLLoop *>(Loop);
   if (ORBuilder.getVerbosity() < OptReportVerbosity::Medium)
     return;
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium, 25445u,
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium,
+                           OptRemarkID::LoopInterchangeFailReason,
                            "Data Dependencies");
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25446u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                           OptRemarkID::DependenciesBetweenStmts);
   // Guard the extra information under verbosity high to avoid building
   // unnecessary strings
   if (ORBuilder.getVerbosity() < OptReportVerbosity::High)
     return;
   for (size_t I = 0;
        I < Edges.size() && I < LoopInterchangeOptReportDDEdgesLimit; I++) {
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25447u,
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                             OptRemarkID::LoopInterchange,
                              Edges[I]->getOptReportStr());
   }
   // Print the message to suggest desirable loop interchange
@@ -1661,7 +1789,9 @@ void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
     OS << I->getNestingLevel() << " ";
   }
   OS << ")";
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25451u, OS.str().c_str());
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                           OptRemarkID::AdviseLoopInterchange,
+                           OS.str().c_str());
 }
 
 void HIRLoopInterchange::reportTransformation() {
@@ -1688,7 +1818,8 @@ void HIRLoopInterchange::reportTransformation() {
   }
   OS << ")";
   ORBuilder(*OutermostLp)
-      .addRemark(OptReportVerbosity::Low, 25444u, OS.str().c_str());
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopNestInterchanged,
+                 OS.str().c_str());
 
   // This is needed for lit-tests for now.
   LLVM_DEBUG(dbgs() << "Loopnest Interchanged: " << OS.str() << '\n');
@@ -1699,7 +1830,8 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintInterchangedLoop) {
     dbgs() << "Before Interchange:\n";
-    dbgs() << "Function: " << Loop->getHLNodeUtils().getFunction().getName() << "\n";
+    dbgs() << "Function: " << Loop->getHLNodeUtils().getFunction().getName()
+           << "\n";
     Loop->dump();
   }
 #endif
@@ -1734,12 +1866,13 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
 PreservedAnalyses HIRLoopInterchangePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLoopInterchange(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopLocalityAnalysis>(F),
-                     AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                     AM.getResult<HIRLoopResourceAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRLoopInterchange(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopLocalityAnalysis>(F),
+                         AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                         AM.getResult<HIRLoopResourceAnalysis>(F))
+          .run();
 
   return PreservedAnalyses::all();
 }

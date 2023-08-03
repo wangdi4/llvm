@@ -42,6 +42,12 @@ static bool runOnFunction(Function &F, CallGraph &CG) {
       if (!Callee)
         continue;
       StringRef CalleeName = Callee->getName();
+      // Work group builtins can't be achieved without work group loop.
+      // If kernel has work group builtins, max WG dimension should not be
+      // changed.
+      if (isWorkGroupBuiltin(CalleeName))
+        return false;
+
       if (CalleeName != GID && CalleeName != LID)
         continue;
 

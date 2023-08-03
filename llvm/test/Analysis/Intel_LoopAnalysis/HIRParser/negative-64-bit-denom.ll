@@ -16,7 +16,7 @@
 ; CHECK: |   (%arr)[i1] = (%add /u -2);
 ; CHECK: + END LOOP
 
-define dso_local void @foo(i64* nocapture %arr) {
+define dso_local void @foo(ptr nocapture %arr) {
 entry:
   br label %for.body
 
@@ -24,8 +24,8 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %add = add i64 %indvars.iv, -3
   %div = udiv i64 %add, -2
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %indvars.iv
-  store i64 %div, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %indvars.iv
+  store i64 %div, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %for.end, label %for.body

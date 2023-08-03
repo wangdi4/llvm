@@ -31,6 +31,27 @@ PreservedAnalyses IndirectCallLowering::run(Module &M,
   return PA;
 }
 
+static bool resolveIntelCreateSIMDVariant(Module &M) {
+  SmallVector<CallInst *> RemoveLater;
+  for (auto &Fn : M) {
+    if (!Fn.getName().startswith("__intel_create_simd_variant"))
+      continue;
+    for (User *U : Fn.users()) {
+      if (auto *Call = dyn_cast<CallInst>(U)) {
+        // __intel_create_simd_variant should be resolved on
+        // VectorVariantFillIn. If __intel_create_simd_variant call still exists
+        // because Intel_VectorVariant passes didn't run, we need replace
+        // __intel_create_simd_variant with its first parameter.
+        Call->replaceAllUsesWith(Call->getArgOperand(0));
+        RemoveLater.push_back(Call);
+      }
+    }
+  }
+  for (auto *I : RemoveLater)
+    I->eraseFromParent();
+  return !RemoveLater.empty();
+}
+
 bool IndirectCallLowering::runImpl(Module &M) {
   if (!SYCLEnableVectorVariantPasses)
     return false;
@@ -38,6 +59,8 @@ bool IndirectCallLowering::runImpl(Module &M) {
   bool Modified = false;
 
   SmallVector<CallInst *> RemoveLater;
+
+  Modified |= resolveIntelCreateSIMDVariant(M);
 
   // Process all call instructions.
   for (auto &Fn : M) {
@@ -52,13 +75,49 @@ bool IndirectCallLowering::runImpl(Module &M) {
       if (!F || !F->getName().startswith("__intel_indirect_call"))
         continue;
 
-      assert(
-          Call.getAttributes().hasFnAttr(KernelAttribute::VectorVariants) &&
-          "Vector variants should always be set for this call");
+      FunctionType *FTy = Call.getFunctionType();
+      IRBuilder<> Builder(&Call);
+
+      // Vector attributes were updated on VectorVariantLowering pass, if they
+      // were not set or not updated according to current ISA, lower
+      // __intel_indirect_call to scarlar call.
+      if (!Call.hasFnAttr(VectorUtils::VectorVariantsAttrName) ||
+          Call.getCallSiteOrFuncAttr(VectorUtils::VectorVariantsAttrName)
+              .getValueAsString()
+              .contains("unknown")) {
+        Type *RetTy = FTy->getReturnType();
+        Value *GV = Call.getArgOperand(0);
+        PointerType *GVTy = cast<PointerType>(GV->getType());
+        unsigned AS = GVTy->getAddressSpace();
+
+        SmallVector<Value *, 4> Args;
+        SmallVector<Type *, 4> ArgsTy;
+        for (unsigned I = 1; I < Call.arg_size(); I++) {
+          auto *V = Call.getArgOperand(I);
+          Args.push_back(V);
+          ArgsTy.push_back(V->getType());
+        }
+        FunctionType *ScalFTy = FunctionType::get(RetTy, ArgsTy, false);
+        PointerType *FPtrTy = PointerType::get(ScalFTy, AS);
+        PointerType *FPtrPtrTy = PointerType::get(FPtrTy, AS);
+
+        Value *Table = Builder.CreateZExtOrBitCast(GV, FPtrPtrTy);
+        Value *FPtrPtr = Builder.CreateGEP(
+            FPtrTy, Table,
+            ConstantInt::get(M.getContext(), APInt(32, 0, true)));
+        Value *FPtr = Builder.CreateLoad(FPtrTy, FPtrPtr);
+        Value *ScalRes = Builder.CreateCall(ScalFTy, FPtr, Args);
+
+        if (!RetTy->isVoidTy()) {
+          Call.replaceAllUsesWith(ScalRes);
+        }
+        RemoveLater.push_back(&Call);
+        continue;
+      }
 
       SmallVector<StringRef, 4> Variants;
       Attribute Attr =
-          Call.getCallSiteOrFuncAttr(KernelAttribute::VectorVariants);
+          Call.getCallSiteOrFuncAttr(VectorUtils::VectorVariantsAttrName);
       Attr.getValueAsString().split(Variants, ",");
       assert(!Variants.empty() &&
              "Expected non-empty vector-variants attribute");
@@ -82,9 +141,6 @@ bool IndirectCallLowering::runImpl(Module &M) {
       VFInfo Variant = VFABI::demangleForVFABI(Variants[Index]);
       unsigned VecLen = Variant.getVF();
       ConstantInt *Zero = ConstantInt::get(M.getContext(), APInt(32, 0, true));
-      FunctionType *FTy = Call.getFunctionType();
-
-      IRBuilder<> Builder(&Call);
 
       // Preparing vector arguments. Starting from the second operand because we
       // need to skip the first function-pointer operand.
@@ -124,8 +180,10 @@ bool IndirectCallLowering::runImpl(Module &M) {
           map_range(Args, [](Use &U) -> Value & { return *U.get(); }), Variant,
           Call.getParent()->getParent()->getParent()->getDataLayout());
 
-      createVectorMaskArg(Builder, CharacteristicType, &Variant, VecArgs,
-                          VecArgTy, VecLen, MaskToUse);
+      Value *Mask =
+          createVectorMaskArg(Builder, CharacteristicType, Variant, MaskToUse);
+      VecArgs.push_back(Mask);
+      VecArgTy.push_back(Mask->getType());
 
       // Preparing chosen variant call.
       Type *RetTy = FTy->getReturnType();

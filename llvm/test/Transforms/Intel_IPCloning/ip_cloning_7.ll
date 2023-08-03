@@ -19,21 +19,22 @@
 ; CHECK: define internal i32 @goo
 ; CHECK: define internal i32 @hoo
 
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
   %call = call i32 @goo(i32 2, i32 3, i32 4)
   %call1 = call i32 @hoo(i32 3, i32 4, i32 5)
   %add = add nsw i32 %call, %call1
   ret i32 %add
 }
-define internal i32 @goo(i32 %arg1, i32 %arg2, i32 %arg3) #0 {
+
+define internal i32 @goo(i32 %arg1, i32 %arg2, i32 %arg3) {
 entry:
   %retval = alloca i32, align 4
   %cmp = icmp sgt i32 %arg1, 5
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  store i32 5, i32* %retval, align 4
+  store i32 5, ptr %retval, align 4
   br label %return
 
 if.end:                                           ; preds = %entry
@@ -41,16 +42,16 @@ if.end:                                           ; preds = %entry
   br i1 %cmp1, label %if.then2, label %return
 
 if.then2:                                         ; preds = %if.end
-  store i32 4, i32* %retval, align 4
+  store i32 4, ptr %retval, align 4
   br label %return
 
-return:                                           ; preds = %if.then2, %if.then
-  %t3 = load i32, i32* %retval, align 4
+return:                                           ; preds = %if.then2, %if.end, %if.then
+  %t3 = load i32, ptr %retval, align 4
   ret i32 %t3
 }
 
-define internal i32 @hoo(i32 %arg1, i32 %arg2, i32 %arg3) #0 {
-entry:                                           ; preds = %if.end
+define internal i32 @hoo(i32 %arg1, i32 %arg2, i32 %arg3) {
+entry:
   %retval = alloca i32, align 4
   switch i32 %arg3, label %sw.epilog [
     i32 1, label %sw.bb
@@ -58,17 +59,16 @@ entry:                                           ; preds = %if.end
     i32 3, label %sw.bb
   ]
 
-sw.bb:                                            ; preds = %entry
-  store i32 3, i32* %retval, align 4
+sw.bb:                                            ; preds = %entry, %entry, %entry
+  store i32 3, ptr %retval, align 4
   br label %return
 
 sw.epilog:                                        ; preds = %entry
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   br label %return
 
 return:                                           ; preds = %sw.epilog, %sw.bb
-  %t3 = load i32, i32* %retval, align 4
+  %t3 = load i32, ptr %retval, align 4
   ret i32 %t3
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

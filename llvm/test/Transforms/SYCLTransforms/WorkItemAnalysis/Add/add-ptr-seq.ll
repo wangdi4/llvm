@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;kernel void
 ;test_add(global int *in, global int *out, global int *p) {
@@ -20,25 +20,25 @@ target triple = "i686-pc-win32"
 ; CHECK: WorkItemAnalysis for function test_add:
 ; CHECK-NEXT: SEQ   %1 = tail call i32 @_Z13get_global_idj(i32 0) #0
 ; CHECK-NEXT: SEQ   %.sum = add i32 %1, 1
-; CHECK-NEXT: PTR   %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %.sum
-; CHECK-NEXT: RND   %3 = icmp ugt i32 addrspace(1)* %2, inttoptr (i32 10 to i32 addrspace(1)*)
+; CHECK-NEXT: PTR   %2 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %.sum
+; CHECK-NEXT: RND   %3 = icmp ugt ptr addrspace(1) %2, inttoptr (i32 10 to ptr addrspace(1))
 ; CHECK-NEXT: RND   %.sum2.pn.v = select i1 %3, i32 633, i32 111
 ; CHECK-NEXT: RND   %.sum2.pn = add i32 %.sum2.pn.v, %.sum
-; CHECK-NEXT: RND   %.0 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %.sum2.pn
-; CHECK-NEXT: RND   %4 = load i32, i32 addrspace(1)* %.0, align 4
-; CHECK-NEXT: PTR   %5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
+; CHECK-NEXT: RND   %.0 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %.sum2.pn
+; CHECK-NEXT: RND   %4 = load i32, ptr addrspace(1) %.0, align 4
+; CHECK-NEXT: PTR   %5 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
 
-define void @test_add(i32 addrspace(1)* %in, i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %p) nounwind {
+define void @test_add(ptr addrspace(1) %in, ptr addrspace(1) nocapture %out, ptr addrspace(1) nocapture %p) nounwind {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %.sum = add i32 %1, 1
-  %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %.sum
-  %3 = icmp ugt i32 addrspace(1)* %2, inttoptr (i32 10 to i32 addrspace(1)*)
+  %2 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %.sum
+  %3 = icmp ugt ptr addrspace(1) %2, inttoptr (i32 10 to ptr addrspace(1))
   %.sum2.pn.v = select i1 %3, i32 633, i32 111
   %.sum2.pn = add i32 %.sum2.pn.v, %.sum
-  %.0 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %.sum2.pn
-  %4 = load i32, i32 addrspace(1)* %.0, align 4
-  %5 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
-  store i32 %4, i32 addrspace(1)* %5, align 4
+  %.0 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %.sum2.pn
+  %4 = load i32, ptr addrspace(1) %.0, align 4
+  %5 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
+  store i32 %4, ptr addrspace(1) %5, align 4
   ret void
 }
 
@@ -46,5 +46,7 @@ declare i32 @_Z13get_global_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @test_add, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_add_locals_anchor"}
+!0 = !{ptr @test_add, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_add_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}
+!2 = !{!"int*", !"int*", !"int*"}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}

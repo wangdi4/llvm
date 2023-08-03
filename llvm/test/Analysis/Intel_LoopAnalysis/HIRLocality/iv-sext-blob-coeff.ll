@@ -22,7 +22,7 @@
 ; CHECK: Locality Info for Loop level: 2     NumCacheLines: 4        SpatialCacheLines: 4     TempInvCacheLines: 0     AvgLvalStride: 2         AvgStride: 2
 
 
-define void @foo(i16* noalias %t4, i16* noalias %t6, i16* noalias %ptr, i64 %init, i32 %n, i64 %m) {
+define void @foo(ptr noalias %t4, ptr noalias %t6, ptr noalias %ptr, i64 %init, i32 %n, i64 %m) {
 entry:
   %sext = sext i32 %n to i64
   br label %outer.loop
@@ -38,8 +38,8 @@ outer.loop:                                               ; preds = %latch, %t82
 inner.loop:                                               ; preds = %inner.loop, %outer.loop
   %inner.iv = phi i64 [ 0, %outer.loop ], [ %inner.iv.inc, %inner.loop ]
   %t95 = phi i64 [ %t90, %outer.loop ], [ %t107, %inner.loop ]
-  %t106 = getelementptr inbounds i16, i16* %ptr, i64 %t95
-  store i16 10, i16* %t106, align 2
+  %t106 = getelementptr inbounds i16, ptr %ptr, i64 %t95
+  store i16 10, ptr %t106, align 2
   %t107 = add nsw i64 %t95, 1
   %inner.iv.inc = add nuw nsw i64 %inner.iv, 1
   %t109 = icmp eq i64 %inner.iv.inc, %sext

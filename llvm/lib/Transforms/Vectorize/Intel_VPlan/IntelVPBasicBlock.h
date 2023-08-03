@@ -32,8 +32,8 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
-#include "llvm/Analysis/LoopInfoImpl.h"
 #include "llvm/Support/BlockFrequency.h"
+#include "llvm/Support/GenericLoopInfoImpl.h"
 
 namespace llvm {
 
@@ -469,6 +469,10 @@ public:
                                  const Twine &Name, VPLoopInfo *VPLInfo,
                                  VPDominatorTree *DomTree = nullptr,
                                  VPPostDominatorTree *PostDomTree = nullptr);
+
+  // Utility function to update the dominator tree.
+  static void updateDomTrees(VPBasicBlock *VPBBTrue, VPBasicBlock *VPBBFalse,
+                             VPBasicBlock *VPBB);
 };
 } // namespace vpo
 //===----------------------------------------------------------------------===//

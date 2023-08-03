@@ -18,6 +18,14 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -print-changed -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopInterchange
+
 ; ModuleID = 'interchange.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -41,11 +49,11 @@ for.cond.1.preheader:                             ; preds = %for.cond.loopexit, 
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %j.018 = phi i64 [ 1, %for.cond.1.preheader ], [ %inc, %for.body.3 ]
-  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.018, i64 %add
-  %0 = load float, float* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.018, i64 %add
+  %0 = load float, ptr %arrayidx4, align 4, !tbaa !1
   %add5 = fadd float %0, 1.000000e+00
-  %arrayidx7 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.018, i64 %i.019
-  store float %add5, float* %arrayidx7, align 4, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.018, i64 %i.019
+  store float %add5, ptr %arrayidx7, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.018, 1
   %exitcond = icmp eq i64 %inc, 97
   br i1 %exitcond, label %for.cond.loopexit, label %for.body.3

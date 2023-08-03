@@ -63,6 +63,9 @@ class StrBoolAttr<string S> : Attr<S, []>;
 class StrAttr<string S> : Attr<S, []>;
 // endif INTEL_CUSTOMIZATION
 
+/// Arbitrary string attribute.
+class ComplexStrAttr<string S, list<AttrProperty> P> : Attr<S, P>;
+
 /// Target-independent enum attributes.
 
 /// Alignment of parameter (5 bits) stored as log2 of alignment with +1 bias.
@@ -394,6 +397,9 @@ def ComplexNoScale : StrBoolAttr<"complex-no-scale">;
 def VectorFunctionPtrs : StrAttr<"vector_function_ptrs">;
 // endif INTEL_CUSTOMIZATION
 
+def DenormalFPMath : ComplexStrAttr<"denormal-fp-math", [FnAttr]>;
+def DenormalFPMathF32 : ComplexStrAttr<"denormal-fp-math-f32", [FnAttr]>;
+
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
   // callee and decide whether inlining should be allowed. The function's
@@ -413,6 +419,8 @@ def : CompatRule<"isEqual<SafeStackAttr>">;
 def : CompatRule<"isEqual<ShadowCallStackAttr>">;
 def : CompatRule<"isEqual<UseSampleProfileAttr>">;
 def : CompatRule<"isEqual<NoProfileAttr>">;
+def : CompatRule<"checkDenormMode">;
+
 
 class MergeRule<string F> {
   // The name of the function called to merge the attributes of the caller and

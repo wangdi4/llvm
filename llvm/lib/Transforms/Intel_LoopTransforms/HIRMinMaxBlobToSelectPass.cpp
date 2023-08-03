@@ -169,7 +169,7 @@ void HIRMinMaxBlobToSelect::collectMinMaxBlobCandidates(HLLoop *Loop,
   if (!Loop->isDo())
     return;
 
-  auto LoopStats = HLS.getTotalLoopStatistics(Loop);
+  auto LoopStats = HLS.getTotalStatistics(Loop);
   if (LoopStats.hasCallsWithUnsafeSideEffects() ||
       LoopStats.hasCallsWithUnknownAliasing()) {
     LLVM_DEBUG(dbgs() << "Loop has unsafe calls\n");
@@ -401,8 +401,10 @@ PreservedAnalyses
 HIRMinMaxBlobToSelectPass::runImpl(Function &F, FunctionAnalysisManager &AM,
                                    HIRFramework &HIRF) {
 
-  HIRMinMaxBlobToSelect(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                        AM.getResult<HIRLoopStatisticsAnalysis>(F)).run();
+  ModifiedHIR =
+      HIRMinMaxBlobToSelect(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                            AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
 
   return PreservedAnalyses::all();
 }

@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -139,6 +139,11 @@ static cl::opt<bool> DisableLibraryCallSwitch(
 static cl::opt<unsigned> RtlThreshold(
     OPT_SWITCH "-rtl-threshold", cl::init(ExpectedNumberOfTests), cl::Hidden,
     cl::desc("Number of tests when LibraryCall method would be used."));
+
+static cl::opt<unsigned> ReadDominanceThreshold(
+    OPT_SWITCH "-read-dominance-threshold", cl::init(4), cl::Hidden,
+    cl::desc("Times that number of read-only vals exceeds number of write vals"
+             "as dominance."));
 
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests", cl::init(60), cl::Hidden,
@@ -811,7 +816,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
     return true;
   }
 
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Loop);
 
   return (!LS.hasCallsWithUnknownAliasing() && !LS.hasSwitches());
 }
@@ -1435,6 +1440,30 @@ static bool haveConstantDistance(
   return true;
 }
 
+// RTDD library function does not ignore overlaps among read groups,
+// because it does not differentiate between Lvals and Rvals.
+// That can lead to overly conservative dependence checks and to loss of
+// further optimization opportunities when most of the groups are read groups
+// or there is a overlap between read-only vals.
+// This function returns true when read-only vals exceed write vals 4 times.
+// This heuristic choice can be used by the caller to generate regular RTDD
+// tests in place of RTDD lib function.
+static bool isReadDominant(RefGroupVecTy &Groups) {
+  unsigned GroupSize = Groups.size();
+  unsigned LoadOnlySum = 0;
+
+  LLVM_DEBUG(dbgs() << "IsLoadOnlyGroup No: ");
+  for (unsigned I = 0; I < GroupSize; ++I) {
+    if (isLoadOnly(Groups[I])) {
+      LLVM_DEBUG(dbgs() << " " << I << ",");
+      LoadOnlySum++;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "\nIsLoadOnly Sum: " << LoadOnlySum << "\n");
+
+  return LoadOnlySum > (GroupSize - LoadOnlySum) * ReadDominanceThreshold;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   RuntimeDDResult Ret = OK;
   Context.Loop = Loop;
@@ -1614,7 +1643,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return NO_OPPORTUNITIES;
   }
 
-  if (Tests.size() > RtlThreshold) {
+  LLVM_DEBUG(dbgs() << "Tests size: " << Tests.size() << "\n");
+
+  if (Tests.size() > RtlThreshold && !isReadDominant(Groups)) {
     if (EnableLibraryCallMethod && Groups.size() <= MaximumNumberOfTests) {
       LLVM_DEBUG(dbgs() << "[RTDD] LibraryCall method selected.\n");
       Context.Method = LibraryCall;
@@ -2205,11 +2236,11 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
 
   // Remark: Loop multiversioned for Data Dependence
   ORBuilder(*NoAliasLoop)
-      .addOrigin(25474u, 1)
-      .addRemark(OptReportVerbosity::Low, 25228u);
+      .addOrigin(OptRemarkID::LoopMultiversioned, 1)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopMultiversionedForDD);
 
   // Remark: Multiversioned Loop 2
-  ORBuilder(*ClonedLoop).addOrigin(25474u, 2);
+  ORBuilder(*ClonedLoop).addOrigin(OptRemarkID::LoopMultiversioned, 2);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;
@@ -2342,9 +2373,12 @@ bool HIRRuntimeDD::run() {
   MemoryAliasAnalyzer AliasAnalyzer(*this);
   HIRF.getHLNodeUtils().visitAll(AliasAnalyzer);
 
+  bool Modified = false;
+
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
       generateHLNodes(Candidate, TLI);
+      Modified = true;
 
       // Statistics
       ++LoopsMultiversioned;
@@ -2354,18 +2388,18 @@ bool HIRRuntimeDD::run() {
     }
   }
 
-  return true;
+  return Modified;
 }
 
 PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM,
                                             HIRFramework &HIRF) {
-  HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-               AM.getResult<HIRLoopStatisticsAnalysis>(F),
-               AM.getResult<TargetLibraryAnalysis>(F),
-               AM.getResult<TargetIRAnalysis>(F),
-               AM.getResult<HIRSafeReductionAnalysisPass>(F))
-      .run();
+  ModifiedHIR = HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                             AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                             AM.getResult<TargetLibraryAnalysis>(F),
+                             AM.getResult<TargetIRAnalysis>(F),
+                             AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                    .run();
 
   return PreservedAnalyses::all();
 }

@@ -145,7 +145,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @nab(i32 %N, i64 %foff) local_unnamed_addr #0 {
 entry:
-  store float 0.000000e+00, float* @e_bond, align 4, !tbaa !2
+  store float 0.000000e+00, ptr @e_bond, align 4, !tbaa !2
   %conv = sext i32 %N to i64
   %cmp143 = icmp sgt i32 %N, 0
   br i1 %cmp143, label %for.body.preheader, label %for.end
@@ -156,103 +156,103 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %add38145 = phi float [ %add38, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %i.0144 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds [1000 x i64], [1000 x i64]* @a1, i64 0, i64 %i.0144
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !6
+  %arrayidx = getelementptr inbounds [1000 x i64], ptr @a1, i64 0, i64 %i.0144
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !6
   %mul = shl nsw i64 %0, 2
   %div = sdiv i64 %mul, 3
-  %arrayidx2 = getelementptr inbounds [1000 x i64], [1000 x i64]* @a2, i64 0, i64 %i.0144
-  %1 = load i64, i64* %arrayidx2, align 8, !tbaa !6
+  %arrayidx2 = getelementptr inbounds [1000 x i64], ptr @a2, i64 0, i64 %i.0144
+  %1 = load i64, ptr %arrayidx2, align 8, !tbaa !6
   %mul3 = shl nsw i64 %1, 2
   %div4 = sdiv i64 %mul3, 3
-  %arrayidx5 = getelementptr inbounds [1000 x i64], [1000 x i64]* @atype, i64 0, i64 %i.0144
-  %2 = load i64, i64* %arrayidx5, align 8, !tbaa !6
+  %arrayidx5 = getelementptr inbounds [1000 x i64], ptr @atype, i64 0, i64 %i.0144
+  %2 = load i64, ptr %arrayidx5, align 8, !tbaa !6
   %sub = add nsw i64 %2, -1
-  %arrayidx6 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %div
-  %3 = load float, float* %arrayidx6, align 4, !tbaa !9
-  %arrayidx7 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %div4
-  %4 = load float, float* %arrayidx7, align 4, !tbaa !9
+  %arrayidx6 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %div
+  %3 = load float, ptr %arrayidx6, align 4, !tbaa !9
+  %arrayidx7 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %div4
+  %4 = load float, ptr %arrayidx7, align 4, !tbaa !9
   %sub8 = fsub float %3, %4
   %add = add nsw i64 %div, 1
-  %arrayidx9 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add
-  %5 = load float, float* %arrayidx9, align 4, !tbaa !9
+  %arrayidx9 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add
+  %5 = load float, ptr %arrayidx9, align 4, !tbaa !9
   %add10 = add nsw i64 %div4, 1
-  %arrayidx11 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add10
-  %6 = load float, float* %arrayidx11, align 4, !tbaa !9
+  %arrayidx11 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add10
+  %6 = load float, ptr %arrayidx11, align 4, !tbaa !9
   %sub12 = fsub float %5, %6
   %add13 = add nsw i64 %div, 2
-  %arrayidx14 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add13
-  %7 = load float, float* %arrayidx14, align 4, !tbaa !9
+  %arrayidx14 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add13
+  %7 = load float, ptr %arrayidx14, align 4, !tbaa !9
   %add15 = add nsw i64 %div4, 2
-  %arrayidx16 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add15
-  %8 = load float, float* %arrayidx16, align 4, !tbaa !9
+  %arrayidx16 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add15
+  %8 = load float, ptr %arrayidx16, align 4, !tbaa !9
   %sub17 = fsub float %7, %8
   %add23 = add nsw i64 %div, 3
-  %arrayidx24 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add23
-  %9 = load float, float* %arrayidx24, align 4, !tbaa !9
+  %arrayidx24 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add23
+  %9 = load float, ptr %arrayidx24, align 4, !tbaa !9
   %add25 = add nsw i64 %div4, 3
-  %arrayidx26 = getelementptr inbounds [1000 x float], [1000 x float]* @x, i64 0, i64 %add25
-  %10 = load float, float* %arrayidx26, align 4, !tbaa !9
+  %arrayidx26 = getelementptr inbounds [1000 x float], ptr @x, i64 0, i64 %add25
+  %10 = load float, ptr %arrayidx26, align 4, !tbaa !9
   %sub27 = fsub float %9, %10
-  %arrayidx33 = getelementptr inbounds [1000 x float], [1000 x float]* @Req, i64 0, i64 %sub
-  %11 = load float, float* %arrayidx33, align 4, !tbaa !9
+  %arrayidx33 = getelementptr inbounds [1000 x float], ptr @Req, i64 0, i64 %sub
+  %11 = load float, ptr %arrayidx33, align 4, !tbaa !9
   %sub34 = fsub float 1.000000e+00, %11
-  %arrayidx35 = getelementptr inbounds [1000 x float], [1000 x float]* @Rk, i64 0, i64 %sub
-  %12 = load float, float* %arrayidx35, align 4, !tbaa !9
+  %arrayidx35 = getelementptr inbounds [1000 x float], ptr @Rk, i64 0, i64 %sub
+  %12 = load float, ptr %arrayidx35, align 4, !tbaa !9
   %mul36 = fmul float %12, %sub34
   %mul37 = fmul float %sub34, %mul36
   %add38 = fadd float %add38145, %mul37
   %mul39 = fmul float %mul36, 2.000000e+00
   %mul40 = fmul float %sub8, %mul39
   %add41 = add nsw i64 %div, %foff
-  %arrayidx43 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add41
-  %13 = load float, float* %arrayidx43, align 4, !tbaa !9
+  %arrayidx43 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add41
+  %13 = load float, ptr %arrayidx43, align 4, !tbaa !9
   %add44 = fadd float %13, %mul40
-  store float %add44, float* %arrayidx43, align 4, !tbaa !9
+  store float %add44, ptr %arrayidx43, align 4, !tbaa !9
   %mul45 = fmul float %sub12, %mul39
   %add47 = add nsw i64 %add41, 1
-  %arrayidx48 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add47
-  %14 = load float, float* %arrayidx48, align 4, !tbaa !9
+  %arrayidx48 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add47
+  %14 = load float, ptr %arrayidx48, align 4, !tbaa !9
   %add49 = fadd float %mul45, %14
-  store float %add49, float* %arrayidx48, align 4, !tbaa !9
+  store float %add49, ptr %arrayidx48, align 4, !tbaa !9
   %mul50 = fmul float %sub17, %mul39
   %add52 = add nsw i64 %add41, 2
-  %arrayidx53 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add52
-  %15 = load float, float* %arrayidx53, align 4, !tbaa !9
+  %arrayidx53 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add52
+  %15 = load float, ptr %arrayidx53, align 4, !tbaa !9
   %add54 = fadd float %mul50, %15
-  store float %add54, float* %arrayidx53, align 4, !tbaa !9
+  store float %add54, ptr %arrayidx53, align 4, !tbaa !9
   %add56 = add nsw i64 %div4, %foff
-  %arrayidx58 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add56
-  %16 = load float, float* %arrayidx58, align 4, !tbaa !9
+  %arrayidx58 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add56
+  %16 = load float, ptr %arrayidx58, align 4, !tbaa !9
   %sub59 = fsub float %16, %mul40
-  store float %sub59, float* %arrayidx58, align 4, !tbaa !9
+  store float %sub59, ptr %arrayidx58, align 4, !tbaa !9
   %add62 = add nsw i64 %add56, 1
-  %arrayidx63 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add62
-  %17 = load float, float* %arrayidx63, align 4, !tbaa !9
+  %arrayidx63 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add62
+  %17 = load float, ptr %arrayidx63, align 4, !tbaa !9
   %sub64 = fsub float %17, %mul45
-  store float %sub64, float* %arrayidx63, align 4, !tbaa !9
+  store float %sub64, ptr %arrayidx63, align 4, !tbaa !9
   %add67 = add nsw i64 %add56, 2
-  %arrayidx68 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add67
-  %18 = load float, float* %arrayidx68, align 4, !tbaa !9
+  %arrayidx68 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add67
+  %18 = load float, ptr %arrayidx68, align 4, !tbaa !9
   %sub69 = fsub float %18, %mul50
-  store float %sub69, float* %arrayidx68, align 4, !tbaa !9
+  store float %sub69, ptr %arrayidx68, align 4, !tbaa !9
   %mul70 = fmul float %sub27, %mul39
   %add72 = add nsw i64 %add41, 3
-  %arrayidx73 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add72
-  %19 = load float, float* %arrayidx73, align 4, !tbaa !9
+  %arrayidx73 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add72
+  %19 = load float, ptr %arrayidx73, align 4, !tbaa !9
   %add74 = fadd float %mul70, %19
-  store float %add74, float* %arrayidx73, align 4, !tbaa !9
+  store float %add74, ptr %arrayidx73, align 4, !tbaa !9
   %add77 = add nsw i64 %add56, 3
-  %arrayidx78 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %add77
-  %20 = load float, float* %arrayidx78, align 4, !tbaa !9
+  %arrayidx78 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %add77
+  %20 = load float, ptr %arrayidx78, align 4, !tbaa !9
   %sub79 = fsub float %20, %mul70
-  store float %sub79, float* %arrayidx78, align 4, !tbaa !9
+  store float %sub79, ptr %arrayidx78, align 4, !tbaa !9
   %inc = add nuw nsw i64 %i.0144, 1
   %exitcond = icmp eq i64 %inc, %conv
   br i1 %exitcond, label %for.cond.for.end_crit_edge, label %for.body
 
 for.cond.for.end_crit_edge:                       ; preds = %for.body
   %add38.lcssa = phi float [ %add38, %for.body ]
-  store float %add38.lcssa, float* @e_bond, align 4, !tbaa !2
+  store float %add38.lcssa, ptr @e_bond, align 4, !tbaa !2
   br label %for.end
 
 for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry

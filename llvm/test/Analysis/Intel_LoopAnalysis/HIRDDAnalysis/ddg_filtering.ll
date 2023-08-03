@@ -82,7 +82,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i8* nocapture readonly %a, i8* nocapture %b, i8* nocapture %c, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture readonly %a, ptr nocapture %b, ptr nocapture %c, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp32 = icmp sgt i32 %n, 0
   br i1 %cmp32, label %for.body3.lr.ph.preheader, label %for.end16
@@ -93,25 +93,25 @@ for.body3.lr.ph.preheader:                        ; preds = %entry
 
 for.body3.lr.ph:                                  ; preds = %for.body3.lr.ph.preheader, %for.inc14
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc14 ], [ 0, %for.body3.lr.ph.preheader ]
-  %arrayidx4 = getelementptr inbounds i8, i8* %b, i64 %indvars.iv
+  %arrayidx4 = getelementptr inbounds i8, ptr %b, i64 %indvars.iv
   br label %for.body3
 
 for.body7.lr.ph:                                  ; preds = %for.body3
-  %arrayidx10 = getelementptr inbounds i8, i8* %c, i64 %indvars.iv
+  %arrayidx10 = getelementptr inbounds i8, ptr %c, i64 %indvars.iv
   br label %for.body7
 
 for.body3:                                        ; preds = %for.body3, %for.body3.lr.ph
   %j.029 = phi i32 [ 0, %for.body3.lr.ph ], [ %inc, %for.body3 ]
-  %0 = load i8, i8* %a, align 1
-  store i8 %0, i8* %arrayidx4, align 1
+  %0 = load i8, ptr %a, align 1
+  store i8 %0, ptr %arrayidx4, align 1
   %inc = add nuw nsw i32 %j.029, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.body7.lr.ph, label %for.body3
 
 for.body7:                                        ; preds = %for.body7, %for.body7.lr.ph
   %j.131 = phi i32 [ 0, %for.body7.lr.ph ], [ %inc12, %for.body7 ]
-  %1 = load i8, i8* %a, align 1
-  store i8 %1, i8* %arrayidx10, align 1
+  %1 = load i8, ptr %a, align 1
+  store i8 %1, ptr %arrayidx10, align 1
   %inc12 = add nuw nsw i32 %j.131, 1
   %exitcond34 = icmp eq i32 %inc12, %n
   br i1 %exitcond34, label %for.inc14, label %for.body7
@@ -129,10 +129,10 @@ for.end16:                                        ; preds = %for.end16.loopexit,
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

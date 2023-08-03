@@ -34,13 +34,14 @@ PreservedAnalyses HIRLoopDistributionForMemRecPass::runImpl(
     return PreservedAnalyses::all();
   }
 
-  HIRLoopDistribution(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                      AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
-                      AM.getResult<HIRLoopResourceAnalysis>(F),
-                      AM.getResult<HIRLoopLocalityAnalysis>(F),
-                      DistHeuristics::BreakMemRec)
-      .run();
+  ModifiedHIR =
+      HIRLoopDistribution(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                          AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                          AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
+                          AM.getResult<HIRLoopResourceAnalysis>(F),
+                          AM.getResult<HIRLoopLocalityAnalysis>(F),
+                          DistHeuristics::BreakMemRec)
+          .run();
 
   return PreservedAnalyses::all();
 }

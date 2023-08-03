@@ -278,6 +278,12 @@ static bool hasDeterministicResult(const VPInstruction &I) {
   if (I.getType()->isVoidTy())
     return true;
 
+  // It is safe to mark the call to stacksave intrinsic as not having
+  // side-effects because it just returns the current stack pointer.
+  if (auto *Call = dyn_cast<VPCallInstruction>(&I))
+    if (Call->isIntrinsicFromList({Intrinsic::stacksave}))
+      return true;
+
   // Be conservative and assume any instruction with side effects can produce
   // non-deterministic value. An example of an instruction with side effects but
   // still producing deterministic value is a function like
@@ -601,25 +607,12 @@ bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   // because the added instructions by OCL VecClone to calculate stride will
   // cause DA to propagate the correct stride as is.
 
-  auto *VPInst = dyn_cast<VPInstruction>(&V);
+  auto *VPCall = dyn_cast<VPCallInstruction>(&V);
 
-  if (!VPInst || VPInst->getOpcode() != Instruction::Call)
+  if (!VPCall)
     return false;
 
-  auto *CalledFunc =
-      dyn_cast<VPConstant>(VPInst->getOperand(VPInst->getNumOperands() - 1));
-
-  if (!CalledFunc)
-    return false;
-
-  auto *Func = dyn_cast<Function>(CalledFunc->VPValue::getUnderlyingValue());
-  if (!Func)
-    return false;
-
-  if (Func->hasFnAttribute("opencl-vec-uniform-return"))
-    return true;
-
-  return false;
+  return VPCall->isOCLVecUniformReturn();
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
@@ -640,19 +633,19 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue &V) const {
   return VPVectorShape::getUndef();
 }
 
-bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape OldShape,
-                                                 VPVectorShape NewShape) {
+bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape Shape1,
+                                                 VPVectorShape Shape2) {
   // For the first-time this function is called in context of private-entities,
-  // the OldShape is undefined.
+  // the Shapes can be undefined.
 
   // FIXME: That should be operator== modulo adjustment for undef being
   // different from another undef.
-  if ((OldShape.isUndefined() && !NewShape.isUndefined()) ||
-      (!OldShape.isUndefined() && NewShape.isUndefined()) ||
-      (!OldShape.isUndefined() && !NewShape.isUndefined() &&
-       (OldShape.getShapeDescriptor() != NewShape.getShapeDescriptor() ||
-        (OldShape.hasKnownStride() && NewShape.hasKnownStride() &&
-         OldShape.getStrideVal() != NewShape.getStrideVal())))) {
+  if ((Shape1.isUndefined() && !Shape2.isUndefined()) ||
+      (!Shape1.isUndefined() && Shape2.isUndefined()) ||
+      (!Shape1.isUndefined() && !Shape2.isUndefined() &&
+       (Shape1.getShapeDescriptor() != Shape2.getShapeDescriptor() ||
+        (Shape1.hasKnownStride() && Shape2.hasKnownStride() &&
+         Shape1.getStrideVal() != Shape2.getStrideVal())))) {
     return true;
   }
   return false;
@@ -1706,13 +1699,13 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressStore)
-    NewShape = computeVectorShapeForStoreInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressStoreNonu)
-    NewShape = computeVectorShapeForStoreInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExpandLoad)
-    NewShape = computeVectorShapeForLoadInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExpandLoadNonu)
-    NewShape = computeVectorShapeForLoadInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInit)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexFinal)
@@ -1720,7 +1713,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::CompressExpandIndex)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInc)
-    NewShape = getRandomVectorShape();
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressExpandMask)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InvSCEVWrapper) {
@@ -1728,7 +1721,15 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     // instructions are currently being used. This has to be reevaluated if how
     // it is used changes.
     NewShape = getUniformVectorShape();
-  } else {
+  } else if (Opcode == VPInstruction::F90DVBufferInit)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::EarlyExitCond)
+    NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::EarlyExitExecMask)
+    NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::EarlyExitLane)
+    NewShape = getUniformVectorShape();
+  else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&
@@ -1873,7 +1874,8 @@ void VPlanDivergenceAnalysis::recomputeShapes(
     // Compute the shapes of the seed-instructions and push
     // their users to the Worklist.
     for (auto *Inst : Seeds) {
-      assertOperandsDefined(*Inst, this);
+      if (!isa<VPPHINode>(Inst))
+        assertOperandsDefined(*Inst, this);
       auto Shape = computeVectorShape(Inst);
       updateVectorShape(Inst, Shape);
       pushUsers(*Inst);

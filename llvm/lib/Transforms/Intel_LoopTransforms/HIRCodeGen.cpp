@@ -1499,6 +1499,14 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
   return nullptr;
 }
 
+static void generateNoAliasScopeDecls(IRBuilder<> &Builder,
+                                      ArrayRef<MDNode *> ScopeLists) {
+
+  for (auto *ScopeList : ScopeLists) {
+    Builder.CreateNoAliasScopeDeclaration(ScopeList);
+  }
+}
+
 Value *CGVisitor::visitLoop(HLLoop *Lp) {
   assert(!Lp->hasZtt() && "Ztt should have been extracted!");
   assert((!Lp->hasPreheader() && !Lp->hasPostexit()) &&
@@ -1600,6 +1608,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
                                        {CsaParRegion}, "par.sec");
 #endif // INTEL_FEATURE_CSA
   }
+
+  generateNoAliasScopeDecls(Builder, Lp->getNoAliasScopeLists());
 
   auto LastIt =
       IsUnknownLoop ? Lp->getBottomTest()->getIterator() : Lp->child_end();

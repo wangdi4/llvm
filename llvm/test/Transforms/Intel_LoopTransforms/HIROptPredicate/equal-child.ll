@@ -26,7 +26,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32 %x, i32 %n, i32* nocapture %a) local_unnamed_addr #0 {
+define void @foo(i32 %x, i32 %n, ptr nocapture %a) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -35,18 +35,18 @@ for.cond.cleanup:                                 ; preds = %for.inc
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = add nuw nsw i64 %indvars.iv, 1
   br i1 true, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %a, i64 %1
-  %2 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %a, i64 %1
+  %2 = load i32, ptr %arrayidx3, align 4
   br i1 true, label %if.then5, label %for.inc
 
 if.then5:                                         ; preds = %if.then
-  store i32 0, i32* %arrayidx, align 4
+  store i32 0, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then5, %if.then

@@ -18,9 +18,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 
-; CHECK: PRIVATE clause (size=1): (ptr %{{.*}}) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: FIRSTPRIVATE clause (size=1): (ptr %{{.*}}) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: LINEAR clause (size=1): (ptr @y, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
+; CHECK: PRIVATE clause (size=1): TYPED(ptr %{{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: FIRSTPRIVATE clause (size=1): TYPED(ptr %{{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: LINEAR clause (size=1): (TYPED(ptr @y, TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
 ; CHECK: IV clause:   %.omp.iv = alloca i32, align 4, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
 ; CHECK: UB clause:   %.omp.ub = alloca i32, align 4, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
 

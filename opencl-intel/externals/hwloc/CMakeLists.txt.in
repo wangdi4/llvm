@@ -1,0 +1,48 @@
+# Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this software
+# or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or
+# implied warranties, other than those that are expressly stated in the License.
+
+set(TARGET_NAME hwloc)
+
+include_directories(include hwloc)
+
+set(HWLOC_SYS_FILE)
+if(WIN32)
+  set(HWLOC_SYS_FILE hwloc/topology-windows.c)
+else(WIN32)
+  set(HWLOC_SYS_FILE 
+    hwloc/topology-linux.c
+    hwloc/topology-hardwired.c)
+endif(WIN32)
+
+set(TARGET_SOURCE_FILES
+  hwloc/base64.c
+  hwloc/bind.c
+  hwloc/bitmap.c
+  hwloc/components.c
+  hwloc/cpukinds.c
+  hwloc/diff.c
+  hwloc/distances.c
+  hwloc/memattrs.c
+  hwloc/misc.c
+  hwloc/pci-common.c
+  hwloc/shmem.c
+  hwloc/topology.c
+  hwloc/traversal.c
+  hwloc/topology-noos.c
+  hwloc/topology-synthetic.c
+  hwloc/topology-xml.c
+  hwloc/topology-xml-nolibxml.c
+  hwloc/topology-x86.c
+  ${HWLOC_SYS_FILE})
+
+add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES})
+
+target_compile_options(${TARGET_NAME} PRIVATE -w)

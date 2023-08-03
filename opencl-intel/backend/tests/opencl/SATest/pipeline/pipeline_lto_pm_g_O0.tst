@@ -3,9 +3,8 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK:      Running pass: KernelTargetExtTypeLowerPass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
 
@@ -16,6 +15,7 @@
 
 ; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
@@ -29,6 +29,7 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK:      Running analysis: VFAnalysis

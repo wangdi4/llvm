@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -104,6 +104,7 @@
 #include <vector>
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/Support/CommandLine.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -124,6 +125,10 @@ static cl::opt<bool> PrettyPrintDirectives(
 static cl::opt<bool> PrintDbgLoc(
     "print-debug-loc", cl::init(false), cl::Hidden,
     cl::desc("Print DebugLoc of instructions besides them as comments"));
+static cl::opt<bool> PrintProfCounts(
+    "print-prof-counts", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Print profile branch count data beside instructions as comments"));
 #endif
 
 #if INTEL_PRODUCT_RELEASE
@@ -400,6 +405,12 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::AMDGPU_GS:     Out << "amdgpu_gs"; break;
   case CallingConv::AMDGPU_PS:     Out << "amdgpu_ps"; break;
   case CallingConv::AMDGPU_CS:     Out << "amdgpu_cs"; break;
+  case CallingConv::AMDGPU_CS_Chain:
+    Out << "amdgpu_cs_chain";
+    break;
+  case CallingConv::AMDGPU_CS_ChainPreserve:
+    Out << "amdgpu_cs_chain_preserve";
+    break;
   case CallingConv::AMDGPU_KERNEL: Out << "amdgpu_kernel"; break;
   case CallingConv::AMDGPU_Gfx:    Out << "amdgpu_gfx"; break;
   }
@@ -483,8 +494,8 @@ static void PrintShuffleMask(raw_ostream &Out, Type *Ty, ArrayRef<int> Mask) {
   bool FirstElt = true;
   if (all_of(Mask, [](int Elt) { return Elt == 0; })) {
     Out << "zeroinitializer";
-  } else if (all_of(Mask, [](int Elt) { return Elt == UndefMaskElem; })) {
-    Out << "undef";
+  } else if (all_of(Mask, [](int Elt) { return Elt == PoisonMaskElem; })) {
+    Out << "poison";
   } else {
     Out << "<";
     for (int Elt : Mask) {
@@ -493,8 +504,8 @@ static void PrintShuffleMask(raw_ostream &Out, Type *Ty, ArrayRef<int> Mask) {
       else
         Out << ", ";
       Out << "i32 ";
-      if (Elt == UndefMaskElem)
-        Out << "undef";
+      if (Elt == PoisonMaskElem)
+        Out << "poison";
       else
         Out << Elt;
     }
@@ -647,6 +658,9 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
   }
   case Type::PointerTyID: {
     PointerType *PTy = cast<PointerType>(Ty);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    OS << "ptr";
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     if (PTy->isOpaque()) {
       OS << "ptr";
       if (unsigned AddressSpace = PTy->getAddressSpace())
@@ -654,9 +668,12 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
       return;
     }
     print(PTy->getNonOpaquePointerElementType(), OS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     if (unsigned AddressSpace = PTy->getAddressSpace())
       OS << " addrspace(" << AddressSpace << ')';
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     OS << '*';
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return;
   }
   case Type::ArrayTyID: {
@@ -3381,10 +3398,7 @@ void AssemblyWriter::printFunctionSummary(const FunctionSummary *FS) {
     printTypeIdInfo(*TIdInfo);
 
   // The AllocationType identifiers capture the profiled context behavior
-  // reaching a specific static allocation site (possibly cloned). Thus
-  // "notcoldandcold" implies there are multiple contexts which reach this site,
-  // some of which are cold and some of which are not, and that need to
-  // disambiguate via cloning or other context identification.
+  // reaching a specific static allocation site (possibly cloned).
   auto AllocTypeName = [](uint8_t Type) -> const char * {
     switch (Type) {
     case (uint8_t)AllocationType::None:
@@ -3393,8 +3407,8 @@ void AssemblyWriter::printFunctionSummary(const FunctionSummary *FS) {
       return "notcold";
     case (uint8_t)AllocationType::Cold:
       return "cold";
-    case (uint8_t)AllocationType::NotCold | (uint8_t)AllocationType::Cold:
-      return "notcoldandcold";
+    case (uint8_t)AllocationType::Hot:
+      return "hot";
     }
     llvm_unreachable("Unexpected alloc type");
   };
@@ -4657,6 +4671,15 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
       Out << Scope->getFilename() << ":" << Loc.getLine() << ':'
           << Loc.getCol();
     }
+  }
+
+  if (PrintProfCounts && hasBranchWeightMD(I)) {
+    SmallVector<uint32_t, 4> Weights;
+    extractBranchWeights(getBranchWeightMDNode(I), Weights);
+    Out << " ; Weights = ";
+    ListSeparator LS(", ");
+    for (auto W : Weights)
+      Out << LS << W;
   }
 #endif // INTEL_CUSTOMIZATION
 }

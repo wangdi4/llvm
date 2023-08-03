@@ -19,7 +19,7 @@
 #include "tbb/task_arena.h"
 #include "tbb_test_type.h"
 
-#ifndef WIN32
+#ifndef _WIN32
 #define SLEEP(x) sleep(x)
 #else
 #define SLEEP(x) Sleep(x)

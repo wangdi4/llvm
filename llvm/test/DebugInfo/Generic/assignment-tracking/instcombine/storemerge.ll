@@ -1,4 +1,4 @@
-; RUN: opt %s -S -opaque-pointers -xmain-enable-gep0-removal -passes=instcombine -o - | FileCheck %s
+; RUN: opt %s -S -passes=instcombine -o - | FileCheck %s
 
 ;; $ cat test.cpp
 ;; class a {

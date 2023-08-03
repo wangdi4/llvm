@@ -90,8 +90,7 @@ public:
       : F(F), AC(AC), DT(DT) {}
 
   bool run() {
-    auto Externals = std::make_unique<VPExternalValues>(
-        &F.getContext(), &F.getParent()->getDataLayout());
+    auto Externals = std::make_unique<VPExternalValues>(F.getParent());
     auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
 
@@ -110,7 +109,7 @@ public:
     for (auto *TopLoop : *VPLInfo)
       for (auto *VPL : post_order(TopLoop)) {
         singleExitWhileLoopCanonicalization(VPL);
-        mergeLoopExits(VPL);
+        mergeLoopExits(VPL, false /*NeedsOuterLpEarlyExitHandling*/);
       }
 
     VPLAN_DUMP(LoopExitsCanonicalizationDumpControl, *Plan);

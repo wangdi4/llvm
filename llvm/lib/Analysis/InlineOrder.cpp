@@ -1,4 +1,21 @@
 //===- InlineOrder.cpp - Inlining order abstraction -*- C++ ---*-----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -114,8 +131,17 @@ public:
   CostBenefitPriority(const CallBase *CB, FunctionAnalysisManager &FAM,
                       const InlineParams &Params) {
     auto IC = getInlineCostWrapper(const_cast<CallBase &>(*CB), FAM, Params);
-    Cost = IC.getCost();
-    StaticBonusApplied = IC.getStaticBonusApplied();
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-48845: This a fix to community code that can be pushed pack to
+    // the community. It is tested by InlineReport161.ll.
+    if (IC.isVariable()) {
+      Cost = IC.getCost();
+      StaticBonusApplied = IC.getStaticBonusApplied();
+    } else {
+      Cost = IC.isNever() ? INT_MAX : INT_MIN;
+      StaticBonusApplied = 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     CostBenefit = IC.getCostBenefit();
   }
 

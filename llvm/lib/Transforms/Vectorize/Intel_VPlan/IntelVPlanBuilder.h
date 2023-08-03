@@ -335,10 +335,9 @@ public:
                               Instruction *Inst) {
     assert((Inst || Ptr->getType()->isPointerTy()) &&
            "Can't define type for GEP instruction");
-    // TODO. Currently, it's expected that newly created GEP (e.g. w/o
-    // underlying IR) is created for a non-array types. Need to handle those
-    // arrays when simd reductions/privates will support arrays.
-    Type *Ty = Inst ? Inst->getType() : Ptr->getType();
+    // TODO. Get rid of underlying Inst usage using ResultElementType.
+    Type *Ty =
+        Inst ? Inst->getType() : PointerType::getUnqual(ResultElementType);
     auto *NewVPInst = new VPGEPInstruction(SourceElementType, ResultElementType,
                                            Ty, Ptr, IdxList);
     insert(NewVPInst);

@@ -1,7 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK-NONOPAQUE %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK-OPAQUE %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -35,12 +33,11 @@ entryvector_func:                                 ; preds = %entryvector_func, %
   %broadcast.splatinsert8vector_func = insertelement <2 x i1> poison, i1 %4, i32 0
   %broadcast.splat9vector_func = shufflevector <2 x i1> %broadcast.splatinsert8vector_func, <2 x i1> poison, <2 x i32> zeroinitializer
 
-; CHECK-NONOPAQUE:  = select <2 x i1> %broadcast.splat9vector_func, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*), i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @add to i32 (i32, i32)*)>, <2 x i32 (i32, i32)*> <i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @sub to i32 (i32, i32)*), i32 (i32, i32)* bitcast (i32 (i32, i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, i64*, [4 x i64], i8*, {}*)* @sub to i32 (i32, i32)*)>
-; CHECK-OPAQUE:  = select <2 x i1> %broadcast.splat9vector_func, <2 x ptr> <ptr @add, ptr @add>, <2 x ptr> <ptr @sub, ptr @sub>
+; CHECK:  = select <2 x i1> %broadcast.splat9vector_func, <2 x ptr> <ptr @add, ptr @add>, <2 x ptr> <ptr @sub, ptr @sub>
 
-  %5 = select <2 x i1> %broadcast.splat9vector_func, <2 x i32 (i32, i32)*> <i32 (i32, i32)* @add, i32 (i32, i32)* @add>, <2 x i32 (i32, i32)*> <i32 (i32, i32)* @sub, i32 (i32, i32)* @sub>
-  %.extract.1.vector_func = extractelement <2 x i32 (i32, i32)*> %5, i32 1
-  %.extract.0.vector_func = extractelement <2 x i32 (i32, i32)*> %5, i32 0
+  %5 = select <2 x i1> %broadcast.splat9vector_func, <2 x ptr> <ptr @add, ptr @add>, <2 x ptr> <ptr @sub, ptr @sub>
+  %.extract.1.vector_func = extractelement <2 x ptr> %5, i32 1
+  %.extract.0.vector_func = extractelement <2 x ptr> %5, i32 0
   %dim_0_vector_inc_ind_var = add nuw nsw i64 %dim_0_vector_ind_var, 1
   %dim_0_vector_cmp.to.max = icmp eq i64 %dim_0_vector_inc_ind_var, %vector.size
   %dim0_inc_tid = add nuw nsw i64 %dim0__tid, 2
@@ -59,6 +56,6 @@ attributes #1 = { nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = distinct !{null, void ()* @test}
+!0 = distinct !{null, ptr @test}
 
 ; DEBUGIFY-NOT: WARNING

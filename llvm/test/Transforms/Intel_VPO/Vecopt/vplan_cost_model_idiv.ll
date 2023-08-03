@@ -125,27 +125,27 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld32.1.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
-  %ld32.2.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
-  %ld32.3.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
-  %ld32.4.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 %indvars.iv
-  %ld32.5.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.5, i64 0, i64 %indvars.iv
-  %ld32.6.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.6, i64 0, i64 %indvars.iv
+  %ld32.1.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld32.2.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld32.3.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.3, i64 0, i64 %indvars.iv
+  %ld32.4.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.4, i64 0, i64 %indvars.iv
+  %ld32.5.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.5, i64 0, i64 %indvars.iv
+  %ld32.6.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.6, i64 0, i64 %indvars.iv
 
-  %ld32.1 = load i32, i32* %ld32.1.idx
-  %ld32.2 = load i32, i32* %ld32.2.idx
-  %ld32.3 = load i32, i32* %ld32.3.idx
+  %ld32.1 = load i32, ptr %ld32.1.idx
+  %ld32.2 = load i32, ptr %ld32.2.idx
+  %ld32.3 = load i32, ptr %ld32.3.idx
 
-  %ld64.1.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.1, i64 0, i64 %indvars.iv
-  %ld64.2.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.2, i64 0, i64 %indvars.iv
-  %ld64.3.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.3, i64 0, i64 %indvars.iv
-  %ld64.4.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.4, i64 0, i64 %indvars.iv
-  %ld64.5.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.5, i64 0, i64 %indvars.iv
-  %ld64.6.idx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr.i64.6, i64 0, i64 %indvars.iv
+  %ld64.1.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.1, i64 0, i64 %indvars.iv
+  %ld64.2.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.2, i64 0, i64 %indvars.iv
+  %ld64.3.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.3, i64 0, i64 %indvars.iv
+  %ld64.4.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.4, i64 0, i64 %indvars.iv
+  %ld64.5.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.5, i64 0, i64 %indvars.iv
+  %ld64.6.idx = getelementptr inbounds [1024 x i64], ptr @arr.i64.6, i64 0, i64 %indvars.iv
 
-  %ld64.1 = load i64, i64* %ld64.1.idx
-  %ld64.2 = load i64, i64* %ld64.2.idx
-  %ld64.3 = load i64, i64* %ld64.3.idx
+  %ld64.1 = load i64, ptr %ld64.1.idx
+  %ld64.2 = load i64, ptr %ld64.2.idx
+  %ld64.3 = load i64, ptr %ld64.3.idx
 
   %udiv_by_const = udiv i32 %ld32.1, 7
   %udiv_by_power2 = udiv i32 %ld32.2, 16
@@ -163,19 +163,19 @@ for.body:
   %sdiv64_by_power2 = sdiv i64 %ld64.2, 16
   %sdiv64 = sdiv i64 %ld64.3, %sdiv64_by_power2
 
-  store i32 %udiv_by_const, i32* %ld32.1.idx
-  store i32 %udiv_by_power2, i32* %ld32.2.idx
-  store i32 %udiv, i32* %ld32.3.idx
-  store i32 %sdiv_by_const, i32* %ld32.4.idx
-  store i32 %sdiv_by_power2, i32* %ld32.5.idx
-  store i32 %sdiv, i32* %ld32.6.idx
+  store i32 %udiv_by_const, ptr %ld32.1.idx
+  store i32 %udiv_by_power2, ptr %ld32.2.idx
+  store i32 %udiv, ptr %ld32.3.idx
+  store i32 %sdiv_by_const, ptr %ld32.4.idx
+  store i32 %sdiv_by_power2, ptr %ld32.5.idx
+  store i32 %sdiv, ptr %ld32.6.idx
 
-  store i64 %udiv64_by_const, i64* %ld64.1.idx
-  store i64 %udiv64_by_power2, i64* %ld64.2.idx
-  store i64 %udiv64, i64* %ld64.3.idx
-  store i64 %sdiv64_by_const, i64* %ld64.4.idx
-  store i64 %sdiv64_by_power2, i64* %ld64.5.idx
-  store i64 %sdiv64, i64* %ld64.6.idx
+  store i64 %udiv64_by_const, ptr %ld64.1.idx
+  store i64 %udiv64_by_power2, ptr %ld64.2.idx
+  store i64 %udiv64, ptr %ld64.3.idx
+  store i64 %sdiv64_by_const, ptr %ld64.4.idx
+  store i64 %sdiv64_by_power2, ptr %ld64.5.idx
+  store i64 %sdiv64, ptr %ld64.6.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

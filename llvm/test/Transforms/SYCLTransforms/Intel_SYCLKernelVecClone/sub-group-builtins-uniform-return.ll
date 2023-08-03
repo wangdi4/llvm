@@ -15,14 +15,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: attributes [[ATTR]] = { {{.*}}opencl-vec-uniform-return{{.*}} }
 ; CHECK-NOT: opencl-vec-uniform-return
 
-
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !recommended_vector_length !15 {
+define spir_kernel void @a(ptr addrspace(1) nocapture readonly %a, ptr addrspace(1) nocapture %b) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !recommended_vector_length !15 !arg_type_null_val !16 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
   %slid.reverse = sub nuw i32 16, %slid
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !10
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !10
 
   %val = call i32 @_Z23intel_sub_group_shuffleij(i32 %0, i32 %slid.reverse)
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
@@ -38,8 +37,8 @@ entry:
   %mul = mul i32 %call3, 1000
   %conv = zext i32 %mul to i64
   %add = add i64 %call, %conv
-  %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
-  store i32 %call1, i32 addrspace(1)* %arrayidx4, align 4, !tbaa !10
+  %arrayidx4 = getelementptr inbounds i32, ptr addrspace(1) %b, i64 %add
+  store i32 %call1, ptr addrspace(1) %arrayidx4, align 4, !tbaa !10
 
   ret void
 }
@@ -94,12 +93,12 @@ attributes #4 = { convergent nounwind }
 !11 = !{!"int", !12, i64 0}
 !12 = !{!"omnipotent char", !13, i64 0}
 !13 = !{!"Simple C/C++ TBAA"}
-!14 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
+!14 = !{ptr @a}
 !15 = !{i32 4}
+!16 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br

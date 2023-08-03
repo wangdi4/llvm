@@ -14,7 +14,7 @@
 
 ;; Original scalar body is removed.
 ; CHECK-NOT: entry:
-; CHECK-NOT: store i32 1, i32 addrspace(1)* %a, align 4, !tbaa !13
+; CHECK-NOT: store i32 1, ptr addrspace(1) %a, align 4, !tbaa !13
 ; CHECK-NOT: ret void
 ; CHECK: }
 
@@ -22,16 +22,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !vectorized_masked_kernel !9 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !1 !scalar_kernel !11 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
+define void @test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !vectorized_masked_kernel !9 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !1 !scalar_kernel !11 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
 entry:
-  store i32 1, i32 addrspace(1)* %a, align 4, !tbaa !13
+  store i32 1, ptr addrspace(1) %a, align 4, !tbaa !13
   ret void
 }
 
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !17 {
+define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %0) !recommended_vector_length !17 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -54,9 +54,9 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcN4u_test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !11 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !17 !scalar_kernel !0 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 !recommended_vector_length !17 !vectorization_dimension !6 !can_unite_workgroups !5 {
+define void @_ZGVcN4u_test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !11 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !17 !scalar_kernel !0 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 !recommended_vector_length !17 !vectorization_dimension !6 !can_unite_workgroups !5 {
 entry:
-  store i32 4, i32 addrspace(1)* %a, align 4
+  store i32 4, ptr addrspace(1) %a, align 4
   ret void
 }
 
@@ -67,10 +67,10 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !11 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !17 !scalar_kernel !0 !kernel_execution_length !18 !kernel_has_barrier !5 !kernel_has_global_sync !5 !recommended_vector_length !17 !vectorization_dimension !6 !can_unite_workgroups !5 {
+define void @_ZGVcM4u_test(ptr addrspace(1) noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !11 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !17 !scalar_kernel !0 !kernel_execution_length !18 !kernel_has_barrier !5 !kernel_has_global_sync !5 !recommended_vector_length !17 !vectorization_dimension !6 !can_unite_workgroups !5 {
 entry:
-  %broadcast.splatinsert = insertelement <4 x i32 addrspace(1)*> undef, i32 addrspace(1)* %a, i32 0
-  %broadcast.splat = shufflevector <4 x i32 addrspace(1)*> %broadcast.splatinsert, <4 x i32 addrspace(1)*> undef, <4 x i32> zeroinitializer
+  %broadcast.splatinsert = insertelement <4 x ptr addrspace(1)> undef, ptr addrspace(1) %a, i32 0
+  %broadcast.splat = shufflevector <4 x ptr addrspace(1)> %broadcast.splatinsert, <4 x ptr addrspace(1)> undef, <4 x i32> zeroinitializer
   %0 = icmp ne <4 x i32> %mask, zeroinitializer
   %Predicate = extractelement <4 x i1> %0, i64 0
   br i1 %Predicate, label %pred.call.if, label %pred.call.continue
@@ -105,12 +105,12 @@ pred.call.if9:                                    ; preds = %pred.call.continue8
 
 pred.call.continue10:                             ; preds = %pred.call.if9, %pred.call.continue8
   %5 = phi <4 x i32> [ %3, %pred.call.continue8 ], [ %4, %pred.call.if9 ]
-  call void @llvm.masked.scatter.v4i32.v4p1i32(<4 x i32> %5, <4 x i32 addrspace(1)*> %broadcast.splat, i32 4, <4 x i1> %0)
+  call void @llvm.masked.scatter.v4i32.v4p1(<4 x i32> %5, <4 x ptr addrspace(1)> %broadcast.splat, i32 4, <4 x i1> %0)
   ret void
 }
 
 ; Function Attrs: nofree nosync nounwind willreturn writeonly
-declare void @llvm.masked.scatter.v4i32.v4p1i32(<4 x i32>, <4 x i32 addrspace(1)*>, i32 immarg, <4 x i1>) #3
+declare void @llvm.masked.scatter.v4i32.v4p1(<4 x i32>, <4 x ptr addrspace(1)>, i32 immarg, <4 x i1>) #3
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVcN4u_test,_ZGVcM4u_test" }
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
@@ -119,7 +119,7 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 1}
 !2 = !{!"none"}
 !3 = !{!"uint*"}
@@ -127,8 +127,8 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 !5 = !{i1 false}
 !6 = !{i32 0}
 !7 = !{!"a"}
-!8 = !{void (i32 addrspace(1)*)* @_ZGVcN4u_test}
-!9 = !{void (i32 addrspace(1)*, <4 x i32>)* @_ZGVcM4u_test}
+!8 = !{ptr @_ZGVcN4u_test}
+!9 = !{ptr @_ZGVcM4u_test}
 !10 = !{i1 true}
 !11 = !{null}
 !12 = !{i32 2}

@@ -132,57 +132,53 @@ typedef struct _cl_mem_obj_descriptor {
   cl_mem_object_type memObjType = 0; // type of the memory object
 } cl_mem_obj_descriptor;
 
-#ifdef WIN32
-#define ALIGN16 __declspec(align(16))
-#else
-#define ALIGN16 __attribute__((aligned(16)))
-#endif
 // Explicitly define image types
-typedef ALIGN16 struct _image_aux_data {
-  cl_uint dim_count; // A number of dimensions in the memory object.
-  size_t pitch[MAX_WORK_DIM - 1]; // Multi-dimensional pitch of the object,
-                                  // valid only for images (2D/3D).
-  cl_image_format
-      format;  // Format of the memory object,valid only for images (2D/3D).
-  void *pData; // A pointer to the object wherein the object data is stored.
-               // Could be a valid memory pointer or a handle to other object.
-  unsigned uiElementSize; // Size of image pixel element.
+typedef struct alignas(16) _image_aux_data {
+  // A number of dimensions in the memory object.
+  cl_uint dim_count;
+  // Multi-dimensional pitch of the object, valid only for images (2D/3D).
+  size_t pitch[MAX_WORK_DIM - 1];
+  // Format of the memory object,valid only for images (2D/3D).
+  cl_image_format format;
+  // A pointer to the object wherein the object data is stored. Could be a valid
+  // memory pointer or a handle to other object.
+  void *pData;
+  // Size of image pixel element.
+  unsigned uiElementSize;
 
-  void *coord_translate_f_callback
-      [CBK_ARRAY_SIZE]; // the list of float coordinate translation callback
-  void *read_img_callback_int[CBK_ARRAY_SIZE];      // the list of integer image
-                                                    // reader & filter callbacks
-  void *read_img_callback_float[CBK_ARRAY_SIZE];    // the list of float   image
-                                                    // reader & filter callbacks
-  void *soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer
-                                                    // image reader & filter
-                                                    // callbacks
-  void *soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa8 integer
-                                                    // image reader & filter
-                                                    // callbacks
-  void *soa16_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa16
-                                                     // integer image reader &
-                                                     // filter callbacks
-  void *write_img_callback;       // the write image sampler callback
-  void *soa4_write_img_callback;  // the write image sampler callback
-  void *soa8_write_img_callback;  // the write image sampler callback
-  void *soa16_write_img_callback; // the write image sampler callback
+  // the list of float coordinate translation callback.
+  void *coord_translate_f_callback[CBK_ARRAY_SIZE];
+  // the list of integer image reader & filter callbacks.
+  void *read_img_callback_int[CBK_ARRAY_SIZE];
+  // the list of float image reader & filter callbacks.
+  void *read_img_callback_float[CBK_ARRAY_SIZE];
+  // the list of soa4 integer image reader & filter callbacks.
+  void *soa4_read_img_callback_int[CBK_ARRAY_SIZE];
+  // the list of soa8 integer image reader & filter callbacks.
+  void *soa8_read_img_callback_int[CBK_ARRAY_SIZE];
+  // the list of soa16 integer image reader & filter callbacks.
+  void *soa16_read_img_callback_int[CBK_ARRAY_SIZE];
+  // the write image sampler callback
+  void *write_img_callback;
+  void *soa4_write_img_callback;
+  void *soa8_write_img_callback;
+  void *soa16_write_img_callback;
 
-  ALIGN16 int
-      dimSub1[MAX_WORK_DIM + 1]; // Image size for each dimension subtracted by
-                                 // one Used to optimize coordinates computation
-                                 // not to subtract by one for each read
-  ALIGN16 int dim[MAX_WORK_DIM + 1]; // Image size for each dimension
-  ALIGN16 unsigned int offset[MAX_WORK_DIM + 1]; // the offset to extract pixels
-  ALIGN16 float
-      dimf[MAX_WORK_DIM + 1]; // Float image size for each dimension.
-                              // Used in coordinates computation to avoid
-                              // int->float type conversion for each read call
-  int array_size; // size of array for 1D and 2d array types, otherwise is set
-                  // to -1
-  int dimmask;    // Mask for dimensions in images
-               // Contains ones at dim_count first bytes. Other bytes are zeros.
-               // Used for coordinates clamping
+  // Image size for each dimension subtracted by one Used to optimize
+  // coordinates computation not to subtract by one for each read.
+  alignas(16) int dimSub1[MAX_WORK_DIM + 1];
+  // Image size for each dimension.
+  alignas(16) int dim[MAX_WORK_DIM + 1];
+  // the offset to extract pixels.
+  alignas(16) unsigned int offset[MAX_WORK_DIM + 1];
+  // Float image size for each dimension. Used in coordinates computation to
+  // avoid int->float type conversion for each read call.
+  alignas(16) float dimf[MAX_WORK_DIM + 1];
+  // size of array for 1D and 2d array types, otherwise is set to -1.
+  int array_size;
+  // Mask for dimensions in images. Contains ones at dim_count first bytes.
+  // Other bytes are zeros. Used for coordinates clamping.
+  int dimmask;
 
 } image_aux_data;
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -140,6 +140,32 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
     return CL_INVALID_ARG_VALUE;
   if (gv_ret)
     *gv_ret = it->second;
+
+  return CL_SUCCESS;
+}
+
+cl_err_code Program::ResetDeviceImageScopeGlobalVariable() {
+  if (!Finalize())
+    return CL_INVALID_PROGRAM_EXECUTABLE;
+
+  // FPGA will only have one device instance and one program at a time. So when
+  // a program is reloaded, we need to reset all deivce programs. Actually, this
+  // is not a good behavior just according to OpenCL spec, but at least it's
+  // safe on FPGA device.
+  // Besides this, if there is a subdeivce trying to use a program which is
+  // created for its parent device, we only try to reset subdeivce's program
+  // will also cause some problems.
+  for (const auto &deviceProgram : m_ppDevicePrograms) {
+    if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+      continue;
+
+    const std::map<std::string, cl_prog_gv> &gvs =
+        deviceProgram->GetGlobalVariablePointers();
+
+    for (const auto &gv : gvs)
+      if (gv.second.device_image_scope)
+        (void)memset(gv.second.pointer, 0, gv.second.size);
+  }
 
   return CL_SUCCESS;
 }
@@ -841,9 +867,7 @@ cl_err_code Program::CreateAutorunKernels(cl_uint uiNumKernels,
         return clErrRet;
       }
 
-      SharedPtr<OCLObject<_cl_kernel_int>> Kern =
-          m_pKernels.GetOCLObject((_cl_kernel_int *)handle);
-      m_pAutorunKernels.AddObject(Kern.DynamicCast<Kernel>());
+      m_pAutorunKernels.insert((_cl_kernel_int *)handle);
 
       if (pclKernels) {
         pclKernels[i] = handle;
@@ -861,56 +885,29 @@ cl_err_code Program::RemoveKernel(cl_kernel clKernel) {
   return m_pKernels.RemoveObject((_cl_kernel_int *)clKernel);
 }
 
-cl_err_code Program::GetKernels(cl_uint uiNumKernels,
-                                SharedPtr<Kernel> *ppKernels,
-                                cl_uint *puiNumKernelsRet) {
-  LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%u, ppKernels=%p, "
-                 "puiNumKernelsRet=%p"),
-            uiNumKernels, ppKernels, puiNumKernelsRet);
-
-  if (nullptr == ppKernels) {
-    return m_pKernels.GetObjects(uiNumKernels, nullptr, puiNumKernelsRet);
-  } else {
-    assert(uiNumKernels > 0);
-
-    std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> kernels(uiNumKernels);
-    const cl_err_code err =
-        m_pKernels.GetObjects(uiNumKernels, &kernels[0], puiNumKernelsRet);
-    if (CL_FAILED(err)) {
-      return err;
-    }
-    for (size_t i = 0; i < uiNumKernels; i++) {
-      ppKernels[i] = kernels[i].DynamicCast<Kernel>();
-    }
-    return CL_SUCCESS;
+void Program::GetKernels(std::vector<SharedPtr<Kernel>> &KernelsRet) {
+  LOG_DEBUG(TEXT("Enter GetKernels (%p)"), &KernelsRet);
+  std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> Kernels;
+  m_pKernels.GetObjects(Kernels);
+  for (const auto &Kern : Kernels) {
+    KernelsRet.push_back(Kern.DynamicCast<Kernel>());
   }
 }
 
 cl_err_code
-Program::GetAutorunKernels(std::vector<SharedPtr<Kernel>> &autorunKernels) {
-  LOG_DEBUG(TEXT("Enter GetAutorunKernels(%p)"), &autorunKernels);
+Program::GetAutorunKernels(std::vector<SharedPtr<Kernel>> &AutorunKernels) {
+  LOG_DEBUG(TEXT("Enter GetAutorunKernels(%p)"), &AutorunKernels);
 
-  cl_uint numKernels;
-  cl_err_code error = m_pAutorunKernels.GetObjects(0, nullptr, &numKernels);
-  if (CL_FAILED(error)) {
-    return error;
-  }
-
-  if (numKernels > 0) {
+  cl_uint NumKernels = m_pAutorunKernels.size();
+  if (NumKernels > 0) {
     try {
-      std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> kernels(numKernels);
-      autorunKernels.resize(numKernels);
-
-      error =
-          m_pAutorunKernels.GetObjects(numKernels, &kernels.front(), nullptr);
-      if (CL_FAILED(error)) {
-        return error;
-      }
+      AutorunKernels.resize(NumKernels);
 
       std::transform(
-          kernels.begin(), kernels.end(), autorunKernels.begin(),
-          [](SharedPtr<OCLObject<_cl_kernel_int>> item) -> SharedPtr<Kernel> {
-            return item.DynamicCast<Kernel>();
+          m_pAutorunKernels.begin(), m_pAutorunKernels.end(),
+          AutorunKernels.begin(),
+          [&](_cl_kernel_int *Handle) -> SharedPtr<Kernel> {
+            return m_pKernels.GetOCLObject(Handle).DynamicCast<Kernel>();
           });
     } catch (const std::bad_alloc &e) {
       return CL_OUT_OF_RESOURCES;

@@ -20,7 +20,7 @@
 ; CHECK: + END LOOP
 
 
-define dso_local void @foo(i32 %n, i32* %m_ptr, i32* nocapture %A) {
+define dso_local void @foo(i32 %n, ptr %m_ptr, ptr nocapture %A) {
 entry:
   %cmp31 = icmp sgt i32 %n, 0
   br i1 %cmp31, label %for.cond1.preheader.lr.ph, label %for.end15
@@ -30,7 +30,7 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
 
 for.cond1.preheader:                              ; preds = %for.inc13, %for.cond1.preheader.lr.ph
   %i.032 = phi i32 [ 0, %for.cond1.preheader.lr.ph ], [ %inc14, %for.inc13 ]
-  %m = load i32, i32* %m_ptr
+  %m = load i32, ptr %m_ptr
   %wide.trip.count39 = zext i32 %m to i64
   %wide.trip.count3640 = zext i32 %m to i64
   %cmp227 = icmp sgt i32 %m, 0
@@ -47,21 +47,21 @@ for.body6.preheader:                              ; preds = %for.cond4.preheader
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count39
   br i1 %exitcond, label %for.cond4.preheader, label %for.body3
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv34 = phi i64 [ %indvars.iv.next35, %for.body6 ], [ 0, %for.body6.preheader ]
-  %arrayidx8 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv34
-  %2 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv34
+  %2 = load i32, ptr %arrayidx8, align 4
   %add9 = add nsw i32 %2, %i.032
-  store i32 %add9, i32* %arrayidx8, align 4
+  store i32 %add9, ptr %arrayidx8, align 4
   %indvars.iv.next35 = add nuw nsw i64 %indvars.iv34, 1
   %exitcond37 = icmp eq i64 %indvars.iv.next35, %wide.trip.count3640
   br i1 %exitcond37, label %for.inc13.loopexit, label %for.body6

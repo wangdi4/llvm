@@ -4,7 +4,7 @@
 ; FIXME: Updated checks once HIR support for private array type is added
 ; COM: RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1
 
-; CHECK:   [12 x %struct.int_int]* [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int]*, OrigAlign = 8
+; CHECK:   [12 x %struct.int_int]* [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int], OrigAlign = 8
 ; CHECK:   private-nonpod-array-dtor [12 x %struct.int_int]* [[ALLPRIV]]
 ; CHECK-NOT: private-nonpod-array-ctor [12 x %struct.int_int]* [[ALLPRIV]]
 

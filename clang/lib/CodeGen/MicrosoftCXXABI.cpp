@@ -30,6 +30,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ABIInfo.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGVTables.h"
@@ -169,6 +170,17 @@ public:
   bool shouldDynamicCastCallBeNullChecked(bool SrcIsPtr,
                                           QualType SrcRecordTy) override;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Value *emitDynamicCastCall(CodeGenFunction &CGF, Address Value,
+                                   QualType SrcRecordTy, QualType DestTy,
+                                   QualType DestRecordTy,
+                                   llvm::BasicBlock *CastEnd) override;
+
+  llvm::Value *emitDynamicCastToVoid(CodeGenFunction &CGF, Address Value,
+                                     QualType SrcRecordTy) override;
+
+
+#else
   llvm::Value *EmitDynamicCastCall(CodeGenFunction &CGF, Address Value,
                                    QualType SrcRecordTy, QualType DestTy,
                                    QualType DestRecordTy,
@@ -177,6 +189,7 @@ public:
   llvm::Value *EmitDynamicCastToVoid(CodeGenFunction &CGF, Address Value,
                                      QualType SrcRecordTy,
                                      QualType DestTy) override;
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   bool EmitBadCastCall(CodeGenFunction &CGF) override;
   bool canSpeculativelyEmitVTable(const CXXRecordDecl *RD) const override {
@@ -1083,7 +1096,11 @@ void MicrosoftCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 std::tuple<Address, llvm::Value *, const CXXRecordDecl *>
 MicrosoftCXXABI::performBaseAdjustment(CodeGenFunction &CGF, Address Value,
                                        QualType SrcRecordTy) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Value = Value.withElementType(CGF.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Value = CGF.Builder.CreateElementBitCast(Value, CGF.Int8Ty);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   const CXXRecordDecl *SrcDecl = SrcRecordTy->getAsCXXRecordDecl();
   const ASTContext &Context = getContext();
 
@@ -1157,10 +1174,16 @@ bool MicrosoftCXXABI::shouldDynamicCastCallBeNullChecked(bool SrcIsPtr,
          !getContext().getASTRecordLayout(SrcDecl).hasExtendableVFPtr();
 }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+llvm::Value *MicrosoftCXXABI::emitDynamicCastCall(
+    CodeGenFunction &CGF, Address This, QualType SrcRecordTy, QualType DestTy,
+    QualType DestRecordTy, llvm::BasicBlock *CastEnd) {
+#else
 llvm::Value *MicrosoftCXXABI::EmitDynamicCastCall(
     CodeGenFunction &CGF, Address This, QualType SrcRecordTy,
     QualType DestTy, QualType DestRecordTy, llvm::BasicBlock *CastEnd) {
   llvm::Type *DestLTy = CGF.ConvertType(DestTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *SrcRTTI =
       CGF.CGM.GetAddrOfRTTIDescriptor(SrcRecordTy.getUnqualifiedType());
@@ -1200,14 +1223,24 @@ llvm::Value *MicrosoftCXXABI::EmitDynamicCastCall(
   llvm::Value *Args[] = {
       ThisPtr, Offset, SrcRTTI, DestRTTI,
       llvm::ConstantInt::get(CGF.Int32Ty, DestTy->isReferenceType())};
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return CGF.EmitRuntimeCallOrInvoke(Function, Args);
+#else
   ThisPtr = CGF.EmitRuntimeCallOrInvoke(Function, Args);
   return CGF.Builder.CreateBitCast(ThisPtr, DestLTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+llvm::Value *MicrosoftCXXABI::emitDynamicCastToVoid(CodeGenFunction &CGF,
+                                                    Address Value,
+                                                    QualType SrcRecordTy) {
+#else
 llvm::Value *
 MicrosoftCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF, Address Value,
                                        QualType SrcRecordTy,
                                        QualType DestTy) {
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   std::tie(Value, std::ignore, std::ignore) =
       performBaseAdjustment(CGF, Value, SrcRecordTy);
 
@@ -1259,7 +1292,19 @@ bool MicrosoftCXXABI::hasMostDerivedReturn(GlobalDecl GD) const {
   return isDeletingDtor(GD);
 }
 
-static bool isTrivialForMSVC(const CXXRecordDecl *RD) {
+static bool isTrivialForMSVC(const CXXRecordDecl *RD, QualType Ty,
+                             CodeGenModule &CGM) {
+  // On AArch64, HVAs that can be passed in registers can also be returned
+  // in registers. (Note this is using the MSVC definition of an HVA; see
+  // isPermittedToBeHomogeneousAggregate().)
+  const Type *Base = nullptr;
+  uint64_t NumElts = 0;
+  if (CGM.getTarget().getTriple().isAArch64() &&
+      CGM.getTypes().getABIInfo().isHomogeneousAggregate(Ty, Base, NumElts) &&
+      isa<VectorType>(Base)) {
+    return true;
+  }
+
   // We use the C++14 definition of an aggregate, so we also
   // check for:
   //   No private or protected non static data members.
@@ -1288,7 +1333,8 @@ bool MicrosoftCXXABI::classifyReturnType(CGFunctionInfo &FI) const {
   if (!RD)
     return false;
 
-  bool isTrivialForABI = RD->canPassInRegisters() && isTrivialForMSVC(RD);
+  bool isTrivialForABI = RD->canPassInRegisters() &&
+                         isTrivialForMSVC(RD, FI.getReturnType(), CGM);
 
   // MSVC always returns structs indirectly from C++ instance methods.
   bool isIndirectReturn = !isTrivialForABI || FI.isInstanceMethod();
@@ -1439,7 +1485,11 @@ void MicrosoftCXXABI::EmitCXXConstructors(const CXXConstructorDecl *D) {
 void MicrosoftCXXABI::EmitVBPtrStores(CodeGenFunction &CGF,
                                       const CXXRecordDecl *RD) {
   Address This = getThisAddress(CGF);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  This = This.withElementType(CGM.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   This = CGF.Builder.CreateElementBitCast(This, CGM.Int8Ty, "this.int8");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   const ASTContext &Context = getContext();
   const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
 
@@ -1456,8 +1506,12 @@ void MicrosoftCXXABI::EmitVBPtrStores(CodeGenFunction &CGF,
     Address VBPtr = CGF.Builder.CreateConstInBoundsByteGEP(This, Offs);
     llvm::Value *GVPtr =
         CGF.Builder.CreateConstInBoundsGEP2_32(GV->getValueType(), GV, 0, 0);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    VBPtr = VBPtr.withElementType(GVPtr->getType());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     VBPtr = CGF.Builder.CreateElementBitCast(VBPtr, GVPtr->getType(),
                                       "vbptr." + VBT->ObjectWithVPtr->getName());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.Builder.CreateStore(GVPtr, VBPtr);
   }
 }
@@ -1599,7 +1653,7 @@ Address MicrosoftCXXABI::adjustThisArgumentForVirtualFunctionCall(
     if (Adjustment.isZero())
       return This;
 
-    This = CGF.Builder.CreateElementBitCast(This, CGF.Int8Ty);
+    This = This.withElementType(CGF.Int8Ty);
     assert(Adjustment.isPositive());
     return CGF.Builder.CreateConstByteGEP(This, Adjustment);
   }
@@ -1630,7 +1684,7 @@ Address MicrosoftCXXABI::adjustThisArgumentForVirtualFunctionCall(
 
   Address Result = This;
   if (ML.VBase) {
-    Result = CGF.Builder.CreateElementBitCast(Result, CGF.Int8Ty);
+    Result = Result.withElementType(CGF.Int8Ty);
 
     const CXXRecordDecl *Derived = MD->getParent();
     const CXXRecordDecl *VBase = ML.VBase;
@@ -1644,7 +1698,7 @@ Address MicrosoftCXXABI::adjustThisArgumentForVirtualFunctionCall(
   }
   if (!StaticOffset.isZero()) {
     assert(StaticOffset.isPositive());
-    Result = CGF.Builder.CreateElementBitCast(Result, CGF.Int8Ty);
+    Result = Result.withElementType(CGF.Int8Ty);
     if (ML.VBase) {
       // Non-virtual adjustment might result in a pointer outside the allocated
       // object, e.g. if the final overrider class is laid out after the virtual
@@ -1729,11 +1783,16 @@ void MicrosoftCXXABI::EmitInstanceFunctionProlog(CodeGenFunction &CGF) {
   // 1) getThisValue is currently protected
   // 2) in theory, an ABI could implement 'this' returns some other way;
   //    HasThisReturn only specifies a contract, not the implementation
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  if (HasThisReturn(CGF.CurGD) || hasMostDerivedReturn(CGF.CurGD))
+    CGF.Builder.CreateStore(getThisValue(CGF), CGF.ReturnValue);
+#else
   if (HasThisReturn(CGF.CurGD))
     CGF.Builder.CreateStore(getThisValue(CGF), CGF.ReturnValue);
   else if (hasMostDerivedReturn(CGF.CurGD))
     CGF.Builder.CreateStore(CGF.EmitCastToVoidPtr(getThisValue(CGF)),
                             CGF.ReturnValue);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (isa<CXXConstructorDecl>(MD) && MD->getParent()->getNumVBases()) {
     assert(getStructorImplicitParamDecl(CGF) &&
@@ -2378,7 +2437,7 @@ llvm::Value *MicrosoftCXXABI::performThisAdjustment(CodeGenFunction &CGF,
   if (TA.isEmpty())
     return This.getPointer();
 
-  This = CGF.Builder.CreateElementBitCast(This, CGF.Int8Ty);
+  This = This.withElementType(CGF.Int8Ty);
 
   llvm::Value *V;
   if (TA.Virtual.isEmpty()) {
@@ -2389,7 +2448,7 @@ llvm::Value *MicrosoftCXXABI::performThisAdjustment(CodeGenFunction &CGF,
     Address VtorDispPtr =
         CGF.Builder.CreateConstInBoundsByteGEP(This,
                  CharUnits::fromQuantity(TA.Virtual.Microsoft.VtordispOffset));
-    VtorDispPtr = CGF.Builder.CreateElementBitCast(VtorDispPtr, CGF.Int32Ty);
+    VtorDispPtr = VtorDispPtr.withElementType(CGF.Int32Ty);
     llvm::Value *VtorDisp = CGF.Builder.CreateLoad(VtorDispPtr, "vtordisp");
     V = CGF.Builder.CreateGEP(This.getElementType(), This.getPointer(),
                               CGF.Builder.CreateNeg(VtorDisp));
@@ -2431,7 +2490,7 @@ MicrosoftCXXABI::performReturnAdjustment(CodeGenFunction &CGF, Address Ret,
     return Ret.getPointer();
 
   auto OrigTy = Ret.getType();
-  Ret = CGF.Builder.CreateElementBitCast(Ret, CGF.Int8Ty);
+  Ret = Ret.withElementType(CGF.Int8Ty);
 
   llvm::Value *V = Ret.getPointer();
   if (RA.Virtual.Microsoft.VBIndex) {
@@ -2475,8 +2534,7 @@ CharUnits MicrosoftCXXABI::getArrayCookieSizeImpl(QualType type) {
 llvm::Value *MicrosoftCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
                                                   Address allocPtr,
                                                   CharUnits cookieSize) {
-  Address numElementsPtr =
-    CGF.Builder.CreateElementBitCast(allocPtr, CGF.SizeTy);
+  Address numElementsPtr = allocPtr.withElementType(CGF.SizeTy);
   return CGF.Builder.CreateLoad(numElementsPtr);
 }
 
@@ -2494,8 +2552,7 @@ Address MicrosoftCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   Address cookiePtr = newPtr;
 
   // Write the number of elements into the appropriate slot.
-  Address numElementsPtr
-    = CGF.Builder.CreateElementBitCast(cookiePtr, CGF.SizeTy);
+  Address numElementsPtr = cookiePtr.withElementType(CGF.SizeTy);
   CGF.Builder.CreateStore(numElements, numElementsPtr);
 
   // Finally, compute a pointer to the actual data buffer by skipping
@@ -3349,12 +3406,22 @@ MicrosoftCXXABI::GetVBaseOffsetFromVBPtr(CodeGenFunction &CGF,
                                          llvm::Value **VBPtrOut) {
   CGBuilderTy &Builder = CGF.Builder;
   // Load the vbtable pointer from the vbptr in the instance.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Value *VBPtr = Builder.CreateInBoundsGEP(CGM.Int8Ty, This.getPointer(),
+                                                 VBPtrOffset, "vbptr");
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   This = Builder.CreateElementBitCast(This, CGM.Int8Ty);
   llvm::Value *VBPtr = Builder.CreateInBoundsGEP(
       This.getElementType(), This.getPointer(), VBPtrOffset, "vbptr");
-  if (VBPtrOut) *VBPtrOut = VBPtr;
-  VBPtr = Builder.CreateBitCast(VBPtr,
-            CGM.Int32Ty->getPointerTo(0)->getPointerTo(This.getAddressSpace()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+  if (VBPtrOut)
+    *VBPtrOut = VBPtr;
+
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  VBPtr = Builder.CreateBitCast(
+      VBPtr,
+      CGM.Int32Ty->getPointerTo(0)->getPointerTo(This.getAddressSpace()));
+#endif // !INTEL_SYCL_OPAQUEPOINTER_READY
 
   CharUnits VBPtrAlign;
   if (auto CI = dyn_cast<llvm::ConstantInt>(VBPtrOffset)) {
@@ -3375,7 +3442,9 @@ MicrosoftCXXABI::GetVBaseOffsetFromVBPtr(CodeGenFunction &CGF,
   // Load an i32 offset from the vb-table.
   llvm::Value *VBaseOffs =
       Builder.CreateInBoundsGEP(CGM.Int32Ty, VBTable, VBTableIndex);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   VBaseOffs = Builder.CreateBitCast(VBaseOffs, CGM.Int32Ty->getPointerTo(0));
+#endif // !INTEL_SYCL_OPAQUEPOINTER_READY
   return Builder.CreateAlignedLoad(CGM.Int32Ty, VBaseOffs,
                                    CharUnits::fromQuantity(4), "vbase_offs");
 }
@@ -3386,7 +3455,7 @@ llvm::Value *MicrosoftCXXABI::AdjustVirtualBase(
     CodeGenFunction &CGF, const Expr *E, const CXXRecordDecl *RD,
     Address Base, llvm::Value *VBTableOffset, llvm::Value *VBPtrOffset) {
   CGBuilderTy &Builder = CGF.Builder;
-  Base = Builder.CreateElementBitCast(Base, CGM.Int8Ty);
+  Base = Base.withElementType(CGM.Int8Ty);
   llvm::BasicBlock *OriginalBB = nullptr;
   llvm::BasicBlock *SkipAdjustBB = nullptr;
   llvm::BasicBlock *VBaseAdjustBB = nullptr;
@@ -3997,7 +4066,7 @@ llvm::GlobalVariable *MSRTTIBuilder::getClassHierarchyDescriptor() {
   Classes.front().initialize(/*Parent=*/nullptr, /*Specifier=*/nullptr);
   detectAmbiguousBases(Classes);
   int Flags = 0;
-  for (auto Class : Classes) {
+  for (const MSRTTIClass &Class : Classes) {
     if (Class.RD->getNumBases() > 1)
       Flags |= HasBranchingHierarchy;
     // Note: cl.exe does not calculate "HasAmbiguousBases" correctly.  We

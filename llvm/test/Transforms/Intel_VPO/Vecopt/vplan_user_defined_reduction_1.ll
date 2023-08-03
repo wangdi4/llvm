@@ -24,6 +24,8 @@
 
 ; RUN: opt -S -passes="vplan-vec" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=IR,CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
+; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+; RUN: opt -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
 ; REQUIRES: asserts
 
 ; ------------------------------------------------------------------------------
@@ -63,8 +65,8 @@
 ; CHECK-NEXT:   Memory: %struct.point* %tmpcast21.red
 
 ; Initialization
-; CHECK:        %struct.point* [[PVT2]] = allocate-priv %struct.point*
-; CHECK:        %struct.point* [[PVT1]] = allocate-priv %struct.point*
+; CHECK:        %struct.point* [[PVT2]] = allocate-priv %struct.point
+; CHECK:        %struct.point* [[PVT1]] = allocate-priv %struct.point
 ; CHECK:        call %struct.point* [[PVT1]] %struct.point* %tmpcast.red void (%struct.point*, %struct.point*)* @.omp_initializer.
 ; CHECK-NEXT:   %struct.point* {{.*}} = call %struct.point* [[PVT2]] %struct.point* (%struct.point*)* @point.omp.def_constr
 ; CHECK-NEXT:   call %struct.point* [[PVT2]] %struct.point* %tmpcast21.red void (%struct.point*, %struct.point*)* @.omp_initializer..2
@@ -161,6 +163,12 @@
 ; HIR-NEXT:         [[DTOR_ARG_EXTRACT:%.*]] = extractelement &((<2 x %struct.point*>)([[PRIV_MEM_BC]])[<i32 0, i32 1>]),  1;
 ; HIR-NEXT:         @point.omp.destr([[DTOR_ARG_EXTRACT]]);
 
+; ------------------------------------------------------------------------------
+; Check opt report reduction remarks
+;
+; OPTRPT: remark #25588: Loop has SIMD reduction
+; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction with value type structure of 2 elements
+; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction with value type structure of 2 elements
 ; ------------------------------------------------------------------------------
 
 

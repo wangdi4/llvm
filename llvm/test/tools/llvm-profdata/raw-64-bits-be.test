@@ -16,13 +16,30 @@ RUN: printf '\0\0\0\1\0\4\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\1\0\0\0\0' >> %t
+// INTEL_CUSTOMIZATION
+// Add 2 bytes of 0 for the number of profiled loops,
+// plus 6 bytes of 0 to pad to a 64-bit aligmnent to
+// support the addition of loop trip count value
+// profiling types done by the xmain compiler.
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+// end INTEL_CUSTOMIZATION
 
 RUN: printf '\344\023\165\112\031\035\265\067' >> %t
 RUN: printf '\0\0\0\0\0\0\0\02' >> %t
-RUN: printf '\0\0\0\1\0\3\xff\xd8' >> %t
+// INTEL_CUSTOMIZATION
+// The addition of 8 bytes due to record descriptor increasing,
+// causes the pointer offset to the counters to change by 8
+// bytes in opposite direction.
+RUN: printf '\0\0\0\1\0\3\xff\xd0' >> %t
+// end INTEL_CUSTOMIZATION
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\02\0\0\0\0' >> %t
+// INTEL_CUSTOMIZATION
+// Add 2 bytes of 0 for the number of profiled loops,
+// plus 6 bytes of 0 to pad to a 64-bit aligmnent.
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+// end INTEL_CUSTOMIZATION
 
 RUN: printf '\0\0\0\0\0\0\0\023' >> %t
 RUN: printf '\0\0\0\0\0\0\0\067' >> %t

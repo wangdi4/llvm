@@ -6,20 +6,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; for (i = 0; i < 1000; i++)
 ;   A[i + 1] = A[i];
 
-define void @example(<8 x i64>* %src) "target-features"="+avx512f" {
+define void @example(ptr %src) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
-  %dest = getelementptr inbounds <8 x i64>, <8 x i64>* %src, i32 1
+  %dest = getelementptr inbounds <8 x i64>, ptr %src, i32 1
   br label %loop
 
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  %addr.src = getelementptr inbounds <8 x i64>, <8 x i64>* %src, i64 %index
-  %val = load <8 x i64>, <8 x i64>* %addr.src, align 16
-  store <8 x i64> %val, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  %addr.src = getelementptr inbounds <8 x i64>, ptr %src, i64 %index
+  %val = load <8 x i64>, ptr %addr.src, align 16
+  store <8 x i64> %val, ptr %addr, align 16, !nontemporal !0
   %cond = icmp eq i64 %index, 10000
   br i1 %cond, label %exit, label %loop
 

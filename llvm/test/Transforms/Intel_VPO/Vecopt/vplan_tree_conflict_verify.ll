@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Verify lowering of tree conflict right after the transformation.
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(float* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, float* noalias nocapture noundef readonly %C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C) local_unnamed_addr #0 {
 ;
 ; float A[8], C[8];
 ; int B[8]; // conflict idx
@@ -36,14 +36,14 @@ define dso_local void @foo(float* noalias nocapture noundef %A, i32* nocapture n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[C0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] i64 [[VP6:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0-> 1-> )
@@ -79,7 +79,7 @@ define dso_local void @foo(float* noalias nocapture noundef %A, i32* nocapture n
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB7]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] float [[VP_FINAL_RESULT:%.*]] = phi  [ float [[VP_LOAD_1]], [[BB2]] ],  [ float [[VP_VRES_NEXT]], [[BB6]] ] (SVAOpBits 0-> 1-> )
 ; CHECK-NEXT:     [DA: Div, SVA: (   )] float [[VP11:%.*]] = fadd float [[VP_LOAD_2]] float [[VP_FINAL_RESULT]] (SVAOpBits 0-> 1-> )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP11]] float* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP11]] ptr [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (   )] br [[BB3]] (SVAOpBits 0-> )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]]
@@ -111,15 +111,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 8
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  %2 = load float, float* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx4, align 4
   %add = fadd fast float %2, %1
-  store float %add, float* %arrayidx2, align 4
+  store float %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

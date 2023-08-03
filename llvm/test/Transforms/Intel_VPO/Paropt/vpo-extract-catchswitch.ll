@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="vpo-paropt" -S %s | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
 ; CMPLRLLVM-28173:
@@ -43,7 +43,7 @@
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc19.28.29334"
 
-%struct.widget = type { i8**, i8*, [20 x i8] }
+%struct.widget = type { ptr, ptr, [20 x i8] }
 %struct.wombat = type { %struct.widget }
 
 %struct.wombat.142 = type { i32 (...)**, %struct.widget }
@@ -58,7 +58,7 @@ declare token @llvm.directive.region.entry() #0
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #0
 
-define dso_local void @quux() #1 align 2 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define dso_local void @quux() #1 align 2 personality ptr @__CxxFrameHandler3 {
 bb:
   %tmp = alloca i64, align 8
   %tmp1 = alloca i64, align 8
@@ -69,11 +69,16 @@ bb14:                                             ; preds = %bb13, %bb11
           to label %bb22 unwind label %bb100
 
 bb22:                                             ; preds = %bb21
-  %tmp23 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.NUM_THREADS"(i64 undef), "QUAL.OMP.NORMALIZED.IV"(i64* undef), "QUAL.OMP.NORMALIZED.UB"(i64* %tmp) ]
+  %tmp23 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+    "QUAL.OMP.SCHEDULE.STATIC"(i32 0),
+    "QUAL.OMP.NUM_THREADS"(i64 undef),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %tmp1, i64 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %tmp, i64 0) ]
+
   br label %bb27
 
 bb27:                                             ; preds = %bb39, %bb26
-  %tmp28 = load volatile i64, i64* undef, align 8
+  %tmp28 = load volatile i64, ptr %tmp1, align 8
   %tmp29 = icmp sle i64 %tmp28, undef
   br i1 %tmp29, label %bb30, label %bb42
 
@@ -89,7 +94,7 @@ bb32:                                             ; preds = %bb31, %bb30
   %tmp33 = catchswitch within none [label %bb34] unwind label %bb100
 
 bb34:                                             ; preds = %bb32
-  %tmp35 = catchpad within %tmp33 [%struct.widget* @global, i32 8, %struct.wombat.142** undef]
+  %tmp35 = catchpad within %tmp33 [ptr @global, i32 8, ptr undef]
   unreachable
 
 bb36:                                             ; preds = %bb31
@@ -97,9 +102,9 @@ bb36:                                             ; preds = %bb31
 
 
 bb39:                                             ; preds = %bb38
-  %tmp40 = load volatile i64, i64* undef, align 8
+  %tmp40 = load volatile i64, ptr %tmp1, align 8
   %tmp41 = add nsw i64 %tmp40, 1
-  store volatile i64 %tmp41, i64* undef, align 8
+  store volatile i64 %tmp41, ptr %tmp1, align 8
   br label %bb27
 
 bb42:                                             ; preds = %bb27
@@ -107,6 +112,7 @@ bb42:                                             ; preds = %bb27
 
 bb45:                                             ; preds = %bb44
   call void @llvm.directive.region.exit(token %tmp23) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+
   br label %bb61
 
 ; OUTSIDE THE REGION
@@ -142,7 +148,3 @@ declare dso_local void @pluto() #1
 
 attributes #0 = { nounwind }
 attributes #1 = { "unsafe-fp-math"="true" }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2021.4.0 (2021.x.0.YYYYMMDD)"}

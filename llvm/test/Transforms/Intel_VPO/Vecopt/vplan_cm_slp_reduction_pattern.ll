@@ -34,7 +34,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 %struct.S = type { i16, i16, i16, i16 }
-define dso_local void @foo(double* nocapture readonly %k, %struct.S* nocapture readonly %s, i64 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %k, ptr nocapture readonly %s, i64 %n) local_unnamed_addr #0 {
 entry:
   %cmp54 = icmp sgt i64 %n, 0
   br i1 %cmp54, label %for.body.preheader, label %for.end
@@ -47,33 +47,33 @@ for.body:                                         ; preds = %for.body.preheader,
   %d3.059 = phi double [ %add16, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %d2.058 = phi double [ %add9, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %d1.057 = phi double [ %add2, %for.body ], [ 0.000000e+00, %for.body.preheader ]
-  %k.addr.056 = phi double* [ %incdec.ptr, %for.body ], [ %k, %for.body.preheader ]
+  %k.addr.056 = phi ptr [ %incdec.ptr, %for.body ], [ %k, %for.body.preheader ]
   %l1.055 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %add.ptr = getelementptr inbounds double, double* %k.addr.056, i64 %n
-  %0 = load double, double* %add.ptr, align 8
+  %add.ptr = getelementptr inbounds double, ptr %k.addr.056, i64 %n
+  %0 = load double, ptr %add.ptr, align 8
   %add = add nsw i64 %l1.055, %n
-  %red = getelementptr inbounds %struct.S, %struct.S* %s, i64 %add, i32 0
-  %1 = load i16, i16* %red, align 2
+  %red = getelementptr inbounds %struct.S, ptr %s, i64 %add, i32 0
+  %1 = load i16, ptr %red, align 2
   %conv1 = uitofp i16 %1 to double
   %mul = fmul fast double %0, %conv1
   %add2 = fadd fast double %mul, %d1.057
-  %blue = getelementptr inbounds %struct.S, %struct.S* %s, i64 %add, i32 1
-  %2 = load i16, i16* %blue, align 2
+  %blue = getelementptr inbounds %struct.S, ptr %s, i64 %add, i32 1
+  %2 = load i16, ptr %blue, align 2
   %conv7 = uitofp i16 %2 to double
   %mul8 = fmul fast double %0, %conv7
   %add9 = fadd fast double %mul8, %d2.058
-  %green = getelementptr inbounds %struct.S, %struct.S* %s, i64 %add, i32 2
-  %3 = load i16, i16* %green, align 2
+  %green = getelementptr inbounds %struct.S, ptr %s, i64 %add, i32 2
+  %3 = load i16, ptr %green, align 2
   %conv14 = uitofp i16 %3 to double
   %mul15 = fmul fast double %0, %conv14
   %add16 = fadd fast double %mul15, %d3.059
-  %opacity = getelementptr inbounds %struct.S, %struct.S* %s, i64 %add, i32 3
-  %4 = load i16, i16* %opacity, align 2
+  %opacity = getelementptr inbounds %struct.S, ptr %s, i64 %add, i32 3
+  %4 = load i16, ptr %opacity, align 2
   %conv21 = uitofp i16 %4 to double
   %mul22 = fmul fast double %0, %conv21
   %add23 = fadd fast double %mul22, %d4.060
   %inc = add nuw nsw i64 %l1.055, 1
-  %incdec.ptr = getelementptr inbounds double, double* %k.addr.056, i64 -1
+  %incdec.ptr = getelementptr inbounds double, ptr %k.addr.056, i64 -1
   %exitcond.not = icmp eq i64 %inc, %n
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body
 

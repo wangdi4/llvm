@@ -12,7 +12,7 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024"
 target triple = "spir64-unknown-unknown"
 
-%struct.__tgt_offload_entry.0 = type { i8 addrspace(4)*, i8 addrspace(2)*, i64, i32, i32, i64 }
+%struct.__tgt_offload_entry.0 = type { ptr addrspace(4), ptr addrspace(2), i64, i32, i32, i64 }
 
 @__omp_offloading_entries_table = external addrspace(1) constant [1 x %struct.__tgt_offload_entry.0]
 
@@ -22,9 +22,9 @@ declare spir_func i32 @_Z22get_sub_group_local_idv()
 
 declare spir_func double @_Z32sub_group_non_uniform_reduce_addd(double)
 
-define spir_kernel void @__omp_offloading_804_2620649__ZL5test4iPdS_S__l19([1 x double] addrspace(1)* noalias %sum.ascast, i64 %k.ascast.val.zext, i64 %.omp.lb.ascast.val101.zext, i64 %.omp.ub.ascast.val.zext, i64 %.capture_expr.0.ascast.val.zext) {
+define spir_kernel void @__omp_offloading_804_2620649__ZL5test4iPdS_S__l19(ptr addrspace(1) noalias %sum.ascast, i64 %k.ascast.val.zext, i64 %.omp.lb.ascast.val101.zext, i64 %.omp.ub.ascast.val.zext, i64 %.capture_expr.0.ascast.val.zext) {
 DIR.OMP.TEAMS.6:
-  %0 = addrspacecast [8 x i32] addrspace(1)* null to [8 x i32] addrspace(4)*
+  %0 = addrspacecast ptr addrspace(1) null to ptr addrspace(4)
   br i1 false, label %DIR.OMP.END.PARALLEL.LOOP.10.loopexit, label %DIR.OMP.END.TEAMS.11
 
 omp.inner.for.body.preheader:
@@ -51,8 +51,8 @@ DIR.OMP.END.PARALLEL.LOOP.1075.split.split: ; preds = %red.update.body.preheader
   br label %2
 
 DIR.OMP.END.PARALLEL.LOOP.1075.split.split.split90: ; preds = %DIR.OMP.END.PARALLEL.LOOP.1075.split88.split
-  call spir_func void @__kmpc_critical([8 x i32] addrspace(4)* %0) #0
-  call spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)* %0)
+  call spir_func void @__kmpc_critical(ptr addrspace(4) %0) #0
+  call spir_func void @__kmpc_end_critical(ptr addrspace(4) %0)
   br label %DIR.OMP.END.TEAMS.11
 
 red.update.body.preheader:                        ; preds = %1
@@ -63,9 +63,9 @@ DIR.OMP.END.TEAMS.11:                             ; preds = %DIR.OMP.END.PARALLE
   ret void
 }
 
-declare spir_func void @__kmpc_critical([8 x i32] addrspace(4)*)
+declare spir_func void @__kmpc_critical(ptr addrspace(4))
 
-declare spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)*)
+declare spir_func void @__kmpc_end_critical(ptr addrspace(4))
 
 attributes #0 = { nounwind }
 

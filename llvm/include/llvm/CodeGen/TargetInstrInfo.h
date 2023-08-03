@@ -1029,6 +1029,10 @@ public:
     return false;
   }
 
+  /// Return an index for MachineJumpTableInfo if \p insn is an indirect jump
+  /// using a jump table, otherwise -1.
+  virtual int getJumpTableIndex(const MachineInstr &MI) const { return -1; }
+
 protected:
   /// Target-dependent implementation for IsCopyInstr.
   /// If the specific machine instruction is a instruction that moves/copies
@@ -1062,6 +1066,16 @@ public:
       return DestSourcePair{MI.getOperand(0), MI.getOperand(1)};
     }
     return isCopyInstrImpl(MI);
+  }
+
+  bool isFullCopyInstr(const MachineInstr &MI) const {
+    auto DestSrc = isCopyInstr(MI);
+    if (!DestSrc)
+      return false;
+
+    const MachineOperand *DestRegOp = DestSrc->Destination;
+    const MachineOperand *SrcRegOp = DestSrc->Source;
+    return !DestRegOp->getSubReg() && !SrcRegOp->getSubReg();
   }
 
   /// If the specific machine instruction is an instruction that adds an
@@ -1170,6 +1184,10 @@ public:
                                   MachineInstr &LoadMI,
                                   LiveIntervals *LIS = nullptr) const;
 
+  /// This function defines the logic to lower COPY instruction to
+  /// target specific instruction(s).
+  void lowerCopy(MachineInstr *MI, const TargetRegisterInfo *TRI) const;
+
   /// Return true when there is potentially a faster code sequence
   /// for an instruction chain ending in \p Root. All potential patterns are
   /// returned in the \p Pattern vector. Pattern should be sorted in priority
@@ -1246,6 +1264,13 @@ public:
       SmallVectorImpl<MachineInstr *> &InsInstrs,
       SmallVectorImpl<MachineInstr *> &DelInstrs,
       DenseMap<unsigned, unsigned> &InstIdxForVirtReg) const;
+
+  /// When calculate the latency of the root instruction, accumulate the
+  /// latency of the sequence to the root latency.
+  /// \param Root - Instruction that could be combined with one of its operands
+  virtual bool accumulateInstrSeqToRootLatency(MachineInstr &Root) const {
+    return true;
+  }
 
   /// Attempt to reassociate \P Root and \P Prev according to \P Pattern to
   /// reduce critical path length.
@@ -1643,6 +1668,14 @@ public:
   }
   virtual bool optimizeCondBranch(MachineInstr &MI) const { return false; }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  virtual MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
+                                          MachineInstr &MI) const {
+    return nullptr;
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   /// Try to remove the load by folding it to a register operand at the use.
   /// We fold the load instructions if and only if the
   /// def and use are in the same BB. We only look at one load and see
@@ -1971,6 +2004,13 @@ public:
     return false;
   }
 
+  /// Allows targets to use appropriate copy instruction while spilitting live
+  /// range of a register in register allocation.
+  virtual unsigned getLiveRangeSplitOpcode(Register Reg,
+                                           const MachineFunction &MF) const {
+    return TargetOpcode::COPY;
+  }
+
   /// During PHI eleimination lets target to make necessary checks and
   /// insert the copy to the PHI destination register in a target specific
   /// manner.
@@ -1994,7 +2034,7 @@ public:
   }
 
   /// Returns a \p outliner::OutlinedFunction struct containing target-specific
-  /// information for a set of outlining candidates. Returns None if the
+  /// information for a set of outlining candidates. Returns std::nullopt if the
   /// candidates are not suitable for outlining.
   virtual std::optional<outliner::OutlinedFunction> getOutliningCandidateInfo(
       std::vector<outliner::Candidate> &RepeatedSequenceLocs) const {

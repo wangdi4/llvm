@@ -2,64 +2,61 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown-intelfpga"
 
 %struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
-%opencl.pipe_rw_t = type opaque
-%opencl.pipe_ro_t = type opaque
-%opencl.pipe_wo_t = type opaque
 
 ; Function Attrs: norecurse nounwind
-declare void @__dummy_func_to_save_struct__pipe_t(%struct.__pipe_t*) #0
+declare void @__dummy_func_to_save_struct__pipe_t(ptr byval(%struct.__pipe_t)) #0
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_init_fpga(%opencl.pipe_rw_t addrspace(1)*, i32, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare void @__pipe_init_fpga(ptr addrspace(1), i32, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_init_ext_fpga(%opencl.pipe_rw_t addrspace(1)*, i32, i32, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare void @__pipe_init_ext_fpga(ptr addrspace(1), i32, i32, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_init_array_fpga(%opencl.pipe_rw_t addrspace(1)* addrspace(1)*, i32, i32, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare void @__pipe_init_array_fpga(ptr addrspace(1), i32, i32, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_init_array_ext_fpga(%opencl.pipe_rw_t addrspace(1)* addrspace(1)*, i32, i32, i32, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare void @__pipe_init_array_ext_fpga(ptr addrspace(1), i32, i32, i32, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_release_fpga(%opencl.pipe_rw_t addrspace(1)* nocapture readonly) #1
+; Function Attrs: nounwind memory(none)
+declare void @__pipe_release_fpga(ptr addrspace(1) nocapture readonly) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__read_pipe_2_fpga(ptr addrspace(1), ptr addrspace(4) nocapture, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__read_pipe_2(ptr addrspace(1), ptr addrspace(4) nocapture, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2_io_fpga(%opencl.pipe_ro_t addrspace(1)* nocapture, i8 addrspace(4)* nocapture, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__read_pipe_2_io_fpga(ptr addrspace(1) nocapture, ptr addrspace(4) nocapture, ptr addrspace(4) nocapture readonly, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2_bl_io_fpga(%opencl.pipe_ro_t addrspace(1)* nocapture, i8 addrspace(4)* nocapture, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__read_pipe_2_bl_io_fpga(ptr addrspace(1) nocapture, ptr addrspace(4) nocapture, ptr addrspace(4) nocapture readonly, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__write_pipe_2_fpga(ptr addrspace(1), ptr addrspace(4) nocapture readonly, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__write_pipe_2(ptr addrspace(1), ptr addrspace(4) nocapture readonly, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2_io_fpga(%opencl.pipe_wo_t addrspace(1)* nocapture, i8 addrspace(4)* nocapture, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__write_pipe_2_io_fpga(ptr addrspace(1) nocapture, ptr addrspace(4) nocapture, ptr addrspace(4) nocapture readonly, i32, i32) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2_bl_io_fpga(%opencl.pipe_wo_t addrspace(1)* nocapture, i8 addrspace(4)* nocapture, i8 addrspace(4)* nocapture readonly, i32, i32) #1
+; Function Attrs: nounwind memory(none)
+declare i32 @__write_pipe_2_bl_io_fpga(ptr addrspace(1) nocapture, ptr addrspace(4) nocapture, ptr addrspace(4) nocapture readonly, i32, i32) #1
 
 ; Function Attrs: convergent nounwind
-declare void @__flush_pipe_read_array(i8 addrspace(1)** nocapture readonly, i32* nocapture readonly) #2
+declare void @__flush_pipe_read_array(ptr nocapture readonly, ptr nocapture readonly) #2
 
 ; Function Attrs: convergent nounwind
-declare void @__flush_pipe_write_array(i8 addrspace(1)** nocapture readonly, i32* nocapture readonly) #2
+declare void @__flush_pipe_write_array(ptr nocapture readonly, ptr nocapture readonly) #2
 
 ; Function Attrs: norecurse nounwind
-declare void @__store_write_pipe_use(i8 addrspace(1)** nocapture, i32* nocapture, %opencl.pipe_wo_t addrspace(1)*) #0
+declare void @__store_write_pipe_use(ptr nocapture, ptr nocapture, ptr addrspace(1)) #0
 
 ; Function Attrs: norecurse nounwind
-declare void @__store_read_pipe_use(i8 addrspace(1)** nocapture, i32* nocapture, %opencl.pipe_ro_t addrspace(1)*) #0
+declare void @__store_read_pipe_use(ptr nocapture, ptr nocapture, ptr addrspace(1)) #0
 
 attributes #0 = { norecurse nounwind }
-attributes #1 = { nounwind readnone }
+attributes #1 = { nounwind memory(none) }
 attributes #2 = { convergent nounwind }

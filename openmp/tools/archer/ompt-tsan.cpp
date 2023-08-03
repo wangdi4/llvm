@@ -1,7 +1,24 @@
 /*
  * ompt-tsan.cpp -- Archer runtime library, TSan annotations for Archer
  */
-
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -33,6 +50,17 @@
 
 #include "omp-tools.h"
 
+#ifdef INTEL_CUSTOMIZATION
+// This file is built with the omp-tools.h from the Intel compiler's include
+// directory, and that file currently doesn't have these two enum entries
+// defined. Meanwhile, the LLVM omp-tools.h has added these entries in
+// early July 2023. Until Intel adds these entries in its omp-tools.h,
+// we define these entries here based on what's in LLVM omp-tools.h
+// as a temporary solution.
+#define ompt_dependence_type_out_all_memory   34
+#define ompt_dependence_type_inout_all_memory 35
+#endif // INTEL_CUSTOMIZATION
+
 // Define attribute that indicates that the fall through from the previous
 // case label is intentional and should not be diagnosed by a compiler
 //   Code from libcxx/include/__config
@@ -63,6 +91,7 @@ public:
   int enabled{1};
   int report_data_leak{0};
   int ignore_serial{0};
+  std::atomic<int> all_memory{0};
 
   ArcherFlags(const char *env) {
     if (env) {
@@ -70,6 +99,7 @@ public:
       std::string token;
       std::string str(env);
       std::istringstream iss(str);
+      int tmp_int;
       while (std::getline(iss, token, ' '))
         tokens.push_back(token);
 
@@ -89,6 +119,10 @@ public:
           continue;
         if (sscanf(it->c_str(), "ignore_serial=%d", &ignore_serial))
           continue;
+        if (sscanf(it->c_str(), "all_memory=%d", &tmp_int)) {
+          all_memory = tmp_int;
+          continue;
+        }
         std::cerr << "Illegal values for ARCHER_OPTIONS variable: " << token
                   << std::endl;
       }
@@ -322,9 +356,16 @@ __thread DependencyDataPool *DependencyDataPool::ThreadDataPool = nullptr;
 
 /// Data structure to store additional information for task dependency.
 struct DependencyData final : DataPoolEntry<DependencyData> {
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  ompt_tsan_clockid in = 0;
+  ompt_tsan_clockid out = 0;
+  ompt_tsan_clockid inoutset = 0;
+#else  // INTEL_CUSTOMIZATION
   ompt_tsan_clockid in;
   ompt_tsan_clockid out;
   ompt_tsan_clockid inoutset;
+#endif // INTEL_CUSTOMIZATION
   void *GetInPtr() { return &in; }
   void *GetOutPtr() { return &out; }
   void *GetInoutsetPtr() { return &inoutset; }
@@ -386,7 +427,12 @@ struct ParallelData final : DataPoolEntry<ParallelData> {
   /// Two addresses for relationships with barriers.
   ompt_tsan_clockid Barrier[2];
 
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  const void *codePtr = nullptr;
+#else  // INTEL_CUSTOMIZATION
   const void *codePtr;
+#endif // INTEL_CUSTOMIZATION
 
   void *GetParallelPtr() { return &(Barrier[1]); }
 
@@ -416,11 +462,20 @@ template <> __thread TaskgroupPool *TaskgroupPool::ThreadDataPool = nullptr;
 
 /// Data structure to support stacking of taskgroups and allow synchronization.
 struct Taskgroup final : DataPoolEntry<Taskgroup> {
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  /// Its address is used for relationships of the taskgroup's task set.
+  ompt_tsan_clockid Ptr = 0;
+
+  /// Reference to the parent taskgroup.
+  Taskgroup *Parent = nullptr;
+#else  // INTEL_CUSTOMIZATION
   /// Its address is used for relationships of the taskgroup's task set.
   ompt_tsan_clockid Ptr;
 
   /// Reference to the parent taskgroup.
   Taskgroup *Parent;
+#endif // INTEL_CUSTOMIZATION
 
   void *GetPtr() { return &Ptr; }
 
@@ -450,6 +505,9 @@ struct TaskData final : DataPoolEntry<TaskData> {
   /// Child tasks use its address to declare a relationship to a taskwait in
   /// this task.
   ompt_tsan_clockid Taskwait{0};
+
+  /// Child tasks use its address to model omp_all_memory dependencies
+  ompt_tsan_clockid AllMemory[2]{0};
 
   /// Whether this task is currently executing a barrier.
   bool InBarrier{false};
@@ -506,15 +564,27 @@ struct TaskData final : DataPoolEntry<TaskData> {
   bool isInitial() { return TaskType & ompt_task_initial; }
   bool isTarget() { return TaskType & ompt_task_target; }
 
+  void setAllMemoryDep() { AllMemory[0] = 1; }
+  bool hasAllMemoryDep() { return AllMemory[0]; }
+
   void *GetTaskPtr() { return &Task; }
 
   void *GetTaskwaitPtr() { return &Taskwait; }
 
+  void *GetLastAllMemoryPtr() { return AllMemory; }
+  void *GetNextAllMemoryPtr() { return AllMemory + 1; }
+
   TaskData *Init(TaskData *parent, int taskType) {
     TaskType = taskType;
     Parent = parent;
+#if INTEL_CUSTOMIZATION
+    /// Coverity fix
+    if (Parent != nullptr) {
+      Team = Parent->Team;
+#else  // INTEL_CUSTOMIZATION
     Team = Parent->Team;
     if (Parent != nullptr) {
+#endif // INTEL_CUSTOMIZATION
       Parent->RefCount++;
       // Copy over pointer to taskgroup. This task may set up its own stack
       // but for now belongs to its parent's taskgroup.
@@ -542,7 +612,12 @@ struct TaskData final : DataPoolEntry<TaskData> {
     Team = nullptr;
     TaskGroup = nullptr;
     if (DependencyMap) {
+#if INTEL_CUSTOMIZATION
+      /// Coverity fix
+      for (auto &i : *DependencyMap)
+#else  // INTEL_CUSTOMIZATION
       for (auto i : *DependencyMap)
+#endif // INTEL_CUSTOMIZATION
         i.second->Delete();
       delete DependencyMap;
     }
@@ -855,13 +930,30 @@ static void freeTask(TaskData *task) {
   }
 }
 
+// LastAllMemoryPtr marks the beginning of an all_memory epoch
+// NextAllMemoryPtr marks the end of an all_memory epoch
+// All tasks with depend begin execution after LastAllMemoryPtr
+// and end before NextAllMemoryPtr
 static void releaseDependencies(TaskData *task) {
+  if (archer_flags->all_memory) {
+    if (task->hasAllMemoryDep()) {
+      TsanHappensBefore(task->Parent->GetLastAllMemoryPtr());
+      TsanHappensBefore(task->Parent->GetNextAllMemoryPtr());
+    } else if (task->DependencyCount)
+      TsanHappensBefore(task->Parent->GetNextAllMemoryPtr());
+  }
   for (unsigned i = 0; i < task->DependencyCount; i++) {
     task->Dependencies[i].AnnotateEnd();
   }
 }
 
 static void acquireDependencies(TaskData *task) {
+  if (archer_flags->all_memory) {
+    if (task->hasAllMemoryDep())
+      TsanHappensAfter(task->Parent->GetNextAllMemoryPtr());
+    else if (task->DependencyCount)
+      TsanHappensAfter(task->Parent->GetLastAllMemoryPtr());
+  }
   for (unsigned i = 0; i < task->DependencyCount; i++) {
     task->Dependencies[i].AnnotateBegin();
   }
@@ -983,13 +1075,38 @@ static void ompt_tsan_dependences(ompt_data_t *task_data,
     Data->Dependencies =
         (TaskDependency *)malloc(sizeof(TaskDependency) * ndeps);
     Data->DependencyCount = ndeps;
-    for (int i = 0; i < ndeps; i++) {
+    for (int i = 0, d = 0; i < ndeps; i++, d++) {
+#ifndef INTEL_CUSTOMIZATION
+      // This file is built with the omp-tools.h from the Intel compiler's
+      // include directory, and that file currently doesn't have these
+      // two ompt_dependence_type_t enum entries defined:
+      //   ompt_dependence_type_out_all_memory
+      //   ompt_dependence_type_inout_all_memory
+      // Meanwhile, the LLVM omp-tools.h has added these entries in early
+      // July 2023. Until Intel adds these entries in its omp-tools.h,
+      // we disable this check here.
+      if (deps[i].dependence_type == ompt_dependence_type_out_all_memory ||
+          deps[i].dependence_type == ompt_dependence_type_inout_all_memory) {
+        Data->setAllMemoryDep();
+        Data->DependencyCount--;
+        if (!archer_flags->all_memory) {
+          printf("The application uses omp_all_memory, but Archer was\n"
+                 "started to not consider omp_all_memory. This can lead\n"
+                 "to false data race alerts.\n"
+                 "Include all_memory=1 in ARCHER_OPTIONS to consider\n"
+                 "omp_all_memory from the beginning.\n");
+          archer_flags->all_memory = 1;
+        }
+        d--;
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
       auto ret = Data->Parent->DependencyMap->insert(
           std::make_pair(deps[i].variable.ptr, nullptr));
       if (ret.second) {
         ret.first->second = DependencyData::New();
       }
-      new ((void *)(Data->Dependencies + i))
+      new ((void *)(Data->Dependencies + d))
           TaskDependency(ret.first->second, deps[i].dependence_type);
     }
 

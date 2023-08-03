@@ -35,7 +35,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_NontemporalStore.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"

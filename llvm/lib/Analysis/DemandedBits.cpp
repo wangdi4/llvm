@@ -1,4 +1,21 @@
 //===- DemandedBits.cpp - Determine demanded bits -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -34,8 +51,10 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
@@ -48,6 +67,7 @@ using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "demanded-bits"
 
+#if INTEL_CUSTOMIZATION
 char DemandedBitsWrapperPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(DemandedBitsWrapperPass, "demanded-bits",
@@ -71,6 +91,7 @@ void DemandedBitsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 void DemandedBitsWrapperPass::print(raw_ostream &OS, const Module *M) const {
   DB->print(OS);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static bool isAlwaysLive(Instruction *I) {
   return I->isTerminator() || isa<DbgInfoIntrinsic>(I) || I->isEHPad() ||
@@ -310,6 +331,7 @@ void DemandedBits::determineLiveOperandBits(
   }
 }
 
+#if INTEL_CUSTOMIZATION
 bool DemandedBitsWrapperPass::runOnFunction(Function &F) {
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -320,6 +342,7 @@ bool DemandedBitsWrapperPass::runOnFunction(Function &F) {
 void DemandedBitsWrapperPass::releaseMemory() {
   DB.reset();
 }
+#endif // INTEL_CUSTOMIZATION
 
 void DemandedBits::performAnalysis() {
   if (Analyzed)
@@ -514,6 +537,7 @@ void DemandedBits::print(raw_ostream &OS) {
     OS << *I << '\n';
   };
 
+  OS << "Printing analysis 'Demanded Bits Analysis' for function '" << F.getName() << "':\n";
   performAnalysis();
   for (auto &KV : AliveBits) {
     Instruction *I = KV.first;
@@ -605,9 +629,11 @@ APInt DemandedBits::determineLiveOperandBitsSub(unsigned OperandNo,
                                           true);
 }
 
+#if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createDemandedBitsWrapperPass() {
   return new DemandedBitsWrapperPass();
 }
+#endif // INTEL_CUSTOMIZATION
 
 AnalysisKey DemandedBitsAnalysis::Key;
 

@@ -27,15 +27,15 @@ target triple = "i386-unknown-linux-gnu"
 @.str = external hidden unnamed_addr constant [4 x i8], align 1
 
 ; Function Attrs: nounwind
-define i32 @main(i32 %argc, i8** nocapture readonly %argv) local_unnamed_addr #0 {
+define i32 @main(i32 %argc, ptr nocapture readonly %argv) local_unnamed_addr #0 {
 entry:
   %cmp = icmp sgt i32 %argc, 1
   br i1 %cmp, label %for.cond.preheader, label %exit
 
 for.cond.preheader:                               ; preds = %entry
-  %arrayidx = getelementptr inbounds i8*, i8** %argv, i32 1
-  %0 = load i8*, i8** %arrayidx, align 4
-  %call = tail call i32 @strcmp(i8* %0, i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0)) #2
+  %arrayidx = getelementptr inbounds ptr, ptr %argv, i32 1
+  %0 = load ptr, ptr %arrayidx, align 4
+  %call = tail call i32 @strcmp(ptr %0, ptr @.str) #2
   br label %for.body
 
 for.cond:                                         ; preds = %for.body
@@ -58,7 +58,7 @@ exit:                                             ; preds = %if.end3.loopexit, %
 }
 
 ; Function Attrs: nounwind readonly
-declare i32 @strcmp(i8* nocapture, i8* nocapture) local_unnamed_addr #1
+declare i32 @strcmp(ptr nocapture, ptr nocapture) local_unnamed_addr #1
 
 attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

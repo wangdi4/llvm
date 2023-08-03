@@ -12,7 +12,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i64* nocapture %c) local_unnamed_addr {
+define dso_local void @uniformDivergent(ptr nocapture %a, ptr nocapture %b, ptr nocapture %c) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF={{[2|4|8|16|32]}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -26,17 +26,17 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i6
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds i32* [[A0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_B0:%.*]] = subscript inbounds i32* [[B0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_B0]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[C0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD_2:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] ptr [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds ptr [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] ptr [[VP_SUBSCRIPT_B0:%.*]] = subscript inbounds ptr [[B0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_B0]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP2:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP4:%.*]] = mul i64 [[VP_LOAD_2]] i64 [[VP3]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[C0]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP4]] i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[C0]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP4]] ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP5:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -59,14 +59,14 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
 
   ; Uniform instruction sequence later used in vector context.
-  %a.load = load i32, i32* %a, align 4
-  %b.load = load i32, i32* %b, align 4
+  %a.load = load i32, ptr %a, align 4
+  %b.load = load i32, ptr %b, align 4
   %uniform.add = add i32 %a.load, %b.load
   %add.sext = sext i32 %uniform.add to i64
-  %c.gep = getelementptr inbounds i64, i64* %c, i64 %indvars.iv
-  %c.load = load i64, i64* %c.gep, align 4
+  %c.gep = getelementptr inbounds i64, ptr %c, i64 %indvars.iv
+  %c.load = load i64, ptr %c.gep, align 4
   %divergent.mul = mul i64 %add.sext, %c.load
-  store i64 %divergent.mul, i64* %c.gep, align 4
+  store i64 %divergent.mul, ptr %c.gep, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -77,7 +77,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
+define dso_local void @gatherScatter(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF={{[2|4|8|16|32]}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -92,11 +92,11 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP3:%.*]] = add i32 [[VP_LOAD]] i32 42 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP2]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP3]] i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP2]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP3]] ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP5:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -118,11 +118,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.x.2 = mul i64 %indvars.iv, 2
-  %a.gep = getelementptr inbounds i32, i32* %a, i64 %iv.x.2
-  %a.load = load i32, i32* %a.gep, align 4
+  %a.gep = getelementptr inbounds i32, ptr %a, i64 %iv.x.2
+  %a.load = load i32, ptr %a.gep, align 4
   %add = add i32 %a.load, 42
-  %b.gep = getelementptr inbounds i32, i32* %b, i64 %iv.x.2
-  store i32 %add, i32* %b.gep
+  %b.gep = getelementptr inbounds i32, ptr %b, i64 %iv.x.2
+  store i32 %add, ptr %b.gep
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -132,7 +132,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
+define dso_local i32 @simpleReduction(ptr nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF={{[2|4|8|16|32]}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -149,8 +149,8 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP1:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds i32* [[A0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] ptr [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds ptr [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP5:%.*]] = add i32 [[VP1]] i32 [[VP_LOAD]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP4]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP6:%.*]] = icmp slt i64 [[VP4]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
@@ -177,7 +177,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %reduction.phi = phi i32 [ %b, %DIR.OMP.SIMD.1], [ %reduction.add, %omp.inner.for.body ]
-  %uniform.a = load i32, i32* %a, align 4
+  %uniform.a = load i32, ptr %a, align 4
   %reduction.add = add i32 %reduction.phi, %uniform.a
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -189,7 +189,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret i32 %lcssa.red.phi
 }
 
-define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
+define dso_local void @phiUsedByPhi(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF={{[2|4|8|16|32]}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -209,15 +209,15 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[A0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = hir-copy i64 [[VP_LOAD]] , OriginPhiId: -1 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP__BLEND_BB4:%.*]] = blend [ i64 [[VP2]], i1 true ], [ i64 [[VP5]], i1 [[VP3]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[B0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP__BLEND_BB4]] i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP__BLEND_BB4]] ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP6]], [[BB2]], [[BB5:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -242,14 +242,14 @@ omp.inner.for.body:                               ; preds = %if.end, %DIR.OMP.SI
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %a.gep = getelementptr inbounds i64, i64* %a, i64 %indvars.iv
-  %a.load = load i64, i64* %a.gep, align 4
+  %a.gep = getelementptr inbounds i64, ptr %a, i64 %indvars.iv
+  %a.load = load i64, ptr %a.gep, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
   %use.phi = phi i64 [ %a.load, %if.then], [ %indvars.iv, %omp.inner.for.body ]
-  %b.gep = getelementptr inbounds i64, i64* %b, i64 %indvars.iv
-  store i64 %use.phi, i64* %b.gep
+  %b.gep = getelementptr inbounds i64, ptr %b, i64 %indvars.iv
+  store i64 %use.phi, ptr %b.gep
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -259,7 +259,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
   ret void
 }
 
-define void @no_side_effect_insts(<8 x i32> %val, i64 %n, i32 *%p) {
+define void @no_side_effect_insts(<8 x i32> %val, i64 %n, ptr %p) {
 ; FIXME: No CHECKs currently because loop is not handled due to
 ; insert/extractelement with variable index. The crash was happenning
 ; in SVA invocation inside CM, not the one peformed during CG that has
@@ -275,10 +275,10 @@ preheader:
 header:
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
 
-  %uni.ld = load i32, i32 *%p
+  %uni.ld = load i32, ptr %p
 ; SVA used to assert for it to not be side-effect free when trying to keep scalar.
   %extract = extractelement <8 x i32> %val, i32 %uni.ld
-  store i32 %extract, i32 *%p
+  store i32 %extract, ptr %p
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, %n

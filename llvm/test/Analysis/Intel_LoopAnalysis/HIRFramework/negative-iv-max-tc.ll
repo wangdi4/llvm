@@ -42,8 +42,8 @@ define void @foo() {
 entry:
   %i11 = alloca [250 x double], align 8
   %i12 = alloca [62500 x double], align 8
-  %i14 = getelementptr inbounds [62500 x double], [62500 x double]* %i12, i64 0, i64 0
-  %i30 = getelementptr inbounds [250 x double], [250 x double]* %i11, i64 0, i64 0
+  %i14 = getelementptr inbounds [62500 x double], ptr %i12, i64 0, i64 0
+  %i30 = getelementptr inbounds [250 x double], ptr %i11, i64 0, i64 0
   br label %bb516
 
 bb516:                                            ; preds = %bb554, %entry
@@ -57,9 +57,9 @@ bb520:                                            ; preds = %bb546, %bb516
   %i522 = phi i64 [ %i552, %bb546 ], [ 1, %bb516 ]
   %i523 = tail call i64 @llvm.smax.i64(i64 %i522, i64 2)
   %i524 = add nuw nsw i64 %i518, %i523
-  %i525 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 2000, double* elementtype(double) nonnull %i14, i64 %i521)
-  %i526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i525, i64 %i518)
-  %i527 = load double, double* %i526, align 1
+  %i525 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 2000, ptr elementtype(double) nonnull %i14, i64 %i521)
+  %i526 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %i525, i64 %i518)
+  %i527 = load double, ptr %i526, align 1
   %i528 = sub nuw nsw i64 %i521, %i518
   %i529 = icmp eq i64 %i521, %i519
   br i1 %i529, label %bb546, label %bb530
@@ -71,10 +71,10 @@ bb531:                                            ; preds = %bb531, %bb530
   %i532 = phi double [ %i540, %bb531 ], [ 0.000000e+00, %bb530 ]
   %i533 = phi i64 [ %i541, %bb531 ], [ %i519, %bb530 ]
   %i534 = phi i64 [ %i542, %bb531 ], [ 1, %bb530 ]
-  %i535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i30, i64 %i534)
-  %i536 = load double, double* %i535, align 1
-  %i537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i525, i64 %i533)
-  %i538 = load double, double* %i537, align 1
+  %i535 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %i30, i64 %i534)
+  %i536 = load double, ptr %i535, align 1
+  %i537 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %i525, i64 %i533)
+  %i538 = load double, ptr %i537, align 1
   %i539 = fmul fast double %i538, %i536
   %i540 = fadd fast double %i539, %i532
   %i541 = add nuw nsw i64 %i533, 1
@@ -90,9 +90,9 @@ bb546:                                            ; preds = %bb544, %bb520
   %i547 = phi double [ 0.000000e+00, %bb520 ], [ %i545, %bb544 ]
   %i548 = fadd fast double %i547, %i527
   %i549 = fneg fast double %i548
-  store double %i549, double* %i526, align 1
-  %i550 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i30, i64 %i528)
-  store double %i549, double* %i550, align 1
+  store double %i549, ptr %i526, align 1
+  %i550 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %i30, i64 %i528)
+  store double %i549, ptr %i550, align 1
   %i551 = add nuw nsw i64 %i521, 1
   %i552 = add nuw nsw i64 %i522, 1
   %i553 = icmp eq i64 %i551, 251
@@ -107,7 +107,7 @@ bb557:
   ret void
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 declare i64 @llvm.smax.i64(i64, i64) #1
 

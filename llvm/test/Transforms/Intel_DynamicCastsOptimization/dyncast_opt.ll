@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -opaque-pointers -passes=optimize-dyn-casts -whole-program-assume -disable-whole-program-visibility | FileCheck %s
+; RUN: opt < %s -S -passes=optimize-dyn-casts -whole-program-assume -disable-whole-program-visibility | FileCheck %s
 
 ; Source code:
 ;

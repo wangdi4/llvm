@@ -392,7 +392,9 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     }
 
     // remark: Stmt at line %d sinked after loop using last value computation
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25530u, HInstLineNum);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::StmtSunkAfterLoopLastValue,
+                             HInstLineNum);
 
     HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
   }
@@ -447,7 +449,8 @@ bool HIRLastValueComputation::run() {
 
 PreservedAnalyses HIRLastValueComputationPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR =
+      HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

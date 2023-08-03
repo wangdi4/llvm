@@ -47,11 +47,22 @@ class IntrinFormat<bit intrin> {
 def NoIntrin : IntrinFormat<0>;
 def Intrin   : IntrinFormat<1>;
 
-class VariantType<Type Ty, Variant V, IntrinFormat IF> {
+// Extra attributes (represented via bits) for every SVML table entry. Default is NoAttrs.
+class ExtraAttrs<bits<3> attrs> {
+  bits<3> extraAttrs = attrs;
+}
+
+def NoAttrs       : ExtraAttrs<0>;
+def IsOCLFn       : ExtraAttrs<1>;
+def IsComplexFn   : ExtraAttrs<2>;
+def IsFortranOnly : ExtraAttrs<4>;
+
+class VariantType<Type Ty, Variant V, IntrinFormat IF, ExtraAttrs Attrs = NoAttrs> {
   bit isMasked  = V.isMasked;
   bit hasSingle = Ty.Type{0};
   bit hasDouble = Ty.Type{1};
   bit hasIntrinsic = IF.hasIntrinsic;
+  bits<3> extraAttrs = Attrs.extraAttrs;
 }
 
 class SvmlVariants<list<VariantType> Variants> {
@@ -64,6 +75,7 @@ def FPDoubleMasked          : VariantType<FPDouble, Masked,    NoIntrin>;
 def FPDoubleNonMasked       : VariantType<FPDouble, NonMasked, NoIntrin>;
 def FPBothMasked            : VariantType<FPBoth,   Masked,    NoIntrin>;
 def FPBothNonMasked         : VariantType<FPBoth,   NonMasked, NoIntrin>;
+def FPBothMaskedComplex     : VariantType<FPBoth,   Masked, NoIntrin, IsComplexFn>;
 
 def FPSingleMaskedIntrin    : VariantType<FPSingle, Masked,    Intrin>;
 def FPSingleNonMaskedIntrin : VariantType<FPSingle, NonMasked, Intrin>;
@@ -95,6 +107,8 @@ def cbrt       : SvmlVariants<[FPBothMasked]>;
 def cdfnorm    : SvmlVariants<[FPBothMasked]>;
 def cdfnorminv : SvmlVariants<[FPBothMasked]>;
 def ceil       : SvmlVariants<[FPBothMasked]>;
+def cexp       : SvmlVariants<[FPBothMaskedComplex]>;
+def clog       : SvmlVariants<[FPBothMaskedComplex]>;
 def cosd       : SvmlVariants<[FPBothMasked]>;
 def cosh       : SvmlVariants<[FPBothMasked]>;
 def erf        : SvmlVariants<[FPBothMasked]>;
@@ -109,7 +123,9 @@ def floor      : SvmlVariants<[FPBothMasked]>;
 def fmod       : SvmlVariants<[FPBothMasked]>;
 def hypot      : SvmlVariants<[FPBothMasked]>;
 def invsqrt    : SvmlVariants<[FPBothMasked]>;
-def ldexp      : SvmlVariants<[FPBothMaskedIntrin]>;
+// Due to the unique signature of ldexp function, llvm.ldexp intrinsic is
+// handled inside the emitter.
+def ldexp      : SvmlVariants<[FPBothMasked]>;
 def log10      : SvmlVariants<[FPBothMaskedIntrin]>;
 def log1p      : SvmlVariants<[FPBothMasked]>;
 def log2       : SvmlVariants<[FPBothMaskedIntrin]>;

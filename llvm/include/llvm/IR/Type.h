@@ -1,21 +1,4 @@
 //===- llvm/Type.h - Classes for handling data types ------------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -228,9 +211,7 @@ public:
 
   /// Return true if this is a scalable vector type or a target extension type
   /// with a scalable layout.
-  bool isScalableTy() const {
-    return getTypeID() == ScalableVectorTyID || isScalableTargetExtTy();
-  }
+  bool isScalableTy() const;
 
   /// Return true if this is a FP type or a vector of FP.
   bool isFPOrFPVectorTy() const { return getScalarType()->isFloatingPointTy(); }
@@ -429,12 +410,9 @@ public:
 
   /// This method is deprecated without replacement. Pointer element types are
   /// not available with opaque pointers.
-#ifndef INTEL_CUSTOMIZATION
-  // FIXME: Remove this macro once xmain is ready to use opaque pointers.
   [[deprecated("Deprecated without replacement, see "
                "https://llvm.org/docs/OpaquePointers.html for context and "
                "migration instructions")]]
-#endif // INTEL_CUSTOMIZATION
   Type *getPointerElementType() const {
     return getNonOpaquePointerElementType();
   }

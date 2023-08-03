@@ -2,9 +2,9 @@
 
 ; Test to check VPlan unroller for an auto-vectorized loop with SafeReduction.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -vplan-enable-partial-sums=false -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-force-uf=3 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CGCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-force-uf=3 -vplan-enable-partial-sums=false -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CGCHECK
 
 
 ; int foo(int *a, int n) {
@@ -30,7 +30,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr {
+define dso_local i32 @foo(ptr nocapture readonly %a, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -48,24 +48,24 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1:BB[0-9]+]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = add i32 [[VP_LOAD]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP10:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP10]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP10:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load ptr [[VP10]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp slt i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP15:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP13]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP16:%.*]] = load i32* [[VP15]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP15:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP13]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP16:%.*]] = load ptr [[VP15]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP16]] i32 [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP13]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -93,14 +93,12 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
 ; CGCHECK:                         + DO i1 = 0, {{.*}}, 12   <DO_LOOP>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
-; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
-; CGCHECK-NEXT:                    |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CGCHECK-NEXT:                    |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  [[DOTVEC30]]
-; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC50]]
+; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[PHI_TEMP]] + [[DOTVEC0]] + [[DOTVEC10]]
+; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC30]]
 ; CGCHECK-NEXT:                    + END LOOP
-; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC50]])
+; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC30]])
 
 ; CGCHECK:                      + DO i1 = {{.*}}, zext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>
 ; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
@@ -118,8 +116,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %acc.08 = phi i32 [ 0, %for.body.preheader ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %acc.08
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count9

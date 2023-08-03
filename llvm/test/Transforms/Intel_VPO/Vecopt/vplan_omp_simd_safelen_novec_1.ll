@@ -50,7 +50,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo(i32 %n1) local_unnamed_addr {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SAFELEN"(i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SAFELEN"(i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                  ; preds = %omp.inner.for.body.lr.ph
@@ -60,8 +60,8 @@ DIR.OMP.SIMD.1:                                  ; preds = %omp.inner.for.body.l
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %1, 0
   br i1 %cmp1, label %if.then, label %omp.inner.for.inc
 
@@ -71,8 +71,8 @@ if.then:                                          ; preds = %omp.inner.for.body
   %3 = trunc i64 %indvars.iv to i32
   %add5 = add nsw i32 %3, %n1
   %idxprom6 = sext i32 %add5 to i64
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %idxprom6, !intel-tbaa !2
-  store i32 %add4, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr @arr, i64 0, i64 %idxprom6, !intel-tbaa !2
+  store i32 %add4, ptr %arrayidx7, align 4, !tbaa !2
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body

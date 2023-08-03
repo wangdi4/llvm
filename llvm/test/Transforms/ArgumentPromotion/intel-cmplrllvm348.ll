@@ -37,40 +37,40 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.S = type { i32, i32 }
 
-define dso_local i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr !dbg !13 {
+define dso_local i32 @main(i32 %argc, ptr nocapture readnone %argv) local_unnamed_addr !dbg !13 {
 entry:
   %s.i = alloca %struct.S, align 4
-  %0 = bitcast %struct.S* %s.i to i8*, !dbg !22
-  %x.i = getelementptr inbounds %struct.S, %struct.S* %s.i, i64 0, i32 0, !dbg !36
-  store i32 2, i32* %x.i, align 4, !dbg !37, !tbaa !38
-  %y.i = getelementptr inbounds %struct.S, %struct.S* %s.i, i64 0, i32 1, !dbg !43
-  store i32 3, i32* %y.i, align 4, !dbg !44, !tbaa !45
+  %0 = bitcast ptr %s.i to ptr, !dbg !22
+  %x.i = getelementptr inbounds %struct.S, ptr %s.i, i64 0, i32 0, !dbg !36
+  store i32 2, ptr %x.i, align 4, !dbg !37, !tbaa !38
+  %y.i = getelementptr inbounds %struct.S, ptr %s.i, i64 0, i32 1, !dbg !43
+  store i32 3, ptr %y.i, align 4, !dbg !44, !tbaa !45
   %tobool.i.i = icmp eq i32 %argc, 0, !dbg !46
 
   ; Instruction will be replaced by instcombine to not reference address of
   ; functions, but the function will still be in the SCC, although there will
   ;  be no more calls to it.
-  %cond.i.i = select i1 %tobool.i.i, i32 (%struct.S*)* @do_sub, i32 (%struct.S*)* @do_add, !dbg !46
+  %cond.i.i = select i1 %tobool.i.i, ptr @do_sub, ptr @do_add, !dbg !46
 
   ; Call will be converted to direct calls based on possible targets, and then
   ;  inlined.
-  %call.i.i = call i32 %cond.i.i(%struct.S* nonnull %s.i), !dbg !60, !callees !61
+  %call.i.i = call i32 %cond.i.i(ptr nonnull %s.i), !dbg !60, !callees !61
   ret i32 %call.i.i, !dbg !62
 }
 
 ; This function can have the pointer parameter converted to a by-value
 ; parameter.
-define internal i32 @do_add(%struct.S* nocapture readonly %s) unnamed_addr !dbg !63 {
+define internal i32 @do_add(ptr nocapture readonly %s) unnamed_addr !dbg !63 {
 entry:
 
   ; The debug information is pointing to an argument that is going to be replaced
-  call void @llvm.dbg.value(metadata %struct.S* %s, metadata !65, metadata !DIExpression()), !dbg !69
+  call void @llvm.dbg.value(metadata ptr %s, metadata !65, metadata !DIExpression()), !dbg !69
 
-  %x = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 0, !dbg !70
-  %0 = load i32, i32* %x, align 4, !dbg !70, !tbaa !38
+  %x = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 0, !dbg !70
+  %0 = load i32, ptr %x, align 4, !dbg !70, !tbaa !38
   call void @llvm.dbg.value(metadata i32 %0, metadata !66, metadata !DIExpression()), !dbg !71
-  %y = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 1, !dbg !72
-  %1 = load i32, i32* %y, align 4, !dbg !72, !tbaa !45
+  %y = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 1, !dbg !72
+  %1 = load i32, ptr %y, align 4, !dbg !72, !tbaa !45
   call void @llvm.dbg.value(metadata i32 %1, metadata !67, metadata !DIExpression()), !dbg !73
   %add = add nsw i32 %1, %0, !dbg !74
   call void @llvm.dbg.value(metadata i32 %add, metadata !68, metadata !DIExpression()), !dbg !75
@@ -79,17 +79,17 @@ entry:
 
 ; This function can have the pointer parameter converted to a by-value
 ; parameter.
-define internal i32 @do_sub(%struct.S* nocapture readonly %s) unnamed_addr !dbg !77 {
+define internal i32 @do_sub(ptr nocapture readonly %s) unnamed_addr !dbg !77 {
 entry:
 
   ; The debug information is pointing to an argument that is going to be replaced
-  call void @llvm.dbg.value(metadata %struct.S* %s, metadata !79, metadata !DIExpression()), !dbg !83
+  call void @llvm.dbg.value(metadata ptr %s, metadata !79, metadata !DIExpression()), !dbg !83
 
-  %x = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 0, !dbg !84
-  %0 = load i32, i32* %x, align 4, !dbg !84, !tbaa !38
+  %x = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 0, !dbg !84
+  %0 = load i32, ptr %x, align 4, !dbg !84, !tbaa !38
   call void @llvm.dbg.value(metadata i32 %0, metadata !80, metadata !DIExpression()), !dbg !85
-  %y = getelementptr inbounds %struct.S, %struct.S* %s, i64 0, i32 1, !dbg !86
-  %1 = load i32, i32* %y, align 4, !dbg !86, !tbaa !45
+  %y = getelementptr inbounds %struct.S, ptr %s, i64 0, i32 1, !dbg !86
+  %1 = load i32, ptr %y, align 4, !dbg !86, !tbaa !45
   call void @llvm.dbg.value(metadata i32 %1, metadata !81, metadata !DIExpression()), !dbg !87
   %sub = sub nsw i32 %0, %1, !dbg !88
   call void @llvm.dbg.value(metadata i32 %sub, metadata !82, metadata !DIExpression()), !dbg !89
@@ -97,8 +97,8 @@ entry:
 }
 
 declare void @llvm.dbg.value(metadata, metadata, metadata)
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0i8(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0i8(i64, ptr nocapture)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!7, !8, !9, !10}
@@ -166,7 +166,7 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
 !58 = !DILocalVariable(name: "c", scope: !47, file: !1, line: 26, type: !6)
 !59 = distinct !DILocation(line: 34, column: 11, scope: !23, inlinedAt: !35)
 !60 = !DILocation(line: 26, column: 11, scope: !47, inlinedAt: !59)
-!61 = !{i32 (%struct.S*)* @do_sub, i32 (%struct.S*)* @do_add}
+!61 = !{ptr @do_sub, ptr @do_add}
 !62 = !DILocation(line: 40, column: 2, scope: !13)
 !63 = distinct !DISubprogram(name: "do_add", scope: !1, file: !1, line: 10, type: !56, isLocal: true, isDefinition: true, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: true, unit: !0, retainedNodes: !64)
 !64 = !{!65, !66, !67, !68}

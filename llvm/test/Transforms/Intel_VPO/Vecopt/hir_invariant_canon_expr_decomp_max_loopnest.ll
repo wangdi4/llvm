@@ -40,7 +40,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr {
+define dso_local void @foo(i32 %n, ptr nocapture %A, i32 %C) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -52,8 +52,8 @@ define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr
 ; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1:.*]] ],  [ i64 [[VP4:%.*]], [[BB2:.*]] ]
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = trunc i64 [[VP3]] to i32
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP0]] i32 [[VP5]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP6]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP4]] i64 [[UB_INC]]
 ;
@@ -102,8 +102,8 @@ for.body24:                                       ; preds = %for.body24, %for.bo
   %indvars.iv = phi i64 [ 0, %for.body24.preheader ], [ %indvars.iv.next, %for.body24 ]
   %0 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %mul, %0
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %add, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %add, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.inc25, label %for.body24

@@ -9,11 +9,11 @@
 @.str.2 = private unnamed_addr constant [9 x i8] c"string_3\00", align 1
 
 ; Function Attrs: nounwind uwtable
-define i8* @foo(i8* readnone %topage, i8* readnone %frompage) {
+define ptr @foo(ptr readnone %topage, ptr readnone %frompage) {
 entry:
-  %s = select i1 icmp eq (i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.1, i64 0, i64 0), i8* inttoptr (i64 1 to i8*)), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str.2, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0)
-  %call = tail call i8* @bar(i8* %s)
-  ret i8* %call
+  %s = select i1 icmp eq (ptr getelementptr inbounds ([9 x i8], ptr @.str.1, i64 0, i64 0), ptr inttoptr (i64 1 to ptr)), ptr getelementptr inbounds ([9 x i8], ptr @.str.2, i64 0, i64 0), ptr getelementptr inbounds ([9 x i8], ptr @.str, i64 0, i64 0)
+  %call = tail call ptr @bar(ptr %s)
+  ret ptr %call
 }
 
-declare i8* @bar(i8*) 
+declare ptr @bar(ptr) 

@@ -28,7 +28,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm-c/Initialization.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 
@@ -41,6 +40,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeBasicBlockSectionsPass(Registry);
   initializeBranchFolderPassPass(Registry);
   initializeBranchRelaxationPass(Registry);
+  initializeBreakFalseDepsPass(Registry);
   initializeCallBrPreparePass(Registry);
   initializeCFGuardLongjmpPass(Registry);
   initializeCFIFixupPass(Registry);
@@ -114,9 +114,6 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeMachineUniformityAnalysisPassPass(Registry);
   initializeMachineUniformityInfoPrinterPassPass(Registry);
   initializeMachineVerifierPassPass(Registry);
-#if INTEL_CUSTOMIZATION
-  initializeObjCARCContractLegacyPassPass(Registry);
-#endif // INTEL_CUSTOMIZATION
   initializeObjCARCContractLegacyPassPass(Registry);
   initializeOptimizePHIsPass(Registry);
   initializePEIPass(Registry);
@@ -172,8 +169,4 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeFoldLoadsToGatherPass(Registry);
   initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
-}
-
-void LLVMInitializeCodeGen(LLVMPassRegistryRef R) {
-  initializeCodeGen(*unwrap(R));
 }

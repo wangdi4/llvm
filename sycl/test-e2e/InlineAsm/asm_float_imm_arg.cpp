@@ -1,7 +1,10 @@
-// UNSUPPORTED: cuda || hip_nvidia
+// https://github.com/intel/llvm/issues/10369
+// UNSUPPORTED: gpu
+//
+// UNSUPPORTED: cuda, hip
 // REQUIRES: gpu,linux
-// RUN: %clangxx -fsycl %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
 
 #include "include/asmhelper.h"
 #include <cmath>

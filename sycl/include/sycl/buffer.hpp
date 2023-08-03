@@ -16,12 +16,13 @@
 #include <sycl/exception.hpp>
 #include <sycl/ext/oneapi/accessor_property_list.hpp>
 #include <sycl/ext/oneapi/weak_object_base.hpp>
+#include <sycl/id.hpp>
 #include <sycl/property_list.hpp>
 #include <sycl/range.hpp>
 #include <sycl/stl.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 
 class handler;
 class queue;
@@ -140,13 +141,13 @@ protected:
 /// \ingroup sycl_api
 template <typename T, int dimensions = 1,
           typename AllocatorT = buffer_allocator<std::remove_const_t<T>>,
-          typename __Enabled = typename detail::enable_if_t<(dimensions > 0) &&
-                                                            (dimensions <= 3)>>
+          typename __Enabled =
+              typename std::enable_if_t<(dimensions > 0) && (dimensions <= 3)>>
 class buffer : public detail::buffer_plain,
                public detail::OwnerLessBase<buffer<T, dimensions, AllocatorT>> {
   // TODO check is_device_copyable<T>::value after converting sycl::vec into a
   // trivially copyable class.
-  static_assert(!std::is_same<T, std::string>::value,
+  static_assert(!std::is_same_v<T, std::string>,
                 "'std::string' is not a device copyable type");
 
 public:
@@ -155,28 +156,22 @@ public:
   using const_reference = const value_type &;
   using allocator_type = AllocatorT;
   template <int dims>
-  using EnableIfOneDimension = typename detail::enable_if_t<1 == dims>;
+  using EnableIfOneDimension = typename std::enable_if_t<1 == dims>;
   // using same requirement for contiguous container as std::span
   template <class Container>
   using EnableIfContiguous =
-      detail::void_t<detail::enable_if_t<std::is_convertible<
-                         detail::remove_pointer_t<
-                             decltype(std::declval<Container>().data())> (*)[],
-                         const T (*)[]>::value>,
-                     decltype(std::declval<Container>().size())>;
+      std::void_t<std::enable_if_t<std::is_convertible_v<
+                      detail::remove_pointer_t<
+                          decltype(std::declval<Container>().data())> (*)[],
+                      const T (*)[]>>,
+                  decltype(std::declval<Container>().size())>;
   template <class It>
-  using EnableIfItInputIterator = detail::enable_if_t<
-      std::is_convertible<typename std::iterator_traits<It>::iterator_category,
-                          std::input_iterator_tag>::value>;
+  using EnableIfItInputIterator = std::enable_if_t<std::is_convertible_v<
+      typename std::iterator_traits<It>::iterator_category,
+      std::input_iterator_tag>>;
   template <typename ItA, typename ItB>
-  using EnableIfSameNonConstIterators = typename detail::enable_if_t<
-      std::is_same<ItA, ItB>::value && !std::is_const<ItA>::value, ItA>;
-
-  std::array<size_t, 3> rangeToArray(range<3> &r) { return {r[0], r[1], r[2]}; }
-
-  std::array<size_t, 3> rangeToArray(range<2> &r) { return {r[0], r[1], 0}; }
-
-  std::array<size_t, 3> rangeToArray(range<1> &r) { return {r[0], 0, 0}; }
+  using EnableIfSameNonConstIterators = typename std::enable_if_t<
+      std::is_same_v<ItA, ItB> && !std::is_const_v<ItA>, ItA>;
 
   buffer(const range<dimensions> &bufferRange,
          const property_list &propList = {},
@@ -188,7 +183,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), nullptr, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer(const range<dimensions> &bufferRange, AllocatorT allocator,
@@ -202,7 +197,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), nullptr, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer(T *hostData, const range<dimensions> &bufferRange,
@@ -215,7 +210,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), hostData, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer(T *hostData, const range<dimensions> &bufferRange,
@@ -229,7 +224,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), hostData, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   template <typename _T = T>
@@ -244,7 +239,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), hostData, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   template <typename _T = T>
@@ -260,7 +255,7 @@ public:
         Range(bufferRange) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), hostData, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer(const std::shared_ptr<T> &hostData,
@@ -277,7 +272,7 @@ public:
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), (void *)hostData.get(),
         (const void *)typeid(T).name(), dimensions, sizeof(T),
-        rangeToArray(Range).data());
+        detail::rangeToArray(Range).data());
   }
 
   buffer(const std::shared_ptr<T[]> &hostData,
@@ -294,7 +289,7 @@ public:
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), (void *)hostData.get(),
         (const void *)typeid(T).name(), dimensions, sizeof(T),
-        rangeToArray(Range).data());
+        detail::rangeToArray(Range).data());
   }
 
   buffer(const std::shared_ptr<T> &hostData,
@@ -310,7 +305,7 @@ public:
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), (void *)hostData.get(),
         (const void *)typeid(T).name(), dimensions, sizeof(T),
-        rangeToArray(Range).data());
+        detail::rangeToArray(Range).data());
   }
 
   buffer(const std::shared_ptr<T[]> &hostData,
@@ -326,7 +321,7 @@ public:
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), (void *)hostData.get(),
         (const void *)typeid(T).name(), dimensions, sizeof(T),
-        rangeToArray(Range).data());
+        detail::rangeToArray(Range).data());
   }
 
   template <class InputIterator, int N = dimensions,
@@ -344,9 +339,9 @@ public:
               using IteratorValueType =
                   detail::iterator_value_type_t<InputIterator>;
               using IteratorNonConstValueType =
-                  detail::remove_const_t<IteratorValueType>;
+                  std::remove_const_t<IteratorValueType>;
               using IteratorPointerToNonConstValueType =
-                  detail::add_pointer_t<IteratorNonConstValueType>;
+                  std::add_pointer_t<IteratorNonConstValueType>;
               std::copy(first, last,
                         static_cast<IteratorPointerToNonConstValueType>(ToPtr));
             },
@@ -377,9 +372,9 @@ public:
               using IteratorValueType =
                   detail::iterator_value_type_t<InputIterator>;
               using IteratorNonConstValueType =
-                  detail::remove_const_t<IteratorValueType>;
+                  std::remove_const_t<IteratorValueType>;
               using IteratorPointerToNonConstValueType =
-                  detail::add_pointer_t<IteratorNonConstValueType>;
+                  std::add_pointer_t<IteratorNonConstValueType>;
               std::copy(first, last,
                         static_cast<IteratorPointerToNonConstValueType>(ToPtr));
             },
@@ -429,7 +424,7 @@ public:
         IsSubBuffer(true) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), impl.get(), (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
 
     if (b.is_sub_buffer())
       throw sycl::invalid_object_error(
@@ -450,7 +445,7 @@ public:
         OffsetInBytes(rhs.OffsetInBytes), IsSubBuffer(rhs.IsSubBuffer) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), impl.get(), (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer(buffer &&rhs,
@@ -459,7 +454,7 @@ public:
         OffsetInBytes(rhs.OffsetInBytes), IsSubBuffer(rhs.IsSubBuffer) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), impl.get(), (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   buffer &operator=(const buffer &rhs) = default;
@@ -588,8 +583,7 @@ public:
   }
 
   template <template <typename WeakT> class WeakPtrT, typename WeakT>
-  detail::enable_if_t<
-      std::is_convertible<WeakPtrT<WeakT>, std::weak_ptr<WeakT>>::value>
+  std::enable_if_t<std::is_convertible_v<WeakPtrT<WeakT>, std::weak_ptr<WeakT>>>
   set_final_data_internal(WeakPtrT<WeakT> FinalData) {
     std::weak_ptr<WeakT> TempFinalData(FinalData);
     this->set_final_data_internal(TempFinalData);
@@ -661,11 +655,11 @@ public:
   }
 
   template <typename ReinterpretT, int ReinterpretDim = dimensions>
-  typename std::enable_if<
+  std::enable_if_t<
       (sizeof(ReinterpretT) == sizeof(T)) && (dimensions == ReinterpretDim),
       buffer<ReinterpretT, ReinterpretDim,
              typename std::allocator_traits<AllocatorT>::template rebind_alloc<
-                 std::remove_const_t<ReinterpretT>>>>::type
+                 std::remove_const_t<ReinterpretT>>>>
   reinterpret() const {
     return buffer<ReinterpretT, ReinterpretDim,
                   typename std::allocator_traits<AllocatorT>::
@@ -674,10 +668,10 @@ public:
   }
 
   template <typename ReinterpretT, int ReinterpretDim = dimensions>
-  typename std::enable_if<
-      (ReinterpretDim == 1) && ((dimensions != ReinterpretDim) ||
-                                (sizeof(ReinterpretT) != sizeof(T))),
-      buffer<ReinterpretT, ReinterpretDim, AllocatorT>>::type
+  std::enable_if_t<(ReinterpretDim == 1) &&
+                       ((dimensions != ReinterpretDim) ||
+                        (sizeof(ReinterpretT) != sizeof(T))),
+                   buffer<ReinterpretT, ReinterpretDim, AllocatorT>>
   reinterpret() const {
     long sz = byte_size();
     if (sz % sizeof(ReinterpretT) != 0)
@@ -745,7 +739,7 @@ private:
     Range[0] = buffer_plain::getSize() / sizeof(T);
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), &MemObject, (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   void addOrReplaceAccessorProperties(const property_list &PropertyList) {
@@ -765,7 +759,7 @@ private:
         OffsetInBytes(reinterpretOffset), IsSubBuffer(isSubBuffer) {
     buffer_plain::constructorNotification(
         CodeLoc, (void *)impl.get(), Impl.get(), (const void *)typeid(T).name(),
-        dimensions, sizeof(T), rangeToArray(Range).data());
+        dimensions, sizeof(T), detail::rangeToArray(Range).data());
   }
 
   template <typename Type, int N>
@@ -846,7 +840,7 @@ buffer(const T *, const range<dimensions> &, const property_list & = {})
     -> buffer<T, dimensions>;
 #endif // __cpp_deduction_guides
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 namespace std {

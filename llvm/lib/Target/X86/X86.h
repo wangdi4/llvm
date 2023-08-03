@@ -69,9 +69,6 @@ FunctionPass *createX86IssueVZeroUpperPass();
 /// destinations as part of CET IBT mechanism.
 FunctionPass *createX86IndirectBranchTrackingPass();
 
-/// This pass inserts KCFI checks before indirect calls.
-FunctionPass *createX86KCFIPass();
-
 /// Return a pass that pads short functions with NOOPs.
 /// This will prevent a stall when returning on the Atom.
 FunctionPass *createX86PadShortFunctions();
@@ -91,6 +88,10 @@ FunctionPass *createX86VecSpillPass();
 /// This pass performs x86 intrinsics lowering right before ISel.
 ModulePass *createX86PreISelIntrinsicLoweringPass();
 FunctionPass *createX86StackRealignPass();
+#if INTEL_FEATURE_ISA_APX_F
+/// This pass performs CCMP optimization.
+FunctionPass *createX86ConditionalCompares();
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -98,9 +99,12 @@ FunctionPass *createX86StackRealignPass();
 /// instructions, in order to eliminate execution delays in some processors.
 FunctionPass *createX86FixupLEAs();
 
-/// Return as pass that replaces equivilent slower instructions with faster
+/// Return a pass that replaces equivalent slower instructions with faster
 /// ones.
 FunctionPass *createX86FixupInstTuning();
+
+/// Return a pass that reduces the size of vector constant pool loads.
+FunctionPass *createX86FixupVectorConstants();
 
 /// Return a pass that removes redundant LEA instructions and redundant address
 /// recalculations.
@@ -244,6 +248,7 @@ void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
 void initializeX86ArgumentStackSlotPassPass(PassRegistry &);
 void initializeX86FixupInstTuningPassPass(PassRegistry &);
+void initializeX86FixupVectorConstantsPassPass(PassRegistry &);
 void initializeWinEHStatePassPass(PassRegistry &);
 void initializeX86AvoidSFBPassPass(PassRegistry &);
 void initializeX86AvoidTrailingCallPassPass(PassRegistry &);
@@ -257,7 +262,6 @@ void initializeX86FastPreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
 void initializeX86FixupSetCCPassPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
-void initializeX86KCFIPass(PassRegistry &);
 void initializeX86LoadValueInjectionLoadHardeningPassPass(PassRegistry &);
 void initializeX86LoadValueInjectionRetHardeningPassPass(PassRegistry &);
 void initializeX86LowerAMXIntrinsicsLegacyPassPass(PassRegistry &);
@@ -280,6 +284,9 @@ void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 void initializeX86StackRealignPass(PassRegistry &);
+#if INTEL_FEATURE_ISA_APX_F
+void initializeX86ConditionalComparesPass(PassRegistry &);
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 namespace X86AS {

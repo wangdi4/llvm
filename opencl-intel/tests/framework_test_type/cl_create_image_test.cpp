@@ -715,9 +715,6 @@ static void TestNegative(const cl_image_format &clFormat,
   clCreateImage(context, 0, &format, &desc, NULL, &iRet);
   CheckException("clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
 
-  iRet = clReleaseMemObject(img1d);
-  CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
-
   // 2D image created from buffer with pitch not a multiple of the maximum of
   // the CL_DEVICE_IMAGE_PITCH_ALIGNMENT value of the device
   localImgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
+; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
 ; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-TLS %s
 ; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 
@@ -13,27 +13,27 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(i32 addrspace(1)* noalias noundef %dst, i32 noundef %v, i64 noundef %gid) #0 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i32 noundef %v, i64 noundef %gid) #0 !kernel_arg_base_type !19 !arg_type_null_val !20 {
 entry:
   %retval = alloca i32, align 4
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
   %v.addr = alloca i32, align 4
   %gid.addr = alloca i64, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  store i32 %v, i32* %v.addr, align 4
-  store i64 %gid, i64* %gid.addr, align 8
-  %0 = load i32, i32* %v.addr, align 4
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-  %2 = load i64, i64* %gid.addr, align 8
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %1, i64 %2
-  store i32 %0, i32 addrspace(1)* %arrayidx, align 4
-  %3 = load i32, i32* %retval, align 4
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  store i32 %v, ptr %v.addr, align 4
+  store i64 %gid, ptr %gid.addr, align 8
+  %0 = load i32, ptr %v.addr, align 4
+  %1 = load ptr addrspace(1), ptr %dst.addr, align 8
+  %2 = load i64, ptr %gid.addr, align 8
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %1, i64 %2
+  store i32 %0, ptr addrspace(1) %arrayidx, align 4
+  %3 = load i32, ptr %retval, align 4
   ret i32 %3
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %dst, i32 noundef %v) #1 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_name !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !no_barrier_path !12 !kernel_has_sub_groups !13 !barrier_buffer_size !14 !kernel_execution_length !15 !kernel_has_global_sync !13 !recommended_vector_length !16 !private_memory_size !17 {
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst, i32 noundef %v) #1 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_name !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !no_barrier_path !12 !kernel_has_sub_groups !13 !barrier_buffer_size !14 !kernel_execution_length !15 !kernel_has_global_sync !13 !recommended_vector_length !16 !private_memory_size !17 !arg_type_null_val !18 {
+  %dst.addr = alloca ptr addrspace(1), align 8
   %v.addr = alloca i32, align 4
   %gid = alloca i64, align 8
   %base.gid.dim0 = call i64 @get_base_global_id.(i32 0)
@@ -60,17 +60,17 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
 
 scalar_kernel_entry:                              ; preds = %scalar_kernel_entry, %dim_0_pre_head
 ; CHECK-LABEL: scalar_kernel_entry
-; CHECK-ARG: call i32 @foo(i32 addrspace(1)* noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, i8 addrspace(3)* noalias null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias null, {}* noalias %RuntimeHandle)
-; CHECK-TLS: call i32 @foo(i32 addrspace(1)* noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}})
+; CHECK-ARG: call i32 @foo(ptr addrspace(1) noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, ptr addrspace(3) noalias null, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias null, ptr noalias %RuntimeHandle)
+; CHECK-TLS: call i32 @foo(ptr addrspace(1) noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}})
 
   %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  store i32 %v, i32* %v.addr, align 4
-  store i64 %dim_0_ind_var, i64* %gid, align 8
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-  %2 = load i32, i32* %v.addr, align 4
-  %3 = load i64, i64* %gid, align 8
-  %call1 = call i32 @foo(i32 addrspace(1)* noundef %1, i32 noundef %2, i64 noundef %3) #3
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  store i32 %v, ptr %v.addr, align 4
+  store i64 %dim_0_ind_var, ptr %gid, align 8
+  %1 = load ptr addrspace(1), ptr %dst.addr, align 8
+  %2 = load i32, ptr %v.addr, align 4
+  %3 = load i64, ptr %gid, align 8
+  %call1 = call i32 @foo(ptr addrspace(1) noundef %1, i32 noundef %2, i64 noundef %3) #3
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
   %dim_0_cmp.to.max = icmp eq i64 %dim_0_inc_ind_var, %max.gid.dim0
   br i1 %dim_0_cmp.to.max, label %dim_0_exit, label %scalar_kernel_entry
@@ -115,7 +115,7 @@ attributes #3 = { convergent }
 !0 = !{i32 2, i32 0}
 !1 = !{!"-cl-std=CL2.0", !"-cl-opt-disable"}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{void (i32 addrspace(1)*, i32)* @test}
+!3 = !{ptr @test}
 !4 = !{i32 1, i32 0}
 !5 = !{!"none", !"none"}
 !6 = !{!"int*", !"int"}
@@ -130,45 +130,14 @@ attributes #3 = { convergent }
 !15 = !{i32 12}
 !16 = !{i32 1}
 !17 = !{i32 56}
-
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i32
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 8
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i32
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i8, i8* %UniformArgs, i32 16
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast i8*
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* {{.*}}, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }** @pWorkDim, align 8
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store i64* %pWGId, i64** @pWGId, align 8
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i64, i64* %pWGId, i32 0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i64, i64* %pWGId, i32 1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr i64, i64* %pWGId, i32 2
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} load i64
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_0, %GroupID_0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %14, %GlobalOffset_0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_1, %GroupID_1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %16, %GlobalOffset_1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} mul i64 %InternalLocalSize_2, %GroupID_2
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} add i64 %18, %GlobalOffset_2
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64] undef
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64]
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} insertvalue [4 x i64]
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store [4 x i64] {{.*}}, [4 x i64]* @BaseGlbId, align 8
-; DEBUGIFY-TLS: WARNING: Instruction with empty DebugLoc in function test {{.*}} store {}* %RuntimeHandle, {}** @RuntimeHandle, align 8
+!18 = !{i32 addrspace(1)* null, i32 0}
+!19 = !{!"int*", !"int", !"long"}
+!20 = !{i32 addrspace(1)* null, i32 0, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-NOT: WARNING
+
+; DEBUGIFY-TLS-NOT: WARNING
+; DEBUGIFY-TLS-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-TLS-NOT: WARNING

@@ -28,7 +28,7 @@
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
 
-define dso_local i32 @_Z6maxlociPiPf(i32 %m, i32* nocapture readonly %ordering, float* nocapture readonly %o2) local_unnamed_addr #0 {
+define dso_local i32 @_Z6maxlociPiPf(i32 %m, ptr nocapture readonly %ordering, ptr nocapture readonly %o2) local_unnamed_addr #0 {
 entry:
   %cmp28 = icmp sgt i32 %m, 0
   br i1 %cmp28, label %for.body.preheader, label %for.cond.cleanup
@@ -52,14 +52,14 @@ for.body:                                         ; preds = %cond.end, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %cond.end ]
   %tmp.030 = phi i32 [ 0, %for.body.preheader ], [ %conv4, %cond.end ]
   %best.029 = phi i32 [ -111111111, %for.body.preheader ], [ %.best.0, %cond.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %ordering, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ordering, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %0, %best.029
   br i1 %cmp1, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds float, float* %o2, i64 %indvars.iv
-  %1 = load float, float* %arrayidx3, align 4, !tbaa !6
+  %arrayidx3 = getelementptr inbounds float, ptr %o2, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx3, align 4, !tbaa !6
   br label %cond.end
 
 cond.false:                                       ; preds = %for.body

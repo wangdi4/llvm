@@ -93,19 +93,19 @@ header:
 
 t59:
   %t60 = phi i64 [ 126, %header ], [ %t98, %t95 ] ; preds = %t95, header
-  %t61 = getelementptr inbounds [27 x i64], [27 x i64]* @reg_class_contents, i64 0, i64 %t60
-  %t62 = load i64, i64* %t61, align 8, !tbaa !18
+  %t61 = getelementptr inbounds [27 x i64], ptr @reg_class_contents, i64 0, i64 %t60
+  %t62 = load i64, ptr %t61, align 8, !tbaa !18
   %t63 = and i64 %t62, %t58
-  %t64 = getelementptr inbounds [27 x [53 x i16]], [27 x [53 x i16]]* @ira_class_hard_reg_index, i64 0, i64 %t60, i64 0
-  store i16 -1, i16* %t64, align 2, !tbaa !20
+  %t64 = getelementptr inbounds [27 x [53 x i16]], ptr @ira_class_hard_reg_index, i64 0, i64 %t60, i64 0
+  store i16 -1, ptr %t64, align 2, !tbaa !20
   br label %t65
 
 t65:                                     ; preds = %t90, %t59
   %t66 = phi i64 [ 0, %t59 ], [ %t93, %t90 ]
   %t67 = phi i64 [ %t58, %t59 ], [ %t92, %t90 ]
   %t68 = phi i32 [ 0, %t59 ], [ %t91, %t90 ]
-  %t69 = getelementptr inbounds [53 x i32], [53 x i32]* @reg_alloc_order, i64 0, i64 %t66
-  %t70 = load i32, i32* %t69, align 4, !tbaa !24
+  %t69 = getelementptr inbounds [53 x i32], ptr @reg_alloc_order, i64 0, i64 %t66
+  %t70 = load i32, ptr %t69, align 4, !tbaa !24
   %t71 = and i32 %t70, 63
   %t72 = zext i32 %t71 to i64
   %t73 = shl i64 1, %t72
@@ -121,19 +121,19 @@ t76:                                     ; preds = %t65
   br i1 %t79, label %t81, label %t83
 
 t81:                                     ; preds = %t76
-  %t82 = getelementptr inbounds [27 x [53 x i16]], [27 x [53 x i16]]* @ira_class_hard_reg_index, i64 0, i64 %t60, i64 %t80
-  store i16 -1, i16* %t82, align 2, !tbaa !20
+  %t82 = getelementptr inbounds [27 x [53 x i16]], ptr @ira_class_hard_reg_index, i64 0, i64 %t60, i64 %t80
+  store i16 -1, ptr %t82, align 2, !tbaa !20
   br label %t90
 
 t83:                                     ; preds = %t76
   %t84 = trunc i32 %t68 to i16
-  %t85 = getelementptr inbounds [27 x [53 x i16]], [27 x [53 x i16]]* @ira_class_hard_reg_index, i64 0, i64 %t60, i64 %t80
-  store i16 %t84, i16* %t85, align 2, !tbaa !20
+  %t85 = getelementptr inbounds [27 x [53 x i16]], ptr @ira_class_hard_reg_index, i64 0, i64 %t60, i64 %t80
+  store i16 %t84, ptr %t85, align 2, !tbaa !20
   %t86 = trunc i32 %t70 to i16
   %t87 = add nsw i32 %t68, 1
   %t88 = sext i32 %t68 to i64
-  %t89 = getelementptr inbounds [27 x [53 x i16]], [27 x [53 x i16]]* @ira_class_hard_regs, i64 0, i64 %t60, i64 %t88
-  store i16 %t86, i16* %t89, align 2, !tbaa !20
+  %t89 = getelementptr inbounds [27 x [53 x i16]], ptr @ira_class_hard_regs, i64 0, i64 %t60, i64 %t88
+  store i16 %t86, ptr %t89, align 2, !tbaa !20
   br label %t90
 
 t90:                                     ; preds = %t83, %t81, %t65
@@ -145,8 +145,8 @@ t90:                                     ; preds = %t83, %t81, %t65
 
 t95:                                     ; preds = %t90
   %t96 = phi i32 [ %t91, %t90 ]
-  %t97 = getelementptr inbounds [27 x i32], [27 x i32]* @ira_class_hard_regs_num, i64 0, i64 %t60
-  store i32 %t96, i32* %t97, align 4, !tbaa !26
+  %t97 = getelementptr inbounds [27 x i32], ptr @ira_class_hard_regs_num, i64 0, i64 %t60
+  store i32 %t96, ptr %t97, align 4, !tbaa !26
   %t98 = add nsw i64 %t60, -1
   %t99 = icmp eq i64 %t60, 0
   br i1 %t99, label %exit, label %t59

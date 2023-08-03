@@ -10,7 +10,7 @@
 ; #pragma omp taskwait depend(in : a [n:n])
 ; }
 
-; CHECK: DEPEND clause (size=1): (ptr %a, TYPED (TYPE: i32, NUM_ELEMENTS: i64 %conv, ARRAY SECTION OFFSET: i64 %conv1))
+; CHECK: DEPEND clause (size=1): TYPED (ptr %a, TYPE: i32, NUM_ELEMENTS: i64 %conv, ARRAY SECTION OFFSET: i64 %conv1)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

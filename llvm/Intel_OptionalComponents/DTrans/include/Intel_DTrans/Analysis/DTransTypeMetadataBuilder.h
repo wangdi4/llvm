@@ -1,6 +1,6 @@
 //===---------DTransTypeMetadataBuilder.h --Builder for DTrans metadata ---===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "llvm/ADT/ArrayRef.h"
 
 namespace llvm {
+class AttributeSet;
 class Function;
 class LLVMContext;
 class Metadata;
@@ -61,6 +62,30 @@ public:
   //     !{!"L", i32 <numElem>, !MDNodefield1, !MDNodefield2, ...}
   static MDTuple *createLiteralStructMetadata(LLVMContext &Ctx,
                                               ArrayRef<Metadata *> MDTypeList);
+};
+
+//
+// This class defines some convenience methods for working with the
+// "intel_dtrans_func_index" attribute on function parameters.
+//
+class DTransTypeAttributeUtil {
+public:
+  // Extract the index value from the "intel_dtrans_func_index" attribute.
+  // Return 0, if the value attribute is not present.
+  static uint64_t GetMetadataIndex(AttributeSet &Attrs);
+
+  // Removes the DTrans type attribute from a function. 'Index' corresponds to
+  // the way Function attributes are numbered, i.e. 0 = return value, 1..n for
+  // the parameters.
+  static void RemoveDTransFuncIndexAttribute(Function *F, unsigned Index);
+
+  // Add a DTrans function index attribute to 'F' and update the MDTypeList
+  // with the metadata reference to add to the function. 'Index' corresponds to
+  // the way Function attributes are numbered, i.e. 0 = return value, 1..n for
+  // the parameters.
+  static void
+  AddDTransFuncIndexAttribute(Function *F, Metadata *MD, unsigned Index,
+                              SmallVectorImpl<Metadata *> &MDTypeList);
 };
 
 } // end namespace dtransOP

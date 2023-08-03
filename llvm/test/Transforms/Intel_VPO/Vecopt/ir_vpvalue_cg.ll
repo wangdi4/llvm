@@ -13,12 +13,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP22:%.*]], %[[VPLANNEDBB7:.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <16 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[VECTOR_PH]] ], [ [[TMP21:%.*]], %[[VPLANNEDBB7]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 [[UNI_PHI3]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[TMP5]], align 16
-; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 [[UNI_PHI3]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP4]] to <16 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <16 x i32>, <16 x i32>* [[TMP6]], align 16
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 [[UNI_PHI3]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, ptr [[SCALAR_GEP]], align 16
+; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 [[UNI_PHI3]]
+; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <16 x i32>, ptr [[SCALAR_GEP4]], align 16
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp sgt <16 x i32> [[WIDE_LOAD]], [[WIDE_LOAD5]]
 ; CHECK-NEXT:    br label %[[VPLANNEDBB6:.*]]
 ; CHECK:       [[VPLANNEDBB6]]:
@@ -37,12 +35,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    [[PREDBLEND10:%.*]] = select <16 x i1> [[TMP7]], <16 x i32> [[TMP12]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP15:%.*]] = mul nsw <16 x i32> [[PREDBLEND9]], [[PREDBLEND]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = add nsw <16 x i32> [[TMP15]], [[WIDE_LOAD5]]
-; CHECK-NEXT:    [[TMP17:%.*]] = bitcast i32* [[SCALAR_GEP4]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP16]], <16 x i32>* [[TMP17]], align 16
+; CHECK-NEXT:    store <16 x i32> [[TMP16]], ptr [[SCALAR_GEP4]], align 16
 ; CHECK-NEXT:    [[TMP18:%.*]] = mul nsw <16 x i32> [[PREDBLEND10]], [[PREDBLEND8]]
 ; CHECK-NEXT:    [[TMP19:%.*]] = add nsw <16 x i32> [[TMP18]], [[WIDE_LOAD]]
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP19]], <16 x i32>* [[TMP20]], align 16
+; CHECK-NEXT:    store <16 x i32> [[TMP19]], ptr [[SCALAR_GEP]], align 16
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <16 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI3]], 16
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult i64 [[TMP22]], [[N_VEC:%.*]]
@@ -53,21 +49,21 @@ entry:
   br label %L1
 
 L1:
-  %0 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @N, align 4
   %cmp54 = icmp sgt i32 %0, 0
   br i1 %cmp54, label %for.body.lr.ph, label %DIR.OMP.END.SIMD.1
 
 for.body.lr.ph:                                   ; preds = %L1
-  %1 = load i32, i32* @N, align 4
+  %1 = load i32, ptr @N, align 4
   %2 = sext i32 %1 to i64
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %if.end26
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %if.end26 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %4 = load i32, ptr %arrayidx2, align 4
   %cmp3 = icmp sgt i32 %3, %4
   br i1 %cmp3, label %if.then, label %if.end26
 
@@ -88,10 +84,10 @@ if.end26:                                         ; preds = %if.then, %for.body
   %md.1 = phi i32 [ %6, %if.then ], [ 1, %for.body ]
   %mul27 = mul nsw i32 %mc.1, %mb.0
   %add30 = add nsw i32 %mul27, %4
-  store i32 %add30, i32* %arrayidx2, align 4
+  store i32 %add30, ptr %arrayidx2, align 4
   %mul31 = mul nsw i32 %md.1, %ma.0
   %add34 = add nsw i32 %mul31, %3
-  store i32 %add34, i32* %arrayidx, align 4
+  store i32 %add34, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %2
   br i1 %cmp, label %for.body, label %loop.exit

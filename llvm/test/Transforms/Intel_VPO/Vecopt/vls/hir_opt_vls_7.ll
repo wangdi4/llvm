@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr2 = dso_local local_unnamed_addr global [200 x i64] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local i64 @f_liveout(i64* nocapture readnone %larr) local_unnamed_addr #0 {
+define dso_local i64 @f_liveout(ptr nocapture readnone %larr) local_unnamed_addr #0 {
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)(@arr)[0][2 * i1]
@@ -46,15 +46,15 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.body
   %l11.018 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %mul = shl nuw nsw i64 %l11.018, 1
-  %arrayidx = getelementptr inbounds [200 x i64], [200 x i64]* @arr, i64 0, i64 %mul
-  %0 = load i64, i64* %arrayidx, align 16
-  %arrayidx3 = getelementptr inbounds [200 x i64], [200 x i64]* @arr2, i64 0, i64 %mul
-  store i64 %0, i64* %arrayidx3, align 16
+  %arrayidx = getelementptr inbounds [200 x i64], ptr @arr, i64 0, i64 %mul
+  %0 = load i64, ptr %arrayidx, align 16
+  %arrayidx3 = getelementptr inbounds [200 x i64], ptr @arr2, i64 0, i64 %mul
+  store i64 %0, ptr %arrayidx3, align 16
   %add = or i64 %mul, 1
-  %arrayidx5 = getelementptr inbounds [200 x i64], [200 x i64]* @arr, i64 0, i64 %add
-  %1 = load i64, i64* %arrayidx5, align 8
-  %arrayidx8 = getelementptr inbounds [200 x i64], [200 x i64]* @arr2, i64 0, i64 %add
-  store i64 %1, i64* %arrayidx8, align 8
+  %arrayidx5 = getelementptr inbounds [200 x i64], ptr @arr, i64 0, i64 %add
+  %1 = load i64, ptr %arrayidx5, align 8
+  %arrayidx8 = getelementptr inbounds [200 x i64], ptr @arr2, i64 0, i64 %add
+  store i64 %1, ptr %arrayidx8, align 8
   %inc = add nuw nsw i64 %l11.018, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

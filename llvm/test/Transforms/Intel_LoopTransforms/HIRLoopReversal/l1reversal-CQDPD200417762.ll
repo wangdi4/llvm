@@ -48,11 +48,11 @@ for.body:                                         ; preds = %entry, %for.body
   %dec337 = phi i32 [ %nv.promoted, %entry ], [ %dec, %for.body ]
   %dec = add i32 %dec337, -1
   %0 = add nuw nsw i64 %indvars.iv377, 1
-  %arrayidx9 = getelementptr inbounds [100 x i32], [100 x i32]* %t, i64 0, i64 %0
-  store i32 %dec, i32* %arrayidx9, align 4, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [100 x i32], ptr %t, i64 0, i64 %0
+  store i32 %dec, ptr %arrayidx9, align 4, !tbaa !1
   %indvars.iv.next378 = add nsw i64 %indvars.iv377, -1
-  %arrayidx11 = getelementptr inbounds [100 x i32], [100 x i32]* %t, i64 0, i64 %indvars.iv.next378
-  %1 = load i32, i32* %arrayidx11, align 4, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [100 x i32], ptr %t, i64 0, i64 %indvars.iv.next378
+  %1 = load i32, ptr %arrayidx11, align 4, !tbaa !1
   %add12 = add i32 %add12338, %1
   %cmp = icmp ugt i64 %indvars.iv.next378, 1
   br i1 %cmp, label %for.body, label %exit

@@ -48,8 +48,8 @@ for.body:                                         ; preds = %entry, %for.cond
   %t.02 = phi i32 [ 0, %entry ], [ %t.0, %for.cond ]
   %i.01 = phi i32 [ 0, %entry ], [ %i.0, %for.cond ]
   %0 = zext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp slt i32 %1, 0
   %inc = add nuw nsw i32 %i.01, 1
   br i1 %cmp1, label %for.end, label %for.cond

@@ -1,71 +1,72 @@
-; This test verifies that the target with the same type as @fptr (@add_fun
-; is converted into a direct call, and the fallback case is generated since
-; type of @sub_fun is same as @fptr if pointers are treated
-; as opaque pointers. @sub_fun is considered as potential target function
-; but is not added as possible target since the type of @sub_fun is
-; not same as @fptr.
+; This test verifies that the indirect call is converted to @add_fun
+; and @sub_fun with opaque pointers since %struct.A* and %struct.B* types
+; are represented with ptr.
 
-; RUN: opt -opaque-pointers=0 -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
+; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { i64, i32 }
 %struct.B = type { i64, i64, i32 }
 
 @glob = external global i32, align 4
-@fptr = internal global i32 (%struct.A*)* null, align 8
+@fptr = internal global ptr null, align 8
 
-define i32 @add_fun(%struct.A* %val)  {
+define i32 @add_fun(ptr %val) {
 entry:
-  ret i32 0
+  %i = getelementptr inbounds %struct.A, ptr %val, i64 0, i32 1
+  %l = load i32, ptr %i, align 4
+  ret i32 %l
 }
 
-define i32 @sub_fun(%struct.B* %val)  {
+define i32 @sub_fun(ptr %val) {
 entry:
-  ret i32 1
+  %i = getelementptr inbounds %struct.B, ptr %val, i64 0, i32 2
+  %l = load i32, ptr %i, align 4
+  ret i32 %l
 }
 
-define i32 @func(i32 %in_val)  {
+define i32 @func(i32 %in_val) {
 entry:
-  %0 = load i32, i32* @glob, align 4
+  %0 = load i32, ptr @glob, align 4
   %tobool = icmp ne i32 %0, 0
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:                                          ; preds = %entry
-  store i32 (%struct.A*)* bitcast(i32 (%struct.B*)* @sub_fun to i32 (%struct.A*)*), i32 (%struct.A*)** @fptr, align 8
+  store ptr @sub_fun, ptr @fptr, align 8
   br label %if.end
 
 if.else:                                          ; preds = %entry
   %tobool2 = icmp ne i32 %0, 1
   br i1 %tobool2, label %if.else.then, label %if.else.end
 
-if.else.then:
-  store i32 (%struct.A*)* @add_fun, i32 (%struct.A*)** @fptr, align 8
+if.else.then:                                     ; preds = %if.else
+  store ptr @add_fun, ptr @fptr, align 8
   br label %if.end
 
-if.else.end:
+if.else.end:                                      ; preds = %if.else
   br label %if.end
 
-if.end:                                           ; preds = %if.else, %if.then
-  %1 = load i32 (%struct.A*)*, i32 (%struct.A*)** @fptr, align 8
-  %call = call i32 %1(%struct.A* null)
+if.end:                                           ; preds = %if.else.end, %if.else.then, %if.then
+  %1 = load ptr, ptr @fptr, align 8
+  %call = call i32 %1(ptr null)
   ret i32 %call
 }
 
 ; Check that the compare with @add_fun was generated
 ; CHECK: .indconv.cmp.add_fun:
-; CHECK:   %.indconv.c = icmp eq i32 (%struct.A*)* %1, @add_fun
-; CHECK:   br i1 %.indconv.c, label %.indconv.call.add_fun, label %.indconv.icall.call
+; CHECK:   %.indconv.c = icmp eq ptr %1, @add_fun
+; CHECK:   br i1 %.indconv.c, label %.indconv.call.add_fun, label %.indconv.call.sub_fun
 
 ; Check that the call to @add_fun was generated
 ; CHECK: .indconv.call.add_fun:
-; CHECK:   %call.indconv = call i32 @add_fun(%struct.A* null)
+; CHECK:   %call.indconv = call i32 @add_fun(ptr null)
 ; CHECK:   br label %.indconv.sink.
 
-; Check that the indirect call is preserved
-; CHECK: .indconv.icall.call:
-; CHECK:   %call.indconv1 = call i32 %1(%struct.A* null)
+; Check that the call to @sub_fun was generated
+; CHECK: .indconv.call.sub_fun:
+; CHECK:   %call.indconv1 = call i32 @sub_fun(ptr null)
 ; CHECK:   br label %.indconv.sink.
 
 ; Check that the PHI node was generated correctly
 ; CHECK: .indconv.sink.:
-; CHECK:   %.indconv.ret = phi i32 [ %call.indconv, %.indconv.call.add_fun ], [ %call.indconv1, %.indconv.icall.call ]
+; CHECK:   %.indconv.ret = phi i32 [ %call.indconv, %.indconv.call.add_fun ], [ %call.indconv1, %.indconv.call.sub_fun ]
 

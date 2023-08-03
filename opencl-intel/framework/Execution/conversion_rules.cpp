@@ -22,7 +22,7 @@
 #include <math.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <intrin.h>
 #include <limits.h>
 #define isnan(x) _isnan(x)
@@ -70,7 +70,7 @@
 #define SIX_BIT_MAX 0x3f
 #define FIVE_BIT_MAX 0x1f
 
-#ifdef WIN32
+#ifdef _WIN32
 #define AS_INTRIN_128 __declspec(intrin_type) _CRT_ALIGN(16)
 #else
 #define AS_INTRIN_128 __attribute__((__vector_size__(16), __may_alias__))
@@ -97,9 +97,9 @@ using namespace Intel::OpenCL::Framework;
 // #define FLOAT2HALF_SIMD 1
 #undef FLOAT2HALF_SIMD
 
-ALIGN16 int ones[] = {1, 1, 1, 1};
+alignas(16) int ones[] = {1, 1, 1, 1};
 
-#ifdef WIN32
+#ifdef _WIN32
 __m128i _4x32to4x16 =
     _mm_setr_epi8(0, 1, 4, 5, 8, 9, 12, 13, 0, 0, 0, 0, 0, 0, 0, 0);
 __m128i allzero = _mm_setzero_si128();

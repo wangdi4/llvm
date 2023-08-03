@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x1e807 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x1e886 -S < %s 2>&1 | FileCheck %s  --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='cgscc(inline)' -inline-report=0x1e807 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x1e886 -S < %s 2>&1 | FileCheck %s  --check-prefixes=CHECK,CHECK-MD
 
 ; Check demangling option for Linux style C++ demangling
 

@@ -16,10 +16,10 @@
 ; CHECK: br i1 false
 ; CHECK: select i1 false
 
-define i32 @foo1(%struct.S* %Arg) local_unnamed_addr {
+define i32 @foo1(ptr %Arg) local_unnamed_addr {
 entry:
-  %i = getelementptr inbounds %struct.S, %struct.S* %Arg, i64 0, i32 0
-  %i1 = load i8, i8* %i, align 1
+  %i = getelementptr inbounds %struct.S, ptr %Arg, i64 0, i32 0
+  %i1 = load i8, ptr %i, align 1
   %i11 = freeze i8 %i1
   %i2 = icmp ne i8 %i11, 0
   br i1 %i2, label %if.then, label %if.else
@@ -44,10 +44,10 @@ if.end:                                           ; preds = %if.else, %if.then
 ; CHECK: br i1 false
 ; CHECK: select i1 true
 
-define i32 @foo2(%struct.S* %Arg) local_unnamed_addr {
+define i32 @foo2(ptr %Arg) local_unnamed_addr {
 entry:
-  %i = getelementptr inbounds %struct.S, %struct.S* %Arg, i64 0, i32 0
-  %i1 = load i8, i8* %i, align 1
+  %i = getelementptr inbounds %struct.S, ptr %Arg, i64 0, i32 0
+  %i1 = load i8, ptr %i, align 1
   %i11 = freeze i8 %i1
   %i2 = icmp ne i8 %i11, 0
   br i1 %i2, label %if.then, label %if.else
@@ -73,10 +73,10 @@ if.end:                                           ; preds = %if.else, %if.then
 ; CHECK: br i1 false
 ; CHECK: select i1 true
 
-define i32 @foo3(%struct.S* %Arg) local_unnamed_addr {
+define i32 @foo3(ptr %Arg) local_unnamed_addr {
 entry:
-  %i = getelementptr inbounds %struct.S, %struct.S* %Arg, i64 0, i32 0
-  %i1 = load i8, i8* %i, align 1
+  %i = getelementptr inbounds %struct.S, ptr %Arg, i64 0, i32 0
+  %i1 = load i8, ptr %i, align 1
   %i11 = freeze i8 %i1
   %i2 = icmp ne i8 %i11, 0
   br i1 %i2, label %if.then, label %if.else
@@ -88,7 +88,7 @@ if.else:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %i3 = load i8, i8* %i, align 1
+  %i3 = load i8, ptr %i, align 1
   %i4 = icmp eq i8 %i3, 0
   %i5 = select i1 %i4, i32 33, i32 22
   ret i32 %i5
@@ -103,10 +103,10 @@ if.end:                                           ; preds = %if.else, %if.then
 ; CHECK: br i1 false
 ; CHECK: select i1 true
 
-define i32 @foo4(%struct.S* %Arg) local_unnamed_addr {
+define i32 @foo4(ptr %Arg) local_unnamed_addr {
 entry:
-  %i = getelementptr inbounds %struct.S, %struct.S* %Arg, i64 0, i32 0
-  %i1 = load i8, i8* %i, align 1
+  %i = getelementptr inbounds %struct.S, ptr %Arg, i64 0, i32 0
+  %i1 = load i8, ptr %i, align 1
   %i11 = freeze i8 %i1
   %i2 = icmp ne i8 %i11, 0
   br i1 %i2, label %if.then, label %if.else
@@ -118,8 +118,8 @@ if.else:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %i3 = getelementptr inbounds %struct.S, %struct.S* %Arg, i64 0, i32 0
-  %i4 = load i8, i8* %i3, align 1
+  %i3 = getelementptr inbounds %struct.S, ptr %Arg, i64 0, i32 0
+  %i4 = load i8, ptr %i3, align 1
   %i5 = icmp eq i8 %i4, 0
   %i6 = select i1 %i5, i32 33, i32 22
   ret i32 %i6

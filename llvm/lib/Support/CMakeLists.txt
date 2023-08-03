@@ -106,8 +106,8 @@ endif()
 
 # Override the C runtime allocator on Windows and embed it into LLVM tools & libraries
 if(LLVM_INTEGRATED_CRT_ALLOC)
-  if (CMAKE_BUILD_TYPE AND NOT ${LLVM_USE_CRT_${uppercase_CMAKE_BUILD_TYPE}} MATCHES "^(MT|MTd)$")
-    message(FATAL_ERROR "LLVM_INTEGRATED_CRT_ALLOC only works with /MT or /MTd. Use LLVM_USE_CRT_${uppercase_CMAKE_BUILD_TYPE} to set the appropriate option.")
+  if (NOT CMAKE_MSVC_RUNTIME_LIBRARY OR CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL$")
+    message(FATAL_ERROR "LLVM_INTEGRATED_CRT_ALLOC only works with CMAKE_MSVC_RUNTIME_LIBRARY set to MultiThreaded or MultiThreadedDebug.")
   endif()
 
   string(REGEX REPLACE "(/|\\\\)$" "" LLVM_INTEGRATED_CRT_ALLOC "${LLVM_INTEGRATED_CRT_ALLOC}")
@@ -148,6 +148,7 @@ set (SUPPORT_SOURCES
   Allocator.cpp
   AutoConvert.cpp
   Base64.cpp
+  BalancedPartitioning.cpp
   BinaryStreamError.cpp
   BinaryStreamReader.cpp
   BinaryStreamRef.cpp
@@ -165,6 +166,7 @@ set (SUPPORT_SOURCES
   Compression.cpp
   CRC.cpp
   ConvertUTF.cpp
+  ConvertEBCDIC.cpp
   ConvertUTFWrapper.cpp
   CrashRecoveryContext.cpp
   CSKYAttributes.cpp
@@ -205,7 +207,6 @@ set (SUPPORT_SOURCES
   LineIterator.cpp
   Locale.cpp
   LockFileManager.cpp
-  LowLevelType.cpp
   ManagedStatic.cpp
   MathExtras.cpp
   MemAlloc.cpp
@@ -242,6 +243,7 @@ set (SUPPORT_SOURCES
   StringMap.cpp
   StringSaver.cpp
   StringRef.cpp
+  SuffixTreeNode.cpp
   SuffixTree.cpp
   SystemUtils.cpp
   TarWriter.cpp
@@ -249,7 +251,6 @@ set (SUPPORT_SOURCES
   TimeProfiler.cpp
   Timer.cpp
   ToolOutputFile.cpp
-  TrigramIndex.cpp
   Twine.cpp
   TypeSize.cpp
   Unicode.cpp
@@ -297,15 +298,18 @@ set (SUPPORT_SOURCES
 
   LINK_LIBS
   ${system_libs} ${imported_libs} ${delayload_flags}
-
-  LINK_COMPONENTS
-  Demangle
+# INTEL_CUSTOMIZATION
   )
+#end INTEL_CUSTOMIZATION
 
 # INTEL_CUSTOMIZATION
-add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
+add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES}
+  LINK_COMPONENTS
+  Demangle
+)
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
+                             LINK_COMPONENTS Demangle_stdcpp
                              STDLIB stdc++)
   set_property(TARGET LLVMSupport_stdcpp
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
@@ -317,6 +321,7 @@ if (WIN32)
     set(_STL_FLAG "/MD")
   endif()
   add_llvm_component_library(LLVMSupport_dyn ${SUPPORT_SOURCES}
+                             LINK_COMPONENTS Demangle
                              STDLIB "${_STL_FLAG}")
   set_property(TARGET LLVMSupport_dyn
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")

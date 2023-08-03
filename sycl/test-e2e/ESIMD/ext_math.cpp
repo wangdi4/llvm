@@ -5,12 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// REQUIRES: gpu
-// UNSUPPORTED: gpu-intel-gen9 && windows
-// UNSUPPORTED: cuda || hip
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
-// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl %{mathflags} %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -fsycl-device-code-split=per_kernel %{mathflags} -o %t.out
+// RUN: %{run} %t.out
 
 // This test checks extended math operations. Combinations of
 // - argument type - half, float
@@ -380,7 +377,7 @@ bool test(queue &Q, const std::string &Name,
     }
 
     bool BothFinite = std::isfinite(Test) && std::isfinite(Gold);
-    if (BothFinite && abs(Test - Gold) > delta) {
+    if (BothFinite && std::abs(Test - Gold) > delta) {
       if (++ErrCnt < 10) {
         std::cout << "    failed at index " << I << ", " << Test
                   << " != " << Gold << " (gold)\n";

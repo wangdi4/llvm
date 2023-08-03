@@ -13,7 +13,7 @@
 #include <sycl/detail/pi.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 /// Representation of _pi_offload_entry for creation of JIT device binaries at
@@ -111,7 +111,8 @@ public:
 
   pi_device_binary_struct getPIDeviceBinary(const unsigned char *BinaryStart,
                                             size_t BinarySize,
-                                            size_t AddressBits);
+                                            const char *TargetSpec,
+                                            pi_device_binary_type Format);
 
 private:
   bool Fused = true;
@@ -138,7 +139,7 @@ public:
 
   void addDeviceBinary(DeviceBinaryContainer &&Cont,
                        const unsigned char *BinaryStart, size_t BinarySize,
-                       size_t AddressBits);
+                       const char *TargetSpec, pi_device_binary_type Format);
   pi_device_binaries getPIDeviceStruct();
 
 private:
@@ -150,5 +151,5 @@ private:
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

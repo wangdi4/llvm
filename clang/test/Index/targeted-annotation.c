@@ -6,13 +6,13 @@ int LocalVar1;
 int LocalVar2;
 
 // RUN: c-index-test -write-pch %t.h.pch %S/targeted-top.h
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%s:1:1:7:1 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%s:1:1:7:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=LOCAL
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -test-annotate-tokens=%s:1:1:7:1 %s -include %t.h \
+// INTEL RUN:   c-index-test -test-annotate-tokens=%s:1:1:7:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
@@ -31,13 +31,13 @@ int LocalVar2;
 // LOCAL: Identifier: "LocalVar2" [6:5 - 6:14] VarDecl=LocalVar2:6:5
 // LOCAL: Punctuation: ";" [6:14 - 6:15]
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-fields.h:1:1:4:1 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-fields.h:1:1:4:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=FIELD
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -test-annotate-tokens=%S/targeted-fields.h:1:1:4:1 %s -include %t.h \
+// INTEL RUN:   c-index-test -test-annotate-tokens=%S/targeted-fields.h:1:1:4:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
@@ -50,12 +50,12 @@ int LocalVar2;
 // FIELD: Identifier: "w" [3:7 - 3:8] FieldDecl=w:3:7 (Definition)
 // FIELD: Punctuation: ";" [3:8 - 3:9] StructDecl=Vector:13:9 (Definition)
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-nested1.h:1:1:3:1 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-nested1.h:1:1:3:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=NESTED
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -test-annotate-tokens=%S/targeted-nested1.h:1:1:3:1 %s -include %t.h \
+// INTEL RUN:   c-index-test -test-annotate-tokens=%S/targeted-nested1.h:1:1:3:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=NESTED
@@ -65,13 +65,13 @@ int LocalVar2;
 // NESTED: Identifier: "NestedVar1" [2:12 - 2:22] VarDecl=NestedVar1:2:12
 // NESTED: Punctuation: ";" [2:22 - 2:23]
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-top.h:1:1:12:1 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -test-annotate-tokens=%S/targeted-top.h:1:1:12:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=vector_get_x  \
 // RUN:  | FileCheck %s -check-prefix=TOP
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -test-annotate-tokens=%S/targeted-top.h:1:1:12:1 %s -include %t.h \
+// INTEL RUN:   c-index-test -test-annotate-tokens=%S/targeted-top.h:1:1:12:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=vector_get_x  \

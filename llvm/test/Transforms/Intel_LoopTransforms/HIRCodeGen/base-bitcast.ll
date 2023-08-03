@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 
 ; Check that GEP DDRefs with bitcast in the base are CG'd properly.
+; TODO: Consider removing this lit-test as bitcast doesn't exists anymore.
 
 ; HIR-
 ; + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
@@ -11,22 +11,11 @@
 
 
 ; CHECK: region.0:
-; CHECK: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @B
-; CHECK-NEXT: [[B_CAST:%.*]] = bitcast float* [[B_ADDR]] to i32*
-; CHECK-NEXT: load i32, i32* [[B_CAST]]
+; CHECK: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @B
+; CHECK-NEXT: load i32, ptr [[B_ADDR]]
 
-; CHECK: [[A_ADDR:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @A
-; CHECK-NEXT: [[A_CAST:%.*]] = bitcast float* [[A_ADDR]] to i32*
-; CHECK: store i32 {{.*}} i32* [[A_CAST]]
-
-; Verify that bitcast is ommitted with opaque pointers.
-; CHECK-OPAQUE: region.0:
-; CHECK-OPAQUE: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @B
-; CHECK-OPAQUE: load i32, ptr [[B_ADDR]]
-
-; CHECK-OPAQUE: [[A_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @A
-; CHECK-OPAQUE: store i32 {{.*}}, ptr [[A_ADDR]]
-
+; CHECK: [[A_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @A
+; CHECK: store i32 {{.*}} ptr [[A_ADDR]]
 
 ; ModuleID = 'float2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -46,12 +35,10 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %0 = bitcast float* %arrayidx to i32*
-  %1 = load i32, i32* %0, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  %2 = bitcast float* %arrayidx2 to i32*
-  store i32 %1, i32* %2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx2, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

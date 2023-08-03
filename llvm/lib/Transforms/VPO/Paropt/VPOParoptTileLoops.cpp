@@ -158,7 +158,7 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-tile"
 
 static cl::opt<bool> DisableTiling("disable-" DEBUG_TYPE, cl::Hidden,
-                                   cl::init(true),
+                                   cl::init(false),
                                    cl::desc("Disable paropt loop tiling"));
 namespace {
 
@@ -328,7 +328,10 @@ void WRegionNodeTiler::updateParentRegionLoopInfo(
     Loop *FloorLoop = LI->AllocateLoop();
 
     if (!ParentLoop) {
+      // Notice that changeTopLevelLoop() doesn't
+      // make CurLoop as a subloop of FloorLoop.
       LI->changeTopLevelLoop(CurLoop, FloorLoop);
+      FloorLoop->addChildLoop(CurLoop);
     } else {
       ParentLoop->replaceChildLoopWith(CurLoop, FloorLoop);
       FloorLoop->addChildLoop(CurLoop);

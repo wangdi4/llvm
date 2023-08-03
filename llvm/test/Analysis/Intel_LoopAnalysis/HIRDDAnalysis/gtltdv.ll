@@ -29,13 +29,13 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = sub nuw nsw i64 1023, %indvars.iv
-  %arrayidx = getelementptr inbounds [10000 x float], [10000 x float]* @S, i64 0, i64 %0
-  %1 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10000 x float], ptr @S, i64 0, i64 %0
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !1
   %conv2 = fadd float %1, 1.000000e+00
-  %arrayidx4 = getelementptr inbounds [10000 x float], [10000 x float]* @R, i64 0, i64 %indvars.iv
-  store float %conv2, float* %arrayidx4, align 4, !tbaa !1
-  %arrayidx6 = getelementptr inbounds [10000 x float], [10000 x float]* @S, i64 0, i64 %indvars.iv
-  store float 1.000000e+00, float* %arrayidx6, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [10000 x float], ptr @R, i64 0, i64 %indvars.iv
+  store float %conv2, ptr %arrayidx4, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [10000 x float], ptr @S, i64 0, i64 %indvars.iv
+  store float 1.000000e+00, ptr %arrayidx6, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

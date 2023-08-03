@@ -33,7 +33,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_B_PRIV]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i32* [[VP_B_PRIV]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_B_PRIV_BCAST:%.*]] = bitcast i32* [[VP_B_PRIV]]
 ; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_B_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 {{.*}} i64 1

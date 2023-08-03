@@ -51,16 +51,16 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp1 = icmp eq i64 %indvars.iv, 0
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  store i32 %n, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  store i32 %n, ptr %arrayidx3, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body

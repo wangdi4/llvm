@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -97,6 +97,9 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
 #if INTEL_FEATURE_CPU_RYL
               .CaseLower("royal", "royal")
 #endif // INTEL_FEATURE_CPU_RYL
+#if INTEL_FEATURE_CPU_LNL
+              .CaseLower("lunarlake", "lunarlake")
+#endif // INTEL_FEATURE_CPU_LNL
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
@@ -138,6 +141,14 @@ std::string x86::getCPUForIntelOnly(const Driver &D, StringRef Arch,
 
 bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
   return !getCPUForIntel(CPU, Triple).empty();
+}
+
+bool x86::isValidNonGenericIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
+  SmallVector<StringRef, 4> GenericTargets = {"x86-64", "x86-64-v2",
+                                              "x86-64-v3", "x86-64-v4"};
+  return isValidIntelCPU(CPU, Triple) &&
+         !(std::find(GenericTargets.begin(), GenericTargets.end(), CPU) !=
+           GenericTargets.end());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -298,6 +309,15 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
 void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
                                const ArgList &Args,
                                std::vector<StringRef> &Features) {
+  // Claim and report unsupported -mabi=. Note: we don't support "sysv_abi" or
+  // "ms_abi" as default function attributes.
+  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_mabi_EQ)) {
+    StringRef DefaultAbi = Triple.isOSWindows() ? "ms" : "sysv";
+    if (A->getValue() != DefaultAbi)
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << A->getSpelling() << Triple.getTriple();
+  }
+
   // If -march=native, autodetect the feature list.
 #if INTEL_CUSTOMIZATION
   // if -xHost/QxHost, autodetect the feature list.
@@ -416,9 +436,29 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     StringRef Name = A->getOption().getName();
     A->claim();
 
+#if INTEL_CUSTOMIZATION
     // Skip over "-m".
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
+    bool IsNegative = Name.startswith("no-");
+#if INTEL_FEATURE_ISA_APX_F
+    if (A->getOption().matches(options::OPT_mapx_features_EQ) ||
+        A->getOption().matches(options::OPT_mno_apx_features_EQ)) {
+
+      for (StringRef Value : A->getValues()) {
+        if (Value == "egpr" || Value == "push2pop2" || Value == "ndd" ||
+            Value == "ccmp" || Value == "cf") {
+          Features.push_back(
+              Args.MakeArgString((IsNegative ? "-" : "+") + Value));
+          continue;
+        }
+        D.Diag(clang::diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << Value;
+      }
+      continue;
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     // Replace -mgeneral-regs-only with -x87, -mmx, -sse
     if (A->getOption().getID() == options::OPT_mgeneral_regs_only) {
@@ -426,7 +466,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       continue;
     }
 
-    bool IsNegative = Name.startswith("no-");
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));

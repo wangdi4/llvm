@@ -1017,18 +1017,18 @@ private:
 
   SetVector<std::tuple<Instruction *, DTransType *, unsigned int>>
       InstructionsToGepify;
-  SmallDenseMap<PHINode *, Type *> PHIType;
+  SmallMapVector<PHINode *, Type *, 8> PHIType;
   SetVector<std::pair<PHINode *, unsigned>> PHIsToGepify;
   SetVector<std::pair<ReturnInst *, DTransType *>> ReturnsToGepify;
-  SmallDenseMap<PHINode *, SetVector<std::pair<unsigned, DTransType *>>>
+  SmallMapVector<PHINode *, SetVector<std::pair<unsigned, DTransType *>>, 8>
       PHIReturnsGepify;
   SetVector<std::pair<GetElementPtrInst *, DTransType *>> GEPsToGepify;
-  SmallDenseMap<CallBase *, SetVector<std::pair<unsigned, DTransType *>>>
+  SmallMapVector<CallBase *, SetVector<std::pair<unsigned, DTransType *>>, 8>
       CallBaseArgsGepify;
-  SmallDenseMap<StoreInst *, DTransType *> StoreValueGepify;
+  SmallMapVector<StoreInst *, DTransType *, 8> StoreValueGepify;
 
   // This is used to reuse GEP instruction if it is already one.
-  SmallDenseMap<Value *, GetElementPtrInst *> NewGEPInsts;
+  SmallMapVector<Value *, GetElementPtrInst *, 8> NewGEPInsts;
 };
 
 PreservedAnalyses

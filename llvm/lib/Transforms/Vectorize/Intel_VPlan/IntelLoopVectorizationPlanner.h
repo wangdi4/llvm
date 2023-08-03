@@ -1,6 +1,6 @@
-//===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
+//===-- IntelLoopVectorizationPlanner.h -------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopUnroller.h"
+#include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
@@ -121,6 +122,15 @@ public:
   bool hasPeel() const { return Peel.Kind != LKNone; }
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
   bool hasRemainder() const { return !Remainders.empty(); }
+  bool isMainMasked() const { return Main.Kind == LKMasked; }
+
+  uint64_t getMinimumProfitablePeelTC() const {
+    return MinimumProfitablePeelTC;
+  }
+
+  uint64_t getMinProfitableMaskedRemTC() const {
+    return MinProfitableMaskedRemTC;
+  }
 
   /// Simple main vector loop and scalar remainder scenario of a
   /// a constant trip count loop. The main vector and scalar remainder
@@ -185,14 +195,20 @@ public:
 private:
   void setIsConstTC(bool ConstTC) { IsConstTC = ConstTC; }
   void setMainUF(unsigned N) {MainUF = N;}
-  void resetRemainders() { Remainders.clear(); }
+  void resetRemainders() {
+    Remainders.clear();
+    MinProfitableMaskedRemTC = 0;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Keep it for debug purpose only (used by fromString())
   void addRemainder(const AuxLoopDescr RD) { Remainders.emplace_back(RD); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  void resetPeel() { Peel = {LKNone, 0}; }
+  void resetPeel() {
+    Peel = {LKNone, 0};
+    MinimumProfitablePeelTC = 0;
+  }
   void resetMain() {
     Main = {LKScalar, 1};
     MainUF = 1;
@@ -217,7 +233,8 @@ private:
     Main = {LKMasked, VF};
     MainUF = 1;
   }
-
+  void setMinimumProfitablePeelTC(uint64_t N) { MinimumProfitablePeelTC = N; }
+  void setMinProfitableMaskedRemTC(uint64_t N) { MinProfitableMaskedRemTC = N; }
 
   AuxLoopDescr Main;
   AuxLoopDescr Peel;
@@ -226,6 +243,13 @@ private:
 
   // Is the loop we are dealing with a constant trip loop?
   bool IsConstTC = false;
+
+  // For dynamic peeling: what is the minimum trip count for peeling to become
+  // profitable?
+  uint64_t MinimumProfitablePeelTC = 0;
+
+  // Jump to a scalar remainder loop if runtime TC is less than this value.
+  uint64_t MinProfitableMaskedRemTC = 0;
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS,
@@ -254,6 +278,10 @@ public:
 
   bool isNonMaskedVecRemainder() const {
     return getLoopType() == LoopType::LTRemainder && !isMasked();
+  }
+
+  bool isScalarRemainder() const {
+    return getLoopType() == LoopType::LTRemainder && isa<VPlanScalar>(Plan);
   }
 
   bool isMaskedOrScalarRemainder() const {
@@ -329,18 +357,20 @@ public:
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
-                           VPlanVLSAnalysis *VLSA,
+                           VPlanVLSAnalysis *VLSA, LLVMContext *C,
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
-        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
+        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), Context(C),
+        BFI(BFI) {
+    clearBailoutRemark();
+  }
 
   virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
-                              std::string VPlanName, AssumptionCache &AC,
-                              VPAnalysesFactoryBase &VPAF,
+  unsigned buildInitialVPlans(Module *M, std::string VPlanName,
+                              AssumptionCache &AC, VPAnalysesFactoryBase &VPAF,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
@@ -357,6 +387,12 @@ public:
 
   /// Detects and returns the current type of planning.
   virtual PlannerType getPlannerType() const;
+
+  /// Interface to get DDGraph, which has non-empty implementation for HIR
+  /// pipeline only.
+  virtual const loopopt::DDGraph *getDDGraph() const {
+    return nullptr;
+  }
 
   /// Create and return Plan/VF/UF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
@@ -394,6 +430,24 @@ public:
   /// corresponding vector code.
   bool canLowerVPlan(const VPlanVector &Plan, unsigned VF);
 
+#ifndef NDEBUG
+  /// Go through all VPlans and run the VPlan verifier on them
+  // TODO: VerifyLoopInfo should change to be flags for skipping/running
+  //       checks once verifyVPlan uses that
+  void verifyAllVPlans(const Loop *Lp, unsigned int Flags = 0) {
+    SmallPtrSet<VPlan *, 2> Visited;
+
+    for (auto &Pair : VPlans) {
+      VPlanVector *P = Pair.second.MainPlan.get();
+      if (Visited.insert(P).second)
+        VPlanVerifier::verify(P, Lp, Flags);
+      P = Pair.second.MaskedModeLoop.get();
+      if (P && Visited.insert(P).second)
+        VPlanVerifier::verify(P, Lp, Flags);
+    }
+  }
+#endif
+
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
   std::pair<unsigned, VPlanVector *> selectBestPlan();
@@ -407,12 +461,16 @@ public:
   /// \Returns the selected best unroll factor.
   unsigned getBestUF() {return VecScenario.getMainUF();}
 
+  bool peelWasSelected() const { return VecScenario.hasPeel(); }
+
   /// Reads all metadata specified by pragmas
   void readLoopMetadata() {
     VectorlengthMD =
         findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabled();
     IsDynAlign = readDynAlignEnabled();
+    UnrollCount =
+        getOptionalIntLoopAttribute(TheLoop, "llvm.loop.unroll.count");
   }
 
   void disableVecRemainder() { IsVecRemainder = false; }
@@ -475,6 +533,10 @@ public:
 
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
+  bool hasMaskedVPlanForVF(const unsigned VF) const {
+    return getMaskedVPlanForVF(VF) != nullptr;
+  }
+
   auto getAllVPlans() const {
     return make_range(VPlans.begin(), VPlans.end());
   }
@@ -505,14 +567,23 @@ public:
 
   static int getVPlanOrderNumber() { return VPlanOrderNumber; }
 
-  /// Accessors for bail-out reason.
-  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
-                      std::string Message) const {
-    BD.BailoutLevel = Level;
-    BD.BailoutID = ID;
-    BD.BailoutMessage = Message;
+  /// Initialize cached bailout remark data.
+  void clearBailoutRemark() const { BR.BailoutRemark = OptRemark(); }
+
+  /// Store a variadic remark indicating the reason for not vectorizing a loop.
+  /// Clients should pass string constants as std::string to avoid extra
+  /// instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) const {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark = OptRemark::get(
+        *Context, static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
   }
-  VPlanBailoutData &getBailoutData() { return BD; }
+
+  /// Access the cached bailout remark.
+  VPlanBailoutRemark &getBailoutRemark() const { return BR; }
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -570,6 +641,9 @@ protected:
   /// metadata
   bool IsDynAlign = true;
 
+  /// Contains unroll factor value from "llvm.loop.unroll.count" metadata.
+  std::optional<int> UnrollCount;
+
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
@@ -607,20 +681,29 @@ protected:
   /// vector and unroll factors for main loop
   void updateVecScenario(VPlanPeelEvaluator const &PE,
                          VPlanRemainderEvaluator const &RE, unsigned VF,
-                         unsigned UF);
+                         unsigned UF, bool MainIsMasked);
 
   /// Select simplest vectorization scenario: no peel, non-masked main loop with
   /// specified vector and unroll factors, scalar remainder.
-  void selectSimplestVecScenario(unsigned VF, unsigned UF);
+  void selectSimplestVecScenario(unsigned VF, unsigned UF,
+                                 bool IsMainMasked = false);
 
   /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
   /// for details). The scalar loops are skipped due to we don't have VPLoops
   /// for them and they are created only during CG
   void fillLoopDescrs();
 
-  /// Set the bailout reason for this loop and optionally print a debug msg.
-  void bailout(OptReportVerbosity::Level Level, unsigned ID,
-               std::string Message, std::string Debug = "") const;
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               std::string Message, Args &&...BailoutArgs) const;
+
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  void bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
+                        std::string Debug, Args &&...BailoutArgs) const;
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {
@@ -693,7 +776,21 @@ protected:
   VPLoopDescrMap TopLoopDescrs;
 
   // Bail-out reason data.
-  mutable VPlanBailoutData BD;
+  mutable VPlanBailoutRemark BR;
+
+  /// Convenience function for optimization remark substitution strings.
+  std::string getAuxMsg(AuxRemarkID ID) const {
+    return OptReportAuxDiag::getMsg(ID);
+  }
+
+  struct VPPeelSummary {
+    std::string Scenario;
+    std::string Formula;
+    bool PeelingWasPerformed;
+    std::string PeelKind;
+    VPInstructionCost GainWithPeel;
+    VPInstructionCost GainWithoutPeel;
+  };
 
   struct VPCostSummary {
     VPInstructionCost ScalarIterationCost;
@@ -701,13 +798,17 @@ protected:
     VPInstructionCost Speedup;
     VPInstructionCost LoopOverhead;
 
+    VPPeelSummary PeelSummary;
+
     VPCostSummary() = default;
 
     VPCostSummary(VPInstructionCost ScalarIterationCost,
                   VPInstructionCost VectorIterationCost,
-                  VPInstructionCost Speedup, VPInstructionCost VectorInitFini)
+                  VPInstructionCost Speedup, VPInstructionCost VectorInitFini,
+                  VPPeelSummary PeelSummary)
         : ScalarIterationCost(ScalarIterationCost),
-          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {
+          VectorIterationCost(VectorIterationCost), Speedup(Speedup),
+          PeelSummary(PeelSummary) {
       if (VectorIterationCost.isValid() && VectorIterationCost != 0)
         LoopOverhead = VectorInitFini / VectorIterationCost;
       else
@@ -737,6 +838,13 @@ private:
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
 
+  /// Produce optimization report remarks for VPReductions.
+  void reportReductions(VPlanVector *Plan, VPLoop *MainLoop,
+                        VPLoopEntityList *LE);
+
+  /// Clear NSW/NUW flags from reduction instructions if necessary.
+  void clearWrapFlagsForReductions(VPlanVector *Plan);
+
   /// Exchange input and scan phases for exclusive scan.
   void exchangeExclusiveScanLoopInputScanPhases(VPlanVector *Plan);
 
@@ -765,6 +873,9 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
+
+  // Context for the current function.
+  LLVMContext *Context;
 
   /// Block frequency info
   BlockFrequencyInfo *BFI;

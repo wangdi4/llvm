@@ -63,10 +63,10 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
   %coef = alloca [30 x [30 x i32]], align 16
   %data = alloca [30 x [30 x i32]], align 16
-  %0 = bitcast [30 x [30 x i32]]* %coef to i8*
-  call void @llvm.lifetime.start.p0i8(i64 3600, i8* nonnull %0) #2
-  %1 = bitcast [30 x [30 x i32]]* %data to i8*
-  call void @llvm.lifetime.start.p0i8(i64 3600, i8* nonnull %1) #2
+  %0 = bitcast ptr %coef to ptr
+  call void @llvm.lifetime.start.p0(i64 3600, ptr nonnull %0) #2
+  %1 = bitcast ptr %data to ptr
+  call void @llvm.lifetime.start.p0(i64 3600, ptr nonnull %1) #2
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc39
@@ -75,31 +75,31 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc39
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.inc37
   %indvars.iv72 = phi i64 [ 10, %for.cond1.preheader ], [ %indvars.iv.next73, %for.inc37 ]
-  %arrayidx = getelementptr inbounds [30 x i32], [30 x i32]* @indi, i64 0, i64 %indvars.iv72, !intel-tbaa !3
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [30 x i32], ptr @indi, i64 0, i64 %indvars.iv72, !intel-tbaa !3
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp4.not = icmp eq i32 %2, -9999999
   br i1 %cmp4.not, label %for.inc37, label %for.cond5.preheader
 
 for.cond5.preheader:                              ; preds = %for.body3
   %idxprom12 = sext i32 %2 to i64
-  %arrayidx17 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %data, i64 0, i64 %idxprom12, i64 %indvars.iv74, !intel-tbaa !8
-  %3 = load i32, i32* %arrayidx17, align 4, !tbaa !8
+  %arrayidx17 = getelementptr inbounds [30 x [30 x i32]], ptr %data, i64 0, i64 %idxprom12, i64 %indvars.iv74, !intel-tbaa !8
+  %3 = load i32, ptr %arrayidx17, align 4, !tbaa !8
   br label %for.body7
 
 for.body7:                                        ; preds = %for.cond5.preheader, %for.inc34
   %indvars.iv70 = phi i64 [ 10, %for.cond5.preheader ], [ %indvars.iv.next71, %for.inc34 ]
-  %arrayidx13 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %coef, i64 0, i64 %indvars.iv70, i64 %idxprom12, !intel-tbaa !8
-  %4 = load i32, i32* %arrayidx13, align 4, !tbaa !8
+  %arrayidx13 = getelementptr inbounds [30 x [30 x i32]], ptr %coef, i64 0, i64 %indvars.iv70, i64 %idxprom12, !intel-tbaa !8
+  %4 = load i32, ptr %arrayidx13, align 4, !tbaa !8
   %mul = mul nsw i32 %3, %4
   br label %for.body20
 
 for.body20:                                       ; preds = %for.body7, %for.body20
   %indvars.iv = phi i64 [ 10, %for.body7 ], [ %indvars.iv.next, %for.body20 ]
-  %arrayidx24 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %coef, i64 0, i64 %indvars.iv, i64 %indvars.iv72, !intel-tbaa !8
-  %5 = load i32, i32* %arrayidx24, align 4, !tbaa !8
+  %arrayidx24 = getelementptr inbounds [30 x [30 x i32]], ptr %coef, i64 0, i64 %indvars.iv, i64 %indvars.iv72, !intel-tbaa !8
+  %5 = load i32, ptr %arrayidx24, align 4, !tbaa !8
   %mul25 = mul nsw i32 %mul, %5
-  %arrayidx33 = getelementptr inbounds [30 x [30 x [30 x [30 x i32]]]], [30 x [30 x [30 x [30 x i32]]]]* @val, i64 0, i64 %indvars.iv74, i64 %indvars.iv70, i64 %indvars.iv, i64 %indvars.iv72, !intel-tbaa !10
-  store i32 %mul25, i32* %arrayidx33, align 4, !tbaa !10
+  %arrayidx33 = getelementptr inbounds [30 x [30 x [30 x [30 x i32]]]], ptr @val, i64 0, i64 %indvars.iv74, i64 %indvars.iv70, i64 %indvars.iv, i64 %indvars.iv72, !intel-tbaa !10
+  store i32 %mul25, ptr %arrayidx33, align 4, !tbaa !10
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
   %cmp19 = icmp ugt i64 %indvars.iv, 1
   br i1 %cmp19, label %for.body20, label %for.inc34, !llvm.loop !13
@@ -123,16 +123,16 @@ for.inc39:                                        ; preds = %for.inc37
   br i1 %exitcond76.not, label %for.end41, label %for.cond1.preheader, !llvm.loop !17
 
 for.end41:                                        ; preds = %for.inc39
-  call void @llvm.lifetime.end.p0i8(i64 3600, i8* nonnull %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 3600, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 3600, ptr nonnull %1) #2
+  call void @llvm.lifetime.end.p0(i64 3600, ptr nonnull %0) #2
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly nofree nosync nounwind willreturn mustprogress }

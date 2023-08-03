@@ -1,18 +1,18 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @_ZGVeN4uu_a
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) #0 !recommended_vector_length !1 {
+define spir_kernel void @a(ptr addrspace(1) nocapture readonly %a, ptr addrspace(1) nocapture %b) #0 !recommended_vector_length !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
   %slid.reverse = sub nuw i32 16, %slid
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
-  %load = load i32, i32 addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call
+  %load = load i32, ptr addrspace(1) %arrayidx, align 4
   %trunc.i16 = trunc i32 %load to i16
   %trunc.i8 = trunc i32 %load to i8
   %zext = zext i32 %load to i64
@@ -61,22 +61,21 @@ entry:
 ; CHECK: tail call spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8 %trunc.i8) #[[INCL_SCAN_ATTR_3:[0-9]+]]
 
   %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
-; CHECK: tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %add1, i64 42, i32 %slid.reverse) #[[SHUFFLE_ATTR_5:[0-9]+]]
+; CHECK: tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 {{.*}}, i64 42, i32 %slid.reverse) #[[SHUFFLE_ATTR_5:[0-9]+]]
 
   %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse)
 ; CHECK: tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse) #[[SHUFFLE_ATTR_6:[0-9]+]]
 
-  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %a)
-; CHECK: call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %load.a) #[[BLOCKREAD_ATTR_1:.*]]
+  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1) %a)
+; CHECK: call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1) %load.a) #[[BLOCKREAD_ATTR_1:.*]]
   %blk_read.x2 = mul <2 x i32> %blk_read, <i32 2, i32 2>
-  call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
-; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %load.b, <2 x i32> %blk_read.x2) #[[BLOCKREAD_ATTR_2:.*]]
-  %short_ptr = bitcast i32 addrspace(1)* %a to i16 addrspace(1)*
-  %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr)
-; CHECK: call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)* %short_ptr) #[[BLOCKREAD_ATTR_3:.*]]
+  call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1) %b, <2 x i32> %blk_read.x2)
+; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1) %load.b, <2 x i32> %blk_read.x2) #[[BLOCKREAD_ATTR_2:.*]]
+  %blk_read_short = call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1) %a)
+; CHECK: call <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1) %load.a) #[[BLOCKREAD_ATTR_3:.*]]
   %blk_read_short.x2 = mul <2 x i16> %blk_read_short, <i16 2, i16 2>
-  call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2)
-; CHECK: call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)* %short_ptr, <2 x i16> %blk_read_short.x2) #[[BLOCKREAD_ATTR_4:.*]]
+  call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1) %a, <2 x i16> %blk_read_short.x2)
+; CHECK: call void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1) %load.a, <2 x i16> %blk_read_short.x2) #[[BLOCKREAD_ATTR_4:.*]]
 
   %call18 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %load)
 ; CHECK: call <4 x i32> @_Z22intel_sub_group_balloti(i32 %load) #[[BALLOT_ATTR_1:[0-9]+]]
@@ -88,8 +87,8 @@ entry:
   %mul = mul i32 %call4, 1000
   %conv = zext i32 %mul to i64
   %add = add i64 %call, %conv
-  %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
-  store i32 %call1, i32 addrspace(1)* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr addrspace(1) %b, i64 %add
+  store i32 %call1, ptr addrspace(1) %arrayidx4, align 4
 
   %cmp = icmp eq i32 %slid, 0
   br i1 %cmp, label %slid.zero, label %slid.nonzero
@@ -98,7 +97,7 @@ slid.zero:
   br label %end
 
 slid.nonzero:
-  %masked_load = load i32, i32 addrspace(1)* %arrayidx, align 4
+  %masked_load = load i32, ptr addrspace(1) %arrayidx, align 4
   %masked_shuffle = call i32 @_Z23intel_sub_group_shuffleij(i32 %load, i32 4)
   br label %end
 
@@ -151,10 +150,10 @@ declare spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64, i64, i32)  #1
 
 declare spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32>, <4 x i32>, i32)  #1
 
-declare <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)*)  #1
-declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)*, <2 x i32>)  #1
-declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(i16 addrspace(1)*)  #1
-declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)*, <2 x i16>)  #1
+declare <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(ptr addrspace(1))  #1
+declare void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(ptr addrspace(1), <2 x i32>)  #1
+declare <2 x i16> @_Z30intel_sub_group_block_read_us2PU3AS1Kt(ptr addrspace(1))  #1
+declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(ptr addrspace(1), <2 x i16>)  #1
 
 attributes #0 = { convergent nounwind }
 
@@ -193,12 +192,13 @@ attributes #0 = { convergent nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
+!0 = !{ptr @a}
 !1 = !{i32 4}
+!2 = !{!"int*", !"int*"}
+!3 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br

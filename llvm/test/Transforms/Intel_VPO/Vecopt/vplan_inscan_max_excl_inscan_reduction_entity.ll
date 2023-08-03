@@ -29,7 +29,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK:          float [[VP_LOAD:%.*]] = load ptr [[X_RED0]]
-; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv float, OrigAlign = 4
 ; CHECK:          float [[VP_LOAD_1:%.*]] = load ptr [[X_RED0]]
 ; CHECK:          float [[VP_X_REDINSCAN_RED_INIT]] = reduction-init-scalar float [[VP_LOAD_1]] float [[VP_LOAD_2:%.*]]
 ; CHECK:          br [[BB0:BB[0-9]+]]
@@ -111,7 +111,7 @@ DIR.OMP.SIMD.1:
   br label %DIR.OMP.SIMD.127
 
 DIR.OMP.SIMD.127:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i8* null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i8* null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.426
 
 DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4, %DIR.OMP.SIMD.127

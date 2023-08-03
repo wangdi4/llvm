@@ -37,7 +37,7 @@
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
-#define TARGET_NAME LEVEL0
+#define TARGET_NAME LEVEL_ZERO
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 extern int DebugLevel;
@@ -66,6 +66,9 @@ extern int DebugLevel;
     fprintf(stderr, "%s --> ", DEBUG_PREFIX);                                  \
     fprintf(stderr, "Warning: " __VA_ARGS__);                                  \
   } while (0)
+
+#define INVALID_OPTION(Name, Value)                                            \
+  WARNING("Ignoring invalid option " #Name "=%s\n", Value)
 
 ///
 /// Wrappers for tracing ze API calls.
@@ -336,6 +339,20 @@ TRACE_FN_DEF(zeContextDestroy)(
   TRACE_FN_ARG_PTR(hContext);
   TRACE_FN_ARG_END();
   return rc;
+}
+
+TRACE_FN_DEF(zeContextMakeMemoryResident)(
+    ze_context_handle_t hContext,
+    ze_device_handle_t hDevice,
+    void *ptr,
+    size_t size) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hContext);
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_END();
+  return zeContextMakeMemoryResident(hContext, hDevice, ptr, size);
 }
 
 TRACE_FN_DEF(zeDeviceCanAccessPeer)(

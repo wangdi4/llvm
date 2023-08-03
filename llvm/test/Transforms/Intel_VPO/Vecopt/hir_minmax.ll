@@ -11,7 +11,7 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: getmax:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%max.012}
+; CHECK-DAG:     [[VP0:%.*]] = {%max.012.root}
 ; CHECK-DAG:     [[VP1:%.*]] = {%larr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -40,7 +40,7 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i64 [[VP3]] -> [[VP10:%.*]] = {%max.012}
+; CHECK-NEXT:  Id: 0   i64 [[VP3]] -> [[VP10:%.*]] = {%max.012.root}
 ;
 ; CHECK:       Function: getmax
 ;

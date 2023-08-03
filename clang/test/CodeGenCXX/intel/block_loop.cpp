@@ -98,6 +98,36 @@ void foo(int var) {
  #pragma block_loop level(1) private(var, var1)
   for (i = 0; i < 10; ++i)
     var1 = var1 + i;
+// CHECK-REGION: [[TOKEN:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(),
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 1)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 2)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 3)
+  #pragma block_loop level(1,2,3)
+  for (auto j : a) {
+    for (auto i: a)
+      for (auto k: a)
+        j += 6;
+  }
+// CHECK-REGION: [[TOKEN:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(),
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 1)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 2)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 3)
+  #pragma block_loop level(1:2,3)
+  for (auto j : a) {
+    for (auto i: a)
+      for (auto k: a)
+        j += 6;
+  }
+// CHECK-REGION: [[TOKEN:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(),
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 1)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 2)
+// CHECK-REGION-SAME: "QUAL.PRAGMA.LEVEL"(i32 3)
+  #pragma block_loop level(1,2:3)
+  for (auto j : a) {
+    for (auto i: a)
+      for (auto k: a)
+        j += 6;
+  }
 }
 
 template <typename T>

@@ -7,7 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// XFAIL: availability-pmr-missing
+// TODO: Change to XFAIL once https://github.com/llvm/llvm-project/issues/40340 is fixed
+// UNSUPPORTED: availability-pmr-missing
 
 // <memory_resource>
 
@@ -25,20 +26,38 @@
 
 int constructed = 0;
 
+template <int>
 struct default_constructible {
   default_constructible() : x(42) { ++constructed; }
   int x = 0;
 };
 
 int main(int, char**) {
-  // pair<default_constructible, default_constructible> as T()
+  // pair<default_constructible, default_constructible>
   {
-    typedef default_constructible T;
+    typedef default_constructible<0> T;
     typedef std::pair<T, T> P;
     typedef std::pmr::polymorphic_allocator<void> A;
     alignas(P) char buffer[sizeof(P)];
     P* ptr = reinterpret_cast<P*>(buffer);
     A a;
+    constructed = 0;
+    a.construct(ptr);
+    assert(constructed == 2);
+    assert(ptr->first.x == 42);
+    assert(ptr->second.x == 42);
+  }
+
+  // pair<default_constructible<0>, default_constructible<1>>
+  {
+    typedef default_constructible<0> T;
+    typedef default_constructible<1> U;
+    typedef std::pair<T, U> P;
+    typedef std::pmr::polymorphic_allocator<void> A;
+    alignas(P) char buffer[sizeof(P)];
+    P* ptr = reinterpret_cast<P*>(buffer);
+    A a;
+    constructed = 0;
     a.construct(ptr);
     assert(constructed == 2);
     assert(ptr->first.x == 42);

@@ -5,16 +5,16 @@
 ; opaque structure element type (%struct.A).
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   %ld = (i32*)(%opaq)[0:0:0(%struct.A*:0)];
-; CHECK: |   (%b)[0:i1:4(i32*:0)] = %ld;
+; CHECK: |   %ld = (i32*)(%opaq)[0:0:0(%struct.A:0)];
+; CHECK: |   (%b)[0:i1:4(i32:0)] = %ld;
 ; CHECK: + END LOOP
 
 ; Verify that bitcast destination type goes away for opaque ptr self refs like
 ; (%opaq)[0] and the stride of 4 is set bassed on load type of i32.
 
 ; CHECK-OPAQUE: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK-OPAQUE: |   %ld = (%opaq)[0:0:4(ptr:0)];
-; CHECK-OPAQUE: |   (%b)[0:i1:4(ptr:0)] = %ld;
+; CHECK-OPAQUE: |   %ld = (%opaq)[0:0:4(i32:0)];
+; CHECK-OPAQUE: |   (%b)[0:i1:4(i32:0)] = %ld;
 ; CHECK-OPAQUE: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

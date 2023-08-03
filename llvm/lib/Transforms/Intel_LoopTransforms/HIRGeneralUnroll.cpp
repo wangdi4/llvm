@@ -393,7 +393,7 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
   OptReportBuilder &ORBuilder =
       RemainderLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
   ORBuilder(*RemainderLoop)
-      .addRemark(OptReportVerbosity::Low, 25585u)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopConvertedToSwitch)
       .preserveLostOptReport();
 
   HIRInvalidationUtils::invalidateBody(RemainderLoop);
@@ -570,12 +570,15 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     }
   }
 
+  unsigned AvgTripCount = 0;
   if (HasEnablingPragma) {
     // Use factor of 2 for small trip count loops.
     if (IsConstTripLoop && (TripCount < MaxUnrollFactor)) {
       return 2;
     }
   } else if ((IsConstTripLoop ||
+              (HLoop->getPragmaBasedAverageTripCount(AvgTripCount) &&
+               (TripCount = AvgTripCount)) ||
               (TripCount = HLoop->getMaxTripCountEstimate())) &&
              (TripCount < MinTripCountThreshold)) {
 
@@ -639,7 +642,7 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -670,7 +673,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
       return false;
     }
 
-    const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
+    const LoopStatistics &LS = HLS.getSelfStatistics(Loop);
 
     // TODO: remove this condition?
     if (LS.hasSwitches()) {
@@ -815,11 +818,12 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
 
 PreservedAnalyses HIRGeneralUnrollPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
-                   AM.getResult<HIRDDAnalysisPass>(F),
-                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                   AM.getResult<HIRLoopStatisticsAnalysis>(F), PragmaOnlyUnroll)
-      .run();
+  ModifiedHIR = HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
+                                 AM.getResult<HIRDDAnalysisPass>(F),
+                                 AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                                 AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                 PragmaOnlyUnroll)
+                    .run();
   return PreservedAnalyses::all();
 }
 

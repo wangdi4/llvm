@@ -57,18 +57,18 @@ for.cond4.preheader:                              ; preds = %for.inc17, %for.con
   %indvars.iv37 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next38, %for.inc17 ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv37, metadata !22, metadata !DIExpression()), !dbg !26
   call void @llvm.dbg.value(metadata i32 0, metadata !25, metadata !DIExpression()), !dbg !26
-  %arrayidx16 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %indvars.iv37, i64 %indvars.iv40, !dbg !33, !intel-tbaa !39
-  %arrayidx16.promoted = load double, double* %arrayidx16, align 8, !dbg !45, !tbaa !39
+  %arrayidx16 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %indvars.iv37, i64 %indvars.iv40, !dbg !33, !intel-tbaa !39
+  %arrayidx16.promoted = load double, ptr %arrayidx16, align 8, !dbg !45, !tbaa !39
   br label %for.body6, !dbg !46
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ], !dbg !26
   %0 = phi double [ %arrayidx16.promoted, %for.cond4.preheader ], [ %add, %for.body6 ], !dbg !26
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !25, metadata !DIExpression()), !dbg !26
-  %arrayidx8 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %indvars.iv37, i64 %indvars.iv, !dbg !47, !intel-tbaa !39
-  %1 = load double, double* %arrayidx8, align 8, !dbg !47, !tbaa !39
-  %arrayidx12 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %indvars.iv, i64 %indvars.iv40, !dbg !48, !intel-tbaa !39
-  %2 = load double, double* %arrayidx12, align 8, !dbg !48, !tbaa !39
+  %arrayidx8 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %indvars.iv37, i64 %indvars.iv, !dbg !47, !intel-tbaa !39
+  %1 = load double, ptr %arrayidx8, align 8, !dbg !47, !tbaa !39
+  %arrayidx12 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv40, !dbg !48, !intel-tbaa !39
+  %2 = load double, ptr %arrayidx12, align 8, !dbg !48, !tbaa !39
   %mul = fmul double %1, %2, !dbg !49
   %add = fadd double %0, %mul, !dbg !45
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !50
@@ -78,7 +78,7 @@ for.body6:                                        ; preds = %for.body6, %for.con
 
 for.inc17:                                        ; preds = %for.body6
   %add.lcssa = phi double [ %add, %for.body6 ], !dbg !45
-  store double %add.lcssa, double* %arrayidx16, align 8, !dbg !45, !tbaa !39
+  store double %add.lcssa, ptr %arrayidx16, align 8, !dbg !45, !tbaa !39
   %indvars.iv.next38 = add nuw nsw i64 %indvars.iv37, 1, !dbg !54
   call void @llvm.dbg.value(metadata i32 undef, metadata !22, metadata !DIExpression(DW_OP_plus_uconst, 1, DW_OP_stack_value)), !dbg !26
   %exitcond39 = icmp eq i64 %indvars.iv.next38, 1024, !dbg !55

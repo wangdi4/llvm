@@ -54,6 +54,8 @@
 
 using namespace llvm;
 
+LLD_HAS_DRIVER(coff)
+
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {

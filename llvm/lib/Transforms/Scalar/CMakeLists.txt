@@ -45,6 +45,7 @@ add_llvm_component_library(LLVMScalarOpts
 #if INTEL_FEATURE_SW_ADVANCED
   Intel_FunctionRecognizer.cpp
 #endif // INTEL_FEATURE_SW_ADVANCED
+  Intel_GVBasedMultiVersioning.cpp
   Intel_GlobalOpt.cpp
   Intel_HandlePragmaVectorAligned.cpp
   Intel_IndirectCallConv.cpp

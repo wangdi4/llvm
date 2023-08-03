@@ -31,18 +31,18 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP0]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP0]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @d i64 0 i64 [[VP0]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     i32 [[VP3:%.*]] = mul i32 [[N0:%.*]] i32 2
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = add i32 [[VP2]] i32 [[VP3]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[VP4]] to i64
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp sgt i64 [[VP0]] i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = select i1 [[VP6]] i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP0]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @d i64 0 i64 [[VP0]]
+; CHECK-NEXT:     store i32 [[VP7]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -59,16 +59,16 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %.pre, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add9 = add nsw i32 %0, %mul8
-  %arrayidx15 = getelementptr inbounds [1024 x i32], [1024 x i32]* @d, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [1024 x i32], ptr @d, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx15, align 4
   %add16 = add nsw i32 %1, %add9
   %2 = sext i32 %add16 to i64
   %cmp17 = icmp sgt i64 %indvars.iv, %2
   %spec.select = select i1 %cmp17, i32 %0, i32 %1
-  store i32 %spec.select, i32* %arrayidx15, align 4
+  store i32 %spec.select, ptr %arrayidx15, align 4
   %.pre = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %.pre, 1024
   br i1 %exitcond, label %for.end, label %for.body

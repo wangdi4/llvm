@@ -35,19 +35,19 @@ salc
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  1      100   0.25                        aaa
-# CHECK-NEXT:  1      100   0.25                        aad
-# CHECK-NEXT:  1      100   0.25                        aad	$7
-# CHECK-NEXT:  1      100   0.25                        aam
-# CHECK-NEXT:  1      100   0.25                        aam	$7
-# CHECK-NEXT:  1      100   0.25                        aas
-# CHECK-NEXT:  1      100   0.25                  U     bound	%bx, (%eax)
-# CHECK-NEXT:  1      100   0.25                  U     bound	%ebx, (%eax)
-# CHECK-NEXT:  1      100   0.25                        daa
-# CHECK-NEXT:  1      100   0.25                        das
-# CHECK-NEXT:  1      100   0.25                  U     into
-# CHECK-NEXT:  4      6     0.60    *                   leave
-# CHECK-NEXT:  1      1     0.25                  U     salc
+# CHECK-NEXT:  3      3     0.33                        aaa
+# CHECK-NEXT:  3      3     0.33                        aad
+# CHECK-NEXT:  3      3     0.33                        aad	$7
+# CHECK-NEXT:  3      3     0.33                        aam
+# CHECK-NEXT:  3      3     0.33                        aam	$7
+# CHECK-NEXT:  3      3     0.33                        aas
+# CHECK-NEXT:  3      3     0.50                  U     bound	%bx, (%eax)
+# CHECK-NEXT:  3      3     0.50                  U     bound	%ebx, (%eax)
+# CHECK-NEXT:  3      3     0.33                        daa
+# CHECK-NEXT:  3      3     0.33                        das
+# CHECK-NEXT:  3      3     0.50                  U     into
+# CHECK-NEXT:  2      2     0.33    *                   leave
+# CHECK-NEXT:  1      1     0.17                  U     salc
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -62,25 +62,38 @@ salc
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 3.60   3.60   0.33   0.33    -     3.60   3.60    -      -      -     0.60   0.33    -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT: 5.17   5.17   4.83   3.83   3.83   4.17   2.25    -     2.25    -     2.25    -     2.25    -      -      -      -      -      -      -      -      -      -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aaa
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aad
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aad	$7
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aam
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aam	$7
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     aas
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     bound	%bx, (%eax)
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     bound	%ebx, (%eax)
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     daa
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     das
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     into
-# CHECK-NEXT: 0.60   0.60   0.33   0.33    -     0.60   0.60    -      -      -     0.60   0.33    -     leave
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     salc
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aaa
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aad
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aad	$7
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aam
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aam	$7
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     aas
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     bound	%bx, (%eax)
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     bound	%ebx, (%eax)
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     daa
+# CHECK-NEXT: 0.33   0.33   0.33   0.33   0.33   0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     das
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     into
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     leave
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     salc
 # end INTEL_FEATURE_CPU_RYL

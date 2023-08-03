@@ -5,44 +5,42 @@
 ; RUN: opt -passes=vplan-vec  -S < %s | FileCheck %s
 
 
-define float @store_reduction_add(float* nocapture %a) {
+define float @store_reduction_add(ptr nocapture %a) {
 ; CHECK-LABEL: @store_reduction_add(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <8 x float> [ <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI3]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP]] to <8 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[UNI_PHI3]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x float>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI3]], [[WIDE_LOAD]]
-; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC:%.*]], align 4
+; CHECK-NEXT:    store <8 x float> [[TMP1]], ptr [[X_VEC:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI3]], 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 1000
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> [[TMP1]])
-; CHECK-NEXT:    store float [[TMP5]], float* [[X:%.*]], align 1
-; CHECK-NEXT:    [[X_VEC_BCAST:%.*]] = bitcast float* [[X_VEC1:%.*]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[X_VEC_BCAST]])
+; CHECK-NEXT:    store float [[TMP5]], ptr [[X:%.*]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 32, ptr [[X_VEC1:%.*]])
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ;
 entry:
   %x = alloca float, align 4
-  store float 0.000000e+00, float* %x, align 4
+  store float 0.000000e+00, ptr %x, align 4
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry.split
   %indvars.iv = phi i64 [ 0, %entry.split ], [ %indvars.iv.next, %for.body ]
   %add7 = phi float [ 0.000000e+00, %entry.split ], [ %add, %for.body ]
-  %a.gep = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %a.load = load float, float* %a.gep
+  %a.gep = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %a.load = load float, ptr %a.gep
   %add = fadd float %add7, %a.load
-  store float %add, float* %x, align 4
+  store float %add, ptr %x, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.end, label %for.body
@@ -56,8 +54,8 @@ for.end1:                                         ; preds = %for.end
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
-  store float %add.lcssa, float* %x, align 4
-  %x1 = load float, float* %x, align 4
+  store float %add.lcssa, ptr %x, align 4
+  %x1 = load float, ptr %x, align 4
   ret float %x1
 }
 

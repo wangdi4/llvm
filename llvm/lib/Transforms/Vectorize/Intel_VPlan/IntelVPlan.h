@@ -137,6 +137,14 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 struct TripCountInfo;
 
+enum class NestedSimdStrategies : int {
+  BailOut,
+  Outermost,
+  Innermost,
+  FromInside
+};
+extern NestedSimdStrategies NestedSimdStrategy;
+
 // This abstract class is used to create all the necessary analyses that are
 // needed for VPlan. They are implemented by the 2 derived classes :
 // VPAnalysesFactory and VPAnalysesFactoryHIR.
@@ -601,6 +609,8 @@ public:
              //   UMin(0, poison) = poison
              //   UMinSeq(0, poison) = 0
     FMin,
+    FMaximum,
+    FMinimum,
     InductionInit,
     InductionInitStep,
     InductionFinal,
@@ -717,6 +727,13 @@ public:
                                // signature. (e.g. sincos)
     SOAExtractValue,           // Like LLVM extract value, but specialized for
                                // when we know the aggregate is in SOA layout
+    F90DVBufferInit,   // Lowered into set of instructions required for F90_DV
+                       // private initialization
+    EarlyExitCond,     // Capture CondBit that leads to early-exit from loop.
+    EarlyExitExecMask, // Represent mask to track executable lanes of early-exit
+                       // loop body.
+    EarlyExitLane,     // Identify the first lane that takes an early-exit from
+                       // loop.
   };
 
 private:
@@ -752,7 +769,11 @@ private:
   void copyAttributesFrom(const VPInstruction &Inst) {
     DbgLoc = Inst.DbgLoc;
     // Copy other general attributes here when imported.
-    OperatorFlags = Inst.OperatorFlags;
+    // We need to copy operator flags only if source instruction was an
+    // operator.
+    if (Inst.OperatorFlags.getOperatorKind(Inst.getOpcode(), Inst.getType()) !=
+        VPOperatorIRFlags::FlagsKind::UnknownOperatorFlags)
+      OperatorFlags = Inst.OperatorFlags;
   }
 
 protected:
@@ -880,6 +901,11 @@ public:
       return false;
 
     return OperatorFlags.getValueAsExactFlag(getOpcode());
+  }
+  bool isOverflowingOperation() const {
+    if (OperatorFlags.hasValueAsOverflowingFlags(getOpcode()))
+      return true;
+    return false;
   }
 
   // Setters for operator-specific attributes.
@@ -1115,6 +1141,39 @@ using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<
 using VPPrivateLastValueNonPODInst =
     VPPrivateLastValueNonPODTemplInst<VPInstruction::PrivateLastValueNonPOD>;
 
+/// Concrete class to represent VPInstruction to initialize F90 private dope
+/// vector in VPlan.
+class F90DVBufferInit : public VPInstruction {
+public:
+  /// Create F90DVBufferInit with its BaseType, operands and
+  /// type of a dope vector element.
+  F90DVBufferInit(Type *BaseTy, ArrayRef<VPValue *> Operands, Type *ElementType)
+      : VPInstruction(VPInstruction::F90DVBufferInit, BaseTy, Operands),
+        ElementType(ElementType) {}
+
+  /// Return the element type of dope vector stored by this instruction
+  Type *getF90DVElementType() const { return ElementType; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::F90DVBufferInit;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new F90DVBufferInit(getType(), Ops, getF90DVElementType());
+  }
+
+private:
+  // Type of element of dope vector required for proper alloca generation
+  Type *ElementType = nullptr;
+};
+
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {
 public:
@@ -1207,6 +1266,16 @@ public:
            "Setting CondBit for unconditional instruction is prohibited");
     assert(Cond && "Condition can't be nullptr");
     setOperand(getNumOperands() - 1, Cond);
+  }
+
+  // Swap the successors of a conditional branch.
+  void swapSuccessors() {
+    assert(isConditional() &&
+           "Cannot swap successors of an unconditional branch.");
+    auto *TrueSucc = getSuccessor(0);
+    auto *FalseSucc = getSuccessor(1);
+    setSuccessor(0, FalseSucc);
+    setSuccessor(1, TrueSucc);
   }
 
   /// Returns LoopID metadata node attached to this terminator instruction. This
@@ -2020,7 +2089,8 @@ private:
     // vectorize the unmasked call (using all-true mask).
     unsigned UseMaskedForUnmasked : 1;
     // NOTE: the order of remarks in this enum is strictly tied to the order of
-    // remarks in Diag.cpp (15558-155562)
+    // remarks in Diag.cpp (15558-15562)
+    // TODO: What about remarks 15563-15566?
     enum class SerializationReason {
       UNDEFINED = 0,
       // Remark #15558: Call to function '%s' was serialized due to no suitable
@@ -2194,6 +2264,19 @@ public:
     return false;
   }
 
+  // Getter for original call/function's attributes. Invokes CallInst's
+  // hasFnAttr, which first checks the callsite for the attribute Kind,
+  // then the called function's attributes if not found on the call
+  bool hasFnAttr(StringRef Kind) const {
+    if (const CallInst *Call = getUnderlyingCallInst())
+      return Call->hasFnAttr(Kind);
+
+    if (auto *F = getCalledFunction())
+      return F->hasFnAttribute(Kind);
+
+    return false;
+  }
+
   // Getter for original call's callsite attributes. If underlying call is
   // absent, then return empty AttributesList.
   AttributeList getOrigCallAttrs() const {
@@ -2202,16 +2285,12 @@ public:
     return {};
   }
 
-  // Some helpful getters based on underlying call's attributes.
-  bool isKernelCallOnce() const {
-    return getOrigCallAttrs().hasFnAttr("kernel-call-once");
-  }
+  // Some helpful getters based on underlying call/functions's attributes.
+  bool isKernelCallOnce() const { return hasFnAttr("kernel-call-once"); }
   bool isOCLVecUniformReturn() const {
-    return getOrigCallAttrs().hasFnAttr("opencl-vec-uniform-return");
+    return hasFnAttr("opencl-vec-uniform-return");
   }
-  bool isKernelUniformCall() const {
-    return getOrigCallAttrs().hasFnAttr("kernel-uniform-call");
-  }
+  bool isKernelUniformCall() const { return hasFnAttr("kernel-uniform-call"); }
 
   /// Return \p true if this call is a lifetime_start/end intrinsic call.
   bool isLifetimeStartOrEndIntrinsic() const {
@@ -2974,43 +3053,6 @@ public:
     replaceUsesOfWith(getStartValueOperand(), NewVal, false);
   }
 
-  /// Return ID of the corresponding reduce intrinsic.
-  Intrinsic::ID getVectorReduceIntrinsic() const {
-    switch (BinOpcode) {
-    case Instruction::Add:
-    case Instruction::Sub:
-      return Intrinsic::vector_reduce_add;
-    case Instruction::FAdd:
-    case Instruction::FSub:
-      return Intrinsic::vector_reduce_fadd;
-    case Instruction::Mul:
-      return Intrinsic::vector_reduce_mul;
-    case Instruction::FMul:
-    case Instruction::FDiv:
-      return Intrinsic::vector_reduce_fmul;
-    case Instruction::And:
-      return Intrinsic::vector_reduce_and;
-    case Instruction::Or:
-      return Intrinsic::vector_reduce_or;
-    case Instruction::Xor:
-      return Intrinsic::vector_reduce_xor;
-    case VPInstruction::UMin:
-      return Intrinsic::vector_reduce_umin;
-    case VPInstruction::SMin:
-      return Intrinsic::vector_reduce_smin;
-    case VPInstruction::UMax:
-      return Intrinsic::vector_reduce_umax;
-    case VPInstruction::SMax:
-      return Intrinsic::vector_reduce_smax;
-    case VPInstruction::FMax:
-      return Intrinsic::vector_reduce_fmax;
-    case VPInstruction::FMin:
-      return Intrinsic::vector_reduce_fmin;
-    default:
-      llvm_unreachable("Vector reduction opcode not supported.");
-    }
-  }
-
   bool isLinearIndex() const { return IsLinearIndex; }
   void setIsLinearIndex() { IsLinearIndex = true; }
 
@@ -3221,20 +3263,6 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::RunningInclusiveReduction;
-  }
-
-  bool isMinMax() const {
-    switch (BinOpcode) {
-    case VPInstruction::UMin:
-    case VPInstruction::SMin:
-    case VPInstruction::UMax:
-    case VPInstruction::SMax:
-    case VPInstruction::FMax:
-    case VPInstruction::FMin:
-      return true;
-    default:
-      return false;
-    }
   }
 
 protected:
@@ -3889,13 +3917,20 @@ class VPInvSCEVWrapper : public VPInstruction {
   // SCEV object.
   VPlanSCEV *Scev;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Is the opaque VPlanSCEV a LLVM SCEV?
+  // It appears that we use it only for printing at the moment.
   const bool IsSCEV;
+#endif
 
 public:
   VPInvSCEVWrapper(VPlanSCEV *S, Type *Ty, bool IsSCEV = true)
-      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S),
-        IsSCEV(IsSCEV) {}
+      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        , IsSCEV(IsSCEV)
+#endif
+  {
+  }
 
   VPlanSCEV *getSCEV() const { return Scev; }
 
@@ -5024,6 +5059,7 @@ public:
     setVectorizeWithLibraryFn(OrigCall.getVectorLibraryFunc(),
                               OrigCall.getPumpFactor());
     copyUnderlyingFrom(OrigCall);
+    copyAttributesFrom(OrigCall);
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
@@ -5033,6 +5069,200 @@ public:
 
   static inline bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
+/// Concrete class to represent insert/extractvalue instruction in VPlan.
+class VPInsertExtractValue final : public VPInstruction {
+public:
+  VPInsertExtractValue(unsigned Opc, Type *ResTy, ArrayRef<VPValue *> Ops,
+                       ArrayRef<unsigned> Idxs)
+      : VPInstruction(Opc, ResTy, Ops), Indices(Idxs) {
+    assert(
+        (Opc == Instruction::InsertValue || Opc == Instruction::ExtractValue) &&
+        "Expected only insert/extract value opcode here.");
+    assert(!Indices.empty() && "insert/extract value indices cannot be empty.");
+  }
+
+  using idx_iterator = const unsigned *;
+
+  inline idx_iterator idx_begin() const { return Indices.begin(); }
+  inline idx_iterator idx_end() const { return Indices.end(); }
+  inline iterator_range<idx_iterator> indices() const {
+    return make_range(idx_begin(), idx_end());
+  }
+
+  ArrayRef<unsigned> getIndices() const { return Indices; }
+
+  unsigned getNumIndices() const { return (unsigned)Indices.size(); }
+
+  VPInsertExtractValue *cloneImpl() const override {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new VPInsertExtractValue(getOpcode(), getType(), Ops, getIndices());
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::InsertValue ||
+           VPI->getOpcode() == Instruction::ExtractValue;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+private:
+  SmallVector<unsigned, 2> Indices;
+};
+
+class VPCompressExpandIndex : public VPInstruction {
+protected:
+  VPCompressExpandIndex(unsigned Opcode, Type *ValueType, int64_t TotalStride,
+                        VPInstruction *OrigIndex)
+      : VPInstruction(Opcode, OrigIndex->getType(), {OrigIndex}),
+        ValueType(ValueType), TotalStride(TotalStride) {
+
+    assert(!ValueType ||
+           getType()->isPointerTy() &&
+               "ValueType should be null for non-pointer increments.");
+  }
+
+public:
+  VPCompressExpandIndex(Type *ValueType, int64_t TotalStride,
+                        VPInstruction *OrigIndex)
+      : VPCompressExpandIndex(VPInstruction::CompressExpandIndex, ValueType,
+                              TotalStride, OrigIndex) {}
+
+  bool isPtrInc() const { return getType()->isPointerTy(); }
+  Type *getValueType() const {
+    assert(isPtrInc() &&
+           "Not expected to be called for non-pointer increments");
+    return ValueType;
+  }
+  int64_t getTotalStride() const { return TotalStride; }
+  VPInstruction *getOrigIndex() const {
+    return cast<VPInstruction>(getOperand(0));
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CompressExpandIndex;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPCompressExpandIndex *cloneImpl() const override {
+    return new VPCompressExpandIndex(ValueType, TotalStride, getOrigIndex());
+  }
+
+protected:
+  Type *ValueType;
+  int64_t TotalStride;
+};
+
+class VPCompressExpandIndexInc : public VPCompressExpandIndex {
+
+public:
+  VPCompressExpandIndexInc(Type *ValueType, int64_t TotalStride,
+                           VPInstruction *OrigIndex, VPValue *Mask)
+      : VPCompressExpandIndex(VPInstruction::CompressExpandIndexInc, ValueType,
+                              TotalStride, OrigIndex) {
+    addOperand(Mask);
+  }
+
+  VPValue *getMask() const { return getOperand(1); }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CompressExpandIndexInc;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPCompressExpandIndexInc *cloneImpl() const override {
+    return new VPCompressExpandIndexInc(ValueType, TotalStride, getOrigIndex(),
+                                        getMask());
+  }
+};
+
+// Instruction to represent the condition that leads to an early exit from its
+// loop. Early exit is taken if condition is true.
+class VPEarlyExitCond final : public VPInstruction {
+public:
+  VPEarlyExitCond(VPValue *Cond)
+      : VPInstruction(VPInstruction::EarlyExitCond,
+                      Type::getInt1Ty(Cond->getType()->getContext()), {Cond}) {
+    assert(Cond->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Condition-bit operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitCond;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitCond *cloneImpl() const override {
+    return new VPEarlyExitCond(getOperand(0));
+  }
+};
+
+// Instruction to represent the mask that indicates which lanes are executed in
+// an early-exit loop's body. It identifies all the lanes before the first lane
+// in which the early-exit condition is true.
+class VPEarlyExitExecMask final : public VPInstruction {
+public:
+  VPEarlyExitExecMask(VPValue *Cond)
+      : VPInstruction(VPInstruction::EarlyExitExecMask,
+                      Type::getInt1Ty(Cond->getType()->getContext()), {Cond}) {
+    assert(Cond->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Condition-bit operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitExecMask;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitExecMask *cloneImpl() const override {
+    return new VPEarlyExitExecMask(getOperand(0));
+  }
+};
+
+// Instruction to identify the first vector lane that takes an early-exit (if
+// any) from the loop. This will be used for finalization of loop entities. If
+// all iterations/lanes do not take early-exit, then it returns -1.
+class VPEarlyExitLane final : public VPInstruction {
+public:
+  VPEarlyExitLane(VPValue *Mask)
+      : VPInstruction(VPInstruction::EarlyExitLane,
+                      Type::getInt32Ty(Mask->getType()->getContext()), {Mask}) {
+    assert(Mask->getType()->isIntegerTy(1 /*Bitwidth*/) &&
+           "Mask operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitLane;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitLane *cloneImpl() const override {
+    return new VPEarlyExitLane(getOperand(0));
   }
 };
 
@@ -5098,6 +5328,8 @@ public:
   LLVMContext *getLLVMContext(void) const { return Externals.getLLVMContext(); }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
+
+  Module *getModule(void) const { return Externals.getModule(); }
 
   const VPLiveInValue *getLiveInValue(unsigned MergeId) const {
     return LiveInValues[MergeId].get();
@@ -5240,6 +5472,10 @@ public:
 
   VPConstant *getUndef(Type *Ty) {
     return getVPConstant(UndefValue::get(Ty));
+  }
+
+  VPConstant *getPoison(Type *Ty) {
+    return getVPConstant(PoisonValue::get(Ty));
   }
 
   /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
@@ -5556,6 +5792,12 @@ public:
   /// Enable SOA-analysis.
   void enableSOAAnalysis() { EnableSOAAnalysis = true; }
 
+  /// Setter for early-exit loop property.
+  void setIsEarlyExitLoop(bool V) { IsEarlyExitLoop = V; }
+
+  /// Check if this VPlan represents an early-exit loop.
+  bool isEarlyExitLoop() const { return IsEarlyExitLoop; }
+
   /// Getters for Dominator Tree
   VPDominatorTree *getDT() { return PlanDT.get(); }
   const VPDominatorTree *getDT() const { return PlanDT.get(); }
@@ -5619,12 +5861,23 @@ public:
     PreferredPeelingMap[VF] = std::move(Peeling);
   }
 
-  /// Returns preferred peeling or nullptr.
+  /// \Returns the preferred peeling for the given \p VF, or nullptr if none was
+  /// selected. The term 'preferred' here indicates that while the peeling was
+  /// selected, it is not guaranteed to execute before the main loop.
   VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
     auto Iter = PreferredPeelingMap.find(VF);
     if (Iter == PreferredPeelingMap.end())
       return nullptr;
     return Iter->second.get();
+  }
+
+  /// \Returns the guaranteed peeling for the given \p VF, or nullptr if none
+  /// was selected or we cannot guarantee it will execute before the main loop.
+  VPlanPeelingVariant *getGuaranteedPeeling(unsigned VF) const {
+    auto *Peeling = getPreferredPeeling(VF);
+    if (!Peeling || !Peeling->isGuaranteedToExecuteBeforeMainLoop())
+      return nullptr;
+    return Peeling;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -5669,6 +5922,8 @@ private:
 
   /// Enable SOA-analysis flag.
   bool EnableSOAAnalysis = false;
+
+  bool IsEarlyExitLoop = false;
 
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
@@ -5859,32 +6114,44 @@ public:
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&...args) {
+                 OptRemarkID MsgID, Args &&...args) {
     ORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
   }
 
   /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
-                 Args &&...args) {
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemarkID MsgID, Args &&...args) {
     // For LLVM-IR Loop, LORB needs a valid LoopInfo object
     assert(LI && "LoopInfo for opt-report builder is null.");
     ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID,
                                   std::forward<Args>(args)...);
   }
 
+  /// Add a pre-built vectorization-related remark for the HIR loop \p Lp.
+  void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemark Remark) {
+    ORBuilder(*Lp).addRemark(Verbosity, Remark);
+  }
+
+  /// Add a pre-built vectorization-related remark for the LLVM loop \p Lp.
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemark Remark) {
+    ORBuilder(*Lp, *LI).addRemark(Verbosity, Remark);
+  }
+
   /// Add a origin related remark for the HIR loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addOrigin(loopopt::HLLoop *Lp, unsigned MsgID, Args &&...args) {
+  void addOrigin(loopopt::HLLoop *Lp, OptRemarkID MsgID, Args &&...args) {
     ORBuilder(*Lp).addOrigin(MsgID, std::forward<Args>(args)...);
   }
 
   /// Add a origin related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addOrigin(Loop *Lp, unsigned MsgID, Args &&...args) {
+  void addOrigin(Loop *Lp, OptRemarkID MsgID, Args &&...args) {
     // For LLVM-IR Loop, LORB needs a valid LoopInfo object
     assert(LI && "LoopInfo for opt-report builder is null.");
     ORBuilder(*Lp, *LI).addOrigin(MsgID, std::forward<Args>(args)...);
@@ -6109,6 +6376,15 @@ struct GraphTraits<vpo::VPlan *> : public GraphTraits<vpo::VPBasicBlock *> {
 
   static size_t size(vpo::VPlan *Plan) { return Plan->size(); }
 };
+
+// Macro for strings that are not needed by release compilers.
+// An INTERNAL string will not be leaked as part of a release binary,
+// and there is no need to provide translation support for it.
+#if INTEL_PRODUCT_RELEASE
+#define INTERNAL(STR) std::string("")
+#else
+#define INTERNAL(STR) std::string(STR)
+#endif
 
 } // namespace llvm
 

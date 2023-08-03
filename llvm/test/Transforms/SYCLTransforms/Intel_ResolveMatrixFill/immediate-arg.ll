@@ -1,7 +1,5 @@
 ; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s
 ; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test() {
 ; CHECK: [[MAT_INIT:%.*]] = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")

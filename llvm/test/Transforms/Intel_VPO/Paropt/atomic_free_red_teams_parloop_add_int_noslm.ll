@@ -38,16 +38,13 @@
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK-LABEL: master.thread.code{{[0-9]+}}:
 ; CHECK-LABEL: counter_check:
 ; CHECK: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
-; CHECK-LABEL: master.thread.code{{[0-9]+}}:
-; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i32 @__kmpc_atomic_fixed4_add_cpt(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 1, i32 1)
-; CHECK: store i32 %[[UPD_CNTR]], ptr addrspace(3) @.broadcast.ptr.__local, align 4
-; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
-; CHECK: %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
-; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
+; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i1 @__kmpc_team_reduction_ready(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 %[[NUM_GROUPS_TRUNC]])
+; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %[[UPD_CNTR]], true
 ; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 1)
@@ -69,6 +66,7 @@
 ; CHECK-LABEL: atomic.free.red.global.update.store:
 ; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(1) %
 ; CHECK-NEXT: store i32 0, ptr addrspace(1) %teams_counter, align 4
+; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

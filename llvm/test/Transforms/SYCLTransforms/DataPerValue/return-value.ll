@@ -46,7 +46,7 @@ entry:
   ret i64 %w
 }
 
-; Function Attrs: convergent nounwind readnone
+; Function Attrs: convergent nounwind memory(none)
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent
@@ -73,7 +73,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @test(i64 addrspace(1)* noalias %dst) local_unnamed_addr #3 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !kernel_has_sub_groups !10 !kernel_execution_length !13 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
+define void @test(ptr addrspace(1) noalias %dst) local_unnamed_addr #3 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !kernel_has_sub_groups !10 !kernel_execution_length !13 !kernel_has_barrier !10 !kernel_has_global_sync !10 !arg_type_null_val !14 {
 entry:
   call void @dummy_barrier.()
   %x = tail call i64 @_Z13get_global_idj(i32 0) #4
@@ -86,14 +86,16 @@ entry:
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
   call void @dummy_barrier.()
-  %ptridx = getelementptr inbounds i64, i64 addrspace(1)* %dst, i64 %x
-  store i64 %y, i64 addrspace(1)* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr addrspace(1) %dst, i64 %x
+  store i64 %y, ptr addrspace(1) %ptridx, align 8
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
   call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
+
+declare void @dummy_barrier.()
 
 ; CHECK: Group-A Values
 ; CHECK-NOT: +
@@ -123,13 +125,11 @@ entry:
 ; CHECK-NEXT: leader(test) : (32)
 ; CHECK-NEXT: DONE
 
-declare void @dummy_barrier.()
-
 attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { convergent nounwind memory(none) "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { convergent nounwind readnone }
+attributes #4 = { convergent nounwind memory(none) }
 attributes #5 = { convergent nounwind "kernel-call-once" "kernel-convergent-call" }
 attributes #6 = { convergent }
 
@@ -147,7 +147,7 @@ attributes #6 = { convergent }
 !1 = !{}
 !2 = !{!"-cl-std=CL2.0", !"-cl-opt-disable"}
 !3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!4 = !{void (i64 addrspace(1)*)* @test}
+!4 = !{ptr @test}
 !5 = !{i32 1}
 !6 = !{!"none"}
 !7 = !{!"size_t*"}
@@ -157,3 +157,4 @@ attributes #6 = { convergent }
 !11 = !{i32 0}
 !12 = !{!"dst"}
 !13 = !{i32 5}
+!14 = !{i64 addrspace(1)* null}

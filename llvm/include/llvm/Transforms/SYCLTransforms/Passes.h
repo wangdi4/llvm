@@ -1,6 +1,6 @@
 //==----- Passes.h - SYCL Kernel transforms pass headers -------*- C++ -*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -37,10 +37,12 @@
 #include "llvm/Transforms/SYCLTransforms/InstToFuncCall.h"
 #include "llvm/Transforms/SYCLTransforms/InternalizeGlobalVariables.h"
 #include "llvm/Transforms/SYCLTransforms/InternalizeNonKernelFunc.h"
+#include "llvm/Transforms/SYCLTransforms/KernelTargetExtTypeLower.h"
 #include "llvm/Transforms/SYCLTransforms/LinearIdResolver.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBuffers.h"
 #include "llvm/Transforms/SYCLTransforms/LoopStridedCodeMotion.h"
 #include "llvm/Transforms/SYCLTransforms/LoopWIAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/MathFuncSelect.h"
 #include "llvm/Transforms/SYCLTransforms/OptimizeIDivAndIRem.h"
 #include "llvm/Transforms/SYCLTransforms/PatchCallbackArgs.h"
 #include "llvm/Transforms/SYCLTransforms/PhiCanonicalization.h"

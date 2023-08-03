@@ -37,7 +37,7 @@
 ; CHECK-NEXT:   Memory: %complex_64bit* %sum
 
 ; Initialization
-; CHECK:        %complex_64bit* [[PVT]] = allocate-priv %complex_64bit*, OrigAlign = 8
+; CHECK:        %complex_64bit* [[PVT]] = allocate-priv %complex_64bit = type { float, float }, OrigAlign = 8
 ; CHECK:        <2 x float> [[INIT]] = reduction-init-cmplx <2 x float> zeroinitializer
 ; CHECK:        store <2 x float> [[INIT]] %complex_64bit* [[PVT]]
 
@@ -66,9 +66,9 @@
 ; IR:       VPlannedBB14:
 ; IR-NEXT:    [[TMP10:%.*]] = bitcast [4 x %complex_64bit]* [[SUM_VEC]] to <8 x float>*
 ; IR-NEXT:    [[CMPLX_FIN_VEC:%.*]] = load <8 x float>, <8 x float>* [[TMP10]], align 4
-; IR-NEXT:    [[CMPLX_FIN_SECOND_HALF:%.*]] = shufflevector <8 x float> [[CMPLX_FIN_VEC]], <8 x float> undef, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef>
+; IR-NEXT:    [[CMPLX_FIN_SECOND_HALF:%.*]] = shufflevector <8 x float> [[CMPLX_FIN_VEC]], <8 x float> undef, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 poison, i32 poison, i32 poison, i32 poison>
 ; IR-NEXT:    [[CMPLX_FIN_REDOP:%.*]] = fadd <8 x float> [[CMPLX_FIN_VEC]], [[CMPLX_FIN_SECOND_HALF]]
-; IR-NEXT:    [[CMPLX_FIN_SECOND_HALF15:%.*]] = shufflevector <8 x float> [[CMPLX_FIN_REDOP]], <8 x float> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; IR-NEXT:    [[CMPLX_FIN_SECOND_HALF15:%.*]] = shufflevector <8 x float> [[CMPLX_FIN_REDOP]], <8 x float> undef, <8 x i32> <i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; IR-NEXT:    [[CMPLX_FIN_REDOP16:%.*]] = fadd <8 x float> [[CMPLX_FIN_REDOP]], [[CMPLX_FIN_SECOND_HALF15]]
 ; IR-NEXT:    [[CMPLX_FIN_VEC_REDUCED:%.*]] = shufflevector <8 x float> [[CMPLX_FIN_REDOP16]], <8 x float> undef, <2 x i32> <i32 0, i32 1>
 ; IR-NEXT:    [[ORIG_CMPLX_BC:%.*]] = bitcast %complex_64bit* [[SUM:%.*]] to <2 x float>*

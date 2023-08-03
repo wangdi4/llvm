@@ -69,18 +69,18 @@ bb18199:                                          ; preds = %bb19017.preheader, 
 
 bb18203:                                          ; preds = %bb18203, %bb18199
   %indvars.iv22223 = phi i64 [ %indvars.iv.next22224, %bb18203 ], [ undef, %bb18199 ]
-  %"NCLDS[]13600_fetch" = load i32, i32* undef, align 1
+  %"NCLDS[]13600_fetch" = load i32, ptr undef, align 1
   %indvars.iv.next22224 = add nsw i64 %indvars.iv22223, 1
   %exitcond22226 = icmp eq i64 %indvars.iv.next22224, %wide.trip.count22225
   br i1 %exitcond22226, label %bb18204, label %bb18203
 
 bb18204:                                          ; preds = %bb18203
-  store float undef, float* undef, align 1
+  store float undef, ptr undef, align 1
   br label %bb18350
 
 bb18350:                                          ; preds = %bb18350, %bb18204
   %indvars.iv22251 = phi i64 [ undef, %bb18204 ], [ %indvars.iv.next22252, %bb18350 ]
-  %"NCLDS[]14228_fetch" = load i32, i32* undef, align 1
+  %"NCLDS[]14228_fetch" = load i32, ptr undef, align 1
   %indvars.iv.next22252 = add nsw i64 %indvars.iv22251, 1
   %exitcond22254 = icmp eq i64 %indvars.iv.next22252, %wide.trip.count22225
   br i1 %exitcond22254, label %bb18375.preheader, label %bb18350
@@ -112,9 +112,9 @@ bb18485:                                          ; preds = %bb15677, %bb18485.p
 
 bb18496:                                          ; preds = %bb18496, %bb18485
   %indvars.iv22267 = phi i64 [ 2, %bb18485 ], [ %indvars.iv.next22268, %bb18496 ]
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 %indvars.iv22267)
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772", i64 %indvars.iv22271)
-  store float undef, float* %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]", align 1
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 undef, ptr elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 %indvars.iv22267)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 undef, i64 4, ptr elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772", i64 %indvars.iv22271)
+  store float undef, ptr %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]", align 1
   %indvars.iv.next22268 = add nuw nsw i64 %indvars.iv22267, 1
   %exitcond22270 = icmp eq i64 %indvars.iv.next22268, undef
   br i1 %exitcond22270, label %bb15677, label %bb18496
@@ -129,7 +129,7 @@ bb18518.preheader:                                ; preds = %bb15677
 
 bb18518:                                          ; preds = %bb18518, %bb18518.preheader
   %indvars.iv22279 = phi i64 [ %indvars.iv.next22280, %bb18518 ], [ undef, %bb18518.preheader ]
-  %"NCLDS[]14857_fetch" = load i32, i32* undef, align 1
+  %"NCLDS[]14857_fetch" = load i32, ptr undef, align 1
   %indvars.iv.next22280 = add nsw i64 %indvars.iv22279, 1
   %exitcond22282 = icmp eq i64 %indvars.iv.next22280, %wide.trip.count22225
   br i1 %exitcond22282, label %bb18563.preheader, label %bb18518
@@ -148,10 +148,10 @@ bb18649.preheader:                                ; preds = %bb18588
 
 bb18750:                                          ; preds = %bb18750, %bb18649.preheader
   %indvars.iv22312 = phi i64 [ %indvars.iv.next22313, %bb18750 ], [ undef, %bb18649.preheader ]
-  %"NCLDS[]15890_fetch" = load i32, i32* undef, align 1
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 1)
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000", i64 %indvars.iv22312)
-  store float undef, float* %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]", align 1
+  %"NCLDS[]15890_fetch" = load i32, ptr undef, align 1
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 undef, ptr elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 1)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 undef, i64 4, ptr elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000", i64 %indvars.iv22312)
+  store float undef, ptr %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]", align 1
   %indvars.iv.next22313 = add nsw i64 %indvars.iv22312, 1
   %exitcond22315 = icmp eq i64 %indvars.iv.next22313, %wide.trip.count22225
   br i1 %exitcond22315, label %bb18791.preheader, label %bb18750
@@ -175,7 +175,7 @@ bb18202:                                          ; preds = %bb19017.preheader
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nounwind readnone speculatable }

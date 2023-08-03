@@ -17,7 +17,7 @@
 ; CHECK: call i32 @foo
 ; CHECK-NOT: define internal i32 @foo.1
 
-define internal i32 @foo(i32 %count1, i32 %count2) #0 {
+define internal i32 @foo(i32 %count1, i32 %count2) {
 entry:
   %cmp = icmp eq i32 %count1, 0
   br i1 %cmp, label %if.then, label %if.end
@@ -56,6 +56,4 @@ entry:
   %add5 = add nsw i32 %add3, %call4
   ret i32 %add5
 }
-
-
 ; end INTEL_FEATURE_SW_ADVANCED

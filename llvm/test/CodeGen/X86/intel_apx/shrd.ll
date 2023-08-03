@@ -9,9 +9,7 @@ declare i64 @llvm.fshr.i64(i64 %a, i64 %b, i64 %cl)
 define i16 @shrd16rrcl(i16 noundef %a, i16 noundef %b, i8 %cl) {
 ; CHECK-LABEL: shrd16rrcl:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movl %edx, %ecx
-; CHECK-NEXT:    andb $15, %cl
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    andb $15, %dl, %cl
 ; CHECK-NEXT:    shrdw %cl, %di, %si, %ax
 ; CHECK-NEXT:    retq
 entry:
@@ -79,10 +77,8 @@ entry:
 define i16 @shrd16mrcl(ptr %ptr, i16 noundef %b, i8 %cl) {
 ; CHECK-LABEL: shrd16mrcl:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movl %edx, %ecx
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    andb $15, %cl
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    andb $15, %dl, %cl
 ; CHECK-NEXT:    shrdw %cl, %ax, %si, %ax
 ; CHECK-NEXT:    retq
 entry:
@@ -125,7 +121,7 @@ entry:
 define i16 @shrd16mri8(ptr %ptr, i16 noundef %b) {
 ; CHECK-LABEL: shrd16mri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrdw $12, %si, (%rdi), %ax
+; CHECK-NEXT:    shldw $4, %si, (%rdi), %ax
 ; CHECK-NEXT:    retq
 entry:
     %a = load i16, ptr %ptr
@@ -136,7 +132,7 @@ entry:
 define i32 @shrd32mri8(ptr %ptr, i32 noundef %b) {
 ; CHECK-LABEL: shrd32mri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrdl $12, %esi, (%rdi), %eax
+; CHECK-NEXT:    shldl $20, %esi, (%rdi), %eax
 ; CHECK-NEXT:    retq
 entry:
     %a = load i32, ptr %ptr
@@ -147,7 +143,7 @@ entry:
 define i64 @shrd64mri8(ptr %ptr, i64 noundef %b) {
 ; CHECK-LABEL: shrd64mri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrdq $12, %rsi, (%rdi), %rax
+; CHECK-NEXT:    shldq $52, %rsi, (%rdi), %rax
 ; CHECK-NEXT:    retq
 entry:
     %a = load i64, ptr %ptr

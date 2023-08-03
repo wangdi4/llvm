@@ -589,6 +589,28 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 VFInfo demangleForVFABI(StringRef MangledName);
 std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
                                           const Module *M = nullptr);
+
+/// Tells whether parameters and/or return value legalization supported
+/// for the vector variant function described by \p Variant.
+/// \p ArgTys and \p RetTy describe type of function arguments and return
+/// value respectively.
+bool supportedVectorVariantLegalization(const VFInfo &Variant,
+                                        ArrayRef<Type *> ArgTys, Type *RetTy);
+
+/// Fixup \p ArgChunks and \p RetChunks with the actual number of parts
+/// required to pass each logical parameter and return value of a vector
+/// variant function described by \p Variant. Logical types of the variant
+/// return value and parametes described by \p RetTy and \p ArgTys respectively.
+void calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
+                                  int &RetChunks, ArrayRef<Type *> ArgTys,
+                                  Type *RetTy, const VFInfo &Variant,
+                                  bool PtrSize64);
+// Return true if variant has mask which should be packed into a bitset.
+bool hasPackedMask(const VFInfo &V);
+
+// Return integer type used to pass mask via GPR.
+Type *getPackedMaskArgumentTy(LLVMContext &C, unsigned MaskSize);
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This routine mangles the given VectorName according to the LangRef
@@ -601,7 +623,7 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 /// where:
 ///
 /// <isa> = "_LLVM_"
-/// <mask> = "N". Note: TLI does not support masked interfaces.
+/// <mask> = "M" if masked, "N" if no mask.
 /// <vlen> = Number of concurrent lanes, stored in the `VectorizationFactor`
 ///          field of the `VecDesc` struct. If the number of lanes is scalable
 ///          then 'x' is printed instead.
@@ -609,7 +631,8 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 /// <scalarname> = the name of the scalar function.
 /// <vectorname> = the name of the vector function.
 std::string mangleTLIVectorName(StringRef VectorName, StringRef ScalarName,
-                                unsigned numArgs, ElementCount VF);
+                                unsigned numArgs, ElementCount VF,
+                                bool Masked = false);
 
 /// Retrieve the `VFParamKind` from a string token.
 VFParamKind getVFParamKindFromString(const StringRef Token);
@@ -682,6 +705,20 @@ public:
     return Ret;
   }
 
+  static bool hasMaskedVariant(const CallInst &CI,
+                               std::optional<ElementCount> VF = std::nullopt) {
+    // Check whether we have at least one masked vector version of a scalar
+    // function. If no VF is specified then we check for any masked variant,
+    // otherwise we look for one that matches the supplied VF.
+    auto Mappings = VFDatabase::getMappings(CI);
+    for (VFInfo Info : Mappings)
+      if (!VF || Info.Shape.VF == *VF)
+        if (Info.isMasked())
+          return true;
+
+    return false;
+  }
+
   /// Constructor, requires a CallInst instance.
   VFDatabase(CallInst &CI)
       : M(CI.getModule()), CI(CI),
@@ -705,7 +742,6 @@ public:
 
 template <typename T> class ArrayRef;
 class DemandedBits;
-class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
 class IRBuilderBase;
 class Loop;
@@ -743,32 +779,15 @@ bool isTriviallyVectorizable(Intrinsic::ID ID);
 bool isVectorIntrinsicWithScalarOpAtArg(Intrinsic::ID ID,
                                         unsigned ScalarOpdIdx);
 
-/// Identifies if the vector form of the intrinsic has a operand that has
-/// an overloaded type.
-bool isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID, unsigned OpdIdx);
+/// Identifies if the vector form of the intrinsic is overloaded on the type of
+/// the operand at index \p OpdIdx, or on the return type if \p OpdIdx is -1.
+bool isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID, int OpdIdx);
 
 /// Returns intrinsic ID for call.
 /// For the input call instruction it finds mapping intrinsic and returns
 /// its intrinsic ID, in case it does not found it return not_intrinsic.
 Intrinsic::ID getVectorIntrinsicIDForCall(const CallInst *CI,
                                           const TargetLibraryInfo *TLI);
-
-/// Find the operand of the GEP that should be checked for consecutive
-/// stores. This ignores trailing indices that have no effect on the final
-/// pointer.
-unsigned getGEPInductionOperand(const GetElementPtrInst *Gep);
-
-/// If the argument is a GEP, then returns the operand identified by
-/// getGEPInductionOperand. However, if there is some other non-loop-invariant
-/// operand, it returns that instead.
-Value *stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
-
-/// If a value has only one user that is a CastInst, return it.
-Value *getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty);
-
-/// Get the stride of a pointer access in a loop. Looks for symbolic
-/// strides "a[i*stride]". Returns the symbolic stride, or null otherwise.
-Value *getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
 
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
@@ -896,15 +915,6 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          const TargetTransformInfo *TTI=nullptr);
 
 #if INTEL_CUSTOMIZATION
-/// \brief This function marks the CallInst VecCall with the appropriate stride
-/// information determined by getExprStride(), which is used later in LLVM IR
-/// generation for loads/stores. Initial use of this information is used during
-/// SVML translation for sincos vectorization, but could be applicable to any
-/// situation where we need to analyze memory references.
-void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
-                                    const TargetLibraryInfo *TLI,
-                                    ScalarEvolution *SE, Loop *OrigLoop);
-
 /// @brief Contains the names of the declared vector function variants
 typedef std::vector<std::string> DeclaredVariants;
 
@@ -914,17 +924,6 @@ typedef std::map<Function*, DeclaredVariants> FunctionVariants;
 /// \brief Determine the characteristic type of the vector function as
 /// specified according to the vector function ABI.
 Type *calcCharacteristicType(Function &F, const VFInfo &Variant);
-
-/// \brief Some targets do not support particular types, so promote to a type
-/// that is supported.
-inline Type *promoteToSupportedType(Type *Ty, const VFInfo &Variant) {
-  // On AVX512 promote char and short to int
-  if (Variant.getISA() == VFISAKind::AVX512 &&
-      (Ty->isIntegerTy(8) || Ty->isIntegerTy(16)))
-    return Type::getInt32Ty(Ty->getContext());
-
-  return Ty;
-}
 
 /// Determine the characteristic type using the \pReturnType and argument list
 /// passed by \p ArgBegin and \p ArgEnd of the vector function as specified
@@ -956,10 +955,6 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
     CharacteristicDataType = Type::getInt32Ty(ReturnType->getContext());
   }
 
-  // Promote char/short types to int for Xeon Phi.
-  CharacteristicDataType =
-      promoteToSupportedType(CharacteristicDataType, Variant);
-
   if (CharacteristicDataType->isPointerTy()) {
     unsigned CharacteristicTypeSize =
         DL.getPointerTypeSizeInBits(CharacteristicDataType);
@@ -970,14 +965,10 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
   return CharacteristicDataType;
 }
 
-/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable for the
-/// \p VecVariant call and add it into vector arguments/vector argument types
-/// arrays.
-void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
-                         const VFInfo *VecVariant,
-                         SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys, unsigned VF,
-                         Value *MaskToUse);
+/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable
+/// for the \p VecVariant call. Return mask value.
+Value *createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                           const VFInfo &VecVariant, Value *MaskToUse);
 
 /// Helper function that returns widened type of given type \p Ty.
 inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
@@ -986,12 +977,86 @@ inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
-/// \brief Widens the call to function \p OrigF  using a vector length of \p VL
-/// and inserts the appropriate function declaration if not already created.
-/// This function will insert functions for simd functions.
+/// Helper function that returns widened type of given type \p Ty.
+/// When PromoteI1 is true i1 type promoted to i8 before widening.
+inline FixedVectorType *getWidenedType(Type *Ty, unsigned VF, bool PromoteI1) {
+  // Promote i1 return type to i8 before widening if requested;
+  Type *VecEltTy =
+      PromoteI1 && Ty->isIntOrIntVectorTy(1) ? Ty->getWithNewBitWidth(8) : Ty;
+  return getWidenedType(VecEltTy, VF);
+}
+
+/// Helper function that returns widened type of given type \p RetTy
+/// Type is widened with function return specifics.
+inline Type *getWidenedReturnType(Type *RetTy, unsigned VF) {
+  if (RetTy->isVoidTy())
+    return RetTy;
+
+  Type *VecEltRetTy = RetTy;
+  // Promote i1 return type to i8 before widening
+  if (RetTy->isIntegerTy(1))
+    VecEltRetTy = Type::getInt8Ty(RetTy->getContext());
+  return getWidenedType(VecEltRetTy, VF);
+}
+
+/// Using the \p Args, the arguments of actual call or a function declaration,
+/// and information from \p Variant, build the signature of the vector variant.
+/// Output is \p LogicalArgTypes array populated with types of arguments and
+/// \p LogicalRetType is the vector variant return type.
+template <typename ArgsItT>
+void buildVectorVariantLogicalSignature(
+    Type *RetTy, iterator_range<ArgsItT> Args, const VFInfo &Variant,
+    Type *MaskEltType, SmallVectorImpl<Type *> &LogicalArgTypes,
+    Type *&LogicalRetType) {
+
+  LogicalArgTypes.clear();
+  unsigned VF = Variant.getVF();
+  const auto *VKIt = Variant.getParameters().begin();
+  for (auto ArgIt = Args.begin(), ArgEnd = Args.end(); ArgIt != ArgEnd;
+       ++ArgIt, ++VKIt) {
+    Type *ParmType = ArgIt->getType();
+    if (VKIt->isVector() || VKIt->isLinearVal())
+      ParmType = getWidenedType(ParmType, VF, true /*Promote i1*/);
+
+    LogicalArgTypes.push_back(ParmType);
+  }
+
+  if (Variant.isMasked()) {
+    assert(MaskEltType && "Mask type not provided for masked variant");
+    Type *MaskType = getWidenedType(MaskEltType, VF);
+    LogicalArgTypes.push_back(MaskType);
+  }
+
+  LogicalRetType = getWidenedReturnType(RetTy, VF);
+}
+
+/// Helper function to instantiate buildVectorVariantLogicalSignature template
+/// specialized for Function.
+void buildVectorVariantLogicalSignature(
+    Function &OrigF, const VFInfo &Variant, Type *MaskEltType,
+    SmallVectorImpl<Type *> &LogicalArgTypes, Type *&LogicalRetType);
+
+/// Build new AttributeList (Fn, return and Parameters) for a vector variant
+/// taking into account type legalization information and update the attributes
+/// of the \p VectorF. The attributes derived from original function \p OrigF.
+void updateVectorVariantAttributes(Function &VectorF, const Function &OrigF,
+                                   const VFInfo &Variant,
+                                   ArrayRef<Type *> ArgTys,
+                                   ArrayRef<int> ArgNumParts);
+
+/// This function will insert functions for simd declared functions.
+/// If does not exist already the function creates a vector function
+/// variant type using information from \p ArgTys and \p RetTy for their logical
+/// types respectively. The original function \p OrigF and variant information
+/// \p Variant is used to set proper vector variant attributes.
+/// Note that actual signature of the vector variant function will be different
+/// than logical one if any of the arguments or return value would require target
+/// ISA class legalization (in order to be VFABI compliant), i.e. these arguments
+/// are passed/returned as chunks (subvectors). This information is provided via
+/// \p ArgChunks and \p RetChunks.
 Function *getOrInsertVectorVariantFunction(
-  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
-  const VFInfo *VecVariant, bool Masked);
+    Function &OrigF, const VFInfo &Variant, ArrayRef<Type *> ArgTys,
+    Type *RetTy, ArrayRef<int> ArgChunks = std::nullopt, int RetChunks = 1);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
@@ -1043,7 +1108,8 @@ bool isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
 /// feature for the chosen \p VF. If yes, then the factor to pump by is
 /// returned, 1 otherwise.
 unsigned getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
-                       const TargetLibraryInfo *TLI);
+                       const TargetLibraryInfo *TLI,
+                       const TargetTransformInfo *TTI);
 
 /// \brief A helper function that returns value after skipping 'bitcast' and
 /// 'addrspacecast' on pointers.
@@ -1573,7 +1639,7 @@ private:
   /// Collect all the accesses with a constant stride in program order.
   void collectConstStrideAccesses(
       MapVector<Instruction *, StrideDescriptor> &AccessStrideInfo,
-      const ValueToValueMap &Strides);
+      const DenseMap<Value *, const SCEV *> &Strides);
 
   /// Returns true if \p Stride is allowed in an interleaved group.
   static bool isStrided(int Stride);

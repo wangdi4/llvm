@@ -178,8 +178,8 @@ private:
   /// Register Liveness information after the current instruction.
   LivePhysRegs LiveRegs;
 
-  ProfileSummaryInfo *PSI;
-  MachineBlockFrequencyInfo *MBFI;
+  ProfileSummaryInfo *PSI = nullptr;
+  MachineBlockFrequencyInfo *MBFI = nullptr;
 };
 char FixupBWInstPass::ID = 0;
 }
@@ -539,18 +539,6 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     return tryReplaceUnOp(X86::DEC32r, MI);
   case X86::INC16r:
     return tryReplaceUnOp(X86::INC32r, MI);
-
-  case X86::ADD16ri8:
-    return tryReplaceRegImmOp(X86::ADD32ri8, MI);
-  case X86::SUB16ri8:
-    return tryReplaceRegImmOp(X86::SUB32ri8, MI);
-  case X86::AND16ri8:
-    return tryReplaceRegImmOp(X86::AND32ri8, MI);
-  case X86::OR16ri8:
-    return tryReplaceRegImmOp(X86::OR32ri8, MI);
-  case X86::XOR16ri8:
-    return tryReplaceRegImmOp(X86::XOR32ri8, MI);
-
   case X86::ADD16ri:
     return tryReplaceRegImmOp(X86::ADD32ri, MI);
   case X86::SUB16ri:

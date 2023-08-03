@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016-2017 Intel Corporation.
+//      Copyright (c) 2016-2023 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -20,7 +20,6 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "CodeGenTarget.h"
 #include "llvm/Support/Format.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
@@ -47,6 +46,18 @@ public:
   void run(raw_ostream &OS, bool IsDevice);
 };
 } // End anonymous namespace
+
+/// \brief Calculates the integer value representing the BitsInit object.
+static inline uint64_t getValueFromBitsInit(const BitsInit *B) {
+  assert(B->getNumBits() <= sizeof(uint64_t) * 8 && "BitInits' too long!");
+
+  uint64_t Value = 0;
+  for (unsigned i = 0, e = B->getNumBits(); i != e; ++i) {
+    BitInit *Bit = cast<BitInit>(B->getBit(i));
+    Value |= uint64_t(Bit->getValue()) << i;
+  }
+  return Value;
+}
 
 /// \brief Emit the set of SVML variant function names.
 void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
@@ -93,6 +104,8 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
       bool hasSingle = VList[i]->getValueAsBit("hasSingle");
       bool hasDouble = VList[i]->getValueAsBit("hasDouble");
       bool hasIntrinsic = VList[i]->getValueAsBit("hasIntrinsic");
+      BitsInit *extraAttrs = VList[i]->getValueAsBitsInit("extraAttrs");
+      uint64_t extraAttrsInt = getValueFromBitsInit(extraAttrs);
       if (hasSingle) {
         for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
           OS << "{\"" << SvmlVariantNameStr << "f" << "\", ";
@@ -118,13 +131,14 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
       }
       if (hasDouble) {
         for (unsigned VL = MinDoublePrecVL; VL <= MaxDoublePrecVL; VL *= 2) {
+          // For now, we are interested in the extra attributes only for double precision non-intrinsic versions of library calls.
           OS << "{\"" << SvmlVariantNameStr << "\", ";
           OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "\", "
-             << "FIXED(" << VL << ")" << ", false},\n";
+             << "FIXED(" << VL << ")" << ", false, " << extraAttrsInt << "},\n";
           if (isMasked) {
             OS << "{\"" << SvmlVariantNameStr << "\", ";
             OS << "\"" << "__svml_" << SvmlVariantNameStr << VL << "_mask"
-               << "\", " << "FIXED(" << VL << ")" << ", true},\n";
+               << "\", " << "FIXED(" << VL << ")" << ", true, " << extraAttrsInt << "},\n";
           }
           if (hasIntrinsic) {
             OS << "{\"" << "llvm." << SvmlVariantNameStr << ".f64" << "\", ";
@@ -142,257 +156,305 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
     }
   }
 
-  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", FIXED(16), false, true},\n";
+  // Because ldexp has two arguments, the names of its intrinsics doesn't follow
+  // the same pattern as the other functions. Thus the logic for intrinsics
+  // above can't be reused. We just emit their mappings separately.
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf1\", FIXED(1), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf1_mask\", FIXED(1), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf2\", FIXED(2), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf2_mask\", FIXED(2), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf4\", FIXED(4), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf4_mask\", FIXED(4), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf8\", FIXED(8), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf8_mask\", FIXED(8), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf16\", FIXED(16), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf16_mask\", FIXED(16), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf32\", FIXED(32), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf32_mask\", FIXED(32), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf64\", FIXED(64), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf64_mask\", FIXED(64), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp1\", FIXED(1), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp1_mask\", FIXED(1), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp2\", FIXED(2), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp2_mask\", FIXED(2), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp4\", FIXED(4), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp4_mask\", FIXED(4), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp8\", FIXED(8), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp8_mask\", FIXED(8), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp16\", FIXED(16), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp16_mask\", FIXED(16), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp32\", FIXED(32), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp32_mask\", FIXED(32), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp64\", FIXED(64), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp64_mask\", FIXED(64), true},\n";
 
-  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", FIXED(16), true, true},\n";
+  // TODO: Should we use VecDescAttrs::IsOCLFn to set this?
+  unsigned IsOCLFnAttr = 1;
+  unsigned IsFortranOnlyAttr = 4;
+  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", FIXED(4), false, true},\n";
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", FIXED(8), false, true},\n";
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", FIXED(16), false, true},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", FIXED(4), true, true},\n";
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", FIXED(8), true, true},\n";
-  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", FIXED(16), true, true},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv2_fPS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv3_fPS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv4_fPS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv8_fPS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv16_fPS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv2_fPS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv3_fPS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv4_fPS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv8_fPS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z6sincosDv16_fPS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv2_fS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv3_fS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv4_fS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv8_fS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv16_fS_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3logf\", \"_Z3logDv2_f\", FIXED(2), false, true},\n";
-  OS << "{\"_Z3logf\", \"_Z3logDv3_f\", FIXED(3), false, true},\n";
-  OS << "{\"_Z3logf\", \"_Z3logDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3logf\", \"_Z3logDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3logf\", \"_Z3logDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv2_fS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv3_fS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv4_fS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv8_fS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv16_fS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3expf\", \"_Z3expDv2_f\", FIXED(2), false, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv3_f\", FIXED(3), false, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv2_f\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv3_f\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3expf\", \"_Z3expDv2_f\", FIXED(2), true, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv3_f\", FIXED(3), true, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3expf\", \"_Z3expDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv2_f\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv3_f\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", FIXED(2), false, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", FIXED(3), false, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv2_f\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv3_f\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", FIXED(2), true, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", FIXED(3), true, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", FIXED(4), true, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", FIXED(8), true, true},\n";
-  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", FIXED(16), true, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv2_f\", FIXED(2), false, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv3_f\", FIXED(3), false, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv2_f\", FIXED(2), true, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv3_f\", FIXED(3), true, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z10native_expf\", \"_Z10native_expDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv2_f\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv3_f\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", FIXED(16), false, true},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv2_f\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv3_f\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z10native_expf\", \"_Z10native_expDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", FIXED(16), true, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", FIXED(16), false, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", FIXED(16), true, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z3madfff\", \"_Z3madDv2_fS_S_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z3madfff\", \"_Z3madDv3_fS_S_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z3madfff\", \"_Z3madDv4_fS_S_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z3madfff\", \"_Z3madDv8_fS_S_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z3madfff\", \"_Z3madDv16_fS_S_\", FIXED(16), false, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv2_jS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv3_jS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", FIXED(16), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", FIXED(32), false, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", FIXED(64), false, true},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv2_fS_S_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv3_fS_S_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv4_fS_S_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv8_fS_S_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv16_fS_S_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv2_jS_\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv3_jS_\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", FIXED(16), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", FIXED(32), true, true},\n";
-  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", FIXED(64), true, true},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv2_jS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv3_jS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", FIXED(32), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", FIXED(64), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", FIXED(16), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", FIXED(32), false, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", FIXED(64), false, true},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv2_jS_\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv3_jS_\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", FIXED(32), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", FIXED(64), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", FIXED(16), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", FIXED(32), true, true},\n";
-  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", FIXED(64), true, true},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", FIXED(32), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", FIXED(64), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", FIXED(16), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", FIXED(32), false, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", FIXED(64), false, true},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", FIXED(32), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", FIXED(64), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", FIXED(16), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", FIXED(32), true, true},\n";
-  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", FIXED(64), true, true},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", FIXED(32), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", FIXED(64), false, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", FIXED(2), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", FIXED(3), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", FIXED(4), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", FIXED(8), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", FIXED(16), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", FIXED(32), false, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", FIXED(64), false, true},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", FIXED(32), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", FIXED(64), true, " << IsOCLFnAttr << "},\n";
 
-  OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", FIXED(2), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", FIXED(3), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", FIXED(4), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", FIXED(8), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", FIXED(16), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", FIXED(32), true, true},\n";
-  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", FIXED(64), true, true},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", FIXED(2), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", FIXED(3), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", FIXED(32), false, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", FIXED(64), false, " << IsOCLFnAttr << "},\n";
+
+  OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", FIXED(2), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", FIXED(3), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", FIXED(4), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", FIXED(8), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", FIXED(32), true, " << IsOCLFnAttr << "},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", FIXED(64), true, " << IsOCLFnAttr << "},\n";
+
+  OS << "{\"for_random_number\", \"for_simd_random_number\", FIXED(2), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_mask\", FIXED(2), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, " << IsFortranOnlyAttr << ", \"avx\"},\n";
+
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single\", FIXED(4), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_mask\", FIXED(4), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, " << IsFortranOnlyAttr << ", \"avx\"},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }

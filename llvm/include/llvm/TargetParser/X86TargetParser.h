@@ -137,6 +137,9 @@ enum CPUKind {
 #if INTEL_FEATURE_CPU_RYL
   CK_Royal,
 #endif // INTEL_FEATURE_CPU_RYL
+#if INTEL_FEATURE_CPU_LNL
+  CK_Lunarlake,
+#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
   CK_Raptorlake,
   CK_Meteorlake,
@@ -144,10 +147,8 @@ enum CPUKind {
   CK_Grandridge,
   CK_Graniterapids,
   CK_Emeraldrapids,
-#if !INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,
-#endif // !INTEL_CUSTOMIZATION
   CK_Lakemont,
   CK_K6,
   CK_K6_2,
@@ -191,13 +192,17 @@ void fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values,
 ProcessorFeatures getKeyFeature(CPUKind Kind);
 
 /// Fill in the features that \p CPU supports into \p Features.
-void getFeaturesForCPU(StringRef CPU, SmallVectorImpl<StringRef> &Features);
+/// "+" will be append in front of each feature if IfNeedPlus is true.
+void getFeaturesForCPU(StringRef CPU, SmallVectorImpl<StringRef> &Features,
+                       bool IfNeedPlus = false);
 
 /// Set or clear entries in \p Features that are implied to be enabled/disabled
 /// by the provided \p Feature.
 void updateImpliedFeatures(StringRef Feature, bool Enabled,
                            StringMap<bool> &Features);
 
+char getCPUDispatchMangling(StringRef Name);
+bool validateCPUSpecificCPUDispatch(StringRef Name);
 uint64_t getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
 unsigned getFeaturePriority(ProcessorFeatures Feat);
 

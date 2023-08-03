@@ -11,17 +11,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ;      ary[i] += 7;
 ;  }
 ;
-define void @foo(<4 x i32>* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, ptr [[ARY:%.*]], i64 [[UNI_PHI1]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <16 x i32> [[WIDE_LOAD]], <i32 7, i32 8, i32 9, i32 10, i32 7, i32 8, i32 9, i32 10, i32 7, i32 8, i32 9, i32 10, i32 7, i32 8, i32 9, i32 10>
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP1]], <16 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    store <16 x i32> [[TMP1]], ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP4]], 1024
@@ -33,10 +31,10 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %indvars.iv
-  %0 = load <4 x i32>, <4 x i32>* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds <4 x i32>, ptr %ary, i64 %indvars.iv
+  %0 = load <4 x i32>, ptr %arrayidx, align 4
   %add7 = add nsw <4 x i32> %0, <i32 7, i32 8, i32 9, i32 10>
-  store <4 x i32> %add7, <4 x i32>* %arrayidx, align 4
+  store <4 x i32> %add7, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end

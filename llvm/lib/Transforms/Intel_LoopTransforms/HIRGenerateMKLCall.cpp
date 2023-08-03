@@ -208,7 +208,9 @@ FunctionPass *llvm::createHIRGenerateMKLCallPass() {
 PreservedAnalyses HIRGenerateMKLCallPass::runImpl(Function &Func,
                                                   FunctionAnalysisManager &AM,
                                                   HIRFramework &HIRF) {
-  HIRGenerateMKLCall(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(Func)).run();
+  ModifiedHIR =
+      HIRGenerateMKLCall(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(Func))
+          .run();
   return PreservedAnalyses::all();
 }
 
@@ -269,7 +271,7 @@ struct HIRGenerateMKLCall::CollectCandidateLoops final
       return;
     }
 
-    if (GMKLCall.HLS.getSelfLoopStatistics(InnermostLoop)
+    if (GMKLCall.HLS.getSelfStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(
           dbgs() << "\nSkipping loop with calls that have side effects\n");
@@ -771,7 +773,8 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   // Loopnest replaced by matmul intrinsic
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25459u);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoopNestReplacedByMatmul);
 
   ORBuilder(*Loop).preserveLostOptReport();
 

@@ -44,6 +44,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 
@@ -58,8 +59,7 @@ static cl::opt<bool> LT2GigWorkGroupSize(
     "sycl-less-than-two-gig-max-work-group-size", cl::init(true), cl::Hidden,
     cl::desc("Max work group size is less than 2 Gig elements."));
 
-enum GlobalWorkSizeLT2GState : uint8_t { GWS_FALSE, GWS_TRUE, GWS_AUTO };
-static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
+cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
     "sycl-less-than-two-gig-max-global-work-size", cl::init(GWS_AUTO),
     cl::Hidden,
     cl::desc("Max global work size (global_work_offset + total work items) is "
@@ -72,14 +72,6 @@ extern bool SYCLEnableDirectFunctionCallVectorization;
 extern bool SYCLEnableSubgroupDirectCallVectorization;
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
-
-// Static container storing all the vector info entries.
-// Each entry would be a tuple of three strings:
-// 1. scalar variant name
-// 2. "kernel-call-once" | ""
-// 3. mangled vector variant name
-static std::vector<std::tuple<std::string, std::string, std::string>>
-    ExtendedVectInfos;
 
 using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
 using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
@@ -98,13 +90,28 @@ enum class FnAction {
 
 } // namespace
 
+// The FunctionsAndActions array has only the Kernel function built-ins that
+// are uniform.
+static std::pair<std::string, FnAction> FunctionsAndActions[] = {
+    {mangledGetGID(), FnAction::MoveAndUpdateUsesForDim},
+    {mangledGetLID(), FnAction::MoveAndUpdateUsesForDim},
+    {mangledGetSubGroupLocalId(), FnAction::UpdateOnly},
+    {mangledGetGlobalSize(), FnAction::MoveOnly},
+    {mangledGetGlobalOffset(), FnAction::MoveOnly},
+    {mangledGetGroupID(), FnAction::MoveOnly},
+    {mangledGetSubGroupSize(), FnAction::MoveOnly},
+    {mangledGetLocalSize(), FnAction::MoveOnly},
+    {mangledGetEnqueuedLocalSize(), FnAction::MoveOnly},
+    {mangledGetGlobalLinearId(), FnAction::AssertIfEncountered},
+    {mangledGetLocalLinearId(), FnAction::AssertIfEncountered}};
+
 SYCLKernelVecClonePass::SYCLKernelVecClonePass(ArrayRef<VectItem> VectInfos,
-                                                 VFISAKind ISA,
-                                                 bool IsOCL)
-    : Impl(VectInfos, ISA, IsOCL) {}
+                                               VFISAKind ISA)
+    : Impl(VectInfos, ISA) {}
 
 PreservedAnalyses SYCLKernelVecClonePass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
+  Impl.setIsOCL(!isGeneratedFromOCLCPP(M) && !isGeneratedFromOMP(M));
   Impl.setVectorizationDimensionMap(
       AM.getCachedResult<VectorizationDimensionAnalysis>(M));
   return Impl.runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -474,32 +481,15 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 }
 
 SYCLKernelVecCloneImpl::SYCLKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                                                 VFISAKind ISA, bool IsOCL)
-    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL),
-      VDMap(nullptr) {
+                                               VFISAKind ISA)
+    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), VDMap(nullptr) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
 }
 
-void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
-                                                      Function *Clone,
-                                                      BasicBlock *EntryBlock,
-                                                      const VFInfo &Variant) {
-  // The FunctionsAndActions array has only the Kernel function built-ins that
-  // are uniform.
-  std::pair<std::string, FnAction> FunctionsAndActions[] = {
-      {mangledGetGID(), FnAction::MoveAndUpdateUsesForDim},
-      {mangledGetLID(), FnAction::MoveAndUpdateUsesForDim},
-      {mangledGetSubGroupLocalId(), FnAction::UpdateOnly},
-      {mangledGetGlobalSize(), FnAction::MoveOnly},
-      {mangledGetGlobalOffset(), FnAction::MoveOnly},
-      {mangledGetGroupID(), FnAction::MoveOnly},
-      {mangledGetSubGroupSize(), FnAction::MoveOnly},
-      {mangledGetLocalSize(), FnAction::MoveOnly},
-      {mangledGetEnqueuedLocalSize(), FnAction::MoveOnly},
-      {mangledGetGlobalLinearId(), FnAction::AssertIfEncountered},
-      {mangledGetLocalLinearId(), FnAction::AssertIfEncountered}};
-
+void SYCLKernelVecCloneImpl::handleLanguageSpecifics(
+    Function &F, PHINode *Phi, Function *Clone, BasicBlock *EntryBlock,
+    const VFInfo &Variant, const ValueToValueMapTy &VMap) {
   bool IsKernel = find(Kernels, &F) != Kernels.end();
 
   unsigned VecDim = 0;
@@ -513,75 +503,67 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   // Collect all Kernel function built-ins.
   SmallVector<Instruction *, 4> InstsToRemove;
-  for (const auto &Pair : FunctionsAndActions) {
-    const auto &FuncName = Pair.first;
-    auto Action = Pair.second;
+  for (CallInst *I : FuncToTIDBuiltinCalls[&F]) {
+    auto *CI = cast<CallInst>(VMap.lookup(I));
+    StringRef FuncName = CI->getCalledFunction()->getName();
+    auto It = std::find_if(std::begin(FunctionsAndActions),
+                           std::end(FunctionsAndActions),
+                           [&](auto &Pair) { return Pair.first == FuncName; });
+    assert(It != std::end(FunctionsAndActions) && "function not found");
+    auto Action = It->second;
+    assert((Action >= FnAction::MoveAndUpdateUses &&
+            Action <= FnAction::UpdateOnly) &&
+           "Unexpected Action");
 
-    // Early exit if the function is not present.
-    Function *Func = Clone->getParent()->getFunction(FuncName);
-    if (!Func)
-      continue;
-
-    for (User *U : Func->users()) {
-      CallInst *CI = dyn_cast<CallInst>(U);
-      assert(CI && "Unexpected use of built-in function");
-      if (CI->getFunction() != Clone)
-        continue;
-
-      assert((Action >= FnAction::MoveAndUpdateUses &&
-              Action <= FnAction::UpdateOnly) &&
-             "Unexpected Action");
-
-      switch (Action) {
-      case FnAction::MoveAndUpdateUsesForDim: {
-        ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-        assert(C && "The function argument must be constant");
-        unsigned dim = C->getValue().getZExtValue();
-        if (dim == VecDim) {
-          // If the get-id calls return i32 (e.g., on 32-bit target), there's
-          // no truncation, so we don't need to do special optimization.
-          bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
-          if (!TIDIsInt32 &&
-              ((FuncName == mangledGetLID() && LT2GigWorkGroupSize) ||
-               (FuncName == mangledGetGID() &&
-                ((LT2GigGlobalWorkSize == GWS_TRUE) ||
-                 (LT2GigGlobalWorkSize == GWS_AUTO &&
-                  (IsOCL || (TIDFitsInInt32(CI) && HasTruncOrShlUsers(CI))))))))
-            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
-          else
-            updateAndMoveTID(CI, Phi, EntryBlock);
-        } else
-          CI->moveBefore(EntryBlock->getTerminator());
-        break;
-      }
-      case FnAction::MoveAndUpdateUses:
-        updateAndMoveTID(CI, Phi, EntryBlock);
-        break;
-      case FnAction::UpdateOnly: {
+    switch (Action) {
+    case FnAction::MoveAndUpdateUsesForDim: {
+      ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+      assert(C && "The function argument must be constant");
+      unsigned dim = C->getValue().getZExtValue();
+      if (dim == VecDim) {
+        // If the get-id calls return i32 (e.g., on 32-bit target), there's
+        // no truncation, so we don't need to do special optimization.
         bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
-        if (TIDIsInt32 && isOptimizableSubgroupLocalId(CI))
-          optimizedUpdateTID(CI, Phi);
+        if (!TIDIsInt32 &&
+            ((FuncName == mangledGetLID() && LT2GigWorkGroupSize) ||
+             (FuncName == mangledGetGID() &&
+              ((LT2GigGlobalWorkSize == GWS_TRUE) ||
+               (LT2GigGlobalWorkSize == GWS_AUTO &&
+                (IsOCL || (TIDFitsInInt32(CI) && HasTruncOrShlUsers(CI))))))))
+          optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
         else
-          updateTID(CI, Phi);
-        InstsToRemove.push_back(CI);
-        break;
-      }
-      case FnAction::MoveOnly:
-        // All the other Kernel function built-ins, if they have constant
-        // arguments or don't have argument, then should just be moved at
-        // the entry block.
-        if (CI->arg_empty() || isa<Constant>(CI->getArgOperand(0)))
-          CI->moveBefore(EntryBlock->getTerminator());
-        break;
-      case FnAction::AssertIfEncountered:
-        assert(
-            Func && FuncName != mangledGetGlobalLinearId() &&
-            FuncName != mangledGetLocalLinearId() &&
-            "get_global_linear_id() and get_local_linear_id() should have been "
-            "resolved in earlier passes");
-        break;
-      };
+          updateAndMoveTID(CI, Phi, EntryBlock);
+      } else
+        CI->moveBefore(EntryBlock->getTerminator());
+      break;
     }
+    case FnAction::MoveAndUpdateUses:
+      updateAndMoveTID(CI, Phi, EntryBlock);
+      break;
+    case FnAction::UpdateOnly: {
+      bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
+      if (TIDIsInt32 && isOptimizableSubgroupLocalId(CI))
+        optimizedUpdateTID(CI, Phi);
+      else
+        updateTID(CI, Phi);
+      InstsToRemove.push_back(CI);
+      break;
+    }
+    case FnAction::MoveOnly:
+      // All the other Kernel function built-ins, if they have constant
+      // arguments or don't have argument, then should just be moved at
+      // the entry block.
+      if (CI->arg_empty() || isa<Constant>(CI->getArgOperand(0)))
+        CI->moveBefore(EntryBlock->getTerminator());
+      break;
+    case FnAction::AssertIfEncountered:
+      assert(
+          FuncName != mangledGetGlobalLinearId() &&
+          FuncName != mangledGetLocalLinearId() &&
+          "get_global_linear_id() and get_local_linear_id() should have been "
+          "resolved in earlier passes");
+      break;
+    };
   }
 
   for (auto *I : InstsToRemove)
@@ -593,12 +575,6 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     updateKernelMetadata(F, Clone, VecDim, CanUniteWorkgroups);
   else
     Clone->addFnAttr("widened-size", std::to_string(VF));
-
-  // Load all vector info into ExtendedVectInfos, at most once.
-  static llvm::once_flag InitializeVectInfoFlag;
-  llvm::call_once(InitializeVectInfoFlag, [&]() {
-    initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
-  });
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
@@ -613,6 +589,7 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).
+    const auto &ExtendedVectInfos = CompilationUtils::getExtendedVectInfos();
     auto MatchingVariants = make_filter_range(
         ExtendedVectInfos,
         [FnName,
@@ -676,6 +653,24 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                            std::to_string(ParamsNum));
     }
     Call->setAttributes(AL);
+  }
+}
+
+static void collectTIDBuiltinCalls(
+    Module &M,
+    DenseMap<Function *, SmallVector<CallInst *, 8>> &FuncToTIDBuiltinCalls) {
+  for (const auto &Pair : FunctionsAndActions) {
+    const auto &FuncName = Pair.first;
+    Function *F = M.getFunction(FuncName);
+    if (!F)
+      continue;
+    for (User *U : F->users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        Function *ParentFunc = CI->getFunction();
+        if (ParentFunc->hasFnAttribute(VectorUtils::VectorVariantsAttrName))
+          FuncToTIDBuiltinCalls[ParentFunc].push_back(CI);
+      }
+    }
   }
 }
 
@@ -807,4 +802,9 @@ void SYCLKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
     if (KIMD.RecommendedVL.get() > 1)
       PK.run(*F);
   }
+
+  // Load all vector info into ExtendedVectInfos.
+  CompilationUtils::initializeVectInfo(VectInfos, M);
+
+  collectTIDBuiltinCalls(M, FuncToTIDBuiltinCalls);
 }

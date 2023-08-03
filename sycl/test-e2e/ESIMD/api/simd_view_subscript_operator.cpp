@@ -5,11 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// REQUIRES: gpu && !gpu-intel-pvc
-// UNSUPPORTED: gpu-intel-gen9 && windows
-// UNSUPPORTED: cuda || hip
-// RUN: %clangxx -fsycl %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// UNSUPPORTED: gpu-intel-pvc
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
 //
 // The test checks that it's possible to write through the simd_view subscript
 // operator. E.g.:
@@ -96,7 +94,7 @@ template <class T> bool test(queue &q) {
   }
   return err_cnt > 0 ? false : true;
 }
-
+#ifndef SKIP_MAIN
 int main(int argc, char **argv) {
   queue q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
 
@@ -114,3 +112,4 @@ int main(int argc, char **argv) {
 
   return passed ? 0 : 1;
 }
+#endif

@@ -216,21 +216,7 @@ Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, unsigned Dimension,
 }
 Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, Value *Dimension,
                                             IRBuilder<> &Builder) {
-  // TODO: Remove the non-opaque code when OpaquePtr is fully enabled on OpenCL.
-  // Function GetElementPtrInst *Create(Type *PointeeType, Value *Ptr, ...)
-  // calls isOpaqueOrPointeeTypeMatches which requires that parameter
-  // PointeeType is equal to Ptr->PointeeTy when Ptr is non-opaque. It is not
-  // vey reasonable to do such check, only make sure there are right type ID for
-  // PointeeType will work well. So there are build errors when use
-  // CompilationUtils:: getWorkGroupIDElementType(..) as PointeeType. And
-  // function isOpaqueOrPointeeTypeMatches will be useless after non-opaque
-  // pointers are removed.
-  Type *Ty =
-      GroupID->getType()->getScalarType()->isOpaquePointerTy()
-          ? CompilationUtils::getWorkGroupIDElementType(M)
-          : GroupID->getType()
-                ->getScalarType()
-                ->getNonOpaquePointerElementType();
+  Type *Ty = CompilationUtils::getWorkGroupIDElementType(M);
   auto *IdAddr = cast<GEPOperator>(Builder.CreateGEP(Ty, GroupID, Dimension));
   StringRef Name("GroupID_");
   std::string NameWithDim = AppendWithDimension(Name, Dimension);

@@ -3,7 +3,7 @@
 ..
   INTEL CONFIDENTIAL
  
-  Modifications, Copyright (C) 2022 Intel Corporation
+  Modifications, Copyright (C) 2022-2023 Intel Corporation
  
   This software and the related documents are Intel copyrighted materials, and
   your use of them is governed by the express license under which they were
@@ -102,8 +102,8 @@ Plugin Common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
-  <Name> := LEVEL0 | OPENCL | CUDA | X86_64 | NIOS2 |
-            level0 | opencl | cuda | x86_64 | nios2
+  <Name> := LEVEL_ZERO | LEVEL0 | OPENCL | X86_64 |
+            level_zero | level0 | opencl | x86_64
 
 Designates offload plugin name to use.
 Offload runtime does not try to load other RTLs if this option is used.
@@ -136,6 +136,24 @@ Only OpenCL plugin supports "CPU" device type.
 
 **Default**: GPU type
 
+``ONEAPI_DEVICE_SELECTOR = <selector-string>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+<selector-string> ::= { <accept-filters> | <discard-filters> | <accept-filters>;<discard-filters> }
+<accept-filters> ::= <accept-filter>[;<accept-filter>...]
+<discard-filters> ::= <discard-filter>[;<discard-filter>...]
+<accept-filter> ::= <term>
+<discard-filter> ::= !<term>  // currently  not supported
+<term> ::= <backend>:<devices>
+<backend> ::= { * | level_zero | opencl | x86_64 }  // case insensitive
+<devices> ::= <device>[,<device>...]
+<device> ::= { * | cpu | gpu | fpga | <num> | <num>.<num> | <num>.* | *.* | <num>.<num>.<num> | <num>.<num>.* | <num>.*.* | *.*.*  } 
+
+Enables selecting plugins, devicetypes and devices.
+
+**Default**: undefined
+
 ``LIBOMPTARGET_PLUGIN_PROFILE=<Enable>[,<Unit>]``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
@@ -147,20 +165,6 @@ Enables basic plugin profiling and displays the result when program finishes.
 Microsecond is the default unit if ``<Unit>`` is not specified.
 
 **Default**: Disabled
-
-``LIBOMPTARGET_USM_HOST_MEM=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Enable> := 1 | T | t
-
-Enables use of USM host memory if ``#pragma omp requires unified_shared_memory``
-is present in the program, and ``omp_target_alloc`` routine is invoked.
-
-**Default**: USM shared memory
-
-**Note**: It appears to be better not to claim this partial support of
-``unified_shared_memory`` and remove this feature to avoid confusion.
 
 ``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>[,<Method>]``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -231,7 +235,7 @@ in the kernel should decrease.
 **Default**: 0.1
 
 ``LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Enable> := 1 | T | t
@@ -250,13 +254,18 @@ This is mostly for experimental purposes.
 Plugin LevelZero
 ----------------
 
-``LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=<Options>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Passes ``<Options>`` when building native target program binaries.
 ``<Options>`` may include valid OpenCL/Level Zero build options.
 
-``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Disable> := 0 | F | f
@@ -266,8 +275,13 @@ binaries.
 
 **Default**: Enabled
 
-``LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_MATCH_SINCOSPI`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Enable> := 1 | T | t
@@ -276,6 +290,11 @@ Enables using local work size (i.e., team size) suggested by Level Zero
 runtime.
 
 **Default**: Disabled
+
+``LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_USE_DRIVER_GROUP_SIZES`` instead.
 
 ``LIBOMPTARGET_DEVICES=<DeviceKind>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -304,8 +323,8 @@ and is being deprecated.
 
 **Default**: Equivalent to ``<DeviceKind>=device``
 
-``LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL=<Option>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Option>       := 0 | <PoolInfoList>
@@ -327,8 +346,13 @@ be disabled by specifying 0 for ``<AllocMax>`` for the memory type.
 
 **Default**: Equivalent to ``<Option>=device,1,4,256,host,1,4,256,shared,8,4,256``
 
-``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Value>   := <Disable> | <Type>
@@ -344,8 +368,13 @@ Controls how to use copy engines for data transfer if device supports.
 
 **Default**: all
 
-``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_DEFAULT_TARGET_MEM=<MemType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <MemType> := DEVICE | HOST | SHARED | device | host | shared
@@ -354,12 +383,22 @@ Decides memory type returned by ``omp_target_alloc`` routine.
 
 **Default**: device
 
-``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_DEFAULT_TARGET_MEM`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets over-subscription parameter that is used when computing the team
 size/counts for a target region.
 
 **Default**: 4
+
+``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE`` instead.
 
 ``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -369,19 +408,24 @@ counts for a target region that requires cross-team reduction updates.
   <Num> is a number greater than or equal to 0.
 
 '0' disables special handling for kernels with reductions, so
-``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
+``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE`` takes the effect.
 
 **Default**: 8 for discrete devices, 1 for non-discrete devices or/and
 for kernels that use atomic-free reductions.
 
-``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets the staging buffer size to ``<Num>`` KB.
 Staging buffer is used in copy operations between host and device as a
 temporary storage for two-step copy operation. The buffer is only used for
 discrete devices.
 
 **Default**: 16
+
+``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE`` instead.
 
 ``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -435,17 +479,7 @@ operations
 ``<True>``: Equivalent to ``compute``
 ``<False>``: Immediate command list is disabled
 
-**Default**: Disabled
-
-``LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST=<Value>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Value> := 1 | T | t | 0 | F | f
-
-Enables/disables using immediate command list instead of queue for interop objects
-
-**Default**: Disabled
+**Default**: ``all`` on PVC Linux, ``0`` on other devices/platforms
 
 ``LIBOMPTARGET_LEVEL_ZERO_REDUCTION_POOL=<PoolInfo>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -466,8 +500,9 @@ Controls how dedicated reduction scratch pool is configured.
 
   <Mode> := sync | async | async_ordered
 
-Determines how each commands in a target region are executed when immediate
-command list is fully enabled by setting
+This variable has no effect on integrated devices.
+Determines how each command in a target region is executed when immediate
+command lists are fully enabled by setting
 ``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=all``.
 
 ``sync``: Host waits for completion of the current submitted command
@@ -475,28 +510,29 @@ command list is fully enabled by setting
 and synchronization occurs later when it is required
 ``async_ordered``: Same as ``async``, but command execution is ordered
 
-**Default**: ``sync``
+**Default**: ``async``
+
+``LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+Make memory resident on devices at allocation time.
+``<Num>`` is a hexadecimal number in the form of ``0xHSD`` where each digit
+controls memory residency of host memory (``H``), shared memory (``S``), and
+device memory (``D``). The following values of each digit controls memory
+residency at allocation time.
+
+``0``: Do not make the memory resident.
+``1``: Make the memory resident on the device that allocates the memory.
+``2``: Make the memory resident on all devices that can access the memory.
+
+For host memory, non-zero value makes the memory resident on all devices, and
+only device memory becomes resident on all devices at allocation time by default.
+
+**Default**: ``0x002``
 
 Plugin OpenCL
 -------------
-
-``LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD=<Method>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Method> := 0 | 1 | 2
-
-Uses the specified method when performing memory copy operations.
-This is only effective when ``LIBOMPTARGET_OPENCL_USE_SVM=1``.
-
-``<Method>=0``: Uses ``clEnqueueRead/WriteBuffer`` API function on a temporary
-OpenCL buffer (``cl_mem``) created from a SVM pointer.
-
-``<Method>=1``: Uses ``clEnqueueSVMMap/Unmap`` API function.
-
-``<Method>=2``: Uses ``clEnqueueSVMMemcpy`` API function.
-
-**Default**: ``<Method>=1`` if ``LIBOMPTARGET_OPENCL_USE_SVM=1``
 
 ``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -554,27 +590,6 @@ binaries.
   <Enable> := 1 | T | t
 
 Enables using local work size (i.e., team size) suggested by OpenCL runtime.
-
-**Default**: Disabled
-
-``LIBOMPTARGET_OPENCL_USE_SVM=<Bool>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Bool> := 1 | T | t | 0 | F | f
-
-Enables/disables using SVM memory for default memory type.
-
-**Default**: Disabled (USM device by default)
-
-``LIBOMPTARGET_OPENCL_USE_BUFFER=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Enable> := 1 | T | t
-
-Enables using OpenCL buffer (``cl_mem``) for memory allocated by
-``omp_target_alloc`` routine.
 
 **Default**: Disabled
 

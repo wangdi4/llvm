@@ -16,9 +16,10 @@ For general information on debugging OpenMP target offloading applications, see
 LLVM/OpenMP Host Runtime (``libomp``)
 -------------------------------------
 
-An `early (2015) design document <https://openmp.llvm.org/Reference.pdf>`_ for
-the LLVM/OpenMP host runtime, aka.  `libomp.so`, is available as a `pdf
-<https://openmp.llvm.org/Reference.pdf>`_.
+An `early (2015) design document
+<https://raw.githubusercontent.com/llvm/llvm-project/main/openmp/runtime/doc/Reference.pdf>`_
+for the LLVM/OpenMP host runtime, aka.  `libomp.so`, is available as a `pdf
+<https://raw.githubusercontent.com/llvm/llvm-project/main/openmp/runtime/doc/Reference.pdf>`_.
 
 .. _libomp_environment_vars:
 
@@ -719,12 +720,13 @@ variables is defined below.
     * ``LIBOMPTARGET_JIT_REPLACEMENT_MODULE=<in:Filename> (LLVM-IR file)``
     * ``LIBOMPTARGET_JIT_PRE_OPT_IR_MODULE=<out:Filename> (LLVM-IR file)``
     * ``LIBOMPTARGET_JIT_POST_OPT_IR_MODULE=<out:Filename> (LLVM-IR file)``
+    * ``LIBOMPTARGET_MIN_THREADS_FOR_LOW_TRIP_COUNT=<Num> (default: 32)``
 
 LIBOMPTARGET_DEBUG
 """"""""""""""""""
 
 ``LIBOMPTARGET_DEBUG`` controls whether or not debugging information will be
-displayed. This feature is only availible if ``libomptarget`` was built with
+displayed. This feature is only available if ``libomptarget`` was built with
 ``-DOMPTARGET_DEBUG``. The debugging output provided is intended for use by
 ``libomptarget`` developers. More user-friendly output is presented when using
 ``LIBOMPTARGET_INFO``.
@@ -974,7 +976,7 @@ going wrong.
     Libomptarget error: Consult https://openmp.llvm.org/design/Runtimes.html for debugging options.
     sum.cpp:5:1: Libomptarget error 1: failure of target construct while offloading is mandatory
 
-This shows that there is an illegal memory access occuring inside the OpenMP
+This shows that there is an illegal memory access occurring inside the OpenMP
 target region once execution has moved to the CUDA device, suggesting a
 segmentation fault. This then causes a chain reaction of failures in
 ``libomptarget``. Another message suggests using the ``LIBOMPTARGET_INFO``
@@ -1060,7 +1062,7 @@ of LLVM did not.
 LIBOMPTARGET_JIT_OPT_LEVEL
 """"""""""""""""""""""""""
 
-This environment variable can be used to change the optimization pipeleine used
+This environment variable can be used to change the optimization pipeline used
 to optimize the embedded device code as part of the device JIT. The value is
 corresponds to the ``-O{0,1,2,3}`` command line argument passed to ``clang``.
 
@@ -1107,7 +1109,7 @@ transformed and loaded back into the JIT pipeline via
 
 
 LIBOMPTARGET_JIT_POST_OPT_IR_MODULE
-""""""""""""""""""""""""""""""""""
+"""""""""""""""""""""""""""""""""""
 
 This environment variable can be used to extract the embedded device code after
 the device JIT runs additional IR optimizations on it (see
@@ -1115,6 +1117,18 @@ the device JIT runs additional IR optimizations on it (see
 which the LLVM-IR module is written. The module can be the analyzed, and
 transformed and loaded back into the JIT pipeline via
 :ref:`LIBOMPTARGET_JIT_REPLACEMENT_MODULE`.
+
+
+LIBOMPTARGET_MIN_THREADS_FOR_LOW_TRIP_COUNT
+"""""""""""""""""""""""""""""""""""""""""""
+
+This environment variable defines a lower bound for the number of threads if a
+combined kernel, e.g., `target teams distribute parallel for`, has insufficient
+parallelism. Especially if the trip count of the loops is lower than the number
+of threads possible times the number of teams (aka. blocks) the device preferes
+(see also :ref:`LIBOMPTARGET_AMDGPU_TEAMS_PER_CU), we will reduce the thread
+count to increase outer (team/block) parallelism. The thread count will never
+be reduced below the value passed for this environment variable though.
 
 
 
@@ -1159,6 +1173,7 @@ There are several environment variables to change the behavior of the plugins:
 * ``LIBOMPTARGET_AMDGPU_TEAMS_PER_CU``
 * ``LIBOMPTARGET_AMDGPU_MAX_ASYNC_COPY_BYTES``
 * ``LIBOMPTARGET_AMDGPU_NUM_INITIAL_HSA_SIGNALS``
+* ``LIBOMPTARGET_AMDGPU_STREAM_BUSYWAIT``
 
 The environment variables ``LIBOMPTARGET_SHARED_MEMORY_SIZE``,
 ``LIBOMPTARGET_STACK_SIZE`` and ``LIBOMPTARGET_HEAP_SIZE`` are described in
@@ -1223,9 +1238,9 @@ LIBOMPTARGET_AMDGPU_MAX_ASYNC_COPY_BYTES
 
 This environment variable specifies the maximum size in bytes where the memory
 copies are asynchronous operations in the AMDGPU plugin. Up to this transfer
-size, the memory copies are asychronous operations pushed to the corresponding
+size, the memory copies are asynchronous operations pushed to the corresponding
 stream. For larger transfers, they are synchronous transfers. Memory copies
-involving already locked/pinned host buffers are always asychronous. The default
+involving already locked/pinned host buffers are always asynchronous. The default
 value is ``1*1024*1024`` bytes (1 MB).
 
 LIBOMPTARGET_AMDGPU_NUM_INITIAL_HSA_SIGNALS
@@ -1236,6 +1251,14 @@ in the AMDGPU plugin. There is one resource manager of signals per device
 managing several pre-created signals. These signals are mainly used by AMDGPU
 streams. More HSA signals will be created dynamically throughout the execution
 if needed. The default value is ``64``.
+
+LIBOMPTARGET_AMDGPU_STREAM_BUSYWAIT
+"""""""""""""""""""""""""""""""""""
+
+This environment variable controls the timeout hint in microseconds for the
+HSA wait state within the AMDGPU plugin. For the duration of this value
+the HSA runtime may busy wait. This can reduce overall latency.
+The default value is ``2000000``.
 
 .. _remote_offloading_plugin:
 
@@ -1278,7 +1301,7 @@ LIBOMPTARGET_RPC_ADDRESS
 The address and port at which the server is running. This needs to be set for
 the server and the application, the default is ``0.0.0.0:50051``. A single
 OpenMP executable can offload onto multiple remote hosts by setting this to
-comma-seperated values of the addresses.
+comma-separated values of the addresses.
 
 LIBOMPTARGET_RPC_ALLOCATOR_MAX
 """"""""""""""""""""""""""""""
@@ -1291,6 +1314,54 @@ This is the maximum size of a single message while streaming data transfers betw
 LIBOMPTARGET_RPC_LATENCY
 """"""""""""""""""""""""
 This is the maximum amount of time the client will wait for a response from the server.
+
+
+.. _libomptarget_libc:
+
+LLVM/OpenMP support for C library routines
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Support for calling standard C library routines on GPU targets is provided by 
+the `LLVM C Library <https://libc.llvm.org/gpu/>`_. This project provides two 
+static libraries, ``libcgpu.a`` and ``libllvmlibc_rpc_server.a``, which are used 
+by the OpenMP runtime to provide ``libc`` support. The ``libcgpu.a`` library 
+contains the GPU device code, while ``libllvmlibc_rpc_server.a`` provides the 
+interface to the RPC interface. More information on the RPC construction can be 
+found in the `associated documentation <https://libc.llvm.org/gpu/rpc.html>`_.
+
+To provide host services, we run an RPC server inside of the runtime. This 
+allows the host to respond to requests made from the GPU asynchronously. For 
+``libc`` calls that require an RPC server, such as printing, an external handle 
+to the RPC client running on the GPU will be present in the GPU executable. If 
+we find this symbol, we will initialize a client and server and run it in the 
+background while the kernel is executing.
+
+For example, consider the following simple OpenMP offloading code. Here we will 
+simply print a string to the user from the GPU.
+
+.. code-block:: c++
+
+   #include <stdio.h>
+
+   int main() {
+    #pragma omp target
+      { fputs("Hello World!\n", stderr); }
+   }
+
+We can compile this using the ``libcgpu.a`` library to resolve the symbols. 
+Because this function requires RPC support, this will also pull in an externally 
+visible symbol called ``__llvm_libc_rpc_client`` into the device image. When 
+loading the device image, the runtime will check for this symbol and initialize 
+an RPC interface if it is found. The following example shows the RPC server 
+being used.
+
+.. code-block:: console
+
+    $ clang++ hello.c -fopenmp --offload-arch=gfx90a -lcgpu
+    $ env LIBOMPTARGET_DEBUG=1 ./a.out
+    PluginInterface --> Running an RPC server on device 0
+    ...
+    Hello World!
 
 .. _libomptarget_device:
 
@@ -1355,7 +1426,7 @@ clause. Examples for both are given below.
 .. code-block:: console
 
     $ clang++ -fopenmp --offload-arch=gfx90a -O3 shared.c
-    $ env LIBOMPTARGET_NEXTGEN_PLUGINS=1 ./shared
+    $ env ./shared
 
 
 .. _libomptarget_device_debugging:

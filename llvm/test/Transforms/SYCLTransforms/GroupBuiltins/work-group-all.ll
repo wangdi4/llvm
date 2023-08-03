@@ -1,6 +1,6 @@
-; RUN: llvm-as -opaque-pointers=0 %p/work-group-builtins-64.ll -o %t.work-group-builtins-64.ll.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib %t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib %t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
+; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.work-group-builtins-64.ll.bc
+; RUN: opt -sycl-kernel-builtin-lib %t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib %t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass
@@ -29,14 +29,14 @@ define dso_local void @build_hash_table() {
 
 ; CHECK-LABEL: @build_hash_table(
 ; CHECK:    [[ALLOCAWGRESULT:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    store i32 1, i32* [[ALLOCAWGRESULT]], align 4
+; CHECK-NEXT:    store i32 1, ptr [[ALLOCAWGRESULT]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
 
-; CHECK:    [[CALLWGFORITEM:%.*]] = call i32 @_Z14work_group_alliPi(i32 noundef [[DONE_0:%.*]], i32* [[ALLOCAWGRESULT]]) #[[ATTR4:[0-9]+]]
+; CHECK:    [[CALLWGFORITEM:%.*]] = call i32 @_Z14work_group_alliPi(i32 noundef [[DONE_0:%.*]], ptr [[ALLOCAWGRESULT]]) #[[ATTR4:[0-9]+]]
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
-; CHECK-NEXT:    %LoadWGFinalResult = load i32, i32* [[ALLOCAWGRESULT]], align 4
+; CHECK-NEXT:    %LoadWGFinalResult = load i32, ptr [[ALLOCAWGRESULT]], align 4
 ; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i32 @_Z30__finalize_work_group_identityi(i32 %LoadWGFinalResult)
-; CHECK-NEXT:    store i32 1, i32* [[ALLOCAWGRESULT]], align 4
+; CHECK-NEXT:    store i32 1, ptr [[ALLOCAWGRESULT]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
 ; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp eq i32 [[CALLFINALIZEWG]], 0
 
@@ -70,14 +70,14 @@ declare void @_Z18work_group_barrierj(i32) #1
 define dso_local void @_ZGVeN4_build_hash_table() {
 ; CHECK-LABEL: @_ZGVeN4_build_hash_table(
 ; CHECK:         [[ALLOCAWGRESULT:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* [[ALLOCAWGRESULT]], align 16
+; CHECK-NEXT:    store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, ptr [[ALLOCAWGRESULT]], align 16
 ; CHECK-NEXT:    call void @dummy_barrier.()
 
-; CHECK:    [[CALLWGFORITEM:%.*]] = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> noundef [[BROADCAST_SPLAT:%.*]], <4 x i32>* [[ALLOCAWGRESULT]]) #[[ATTR4]]
+; CHECK:    [[CALLWGFORITEM:%.*]] = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> noundef [[BROADCAST_SPLAT:%.*]], ptr [[ALLOCAWGRESULT]]) #[[ATTR4]]
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
-; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load <4 x i32>, <4 x i32>* [[ALLOCAWGRESULT]], align 16
+; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load <4 x i32>, ptr [[ALLOCAWGRESULT]], align 16
 ; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> [[LOADWGFINALRESULT]])
-; CHECK-NEXT:    store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* [[ALLOCAWGRESULT]], align 16
+; CHECK-NEXT:    store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, ptr [[ALLOCAWGRESULT]], align 16
 ; CHECK-NEXT:    call void @dummy_barrier.()
 
 ; CHECK:    tail call void @_Z18work_group_barrierj(i32 noundef 1) #[[ATTR5]]
@@ -115,15 +115,15 @@ attributes #5 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 attributes #6 = { convergent nounwind "kernel-call-once" "kernel-convergent-call" "kernel-uniform-call" }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  %AllocaWGResult = alloca i32, align 4
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  store i32 1, i32* %AllocaWGResult, align 4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  store i32 1, ptr %AllocaWGResult, align 4
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  call void @dummy_barrier.()
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  store i32 1, i32* %AllocaWGResult, align 4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  store i32 1, ptr %AllocaWGResult, align 4
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table --  call void @dummy_barrier.()
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  %AllocaWGResult = alloca <4 x i32>, align 16
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, ptr %AllocaWGResult, align 16
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  call void @dummy_barrier.()
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  %LoadWGFinalResult = load <4 x i32>, ptr %AllocaWGResult, align 16
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, ptr %AllocaWGResult, align 16
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_build_hash_table --  call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

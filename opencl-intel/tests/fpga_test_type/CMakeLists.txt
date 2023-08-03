@@ -18,8 +18,6 @@ calculate_target_sources()
 
 include_directories(include ${OCL_SOURCE_DIR}/tests/framework_test_type)
 
-link_directories(${TBB_LIB_DIR})
-
 set(FPGA_TEST_TYPE_LINK_LIBS
   LLVMSupport
   LLVMTargetParser
@@ -39,8 +37,12 @@ add_ocl_unittest(
 link_target_with_tbb_library(fpga_test_type)
 
 add_ocl_unittest_artifacts(
-  FILES data/internal-ctor-kernel.ioc.obj data/internal-ctor-lib.cpp.ioc.obj
-  data/atomics64.spv)
+  FILES
+  data/atomics64.spv
+  data/device_global_image1.bc
+  data/device_global_image2.bc
+  data/internal-ctor-kernel.ioc.obj
+  data/internal-ctor-lib.cpp.ioc.obj)
 
 add_dependencies(
   fpga_test_type clang_compiler OclCpuBackEnd cpu_device ${OCL_RT_TEST_DEPS})

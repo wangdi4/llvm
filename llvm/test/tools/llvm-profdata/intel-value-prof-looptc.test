@@ -1,0 +1,125 @@
+# Test that loop trip count value profiling data is reported with the -loop-trip-counts
+# option of llvm-profdata
+
+# RUN: llvm-profdata show -all-functions -loop-trip-counts %s | FileCheck %s
+
+# This test is generated using the following source and commands:
+# 
+# File: convolvexmain.cpp
+# ----------------------------------------------------
+# #include <stdio.h>
+#
+# int  kernel[100];
+#
+# void Convolve(int height, int width, float *sum,  float *P, 
+# 	            int *Kernel,  int channel); 
+#
+# void init(int height, int width, int depth, int *kernel, float *sum, float *pixel)
+# {
+#   for (int i = 0; i < width; i++) {
+#      sum[i] = 0.0f;
+#      kernel[i] = i;
+#   }
+#
+#   for (int i=0; i < height * width * depth; i++) {
+#     pixel[i] = i % 10;
+#   }
+# }
+#
+# float do_test(int iter, int height, int width, int depth, int *kernel, float *sum, float *pixel)
+# {
+#   float result = 0.0f;
+#   for (int i=0; i < iter; i++) {
+#     Convolve(height,  width, sum,  pixel, kernel, depth); 
+#     result = sum[0] + sum[3];
+#     for (int j=0; j < width; j++) {
+#       sum[j] = 0;
+#     }
+#   }
+#   return result;
+# }
+#
+# int main()
+# {
+#   int height = 100;
+#   int width  = 100;
+#   int channel = 4; 
+#
+#   float P[40000];
+#   float sum[100];
+#
+#   init(height, width, channel, &kernel[0], sum, P);
+#   float result1 = do_test(10, height, width, channel, &kernel[0], sum, P);  
+#
+#   init(height / 4, width / 4, channel, &kernel[0], sum, P);
+#   float result2 = do_test(2000, height / 4, width / 4, channel, &kernel[0], sum, P);
+#   if (result1 != 4000 || result2 != 1000)
+#     printf("fail\n");
+#   else
+#     printf("pass\n");
+#   return 0;
+# }
+# ----------------------------------------------------
+#
+# File: convolvex.cpp
+# ----------------------------------------------------
+# void Convolve(int height, int width, float  *sum,  float *P, int *Kernel, int channel)
+# {
+#   for (int  i = 0; i  < height; i++)
+#    {                                 
+#     for (int j = 0; j  < width; j++)
+#      {                               
+#       float *Pixel = P + (j + i * width) * channel;
+#       float sum0 = 0;
+#       for (int c = 0; c < channel; c++)
+#        {
+#  	       sum0 += Pixel[c] * Kernel[c];
+#        }
+#       sum[j] += sum0;
+#     }
+#   }
+# }
+# ----------------------------------------------------
+#
+# Commands for generation:
+# ----------------------------------------------------
+# > icpx -O3 -xCORE-AVX512 -c convolvexmain.cpp
+# > icpx -O3 -g -xCORE-AVX512 -mllvm -looptc-min-depth=1 -fprofile-generate convolvex.cpp convolvexmain.o -o convolvexmain.exe
+# > ./convolvexmain.exe 
+# > llvm-profdata merge --text default_*.profraw > pgo.txt
+
+# IR level Instrumentation Flag
+:ir
+_Z8ConvolveiiPfS_Pii
+# Func Hash:
+567185240705392878
+# Num Counters:
+4
+# Counter Values:
+5400000
+1350000
+51000
+2010
+# Num Value Kinds:
+1
+# ValueKind = IPVK_LoopTripCount:
+2
+# NumValueSites:
+3
+2
+25:2000
+100:10
+2
+25:50000
+100:1000
+1
+4:1350000
+
+# CHECK: _Z8ConvolveiiPfS_Pii:
+# CHECK:    Number of loop counts: 3
+# CHECK:    Loop trip counts:
+# CHECK:        [  0,   25,       2000 ]
+# CHECK:        [  0,  100,         10 ]
+# CHECK:        [  1,   25,      50000 ]
+# CHECK:        [  1,  100,       1000 ]
+# CHECK:        [  2,    4,    1350000 ]

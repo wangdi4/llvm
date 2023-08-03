@@ -7,7 +7,7 @@
 ; HIR:
 ;            BEGIN REGION { }
 ;                  + DO i1 = 0, 9, 1   <DO_LOOP>
-;                  |   @llvm.memcpy.p0i8.p0i8.i64(&((i8*)(%SSS)[0]),  &((i8*)(@__const.main.a)[0]),  16,  0);
+;                  |   @llvm.memcpy.p0.p0.i64(&((i8*)(%SSS)[0]),  &((i8*)(@__const.main.a)[0]),  16,  0);
 ;                  + END LOOP
 ;            END REGION
 
@@ -34,33 +34,33 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local noundef i32 @main(i32 noundef %n) local_unnamed_addr #0 {
 entry:
   %SSS = alloca %struct.s1, align 4
-  %0 = bitcast %struct.s1* %SSS to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #3
+  %0 = bitcast ptr %SSS to ptr
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %0) #3
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %i.04 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 4 dereferenceable(16) %0, i8* noundef nonnull align 16 dereferenceable(16) bitcast ([10 x i32]* @__const.main.a to i8*), i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 4 dereferenceable(16) %0, ptr noundef nonnull align 16 dereferenceable(16) @__const.main.a, i64 16, i1 false)
   %inc = add nuw nsw i32 %i.04, 1
   %exitcond.not = icmp eq i32 %inc, 10
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !3
 
 for.end:                                          ; preds = %for.body
   %idxprom = sext i32 %n to i64
-  %arrayidx = getelementptr inbounds %struct.s1, %struct.s1* %SSS, i64 0, i32 0, i32 0, i64 %idxprom, !intel-tbaa !5
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !5
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %0) #3
+  %arrayidx = getelementptr inbounds %struct.s1, ptr %SSS, i64 0, i32 0, i32 0, i64 %idxprom, !intel-tbaa !5
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !5
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %0) #3
   ret i32 %1
 }
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }

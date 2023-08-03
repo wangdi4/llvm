@@ -2,11 +2,10 @@
 // expected-no-diagnostics
 
 #include "sycl/sycl.hpp"
-#include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
-#include <sycl/ext/oneapi/annotated_arg/properties.hpp>
+#include <sycl/ext/intel/fpga_extensions.hpp>
 
 using namespace sycl::ext::oneapi::experimental;
+using namespace sycl::ext::intel::experimental;
 
 static annotated_arg<int, decltype(properties())> AnnotatedArg1;
 static annotated_arg<int, decltype(properties(register_map))> AnnotatedArg2;

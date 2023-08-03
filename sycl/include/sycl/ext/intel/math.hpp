@@ -81,12 +81,20 @@ _iml_half_internal __imf_logf16(_iml_half_internal);
 float __imf_sinf(float);
 double __imf_sin(double);
 _iml_half_internal __imf_sinf16(_iml_half_internal);
+float __imf_pownf(float, int);
+double __imf_pown(double, int);
 float __imf_i0f(float);
 double __imf_i0(double);
+float __imf_i1f(float);
+double __imf_i1(double);
 float __imf_j0f(float);
+double __imf_j0(double);
 float __imf_j1f(float);
+double __imf_j1(double);
 float __imf_y0f(float);
+double __imf_y0(double);
 float __imf_y1f(float);
+double __imf_y1(double);
 /* end INTEL_CUSTOMIZATION */
 float __imf_ceilf(float);
 double __imf_ceil(double);
@@ -112,7 +120,7 @@ _iml_half_internal __imf_truncf16(_iml_half_internal);
 };
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::intel::math {
 
 static_assert(sizeof(sycl::half) == sizeof(_iml_half_internal),
@@ -373,13 +381,33 @@ std::enable_if_t<std::is_same_v<Tp, sycl::half2>, sycl::half2> sin(Tp x) {
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, float>, float> i0(Tp x) {
+std::enable_if_t<std::is_same_v<Tp, float>, float> powi(Tp x, int y) {
+  return __imf_pownf(x, y);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> powi(Tp x, int y) {
+  return __imf_pown(x, y);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> cyl_bessel_i0(Tp x) {
   return __imf_i0f(x);
 }
 
 template <typename Tp>
-std::enable_if_t<std::is_same_v<Tp, double>, double> i0(Tp x) {
+std::enable_if_t<std::is_same_v<Tp, double>, double> cyl_bessel_i0(Tp x) {
   return __imf_i0(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> cyl_bessel_i1(Tp x) {
+  return __imf_i1f(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> cyl_bessel_i1(Tp x) {
+  return __imf_i1(x);
 }
 
 template <typename Tp>
@@ -388,8 +416,18 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> j0(Tp x) {
 }
 
 template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> j0(Tp x) {
+  return __imf_j0(x);
+}
+
+template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> j1(Tp x) {
   return __imf_j1f(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> j1(Tp x) {
+  return __imf_j1(x);
 }
 
 template <typename Tp>
@@ -398,8 +436,18 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> y0(Tp x) {
 }
 
 template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> y0(Tp x) {
+  return __imf_y0(x);
+}
+
+template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> y1(Tp x) {
   return __imf_y1f(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, double>, double> y1(Tp x) {
+  return __imf_y1(x);
 }
 
 /* end INTEL_CUSTOMIZATION */
@@ -551,5 +599,5 @@ std::enable_if_t<std::is_same_v<Tp, sycl::half2>, sycl::half2> trunc(Tp x) {
 }
 
 } // namespace ext::intel::math
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

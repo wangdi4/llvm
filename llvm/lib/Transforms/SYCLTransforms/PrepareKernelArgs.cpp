@@ -47,6 +47,20 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
   return PreservedAnalyses::none();
 }
 
+static void
+collectEnqueueKernelAndQueryFuncs(Module &M,
+                                  SmallVectorImpl<Function *> &Funcs) {
+  for (Function &EEF : M) {
+    if (EEF.isDeclaration()) {
+      StringRef EEFName = EEF.getName();
+      if (EEFName.startswith("__ocl20_enqueue_kernel_") ||
+          EEFName.equals("__ocl20_get_kernel_wg_size") ||
+          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple"))
+        Funcs.push_back(&EEF);
+    }
+  }
+}
+
 bool PrepareKernelArgsPass::runImpl(
     Module &M, bool UseTLSGlobals,
     function_ref<AssumptionCache *(Function &F)> GetAC,
@@ -61,6 +75,8 @@ bool PrepareKernelArgsPass::runImpl(
 
   // Get all kernels (original scalar kernels and vectorized kernels).
   auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
+
+  collectEnqueueKernelAndQueryFuncs(*this->M, EnqueueKernelAndQueryFuncs);
 
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
@@ -103,14 +119,21 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   return NewF;
 }
 
+/// Return the type that has larger alloc size.
+static Type *getMaxSizeType(const DataLayout &DL, Type *OldTy, Type *NewTy) {
+  return (!OldTy || DL.getTypeAllocSize(NewTy) > DL.getTypeAllocSize(OldTy))
+             ? NewTy
+             : OldTy;
+}
+
 std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     IRBuilder<> &Builder, Function *WrappedKernel, Argument *ArgsBuffer,
     Argument *WGId, Argument *RuntimeContext) {
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
-  std::vector<unsigned int> memoryArguments;
+  std::vector<unsigned int> MemoryArguments;
   CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
-                                         Arguments, memoryArguments);
+                                         Arguments, MemoryArguments);
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
@@ -150,16 +173,40 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
 
       // Set alignment of buffer to type size.
-      unsigned Alignment = 16; // Cacheline
-      Type *EltTy = CallIt->getType()->getPointerElementType();
+      unsigned Alignment = DEV_MAXIMUM_ALIGN;
+      Type *EltTy = nullptr;
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
       // support instructions such as MOVUPS
       unsigned VecSize =
           KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
-      if (VecSize != 1 && VectorType::isValidElementType(EltTy))
-        EltTy = FixedVectorType::get(EltTy, VecSize);
-      Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
+      // Nonspirv doesn't have argument type metadata. Get type/align from IR.
+      if (auto A = CallIt->getParamAlign()) {
+        Alignment =
+            NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A.value().value() - 1);
+      } else {
+        SmallVector<User *, 8> WorkList{CallIt->users()};
+        SmallPtrSet<Value *, 4> Def{&*CallIt};
+        while (!WorkList.empty()) {
+          User *U = WorkList.pop_back_val();
+          if (isa<AddrSpaceCastInst>(U) || isa<SelectInst>(U) ||
+              isa<PHINode>(U)) {
+            Def.insert(U);
+            WorkList.append(U->user_begin(), U->user_end());
+            continue;
+          }
+          if (auto *Op = getLoadStorePointerOperand(U); Op && Def.contains(Op))
+            EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
+          else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
+            EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
+        }
+      }
+      if (EltTy) {
+        if (VecSize != 1 && VectorType::isValidElementType(EltTy))
+          EltTy = FixedVectorType::get(EltTy, VecSize);
+        Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
+      }
+
       // We can't use overload without explicit alloca addrspace because the
       // BB does not have a parent yet.
       AllocaInst *Allocation =
@@ -360,10 +407,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                          Align(TypeAlignment::MAX_ALIGNMENT));
       Builder.Insert(BarrierBuffer);
       Arg = BarrierBuffer;
-      LLVM_DEBUG(CompilationUtils::insertPrintf("SPECIAL BUFFER: ", Builder,
-                                                BarrierBuffer));
       LLVM_DEBUG(CompilationUtils::insertPrintf(
-          "SPECIAL BUFFER SIZE: ", Builder, BarrierBufferSize));
+          "SPECIAL BUFFER: ", Builder, {BarrierBuffer, BarrierBufferSize},
+          {"ADDR", "SIZE"}));
     } break;
     case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
       // These values are pointers that just need to be loaded from the
@@ -430,25 +476,20 @@ CallInst *PrepareKernelArgsPass::createWrapperBody(Function *Wrapper,
 
 void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
                                                     Function *WrappedKernel) {
+  if (WrappedKernel->use_empty())
+    return;
+
   // BIs like enqueue_kernel and kernel query have a function pointer to a
   // block invoke kernel as an argument.
   // Replace these arguments by a pointer to the wrapper function.
   IRBuilder<> Builder(WrappedKernel->getContext());
-  for (auto &EEF : *M) {
-    if (!EEF.isDeclaration())
-      continue;
-
-    StringRef EEFName = EEF.getName();
-    if (!(EEFName.startswith("__ocl20_enqueue_kernel_") ||
-          EEFName.equals("__ocl20_get_kernel_wg_size") ||
-          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple")))
-      continue;
-
+  for (Function *EEF : EnqueueKernelAndQueryFuncs) {
+    StringRef EEFName = EEF->getName();
     unsigned BlockInvokeIdx = (EEFName.startswith("__ocl20_enqueue_kernel_"))
                                   ? (EEFName.contains("_events") ? 6 : 3)
                                   : 0;
 
-    for (auto *U : EEF.users()) {
+    for (auto *U : EEF->users()) {
       if (auto *EECall = dyn_cast<CallInst>(U)) {
         Value *BlockInvoke =
             EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
@@ -464,20 +505,40 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  for (User *U : WrappedKernel->users()) {
-    // Replace bitcast operator user, e.g. in global value.
-    if (auto *Op = dyn_cast<BitCastOperator>(U)) {
-      auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
-      Op->replaceAllUsesWith(WrapperOp);
-    } else if (auto *Op = dyn_cast<SelectInst>(U)) {
-      // WrappedKernel is used as select instruction operand
-      auto *WrapperOp =
-          ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
-      if (Op->getOperand(1)->getName() == WrappedKernel->getName())
-        Op->setOperand(1, WrapperOp);
-      else
-        Op->setOperand(2, WrapperOp);
+  if (M->getContext().supportsTypedPointers()) {
+    for (User *U : WrappedKernel->users()) {
+      // Replace bitcast operator user, e.g. in global value.
+      if (auto *Op = dyn_cast<BitCastOperator>(U)) {
+        auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
+        Op->replaceAllUsesWith(WrapperOp);
+      } else if (auto *Op = dyn_cast<SelectInst>(U)) {
+        // WrappedKernel is used as select instruction operand
+        auto *WrapperOp =
+            ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
+        if (Op->getOperand(1)->getName() == WrappedKernel->getName())
+          Op->setOperand(1, WrapperOp);
+        else
+          Op->setOperand(2, WrapperOp);
+      }
     }
+    return;
+  }
+
+  ValueToValueMapTy VMap;
+  VMap[WrappedKernel] = Wrapper;
+  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+  SmallVector<User *, 16> Users{WrappedKernel->users()};
+  for (User *U : Users) {
+    // Skip the CallInst that was created in createWrapperBody.
+    if (auto *CI = dyn_cast<CallInst>(U); CI && CI->getFunction() == Wrapper)
+      continue;
+
+    if (auto *I = dyn_cast<Instruction>(U))
+      VMapper.remapInstruction(*I);
+    else if (auto *C = dyn_cast<Constant>(U))
+      C->replaceAllUsesWith(VMapper.mapConstant(*C));
+    else
+      llvm_unreachable("unhandled wrapped kernel user");
   }
 }
 

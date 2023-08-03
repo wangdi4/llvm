@@ -21,6 +21,7 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanUtils.h"
 
 #define DEBUG_TYPE "vplan-loop-canonicalization"
 
@@ -43,19 +44,33 @@ static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,
   }
 }
 
+// If there's no incoming value from the basic block From in VPPhi, add an
+// incoming undef value.
+static void fillPhiValueIfMissing(VPPHINode &VPPhi, VPBasicBlock *From,
+                                  VPlan *Plan) {
+  if (VPPhi.getBlockIndex(From) == -1) {
+    Type *T = VPPhi.getType();
+    VPPhi.addIncoming(Plan->getVPConstant(UndefValue::get(T)), From);
+  }
+}
+
 // Move exit block's phi node to another block (new loop latch or intermediate
 // block or cascaded if block). This is needed because the predecessors of the
 // exit block change after disconnecting it from the exiting block. Thus, we
 // might need to move the phi node of the exit block to the new loop latch or
 // the intermediate block or the cascaded if block.
 static void moveExitBlocksPhiNode(VPBasicBlock *ExitBlock,
-                                  VPBasicBlock *NewBlock) {
+                                  VPBasicBlock *NewBlock, VPlan *Plan) {
   auto itNext = ExitBlock->begin();
   for (auto it = ExitBlock->begin(); it != ExitBlock->end(); it = itNext) {
     itNext = it;
     ++itNext;
     if (VPPHINode *ExitBlockVPPhi = dyn_cast<VPPHINode>(&*it)) {
       ExitBlock->removeInstruction(ExitBlockVPPhi);
+
+      for (VPBasicBlock *From : NewBlock->getPredecessors())
+        fillPhiValueIfMissing(*ExitBlockVPPhi, From, Plan);
+
       if (NewBlock->empty())
         NewBlock->addInstruction(ExitBlockVPPhi);
       else if (isa<VPPHINode>(&*NewBlock->begin()))
@@ -249,7 +264,7 @@ namespace vpo {
 //                                 \    /
 //                                  BB6
 //
-void mergeLoopExits(VPLoop *VPL) {
+void mergeLoopExits(VPLoop *VPL, bool NeedsOuterLpEarlyExitHandling) {
   VPlanVector *Plan = cast<VPlanVector>(VPL->getHeader()->getParent());
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
@@ -265,6 +280,13 @@ void mergeLoopExits(VPLoop *VPL) {
 
   LLVM_DEBUG(dbgs() << "Before merge loop exits transformation.\n");
   LLVM_DEBUG(Plan->dump());
+
+  // Track if we're dealing with an outer early-exit loop that needs to be
+  // processed in VPlan.
+  bool IsOuterEarlyExitLp =
+      NeedsOuterLpEarlyExitHandling && VPL == *VPLInfo->begin();
+  assert((!IsOuterEarlyExitLp || VPlanEnableEarlyExitLoops) &&
+         "Unexpected outer loop in mergeLoopExits.");
 
   SmallVector<VPBasicBlock *, 2> ExitBlocks;
   VPL->getUniqueExitBlocks(ExitBlocks);
@@ -357,6 +379,30 @@ void mergeLoopExits(VPLoop *VPL) {
     if (ExitingBlock == OrigLoopLatch)
       continue;
 
+    // For early-exit loops we need to capture the CondBits that lead to the
+    // early-exit. This is obtained through the terminator instruction of the
+    // exiting block.
+    if (IsOuterEarlyExitLp) {
+      VPBuilder::InsertPointGuard Guard(VPBldr);
+      VPBldr.setInsertPoint(ExitingBlock);
+      auto *EEBranch = cast<VPBranchInst>(ExitingBlock->getTerminator());
+      assert(EEBranch->getNumSuccessors() == 2 &&
+             "Expected 2 successors for early-exit branch.");
+      // Condition that triggers early-exit.
+      VPValue *Cond = EEBranch->getCondition();
+
+      // If exit is taken on "false", then we emit a VPNot and swap successors
+      // as part of early-exit-cond canonicalization.
+      if (EEBranch->getSuccessor(0) != ExitBlock) {
+        Cond = VPBldr.createNot(Cond, "early.exit.cond.canon");
+        EEBranch->swapSuccessors();
+      }
+
+      auto *EECond = VPBldr.create<VPEarlyExitCond>("early.exit.cond", Cond);
+      // Update branch to use the newly generated early-exit-cond.
+      EEBranch->setCondition(EECond);
+    }
+
     // This check is for case 2. In this case, we create a new intermediate
     // basic block only if the exiting block is the loop header. This is needed
     // for correct insertion of phis to make the loop exit condition live
@@ -401,7 +447,7 @@ void mergeLoopExits(VPLoop *VPL) {
             removeBlockFromVPPhiNode(ExitingBlock, ExitBlock);
           } else {
             // Move the phi node of the exit block to the new loop latch.
-            moveExitBlocksPhiNode(ExitBlock, NewLoopLatch);
+            moveExitBlocksPhiNode(ExitBlock, NewLoopLatch, Plan);
             phiIsMovedToNewLoopLatch = true;
           }
         } else
@@ -431,7 +477,7 @@ void mergeLoopExits(VPLoop *VPL) {
 
       if (hasVPPhiNode(ExitBlock))
         if (allPredsInLoop(ExitBlock, VPL))
-          moveExitBlocksPhiNode(ExitBlock, IntermediateBB);
+          moveExitBlocksPhiNode(ExitBlock, IntermediateBB, Plan);
 
       // Add ExitID and update NewLoopLatch's phi node.
       ExitID++;
@@ -443,6 +489,9 @@ void mergeLoopExits(VPLoop *VPL) {
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockIntermediateBBMap[ExitBlock] = IntermediateBB;
+
+      for (auto &NewLoopLatchPhi : NewLoopLatch->getVPPhis())
+        fillPhiValueIfMissing(NewLoopLatchPhi, IntermediateBB, Plan);
     }
     VisitedBlocks.insert(ExitBlock);
   }

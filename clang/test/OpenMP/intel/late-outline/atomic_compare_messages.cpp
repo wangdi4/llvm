@@ -2,6 +2,9 @@
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
 // RUN:  -ferror-limit 100 %s -Wuninitialized
 
+// RUN: %clang_cc1 -verify -fopenmp -fopenmp-late-outline \
+// RUN:  -ferror-limit 100 %s -Wuninitialized
+
 void bar();
 
 void foo()

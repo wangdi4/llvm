@@ -45,16 +45,16 @@ for.body6.lr.ph:                                  ; preds = %for.cond4.preheader
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %k.044 = phi i32 [ 2, %for.body6.lr.ph ], [ %add13, %for.body6 ]
   %add8 = add nuw nsw i32 %k.044, 2
-  %arrayidx9 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @A, i32 0, i32 %sub, i32 %add, i32 %add8
-  %0 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @A, i32 0, i32 %sub, i32 %add, i32 %add8
+  %0 = load i32, ptr %arrayidx9, align 4
   %add13 = add nuw nsw i32 %k.044, 1
-  %arrayidx14 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @A, i32 0, i32 %i.048, i32 %sub11, i32 %add13
-  %1 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @A, i32 0, i32 %i.048, i32 %sub11, i32 %add13
+  %1 = load i32, ptr %arrayidx14, align 4
   %add15 = add nsw i32 %1, %0
-  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x i32]]], [10 x [10 x [10 x i32]]]* @A, i32 0, i32 %i.048, i32 %j.046, i32 %k.044
-  %2 = load i32, i32* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds [10 x [10 x [10 x i32]]], ptr @A, i32 0, i32 %i.048, i32 %j.046, i32 %k.044
+  %2 = load i32, ptr %arrayidx18, align 4
   %add19 = add nsw i32 %add15, %2
-  store i32 %add19, i32* %arrayidx18, align 4
+  store i32 %add19, ptr %arrayidx18, align 4
   %exitcond = icmp eq i32 %add13, %N
   br i1 %exitcond, label %for.cond1.loopexit, label %for.body6
 

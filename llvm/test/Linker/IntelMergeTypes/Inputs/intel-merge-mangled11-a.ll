@@ -19,16 +19,16 @@ source_filename = "simple.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._ZTS10TestStruct.TestStruct = type { [5 x i32*] }
+%struct._ZTS10TestStruct.TestStruct = type { [5 x ptr] }
 
 ; Function Attrs: mustprogress uwtable
-define dso_local i32 @_Z3fooP10TestStructi(%struct._ZTS10TestStruct.TestStruct* nocapture readonly "intel_dtrans_func_index"="1" %T, i32 %i) local_unnamed_addr #0 !intel.dtrans.func.type !8 {
+define dso_local i32 @_Z3fooP10TestStructi(ptr nocapture readonly "intel_dtrans_func_index"="1" %T, i32 %i) local_unnamed_addr #0 !intel.dtrans.func.type !8 {
 entry:
   %idxprom = sext i32 %i to i64
-  %arrayidx = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* %T, i64 0, i32 0, i64 %idxprom, !intel-tbaa !10
-  %0 = load i32*, i32** %arrayidx, align 8, !tbaa !10
-  %arrayidx2 = getelementptr inbounds i32, i32* %0, i64 %idxprom
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !16
+  %arrayidx = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, ptr %T, i64 0, i32 0, i64 %idxprom, !intel-tbaa !10
+  %0 = load ptr, ptr %arrayidx, align 8, !tbaa !10
+  %arrayidx2 = getelementptr inbounds i32, ptr %0, i64 %idxprom
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !16
   %call = tail call i32 @_Z3bari(i32 %i)
   %add = add nsw i32 %call, %1
   ret i32 %add

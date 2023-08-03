@@ -38,8 +38,8 @@ namespace llvm {
 // This struct is used for both the folding and unfold tables. They KeyOp
 // is used to determine the sorting order.
 struct X86MemoryFoldTableEntry {
-  uint16_t KeyOp;
-  uint16_t DstOp;
+  unsigned KeyOp;
+  unsigned DstOp;
   uint16_t Flags;
 
   bool operator<(const X86MemoryFoldTableEntry &RHS) const {
@@ -64,12 +64,17 @@ const X86MemoryFoldTableEntry *lookupFoldTable(unsigned RegOp, unsigned OpNum);
 #if INTEL_CUSTOMIZATION
 // Look up the broadcast folding table entry for folding a broadcast with
 // operand OpNum.
-const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned RegOp,
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTableByOpNum(unsigned RegOp,
                                                         unsigned OpNum);
 #endif
 
 // Look up the memory unfolding table entry for this instruction.
 const X86MemoryFoldTableEntry *lookupUnfoldTable(unsigned MemOp);
+
+// Look up the broadcast memory folding table entry for this instruction from
+// the regular memory instruction.
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned MemOp,
+                                                        unsigned BroadcastBits);
 
 } // namespace llvm
 

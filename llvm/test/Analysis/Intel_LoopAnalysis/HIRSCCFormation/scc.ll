@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %A, i32 %a, i32 %b, i32 %n) {
+define i32 @foo(ptr nocapture %A, i32 %a, i32 %b, i32 %n) {
 entry:
   %cmp7 = icmp sgt i32 %n, 0
   br i1 %cmp7, label %for.body, label %for.end
@@ -29,8 +29,8 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %for.body
   %inc = add nsw i32 %a.addr.08, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %inc, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %inc, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

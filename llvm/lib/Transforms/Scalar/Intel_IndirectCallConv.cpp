@@ -50,7 +50,6 @@
 #include "llvm/Transforms/Scalar.h"
 
 #if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -72,8 +71,8 @@ static cl::opt<bool> IndCallConvForceAndersen("intel-ind-call-force-andersen",
                                               cl::init(false),
                                               cl::ReallyHidden);
 
-// Option to force DTransAnalysis to be available for indirect call conversion.
-// Useful for LIT tests.
+// Option to force DTransSafetyAnalyzer to be available for indirect call
+// conversion. Useful for LIT tests.
 static cl::opt<bool> IndCallConvForceDTrans("intel-ind-call-force-dtrans",
                                             cl::init(false), cl::ReallyHidden);
 
@@ -84,25 +83,22 @@ namespace {
 struct IndirectCallConvImpl {
 #if INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo,
-                       DTransAnalysisInfo *DTransInfo,
                        dtransOP::DTransSafetyInfo *DTransSI)
-      : AnderPointsTo(AnderPointsTo), DTransInfo(DTransInfo),
-        DTransSI(DTransSI){};
+      : AnderPointsTo(AnderPointsTo), DTransSI(DTransSI){};
 #else  // INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
       : AnderPointsTo(AnderPointsTo){};
 #endif // INTEL_FEATURE_SW_DTRANS
   static bool isNotDirectCall(CallBase *Call);
   static CallBase *createDirectCallSite(CallBase *Call, Value *F,
-                                        BasicBlock *In_BB);
+                                        BasicBlock *In_BB,
+                                        InlICSType ICSMethod);
   bool convert(CallBase *CS);
   bool run(Function &F);
 
 private:
   AndersensAAResult *AnderPointsTo;
 #if INTEL_FEATURE_SW_DTRANS
-  // Used with legacy DTransAnalysis pass
-  DTransAnalysisInfo *DTransInfo;
   // Used with DTransSafetyAnalyzer for opaque pointers pass
   dtransOP::DTransSafetyInfo *DTransSI;
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -125,7 +121,8 @@ bool IndirectCallConvImpl::isNotDirectCall(CallBase *Call) {
 //
 CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
                                                      Value *FuncName,
-                                                     BasicBlock *Insert_BB) {
+                                                     BasicBlock *Insert_BB,
+                                                     InlICSType ICSMethod) {
   CallBase *NewCall;
 
   if (isa<CallInst>(Call)) {
@@ -159,6 +156,8 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
   } else {
     llvm_unreachable("Expecting call/invoke instruction");
   }
+  getInlineReport()->addIndirectCallBaseTarget(ICSMethod, Call, NewCall);
+  getMDInlineReport()->addIndirectCallBaseTarget(ICSMethod, Call, NewCall);
   return NewCall;
 }
 
@@ -205,28 +204,23 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   Value *call_fptr = Call->getCalledOperand()->stripPointerCasts();
   bool TraceOn = false;
   LLVM_DEBUG(TraceOn = true;);
+  InlICSType ICSMethod = InlICSNone;
 #if INTEL_FEATURE_SW_DTRANS
-  // Try the legacy DTransAnalysis. This path will be removed after the compiler
-  // is fully transitioned to opaque pointers. When opaque pointers are in use,
-  // useDTransAnalysis will always return 'false.
-  if (DTransInfo && DTransInfo->useDTransAnalysis()) {
-    if (DTransInfo->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
-                                                  Call, TraceOn))
-      IsComplete = AndersensAAResult::AndersenSetResult::Complete;
-  }
-  // Try the DTransSafetyAnalyzer. This path gets used when opaque pointers
-  // are in use.
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
     if (DTransSI && DTransSI->useDTransSafetyAnalysis()) {
       if (DTransSI->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
-                                                  Call, TraceOn))
+                                                  Call, TraceOn)) {
         IsComplete = AndersensAAResult::AndersenSetResult::Complete;
+        ICSMethod = InlICSSFA;
+      }
     }
 #endif // INTEL_FEATURE_SW_DTRANS
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete &&
-      AnderPointsTo)
+      AnderPointsTo) {
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
         call_fptr, PossibleTargets, Call, TraceOn);
+    ICSMethod = InlICSGPT;
+  }
   if (IsComplete != AndersensAAResult::AndersenSetResult::Complete) {
     LLVM_DEBUG({
       if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
@@ -391,7 +385,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
                                              OrigBlock->getParent(), Tail_BB);
 
     // Create direct call and insert into Call_BB
-    NewCall = createDirectCallSite(Call, *F1, Call_BB);
+    NewCall = createDirectCallSite(Call, *F1, Call_BB, ICSMethod);
 
     // Add new call inst and call BasicBlock to NewDirectCalls and
     // NewDirectCallBBs to fix CFG later.
@@ -416,7 +410,8 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
     BasicBlock *Call_BB = BasicBlock::Create(call_fptr->getContext(), BB_Str,
                                              OrigBlock->getParent(), Tail_BB);
 
-    NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB);
+    NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB,
+                                   ICSMethod);
 #if INTEL_FEATURE_SW_DTRANS
     // Transfer any DTrans type metadata that was present on the original
     // indirect call to the new indirect call.
@@ -473,7 +468,6 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
 
   // Eliminate original indirect call
   if (auto CB = dyn_cast<CallBase>(SplitPt)) {
-    getInlineReport()->initFunctionClosure(CB->getFunction());
     InlineReason Reason = NinlrDeletedIndCallConv;
     getInlineReport()->removeCallBaseReference(*CB, Reason);
     getMDInlineReport()->removeCallBaseReference(*CB, Reason);
@@ -528,16 +522,13 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
                             ? &MAM.getResult<AndersensAA>(M)
                             : nullptr;
 #if INTEL_FEATURE_SW_DTRANS
-  auto *DTransInfo = (UseDTrans || IndCallConvForceDTrans)
-                         ? &MAM.getResult<DTransAnalysis>(M)
-                         : nullptr;
   auto *DTransSI = (!M.getContext().supportsTypedPointers() &&
                     (UseDTrans || IndCallConvForceDTrans))
                        ? &MAM.getResult<dtransOP::DTransSafetyAnalyzer>(M)
                        : nullptr;
-  if (!AnderPointsTo && !DTransInfo && !DTransSI)
+  if (!AnderPointsTo && !DTransSI)
     return PreservedAnalyses::all();
-  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo, DTransSI);
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransSI);
 #else  // INTEL_FEATURE_SW_DTRANS
   if (!AnderPointsTo)
     return PreservedAnalyses::all();
@@ -552,9 +543,6 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
-#if INTEL_FEATURE_SW_DTRANS
-  PA.preserve<DTransAnalysis>();
-#endif // INTEL_FEATURE_SW_DTRANS
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }

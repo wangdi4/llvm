@@ -676,7 +676,7 @@ static void replaceWithTileLoad(Use &U, Value *Ptr, bool IsPHI = false) {
 #if INTEL_CUSTOMIZATION
   unsigned Idx = 0;
   if (IsPHI) {
-    Value *PhiOp = dyn_cast<PHINode>(V)->getIncomingValue(0);
+    Value *PhiOp = cast<PHINode>(V)->getIncomingValue(0);
     II = cast<IntrinsicInst>(PhiOp);
   } else if (auto *Extr = dyn_cast<ExtractValueInst>(V)) {
     // Extract tile from mult tiles' def.
@@ -721,7 +721,7 @@ public:
                             SmallVector<Instruction *, 2> &Incomings);
   void replacePhiDefWithLoad(Instruction *PHI, Value *StorePtr);
   bool volatileTileData();
-  void volatileTilePHI(PHINode *Inst);
+  void volatileTilePHI(PHINode *PHI);
   void volatileTileNonPHI(Instruction *I);
 };
 
@@ -907,7 +907,7 @@ public:
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC)
     : Func(F), SC(ShapeC), DT(nullptr) {}
 #endif // INTEL_CUSTOMIZATION
-  void combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
+  bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
   bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
   bool combineAMXcast(TargetLibraryInfo *TLI);
@@ -1136,14 +1136,14 @@ static Value *getShapeFromAMXIntrinsic(Value *Inst, unsigned ShapeIdx,
 // -->
 // call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col, i8* %p,
 //                                           i64 64, x86_amx %42)
-void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
+bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   Value *Tile = Cast->getOperand(0);
 
   assert(Tile->getType()->isX86_AMXTy() && "Not Tile Operand!");
 
   // TODO: Specially handle the mult-use case.
   if (Tile->getNumUses() != 1)
-    return;
+    return false;
 
   // We don't fetch shape from tilestore, we only get shape from tiledef,
   // so we can set the max tile shape to tilestore for special cases.
@@ -1181,14 +1181,14 @@ void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   assert(Row && Col && "Shape got failed!");
 #endif // INTEL_CUSTOMIZATION
 
-  // Use the maximum column as stride. It must be the same with load
-  // stride.
-  Value *Stride = Builder.getInt64(64);
+  // Stride should be equal to col(measured by bytes)
+  Value *Stride = Builder.CreateSExt(Col, Builder.getInt64Ty());
   Value *I8Ptr =
       Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
+  return true;
 }
 
 // %65 = load <256 x i32>, <256 x i32>* %p, align 64
@@ -1208,8 +1208,8 @@ bool X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
     return false;
   std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
   IRBuilder<> Builder(LD);
-  // Use the maximun column as stride.
-  Value *Stride = Builder.getInt64(64);
+  // Stride should be equal to col(measured by bytes)
+  Value *Stride = Builder.CreateSExt(Col, Builder.getInt64Ty());
   Value *I8Ptr;
 
   // To save compiling time, we create doninator tree when it is really
@@ -1253,9 +1253,10 @@ bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
         StoreInst *Store = dyn_cast<StoreInst>(U);
         if (!Store)
           continue;
-        combineCastStore(cast<IntrinsicInst>(Cast), Store);
-        DeadStores.push_back(Store);
-        Change = true;
+        if (combineCastStore(cast<IntrinsicInst>(Cast), Store)) {
+          DeadStores.push_back(Store);
+          Change = true;
+        }
       }
       for (auto *Store : DeadStores)
         Store->eraseFromParent();
@@ -1334,8 +1335,14 @@ bool X86LowerAMXCast::combineAMXcast(TargetLibraryInfo *TLI) {
 
   EraseInst(Vec2TileInsts);
   EraseInst(Tile2VecInsts);
+  LLVM_DEBUG(dbgs() << "[LowerAMXTYpe][combineAMXcast] IR dump after combine "
+                       "Vec2Tile and Tile2Vec:\n";
+             Func.dump());
   Change |= combineLdSt(LiveCasts);
   EraseInst(LiveCasts);
+  LLVM_DEBUG(dbgs() << "[LowerAMXTYpe][combineAMXcast] IR dump after combine "
+                       "AMXCast and load/store:\n";
+             Func.dump());
 
   // Handle the A->B->A cast, and there is an intervening PHI node.
   for (BasicBlock &BB : Func) {
@@ -1363,6 +1370,9 @@ bool X86LowerAMXCast::combineAMXcast(TargetLibraryInfo *TLI) {
     Instruction *I = DeadInst.pop_back_val();
     Change |= DCEInstruction(I, DeadInst, TLI);
   }
+  LLVM_DEBUG(dbgs() << "[LowerAMXTYpe][combineAMXcast] IR dump after "
+                       "optimizeAMXCastFromPhi:\n";
+             Func.dump());
   return Change;
 }
 

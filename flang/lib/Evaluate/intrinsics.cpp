@@ -226,7 +226,7 @@ ENUM_CLASS(ArgFlag, none,
     defaultsToSameKind, // for MatchingDefaultKIND
     defaultsToSizeKind, // for SizeDefaultKIND
     defaultsToDefaultForResult, // for DefaultingKIND
-)
+    notAssumedSize)
 
 struct IntrinsicDummyArgument {
   const char *keyword{nullptr};
@@ -685,8 +685,10 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
             common::Intent::In, {ArgFlag::canBeNull}}},
         SameCharNoLen, Rank::scalar, IntrinsicClass::inquiryFunction},
     {"nint", {{"a", AnyReal}, DefaultingKIND}, KINDInt},
-    {"norm2", {{"x", SameReal, Rank::array}, OptionalDIM}, SameReal,
+    {"norm2", {{"x", SameReal, Rank::array}, RequiredDIM}, SameReal,
         Rank::dimReduced, IntrinsicClass::transformationalFunction},
+    {"norm2", {{"x", SameReal, Rank::array}, MissingDIM}, SameReal,
+        Rank::scalar, IntrinsicClass::transformationalFunction},
     {"not", {{"i", SameInt}}, SameInt},
     // NULL() is a special case handled in Probe() below
     {"num_images", {}, DefaultInt, Rank::scalar,
@@ -811,8 +813,9 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
         Rank::scalar, IntrinsicClass::inquiryFunction},
     {"spacing", {{"x", SameReal}}, SameReal},
     {"spread",
-        {{"source", SameType, Rank::known}, RequiredDIM,
-            {"ncopies", AnyInt, Rank::scalar}},
+        {{"source", SameType, Rank::known, Optionality::required,
+             common::Intent::In, {ArgFlag::notAssumedSize}},
+            RequiredDIM, {"ncopies", AnyInt, Rank::scalar}},
         SameType, Rank::rankPlus1, IntrinsicClass::transformationalFunction},
     {"sqrt", {{"x", SameFloating}}, SameFloating},
     {"stopped_images", {OptionalTEAM, SizeDefaultKIND}, KINDInt, Rank::vector,
@@ -877,6 +880,8 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
             {"back", AnyLogical, Rank::elemental, Optionality::optional},
             DefaultingKIND},
         KINDInt},
+    {"__builtin_fma", {{"f1", SameReal}, {"f2", SameReal}, {"f3", SameReal}},
+        SameReal},
     {"__builtin_ieee_is_nan", {{"a", AnyFloating}}, DefaultLogical},
     {"__builtin_ieee_is_negative", {{"a", AnyFloating}}, DefaultLogical},
     {"__builtin_ieee_is_normal", {{"a", AnyFloating}}, DefaultLogical},
@@ -913,6 +918,8 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
     {"__builtin_ieee_support_underflow_control",
         {{"x", AnyReal, Rank::elemental, Optionality::optional}},
         DefaultLogical},
+    {"__builtin_compiler_options", {}, DefaultChar},
+    {"__builtin_compiler_version", {}, DefaultChar},
 };
 
 // TODO: Coarray intrinsic functions
@@ -1364,7 +1371,7 @@ static const IntrinsicInterface intrinsicSubroutine[]{
         {}, Rank::elemental, IntrinsicClass::impureSubroutine},
     {"random_number",
         {{"harvest", AnyReal, Rank::known, Optionality::required,
-            common::Intent::Out}},
+            common::Intent::Out, {ArgFlag::notAssumedSize}}},
         {}, Rank::elemental, IntrinsicClass::impureSubroutine},
     {"random_seed",
         {{"size", DefaultInt, Rank::scalar, Optionality::optional,
@@ -1654,9 +1661,9 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
           // max(a1=x) or max(a2=x)
           const auto kwA1{dummy[0].keyword};
           const auto kwA2{dummy[1].keyword};
-          if (maxMinKeywords.begin()->ToString().compare(kwA1) == 0) {
+          if (maxMinKeywords.begin()->ToString() == kwA1) {
             messages.Say("missing mandatory 'a2=' argument"_err_en_US);
-          } else if (maxMinKeywords.begin()->ToString().compare(kwA2) == 0) {
+          } else if (maxMinKeywords.begin()->ToString() == kwA2) {
             messages.Say("missing mandatory 'a1=' argument"_err_en_US);
           } else {
             messages.Say(
@@ -1683,6 +1690,16 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
           messages.Say(arg->sourceLocation(),
               "A NULL() pointer is not allowed for '%s=' intrinsic argument"_err_en_US,
               d.keyword);
+          return std::nullopt;
+        }
+      }
+    }
+    if (d.flags.test(ArgFlag::notAssumedSize)) {
+      if (auto named{ExtractNamedEntity(*arg)}) {
+        if (semantics::IsAssumedSizeArray(named->GetLastSymbol())) {
+          messages.Say(arg->sourceLocation(),
+              "The '%s=' argument to the intrinsic procedure '%s' may not be assumed-size"_err_en_US,
+              d.keyword, name);
           return std::nullopt;
         }
       }
@@ -1971,8 +1988,7 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
             if (semantics::IsAssumedSizeArray(named->GetLastSymbol())) {
               if (strcmp(name, "shape") == 0) {
                 messages.Say(arg->sourceLocation(),
-                    "The '%s=' argument to the intrinsic function '%s' may not be assumed-size"_err_en_US,
-                    d.keyword, name);
+                    "The 'source=' argument to the intrinsic function 'shape' may not be assumed-size"_err_en_US);
               } else {
                 messages.Say(arg->sourceLocation(),
                     "A dim= argument is required for '%s' when the array is assumed-size"_err_en_US,
@@ -2057,6 +2073,12 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
       CHECK(*category == TypeCategory::Logical);
       resultType = DynamicType{TypeCategory::Logical,
           defaults.GetDefaultKind(TypeCategory::Logical)};
+      break;
+    case KindCode::defaultCharKind:
+      CHECK(result.categorySet == CharType);
+      CHECK(*category == TypeCategory::Character);
+      resultType = DynamicType{TypeCategory::Character,
+          defaults.GetDefaultKind(TypeCategory::Character)};
       break;
     case KindCode::same:
       CHECK(sameArg);
@@ -2146,7 +2168,6 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
     case KindCode::exactKind:
       resultType = DynamicType{*category, result.exactKindValue};
       break;
-    case KindCode::defaultCharKind:
     case KindCode::typeless:
     case KindCode::any:
     case KindCode::kindArg:
@@ -2340,6 +2361,10 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
     attrs.set(characteristics::Procedure::Attr::Elemental);
   }
   if (call.isSubroutineCall) {
+    if (intrinsicClass == IntrinsicClass::pureSubroutine /* MOVE_ALLOC */ ||
+        intrinsicClass == IntrinsicClass::elementalSubroutine /* MVBITS */) {
+      attrs.set(characteristics::Procedure::Attr::Pure);
+    }
     return SpecificCall{
         SpecificIntrinsic{
             name, characteristics::Procedure{std::move(dummyArgs), attrs}},
@@ -2398,6 +2423,8 @@ private:
   SpecificCall HandleNull(ActualArguments &, FoldingContext &) const;
   std::optional<SpecificCall> HandleC_F_Pointer(
       ActualArguments &, FoldingContext &) const;
+  std::optional<SpecificCall> HandleC_Loc(
+      ActualArguments &, FoldingContext &) const;
   const std::string &ResolveAlias(const std::string &name) const {
     auto iter{aliases_.find(name)};
     return iter == aliases_.end() ? name : iter->second;
@@ -2423,7 +2450,7 @@ bool IntrinsicProcTable::Implementation::IsIntrinsicFunction(
     return true;
   }
   // special cases
-  return name == "null";
+  return name == "__builtin_c_loc" || name == "null";
 }
 bool IntrinsicProcTable::Implementation::IsIntrinsicSubroutine(
     const std::string &name) const {
@@ -2679,6 +2706,78 @@ IntrinsicProcTable::Implementation::HandleC_F_Pointer(
   }
 }
 
+static bool CheckForCoindexedObject(FoldingContext &context,
+    const std::optional<ActualArgument> &arg, const std::string &procName,
+    const std::string &argName) {
+  bool ok{true};
+  if (arg) {
+    if (ExtractCoarrayRef(arg->UnwrapExpr())) {
+      ok = false;
+      context.messages().Say(arg->sourceLocation(),
+          "'%s' argument to '%s' may not be a coindexed object"_err_en_US,
+          argName, procName);
+    }
+  }
+  return ok;
+}
+
+// Function C_LOC(X) from intrinsic module ISO_C_BINDING (18.2.3.6)
+std::optional<SpecificCall> IntrinsicProcTable::Implementation::HandleC_Loc(
+    ActualArguments &arguments, FoldingContext &context) const {
+  static const char *const keywords[]{"x", nullptr};
+  if (CheckAndRearrangeArguments(arguments, context.messages(), keywords)) {
+    CHECK(arguments.size() == 1);
+    CheckForCoindexedObject(context, arguments[0], "c_loc", "x");
+    const auto *expr{arguments[0].value().UnwrapExpr()};
+    if (expr &&
+        !(IsObjectPointer(*expr, context) ||
+            (IsVariable(*expr) && GetLastTarget(GetSymbolVector(*expr))))) {
+      context.messages().Say(arguments[0]->sourceLocation(),
+          "C_LOC() argument must be a data pointer or target"_err_en_US);
+    }
+    if (auto typeAndShape{characteristics::TypeAndShape::Characterize(
+            arguments[0], context)}) {
+      if (expr && !IsContiguous(*expr, context).value_or(true)) {
+        context.messages().Say(arguments[0]->sourceLocation(),
+            "C_LOC() argument must be contiguous"_err_en_US);
+      }
+      if (auto constExtents{AsConstantExtents(context, typeAndShape->shape())};
+          constExtents && GetSize(*constExtents) == 0) {
+        context.messages().Say(arguments[0]->sourceLocation(),
+            "C_LOC() argument may not be a zero-sized array"_err_en_US);
+      }
+      if (!(typeAndShape->type().category() != TypeCategory::Derived ||
+              typeAndShape->type().IsAssumedType() ||
+              (!typeAndShape->type().IsPolymorphic() &&
+                  CountNonConstantLenParameters(
+                      typeAndShape->type().GetDerivedTypeSpec()) == 0))) {
+        context.messages().Say(arguments[0]->sourceLocation(),
+            "C_LOC() argument must have an intrinsic type, assumed type, or non-polymorphic derived type with no non-constant length parameter"_err_en_US);
+      } else if (typeAndShape->type().knownLength().value_or(1) == 0) {
+        context.messages().Say(arguments[0]->sourceLocation(),
+            "C_LOC() argument may not be zero-length character"_err_en_US);
+      } else if (typeAndShape->type().category() != TypeCategory::Derived &&
+          !IsInteroperableIntrinsicType(typeAndShape->type())) {
+        context.messages().Say(arguments[0]->sourceLocation(),
+            "C_LOC() argument has non-interoperable intrinsic type, kind, or length"_warn_en_US);
+      }
+
+      return SpecificCall{SpecificIntrinsic{"__builtin_c_loc"s,
+                              characteristics::Procedure{
+                                  characteristics::FunctionResult{
+                                      DynamicType{GetBuiltinDerivedType(
+                                          builtinsScope_, "__builtin_c_ptr")}},
+                                  characteristics::DummyArguments{
+                                      characteristics::DummyArgument{"x"s,
+                                          characteristics::DummyDataObject{
+                                              std::move(*typeAndShape)}}},
+                                  characteristics::Procedure::Attrs{}}},
+          std::move(arguments)};
+    }
+  }
+  return std::nullopt;
+}
+
 static bool CheckForNonPositiveValues(FoldingContext &context,
     const ActualArgument &arg, const std::string &procName,
     const std::string &argName) {
@@ -2734,21 +2833,6 @@ static bool CheckDimAgainstCorank(SpecificCall &call, FoldingContext &context) {
           }
         }
       }
-    }
-  }
-  return ok;
-}
-
-static bool CheckForCoindexedObject(FoldingContext &context,
-    const std::optional<ActualArgument> &arg, const std::string &procName,
-    const std::string &argName) {
-  bool ok{true};
-  if (arg) {
-    if (ExtractCoarrayRef(arg->UnwrapExpr())) {
-      ok = false;
-      context.messages().Say(arg->sourceLocation(),
-          "'%s' argument to '%s' may not be a coindexed object"_err_en_US,
-          argName, procName);
     }
   }
   return ok;
@@ -3001,8 +3085,12 @@ std::optional<SpecificCall> IntrinsicProcTable::Implementation::Probe(
             "RANDOM_SEED must have either 1 or no arguments"_err_en_US);
       }
     }
-  } else if (call.name == "null") {
-    return HandleNull(arguments, context);
+  } else { // function
+    if (call.name == "__builtin_c_loc") {
+      return HandleC_Loc(arguments, context);
+    } else if (call.name == "null") {
+      return HandleNull(arguments, context);
+    }
   }
 
   if (call.isSubroutineCall) {

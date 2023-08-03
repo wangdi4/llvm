@@ -4,6 +4,7 @@
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK-NEXT: Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
@@ -23,6 +24,7 @@
 ; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass

@@ -20,7 +20,7 @@
 ;<38>            + END LOOP
 ;<0>       END REGION
 
-; RUN: opt -opaque-pointers=0 -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
+; : opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
@@ -29,14 +29,11 @@
 
 ; check loop is completely unrolled.
 ; CHECK: region.0:
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 -1)
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 0)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 -1)
+; CHECK: @A
 ; CHECK: getelementptr
 ; CHECK: getelementptr
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 3)
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 3)
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
@@ -47,13 +44,15 @@
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 2)
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 3)
+; CHECK: getelementptr
+; CHECK: getelementptr
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 2)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 3)
 ; CHECK-NEXT: br label %for.end{{.*}}
 
 ; Check that proper optreport order is emitted for deleted loops (Completely Unrolled).
 ; Emitted structure has one remark for completely unrolled loops assigned to the parent loop (because all inner loops are unrolled).
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25436: Loop completely unrolled by 2
@@ -81,7 +80,7 @@ for.cond.1.preheader:                             ; preds = %for.inc.16, %entry
   br label %for.body.3
 
 for.cond.7.preheader:                             ; preds = %for.body.3
-  %.pre = load i32, i32* getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 0), align 16
+  %.pre = load i32, ptr @A, align 16
   br label %for.body.9
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
@@ -89,10 +88,10 @@ for.body.3:                                       ; preds = %for.body.3, %for.co
   %mul = shl nsw i64 %j.031, 1
   %add = add nuw nsw i64 %mul, %i.033
   %sub = add nsw i64 %add, -1
-  %arrayidx = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %sub
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx6 = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %add
-  store i32 %0, i32* %arrayidx6, align 4
+  %arrayidx = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %sub
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx6 = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %add
+  store i32 %0, ptr %arrayidx6, align 4
   %inc = add nuw nsw i64 %j.031, 1
   %exitcond = icmp eq i64 %inc, 3
   br i1 %exitcond, label %for.cond.7.preheader, label %for.body.3
@@ -100,8 +99,8 @@ for.body.3:                                       ; preds = %for.body.3, %for.co
 for.body.9:                                       ; preds = %for.body.9, %for.cond.7.preheader
   %k.032 = phi i64 [ 0, %for.cond.7.preheader ], [ %add11, %for.body.9 ]
   %add11 = add nuw nsw i64 %k.032, 1
-  %arrayidx12 = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %add11
-  store i32 %.pre, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %add11
+  store i32 %.pre, ptr %arrayidx12, align 4
   %exitcond34 = icmp eq i64 %add11, 3
   br i1 %exitcond34, label %for.inc.16, label %for.body.9
 
@@ -115,8 +114,8 @@ for.end.18:                                       ; preds = %for.inc.16
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 

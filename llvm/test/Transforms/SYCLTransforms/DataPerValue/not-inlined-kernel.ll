@@ -49,4 +49,4 @@ attributes #0 = { convergent nounwind }
 ; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @kernel}
+!0 = !{ptr @kernel}

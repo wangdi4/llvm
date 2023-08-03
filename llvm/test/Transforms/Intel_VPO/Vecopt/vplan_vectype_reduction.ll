@@ -20,9 +20,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; HIR-OPTRPT-HI: remark #15573: HIR: loop was not vectorized: a reduction or induction of a vector type is not supported.
 
-define <4 x i64> @foo(<4 x i64>* nocapture readonly byval(<4 x i64>) align 32 %0) {
+define <4 x i64> @foo(ptr nocapture readonly byval(<4 x i64>) align 32 %0) {
 entry:
-  %in = load <4 x i64>, <4 x i64>* %0, align 32
+  %in = load <4 x i64>, ptr %0, align 32
   br label %for.ph
 
 for.ph:                                           ; preds = %entry
@@ -33,10 +33,9 @@ for.body:                                         ; preds = %for.body, %for.ph
   %in.addr.07 = phi <4 x i64> [ %in, %for.ph ], [ %add, %for.body ]
   %l1.06 = phi i64 [ 0, %for.ph ], [ %inc, %for.body ]
   %mul = shl nsw i64 %l1.06, 2
-  %arrayidx = getelementptr inbounds [400 x i64], [400 x i64]* @larr, i64 0, i64 %mul
-  %1 = bitcast i64* %arrayidx to <4 x i64>*
-  %2 = load <4 x i64>, <4 x i64>* %1, align 32
-  %add = add <4 x i64> %2, %in.addr.07
+  %arrayidx = getelementptr inbounds [400 x i64], ptr @larr, i64 0, i64 %mul
+  %1 = load <4 x i64>, ptr %arrayidx, align 32
+  %add = add <4 x i64> %1, %in.addr.07
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body

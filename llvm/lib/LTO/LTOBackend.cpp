@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,7 +42,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LTO/LTO.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -58,6 +57,7 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
@@ -258,20 +258,21 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   auto FS = vfs::getRealFileSystem();
   std::optional<PGOOptions> PGOOpt;
   if (!Conf.SampleProfile.empty())
-    PGOOpt = PGOOptions(Conf.SampleProfile, "", Conf.ProfileRemapping, FS,
-                        PGOOptions::SampleUse, PGOOptions::NoCSAction, true);
+    PGOOpt = PGOOptions(Conf.SampleProfile, "", Conf.ProfileRemapping,
+                        /*MemoryProfile=*/"", FS, PGOOptions::SampleUse,
+                        PGOOptions::NoCSAction, true);
   else if (Conf.RunCSIRInstr) {
-    PGOOpt = PGOOptions("", Conf.CSIRProfile, Conf.ProfileRemapping, FS,
-                        PGOOptions::IRUse, PGOOptions::CSIRInstr,
-                        Conf.AddFSDiscriminator);
+    PGOOpt = PGOOptions("", Conf.CSIRProfile, Conf.ProfileRemapping,
+                        /*MemoryProfile=*/"", FS, PGOOptions::IRUse,
+                        PGOOptions::CSIRInstr, Conf.AddFSDiscriminator);
   } else if (!Conf.CSIRProfile.empty()) {
-    PGOOpt = PGOOptions(Conf.CSIRProfile, "", Conf.ProfileRemapping, FS,
-                        PGOOptions::IRUse, PGOOptions::CSIRUse,
-                        Conf.AddFSDiscriminator);
+    PGOOpt = PGOOptions(Conf.CSIRProfile, "", Conf.ProfileRemapping,
+                        /*MemoryProfile=*/"", FS, PGOOptions::IRUse,
+                        PGOOptions::CSIRUse, Conf.AddFSDiscriminator);
     NoPGOWarnMismatch = !Conf.PGOWarnMismatch;
   } else if (Conf.AddFSDiscriminator) {
-    PGOOpt = PGOOptions("", "", "", nullptr, PGOOptions::NoAction,
-                        PGOOptions::NoCSAction, true);
+    PGOOpt = PGOOptions("", "", "", /*MemoryProfile=*/"", nullptr,
+                        PGOOptions::NoAction, PGOOptions::NoCSAction, true);
   }
   TM->setPGOOption(PGOOpt);
 
@@ -281,7 +282,8 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   ModuleAnalysisManager MAM;
 
   PassInstrumentationCallbacks PIC;
-  StandardInstrumentations SI(Mod.getContext(), Conf.DebugPassManager);
+  StandardInstrumentations SI(Mod.getContext(), Conf.DebugPassManager,
+                              Conf.VerifyEach);
   SI.registerCallbacks(PIC, &MAM);
   PassBuilder PB(TM, Conf.PTO, PGOOpt, &PIC);
 
@@ -359,39 +361,6 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   MPM.run(Mod, MAM);
 }
 
-#if INTEL_CUSTOMIZATION
-static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
-                           bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
-                           const ModuleSummaryIndex *ImportSummary) {
-  legacy::PassManager passes;
-  passes.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
-  NoPGOWarnMismatch = !Conf.PGOWarnMismatch; // INTEL
-
-  PassManagerBuilder PMB;
-  PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
-  if (Conf.Freestanding)
-    PMB.LibraryInfo->disableAllFunctions();
-
-  // Store the information related to whole program
-  PMB.addWholeProgramUtils(Conf.WPUtils);
-  PMB.ExportSummary = ExportSummary;
-  PMB.ImportSummary = ImportSummary;
-  // Unconditionally verify input since it is not verified before this
-  // point and has unknown origin.
-  PMB.VerifyInput = true;
-  PMB.VerifyOutput = !Conf.DisableVerify;
-  PMB.LoopVectorize = true;
-  PMB.SLPVectorize = true;
-  PMB.OptLevel = Conf.OptLevel;
-  if (IsThinLTO)
-    PMB.populateThinLTOPassManager(passes);
-  else
-    PMB.populateLTOPassManager(passes);
-  passes.run(Mod);
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
               bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
               const ModuleSummaryIndex *ImportSummary,
@@ -415,14 +384,9 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
                                /*Cmdline*/ CmdArgs);
   }
 #endif // !INTEL_PRODUCT_RELEASE
-#if INTEL_CUSTOMIZATION
-  if (Conf.UseNewPM || !Conf.OptPipeline.empty()) {
+  // FIXME: Plumb the combined index into the new pass manager.
     runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
                    ImportSummary);
-  } else {
-    runOldPMPasses(Conf, Mod, TM, IsThinLTO, ExportSummary, ImportSummary);
-  }
-#endif // INTEL_CUSTOMIZATION
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
@@ -571,6 +535,7 @@ Error lto::backend(const Config &C, AddStreamFn AddStream,
 
   std::unique_ptr<TargetMachine> TM = createTargetMachine(C, *TOrErr, Mod);
 
+  LLVM_DEBUG(dbgs() << "Running regular LTO\n");
   if (!C.CodeGenOnly) {
     if (!opt(C, TM.get(), 0, Mod, /*IsThinLTO=*/false,
              /*ExportSummary=*/&CombinedIndex, /*ImportSummary=*/nullptr,
@@ -633,8 +598,7 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
   // the module, if applicable.
   Mod.setPartialSampleProfileRatio(CombinedIndex);
 
-  updatePublicTypeTestCalls(Mod, CombinedIndex.withWholeProgramVisibility());
-
+  LLVM_DEBUG(dbgs() << "Running ThinLTO\n");
   if (Conf.CodeGenOnly) {
     codegen(Conf, TM.get(), AddStream, Task, Mod, CombinedIndex);
     return finalizeOptimizationRemarks(std::move(DiagnosticOutputFile));
@@ -718,6 +682,10 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
                             ClearDSOLocalOnDeclarations);
   if (Error Err = Importer.importFunctions(Mod, ImportList).takeError())
     return Err;
+
+  // Do this after any importing so that imported code is updated.
+  updateMemProfAttributes(Mod, CombinedIndex);
+  updatePublicTypeTestCalls(Mod, CombinedIndex.withWholeProgramVisibility());
 
   if (Conf.PostImportModuleHook && !Conf.PostImportModuleHook(Task, Mod))
     return finalizeOptimizationRemarks(std::move(DiagnosticOutputFile));

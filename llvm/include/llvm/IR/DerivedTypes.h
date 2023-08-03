@@ -239,7 +239,9 @@ class StructType : public Type {
     SCDB_HasBody = 1,
     SCDB_Packed = 2,
     SCDB_IsLiteral = 4,
-    SCDB_IsSized = 8
+    SCDB_IsSized = 8,
+    SCDB_ContainsScalableVector = 16,
+    SCDB_NotContainsScalableVector = 32
   };
 
   /// For a named struct that actually has a name, this is a pointer to the
@@ -305,7 +307,16 @@ public:
   bool isSized(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
 
   /// Returns true if this struct contains a scalable vector.
-  bool containsScalableVectorType() const;
+  bool
+  containsScalableVectorType(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
+
+  /// Returns true if this struct contains homogeneous scalable vector types.
+  /// Note that the definition of homogeneous scalable vector type is not
+  /// recursive here. That means the following structure will return false
+  /// when calling this function.
+  /// {{<vscale x 2 x i32>, <vscale x 4 x i64>},
+  ///  {<vscale x 2 x i32>, <vscale x 4 x i64>}}
+  bool containsHomogeneousScalableVectorTypes() const;
 
   /// Return true if this is a named struct that has a non-empty name.
   bool hasName() const { return SymbolTableEntry != nullptr; }
@@ -364,8 +375,25 @@ public:
     if (isOpaque())
       return false;
 
+    // Empty structs have no element types.
+    if (getNumElements() == 0)
+      return false;
+
     Type *BaseTy = getElementType(0);
     return all_of(elements(), [BaseTy](Type *T) { return T == BaseTy; });
+  }
+
+  /// Return true if this struct type possibly represents a complex type. FP
+  /// Complex type can be represented in LLVM-IR as {float, float} or {double,
+  /// double}.
+  bool isPossibleComplexFPType() const {
+    if (getNumElements() != 2)
+      return false;
+
+    if (!hasIdenticalElementTypes())
+      return false;
+
+    return getElementType(0)->isFloatTy() || getElementType(0)->isDoubleTy();
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -704,11 +732,8 @@ public:
     return get(PT->PointeeTy, AddressSpace);
   }
 
-#ifdef INTEL_CUSTOMIZATION
-#else // INTEL_CUSTOMIZATION
   [[deprecated("Pointer element types are deprecated. You can *temporarily* "
                "use Type::getPointerElementType() instead")]]
-#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const {
     assert(!isOpaque() && "Attempting to get element type of opaque pointer");
     return PointeeTy;

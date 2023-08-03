@@ -1,6 +1,6 @@
 //===------------- DTransPaddedMalloc.h - DTransPaddedMalloc  -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,7 +19,6 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_PADDEDMALLOC_H
 #define INTEL_DTRANS_TRANSFORMS_PADDEDMALLOC_H
 
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -83,19 +82,6 @@ private:
   InfoClass &DTransInfo;
 };
 
-class PaddedMallocPass : public PassInfoMixin<dtrans::PaddedMallocPass> {
-public:
-  PaddedMallocPass() {};
-
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  // Actual implementation of the optimization
-  bool runImpl(
-      Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
-      std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-      WholeProgramInfo &WPInfo);
-};
-
 } // namespace dtrans
 
 namespace dtransOP {
@@ -114,9 +100,6 @@ public:
 };
 
 } // namespace dtransOP
-
-ModulePass *createDTransPaddedMallocWrapperPass();
-ModulePass *createDTransPaddedMallocOPWrapperPass();
 
 unsigned getPaddedMallocLimit();
 

@@ -1,4 +1,25 @@
-add_llvm_component_library(LLVMDemangle
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023-2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
+
+# INTEL_CUSTOMIZATION
+set (DEMANGLE_SOURCES
+#end INTEL_CUSTOMIZATION
   Demangle.cpp
   ItaniumDemangle.cpp
   MicrosoftDemangle.cpp
@@ -10,3 +31,11 @@ add_llvm_component_library(LLVMDemangle
   "${LLVM_MAIN_INCLUDE_DIR}/llvm/Demangle"
 
 )
+
+# INTEL_CUSTOMIZATION
+add_llvm_component_library(LLVMDemangle ${DEMANGLE_SOURCES})
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  add_llvm_component_library(LLVMDemangle_stdcpp ${DEMANGLE_SOURCES}
+                             STDLIB stdc++)
+endif()
+#end INTEL_CUSTOMIZATION

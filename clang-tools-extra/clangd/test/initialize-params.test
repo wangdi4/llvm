@@ -52,6 +52,7 @@
 # CHECK-NEXT:      "foldingRangeProvider": true,
 # CHECK-NEXT:      "hoverProvider": true,
 # CHECK-NEXT:      "implementationProvider": true,
+# CHECK-NEXT:      "inactiveRegionsProvider": true,
 # CHECK-NEXT:      "inlayHintProvider": true,
 # CHECK-NEXT:      "memoryUsageProvider": true,
 # CHECK-NEXT:      "referencesProvider": true,

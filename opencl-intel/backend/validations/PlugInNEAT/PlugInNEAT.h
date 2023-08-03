@@ -69,7 +69,7 @@ public:
   /// x86_fp80, depending on alignment.
   uint64_t getTypeAllocSize(const Type *Ty) const;
 
-  static bool IsNEATSupported(const Type *Ty);
+  static bool IsNEATSupported(const Type *Ty, Value *V = nullptr);
 
   /// getABITypeAlignment - Return the minimum ABI-required alignment for the
   /// specified type.
@@ -191,7 +191,7 @@ public:
 
   /// getOrEmitGlobalVariable - Return the address of the specified global
   /// variable, possibly emitting it to memory if needed.
-  void *getOrEmitGlobalVariable(const GlobalVariable *GV);
+  void *getOrEmitGlobalVariable(GlobalVariable *GV);
 
   /// getPointerToGlobal - This returns the address of the specified global
   /// value.  This may involve code generation if it's a function.

@@ -44,7 +44,7 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-define void @foo(double* nocapture %A, i32 %n) local_unnamed_addr {
+define void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr {
 entry:
   %cmp45 = icmp sgt i32 %n, 0
   br i1 %cmp45, label %for.body.lr.ph, label %for.cond.cleanup
@@ -88,14 +88,14 @@ for.body8:                                        ; preds = %for.body8.lr.ph, %f
   %3 = add nsw i64 %indvars.iv, %2
   %4 = mul nsw i64 %3, %0
   %5 = add nsw i64 %4, %indvars.iv53
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %5
-  %6 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %5
+  %6 = load double, ptr %arrayidx, align 8
   %7 = mul nsw i64 %indvars.iv, %0
   %8 = add nsw i64 %7, %indvars.iv53
-  %arrayidx14 = getelementptr inbounds double, double* %A, i64 %8
-  %9 = load double, double* %arrayidx14, align 8
+  %arrayidx14 = getelementptr inbounds double, ptr %A, i64 %8
+  %9 = load double, ptr %arrayidx14, align 8
   %add15 = fadd double %6, %9
-  store double %add15, double* %arrayidx14, align 8
+  store double %add15, ptr %arrayidx14, align 8
   %indvars.iv.next = add i64 %indvars.iv, %1
   %cmp6 = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp6, label %for.body8, label %for.cond.cleanup7

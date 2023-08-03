@@ -19,7 +19,7 @@ define float @test_v4f32(<4 x float> %a0) {
 ; CHECK-LABEL: test_v4f32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vshufps {{.*#+}} xmm1 = xmm0[3,3,3,3]
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm2 = xmm0[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vminss %xmm0, %xmm3, %xmm4
 ; CHECK-NEXT:    vcmpunordss %xmm0, %xmm0, %k1
@@ -40,10 +40,10 @@ define float @test_v8f32(<8 x float> %a0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; CHECK-NEXT:    vshufps {{.*#+}} xmm2 = xmm1[3,3,3,3]
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm1[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm3 = xmm1[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm4 = xmm1[1,1,3,3]
 ; CHECK-NEXT:    vshufps {{.*#+}} xmm5 = xmm0[3,3,3,3]
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm6 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm6 = xmm0[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm7 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vminss %xmm0, %xmm7, %xmm8
 ; CHECK-NEXT:    vcmpunordss %xmm0, %xmm0, %k1
@@ -75,7 +75,7 @@ define float @test_v8f32(<8 x float> %a0) {
 define double @test_v2f64(<2 x double> %a0) {
 ; CHECK-LABEL: test_v2f64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm2 = xmm0[1,0]
 ; CHECK-NEXT:    vminsd %xmm0, %xmm2, %xmm1
 ; CHECK-NEXT:    vcmpunordsd %xmm0, %xmm0, %k1
 ; CHECK-NEXT:    vmovsd %xmm2, %xmm1, %xmm1 {%k1}
@@ -88,7 +88,7 @@ define double @test_v2f64(<2 x double> %a0) {
 define double @test_v3f64(<3 x double> %a0) {
 ; CHECK-LABEL: test_v3f64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; CHECK-NEXT:    vminsd %xmm0, %xmm1, %xmm2
 ; CHECK-NEXT:    vcmpunordsd %xmm0, %xmm0, %k1
 ; CHECK-NEXT:    vmovsd %xmm1, %xmm2, %xmm2 {%k1}
@@ -106,8 +106,8 @@ define double @test_v4f64(<4 x double> %a0) {
 ; CHECK-LABEL: test_v4f64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm3 = xmm0[1,0]
 ; CHECK-NEXT:    vminsd %xmm0, %xmm3, %xmm4
 ; CHECK-NEXT:    vcmpunordsd %xmm0, %xmm0, %k1
 ; CHECK-NEXT:    vmovsd %xmm3, %xmm4, %xmm4 {%k1}

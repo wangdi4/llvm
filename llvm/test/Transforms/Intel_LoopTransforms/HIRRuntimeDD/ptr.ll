@@ -1,6 +1,7 @@
 ; Check runtime dd multiversioning for a simple case with p[i] and q[i]
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ; RUN: opt -hir-dd-test-assume-no-loop-carried-dep=1 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=NO-RTDD
 
 ; Check HIR CG ability to emit !llvm.loop metadata
@@ -47,12 +48,18 @@
 ; CG-CHECK: ![[MD2]] = !{!"llvm.loop.interleave.count", i32 1}
 ; CG-CHECK: ![[MD3]] = !{!"llvm.loop.unroll.disable"}
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRRuntimeDD
+
 ; ModuleID = 'ptrs.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* %p, i32* %q, i32 %N) #0 {
+define i32 @foo(ptr %p, ptr %q, i32 %N) #0 {
 entry:
   %cmp.1 = icmp slt i32 0, %N
   br i1 %cmp.1, label %for.body.lr.ph, label %for.end
@@ -63,11 +70,11 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %i.02 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %p, i64 %idxprom1
-  store i32 %0, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %p, i64 %idxprom1
+  store i32 %0, ptr %arrayidx2, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -79,8 +86,7 @@ for.cond.for.end_crit_edge:                       ; preds = %for.inc
   br label %for.end
 
 for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
-  %arrayidx3 = getelementptr inbounds i32, i32* %p, i64 0
-  %1 = load i32, i32* %arrayidx3, align 4
+  %1 = load i32, ptr %p, align 4
   ret i32 %1
 }
 

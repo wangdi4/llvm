@@ -9,5 +9,5 @@
 // XROYAL: "-target-cpu" "royal"
 
 // ADV_OPT-SAME: "-fintel-advanced-optim"
-// ADV_OPT-NOT: "-enable-multiversioning"
+// ADV_OPT-NOT: "-enable-npm-multiversioning"
 // end INTEL_FEATURE_CPU_RYL

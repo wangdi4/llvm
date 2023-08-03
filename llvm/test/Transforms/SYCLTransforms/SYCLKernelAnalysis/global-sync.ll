@@ -6,31 +6,36 @@ target triple = "spir64-unknown-unknown"
 
 ; CHECK: define {{.*}} void @test1({{.*}} !kernel_has_global_sync [[HasGlobalSync:![0-9]+]]
 
-define dso_local spir_kernel void @test1(i32 addrspace(1)* noundef align 4 %v) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_kernel void @test1(ptr addrspace(1) noundef align 4 %v) #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  %call = call spir_func i32 @_Z8atom_addPU3AS1Vii(i32 addrspace(1)* noundef %v, i32 noundef 1) #2
+  %call = call spir_func i32 @_Z8atom_addPU3AS1Vii(ptr addrspace(1) noundef %v, i32 noundef 1) #2
   ret void
 }
 
-declare spir_func i32 @_Z8atom_addPU3AS1Vii(i32 addrspace(1)* noundef, i32 noundef) #1
+; Function Attrs: convergent
+declare spir_func i32 @_Z8atom_addPU3AS1Vii(ptr addrspace(1) noundef, i32 noundef) #1
 
-define dso_local spir_func void @foo(i32 addrspace(1)* noundef %v) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_func void @foo(ptr addrspace(1) noundef %v) #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  %call = call spir_func i32 @_Z8atom_addPU3AS1Vii(i32 addrspace(1)* noundef %v, i32 noundef 2) #2
+  %call = call spir_func i32 @_Z8atom_addPU3AS1Vii(ptr addrspace(1) noundef %v, i32 noundef 2) #2
   ret void
 }
 
 ; CHECK: define {{.*}} void @test2({{.*}} !kernel_has_global_sync [[HasGlobalSync]]
 
-define dso_local spir_kernel void @test2(i32 addrspace(1)* noundef align 4 %v) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_kernel void @test2(ptr addrspace(1) noundef align 4 %v) #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  call spir_func void @foo(i32 addrspace(1)* noundef %v) #1
+  call spir_func void @foo(ptr addrspace(1) noundef %v) #1
   ret void
 }
 
 ; CHECK: define {{.*}} void @test3({{.*}} !kernel_has_global_sync [[NoGlobalSync:![0-9]+]]
 
-define dso_local spir_kernel void @test3(i32 addrspace(1)* noundef align 4 %v) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_kernel void @test3(ptr addrspace(1) noundef align 4 %v) #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   ret void
 }
@@ -59,7 +64,9 @@ attributes #2 = { convergent nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test1, void (i32 addrspace(1)*)* @test2, void (i32 addrspace(1)*)* @test3, void ()* @test_atomic_work_item_fence1, void ()* @test_atomic_work_item_fence2 }
+!0 = !{ptr @test1, ptr @test2, ptr @test3, ptr @test_atomic_work_item_fence1, ptr @test_atomic_work_item_fence2}
+!1 = !{!"int*"}
+!2 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[HasGlobalSync]] = !{i1 true}
 ; CHECK-DAG: [[NoGlobalSync]] = !{i1 false}

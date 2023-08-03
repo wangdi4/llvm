@@ -31,6 +31,16 @@ constexpr dpas_argument_type fp16 = dpas_argument_type::fp16;
 constexpr dpas_argument_type bf16 = dpas_argument_type::bf16;
 constexpr dpas_argument_type tf32 = dpas_argument_type::tf32;
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+constexpr dpas_argument_type hf8 = dpas_argument_type::hf8;
+constexpr dpas_argument_type bf8 = dpas_argument_type::bf8;
+constexpr dpas_argument_type df = dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 std::string toString(dpas_argument_type T) {
   switch (T) {
   case dpas_argument_type::s2:
@@ -51,6 +61,18 @@ std::string toString(dpas_argument_type T) {
     return "bf16";
   case dpas_argument_type::tf32:
     return "tf32";
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  case dpas_argument_type::hf8:
+    return "hf8";
+  case dpas_argument_type::bf8:
+    return "bf8";
+  case dpas_argument_type::df:
+    return "df";
+#endif // end ESIMD_EMBARGO
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
   case dpas_argument_type::s1:
   case dpas_argument_type::u1:
   case dpas_argument_type::Invalid:
@@ -66,14 +88,44 @@ template <dpas_argument_type T> struct DpasPrintType {
   static constexpr bool is_uint = T == dpas_argument_type::u2 ||
                                   T == dpas_argument_type::u4 ||
                                   T == dpas_argument_type::u8;
-  static constexpr bool is_fp = T == dpas_argument_type::fp16 ||
-                                T == dpas_argument_type::bf16 ||
-                                T == dpas_argument_type::tf32;
+  static constexpr bool is_fp =
+      T == dpas_argument_type::fp16 || T == dpas_argument_type::bf16 ||
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+      T == dpas_argument_type::hf8 || T == dpas_argument_type::bf8 ||
+#endif // end ESIMD_EMBARGO
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      T == dpas_argument_type::tf32;
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  static constexpr bool is_double = T == dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
 
   using type = std::conditional_t<
       is_fp, float,
-      std::conditional_t<is_sint, int,
-                         std::conditional_t<is_uint, unsigned int, void>>>;
+      std::conditional_t<
+          is_sint, int,
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+          std::conditional_t<is_double, double,
+#endif // end ESIMD_EMBARGO
+                             /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                             /* end INTEL_CUSTOMIZATION */
+                             std::conditional_t<is_uint, unsigned int, void>>>
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+      >
+#endif // end ESIMD_EMBARGO
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      ;
 };
 
 template <int Size> struct getIntTypeWithSize {
@@ -94,6 +146,16 @@ template <dpas_argument_type T> struct DpasNaturalOperandType {
   static constexpr bool is_bf16 = T == dpas_argument_type::bf16;
   static constexpr bool is_tf32 = T == dpas_argument_type::tf32;
 
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  static constexpr bool is_hf8 = T == dpas_argument_type::hf8;
+  static constexpr bool is_bf8 = T == dpas_argument_type::bf8;
+  static constexpr bool is_df = T == dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
+
   // TODO: support tf32 here.
   using type = std::conditional_t<
       is_sint, signed char,
@@ -105,7 +167,29 @@ template <dpas_argument_type T> struct DpasNaturalOperandType {
                   is_bf16, sycl::ext::oneapi::bfloat16,
                   std::conditional_t<
                       is_tf32, sycl::ext::intel::experimental::esimd::tfloat32,
-                      void>>>>>;
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+                      std::conditional_t<
+                          is_df, double,
+                          std::conditional_t<
+                              is_hf8,
+                              sycl::ext::intel::experimental::esimd::hf8,
+                              std::conditional_t<
+                                  is_bf8,
+                                  sycl::ext::intel::experimental::esimd::bf8,
+#endif // end ESIMD_EMBARGO
+                                  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                                  /* end INTEL_CUSTOMIZATION */
+                                  void>>>>>
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+              >>>
+#endif // end ESIMD_EMBARGO
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      ;
 };
 
 template <dpas_argument_type T> constexpr int getBitSize() {
@@ -120,6 +204,14 @@ template <dpas_argument_type T> constexpr int getBitSize() {
 
   case dpas_argument_type::s8:
   case dpas_argument_type::u8:
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  case dpas_argument_type::hf8:
+  case dpas_argument_type::bf8:
+#endif // end ESIMD_EMBARGO
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
     return 8;
   case dpas_argument_type::fp16:
   case dpas_argument_type::bf16:
@@ -127,6 +219,14 @@ template <dpas_argument_type T> constexpr int getBitSize() {
 
   case dpas_argument_type::tf32:
     return 32;
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  case dpas_argument_type::df:
+    return 64;
+#endif // end ESIMD_EMBARGO
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
 
   case dpas_argument_type::Invalid:
   case dpas_argument_type::s1:
@@ -212,25 +312,30 @@ ReadT readFromHorizontallyPackedMatrix(void *VVec, int Row, int Col) {
 template <int NumRows, int NumCols, dpas_argument_type ArgPrecision,
           typename ElemT>
 void writeToVerticallyPackedMatrix(void *VVec, int Row, int Col, ElemT Value) {
-  int *Vec = reinterpret_cast<int *>(VVec);
   constexpr int ElemBitSize = getBitSize<ArgPrecision>();
+  if constexpr (ElemBitSize >= 32) {
+    ElemT *Vec = reinterpret_cast<ElemT *>(VVec);
+    Vec[Row * NumCols + Col] = Value;
+  } else {
+    int *Vec = reinterpret_cast<int *>(VVec);
 
-  // 1. Find and read the target 'int' element.
-  // The unpacked matrix has dimensions: NumRows*NumCols.
-  constexpr int ElemsInInt = 32 / ElemBitSize;
-  int PackedRow = Row / ElemsInInt;
-  int PackedLinearIndex = PackedRow * NumCols + Col;
-  int TargetElem = Vec[PackedLinearIndex];
+    // 1. Find and read the target 'int' element.
+    // The unpacked matrix has dimensions: NumRows*NumCols.
+    constexpr int ElemsInInt = 32 / ElemBitSize;
+    int PackedRow = Row / ElemsInInt;
+    int PackedLinearIndex = PackedRow * NumCols + Col;
+    int TargetElem = Vec[PackedLinearIndex];
 
-  // Insert sub-element 'Value' into 32-bit int and write back to matrix.
-  int ElemBitOffset = (Row % ElemsInInt) * ElemBitSize;
-  int Mask = (static_cast<uint64_t>(1) << ElemBitSize) - 1;
-  using IType = typename getIntTypeWithSize<sizeof(ElemT)>::type;
-  int IValue = sycl::bit_cast<IType>(Value);
-  IValue = (IValue & Mask) << ElemBitOffset;
-  Mask = Mask << ElemBitOffset;
-  TargetElem = (TargetElem & ~Mask) | IValue;
-  Vec[PackedLinearIndex] = TargetElem;
+    // Insert sub-element 'Value' into 32-bit int and write back to matrix.
+    int ElemBitOffset = (Row % ElemsInInt) * ElemBitSize;
+    int Mask = (static_cast<uint64_t>(1) << ElemBitSize) - 1;
+    using IType = typename getIntTypeWithSize<sizeof(ElemT)>::type;
+    int IValue = sycl::bit_cast<IType>(Value);
+    IValue = (IValue & Mask) << ElemBitOffset;
+    Mask = Mask << ElemBitOffset;
+    TargetElem = (TargetElem & ~Mask) | IValue;
+    Vec[PackedLinearIndex] = TargetElem;
+  }
 }
 
 template <int NumRows, int NumCols, dpas_argument_type ArgPrecision,
@@ -238,28 +343,33 @@ template <int NumRows, int NumCols, dpas_argument_type ArgPrecision,
 ReadT readFromVerticallyPackedMatrix(void *VVec, int Row, int Col) {
   constexpr int ElemBitSize = getBitSize<ArgPrecision>();
   using ElemT = typename DpasNaturalOperandType<ArgPrecision>::type;
-  int *Vec = reinterpret_cast<int *>(VVec);
-
-  // 1. Find and read the target 'int' element.
-  // The unpacked matrix has dimensions: NumRows*NumCols.
-  constexpr int ElemsInInt = 32 / ElemBitSize;
-
-  int PackedRow = Row / ElemsInInt;
-  int TargetElem = Vec[PackedRow * NumCols + Col];
-
-  // 2. Extract the queried sub-elem from 32-bit int, bit-cast to ReadT and
-  // return.
-  int ElemBitOffset = (Row % ElemsInInt) * ElemBitSize;
-  unsigned int Mask = (static_cast<uint64_t>(1) << ElemBitSize) - 1;
-  int Value = (TargetElem >> ElemBitOffset) & Mask;
-  if constexpr (std::is_signed_v<ElemT> && std::is_integral_v<ElemT>) {
-    Value <<= (32 - ElemBitSize);
-    Value >>= (32 - ElemBitSize);
-    return Value;
+  if constexpr (ElemBitSize >= 32) {
+    ElemT *Vec = reinterpret_cast<ElemT *>(VVec);
+    return Vec[Row * NumCols + Col];
   } else {
-    using IType = typename getIntTypeWithSize<sizeof(ElemT)>::type;
-    IType IValue = static_cast<IType>(Value);
-    return sycl::bit_cast<ElemT>(IValue);
+    int *Vec = reinterpret_cast<int *>(VVec);
+
+    // 1. Find and read the target 'int' element.
+    // The unpacked matrix has dimensions: NumRows*NumCols.
+    constexpr int ElemsInInt = 32 / ElemBitSize;
+
+    int PackedRow = Row / ElemsInInt;
+    int TargetElem = Vec[PackedRow * NumCols + Col];
+
+    // 2. Extract the queried sub-elem from 32-bit int, bit-cast to ReadT and
+    // return.
+    int ElemBitOffset = (Row % ElemsInInt) * ElemBitSize;
+    unsigned int Mask = (static_cast<uint64_t>(1) << ElemBitSize) - 1;
+    int Value = (TargetElem >> ElemBitOffset) & Mask;
+    if constexpr (std::is_signed_v<ElemT> && std::is_integral_v<ElemT>) {
+      Value <<= (32 - ElemBitSize);
+      Value >>= (32 - ElemBitSize);
+      return Value;
+    } else {
+      using IType = typename getIntTypeWithSize<sizeof(ElemT)>::type;
+      IType IValue = static_cast<IType>(Value);
+      return sycl::bit_cast<ElemT>(IValue);
+    }
   }
 }
 
@@ -300,7 +410,7 @@ bool test(queue &Q, bool Print) {
   constexpr int AElemBitSize = getBitSize<APrec>();
   constexpr int BElemBitSize = getBitSize<BPrec>();
   constexpr int OpsPerChannel =
-      std::min(32 / std::max(AElemBitSize, BElemBitSize), 8);
+      std::max(std::min(32 / std::max(AElemBitSize, BElemBitSize), 8), 1);
 
   using BPrintT = typename DpasPrintType<BPrec>::type;
   using APrintT = typename DpasPrintType<APrec>::type;
@@ -311,6 +421,16 @@ bool test(queue &Q, bool Print) {
   constexpr int M = RepeatCount;
   constexpr int K = SystolicDepth * OpsPerChannel;
   constexpr int N = ExecSize; // 16 for PVC, 8 for DG2.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  static_assert((APrec != df && BPrec != df) || ExecSize == 8,
+                "====> Execution size must be 8 for double type."));
+#endif // end ESIMD_EMBARGO
+       /* end INTEL_FEATURE_ESIMD_EMBARGO */
+       /* end INTEL_CUSTOMIZATION */
+  static_assert(ExecSize == 8 || ExecSize == 16,
+                "====> Execution size must be 8 (DG2) or 16 (PVC+).");
 
   std::cout << "dpas.8x" << RepeatCount << ": (ExecSize = " << ExecSize
             << "): " << toString(BPrec, APrec) << ", UseSrc0 = " << UseSrc0

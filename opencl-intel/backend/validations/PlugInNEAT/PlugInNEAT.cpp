@@ -12,12 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "NEATPlugin"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-
 #include "InterpreterPluggable.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/IR/Constants.h"
@@ -26,8 +23,11 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 #include "BLTImages.h"
 #include "Buffer.h"
@@ -50,9 +50,13 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 
+#define DEBUG_TYPE "NEATPlugin"
+
 using namespace llvm;
 using namespace Validation;
 using namespace Validation::Exception;
+
+static constexpr StringRef ExtVector = "__attribute__((ext_vector_type(";
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -153,7 +157,7 @@ void NEATPlugIn::visitLoadInst(LoadInst &I) {
   // handle only post instruction execution
   HANDLE_EVENT(POST_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -184,7 +188,7 @@ NEATGenericValue NEATPlugIn::getConstantExprValue(ConstantExpr *CE,
     break;
   }
 
-  dbgs() << "[NEATPlug-in] Unhandled ConstantExpr: " << *CE << "\n";
+  LLVM_DEBUG(dbgs() << "[NEATPlugin] Unhandled ConstantExpr: " << *CE << "\n");
   return NEATGenericValue();
 }
 
@@ -210,8 +214,10 @@ NEATGenericValue NEATPlugIn::getConstantValueFromValue(Value *V) {
       Ret.NEATVal.SetAccurateVal<double>(GV.DoubleVal);
       break;
     case Type::PointerTyID: {
-      const PointerType *PT = cast<PointerType>(V->getType());
-      if (NEATDataLayout ::IsNEATSupported(PT->getElementType())) {
+      const Type *Ty = V->getType();
+      if (auto *GV = dyn_cast<GlobalValue>(V))
+        Ty = GV->getValueType();
+      if (NEATDataLayout ::IsNEATSupported(Ty, V)) {
         if (GlobalValue *GV2 = dyn_cast<GlobalValue>(V)) {
           Ret = PTONGV(getPointerToGlobal(GV2));
         } else {
@@ -411,7 +417,7 @@ uint64_t NEATDataLayout ::getTypeStoreSize(const Type *Ty) const {
 void NEATPlugIn::visitStoreInst(StoreInst &I) {
   HANDLE_EVENT(POST_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getPointerOperand()->getType()))
+  if (!m_NTD.IsNEATSupported(I.getValueOperand()->getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -487,7 +493,7 @@ void NEATPlugIn::StoreValueToMemory(const NEATGenericValue &Val,
 void NEATPlugIn::visitAllocaInst(AllocaInst &I) {
   HANDLE_EVENT(POST_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getAllocatedType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -495,7 +501,7 @@ void NEATPlugIn::visitAllocaInst(AllocaInst &I) {
   NEATExecutionContext &NSF = m_NECStack.back();
   ExecutionContext &SF = m_pECStack->back();
   InterpreterPluggable &IP = *m_pInterp;
-  Type *Ty = I.getType()->getElementType(); // Type to be allocated
+  Type *Ty = I.getAllocatedType();
 
   // Get the number of elements being allocated by the array...
   unsigned NumElements =
@@ -513,7 +519,7 @@ void NEATPlugIn::visitAllocaInst(AllocaInst &I) {
                     << ") at " << uintptr_t(Memory) << '\n');
 
   /// To initialize allocated memory NEATValue constructor should be called
-  m_NTD.InitMemory(Memory, I.getType()->getElementType());
+  m_NTD.InitMemory(Memory, I.getAllocatedType());
 
   NEATGenericValue Result = PTONGV(Memory);
   assert(Result.PointerVal != 0 && "Null pointer returned by malloc!");
@@ -535,7 +541,7 @@ void NEATPlugIn::visitGetElementPtrInst(GetElementPtrInst &I) {
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
-  if (m_NTD.IsNEATSupported(I.getPointerOperand()->getType()))
+  if (m_NTD.IsNEATSupported(I.getSourceElementType(), &I))
     SetValue(&I,
              executeGEPOperation(I.getPointerOperand(), gep_type_begin(I),
                                  gep_type_end(I), NSF),
@@ -857,44 +863,44 @@ void NEATPlugIn::handlePostFunctionRun() { SetCurEvent(POST_FUNC); }
           "Pointer type in data doesn't match kernel input type");             \
     neatVal.PointerVal = buffer->GetDataPtr();                                 \
     out_NEATArgValues[&*arg_it] = neatVal;                                     \
-    break;                                                                     \
   }
 
 static void _CreateNEATBufferContainerByPtr(
-    const IMemoryObject *buffer, const llvm::PointerType *ptrType,
+    const IMemoryObject *buffer, StringRef argTypeName,
     Function::arg_iterator &arg_it,
     std::map<Value *, NEATGenericValue> &out_NEATArgValues) {
   BufferDesc buffDsc = GetBufferDescription(buffer->GetMemoryObjectDesc());
   NEATGenericValue neatVal;
-  const Type *Ty = ptrType->getElementType();
+  argTypeName = argTypeName.drop_back();
   TypeDesc elemDesc = buffDsc.GetElementDescription();
-  switch (Ty->getTypeID()) {
-  case Type::FloatTyID:
+  LLVM_DEBUG(dbgs() << "_CreateNEATBufferContainerByPtr, argTypeName: "
+                    << argTypeName << "\n");
+  if (argTypeName.contains("*")) {
+    throw Exception::InvalidArgument("Do not support buffers of pointers");
+  } else if (argTypeName == "float") {
     IMPLEMENT_PTR_FLOAT_VAL(TFLOAT);
-  case Type::DoubleTyID:
+  } else if (argTypeName == "double") {
     IMPLEMENT_PTR_FLOAT_VAL(TDOUBLE);
-  case Type::IntegerTyID:
+  } else if (argTypeName.endswith("char") || argTypeName.endswith("short") ||
+             argTypeName.endswith("int") || argTypeName.endswith("long")) {
     return;
-  case Type::FixedVectorTyID:
-  case Type::ScalableVectorTyID: {
-    elemDesc = elemDesc.GetSubTypeDesc(0);
+  } else if (argTypeName.contains(ExtVector)) {
+    argTypeName = argTypeName.drop_back(3);
     // obtain type of vector element
-    const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();
-    // if float add ptr to NEAT context
-    if (TyElem->isFloatTy())
+    argTypeName = argTypeName.substr(0, argTypeName.find(' '));
+    elemDesc = elemDesc.GetSubTypeDesc(0);
+    // if float or double, add ptr to NEAT context
+    if (argTypeName == "float")
       IMPLEMENT_PTR_FLOAT_VAL(TFLOAT)
-    else if (TyElem->isDoubleTy()) // if double also add to context
+    else if (argTypeName == "double")
       IMPLEMENT_PTR_FLOAT_VAL(TDOUBLE)
     else // otherwise skip this buffer
       return;
-  }
-  case Type::StructTyID:
+  } else if (argTypeName.startswith("struct ") ||
+             argTypeName.startswith("image")) {
     neatVal.PointerVal = buffer->GetDataPtr();
     out_NEATArgValues[&*arg_it] = neatVal;
-    break;
-  case Type::PointerTyID:
-    throw Exception::InvalidArgument("Do not support buffers of pointers");
-  default:
+  } else {
     throw Exception::InvalidArgument("Unexpected data type");
   }
 }
@@ -924,12 +930,15 @@ void llvm::CreateNEATBufferContainerMap(
             number of arguments in function should be the same");
   }
 
+  SYCLKernelMetadataAPI::KernelMetadataAPI KMD(in_F);
+  assert(KMD.ArgBaseTypeList.hasValue() && "expect kernel_arg_type");
+
   const std::size_t numOfArguments = in_BC.GetMemoryObjectCount();
   Function::arg_iterator arg_it = in_F->arg_begin();
-  for (std::size_t buf = 0; arg_it != in_F->arg_end() && buf < numOfArguments;
-       ++arg_it, ++buf) {
+  for (std::size_t idx = 0; arg_it != in_F->arg_end() && idx < numOfArguments;
+       ++arg_it, ++idx) {
     Argument *arg = &*arg_it;
-    IMemoryObject *currMemObj = in_BC.GetMemoryObject(buf);
+    IMemoryObject *currMemObj = in_BC.GetMemoryObject(idx);
 
     if (Image::GetImageName() == currMemObj->GetName()) {
       // TODO: enable NEAT for images with write-only access mode
@@ -946,10 +955,12 @@ void llvm::CreateNEATBufferContainerMap(
         IMPLEMENT_FLOAT_VAL(TFLOAT);
       case Type::DoubleTyID:
         IMPLEMENT_FLOAT_VAL(TDOUBLE);
-      case Type::PointerTyID:
-        _CreateNEATBufferContainerByPtr(currBuffer, cast<PointerType>(Ty),
-                                        arg_it, out_NEATArgValues);
+      case Type::PointerTyID: {
+        StringRef argTypeName(KMD.ArgBaseTypeList.getItem(idx));
+        _CreateNEATBufferContainerByPtr(currBuffer, argTypeName, arg_it,
+                                        out_NEATArgValues);
         break;
+      }
       case Type::FixedVectorTyID:
       case Type::ScalableVectorTyID: {
         const FixedVectorType *VTy = cast<FixedVectorType>(Ty);
@@ -980,14 +991,77 @@ void llvm::CreateNEATBufferContainerMap(
     } // else if("Buffer" == currMemObj->GetName())
     else
       throw Exception::InvalidArgument("Unsupported memory object");
-  } // for (   std::size_t buf = 0;
+  }
 }
-bool NEATDataLayout ::IsNEATSupported(const Type *Ty) {
+
+static Type *findElementType(const Type *Ty, Value *V, std::string &ArgTyName) {
+  if (isa<LoadInst>(V) || isa<StoreInst>(V))
+    V = getLoadStorePointerOperand(V);
+  assert((isa<AllocaInst>(V) || isa<Argument>(V)) && "unsupported value type");
+
+  SmallVector<Value *, 2> WorkList{V};
+  if (isa<Argument>(V)) {
+    for (User *U : V->users())
+      if (auto *SI = dyn_cast<StoreInst>(U))
+        WorkList.push_back(SI->getPointerOperand());
+  }
+
+  for (Value *Val : WorkList) {
+    for (User *U : Val->users()) {
+      for (auto It = df_begin(U), E = df_end(U); It != E; ++It) {
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(*It))
+          return GEP->getSourceElementType();
+        else if (auto *SI = dyn_cast<StoreInst>(*It)) {
+          auto *Arg = dyn_cast<Argument>(SI->getValueOperand());
+          if (!Arg)
+            continue;
+          Function *F = Arg->getParent();
+          SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
+          if (!KMD.ArgBaseTypeList.hasValue())
+            continue;
+          ArgTyName = KMD.ArgBaseTypeList.getItem(Arg->getArgNo());
+          return nullptr;
+        }
+      }
+    }
+  }
+
+  llvm_unreachable("unhandled pointer element type");
+}
+
+// This function works on type name and behaves similarly to IsNEATSupported.
+bool isNEATArgTypeSupported(StringRef TypeName) {
+  if (TypeName == "float" || TypeName == "double")
+    return true;
+  if (TypeName.endswith("*"))
+    return isNEATArgTypeSupported(TypeName.drop_back());
+  if (TypeName.contains(ExtVector)) {
+    TypeName = TypeName.drop_back(3);
+    // obtain type of vector element
+    TypeName = TypeName.substr(0, TypeName.find(' '));
+    return isNEATArgTypeSupported(TypeName);
+  }
+  // TODO handle struct/array types.
+  return false;
+}
+
+bool NEATDataLayout ::IsNEATSupported(const Type *Ty, Value *V) {
+  LLVM_DEBUG(dbgs() << "IsNEATSupported, Ty: " << *Ty << ", V: " << V << "\n");
+  if (!Ty)
+    return false;
+
   // TODO: implement
   switch (Ty->getTypeID()) {
   case Type::PointerTyID: {
-    const PointerType *PTy = dyn_cast<PointerType>(Ty);
-    return IsNEATSupported(PTy->getElementType());
+    if (cast<PointerType>(Ty)->isOpaque()) {
+      std::string ArgTyName;
+      Type *EltTy = findElementType(Ty, V, ArgTyName);
+      if (!ArgTyName.empty())
+        return isNEATArgTypeSupported(StringRef(ArgTyName).drop_back());
+      return IsNEATSupported(EltTy);
+    } else {
+      return IsNEATSupported(Ty->getNonOpaquePointerElementType());
+    }
   }
   case Type::ArrayTyID: {
     const ArrayType *ATy = dyn_cast<ArrayType>(Ty);
@@ -1113,7 +1187,7 @@ void NEATPlugIn::visitReturnInst(ReturnInst &I) {
 void NEATPlugIn::visitBinaryOperator(BinaryOperator &I) {
   HANDLE_EVENT(POST_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -1228,7 +1302,7 @@ void NEATPlugIn::visitBinaryOperator(BinaryOperator &I) {
 void NEATPlugIn::visitExtractElementInst(ExtractElementInst &I) {
   HANDLE_EVENT(PRE_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -1251,7 +1325,7 @@ void NEATPlugIn::visitExtractElementInst(ExtractElementInst &I) {
 void NEATPlugIn::visitInsertElementInst(InsertElementInst &I) {
   HANDLE_EVENT(PRE_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -1276,7 +1350,7 @@ void NEATPlugIn::visitInsertElementInst(InsertElementInst &I) {
 void NEATPlugIn::visitShuffleVectorInst(ShuffleVectorInst &I) {
   HANDLE_EVENT(PRE_INST);
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
@@ -1292,7 +1366,7 @@ void NEATPlugIn::visitShuffleVectorInst(ShuffleVectorInst &I) {
   assert(ShuffleMaskSize > 1);
   std::vector<unsigned> mask_vec;
   for (unsigned i = 0; i < ShuffleMaskSize; ++i) {
-    if (ShuffleMask[i] == UndefMaskElem) {
+    if (ShuffleMask[i] == PoisonMaskElem) {
       // Use safe value (0). The result will be overwritten below with
       // NEATValue::ANY.
       mask_vec.push_back(0);
@@ -1310,7 +1384,7 @@ void NEATPlugIn::visitShuffleVectorInst(ShuffleVectorInst &I) {
 
   bool isAnyUndef = false;
   for (unsigned i = 0; i < ShuffleMaskSize; ++i) {
-    if (ShuffleMask[i] == UndefMaskElem) {
+    if (ShuffleMask[i] == PoisonMaskElem) {
       isAnyUndef = true;
       undef_vec[i] = 1; // mark undef values
     }
@@ -1388,7 +1462,7 @@ void NEATPlugIn::visitSelectInst(SelectInst &I) {
   HANDLE_EVENT(PRE_INST);
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
-  if (!m_NTD.IsNEATSupported(I.getOperand(1)->getType()))
+  if (!m_NTD.IsNEATSupported(I.getOperand(1)->getType(), &I))
     return;
 
   NEATExecutionContext &SF = m_NECStack.back();
@@ -1494,7 +1568,8 @@ void NEATPlugIn::visitBitCastInst(BitCastInst &I) {
   // To know byte order on target machine.
   bool isLittleEndian = m_pInterp->getDataLayout().isLittleEndian();
   // Ignore operation that doesn't involve NEAT supported data types
-  if (!m_NTD.IsNEATSupported(DstTy) && !m_NTD.IsNEATSupported(SrcTy))
+  if (!m_NTD.IsNEATSupported(DstTy, &I) &&
+      !m_NTD.IsNEATSupported(SrcTy, I.getOperand(0)))
     return;
 
   // handle the same type bitcast
@@ -1511,8 +1586,10 @@ void NEATPlugIn::visitBitCastInst(BitCastInst &I) {
       // allowed cases: float* to float*, [n x float]* to float*, <n x float>*
       // to float* float* to [n x float]*, float* to <n x float>* and the same
       // for doubles
-      const Type *localSrcTy = dyn_cast<PointerType>(SrcTy)->getElementType();
-      const Type *localDstTy = dyn_cast<PointerType>(DstTy)->getElementType();
+      const Type *localSrcTy =
+          dyn_cast<PointerType>(SrcTy)->getNonOpaquePointerElementType();
+      const Type *localDstTy =
+          dyn_cast<PointerType>(DstTy)->getNonOpaquePointerElementType();
 
       // float* to float*, double* to double*
       if ((localSrcTy->getTypeID() == Type::FloatTyID &&
@@ -1869,7 +1946,7 @@ void NEATPlugIn::visitExtractValueInst(ExtractValueInst &I) {
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   NEATExecutionContext &SF = m_NECStack.back();
@@ -1931,7 +2008,7 @@ void NEATPlugIn::visitInsertValueInst(InsertValueInst &I) {
   LLVM_DEBUG(dbgs() << "[NEATPlugin] running : " << I << "\n");
 
   // if NEAT does not support this type - exit
-  if (!m_NTD.IsNEATSupported(I.getType()))
+  if (!m_NTD.IsNEATSupported(I.getType(), &I))
     return;
 
   NEATExecutionContext &SF = m_NECStack.back();
@@ -2036,7 +2113,7 @@ void NEATPlugIn::visitCallSite(CallBase &CS) {
        ++AI, ++i) {
     Argument *A = &*AI;
     // use the NEAT supported arguments only
-    if (m_NTD.IsNEATSupported(A->getType())) {
+    if (m_NTD.IsNEATSupported(A->getType(), A)) {
       ArgVals[A] = getOperandValue(*i, SF);
     }
   }
@@ -2081,7 +2158,7 @@ void NEATPlugIn::execute_shuffle(
   Function::arg_iterator Fit = F->arg_begin();
   Value *arg0 = &*Fit++;
   const Type *Ty0 = arg0->getType();
-  if (!m_NTD.IsNEATSupported(Ty0))
+  if (!m_NTD.IsNEATSupported(Ty0, arg0))
     return;
 
   const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);
@@ -2106,7 +2183,8 @@ void NEATPlugIn::execute_shuffle2(
   const Type *Ty0 = arg0->getType();
   Value *arg1 = &*Fit++;
   const Type *Ty1 = arg1->getType();
-  if ((!m_NTD.IsNEATSupported(Ty0)) || (!m_NTD.IsNEATSupported(Ty1)))
+  if ((!m_NTD.IsNEATSupported(Ty0, arg0)) ||
+      (!m_NTD.IsNEATSupported(Ty1, arg1)))
     return;
 
   const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);
@@ -2137,7 +2215,8 @@ void NEATPlugIn::execute_atomic_xchg(
   const Type *Ty0 = arg0->getType();
   Value *arg1 = &*Fit++;
   const Type *Ty1 = arg1->getType();
-  if ((!m_NTD.IsNEATSupported(Ty0)) || (!m_NTD.IsNEATSupported(Ty1)))
+  if ((!m_NTD.IsNEATSupported(Ty0, arg0)) ||
+      (!m_NTD.IsNEATSupported(Ty1, arg1)))
     return;
 
   const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);
@@ -2414,12 +2493,12 @@ typedef NEATVector (*vloadOp)(size_t, const NEATValue *);
     Fit++;                                                                     \
     Value *arg1 = &*Fit++;                                                     \
     const Type *Ty1 = arg1->getType();                                         \
-    if (!m_NTD.IsNEATSupported(Ty1))                                           \
+    if (!m_NTD.IsNEATSupported(Ty1, arg1))                                     \
       return;                                                                  \
     const NEATGenericValue &ValArg1 = GetArg(arg1, ArgVals);                   \
     NEATValue *p = (NEATValue *)NGVTOP(ValArg1);                               \
     const PointerType *PTy = dyn_cast<PointerType>(Ty1);                       \
-    const Type *ETy = PTy->getElementType();                                   \
+    const Type *ETy = PTy->getNonOpaquePointerElementType();                   \
     if (ETy->isFloatTy()) {                                                    \
       Result.NEATVec = NEAT_WRAP::vload##n##_f(offset, p);                     \
     } else if (ETy->isDoubleTy()) {                                            \
@@ -2445,7 +2524,7 @@ EXECUTE_VLOAD(16)
     Function::arg_iterator Fit = F->arg_begin();                               \
     Value *arg0 = &*Fit++;                                                     \
     const Type *Ty0 = arg0->getType();                                         \
-    if (!m_NTD.IsNEATSupported(Ty0))                                           \
+    if (!m_NTD.IsNEATSupported(Ty0, arg0))                                     \
       return;                                                                  \
     const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);                   \
     GenericValue ValArg1 = GetGenericArg(1);                                   \
@@ -2481,7 +2560,7 @@ EXECUTE_VSTORE_HALF(_half_rtn)
     Function::arg_iterator Fit = F->arg_begin();                               \
     Value *arg0 = &*Fit++;                                                     \
     const Type *Ty2 = arg0->getType();                                         \
-    if (!m_NTD.IsNEATSupported(Ty2))                                           \
+    if (!m_NTD.IsNEATSupported(Ty2, arg0))                                     \
       return;                                                                  \
     const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);                   \
     const NEATVector data = ValArg0.NEATVec;                                   \
@@ -2530,7 +2609,7 @@ typedef void (*vstoreOp)(NEATVector, size_t, const NEATValue *);
     Function::arg_iterator Fit = F->arg_begin();                               \
     Value *arg0 = &*Fit++;                                                     \
     const Type *Ty0 = arg0->getType();                                         \
-    if (!m_NTD.IsNEATSupported(Ty0))                                           \
+    if (!m_NTD.IsNEATSupported(Ty0, arg0))                                     \
       return;                                                                  \
     const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);                   \
     const NEATVector data = ValArg0.NEATVec;                                   \
@@ -2542,7 +2621,7 @@ typedef void (*vstoreOp)(NEATVector, size_t, const NEATValue *);
     NEATValue *p = (NEATValue *)NGVTOP(ValArg2);                               \
     const Type *Ty2 = arg2->getType();                                         \
     const PointerType *PTy = dyn_cast<PointerType>(Ty2);                       \
-    const Type *ETy = PTy->getElementType();                                   \
+    const Type *ETy = PTy->getNonOpaquePointerElementType();                   \
     if (ETy->isFloatTy()) {                                                    \
       NEAT_WRAP::vstore##n##_f(data, offset, p);                               \
     } else if (ETy->isDoubleTy()) {                                            \
@@ -2798,10 +2877,10 @@ void NEATPlugIn::execute_async_work_group_copy(
   Value *arg0 = &*Fit++;
 
   const Type *Ty = arg0->getType();
-  const PointerType *PTy = dyn_cast<PointerType>(Ty);
-  const Type *ETy = PTy->getElementType();
+  const PointerType *PTy = cast<PointerType>(Ty);
+  const Type *ETy = PTy->getNonOpaquePointerElementType();
 
-  if (!m_NTD.IsNEATSupported(ETy))
+  if (!m_NTD.IsNEATSupported(ETy, arg0))
     return;
 
   const NEATGenericValue dst = GetArg(arg0, ArgVals);
@@ -2836,10 +2915,10 @@ void NEATPlugIn::execute_async_work_group_strided_copy(
   Value *arg0 = &*Fit++;
 
   const Type *Ty = arg0->getType();
-  const PointerType *PTy = dyn_cast<PointerType>(Ty);
-  const Type *ETy = PTy->getElementType();
+  const PointerType *PTy = cast<PointerType>(Ty);
+  const Type *ETy = PTy->getNonOpaquePointerElementType();
 
-  if (!m_NTD.IsNEATSupported(ETy))
+  if (!m_NTD.IsNEATSupported(ETy, arg0))
     return;
 
   const NEATGenericValue dst = GetArg(arg0, ArgVals);
@@ -3034,7 +3113,7 @@ void NEATPlugIn::execute_bitselect(
   Function::arg_iterator Fit = F->arg_begin();
   Value *arg0 = &*Fit++;
   const Type *Ty = arg0->getType();
-  if (!m_NTD.IsNEATSupported(Ty))
+  if (!m_NTD.IsNEATSupported(Ty, arg0))
     return;
   // all three input values or vectors should have the same type (and size for
   // vectors)
@@ -3078,7 +3157,7 @@ void NEATPlugIn::execute_select(
   const Type *Ty = arg0->getType();
   Value *arg1 = &*Fit++;
 
-  if (!m_NTD.IsNEATSupported(Ty))
+  if (!m_NTD.IsNEATSupported(Ty, arg0))
     return;
 
   const NEATGenericValue &a = GetArg(arg0, ArgVals);
@@ -3665,7 +3744,8 @@ void NEATPlugIn::execute_rootn(
     Value *arg1 = &*Fit++;                                                     \
     const Type *Ty0 = arg0->getType();                                         \
     const Type *Ty1 = arg1->getType();                                         \
-    if (!(m_NTD.IsNEATSupported(Ty0) && m_NTD.IsNEATSupported(Ty1)))           \
+    if (!(m_NTD.IsNEATSupported(Ty0, arg0) &&                                  \
+          m_NTD.IsNEATSupported(Ty1, arg1)))                                   \
       return;                                                                  \
     const NEATGenericValue &ValArg0 = GetArg(arg0, ArgVals);                   \
     const NEATGenericValue &ValArg1 = GetArg(arg1, ArgVals);                   \
@@ -4262,12 +4342,12 @@ void *NEATPlugIn::getPointerToGlobalIfAvailable(const GlobalValue *GV) {
   return I != m_GlobalAddressMap.end() ? I->second : NULL;
 }
 
-void *NEATPlugIn::getOrEmitGlobalVariable(const GlobalVariable *GV) {
-  Type *GlobalType = GV->getType()->getElementType();
+void *NEATPlugIn::getOrEmitGlobalVariable(GlobalVariable *GV) {
+  Type *GlobalType = GV->getValueType();
 
   // if NEAT does not support type return NULL
   // and do not allocate global variable
-  if (!NEATDataLayout ::IsNEATSupported(GlobalType))
+  if (!NEATDataLayout ::IsNEATSupported(GlobalType, GV))
     return 0;
 
   void *GA = getPointerToGlobalIfAvailable((GlobalValue *)GV);

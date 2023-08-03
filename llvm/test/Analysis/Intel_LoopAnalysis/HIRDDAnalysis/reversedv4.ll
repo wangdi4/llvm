@@ -11,7 +11,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @_Z3subPfi(float* nocapture %a, i32 %n) local_unnamed_addr #0 {
+define i32 @_Z3subPfi(ptr nocapture %a, i32 %n) local_unnamed_addr #0 {
 entry:
   %conv = sext i32 %n to i64
   br label %for.cond1.preheader
@@ -31,17 +31,17 @@ for.body3:                                        ; preds = %for.body3.preheader
   %mul = mul nuw nsw i64 %i2.040, 7
   %add4 = sub nsw i64 %mul, %i1.041
   %add5 = add nsw i64 %add4, 110
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %add5
-  store float 0.000000e+00, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %add5
+  store float 0.000000e+00, ptr %arrayidx, align 4, !tbaa !1
   %add9 = add nsw i64 %add4, 112
-  %arrayidx10 = getelementptr inbounds float, float* %a, i64 %add9
-  store float 0.000000e+00, float* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds float, ptr %a, i64 %add9
+  store float 0.000000e+00, ptr %arrayidx10, align 4, !tbaa !1
   %add14 = add nsw i64 %add4, 114
-  %arrayidx15 = getelementptr inbounds float, float* %a, i64 %add14
-  store float 0.000000e+00, float* %arrayidx15, align 4, !tbaa !1
+  %arrayidx15 = getelementptr inbounds float, ptr %a, i64 %add14
+  store float 0.000000e+00, ptr %arrayidx15, align 4, !tbaa !1
   %add19 = add nsw i64 %add4, 116
-  %arrayidx20 = getelementptr inbounds float, float* %a, i64 %add19
-  store float 0.000000e+00, float* %arrayidx20, align 4, !tbaa !1
+  %arrayidx20 = getelementptr inbounds float, ptr %a, i64 %add19
+  store float 0.000000e+00, ptr %arrayidx20, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i2.040, 1
   %exitcond = icmp eq i64 %inc, %indvars.iv
   br i1 %exitcond, label %for.inc21.loopexit, label %for.body3
@@ -60,10 +60,10 @@ for.end23:                                        ; preds = %for.inc21
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

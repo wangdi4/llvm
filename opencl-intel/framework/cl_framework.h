@@ -41,7 +41,6 @@
 
 // Define a static map for extension functions support
 typedef std::map<std::string, void *> ExtensionFunctionAddressResolveMap;
-extern ExtensionFunctionAddressResolveMap g_extFuncResolveMap;
 extern void *RegisterExtensionFunctionAddress(const char *pFuncName,
                                               void *pFuncPtr);
 #define REGISTER_EXTENSION_FUNCTION(__NAME__, __ADDRESS__)                     \

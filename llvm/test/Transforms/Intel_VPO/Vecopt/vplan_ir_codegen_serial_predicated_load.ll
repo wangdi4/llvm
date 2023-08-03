@@ -8,12 +8,12 @@
 ; CHECK-NEXT:    br label %[[VPLANNEDBB40:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[VPLANNEDBB40]]:
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR:%.*]], i64 42
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i64, ptr [[ARR:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i64 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -29,13 +29,13 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-define void @test1(i64 %n, i64* %arr) {
+define void @test1(i64 %n, ptr %arr) {
   entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:                                   ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr, i64 0, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr, i64 0, i32 1) ]
   br label %for.body
 
 for.body:
@@ -44,8 +44,8 @@ for.body:
   br i1 %cond, label %if.then, label %for.latch
 
 if.then:
-  %gep = getelementptr inbounds i64, i64* %arr, i64 42
-  %load = load i64, i64* %gep, align 4
+  %gep = getelementptr inbounds i64, ptr %arr, i64 42
+  %load = load i64, ptr %gep, align 4
   %use = add i64 %load, %indvars.iv
   br label %for.latch
 

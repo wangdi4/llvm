@@ -35,7 +35,6 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::desc("Print VPlan entities"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 void VPReduction::dump(raw_ostream &OS) const {
   OS << (isIntegerRecurrenceKind(getRecurrenceKind()) && isSigned() ? " signed "
                                                                     : " ");
@@ -78,6 +77,12 @@ void VPReduction::dump(raw_ostream &OS) const {
     break;
   case RecurKind::FMax:
     OS << "(FloatMax)";
+    break;
+  case RecurKind::FMinimum:
+    OS << "(FloatMinimum)";
+    break;
+  case RecurKind::FMaximum:
+    OS << "(FloatMaximum)";
     break;
   case RecurKind::Udr:
     OS << "(UDR)";
@@ -218,6 +223,9 @@ void VPPrivate::dump(raw_ostream &OS) const {
     case PrivateTag::PTNonPod:
       OS << "Non-POD";
       break;
+    case PrivateTag::PTF90DV:
+      OS << "F90DV";
+      break;
     }
   }
   printLinkedValues(OS);
@@ -325,6 +333,10 @@ unsigned VPReduction::getReductionOpcode(RecurKind K) {
     return VPInstruction::FMin;
   case RecurKind::FMax:
     return VPInstruction::FMax;
+  case RecurKind::FMinimum:
+    return VPInstruction::FMinimum;
+  case RecurKind::FMaximum:
+    return VPInstruction::FMaximum;
   default:
     return RDTempl::getOpcode(K);
   }
@@ -339,6 +351,32 @@ unsigned int VPInduction::getInductionOpcode() const {
   VPInstruction* IndUpdate = getInductionBinOp();
   assert (IndUpdate && "Induction update instruction is not set");
   return IndUpdate->getOpcode();
+}
+
+void VPInduction::replaceBinOp(VPInstruction *NewBinOp) {
+#ifndef NDEBUG
+  auto OldBinOp = getInductionBinOp();
+  assert(OldBinOp && OldBinOp->getType() == NewBinOp->getType() &&
+         getInductionOpcode() == NewBinOp->getOpcode() &&
+         "Inconsistent BinOp replacement!");
+#endif
+  InductionBinOp = NewBinOp;
+}
+
+const std::string VPLoopEntityList::getImportErrorStr(const ImportError IE) {
+  switch (IE) {
+  case ImportError::None:
+    return INTERNAL("Internal error: no import error!");
+  case ImportError::Reduction:
+    return INTERNAL("Reduction has different symbases for live-in and "
+                    "live-out values.");
+  case ImportError::Induction:
+    return INTERNAL("Importing induction failed for this loop.");
+  case ImportError::Private:
+    return INTERNAL("Importing private failed for this loop.");
+  case ImportError::CompressExpand:
+    return INTERNAL("Incomplete compress-expand idiom.");
+  }
 }
 
 VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(
@@ -459,11 +497,21 @@ VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
 }
 
 VPInduction *VPLoopEntityList::addInduction(
-    VPInstruction *Start, VPValue *Incoming, InductionKind Kind, VPValue *Step,
-    int StepMultiplier, Type *StepTy, const SCEV *StepSCEV, VPValue *StartVal,
-    VPValue *EndVal, VPInstruction *InductionOp, unsigned int Opc, VPValue *AI,
-    bool ValidMemOnly) {
+    VPInstruction *Start, VPValue *Incoming, Type *IndTy, InductionKind Kind,
+    VPValue *Step, int StepMultiplier, Type *StepTy, const SCEV *StepSCEV,
+    VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
+    unsigned int Opc, VPValue *AI, bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
+  if (Incoming->getType() != IndTy) {
+    // This is the case with in-memory inductions. In such cases the Incoming
+    // is set to a pointer to induction variable declared in the clause. The
+    // induction descriptor requires Incoming to be of the type of induction so
+    // we can't pass the pointer and we create an undef to overcome that
+    // restriction. During emitting induction initialization that undef is
+    // ignored and replaced by the load from the induction variable.
+    assert((ValidMemOnly && AI) && "Expected in-memory induction");
+    Incoming = Plan.getVPConstant(UndefValue::get(IndTy));
+  }
   VPInduction *Ind =
       new VPInduction(Incoming, Kind, Step, StepMultiplier, StepTy, StepSCEV,
                       StartVal, EndVal, InductionOp, ValidMemOnly, Opc);
@@ -480,9 +528,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly, bool IsF90) {
+                                        bool ValidMemOnly) {
   auto *Priv = new VPPrivate(FinalI, std::move(Aliases), K, Explicit,
-                             AllocatedTy, ValidMemOnly, IsF90);
+                             AllocatedTy, ValidMemOnly, false /* F90 */);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, FinalI);
   linkValue(PrivateMap, Priv, AI);
@@ -494,9 +542,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly, bool IsF90) {
+                                        bool ValidMemOnly) {
   auto *Priv = new VPPrivate(Tag, std::move(Aliases), K, Explicit, AllocatedTy,
-                             ValidMemOnly, IsF90);
+                             ValidMemOnly, false /* F90 */);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -516,8 +564,19 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
   return Priv;
 }
 
+VPPrivateF90DV *VPLoopEntityList::addF90DVPrivate(
+    VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
+    Type *AllocatedTy, VPValue *AI, bool ValidMemOnly, Type *F90DVElementType) {
+  auto *Priv = new VPPrivateF90DV(std::move(Aliases), K, Explicit, AllocatedTy,
+                                  ValidMemOnly, F90DVElementType);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
 VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
-    VPPHINode *RecurrentPhi, VPValue *LiveIn, VPInstruction *LiveOut,
+    VPPHINode *RecurrentPhi, VPValue *LiveIn, VPPHINode *LiveOut,
     int64_t TotalStride, const SmallVectorImpl<VPInstruction *> &Increments,
     const SmallVectorImpl<VPLoadStoreInst *> &Stores,
     const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -599,6 +658,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     case RecurKind::UMax:
     case RecurKind::FMin:
     case RecurKind::FMax:
+    case RecurKind::FMinimum:
+    case RecurKind::FMaximum:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
     case RecurKind::Udr:
@@ -643,11 +704,13 @@ bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
   case RecurKind::SMin:
   case RecurKind::UMin:
   case RecurKind::FMin:
+  case RecurKind::FMinimum:
     IsMin = true;
     break;
   case RecurKind::SMax:
   case RecurKind::UMax:
   case RecurKind::FMax:
+  case RecurKind::FMaximum:
     IsMin = false;
     break;
   default:
@@ -868,7 +931,7 @@ static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
   if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
     unsigned ExtDefSym = ExtDef->HIR().getSymbase();
     if (ExtDefSym != loopopt::InvalidSymbase)
-      V->HIR().setSymbase(ExtDefSym);
+      V->HIR().setGepRefSymbase(ExtDefSym);
   }
 }
 
@@ -1289,6 +1352,64 @@ void VPLoopEntityList::processRunningInscanArrReduction(
                                        AddedAliasInstrs);
 }
 
+void VPLoopEntityList::assignDebugLocToInductionPhis(
+    const VPInduction *Induction) {
+
+  auto *IndBinOp = Induction->getInductionBinOp();
+  if (!IndBinOp)
+    return;
+
+  // The "binop" may be a phi that aggregates multiple identical
+  // induction operations.  In such cases, arbitrarily pick one rather
+  // than taking the default, which will later use the debug location
+  // of the omp simd pragma.
+  std::queue<VPInstruction *> WorkList;
+  SmallSet<VPInstruction *, 8> Visited;
+
+  if (auto *Phi = dyn_cast<VPPHINode>(IndBinOp)) {
+    WorkList.push(IndBinOp);
+
+    while (!WorkList.empty()) {
+      VPInstruction *Cand = WorkList.front();
+      WorkList.pop();
+      Visited.insert(Cand);
+
+      if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
+       for (auto Opnd : Phi->operands()) {
+          if (auto *I = dyn_cast<VPInstruction>(Opnd))
+            if (Loop.contains(I) && !Visited.contains(I))
+              WorkList.push(I);
+       }
+      } else {
+       IndBinOp = Cand;
+       // Don't break, as we want to find all phis for later.
+      }
+    }
+  }
+
+  auto DebugLoc = IndBinOp->getDebugLocation();
+  VPPHINode *HeaderPhi = getRecurrentVPHINode(*Induction);
+  if (HeaderPhi)
+    HeaderPhi->setDebugLocation(DebugLoc);
+
+  // If the original binop was a phi, all phis found in the above
+  // search should be provided with the debug location.
+  for (auto *I : Visited)
+    if (auto *Phi = dyn_cast<VPPHINode>(I)) {
+      Phi->setDebugLocation(DebugLoc);
+    }
+
+#ifndef NDEBUG
+  // If the exit instruction is a phi, it should already have been assigned
+  // the binop debug location above.
+  VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
+  if (ExitInstr)
+    assert((!isa<VPPHINode>(ExitInstr) ||
+            ExitInstr->getDebugLocation() == DebugLoc) &&
+           "Failed to handle exit phi!");
+#endif
+}
+
 void VPLoopEntityList::assignDebugLocToReductionInstrs(VPReductionFinal *Final,
                                                        bool IsMemOnly) {
 
@@ -1677,10 +1798,13 @@ void VPLoopEntityList::replaceUsesOfExtDefWithMemoryAliases(
   // Now do the replacement of aliases. We first replace all instances of
   // VPOperand with VPInst within the preheader, where all aliases have been
   // inserted. Then replace all instances of VPOperand with VPInst in the loop.
+  LLVM_DEBUG(dbgs() << "Aliases:\n");
   for (auto const &ValInstPair : Entity->aliases()) {
     auto *VPOperand = ValInstPair.first;
     const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
+    LLVM_DEBUG(VPOperand->dump(); Inst->dump(); VPInst->dump();
+               dbgs() << "\n";);
     if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
       VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
       VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
@@ -2080,6 +2204,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       Start = V;
     }
 
+    // Set the debug location for phis associated with the induction.
+    // This needs to be done before transforms that rely on the debug
+    // location being set, including createInductionCloseForm.
+    assignDebugLocToInductionPhis(Induction);
+
     unsigned Opc = Induction->getInductionOpcode();
     StringRef Name;
     if (AI)
@@ -2410,8 +2539,11 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
 
-    // Handle aliases in two passes.
-    insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+    if (!isa<VPPrivateF90DV>(Private)) {
+      // Handle aliases in two passes. In case private is F90_DV we need to
+      // handle aliases after f90-dv-buffer-init is called.
+      insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+    }
 
     if (PrivateMem) {
       // The uses of this allocate-private could also be instruction outside
@@ -2542,6 +2674,65 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       VPValue* StoreMem = Private->getIsMemOnly() ? AI : nullptr;
       processFinalValue(*Private, StoreMem, Builder, *Final, Exit->getType(),
                         Exit);
+    } else if (auto *PrivateF90DV = dyn_cast<VPPrivateF90DV>(Private)) {
+      VPInstruction *VPStackSave = nullptr;
+      auto *I64 = Type::getInt64Ty(*Plan.getLLVMContext());
+      auto *ptrI8 = Type::getInt8PtrTy(*Plan.getLLVMContext());
+      FunctionType *NewFnTy = FunctionType::get(I64, {ptrI8, ptrI8}, false);
+      FunctionCallee FnC = Plan.getModule()->getOrInsertFunction(
+          "_f90_dope_vector_init2", NewFnTy);
+      Function *InitFn = dyn_cast_or_null<Function>(FnC.getCallee());
+      assert(InitFn && "InitFn cannot be nullptr.");
+      Type *AITy = AI->getType();
+      VPValue *i8AI = AI;
+      VPValue *i8PrivateMem = PrivateMem;
+      // If AI is not opaque pointer and it's not i8* we need to convert it to
+      // this type.
+      if (!AITy->isOpaquePointerTy() && AITy != ptrI8) {
+        i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
+        i8PrivateMem =
+            Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
+      }
+      auto *VPInitF90Call = Builder.createCall(InitFn, {i8PrivateMem, i8AI});
+
+      // Emit StackSave only single time
+      if (!GeneratedSSForDV) {
+        Function *StackSaveFunc =
+            Intrinsic::getDeclaration(Plan.getModule(), Intrinsic::stacksave);
+        VPStackSave = Builder.createCall(StackSaveFunc, {});
+      }
+
+      Builder.create<F90DVBufferInit>(
+          ".priv_f90_init", Type::getVoidTy(*Plan.getLLVMContext()),
+          ArrayRef<VPValue *>{VPInitF90Call, PrivateMem},
+          PrivateF90DV->getF90DVElementType());
+      // Handle aliases in two passes. We need to call it after
+      // f90-dv-buffer-init is called, so we won't be reading from uninitialized
+      // memory.
+      insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+
+      // We are populating PrivateMem while creating F90DVBufferInit call and
+      // now we need to re-reun replacing of the aliases.
+      auto ShouldReplace = [&Preheader, &i8AI, &VPInitF90Call](VPUser *User) {
+        if (VPInstruction *I = dyn_cast<VPInstruction>(User)) {
+          if (I == i8AI || I == VPInitF90Call)
+            return false;
+          return I->getParent() == Preheader;
+        }
+        return false;
+      };
+      AI->replaceUsesWithIf(PrivateMem, ShouldReplace, true /* InvalidateIR */);
+      AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+      // Emit StackRestore only single time
+      if (!GeneratedSSForDV) {
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit);
+        Function *StackRestoreFunc = Intrinsic::getDeclaration(
+            Plan.getModule(), Intrinsic::stackrestore);
+        Builder.createCall(StackRestoreFunc, {VPStackSave});
+        GeneratedSSForDV = true;
+      }
     }
 
     if (PrivateMem) {
@@ -2572,20 +2763,23 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
     Plan.setCompressExpandUsed();
+
+    // Look for Exit instruction in RecurrentPhi.
+    VPPHINode *Exit = CEIdiom->LiveOut;
+    if (!Exit)
+      for (VPValue *V : CEIdiom->RecurrentPhi->incoming_values())
+        if (V != CEIdiom->LiveIn) {
+          Exit = cast<VPPHINode>(V);
+          break;
+        }
+    assert(Exit && "Non-null exit instruction is expected.");
+
     // Create Init instruction using live-in instruction as an operand.
     Builder.setInsertPoint(Preheader);
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
     auto *Init = Builder.create<VPCompressExpandInit>("init", CEIdiom->LiveIn);
     assert(CEIdiom->RecurrentPhi && "Expected a valid recurrent phi value.");
     CEIdiom->RecurrentPhi->replaceUsesOfWith(CEIdiom->LiveIn, Init);
-
-    // Look for Exit instruction in RecurrentPhi.
-    VPInstruction *Exit = CEIdiom->LiveOut;
-    for (auto It = CEIdiom->RecurrentPhi->op_begin();
-         (!Exit || Exit == Init) && It != CEIdiom->RecurrentPhi->op_end(); It++)
-      if (VPInstruction *I = dyn_cast<VPInstruction>(*It))
-        Exit = I;
-    assert(Exit && "Non-null exit instruction is expected.");
 
     // Create Final instruction replacing live-out external uses with it.
     Builder.setInsertPoint(PostExit);
@@ -2598,6 +2792,9 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Init = Init;
     CEIdiom->Final = Final;
 
+    bool IsPtrInc = CEIdiom->RecurrentPhi->getType()->isPointerTy();
+    Type *ValueType = nullptr;
+
     bool UnitStrided = CEIdiom->TotalStride == 1;
     auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode) {
       for (VPLoadStoreInst *LoadStore : LoadsStores) {
@@ -2607,6 +2804,13 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
             "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
         LoadStore->replaceAllUsesWith(CompressExpand);
+
+        if (IsPtrInc)
+          if (!ValueType)
+            ValueType = LoadStore->getValueType();
+          else
+            assert(ValueType == LoadStore->getValueType() &&
+                   "All linked loads/stores should have the same value type.");
 
         VPBasicBlock *VPBB = LoadStore->getParent();
         VPBB->eraseInstruction(LoadStore);
@@ -2634,46 +2838,88 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
                                            ? VPInstruction::ExpandLoad
                                            : VPInstruction::ExpandLoadNonu);
 
-    std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
-        [&](VPUser *User) {
-          VPInstruction *Inst = dyn_cast<VPInstruction>(User);
-          if (!Inst || isa<VPPHINode>(Inst))
-            return false;
-          unsigned Opcode = Inst->getOpcode();
-          return Opcode == VPInstruction::CompressStore ||
-                 Opcode == VPInstruction::CompressStoreNonu ||
-                 Opcode == VPInstruction::ExpandLoad ||
-                 Opcode == VPInstruction::ExpandLoadNonu ||
-                 llvm::any_of(Inst->users(), IsUsedByCompressExpandLoadStore);
-        };
+    if (IsPtrInc)
+      assert(ValueType &&
+             "ValueType should have been set by load/store processing lambda.");
 
     // If idiom's loads/stores are non-unit strided, CompressExpandIndex
     // instruction has to be created for each index instruction.
     if (!UnitStrided) {
-      VPConstant *Stride = Plan.getVPConstant(ConstantInt::get(
-          Type::getInt64Ty(*Plan.getLLVMContext()), CEIdiom->TotalStride));
       for (VPInstruction *Index : CEIdiom->Indices) {
         if (isa<VPPHINode>(Index))
           Builder.setInsertPointFirstNonPhi(Index->getParent());
         else
           Builder.setInsertPoint(Index->getParent(),
                                  std::next(Index->getIterator()));
-        VPInstruction *CEIndex = Builder.createNaryOp(
-            VPInstruction::CompressExpandIndex, Index->getType(), {});
+
+        std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
+            [&](VPUser *User) {
+              VPInstruction *Inst = dyn_cast<VPInstruction>(User);
+              if (!Inst || Inst == Index || isa<VPPHINode>(Inst))
+                return false;
+              unsigned Opcode = Inst->getOpcode();
+              return Opcode == VPInstruction::CompressStore ||
+                     Opcode == VPInstruction::CompressStoreNonu ||
+                     Opcode == VPInstruction::ExpandLoad ||
+                     Opcode == VPInstruction::ExpandLoadNonu ||
+                     llvm::any_of(Inst->users(),
+                                  IsUsedByCompressExpandLoadStore);
+            };
+
+        VPInstruction *CEIndex = Builder.create<VPCompressExpandIndex>(
+            "", ValueType, CEIdiom->TotalStride, Index);
         Index->replaceUsesWithIf(CEIndex, IsUsedByCompressExpandLoadStore);
-        CEIndex->addOperand(Index);
-        CEIndex->addOperand(Stride);
       }
     }
     CEIdiom->Indices.clear();
 
+    // Create a chain of PHI instructions generating vector of i1 values
+    // equivalent to the mask compress/expand load/store instruction is being
+    // executed under.
+    Type *MaskPhiType = Type::getInt1Ty(*Plan.getLLVMContext());
+    std::function<VPPHINode *(VPPHINode *)> GenerateMaskPhi =
+        [&](VPPHINode *OrigPhi) {
+          Builder.setInsertPoint(OrigPhi);
+          VPPHINode *MaskPhi = Builder.createPhiInstruction(MaskPhiType);
+          for (unsigned I = 0; I < OrigPhi->getNumIncomingValues(); I++) {
+
+            VPValue *V = OrigPhi->getIncomingValue(I);
+            assert(isa<VPPHINode>(V) ||
+                   isa<VPInstruction>(V) &&
+                       CEIdiom->Increments.count(cast<VPInstruction>(V)) &&
+                       "Incoming PHI value should be either another PHI "
+                       "instruction or one of the increment instructions.");
+
+            VPValue *MaskV;
+            if (isa<VPPHINode>(V) && V != CEIdiom->RecurrentPhi)
+              MaskV = GenerateMaskPhi(cast<VPPHINode>(V));
+            else
+              MaskV = Plan.getVPConstant(ConstantInt::get(
+                  MaskPhiType, V == CEIdiom->RecurrentPhi ? 0 : 1));
+            MaskPhi->addIncoming(MaskV, OrigPhi->getIncomingBlock(I));
+          }
+          return MaskPhi;
+        };
+    VPPHINode *MaskPhi = GenerateMaskPhi(cast<VPPHINode>(Exit));
+
     // Add an index adjustment instruction into the loop latch.
     Builder.setInsertPointFirstNonPhi(Exit->getParent());
-    VPInstruction *CEIndexInc = Builder.createNaryOp(
-        VPInstruction::CompressExpandIndexInc, Exit->getType(), {});
+    VPInstruction *CEIndexInc = Builder.create<VPCompressExpandIndexInc>(
+        "", ValueType, CEIdiom->TotalStride, CEIdiom->RecurrentPhi, MaskPhi);
     Exit->replaceAllUsesWith(CEIndexInc);
-    CEIndexInc->addOperand(Exit);
     CEIdiom->Increments.clear();
+
+    std::queue<VPInstruction *> Worklist({Exit});
+    while (!Worklist.empty()) {
+      VPInstruction *Inst = Worklist.front();
+      Worklist.pop();
+      if (Inst->getNumUsers())
+        continue;
+      for (auto *Op : Inst->operands())
+        if (auto *I = dyn_cast<VPInstruction>(Op))
+          Worklist.push(I);
+      Inst->getParent()->eraseInstruction(Inst);
+    }
   }
 }
 
@@ -2852,27 +3098,36 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
 // Insert VPInstructions corresponding to the VPLoopEntities like
 // VPInductions, VPReductions and VPPrivates.
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
-  // If the loop is multi-exit then the code gen for it is done using
-  // underlying IR and we don't need to emit anything here.
-  if (!Loop.getUniqueExitBlock())
+  // If the loop is an implicit multi-exit then the code gen for it is done
+  // using underlying IR and we don't need to emit anything here.
+  if (!VPlanEnableEarlyExitLoops && !Loop.getUniqueExitBlock())
     return;
 
   preprocess();
 
-  VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
+  // Collect all exits from the loop and obtain the main exit (from latch). We
+  // will emit entity finalization in the main exit block.
+  SmallVector<VPBasicBlock *, 2> PostExits;
+  Loop.getExitBlocks(PostExits);
+  VPBasicBlock *MainExit = nullptr;
+  for (auto *Exit : PostExits)
+    if (Exit->getSinglePredecessor() == Loop.getLoopLatch())
+      MainExit = Exit;
+  assert(MainExit && "Could not find main exit of loop.");
+
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
 
   // Insert VPInstructions related to VPReductions.
-  insertReductionVPInstructions(Builder, Preheader, PostExit);
+  insertReductionVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPInductions.
-  insertInductionVPInstructions(Builder, Preheader, PostExit);
+  insertInductionVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPPrivates.
-  insertPrivateVPInstructions(Builder, Preheader, PostExit);
+  insertPrivateVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPCompressExpandIdioms.
-  insertCompressExpandVPInstructions(Builder, Preheader, PostExit);
+  insertCompressExpandVPInstructions(Builder, Preheader, MainExit);
 }
 
 // Create close-form calculation for induction.
@@ -2983,6 +3238,10 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     VPInstruction *NewInd =
         CreateNewInductionOp(StartPhi, &InitStep, Induction);
     // TODO: add copying of other attributes.
+    if (BinOp->hasNoUnsignedWrap())
+      NewInd->setHasNoUnsignedWrap(true);
+    if (BinOp->hasNoSignedWrap())
+      NewInd->setHasNoSignedWrap(true);
     NewInd->setDebugLocation(BinOp->getDebugLocation());
 
     StartPhi->replaceUsesOfWith(BinOp, NewInd);
@@ -3001,8 +3260,9 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
 
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
     if (ExitIns == BinOp)
-      relinkLiveOuts(ExitIns, BinOp, Loop);
+      relinkLiveOuts(ExitIns, NewInd, Loop);
     linkValue(Induction, NewInd);
+    Induction->replaceBinOp(NewInd);
     return;
   }
 
@@ -3655,9 +3915,14 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
                                AllocaInst, isMemOnly());
     for (VPInstruction *I : UpdateVPInsts)
       LE->linkValue(Priv, I);
-  } else
-    LE->addPrivate(PTag, MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
-                   isMemOnly());
+  } else {
+    if (F90DVElementType)
+      LE->addF90DVPrivate(MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+                          isMemOnly(), F90DVElementType);
+    else
+      LE->addPrivate(PTag, MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+                     isMemOnly());
+  }
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -3776,8 +4041,7 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
 // is really of a pointed-to type. We replace Start with a load in this case
 // and Start should not be used at initialization, use AI in this case to
 // generate a load.
-VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
-                                             const VPLoop *Loop) {
+bool VPEntityImportDescr::findMemoryUses(VPValue *Start, const VPLoop *Loop) {
   Importing = hasRealUserInLoop(Start, Loop, MemAliases);
   ValidMemOnly = true;
 
@@ -3796,40 +4060,26 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
     //  enddo
     //  use(k);
     //
-    // TODO: for inductions, this situation can be handled using close-form
-    // re-calculation at the beginning of the loop.
-    VPValue *LdStInstr = nullptr;
     SmallVector<VPValue *, 4> Worklist;
     Worklist.push_back(Start);
 
-    while (!LdStInstr && !Worklist.empty()) {
+    while (!Worklist.empty()) {
       const VPValue *CurWorkItem = Worklist.pop_back_val();
       for (auto *User : CurWorkItem->users()) {
         auto *InstUser = dyn_cast<VPInstruction>(User);
         if (!InstUser || !Loop->contains(InstUser))
           continue;
 
-        auto *LdStUser = dyn_cast<VPLoadStoreInst>(User);
-        if (LdStUser) {
-          if (LdStUser->getOpcode() == Instruction::Load)
-            LdStInstr = LdStUser;
-          else
-            LdStInstr = LdStUser->getOperand(0);
-          break;
+        if (dyn_cast<VPLoadStoreInst>(User) ||
+            dyn_cast<VPCallInstruction>(User)) {
+          return true;
         } else if (isSelfAddressOfInst(InstUser)) {
           Worklist.push_back(InstUser);
         }
       }
     }
-    if (!LdStInstr) {
-      // No able to find load/store. Assert in debug mode and don't
-      // import it in product compiler. So far no cases detected.
-      assert(false && "Can't handle explicit induction/reduction");
-      Importing = false;
-    } else
-      Start = LdStInstr;
   }
-  return Start;
+  return false;
 }
 
 void InductionDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -4001,8 +4251,8 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd = LE->addInduction(
-      StartPhi, Start, K, Step, StepMultiplier, StepTy, StepSCEV, StartVal,
-      EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
+      StartPhi, Start, IndTy, K, Step, StepMultiplier, StepTy, StepSCEV,
+      StartVal, EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
   VPInd->setIsLinearIV(getIsLinearIV());
@@ -4034,7 +4284,11 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
       // Start should represent AllocaIns.
       assert((isa<VPExternalDef>(Start) && InductionOp == nullptr) &&
              "Induction is not properly defined");
-      Start = findMemoryUses(Start, Loop);
+      if (!findMemoryUses(Start, Loop)) {
+        Importing = false;
+        return; // We are not going to import that induction so we don't need to
+                // execute that code.
+      }
     }
   }
 
@@ -4069,7 +4323,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   assert(!Indices.empty() && "At least one index is expected.");
 
   std::function<bool(VPInstruction *)> GatherIdiomInfo = [&](VPInstruction *I) {
-    if (I->getOpcode() == Instruction::Add) {
+    if (I->getOpcode() == Instruction::Add || isa<VPSubscriptInst>(I)) {
 
       for (VPValue *Op : I->operands())
         if (auto *Inst = dyn_cast<VPInstruction>(Op))
@@ -4096,7 +4350,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
           if (Loop->isLiveOut(Inst)) {
             if (LiveOut && LiveOut != Inst)
               return false;
-            LiveOut = Inst;
+            LiveOut = cast<VPPHINode>(Inst);
           }
       }
     }

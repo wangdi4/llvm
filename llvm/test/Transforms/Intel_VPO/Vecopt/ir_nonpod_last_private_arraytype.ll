@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK: VPlan after insertion of VPEntities instructions:
-; CHECK:   [4 x %struct.point2d]* [[ALLPRIV:%.*]] = allocate-priv [4 x %struct.point2d]*, OrigAlign = 16
+; CHECK:   [4 x %struct.point2d]* [[ALLPRIV:%.*]] = allocate-priv [4 x %struct.point2d], OrigAlign = 16
 ; CHECK:   private-nonpod-array-ctor [4 x %struct.point2d]* [[ALLPRIV]]
 ; CHECK:   %struct.point2d* [[TMP3:%.*]] = getelementptr inbounds [4 x %struct.point2d]* [[ALLPRIV]] i64 0 i64 [[TMP2:%.*]]
 ; CHECK:   call %struct.point2d* [[TMP3]] i32 [[IV:%.*]] void (%struct.point2d*, i32)* @_Z3bazP7point2di

@@ -17,7 +17,8 @@
 ; }
 
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,SOA
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-enable-soa=false -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,NONSOA
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
 
@@ -37,7 +38,7 @@ define i32 @foo([1000 x [1000 x i32]]* %b) #0 {
 ; CHECK:   Linked values: [500 x i32]* [[VP_A_RED:%.*]],
 ; CHECK:  Memory: [500 x i32]* [[A_RED0]]
 
-; CHECK: [500 x i32]* [[VP_A_RED]] = allocate-priv [500 x i32]*, OrigAlign = 16
+; CHECK: [500 x i32]* [[VP_A_RED]] = allocate-priv [500 x i32], OrigAlign = 16
 ; CHECK: i32* [[VP_A_RED_GEP_MINUS_OFFSET:%.*]] = getelementptr [500 x i32]* [[VP_A_RED]] i64 0 i64 -42
 ; CHECK: [1000 x i32]* [[VP_A_RED_GEP_MINUS_OFFSET_BC:%.*]] = bitcast i32* [[VP_A_RED_GEP_MINUS_OFFSET]]
 ; CHECK: reduction-init-arr i32 0 [500 x i32]* [[VP_A_RED]]
@@ -49,17 +50,25 @@ define i32 @foo([1000 x [1000 x i32]]* %b) #0 {
 ; CHECK-NEXT:    [[A0:%.*]] = alloca [1000 x i32], align 16
 ; CHECK-NEXT:    [[A_RED0]] = alloca [500 x i32], align 16
 ; CHECK-NEXT:    [[A_RED_GEP_MINUS_OFFSET0:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED0]], i64 0, i64 -42
-; CHECK:         [[A_RED_VEC0:%.*]] = alloca [2 x [500 x i32]], align 4
-; CHECK-NEXT:    [[A_RED_VEC_BC0:%.*]] = bitcast [2 x [500 x i32]]* [[A_RED_VEC0]] to [500 x i32]*
-; CHECK-NEXT:    [[A_RED_VEC_BASE_ADDR0:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BC0]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[A_RED_VEC_BASE_ADDR_EXTRACT_1_0:%.*]] = extractelement <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], i32 1
-; CHECK-NEXT:    [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], i32 0
+; Wide alloca in SOA layout
+; SOA:           [[A_RED_SOA_VEC:%.*]] = alloca [500 x <2 x i32>], align 8
+; Wide alloca in non-SOA layout
+; NONSOA:        [[A_RED_VEC0:%.*]] = alloca [2 x [500 x i32]], align 4
+; NONSOA-NEXT:   [[A_RED_VEC_BC0:%.*]] = bitcast [2 x [500 x i32]]* [[A_RED_VEC0]] to [500 x i32]*
+; NONSOA-NEXT:   [[A_RED_VEC_BASE_ADDR0:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BC0]], <2 x i32> <i32 0, i32 1>
+; NONSOA-NEXT:   [[A_RED_VEC_BASE_ADDR_EXTRACT_1_0:%.*]] = extractelement <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], i32 1
+; NONSOA-NEXT:   [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_10:%.*]]
 
 ; CHECK:       VPlannedBB1:
-; CHECK:         [[MM_VECTORGEP0:%.*]] = getelementptr [500 x i32], <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], <2 x i64> zeroinitializer, <2 x i64> <i64 -42, i64 -42>
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i32*> [[MM_VECTORGEP0]] to <2 x [1000 x i32]*>
-; CHECK-NEXT:    [[ARR_RED_BASE_ADDR_BC0:%.*]] = bitcast [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0]] to i32*
+; Memory aliases in SOA layout
+; SOA:           [[SOA_SCALAR_GEP:%.*]] = getelementptr [500 x <2 x i32>], [500 x <2 x i32>]* [[A_RED_SOA_VEC]], i64 0, i64 -42
+; SOA-NEXT:      [[TMP1:%.*]] = bitcast <2 x i32>* [[SOA_SCALAR_GEP]] to [1000 x <2 x i32>]*
+; SOA-NEXT:      [[ARR_RED_BASE_ADDR_BC0:%.*]] = bitcast [500 x <2 x i32>]* [[A_RED_SOA_VEC]] to i32*
+; Memory aliases in non-SOA layout
+; NONSOA:        [[MM_VECTORGEP0:%.*]] = getelementptr [500 x i32], <2 x [500 x i32]*> [[A_RED_VEC_BASE_ADDR0]], <2 x i64> zeroinitializer, <2 x i64> <i64 -42, i64 -42>
+; NONSOA-NEXT:   [[TMP1:%.*]] = bitcast <2 x i32*> [[MM_VECTORGEP0]] to <2 x [1000 x i32]*>
+; NONSOA-NEXT:   [[ARR_RED_BASE_ADDR_BC0:%.*]] = bitcast [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0]] to i32*
 ; CHECK-NEXT:    br label [[ARRAY_REDN_INIT_LOOP0:%.*]]
 
 ; CHECK:       array.redn.init.loop:
@@ -70,23 +79,38 @@ define i32 @foo([1000 x [1000 x i32]]* %b) #0 {
 ; CHECK-NEXT:    [[INITLOOP_COND0:%.*]] = icmp ult i64 [[NEXT_ELEM_IDX0]], 1000
 ; CHECK-NEXT:    br i1 [[INITLOOP_COND0]], label [[ARRAY_REDN_INIT_LOOP0]], label [[ARRAY_REDN_INIT_LOOPEXIT0:%.*]]
 
-; CHECK:       array.redn.final.main.loop:
-; CHECK-NEXT:    [[MAIN_ELEM_IDX0:%.*]] = phi i64 [ 0, [[VPLANNEDBB140:%.*]] ], [ [[NEXT_MAIN_ELEM_IDX0:%.*]], [[ARRAY_REDN_FINAL_MAIN_LOOP0:%.*]] ]
-; CHECK-NEXT:    [[ORIG_ARR_GEP0:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
-; CHECK-NEXT:    [[ORIG_ARR_BC0:%.*]] = bitcast i32* [[ORIG_ARR_GEP0]] to <1 x i32>*
-; CHECK-NEXT:    [[ORIG_ARR_LD0:%.*]] = load <1 x i32>, <1 x i32>* [[ORIG_ARR_BC0]], align 4
-; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE00:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
-; CHECK-NEXT:    [[PRIV_ARR_BC_LANE00:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE00]] to <1 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE00:%.*]] = load <1 x i32>, <1 x i32>* [[PRIV_ARR_BC_LANE00]], align 4
-; CHECK-NEXT:    [[ARR_FIN_RED0:%.*]] = add <1 x i32> [[ORIG_ARR_LD0]], [[PRIV_ARR_LD_LANE00]]
-; CHECK-NEXT:    [[PRIV_ARR_GEP_LANE10:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_1_0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
-; CHECK-NEXT:    [[PRIV_ARR_BC_LANE10:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE10]] to <1 x i32>*
-; CHECK-NEXT:    [[PRIV_ARR_LD_LANE10:%.*]] = load <1 x i32>, <1 x i32>* [[PRIV_ARR_BC_LANE10]], align 4
-; CHECK-NEXT:    [[ARR_FIN_RED150:%.*]] = add <1 x i32> [[ARR_FIN_RED0]], [[PRIV_ARR_LD_LANE10]]
-; CHECK-NEXT:    store <1 x i32> [[ARR_FIN_RED150]], <1 x i32>* [[ORIG_ARR_BC0]], align 4
-; CHECK-NEXT:    [[NEXT_MAIN_ELEM_IDX0]] = add i64 [[MAIN_ELEM_IDX0]], 1
-; CHECK-NEXT:    [[FINAL_MAINLOOP_COND0:%.*]] = icmp ult i64 [[NEXT_MAIN_ELEM_IDX0]], 500
-; CHECK-NEXT:    br i1 [[FINAL_MAINLOOP_COND0]], label [[ARRAY_REDN_FINAL_MAIN_LOOP0]], label [[ARRAY_REDN_FINAL_REM_LOOP0:%.*]]
+; Finalization in SOA layout
+; SOA:         soa.array.redn.final.loop:
+; SOA-NEXT:      [[IDX:%.*]] = phi i64 [ 0, [[VPLANNEDBB140:%.*]] ], [ [[NEXT_IDX:%.*]], [[SOA_ARRAY_REDN_FINAL_LOOP:%.*]] ]
+; SOA-NEXT:      [[PRIV_ARR_GEP:%.*]] = getelementptr [500 x <2 x i32>], [500 x <2 x i32>]* [[A_RED_SOA_VEC]], i64 0, i64 [[IDX]]
+; SOA-NEXT:      [[PRIV_ARR_LD:%.*]] = load <2 x i32>, <2 x i32>* [[PRIV_ARR_GEP]], align 8
+; SOA-NEXT:      [[ORIG_ARR_GEP:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED0]], i64 0, i64 [[IDX]]
+; SOA-NEXT:      [[ORIG_ARR_LD:%.*]] = load i32, i32* [[ORIG_ARR_GEP]], align 4
+; SOA-NEXT:      [[VEC_REDUCE:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[PRIV_ARR_LD]])
+; SOA-NEXT:      [[FINAL_RED:%.*]] = add i32 [[ORIG_ARR_LD]], [[VEC_REDUCE]]
+; SOA-NEXT:      store i32 [[FINAL_RED]], i32* [[ORIG_ARR_GEP]], align 4
+; SOA-NEXT:      [[NEXT_IDX]] = add i64 [[IDX]], 1
+; SOA-NEXT:      [[LOOP_COND0:%.*]] = icmp ult i64 [[NEXT_IDX]], 500
+; SOA-NEXT:      br i1 [[LOOP_COND0]], label [[SOA_ARRAY_REDN_FINAL_LOOP]], label [[SOA_ARRAY_REDN_FINAL_LOOP_EXIT:%.*]]
+
+; Finalization in non-SOA layout
+; NONSOA:      array.redn.final.main.loop:
+; NONSOA-NEXT:   [[MAIN_ELEM_IDX0:%.*]] = phi i64 [ 0, [[VPLANNEDBB140:%.*]] ], [ [[NEXT_MAIN_ELEM_IDX0:%.*]], [[ARRAY_REDN_FINAL_MAIN_LOOP0:%.*]] ]
+; NONSOA-NEXT:   [[ORIG_ARR_GEP0:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
+; NONSOA-NEXT:   [[ORIG_ARR_BC0:%.*]] = bitcast i32* [[ORIG_ARR_GEP0]] to <1 x i32>*
+; NONSOA-NEXT:   [[ORIG_ARR_LD0:%.*]] = load <1 x i32>, <1 x i32>* [[ORIG_ARR_BC0]], align 4
+; NONSOA-NEXT:   [[PRIV_ARR_GEP_LANE00:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_0_0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
+; NONSOA-NEXT:   [[PRIV_ARR_BC_LANE00:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE00]] to <1 x i32>*
+; NONSOA-NEXT:   [[PRIV_ARR_LD_LANE00:%.*]] = load <1 x i32>, <1 x i32>* [[PRIV_ARR_BC_LANE00]], align 4
+; NONSOA-NEXT:   [[ARR_FIN_RED0:%.*]] = add <1 x i32> [[ORIG_ARR_LD0]], [[PRIV_ARR_LD_LANE00]]
+; NONSOA-NEXT:   [[PRIV_ARR_GEP_LANE10:%.*]] = getelementptr [500 x i32], [500 x i32]* [[A_RED_VEC_BASE_ADDR_EXTRACT_1_0]], i64 0, i64 [[MAIN_ELEM_IDX0]]
+; NONSOA-NEXT:   [[PRIV_ARR_BC_LANE10:%.*]] = bitcast i32* [[PRIV_ARR_GEP_LANE10]] to <1 x i32>*
+; NONSOA-NEXT:   [[PRIV_ARR_LD_LANE10:%.*]] = load <1 x i32>, <1 x i32>* [[PRIV_ARR_BC_LANE10]], align 4
+; NONSOA-NEXT:   [[ARR_FIN_RED150:%.*]] = add <1 x i32> [[ARR_FIN_RED0]], [[PRIV_ARR_LD_LANE10]]
+; NONSOA-NEXT:   store <1 x i32> [[ARR_FIN_RED150]], <1 x i32>* [[ORIG_ARR_BC0]], align 4
+; NONSOA-NEXT:   [[NEXT_MAIN_ELEM_IDX0]] = add i64 [[MAIN_ELEM_IDX0]], 1
+; NONSOA-NEXT:   [[FINAL_MAINLOOP_COND0:%.*]] = icmp ult i64 [[NEXT_MAIN_ELEM_IDX0]], 500
+; NONSOA-NEXT:   br i1 [[FINAL_MAINLOOP_COND0]], label [[ARRAY_REDN_FINAL_MAIN_LOOP0]], label [[ARRAY_REDN_FINAL_REM_LOOP0:%.*]]
 ;
 entry:
   %a = alloca [1000 x i32], align 16

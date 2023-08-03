@@ -42,7 +42,7 @@ for.end:                                          ; preds = %for.cond.1
 
 for.end.5:                                        ; preds = %for.end
   %k.0.lcssa.lcssa = phi i32 [ %k.0.lcssa, %for.end ]
-  store i32 %k.0.lcssa.lcssa, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 0), align 16
+  store i32 %k.0.lcssa.lcssa, ptr @A, align 16
   ret void
 }
 

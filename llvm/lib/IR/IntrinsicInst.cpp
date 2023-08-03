@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2018-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -53,21 +53,27 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+using namespace llvm::PatternMatch;
 //===----------------------------------------------------------------------===//
 /// VarAnnotIntrinsic - This is the common base class for var.annotation
 /// intrinsics
 ///
 
-bool VarAnnotIntrinsic::hasRegisterAttributeSet() const{
-  if (auto *GEPOp = dyn_cast<GEPOperator>(getOperand(1))) {
-    Value *OperandVal = GEPOp->getPointerOperand();
-    if (GlobalVariable *GlobalVar = dyn_cast<GlobalVariable>(OperandVal)) {
-      Constant *GlobalVal = GlobalVar->getInitializer();
-      ConstantDataSequential *Annotation;
-      if ((Annotation = dyn_cast<ConstantDataSequential>(GlobalVal)) &&
-           Annotation->isCString())
-        return (Annotation->getAsCString()).contains("{register:1}");
-    }
+// Returns true if the intrinsic's 2nd arg is a pointer to a constant
+// string containing "{register:1}".
+bool VarAnnotIntrinsic::hasRegisterAttributeSet() const {
+  Value *AnnoVal = getOperand(1);
+  // If the 2nd arg is a GEP, it must be a no-op with all-0 indices.
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(AnnoVal)) {
+    if (GEP->hasAllZeroIndices())
+      AnnoVal = GEP->getPointerOperand();
+    else
+      return false;
+  }
+  if (auto *GV = dyn_cast<GlobalVariable>(AnnoVal)) {
+    if (auto *AnnoC = dyn_cast<ConstantDataSequential>(GV->getInitializer()))
+      return AnnoC->isCString() &&
+             AnnoC->getAsCString().contains("{register:1}");
   }
   return false;
 }
@@ -175,14 +181,14 @@ void DbgVariableIntrinsic::replaceVariableLocationOp(Value *OldValue,
   assert(NewValue && "Values must be non-null");
   auto Locations = location_ops();
   auto OldIt = find(Locations, OldValue);
-  assert((OldIt != Locations.end() || DbgAssignAddrReplaced) &&
-         "OldValue must be a current location");
+  if (OldIt == Locations.end()) {
+    assert(DbgAssignAddrReplaced &&
+           "OldValue must be dbg.assign addr if unused in DIArgList");
+    return;
+  }
+
+  assert(OldIt != Locations.end() && "OldValue must be a current location");
   if (!hasArgList()) {
-    // Additional check necessary to avoid unconditionally replacing this
-    // operand when a dbg.assign address is replaced (DbgAssignAddrReplaced is
-    // true).
-    if (OldValue != getVariableLocationOp(0))
-      return;
     Value *NewOperand = isa<MetadataAsValue>(NewValue)
                             ? NewValue
                             : MetadataAsValue::get(
@@ -253,8 +259,6 @@ void DbgAssignIntrinsic::setAssignId(DIAssignID *New) {
 }
 
 void DbgAssignIntrinsic::setAddress(Value *V) {
-  assert(V->getType()->isPointerTy() &&
-         "Destination Component must be a pointer type");
   setOperand(OpAddress,
              MetadataAsValue::get(getContext(), ValueAsMetadata::get(V)));
 }
@@ -679,6 +683,20 @@ VPIntrinsic::getFunctionalOpcodeForVP(Intrinsic::ID ID) {
     break;
 #define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
 #define VP_PROPERTY_FUNCTIONAL_OPC(OPC) return Instruction::OPC;
+#define END_REGISTER_VP_INTRINSIC(VPID) break;
+#include "llvm/IR/VPIntrinsics.def"
+  }
+  return std::nullopt;
+}
+
+// Equivalent non-predicated constrained intrinsic
+std::optional<unsigned>
+VPIntrinsic::getConstrainedIntrinsicIDForVP(Intrinsic::ID ID) {
+  switch (ID) {
+  default:
+    break;
+#define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
+#define VP_PROPERTY_CONSTRAINEDFP(HASRND, HASEXCEPT, CID) return Intrinsic::CID;
 #define END_REGISTER_VP_INTRINSIC(VPID) break;
 #include "llvm/IR/VPIntrinsics.def"
   }

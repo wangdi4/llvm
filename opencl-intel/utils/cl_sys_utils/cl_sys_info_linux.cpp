@@ -14,14 +14,11 @@
 
 #include "cl_sys_info.h"
 
-#include <sstream>
-
-using namespace Intel::OpenCL::Utils;
 #include <assert.h>
 #include <cstdlib>
 #include <cstring>
-#include <dirent.h>
 #include <fstream>
+#include <sstream>
 #include <time.h>
 #include <unistd.h>
 
@@ -45,6 +42,7 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace llvm;
 using namespace llvm::sys;
+using namespace Intel::OpenCL::Utils;
 
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
 
@@ -191,8 +189,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void *addr,
 std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
   char ModuleName[MAX_PATH];
   GetModuleDirectory(ModuleName, MAX_PATH);
-  std::string BaseLibDir =
-      std::string(path::parent_path(path::parent_path(ModuleName)));
+  std::string BaseLibDir = std::string(path::parent_path(ModuleName));
 
   SmallString<128> P(BaseLibDir);
 
@@ -310,153 +307,6 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-// return the number of physical cpus (sockets) configured.
-////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets() {
-  static unsigned int numCpuSockets = 0;
-  if (0 == numCpuSockets) {
-    // TODO use hwloc to detect number of sockets
-
-    FILE *fp = fopen("/proc/cpuinfo", "r");
-    if (fp) {
-      char *line = nullptr;
-      size_t len;
-      const char *s = "physical id";
-      while (getline(&line, &len, fp) != -1) {
-        if (strncmp(line, s, strlen(s)) != 0)
-          continue;
-
-        char *p = strchr(line, ':');
-        if (!p)
-          continue;
-        unsigned int physicalID = 0;
-        sscanf(p + 1, "%u\n", &physicalID);
-        physicalID++;
-        if (numCpuSockets < physicalID)
-          numCpuSockets = physicalID;
-      }
-      if (line != nullptr)
-        free(line);
-      fclose(fp);
-    } else
-      assert(false && "Failed to open /proc/cpuinfo");
-  }
-  assert(numCpuSockets != 0 && "Number of sockets should not be 0");
-  return numCpuSockets;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return whether cpu is using hyper-threading
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::IsHyperThreadingEnabled() {
-  static int hyperThreadingEnabled = -1;
-  if (-1 == hyperThreadingEnabled) {
-    // TODO use hwloc to detect hyper-threading
-
-    FILE *fp = fopen("/proc/cpuinfo", "r");
-    if (fp) {
-      char *line = nullptr;
-      size_t len;
-      unsigned int siblings = 0;
-      unsigned int cpuCores = 0;
-      const char *s0 = "siblings";
-      const char *s1 = "cpu cores";
-      while (getline(&line, &len, fp) != -1 &&
-             (0 == siblings || 0 == cpuCores)) {
-        char *p = strchr(line, ':');
-        if (!p)
-          continue;
-        if (0 == siblings && strncmp(line, s0, strlen(s0)) == 0)
-          sscanf(p + 1, "%u\n", &siblings);
-        if (0 == cpuCores && strncmp(line, s1, strlen(s1)) == 0)
-          sscanf(p + 1, "%u\n", &cpuCores);
-      }
-      if (line != nullptr)
-        free(line);
-      fclose(fp);
-      if (0 != siblings && 0 != cpuCores)
-        hyperThreadingEnabled = (siblings == (2 * cpuCores)) ? 1 : 0;
-    } else
-      assert(false && "Failed to open /proc/cpuinfo");
-  }
-  return 1 == hyperThreadingEnabled;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return the number of NUMA nodes on the system
-////////////////////////////////////////////////////////////////////
-unsigned long Intel::OpenCL::Utils::GetMaxNumaNode() {
-  // TODO use hwloc to get the number numa nodes
-  const char *sysNodePath = "/sys/devices/system/node";
-  int numNodes = 0;
-  DIR *dir;
-  struct dirent *entry;
-  dir = opendir(sysNodePath);
-
-  if (dir == nullptr) {
-    assert(dir && "failed to open node dir");
-    return 0;
-  }
-
-  while ((entry = readdir(dir))) {
-    if (entry->d_type == DT_DIR && strncmp("node", entry->d_name, 4) == 0)
-      numNodes++;
-  }
-
-  closedir(dir);
-  assert(numNodes > 0 && "Failed to get number of NUMA nodes");
-  return numNodes;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return an index representing the processors in a given NUMA node
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
-    unsigned long node, std::vector<cl_uint> &index) {
-  // TODO use hwloc to get the cpu index of numa node
-  index.clear();
-  const char *prefix = "/sys/devices/system/node/node";
-  std::string path(prefix);
-  path.append(std::to_string(node) + "/cpumap");
-  FILE *cpumap = fopen(path.c_str(), "r");
-
-  if (cpumap == nullptr) {
-    assert(cpumap && "failed to open cpumap");
-    return false;
-  }
-
-  char cpumask[128];
-  if (fgets(cpumask, 128, cpumap)) {
-    int len = strlen(cpumask);
-    if (len < 1) {
-      fclose(cpumap);
-      return false;
-    }
-    const char *maskEnd = cpumask + len - 1;
-    uint16_t core = 0;
-    while (maskEnd >= cpumask) {
-      if (*maskEnd == ',' || *maskEnd == '\n') {
-        maskEnd--;
-        continue;
-      }
-      int cpu = CharToHexDigit(*maskEnd);
-      if (cpu & 1)
-        index.push_back(core);
-      if (cpu & 2)
-        index.push_back(core + 1);
-      if (cpu & 4)
-        index.push_back(core + 2);
-      if (cpu & 8)
-        index.push_back(core + 3);
-      maskEnd--;
-      core += 4;
-    }
-  }
-  fclose(cpumap);
-  return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
@@ -492,44 +342,6 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
   (void)nodeSize;
   return false;
 #endif // USE_NUMA
-}
-
-std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
-  // TODO use hwloc.
-  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  (void)numSockets;
-  std::map<int, int> CoreIdToPhysicalId;
-
-  std::string SysCpuDir = "/sys/devices/system/cpu";
-  assert(fs::is_directory(SysCpuDir) &&
-         "/sys/devices/system/cpu isn't a directory");
-
-  Regex r("cpu[0-9]+");
-  std::error_code EC;
-  for (fs::directory_iterator I(SysCpuDir, EC), E; I != E && !EC;
-       I.increment(EC)) {
-    const std::string Path = I->path();
-    StringRef Filename = path::filename(Path);
-    if (!r.match(Filename))
-      continue;
-    std::string PhysicalIdFile = Path + "/topology/physical_package_id";
-    std::string Buf(4, ' ');
-    Expected<fs::file_t> FD = fs::openNativeFileForRead(PhysicalIdFile);
-    if (!FD)
-      assert(false && toString(FD.takeError()).c_str());
-    if (Expected<size_t> BytesRead = fs::readNativeFile(
-            *FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
-      Buf = Buf.substr(0, *BytesRead);
-    else
-      assert(false && toString(BytesRead.takeError()).c_str());
-    EC = fs::closeFile(*FD);
-    assert(!EC && "failed to close file");
-    int PhysicalId = std::stoi(Buf);
-    assert((unsigned)PhysicalId < numSockets && "physical id is out of range");
-    CoreIdToPhysicalId[std::stoi(Filename.substr(3).str())] = PhysicalId;
-  }
-
-  return CoreIdToPhysicalId;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

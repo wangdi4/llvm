@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline=basic-aa -passes=loop-vectorize -S -mcpu=core-avx2 < %s | FileCheck %s
+; RUN: opt -passes=loop-vectorize -S -mcpu=core-avx2 < %s | FileCheck %s
 
 ;float inc = 0.5;
 ;void foo(ptr A, unsigned N) {

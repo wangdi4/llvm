@@ -18,7 +18,7 @@
 #define DEBUG_TYPE "VPlanLoopUnroller"
 
 static cl::opt<bool> EnablePartialSums(
-    "vplan-enable-partial-sums", cl::Hidden, cl::init(false),
+    "vplan-enable-partial-sums", cl::Hidden, cl::init(true),
     cl::desc("Enable partial sum optimization in loop unroller"));
 
 using namespace llvm::vpo;

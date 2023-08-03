@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers=0 -passes=argpromotion -S < %s | FileCheck %s
+; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
 
-; CHECK: define dso_local noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(16) %myarg) #0 {
+; CHECK: define dso_local noundef i32 @_Z3fooR8MYSTRUCT(ptr noundef nonnull align 4 dereferenceable(16) %myarg) #0 {
 
 ; Check that 4 fields of a single structure argument are NOT promoted,
 ; because MaxElements in ArgPromotion.cpp is 3.
@@ -13,26 +13,26 @@ target triple = "x86_64-unknown-linux-gnu"
 @mylocalstruct = dso_local global %struct.MYSTRUCT { i32 0, i32 1, i32 2, i32 3 }, align 4
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(16) %myarg) #0 {
+define dso_local noundef i32 @_Z3fooR8MYSTRUCT(ptr noundef nonnull align 4 dereferenceable(16) %myarg) #0 {
 entry:
-  %myint0 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 0, !intel-tbaa !3
-  %0 = load i32, i32* %myint0, align 4, !tbaa !3
-  %myint1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 1, !intel-tbaa !8
-  %1 = load i32, i32* %myint1, align 4, !tbaa !8
-  %add = add nsw i32 %0, %1
-  %myint2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 2, !intel-tbaa !9
-  %2 = load i32, i32* %myint2, align 4, !tbaa !9
-  %add1 = add nsw i32 %add, %2
-  %myint3 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 3, !intel-tbaa !10
-  %3 = load i32, i32* %myint3, align 4, !tbaa !10
-  %add2 = add nsw i32 %add1, %3
+  %myint0 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 0, !intel-tbaa !3
+  %i = load i32, ptr %myint0, align 4, !tbaa !3
+  %myint1 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 1, !intel-tbaa !8
+  %i1 = load i32, ptr %myint1, align 4, !tbaa !8
+  %add = add nsw i32 %i, %i1
+  %myint2 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 2, !intel-tbaa !9
+  %i2 = load i32, ptr %myint2, align 4, !tbaa !9
+  %add1 = add nsw i32 %add, %i2
+  %myint3 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 3, !intel-tbaa !10
+  %i3 = load i32, ptr %myint3, align 4, !tbaa !10
+  %add2 = add nsw i32 %add1, %i3
   ret i32 %add2
 }
 
 ; Function Attrs: mustprogress norecurse nounwind uwtable
 define dso_local noundef i32 @main() #1 {
 entry:
-  %call = call noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(16) @mylocalstruct)
+  %call = call noundef i32 @_Z3fooR8MYSTRUCT(ptr noundef nonnull align 4 dereferenceable(16) @mylocalstruct)
   ret i32 %call
 }
 

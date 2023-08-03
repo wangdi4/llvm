@@ -3,6 +3,11 @@
 ; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck -check-prefixes=CHECK-POSTCOLLAPSE %s
 ; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -S %s | FileCheck -check-prefixes=CHECK-POSTCOLLAPSE %s
 
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck -check-prefixes=CHECK %s
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck -check-prefixes=CHECK %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck -check-prefixes=CHECK-POSTCOLLAPSE-NONSPEC %s
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck -check-prefixes=CHECK-POSTCOLLAPSE-NONSPEC %s
+
 ; Original code:
 ;
 ; int main(void)
@@ -15,14 +20,18 @@
 ; }
 
 ; Check that KNOWN_NDRANGE clause is removed, but OFFLOAD_NDRANGE
-; is kept due to parloop being the innermost one:
+; is kept due to parloop being the innermost one whatever
+; gpu-execution-scheme is used.
+;
 ; CHECK:      "DIR.OMP.TARGET"()
 ; CHECK-SAME: "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
-; CHECK-NOT: "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
+; CHECK-NOT:  "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 ; CHECK-POSTCOLLAPSE:      "DIR.OMP.TARGET"()
 ; CHECK-POSTCOLLAPSE-SAME: "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
 ; CHECK-POSTCOLLAPSE:      "DIR.OMP.DISTRIBUTE.PARLOOP"()
 ; CHECK-POSTCOLLAPSE-SAME: "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 false)
+; CHECK-POSTCOLLAPSE-NONSPEC:      "DIR.OMP.TARGET"()
+; CHECK-POSTCOLLAPSE-NONSPEC-SAME: "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
@@ -118,3 +127,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+
+!omp_offload.info = !{!0}
+
+!0 = !{i32 0, i32 2050, i32 49102707, !"_Z4main", i32 4, i32 0, i32 0, i32 0}

@@ -305,14 +305,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @sub1_(double* noalias nocapture dereferenceable(8) %"sub1_$A", double* noalias dereferenceable(8) %"sub1_$B", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$N", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$K", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES") local_unnamed_addr #0 {
+define void @sub1_(ptr noalias nocapture dereferenceable(8) %"sub1_$A", ptr noalias dereferenceable(8) %"sub1_$B", ptr noalias nocapture readonly dereferenceable(4) %"sub1_$N", ptr noalias nocapture readonly dereferenceable(4) %"sub1_$K", ptr noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES") local_unnamed_addr #0 {
 alloca_0:
   %"sub1_$T" = alloca double, align 8
-  %"sub1_$N_fetch" = load i32, i32* %"sub1_$N", align 1
+  %"sub1_$N_fetch" = load i32, ptr %"sub1_$N", align 1
   %int_sext = sext i32 %"sub1_$N_fetch" to i64
   %mul = shl nsw i64 %int_sext, 3
-  %"sub1_$K_fetch" = load i32, i32* %"sub1_$K", align 1
-  %"sub1_$NTIMES_fetch" = load i32, i32* %"sub1_$NTIMES", align 1
+  %"sub1_$K_fetch" = load i32, ptr %"sub1_$K", align 1
+  %"sub1_$NTIMES_fetch" = load i32, ptr %"sub1_$NTIMES", align 1
   %rel85 = icmp slt i32 %"sub1_$K_fetch", %"sub1_$NTIMES_fetch"
   br i1 %rel85, label %bb5.preheader, label %bb34_endif
 
@@ -321,17 +321,17 @@ bb5.preheader:                                    ; preds = %alloca_0
 
 bb5:                                              ; preds = %bb5.preheader, %bb13
   %indvars.iv122 = phi i64 [ %indvars.iv.next123, %bb13 ], [ 1, %bb5.preheader ]
-  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$B", i64 %indvars.iv122)
-  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$A", i64 %indvars.iv122)
+  %"sub1_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$B", i64 %indvars.iv122)
+  %"sub1_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$A", i64 %indvars.iv122)
   br label %bb10
 
 bb10:                                             ; preds = %bb10, %bb5
   %indvars.iv119 = phi i64 [ %indvars.iv.next120, %bb10 ], [ 1, %bb5 ]
-  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]", i64 %indvars.iv119)
-  %"sub1_$B[][]_fetch" = load double, double* %"sub1_$B[][]", align 1
+  %"sub1_$B[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"sub1_$B[]", i64 %indvars.iv119)
+  %"sub1_$B[][]_fetch" = load double, ptr %"sub1_$B[][]", align 1
   %add13 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$B[][]_fetch", 1.000000e+00
-  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]", i64 %indvars.iv119)
-  store double %add13, double* %"sub1_$A[][]", align 1
+  %"sub1_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"sub1_$A[]", i64 %indvars.iv119)
+  store double %add13, ptr %"sub1_$A[][]", align 1
   %indvars.iv.next120 = add nuw nsw i64 %indvars.iv119, 1
   %exitcond121.not = icmp eq i64 %indvars.iv.next120, 4
   br i1 %exitcond121.not, label %bb13, label %bb10
@@ -348,18 +348,18 @@ bb19:                                             ; preds = %bb19.preheader, %bb
   %add68.lcssa118 = phi double [ %add68.lcssa, %bb26 ], [ 0.000000e+00, %bb19.preheader ]
   %rel84 = phi i1 [ false, %bb26 ], [ true, %bb19.preheader ]
   %"sub1_$I.1" = phi i64 [ 2, %bb26 ], [ 1, %bb19.preheader ]
-  %"sub1_$A[]38" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.1")
-  %"sub1_$B[]47" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.1")
+  %"sub1_$A[]38" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.1")
+  %"sub1_$B[]47" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.1")
   br label %bb23
 
 bb23:                                             ; preds = %bb23, %bb19
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb23 ], [ 1, %bb19 ]
   %add68116 = phi double [ %add68, %bb23 ], [ %add68.lcssa118, %bb19 ]
-  %"sub1_$A[][]39" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]38", i64 %indvars.iv)
-  %"sub1_$A[][]_fetch" = load double, double* %"sub1_$A[][]39", align 1
+  %"sub1_$A[][]39" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"sub1_$A[]38", i64 %indvars.iv)
+  %"sub1_$A[][]_fetch" = load double, ptr %"sub1_$A[][]39", align 1
   %add40 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$A[][]_fetch", 2.000000e+00
-  %"sub1_$B[][]48" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]47", i64 %indvars.iv)
-  store double %add40, double* %"sub1_$B[][]48", align 1
+  %"sub1_$B[][]48" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"sub1_$B[]47", i64 %indvars.iv)
+  store double %add40, ptr %"sub1_$B[][]48", align 1
   %mul67 = fmul reassoc ninf nsz arcp contract afn double %"sub1_$A[][]_fetch", %add40
   %add68 = fadd reassoc ninf nsz arcp contract afn double %add68116, %mul67
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -372,8 +372,8 @@ bb26:                                             ; preds = %bb23
 
 bb22:                                             ; preds = %bb26
   %add68.lcssa.lcssa = phi double [ %add68.lcssa, %bb26 ]
-  store double %add68.lcssa.lcssa, double* %"sub1_$T", align 8
-  call void (...) @newfunc_(double* nonnull %"sub1_$B", double* nonnull %"sub1_$T") #2
+  store double %add68.lcssa.lcssa, ptr %"sub1_$T", align 8
+  call void (...) @newfunc_(ptr nonnull %"sub1_$B", ptr nonnull %"sub1_$T") #2
   br label %bb34_endif
 
 bb34_endif:                                       ; preds = %alloca_0, %bb22
@@ -381,7 +381,7 @@ bb34_endif:                                       ; preds = %alloca_0, %bb22
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 declare void @newfunc_(...) local_unnamed_addr
 

@@ -29,9 +29,9 @@ define void @_Z3fooPlS_i(i64* nocapture noundef writeonly %lp1, i64* nocapture n
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]],
-; CHECK:       IntInduction(+) Start: i64 [[VP_LOAD:%.*]] Step: i64 2 StartVal: ? EndVal: ? need close form  Memory: i64* [[L2_LINEAR0:%.*]]
+; CHECK:       IntInduction(+) Start: i64 [[VP_LOAD:undef]] Step: i64 2 StartVal: ? EndVal: ? need close form  Memory: i64* [[L2_LINEAR0:%.*]]
 
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[TGU0:%.*]] = zext.i32.i64([[K0:%.*]])  /u  4

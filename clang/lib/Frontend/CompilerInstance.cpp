@@ -132,7 +132,7 @@ bool CompilerInstance::createTarget() {
   // Check whether AuxTarget exists, if not, then create TargetInfo for the
   // other side of CUDA/OpenMP/SYCL compilation.
   if (!getAuxTarget() &&
-      (getLangOpts().CUDA || getLangOpts().OpenMPIsDevice ||
+      (getLangOpts().CUDA || getLangOpts().OpenMPIsTargetDevice ||
        getLangOpts().isSYCL()) &&
       !getFrontendOpts().AuxTriple.empty()) {
     auto TO = std::make_shared<TargetOptions>();
@@ -626,8 +626,9 @@ struct ReadModuleNames : ASTReaderListener {
           Module *Current = Stack.pop_back_val();
           if (Current->IsUnimportable) continue;
           Current->IsAvailable = true;
-          Stack.insert(Stack.end(),
-                       Current->submodule_begin(), Current->submodule_end());
+          auto SubmodulesRange = Current->submodules();
+          Stack.insert(Stack.end(), SubmodulesRange.begin(),
+                       SubmodulesRange.end());
         }
       }
     }
@@ -2047,8 +2048,12 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
           PrivateModule, PP->getIdentifierInfo(Module->Name)->getTokenID());
       PrivPath.push_back(std::make_pair(&II, Path[0].second));
 
+      std::string FileName;
+      // If there is a modulemap module or prebuilt module, load it.
       if (PP->getHeaderSearchInfo().lookupModule(PrivateModule, ImportLoc, true,
-                                                 !IsInclusionDirective))
+                                                 !IsInclusionDirective) ||
+          selectModuleSource(nullptr, PrivateModule, FileName, BuiltModules,
+                             PP->getHeaderSearchInfo()) != MS_ModuleNotFound)
         Sub = loadModule(ImportLoc, PrivPath, Visibility, IsInclusionDirective);
       if (Sub) {
         MapPrivateSubModToTopLevel = true;

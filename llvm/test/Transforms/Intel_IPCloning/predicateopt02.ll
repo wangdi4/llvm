@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
 ; Check that predicate opt does not seg fault even though we cannot determine
 ; the innnermost loop nest.

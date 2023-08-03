@@ -36,12 +36,14 @@ commit message title. To a reasonable extent, additional tags can be used
 to signify the component changed, e.g.: `[PI]`, `[CUDA]`, `[Doc]`.
 
 ## Using \<iostream\> 
-According to [LLVM Coding Standards](https://llvm.org/docs/CodingStandards.html#include-iostream-is-forbidden),
+
+According to 
+[LLVM Coding Standards](https://llvm.org/docs/CodingStandards.html#include-iostream-is-forbidden),
 the use `#include <iostream>` is forbidden in library files. Instead, the
 sycl/detail/iostream_proxy.hpp header offers the functionality of <iostream>
 without its static constructor.
-This header should be used in place of <iostream> in DPC++ headers 
-and runtime library files.
+This header should be used in place of <iostream> in DPC++ headers and runtime
+library files.
 
 ## Tests development
 
@@ -49,13 +51,13 @@ Every product change should be accompanied with corresponding test modification
 (adding new test(s), extending, removing or modifying existing test(s)).
 
 There are 3 types of tests which are used for DPC++ toolchain validation:
-* DPC++ in-tree tests
+* DPC++ device-independent tests
 * DPC++ end-to-end (E2E) tests
 * SYCL Conformance Test Suite (CTS)
 
-### DPC++ in-tree tests
+### DPC++ device-independent tests
 
-DPC++ in-tree tests are hosted in this repository. They can be run by
+DPC++ device-independent tests are hosted in this repository. They can be run by
 [check-llvm](/llvm/test), [check-clang](/clang/test),
 [check-llvm-spirv](/llvm-spirv/test) and [check-sycl](/sycl/test) targets.
 These tests are expected not to have hardware (e.g. GPU, FPGA, etc.) or
@@ -144,12 +146,13 @@ When adding new test to `check-sycl`, please consider the following:
 
 ### DPC++ end-to-end (E2E) tests
 
-These tests are extension to
-[LLVM test suite](https://github.com/intel/llvm-test-suite/tree/intel/SYCL)
-and hosted at separate repository.
+These tests are located in [/sycl/test-e2e](/sycl/test-e2e) directory and are not
+configured to be run by default. See
+[End-to-End tests documentation](/sycl/test-e2e/README.md)
+for instructions on how to run them.
+
 A test which requires full stack including backend runtimes (e.g. OpenCL,
-Level Zero or CUDA) should be added to DPC++ E2E test suite following
-[CONTRIBUTING](https://github.com/intel/llvm-test-suite/blob/intel/CONTRIBUTING.md).
+Level Zero or CUDA) should be added to DPC++ E2E tests.
 
 ### SYCL Conformance Test Suite (CTS)
 

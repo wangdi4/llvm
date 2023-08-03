@@ -12,18 +12,18 @@
 ; Check that the non-GEP cost of the loop is 2 * 10 = 20. Cost of select is 2 and trip count is 10.
 ; CHECK: Cost: 20
 
-define void @foo(i32* %ld.ptr, i32* %st.ptr) {
+define void @foo(ptr %ld.ptr, ptr %st.ptr) {
 entry:
  br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ld.ptr, i64 %indvars.iv
-  %ld = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ld.ptr, i64 %indvars.iv
+  %ld = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %ld, 0
   %.mux = select i1 %tobool, i32 8, i32 0
-  %arrayidx1 = getelementptr inbounds i32, i32* %st.ptr, i64 %indvars.iv
-  store i32 %.mux, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %st.ptr, i64 %indvars.iv
+  store i32 %.mux, ptr %arrayidx1, align 4
   %indvars.iv.next = add i64 %indvars.iv, 1
   %cmp = icmp eq i64 %indvars.iv.next, 10
   br i1 %cmp, label %exit, label %for.body

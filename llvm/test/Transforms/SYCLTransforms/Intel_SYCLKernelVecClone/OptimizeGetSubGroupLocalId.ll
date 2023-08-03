@@ -1,10 +1,10 @@
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @_ZTSZ4mainE9broadcast(i32 addrspace(1)* %_arg_, i32 addrspace(1)* %_arg_1) local_unnamed_addr #0 !kernel_has_sub_groups !1 {
+define void @_ZTSZ4mainE9broadcast(ptr addrspace(1) %_arg_, ptr addrspace(1) %_arg_1) local_unnamed_addr #0 !kernel_has_sub_groups !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 ; CHECK:  define void @_ZGVeN16uu__ZTSZ4mainE9broadcast(
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
@@ -13,8 +13,8 @@ define void @_ZTSZ4mainE9broadcast(i32 addrspace(1)* %_arg_, i32 addrspace(1)* %
 ; CHECK:         [[CALL2_I_I_I_I_I0:%.*]] = tail call i32 @_Z19sub_group_broadcastjj(i32 [[ADD0]], i32 0)
 ; CHECK-NEXT:    [[CONV3_I0:%.*]] = sext i32 [[CALL2_I_I_I_I_I0]] to i64
 ; CHECK-NEXT:    [[ADD_I0:%.*]] = add nsw i64 [[DOTSEXT0]], [[CONV3_I0]]
-; CHECK-NEXT:    [[ARRAYIDX_I230:%.*]] = getelementptr inbounds i32, i32 addrspace(1)* [[LOAD__ARG_10:%.*]], i64 [[ADD_I0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32 addrspace(1)* [[ARRAYIDX_I230]], align 4
+; CHECK-NEXT:    [[ARRAYIDX_I230:%.*]] = getelementptr inbounds i32, ptr addrspace(1) [[LOAD__ARG_10:%.*]], i64 [[ADD_I0]]
+; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr addrspace(1) [[ARRAYIDX_I230]], align 4
 ;
 entry:
   %0 = tail call i64 @_Z13get_global_idj(i32 0)
@@ -26,10 +26,10 @@ entry:
   %1 = tail call i32 @_Z22get_sub_group_local_idv()
   %conv.i.i = zext i32 %1 to i64
   %add.i = add nsw i64 %conv.i.i, %conv3.i
-  %arrayidx.i23 = getelementptr inbounds i32, i32 addrspace(1)* %_arg_1, i64 %add.i
-  %2 = load i32, i32 addrspace(1)* %arrayidx.i23, align 4
-  %arrayidx6.i24 = getelementptr inbounds i32, i32 addrspace(1)* %_arg_, i64 %0
-  store i32 %2, i32 addrspace(1)* %arrayidx6.i24, align 4
+  %arrayidx.i23 = getelementptr inbounds i32, ptr addrspace(1) %_arg_1, i64 %add.i
+  %2 = load i32, ptr addrspace(1) %arrayidx.i23, align 4
+  %arrayidx6.i24 = getelementptr inbounds i32, ptr addrspace(1) %_arg_, i64 %0
+  store i32 %2, ptr addrspace(1) %arrayidx6.i24, align 4
   ret void
 }
 
@@ -43,7 +43,9 @@ declare i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #2
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @_ZTSZ4mainE9broadcast}
+!0 = !{ptr @_ZTSZ4mainE9broadcast}
 !1 = !{i1 true}
+!2 = !{!"int*", !"int*"}
+!3 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
 
 ; DEBUGIFY: CheckModuleDebugify: PASS

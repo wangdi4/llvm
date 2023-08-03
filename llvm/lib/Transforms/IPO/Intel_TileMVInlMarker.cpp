@@ -15,7 +15,6 @@
 // The inliner inlines the marked functions. Loop Opt performs the tiling.
 //===----------------------------------------------------------------------===//
 
-#include <stack>
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_OPAnalysisUtils.h"
@@ -29,8 +28,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
-#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
+#include <stack>
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

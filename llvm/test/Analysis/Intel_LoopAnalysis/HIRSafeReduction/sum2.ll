@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common global [100 x [100 x float]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i64 %n, i64 %n2, i64 %n3, float* nocapture %s) #0 {
+define i32 @sub(i64 %n, i64 %n2, i64 %n3, ptr nocapture %s) #0 {
 entry:
   %cmp21 = icmp sgt i64 %n, 0
   br i1 %cmp21, label %for.cond1.preheader, label %for.cond.cleanup
@@ -26,7 +26,7 @@ for.cond1.preheader:                              ; preds = %entry, %for.cond.cl
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3, %entry
   %s1.0.lcssa = phi float [ 0.000000e+00, %entry ], [ %add, %for.cond.cleanup3 ]
-  store float %s1.0.lcssa, float* %s, align 4, !tbaa !1
+  store float %s1.0.lcssa, ptr %s, align 4, !tbaa !1
   ret i32 0
 
 for.cond.cleanup3:                                ; preds = %for.body4
@@ -37,8 +37,8 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
   %j.020 = phi i64 [ %inc, %for.body4 ], [ 0, %for.cond1.preheader ]
   %s1.119 = phi float [ %add, %for.body4 ], [ %s1.022, %for.cond1.preheader ]
-  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @a, i64 0, i64 %j.020, i64 %i.023
-  %0 = load float, float* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], ptr @a, i64 0, i64 %j.020, i64 %i.023
+  %0 = load float, ptr %arrayidx5, align 4, !tbaa !1
   %add = fadd float %s1.119, %0
   %inc = add nuw nsw i64 %j.020, 1
   %exitcond = icmp eq i64 %inc, %n

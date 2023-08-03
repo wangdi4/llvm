@@ -22,20 +22,18 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
-
-@ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8, !packet_size !1, !packet_align !1, !depth !2
-@sch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 16, !packet_size !3, !packet_align !3, !depth !4
-@ich_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@lch_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 8, !packet_size !1, !packet_align !1, !depth !2
-@sch_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 16, !packet_size !3, !packet_align !3, !depth !4
+@ich = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@lch = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !1, !packet_align !1, !depth !2
+@sch = addrspace(1) global target("spirv.Channel") zeroinitializer, align 16, !packet_size !3, !packet_align !3, !depth !4
+@ich_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@lch_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 8, !packet_size !1, !packet_align !1, !depth !2
+@sch_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 16, !packet_size !3, !packet_align !3, !depth !4
 
 ; CHECK-DAG: @ich.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
 ; CHECK-DAG: @lch.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
@@ -44,38 +42,37 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK-DAG: @ich_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
 ; CHECK-DAG: @lch_arr.pipe.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
 
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @ich.pipe.bs {{.*}} i32 4, i32 0
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @lch.pipe.bs {{.*}} i32 8, i32 3
-; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @sch.pipe.bs {{.*}} i32 16, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @ich.pipe.bs, i32 4, i32 0
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @lch.pipe.bs, i32 8, i32 3
+; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @sch.pipe.bs, i32 16, i32 0
 ; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}} @ich_arr.pipe{{.*}} i32 5, i32 4, i32 0
 ; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}} @sch_arr.pipe{{.*}} i32 60, i32 16, i32 0
 ; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}} @lch_arr.pipe{{.*}} i32 20, i32 8, i32 3
 
-; Function Attrs: nounwind
-define spir_kernel void @foo() #0 !kernel_arg_addr_space !16 !kernel_arg_access_qual !16 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !16 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local void @foo() #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !6 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !6 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !arg_type_null_val !6 {
 entry:
   ret void
 }
 
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" }
 
-!llvm.module.flags = !{!14}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!15}
-!opencl.spir.version = !{!15}
-!opencl.used.extensions = !{!16}
-!opencl.used.optional.core.features = !{!16}
-!opencl.compiler.options = !{!16}
-!llvm.ident = !{!17}
+!opencl.ocl.version = !{!5}
+!opencl.spir.version = !{!5}
+!opencl.compiler.options = !{!6}
+!llvm.ident = !{!7}
+!sycl.kernels = !{!8}
 
 !0 = !{i32 4}
 !1 = !{i32 8}
 !2 = !{i32 3}
 !3 = !{i32 16}
 !4 = !{i32 0}
-!14 = !{i32 1, !"wchar_size", i32 4}
-!15 = !{i32 2, i32 0}
-!16 = !{}
-!17 = !{!"clang version 5.0.0 "}
+!5 = !{i32 2, i32 0}
+!6 = !{}
+!7 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!8 = !{ptr @foo}
 
-; DEBUGIFY-NOT: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-95: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
+; DEBUGIFY-NOT: WARNING

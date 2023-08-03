@@ -1,6 +1,6 @@
 //===- Intel_SYCLKernelPostVec.cpp - Post vectorization pass ----*- C++-*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,23 +14,26 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/SYCLTransforms/Intel_SYCLKernelPostVec.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 #define DEBUG_TYPE "sycl-kernel-postvec"
 
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 
-// Checks if the kernel has openmp directives. If not, then the kernel was
-// vectorized.
+extern cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize;
+
+// Cloned kernel isn't vectorized if it is marked with "vector-variant-failure"
+// attribute.
 static bool isKernelVectorized(Function *Clone) {
-  for (Instruction &I : instructions(Clone))
-    if (vpo::VPOAnalysisUtils::isOpenMPDirective(&I))
-      return false;
-  return true;
+  return !Clone->hasFnAttribute(KernelAttribute::VectorVariantFailure);
 }
 
 static void removeRecommendedVLMetadata(Function *F) {
@@ -64,7 +67,7 @@ static bool rebindVectorizedKernel(Function *F) {
   }
 
   // Get vectorized kernel name from ""vector-variants" attribute.
-  Attribute Attr = F->getFnAttribute("vector-variants");
+  Attribute Attr = F->getFnAttribute(VectorUtils::VectorVariantsAttrName);
   SmallVector<StringRef, 4> VecVariants;
   SplitString(Attr.getValueAsString(), VecVariants, ",");
   auto VL = FMD.RecommendedVL.get();
@@ -90,8 +93,41 @@ static bool rebindVectorizedKernel(Function *F) {
   return Changed;
 }
 
-bool SYCLKernelPostVecPass::runImpl(Module &M) {
+// If input IR is from OpenCL and %sext has only one use, %0's uses could be
+// replaced with %call.
+//
+//  %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #5
+//  %sext = shl i64 %call, 32
+//  %0 = ashr exact i64 %sext, 32
+//
+static bool optimizeGIDShlAshr(Function *F, Function *GetGID) {
+  if (!F)
+    return false;
+  using namespace PatternMatch;
+  for (User *U0 : GetGID->users()) {
+    auto *I = cast<CallInst>(U0);
+    if (I->getFunction() != F)
+      continue;
+    for (User *U1 : I->users()) {
+      if (match(U1, m_OneUse(m_Shl(m_Specific(I), m_SpecificInt(32))))) {
+        auto *SingleUser = *U1->user_begin();
+        if (match(SingleUser, m_AShr(m_Specific(U1), m_SpecificInt(32)))) {
+          SingleUser->replaceAllUsesWith(I);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
+                                             ModuleAnalysisManager &) {
   bool Changed = false;
+  bool IsOCL = !CompilationUtils::isGeneratedFromOCLCPP(M) &&
+               !CompilationUtils::isGeneratedFromOMP(M);
+  auto *GetGID = M.getFunction(CompilationUtils::mangledGetGID());
   auto Kernels = CompilationUtils::getKernels(M);
   for (Function *F : Kernels) {
     // Try to rebind vectorized kernel if missing.
@@ -101,8 +137,7 @@ bool SYCLKernelPostVecPass::runImpl(Module &M) {
     removeRecommendedVLMetadata(F);
 
     // Remove not vectorized clone functions.
-    auto RemoveNotVectorizedClone = [&Changed, &F](Function *Clone,
-                                                   StringRef MDName) {
+    auto RemoveNotVectorizedClone = [&](Function *Clone, StringRef MDName) {
       if (!Clone)
         return;
       if (isKernelVectorized(Clone)) {
@@ -117,13 +152,29 @@ bool SYCLKernelPostVecPass::runImpl(Module &M) {
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    if (FMD.VectorizedKernel.hasValue())
+    if (FMD.VectorizedKernel.hasValue()) {
       RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
                                FMD.VectorizedKernel.getID());
-    if (FMD.VectorizedMaskedKernel.hasValue())
+      if (GetGID && IsOCL && LT2GigGlobalWorkSize == GWS_AUTO)
+        Changed |= optimizeGIDShlAshr(FMD.VectorizedKernel.get(), GetGID);
+    }
+    if (FMD.VectorizedMaskedKernel.hasValue()) {
       RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
                                FMD.VectorizedMaskedKernel.getID());
+      if (GetGID && IsOCL && LT2GigGlobalWorkSize == GWS_AUTO)
+        Changed |= optimizeGIDShlAshr(FMD.VectorizedMaskedKernel.get(), GetGID);
+    }
   }
 
-  return Changed;
+  /// Remove vector-variants attr from internal functions, so that
+  /// DeadArgumentEliminationPass won't skip them.
+  for (Function &F : M) {
+    if (F.getLinkage() == GlobalValue::InternalLinkage &&
+        F.hasFnAttribute(VectorUtils::VectorVariantsAttrName)) {
+      F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
+      Changed = true;
+    }
+  }
+
+  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

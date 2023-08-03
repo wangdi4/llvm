@@ -57,10 +57,10 @@ add_llvm_component_library(LLVMAsmPrinter
   Analysis
   BinaryFormat
   CodeGen
+  CodeGenTypes
   Core
   DebugInfoCodeView
   DebugInfoDWARF
-  DebugInfoMSF
 # INTEL_CUSTOMIZATION
   DebugInfoTraceBack
 # end INTEL_CUSTOMIZATION

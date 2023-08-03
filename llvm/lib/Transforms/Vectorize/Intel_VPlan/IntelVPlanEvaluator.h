@@ -155,10 +155,14 @@ public:
     // this is not true, and that is when we have dynamic peeling,
     // MainLoopVF = 2, and the remaining iterations are known to be even. That
     // optimization is not yet supported.
-    RemainderTC = PeelIsDynamic ?
-        MainLoopVF * MainLoopUF - 1 : // tc is unknown, but this is the max
-        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
     TCIsUnknown = TCIsUnknownP || PeelIsDynamic;
+    if (OrigTC < MainLoopVF)
+      RemainderTC = 0;
+    else
+      RemainderTC = PeelIsDynamic ? MainLoopVF * MainLoopUF - 1
+                                  : // tc is unknown, but this is the max
+                        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
+
     calculateBestVariant();
   }
 
@@ -175,6 +179,10 @@ public:
   VPInstructionCost getLoopCost() const { return LoopCost; }
 
   unsigned getRemainderVF() const { return RemainderVF; }
+
+  uint64_t getMinProfitableMaskedRemTC() const {
+    return MinProfitableMaskedRemTC;
+  }
 
   // Returns the trip count of the best remainder kind. In case of VectorScalar
   // kind, we might have a new remainder loop. For this reason, we return a pair
@@ -202,6 +210,7 @@ private:
   unsigned NewRemainderTC = 0;
   unsigned RemainderTC = 0;
   bool TCIsUnknown = true;
+  uint64_t MinProfitableMaskedRemTC = 0;
 
   RemainderLoopKind calculateBestVariant();
 

@@ -1,4 +1,21 @@
 //===- BranchFolding.cpp - Fold machine code branch instructions ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -59,6 +76,10 @@
 #include <cstddef>
 #include <iterator>
 #include <numeric>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -123,6 +144,11 @@ INITIALIZE_PASS(BranchFolderPass, DEBUG_TYPE,
 bool BranchFolderPass::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (MF.getMMI().getModule()->getModuleFlag("eh-asynch"))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   TargetPassConfig *PassConfig = &getAnalysis<TargetPassConfig>();
   // TailMerge can create jump into if branches that make CFG irreducible for
@@ -860,6 +886,14 @@ void BranchFolder::mergeCommonTails(unsigned commonTailIndex) {
       for (Register Reg : NewLiveIns) {
         if (!LiveRegs.available(*MRI, Reg))
           continue;
+
+        // Skip the register if we are about to add one of its super registers.
+        // TODO: Common this up with the same logic in addLineIns().
+        if (any_of(TRI->superregs(Reg), [&](MCPhysReg SReg) {
+              return NewLiveIns.contains(SReg) && !MRI->isReserved(SReg);
+            }))
+          continue;
+
         DebugLoc DL;
         BuildMI(*Pred, InsertBefore, DL, TII->get(TargetOpcode::IMPLICIT_DEF),
                 Reg);
@@ -1877,8 +1911,8 @@ MachineBasicBlock::iterator findHoistingInsertPosAndDeps(MachineBasicBlock *MBB,
     } else {
       if (Uses.erase(Reg)) {
         if (Reg.isPhysical()) {
-          for (MCSubRegIterator SubRegs(Reg, TRI); SubRegs.isValid(); ++SubRegs)
-            Uses.erase(*SubRegs); // Use sub-registers to be conservative
+          for (MCPhysReg SubReg : TRI->subregs(Reg))
+            Uses.erase(SubReg); // Use sub-registers to be conservative
         }
       }
       addRegAndItsAliases(Reg, TRI, Defs);
@@ -1989,8 +2023,8 @@ bool BranchFolder::HoistCommonCodeInSuccs(MachineBasicBlock *MBB) {
       break;
 
     // Remove kills from ActiveDefsSet, these registers had short live ranges.
-    for (const MachineOperand &MO : TIB->operands()) {
-      if (!MO.isReg() || !MO.isUse() || !MO.isKill())
+    for (const MachineOperand &MO : TIB->all_uses()) {
+      if (!MO.isKill())
         continue;
       Register Reg = MO.getReg();
       if (!Reg)
@@ -2007,8 +2041,8 @@ bool BranchFolder::HoistCommonCodeInSuccs(MachineBasicBlock *MBB) {
     }
 
     // Track local defs so we can update liveins.
-    for (const MachineOperand &MO : TIB->operands()) {
-      if (!MO.isReg() || !MO.isDef() || MO.isDead())
+    for (const MachineOperand &MO : TIB->all_defs()) {
+      if (MO.isDead())
         continue;
       Register Reg = MO.getReg();
       if (!Reg || Reg.isVirtual())

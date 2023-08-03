@@ -7,7 +7,7 @@
 ; ensure that the generated vector HLInst retains a form so that isAbs() remains
 ; true for the same.
 ;
-define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predicator:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -24,11 +24,11 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR0:%.*]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LARR0:%.*]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = abs i64 [[VP_LOAD]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LARR0]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LARR0]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP3]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -55,12 +55,12 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.08 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.08
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.08
+  %0 = load i64, ptr %arrayidx, align 8
   %1 = icmp slt i64 %0, 0
   %neg = sub nsw i64 0, %0
   %2 = select i1 %1, i64 %neg, i64 %0
-  store i64 %2, i64* %arrayidx, align 8
+  store i64 %2, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

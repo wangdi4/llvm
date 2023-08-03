@@ -116,7 +116,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
     const RegDDRef *Ref;
     if (!FirstPred) {
-      OS << " && ";
+      OS << " & ";
     }
 
     Ref = Loop ? Loop->getLHSZttPredicateOperandDDRef(I)

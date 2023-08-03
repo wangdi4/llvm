@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that get_*_id calls are replaced in O0 and -g mode in the
 ; case there is no kernels.
@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: define dso_local void @test(i32 addrspace(1)* noalias noundef %dst) #{{.*}} !dbg
+; CHECK: define dso_local void @test(ptr addrspace(1) noalias noundef %dst) #{{.*}} !dbg
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %lid1.addr = alloca i64, align 8
 ; CHECK-NEXT: %lid2.addr = alloca i64, align 8
@@ -16,67 +16,67 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT: %__ocl_dbg_gid0 = alloca i64, align 8
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64, align 8
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64, align 8
-; CHECK-NEXT: %dst.addr = alloca i32 addrspace(1)*, align 8
+; CHECK-NEXT: %dst.addr = alloca ptr addrspace(1), align 8
 ; CHECK-NEXT: %lid0.addr = alloca i64, align 8
-; CHECK-NEXT: %lid0 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0), align 8
-; CHECK-NEXT: store i64 %lid0, i64* %lid0.addr, align 8
-; CHECK-NEXT: %lid1 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1), align 8
-; CHECK-NEXT: store i64 %lid1, i64* %lid1.addr, align 8
-; CHECK-NEXT: %lid2 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2), align 8
-; CHECK-NEXT: store i64 %lid2, i64* %lid2.addr, align 8
+; CHECK-NEXT: %lid0 = load i64, ptr @LocalIds, align 8
+; CHECK-NEXT: store i64 %lid0, ptr %lid0.addr, align 8
+; CHECK-NEXT: %lid1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1), align 8
+; CHECK-NEXT: store i64 %lid1, ptr %lid1.addr, align 8
+; CHECK-NEXT: %lid2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2), align 8
+; CHECK-NEXT: store i64 %lid2, ptr %lid2.addr, align 8
 ; CHECK-NEXT: %base.gid0 = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT: %gid0 = add i64 %lid0, %base.gid0
-; CHECK-NEXT: store i64 %gid0, i64* %gid0.addr, align 8
+; CHECK-NEXT: store i64 %gid0, ptr %gid0.addr, align 8
 ; CHECK-NEXT: %base.gid1 = call i64 @get_base_global_id.(i32 1)
 ; CHECK-NEXT: %gid1 = add i64 %lid1, %base.gid1
-; CHECK-NEXT: store i64 %gid1, i64* %gid1.addr, align 8
+; CHECK-NEXT: store i64 %gid1, ptr %gid1.addr, align 8
 ; CHECK-NEXT: %base.gid2 = call i64 @get_base_global_id.(i32 2)
 ; CHECK-NEXT: %gid2 = add i64 %lid2, %base.gid2
-; CHECK-NEXT: store i64 %gid2, i64* %gid2.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !11, metadata !DIExpression()), !dbg
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !14, metadata !DIExpression()), !dbg
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !15, metadata !DIExpression()), !dbg
-; CHECK-NEXT: %gid0.ld = load i64, i64* %gid0.addr, align 8
-; CHECK-NEXT: store volatile i64 %gid0.ld, i64* %__ocl_dbg_gid0, align 8
-; CHECK-NEXT: %gid1.ld = load i64, i64* %gid1.addr, align 8
-; CHECK-NEXT: store volatile i64 %gid1.ld, i64* %__ocl_dbg_gid1, align 8
-; CHECK-NEXT: %gid2.ld = load i64, i64* %gid2.addr, align 8
-; CHECK-NEXT: store volatile i64 %gid2.ld, i64* %__ocl_dbg_gid2, align 8
-; CHECK-NEXT: store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !16, metadata !DIExpression()), !dbg
-; CHECK-NEXT: %lid0.ld = load i64, i64* %lid0.addr, align 8, !dbg [[DBGLid:![0-9]+]]
+; CHECK-NEXT: store i64 %gid2, ptr %gid2.addr, align 8
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: %gid0.ld = load i64, ptr %gid0.addr, align 8
+; CHECK-NEXT: store volatile i64 %gid0.ld, ptr %__ocl_dbg_gid0, align 8
+; CHECK-NEXT: %gid1.ld = load i64, ptr %gid1.addr, align 8
+; CHECK-NEXT: store volatile i64 %gid1.ld, ptr %__ocl_dbg_gid1, align 8
+; CHECK-NEXT: %gid2.ld = load i64, ptr %gid2.addr, align 8
+; CHECK-NEXT: store volatile i64 %gid2.ld, ptr %__ocl_dbg_gid2, align 8
+; CHECK-NEXT: store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: %lid0.ld = load i64, ptr %lid0.addr, align 8, !dbg [[DBGLid:![0-9]+]]
 ; CHECK-NEXT: %conv = trunc i64 %lid0.ld to i32, !dbg [[DBGLid]]
-; CHECK-NEXT: [[PTR:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg
-; CHECK-NEXT: [[GIDLoad1:%gid0.ld[0-9]+]] = load i64, i64* %gid0.addr, align 8, !dbg [[DBGGid:![0-9]+]]
-; CHECK-NEXT: %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* [[PTR]], i64 [[GIDLoad1]], !dbg
+; CHECK-NEXT: [[PTR:%[0-9]+]] = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg
+; CHECK-NEXT: [[GIDLoad1:%gid0.ld[0-9]+]] = load i64, ptr %gid0.addr, align 8, !dbg [[DBGGid:![0-9]+]]
+; CHECK-NEXT: %arrayidx = getelementptr inbounds i32, ptr addrspace(1) [[PTR]], i64 [[GIDLoad1]], !dbg
 
 ; CHECK: [[DBGLid]] = !DILocation(line: 2, column: 27, scope: !6)
 ; CHECK: [[DBGGid]] = !DILocation(line: 2, column: 7, scope: !6)
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(i32 addrspace(1)* noalias noundef %dst) #0 !dbg !6 {
+define dso_local void @test(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 !kernel_arg_base_type !23 !arg_type_null_val !24 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !11, metadata !DIExpression()), !dbg !13
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !11, metadata !DIExpression()), !dbg !13
   %__ocl_dbg_gid1 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !14, metadata !DIExpression()), !dbg !13
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !14, metadata !DIExpression()), !dbg !13
   %__ocl_dbg_gid2 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !15, metadata !DIExpression()), !dbg !13
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !15, metadata !DIExpression()), !dbg !13
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !16, metadata !DIExpression()), !dbg !17
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !16, metadata !DIExpression()), !dbg !17
   %call = call i64 @_Z12get_local_idj(i32 noundef 0) #3, !dbg !18
   %conv = trunc i64 %call to i32, !dbg !18
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !19
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg !19
   %call1 = call i64 @_Z13get_global_idj(i32 noundef 0) #3, !dbg !20
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %call1, !dbg !19
-  store i32 %conv, i32 addrspace(1)* %arrayidx, align 4, !dbg !21
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %call1, !dbg !19
+  store i32 %conv, ptr addrspace(1) %arrayidx, align 4, !dbg !21
   ret void, !dbg !22
 }
 
@@ -123,3 +123,5 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !20 = !DILocation(line: 2, column: 7, scope: !6)
 !21 = !DILocation(line: 2, column: 25, scope: !6)
 !22 = !DILocation(line: 3, column: 1, scope: !6)
+!23 = !{!"int*"}
+!24 = !{ptr addrspace(1) null}

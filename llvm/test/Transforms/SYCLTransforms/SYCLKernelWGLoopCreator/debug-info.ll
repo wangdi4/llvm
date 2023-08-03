@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 ;
 ; Check that debug info is preserved.
 ; Specifically,
@@ -8,12 +8,12 @@
 ;   4. llvm.dbg.declare and llvm.dbg.value intrinsics should be retained.
 ;
 ; CHECK: define {{.*}}@test_kernel({{.*}}){{.*}}!dbg [[SP:![0-9]+]] {{.*}}{
-; CHECK:   call void @llvm.dbg.declare(metadata i32 addrspace(1)* %1, metadata [[PARAM2:![0-9]+]], metadata !DIExpression()), !dbg [[L123:![0-9]+]]
-; CHECK:   call void @llvm.dbg.value(metadata i32 addrspace(1)* %0, metadata [[PARAM1:![0-9]+]], metadata !DIExpression()), !dbg [[L123]]
-; CHECK:   [[LOAD1:%[0-9]+]] = load i32, i32 addrspace(1)* %1, align 4, !dbg [[L124:![0-9]+]]
-; CHECK:   [[LOAD2:%[0-9]+]] = load i32, i32 addrspace(1)* %2, align 4, !dbg [[L124]]
+; CHECK:   call void @llvm.dbg.declare(metadata ptr addrspace(1) %1, metadata [[PARAM2:![0-9]+]], metadata !DIExpression()), !dbg [[L123:![0-9]+]]
+; CHECK:   call void @llvm.dbg.value(metadata ptr addrspace(1) %0, metadata [[PARAM1:![0-9]+]], metadata !DIExpression()), !dbg [[L123]]
+; CHECK:   [[LOAD1:%[0-9]+]] = load i32, ptr addrspace(1) %1, align 4, !dbg [[L124:![0-9]+]]
+; CHECK:   [[LOAD2:%[0-9]+]] = load i32, ptr addrspace(1) %2, align 4, !dbg [[L124]]
 ; CHECK:   [[ADD:%[0-9]+]] = add i32 [[LOAD1]], [[LOAD2]], !dbg [[L124]]
-; CHECK:   store i32 [[ADD]], i32 addrspace(1)* %3, align 4, !dbg [[L124]]
+; CHECK:   store i32 [[ADD]], ptr addrspace(1) %3, align 4, !dbg [[L124]]
 ; CHECK:   ret void
 ; CHECK: }
 ;
@@ -56,7 +56,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 ; Function Attrs: nounwind readnone speculatable
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
-define [7 x i64] @WG.boundaries.test_kernel(i32 addrspace(1)* %0, i32 addrspace(1)* %1, i32 addrspace(1)* %2, i32 addrspace(1)* %3) {
+define [7 x i64] @WG.boundaries.test_kernel(ptr addrspace(1) %0, ptr addrspace(1) %1, ptr addrspace(1) %2, ptr addrspace(1) %3) {
 entry:
   %4 = call i64 @_Z14get_local_sizej(i32 0)
   %5 = call i64 @get_base_global_id.(i32 0)
@@ -75,18 +75,18 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define void @test_kernel(i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*) local_unnamed_addr #0 !dbg !3 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !15 !no_barrier_path !16 !scalar_kernel !17 !vectorized_width !18 !kernel_execution_length !19 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 {
+define void @test_kernel(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) local_unnamed_addr #0 !dbg !3 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !15 !no_barrier_path !16 !scalar_kernel !17 !vectorized_width !18 !kernel_execution_length !19 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 {
   ret void, !dbg !28
 }
 
 ; Function Attrs: nounwind
-define void @__Vectorized_.test_kernel(i32 addrspace(1)* %0, i32 addrspace(1)* %1, i32 addrspace(1)* %2, i32 addrspace(1)* %3) local_unnamed_addr #0 !dbg !21 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !17 !no_barrier_path !16 !scalar_kernel !1 !vectorized_width !22 !kernel_execution_length !23 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 !vectorization_dimension !2 !can_unite_workgroups !16 {
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %0, metadata !24, metadata !DIExpression()), !dbg !25
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)* %1, metadata !26, metadata !DIExpression()), !dbg !25
-  %5 = load i32, i32 addrspace(1)* %1, align 4, !dbg !29
-  %6 = load i32, i32 addrspace(1)* %2, align 4, !dbg !29
+define void @__Vectorized_.test_kernel(ptr addrspace(1) %0, ptr addrspace(1) %1, ptr addrspace(1) %2, ptr addrspace(1) %3) local_unnamed_addr #0 !dbg !21 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !17 !no_barrier_path !16 !scalar_kernel !1 !vectorized_width !22 !kernel_execution_length !23 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 !vectorization_dimension !2 !can_unite_workgroups !16 {
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %0, metadata !24, metadata !DIExpression()), !dbg !25
+  call void @llvm.dbg.declare(metadata ptr addrspace(1) %1, metadata !26, metadata !DIExpression()), !dbg !25
+  %5 = load i32, ptr addrspace(1) %1, align 4, !dbg !29
+  %6 = load i32, ptr addrspace(1) %2, align 4, !dbg !29
   %7 = add i32 %5, %6, !dbg !29
-  store i32 %7, i32 addrspace(1)* %3, align 4, !dbg !29
+  store i32 %7, ptr addrspace(1) %3, align 4, !dbg !29
   ret void, !dbg !27
 }
 
@@ -104,7 +104,7 @@ attributes #2 = { readnone }
 !opencl.global_variable_total_size = !{!2}
 
 !0 = !{i32 2, !"Debug Info Version", i32 3}
-!1 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @"test_kernel"}
+!1 = !{ptr @"test_kernel"}
 !2 = !{i32 0}
 !3 = distinct !DISubprogram(name: "test_kernel", scope: !9, file: !4, line: 14, type: !5, flags: DIFlagArtificial | DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized | DISPFlagMainSubprogram, unit: !9)
 !4 = !DIFile(filename: "test.cpp", directory: "dir")
@@ -118,7 +118,7 @@ attributes #2 = { readnone }
 !12 = !{!"int*", !"type1", !"type2", !"type3"}
 !13 = !{!"", !"", !"", !""}
 !14 = !{!"int*", !"test_type", !"test_type", !"test_type"}
-!15 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @"__Vectorized_.test_kernel"}
+!15 = !{ptr @"__Vectorized_.test_kernel"}
 !16 = !{i1 true}
 !17 = !{null}
 !18 = !{i32 1}
@@ -133,3 +133,4 @@ attributes #2 = { readnone }
 !27 = !DILocation(line: 456, column: 16, scope: !21)
 !28 = !DILocation(line: 456, column: 16, scope: !3)
 !29 = !DILocation(line: 124, scope: !21)
+!30 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}

@@ -1,10 +1,28 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 # See www/CMake.html for instructions on how to build libcxxabi with CMake.
 
 #===============================================================================
 # Setup Project
 #===============================================================================
 
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.20.0)
 
 set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
@@ -55,9 +73,6 @@ option(LIBCXXABI_HAS_WIN32_THREAD_API "Ignore auto-detection and force use of wi
 option(LIBCXXABI_HAS_EXTERNAL_THREAD_API
   "Build libc++abi with an externalized threading API.
   This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON." OFF)
-option(LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY
-  "Build libc++abi with an externalized threading library.
-   This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON" OFF)
 option(LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST
 "Make dynamic_cast more forgiving when type_info's mistakenly have hidden \
 visibility, and thus multiple type_infos can exist for a single type. \
@@ -209,6 +224,21 @@ else()
       "Path where built libc++abi libraries should be installed.")
 endif()
 
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-49229
+# Install the libcxx and libcxxabi to the correct unified layout path
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  foreach(variable 
+    LIBCXXABI_INSTALL_RUNTIME_DIR
+    LIBCXXABI_INSTALL_LIBRARY_DIR
+    LIBCXXABI_INSTALL_INCLUDE_DIR)
+    if(DEFINED ${variable})
+      string(PREPEND ${variable} "opt/compiler/")
+    endif()
+  endforeach()
+endif()
+# end INTEL_CUSTOMIZATION
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBCXXABI_LIBRARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBCXXABI_LIBRARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LIBCXXABI_LIBRARY_DIR})
@@ -330,11 +360,6 @@ if (NOT LIBCXXABI_ENABLE_THREADS)
                         " be set to ON when LIBCXXABI_ENABLE_THREADS"
                         " is also set to ON.")
   endif()
-  if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-    message(FATAL_ERROR "LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY can only"
-                        " be set to ON when LIBCXXABI_ENABLE_THREADS"
-                        " is also set to ON.")
-  endif()
   add_definitions(-D_LIBCXXABI_HAS_NO_THREADS)
 endif()
 
@@ -347,11 +372,6 @@ if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
   if (LIBCXXABI_HAS_WIN32_THREAD_API)
     message(FATAL_ERROR "The options LIBCXXABI_HAS_EXTERNAL_THREAD_API"
                         " and LIBCXXABI_HAS_WIN32_THREAD_API cannot be both"
-                        " set to ON at the same time.")
-  endif()
-  if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-    message(FATAL_ERROR "The options LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY"
-                        " and LIBCXXABI_HAS_EXTERNAL_THREAD_API cannot be both"
                         " set to ON at the same time.")
   endif()
 endif()
@@ -371,9 +391,7 @@ if (LLVM_ENABLE_MODULES)
 endif()
 
 set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS OFF)
-if ((NOT LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
-    OR (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY AND LIBCXXABI_ENABLE_SHARED)
-    OR MINGW)
+if ((NOT LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS) OR MINGW)
   set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS ON)
 endif()
 
@@ -397,10 +415,6 @@ endif()
 
 if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
   add_definitions(-D_LIBCPP_HAS_THREAD_API_EXTERNAL)
-endif()
-
-if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-  add_definitions(-D_LIBCPP_HAS_THREAD_LIBRARY_EXTERNAL)
 endif()
 
 if (MSVC)
@@ -459,10 +473,10 @@ if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
   if (LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL STREQUAL "LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL-NOTFOUND")
     set(LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL "")
   endif()
+endif()
 
-  if (NOT LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL STREQUAL "")
-    include_directories("${LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL}")
-  endif()
+if (NOT "${LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL}" STREQUAL "")
+  include_directories("${LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL}")
 endif()
 
 # Add source code. This also contains all of the logic for deciding linker flags

@@ -15,49 +15,51 @@ target triple = "x86_64-pc-linux"
 
 define internal fastcc zeroext i1 @foo() unnamed_addr {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
-  %1 = load i32, i32 addrspace(3)* @test.j, align 4
-  ret i1 0
+  %0 = load i32, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
+  %1 = load i32, ptr addrspace(3) @test.j, align 4
+  ret i1 false
 }
 
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %results) {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %results) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  store i32 0, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
-  store i32 0, i32 addrspace(3)* @test.j, align 4
+  store i32 0, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
+  store i32 0, ptr addrspace(3) @test.j, align 4
   %call2 = tail call fastcc zeroext i1 @foo()
   ret void
 }
 
-define internal fastcc void @xyz(i32 addrspace(1)* noalias noundef %results) unnamed_addr {
+define internal fastcc void @xyz(ptr addrspace(1) noalias noundef %results) unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  store i32 0, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
-  store i32 1, i32 addrspace(3)* @test.j, align 4
+  store i32 0, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
+  store i32 1, ptr addrspace(3) @test.j, align 4
   %call2.i = tail call fastcc zeroext i1 @foo()
   ret void
 }
 
-define dso_local void @test2(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr {
+define dso_local void @test2(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  tail call fastcc void @xyz(i32 addrspace(1)* noundef %results)
+  tail call fastcc void @xyz(ptr addrspace(1) noundef %results)
   ret void
 }
 
 define internal fastcc zeroext i1 @bar() unnamed_addr {
 entry:
-  %0 = load double, double addrspace(3)* getelementptr inbounds ([10 x double], [10 x double] addrspace(3)* @test3.s, i64 0, i64 0), align 8
-  %1 = load double, double addrspace(3)* @test3.t, align 8
-  ret i1 0
+  %0 = load double, ptr addrspace(3) getelementptr inbounds ([10 x double], ptr addrspace(3) @test3.s, i64 0, i64 1), align 8
+  %1 = load double, ptr addrspace(3) @test3.t, align 8
+  ret i1 false
 }
 
-define dso_local void @test3(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr {
+define dso_local void @test3(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
-  store double 0.000000e+00, double addrspace(3)* getelementptr inbounds ([10 x double], [10 x double] addrspace(3)* @test3.s, i64 0, i64 0), align 8
-  store double 0.000000e+00, double addrspace(3)* @test3.t, align 8
+  store double 0.000000e+00, ptr addrspace(3) getelementptr inbounds ([10 x double], ptr addrspace(3) @test3.s, i64 0, i64 1), align 8
+  store double 0.000000e+00, ptr addrspace(3) @test3.t, align 8
   %call4 = tail call fastcc zeroext i1 @bar()
-  tail call fastcc void @xyz(i32 addrspace(1)* noundef %results)
+  tail call fastcc void @xyz(ptr addrspace(1) noundef %results)
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test, void (i32 addrspace(1)*)* @test2, void (i32 addrspace(1)*)* @test3}
+!0 = !{ptr @test, ptr @test2, ptr @test3}
+!1 = !{!"int*"}
+!2 = !{i32 addrspace(1)* null}

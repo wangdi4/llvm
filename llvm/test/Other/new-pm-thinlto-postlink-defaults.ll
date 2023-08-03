@@ -12,71 +12,59 @@
 ; Postlink pipelines:
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O1>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O1,CHECK-POSTLINK-O,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O1,CHECK-POSTLINK-O,%llvmcheckext
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
 ; INTEL_CUSTOMIZATION
 ; Added CHECK-POSTLINK-O23SZ target for easier matching.
 ; If new lines are added, this target must be added to those lines.
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-pipeline-start='no-op-module' \
 ; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-optimizer-early='no-op-module' \
 ; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-EARLY,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-EARLY,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-optimizer-last='no-op-module' \
 ; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-LAST,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-LAST,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -debug-info-for-profiling \
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
 ; end INTEL_CUSTOMIZATION
 
 ; Suppress FileCheck --allow-unused-prefixes=false diagnostics.
 ; CHECK-NOEXT: {{^}}
 
-; CHECK-O: Running pass: Annotation2Metadata
-; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
-; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
-; CHECK-DIS-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-EP-PIPELINE-START: Running pass: NoOpModulePass
+; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
-; CHECK-POSTLINK-O-NEXT: Running pass: PGOIndirectCallPromotion
+; CHECK-POSTLINK-O: Running pass: PGOIndirectCallPromotion
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
-; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running pass: InlineReportSetupPass          ;INTEL
-; CHECK-O-NEXT: Running pass: InlineListsPass                ;INTEL
-; CHECK-O-NEXT: Running pass: CoroEarlyPass
-; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass    ;INTEL
-; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass        ;INTEL
-; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
-; CHECK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O-NEXT: Running pass: SROAPass
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-O-NEXT: Running pass: EarlyCSEPass
-; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
-; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass ;INTEL
-; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass ;INTEL
+; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
-; CHECK-FUNC-SPEC-NEXT: Running analysis: LoopAnalysis
+; CHECK-O-NEXT: Running analysis: AssumptionAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
+; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: PromotePass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
@@ -124,7 +112,7 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
-; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass
+; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
 ; CHECK-O1-NEXT: Running pass: LibCallsShrinkWrapPass
 ; CHECK-O2-NEXT: Running pass: LibCallsShrinkWrapPass
@@ -132,9 +120,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ReassociatePass
-; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NO-FUNC-SPEC-NEXT: Running analysis: LoopAnalysis
+; CHECK-O-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
@@ -171,6 +158,7 @@
 ; CHECK-O-NEXT: Running pass: ADCEPass
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
+; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
@@ -219,15 +207,19 @@
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running pass: AutoCPUClonePass on [module]
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: TargetLibraryAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
@@ -315,7 +307,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: SROAPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: WarnMissedTransformationsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
-; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: MemorySSAAnalysis ;INTEL

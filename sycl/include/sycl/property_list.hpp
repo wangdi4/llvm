@@ -8,12 +8,11 @@
 
 #pragma once
 
-#include <sycl/detail/common.hpp>
 #include <sycl/detail/property_list_base.hpp>
 #include <sycl/properties/property_traits.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi {
 template <typename... PropsT> class accessor_property_list;
 } // namespace ext::oneapi
@@ -27,11 +26,11 @@ class property_list : protected detail::PropertyListBase {
   template <typename... Tail> struct AllProperties : std::true_type {};
   template <typename T, typename... Tail>
   struct AllProperties<T, Tail...>
-      : detail::conditional_t<is_property<T>::value, AllProperties<Tail...>,
-                              std::false_type> {};
+      : std::conditional_t<is_property<T>::value, AllProperties<Tail...>,
+                           std::false_type> {};
 
 public:
-  template <typename... PropsT, typename = typename detail::enable_if_t<
+  template <typename... PropsT, typename = typename std::enable_if_t<
                                     AllProperties<PropsT...>::value>>
   property_list(PropsT... Props) : detail::PropertyListBase(false) {
     ctorHelper(Props...);
@@ -68,5 +67,5 @@ private:
   friend class ext::oneapi::accessor_property_list;
 };
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

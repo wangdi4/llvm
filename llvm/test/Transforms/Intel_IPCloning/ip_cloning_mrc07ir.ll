@@ -1,37 +1,37 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers=0 < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false -ip-manyreccalls-predicateopt=false 2>&1 | FileCheck %s
 
 ; Check that foo is selected for cloning as a "many recursive calls" cloning
 ; candidate.
 
 ; Check also that all calls, including the calls to the clone, have dbg info.
 
-; This is the same test as ip_cloning_mrc07.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_mrc07.ll, but checks for IR
+; without requiring asserts.
 
 ; Check changes to the IR
 
-@myglobal = dso_local global i32 45, align 4, !dbg !0
-
 %struct.MYSTRUCT = type { i32, i32 }
+
+@myglobal = dso_local global i32 45, align 4, !dbg !0
 @cache = dso_local global %struct.MYSTRUCT zeroinitializer, align 4
 
-define dso_local i32 @goo(%struct.MYSTRUCT* %cacheptr) !dbg !23 {
+define dso_local i32 @goo(ptr %cacheptr) !dbg !18 {
 entry:
-  %0 = load i32, i32* @myglobal, align 4
-  %tobool = icmp ne i32 %0, 0
+  %i = load i32, ptr @myglobal, align 4
+  %tobool = icmp ne i32 %i, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-  %1 = load i32, i32* %field2, align 4
-  %call = call i32 @foo(i32 1, i32 1, i32 %1), !dbg !42
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+  %i1 = load i32, ptr %field2, align 4
+  %call = call i32 @foo(i32 1, i32 1, i32 %i1), !dbg !25
   br label %return
 
 if.end:                                           ; preds = %entry
-  %2 = load i32, i32* @myglobal, align 4
-  %call1 = call i32 @foo(i32 0, i32 %2, i32 0), !dbg !45
+  %i2 = load i32, ptr @myglobal, align 4
+  %call1 = call i32 @foo(i32 0, i32 %i2, i32 0), !dbg !27
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
@@ -43,19 +43,19 @@ return:                                           ; preds = %if.end, %if.then
 ; either a call to foo or the clone foo.1.
 
 ; CHECK: define dso_local i32 @goo{{.*}}
-; CHECK: [[V1:%[A-Za-z0-9.]+]] = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-; CHECK: [[V2:%[A-Za-z0-9.]+]] = load i32, i32* [[V1]], align 4
+; CHECK: [[V1:%[A-Za-z0-9.]+]] = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+; CHECK: [[V2:%[A-Za-z0-9.]+]] = load i32, ptr [[V1]], align 4
 ; CHECK: [[V3:%[A-Za-z0-9.]+]] = icmp eq i32 [[V2]], 0
 ; CHECK: br i1 [[V3]], label %[[V4:[A-Za-z0-9.]+]], label %[[V5:[A-Za-z0-9.]+]]
 ; CHECK: [[V5]]:
-; CHECK: {{.*}}call i32 @foo(i32 1, i32 1, i32 %1), !dbg
+; CHECK: {{.*}}call i32 @foo(i32 1, i32 1, i32 %i1), !dbg
 ; CHECK: br label %[[V6:[A-Za-z0-9.]+]]
 ; CHECK: [[V4]]:
 ; CHECK: {{.*}}call i32 @foo.1(i32 1, i32 1, i32 0), !dbg
 ; CHECK: br label %[[V6]]
 ; CHECK: [[V6]]:
 
-define internal i32 @foo(i32 %arg0, i32 %arg1, i32 %arg2) !dbg !46 {
+define internal i32 @foo(i32 %arg0, i32 %arg1, i32 %arg2) !dbg !28 {
 entry:
   %tobool = icmp ne i32 %arg0, 0
   br i1 %tobool, label %land.lhs.true, label %if.end
@@ -74,21 +74,18 @@ if.end:                                           ; preds = %land.lhs.true, %ent
   ]
 
 sw.default:                                       ; preds = %if.end
-  %call = call i32 @foo(i32 1, i32 1, i32 %arg2), !dbg !100
+  %call = call i32 @foo(i32 1, i32 1, i32 %arg2), !dbg !41
   br label %return
 
 sw.bb:                                            ; preds = %if.end, %if.end
   %sub2 = sub nsw i32 %arg2, 2
-  %call3 = call i32 @foo(i32 0, i32 1, i32 %sub2), !dbg !101
+  %call3 = call i32 @foo(i32 0, i32 1, i32 %sub2), !dbg !42
   br label %return
 
 return:                                           ; preds = %sw.bb, %sw.default, %if.then
-  %call4 = call i32 @foo(i32 %arg2, i32 1, i32 0), !dbg !102
+  %call4 = call i32 @foo(i32 %arg2, i32 1, i32 0), !dbg !43
   ret i32 %call4
 }
-
-; Check that a test is inserted at the beginning of foo, calling the clone
-; under the appropriate circumstances.
 
 ; CHECK: define internal i32 @foo{{.*}}
 ; CHECK: entry:
@@ -139,9 +136,9 @@ return:                                           ; preds = %sw.bb, %sw.default,
 ; CHECK: br label %[[V6]]
 ; CHECK: [[V6]]:
 
-define dso_local i32 @main() #0 !dbg !18 {
+define dso_local i32 @main() !dbg !44 {
 entry:
-  %call = call i32 @goo(%struct.MYSTRUCT* @cache), !dbg !21
+  %call = call i32 @goo(ptr @cache), !dbg !47
   ret i32 %call
 }
 
@@ -167,35 +164,34 @@ entry:
 !15 = !{i32 2, !"Debug Info Version", i32 3}
 !16 = !{i32 1, !"wchar_size", i32 4}
 !17 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!18 = distinct !DISubprogram(name: "main", scope: !3, file: !3, line: 46, type: !19, scopeLine: 46, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !4)
+!18 = distinct !DISubprogram(name: "goo", scope: !3, file: !3, line: 37, type: !19, scopeLine: 37, flags: DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !22)
 !19 = !DISubroutineType(types: !20)
-!20 = !{!12}
-!21 = !DILocation(line: 47, column: 10, scope: !18)
-!23 = distinct !DISubprogram(name: "goo", scope: !3, file: !3, line: 37, type: !24, scopeLine: 37, flags: DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !27)
-!24 = !DISubroutineType(types: !25)
-!25 = !{!12, !26}
-!26 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !8, size: 64)
-!27 = !{!28, !29}
-!28 = !DILocalVariable(name: "cacheptr", arg: 1, scope: !23, file: !3, line: 37, type: !26)
-!29 = !DILocalVariable(name: "myint", scope: !23, file: !3, line: 38, type: !12)
-!30 = !DILocation(line: 0, scope: !23)
-!32 = distinct !DILexicalBlock(scope: !23, file: !3, line: 39, column: 7)
-!42 = !DILocation(line: 40, column: 13, scope: !32)
-!45 = !DILocation(line: 43, column: 3, scope: !23)
-!46 = distinct !DISubprogram(name: "foo", scope: !3, file: !3, line: 9, type: !47, scopeLine: 9, flags: DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !49)
-!47 = !DISubroutineType(types: !48)
-!48 = !{!12, !12, !12, !12}
-!49 = !{!50, !51, !52, !53, !54, !55, !56, !57, !58}
-!50 = !DILocalVariable(name: "arg0", arg: 1, scope: !46, file: !3, line: 9, type: !12)
-!51 = !DILocalVariable(name: "arg1", arg: 2, scope: !46, file: !3, line: 9, type: !12)
-!52 = !DILocalVariable(name: "arg2", arg: 3, scope: !46, file: !3, line: 9, type: !12)
-!53 = !DILabel(scope: !46, name: "landtrue", file: !3, line: 14)
-!54 = !DILabel(scope: !46, name: "ifthen", file: !3, line: 19)
-!55 = !DILabel(scope: !46, name: "ifend", file: !3, line: 21)
-!56 = !DILabel(scope: !46, name: "mydefault", file: !3, line: 27)
-!57 = !DILabel(scope: !46, name: "bb", file: !3, line: 30)
-!58 = !DILabel(scope: !46, name: "myreturn", file: !3, line: 33)
-!100 = !DILocation(line: 28, column: 3, scope: !46)
-!101= !DILocation(line: 31, column: 3, scope: !46)
-!102 = !DILocation(line: 34, column: 10, scope: !46)
+!20 = !{!12, !21}
+!21 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !8, size: 64)
+!22 = !{!23, !24}
+!23 = !DILocalVariable(name: "cacheptr", arg: 1, scope: !18, file: !3, line: 37, type: !21)
+!24 = !DILocalVariable(name: "myint", scope: !18, file: !3, line: 38, type: !12)
+!25 = !DILocation(line: 40, column: 13, scope: !26)
+!26 = distinct !DILexicalBlock(scope: !18, file: !3, line: 39, column: 7)
+!27 = !DILocation(line: 43, column: 3, scope: !18)
+!28 = distinct !DISubprogram(name: "foo", scope: !3, file: !3, line: 9, type: !29, scopeLine: 9, flags: DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !31)
+!29 = !DISubroutineType(types: !30)
+!30 = !{!12, !12, !12, !12}
+!31 = !{!32, !33, !34, !35, !36, !37, !38, !39, !40}
+!32 = !DILocalVariable(name: "arg0", arg: 1, scope: !28, file: !3, line: 9, type: !12)
+!33 = !DILocalVariable(name: "arg1", arg: 2, scope: !28, file: !3, line: 9, type: !12)
+!34 = !DILocalVariable(name: "arg2", arg: 3, scope: !28, file: !3, line: 9, type: !12)
+!35 = !DILabel(scope: !28, name: "landtrue", file: !3, line: 14)
+!36 = !DILabel(scope: !28, name: "ifthen", file: !3, line: 19)
+!37 = !DILabel(scope: !28, name: "ifend", file: !3, line: 21)
+!38 = !DILabel(scope: !28, name: "mydefault", file: !3, line: 27)
+!39 = !DILabel(scope: !28, name: "bb", file: !3, line: 30)
+!40 = !DILabel(scope: !28, name: "myreturn", file: !3, line: 33)
+!41 = !DILocation(line: 28, column: 3, scope: !28)
+!42 = !DILocation(line: 31, column: 3, scope: !28)
+!43 = !DILocation(line: 34, column: 10, scope: !28)
+!44 = distinct !DISubprogram(name: "main", scope: !3, file: !3, line: 46, type: !45, scopeLine: 46, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !4)
+!45 = !DISubroutineType(types: !46)
+!46 = !{!12}
+!47 = !DILocation(line: 47, column: 10, scope: !44)
 ; end INTEL_FEATURE_SW_ADVANCED

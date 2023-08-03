@@ -36,6 +36,7 @@
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
+#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -57,7 +58,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/Printable.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetIntrinsicInfo.h"
@@ -226,7 +226,6 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::FTAN:                       return "ftan";
   case ISD::FATAN:                      return "fatan";
   case ISD::FATAN2:                     return "fatan2";
-  case ISD::LDEXP:                      return "ldexp";
 #endif
   case ISD::FTRUNC:                     return "ftrunc";
   case ISD::STRICT_FTRUNC:              return "strict_ftrunc";
@@ -307,6 +306,9 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::UMIN:                       return "umin";
   case ISD::UMAX:                       return "umax";
 
+  case ISD::FLDEXP:                     return "fldexp";
+  case ISD::STRICT_FLDEXP:              return "strict_fldexp";
+  case ISD::FFREXP:                     return "ffrexp";
   case ISD::FPOWI:                      return "fpowi";
   case ISD::STRICT_FPOWI:               return "strict_fpowi";
   case ISD::SETCC:                      return "setcc";
@@ -333,7 +335,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::CARRY_FALSE:                return "carry_false";
   case ISD::ADDC:                       return "addc";
   case ISD::ADDE:                       return "adde";
-  case ISD::ADDCARRY:                   return "addcarry";
+  case ISD::UADDO_CARRY:                return "uaddo_carry";
   case ISD::SADDO_CARRY:                return "saddo_carry";
   case ISD::SADDO:                      return "saddo";
   case ISD::UADDO:                      return "uaddo";
@@ -343,7 +345,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::UMULO:                      return "umulo";
   case ISD::SUBC:                       return "subc";
   case ISD::SUBE:                       return "sube";
-  case ISD::SUBCARRY:                   return "subcarry";
+  case ISD::USUBO_CARRY:                return "usubo_carry";
   case ISD::SSUBO_CARRY:                return "ssubo_carry";
   case ISD::SHL_PARTS:                  return "shl_parts";
   case ISD::SRA_PARTS:                  return "sra_parts";
@@ -455,6 +457,11 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   // Floating point environment manipulation
   case ISD::GET_ROUNDING:               return "get_rounding";
   case ISD::SET_ROUNDING:               return "set_rounding";
+  case ISD::GET_FPENV:                  return "get_fpenv";
+  case ISD::SET_FPENV:                  return "set_fpenv";
+  case ISD::RESET_FPENV:                return "reset_fpenv";
+  case ISD::GET_FPENV_MEM:              return "get_fpenv_mem";
+  case ISD::SET_FPENV_MEM:              return "set_fpenv_mem";
 
   // Bit manipulation
   case ISD::ABS:                        return "abs";
@@ -518,6 +525,8 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::VECREDUCE_FMAX:             return "vecreduce_fmax";
   case ISD::VECREDUCE_FMIN:             return "vecreduce_fmin";
   case ISD::COMPLEX_MUL:                return "complex_mul";  // INTEL
+  case ISD::VECREDUCE_FMAXIMUM:         return "vecreduce_fmaximum";
+  case ISD::VECREDUCE_FMINIMUM:         return "vecreduce_fminimum";
   case ISD::STACKMAP:
     return "stackmap";
   case ISD::PATCHPOINT:

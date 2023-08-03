@@ -40,19 +40,19 @@ for.cond1.preheader.preheader:                    ; preds = %entry
 
 for.cond1.preheader:                              ; preds = %for.inc7, %for.cond1.preheader.preheader
   %indvars.iv22 = phi i64 [ 0, %for.cond1.preheader.preheader ], [ %indvars.iv.next23, %for.inc7 ]
-  %arrayidx6 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %indvars.iv22
+  %arrayidx6 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %indvars.iv22
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp4 = icmp eq i64 %indvars.iv, 0
   br i1 %cmp4, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body3
   %add = add nsw i32 %0, 5
-  store i32 %add, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx6, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then

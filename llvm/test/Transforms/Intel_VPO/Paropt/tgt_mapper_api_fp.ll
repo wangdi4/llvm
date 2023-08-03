@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test src:
 ;
@@ -10,7 +10,7 @@
 ; }
 
 ; Check that tgt_mapper is called with null pointers for mapnames and mapper.
-; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^ ,]+}}, i64 %{{[^ ,]+}}, i8* @{{[^ ,]+}}, i32 1, i8** %{{[^ ,]}}, i8** %{{[^ ,]}}, i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_maptypes, i32 0, i32 0), i8** null, i8** null)
+; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(ptr @{{[^ ,]+}}, i64 %{{[^ ,]+}}, ptr @{{[^ ,]+}}, i32 1, ptr %{{[^ ,]}}, ptr %{{[^ ,]}}, ptr @.offload_sizes, ptr @.offload_maptypes, ptr null, ptr null)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64"
@@ -20,9 +20,12 @@ target device_triples = "x86_64"
 define hidden i32 @main() #0 {
 entry:
   %y.ir = alloca i16, align 2
-  store i16 111, i16* %y.ir, align 2
+  store i16 111, ptr %y.ir, align 2
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i16* %y.ir) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %y.ir, i16 0, i32 1) ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
 
   ret i32 0

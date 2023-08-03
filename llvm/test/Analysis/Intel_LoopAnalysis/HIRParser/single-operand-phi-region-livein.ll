@@ -15,7 +15,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @main(i32* %q, i32 %t) {
+define void @main(ptr %q, i32 %t) {
 entry:
   %div = sdiv i32 %t, 5
   br label %for.outer
@@ -34,7 +34,7 @@ for.body9:
 
 for.end:
   %split43 = phi i32 [ %and34, %for.body9 ]
-  store i32 %split43, i32* %q
+  store i32 %split43, ptr %q
   %ip = add i32 %i, 1
   %cmp3 = icmp ult i32 %ip, 100
   br i1 %cmp3, label %for.outer, label %exit

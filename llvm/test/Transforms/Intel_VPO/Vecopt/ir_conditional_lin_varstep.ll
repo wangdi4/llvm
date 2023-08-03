@@ -6,19 +6,21 @@
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-dump-induction-init-details -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 ; CHECK:      VPlan after insertion of VPEntities instructions:
-; CHECK:      IntInduction(+) Start: i64 %k.iv.b Step: i64 %step StartVal: ? EndVal: ? BinOp: i64 [[VP_IND_PHI:%.*]] = phi  [ i64 [[VP_IND_ADD1:%.*]], BB3 ],  [ i64 [[VP_IND_ADD0:%.*]], BB4 ] need close form
-; CHECK-NEXT:   Linked values: i64 [[VP_PHI_NEXT:%.*]], i64 [[VP_IND_PHI]], i64 [[VP_IND_INIT:%.*]], i64 [[VP_IND_NEXT:%.*]], i64 [[VP_IND_FINAL:%.*]],
+; CHECK:      IntInduction(+) Start: i64 %k.iv.b Step: i64 %step StartVal: ? EndVal: ? BinOp: i64 [[VP_IND_ADD2:%.*]] = add i64 [[VP_PHI_NEXT:%.*]] i64 [[VP_STEP_INIT:%.*]] need close form
+; CHECK-NEXT:   Linked values: i64 [[VP_PHI_NEXT]], i64 [[VP_IND_PHI:%.*]], i64 [[VP_IND_INIT:%.*]], i64 [[VP_IND_NEXT:%.*]], i64 [[VP_IND_FINAL:%.*]],
 ; CHECK:      BB1: # preds: BB7
 ; CHECK:        i64 [[VP_IND_INIT:%.*]] = induction-init{add, StartVal: ?, EndVal: ?} i64 %k.iv.b i64 %step
-; CHECK-NEXT:   i64 [[VP_STEP_INIT:%.*]] = induction-init-step{add} i64 %step
+; CHECK-NEXT:   i64 [[VP_STEP_INIT]] = induction-init-step{add} i64 %step
 ; CHECK:      BB2: # preds: BB1, BB5
 ; CHECK:        i64 [[VP_PHI_NEXT]] = phi  [ i64 [[VP_IND_INIT]], BB1 ],  [ i64 [[VP_IND_NEXT]], BB5 ]
 ; CHECK:        i1 [[VP_STEP_CMP:%.*]] = icmp eq i64 [[VP_STEP:%.*]] i64 [[VP_PHI_NEXT]]
 ; CHECK-NEXT:   br i1 [[VP_STEP_CMP]], BB3, BB4
 ; CHECK:      BB4: # preds: BB2
-; CHECK-NEXT:   i64 [[VP_IND_ADD0]] = add i64 [[VP_PHI_NEXT]] i64 %step
+; CHECK-NEXT:   i64 [[VP_IND_ADD0:%.*]] = add i64 [[VP_PHI_NEXT]] i64 %step
 ; CHECK:      BB3: # preds: BB2
-; CHECK-NEXT:   i64 [[VP_IND_ADD1]] = add i64 [[VP_PHI_NEXT]] i64 %step
+; CHECK-NEXT:   i64 [[VP_IND_ADD1:%.*]] = add i64 [[VP_PHI_NEXT]] i64 %step
+; CHECK:      BB5: # preds: BB4, BB3
+; CHECK:        i64 [[VP_IND_ADD2]] = add i64 [[VP_PHI_NEXT]] i64 [[VP_STEP_INIT]]
 ; CHECK:      BB6: # preds: BB5
 ; CHECK:        i64 [[VP_IND_FINAL]] = induction-final{add} i64 %k.iv.b i64 %step
 ;
@@ -62,15 +64,15 @@
 define void @foo2(i64 %N, i64 noundef %step) local_unnamed_addr #0 {
 entry:
   %k = alloca i64, align 4
-  store i64 0, i64* %k, align 4
+  store i64 0, ptr %k, align 4
   br label %reg.entry
 
 reg.entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(i64* %k, i32 0, i32 1, i64 %step) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(ptr %k, i32 0, i32 1, i64 %step) ]
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64, i64* %k, align 4
+  %k.iv.b = load i64, ptr %k, align 4
   br label %for.body
 
 for.body:

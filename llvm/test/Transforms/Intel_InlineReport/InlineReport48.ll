@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x80 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x80 -S < %s 2>&1 | FileCheck %s
 
 ; This test checks that metadata-based inline report correctly handles
 ; llvm.dbg.declare intrinsic during inlining process, when it is deleted

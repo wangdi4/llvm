@@ -43,7 +43,8 @@ private:
   Function *runOnFunction(Function *F);
 
   /// Update enqueue_kernel function arguments.
-  Value *updateEnqueueKernelFunction(SmallVectorImpl<Value *> &NewParams,
+  Value *updateEnqueueKernelFunction(IRBuilder<> &Builder,
+                                     SmallVectorImpl<Value *> &NewParams,
                                      const StringRef FuncName, CallInst *CI);
 
   /// Substitues the a work item function calls with acesses to implicit
@@ -70,7 +71,7 @@ private:
   /// Create call to __opencl_printf.
   Value *updatePrintf(IRBuilder<> &Builder, CallInst *CI);
   /// Create call to __lprefetch.
-  void updatePrefetch(llvm::CallInst *CI);
+  void updatePrefetch(IRBuilder<> &Builder, llvm::CallInst *CI);
 
   /// Add prefetch function declaration.
   void addPrefetchDeclaration();
@@ -149,8 +150,8 @@ private:
   Value *RuntimeInterface = nullptr;
   Value *Block2KernelMapper = nullptr;
 
-  // Version of OpenCL C a processed module is compiled for.
-  unsigned OclVersion = CompilationUtils::OclVersion::CL_VER_DEFAULT;
+  // True if the module supports OpenCL 2.0.
+  bool SupportsOcl20 = false;
   // True if a module is compiled with uniform work-group size,
   // e.g. -cl-uniform-work-group-size.
   bool IsUniformWG;

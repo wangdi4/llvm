@@ -1,8 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run -r=%t.bc,foo,pxl -use-new-pm=true --print-before-all %t.bc -o %t2 2>&1 | FileCheck %s --check-prefix=CHECK-BEFORE
-; RUN: llvm-lto2 run -r=%t.bc,foo,pxl -use-new-pm=true --print-after-all %t.bc -o %t3 2>&1 | FileCheck %s --check-prefix=CHECK-AFTER
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-lto2 run -r=%t.bc,foo,pxl --print-before-all %t.bc -o %t2 2>&1 | FileCheck %s --check-prefix=CHECK-BEFORE
+; RUN: llvm-lto2 run -r=%t.bc,foo,pxl --print-after-all %t.bc -o %t3 2>&1 | FileCheck %s --check-prefix=CHECK-AFTER
 ; CHECK-BEFORE: *** IR Dump Before GlobalDCEPass
 ; CHECK-AFTER: *** IR Dump After GlobalDCEPass
 

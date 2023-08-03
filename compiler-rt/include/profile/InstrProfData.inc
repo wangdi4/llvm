@@ -5,6 +5,23 @@
 |* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 |*
 \*===----------------------------------------------------------------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023-2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+ /* end INTEL_CUSTOMIZATION */
 /*
  * This is the main file that defines all the data structure, signature,
  * constant literals that are shared across profiling runtime library,
@@ -179,13 +196,14 @@ VALUE_PROF_FUNC_PARAM(uint32_t, CounterIndex, Type::getInt32Ty(Ctx))
 VALUE_PROF_KIND(IPVK_IndirectCallTarget, 0, "indirect call target")
 /* For memory intrinsic functions size profiling. */
 VALUE_PROF_KIND(IPVK_MemOPSize, 1, "memory intrinsic functions size")
+VALUE_PROF_KIND(IPVK_LoopTripCount, 2, "loop trip count") // INTEL
 /* These two kinds must be the last to be
  * declared. This is to make sure the string
  * array created with the template can be
  * indexed with the kind value.
  */
 VALUE_PROF_KIND(IPVK_First, IPVK_IndirectCallTarget, "first")
-VALUE_PROF_KIND(IPVK_Last, IPVK_MemOPSize, "last")
+VALUE_PROF_KIND(IPVK_Last, IPVK_LoopTripCount, "last") // INTEL
 
 #undef VALUE_PROF_KIND
 /* VALUE_PROF_KIND end */
@@ -650,7 +668,7 @@ serializeValueProfDataFrom(ValueProfRecordClosure *Closure,
 /* Raw profile format version (start from 1). */
 #define INSTR_PROF_RAW_VERSION 8
 /* Indexed profile format version (start from 1). */
-#define INSTR_PROF_INDEX_VERSION 9
+#define INSTR_PROF_INDEX_VERSION 10
 /* Coverage mapping format version (start from 0). */
 #define INSTR_PROF_COVMAP_VERSION 5
 
@@ -663,6 +681,7 @@ serializeValueProfDataFrom(ValueProfRecordClosure *Closure,
  * The 60th bit indicates single byte coverage instrumentation.
  * The 61st bit indicates function entry instrumentation only.
  * The 62nd bit indicates whether memory profile information is present.
+ * The 63rd bit indicates if this is a temporal profile.
  */
 #define VARIANT_MASKS_ALL 0xff00000000000000ULL
 #define GET_VERSION(V) ((V) & ~VARIANT_MASKS_ALL)
@@ -673,9 +692,11 @@ serializeValueProfDataFrom(ValueProfRecordClosure *Closure,
 #define VARIANT_MASK_BYTE_COVERAGE (0x1ULL << 60)
 #define VARIANT_MASK_FUNCTION_ENTRY_ONLY (0x1ULL << 61)
 #define VARIANT_MASK_MEMPROF (0x1ULL << 62)
+#define VARIANT_MASK_TEMPORAL_PROF (0x1ULL << 63)
 #define INSTR_PROF_RAW_VERSION_VAR __llvm_profile_raw_version
 #define INSTR_PROF_PROFILE_RUNTIME_VAR __llvm_profile_runtime
 #define INSTR_PROF_PROFILE_COUNTER_BIAS_VAR __llvm_profile_counter_bias
+#define INSTR_PROF_PROFILE_SET_TIMESTAMP __llvm_profile_set_timestamp
 
 /* The variable that holds the name of the profile data
  * specified via command line. */

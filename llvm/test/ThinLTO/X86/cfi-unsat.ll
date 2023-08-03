@@ -15,11 +15,7 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t1.o %p/Inputs/cfi-unsat.ll
 
-; RUN: llvm-lto2 run -opaque-pointers %t.o %t1.o -save-temps -pass-remarks=. \
-; INTEL_CUSTOMIZATION
-; RUN:   -use-new-pm=true \
-; end INTEL_CUSTOMIZATION
-; RUN:   -opaque-pointers \
+; RUN: llvm-lto2 run %t.o %t1.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test2,px \
@@ -73,7 +69,7 @@ cont:
 ; CHECK-IR0-NEXT: }
 
 ; CHECK-IR1: define weak_odr i32 @test2
-; CHECK-IR1-NEXT:   entry:
+; CHECK-IR1-NEXT:   [[ENTRY:.*]]:                   ; INTEL
 ; CHECK-IR1-NEXT:     tail call void @llvm.trap()
 ; CHECK-IR1-NEXT:     unreachable
 ; CHECK-IR1-NEXT:   }

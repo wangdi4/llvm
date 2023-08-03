@@ -20,7 +20,7 @@
 ;}
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
+define dso_local i32 @maxloc(i32 %m, ptr nocapture readonly %ordering) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: maxloc:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -44,7 +44,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:  IsLinearIndex: 0 Parent exit: i32 [[VP5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP11:%.*]] = add i64 [[VP12:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP11:%.*]] = add i64 [[VP12:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -58,8 +58,8 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[TMP_0240]], [[BB2]] ],  [ i32 [[VP7]], [[BB0]] ]
 ; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[BEST_0230]], [[BB2]] ],  [ i32 [[VP5]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP12]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP11]], [[BB0]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP12]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ORDERING0:%.*]] i64 [[VP12]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP13:%.*]] = trunc i64 [[VP12]] to i32
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP7]] = select i1 [[VP14]] i32 [[VP13]] i32 [[VP8]]
@@ -111,7 +111,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:  IsLinearIndex: 1 Parent exit: i32 [[VP5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1]]: # preds:
 ; CHECK-NEXT:     br [[BB2]]
@@ -132,8 +132,8 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP_MINMAX_RED_INIT]], [[BB2]] ],  [ i32 [[VP5]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP12]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP11]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP23]] = phi  [ i64 [[VP_MONO_IDX_RED_INIT]], [[BB2]] ],  [ i64 [[VP22]], [[BB0]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[ORDERING0]] i64 [[VP12]]
-; CHECK-NEXT:     i32 [[VP_LOAD]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[ORDERING0]] i64 [[VP12]]
+; CHECK-NEXT:     i32 [[VP_LOAD]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP13]] = trunc i64 [[VP12]] to i32
 ; CHECK-NEXT:     i1 [[VP14]] = icmp sgt i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i64 [[VP22]] = select i1 [[VP14]] i64 [[VP12]] i64 [[VP23]]
@@ -199,8 +199,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %val.025 = phi i32 [ 0, %for.body.preheader ], [ %spec.select21, %for.body ]
   %tmp.024 = phi i32 [ 0, %for.body.preheader ], [ %spec.select20, %for.body ]
   %best.023 = phi i32 [ -111111111, %for.body.preheader ], [ %spec.select, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ordering, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ordering, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %0, %best.023
   %add = add nsw i32 %0, 2
   %spec.select = select i1 %cmp1, i32 %0, i32 %best.023

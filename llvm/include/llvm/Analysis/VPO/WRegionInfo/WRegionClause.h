@@ -290,7 +290,7 @@ class Item
 
     void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsTyped()) {
-        OS << ", TYPED (TYPE: ";
+        OS << ", TYPE: ";
         getOrigItemElementTypeFromIR()->print(OS);
 #if INTEL_CUSTOMIZATION
         assert((!getIsF90DopeVector() || !getIsPointerToPointer()) &&
@@ -310,7 +310,6 @@ class Item
         OS << ", NUM_ELEMENTS: ";
         getNumElements()->printAsOperand(OS, PrintType);
         printExtraIfTyped(OS, PrintType);
-        OS << ")";
       }
     }
 
@@ -326,6 +325,8 @@ class Item
         OS << "VARLEN(";
       if (getIsByRef())
         OS << "BYREF(";
+      if (getIsTyped())
+        OS << "TYPED(";
       if (getIsPointerToPointer())
         OS << "PTR_TO_PTR(";
 #if INTEL_CUSTOMIZATION
@@ -336,6 +337,10 @@ class Item
       getOrig()->printAsOperand(OS, PrintType);
       if (getIsPointerToPointer())
         OS << ")";
+      if (getIsTyped()) {
+        printIfTyped(OS, PrintType);
+        OS << ")";
+      }
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
@@ -360,6 +365,8 @@ class Item
         ModStrings.push_back("VARLEN");
       if (getIsByRef())
         ModStrings.push_back("BYREF");
+      if (getIsTyped())
+        ModStrings.push_back("TYPED");
       if (getIsPointerToPointer())
         ModStrings.push_back("PTR_TO_PTR");
       for (size_t I = 0, NumStrings = ModStrings.size(); I < NumStrings; I++) {
@@ -374,6 +381,7 @@ class Item
       else
 #endif // INTEL_CUSTOMIZATION
       getOrig()->printAsOperand(OS, PrintType);
+      printIfTyped(OS, PrintType);
       OS << ") ";
     }
 
@@ -454,7 +462,6 @@ class SharedItem : public Item
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       Item::print(OS, PrintType);
-      printIfTyped(OS, PrintType);
     }
     static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
@@ -521,12 +528,10 @@ class PrivateItem : public Item
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
 #else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << ", CTOR: ";
 #endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
@@ -535,7 +540,6 @@ class PrivateItem : public Item
         OS << ") ";
       } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
-        printIfTyped(OS, PrintType);
       }
     }
     static bool classof(const Item *I) { return I->getKind() == IK_Private; }
@@ -630,7 +634,6 @@ class FirstprivateItem : public Item
         OS << "NONPOD(";
 #endif // INTEL_CUSTOMIZATION
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << ", CCTOR: ";
         printFnPtr(getCopyConstructor(), OS, PrintType);
         OS << ", DTOR: ";
@@ -638,7 +641,6 @@ class FirstprivateItem : public Item
         OS << ") ";
       } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
-        printIfTyped(OS, PrintType);
       }
     }
     static bool classof(const Item *I) {
@@ -723,12 +725,10 @@ class LastprivateItem : public Item
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
 #else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << ", CTOR: ";
 #endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
@@ -739,7 +739,6 @@ class LastprivateItem : public Item
         OS << ") ";
       } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
-        printIfTyped(OS, PrintType);
       }
     }
     static bool classof(const Item *I) {
@@ -1112,11 +1111,13 @@ public:
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
     void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
-      OS << "(" << getOpName() << ": ";
-      printOrig(OS, PrintType);
-      printIfTyped(OS, PrintType);
+      OS << "(";
+      if (getIsTask())
+        OS << "TASK, ";
       if (getIsInscan())
-        OS << " INSCAN<" << InscanIdx << ">";
+        OS << "INSCAN<" << InscanIdx << ">, ";
+      OS << getOpName() << ": ";
+      printOrig(OS, PrintType);
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -1143,7 +1144,6 @@ class CopyinItem : public Item
     void print(formatted_raw_ostream &OS,
                bool PrintType = true) const override {
       printOrig(OS, PrintType);
-      printIfTyped(OS, PrintType);
     }
 };
 
@@ -1186,13 +1186,11 @@ class CopyprivateItem : public Item
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
         OS << ", COPYASSIGN: ";
         printFnPtr(getCopy(), OS, PrintType);
         OS << ") ";
       } else {
         printOrig(OS, PrintType);
-        printIfTyped(OS, PrintType);
       }
     }
 };
@@ -1234,7 +1232,6 @@ class LinearItem : public Item
         OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
-      printIfTyped(OS, PrintType);
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
@@ -1260,7 +1257,6 @@ public:
   void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
     OS << "(";
     printOrig(OS, PrintType);
-    printIfTyped(OS, PrintType);
     OS << ") ";
   }
 };
@@ -1569,8 +1565,7 @@ public:
   bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
   void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
-    Item::print(OS, PrintType);
-    printIfTyped(OS, PrintType);
+      Item::print(OS, PrintType);
   }
 };
 
@@ -1585,7 +1580,6 @@ public:
   void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
     OS << "(";
     printOrig(OS, PrintType);
-    printIfTyped(OS, PrintType);
     OS << " INSCAN<" << getInscanIdx() << ">) ";
   }
 };
@@ -1719,7 +1713,7 @@ class DependItem
 
     void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsTyped()) {
-        OS << ", TYPED (TYPE: ";
+        OS << ", TYPE: ";
         assert(getOrigItemElementTypeFromIR() &&
                "OrigItemElementTypeFromIR is null.");
         getOrigItemElementTypeFromIR()->print(OS);
@@ -1732,13 +1726,20 @@ class DependItem
                  "ArraySectionOffset is null.");
           getArraySectionOffsetFromIR()->printAsOperand(OS, PrintType);
         }
-        OS << ")";
       }
     }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      SmallVector<StringRef, 5> ModStrings;
       if (getIsByRef())
-        OS << "BYREF";
+        ModStrings.push_back("BYREF");
+      if (getIsTyped())
+        ModStrings.push_back("TYPED");
+      for (size_t I = 0, NumStrings = ModStrings.size(); I < NumStrings; I++) {
+        OS << ModStrings[I];
+        if (I + 1 < NumStrings)
+          OS << ",";
+      }
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -1757,7 +1758,6 @@ class DetachItem : public Item {
     void print(formatted_raw_ostream &OS,
                bool PrintType = true) const override {
       Item::print(OS, PrintType);
-      printIfTyped(OS, PrintType);
     }
 
     static bool classof(const Item *I) { return I->getKind() == IK_Detach; }

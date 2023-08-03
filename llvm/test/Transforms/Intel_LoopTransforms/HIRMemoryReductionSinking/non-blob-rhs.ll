@@ -12,17 +12,17 @@
 ; CHECK-NOT: modified
 
 
-define void @foo(i32* %b, i64 %n, i32 %t) {
+define void @foo(ptr %b, i64 %n, i32 %t) {
 entry:
   br label %for.body
 
 for.body:                                       ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %addm = add nsw i32 %t, 68
-  %t14 = load i32, i32* %b, align 4
+  %t14 = load i32, ptr %b, align 4
   %or = or i32 %t14, %addm
   %add = add nsw i32 %or, 1
-  store i32 %add, i32* %b, align 4
+  store i32 %add, ptr %b, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body

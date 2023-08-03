@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -141,6 +141,10 @@
 #endif
 
 #if INTEL_CUSTOMIZATION
+/// bool __cdecl std::operator==<char,struct std::char_traits<char> >(class std::istreambuf_iterator<char,struct std::char_traits<char> > const & __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > const & __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_istreambuf_iterator_operator_equals)
+TLI_DEFINE_STRING_INTERNAL("??$?8DU?$char_traits@D@std@@@std@@YA_NAEBV?$istreambuf_iterator@DU?$char_traits@D@std@@@0@0@Z")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int __cdecl std::_Immortalize_impl<class std::_Iostream_error_category>(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_immortalize_impl)
 TLI_DEFINE_STRING_INTERNAL("??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z")
@@ -1918,20 +1922,45 @@ TLI_DEFINE_ENUM_INTERNAL(Znam)
 TLI_DEFINE_STRING_INTERNAL("_Znam")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long)
 
+/// void *operator new[](unsigned long, __hot_cold_t)
+/// Currently this and other operator new interfaces that take a __hot_cold_t
+/// hint are supported by the open source version of tcmalloc, see:
+/// https://github.com/google/tcmalloc/blob/master/tcmalloc/new_extension.h
+/// and for the definition of the __hot_cold_t parameter see:
+/// https://github.com/google/tcmalloc/blob/master/tcmalloc/malloc_extension.h
+TLI_DEFINE_ENUM_INTERNAL(Znam12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_Znam12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Bool)
+
 /// void *operator new[](unsigned long, const std::nothrow_t&);
 TLI_DEFINE_ENUM_INTERNAL(ZnamRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnamRKSt9nothrow_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Ptr)
+
+/// void *operator new[](unsigned long, const std::nothrow_t&, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnamRKSt9nothrow_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnamRKSt9nothrow_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Ptr, Bool)
 
 /// void *operator new[](unsigned long, std::align_val_t)
 TLI_DEFINE_ENUM_INTERNAL(ZnamSt11align_val_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnamSt11align_val_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long)
 
+/// void *operator new[](unsigned long, std::align_val_t, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnamSt11align_val_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnamSt11align_val_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Bool)
+
 /// void *operator new[](unsigned long, std::align_val_t, const std::nothrow_t&)
 TLI_DEFINE_ENUM_INTERNAL(ZnamSt11align_val_tRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnamSt11align_val_tRKSt9nothrow_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr)
+
+/// void *operator new[](unsigned long, std::align_val_t, const std::nothrow_t&, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnamSt11align_val_tRKSt9nothrow_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnamSt11align_val_tRKSt9nothrow_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr, Bool)
 
 /// void *operator new(unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(Znwj)
@@ -1958,20 +1987,40 @@ TLI_DEFINE_ENUM_INTERNAL(Znwm)
 TLI_DEFINE_STRING_INTERNAL("_Znwm")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long)
 
+/// void *operator new(unsigned long, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(Znwm12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_Znwm12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Bool)
+
 /// void *operator new(unsigned long, const std::nothrow_t&);
 TLI_DEFINE_ENUM_INTERNAL(ZnwmRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnwmRKSt9nothrow_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Ptr)
+
+/// void *operator new(unsigned long, const std::nothrow_t&, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnwmRKSt9nothrow_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnwmRKSt9nothrow_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Ptr, Bool)
 
 /// void *operator new(unsigned long, std::align_val_t)
 TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long)
 
+/// void *operator new(unsigned long, std::align_val_t, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Bool)
+
 /// void *operator new(unsigned long, std::align_val_t, const std::nothrow_t&)
 TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr)
+
+/// void *operator new(unsigned long, std::align_val_t, const std::nothrow_t&, __hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t12__hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t12__hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr, Bool)
 
 #if INTEL_CUSTOMIZATION
 /// int __CxxFrameHandler3(...)
@@ -2382,6 +2431,10 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_dispatch_next_8u)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_next_8u")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// void __kmpc_dist_for_static_init_4(ident_t *loc, kmp_int32 gtid, kmp_int32 schedule, kmp_int32 *plastiter, kmp_int32 *plower, kmp_int32 *pupper, kmp_int32 *pupperD, kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_dist_for_static_init_4)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_dist_for_static_init_4")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// void __kmpc_end_critical(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_critical")
@@ -2431,12 +2484,16 @@ TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// void __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...);
+/// void __kmpc_fork_teams(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...);
 /// void __kmpc_for_static_init_8u(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 *plastiter, kmp_int64 *plower, kmp_int64 *pupper, kmp_int64 *pstride, kmp_int64 incr, kmp_int64 chunk);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8u)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8u")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_call)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_teams)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_teams")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 #endif // INTEL_COLLAB
 
@@ -3387,6 +3444,10 @@ TLI_DEFINE_SIG_INTERNAL(LDbl, LDbl)
 TLI_DEFINE_ENUM_INTERNAL(cexp)
 TLI_DEFINE_STRING_INTERNAL("cexp")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// <2 x float> cexpf(<2 x float>);
+TLI_DEFINE_ENUM_INTERNAL(cexpf)
+TLI_DEFINE_STRING_INTERNAL("cexpf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int chdir(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(chdir)
 TLI_DEFINE_STRING_INTERNAL("chdir")
@@ -3412,6 +3473,14 @@ TLI_DEFINE_SIG_INTERNAL(Void, Ptr)
 /// clock_t clock(void);
 TLI_DEFINE_ENUM_INTERNAL(clock)
 TLI_DEFINE_STRING_INTERNAL("clock")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double complex clog(double complex);
+TLI_DEFINE_ENUM_INTERNAL(clog)
+TLI_DEFINE_STRING_INTERNAL("clog")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// <2 x float> clogf(<2 x float>);
+TLI_DEFINE_ENUM_INTERNAL(clogf)
+TLI_DEFINE_STRING_INTERNAL("clogf")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int close(int fildes);
 TLI_DEFINE_ENUM_INTERNAL(close)
@@ -4009,9 +4078,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(for_open)
 TLI_DEFINE_STRING_INTERNAL("for_open")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
-/// uint64_t for_random_number()
+/// double for_random_number()
 TLI_DEFINE_ENUM_INTERNAL(for_random_number)
 TLI_DEFINE_STRING_INTERNAL("for_random_number")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// float for_random_number_single()
+TLI_DEFINE_ENUM_INTERNAL(for_random_number_single)
+TLI_DEFINE_STRING_INTERNAL("for_random_number_single")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// long for_random_seed_bit_size()
 TLI_DEFINE_ENUM_INTERNAL(for_random_seed_bit_size)
@@ -4061,6 +4134,10 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(for_scale8_v)
 TLI_DEFINE_STRING_INTERNAL("for_scale8_v")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// int for_set_fpe_(int)
+TLI_DEFINE_ENUM_INTERNAL(for_set_fpe_)
+TLI_DEFINE_STRING_INTERNAL("for_set_fpe_")
+TLI_DEFINE_SIG_INTERNAL(Int, Int)
 /// int for_set_reentrancy(int *)
 TLI_DEFINE_ENUM_INTERNAL(for_set_reentrancy)
 TLI_DEFINE_STRING_INTERNAL("for_set_reentrancy")

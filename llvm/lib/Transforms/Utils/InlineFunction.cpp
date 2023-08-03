@@ -137,10 +137,6 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(false), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-static cl::opt<bool> UpdateReturnAttributes(
-        "update-return-attrs", cl::init(true), cl::Hidden,
-            cl::desc("Update return attributes on calls within inlined body"));
-
 static cl::opt<unsigned> InlinerAttributeWindow(
     "max-inst-checked-for-throw-during-inlining", cl::Hidden,
     cl::desc("the maximum number of instructions analyzed for may throw during "
@@ -940,9 +936,6 @@ static void propagateMemProfHelper(const CallBase *OrigCall,
 // inlined callee's callsite metadata with that of the inlined call,
 // and moving the subset of any memprof contexts to the inlined callee
 // allocations if they match the new inlined call stack.
-// FIXME: Replace memprof metadata with function attribute if all MIB end up
-// having the same behavior. Do other context trimming/merging optimizations
-// too.
 static void
 propagateMemProfMetadata(Function *Callee, CallBase &CB,
                          bool ContainsMemProfMetadata,
@@ -1704,9 +1697,6 @@ static AttrBuilder IdentifyValidAttributes(CallBase &CB) {
 }
 
 static void AddReturnAttributes(CallBase &CB, ValueToValueMapTy &VMap) {
-  if (!UpdateReturnAttributes)
-    return;
-
   AttrBuilder Valid = IdentifyValidAttributes(CB);
   if (!Valid.hasAttributes())
     return;
@@ -1819,9 +1809,9 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
       case Intrinsic::vaargpack:
       case Intrinsic::vaargpacklen:
         if (IR && IR->isClassicIREnabled())
-          IR->addActiveCallSitePair(&I, nullptr);
+          IR->addActiveCallSitePair(II, nullptr);
         if (MDIR && MDIR->isMDIREnabled())
-          MDIR->addActiveCallSitePair(&I, nullptr);
+          MDIR->addActiveCallSitePair(II, nullptr);
         continue;
       default:
         break;
@@ -1834,9 +1824,9 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
       continue;
     auto *NewCallBase = dyn_cast<CallBase>(VMI->second);
     if (IR && IR->isClassicIREnabled())
-      IR->addActiveCallSitePair(&I, NewCallBase);
+      IR->addActiveCallSitePair(OldCB, NewCallBase);
     if (MDIR && MDIR->isMDIREnabled())
-      MDIR->addActiveCallSitePair(&I, NewCallBase);
+      MDIR->addActiveCallSitePair(OldCB, NewCallBase);
     if (!II)
       IFI.InlinedCalls.push_back(NewCall);
   }
@@ -1873,8 +1863,6 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
                                   const Function *CalledFunc,
                                   InlineFunctionInfo &IFI,
                                   MaybeAlign ByValAlignment) {
-  assert(cast<PointerType>(Arg->getType())
-             ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
@@ -2041,6 +2029,12 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
       if (auto *AI = dyn_cast<AllocaInst>(BI))
         if (allocaWouldBeStaticInEntry(AI))
           continue;
+
+      // Do not force a debug loc for pseudo probes, since they do not need to
+      // be debuggable, and also they are expected to have a zero/null dwarf
+      // discriminator at this point which could be violated otherwise.
+      if (isa<PseudoProbeInst>(BI))
+        continue;
 
       BI->setDebugLoc(TheCallDL);
     }

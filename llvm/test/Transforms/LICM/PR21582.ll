@@ -1,4 +1,4 @@
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -S | FileCheck %s
+; RUN: opt < %s -passes=licm -S | FileCheck %s
 @b = external global i32, align 4
 @fn3.i = external global i32, align 4
 

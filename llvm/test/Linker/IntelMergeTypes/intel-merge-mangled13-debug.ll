@@ -32,24 +32,24 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled13-a.ll
-; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { i32* }
+; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
-; CHECK:   Source type: %struct.ident_t = type { i32, i32, i32, i32, i8* }
+; CHECK:   Source type: %struct.ident_t = type { i32, i32, i32, i32, ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
 ; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled13-b.ll
-; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct.0 = type { double* }
+; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct.0 = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
-; CHECK:   Source type: %struct.ident_t.1 = type { i32, i32, i32, i32, i8* }
-; CHECK:     Destination type: %struct.ident_t = type { i32, i32, i32, i32, i8* }
+; CHECK:   Source type: %struct.ident_t.1 = type { i32, i32, i32, i32, ptr }
+; CHECK:     Destination type: %struct.ident_t = type { i32, i32, i32, i32, ptr }
 ; CHECK: Destination module passed verification
 
-; CHECK: %struct.ident_t = type { i32, i32, i32, i32, i8* }
+; CHECK: %struct.ident_t = type { i32, i32, i32, i32, ptr }
 ; CHECK-NOT: %struct.ident_t.
 
 ; CHECK: !intel.dtrans.types = !{!1, !3, !6, !3}

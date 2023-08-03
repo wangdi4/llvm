@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Intel_CPU_utils.h"
@@ -28,53 +29,22 @@ using namespace llvm;
 
 // Internal option to control whether to multi-version select functions.
 static cl::opt<bool>
-    EnableSelectiveMultiVersioning("enable-selective-mv", cl::init(true),
-                                   cl::ReallyHidden,
-                                   cl::desc("Enable multi-versioning of select functions"));
+    DisableSelectiveMultiVersioning("disable-selective-mv", cl::init(false),
+                                    cl::ReallyHidden,
+                                    cl::desc("Disable multi-versioning of select functions"));
 
-static StringRef getTargetCPUFromMD(MDNode *TargetInfoMD) {
-  // Expected format:
-  //
-  //   !{!"auto-cpu-dispatch-target", !"target-cpu"}
-  assert(all_of(TargetInfoMD->operands(),
-                [](const MDOperand &Op) { return isa<MDString>(Op.get()); }) &&
-         "Auto CPU Dispatch target metadata must consists of MDString's "
-         "only!");
-  assert(TargetInfoMD->getNumOperands() == 2 &&
-         "Expected 2 entries in Auto CPU Dispatch target metadata!");
-
-  auto Op = [TargetInfoMD](unsigned Idx) {
-    return cast<MDString>(TargetInfoMD->getOperand(Idx).get())->getString();
-  };
-
-  assert(Op(0) == "auto-cpu-dispatch-target" &&
-         "Invalid Auto CPU Dispatch target metadata format!");
-
-  StringRef TargetCpu = Op(1);
-
-  return TargetCpu;
-}
+// Internal option to control whether to multi-version functions per the
+// targets specified in llvm.vec.auto.cpu.dispatch metadata. Added specifically
+// for enabling vector variant generation in lit tests.
+static cl::opt<bool>
+    ClGenerateVectorVariants("generate-vector-variants", cl::init(false),
+                             cl::ReallyHidden, cl::desc("Generate vector variants"));
 
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
   X86::getFeaturesForCPU(TargetCpu, CPUFeatures);
   llvm::sort(CPUFeatures);
   return "+" + llvm::join(CPUFeatures, ",+");
-}
-
-static char getTargetSuffix(StringRef TargetCpu) {
-  return StringSwitch<char>(TargetCpu)
-#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "llvm/TargetParser/X86TargetParser.def"
-      .Default(0);
-}
-
-static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
-  return llvm::StringSwitch<StringRef>(Name)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
-#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/TargetParser/X86TargetParser.def"
-      .Default(Name);
 }
 
 static bool
@@ -150,8 +120,9 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
 static void
 emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
-                         Function*& Resolver, GlobalValue*& Dispatcher,
-                         GlobalVariable*& DispatchPtr) {
+                         Function *&Resolver, GlobalValue *&Dispatcher,
+                         GlobalVariable *&DispatchPtr,
+                         bool PerformCPUBrandCheck) {
 
   Module *M = Fn.getParent();
   Resolver = M->getFunction("__intel.acd.resolver");
@@ -172,8 +143,8 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          Constant::getNullValue(DispatchPtrType), DispatchPtrName);
   DispatchPtr->setDSOLocal(true);
 
-  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions,
-                           false /*UseIFunc*/, true /*UseLibIRC*/);
+  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions, false /*UseIFunc*/,
+                           true /*UseLibIRC*/, PerformCPUBrandCheck);
 
   emitWrapperBasedDispatcher(Fn, OrigName, DispatchPtr, (Function*&)Dispatcher);
 }
@@ -181,7 +152,8 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
 static void
 emitIFuncBasedResolver(Function &Fn, std::string OrigName,
                        SmallVector<MultiVersionResolverOption> &MVOptions,
-                       Function*& Resolver, GlobalValue*& Dispatcher) {
+                       Function *&Resolver, GlobalValue *&Dispatcher,
+                       bool PerformCPUBrandCheck) {
 
   FunctionType *ResolverTy = FunctionType::get(Fn.getType(), false /*IsVarArg*/);
   Resolver = Function::Create(ResolverTy, Fn.getLinkage(),
@@ -195,15 +167,25 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
   emitMultiVersionResolver(Resolver, nullptr /*DispatchPtr*/, MVOptions,
-                           true /*UseIFunc*/, true /*UseLibIRC*/);
+                           true /*UseIFunc*/, true /*UseLibIRC*/,
+                           PerformCPUBrandCheck);
   setResolverAttributes(Resolver, Fn);
 }
 
 static bool
-shouldMultiVersion(Module& M, Function& Fn,
+shouldMultiVersion(Module& M, Function& Fn, bool GenerateVectorVariants,
                    function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
 
-  if (Fn.isDeclaration() || !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+  if (Fn.isDeclaration())
+    return false;
+
+  // Skip functions that are not intended to be auto multi-versioned.
+  if (GenerateVectorVariants && !Fn.hasMetadata("llvm.vec.auto.cpu.dispatch"))
+    return false;
+
+  if (!GenerateVectorVariants &&
+      !Fn.hasMetadata("llvm.auto.arch") &&
+      !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
     return false;
 
   // Skip available externally functions as they will be removed anyway.
@@ -270,16 +252,13 @@ CollectCalledFunctions(SetVector<Function*>& MVFunctions, unsigned StartIndex) {
   }
 }
 
-static bool
-cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
-               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-               function_ref<TargetTransformInfo &(Function &)> GetTTI,
-               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-               ProfileSummaryInfo &PSI) {
+static void
+CollectMVCandidates(Module &M, SetVector<Function *> &MVCandidates,
+                    function_ref<LoopInfo &(Function &)> GetLoopInfo,
+                    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                    ProfileSummaryInfo &PSI) {
 
-  // Form a set of all functions that are candidates for multi-versioning.
-  SetVector<Function*> MVCandidates;
-  SetVector<Function*> MVFunctionsCallableFromLoops;
+  SetVector<Function *> MVFunctionsCallableFromLoops;
   for (Function &Fn : M) {
     if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
@@ -289,7 +268,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     //   3) functions that contain non-annotation like intrinsics,
     //   4) functions that contain loops, or
     //   5) functions that are callable from loop bodies.
-    if (!EnableSelectiveMultiVersioning) {
+    if (DisableSelectiveMultiVersioning) {
       MVCandidates.insert(&Fn);
       continue;
     }
@@ -326,39 +305,55 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     CollectCalledFunctions(MVFunctionsCallableFromLoops, StartIndex);
   }
   MVCandidates.set_union(MVFunctionsCallableFromLoops);
+}
+
+static bool
+cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
+               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+               function_ref<TargetTransformInfo &(Function &)> GetTTI,
+               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+               ProfileSummaryInfo &PSI, bool GenerateVectorVariants) {
+
+  // Candidates for multi-versioning.
+  SetVector<Function *> MVCandidates;
+  CollectMVCandidates(M, MVCandidates, GetLoopInfo, GetBFI, PSI);
+
+  if (MVCandidates.empty())
+    return false;
+
+  // Maps that are used to do to RAUW later.
+  std::map</*OrigFunc*/ GlobalValue *,
+           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
+                      /*DispatchPtr*/ GlobalVariable *,
+                      /*Target CPU to multivesioned func*/
+                      std::map<std::string, GlobalValue *>>>
+      Orig2MultiFuncs;
+
+  std::map</*MultiversionedFunc*/ const GlobalValue *,
+           /*Target CPU*/ std::string>
+      MultiFunc2TargetCPU;
+
+  std::map</*Dispatcher*/ const GlobalValue *,
+           /*Baseline clone*/ GlobalValue *>
+      Dispatcher2BaselineGV;
 
   // Collect functions that have GlobalAlias(es) and are in MVCandidates.
-  std::set<Function*> HasGlobalAliasSet;
+  std::set<Function *> HasGlobalAliasSet;
   for (GlobalAlias &GA : M.aliases()) {
     Function *Fn = dyn_cast<Function>(GA.getAliaseeObject());
     if (Fn && MVCandidates.contains(Fn))
       HasGlobalAliasSet.insert(Fn);
   }
 
-  const Triple TT{M.getTargetTriple()};
-
-  // Maps that are used to do to RAUW later.
-  std::map</*OrigFunc*/ GlobalValue *,
-           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
-                      /*DispatchPtr*/ GlobalVariable *,
-                      /*Target extension to multivesioned func*/
-                      std::map<std::string, GlobalValue *>>>
-      Orig2MultiFuncs;
-
-  std::map</*MultiversionedFunc*/ const GlobalValue *,
-           /*Target extension*/ std::string>
-      MultiFunc2TargetExt;
-
-  std::map</*Dispatcher*/ const GlobalValue *,
-           /*Baseline clone*/ GlobalValue *>
-      Dispatcher2BaselineGV;
-
   bool Changed = false;
+
+  LLVMContext &Ctx = M.getContext();
+  const Triple TT{M.getTargetTriple()};
 
   for (Function *Fn : MVCandidates) {
 
     assert(Fn && "Pointer must point to a valid Function");
-    if (!shouldMultiVersion(M, *Fn, GetTLI))
+    if (!shouldMultiVersion(M, *Fn, GenerateVectorVariants, GetTLI))
       continue;
 
     // Use wrapper based resolvers when:
@@ -373,27 +368,34 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
 
-    MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
-    // Remove llvm.auto.cpu.dispatch metadata here, to prevent cloning it
-    // unnecessarily during multi-versioning as well as dispatcher code generation.
-    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    MDNode *TargetsMD = nullptr;
+    bool EnableAdvancedOpts = false;
 
-    if (AutoCPUDispatchMD)
-      LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
+    // Erase metadata after reading it, to prevent cloning it unnecessarily
+    // during multi-versioning as well as dispatcher code generation.
+    if (GenerateVectorVariants) {
+      TargetsMD = Fn->getMetadata("llvm.vec.auto.cpu.dispatch");
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
+    } else {
+      TargetsMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+      EnableAdvancedOpts = TargetsMD != nullptr;
+      if (!TargetsMD) {
+        TargetsMD = Fn->getMetadata("llvm.auto.arch");
+      }
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
+    }
+
+    assert(TargetsMD && "TargetsMD should not be null!");
+    LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *TargetsMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
-
     std::map<std::string, GlobalValue *> Clones;
 
-    for (const MDOperand &TargetInfoIt : AutoCPUDispatchMD->operands()) {
-      const StringRef TargetCpu =
-          getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
+    for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
+      StringRef TargetCpu = cast<MDString>(TargetInfoIt.get())->getString();
 
-      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
-      const StringRef TargetCpuDealiased =
-          CPUSpecificCPUDispatchNameDealias(TargetCpu);
-
-      auto TargetCpuSuffix = getTargetSuffix(TargetCpuDealiased);
+      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
       // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
       assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
       if (TargetCpuSuffix == '\0')
@@ -425,16 +427,18 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->removeFnAttr("tune-cpu");
       New->addFnAttr("tune-cpu", TargetCpu);
 
-      New->addFnAttr("loopopt-pipeline", "full");
-      New->addFnAttr("advanced-optim", "true");
+      if (EnableAdvancedOpts) {
+        New->addFnAttr("loopopt-pipeline", "full");
+        New->addFnAttr("advanced-optim", "true");
+      }
 
-      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
+      New->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 
       New->setName(Fn->getName() + "." + Twine(TargetCpuSuffix));
 
       MVOptions.emplace_back(New, "" /* Op(1)? */, NewFeatures);
 
-      MultiFunc2TargetExt[New] = TargetCpu.str();
+      MultiFunc2TargetCPU[New] = TargetCpu.str();
       Clones[TargetCpu.str()] = New;
     }
 
@@ -469,16 +473,18 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
     GlobalVariable* DispatchPtr = nullptr;
+    bool PerformCPUBrandCheck = EnableAdvancedOpts || GenerateVectorVariants;
     if (UseWrapperBasedResolver)
-      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver,
-                               Dispatcher, DispatchPtr);
+      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
+                               DispatchPtr, PerformCPUBrandCheck);
     else
-      emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
+                             PerformCPUBrandCheck);
 
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
     Dispatcher2BaselineGV[Dispatcher] = Fn;
 
-    Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
+    Fn->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 
     Changed = true;
   }
@@ -526,13 +532,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     for (auto& I : Clones) {
       const StringRef TargetCpu = I.first;
 
-      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
-      const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
-
       auto *NewGA =
         GlobalAlias::create(GA->getValueType(),
                             GA->getType()->getPointerAddressSpace(), GA->getLinkage(),
-                            Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
+                            Name + "." + X86::getCPUDispatchMangling(TargetCpu), &M);
 
       ValueToValueMapTy VMap;
       VMap[Aliasee] = I.second;
@@ -540,7 +543,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
         NewGA->setAliasee(MapValue(C, VMap));
       NewGA->copyAttributesFrom(GA);
 
-      MultiFunc2TargetExt[NewGA] = I.first;
+      MultiFunc2TargetCPU[NewGA] = I.first;
       GAClones[I.first] = NewGA;
     }
 
@@ -585,7 +588,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
         // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (MultiFunc2TargetExt.count(Caller))
+        if (MultiFunc2TargetCPU.count(Caller))
           return false;
 
         return true;
@@ -599,9 +602,21 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       ++It;
 
       // Resolver should operate on specific functions versions.
-      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
-      if (Inst && Inst->getFunction() == Resolver)
+      auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
+      if (Inst && Inst->getFunction() == Resolver) {
+        // When generating vector variants, there should be no references
+        // to the generic clone in the resolver function for correctness.
+        // Removing the references here will allow GlobalDCE to remove
+        // the generic, i.e. the .A clone, from the module later in the
+        // pass pipeline.
+        if (GenerateVectorVariants && VFInfo::isVectorVariant(Fn->getName())) {
+          if (isa<ReturnInst>(Inst))
+            IFUse.set(Constant::getNullValue(Fn->getType()->getPointerTo()));
+          else if (auto *Store = dyn_cast<StoreInst>(Inst))
+            Store->eraseFromParent();
+        }
         continue;
+      }
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
       if (CInst && CInst->isCallee(&IFUse)) {
@@ -615,8 +630,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
         // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (MultiFunc2TargetExt.count(Caller)) {
-          GlobalValue *Replacement = Clones[MultiFunc2TargetExt[Caller]];
+        if (MultiFunc2TargetCPU.count(Caller)) {
+          GlobalValue *Replacement = Clones[MultiFunc2TargetCPU[Caller]];
           assert(Replacement && "Expected that functions are multiversioned "
                                 "for all requested targets now!");
           CInst->setCalledOperand(Replacement);
@@ -627,7 +642,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       llvm_unreachable("Unhandled case!");
     }
 
-    if (DispatchPtr)
+    if (DispatchPtr && !GenerateVectorVariants)
       DispatchPtr->setInitializer(Fn);
   }
 
@@ -655,25 +670,44 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       GA.setAliasee(MapValue(C, VMap));
   }
 
-  for (Function &Fn : M) {
-    if (Fn.isDeclaration())
-      continue;
-    // Remove "llvm.auto.cpu.dispatch" metadata from functions that are
-    // skipped and not multi-versioned.
-    if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
-      Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-    // Add "advanced-optim" attribute on functions that are skipped
-    // and not multi-versioned.
-    if (!Fn.hasFnAttribute("advanced-optim"))
-      Fn.addFnAttr("advanced-optim",
-                   GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
-  }
-
   // If we are here then we have done modifications.
   return true;
 }
 
+static void
+clearMetadataAndSetAttributes(
+    Module &M, function_ref<TargetTransformInfo &(Function &)> GetTTI,
+    bool SetAdvancedOptim, bool GenerateVectorVariants) {
+
+  LLVMContext &Ctx = M.getContext();
+  for (Function &Fn : M) {
+    if (Fn.isDeclaration())
+      continue;
+    // Remove metadata, storing multi-versioning targets, from all functions.
+    if (GenerateVectorVariants) {
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
+    } else {
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+    }
+    // Add "advanced-optim" attribute on functions that are skipped
+    // and not multi-versioned.
+    if (SetAdvancedOptim && !Fn.hasFnAttribute("advanced-optim"))
+      Fn.addFnAttr("advanced-optim",
+                   GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+  }
+}
+
 PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
+
+  Triple TargetTriple(M.getTargetTriple());
+
+  // Do not run auto CPU clone pass on offload modules.
+  if (TargetTriple.getArch() == Triple::spir ||
+      TargetTriple.getArch() == Triple::spir64 ||
+      TargetTriple.getArch() == Triple::spirv32 ||
+      TargetTriple.getArch() == Triple::spirv64)
+    return PreservedAnalyses::all();
 
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetLoopInfo = [&FAM](Function &F) -> LoopInfo & {
@@ -690,8 +724,17 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   };
   ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI))
-    return PreservedAnalyses::none();
+  bool Success = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI,
+                                GenerateVectorVariants);
 
-  return PreservedAnalyses::all();
+  clearMetadataAndSetAttributes(M, GetTTI, Success, GenerateVectorVariants);
+
+  return Success ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
+AutoCPUClonePass::AutoCPUClonePass(bool GVV) : GenerateVectorVariants(GVV) {
+  // Setting ClGenerateVectorVariants on the command line overrides
+  // the value of GenerateVectorVariants member variable.
+  if (ClGenerateVectorVariants.getNumOccurrences() > 0)
+    GenerateVectorVariants = ClGenerateVectorVariants;
 }

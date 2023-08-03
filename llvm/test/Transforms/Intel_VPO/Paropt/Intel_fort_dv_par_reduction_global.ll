@@ -36,7 +36,7 @@
 ; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank1$", align 16
 
 ; Check that the dope vector init call is emitted for PRIV_DV.
-; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(ptr [[PRIV_DV]], ptr @A)
+; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init2(ptr [[PRIV_DV]], ptr @A)
 ; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 2
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
@@ -55,7 +55,7 @@
 ; CHECK: store i16 111, ptr %"A.addr_a0$_fetch", align 1
 
 ; Check that the copy of the dope vector in the fast reduction struct is initialized.
-; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(ptr [[FAST_RED_DV]], ptr [[PRIV_DV]])
+; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init2(ptr [[FAST_RED_DV]], ptr [[PRIV_DV]])
 ; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
 ; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank1$", ptr [[FAST_RED_DV]], i32 0, i32 0
 ; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 16

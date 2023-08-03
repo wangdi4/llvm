@@ -239,47 +239,54 @@ void TEDevice::ShutDown() {
   }
 
   // 1. Count down until all threads stopped
-  TBB_PerActiveThreadData *tls =
-      m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
-  int remainder = ((nullptr == tls) || (tls->device != this))
-                      ? 0
-                      : 1; // how many threads may remain inside arena
+  if (!IsShuttingDown()) {
+    TBB_PerActiveThreadData *tls =
+        m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
+    int remainder = ((nullptr == tls) || (tls->device != this))
+                        ? 0
+                        : 1; // how many threads may remain inside arena
 
-  while ((m_numOfActiveThreads > remainder) &&
-         (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
-    hw_pause();
-  }
+    while ((m_numOfActiveThreads > remainder) &&
+           (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
+      hw_pause();
+    }
 
-  // if current thread is inside TE Device - notify about exit manually
-  if (0 != remainder) {
-    assert((nullptr != tls->attached_arenas[tls->attach_level]) &&
-           "NULL arena pointer at attach level");
-    on_scheduler_exit(!(tls->is_master),
-                      *(tls->attached_arenas[tls->attach_level]));
+    // if current thread is inside TE Device - notify about exit manually
+    if (0 != remainder) {
+      assert((nullptr != tls->attached_arenas[tls->attach_level]) &&
+             "NULL arena pointer at attach level");
+      on_scheduler_exit(!(tls->is_master),
+                        *(tls->attached_arenas[tls->attach_level]));
+    }
   }
 
   // 2. Signal all now-entring threads that we are exiting
   m_state = DISABLE_NEW_THREADS;
 
   // 3. new threads may enter before disabling - wait all to exit
-  while ((m_numOfActiveThreads > 0) &&
-         (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
-    hw_pause();
+  if (!IsShuttingDown()) {
+    while ((m_numOfActiveThreads > 0) &&
+           (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
+      hw_pause();
+    }
   }
   // now all threads that we allocated data for exited from TEDevice
 
   // 4. Stop all observers
   //    observer stopping blocks if any observer callback is in process
-  for (unsigned int i = m_deviceDescriptor.uiNumOfLevels - 1; i > 0; --i) {
-    ArenaHandler *ar = m_lowLevelArenas[i - 1];
-    assert((nullptr != ar) &&
-           "Low level arena array in NULL for hierarchical arenas?");
-    for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[i - 1];
-         ++j) {
-      ar[j].StopMonitoring();
+  if (!IsShuttingDown()) {
+    for (unsigned int i = m_deviceDescriptor.uiNumOfLevels - 1; i > 0; --i) {
+      ArenaHandler *ar = m_lowLevelArenas[i - 1];
+      assert((nullptr != ar) &&
+             "Low level arena array in NULL for hierarchical arenas?");
+      for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[i - 1];
+           ++j) {
+        ar[j].StopMonitoring();
+      }
     }
+    m_mainArena.StopMonitoring();
   }
-  m_mainArena.StopMonitoring();
+
   m_userData = nullptr; // to be on the safe side
 
   // 5. Signal all arenas to terminate
@@ -497,38 +504,8 @@ void TEDevice::on_scheduler_exit(bool /*bIsWorker*/, ArenaHandler &arena) {
   }
 }
 
-bool TEDevice::on_scheduler_leaving(ArenaHandler & /*arena*/) {
-  if (isTerminating()) {
-    return true; // always allow leaving during shutdown
-  }
-
-  TE_BOOLEAN_ANSWER user_answer = TE_USE_DEFAULT;
-
-  TBBTaskExecutor::ThreadManager &thread_manager =
-      m_taskExecutor.GetThreadManager();
-  TBB_PerActiveThreadData *tls = thread_manager.GetCurrentThreadDescriptor();
-
-  if ((nullptr != tls) && (nullptr != tls->device) && (tls->enter_reported)) {
-    assert((this == tls->device) && "Something wrong with observers - thread "
-                                    "tries to leave the wrong device");
-
-    if (nullptr != m_observer) {
-      user_answer = m_observer->MayThreadLeaveDevice(&(tls->user_tls));
-    }
-  }
-
-  bool may_leave = true;
-  if (TE_USE_DEFAULT == user_answer) {
-    // We return true, because of TBB bug #1967 and because just returning true
-    // instead of going over all the command lists actually gives 3% speedup!
-    may_leave = true;
-  } else {
-    may_leave = (TE_YES == user_answer);
-  }
-
-  return may_leave;
-}
 void TEDevice::ResetObserver() { m_observer = nullptr; }
+
 void TEDevice::SetObserver(ITaskExecutorObserver *pObserver) {
   if ((nullptr == pObserver) && (nullptr != m_observer)) {
     m_mainArena.observe(false);

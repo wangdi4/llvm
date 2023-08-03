@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that early_exit_call in bar doesn't have debug info.
 
@@ -6,20 +6,20 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @foo(i32 addrspace(1)* noalias noundef align 4 %dst) local_unnamed_addr #0 !dbg !6 !no_barrier_path !17 !kernel_has_sub_groups !18 !max_wg_dimensions !19 {
+define dso_local void @foo(ptr addrspace(1) noalias noundef align 4 %dst) local_unnamed_addr #0 !dbg !6 !no_barrier_path !17 !kernel_has_sub_groups !18 !max_wg_dimensions !19 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !20, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !20, metadata !DIExpression()), !dbg !22
   %__ocl_dbg_gid1 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !23, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !23, metadata !DIExpression()), !dbg !22
   %__ocl_dbg_gid2 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !24, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !24, metadata !DIExpression()), !dbg !22
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
   ret void, !dbg !25
 }
 
@@ -27,25 +27,25 @@ entry:
 declare i64 @_Z13get_global_idj(i32 noundef) local_unnamed_addr #1
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @bar(i32 addrspace(1)* noalias noundef align 4 %dst) local_unnamed_addr #0 !dbg !26 !no_barrier_path !17 !kernel_has_sub_groups !18 !max_wg_dimensions !19 {
+define dso_local void @bar(ptr addrspace(1) noalias noundef align 4 %dst) local_unnamed_addr #0 !dbg !26 !no_barrier_path !17 !kernel_has_sub_groups !18 !max_wg_dimensions !19 {
 entry:
 ; CHECK-LABEL: @bar(
-; CHECK: %early_exit_call = call [7 x i64] @WG.boundaries.bar(i32 addrspace(1)* %dst)
+; CHECK: %early_exit_call = call [7 x i64] @WG.boundaries.bar(ptr addrspace(1) %dst)
 ; CHECK-NOT: !dbg
 ; CHECK-NEXT: %uniform.early.exit = extractvalue [7 x i64] %early_exit_call, 0
 
   %__ocl_dbg_gid0 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !30, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !30, metadata !DIExpression()), !dbg !31
   %__ocl_dbg_gid1 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !32, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !32, metadata !DIExpression()), !dbg !31
   %__ocl_dbg_gid2 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !33, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !33, metadata !DIExpression()), !dbg !31
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
   ret void, !dbg !34
 }
 
@@ -53,7 +53,7 @@ declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-define [7 x i64] @WG.boundaries.bar(i32 addrspace(1)* %0) {
+define [7 x i64] @WG.boundaries.bar(ptr addrspace(1) %0) {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -89,7 +89,7 @@ attributes #2 = { nocallback nofree nosync nounwind readnone speculatable willre
 !2 = !{i32 7, !"Dwarf Version", i32 4}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
 !4 = !{i32 2, i32 0}
-!5 = !{void (i32 addrspace(1)*)* @foo, void (i32 addrspace(1)*)* @bar}
+!5 = !{ptr @foo, ptr @bar}
 !6 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !7, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !11)
 !7 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !8)
 !8 = !{null, !9}

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 ;
 ; This test checks that paropt target filtering retains functions and variables
 ; from the "llvm.used" and "llvm.compiler.used" lists in addition to the objects
@@ -13,8 +13,8 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
 
-@llvm.used = appending global [1 x i8*] [i8* bitcast (void ()* @bar to i8*)], section "llvm.metadata"
-@llvm.compiler.used = appending global [1 x i8*] [i8* bitcast (i32* @var to i8*)], section "llvm.metadata"
+@llvm.used = appending global [1 x ptr] [ptr @bar], section "llvm.metadata"
+@llvm.compiler.used = appending global [1 x ptr] [ptr @var], section "llvm.metadata"
 
 @var = global i32 123, align 4
 

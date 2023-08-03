@@ -1,7 +1,7 @@
 ; This test verifies that intel_dtrans_type metadata is not missing
 ; on indirect calls during inlining.
 ;
-; RUN: opt < %s -opaque-pointers -S -passes=always-inline 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=always-inline 2>&1 | FileCheck %s
 
 ; CHECK: [[FP:%.*]] = load ptr, ptr @fptr
 ; CHECK-NEXT:  invoke i32 [[FP]](ptr null)

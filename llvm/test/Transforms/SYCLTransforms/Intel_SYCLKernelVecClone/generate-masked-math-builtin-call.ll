@@ -19,25 +19,25 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @test_acos_mask_d(double addrspace(1)* %a, double addrspace(1)* %c) local_unnamed_addr #0 !recommended_vector_length !10 {
+define void @test_acos_mask_d(ptr addrspace(1) %a, ptr addrspace(1) %c) local_unnamed_addr #0 !recommended_vector_length !10 !kernel_arg_base_type !11 !arg_type_null_val !12 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #1
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %ptridx = getelementptr inbounds double, double addrspace(1)* %a, i64 %idxprom
-  %0 = load double, double addrspace(1)* %ptridx, align 8, !tbaa !6
+  %ptridx = getelementptr inbounds double, ptr addrspace(1) %a, i64 %idxprom
+  %0 = load double, ptr addrspace(1) %ptridx, align 8, !tbaa !6
   %cmp = fcmp ugt double %0, 1.000000e+00
-; CHECK: fcmp ugt <4 x double> %wide.masked.gather, <double 1.000000e+00, double 1.000000e+00, double 1.000000e+00, double 1.000000e+00>
+; CHECK: fcmp ugt <4 x double> %wide.{{.*}}, <double 1.000000e+00, double 1.000000e+00, double 1.000000e+00, double 1.000000e+00>
   %cmp4 = fcmp ult double %0, -1.000000e+00
-; CHECK: fcmp ult <4 x double> %wide.masked.gather, <double -1.000000e+00, double -1.000000e+00, double -1.000000e+00, double -1.000000e+00>
+; CHECK: fcmp ult <4 x double> %wide.{{.*}}, <double -1.000000e+00, double -1.000000e+00, double -1.000000e+00, double -1.000000e+00>
   %or.cond = or i1 %cmp, %cmp4
   br i1 %or.cond, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %call8 = tail call double @_Z4acosd(double %0) #1
-; CHECK: call <4 x double> @_Z4acosDv4_dS_(<4 x double> %wide.masked.gather, <4 x double>
-  %ptridx10 = getelementptr inbounds double, double addrspace(1)* %c, i64 %idxprom
-  store double %call8, double addrspace(1)* %ptridx10, align 8, !tbaa !6
+; CHECK: call <4 x double> @_Z4acosDv4_dS_(<4 x double> %wide.{{.*}}, <4 x double>
+  %ptridx10 = getelementptr inbounds double, ptr addrspace(1) %c, i64 %idxprom
+  store double %call8, ptr addrspace(1) %ptridx10, align 8, !tbaa !6
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
@@ -66,16 +66,17 @@ attributes #1 = { convergent nounwind readnone }
 !2 = !{!"cl_doubles"}
 !3 = !{!"-cl-std=CL2.0", !"-cl-denorms-are-zero"}
 !4 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!5 = !{void (double addrspace(1)*, double addrspace(1)*)* @test_acos_mask_d}
+!5 = !{ptr @test_acos_mask_d}
 !6 = !{!7, !7, i64 0}
 !7 = !{!"double", !8, i64 0}
 !8 = !{!"omnipotent char", !9, i64 0}
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{i32 4}
+!11 = !{!"int*", !"int*"}
+!12 = !{i32* null, i32* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} br

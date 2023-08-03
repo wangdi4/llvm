@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -55,9 +55,7 @@ public:
                                        cl_uint *puiNumKernelsRet);
 
   // get the kernels associated to the program
-  virtual cl_err_code GetKernels(cl_uint uiNumKernels,
-                                 SharedPtr<Kernel> *ppKernels,
-                                 cl_uint *puiNumKernelsRet);
+  virtual void GetKernels(std::vector<SharedPtr<Kernel>> &KernelsRet);
 
   // remove kernel from program
   virtual cl_err_code RemoveKernel(cl_kernel clKernel);
@@ -187,6 +185,10 @@ public:
                                              const char *gv_name,
                                              cl_prog_gv *gv_ret);
 
+  // Reset global variables with device_image_scope property, this function is
+  // usually used when the device mode is fpga emulator
+  cl_err_code ResetDeviceImageScopeGlobalVariable();
+
   // Free USM wrappers for global variable pointers
   void FreeUSMForGVPointers();
 
@@ -219,7 +221,7 @@ protected:
 
   OCLObjectsMap<_cl_kernel_int> m_pKernels; // associated
   // assiciated autorun kernels
-  OCLObjectsMap<_cl_kernel_int> m_pAutorunKernels;
+  std::set<_cl_kernel_int *> m_pAutorunKernels;
 
   tDeviceProgramMap m_deviceToProgram;
 

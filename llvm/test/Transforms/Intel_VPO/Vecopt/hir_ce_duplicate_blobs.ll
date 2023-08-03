@@ -31,13 +31,13 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i64], [1024 x i64]* @arr2, i64 0, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i64], ptr @arr2, i64 0, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8, !tbaa !2
   %mul = mul nsw i64 %0, %indvars.iv
   %add = add nsw i64 %mul, %0
-  %arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %add
+  %arrayidx1 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %add
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx1, align 4, !tbaa !7
+  store i32 %1, ptr %arrayidx1, align 4, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

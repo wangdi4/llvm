@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -27,12 +27,14 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_ArgumentAlignment.cpp
   Intel_AutoCPUClone.cpp
   Intel_CallTreeCloning.cpp
+  Intel_DeadDopeVectorElimination.cpp
   Intel_DopeVectorConstProp.cpp
   Intel_InlineLists.cpp
   Intel_IPArrayTranspose.cpp
   Intel_IPODeadArgElimination.cpp
   Intel_MathLibrariesDeclaration.cpp
   Intel_OptimizeDynamicCasts.cpp
+  Intel_RecursiveFunctionMemoize.cpp
   Intel_UnpredictableProfileLoader.cpp
   Intel_VTableFixup.cpp
   Utils/Intel_IPOUtils.cpp
@@ -75,6 +77,7 @@ add_llvm_component_library(LLVMipo
   CrossDSOCFI.cpp
   DeadArgumentElimination.cpp
   ElimAvailExtern.cpp
+  EmbedBitcodePass.cpp
   ExtractGV.cpp
   ForceFunctionAttrs.cpp
   FunctionAttrs.cpp
@@ -99,9 +102,6 @@ add_llvm_component_library(LLVMipo
   ModuleInliner.cpp
   OpenMPOpt.cpp
   PartialInlining.cpp
-#if INTEL_CUSTOMIZATION
-  PassManagerBuilder.cpp
-#endif // INTEL_CUSTOMIZATION
   SampleContextTracker.cpp
   SampleProfile.cpp
   SampleProfileProbe.cpp

@@ -11,11 +11,13 @@
 //
 //===----------------------------------------------------------------------===/
 #include "DiffEngine.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TextAPI/InterfaceFile.h"
 #include "llvm/TextAPI/Symbol.h"
 #include "llvm/TextAPI/Target.h"
+#include <iterator>
 
 using namespace llvm;
 using namespace MachO;
@@ -114,6 +116,9 @@ void SymScalar::print(raw_ostream &OS, std::string Indent, MachO::Target Targ) {
 
 bool checkSymbolEquality(llvm::MachO::InterfaceFile::const_symbol_range LHS,
                          llvm::MachO::InterfaceFile::const_symbol_range RHS) {
+  if (std::distance(LHS.begin(), LHS.end()) !=
+      std::distance(RHS.begin(), RHS.end()))
+    return false;
   return std::equal(LHS.begin(), LHS.end(), RHS.begin(),
                     [&](auto LHS, auto RHS) { return *LHS == *RHS; });
 }

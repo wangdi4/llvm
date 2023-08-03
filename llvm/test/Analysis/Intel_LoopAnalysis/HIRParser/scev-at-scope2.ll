@@ -12,7 +12,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @padramp_freq_4u(i32 %np3, float* %add.ptr, i64 %step, i64 %step1) #0 {
+define void @padramp_freq_4u(i32 %np3, ptr %add.ptr, i64 %step, i64 %step1) #0 {
 entry:
   br i1 undef, label %if.then, label %for.cond176.preheader
 
@@ -38,7 +38,7 @@ for.body43.lr.ph:                                 ; preds = %for.cond40.preheade
   br label %for.body43
 
 for.body:                                         ; preds = %padramp_freq_3u_work.exit, %for.body.lr.ph
-  %vol_out.0374 = phi float* [ %add.ptr, %for.body.lr.ph ], [ %add.ptr31, %padramp_freq_3u_work.exit ]
+  %vol_out.0374 = phi ptr [ %add.ptr, %for.body.lr.ph ], [ %add.ptr31, %padramp_freq_3u_work.exit ]
   %i4.0373 = phi i32 [ undef, %for.body.lr.ph ], [ %dec, %padramp_freq_3u_work.exit ]
   br i1 undef, label %if.then.i, label %for.cond102.preheader.i
 
@@ -127,9 +127,9 @@ scale_2s_reverse_order.exit.i:                    ; preds = %scale_2s_reverse_or
   br i1 %cmp40.i, label %for.body42.i, label %for.cond61.preheader.i.loopexit
 
 for.body64.i:                                     ; preds = %for.body64.i, %for.body64.i.preheader
-  %plane.2230.i = phi float* [ %add.ptr68.i, %for.body64.i ], [ %vol_out.0374, %for.body64.i.preheader ]
+  %plane.2230.i = phi ptr [ %add.ptr68.i, %for.body64.i ], [ %vol_out.0374, %for.body64.i.preheader ]
   %i3.2228.i = phi i32 [ undef, %for.body64.i ], [ 0, %for.body64.i.preheader ]
-  %add.ptr68.i = getelementptr inbounds float, float* %plane.2230.i, i64 %step1
+  %add.ptr68.i = getelementptr inbounds float, ptr %plane.2230.i, i64 %step1
   %cmp62.i = icmp slt i32 %i3.2228.i, undef
   br i1 %cmp62.i, label %for.body64.i, label %for.end74.i.loopexit
 
@@ -137,14 +137,14 @@ for.end74.i.loopexit:                             ; preds = %for.body64.i
   br label %for.end74.i
 
 for.end74.i:                                      ; preds = %for.end74.i.loopexit, %for.cond61.preheader.i
-  %plane.2.lcssa.i = phi float* [ %vol_out.0374, %for.cond61.preheader.i ], [ %add.ptr68.i, %for.end74.i.loopexit ]
+  %plane.2.lcssa.i = phi ptr [ %vol_out.0374, %for.cond61.preheader.i ], [ %add.ptr68.i, %for.end74.i.loopexit ]
   br i1 undef, label %for.body85.i.preheader, label %padramp_freq_3u_work.exit
 
 for.body85.i.preheader:                           ; preds = %for.end74.i
   br label %for.body85.i
 
 for.body85.i:                                     ; preds = %scale_2s.exit.i, %for.body85.i.preheader
-  %plane.3226.i = phi float* [ %add.ptr97.i, %scale_2s.exit.i ], [ %plane.2.lcssa.i, %for.body85.i.preheader ]
+  %plane.3226.i = phi ptr [ %add.ptr97.i, %scale_2s.exit.i ], [ %plane.2.lcssa.i, %for.body85.i.preheader ]
   %i3.3225.i = phi i32 [ %inc99.i, %scale_2s.exit.i ], [ 0, %for.body85.i.preheader ]
   br i1 undef, label %for.cond1.preheader.i.i.preheader, label %scale_2s.exit.i
 
@@ -153,7 +153,7 @@ for.cond1.preheader.i.i.preheader:                ; preds = %for.body85.i
 
 for.cond1.preheader.i.i:                          ; preds = %for.end.i222.i, %for.cond1.preheader.i.i.preheader
   %i2.025.i.i = phi i32 [ %inc9.i.i, %for.end.i222.i ], [ 0, %for.cond1.preheader.i.i.preheader ]
-  %des.addr.024.i.i = phi float* [ %add.ptr.i221.i, %for.end.i222.i ], [ %plane.3226.i, %for.cond1.preheader.i.i.preheader ]
+  %des.addr.024.i.i = phi ptr [ %add.ptr.i221.i, %for.end.i222.i ], [ %plane.3226.i, %for.cond1.preheader.i.i.preheader ]
   br i1 undef, label %for.body3.i.i.preheader, label %for.end.i222.i
 
 for.body3.i.i.preheader:                          ; preds = %for.cond1.preheader.i.i
@@ -161,8 +161,8 @@ for.body3.i.i.preheader:                          ; preds = %for.cond1.preheader
 
 for.body3.i.i:                                    ; preds = %for.body3.i.i, %for.body3.i.i.preheader
   %indvars.iv.i218.i = phi i64 [ %indvars.iv.next.i.i, %for.body3.i.i ], [ 0, %for.body3.i.i.preheader ]
-  %arrayidx5.i.i = getelementptr inbounds float, float* %des.addr.024.i.i, i64 %indvars.iv.i218.i
-  store float undef, float* %arrayidx5.i.i, align 4
+  %arrayidx5.i.i = getelementptr inbounds float, ptr %des.addr.024.i.i, i64 %indvars.iv.i218.i
+  store float undef, ptr %arrayidx5.i.i, align 4
   %indvars.iv.next.i.i = add nuw nsw i64 %indvars.iv.i218.i, 1
   %lftr.wideiv396 = trunc i64 %indvars.iv.next.i.i to i32
   %exitcond397 = icmp eq i32 %lftr.wideiv396, undef
@@ -172,7 +172,7 @@ for.end.i222.i.loopexit:                          ; preds = %for.body3.i.i
   br label %for.end.i222.i
 
 for.end.i222.i:                                   ; preds = %for.end.i222.i.loopexit, %for.cond1.preheader.i.i
-  %add.ptr.i221.i = getelementptr inbounds float, float* %des.addr.024.i.i, i64 undef
+  %add.ptr.i221.i = getelementptr inbounds float, ptr %des.addr.024.i.i, i64 undef
   %inc9.i.i = add nuw nsw i32 %i2.025.i.i, 1
   %exitcond26.i.i = icmp eq i32 %inc9.i.i, undef
   br i1 %exitcond26.i.i, label %scale_2s.exit.i.loopexit, label %for.cond1.preheader.i.i
@@ -181,7 +181,7 @@ scale_2s.exit.i.loopexit:                         ; preds = %for.end.i222.i
   br label %scale_2s.exit.i
 
 scale_2s.exit.i:                                  ; preds = %scale_2s.exit.i.loopexit, %for.body85.i
-  %add.ptr97.i = getelementptr inbounds float, float* %plane.3226.i, i64 undef
+  %add.ptr97.i = getelementptr inbounds float, ptr %plane.3226.i, i64 undef
   %inc99.i = add nuw nsw i32 %i3.3225.i, 1
   %exitcond245.i = icmp eq i32 %inc99.i, undef
   br i1 %exitcond245.i, label %padramp_freq_3u_work.exit.loopexit, label %for.body85.i
@@ -198,7 +198,7 @@ padramp_freq_3u_work.exit.loopexit400:            ; preds = %for.body105.i
   br label %padramp_freq_3u_work.exit
 
 padramp_freq_3u_work.exit:                        ; preds = %padramp_freq_3u_work.exit.loopexit400, %padramp_freq_3u_work.exit.loopexit, %for.end74.i, %for.cond102.preheader.i
-  %add.ptr31 = getelementptr inbounds float, float* %vol_out.0374, i64 %step
+  %add.ptr31 = getelementptr inbounds float, ptr %vol_out.0374, i64 %step
   %dec = add nsw i32 %i4.0373, -1
   %cmp24 = icmp sgt i32 %dec, undef
   br i1 %cmp24, label %for.body, label %for.cond40.preheader.loopexit

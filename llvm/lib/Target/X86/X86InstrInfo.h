@@ -55,7 +55,14 @@ enum AsmComments {
 std::pair<CondCode, bool> getX86ConditionCode(CmpInst::Predicate Predicate);
 
 /// Return a cmov opcode for the given register size in bytes, and operand type.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+unsigned getCMovOpcode(unsigned RegBytes, bool HasNDD = false,
+                       bool HasMemoryOperand = false);
+#else  // INTEL_FEATURE_ISA_APX_F
 unsigned getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand = false);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 /// Return the source operand # for condition code by \p MCID. If the
 /// instruction doesn't have a condition code, return -1.
@@ -357,6 +364,8 @@ public:
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
 
+  int getJumpTableIndex(const MachineInstr &MI) const override;
+
   std::optional<ExtAddrMode>
   getAddrModeFromMemoryOp(const MachineInstr &MemI,
                           const TargetRegisterInfo *TRI) const override;
@@ -625,6 +634,12 @@ public:
                      outliner::Candidate &C) const override;
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
+                                  MachineInstr &MI) const override;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   bool verifyInstruction(const MachineInstr &MI,
                          StringRef &ErrInfo) const override;
 #define GET_INSTRINFO_HELPER_DECLS
@@ -658,6 +673,34 @@ protected:
   /// registers as machine operands.
   std::optional<DestSourcePair>
   isCopyInstrImpl(const MachineInstr &MI) const override;
+
+  /// Return true when there is potentially a faster code sequence for an
+  /// instruction chain ending in \p Root. All potential patterns are listed in
+  /// the \p Pattern vector. Pattern should be sorted in priority order since
+  /// the pattern evaluator stops checking as soon as it finds a faster
+  /// sequence.
+  bool
+  getMachineCombinerPatterns(MachineInstr &Root,
+                             SmallVectorImpl<MachineCombinerPattern> &Patterns,
+                             bool DoRegPressureReduce) const override;
+
+  /// When getMachineCombinerPatterns() finds potential patterns,
+  /// this function generates the instructions that could replace the
+  /// original code sequence.
+  void genAlternativeCodeSequence(
+      MachineInstr &Root, MachineCombinerPattern Pattern,
+      SmallVectorImpl<MachineInstr *> &InsInstrs,
+      SmallVectorImpl<MachineInstr *> &DelInstrs,
+      DenseMap<unsigned, unsigned> &InstrIdxForVirtReg) const override;
+
+  /// When calculate the latency of the root instruction, accumulate the
+  /// latency of the sequence to the root latency.
+  /// \param Root - Instruction that could be combined with one of its operands
+  /// For X86 instruction (vpmaddwd + vpmaddwd) -> vpdpwssd, the vpmaddwd
+  /// is not in the critical path, so the root latency only include vpmaddwd.
+  bool accumulateInstrSeqToRootLatency(MachineInstr &Root) const override {
+    return false;
+  }
 
 private:
   /// This is a helper for convertToThreeAddress for 8 and 16-bit instructions.

@@ -34,7 +34,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
-#include "llvm/Analysis/SyncDependenceAnalysis.h"
+#include "SyncDependenceAnalysis.h"
 #include "IntelVPlanValueTracking.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
@@ -147,6 +147,8 @@ public:
 /// of divergence to all users. It requires reducible CFGs. All assignments
 /// should be in SSA form.
 class VPlanDivergenceAnalysis final : public VPlanDivergenceAnalysisBase {
+  friend class VPlanVerifier;
+
 public:
   VPlanDivergenceAnalysis() : VPlanDivergenceAnalysisBase(DAKind::Vector) {}
 

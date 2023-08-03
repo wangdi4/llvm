@@ -762,8 +762,9 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   assert(is_contained(From->getSuccessors(), To) &&
          "From and To do not form an edge!");
   auto *NewBB = new VPBasicBlock(Name, From->getParent());
-  NewBB->setTerminator(To);
+  // Insert into VPlan first to ensure DA shape is set for terminator
   NewBB->insertAfter(From);
+  NewBB->setTerminator(To);
   From->replaceSuccessor(To, NewBB);
 
   for (VPPHINode &VPN : To->getVPPhis()) {
@@ -794,6 +795,27 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   if (PostDomTree)
     PostDomTree->recalculate(*From->getParent());
   return NewBB;
+}
+
+void VPBlockUtils::updateDomTrees(VPBasicBlock *VPBBTrue,
+                                  VPBasicBlock *VPBBFalse, VPBasicBlock *VPBB) {
+  VPlanVector *Plan = cast<VPlanVector>(VPBB->getParent());
+  VPDominatorTree *DT = Plan->getDT();
+  VPPostDominatorTree *PDT = Plan->getPDT();
+
+  // Update dom information
+  assert(DT && "DT cannot be nullptr.");
+  assert(DT->getNode(VPBB) && "Expected node in dom tree!");
+  DT->changeImmediateDominator(VPBBTrue, VPBB);
+  DT->changeImmediateDominator(VPBBFalse, VPBB);
+
+  // Update postdom information
+  assert(PDT && "PDT cannot be nullptr.");
+  VPDomTreeNode *VPBBPDT = PDT->getNode(VPBB);
+  assert(VPBBPDT && "Expected node in post-dom tree!");
+  PDT->changeImmediateDominator(
+      VPBBPDT,
+      PDT->getNode(PDT->findNearestCommonDominator(VPBBTrue, VPBBFalse)));
 }
 
 VPBasicBlock::iterator VPBasicBlock::terminator() {

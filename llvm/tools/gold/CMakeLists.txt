@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -17,8 +17,11 @@
 # end INTEL_CUSTOMIZATION
 set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/gold.exports)
 
-if( LLVM_ENABLE_PIC AND LLVM_BINUTILS_INCDIR )
-  include_directories( ${LLVM_BINUTILS_INCDIR} )
+# INTEL_CUSTOMIZATION
+# The gold-plugin.cpp in xmain does not depend on or use LLVM_BINUTILS_INCDIR,
+# so we don't require it to configure icx-lto.
+if( LLVM_ENABLE_PIC )
+# end INTEL_CUSTOMIZATION
 
   set(LLVM_LINK_COMPONENTS
      ${LLVM_TARGETS_TO_BUILD}

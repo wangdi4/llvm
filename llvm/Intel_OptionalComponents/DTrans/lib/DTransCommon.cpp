@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransPasses.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -190,17 +189,11 @@ static cl::opt<bool>
                         cl::Hidden,
                         cl::desc("Enable padded pointer property propagation"));
 
-static cl::opt<bool>
-    EnableResolveTypes("enable-resolve-types", cl::init(true),
-                        cl::Hidden,
-                        cl::desc("Enable pre-dtrans type resolution"));
-
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
 #define hasDumpModuleAfterDTransValue(x) (false)
 constexpr bool EnablePaddedPtrProp = true;
-constexpr bool EnableResolveTypes = true;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -232,41 +225,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   MPM.addPass(dtrans::SetIntelPropPass());
 #endif // INTEL_PRODUCT_RELEASE
 
-  // Try to run the typed-pointer passes. These passes should be no-ops when
-  // opaque pointers are in use.
-  // TODO: These will be removed when only opaque pointers are supported.
-
-  // Start of typed pointer passes
-  // This must run before any other pass that depends on DTransAnalysis.
-  if (EnableResolveTypes)
-    addPass(MPM, resolvetypes, dtrans::ResolveTypesPass());
-
   if (EnableTranspose)
     addPass(MPM, transpose, dtrans::TransposePass());
-  addPass(MPM, commutecond, dtrans::CommuteCondPass());
-  if (EnableMemInitTrimDown)
-    addPass(MPM, meminittrimdown, dtrans::MemInitTrimDownPass());
-  if (EnableSOAToAOSPrepare)
-    addPass(MPM, soatoaosprepare, dtrans::SOAToAOSPreparePass());
-  if (EnableSOAToAOS)
-    addPass(MPM, soatoaos, dtrans::SOAToAOSPass());
-  if (EnableMemManageTrans)
-    addPass(MPM, memmanagetrans, dtrans::MemManageTransPass());
-  addPass(MPM, codealign, dtrans::CodeAlignPass());
-  addPass(MPM, weakalign, dtrans::WeakAlignPass());
-  if (EnableDeleteFields)
-    addPass(MPM, deletefield, dtrans::DeleteFieldPass());
-  addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
-  addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
-  if (EnableReuseFields) {
-    addPass(MPM, reusefield, dtrans::ReuseFieldPass());
-    addPass(MPM, deletefield, dtrans::DeleteFieldPass());
-  }
-  addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
-  addPass(MPM, dynclone, dtrans::DynClonePass());
-  // End of typed pointer passes
-
-  // Try to run the opaque pointer passes
   addPass(MPM, deadmdremover, dtransOP::RemoveDeadDTransTypeMetadataPass());
   addPass(MPM, normalize, dtransOP::DTransNormalizeOPPass());
   addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
@@ -301,16 +261,6 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
 
-  // Try to run the typed-pointer passes. These passes should be no-ops when
-  // opaque pointers are in use.
-  // TODO: These will be removed when only opaque pointers are supported.
-  // Start of typed pointer passes
-  if (EnablePaddedPtrProp)
-    MPM.addPass(dtrans::PaddedPtrPropPass());
-  MPM.addPass(dtrans::PaddedMallocPass());
-  // End of typed pointer passes
-
-  // Try to run the opaque pointer passes
   if (EnablePaddedPtrProp)
     MPM.addPass(dtransOP::PaddedPtrPropOPPass());
   MPM.addPass(dtransOP::PaddedMallocOPPass());

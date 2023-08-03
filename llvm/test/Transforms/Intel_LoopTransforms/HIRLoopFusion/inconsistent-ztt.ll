@@ -33,10 +33,10 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @module_em_mp_rk_update_scalar_(i32* %ITS, i32* %KTS) local_unnamed_addr #0 {
+define void @module_em_mp_rk_update_scalar_(ptr %ITS, ptr %KTS) local_unnamed_addr #0 {
 alloca_5:
-  %ITS_fetch = load i32, i32* %ITS, align 1
-  %KTS_fetch = load i32, i32* %KTS, align 1
+  %ITS_fetch = load i32, ptr %ITS, align 1
+  %KTS_fetch = load i32, ptr %KTS, align 1
   %int_sext691 = sext i32 %ITS_fetch to i64
   %slct71 = select i1 undef, i32 undef, i32 undef
   %slct1192 = select i1 undef, i32 undef, i32 undef
@@ -59,7 +59,7 @@ bb702:                                            ; preds = %bb707, %bb692
 
 bb706:                                            ; preds = %bb706, %bb702
   %indvars.iv3080 = phi i64 [ %int_sext691, %bb702 ], [ %indvars.iv.next3081, %bb706 ]
-  %"module_em_mp_rk_update_scalar_$TENDENCY66[]1819[][]_fetch" = load float, float* undef, align 1
+  %"module_em_mp_rk_update_scalar_$TENDENCY66[]1819[][]_fetch" = load float, ptr undef, align 1
   %mul1825 = fmul fast float %"module_em_mp_rk_update_scalar_$TENDENCY66[]1819[][]_fetch", undef
   %indvars.iv.next3081 = add nsw i64 %indvars.iv3080, 1
   %exitcond3083 = icmp eq i64 %indvars.iv.next3081, %wide.trip.count3044
@@ -82,7 +82,7 @@ bb716:                                            ; preds = %bb716.preheader, %b
 
 bb720:                                            ; preds = %bb720, %bb716
   %indvars.iv3088 = phi i64 [ %int_sext691, %bb716 ], [ %indvars.iv.next3089, %bb720 ]
-  %"MSFTY[]2077[]_fetch" = load float, float* undef, align 1
+  %"MSFTY[]2077[]_fetch" = load float, ptr undef, align 1
   %mul2054 = fmul fast float %"MSFTY[]2077[]_fetch", undef
   %indvars.iv.next3089 = add nsw i64 %indvars.iv3088, 1
   %exitcond3091 = icmp eq i64 %indvars.iv.next3089, %wide.trip.count3044

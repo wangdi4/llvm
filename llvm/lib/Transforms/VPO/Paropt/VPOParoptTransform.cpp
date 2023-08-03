@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -55,6 +55,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
@@ -150,12 +151,52 @@ static cl::opt<bool> AllowDistributeDimension(
      cl::desc("Allow using separate ND-range dimension "
               "for OpenMP distribute."));
 
-// Due to implicit widening for SPIR targets, we want to schedule a loop
-// such that adjacent WIs process adjacent iterations of the loop.
-static cl::opt<bool> AvoidStridedProcessing(
-    "vpo-paropt-avoid-strided-processing", cl::Hidden, cl::init(true),
+namespace {
+enum class OCLLoopProcessingKind { NonStridedLWS, NonStridedGWS, Strided };
+} // namespace
+
+// The example below illustrates the different ways of worksharing loop
+// processing (numbers in the table indicate indices of elements being processed
+// by a particular thread)
+//
+// NumTeams = 2, TeamSize = 4 => LWS = 4, GWS = 8
+// Team         0                  1
+// Thread   0  1  2  3         4  5  6  7
+// --------------------------------------   Processing = NonStridedLWS
+//          0  1  2  3         8  9 10 11     LoopStride = LWS = 4
+//          4  5  6  7        12 13 14 15     Thread2ThreadStride = 1
+//                                          Same iteration elements can
+//                                          potentially be combined into a
+//                                          'wave' (GPU SIMD instruction) of
+//                                          length 4
+//
+// --------------------------------------   Processing = NonStridedLWS
+//          0  1  2  3         4  5  6  7     LoopStride = GWS = 8
+//          8  9 10 11        12 13 14 15     Thread2ThreadStride = 1
+//                                          Same iteration elements can
+//                                          potentially be combined into a
+//                                          'wave' (GPU SIMD instruction) of
+//                                          length 8
+//
+// --------------------------------------   Processing = Strided
+//          0  2  4  6         8 10 12 14     LoopStride = 1
+//          1  3  5  7         9 11 13 15     Thread2ThreadStride = GWS/LWS = 2
+//
+static cl::opt<OCLLoopProcessingKind> OCLLoopProcessing(
+    "vpo-paropt-ocl-loop-processing", cl::Hidden,
+    cl::init(OCLLoopProcessingKind::NonStridedLWS),
     cl::desc("For SPIR targets schedule parallel loops such that adjacent "
-             "threads execute adjacent iterations of the loop."));
+             "threads execute adjacent iterations of the loop."),
+    cl::values(clEnumValN(OCLLoopProcessingKind::NonStridedLWS,
+                          "non-strided-lws",
+                          "use non-strided processing with the inner loop "
+                          "increment value = LWS"),
+               clEnumValN(OCLLoopProcessingKind::NonStridedGWS,
+                          "non-strided-gws",
+                          "use non-strided processing with the inner loop "
+                          "increment value = GWS"),
+               clEnumValN(OCLLoopProcessingKind::Strided, "strided",
+                          "use strided processing")));
 
 static cl::opt<bool> UseFastReduction("vpo-paropt-fast-reduction", cl::Hidden,
                                       cl::init(true),
@@ -210,7 +251,7 @@ enum class TeamsReductionCombinerSelector {
 
 static cl::opt<TeamsReductionCombinerSelector> TeamsReductionCombiner(
     "vpo-paropt-atomic-free-red-global-combiner-selector", cl::Hidden,
-    cl::init(TeamsReductionCombinerSelector::LastTeamInlined),
+    cl::init(TeamsReductionCombinerSelector::LastTeamRTL),
     cl::desc("Method of selecting the team to do the combining of cross-team "
              "atomic-free reduction buffers."),
     cl::values(
@@ -220,7 +261,7 @@ static cl::opt<TeamsReductionCombinerSelector> TeamsReductionCombiner(
                    "location, using compiler-generated code."),
         clEnumValN(TeamsReductionCombinerSelector::LastTeamRTL, "last-team-rtl",
                    "the last team to finish populating its reduction buffer "
-                   "location, using an RTL call."),
+                   "location, using an RTL call (default)."),
         clEnumValN(
             TeamsReductionCombinerSelector::TeamZeroRTL, "team-zero-rtl",
             "team zero, after waiting for all teams to finish populating their "
@@ -332,14 +373,60 @@ static cl::opt<bool> DefaultNDRangeTripcountHeuristic(
     cl::desc("Use profitability heuristic when passing tripcount"
              "with default ND-range"));
 
+// Select scheme to map LOOP constructs.
+// Scheme 0 is the original implementation that does the replacement
+//          in the Prepare Pass and in an in-to-out order.
+// Scheme 1 does the replacement in the Collapse Pass and in an
+//          out-to-in order.
+// This flag is for debugging purposes only, in case of regressions.
+// TODO: remove this flag and all code paths with LoopMappingScheme==0
+static cl::opt<unsigned> LoopMappingScheme(
+    "vpo-paropt-loop-mapping-scheme", cl::Hidden, cl::init(1),
+    cl::desc("Scheme to replace OMP loop constructs. 0: replace in the Prepare "
+             "Pass in an in-to-out order. 1 (default): replace in the Collapse "
+             "pass in an out-to-in order"));
+
+// This flag is meaningful only when LoopMappingScheme==0. This scheme doesn't
+// look at the child constructs of the LOOP construct so it maps TEAMS LOOP
+// conservatively to TEAMS DISTRIBUTE. Setting this flag to false (default)
+// tells the compiler to be more aggressive and map TEAMS LOOP to
+// TEAMS DISTRIBUTE PARALLEL FOR/DO.
+//
+// Note: Scheme 1 looks at the child constructs of the LOOP to decide if to use
+//     TEAMS DISTRIBUTE or TEAMS DISTRIBUTE PARALLEL FOR/DO so it doesn't need
+//     (ie, it ignores) this flag
 static cl::opt<bool> MapLoopBindTeamsToDistribute(
     "vpo-paropt-map-loop-bind-teams-to-distribute", cl::Hidden, cl::init(false),
     cl::desc("Map loop construct to distribute when bound to teams"));
 
-//
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
-// (DFS) to gather all WRegion Nodes;
-//
+// in a pre-order fashion so a parent node is visited before its children.
+class VPOWRegionVisitorPreOrder {
+
+public:
+  WRegionListTy &WRNListPreOrder;
+
+  VPOWRegionVisitorPreOrder(WRegionListTy &WL) : WRNListPreOrder(WL) {}
+
+  void preVisit(WRegionNode *W) { WRNListPreOrder.push_back(W); }
+
+  void postVisit(WRegionNode *W) {}
+
+  bool quitVisit(WRegionNode *W) { return false; }
+};
+
+void VPOParoptTransform::gatherWRegionNodeListPreOrder() {
+  LLVM_DEBUG(dbgs() << "\nSTART: Gather WRegion Pre-Order Node List\n");
+
+  VPOWRegionVisitorPreOrder Visitor(WRegionListPreOrder);
+  WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
+
+  LLVM_DEBUG(dbgs() << "\nEND: Gather WRegion Pre-Order Node List\n");
+  return;
+}
+
+// Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
+// in a post-order fashion so a parent node is visited after its children.
 class VPOWRegionVisitor {
 
 public:
@@ -548,10 +635,25 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   Value *Chunk = nullptr;
   Value *TeamStrideVal = nullptr;
+  // NOTE: using OCLLoopProcessingKind::NonStridedGWS and GWS stride here
+  // may be a bit confusing, but that's different strides:
+  // LoopProcessingKind stride refers to the stride between the adjacent
+  // threads executing the loop (=1 for NonStrided kinds), while on the IR
+  // level the loop's IV is incremented with GWS, i.e. the loop's stride is GWS
+  bool UseGWSStride =
+      OCLLoopProcessing == OCLLoopProcessingKind::NonStridedGWS &&
+      !VPOParoptUtils::enableDeviceSimdCodeGen() &&
+      !VPOParoptUtils::useSPMDMode(W) &&
+      getSchedKindForMultiLevelLoops(W, VPOParoptUtils::getLoopScheduleKind(W),
+                                     WRNScheduleStaticEven) ==
+          WRNScheduleStaticEven;
   // With specific ND-range and non-static distribute schedule each work group
   // executes at most one iteration of the distribute loop, so we know that
-  // chunk size will be one.
-  if (isa<WRNDistributeNode>(W) && VPOParoptUtils::useSPMDMode(W) &&
+  // chunk size will be one, and that's why the distribute loop's stride value
+  // should be the whole trip count. The latter if fair for GWS-strided
+  // workshare-loop since it doesn't employ contiguous per-team chunking as well
+  if (isa<WRNDistributeNode>(W) &&
+      (VPOParoptUtils::useSPMDMode(W) || UseGWSStride) &&
       W->getDistSchedule().getKind() != WRNScheduleDistributeStatic) {
     Chunk = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
     TeamStrideVal = ItSpace;
@@ -587,18 +689,29 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
-  // FIXME: this multiplication may actually overflow,
-  //        if big chunk size is specified in the schedule() clause.
-  Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
+  Value *LBDiff;
+  if (UseGWSStride) {
+    // team_lb is just lb for GWS stride
+    LBDiff = ConstantInt::get(cast<IntegerType>(ItSpaceType), 0);
+  } else {
+    // FIXME: this multiplication may actually overflow,
+    //        if big chunk size is specified in the schedule() clause.
+    LBDiff = Builder.CreateMul(GroupId, Chunk);
+  }
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
   if (TeamLowerBnd)
     Builder.CreateStore(LB, TeamLowerBnd);
 
   // Compute new_team_ub
-  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
-  Value *Ch = Builder.CreateSub(Chunk, ValueOne);
-  Value *NewUB = Builder.CreateAdd(LB, Ch);
+  Value *NewUB;
+  if (UseGWSStride) {
+    NewUB = UB;
+  } else {
+    ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
+    Value *Ch = Builder.CreateSub(Chunk, ValueOne);
+    NewUB = Builder.CreateAdd(LB, Ch);
+  }
 
   // Compare bounds using signed/unsigned comparison based on the ZTT compare.
   // This helps optimizing CFG after Paropt. If ZTT is not found, then
@@ -692,7 +805,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
 
-  // There are two ways to process iterations of the chunk
+  // There are three ways to process iterations of the chunk
   // provided by the teams distribution for static even scheduling:
   //   Strided:
   //     chunk_size =
@@ -702,10 +815,15 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   //     new_ub = min(new_lb + chunk_size - 1, ub);
   //     for (i = new_lb; i <= new_ub; i++)
   //
-  //   Non-strided:
+  //   Non-strided with LWS increment:
   //     new_lb = lb + get_local_id(Idx);
   //     new_ub = ub;
   //     for (i = new_lb; i <= new_ub; i += get_local_size(Idx))
+  //
+  //   Non-strided with GWS increment:
+  //     new_lb = lb + get_global_id(Idx);
+  //     new_ub = ub;
+  //     for (i = new_lb; i <= new_ub; i += get_global_size(Idx))
   //
   // Due to implicit widening (combining adjacent WIs into a SIMD program),
   // in Strided case, vector representing induction variable 'i' will
@@ -718,7 +836,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // a few arithmetic operations and a min() computation with
   // Non-strided scheduling.
   //
-  // To be on the safe side, we only use Non-strided scheduling,
+  // To be on the safe side, we only use Non-strided LWS scheduling,
   // if the iteration processing pattern matches the canonical one,
   // i.e. the induction variable is incremented by 1 on each iteration.
   //
@@ -750,17 +868,17 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // If get_global_id(Idx) returns value outside of the loop's
   // iteration space, then the loop above will just not run,
   // otherwise, it will run exactly one iteration.
-  bool IncrementByLocalSize = false;
+  bool IncrementBySize = false;
   PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
   Instruction *IVInc =
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   uint32_t IVAddendOp = 0;
-  if (AvoidStridedProcessing &&
+  if (OCLLoopProcessing != OCLLoopProcessingKind::Strided &&
       !VPOParoptUtils::enableDeviceSimdCodeGen() &&
       !VPOParoptUtils::useSPMDMode(W) &&
       // Do this only for schedule(static) for the time being.
-      SchedKind == WRNScheduleStaticEven &&
-      IVInc && IVInc->getOpcode() == Instruction::Add) {
+      SchedKind == WRNScheduleStaticEven && IVInc &&
+      IVInc->getOpcode() == Instruction::Add) {
     if (IVInc->getOperand(0) == PN)
       IVAddendOp = 1;
 
@@ -768,7 +886,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     if (AddendConst && AddendConst->isOneValue())
       // Make sure that the canonical induction variable is incremented
       // by 1 each iteration.
-      IncrementByLocalSize = true;
+      IncrementBySize = true;
   }
 
   // All operands of math expressions below will be of LBType
@@ -783,7 +901,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
-      if (!IncrementByLocalSize) {
+      if (!IncrementBySize) {
         // The chunk size is not used for Non-strided scheduling.
         // Otherwise, it is equal to:
         //   chunk_size =
@@ -800,7 +918,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       llvm_unreachable(
           "Unsupported loop schedule type in OpenCL based offloading!");
 
-    if (IncrementByLocalSize)
+    if (IncrementBySize)
       // Static even scheduling does not create a scheduling loop
       // for chunks processing, so the scheduling stride is not needed.
       // Reset it to nullptr here to make sure all invalid users
@@ -814,23 +932,40 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     CallInst *LocalId = VPOParoptUtils::genLocalIdCall(DimNum, CallsInsertPt);
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
+    bool UseGWSProcessing =
+        OCLLoopProcessing == OCLLoopProcessingKind::NonStridedGWS;
+
     Value *LBDiff = nullptr;
-    if (IncrementByLocalSize)
+    if (IncrementBySize) {
       // new_lb = lb + get_local_id(Idx);
-      LBDiff = LocalIdCasted;
-    else
+      if (UseGWSProcessing) {
+        CallInst *GlobalId =
+            VPOParoptUtils::genGlobalIdCall(DimNum, CallsInsertPt);
+        Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
+        LBDiff = GlobalIdCasted;
+      } else {
+        LBDiff = LocalIdCasted;
+      }
+    } else {
       // new_lb = lb + get_local_id(Idx) * chunk_size;
       LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
+    }
     LB = Builder.CreateAdd(LB, LBDiff);
     Builder.CreateStore(LB, LowerBnd);
 
-    if (IncrementByLocalSize) {
+    if (IncrementBySize) {
       // new_ub = ub;
       NewUB = UB;
 
-      auto *LocalSizeCasted = CastInst::CreateIntegerCast(
-          LocalSize, IVInc->getType(), false, "", IVInc);
-      IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), LocalSizeCasted);
+      auto *SizeToCast = LocalSize;
+      if (UseGWSProcessing) {
+        CallInst *GlobalSize =
+            VPOParoptUtils::genGlobalSizeCall(DimNum, CallsInsertPt);
+        SizeToCast = GlobalSize;
+      }
+      auto *SizeCasted = CastInst::CreateIntegerCast(
+          SizeToCast, IVInc->getType(), false, "", IVInc);
+      IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), SizeCasted);
     } else {
       // new_ub = min(new_lb + chunk_size - 1, ub);
       //
@@ -843,27 +978,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   } else {
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
-    CallInst *GlobalId;
-
-    if (EmitSPIRVBuiltins) {
-      std::string fname;
-      SmallVector<Value *, 1> Arg;
-      switch (DimNum) {
-      case 0: fname = "_Z28__spirv_GlobalInvocationId_xv";
-        break;
-      case 1: fname = "_Z28__spirv_GlobalInvocationId_yv";
-        break;
-      case 2: fname = "_Z28__spirv_GlobalInvocationId_zv";
-        break;
-      default:
-        llvm_unreachable("Invalid dimentional index ");
-      }
-      GlobalId = VPOParoptUtils::genOCLGenericCall(fname,
-        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    } else {
-      GlobalId = VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
-        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    }
+    CallInst *GlobalId = VPOParoptUtils::genGlobalIdCall(DimNum, CallsInsertPt);
 
     Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
     Builder.CreateStore(GlobalIdCasted, LowerBnd);
@@ -871,7 +986,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   }
 
   // No need to update UpperBnd for Non-strided scheduling.
-  if (!IncrementByLocalSize) {
+  if (!IncrementBySize) {
     // Compare bounds using signed/unsigned comparison based on the ZTT compare.
     // This helps optimizing CFG after Paropt. If ZTT is not found, then
     // use unsigned comparison.
@@ -1290,7 +1405,9 @@ bool VPOParoptTransform::genOCLParallelLoop(
        // Each iteration of the original distribute parallel loop is executed
        // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
        // Thus, there is no need to compute the team bounds.
-       (WRegionUtils::isDistributeNode(W) || !VPOParoptUtils::useSPMDMode(W)));
+       (WRegionUtils::isDistributeNode(W) ||
+        (!VPOParoptUtils::useSPMDMode(W)))/* &&
+         OCLLoopProcessing != OCLLoopProcessingKind::NonStridedGWS*/);
 
   bool GenTeamDistDispatchLoop =
       // Team distribute dispatch loop is only needed for chunked
@@ -1312,6 +1429,10 @@ bool VPOParoptTransform::genOCLParallelLoop(
           [](const WRegionNode *W) { return W->getIsParLoop(); },
           [](const WRegionNode *W) { return !isa<WRNTargetNode>(W); }))
     DoNotPartition = true;
+  bool LoopNeedsBoundsUpdate =
+      isa<WRNParallelSectionsNode>(W) ||
+      WRegionUtils::isDistributeParLoopNode(W) || isa<WRNParallelLoopNode>(W) ||
+      isa<WRNWksLoopNode>(W) || isa<WRNSectionsNode>(W);
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
 
@@ -1362,10 +1483,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
                                        TeamLowerBnd, TeamUpperBnd, TeamStride,
                                        DistSchedKind, TeamLB, TeamUB, TeamST);
 
-    if (isa<WRNParallelSectionsNode>(W) ||
-        WRegionUtils::isDistributeParLoopNode(W) ||
-        isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
-        isa<WRNSectionsNode>(W))
+    if (LoopNeedsBoundsUpdate)
       genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
@@ -1675,8 +1793,14 @@ bool VPOParoptTransform::paroptTransforms() {
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
   // to true/false depending on whether it finds a WRN that needs the TID or
   // BID, respectively.
-  gatherWRegionNodeList(NeedTID, NeedBID);
+  gatherWRegionNodeList(NeedTID, NeedBID); // list order is in-to-out
 
+  if (LoopMappingScheme == 1 && isModeOmpNoFECollapse()) {
+    gatherWRegionNodeListPreOrder(); // list order is out-to-in
+    for (auto *W : WRegionListPreOrder)
+      if (auto *WL = dyn_cast<WRNGenericLoopNode>(W))
+        RoutineChanged |= replaceGenericLoop(WL, LoopMappingScheme);
+  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (isTargetCSA()) {
@@ -1731,6 +1855,16 @@ bool VPOParoptTransform::paroptTransforms() {
       W->resetBBSet();
     }
 #endif  // INTEL_CUSTOMIZATION
+
+  // LoopCollapse and Prepare passes work with the clauses related to
+  // ND-range partitioning (OFFLOAD_NDRANGE, OFFLOAD_KNOWN_NDRANGE) which
+  // use ParoptConfig for some benefit checks. That's why these passes
+  // need offload metadata to match the config values with the actual target
+  // regions presented.
+  // ParoptTransform pass loads this metadata as well, but via ModuleTransform
+  // pass.
+  if (!DisableOffload && ((Mode & ParPrepare) || isModeOmpNoFECollapse()))
+    OffloadEntries = VPOParoptUtils::loadOffloadMetadata(*F->getParent());
 
   if ((Mode & OmpPar) && (Mode & ParTrans) && !DisableOffload) {
     if (isTargetSPIRV())
@@ -1974,7 +2108,7 @@ bool VPOParoptTransform::paroptTransforms() {
               if (ORLoop != nullptr)
                 ORBuilder(*ORLoop, *ORLinfo)
                     .addRemark(OptReportVerbosity::Low,
-                               "CSA: OpenMP parallel loop will be pipelined");
+                               OptRemarkID::OpenMPParLoopPipelined);
             }
 
             if (W->getIsParSections()) {
@@ -2034,16 +2168,16 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr) {
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low,
-                                "OpenMP: Outlined parallel loop");
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPOutlinedParLoop);
 
-                 // Add remark to enclosing loop (if any).
-                 if (ORLoop->getParentLoop() != nullptr)
-                   // An enclosing loop is present.
-                   ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
-                       .addRemark(OptReportVerbosity::Low,
-                                  "OpenMP: Parallel loop was outlined");
+                // Add remark to enclosing loop (if any).
+                if (ORLoop->getParentLoop() != nullptr)
+                  // An enclosing loop is present.
+                  ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
+                      .addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::OpenMPOutlinedEnclosedParLoop);
                }
             }
 #endif  // INTEL_CUSTOMIZATION
@@ -2182,6 +2316,15 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (W->getNowait()) {
+          // For TARGET NOWAIT we have to propagate the NOWAIT info to the
+          // parent TARGET_TASK so it can use hidden helper threads.
+          if (WRegionNode *WParent = W->getParent()) {
+            assert(WParent->getIsTask() && WParent->getIsTargetTask() &&
+                   "Parent WRN of TARGET NOWAIT must be a TARGET_TASK");
+            WParent->setIsTargetNowaitTask(true);
+          } // else WParent is null in device compilation
+        }
         if (DisableOffload) {
           // Ignore TARGET construct, but maintain [FIRST]PRIVATE semantics
           LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
@@ -2222,6 +2365,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        if (W->getNowait()) {
+          // Propagate the NOWAIT info to the parent TARGET_TASK so it
+          // can use hidden helper threads.
+          if (WRegionNode *WParent = W->getParent()) {
+            assert(WParent->getIsTask() && WParent->getIsTargetTask() &&
+                   "Parent WRN of TARGET * NOWAIT must be a TARGET_TASK");
+            WParent->setIsTargetNowaitTask(true);
+          } // else WParent is null in device compilation
+        }
         if (DisableOffload) {
           // Ignore TARGET UPDATE and TARGET ENTER/EXIT DATA constructs
           LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
@@ -2436,10 +2588,9 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(
-                         OptReportVerbosity::Low,
-                         "CSA: OpenMP worksharing loop will be pipelined");
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPWorkShareLoopPipelined);
             }
 
             if (W->getIsSections()) {
@@ -2507,9 +2658,9 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low,
-                                "OpenMP: Worksharing loop");
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPWorkSharingLoop);
             }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -2535,8 +2686,12 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genCancellationBranchingCode(W);
             }
             Changed |= genDestructorCode(W);
-            if (!W->getIsDistribute() && !W->getNowait())
-              Changed |= genBarrier(W, false);
+            if (!W->getIsDistribute() && !W->getNowait()) {
+              Instruction *BarrierInsertPt =
+                  VPOParoptUtils::getInsertionPtForImplicitBarrier(W, DT, LI);
+              Changed |= genBarrier(W, false /*IsExplicit*/,
+                                    false /*IsTargetSPIRV*/, BarrierInsertPt);
+            }
             Changed |= insertStackSaveRestore(W);
           }
           Changed |= sinkSIMDDirectives(W);
@@ -2627,6 +2782,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genBeginScopeCode(W);
           Changed |= genPrivatizationCode(W,
             W->getEntryBBlock()->getTerminator()->getPrevNonDebugInstruction());
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genDestructorCode(W);
           Changed |= genEndScopeCode(W);
@@ -2693,7 +2849,8 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNGenericLoop:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
-          Changed |= replaceGenericLoop(W);
+          if (LoopMappingScheme == 0)
+            Changed |= replaceGenericLoop(W, LoopMappingScheme);
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
@@ -3146,6 +3303,131 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
   return minmax;
 }
 
+static std::unique_ptr<VPOParoptTransform::ReductionCombiner>
+makeReductionCombiner(ReductionItem *RedI, Type *ScalarTy, Value *Dst,
+                      Value *Src, IRBuilder<> &Builder, bool UsePHI = false,
+                      bool UseLocalUpdates = false) {
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    return std::make_unique<VPOParoptTransform::UDRReductionCombiner>(
+        RedI, Dst, Src, Builder);
+  if (UsePHI)
+    return std::make_unique<VPOParoptTransform::ScalarPHIReductionCombiner>(
+        RedI, ScalarTy, Dst, Src, Builder);
+
+  return std::make_unique<VPOParoptTransform::ScalarReductionCombiner>(
+      RedI, ScalarTy, Dst, Src, Builder, UseLocalUpdates);
+}
+
+VPOParoptTransform::UDRReductionCombiner::UDRReductionCombiner(
+    ReductionItem *RedI, Value *CopyoutLoc, Value *LocalValueLoc,
+    IRBuilder<> &Builder) {
+  CombinerCall = genReductionUdrFini(RedI, CopyoutLoc, LocalValueLoc, Builder);
+}
+
+VPOParoptTransform::ScalarReductionCombiner::ScalarReductionCombiner(
+    ReductionItem *RedI, Type *ScalarTy, Value *CopyoutLoc,
+    Value *LocalValueLoc, IRBuilder<> &Builder, bool UseLocalUpdates = false) {
+  LocalValueLoad = Builder.CreateLoad(ScalarTy, LocalValueLoc);
+  // NOTE: due to some weird load elimination + phi translation by GVN we want
+  // to generate volatile load from the reduction variable for the local
+  // update loop. The load from ReductionValueLoc doesn't need to be volatile
+  // as it may be safely LICMed
+  ReductionVariableLoad =
+      Builder.CreateLoad(ScalarTy, CopyoutLoc, UseLocalUpdates);
+  auto *Res = genReductionScalarOp(RedI, Builder, ScalarTy,
+                                   ReductionVariableLoad, LocalValueLoad);
+  ReductionVariableStore = Builder.CreateStore(Res, CopyoutLoc);
+}
+
+VPOParoptTransform::ScalarPHIReductionCombiner::ScalarPHIReductionCombiner(
+    ReductionItem *RedI, Type *ScalarTy, Value *CopyoutLoc,
+    Value *LocalValueLoc, IRBuilder<> &Builder)
+    : ScalarReductionCombiner(RedI, ScalarTy, CopyoutLoc, LocalValueLoc,
+                              Builder) {
+  ReductionVariablePHI = Builder.CreatePHI(ScalarTy, 2, "red.sum.phi");
+  ReductionVariableLoad->replaceAllUsesWith(ReductionVariablePHI);
+  ReductionVariablePHI->addIncoming(ReductionVariableLoad,
+                                    Builder.GetInsertBlock());
+  ReductionVariablePHI->addIncoming(ReductionVariableStore->getOperand(0),
+                                    Builder.GetInsertBlock());
+  ReductionVariableStore->setOperand(0, ReductionVariablePHI);
+  ReductionVariableLoad->setName("init");
+}
+
+// Local atomic-free reduction base pointer is a GEP Result of the following
+// form:
+// 1) AtomicFreeReductionUseSLM == false:
+//    Result = red_local_buf + (GroupId*AtomicFreeRedLocalBufSize + ThreadId),
+//    where red_local_buf is a global memory buffer passed as a kernel argument
+// 2) AtomicFreeReductionUseSLM == true:
+//    Result = red_local_buf + ThreadId,
+//    where red_local_buf is a local memory buffer private to each WG
+// Regardless of the SLM option, the local buffer has the following type:
+// scalars:
+//    [M x ElemTy],
+// arrays/arrsects:
+//    [M x [N * ElemTy]],
+// where
+// M = {
+//  AtomicFreeRedLocalBufSize x AtomicFreeRedGlobalBufSize, SLM=off
+//  AtomicFreeRedLocalBufSize,                              SLM=on
+// },
+// N = NumElems (i.e. section size),
+// ElemTy = BufTy returned by getItemInfo (i.e. item element type)
+Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
+                                                       Type *ElemTy,
+                                                       Value *NumElements,
+                                                       Value *IdVal,
+                                                       IRBuilder<> &Builder) {
+  SmallVector<Value *, 2> Indices;
+  GlobalVariable *LocalBuf = nullptr;
+  if (AtomicFreeReductionUseSLM) {
+    // For SLM buffer it's necessary to gep into the GV first,
+    // for non-SLM case it's not needed since the GV is transformed into
+    // a kernel argument by CodeExtractor
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(IdVal);
+    auto *BufTy = ElemTy;
+    if (NumElements) {
+      assert(isa<Constant>(NumElements) &&
+             "non-constant array sections are not supported by local "
+             "atomic-free reduction");
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElements)->getZExtValue());
+      // array type requires one more level of gep indexing
+      Indices.push_back(Builder.getInt32(0));
+    }
+    BufTy = ArrayType::get(
+        BufTy, AtomicFreeRedLocalBufSize ? AtomicFreeRedLocalBufSize : 1);
+    LocalBuf =
+        new GlobalVariable(*F->getParent(), BufTy, false,
+                           GlobalValue::LinkageTypes::InternalLinkage,
+                           Constant::getNullValue(BufTy), "red_local_buf",
+                           nullptr, GlobalValue::NotThreadLocal,
+                           isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+  } else {
+    // For the global buffer approach it's necessary to
+    // get a pointer to the chunk corresponding to the right WI.
+    // It's basically buf_ptr + group_id * num_teams + thread_id
+    LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
+    assert(LocalBuf && "No local reduction buffer found");
+    Value *GroupId =
+        VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
+    Value *LocalBufOff =
+        Builder.CreateMul(GroupId, Builder.getInt64(AtomicFreeRedLocalBufSize));
+    LocalBufOff = Builder.CreateAdd(LocalBufOff, IdVal);
+    Indices.push_back(LocalBufOff);
+    if (LocalBuf->getValueType()->isArrayTy())
+      Indices.push_back(Builder.getInt32(0));
+  }
+  Value *ResultGep =
+      Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    ResultGep = VPOParoptUtils::genAddrSpaceCast(
+        ResultGep, &*Builder.GetInsertPoint(), vpo::ADDRESS_SPACE_GENERIC);
+  return ResultGep;
+}
+
 // Generate local update loop for atomic-free reduction.
 // NOTE: Current compiler & RT implementation supports LWS with
 // only 1 dimension > 1 that's why we're only iterating over
@@ -3181,19 +3463,13 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 // the loop previously generated by genRedAggregateInitOrFini instead of
 // a plain scalar update
 //
-bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
-    WRegionNode *W, ReductionItem *RedI, Instruction *Rhs1, Instruction *Rhs2,
-    Instruction *CombinerCopyout, IRBuilder<> &Builder, DominatorTree *DT) {
+void VPOParoptTransform::genAtomicFreeReductionLocalFini(
+    WRegionNode *W, ReductionItem *RedI,
+    std::unique_ptr<ReductionCombiner> Combiner, IRBuilder<> &Builder,
+    DominatorTree *DT) {
   auto *WTarget = cast<WRNTargetNode>(
         WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
   bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-  // TODO: redesign API to incapsulate Rhs1/2,CombinerCopyout as a part of
-  //       tree reduction support for UDR
-  assert(((!IsUDR && isa<StoreInst>(CombinerCopyout)) ||
-          (IsUDR && isa<CallInst>(CombinerCopyout))) &&
-         "Wrong type of the reduction combiner instruction");
-  assert((IsUDR ^ (Rhs1 && Rhs2)) &&
-         "Wrong type of reduction combiner arguments");
   WTarget->setHasLocalAtomicFreeReduction();
   Value *NumElems = nullptr;
   Type *ElemTy = nullptr;
@@ -3206,51 +3482,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
   // and hence not satisfying RedI->isArraySection() condition
   if (ElemTy->isArrayTy())
     std::tie(std::ignore, NumElems, std::ignore) =
-      genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
-  // TODO: support tree update for UDR
+        genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
-      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems)) &&
-      !IsUDR;
-
-  StoreInst *RedStore = dyn_cast_or_null<StoreInst>(CombinerCopyout);
-  // Local reduction stage requires a temporary buffer when tree pattern is
-  // enabled in order to keep its temporary results there (see local_buf in the
-  // comment above the function definition). Depending on whether explicit SLM
-  // usage is enabled it either uses a temporary chunk of SLM or the global
-  // buffer passed as a kernel argument.
-  auto GenLocalBufGEP = [this, ElemTy, &Builder](ReductionItem *RedI,
-                                                 Value *LocalId) {
-    SmallVector<Value *, 2> Indices;
-    GlobalVariable *LocalBuf = nullptr;
-    if (AtomicFreeReductionUseSLM) {
-      auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
-      LocalBuf = new GlobalVariable(
-          *F->getParent(), BufTy, false,
-          GlobalValue::LinkageTypes::InternalLinkage,
-          Constant::getNullValue(BufTy), "red_local_buf", nullptr,
-          GlobalValue::NotThreadLocal, isTargetSPIRV() ? 3 : 0);
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(LocalId);
-    } else {
-      // For the global buffer approach it's necessary to
-      // get a pointer to the chunk corresponding to the right WI.
-      // It's basically buf_ptr + group_id * num_teams + thread_id
-      LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
-      assert(LocalBuf && "No local reduction buffer found");
-      Value *GroupId =
-          VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
-      GroupId = Builder.CreateTruncOrBitCast(GroupId, Builder.getInt32Ty());
-      auto *LocalBufOff = Builder.CreateMul(
-          GroupId, Builder.getInt32(AtomicFreeRedLocalBufSize));
-      Value *LocalIdTrunc =
-          Builder.CreateTruncOrBitCast(LocalId, Builder.getInt32Ty());
-      LocalBufOff = Builder.CreateAdd(LocalBufOff, LocalIdTrunc);
-      Indices.push_back(LocalBufOff);
-    }
-    return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf,
-                                     {Indices});
-  };
+      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems));
 
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArrayOrArraySection &&
       !IsUDR) {
@@ -3259,38 +3494,33 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
              "No existing tree update barrier found");
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier);
-      auto *LocalPtr =
-          GenLocalBufGEP(RedI, AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId);
-      Rhs1->setOperand(0, LocalPtr);
-      auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
-      Builder.CreateStore(Rhs2Copy, LocalPtr);
+      Value *LocalPtr = genLocalReductionBufferBase(
+          RedI, ElemTy, NumElems,
+          AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId, Builder);
+      Value *PrivLoad =
+          Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
+      Builder.CreateStore(PrivLoad, LocalPtr);
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB,
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->begin());
-      auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
-          RedStore->getOperand(0)->getType(), LocalPtr,
-          AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
-      Rhs2->setOperand(0, LocalPtrPlus);
+      Value *LocalPtrPlus = Builder.CreateInBoundsGEP(
+          ElemTy, LocalPtr, AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).ExitBB->getTerminator());
-      auto *RedValType = RedStore->getValueOperand()->getType();
-      auto *RedVarPtr = RedStore->getPointerOperand();
-      auto *LocalVal = Builder.CreateLoad(RedValType, LocalPtr);
-      auto *CurLocal = Builder.CreateLoad(RedValType, RedVarPtr);
-      auto *RedOp = cast<Instruction>(
-          genReductionScalarOp(RedI, Builder, RedValType, CurLocal, LocalVal));
+      makeReductionCombiner(RedI, ElemTy, Combiner->getCopyoutLoc(), LocalPtr,
+                            Builder);
 
-      Builder.CreateStore(RedOp, RedVarPtr);
-      RedStore->setOperand(1, LocalPtr);
+      Combiner->setCopyoutLoc(LocalPtr);
+      Combiner->setLocalValueLoc(LocalPtrPlus);
     }
     // do not generate another loop if we already have one
     // for the same WRegion
-    return false;
+    return;
   }
   auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
-  auto *UpdateBB = CombinerCopyout->getParent();
+  auto *UpdateBB = Combiner->getParentBlock();
   // reusing existing loop isn't supported for local updates yet
   if (!IsArrayOrArraySection && !IsUDR)
     AtomicFreeRedLocalUpdateInfos[W].UpdateBB = UpdateBB;
@@ -3363,12 +3593,12 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
     };
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
     if (!IsArrayOrArraySection) {
-      LocalPtr = GenLocalBufGEP(RedI, LocalId);
-      Rhs1->setOperand(0, LocalPtr);
-      auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
-      Builder.CreateStore(Rhs2Copy, LocalPtr);
+      LocalPtr =
+          genLocalReductionBufferBase(RedI, ElemTy, NumElems, LocalId, Builder);
+      auto *PrivLoad = Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
+      Builder.CreateStore(PrivLoad, LocalPtr);
     } else {
-      LocalPtr = Rhs2->getOperand(0);
+      LocalPtr = Combiner->getLocalValueLoc();
     }
     auto *EntryBarrierCI = VPOParoptUtils::genCall(
         "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
@@ -3437,16 +3667,19 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 
   if (GenTreeUpdate) {
     Builder.SetInsertPoint(UpdateBB->getFirstNonPHI());
-    auto *NumElemsCasted =
-        IsArrayOrArraySection
-            ? Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType())
-            : NumElems;
-    auto *LocalPtrOffset = IsArrayOrArraySection
-                               ? Builder.CreateMul(NumElemsCasted, IVPhi)
-                               : IVPhi;
-    auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
-        RedStore->getOperand(0)->getType(), LocalPtr, LocalPtrOffset);
-    Rhs2->setOperand(0, LocalPtrPlus);
+    Value *LocalPtrOffset = IVPhi;
+    // this is needed for array items because despite no NumElements
+    // is used in other reduction buffer related GEPs due to its original
+    // type being [NumElements * ElemTy]*, LocalPtr here is already casted
+    // to just ElemTy*
+    if (IsArrayOrArraySection) {
+      auto *NumElemsCasted =
+          Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType());
+      LocalPtrOffset = Builder.CreateMul(NumElemsCasted, IVPhi);
+    }
+    auto *LocalPtrPlus =
+        Builder.CreateInBoundsGEP(ElemTy, LocalPtr, LocalPtrOffset);
+    Combiner->setLocalValueLoc(LocalPtrPlus);
   }
 
   Builder.SetInsertPoint(HeaderBB);
@@ -3474,27 +3707,25 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 
   // Final write-back for array section is done in genRedAggregateInitOrFini,
   // here we handle scalars only
-  if (!IsArrayOrArraySection && !IsUDR) {
+  if (!IsArrayOrArraySection) {
     AtomicFreeRedLocalUpdateInfos[W].IVPhi = IVPhi;
     AtomicFreeRedLocalUpdateInfos[W].LocalId = LocalId;
     AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB;
     if (GenTreeUpdate) {
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
-      auto *LocalVal =
-          Builder.CreateLoad(RedStore->getValueOperand()->getType(), LocalPtr);
-      auto *CurLocal =
-          Builder.CreateLoad(RedStore->getValueOperand()->getType(),
-                             RedStore->getPointerOperand());
-      auto *RedOp = cast<Instruction>(genReductionScalarOp(
-          RedI, Builder, RedStore->getValueOperand()->getType(), CurLocal,
-          LocalVal));
-      auto *St = Builder.CreateStore(RedOp, RedStore->getPointerOperand());
-      auto *ExitBB2 = SplitBlock(ExitBB, St->getNextNode(), DT, LI);
-      RedStore->setOperand(1, LocalPtr);
+
+      auto FinalCopyoutInfo = makeReductionCombiner(
+          RedI, ElemTy, Combiner->getCopyoutLoc(), LocalPtr, Builder);
+
+      auto *ExitBB2 = SplitBlock(
+          ExitBB, FinalCopyoutInfo->getCopyoutInstr()->getNextNode(), DT, LI);
+      Combiner->setCopyoutLoc(LocalPtr);
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
       auto *MTC =
           Builder.CreateICmpNE(LocalId, ConstantInt::getNullValue(SizeTy));
-      SplitBlockAndInsertIfThen(MTC, LocalVal, false, nullptr, DT, LI, ExitBB2);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+      SplitBlockAndInsertIfThen(MTC, cast<Instruction>(MTC)->getNextNode(),
+                                false, nullptr, &DTU, LI, ExitBB2);
       Builder.SetInsertPoint(ExitBB2);
       auto *ExitBB1 = ExitBB->getTerminator()->getSuccessor(1);
 
@@ -3518,8 +3749,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
   assert(DT->properlyDominates(HeaderBB, UpdateBB));
   assert(DT->properlyDominates(IdCheckBB, UpdateBB));
   assert(DT->properlyDominates(IdCheckBB, LatchBB));
-  // no kmpc_critical required
-  return false;
 }
 
 // Generate global update loop for atomic-free GPU reduction.
@@ -3573,19 +3802,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 //   }
 // }
 //
-// IR expected at the entry for scalar item:
-//   v0 = load src_ptr    <- load from ReductionValueLoc
-//                           (Rhs2 at the function's callsite)
-//   sum_phi = phi (v0)   <- RedValLoad - keeps intermediate reduction result
-//                                        between the final loop iterations
-//   v1 = load dst_ptr    <- RedVarLoad
-//   v2 = v0 + v1
-//   store v2, dst_ptr    <- RedStore
-//
-// With AtomicFreeReductionParallelGlobal==true
-// there is no sum_phi, RedValLoad is v0 instead, as there's no serial loop to
-// be produced.
-//
 // `teams_counter`, which is shared across all teams, is atomically incremented
 // when a team is done writing its value to the `red_buf` array. Once all teams
 // are done doing that, the results are combined by the last team to increment
@@ -3603,22 +3819,15 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 // recycle team_counter's memory as-is when some other kernel requests it,
 // without first resetting it to zero in the runtime.
 //
-bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
-    WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
-    Instruction *RedVarLoad, Instruction *RedValLoad, PHINode *RedSumPhi,
-    bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT) {
+void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
+    WRegionNode *W, ReductionItem *RedI,
+    std::unique_ptr<ReductionCombiner> Combiner, bool UseExistingUpdateLoop,
+    IRBuilder<> &Builder, DominatorTree *DT) {
   auto *WTarget = cast<WRNTargetNode>(
         WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
   bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-  // TODO: redesign API to incapsulate RedVar/ValLoad,CombinerCopyout as a part
-  // of tree reduction support for UDR
-  assert(((!IsUDR && isa<StoreInst>(CombinerCopyout)) ||
-          (IsUDR && isa<CallInst>(CombinerCopyout))) &&
-         "Wrong type of the reduction combiner instruction");
-  assert((IsUDR ^ (RedVarLoad && RedValLoad)) &&
-         "Wrong type of reduction combiner arguments");
   WTarget->setHasGlobalAtomicFreeReduction();
-  auto *UpdateBB = CombinerCopyout->getParent();
+  auto *UpdateBB = Combiner->getParentBlock();
 
   BasicBlock *HeaderBB = nullptr;
 
@@ -3631,14 +3840,6 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
   bool UseParallelReduction =
       AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection && !IsUDR;
-  // The original value stored in the reduction variable, serves as incoming
-  // value of the serial loop result phi or being explicitly reduced with the
-  // parallel loop result
-  StoreInst *RedStore = dyn_cast_or_null<StoreInst>(CombinerCopyout);
-  LoadInst *Init = (!IsArrayOrArraySection && !IsUDR)
-                       ? Builder.CreateLoad(
-                             RedElemType, RedStore->getPointerOperand(), "init")
-                       : nullptr;
   auto &UpdateInfos = UseParallelReduction
                           ? AtomicFreeRedGlobalParUpdateInfos
                           : AtomicFreeRedGlobalSerialUpdateInfos;
@@ -3654,12 +3855,12 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     // EntryBB:
     //   ... initializing pointers
     //   br isempty, DoneBB, BodyBB
-    // BodyBB:                <- UpdateBB
+    // BodyBB:                <- Combiner->getParentBlock()
     //   dst/src_ptr_phi = ...
-    //   v0 = load src_ptr    <- RedValLoad = load from ReductionValueLoc
-    //   v1 = load dst_ptr    <- RedVarLoad
+    //   v0 = load src_ptr    <- Combiner->getStartInstr()
+    //   v1 = load dst_ptr
     //   v2 = v0 + v1
-    //   store v2, dst_ptr    <- RedStore
+    //   store v2, dst_ptr    <- Combiner->getCopyoutInstr()
     //   ...
     // DoneBB:
     //   ...
@@ -3677,9 +3878,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       ExitBB = EntryBB->getTerminator()->getSuccessor(0);
     }
     Builder.SetInsertPoint(IsArrayOrArraySection ? EntryBB : UpdateBB);
-    auto *StartPoint = IsArrayOrArraySection
-                           ? EntryBB->getFirstNonPHI()
-                           : (IsUDR ? CombinerCopyout : RedValLoad);
+    auto *StartPoint = IsArrayOrArraySection ? EntryBB->getFirstNonPHI()
+                                             : Combiner->getStartInstr();
     BasicBlock *Preheader = nullptr;
 
     if (NeedsTeamsCounter) {
@@ -3705,7 +3905,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       assert(CntrCheckBB && "CntrCheckBB is null.");
       assert(GroupCmp && "GroupCmp is null.");
 
-      SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, DT, LI,
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+      SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, &DTU, LI,
                                 ExitBB);
 
       BasicBlock *TeamRedBuffersReadyBB =
@@ -3753,8 +3954,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       BasicBlock *MasterCheckBB = StartPoint->getParent();
       Preheader = MasterCheckBB;
 
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       SplitBlockAndInsertIfThen(NotMasterCheckPredicate, StartPoint, false,
-                                nullptr, DT, LI, ExitBB);
+                                nullptr, &DTU, LI, ExitBB);
     } else {
       if (!Preheader)
         Preheader = StartPoint->getParent()->getSinglePredecessor();
@@ -3855,6 +4057,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
                                           ? IVIncInsertPt->getIterator()
                                           : LatchBB->end());
       BasicBlock *OuterLatchBB = nullptr;
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       if (UseParallelReduction) {
         // loop (0) IV increment
         auto *IdxInc0 = Builder.CreateAdd(TeamsIdxPhi, CmpValue);
@@ -3865,12 +4068,13 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
         SplitBlockAndInsertIfThen(IdxCmp,
                                   cast<Instruction>(IdxCmp)->getNextNode(),
-                                  false, nullptr, DT, LI, OuterLatchBB);
+                                  false, nullptr, &DTU, LI, OuterLatchBB);
         TeamsIdxPhi->addIncoming(IdxInc0, OuterLatchBB);
       }
 
-      SplitBlockAndInsertIfThen(ExitCond, StartPt, false, nullptr, DT, LI,
-                                ExitBB);
+      SplitBlockAndInsertIfThen(ExitCond,
+                                cast<Instruction>(ExitCond)->getNextNode(),
+                                false, nullptr, &DTU, LI, ExitBB);
       auto *PretreeHeaderBB = HeaderBB;
       PretreeHeaderBB->setName("atomic.free.red.global.pretree.header");
       if (UseParallelReduction)
@@ -3902,7 +4106,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         auto *Cond3 = Builder.CreateICmpUGE(ArrAbsOff, NumGroups0);
         Cond = Builder.CreateLogicalOr(Cond, Cond2);
         Cond = Builder.CreateLogicalOr(Cond, Cond3);
-        SplitBlockAndInsertIfThen(Cond, SplitPt, false, nullptr, DT, LI,
+        SplitBlockAndInsertIfThen(Cond, SplitPt, false, nullptr, &DTU, LI,
                                   LatchBB);
         BodyBB = cast<BranchInst>(BodyBB->getTerminator())->getSuccessor(1);
 
@@ -3943,13 +4147,15 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       return IdxPhi;
     };
 
-    auto *IdxIncInsertPt = (IsUDR && !IsArrayOrArraySection)
-                               ? CombinerCopyout->getNextNode()
-                               : CombinerCopyout;
-    auto *RedStoreParentBB = IdxIncInsertPt->getParent();
+    auto *RedCopyoutParentBB = Combiner->getParentBlock();
+    auto *IdxIncInsertPt =
+        UseParallelReduction ? &RedCopyoutParentBB->front()
+                             : ((IsUDR && !IsArrayOrArraySection)
+                                    ? Combiner->getCopyoutInstr()->getNextNode()
+                                    : Combiner->getCopyoutInstr());
     IdxPhi =
-        GenerateLoop(StartPoint, RedStoreParentBB,
-                     IsArrayOrArraySection ? nullptr // use RedStoreParentBB
+        GenerateLoop(StartPoint, RedCopyoutParentBB,
+                     IsArrayOrArraySection ? nullptr // use RedCopyoutParentBB
                                            : IdxIncInsertPt);
 
     Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
@@ -3960,7 +4166,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     if (IsArrayOrArraySection) {
       Builder.CreateBr(UpdateInfos.lookup(W).InnerLatchBB);
     } else if (!IsUDR) {
-      CombinerCopyout->moveBefore(UpdateInfos[W].UpdateBB->getTerminator());
+      Combiner->getCopyoutInstr()->moveBefore(
+          UpdateInfos[W].UpdateBB->getTerminator());
     }
   }
   // loop (0) latch
@@ -3982,7 +4189,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       InnerHeaderBB->getTerminator()->setSuccessor(0, OuterLatchBB);
       StoreBB = SplitBlock(LatchBB, LatchBB->getTerminator(), DT, LI);
       if (!IsUDR)
-        CombinerCopyout->moveBefore(StoreBB->getTerminator());
+        Combiner->getCopyoutInstr()->moveBefore(StoreBB->getTerminator());
       StoreBB->setName("atomic.free.red.global.update.store");
       LatchBB->getTerminator()->setSuccessor(0, HeaderBB);
       InnerLatchBB->getTerminator()->setSuccessor(0, InnerHeaderBB);
@@ -3996,7 +4203,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       IdxPhi->setIncomingBlock(1, InnerLatchBB);
     } else if (!IsUDR) {
       StoreBB = UpdateInfos.lookup(W).ScalarUpdateBB;
-      RedStore->moveBefore(StoreBB->getTerminator());
+      Combiner->getCopyoutInstr()->moveBefore(StoreBB->getTerminator());
     }
   }
   // Each reditem update has its own exit block so that it'd be
@@ -4041,31 +4248,23 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         ->getTerminator()
         ->setSuccessor(0, ItemExitBB);
 
-  auto *InsertPt = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
-  Builder.SetInsertPoint(InsertPt->getNextNode());
-  if (RedSumPhi) {
-    Builder.Insert(RedSumPhi);
-    RedSumPhi->addIncoming(Init, InsertPt->getIncomingBlock(0));
-    RedSumPhi->addIncoming(RedStore->getOperand(0),
-                           InsertPt->getIncomingBlock(1));
-    RedSumPhi->setName("red.sum.phi");
-    Init->moveBefore(InsertPt->getIncomingBlock(0)->getTerminator());
-  }
+  auto *BasePHI = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
+  // We need to distinguish between a phi generated as a part of reduction
+  // combiner and a phi as an array section destination pointer
+  // ("red.cpy.dest.ptr")
+  if (!IsArrayOrArraySection)
+    Combiner->finalizePHI(BasePHI);
 
   // Now as we have IdxPhi we need to use it for the source pointer
   // offsets in the loop body.
   // For the global update loop we want to offset by IdxPhi from the beginning
   // of the buffer while RedValLoad is already load from buffer+group_id(0)
-  auto *PtrInitToReplace =
-      IsUDR ? cast<CallInst>(CombinerCopyout)->getArgOperand(1)
-            : RedValLoad->getOperand(0);
-  Instruction *PtrUseToFix = IsUDR ? CombinerCopyout : RedValLoad;
-  auto *PtrToCheck = PtrInitToReplace;
+  auto *PtrInitToReplace = Combiner->getLocalValueLoc();
+  Instruction *PtrUseToFix = nullptr;
   if (auto *SrcPHI = dyn_cast<PHINode>(PtrInitToReplace)) {
     assert(IsArrayOrArraySection);
     PtrUseToFix = SrcPHI;
-    PtrToCheck = SrcPHI->getIncomingValue(0);
-    PtrInitToReplace = PtrToCheck;
+    PtrInitToReplace = SrcPHI->getIncomingValue(0);
   }
 
   // Making the new loop use reduction buffer, using its existing
@@ -4080,11 +4279,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     // scalar:
     //  serial update: red_buf+idx_phi
     //  parallel update: red_buf+local_id(0)
-    // array section: red_buf + idx_phi*Section.size()
+    // array section: red_buf+idx_phi
     Value *Idx = IdxPhi;
-    if (IsArrayOrArraySection)
-      Idx = Builder.CreateMul(Idx, NumElements);
-    else if (UseParallelReduction)
+    if (UseParallelReduction)
       Idx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
 
     if (UseParallelReduction)
@@ -4098,7 +4295,10 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     if (IsArrayOrArraySection || IsUDR)
       GlobalGep = Builder.CreatePointerBitCastOrAddrSpaceCast(
           GlobalGep, PointerType::get(RedElemType, AddrSpace));
-    PtrUseToFix->replaceUsesOfWith(PtrToCheck, GlobalGep);
+    if (PtrUseToFix)
+      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
+    else
+      Combiner->setLocalValueLoc(GlobalGep);
 
     // For parallel update loop there's no phi because in a tree pattern
     // everything needs to be spilled back to the buffer in the end of each
@@ -4106,46 +4306,26 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     //  red_buf[local_id(0)] = red_op(red_buf[local_id(0)],
     //  red_buf[local_id(0)+tree_offset]);
     // performs a store to red_buf[local_id(0)] in the end.
-    // Both loads and red_op were already generated (RedVarLoad,
-    // RedValLoad).
     if (UseParallelReduction) {
       Builder.SetInsertPoint(InnerHeaderBB->getTerminator());
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
                                             GlobalGep, IdxPhi);
-      RedVarLoad->setOperand(0, LocalOffGep);
-      RedVarLoad->setName("tree_load_off");
       Builder.SetInsertPoint(UpdateInfos[W].UpdateBB->getTerminator());
-      auto *PartSumSt = Builder.CreateStore(RedStore->getOperand(0), GlobalGep);
-      markAsGuardedByThreadCheck(PartSumSt);
 
-      Builder.SetInsertPoint(RedStore);
-      Value *Res = Builder.CreateLoad(GepToSkip->getSourceElementType(), GepPtr,
-                                      "tree_load");
-      assert(Init && "no old value loaded for parallel cross-team reduction");
-      Init->moveBefore(cast<Instruction>(Res));
-      Res = genReductionScalarOp(RedI, Builder, RedElemType, Res, Init);
-      RedStore->setOperand(0, Res);
-
-      Builder.SetInsertPoint(OuterLatchBB->getTerminator());
-      Value *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
-      TmpRes = genReductionScalarOp(RedI, Builder, RedElemType,
-                                           TmpRes, RedSumPhi);
-      RedSumPhi->setIncomingValue(1, TmpRes);
-      Init->moveBefore(CntrCheckBBs[W]->getTerminator());
+      auto InnerCombiner = makeReductionCombiner(RedI, RedElemType, GlobalGep,
+                                                 LocalOffGep, Builder);
+      markAsGuardedByThreadCheck(InnerCombiner->getCopyoutInstr());
     }
   }
 
   UpdateInfos[W].UpdateBB = ItemExitBB;
-
-  if (RedSumPhi)
-    RedStore->setOperand(0, RedSumPhi);
 
   // When parallel cross-teams reduction combining is disabled, this store is
   // already in the single-thread loop, so another master-thread check is not
   // necessary (it's not even guaranteed that the master thread is going to
   // execute it).
   if (!UseParallelReduction)
-    markAsGuardedByThreadCheck(CombinerCopyout);
+    markAsGuardedByThreadCheck(Combiner->getCopyoutInstr());
 
   // If we are using RTL-managed zero-initialized memory for team-counter,
   // we need to reset it to zero so that after the kernel finishes, the
@@ -4157,14 +4337,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       !AtomicFreeRedUseFPTeamsCounter)
     resetTeamsCounterAfterCopyingBackRedItem(
         GlobalCounter, IsArrayOrArraySection, IsUDR,
-        IsUDR ? StoreBB->getFirstNonPHI() : CombinerCopyout, HeaderBB);
+        IsUDR ? StoreBB->getFirstNonPHI() : Combiner->getCopyoutInstr(),
+        HeaderBB);
 
   // For scalar items next instruction should be inserted after the whole
   // update loop.
   // For array sections pointers increments and end condition should be inserted
   // at the end of the section loop.
   Builder.SetInsertPoint(IsArrayOrArraySection ? UpdateBB : StoreBB);
-  return false;
 }
 
 /// Insert code to increment teams_counter once a team is done writing its value
@@ -4579,7 +4759,7 @@ Value *VPOParoptTransform::genReductionScalarOp(ReductionItem *RedI,
 }
 
 // Generate the reduction update instructions.
-bool VPOParoptTransform::genReductionScalarFini(
+ReductionCriticalSectionKind VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT, bool NoNeedToOffsetOrDerefOldV) {
@@ -4659,72 +4839,54 @@ bool VPOParoptTransform::genReductionScalarFini(
   } else if (UseExistingGlobalLoop && !IsArrayOrArraySection) {
     if (HasByRefLoad)
       HandleByRefArg(&UpdateInfos.lookup(W).EntryBB->front());
-    Builder.SetInsertPoint(UpdateInfos.lookup(W).UpdateBB->getTerminator());
+    bool UseParallelReduction = AtomicFreeReductionParallelGlobal && !IsUDR;
+    Builder.SetInsertPoint((UseParallelReduction
+                                ? UpdateInfos.lookup(W).OuterLatchBB
+                                : UpdateInfos.lookup(W).UpdateBB)
+                               ->getTerminator());
   }
-
-  PHINode *SumPhi = (!IsArrayOrArraySection && !IsUDR)
-                        ? PHINode::Create(RedElemType, 0, "red.sum.phi")
-                        : nullptr;
 
   // For simd inscan the calculated reduction is the final value.
   if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan()) {
     auto *Load = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
     Builder.CreateStore(Load, ReductionVar);
     // No need for atomic updates for SIMD loops.
-    return false;
+    return ReductionCriticalSectionKind::NONE;
   }
 
-  Value *Res = nullptr;
-  Instruction *Rhs1 = nullptr, *Rhs2 = nullptr;
-  Instruction *CombinerCopyout = nullptr;
-
-  if (IsUDR) {
-    CombinerCopyout =
-        genReductionUdrFini(RedI, ReductionVar, ReductionValueLoc, Builder);
-  } else {
-    // NOTE: due to some weird load elimination + phi translation by GVN we want
-    // to generate volatile load from the reduction variable for the local
-    // update loop. The load from ReductionValueLoc doesn't need to be volatile
-    // as it may be safely LICMed
-    Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
-    Rhs1 = (UseGlobalUpdates && SumPhi && !AtomicFreeReductionParallelGlobal)
-               ? cast<Instruction>(SumPhi)
-               : Builder.CreateLoad(ScalarTy, ReductionVar, UseLocalUpdates);
-    Res = genReductionScalarOp(RedI, Builder, ScalarTy, Rhs1, Rhs2);
-    CombinerCopyout = Builder.CreateStore(Res, ReductionVar);
-  }
+  auto Combiner = makeReductionCombiner(
+      RedI, ScalarTy, ReductionVar, ReductionValueLoc, Builder,
+      UseGlobalUpdates && !IsArrayOrArraySection && !IsUDR, UseLocalUpdates);
 
   if (isa<WRNVecLoopNode>(W))
     // Reduction update does not have to be atomic for SIMD loop.
-    return false;
+    return ReductionCriticalSectionKind::NONE;
 
+  ReductionCriticalSectionKind Res = ReductionCriticalSectionKind::LOOP;
   if (isTargetSPIRV()) {
-    // This method may insert a new call before the store instruction (Tmp0)
-    // and erase the store instruction, but in any case it does not invalidate
-    // the IRBuilder.
     if (UseLocalUpdates) {
-      // Although in general Rhs1 may be either PHINode or LoadInst,
-      // the former is possible only when UseGlobalUpdates==true =>
-      // UseLocalUpdates==false and the cast is safe
-      return genAtomicFreeReductionLocalFini(W, RedI, Rhs1, Rhs2,
-                                             CombinerCopyout, Builder, DT);
-    } else if (UseGlobalUpdates) {
-      return genAtomicFreeReductionGlobalFini(
-          W, RedI, CombinerCopyout, Rhs1, Rhs2, SumPhi, UseExistingGlobalLoop,
-          Builder, DT);
-    } else if (IsUDR) {
-      // Non atomic-free UDR requires critical section
-      return true;
+      genAtomicFreeReductionLocalFini(W, RedI, std::move(Combiner), Builder,
+                                      DT);
+      return ReductionCriticalSectionKind::NONE;
     }
+    if (UseGlobalUpdates) {
+      genAtomicFreeReductionGlobalFini(W, RedI, std::move(Combiner),
+                                       UseExistingGlobalLoop, Builder, DT);
+      return ReductionCriticalSectionKind::NONE;
+    }
+    // Non-atomic-free UDR requires critical section
+    if (IsUDR)
+      return ReductionCriticalSectionKind::LOOP;
+
     Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
-        W, CombinerCopyout->getParent(), nullptr, nullptr, true);
+        W, Combiner->getParentBlock(), nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
       R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
         << ore::NV("Type", ScalarTy) << " made atomic";
       ORE.emit(R);
-      return false;
+      return ReductionCriticalSectionKind::NONE;
     }
 
     // Try to generate a horizontal (sub-group) reduction.
@@ -4743,28 +4905,23 @@ bool VPOParoptTransform::genReductionScalarFini(
       // code in teams region. Executing the horizontal reduction
       // will result in redundant reduction operations producing
       // incorrect result.
-      auto *TempRedLoad = Rhs2->clone();
-      TempRedLoad->insertAfter(Rhs2);
-      TempRedLoad->takeName(Rhs2);
-      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
-
-      if (HRed)
-        Rhs2->replaceAllUsesWith(HRed);
-      else
+      if (!Combiner->emitHorizontalReduction(RedI, ScalarTy))
         LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                    ": SPIRV horizontal reduction is not available "
                    "for critical section reduction: " << RedI->getOpName() <<
                    " with type " << *ScalarTy << "\n");
+      else
+        Res = ReductionCriticalSectionKind::SERIAL;
     }
 
-    OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", CombinerCopyout);
+    OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic",
+                               Combiner->getCopyoutInstr());
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
       << ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
     ORE.emit(R);
   }
 
-  return true;
+  return Res;
 }
 
 // Generate the reduction update code.
@@ -4798,11 +4955,9 @@ bool VPOParoptTransform::genReductionScalarFini(
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %exitStub
 //
-bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
-                                          Value *OldV, Instruction *InsertPt,
-                                          DominatorTree *DT,
-                                          bool NoNeedToOffsetOrDerefOldV,
-                                          Value *LocalRedVar) {
+ReductionCriticalSectionKind VPOParoptTransform::genReductionFini(
+    WRegionNode *W, ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
+    DominatorTree *DT, bool NoNeedToOffsetOrDerefOldV, Value *LocalRedVar) {
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) =
@@ -4952,12 +5107,11 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 //   (3) Write the values back where they're expected by the global reduction
 // See the related comments in the code below
 //
-bool VPOParoptTransform::genRedAggregateInitOrFini(
+ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     WRegionNode *W, ReductionItem *RedI, Value *AI, Value *OldV,
     Instruction *InsertPt, bool IsInit, DominatorTree *DT,
     bool NoNeedToOffsetOrDerefOldV) {
 
-  bool NeedsKmpcCritical = false;
   IRBuilder<> Builder(InsertPt);
   auto EntryBB = Builder.GetInsertBlock();
 
@@ -5058,62 +5212,41 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     }
   };
 
-  GlobalVariable *BufPtr = nullptr;
   CallInst *IdVal = nullptr;
   bool MakeCopiesToFromLocalRedBuf =
       isTargetSPIRV() && !IsInit &&
       VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
       AtomicFreeRedLocalBufSize &&
       WRegionUtils::supportsLocalAtomicFreeReduction(W) &&
-      VPOParoptUtils::supportsAtomicFreeReduction(RedI) && !IsUDR;
+      VPOParoptUtils::supportsAtomicFreeReduction(RedI);
   // Using dedicated local array for local tree update in atomic-free reduction
-  if (MakeCopiesToFromLocalRedBuf) {
-    if (AtomicFreeRedLocalBufs.count(RedI)) {
-      BufPtr = AtomicFreeRedLocalBufs.lookup(RedI);
-    } else {
-      assert(isa<ConstantInt>(NumElements));
-      auto BufSize = AtomicFreeRedLocalBufSize *
-                     cast<ConstantInt>(NumElements)->getZExtValue();
-      auto *BufTy = ArrayType::get(DestElementTy, BufSize);
-
-      BufPtr =
-          new GlobalVariable(*F->getParent(), BufTy, false,
-                             GlobalValue::LinkageTypes::InternalLinkage,
-                             Constant::getNullValue(BufTy), "red_local_buf",
-                             nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
-      AtomicFreeRedLocalBufs[RedI] = BufPtr;
-    }
+  if (MakeCopiesToFromLocalRedBuf && !IsInit) {
     // (1) Filling the local array with private values
-    if (BufPtr && !IsInit) {
-      IdVal = VPOParoptUtils::genLocalIdCall(0, InsertPt);
-      auto *NumElementsCast =
-          Builder.CreateZExtOrTrunc(NumElements, GeneralUtils::getSizeTTy(F));
-      auto *MemPtrOff = Builder.CreateMul(IdVal, NumElementsCast);
-      auto *MemPtr = Builder.CreateGEP(BufPtr->getValueType(), BufPtr,
-                                       {Builder.getInt32(0), MemPtrOff});
+    IdVal = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+    Value *MemPtr = genLocalReductionBufferBase(RedI, DestElementTy,
+                                                NumElements, IdVal, Builder);
 
-      auto PHIPair =
-          GenArrSecLoopBegin(Builder, MemPtr, SrcBegin, InsertPt, ".to.tree");
-      auto *DestElementPHI = PHIPair.first;
-      auto *SrcElementPHI = PHIPair.second;
+    auto PHIPair =
+        GenArrSecLoopBegin(Builder, MemPtr, SrcBegin, InsertPt, ".to.tree");
+    PHINode *DestElementPHI = PHIPair.first;
+    PHINode *SrcElementPHI = PHIPair.second;
 
-      auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
-      Builder.CreateStore(V, DestElementPHI);
+    auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
+    Builder.CreateStore(V, DestElementPHI);
 
-      GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,
-                       DoneBB);
-      DoneBB = SplitBlock(DoneBB, DoneBB->getTerminator(), DT, LI);
-      EntryBB = DoneBB;
-      Builder.SetInsertPoint(InsertPt);
+    GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,
+                     DoneBB);
+    DoneBB = SplitBlock(DoneBB, DoneBB->getTerminator(), DT, LI);
+    EntryBB = DoneBB;
+    Builder.SetInsertPoint(InsertPt);
 
-      DestBegin = MemPtr;
-      SrcBegin = MemPtr;
-    }
+    DestBegin = MemPtr;
+    SrcBegin = MemPtr;
   }
   auto PHIPair = GenArrSecLoopBegin(Builder, DestBegin, SrcBegin, InsertPt);
-  auto *DestElementPHI = PHIPair.first;
-  auto *SrcElementPHI = PHIPair.second;
+  PHINode *DestElementPHI = PHIPair.first;
+  PHINode *SrcElementPHI = PHIPair.second;
+  ReductionCriticalSectionKind Result = ReductionCriticalSectionKind::NONE;
 
   if (IsInit) {
     if (IsUDR)
@@ -5128,8 +5261,8 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
       Builder.CreateStore(V, DestElementPHI);
     }
   } else {
-    NeedsKmpcCritical |= genReductionScalarFini(
-        W, RedI, DestElementPHI, SrcElementPHI, DestElementTy, Builder, DT);
+    Result = genReductionScalarFini(W, RedI, DestElementPHI, SrcElementPHI,
+                                    DestElementTy, Builder, DT);
   }
 
   auto *RedDoneBB = DoneBB;
@@ -5143,7 +5276,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
                    RedDoneBB);
 
   // (3) Writing back the atomic-free reduction local array
-  if (BufPtr) {
+  if (MakeCopiesToFromLocalRedBuf) {
     Builder.SetInsertPoint(DoneBB->getTerminator());
 
     auto PHIPair = GenArrSecLoopBegin(Builder, OrigDestBegin, DestBegin,
@@ -5151,23 +5284,23 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     auto *DestElementPHI = PHIPair.first;
     auto *SrcElementPHI = PHIPair.second;
 
-    auto *PhiLoad = Builder.CreateLoad(DestElementTy, DestElementPHI);
-    auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
+    auto Combiner = makeReductionCombiner(RedI, DestElementTy, DestElementPHI,
+                                          SrcElementPHI, Builder);
     auto *MTT = Builder.CreateICmpNE(IdVal, Builder.getInt64(0));
-    auto *RedV = cast<Instruction>(
-        genReductionScalarOp(RedI, Builder, DestElementTy, PhiLoad, V));
-    auto *St = Builder.CreateStore(RedV, DestElementPHI);
+    cast<Instruction>(MTT)->moveBefore(Combiner->getCopyoutInstr());
     // Can't split a block with a terminator only, need some dummy instruction
     auto *FakeBr = Builder.CreateBr(DoneBB);
     auto *ThruBB = SplitBlock(BodyBB, FakeBr, DT, LI);
-    SplitBlockAndInsertIfThen(MTT, St, false, nullptr, DT, LI, ThruBB);
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager); 
+    SplitBlockAndInsertIfThen(MTT, Combiner->getCopyoutInstr(), false, nullptr,
+                              &DTU, LI, ThruBB);
     Builder.SetInsertPoint(FakeBr);
 
     GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,
                      DoneBB);
     FakeBr->eraseFromParent();
   }
-  return NeedsKmpcCritical;
+  return Result;
 }
 
 // Utility to copy data from address "From" to address "To", with an optional
@@ -5200,16 +5333,16 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
   if (Cctor) {
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
   } else if (AI && AI->isArrayAllocation()) {
-    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    unsigned Alignment = DL.getABITypeAlign(ObjType).value();
     uint64_t Size = DL.getTypeAllocSize(ObjType);
     NumElements = AI->getArraySize();
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else if (NumElements) {
-    unsigned Alignment = DL.getABITypeAlignment(AllocaTy);
+    unsigned Alignment = DL.getABITypeAlign(AllocaTy).value();
     uint64_t Size = DL.getTypeAllocSize(AllocaTy);
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else if (!VPOUtils::canBeRegisterized(ObjType, DL)) {
-    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    unsigned Alignment = DL.getABITypeAlign(ObjType).value();
     uint64_t Size = DL.getTypeAllocSize(ObjType);
     NumElements = nullptr;
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
@@ -5586,6 +5719,7 @@ void VPOParoptTransform::genConditionalLPCode(
                                  ModifiedByCurrentChunk); //          (39)
   }
 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   // Generate code that is executed in the End of each chunk, if needed.
   if (BranchToNextChunk) {
     IRBuilder<> ChunkFiniBuilder(BranchToNextChunk);
@@ -5606,7 +5740,7 @@ void VPOParoptTransform::genConditionalLPCode(
 
     Instruction *IfModifiedByHigherChunkThen =
         SplitBlockAndInsertIfThen(ModifiedByHigherChunk, BranchToNextChunk,
-                                  false, nullptr, DT, LI); //         (47)
+                                  false, nullptr, &DTU, LI); //         (47)
     IRBuilder<> ModifiedBuilder(IfModifiedByHigherChunkThen);
     ModifiedBuilder.CreateStore(ModifiedBuilder.getTrue(),
                                 ModifiedByCurrentThread);          // (48)
@@ -5643,7 +5777,7 @@ void VPOParoptTransform::genConditionalLPCode(
       ModifiedByCurrentThreadLoad, GlobalMaxComputationBuilder.getTrue(),
       NamePrefix + ".written.by.thread"); //                               (54)
   Instruction *IfThreadWroteSomethingThen = SplitBlockAndInsertIfThen( //  (55)
-      DidThreadWriteAnything, ConditionalLPBarrier, false, nullptr, DT, LI);
+      DidThreadWriteAnything, ConditionalLPBarrier, false, nullptr, &DTU, LI);
 
   // Create global variable to store the global max idx and use
   // reduction-using-critical to set it after a thread is done with all its
@@ -5663,7 +5797,7 @@ void VPOParoptTransform::genConditionalLPCode(
       FinalLocalMaxIndex, GlobalMaxIndexLoad,
       NamePrefix + ".is.local.idx.higher"); //                        (59)
   Instruction *IfHighestChunkIsModifiedByThreadThen = SplitBlockAndInsertIfThen(
-      IsLocalGreaterThanGlobal, IfThreadWroteSomethingThen, false, nullptr, DT,
+      IsLocalGreaterThanGlobal, IfThreadWroteSomethingThen, false, nullptr, &DTU,
       LI); //                                                         (60)
   StoreInst *MaxStore =
       new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex, false,
@@ -5693,7 +5827,7 @@ void VPOParoptTransform::genConditionalLPCode(
       FinalMaxLocalIndexLoad, FinalMaxGlobalIndexLoad,
       NamePrefix + ".copyout.or.not"); //                             (26), (66)
   Instruction *IfShouldDoCopyoutThen = SplitBlockAndInsertIfThen( //  (27), (67)
-      ShouldThreadDoCopyout, BarrierSuccessorInst, false, nullptr, DT, LI);
+      ShouldThreadDoCopyout, BarrierSuccessorInst, false, nullptr, &DTU, LI);
 
   if (ValInMaxLocalIndex) {
     // Do copyout using ValInMaxLocalIndex instead of LprivINew.
@@ -6549,6 +6683,15 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
 
   ReductionClause &RedClause = W->getRed();
+
+  for (ReductionItem *RedI : RedClause.items()) {
+    if (RedI->getIsTask()) {
+      std::string ErrorMsg = "Task reduction-modifier on a reduction clause is "
+                             "currently not supported\n";
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
+    }
+  }
+
   if (!RedClause.empty()) {
     // Check if fast reduction is enabled and which mode should be used:
     // tree-like reduction only and tree-like + atomic reduction.
@@ -6557,7 +6700,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     W->populateBBSet();
 
-    bool NeedsKmpcCritical = false;
+    bool ConstructNeedsKmpcCritical = false;
     BasicBlock *RedInitEntryBB = nullptr;
 
     bool UseAFReduction =
@@ -6576,7 +6719,69 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     // only the old one needs to be wrapped in critsect later.
     BasicBlock *AFRedUpdateEntryBB =
         UseAFReduction ? createEmptyPrivFiniBB(W, !isTargetSPIRV()) : nullptr;
-    BasicBlock *RedUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+
+    BasicBlock *RedUpdateEntryBB =
+        createEmptyPrivFiniBB(W, !isTargetSPIRV()); // (0)
+
+    // To ensure proper separation of reduction items requiring different kinds
+    // of critical section the generated code is organized as a linear sequence
+    // of a single-entry single-exit regions (the example below contains only
+    // 3 regions for simplicity):
+    //
+    // RedUpdateEntryBB         (0) <- CritSectionInsertBB[NONE] before
+    //    |     _                                              region 0 emitted
+    // BeginBB0  |              (1)
+    //   ...     | region 0
+    //  EndBB0  _|              (2) <- CritSectionInsertBB[NONE] after
+    //    |                                                    region 0 emitted
+    // < kmpc_critical inserted here, no loop within >
+    // CritNoLoopUpdateEntryBB  (3) <- CritSectionInsertBB[SERIAL] before
+    //    |     _                                              region 1 emitted
+    // BeginBB1  |              (1)
+    //   ...     | region 1
+    //  EndBB1  _|              (2) <- CritSectionInsertBB[SERIAL] after
+    // < kmpc_end_critical inserted here>                      region 1 emitted
+    //    |
+    // < kmpc_critical inserted here, contains serializing loop >
+    // CritLoopUpdateEntryBB    (4) <- CritSectionInsertBB[LOOP] before
+    //    |     _                                              region 2 emitted
+    // BeginBB2  |              (1)
+    //   ...     | region 2
+    //  EndBB2  _|              (2) <- CritSectionInsertBB[LOOP] after
+    // < kmpc_end_critical inserted here>                      region 2 emitted
+    //
+    // Since we can't determine the required kind of critical section
+    // prior to the codegen (happening in genReductionFini) we link
+    // the newly generated reduction update region to one of the blocks
+    // created above. This requires the reduction update region
+    // (see BeginBB and EndBB above, the dominator and the postdominator
+    // of every BB in the region respectively) to be
+    // a single-entry single-exit region.
+    //
+    // NOTE: llvm::IndexedMap would be a good option for this as well, but it'd
+    // give no significant benefit but would require more effort from the
+    // compiler implementation PoV (functor, resizing)
+    std::unordered_map<ReductionCriticalSectionKind, BasicBlock *>
+        CritSectionInsertBB;
+    bool CanUseKmpcCritical = !isa<WRNVecLoopNode>(W) && !FastReductionEnabled;
+    if (CanUseKmpcCritical) {
+      CritSectionInsertBB[ReductionCriticalSectionKind::NONE] =
+          RedUpdateEntryBB;
+      CritSectionInsertBB[ReductionCriticalSectionKind::SERIAL] =
+          createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      CritSectionInsertBB[ReductionCriticalSectionKind::LOOP] =
+          createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      CritSectionInsertBB[ReductionCriticalSectionKind::NONE]->setName(
+          "non.crit.insert.block");
+      CritSectionInsertBB[ReductionCriticalSectionKind::SERIAL]->setName(
+          "crit.serial.insert.block");
+      CritSectionInsertBB[ReductionCriticalSectionKind::LOOP]->setName(
+          "crit.loop.insert.block");
+    }
+    BasicBlock *CritNoLoopUpdateEntryBB =
+        CritSectionInsertBB[ReductionCriticalSectionKind::SERIAL]; // (3)
+    BasicBlock *CritLoopUpdateEntryBB =
+        CritSectionInsertBB[ReductionCriticalSectionKind::LOOP]; // (4)
 
     StructType *FastRedStructTy = nullptr;
     Value *FastRedInst = nullptr;
@@ -6592,18 +6797,17 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     // Filling the AtomicFreeRedGlobalBufs array to be used for
     // atomic-free reduction generation later
     if (isTargetSPIRV() && (FillGlobalBuffers || FillLocalBuffers)) {
-      int ItemIndexLocal = 0, ItemIndexGlobal = 0;
       for (ReductionItem *RedI : RedClause.items()) {
         if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI))
           continue;
 
 #if INTEL_CUSTOMIZATION
-        // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
-        // for teams global update is currently problematic. For this case we
-        // reparse full array as an array section. In the future We may consider
-        // doing this universally (maybe even from FE) so we don't have to
-        // maintain two separate code paths (array vs array section) that does
-        // essentially the same thing.
+          // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
+          // for teams global update is currently problematic. For this case we
+          // reparse full array as an array section. In the future We may
+          // consider doing this universally (maybe even from FE) so we don't
+          // have to maintain two separate code paths (array vs array section)
+          // that does essentially the same thing.
 #endif // INTEL_CUSTOMIZATION
         auto Parse1DArrayAsArraySection = [&RedI](LLVMContext &C) {
           Type *RedElemType = nullptr;
@@ -6625,8 +6829,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           }
 
           Type *Int64Ty = Type::getInt64Ty(C);
-          Value *LB     = ConstantInt::get(Int64Ty, 0);
-          Value *Size   = ConstantInt::get(Int64Ty, NumArrayElements);
+          Value *LB = ConstantInt::get(Int64Ty, 0);
+          Value *Size = ConstantInt::get(Int64Ty, NumArrayElements);
           Value *Stride = ConstantInt::get(Int64Ty, 1);
 
           std::tuple<Value *, Value *, Value *> Dim = {LB, Size, Stride};
@@ -6643,45 +6847,41 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
         Parse1DArrayAsArraySection(F->getContext());
 
-        if (auto *WTarget =
-                WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
-          auto &MapClause = WTarget->getMap();
+        auto *WTarget =
+            WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+        if (!WTarget)
+          continue;
 
-          int CurGlobalBufIdx = 0, CurLocalBufIdx = 0;
+        auto &MapClause = WTarget->getMap();
+        bool GlobalFound = false, LocalFound = false;
 
-          for (auto &MItem : MapClause.items()) {
-            if (auto *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig())) {
-              auto InsertBuffer =
-                  [RedI](const MapItem *Item, int &BufIdx, int &ItemIdx,
-                         DenseMap<ReductionItem *, GlobalVariable *> &BufMap) {
-                    if (BufIdx == ItemIdx) {
-                      auto *GV = dyn_cast<GlobalVariable>(Item->getOrig());
-                      assert(GV);
-                      BufMap[RedI] = GV;
-                    }
-                    ++BufIdx;
-                  };
-              // NOTE: arrsec reduction doesn't support no-SLM local buffers
-              // yet.
-              if (FillGlobalBuffers &&
-                  MapPtr->hasAttribute(
-                      VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
-                InsertBuffer(MItem, CurGlobalBufIdx, ItemIndexGlobal,
-                             AtomicFreeRedGlobalBufs);
-              } else if (FillLocalBuffers &&
-                         MapPtr->hasAttribute(
-                             VPOParoptAtomicFreeReduction::LocalBufferAttr) &&
-                         !RedI->getIsArraySection() &&
-                         RedI->getType() != ReductionItem::WRNReductionUdr) {
-                InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
-                             AtomicFreeRedLocalBufs);
-              }
-            }
+        // The code below relies on the stable traversal order of WRNs
+        // as we pick the first one available in the map clause,
+        // i.e. the one marked with GlobalBuffer/LocalBuffer attribute.
+        // Once assigned we remove the attribute to avoid reusing the buffer
+        // for different reduction item it is not intended to used for.
+        // TODO: replace with 2 calls of find(MapClause.items(),...)
+        for (auto &MItem : MapClause.items()) {
+          GlobalVariable *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig());
+          if (!MapPtr)
+            continue;
+          if (FillGlobalBuffers && !GlobalFound &&
+              MapPtr->hasAttribute(
+                  VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+            AtomicFreeRedGlobalBufs[RedI] = MapPtr;
+            MapPtr->setAttributes(MapPtr->getAttributes().removeAttribute(
+                MapPtr->getContext(),
+                VPOParoptAtomicFreeReduction::GlobalBufferAttr));
+            GlobalFound = true;
+          } else if (FillLocalBuffers && !LocalFound &&
+                     MapPtr->hasAttribute(
+                         VPOParoptAtomicFreeReduction::LocalBufferAttr)) {
+            AtomicFreeRedLocalBufs[RedI] = MapPtr;
+            MapPtr->setAttributes(MapPtr->getAttributes().removeAttribute(
+                MapPtr->getContext(),
+                VPOParoptAtomicFreeReduction::LocalBufferAttr));
+            LocalFound = true;
           }
-          ItemIndexGlobal++;
-          if (!RedI->getIsArraySection() &&
-              RedI->getType() != ReductionItem::WRNReductionUdr)
-            ItemIndexLocal++;
         }
       }
     }
@@ -6732,12 +6932,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
           Value *GroupId0 = VPOParoptUtils::genGroupIdCall(0, InsertPt);
 
-          const auto &[ElemTy, NumElements, AddrSpace] =
-              VPOParoptUtils::getItemInfo(RedI);
-          if (NumElements)
-            GroupId0 = Builder.CreateMul(GroupId0, NumElements);
           SmallVector<Value *, 2> Indices = {GroupId0};
-          if (RedI->getIsArraySection())
+          if (isArrayReduction(RedI))
             Indices.push_back(Builder.getInt32(0));
           GlobalBufToReplaceWith =
               Builder.CreateInBoundsGEP(GlobalBuf->getValueType(), GlobalBuf,
@@ -6753,8 +6949,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           // operands on clauses. So, we need to use the addrspace of the
           // original operand -- whether that's generic or global -- for the
           // replacement.
-          GlobalBufToReplaceWith = Builder.CreatePointerBitCastOrAddrSpaceCast(
-              GlobalBufToReplaceWith, PointerType::get(ElemTy, AddrSpace));
+          unsigned AddrSpace;
+          std::tie(std::ignore, std::ignore, AddrSpace) =
+              VPOParoptUtils::getItemInfo(RedI);
+          GlobalBufToReplaceWith = VPOParoptUtils::genAddrSpaceCast(
+              GlobalBufToReplaceWith, &*Builder.GetInsertPoint(), AddrSpace);
         }
         if (GlobalBufToReplaceWith &&
             (!AtomicFreeReductionUseSLM || RedI->getIsArraySection())) {
@@ -6810,12 +7009,14 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                        PrevBB->getTerminator(), DT);
       }
 
-      BasicBlock *BeginBB = nullptr;
+      BasicBlock *BeginBB = nullptr; // (1)
       // In order to separate atomic-free reduction BBs from the old reduction
       // ones (which need critsect) we simulate behavior of
       // createEmptyPrivFiniBB for AFRedUpdateEntryBB.
-      if (AFRedUpdateEntryBB &&
-          VPOParoptUtils::supportsAtomicFreeReduction(RedI)) {
+      bool UseAtomicFreeReduction =
+          AFRedUpdateEntryBB &&
+          VPOParoptUtils::supportsAtomicFreeReduction(RedI);
+      if (UseAtomicFreeReduction) {
         BeginBB = AFRedUpdateEntryBB;
         AFRedUpdateEntryBB = SplitBlock(
             AFRedUpdateEntryBB, AFRedUpdateEntryBB->getFirstNonPHI(), DT, LI);
@@ -6823,29 +7024,75 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
       }
 
-      // FIXME: if NeedsKmpcCritical is true, then for SPIR targets
-      //        all reduction update instructions will be wrapped
-      //        into a loop. The loop is not needed for reductions
-      //        that can be done via atomics or with horizontal
-      //        reductions.
-      //        We need to have three update sections:
-      //          * updates using atomics (no need for the loop),
-      //          * updates with __kmpc_critical and horizontal reductions
-      //            (no need for the loop),
-      //          * updates with __kmpc_critical and the loop.
-      //        Note that the first two sections will work with the loop
-      //        as well, but this may not be very efficient.
-      NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
-                                            BeginBB->getTerminator(), DT,
-                                            false,
-                                            (GlobalBufToReplaceWith && AtomicFreeReductionUseSLM &&
-                                             !RedI->getIsArraySection())
-                                              ? NewRedInst
-                                              : nullptr);
+      ReductionCriticalSectionKind ItemCriticalSectionKind = genReductionFini(
+          W, RedI, RedI->getOrig(), BeginBB->getTerminator(), DT, false,
+          (GlobalBufToReplaceWith && AtomicFreeReductionUseSLM &&
+           !RedI->getIsArraySection())
+              ? NewRedInst
+              : nullptr);
+      bool ItemNeedsKmpcCritical =
+          ItemCriticalSectionKind != ReductionCriticalSectionKind::NONE;
+      ConstructNeedsKmpcCritical |= ItemNeedsKmpcCritical;
+
+      if (CanUseKmpcCritical &&
+          (ItemNeedsKmpcCritical || !UseAtomicFreeReduction)) {
+        //
+        //  The code below transforms the following input CFG
+        //
+        //               Pred1 .....
+        //                 |       .
+        //                 v       .
+        // InsertBB ...> BeginBB   .
+        //    |            |       .
+        //    |            v       .
+        //    |           ...      .
+        //    |            |       .
+        //    v            V       .
+        //  Succ0 <..... EndBB     .
+        //                 |       .
+        //                 v       .
+        //               Succ1 <....
+        //
+        //   into the following output one, dotted lines
+        //   above represent the new connections
+        //
+        // InsertBB
+        //    |
+        //    v
+        // BeginBB       Pred1
+        //    |            |
+        //    v            v
+        //   ...         Succ1
+        //    |
+        //    v
+        //  EndBB
+        //    |
+        //    v
+        //  Succ0
+        //
+        BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV()); // (2)
+        auto *InsertBB = CritSectionInsertBB[ItemCriticalSectionKind];
+        auto *Pred1 = BeginBB->getSinglePredecessor();
+        auto *Succ1 = EndBB->getSingleSuccessor();
+        assert(Pred1 && Succ1 &&
+               "reduction update region is not a single-entry single-exit one");
+        auto *Succ0 = InsertBB->getSingleSuccessor();
+        assert(Succ0 && "reduction insertion BB has >1 successors");
+        if (Succ0 != BeginBB) {
+          Pred1->getTerminator()->replaceSuccessorWith(BeginBB, Succ1);
+          EndBB->getTerminator()->replaceSuccessorWith(Succ1, Succ0);
+          InsertBB->getTerminator()->replaceSuccessorWith(Succ0, BeginBB);
+          DT->changeImmediateDominator(DT->getNode(Succ1), DT->getNode(Pred1));
+          DT->changeImmediateDominator(DT->getNode(BeginBB),
+                                       DT->getNode(InsertBB));
+          DT->changeImmediateDominator(DT->getNode(Succ0), DT->getNode(EndBB));
+        }
+        CritSectionInsertBB[ItemCriticalSectionKind] = EndBB;
+      }
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
-    if (NeedsKmpcCritical && !isa<WRNVecLoopNode>(W)) {
+    if (ConstructNeedsKmpcCritical && !isa<WRNVecLoopNode>(W)) {
       // Reduction update does not have to be atomic/critical for SIMD loops.
 
       // Wrap the reduction fini code inside a critical region.
@@ -6862,14 +7109,31 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // the critical section is trying to guard.
       BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
-      if (FastReductionEnabled)
+      if (FastReductionEnabled) {
         genFastReduceBB(W, FastRedMode, FastRedStructTy, FastRedInst,
                         RedUpdateEntryBB, EndBB);
-      else
-        VPOParoptUtils::genKmpcCriticalSection(
-            W, IdentTy, TidPtrHolder,
-            dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-            EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".reduction");
+      } else {
+        if (CritNoLoopUpdateEntryBB !=
+            CritSectionInsertBB[ReductionCriticalSectionKind::SERIAL]) {
+          // no loop section
+          VPOParoptUtils::genKmpcCriticalSection(
+              W, IdentTy, TidPtrHolder,
+              dyn_cast<Instruction>(CritNoLoopUpdateEntryBB->begin()),
+              CritSectionInsertBB[ReductionCriticalSectionKind::SERIAL]
+                  ->getTerminator(),
+              DT, LI, isTargetSPIRV(), ".reduction", 0, false);
+        }
+        if (CritLoopUpdateEntryBB !=
+            CritSectionInsertBB[ReductionCriticalSectionKind::LOOP]) {
+          // loop section
+          VPOParoptUtils::genKmpcCriticalSection(
+              W, IdentTy, TidPtrHolder,
+              dyn_cast<Instruction>(CritLoopUpdateEntryBB->begin()),
+              CritSectionInsertBB[ReductionCriticalSectionKind::LOOP]
+                  ->getTerminator(),
+              DT, LI, isTargetSPIRV(), ".reduction");
+        }
+      }
 
       OptimizationRemark R(DEBUG_TYPE, "Reduction", &EntryBB->front());
       R << "Critical section was generated for reduction update(s)";
@@ -9816,7 +10080,7 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
       !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
-      !isa<WRNDistributeParLoopNode>(W))
+      !isa<WRNDistributeParLoopNode>(W) && !isa<WRNTeamsNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
     //
     // While this condition is here it should match with one in
@@ -11616,30 +11880,57 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   };
 
   Instruction *ForkInsPt = NewCall;
-  if (Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr) {
-    // TODO: change this to assert once FE starts generating if clause condition
-    // with i1 type.
+  Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr;
+  bool IsDistParLoopIf = false; // is it DISTRIBUTE PARALLEL FOR with IF clause?
+  if (IfClause) {
+#if INTEL_CUSTOMIZATION
+    // TODO: Once FFE starts generating if clause condition with i1 type we
+    // no longer need the code below, which should just change to assert that
+    // IfClause->getType()->isIntegerTy(1).
+    // CFE already emits IF clause conditions in i1 type.
+#endif // INTEL_CUSTOMIZATION
     if (!IfClause->getType()->isIntegerTy(1))
-      IfClause = new ICmpInst(NewCall, ICmpInst::ICMP_NE, IfClause,
-                              ConstantInt::getSigned(IfClause->getType(), 0),
-                              "if.cond");
+      IfClause = IRBuilder<>(NewCall).CreateICmpNE(
+          IfClause, ConstantInt::getSigned(IfClause->getType(), 0), "if.cond");
 
-    Instruction *ElseInsPt = nullptr;
-    VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt, NewCall,
-                                        DT);
+    if (!isa<WRNDistributeParLoopNode>(W)) {
+      // PARALLEL IF(false) should be run with 1 thread. The optimization below
+      // calls the outlined function directly and bypasses __kmpc_fork_call().
+      // However, for the DISTRIBUTE PARALLEL FOR IF(false) case, we cannot do
+      // this optimization. Instead, we set the number of threads to 1 and still
+      // call __kmpc_fork_call() and __kmpc_dist_for_static_init*().
+      Instruction *ElseInsPt = nullptr;
+      VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt,
+                                          NewCall, DT);
 
-    // Emit __kmpc_serialized_parallel(void *loc, i32 tid )
-    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
-                                                  ElseInsPt, true);
-    // Create serial call in 'else' block.
-    CreateMtFnCall(ElseInsPt);
+      // Emit __kmpc_serialized_parallel(void *loc, i32 tid )
+      VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                    ElseInsPt, true);
+      // Create serial call in 'else' block.
+      CreateMtFnCall(ElseInsPt);
 
-    // Emit __kmpc_end_serialized_parallel(void *loc, i32 tid )
-    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
-                                                  ElseInsPt, false);
+      // Emit __kmpc_end_serialized_parallel(void *loc, i32 tid )
+      VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                    ElseInsPt, false);
+    } else {
+      // Skip the optmization.
+      IsDistParLoopIf = true;
+    }
   }
 
+  // Generate __kmpc_fork_call for multithreaded execution of MTFn call
   CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);
+  CallInst *ForkCI = genForkCallInst(W, MTFnCI);
+  MTFnCI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+  // Update inline report
+  getInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getMDInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getInlineReport()->replaceCallBaseWithCallBase(NewCall, ForkCI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(NewCall, ForkCI);
+  getInlineReport()->setBrokerTarget(ForkCI, MTFn);
+  getMDInlineReport()->setBrokerTarget(ForkCI, MTFn);
+#endif // INTEL_CUSTOMIZATION
 
   // Remove the orginal serial call to extracted NewF from the program,
   // reducing the use-count of NewF
@@ -11647,10 +11938,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Finally, nuke the original extracted function.
   NewF->eraseFromParent();
-
-  // Generate __kmpc_fork_call for multithreaded execution of MTFn call
-  CallInst* ForkCI = genForkCallInst(W, MTFnCI);
-  MTFnCI->eraseFromParent();
 
   // If Proc_Bind clause is set to Master, Close or Spread, Generate
   // __kmpc_push_proc_bind(LOC, TID, i32 policy) and insert it before
@@ -11677,20 +11964,59 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NumThreads = W->getNumThreads();
   }
 
-  if (NumThreads || NumTeams) {
+  if (IsDistParLoopIf || NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
     Tid->setAlignment(Align(4));
-    if (W->getIsTeams())
+    if (W->getIsTeams()) {
+      // TODO: OMP6.0/TR11 allows IF clause in TEAMS.
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams, NumTeamsTy,
                                           NumThreads, NumThreadsTy, ForkCI);
-    else
+    } else if (IsDistParLoopIf) {
+      // Handle DISTRIBUTE PARALLEL FOR IF(%tobool):
+      //   - %tobool==true:  run with N threads if num_threads(N) is present
+      //   - %tobool==false: run with 1 thread
+      //
+      // Emit this before the fork call:
+      //  ...
+      //  br i1 %tobool, label %if.then, label %if.else
+      //
+      // if.then:
+      //  ; this block is empty if there is no num_threads(N) clause
+      //  call void @__kmpc_push_num_threads(LOC, i32 %my.tid, i32 N) //    (1)
+      //  br label %if.end
+      //
+      // if.else:
+      //  call void @__kmpc_push_num_threads(LOC, i32 %my.tid, i32 1) //    (2)
+      //  br label %if.end
+      //
+      // if.end:
+      //  call void (ptr, i32, ptr, ...) @__kmpc_fork_call(...)
+
+      Instruction *ThenTerm = nullptr;
+      Instruction *ElseTerm = nullptr;
+      VPOParoptUtils::buildCFGForIfClause(IfClause, ThenTerm, ElseTerm, ForkCI,
+                                          DT);
+
+      // "Then" block holds call to push_num_threads(N) if the num_threads(N)
+      // clause is present. Otherwise this block is empty and will be optimized
+      // away.
+      if (NumThreads)
+        VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
+                                              ThenTerm); //                 (1)
+
+      // "Else" block holds call to push_num_threads(1). Per OMP Spec,
+      // PARALLEL IF(false) means the PARALLEL region is run with 1 thread.
+      ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(I32Ty), 1);
+      VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, ValueOne,
+                                            ElseTerm); //                   (2)
+    } else { // NumThreads && !(IfClause && DistParLoop)
       VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
                                             ForkCI);
+    }
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
-
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
@@ -11969,9 +12295,10 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // One example is as follows.
         //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
         Value *PtrCompare = Builder.CreateICmpNE(TpvArg, OldTpv);
-        Term = SplitBlockAndInsertIfThen(PtrCompare,
+        DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+	Term = SplitBlockAndInsertIfThen(PtrCompare,
                                          NFn->getEntryBlock().getTerminator(),
-                                         false, nullptr, DT, LI);
+                                         false, nullptr, &DTU, LI);
 
         // Set the name for the newly generated basic blocks.
         Term->getParent()->setName("copyin.not.master");
@@ -12059,6 +12386,9 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
+#if INTEL_CUSTOMIZATION
+  NFn->copyMetadata(Fn, 0);
+#endif // INTEL_CUSTOMIZATION
 
   // Propagate old parameter attributes to the new function.
   for (auto &P : Param2Attrs) {
@@ -12631,8 +12961,9 @@ bool VPOParoptTransform::genLastIterationCheck(
   Value *LastCompare =
       Builder.CreateICmpNE(IsLastPredicate, Builder.getInt32(0)); //         (2)
 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
-                                                false, nullptr, DT, LI);
+                                                false, nullptr, &DTU, LI);
   Term->getParent()->setName("last.then");
   InsertBefore->getParent()->setName("last.done");
 
@@ -13808,17 +14139,13 @@ BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
   return LoopExitBB;
 }
 
-// Initial Implementation for loop construct in OpenMP 5.0
-//   The loop construct will be mapped to underlying loop scheme according to
-//   binding rules and parent region/directive. See details in mapLoopScheme
-//   function.
-bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
+// Convert the LOOP construct using the LoopMappingScheme specified.
+// See details in mapLoop().
+bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W,
+                                            unsigned LoopMappingScheme) {
   WRNGenericLoopNode *WL = cast<WRNGenericLoopNode>(W);
 
-  // Map loop construct to underlying loop scheme
-  bool Changed = WL->mapLoopScheme();
-  assert(Changed &&
-         "Loop directive must be mapped to right parallization scheme.");
+  WL->mapLoop(LoopMappingScheme);
 
   int MappedDir = WL->getMappedDir();
 
@@ -13850,7 +14177,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   bool HasReduction = !WL->getRed().empty();
 
   if (IsDistributeLoopBindTeams) {
-    if (!MapLoopBindTeamsToDistribute) {
+    if (!MapLoopBindTeamsToDistribute && LoopMappingScheme == 0) {
       MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
       IsDistributeLoopBindTeams = false;
     } else if (HasReduction) {
@@ -13926,7 +14253,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   ExitCI = VPOUtils::addOperandBundlesInCall(
       ExitCI, {{MappedExitDirStr, ArrayRef<Value *>{}}});
 
-  return Changed;
+  return true;
 }
 
 // Targets that support non-default address spaces may have the following
@@ -14221,6 +14548,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   bool HoistCombinedUBBeforeTarget = false;
   bool SetNDRange = false;
   bool Use1DRange = false;
+  bool SkipCollapsing = (NumLoops == 1);
 
   if (IsTopLevelTargetLoop) {
     // Use NDRANGE clause only for top-level loops enclosed into
@@ -14258,9 +14586,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         // that it has to choose some N and use it both for global
         // and local sizes for 0 dimension.
         WRegionUtils::isDistributeNode(W)) {
-      if (CanHoistCombinedUBBeforeTarget &&
-          VPOParoptUtils::getSPIRExecutionScheme() ==
-              spirv::ImplicitSIMDSPMDES) {
+      if (CanHoistCombinedUBBeforeTarget) {
         // Collapse the loop nest and use 1D range.
         HoistCombinedUBBeforeTarget = true;
         SetNDRange = true;
@@ -14268,23 +14594,10 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       }
       // Otherwise, collapse the loop nest for all targets and the host
       // and do not use any ND-range.
-    } else if (CanHoistCombinedUBBeforeTarget &&
-               VPOParoptUtils::getSPIRExecutionScheme() ==
-                   spirv::ImplicitSIMDSPMDES) {
+    } else if (CanHoistCombinedUBBeforeTarget) {
       // Do not collapse the loop nest for SPIR target.
-
-      if (isTargetSPIRV()) {
-        if (W->getCollapse() == 0)
-          LLVM_DEBUG(dbgs()
-                     << "ND-range parallelization will be applied for loop.\n");
-        else
-          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. "
-                            << "ND-range parallelization will be applied.\n");
-        setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
-                         W->getWRNLoopInfo().getNormUBElemTys());
-        return Exiter(true);
-      }
-
+      if (isTargetSPIRV())
+        SkipCollapsing = true;
       // Collapse the loop nest for all other targets and the host
       // and use NumLoops ND-range. Note that we do not need to hoist
       // the combined upper bound computation before the target region.
@@ -14292,11 +14605,38 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     }
   }
 
-  if (NumLoops == 1) {
-    LLVM_DEBUG(dbgs() << "No loop nest to collapse.  Exiting.\n");
+  // Needed as an argument of KNOWN_NDRANGE clause
+  bool CollapsedCompletely = true;
+  // For performance reasons we have to check if passing loop tripcounts
+  // when using default ND-range partitioning is going to be beneficial.
+  // This is also checked in fixupKnownNDRange when removing
+  // KNOWN_NDRANGE clause as here we assume that specific partitioning is going
+  // to be used when adding KNOWN_NDRANGE clause, but we must check it here
+  // when we don't add KNOWN_NDRANGE clause at all.
+  if (SetNDRange &&
+      VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES) {
+    LoopNest Nest(*(W->getWRNLoopInfo().getLoop()), *SE);
+    CollapsedCompletely =
+        static_cast<int>(Nest.getNestDepth()) == W->getCollapse();
+    SetNDRange = isDefaultNDRangeLoopTripcountNeeded(W, CollapsedCompletely);
+    HoistCombinedUBBeforeTarget = SetNDRange;
+  }
+
+  if (SkipCollapsing) {
+    if (NumLoops == 1) {
+      LLVM_DEBUG(dbgs() << "No loop nest to collapse.  Exiting.\n");
+    } else {
+      if (W->getCollapse() == 0)
+        LLVM_DEBUG(
+            dbgs() << "ND-range parallelization will be applied for loop.\n");
+      else
+        LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. "
+                          << "ND-range parallelization will be applied.\n");
+    }
     if (SetNDRange)
       setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
-                       W->getWRNLoopInfo().getNormUBElemTys());
+                       W->getWRNLoopInfo().getNormUBElemTys(),
+                       CollapsedCompletely);
     return Exiter(true);
   }
 
@@ -14715,11 +15055,12 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // Split the block: the Then block will jump to the loop
   // body, the Else block is the loop exit, which will jump
   // to the loop post-exit (the current outermost loop's exit block).
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm =
       SplitBlockAndInsertIfThen(
           CmpI, LoopCondBB->getTerminator(), false,
           MDBuilder(F->getContext()).createBranchWeights(99, 1),
-          DT, LI);
+          &DTU, LI);
   // This block will be inside the new loop.
   BasicBlock *LoopBodyBB = ThenTerm->getParent();
   LoopBodyBB->setName("omp.collapsed.loop.body");
@@ -14852,7 +15193,12 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   assert(W->canHavePrivate() && "OpenMP loop region cannot have PRIVATE?");
   AddToNewClauses(PrivateString, OldIVPtrAndElemTys);
 
-  if (W->canHaveFirstprivate()) {
+  bool IsGenericLoopMappedToSIMD = false;
+  if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W))
+    if (WGL->getMappedDir() == DIR_OMP_SIMD)
+      IsGenericLoopMappedToSIMD = true;
+
+  if (W->canHaveFirstprivate() && !IsGenericLoopMappedToSIMD) {
     // SIMD cannot have firstprivate() clause.
     // TODO: Might need to add LIVEIN for regions that cannot have firstprivate.
     // We should probably make LB PRIVATE, since we assume that it is always 0.
@@ -14945,22 +15291,64 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       // because the ND-range parallelization will kick in just
       // by the fact that the combined UB is rematerializable before
       // the target region. Just add it for consistency.
-      setNDRangeClause(WTarget, W, {NewUBPtrDef}, {CombinedUBType});
+      setNDRangeClause(WTarget, W, {NewUBPtrDef}, {CombinedUBType},
+                       CollapsedCompletely);
     } else
       // Add the original loops' upper bounds to OFFLOAD.NDRANGE clause.
       setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
-                       W->getWRNLoopInfo().getNormUBElemTys());
+                       W->getWRNLoopInfo().getNormUBElemTys(),
+                       CollapsedCompletely);
   }
   return Exiter(true);
 }
 
-void VPOParoptTransform::setNDRangeClause(
-    WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
-    ArrayRef<Type *> NDRangeTypes) const {
+// When trying to help avoid oversubscription by passing
+// loop information for non-specific ND-range cases which used to be utilized
+// by specific ND-range partitioning only, non-collapsed loop nests should be
+// ignored for performance sake.
+// Examples:
+// omp teams distribute parallel for
+// for (int i = 0; i < 32; i++)
+//   for (int j = 0; j < 32; j++)
+// OR
+// omp teams distribute parallel for collapse(2)
+// for (int i = 0; i < 32; i++)
+//   for (int j = 0; j < 32; j++)
+//     for (int k = 0; k < 32; k++)
+//
+bool VPOParoptTransform::isDefaultNDRangeLoopTripcountNeeded(
+    WRegionNode *W, bool CompletelyCollapsed) const {
+  assert(W->getIsOmpLoop() &&
+         "Checking ndrange heurisic for non-loop directive");
+  if (DisableOffload)
+    return false;
+  bool UseHeuristic = DefaultNDRangeTripcountHeuristic;
+  // Config value overrides the option
+  if (auto *VPC = WI->getVPOParoptConfig()) {
+    WRegionNode *WTarget =
+        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+    assert(WTarget);
+    OffloadEntry *OE =
+        VPOParoptUtils::getTargetRegionOffloadEntry(WTarget, OffloadEntries);
+    StringRef RegionName = OE->getName();
+
+    int8_t UseHeuristicConfig = VPC->getKernelUseNDRangeHeuristic(RegionName);
+    if (UseHeuristicConfig >= 0)
+      UseHeuristic = UseHeuristicConfig;
+  }
+  return !UseHeuristic || W->getWRNLoopInfo().getLoop()->isInnermost() ||
+         CompletelyCollapsed;
+}
+
+void VPOParoptTransform::setNDRangeClause(WRegionNode *WT, WRegionNode *WL,
+                                          ArrayRef<Value *> NDRangeDims,
+                                          ArrayRef<Type *> NDRangeTypes,
+                                          bool CollapsedCompletely) const {
   assert(!NDRangeDims.empty() && NDRangeDims.size() <= 3 &&
          "Invalid number of ND-range dimensions.");
   assert(NDRangeDims.size() == NDRangeTypes.size() &&
          "Invalid number of ND-range dimensions and types.");
+
   CallInst *EntryCI = cast<CallInst>(WT->getEntryDirective());
   StringRef Clause =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
@@ -14973,23 +15361,25 @@ void VPOParoptTransform::setNDRangeClause(
   EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, ClauseArgs}});
   WT->setEntryDirective(EntryCI);
 
-  // The info about collapsing completeness is pass via KNOWN_NDRANGE clause
-  // to be later used by fixupKnownNDRange, and the reason why we need to pass
-  // it that way instead of calculating it inplace is that after loop collapsing
-  // we have the loop nest structure modified.
-  LoopNest Nest(*(WL->getWRNLoopInfo().getLoop()), *SE);
-  bool CollapsedCompletely =
-      static_cast<int>(Nest.getNestDepth()) == WL->getCollapse();
-
-  // The region's loop(s) now have its tripcounts in the NDRANGE clause
-  // of the "omp target" region. Mark it as such.
-  EntryCI = cast<CallInst>(WL->getEntryDirective());
-  Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
-  EntryCI = VPOUtils::addOperandBundlesInCall(
-      EntryCI, {{Clause,
-                 {ConstantInt::get(Type::getInt1Ty(F->getContext()),
-                                   CollapsedCompletely)}}});
-  WL->setEntryDirective(EntryCI);
+  // Check if the execution scheme allows specific ND-range partitioning
+  if (VPOParoptUtils::getSPIRExecutionScheme() == spirv::ImplicitSIMDSPMDES) {
+    LoopNest Nest(*(WL->getWRNLoopInfo().getLoop()), *SE);
+    bool CollapsedCompletely =
+        static_cast<int>(Nest.getNestDepth()) == WL->getCollapse();
+    // The info about collapsing completeness is passed via KNOWN_NDRANGE clause
+    // to be later used by fixupKnownNDRange, and the reason why we need to pass
+    // it that way instead of calculating it inplace is that after loop
+    // collapsing we have the loop nest structure modified.
+    // The region's loop(s) now have its tripcounts in the NDRANGE clause
+    // of the "omp target" region. Mark it as such.
+    EntryCI = cast<CallInst>(WL->getEntryDirective());
+    Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
+    EntryCI = VPOUtils::addOperandBundlesInCall(
+        EntryCI, {{Clause,
+                   {ConstantInt::get(Type::getInt1Ty(F->getContext()),
+                                     CollapsedCompletely)}}});
+    WL->setEntryDirective(EntryCI);
+  }
 }
 
 // Look for enclosed OpenMP loop regions and try to use
@@ -15174,7 +15564,7 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (WTeams) {
     if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
       if (WGL->getMappedDir() == -1)
-        WGL->mapLoopScheme();
+        WGL->mapLoop(LoopMappingScheme);
       if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP &&
           WGL->getMappedDir() != DIR_OMP_DISTRIBUTE)
         return true;
@@ -15191,6 +15581,14 @@ bool VPOParoptTransform::propagateKnownNDRange(WRegionNode *W) const {
     return false;
 
   if (!W->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  // 'declare target' functions containing target regions
+  // are cloned, then the original has its inner target directives removed
+  // and the new one loses 'openmp-target-declare' attribute
+  // (see VPOParoptModuleTransform::cloneDeclareTargetFunctions).
+  // We should not do the propagation for the former
+  if (isFunctionOpenMPTargetDeclare())
     return false;
 
   assert(VPOParoptUtils::getSPIRExecutionScheme() ==
@@ -15245,18 +15643,8 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   // loop information for non-specific ND-range cases which used to be utilized
   // by specific ND-range partitioning only, non-collapsed loop nests should be
   // ignored for performance sake.
-  // Examples:
-  // omp teams distribute parallel for
-  // for (int i = 0; i < 32; i++)
-  //   for (int j = 0; j < 32; j++)
-  // OR
-  // omp teams distribute parallel for collapse(2)
-  // for (int i = 0; i < 32; i++)
-  //   for (int j = 0; j < 32; j++)
-  //     for (int k = 0; k < 32; k++)
-  if (DefaultNDRangeTripcountHeuristic &&
-      !W->getWRNLoopInfo().getLoop()->isInnermost() &&
-      !W->getWRNLoopInfo().getLoopNestCompletelyCollapsed()) {
+  if (!isDefaultNDRangeLoopTripcountNeeded(
+          W, W->getWRNLoopInfo().getLoopNestCompletelyCollapsed())) {
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": The region has inner loops not associated with the "
                          "construct. Removing OFFLOAD.NDRANGE qual.\n");

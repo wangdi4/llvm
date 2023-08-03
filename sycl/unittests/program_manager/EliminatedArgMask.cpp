@@ -25,7 +25,7 @@ constexpr const char EAMTestKernel2Name[] = "EAMTestKernel2";
 constexpr unsigned EAMTestKernelNumArgs = 4;
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 template <>
 struct KernelInfo<EAMTestKernel> : public unittest::MockKernelInfoBase {
@@ -40,7 +40,7 @@ struct KernelInfo<EAMTestKernel2> : public unittest::MockKernelInfoBase {
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 static sycl::unittest::PiImage generateEAMTestKernelImage() {
@@ -121,12 +121,10 @@ public:
       CommandGroup.reset(new sycl::detail::CGExecKernel(
           std::move(CGH->MNDRDesc), std::move(CGH->MHostKernel),
           std::move(CGH->MKernel), std::move(MImpl->MKernelBundle),
-          std::move(CGH->MArgsStorage), std::move(CGH->MAccStorage),
-          std::move(CGH->MSharedPtrStorage), std::move(CGH->MRequirements),
-          std::move(CGH->MEvents), std::move(CGH->MArgs),
-          std::move(CGH->MKernelName), std::move(CGH->MOSModuleHandle),
-          std::move(CGH->MStreamStorage), std::move(MImpl->MAuxiliaryResources),
-          CGH->MCGType, {}, CGH->MCodeLoc));
+          std::move(CGH->CGData), std::move(CGH->MArgs),
+          std::move(CGH->MKernelName), std::move(CGH->MStreamStorage),
+          std::move(MImpl->MAuxiliaryResources), CGH->MCGType, {},
+          CGH->MCodeLoc));
       break;
     }
     default:
@@ -138,7 +136,7 @@ public:
   }
 };
 
-sycl::detail::ProgramManager::KernelArgMask getKernelArgMaskFromBundle(
+const sycl::detail::KernelArgMask *getKernelArgMaskFromBundle(
     const sycl::kernel_bundle<sycl::bundle_state::input> &KernelBundle,
     std::shared_ptr<sycl::detail::queue_impl> QueueImpl) {
 
@@ -170,7 +168,7 @@ sycl::detail::ProgramManager::KernelArgMask getKernelArgMaskFromBundle(
               !ExecKernel->MSyclKernel->isCreatedFromSource());
 
   return sycl::detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
-      ExecKernel->MOSModuleHandle, Program, ExecKernel->MKernelName);
+      Program, ExecKernel->MKernelName);
 }
 
 // After both kernels are compiled ProgramManager.NativePrograms contains info
@@ -193,13 +191,12 @@ TEST(EliminatedArgMask, KernelBundleWith2Kernels) {
           {sycl::get_kernel_id<EAMTestKernel>(),
            sycl::get_kernel_id<EAMTestKernel2>()});
 
-  sycl::detail::ProgramManager::KernelArgMask EliminatedArgMask =
+  const sycl::detail::KernelArgMask *EliminatedArgMask =
       getKernelArgMaskFromBundle(KernelBundle,
                                  sycl::detail::getSyclObjImpl(Queue));
 
-  sycl::detail::ProgramManager::KernelArgMask ExpElimArgMask(
-      EAMTestKernelNumArgs);
+  sycl::detail::KernelArgMask ExpElimArgMask(EAMTestKernelNumArgs);
   ExpElimArgMask[0] = ExpElimArgMask[2] = true;
 
-  EXPECT_EQ(EliminatedArgMask, ExpElimArgMask);
+  EXPECT_EQ(*EliminatedArgMask, ExpElimArgMask);
 }

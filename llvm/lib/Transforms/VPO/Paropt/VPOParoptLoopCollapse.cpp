@@ -63,6 +63,9 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WRegionInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<VPOParoptConfigWrapper>();
+#endif // INTEL_CUSTOMIZATION
   }
 };
 
@@ -110,6 +113,9 @@ INITIALIZE_PASS_BEGIN(VPOParoptLoopCollapse, DEBUG_TYPE, PASS_NAME,
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(VPOParoptConfigWrapper)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(VPOParoptLoopCollapse, DEBUG_TYPE, PASS_NAME, false, false)
 
 FunctionPass *llvm::createVPOParoptLoopCollapsePass() {
@@ -119,6 +125,11 @@ FunctionPass *llvm::createVPOParoptLoopCollapsePass() {
 bool VPOParoptLoopCollapse::runOnFunction(Function &F) {
   WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+
+#if INTEL_CUSTOMIZATION
+  auto &ParoptConfig = getAnalysis<VPOParoptConfigWrapper>().getResult();
+  WI.setVPOParoptConfig(&ParoptConfig);
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
   bool Changed = collapseLoops(F, WI, ORE);
@@ -130,6 +141,13 @@ PreservedAnalyses VPOParoptLoopCollapsePass::run(
     Function &F, FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+
+#if INTEL_CUSTOMIZATION
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  auto *ParoptConfig =
+      MAMProxy.getCachedResult<VPOParoptConfigAnalysis>(*F.getParent());
+  WI.setVPOParoptConfig(ParoptConfig);
+#endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses PA;
 

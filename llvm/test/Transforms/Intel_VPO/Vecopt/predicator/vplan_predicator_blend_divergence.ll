@@ -51,7 +51,7 @@ define hidden void @_ZN10Mandelbrot12execute_partEiii.DIR.OMP.PARALLEL.LOOP.2.sp
 ;
 ; CHECK:           [[BLEND_BB0]]: # preds: [[BB8]]
 ; CHECK:            [DA: [Shape: Random]] float [[VP_T27_0_BLEND_BB7:%.*]] = blend [ float [[VP_T27_0_PHI_BB7]], i1 true ], [ float 0.000000e+00, i1 [[VP10]] ]
-; CHECK:            [DA: [Shape: Undef]] br [[BB4]]
+; CHECK:            [DA: [Shape: Uniform]] br [[BB4]]
 ;
 ; CHECK:         [[BB4]]: # preds: [[BB2]], [[BLEND_BB0]]
 ; CHECK:          [DA: [Shape: Random]] float [[VP_T27_0:%.*]] = phi  [ float 0.000000e+00, [[BB2]] ],  [ float [[VP_T27_0_BLEND_BB7]], [[BLEND_BB0]] ]

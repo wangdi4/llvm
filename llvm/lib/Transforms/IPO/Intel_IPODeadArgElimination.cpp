@@ -510,7 +510,6 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   // we need to update the call sites with the new list of parameters.
   FunctionType *FTy = F->getFunctionType();
   Type *RetType = FTy->getReturnType();
-  getInlineReport()->initFunctionClosure(F);
 
   // Vectors to store the the information for the live arguments
   std::vector<Type *> LiveArgsType;

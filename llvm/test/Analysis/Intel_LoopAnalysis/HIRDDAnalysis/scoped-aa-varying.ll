@@ -38,7 +38,7 @@
 ; CHECK-DAG: (%B)[i2 + -1] --> (%A)[i2] ANTI (* 0)
 ; CHECK-DAG: (%A)[i2] --> (%B)[i2 + -1] FLOW (* 0)
 
-define void @foo(float** noalias nocapture readonly %Ap, float** noalias nocapture readonly %Bp) {
+define void @foo(ptr noalias nocapture readonly %Ap, ptr noalias nocapture readonly %Bp) {
 entry:
   br label %for.body
 
@@ -47,10 +47,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup5
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup5
   %indvars.iv27 = phi i64 [ 0, %entry ], [ %indvars.iv.next28, %for.cond.cleanup5 ]
-  %ptridx = getelementptr inbounds float*, float** %Ap, i64 %indvars.iv27
-  %A = load float*, float** %ptridx, align 8
-  %ptridx2 = getelementptr inbounds float*, float** %Bp, i64 %indvars.iv27
-  %B = load float*, float** %ptridx2, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %Ap, i64 %indvars.iv27
+  %A = load ptr, ptr %ptridx, align 8
+  %ptridx2 = getelementptr inbounds ptr, ptr %Bp, i64 %indvars.iv27
+  %B = load ptr, ptr %ptridx2, align 8
   br label %for.body6
 
 for.cond.cleanup5:                                ; preds = %for.body6
@@ -61,11 +61,11 @@ for.cond.cleanup5:                                ; preds = %for.body6
 for.body6:                                        ; preds = %for.body, %for.body6
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body6 ]
   %dec = add nsw i64 %indvars.iv, -1
-  %ptridx8 = getelementptr inbounds float, float* %B, i64 %dec
-  %load = load float, float* %ptridx8, align 4, !alias.scope !1, !noalias !4
+  %ptridx8 = getelementptr inbounds float, ptr %B, i64 %dec
+  %load = load float, ptr %ptridx8, align 4, !alias.scope !1, !noalias !4
   %add = fadd float %load, 4.000000e+00
-  %ptridx10 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %add, float* %ptridx10, align 4, !alias.scope !4, !noalias !1
+  %ptridx10 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %add, ptr %ptridx10, align 4, !alias.scope !4, !noalias !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup5, label %for.body6
@@ -104,7 +104,7 @@ for.body6:                                        ; preds = %for.body, %for.body
 ; CHECK-DAG: (%B)[1024 * i1 + i2 + -1] --> (%A)[1024 * i1 + i2] ANTI (* 0)
 ; CHECK-DAG: (%A)[1024 * i1 + i2] --> (%B)[1024 * i1 + i2 + -1] FLOW (* 0)
 
-define void @bar(float** noalias nocapture readonly %Ap, float** noalias nocapture readonly %Bp) {
+define void @bar(ptr noalias nocapture readonly %Ap, ptr noalias nocapture readonly %Bp) {
 entry:
   br label %for.body
 
@@ -113,10 +113,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup5
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup5
   %indvars.iv27 = phi i64 [ 0, %entry ], [ %indvars.iv.next28, %for.cond.cleanup5 ]
-  %ptridx = getelementptr inbounds float*, float** %Ap, i64 %indvars.iv27
-  %A = load float*, float** %ptridx, align 8
-  %ptridx2 = getelementptr inbounds float*, float** %Bp, i64 %indvars.iv27
-  %B = load float*, float** %ptridx2, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %Ap, i64 %indvars.iv27
+  %A = load ptr, ptr %ptridx, align 8
+  %ptridx2 = getelementptr inbounds ptr, ptr %Bp, i64 %indvars.iv27
+  %B = load ptr, ptr %ptridx2, align 8
   %offset = mul nuw nsw i64 %indvars.iv27, 1024
   br label %for.body6
 
@@ -129,11 +129,11 @@ for.body6:                                        ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body6 ]
   %base = add nuw nsw i64 %indvars.iv, %offset
   %dec = add nsw i64 %base, -1
-  %ptridx8 = getelementptr inbounds float, float* %B, i64 %dec
-  %load = load float, float* %ptridx8, align 4, !alias.scope !1, !noalias !4
+  %ptridx8 = getelementptr inbounds float, ptr %B, i64 %dec
+  %load = load float, ptr %ptridx8, align 4, !alias.scope !1, !noalias !4
   %add = fadd float %load, 4.000000e+00
-  %ptridx10 = getelementptr inbounds float, float* %A, i64 %base
-  store float %add, float* %ptridx10, align 4, !alias.scope !4, !noalias !1
+  %ptridx10 = getelementptr inbounds float, ptr %A, i64 %base
+  store float %add, ptr %ptridx10, align 4, !alias.scope !4, !noalias !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup5, label %for.body6

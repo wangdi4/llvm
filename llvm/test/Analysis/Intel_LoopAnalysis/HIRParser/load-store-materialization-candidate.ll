@@ -19,18 +19,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32* nocapture readonly %B) {
+define dso_local void @foo(ptr nocapture %A, ptr nocapture readonly %B) {
 entry:
-  %0 = load i32, i32* %B, align 4
-  store i32 %0, i32* %A, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %B, i64 1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 1
-  store i32 %1, i32* %arrayidx3, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %B, i64 2
-  %2 = load i32, i32* %arrayidx4, align 4
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 2
-  store i32 %2, i32* %arrayidx5, align 4
+  %0 = load i32, ptr %B, align 4
+  store i32 %0, ptr %A, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %B, i64 1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 1
+  store i32 %1, ptr %arrayidx3, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %B, i64 2
+  %2 = load i32, ptr %arrayidx4, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 2
+  store i32 %2, ptr %arrayidx5, align 4
   ret void
 }
 

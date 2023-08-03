@@ -30,8 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 
 ; CHECK:       return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]]
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RETVAL0]]
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT: }
 

@@ -26,13 +26,13 @@ target device_triples = "spir64"
 @global_tp = common dso_local thread_private global i32 0, align 4
 ; CHECK-DAG: @global_tp ={{.*}}thread_private
 
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @work() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.SHARED"(i32* @global_tp) ]
-  store i32 1, i32* @global_tp, align 4, !tbaa !3
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.SHARED"(ptr @global_tp) ]
+  store i32 1, ptr @global_tp, align 4, !tbaa !3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
   ret void
 }

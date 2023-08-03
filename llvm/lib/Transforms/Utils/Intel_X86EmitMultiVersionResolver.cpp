@@ -24,7 +24,7 @@ using namespace llvm::X86;
 
 Value *llvm::formResolverCondition(IRBuilderBase &Builder,
                                    const MultiVersionResolverOption &RO,
-                                   bool UseLibIRC) {
+                                   bool UseLibIRC, bool PerformCPUBrandCheck) {
   Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
@@ -35,9 +35,11 @@ Value *llvm::formResolverCondition(IRBuilderBase &Builder,
     if (UseLibIRC) {
       std::array<uint64_t, 2> Bitmaps =
           X86::getCpuFeatureBitmap(RO.Conditions.Features, /*OnlyAutoGen=*/true);
-      FeatureCond = X86::mayIUseCpuFeatureHelper(
-          Builder, {APSInt{APInt(64, Bitmaps[0]), true},
-                    APSInt{APInt(64, Bitmaps[1]), true}});
+      FeatureCond =
+          X86::mayIUseCpuFeatureHelper(Builder,
+                                       {APSInt{APInt(64, Bitmaps[0]), true},
+                                        APSInt{APInt(64, Bitmaps[1]), true}},
+                                       PerformCPUBrandCheck);
     } else
       FeatureCond = X86::emitCpuSupports(Builder, RO.Conditions.Features);
 
@@ -65,7 +67,8 @@ static void CreateMultiVersionResolverBranch(IRBuilderBase &Builder,
 void llvm::emitMultiVersionResolver(Function *Resolver,
                                     GlobalVariable *DispatchPtr,
                                     ArrayRef<MultiVersionResolverOption> Options,
-                                    bool UseIFunc, bool UseLibIRC) {
+                                    bool UseIFunc, bool UseLibIRC,
+                                    bool PerformCPUBrandCheck) {
 
   assert(Triple(Resolver->getParent()->getTargetTriple()).isX86() &&
          "Only implemented for x86 targets");
@@ -87,27 +90,33 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
 
   if (UseLibIRC)
-    X86::emitCpuFeaturesInit(Builder, UseIFunc);
+    X86::emitCpuFeaturesInit(Builder, UseIFunc, PerformCPUBrandCheck);
   else
     X86::emitCPUInit(Builder, UseIFunc);
 
   for (const MultiVersionResolverOption &RO : Options) {
+
     Builder.SetInsertPoint(CurBlock);
-    Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
+
+    Value *Condition =
+        formResolverCondition(Builder, RO, UseLibIRC, PerformCPUBrandCheck);
 
     // The 'default' or 'generic' case.
     if (!Condition) {
       assert(&RO == Options.end() - 1 &&
              "Default or Generic case must be last");
-      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc,
+                                       ExitBlock);
       break;
     }
 
-    BasicBlock *RetBlock = BasicBlock::Create(Ctx, "resolver_return", Resolver, ExitBlock);
+    BasicBlock *RetBlock =
+        BasicBlock::Create(Ctx, "resolver_return", Resolver, ExitBlock);
     {
       IRBuilderBase::InsertPointGuard Guard(Builder);
       Builder.SetInsertPoint(RetBlock);
-      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc,
+                                       ExitBlock);
     }
     CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver, ExitBlock);
     Builder.CreateCondBr(Condition, RetBlock, CurBlock);
@@ -174,8 +183,12 @@ void X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__cpu_indicator_init", UseIFunc);
 }
 
-void X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
-  emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
+void X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc,
+                              bool PerformCPUBrandCheck) {
+  if (PerformCPUBrandCheck)
+    emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
+  else
+    emitInit(Builder, "__intel_cpu_features_init_x", UseIFunc);
 }
 
 Value *X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
@@ -259,11 +272,15 @@ Value *X86::emitCpuSupports(IRBuilderBase &Builder,
 }
 
 Value *X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                                    ArrayRef<APSInt> Pages) {
+                                    ArrayRef<APSInt> Pages,
+                                    bool PerformCPUBrandCheck) {
 
-  Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
-  Value *IndicatorPtr = getOrCreateGlobal(
-      Builder, "__intel_cpu_feature_indicator", Ty, false /*SetDSOLocal*/);
+  Type *Ty = ArrayType::get(Builder.getInt64Ty(), 2);
+  StringRef IndicatorName =
+      PerformCPUBrandCheck ? "__intel_cpu_feature_indicator" :
+                             "__intel_cpu_feature_indicator_x";
+  Value *IndicatorPtr =
+      getOrCreateGlobal(Builder, IndicatorName, Ty, false /*SetDSOLocal*/);
 
   Value *RollingResult = nullptr;
   for (unsigned CurPage = 0; CurPage < Pages.size(); ++CurPage) {

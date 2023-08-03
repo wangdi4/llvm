@@ -1,34 +1,20 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
 
 ; CHECK: define void @_ZTS1K
 ; CHECK: %[[ALLOCA:.*]] = alloca i32
-; CHECK-NONOPAQUE: %[[PTRTOINT:.*]] = ptrtoint i32 (i32, i32, {{.*}})* @_Z3addii to i32
-; CHECK-OPAQUE: %[[PTRTOINT:.*]] = ptrtoint ptr @_Z3addii to i32
-; CHECK-NONOPAQUE: %{{.*}} = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i8*
-; CHECK-OPAQUE: %{{.*}} = bitcast ptr @_Z3addii to ptr
-; CHECK-NONOPAQUE: %{{.*}} = addrspacecast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32) addrspace(4)*
-; CHECK-OPAQUE: %{{.*}} = addrspacecast ptr @_Z3addii to ptr addrspace(4)
-; CHECK-NONOPAQUE: store i32 %[[PTRTOINT]], i32* %[[ALLOCA]]
-; CHECK-OPAQUE: store i32 %[[PTRTOINT]], ptr %[[ALLOCA]]
-; CHECK-NONOPAQUE: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
-; CHECK-OPAQUE: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
-; CHECK-NONOPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
-; CHECK-OPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
-; CHECK-NONOPAQUE: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
-; CHECK-OPAQUE: %[[BITCAST:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
-; CHECK: call spir_func i32 %[[BITCAST]]
-; CHECK-NONOPAQUE: store i32 ptrtoint (i32 (i32, i32, {{.*}})* @_Z3addii to i32), i32* %[[ALLOCA]]
-; CHECK-OPAQUE: store i32 ptrtoint (ptr @_Z3addii to i32), ptr %[[ALLOCA]]
-; CHECK-NONOPAQUE: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
-; CHECK-OPAQUE: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
-; CHECK-NONOPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
-; CHECK-OPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
-; CHECK-NONOPAQUE: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
-; CHECK-OPAQUE: %[[BITCAST:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
-; CHECK: call spir_func i32 %[[BITCAST]]
+; CHECK: %[[PTRTOINT:.*]] = ptrtoint ptr @_Z3addii to i32
+; CHECK: %{{.*}} = addrspacecast ptr @_Z3addii to ptr addrspace(4)
+; CHECK: store i32 %[[PTRTOINT]], ptr %[[ALLOCA]]
+; CHECK: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
+; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
+; CHECK: %[[PTRTOFUNC:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
+; CHECK: call spir_func i32 %[[PTRTOFUNC]]
+; CHECK: store i32 ptrtoint (ptr @_Z3addii to i32), ptr %[[ALLOCA]]
+; CHECK: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
+; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
+; CHECK: %[[PTRTOFUNC:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
+; CHECK: call spir_func i32 %[[PTRTOFUNC]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-linux-sycldevice"
@@ -44,40 +30,36 @@ entry:
   ret i32 %add
 }
 
-define void @_ZTS1K(i32 %_arg_, i32 addrspace(1)* %_arg_1, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset, i32 addrspace(1)* %_arg_3, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange5, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange6, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset7, i32 addrspace(1)* %_arg_8, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange10, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange11, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset12) {
+define void @_ZTS1K(i32 %_arg_, ptr addrspace(1) %_arg_1, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset, ptr addrspace(1) %_arg_3, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange5, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange6, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset7, ptr addrspace(1) %_arg_8, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange10, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange11, ptr byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset12) {
 entry:
   %alloca = alloca i32, align 8
-  %0 = getelementptr inbounds %"class.cl::sycl::range", %"class.cl::sycl::range"* %_arg_Offset, i64 0, i32 0, i32 0, i64 0
-  %1 = load i64, i64* %0, align 8
-  %add.ptr.i = getelementptr inbounds i32, i32 addrspace(1)* %_arg_1, i64 %1
-  %2 = getelementptr inbounds %"class.cl::sycl::range", %"class.cl::sycl::range"* %_arg_Offset7, i64 0, i32 0, i32 0, i64 0
-  %3 = load i64, i64* %2, align 8
-  %add.ptr.i15 = getelementptr inbounds i32, i32 addrspace(1)* %_arg_3, i64 %3
-  %4 = getelementptr inbounds %"class.cl::sycl::range", %"class.cl::sycl::range"* %_arg_Offset12, i64 0, i32 0, i32 0, i64 0
-  %5 = load i64, i64* %4, align 8
-  %add.ptr.i26 = getelementptr inbounds i32, i32 addrspace(1)* %_arg_8, i64 %5
-  %6 = load <3 x i64>, <3 x i64> addrspace(2)* @__spirv_BuiltInGlobalInvocationId, align 32
-  %7 = extractelement <3 x i64> %6, i64 0
+  %0 = load i64, ptr %_arg_Offset, align 8
+  %add.ptr.i = getelementptr inbounds i32, ptr addrspace(1) %_arg_1, i64 %0
+  %1 = load i64, ptr %_arg_Offset7, align 8
+  %add.ptr.i15 = getelementptr inbounds i32, ptr addrspace(1) %_arg_3, i64 %1
+  %2 = load i64, ptr %_arg_Offset12, align 8
+  %add.ptr.i26 = getelementptr inbounds i32, ptr addrspace(1) %_arg_8, i64 %2
+  %3 = load <3 x i64>, ptr addrspace(2) @__spirv_BuiltInGlobalInvocationId, align 32
+  %4 = extractelement <3 x i64> %3, i64 0
   %cmp.i = icmp eq i32 %_arg_, 0
-  %int = ptrtoint i32 (i32, i32)* @_Z3addii to i32
-  %i8ptr = bitcast i32 (i32, i32)* @_Z3addii to i8*
-  %addr = addrspacecast i32 (i32, i32)* @_Z3addii to i32 (i32, i32) addrspace(4)*
-  store i32 %int, i32* %alloca
-  %arrayidx.i.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %7
-  %8 = load i32, i32 addrspace(1)* %arrayidx.i.i, align 4
-  %arrayidx.i10.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i15, i64 %7
-  %9 = load i32, i32 addrspace(1)* %arrayidx.i10.i, align 4
-  %10 = load i32, i32* %alloca
-  %11 = inttoptr i32 %10 to i32 (i32, i32)*
-  %call4.i = tail call spir_func i32 %11(i32 %8, i32 %9)
-  store i32 %call4.i, i32 addrspace(1)* %arrayidx.i.i, align 4
-  store i32 %_arg_, i32 addrspace(1)* %add.ptr.i26, align 4
-  store i32 ptrtoint(i32 (i32, i32)* @_Z3addii to i32), i32* %alloca
-  %12 = load i32, i32* %alloca
-  %13 = inttoptr i32 %12 to i32 (i32, i32)*
-  %call6.i = tail call spir_func i32 %13(i32 %8, i32 %9)
-  store i32 %call4.i, i32 addrspace(1)* %arrayidx.i.i, align 4
-  store i32 %_arg_, i32 addrspace(1)* %add.ptr.i26, align 4
+  %int = ptrtoint ptr @_Z3addii to i32
+  %addr = addrspacecast ptr @_Z3addii to ptr addrspace(4)
+  store i32 %int, ptr %alloca
+  %arrayidx.i.i = getelementptr inbounds i32, ptr addrspace(1) %add.ptr.i, i64 %4
+  %5 = load i32, ptr addrspace(1) %arrayidx.i.i, align 4
+  %arrayidx.i10.i = getelementptr inbounds i32, ptr addrspace(1) %add.ptr.i15, i64 %4
+  %6 = load i32, ptr addrspace(1) %arrayidx.i10.i, align 4
+  %7 = load i32, ptr %alloca
+  %8 = inttoptr i32 %7 to ptr
+  %call4.i = tail call spir_func i32 %8(i32 %5, i32 %6)
+  store i32 %call4.i, ptr addrspace(1) %arrayidx.i.i, align 4
+  store i32 %_arg_, ptr addrspace(1) %add.ptr.i26, align 4
+  store i32 ptrtoint(ptr @_Z3addii to i32), ptr %alloca
+  %9 = load i32, ptr %alloca
+  %10 = inttoptr i32 %9 to ptr
+  %call6.i = tail call spir_func i32 %10(i32 %5, i32 %6)
+  store i32 %call4.i, ptr addrspace(1) %arrayidx.i.i, align 4
+  store i32 %_arg_, ptr addrspace(1) %add.ptr.i26, align 4
   ret void
 }
 
@@ -87,4 +69,4 @@ entry:
 ; DEBUGIFY-NOT: WARNING
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*)* @_ZTS1K}
+!0 = !{ptr @_ZTS1K}

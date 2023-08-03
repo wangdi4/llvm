@@ -54,7 +54,7 @@ define <8 x i64> @bitselectxor_v8i64(<8 x i64> %x, <8 x i64> %y, <8 x i64> %m) {
 define <2 x i64> @bitselectxor_v2i64_bitcast(<2 x i64> %x, <2 x i64> %y) {
 ; CHECK-LABEL: bitselectxor_v2i64_bitcast:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm2 = [255,0,0,0,0,0,0,0,255,0,0,0,0,0,0,0]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} xmm2 = [255,0,0,0,0,0,0,0,255,0,0,0,0,0,0,0]
 ; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
 ; CHECK-NEXT:    vpternlogq $202, %xmm0, %xmm1, %xmm3
 ; CHECK-NEXT:    vpternlogq $202, %xmm1, %xmm0, %xmm2
@@ -71,7 +71,7 @@ define <2 x i64> @bitselectxor_v2i64_bitcast(<2 x i64> %x, <2 x i64> %y) {
 define <4 x i64> @bitselectxor_v4i64_bitcast(<4 x i64> %x, <4 x i64> %y) {
 ; CHECK-LABEL: bitselectxor_v4i64_bitcast:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovdqa {{.*#+}} ymm2 = [255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0]
+; CHECK-NEXT:    vpbroadcastq {{.*#+}} ymm2 = [255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0,255,255,255,0,0,0,0,0]
 ; CHECK-NEXT:    vmovdqa %ymm2, %ymm3
 ; CHECK-NEXT:    vpternlogq $202, %ymm0, %ymm1, %ymm3
 ; CHECK-NEXT:    vpternlogq $202, %ymm1, %ymm0, %ymm2

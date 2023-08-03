@@ -38,7 +38,7 @@
 ; CHECK-LLVMIR-LABEL: @foo_int
 ; CHECK-LLVMIR-LABEL: vector.body:
 ; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ zeroinitializer, [[vectorph:%.*]] ], [ [[RED_ADD:%.*]], %vector.body ]
-; CHECK-LLVMIR: [[RED_ADD]] = add nsw <4 x i32> {{%.*}}, [[RED_PHI]]
+; CHECK-LLVMIR: [[RED_ADD]] = add <4 x i32> {{%.*}}, [[RED_PHI]]
 ; CHECK-LLVMIR-LABEL: VPlannedBB6:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[RED_ADD]])
 ; CHECK-LLVMIR-LABEL: merge.blk17:
@@ -49,23 +49,23 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo_int(i32* nocapture readonly %ptr, i32 %n) local_unnamed_addr {
+define dso_local i32 @foo_int(ptr nocapture readonly %ptr, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1) ]
-  store i32 0, i32* %s.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, i32 0, i32 1) ]
+  store i32 0, ptr %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %add618 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %add6, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add6 = add nsw i32 %1, %add618
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -73,7 +73,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit_crit_edge.split.split: ; preds = %omp.inner.for.body
   %add6.lcssa = phi i32 [ %add6, %omp.inner.for.body ]
-  store i32 %add6.lcssa, i32* %s.red, align 4, !tbaa !2
+  store i32 %add6.lcssa, ptr %s.red, align 4, !tbaa !2
   %2 = add i32 %add6.lcssa, 10
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end

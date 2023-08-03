@@ -106,7 +106,6 @@ extern const StringRef HasVPlanMask;
 extern const StringRef OCLVecUniformReturn;
 extern const StringRef RecursionWithBarrier;
 extern const StringRef UniformCall;
-extern const StringRef VectorVariants;
 extern const StringRef VectorVariantFailure;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {
@@ -364,6 +363,12 @@ bool isWorkGroupScanInclusiveMin(StringRef S);
 bool isWorkGroupReduceMax(StringRef S);
 bool isWorkGroupScanExclusiveMax(StringRef S);
 bool isWorkGroupScanInclusiveMax(StringRef S);
+bool isWorkGroupScanExclusiveBitwiseAnd(StringRef S);
+bool isWorkGroupScanInclusiveBitwiseAnd(StringRef S);
+bool isWorkGroupScanExclusiveBitwiseOr(StringRef S);
+bool isWorkGroupScanInclusiveBitwiseOr(StringRef S);
+bool isWorkGroupScanExclusiveBitwiseXor(StringRef S);
+bool isWorkGroupScanInclusiveBitwiseXor(StringRef S);
 bool isWorkGroupReduceBitwiseAnd(StringRef S);
 bool isWorkGroupReduceBitwiseOr(StringRef S);
 bool isWorkGroupReduceBitwiseXor(StringRef S);
@@ -636,6 +641,9 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs);
 /// Obtain CL version from "!opencl.ocl.version" named metadata.
 unsigned fetchCLVersionFromMetadata(const Module &M);
 
+/// Return true if the module supports OpenCL 2.0.
+bool hasOcl20Support(const Module &M);
+
 /// Collect all CallInst users of a function in a module.
 InstVec getCallInstUsersOfFunc(const Module &M, StringRef FuncName);
 
@@ -753,18 +761,26 @@ void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
                                function_ref<bool(const Function *)> Condition,
                                function_ref<void(Function *)> MapFunc);
 
-void initializeVectInfoOnce(
-    ArrayRef<VectItem> VectInfos,
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos);
+void initializeVectInfo(ArrayRef<VectItem> VectInfos, const Module &M);
+
+std::vector<std::tuple<std::string, std::string, std::string>> &
+getExtendedVectInfos();
 
 /// Insert printf in the kernel for debug purpose.
+/// \param InputPrefixes The prefix that would be printed before each input
+/// value.
 void insertPrintf(const Twine &Prefix, Instruction *IP,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
 void insertPrintf(const Twine &Prefix, BasicBlock *BB,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
 void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
+
+CallInst *createGetMaxSubGroupSizeCall(Instruction *IP, const Twine &Name);
+CallInst *createGetSubGroupLocalIdCall(Instruction *IP, const Twine &Name);
 
 #if INTEL_CUSTOMIZATION
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
@@ -874,6 +890,18 @@ bool isImagesUsed(const Module &M);
 
 /// @brief Returns true if the function is block invoke kernel
 bool isBlockInvocationKernel(Function *F);
+
+/// Find all dbg.declare users of a value.
+TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V);
+
+/// Given a reflection ParamType, return its corresponding LLVM type.
+/// This function may return nullptr if the parsing isn't supported yet.
+Type *getLLVMTypeFromReflectionType(LLVMContext &C,
+                                    const reflection::RefParamType &PT);
+
+/// Find all get_global_id or get_local_id calls in \p Funcs.
+DenseMap<Function *, InstVecVec>
+getTIDCallsInFuncs(Module &M, StringRef TIDName, FuncSet &Funcs);
 
 } // namespace CompilationUtils
 } // namespace llvm

@@ -165,7 +165,7 @@ class HIRDDAnalysis : public HIRAnalysis {
   };
 
 public:
-  HIRDDAnalysis(HIRFramework &HIRF, AAResults *AAR);
+  HIRDDAnalysis(HIRFramework &HIRF, HIRLoopStatistics *HLS, AAResults *AAR);
   HIRDDAnalysis(HIRDDAnalysis &&Arg)
       : HIRAnalysis(Arg.HIRF), AAR(std::move(Arg.AAR)),
         ValidationMap(std::move(Arg.ValidationMap)),

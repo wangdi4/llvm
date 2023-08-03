@@ -2,6 +2,8 @@
 
 ; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 
+; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll" -aa-pipeline="basic-aa,tbaa" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; This test checks if loops at add_neighbour() and remove_neighbour() functions inside cpu2017/541.leela/FastBoard.cpp get unrolled.
 
 ; *** IR Dump Before HIR Symbolic TripCount CompleteUnroll Pattern Match Pass ***
@@ -42,7 +44,7 @@
 ;       |   t481:
 ;       |   (%0)[0].5.0[%t484] = 2;
 ;       |   (%0)[0].7.0[%t484] = 441;
-;       |   @llvm.lifetime.start.p0i8(16,  &((%t474)[0]));
+;       |   @llvm.lifetime.start.p0(16,  &((%t474)[0]));
 ;       |   %t490 = 0;
 ;       |
 ;       |   + DO i2 = 0, 3, 1   <DO_LOOP>
@@ -73,7 +75,7 @@
 ;       |   + END LOOP
 ;       |
 ;       |   %t526 = -1 * i1 + %t480  +  -1;
-;       |   @llvm.lifetime.end.p0i8(16,  &((%t474)[0]));
+;       |   @llvm.lifetime.end.p0(16,  &((%t474)[0]));
 ;       |   (%0)[0].1.0[%t484] = i1 + trunc.i64.i16(%t260);
 ;       |   (%0)[0].0.0[i1 + %t260] = %t484;
 ;       |   %t531 = i1 + %t260  +  1;
@@ -164,6 +166,10 @@
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRPMSymbolicTripCountCompleteUnroll
 
 ; ModuleID = 'func.bc'
 source_filename = "ld-temp.o"
@@ -179,16 +185,16 @@ target triple = "x86_64-unknown-linux-gnu"
 %"class.boost::array.3" = type { [8 x i32] }
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" }
-%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { i32*, i32*, i32* }
+%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { ptr, ptr, ptr }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #0
 
 ; Function Attrs: nounwind uwtable
-define hidden fastcc void @_ZN9FastBoard17update_board_fastEii(%class.FastBoard*, i32, i32, i16 %t35, i64 %t260, i32* %t473, i32 %t480, i8* nonnull %t474, i16 %t479) unnamed_addr #1 align 2 {
+define hidden fastcc void @_ZN9FastBoard17update_board_fastEii(ptr, i32, i32, i16 %t35, i64 %t260, ptr %t473, i32 %t480, ptr nonnull %t474, i16 %t479) unnamed_addr #1 align 2 {
 header:
   %t4 = alloca %"class.boost::array.2", align 4
   %t5 = alloca %"class.boost::array.2", align 4
@@ -196,28 +202,28 @@ header:
   %t7 = alloca %"class.boost::array.2", align 4
   %t8 = alloca %"class.boost::array.2", align 4
   %t9 = sext i32 %2 to i64
-  %t10 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 10, i32 0, i64 %t9
-  %t11 = load i16, i16* %t10, align 2, !tbaa !3
+  %t10 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 10, i32 0, i64 %t9
+  %t11 = load i16, ptr %t10, align 2, !tbaa !3
   %t12 = zext i16 %t11 to i32
   %t13 = icmp eq i32 %1, 0
   %t14 = zext i1 %t13 to i64
-  %t250 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 2
+  %t250 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 2
   br label %t36
 
 t36:                                              ; preds = %t69, %header
   %t37 = phi i64 [ 0, %header ], [ %t71, %t69 ]
   %t38 = phi i32 [ 0, %header ], [ %t70, %t69 ]
-  %t39 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 12, i32 0, i64 %t37, !intel-tbaa !23
-  %t40 = load i32, i32* %t39, align 4, !tbaa !23
+  %t39 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 12, i32 0, i64 %t37, !intel-tbaa !23
+  %t40 = load i32, ptr %t39, align 4, !tbaa !23
   %t41 = add nsw i32 %t40, %2
   %t42 = sext i32 %t41 to i64
-  %t43 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 10, i32 0, i64 %t42, !intel-tbaa !3
-  %t44 = load i16, i16* %t43, align 2, !tbaa !3
+  %t43 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 10, i32 0, i64 %t42, !intel-tbaa !3
+  %t44 = load i16, ptr %t43, align 2, !tbaa !3
   %t45 = add i16 %t35, %t44
-  store i16 %t45, i16* %t43, align 2, !tbaa !3
+  store i16 %t45, ptr %t43, align 2, !tbaa !3
   %t46 = icmp sgt i32 %t38, 0
-  %t47 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 7, i32 0, i64 %t42
-  %t48 = load i16, i16* %t47, align 2, !tbaa !24
+  %t47 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 7, i32 0, i64 %t42
+  %t48 = load i16, ptr %t47, align 2, !tbaa !24
   %t49 = zext i16 %t48 to i32
   %t50 = sext i32 %t38 to i64
   br i1 %t46, label %t51, label %t61
@@ -231,8 +237,8 @@ t52:                                              ; preds = %t54
 
 t54:                                              ; preds = %t52, %t51
   %t55 = phi i64 [ %t59, %t52 ], [ 0, %t51 ]
-  %t56 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %t4, i64 0, i32 0, i64 %t55, !intel-tbaa !25
-  %t57 = load i32, i32* %t56, align 4, !tbaa !25
+  %t56 = getelementptr inbounds %"class.boost::array.2", ptr %t4, i64 0, i32 0, i64 %t55, !intel-tbaa !25
+  %t57 = load i32, ptr %t56, align 4, !tbaa !25
   %t58 = icmp eq i32 %t57, %t49
   %t59 = add nuw nsw i64 %t55, 1
   br i1 %t58, label %t68, label %t52
@@ -242,13 +248,13 @@ t60:                                              ; preds = %t52
 
 t61:                                              ; preds = %t60, %t36
   %t62 = zext i16 %t48 to i64
-  %t63 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 8, i32 0, i64 %t62, !intel-tbaa !26
-  %t64 = load i16, i16* %t63, align 2, !tbaa !26
+  %t63 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 8, i32 0, i64 %t62, !intel-tbaa !26
+  %t64 = load i16, ptr %t63, align 2, !tbaa !26
   %t65 = add i16 %t64, -1
-  store i16 %t65, i16* %t63, align 2, !tbaa !26
+  store i16 %t65, ptr %t63, align 2, !tbaa !26
   %t66 = add nsw i32 %t38, 1
-  %t67 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %t4, i64 0, i32 0, i64 %t50, !intel-tbaa !25
-  store i32 %t49, i32* %t67, align 4, !tbaa !25
+  %t67 = getelementptr inbounds %"class.boost::array.2", ptr %t4, i64 0, i32 0, i64 %t50, !intel-tbaa !25
+  store i32 %t49, ptr %t67, align 4, !tbaa !25
   br label %t69
 
 t68:                                              ; preds = %t54
@@ -268,27 +274,27 @@ t481:                                             ; preds = %t481.preheader, %t5
   %t483 = phi i32 [ %t526, %t525 ], [ %t480, %t481.preheader ]
   %t484 = phi i32 [ %t534, %t525 ], [ %2, %t481.preheader ]
   %t485 = sext i32 %t484 to i64
-  %t486 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 5, i32 0, i64 %t485, !intel-tbaa !27
-  store i32 2, i32* %t486, align 4, !tbaa !27
-  %t487 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 7, i32 0, i64 %t485, !intel-tbaa !24
-  store i16 441, i16* %t487, align 2, !tbaa !24
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %t474) #2
+  %t486 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 5, i32 0, i64 %t485, !intel-tbaa !27
+  store i32 2, ptr %t486, align 4, !tbaa !27
+  %t487 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 7, i32 0, i64 %t485, !intel-tbaa !24
+  store i16 441, ptr %t487, align 2, !tbaa !24
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %t474) #2
   br label %t488
 
 t488:                                             ; preds = %t521, %t481
   %t489 = phi i64 [ 0, %t481 ], [ %t523, %t521 ]
   %t490 = phi i32 [ 0, %t481 ], [ %t522, %t521 ]
-  %t491 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 12, i32 0, i64 %t489, !intel-tbaa !23
-  %t492 = load i32, i32* %t491, align 4, !tbaa !23
+  %t491 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 12, i32 0, i64 %t489, !intel-tbaa !23
+  %t492 = load i32, ptr %t491, align 4, !tbaa !23
   %t493 = add nsw i32 %t492, %t484
   %t494 = sext i32 %t493 to i64
-  %t495 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 10, i32 0, i64 %t494, !intel-tbaa !3
-  %t496 = load i16, i16* %t495, align 2, !tbaa !3
+  %t495 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 10, i32 0, i64 %t494, !intel-tbaa !3
+  %t496 = load i16, ptr %t495, align 2, !tbaa !3
   %t497 = add i16 %t479, %t496
-  store i16 %t497, i16* %t495, align 2, !tbaa !3
+  store i16 %t497, ptr %t495, align 2, !tbaa !3
   %t498 = icmp sgt i32 %t490, 0
-  %t499 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 7, i32 0, i64 %t494
-  %t500 = load i16, i16* %t499, align 2, !tbaa !24
+  %t499 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 7, i32 0, i64 %t494
+  %t500 = load i16, ptr %t499, align 2, !tbaa !24
   %t501 = zext i16 %t500 to i32
   %t502 = sext i32 %t490 to i64
   br i1 %t498, label %t503, label %t513
@@ -302,8 +308,8 @@ t504:                                             ; preds = %t506
 
 t506:                                             ; preds = %t504, %t503
   %t507 = phi i64 [ %t511, %t504 ], [ 0, %t503 ]
-  %t508 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %t8, i64 0, i32 0, i64 %t507, !intel-tbaa !25
-  %t509 = load i32, i32* %t508, align 4, !tbaa !25
+  %t508 = getelementptr inbounds %"class.boost::array.2", ptr %t8, i64 0, i32 0, i64 %t507, !intel-tbaa !25
+  %t509 = load i32, ptr %t508, align 4, !tbaa !25
   %t510 = icmp eq i32 %t509, %t501
   %t511 = add nuw nsw i64 %t507, 1
   br i1 %t510, label %t520, label %t504
@@ -313,13 +319,13 @@ t512:                                             ; preds = %t504
 
 t513:                                             ; preds = %t512, %t488
   %t514 = zext i16 %t500 to i64
-  %t515 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 8, i32 0, i64 %t514, !intel-tbaa !26
-  %t516 = load i16, i16* %t515, align 2, !tbaa !26
+  %t515 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 8, i32 0, i64 %t514, !intel-tbaa !26
+  %t516 = load i16, ptr %t515, align 2, !tbaa !26
   %t517 = add i16 %t516, 1
-  store i16 %t517, i16* %t515, align 2, !tbaa !26
+  store i16 %t517, ptr %t515, align 2, !tbaa !26
   %t518 = add nsw i32 %t490, 1
-  %t519 = getelementptr inbounds %"class.boost::array.2", %"class.boost::array.2"* %t8, i64 0, i32 0, i64 %t502, !intel-tbaa !25
-  store i32 %t501, i32* %t519, align 4, !tbaa !25
+  %t519 = getelementptr inbounds %"class.boost::array.2", ptr %t8, i64 0, i32 0, i64 %t502, !intel-tbaa !25
+  store i32 %t501, ptr %t519, align 4, !tbaa !25
   br label %t521
 
 t520:                                             ; preds = %t506
@@ -333,16 +339,16 @@ t521:                                             ; preds = %t520, %t513
 
 t525:                                             ; preds = %t521
   %t526 = add nsw i32 %t483, -1
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %t474) #2
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %t474) #2
   %t527 = trunc i64 %t482 to i16
-  %t528 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 1, i32 0, i64 %t485, !intel-tbaa !28
-  store i16 %t527, i16* %t528, align 2, !tbaa !28
+  %t528 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 1, i32 0, i64 %t485, !intel-tbaa !28
+  store i16 %t527, ptr %t528, align 2, !tbaa !28
   %t529 = trunc i32 %t484 to i16
-  %t530 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 0, i32 0, i64 %t482, !intel-tbaa !29
-  store i16 %t529, i16* %t530, align 2, !tbaa !29
+  %t530 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 0, i32 0, i64 %t482, !intel-tbaa !29
+  store i16 %t529, ptr %t530, align 2, !tbaa !29
   %t531 = add i64 %t482, 1
-  %t532 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %0, i64 0, i32 6, i32 0, i64 %t485, !intel-tbaa !30
-  %t533 = load i16, i16* %t532, align 2, !tbaa !30
+  %t532 = getelementptr inbounds %class.FastBoard, ptr %0, i64 0, i32 6, i32 0, i64 %t485, !intel-tbaa !30
+  %t533 = load i16, ptr %t532, align 2, !tbaa !30
   %t534 = zext i16 %t533 to i32
   %t535 = icmp eq i32 %t534, %2
   br i1 %t535, label %t536, label %t481
@@ -351,8 +357,8 @@ t536:                                             ; preds = %t525
   %t537 = phi i32 [ %t526, %t525 ]
   %t538 = phi i64 [ %t531, %t525 ]
   %t539 = trunc i64 %t538 to i32
-  store i32 %t537, i32* %t473, align 4, !tbaa !31
-  store i32 %t539, i32* %t250, align 4, !tbaa !32
+  store i32 %t537, ptr %t473, align 4, !tbaa !31
+  store i32 %t539, ptr %t250, align 4, !tbaa !32
   br label %t540
 
 t540:                                             ; preds = %t536

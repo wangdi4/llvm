@@ -11,18 +11,18 @@ target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
 ; Function Attrs: nounwind uwtable
-define void @jinit_1pass_quantizer(i8* %struc, i64 %N) {
+define void @jinit_1pass_quantizer(ptr %struc, i64 %N) {
 entry:
-  %struc.bc = bitcast i8* %struc to [4 x [4 x i64]]*
+  %struc.bc = bitcast ptr %struc to ptr
   br label %for.body110.i
 
 for.body110.i:                                    ; preds = %for.body110.i, %entry
-  %odither.0335.i = phi [4 x [4 x i64]]* [ %struc.bc, %entry ], [ %incdec.ptr.i, %for.body110.i ]
+  %odither.0335.i = phi ptr [ %struc.bc, %entry ], [ %incdec.ptr.i, %for.body110.i ]
   %i.1334.i = phi i64 [ 0, %entry ], [ %inc187.i, %for.body110.i ]
-  %arrayidx167.i = getelementptr inbounds [4 x [4 x i64]], [4 x [4 x i64]]* %odither.0335.i, i64 0, i64 2, i64 3
-  store i64 undef, i64* %arrayidx167.i, align 8
+  %arrayidx167.i = getelementptr inbounds [4 x [4 x i64]], ptr %odither.0335.i, i64 0, i64 2, i64 3
+  store i64 undef, ptr %arrayidx167.i, align 8
   %inc187.i = add nuw nsw i64 %i.1334.i, 1
-  %incdec.ptr.i = getelementptr inbounds [4 x [4 x i64]], [4 x [4 x i64]]* %odither.0335.i, i64 1
+  %incdec.ptr.i = getelementptr inbounds [4 x [4 x i64]], ptr %odither.0335.i, i64 1
   %exitcond = icmp eq i64 %inc187.i, %N
   br i1 %exitcond, label %create_colormap.exit.loopexit, label %for.body110.i
 

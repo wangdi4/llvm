@@ -518,19 +518,22 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPGenericLoopDirective(cast<OMPGenericLoopDirective>(*S));
     break;
   case Stmt::OMPTeamsGenericLoopDirectiveClass:
-    llvm_unreachable("teams loop directive not supported yet.");
+    EmitOMPTeamsGenericLoopDirective(cast<OMPTeamsGenericLoopDirective>(*S));
     break;
   case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
-    llvm_unreachable("target teams loop directive not supported yet.");
+    EmitOMPTargetTeamsGenericLoopDirective(
+        cast<OMPTargetTeamsGenericLoopDirective>(*S));
     break;
   case Stmt::OMPParallelGenericLoopDirectiveClass:
-    llvm_unreachable("parallel loop directive not supported yet.");
+    EmitOMPParallelGenericLoopDirective(
+        cast<OMPParallelGenericLoopDirective>(*S));
     break;
   case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
-    llvm_unreachable("target parallel loop directive not supported yet.");
+    EmitOMPTargetParallelGenericLoopDirective(
+        cast<OMPTargetParallelGenericLoopDirective>(*S));
     break;
   case Stmt::OMPParallelMaskedDirectiveClass:
-    llvm_unreachable("parallel masked directive not supported yet.");
+    EmitOMPParallelMaskedDirective(cast<OMPParallelMaskedDirective>(*S));
     break;
   }
 }
@@ -2598,9 +2601,15 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
         getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
       Ty = llvm::IntegerType::get(getLLVMContext(), Size);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      return {
+          Builder.CreateLoad(InputValue.getAddress(*this).withElementType(Ty)),
+          nullptr};
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       return {Builder.CreateLoad(Builder.CreateElementBitCast(
                   InputValue.getAddress(*this), Ty)),
               nullptr};
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     }
   }
 
@@ -2800,8 +2809,12 @@ EmitAsmStores(CodeGenFunction &CGF, const AsmStmt &S,
     // ResultTypeRequiresCast.size() elements of RegResults.
     if ((i < ResultTypeRequiresCast.size()) && ResultTypeRequiresCast[i]) {
       unsigned Size = CGF.getContext().getTypeSize(ResultRegQualTys[i]);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Address A = Dest.getAddress(CGF).withElementType(ResultRegTypes[i]);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       Address A =
           Builder.CreateElementBitCast(Dest.getAddress(CGF), ResultRegTypes[i]);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       if (CGF.getTargetHooks().isScalarizableAsmOperand(CGF, TruncTy)) {
         Builder.CreateStore(Tmp, A);
         continue;
@@ -2981,8 +2994,12 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       // Otherwise there will be a mis-match if the matrix is also an
       // input-argument which is represented as vector.
       if (isa<MatrixType>(OutExpr->getType().getCanonicalType()))
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        DestAddr = DestAddr.withElementType(ConvertType(OutExpr->getType()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
         DestAddr = Builder.CreateElementBitCast(
             DestAddr, ConvertType(OutExpr->getType()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       ArgTypes.push_back(DestAddr.getType());
       ArgElemTypes.push_back(DestAddr.getElementType());
@@ -3184,7 +3201,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
          "unwind clobber can't be used with asm goto");
 
   // Add machine specific clobbers
-  std::string MachineClobbers = getTarget().getClobbers();
+  std::string_view MachineClobbers = getTarget().getClobbers();
   if (!MachineClobbers.empty()) {
     if (!Constraints.empty())
       Constraints += ',';

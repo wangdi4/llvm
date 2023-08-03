@@ -1,7 +1,7 @@
 ; Test Complete Unrolling of simple loop.
 ; A[i] = B[i], unrolled 4 times
 
-; RUN: opt -opaque-pointers=0 -passes="hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
+; RUN: opt -passes="hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
@@ -10,14 +10,14 @@
 
 ; check loop is completely unrolled.
 ; CHECK: region.0:
-; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 1)
-; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 1)
+; CHECK: getelementptr inbounds ([10 x i32], ptr @B, i64 0, i64 1)
+; CHECK: getelementptr inbounds ([10 x i32], ptr @A, i64 0, i64 1)
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
-; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 4)
-; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 4)
+; CHECK: getelementptr inbounds ([10 x i32], ptr @B, i64 0, i64 4)
+; CHECK: getelementptr inbounds ([10 x i32], ptr @A, i64 0, i64 4)
 ; CHECK: br label %for.end
 
 ; ModuleID = 'test.cpp'
@@ -34,16 +34,16 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i.05 = phi i64 [ 1, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.05
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %i.05
-  store i32 %0, i32* %arrayidx1, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.05
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %i.05
+  store i32 %0, ptr %arrayidx1, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond = icmp eq i64 %inc, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %1 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
+  %1 = load i32, ptr getelementptr inbounds ([10 x i32], ptr @A, i64 0, i64 2), align 8, !tbaa !1
   ret i32 %1
 }
 

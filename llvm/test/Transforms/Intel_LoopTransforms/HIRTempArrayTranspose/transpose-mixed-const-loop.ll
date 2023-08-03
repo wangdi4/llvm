@@ -17,8 +17,8 @@
 ;              |   |   |   %hir.de.ssa.copy7.in = 0.000000e+00;
 ;              |   |   |
 ;              |   |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-;              |   |   |   |   %94 = (%eht_mp_bt_)[0:i4:0(ptr:0)][0:i3:0(ptr:0)];
-;              |   |   |   |   %97 = (%nsarh_mp_qyt_)[0:i4:432(ptr:0)][0:i2:8(ptr:54)];
+;              |   |   |   |   %94 = (%eht_mp_bt_)[0:i4:0(double:0)][0:i3:0(double:0)];
+;              |   |   |   |   %97 = (%nsarh_mp_qyt_)[0:i4:432(double:0)][0:i2:8(double:54)];
 ;              |   |   |   |   %hir.de.ssa.copy7.in = 0.000000e+00;
 ;              |   |   |   + END LOOP
 ;              |   |   |
@@ -35,7 +35,7 @@
 ;
 ; CHECK:       + DO i1 = 0, sext.i32.i64(%1) + -1, 1   <DO_LOOP>
 ; CHECK:       |   + DO i2 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-; CHECK:       |   |   (%TranspTmpArr)[0:i1:0(ptr:0)][0:i2:0(ptr:0)] = (%eht_mp_bt_)[0:i2:0(ptr:0)][0:i1:0(ptr:0)];
+; CHECK:       |   |   (%TranspTmpArr)[0:i1:0(double:0)][0:i2:0(double:0)] = (%eht_mp_bt_)[0:i2:0(double:0)][0:i1:0(double:0)];
 ;              |   + END LOOP
 ;              + END LOOP
 ;
@@ -44,7 +44,7 @@
 ;
 ; CHECK:       + DO i1 = 0, 53, 1   <DO_LOOP>
 ; CHECK:       |   + DO i2 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-; CHECK:       |   |   (%TranspTmpArr9)[0:i1:8 * sext.i32.i64(%2)(ptr:0)][0:i2:8(ptr:0)] = (%nsarh_mp_qyt_)[0:i2:432(ptr:0)][0:i1:8(ptr:54)];
+; CHECK:       |   |   (%TranspTmpArr9)[0:i1:8 * sext.i32.i64(%2)(double:0)][0:i2:8(double:0)] = (%nsarh_mp_qyt_)[0:i2:432(double:0)][0:i1:8(double:54)];
 ;              |   + END LOOP
 ;              + END LOOP
 ;
@@ -55,8 +55,8 @@
 ;              |   |   |   %hir.de.ssa.copy7.in = 0.000000e+00;
 ;              |   |   |
 ;              |   |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   %94 = (%TranspTmpArr)[0:i3:0(ptr:0)][0:i4:0(ptr:0)];
-; CHECK:       |   |   |   |   %97 = (%TranspTmpArr9)[0:i2:8 * sext.i32.i64(%2)(ptr:0)][0:i4:8(ptr:0)];
+; CHECK:       |   |   |   |   %94 = (%TranspTmpArr)[0:i3:0(double:0)][0:i4:0(double:0)];
+; CHECK:       |   |   |   |   %97 = (%TranspTmpArr9)[0:i2:8 * sext.i32.i64(%2)(double:0)][0:i4:8(double:0)];
 ;              |   |   |   |   %hir.de.ssa.copy7.in = 0.000000e+00;
 ;              |   |   |   + END LOOP
 ;              |   |   |

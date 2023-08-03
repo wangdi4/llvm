@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-group-builtin %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-group-builtin %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the GroupBuiltins pass
@@ -17,50 +17,47 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
 target triple = "i686-pc-win32"
 
-%opencl.pipe_t = type opaque
-%opencl.reserve_id_t = type opaque
-
-declare %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)*, i32 , i32)
-declare void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
-declare %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)*, i32, i32)
-declare void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)*, %opencl.reserve_id_t* nocapture, i32)
+declare ptr @__work_group_reserve_write_pipe(ptr addrspace(1), i32 , i32)
+declare void @__work_group_commit_write_pipe(ptr addrspace(1), ptr nocapture, i32)
+declare ptr @__work_group_reserve_read_pipe(ptr addrspace(1), i32, i32)
+declare void @__work_group_commit_read_pipe(ptr addrspace(1), ptr nocapture, i32)
 
 ; CHECK: @wg_reserve_write
-define %opencl.reserve_id_t* @wg_reserve_write(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets) nounwind {
-  %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
-  ret %opencl.reserve_id_t* %rid
+define ptr @wg_reserve_write(ptr addrspace(1) %p, i32 %num_packets) nounwind {
+  %rid = tail call ptr @__work_group_reserve_write_pipe(ptr addrspace(1) %p, i32 %num_packets, i32 undef)
+  ret ptr %rid
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
-; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+; CHECK:   %rid = tail call ptr @__work_group_reserve_write_pipe(ptr addrspace(1) %p, i32 %num_packets, i32 undef)
 ; CHECK:   call void @dummy_barrier.()
-; CHECK:   ret %opencl.reserve_id_t* %rid
+; CHECK:   ret ptr %rid
 }
 
 ; CHECK: @wg_commit_write
-define void @wg_commit_write(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid) nounwind {
-  tail call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+define void @wg_commit_write(ptr addrspace(1) %p, ptr %rid) nounwind {
+  tail call void @__work_group_commit_write_pipe(ptr addrspace(1) %p, ptr %rid, i32 undef)
   ret void
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
-; CHECK:   tail call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+; CHECK:   tail call void @__work_group_commit_write_pipe(ptr addrspace(1) %p, ptr %rid, i32 undef)
 ; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }
 
 ; CHECK: @wg_reserve_read
-define %opencl.reserve_id_t* @wg_reserve_read(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets) nounwind {
-  %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
-  ret %opencl.reserve_id_t* %rid
+define ptr @wg_reserve_read(ptr addrspace(1) %p, i32 %num_packets) nounwind {
+  %rid = tail call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %p, i32 %num_packets, i32 undef)
+  ret ptr %rid
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
-; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
+; CHECK:   %rid = tail call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %p, i32 %num_packets, i32 undef)
 ; CHECK:   call void @dummy_barrier.()
-; CHECK:   ret %opencl.reserve_id_t* %rid
+; CHECK:   ret ptr %rid
 }
 
 ; CHECK: @wg_commit_read
-define void @wg_commit_read(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid) nounwind {
-  tail call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+define void @wg_commit_read(ptr addrspace(1) %p, ptr %rid) nounwind {
+  tail call void @__work_group_commit_read_pipe(ptr addrspace(1) %p, ptr %rid, i32 undef)
   ret void
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
-; CHECK:   tail call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
+; CHECK:   tail call void @__work_group_commit_read_pipe(ptr addrspace(1) %p, ptr %rid, i32 undef)
 ; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }

@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = common dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @gcdmiv(float* nocapture %A, i64 %n1, i64 %n2, i64 %n3) local_unnamed_addr #0 {
+define dso_local void @gcdmiv(ptr nocapture %A, i64 %n1, i64 %n2, i64 %n3) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -41,8 +41,8 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %i2.033 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %mul4 = shl nuw nsw i64 %i2.033, 1
   %add = add nuw nsw i64 %mul4, %mul
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %add
-  store float 5.000000e+00, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %add
+  store float 5.000000e+00, ptr %arrayidx, align 4, !tbaa !2
   %inc = add nuw nsw i64 %i2.033, 1
   %exitcond = icmp eq i64 %inc, 200
   br i1 %exitcond, label %for.cond5.preheader, label %for.body3
@@ -51,13 +51,13 @@ for.body7:                                        ; preds = %for.body7, %for.con
   %i2.134 = phi i64 [ 0, %for.cond5.preheader ], [ %inc14, %for.body7 ]
   %mul8 = shl nuw nsw i64 %i2.134, 1
   %sub = add nsw i64 %add9, %mul8
-  %arrayidx10 = getelementptr inbounds float, float* %A, i64 %sub
-  %0 = bitcast float* %arrayidx10 to i32*
-  %1 = load i32, i32* %0, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds float, ptr %A, i64 %sub
+  %0 = bitcast ptr %arrayidx10 to ptr
+  %1 = load i32, ptr %0, align 4, !tbaa !2
   %add11 = add nuw nsw i64 %i2.134, %i1.035
-  %arrayidx12 = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %add11
-  %2 = bitcast float* %arrayidx12 to i32*
-  store i32 %1, i32* %2, align 4, !tbaa !6
+  %arrayidx12 = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %add11
+  %2 = bitcast ptr %arrayidx12 to ptr
+  store i32 %1, ptr %2, align 4, !tbaa !6
   %inc14 = add nuw nsw i64 %i2.134, 1
   %exitcond36 = icmp eq i64 %inc14, 100
   br i1 %exitcond36, label %for.inc16, label %for.body7

@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation" -print-changed -disable-output -hir-cost-model-throttling=0 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; %t.addr.040 should not be moved to postexit as it is conditionally executed.
 ;
@@ -35,14 +36,20 @@
 ;
 ; CHECK-NOT:    modified
 ;
-;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLastValueComputation
+
 ;Module Before HIR; ModuleID = 'foo.c'
 source_filename = "foo.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32* nocapture %B, i32 %t, i32 %N, i32 %b) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A, ptr nocapture %B, i32 %t, i32 %N, i32 %b) local_unnamed_addr #0 {
 entry:
   %cmp39 = icmp sgt i32 %N, 0
   br i1 %cmp39, label %for.body.preheader, label %for.end
@@ -54,42 +61,42 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %L, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %1, %L ]
   %t.addr.040 = phi i32 [ %t, %for.body.preheader ], [ %t.addr.1, %L ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %0, 0
   %1 = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp1, label %if.then, label %for.body.if.end8_crit_edge
 
 for.body.if.end8_crit_edge:                       ; preds = %for.body
-  %.pre45 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %.pre45 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
   br label %if.end8
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %1
-  %2 = load i32, i32* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds i32, ptr %B, i64 %1
+  %2 = load i32, ptr %arrayidx3, align 4, !tbaa !2
   %inc = add nsw i32 %2, 1
-  store i32 %inc, i32* %arrayidx3, align 4, !tbaa !2
-  %arrayidx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  store i32 %inc, ptr %arrayidx3, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   %cmp6 = icmp sgt i32 %3, 0
   br i1 %cmp6, label %L, label %if.end8
 
 if.end8:                                          ; preds = %for.body.if.end8_crit_edge, %if.then
-  %.pre.pre-phi = phi i32* [ %.pre45, %for.body.if.end8_crit_edge ], [ %arrayidx5, %if.then ]
+  %.pre.pre-phi = phi ptr [ %.pre45, %for.body.if.end8_crit_edge ], [ %arrayidx5, %if.then ]
   %4 = trunc i64 %1 to i32
   %add10 = add i32 %4, %b
   br label %L
 
 L:                                                ; preds = %if.then, %if.end8
-  %arrayidx16.pre-phi = phi i32* [ %arrayidx5, %if.then ], [ %.pre.pre-phi, %if.end8 ]
+  %arrayidx16.pre-phi = phi ptr [ %arrayidx5, %if.then ], [ %.pre.pre-phi, %if.end8 ]
   %t.addr.1 = phi i32 [ %t.addr.040, %if.then ], [ %add10, %if.end8 ]
-  %5 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %5 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %6 = trunc i64 %indvars.iv to i32
   %mul = mul nsw i32 %5, %6
-  store i32 %mul, i32* %arrayidx, align 4, !tbaa !2
-  %7 = load i32, i32* %arrayidx16.pre-phi, align 4, !tbaa !2
+  store i32 %mul, ptr %arrayidx, align 4, !tbaa !2
+  %7 = load i32, ptr %arrayidx16.pre-phi, align 4, !tbaa !2
   %inc17 = add nsw i32 %7, 1
-  store i32 %inc17, i32* %arrayidx16.pre-phi, align 4, !tbaa !2
+  store i32 %inc17, ptr %arrayidx16.pre-phi, align 4, !tbaa !2
   %exitcond = icmp eq i64 %1, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body
 
@@ -99,12 +106,12 @@ for.end.loopexit:                                 ; preds = %L
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   %t.addr.0.lcssa = phi i32 [ %t, %entry ], [ %t.addr.1.lcssa, %for.end.loopexit ]
-  %arrayidx19 = getelementptr inbounds i32, i32* %A, i64 5
-  %8 = load i32, i32* %arrayidx19, align 4, !tbaa !2
+  %arrayidx19 = getelementptr inbounds i32, ptr %A, i64 5
+  %8 = load i32, ptr %arrayidx19, align 4, !tbaa !2
   %mul20 = mul nsw i32 %8, %t.addr.0.lcssa
   %add21 = add nsw i32 %mul20, 1
-  %arrayidx22 = getelementptr inbounds i32, i32* %B, i64 5
-  store i32 %add21, i32* %arrayidx22, align 4, !tbaa !2
+  %arrayidx22 = getelementptr inbounds i32, ptr %B, i64 5
+  store i32 %add21, ptr %arrayidx22, align 4, !tbaa !2
   ret void
 }
 

@@ -18,6 +18,7 @@
 
 #include "llvm/Support/Compiler.h"
 #include <set>
+#include <string>
 
 namespace llvm {
 
@@ -86,6 +87,10 @@ public:
 
   /// Prints DDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
+
+  /// Gets the DDRef's name and debug location, in a format suitable for
+  /// emission into the opt-report.
+  std::string getNameAndDbgLocForOptRpt() const;
 
   /// Returns the parent HLDDNode.
   virtual const HLDDNode *getHLDDNode() const = 0;

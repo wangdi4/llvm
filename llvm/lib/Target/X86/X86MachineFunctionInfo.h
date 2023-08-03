@@ -139,13 +139,15 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   /// Ajust stack for push2/pop2
   bool PadForPush2Pop2 = false;
 
-  /// Offset for push2/pop2 to adjust stack
-  unsigned OffsetForPush2Pop2 = 0;
-
   /// Candidate registers for push2/pop2
   std::set<Register> CandidatesForPush2Pop2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  /// True if this function has CFI directives that adjust the CFA.
+  /// This is used to determine if we should direct the debugger to use
+  /// the CFA instead of the stack pointer.
+  bool HasCFIAdjustCfa = false;
+
   MachineInstr *StackPtrSaveMI = nullptr;
 
   std::optional<int> SwiftAsyncContextFrameIdx;
@@ -189,7 +191,13 @@ public:
   const DenseMap<int, unsigned>& getWinEHXMMSlotInfo() const {
     return WinEHXMMSlotInfo; }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize + 8 * padForPush2Pop2(); }
+#else // INTEL_FEATURE_ISA_APX_F
   unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   void setCalleeSavedFrameSize(unsigned bytes) { CalleeSavedFrameSize = bytes; }
 
   unsigned getBytesToPopOnReturn() const { return BytesToPopOnReturn; }
@@ -261,9 +269,6 @@ public:
   bool padForPush2Pop2() const { return PadForPush2Pop2; }
   void setPadForPush2Pop2(bool V) { PadForPush2Pop2 = V; }
 
-  unsigned getOffsetForPush2Pop2() const { return OffsetForPush2Pop2; }
-  void setOffsetForPush2Pop2(unsigned V) { OffsetForPush2Pop2 = V; }
-
   bool isCandidateForPush2Pop2(Register Reg) const {
     return CandidatesForPush2Pop2.find(Reg) != CandidatesForPush2Pop2.end();
   }
@@ -275,6 +280,9 @@ public:
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  bool hasCFIAdjustCfa() const { return HasCFIAdjustCfa; }
+  void setHasCFIAdjustCfa(bool v) { HasCFIAdjustCfa = v; }
+
   void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
   MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 

@@ -11,14 +11,12 @@
 #include <sycl/detail/common.hpp>
 #include <sycl/detail/os_util.hpp>
 
-#include <cstdlib>
-#include <cstring>
+#include <limits>
 #include <memory>
-#include <type_traits>
-#include <vector>
+#include <new>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 template <typename T> class aligned_allocator {
 public:
@@ -79,7 +77,7 @@ private:
   size_t MAlignment = 128;
 };
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 namespace std {
@@ -95,7 +93,7 @@ struct allocator_traits<sycl::detail::aligned_allocator<T>> {
       typename std::pointer_traits<pointer>::template rebind<const void>;
   using difference_type =
       typename std::pointer_traits<pointer>::difference_type;
-  using size_type = typename std::make_unsigned<difference_type>::type;
+  using size_type = std::make_unsigned_t<difference_type>;
   using propagate_on_container_copy_assignment = std::false_type;
   using propagate_on_container_move_assignment = std::false_type;
   using propagate_on_container_swap = std::false_type;

@@ -17,7 +17,7 @@
 
 ; ZTT block:
 ; CHECK: %[[ZTT1:.+]] = icmp sle i32 %[[LB:[^,]+]], %[[UB:[^,]+]]
-; CHECK: br i1 %[[ZTT1]], label %[[PHB:[^,]+]], label %[[EXIT:[^,]+]]
+; CHECK: br i1 %[[ZTT1]], label %[[PHB:[^,]+]], label %[[ENDLOOP:[^,]+]]
 
 ; PHB:
 ; CHECK: [[PHB]]:
@@ -29,27 +29,23 @@
 ; CHECK: [[DISPNEXT]]:
 ; CHECK: %[[NEXT:.+]] = call i32 @__kmpc_dispatch_next_4({{.*}}, i32 %[[TID]], i32* %[[PISLAST:[^,]+]], i32* %[[PLB:[^,]+]], i32* %[[PUB:[^,]+]], i32* %[[PST:[^,]+]])
 ; CHECK: %[[NEXTP:.+]] = icmp ne i32 %[[NEXT]], 0
-; CHECK: br i1 %[[NEXTP]], label %[[DISPB:[^,]+]], label %[[BARRIER:[^,]+]]
+; CHECK: br i1 %[[NEXTP]], label %[[DISPB:[^,]+]], label %[[ENDLOOP]]
 
 ; DISPB:
 ; CHECK: [[DISPB]]:
 ; CHECK: %[[LBNEW:.+]] = load i32, i32* %[[PLB]]
 ; CHECK: %[[UBNEW:.+]] = load i32, i32* %[[PUB]]
 ; CHECK: %[[ZTT2:.+]] = icmp sle i32 %[[LBNEW]], %[[UBNEW]]
-; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[BARRIER:[^,]+]]
+; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[ENDLOOP]]
 
 ; LOOPBODY:
 ; CHECK: [[LOOPBODY]]:
 ; CHECK: call void @__kmpc_dispatch_fini_4({{.*}}, i32 %[[TID]])
 ; CHECK: br i1 {{.*}}, label %[[LOOPBODY]], label %[[DISPNEXT:[^,]+]]
 
-; BARRIER:
-; CHECK: [[BARRIER]]:
+; ENDLOOP:
+; CHECK: [[ENDLOOP]]:
 ; CHECK: call void @__kmpc_barrier
-; CHECK: br label %[[EXIT]]
-
-; EXIT:
-; CHECK: [[EXIT]]:
 
 ; ModuleID = 'dist_cases.cpp'
 source_filename = "dist_cases.cpp"

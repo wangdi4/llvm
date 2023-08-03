@@ -53,13 +53,13 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlanVector *Plan, OptReportBuilder &ORBuilder,
              bool IsOmpSIMD = false,
-             FatalErrorHandlerTy FatalErrorHandler = nullptr)
+             VecErrorHandlerTy VecErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
         OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
-        IsOmpSIMD(IsOmpSIMD), FatalErrorHandler(FatalErrorHandler) {}
+        IsOmpSIMD(IsOmpSIMD), VecErrorHandler(VecErrorHandler) {}
 
   ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
@@ -130,12 +130,9 @@ public:
                          SmallVectorImpl<Type *> &VecArgTys,
                          SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
-  /// Promote provided mask to a proper type and add it into
-  /// vector arguments/vector argument types arrays.
-  void createVectorMaskArg(VPCallInstruction *VPCall, const VFInfo *VecVariant,
-                           SmallVectorImpl<Value *> &VecArgs,
-                           SmallVectorImpl<Type *> &VecArgTys,
-                           unsigned PumpedVF, Value *MaskToUse);
+  /// Promote provided mask to a proper type and return its value.
+  Value *createVectorMaskArg(VPCallInstruction *VPCall,
+                             const VFInfo &VecVariant, Value *MaskToUse);
 
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
@@ -186,10 +183,26 @@ public:
                         const Twine &Name = "cloned.loop");
 
 private:
+  /// Helper method to generate an empty SESE loop structure  at current
+  /// insertion point. This is achieved by splitting current BB and creating a
+  /// single BB loop structure. \p TC is used to set the known trip count of
+  /// loop. Generated loop's IVPhi and exit basicblock are returned. NOTE: This
+  /// method explicitly sets the insertion point to IV increment instruction.
+  /// Hence caller clients can populate loop's body without updating insertion
+  /// point.
+  std::pair<PHINode *, BasicBlock *>
+  generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName);
+
   /// Helper function to process SOA layout for private final arrays and
   /// generate exit basic block as a result.
   BasicBlock *processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
                                Type *ElementType, Value *ElementPosition);
+
+  /// Helper function to process SOA layout for array reductions and generate
+  /// exit basic block as a result.
+  BasicBlock *
+  processSOALayoutArrayReduction(VPReductionFinalArray *RedFinalArr);
+
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
   bool needScalarCode(VPInstruction *V);
@@ -308,7 +321,7 @@ private:
   void predicateInstructions();
 
   /// Reverse vector elements
-  Value *reverseVector(Value *Vec, unsigned Stride = 1);
+  Value *reverseVector(Value *Vec, unsigned OriginalVL = 1);
 
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
@@ -377,6 +390,13 @@ private:
   // %or = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> %cmp)
   // %sel = select i1 %or, i32 %vpchg, i32 %vpstart
   void vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal);
+
+  /// Helper utility to generate vector reduce intrinsic based on provided \p
+  /// Intrin and vector \p VecValue. Final scalar operation is also emitted here
+  /// if accumulator value \p Acc is provided. Check vectorizeReductionFinal for
+  /// example.
+  Value *createVectorReduce(Intrinsic::ID Intrin, Value *VecValue, Value *Acc,
+                            unsigned BinOpcode, FastMathFlags FMF);
 
   /// Generate vector code for induction initialization.
   /// InductionInit has two arguments {Start, Step} and keeps the operation
@@ -752,13 +772,10 @@ private:
   // such loops.
   void emitRemarksForScalarLoops();
 
-  /// Preserve DbgLoc metatdata from incoming loop's LoopID in outgoing
-  /// vectorized loops. This ensures loop's LocRange info is not lost.
-  void preserveLoopIDDbgMDs();
-
-  /// Return a guaranteed peeling variant. Null is returned if we are not sure
-  /// that the peel loop will be executed at run-time.
-  VPlanPeelingVariant *getGuaranteedPeeling() const;
+  /// Preserve metadata from incoming loop's LoopID in outgoing
+  /// vectorized loops. This ensures loop's LocRange info is not lost,
+  /// as well as maintaining directives such as disabling of unrolling.
+  void preserveLoopIDMDs();
 
   /// Erase VPO.GUARD.MEM.MOTION directives from outgoing scalar loops. These
   /// directives were inserted by Paropt for vectorizer, so we should not
@@ -777,7 +794,7 @@ private:
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;
 
-  FatalErrorHandlerTy FatalErrorHandler;
+  VecErrorHandlerTy VecErrorHandler;
 
   // True if loop has any entity for which a memory guard region is expected.
   // For example, UDRs, inscan reductions, array section reductions and complex

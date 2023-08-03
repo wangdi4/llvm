@@ -458,7 +458,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, SZ)
     const uint32_t imask = ~mask;
     ret = (src[i] & imask) | ((val[i] << offset[i] & mask));
     // Sign extend if signed type
-    if constexpr (std::is_signed<T>::value) {
+    if constexpr (std::is_signed_v<T>) {
       int m = 1U << (width[i] - 1);
       ret = (ret ^ m) - m;
     }
@@ -563,17 +563,17 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
 
   constexpr bool
       pvcHfDest = isPvc && std::is_same_v<RT, unsigned short> &&
-                  src1_precision == __ESIMD_ENS::argument_type::FP16 &&
-                  src2_precision == __ESIMD_ENS::argument_type::FP16,
+                  src1_precision == __ESIMD_XMX_NS::dpas_argument_type::fp16 &&
+                  src2_precision == __ESIMD_XMX_NS::dpas_argument_type::fp16,
       pvcHfSrc0 = isPvc && std::is_same_v<T0, unsigned short> &&
-                  src1_precision == __ESIMD_ENS::argument_type::FP16 &&
-                  src2_precision == __ESIMD_ENS::argument_type::FP16,
+                  src1_precision == __ESIMD_XMX_NS::dpas_argument_type::fp16 &&
+                  src2_precision == __ESIMD_XMX_NS::dpas_argument_type::fp16,
       pvcBfDest = isPvc && std::is_same_v<RT, unsigned short> &&
-                  src1_precision == __ESIMD_ENS::argument_type::BF16 &&
-                  src2_precision == __ESIMD_ENS::argument_type::BF16,
+                  src1_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16 &&
+                  src2_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16,
       pvcBfSrc0 = isPvc && std::is_same_v<T0, unsigned short> &&
-                  src1_precision == __ESIMD_ENS::argument_type::BF16 &&
-                  src2_precision == __ESIMD_ENS::argument_type::BF16,
+                  src1_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16 &&
+                  src2_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16,
       pvcBfOrHfDest = pvcBfDest || pvcHfDest,
 
       pvcBfDestChecks =
@@ -590,13 +590,15 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
 
       /* INTEL_CUSTOMIZATION */
       /* INTEL_FEATURE_ESIMD_EMBARGO */
-      RLTDoubleType = src1_precision == __ESIMD_ENS::argument_type::df &&
-                      std::is_same_v<RT, double>,
-      RLTDestChecks = src1_precision == src2_precision &&
-                      ((SIMDSize == 8 && RLTDoubleType) ||
-                       (SIMDSize == 16 &&
-                        (src1_precision == __ESIMD_ENS::argument_type::bf8 ||
-                         src1_precision == __ESIMD_ENS::argument_type::hf8))),
+      RLTDoubleType =
+          src1_precision == __ESIMD_XMX_NS::dpas_argument_type::df &&
+          std::is_same_v<RT, double>,
+      RLTDestChecks =
+          src1_precision == src2_precision &&
+          ((SIMDSize == 8 && RLTDoubleType) ||
+           (SIMDSize == 16 &&
+            (src1_precision == __ESIMD_XMX_NS::dpas_argument_type::bf8 ||
+             src1_precision == __ESIMD_XMX_NS::dpas_argument_type::hf8))),
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
 
@@ -646,10 +648,10 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
   static_assert(src1CountChk, "dpas: invalid size for src1.");
   static_assert(src2CountChk, "dpas: invalid size for src2.");
 
-  using TmpAccEl = typename std::conditional<
+  using TmpAccEl = std::conditional_t<
       pvcBfOrHfDest, float,
       typename __ESIMD_EMU_DNS::restype_ex<
-          RT, typename __ESIMD_EMU_DNS::restype_ex<T1, T2>::type>::type>::type;
+          RT, typename __ESIMD_EMU_DNS::restype_ex<T1, T2>::type>::type>;
 
   __ESIMD_DNS::vector_type_t<TmpAccEl, SIMDSize> simdAcc;
 

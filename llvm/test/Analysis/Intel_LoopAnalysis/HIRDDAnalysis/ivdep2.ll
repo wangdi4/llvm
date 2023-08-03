@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @sub(float* nocapture %A, float* nocapture %B, float* nocapture readnone %C, i32 %N, i32 %m) local_unnamed_addr #0 {
+define dso_local void @sub(ptr nocapture %A, ptr nocapture %B, ptr nocapture readnone %C, i32 %N, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp18 = icmp sgt i32 %N, 0
   br i1 %cmp18, label %for.body.preheader, label %for.end
@@ -33,17 +33,17 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %1 = add nuw i64 %indvars.iv, 3
   %2 = and i64 %1, 4294967295
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %2
-  %3 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %2
+  %3 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add1 = fadd float %3, 2.000000e+00
-  %arrayidx3 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %add1, float* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %add1, ptr %arrayidx3, align 4, !tbaa !2
   %4 = add nsw i64 %indvars.iv, %0
-  %arrayidx6 = getelementptr inbounds float, float* %A, i64 %4
-  %5 = load float, float* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds float, ptr %A, i64 %4
+  %5 = load float, ptr %arrayidx6, align 4, !tbaa !2
   %add7 = fadd float %5, 1.000000e+00
-  %arrayidx9 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  store float %add7, float* %arrayidx9, align 4, !tbaa !2
+  %arrayidx9 = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  store float %add7, ptr %arrayidx9, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body

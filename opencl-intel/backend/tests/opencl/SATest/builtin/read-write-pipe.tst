@@ -5,7 +5,7 @@
 ; __store_read_pipe_use.
 
 CHECK-LABEL: __store_write_pipe_use
-CHECK: call %struct.__pipe_t addrspace(1)* @__ocl_wpipe2ptr(
+CHECK: call {{.*}} addrspace(1){{.*}} @__ocl_wpipe2ptr(
 
 CHECK-LABEL: __store_read_pipe_use
-CHECK: call %struct.__pipe_t addrspace(1)* @__ocl_rpipe2ptr(
+CHECK: call {{.*}} addrspace(1){{.*}} @__ocl_rpipe2ptr(

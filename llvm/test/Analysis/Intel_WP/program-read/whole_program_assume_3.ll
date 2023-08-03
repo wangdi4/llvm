@@ -34,10 +34,10 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @__dso_handle = external hidden global i8
 
-declare i32 @foo(i8*)
+declare i32 @foo(ptr)
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
-  %call1 = call i32 @foo(i8* nonnull @__dso_handle)
+  %call1 = call i32 @foo(ptr nonnull @__dso_handle)
   ret i32 %call1
 }

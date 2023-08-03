@@ -46,88 +46,88 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.__dirstream = type { %struct.__dirstream*, %struct.__dirstream*, {}*, i64, i16, i8, i8 }
-%struct.cop.243 = type { %struct.__dirstream*, %struct.__dirstream*, %struct.__dirstream* ()*, i64, i16, i8, i8, i32, %struct.hv*, %struct.gv*, i32, i32, i64*, %struct.refcounted_he* }
-%struct.hv = type { %struct.xpvhv*, i32, i32, %union.anon }
-%struct.xpvhv = type { %struct.hv*, %union._xmgu, i64, i64 }
-%union._xmgu = type { %struct.magic* }
-%struct.magic = type { %struct.magic*, %struct.mgvtbl*, i16, i8, i8, i64, %struct.sv*, i8* }
-%struct.mgvtbl = type { i32 (%struct.sv*, %struct.magic*)*, i32 (%struct.sv*, %struct.magic*)*, i32 (%struct.sv*, %struct.magic*)*, i32 (%struct.sv*, %struct.magic*)*, i32 (%struct.sv*, %struct.magic*)*, i32 (%struct.sv*, %struct.magic*, %struct.sv*, i8*, i32)*, i32 (%struct.magic*, %struct.clone_params*)*, i32 (%struct.sv*, %struct.magic*)* }
-%struct.clone_params = type { %struct.av*, i64, %struct.interpreter*, %struct.interpreter*, %struct.av* }
+%struct.__dirstream = type { ptr, ptr, ptr, i64, i16, i8, i8 }
+%struct.cop.243 = type { ptr, ptr, ptr, i64, i16, i8, i8, i32, ptr, ptr, i32, i32, ptr, ptr }
+%struct.hv = type { ptr, i32, i32, %union.anon }
+%struct.xpvhv = type { ptr, %union._xmgu, i64, i64 }
+%union._xmgu = type { ptr }
+%struct.magic = type { ptr, ptr, i16, i8, i8, i64, ptr, ptr }
+%struct.mgvtbl = type { ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
+%struct.clone_params = type { ptr, i64, ptr, ptr, ptr }
 %struct.interpreter = type { i8 }
-%struct.av = type { %struct.xpvav*, i32, i32, %union.anon }
-%struct.xpvav = type { %struct.hv*, %union._xmgu, i64, i64, %struct.sv** }
-%struct.sv = type { i8*, i32, i32, %union.anon }
-%union.anon = type { i8* }
-%struct.gv = type { %struct.xpvgv*, i32, i32, %union.anon }
-%struct.xpvgv = type { %struct.hv*, %union._xmgu, i64, %union.anon.16, %union._xivu, %union._xnvu }
+%struct.av = type { ptr, i32, i32, %union.anon }
+%struct.xpvav = type { ptr, %union._xmgu, i64, i64, ptr }
+%struct.sv = type { ptr, i32, i32, %union.anon }
+%union.anon = type { ptr }
+%struct.gv = type { ptr, i32, i32, %union.anon }
+%struct.xpvgv = type { ptr, %union._xmgu, i64, %union.anon.16, %union._xivu, %union._xnvu }
 %union.anon.16 = type { i64 }
 %union._xivu = type { i64 }
 %union._xnvu = type { double }
-%struct.refcounted_he = type { %struct.refcounted_he*, %struct.hek*, %union.anon.6.59, i32, [1 x i8] }
+%struct.refcounted_he = type { ptr, ptr, %union.anon.6.59, i32, [1 x i8] }
 %struct.hek = type { i32, i32, [1 x i8] }
 %union.anon.6.59 = type { i64 }
-%struct.op = type { %struct.op*, %struct.op*, %struct.op* ()*, i64, i16, i8, i8 }
+%struct.op = type { ptr, ptr, ptr, i64, i16, i8, i8 }
 
-@PL_ppaddr = external hidden unnamed_addr constant [396 x %struct.__dirstream* ()*], align 16
+@PL_ppaddr = external hidden unnamed_addr constant [396 x ptr], align 16
 @PL_sig_pending = external hidden unnamed_addr global i32, align 4
-@PL_op = external hidden global %struct.__dirstream*, align 8
+@PL_op = external hidden global ptr, align 8
 @PL_tainted = external hidden global i8, align 1
-@PL_curcop = external hidden global %struct.cop.243*, align 8
+@PL_curcop = external hidden global ptr, align 8
 
-declare hidden %struct.op* @Perl_do_kv()
+declare hidden ptr @Perl_do_kv()
 
 declare hidden fastcc void @Perl_despatch_signals() unnamed_addr
 
-declare hidden %struct.op* @Perl_pp_sort()
+declare hidden ptr @Perl_pp_sort()
 
 define hidden i32 @Perl_runops_standard() {
-  %1 = load %struct.op*, %struct.op** bitcast (%struct.__dirstream** @PL_op to %struct.op**), align 8
+  %1 = load ptr, ptr @PL_op, align 8
   br label %2
 
 ; <label>:2:                                      ; preds = %24, %0
-  %3 = phi %struct.op* [ %1, %0 ], [ %25, %24 ]
-  %4 = getelementptr inbounds %struct.op, %struct.op* %3, i64 0, i32 2
-  %5 = load %struct.op* ()*, %struct.op* ()** %4, align 8
-  %6 = icmp eq %struct.op* ()* %5, @io_pp_nextstate
+  %3 = phi ptr [ %1, %0 ], [ %25, %24 ]
+  %4 = getelementptr inbounds %struct.op, ptr %3, i64 0, i32 2
+  %5 = load ptr, ptr %4, align 8
+  %6 = icmp eq ptr %5, @io_pp_nextstate
   br i1 %6, label %7, label %22
 
 ; <label>:7:                                      ; preds = %2
-  %8 = load i64, i64* bitcast (%struct.cop.243** @PL_curcop to i64*), align 8
-  %9 = getelementptr inbounds %struct.op, %struct.op* %3, i64 0, i32 4
-  %10 = load i16, i16* %9, align 8
+  %8 = load i64, ptr @PL_curcop, align 8
+  %9 = getelementptr inbounds %struct.op, ptr %3, i64 0, i32 4
+  %10 = load i16, ptr %9, align 8
   %11 = and i16 %10, 511
   %12 = zext i16 %11 to i64
-  %13 = getelementptr inbounds [0 x %struct.op* ()*], [0 x %struct.op* ()*]* bitcast ([396 x %struct.__dirstream* ()*]* @PL_ppaddr to [0 x %struct.op* ()*]*), i64 0, i64 %12
-  %14 = load %struct.op* ()*, %struct.op* ()** %13, align 8
-  %15 = icmp eq %struct.op* ()* %14, @Perl_do_kv
+  %13 = getelementptr inbounds [0 x ptr], ptr @PL_ppaddr, i64 0, i64 %12
+  %14 = load ptr, ptr %13, align 8
+  %15 = icmp eq ptr %14, @Perl_do_kv
   br i1 %15, label %16, label %18
 
 ; <label>:16:                                     ; preds = %7
-  %17 = call %struct.op* @Perl_do_kv()
+  %17 = call ptr @Perl_do_kv()
   br label %20
 
 ; <label>:18:                                     ; preds = %7
-  %19 = call %struct.op* @Perl_pp_sort()
+  %19 = call ptr @Perl_pp_sort()
   br label %20
 
 ; <label>:20:                                     ; preds = %18, %16
-  %21 = phi %struct.op* [ %17, %16 ], [ %19, %18 ]
-  store i64 %8, i64* bitcast (%struct.cop.243** @PL_curcop to i64*), align 8
+  %21 = phi ptr [ %17, %16 ], [ %19, %18 ]
+  store i64 %8, ptr @PL_curcop, align 8
   br label %24
 
 ; <label>:22:                                     ; preds = %2
-  %23 = call %struct.op* %5()
+  %23 = call ptr %5()
   br label %24
 
 ; <label>:24:                                     ; preds = %22, %20
-  %25 = phi %struct.op* [ %21, %20 ], [ %23, %22 ]
-  store %struct.op* %25, %struct.op** bitcast (%struct.__dirstream** @PL_op to %struct.op**), align 8
-  %26 = icmp eq %struct.op* %25, null
+  %25 = phi ptr [ %21, %20 ], [ %23, %22 ]
+  store ptr %25, ptr @PL_op, align 8
+  %26 = icmp eq ptr %25, null
   br i1 %26, label %27, label %2
 
 ; <label>:27:                                     ; preds = %24
-  %28 = load i32, i32* @PL_sig_pending, align 4
+  %28 = load i32, ptr @PL_sig_pending, align 4
   %29 = icmp eq i32 %28, 0
   br i1 %29, label %31, label %30
 
@@ -136,10 +136,10 @@ define hidden i32 @Perl_runops_standard() {
   br label %31
 
 ; <label>:31:                                     ; preds = %30, %27
-  store i8 0, i8* @PL_tainted, align 1
+  store i8 0, ptr @PL_tainted, align 1
   ret i32 0
 }
 
-declare hidden %struct.op* @io_pp_nextstate()
+declare hidden ptr @io_pp_nextstate()
 
 

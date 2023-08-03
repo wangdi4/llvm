@@ -7,18 +7,15 @@
 //===----------------------------------------------------------------------===//
 // REQUIRES: matrix
 
-// RUN: %clangxx -fsycl %s -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-// XFAIL:*
+// RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
+// RUN: %{run} %t.out
+// XFAIL: cpu
 
 #include <iostream>
 #include <random>
 #include <sycl/sycl.hpp>
 
 using namespace sycl;
-using namespace sycl::ext::intel;
-using namespace sycl::ext::oneapi;
 using namespace sycl::ext::oneapi::experimental::matrix;
 using bfloat16 = sycl::ext::oneapi::bfloat16;
 

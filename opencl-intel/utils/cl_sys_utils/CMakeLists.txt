@@ -46,6 +46,7 @@ add_opencl_library(
   ${TARGET_SOURCES}
   ${UTILS_ASM_ADD_TO_SOURCES_LIST}
   INCLUDE_DIRS
+  ${HWLOC_INCLUDE_DIR}
   ${LLVM_INCLUDE_DIRS}
   ${CCLANG_DEV_INCLUDE_DIRS}
   ${CL_API_HEADERS}
@@ -53,6 +54,7 @@ add_opencl_library(
   ${OCL_SOURCE_DIR}/FrontendDriver
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
 
+target_link_libraries(${TARGET_NAME} hwloc)
 
 if(USE_NUMA AND NOT WIN32)
   add_definitions(-DUSE_NUMA=1)

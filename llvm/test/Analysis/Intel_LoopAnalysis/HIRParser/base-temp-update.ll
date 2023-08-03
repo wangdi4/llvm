@@ -514,7 +514,7 @@ for.end1168:                                      ; preds = %for.cond1154.for.en
 
 for.cond1150.for.inc1175_crit_edge:               ; preds = %for.end1168
   %add1165.lcssa1750.lcssa = phi double [ %add1165.lcssa1750, %for.end1168 ]
-  store double %add1165.lcssa1750.lcssa, double* @ety2_.zz, align 8
+  store double %add1165.lcssa1750.lcssa, ptr @ety2_.zz, align 8
   br label %for.inc1175
 
 for.inc1175:                                      ; preds = %for.cond1150.for.inc1175_crit_edge, %for.body1141

@@ -1012,6 +1012,13 @@ void ModuleBitcodeWriter::writeTypeTable() {
     case Type::PointerTyID: {
       PointerType *PTy = cast<PointerType>(T);
       unsigned AddressSpace = PTy->getAddressSpace();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      // OPAQUE_POINTER: [address space]
+      Code = bitc::TYPE_CODE_OPAQUE_POINTER;
+      TypeVals.push_back(AddressSpace);
+      if (AddressSpace == 0)
+        AbbrevToUse = OpaquePtrAbbrev;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       if (PTy->isOpaque()) {
         // OPAQUE_POINTER: [address space]
         Code = bitc::TYPE_CODE_OPAQUE_POINTER;
@@ -1024,6 +1031,7 @@ void ModuleBitcodeWriter::writeTypeTable() {
         TypeVals.push_back(VE.getTypeID(PTy->getNonOpaquePointerElementType()));
         TypeVals.push_back(AddressSpace);
       }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       break;
     }
     case Type::FunctionTyID: {
@@ -4146,6 +4154,9 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   // Bits 1-3 are set only in the combined index, skip them.
   if (Index->enableSplitLTOUnit())
     Flags |= 0x8;
+  if (Index->hasUnifiedLTO())
+    Flags |= 0x200;
+
   Stream.EmitRecord(bitc::FS_FLAGS, ArrayRef<uint64_t>{Flags});
 
   if (Index->begin() == Index->end()) {
@@ -4172,7 +4183,7 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   auto Abbv = std::make_shared<BitCodeAbbrev>();
   Abbv->Add(BitCodeAbbrevOp(bitc::FS_PERMODULE_PROFILE));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // valueid
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // flags
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // flags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // instcount
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // fflags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // numrefs
@@ -4307,8 +4318,9 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
     NameVals.clear();
   }
 
-  Stream.EmitRecord(bitc::FS_BLOCK_COUNT,
-                    ArrayRef<uint64_t>{Index->getBlockCount()});
+  if (Index->getBlockCount())
+    Stream.EmitRecord(bitc::FS_BLOCK_COUNT,
+                      ArrayRef<uint64_t>{Index->getBlockCount()});
 
   Stream.ExitBlock();
 }
@@ -4638,8 +4650,9 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
     }
   }
 
-  Stream.EmitRecord(bitc::FS_BLOCK_COUNT,
-                    ArrayRef<uint64_t>{Index.getBlockCount()});
+  if (Index.getBlockCount())
+    Stream.EmitRecord(bitc::FS_BLOCK_COUNT,
+                      ArrayRef<uint64_t>{Index.getBlockCount()});
 
   Stream.ExitBlock();
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018 Intel Corporation.
+// Copyright 2018-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,6 +21,8 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -85,6 +87,24 @@ static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #undef OPTION
 #undef PREFIX
 };
+
+namespace {
+class ClangFEDiagnosticHandler : public DiagnosticHandler {
+public:
+  bool handleDiagnostics(const DiagnosticInfo &DI) override {
+    unsigned Severity = DI.getSeverity();
+    if (Severity == DS_Error) {
+      std::string Err;
+      raw_string_ostream OS(Err);
+      DiagnosticPrinterRawOStream DP(OS);
+      DI.print(DP);
+      OS << "\n";
+      throw Err;
+    }
+    return true;
+  }
+};
+} // namespace
 
 OpenCLLinkOptTable::OpenCLLinkOptTable()
     : opt::GenericOptTable(ClangOptionsInfoTable) {}
@@ -185,7 +205,9 @@ static bool isSameType(Type *A, Type *B, std::string &Message) {
   auto *PtrTyA = dyn_cast<PointerType>(A);
   auto *PtrTyB = dyn_cast<PointerType>(B);
   if (PtrTyA && PtrTyB &&
-      isSameType(PtrTyA->getElementType(), PtrTyB->getElementType(), Message)) {
+      (PtrTyA->isOpaque() ||
+       isSameType(PtrTyA->getNonOpaquePointerElementType(),
+                  PtrTyB->getNonOpaquePointerElementType(), Message))) {
     if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
       Message = "incompatible address space";
       return false;
@@ -222,7 +244,7 @@ static bool checkFuncCallArgs(const FunctionType *FuncTy,
 }
 
 // If function signature in definition and declaration in two modules differ
-// then Linker selects signature in definition and updates function
+// then Linker selects signature in definition and may update function
 // call with bitcast instruction that casts pointer on called function to
 // a function pointer with signature at definition.
 // Example:
@@ -248,20 +270,17 @@ static bool checkAndThrowIfCallFuncCast(const Module &linkedModule,
         if (const auto *CE = dyn_cast<ConstantExpr>(VI)) {
           if (CE->getOpcode() == Instruction::BitCast)
             VI = CE->getOperand(0);
-        } else if (const auto *BCI = dyn_cast<BitCastInst>(VI))
+        } else if (const auto *BCI = dyn_cast<BitCastInst>(VI)) {
           VI = BCI->getOperand(0);
-        else
-          continue;
+        }
 
         const auto *CF = dyn_cast<Function>(VI);
         if (!CF)
           continue;
 
-        const auto *RFuncTy = cast<FunctionType>(
-            cast<PointerType>(CF->getType())->getElementType());
         SmallVector<Value *, 4> params(CI->arg_begin(), CI->arg_end());
         std::string BadSigDesc;
-        if (!checkFuncCallArgs(RFuncTy, ArrayRef<Value *>(params),
+        if (!checkFuncCallArgs(CF->getFunctionType(), ArrayRef<Value *>(params),
                                BadSigDesc)) {
           funcCallsValid = false;
           funcSigErr.append(CF->getName().str())
@@ -290,11 +309,11 @@ static void saveKernelNames(Module *M, std::string *KernelsName) {
   KernelsName->append(";");
 }
 
-OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
-                                unsigned int uiNumBinaries,
-                                const size_t *puiBinariesSizes,
-                                const char *pszOptions,
-                                std::string *pKernelsName) {
+static OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
+                                       unsigned int uiNumBinaries,
+                                       const size_t *puiBinariesSizes,
+                                       const char *pszOptions,
+                                       std::string *pKernelsName) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
 
@@ -307,6 +326,7 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 
     // Prepare the LLVM Context
     std::unique_ptr<LLVMContext> context(new LLVMContext());
+    context->setDiagnosticHandler(std::make_unique<ClangFEDiagnosticHandler>());
 
     // Initialize the module with the first binary
     StringRef InputBinary(static_cast<const char *>(pInputBinaries[0]),

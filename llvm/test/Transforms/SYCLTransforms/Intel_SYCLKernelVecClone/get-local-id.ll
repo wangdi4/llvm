@@ -1,17 +1,17 @@
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(ptr nocapture readonly %in, ptr nocapture %out) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
-  %arrayidx = getelementptr inbounds i32, i32* %in, i64 %call
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %in, i64 %call
+  %0 = load i32, ptr %arrayidx, align 4
   %call1 = tail call i64 @_Z12get_local_idj(i64 0)
-  %arrayidx2 = getelementptr inbounds i32, i32* %out, i64 %call1
-  store i32 %0, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %out, i64 %call1
+  store i32 %0, ptr %arrayidx2, align 4
   ret void
 }
 
@@ -35,7 +35,7 @@ entry:
 
 ; CHECK-LABEL: simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
-; CHECK-NEXT:    [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
+; CHECK:         [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[LID_LINEAR]] to i64
 ; CHECK:         [[GEP:%.*]] = getelementptr inbounds {{.*}} [[INDEX_I64]]
 ; CHECK:         store {{.*}} [[GEP]]
@@ -45,7 +45,9 @@ entry:
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}
+!0 = !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_}
+!1 = !{!"int*", !"int*"}
+!2 = !{i32* null, i32* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_ {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_ {{.*}} call

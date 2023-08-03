@@ -91,14 +91,10 @@ protected:
     const TargetTransformInfo &TTI =
       (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
 
-    LoopVectorizationPlanner LVP(nullptr /* WRL */,
-                                 nullptr /* Loop */,
-                                 nullptr /* LoopInfo */,
-                                 nullptr /* LibraryInfo */,
-                                 &TTI, DL.get(),
-                                 nullptr /* DominatorTree */,
-                                 nullptr /* legality */,
-                                 nullptr /* VLSA*/);
+    LoopVectorizationPlanner LVP(
+        nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
+        nullptr /* LibraryInfo */, &TTI, DL.get(), nullptr /* DominatorTree */,
+        nullptr /* legality */, nullptr /* VLSA*/, &Func->getContext());
 
     CM = LVP.createCostModel(Plan.get(), 1);
     for (const VPInstruction &VPInst : Plan->front())
@@ -115,7 +111,7 @@ TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {
 // Check irregular types.
 
 TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
-  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[1], Align(4), 1 /* VF */), 1);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[1], Align(4), 1 /* VF */), 2);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {

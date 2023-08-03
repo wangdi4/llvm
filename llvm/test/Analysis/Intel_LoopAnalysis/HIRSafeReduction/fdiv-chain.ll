@@ -25,7 +25,7 @@
 
 ; Safe reduction analysis print
 
-; CHECK:  + DO i1 = 0, zext.i32.i64((1 + %"sub_$N_fetch.2")) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:  + DO i1 = 0, zext.i32.i64(%"sub_$N_fetch.2") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ; CHECK:  |   <Safe Reduction> Red Op: fdiv <Has Unsafe Algebra- No> <Conditional- No>
 ; CHECK:  |   %div.26 = %div.26  /  %1; <Safe Reduction>
 ; CHECK:  + END LOOP

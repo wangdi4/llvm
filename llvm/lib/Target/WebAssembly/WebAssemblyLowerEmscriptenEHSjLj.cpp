@@ -1726,10 +1726,15 @@ void WebAssemblyLowerEmscriptenEHSjLj::handleLongjmpableCallsForWasmSjLj(
   // that requires multivalue support in the toolchain, which is currently not
   // very reliable. We instead throw and catch a pointer to a struct value of
   // type 'struct __WasmLongjmpArgs', which is defined in Emscripten.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Instruction *LongjmpArgs =
+      IRB.CreateCall(CatchF, {IRB.getInt32(WebAssembly::C_LONGJMP)}, "thrown");
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *CatchCI =
       IRB.CreateCall(CatchF, {IRB.getInt32(WebAssembly::C_LONGJMP)}, "thrown");
   Value *LongjmpArgs =
       IRB.CreateBitCast(CatchCI, LongjmpArgsTy->getPointerTo(), "longjmp.args");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Value *EnvField =
       IRB.CreateConstGEP2_32(LongjmpArgsTy, LongjmpArgs, 0, 0, "env_gep");
   Value *ValField =

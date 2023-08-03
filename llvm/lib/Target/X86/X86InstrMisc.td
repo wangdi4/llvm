@@ -35,20 +35,18 @@
 let hasSideEffects = 0, SchedRW = [WriteNop] in {
   def NOOP : I<0x90, RawFrm, (outs), (ins), "nop", []>;
   def NOOPW : I<0x1f, MRMXm, (outs), (ins i16mem:$zero),
-                "nop{w}\t$zero", []>, TB, OpSize16, NotMemoryFoldable;
+                "nop{w}\t$zero", []>, TB, OpSize16;
   def NOOPL : I<0x1f, MRMXm, (outs), (ins i32mem:$zero),
-                "nop{l}\t$zero", []>, TB, OpSize32, NotMemoryFoldable;
+                "nop{l}\t$zero", []>, TB, OpSize32;
   def NOOPQ : RI<0x1f, MRMXm, (outs), (ins i64mem:$zero),
-                "nop{q}\t$zero", []>, TB, NotMemoryFoldable,
-                Requires<[In64BitMode]>;
+                "nop{q}\t$zero", []>, TB, Requires<[In64BitMode]>;
   // Also allow register so we can assemble/disassemble
   def NOOPWr : I<0x1f, MRMXr, (outs), (ins GR16:$zero),
-                 "nop{w}\t$zero", []>, TB, OpSize16, NotMemoryFoldable;
+                 "nop{w}\t$zero", []>, TB, OpSize16;
   def NOOPLr : I<0x1f, MRMXr, (outs), (ins GR32:$zero),
-                 "nop{l}\t$zero", []>, TB, OpSize32, NotMemoryFoldable;
+                 "nop{l}\t$zero", []>, TB, OpSize32;
   def NOOPQr : RI<0x1f, MRMXr, (outs), (ins GR64:$zero),
-                  "nop{q}\t$zero", []>, TB, NotMemoryFoldable,
-                  Requires<[In64BitMode]>;
+                  "nop{q}\t$zero", []>, TB, Requires<[In64BitMode]>;
 }
 
 
@@ -84,9 +82,9 @@ def POP32r  : I<0x58, AddRegFrm, (outs GR32:$reg), (ins), "pop{l}\t$reg", []>,
 // Long form for the disassembler.
 let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def POP16rmr: I<0x8F, MRM0r, (outs GR16:$reg), (ins), "pop{w}\t$reg", []>,
-                OpSize16, NotMemoryFoldable;
+                OpSize16;
 def POP32rmr: I<0x8F, MRM0r, (outs GR32:$reg), (ins), "pop{l}\t$reg", []>,
-                OpSize32, Requires<[Not64BitMode]>, NotMemoryFoldable;
+                OpSize32, Requires<[Not64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 } // mayLoad, SchedRW
 let mayStore = 1, mayLoad = 1, SchedRW = [WriteCopy] in {
@@ -104,20 +102,20 @@ def PUSH32r  : I<0x50, AddRegFrm, (outs), (ins GR32:$reg), "push{l}\t$reg",[]>,
 // Long form for the disassembler.
 let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def PUSH16rmr: I<0xFF, MRM6r, (outs), (ins GR16:$reg), "push{w}\t$reg",[]>,
-                 OpSize16, NotMemoryFoldable;
+                 OpSize16;
 def PUSH32rmr: I<0xFF, MRM6r, (outs), (ins GR32:$reg), "push{l}\t$reg",[]>,
-                 OpSize32, Requires<[Not64BitMode]>, NotMemoryFoldable;
+                 OpSize32, Requires<[Not64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 
 def PUSH16i8 : Ii8<0x6a, RawFrm, (outs), (ins i16i8imm:$imm),
                    "push{w}\t$imm", []>, OpSize16;
-def PUSHi16  : Ii16<0x68, RawFrm, (outs), (ins i16imm:$imm),
+def PUSH16i  : Ii16<0x68, RawFrm, (outs), (ins i16imm:$imm),
                    "push{w}\t$imm", []>, OpSize16;
 
 def PUSH32i8 : Ii8<0x6a, RawFrm, (outs), (ins i32i8imm:$imm),
                    "push{l}\t$imm", []>, OpSize32,
                    Requires<[Not64BitMode]>;
-def PUSHi32  : Ii32<0x68, RawFrm, (outs), (ins i32imm:$imm),
+def PUSH32i  : Ii32<0x68, RawFrm, (outs), (ins i32imm:$imm),
                    "push{l}\t$imm", []>, OpSize32,
                    Requires<[Not64BitMode]>;
 } // mayStore, SchedRW
@@ -178,14 +176,13 @@ def POP64r   : I<0x58, AddRegFrm, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
 // Long form for the disassembler.
 let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
-                OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
+                OpSize32, Requires<[In64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-def POP2: I<0x8F, MRM0rImmAAA, (outs GR64:$reg1, GR64:$reg2),
-            (ins u1imm:$imm1, u2imm:$imm2),
-            "pop2\t{$imm2, $reg1, $reg2, $imm1|$imm1, $reg2, $reg1, $imm2}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, NotMemoryFoldable;
+def POP2: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
+            "pop2\t{$reg1, $reg2|$reg2, $reg1}",
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayLoad, SchedRW
@@ -198,14 +195,13 @@ def PUSH64r  : I<0x50, AddRegFrm, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
 // Long form for the disassembler.
 let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
-                 OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
+                 OpSize32, Requires<[In64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-def PUSH2: I<0xFF, MRM6rImmAAA, (outs),
-            (ins GR64:$reg1, GR64:$reg2, u1imm:$imm1, u2imm:$imm2),
-            "push2\t{$imm1, $reg1, $reg2, $imm2|$imm2, $reg2, $reg1, $imm1}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, NotMemoryFoldable;
+def PUSH2: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
+            "push2\t{$reg1, $reg2 |$reg2, $reg1}",
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayStore, SchedRW
@@ -409,14 +405,11 @@ def MOV64ri : RIi64<0xB8, AddRegFrm, (outs GR64:$dst), (ins i64imm:$src),
 // Longer forms that use a ModR/M byte. Needed for disassembler
 let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0 in {
 def MOV8ri_alt  : Ii8 <0xC6, MRM0r, (outs GR8 :$dst), (ins i8imm :$src),
-                   "mov{b}\t{$src, $dst|$dst, $src}", []>,
-                   FoldGenData<"MOV8ri">;
+                   "mov{b}\t{$src, $dst|$dst, $src}", []>;
 def MOV16ri_alt : Ii16<0xC7, MRM0r, (outs GR16:$dst), (ins i16imm:$src),
-                   "mov{w}\t{$src, $dst|$dst, $src}", []>, OpSize16,
-                   FoldGenData<"MOV16ri">;
+                   "mov{w}\t{$src, $dst|$dst, $src}", []>, OpSize16;
 def MOV32ri_alt : Ii32<0xC7, MRM0r, (outs GR32:$dst), (ins i32imm:$src),
-                   "mov{l}\t{$src, $dst|$dst, $src}", []>, OpSize32,
-                   FoldGenData<"MOV32ri">;
+                   "mov{l}\t{$src, $dst|$dst, $src}", []>, OpSize32;
 }
 } // SchedRW
 
@@ -558,17 +551,13 @@ def MOV64o64a : RIi64<0xA3, RawFrmMemOffs, (outs), (ins offset64_64:$dst),
 let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0,
     SchedRW = [WriteMove], isMoveReg = 1 in {
 def MOV8rr_REV : I<0x8A, MRMSrcReg, (outs GR8:$dst), (ins GR8:$src),
-                   "mov{b}\t{$src, $dst|$dst, $src}", []>,
-                   FoldGenData<"MOV8rr">;
+                   "mov{b}\t{$src, $dst|$dst, $src}", []>;
 def MOV16rr_REV : I<0x8B, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
-                    "mov{w}\t{$src, $dst|$dst, $src}", []>, OpSize16,
-                    FoldGenData<"MOV16rr">;
+                    "mov{w}\t{$src, $dst|$dst, $src}", []>, OpSize16;
 def MOV32rr_REV : I<0x8B, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                    "mov{l}\t{$src, $dst|$dst, $src}", []>, OpSize32,
-                    FoldGenData<"MOV32rr">;
+                    "mov{l}\t{$src, $dst|$dst, $src}", []>, OpSize32;
 def MOV64rr_REV : RI<0x8B, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
-                     "mov{q}\t{$src, $dst|$dst, $src}", []>,
-                     FoldGenData<"MOV64rr">;
+                     "mov{q}\t{$src, $dst|$dst, $src}", []>;
 }
 
 let canFoldAsLoad = 1, isReMaterializable = 1, SchedRW = [WriteLoad] in {
@@ -642,15 +631,14 @@ let SchedRW = [WriteBitTest] in {
 def BT16rr : I<0xA3, MRMDestReg, (outs), (ins GR16:$src1, GR16:$src2),
                "bt{w}\t{$src2, $src1|$src1, $src2}",
                [(set EFLAGS, (X86bt GR16:$src1, GR16:$src2))]>,
-               OpSize16, TB, NotMemoryFoldable;
+               OpSize16, TB;
 def BT32rr : I<0xA3, MRMDestReg, (outs), (ins GR32:$src1, GR32:$src2),
                "bt{l}\t{$src2, $src1|$src1, $src2}",
                [(set EFLAGS, (X86bt GR32:$src1, GR32:$src2))]>,
-               OpSize32, TB, NotMemoryFoldable;
+               OpSize32, TB;
 def BT64rr : RI<0xA3, MRMDestReg, (outs), (ins GR64:$src1, GR64:$src2),
                "bt{q}\t{$src2, $src1|$src1, $src2}",
-               [(set EFLAGS, (X86bt GR64:$src1, GR64:$src2))]>, TB,
-               NotMemoryFoldable;
+               [(set EFLAGS, (X86bt GR64:$src1, GR64:$src2))]>, TB;
 } // SchedRW
 
 // Unlike with the register+register form, the memory+register form of the
@@ -662,13 +650,13 @@ def BT64rr : RI<0xA3, MRMDestReg, (outs), (ins GR64:$src1, GR64:$src2),
 let mayLoad = 1, hasSideEffects = 0, SchedRW = [WriteBitTestRegLd] in {
   def BT16mr : I<0xA3, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                  "bt{w}\t{$src2, $src1|$src1, $src2}",
-                 []>, OpSize16, TB, NotMemoryFoldable;
+                 []>, OpSize16, TB;
   def BT32mr : I<0xA3, MRMDestMem, (outs), (ins i32mem:$src1, GR32:$src2),
                  "bt{l}\t{$src2, $src1|$src1, $src2}",
-                 []>, OpSize32, TB, NotMemoryFoldable;
+                 []>, OpSize32, TB;
   def BT64mr : RI<0xA3, MRMDestMem, (outs), (ins i64mem:$src1, GR64:$src2),
                  "bt{q}\t{$src2, $src1|$src1, $src2}",
-                  []>, TB, NotMemoryFoldable;
+                  []>, TB;
 }
 
 let SchedRW = [WriteBitTest] in {
@@ -709,25 +697,23 @@ let hasSideEffects = 0 in {
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
 def BTC16rr : I<0xBB, MRMDestReg, (outs GR16:$dst), (ins GR16:$src1, GR16:$src2),
                 "btc{w}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize16, TB, NotMemoryFoldable;
+                OpSize16, TB;
 def BTC32rr : I<0xBB, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src2),
                 "btc{l}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize32, TB, NotMemoryFoldable;
+                OpSize32, TB;
 def BTC64rr : RI<0xBB, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2),
-                 "btc{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-                 NotMemoryFoldable;
+                 "btc{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTC16mr : I<0xBB, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                 "btc{w}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize16, TB, NotMemoryFoldable;
+                OpSize16, TB;
 def BTC32mr : I<0xBB, MRMDestMem, (outs), (ins i32mem:$src1, GR32:$src2),
                 "btc{l}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize32, TB, NotMemoryFoldable;
+                OpSize32, TB;
 def BTC64mr : RI<0xBB, MRMDestMem, (outs), (ins i64mem:$src1, GR64:$src2),
-                 "btc{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-                 NotMemoryFoldable;
+                 "btc{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 }
 
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
@@ -752,25 +738,23 @@ def BTC64mi8 : RIi8<0xBA, MRM7m, (outs), (ins i64mem:$src1, i64u8imm:$src2),
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
 def BTR16rr : I<0xB3, MRMDestReg, (outs GR16:$dst), (ins GR16:$src1, GR16:$src2),
                 "btr{w}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize16, TB, NotMemoryFoldable;
+                OpSize16, TB;
 def BTR32rr : I<0xB3, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src2),
                 "btr{l}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize32, TB, NotMemoryFoldable;
+                OpSize32, TB;
 def BTR64rr : RI<0xB3, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2),
-                 "btr{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-                 NotMemoryFoldable;
+                 "btr{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTR16mr : I<0xB3, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                 "btr{w}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize16, TB, NotMemoryFoldable;
+                OpSize16, TB;
 def BTR32mr : I<0xB3, MRMDestMem, (outs), (ins i32mem:$src1, GR32:$src2),
                 "btr{l}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize32, TB, NotMemoryFoldable;
+                OpSize32, TB;
 def BTR64mr : RI<0xB3, MRMDestMem, (outs), (ins i64mem:$src1, GR64:$src2),
-                 "btr{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-                 NotMemoryFoldable;
+                 "btr{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 }
 
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
@@ -799,25 +783,23 @@ def BTR64mi8 : RIi8<0xBA, MRM6m, (outs), (ins i64mem:$src1, i64u8imm:$src2),
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
 def BTS16rr : I<0xAB, MRMDestReg, (outs GR16:$dst), (ins GR16:$src1, GR16:$src2),
                 "bts{w}\t{$src2, $src1|$src1, $src2}", []>,
-                OpSize16, TB, NotMemoryFoldable;
+                OpSize16, TB;
 def BTS32rr : I<0xAB, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src2),
                 "bts{l}\t{$src2, $src1|$src1, $src2}", []>,
-              OpSize32, TB, NotMemoryFoldable;
+              OpSize32, TB;
 def BTS64rr : RI<0xAB, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2),
-               "bts{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-               NotMemoryFoldable;
+               "bts{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTS16mr : I<0xAB, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
               "bts{w}\t{$src2, $src1|$src1, $src2}", []>,
-              OpSize16, TB, NotMemoryFoldable;
+              OpSize16, TB;
 def BTS32mr : I<0xAB, MRMDestMem, (outs), (ins i32mem:$src1, GR32:$src2),
               "bts{l}\t{$src2, $src1|$src1, $src2}", []>,
-              OpSize32, TB, NotMemoryFoldable;
+              OpSize32, TB;
 def BTS64mr : RI<0xAB, MRMDestMem, (outs), (ins i64mem:$src1, GR64:$src2),
-                 "bts{q}\t{$src2, $src1|$src1, $src2}", []>, TB,
-                 NotMemoryFoldable;
+                 "bts{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 }
 
 let SchedRW = [WriteBitTestSet], Constraints = "$src1 = $dst" in {
@@ -879,25 +861,25 @@ multiclass ATOMIC_SWAP<bits<8> opc8, bits<8> opc, string mnemonic, string frag> 
   }
 }
 
-defm XCHG    : ATOMIC_SWAP<0x86, 0x87, "xchg", "atomic_swap">, NotMemoryFoldable;
+defm XCHG    : ATOMIC_SWAP<0x86, 0x87, "xchg", "atomic_swap">;
 
 // Swap between registers.
 let SchedRW = [WriteXCHG] in {
 let Constraints = "$src1 = $dst1, $src2 = $dst2", hasSideEffects = 0 in {
 def XCHG8rr : I<0x86, MRMSrcReg, (outs GR8:$dst1, GR8:$dst2),
                 (ins GR8:$src1, GR8:$src2),
-                "xchg{b}\t{$src2, $src1|$src1, $src2}", []>, NotMemoryFoldable;
+                "xchg{b}\t{$src2, $src1|$src1, $src2}", []>;
 def XCHG16rr : I<0x87, MRMSrcReg, (outs GR16:$dst1, GR16:$dst2),
                  (ins GR16:$src1, GR16:$src2),
                  "xchg{w}\t{$src2, $src1|$src1, $src2}", []>,
-                 OpSize16, NotMemoryFoldable;
+                 OpSize16;
 def XCHG32rr : I<0x87, MRMSrcReg, (outs GR32:$dst1, GR32:$dst2),
                  (ins GR32:$src1, GR32:$src2),
                  "xchg{l}\t{$src2, $src1|$src1, $src2}", []>,
-                 OpSize32, NotMemoryFoldable;
+                 OpSize32;
 def XCHG64rr : RI<0x87, MRMSrcReg, (outs GR64:$dst1, GR64:$dst2),
                   (ins GR64:$src1 ,GR64:$src2),
-                  "xchg{q}\t{$src2, $src1|$src1, $src2}", []>, NotMemoryFoldable;
+                  "xchg{q}\t{$src2, $src1|$src1, $src2}", []>;
 }
 
 // Swap between EAX and other registers.
@@ -952,40 +934,32 @@ def XADD64rm  : RI<0xC1, MRMSrcMem, (outs GR64:$dst),
 let SchedRW = [WriteCMPXCHG], hasSideEffects = 0 in {
 let Defs = [AL, EFLAGS], Uses = [AL] in
 def CMPXCHG8rr : I<0xB0, MRMDestReg, (outs GR8:$dst), (ins GR8:$src),
-                   "cmpxchg{b}\t{$src, $dst|$dst, $src}", []>, TB,
-                   NotMemoryFoldable;
+                   "cmpxchg{b}\t{$src, $dst|$dst, $src}", []>, TB;
 let Defs = [AX, EFLAGS], Uses = [AX] in
 def CMPXCHG16rr : I<0xB1, MRMDestReg, (outs GR16:$dst), (ins GR16:$src),
-                    "cmpxchg{w}\t{$src, $dst|$dst, $src}", []>, TB, OpSize16,
-                    NotMemoryFoldable;
+                    "cmpxchg{w}\t{$src, $dst|$dst, $src}", []>, TB, OpSize16;
 let Defs = [EAX, EFLAGS], Uses = [EAX] in
 def CMPXCHG32rr  : I<0xB1, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
-                     "cmpxchg{l}\t{$src, $dst|$dst, $src}", []>, TB, OpSize32,
-                     NotMemoryFoldable;
+                     "cmpxchg{l}\t{$src, $dst|$dst, $src}", []>, TB, OpSize32;
 let Defs = [RAX, EFLAGS], Uses = [RAX] in
 def CMPXCHG64rr  : RI<0xB1, MRMDestReg, (outs GR64:$dst), (ins GR64:$src),
-                      "cmpxchg{q}\t{$src, $dst|$dst, $src}", []>, TB,
-                      NotMemoryFoldable;
+                      "cmpxchg{q}\t{$src, $dst|$dst, $src}", []>, TB;
 } // SchedRW, hasSideEffects
 
 let SchedRW = [WriteCMPXCHGRMW], mayLoad = 1, mayStore = 1,
     hasSideEffects = 0 in {
 let Defs = [AL, EFLAGS], Uses = [AL] in
 def CMPXCHG8rm   : I<0xB0, MRMDestMem, (outs), (ins i8mem:$dst, GR8:$src),
-                     "cmpxchg{b}\t{$src, $dst|$dst, $src}", []>, TB,
-                     NotMemoryFoldable;
+                     "cmpxchg{b}\t{$src, $dst|$dst, $src}", []>, TB;
 let Defs = [AX, EFLAGS], Uses = [AX] in
 def CMPXCHG16rm  : I<0xB1, MRMDestMem, (outs), (ins i16mem:$dst, GR16:$src),
-                     "cmpxchg{w}\t{$src, $dst|$dst, $src}", []>, TB, OpSize16,
-                     NotMemoryFoldable;
+                     "cmpxchg{w}\t{$src, $dst|$dst, $src}", []>, TB, OpSize16;
 let Defs = [EAX, EFLAGS], Uses = [EAX] in
 def CMPXCHG32rm  : I<0xB1, MRMDestMem, (outs), (ins i32mem:$dst, GR32:$src),
-                     "cmpxchg{l}\t{$src, $dst|$dst, $src}", []>, TB, OpSize32,
-                     NotMemoryFoldable;
+                     "cmpxchg{l}\t{$src, $dst|$dst, $src}", []>, TB, OpSize32;
 let Defs = [RAX, EFLAGS], Uses = [RAX] in
 def CMPXCHG64rm  : RI<0xB1, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
-                      "cmpxchg{q}\t{$src, $dst|$dst, $src}", []>, TB,
-                      NotMemoryFoldable;
+                      "cmpxchg{q}\t{$src, $dst|$dst, $src}", []>, TB;
 
 let Defs = [EAX, EDX, EFLAGS], Uses = [EAX, EBX, ECX, EDX] in
 def CMPXCHG8B : I<0xC7, MRM1m, (outs), (ins i64mem:$dst),
@@ -1132,11 +1106,11 @@ def BOUNDS32rm : I<0x62, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
 // Adjust RPL Field of Segment Selector
 def ARPL16rr : I<0x63, MRMDestReg, (outs GR16:$dst), (ins GR16:$src),
                  "arpl\t{$src, $dst|$dst, $src}", []>,
-                 Requires<[Not64BitMode]>, NotMemoryFoldable;
+                 Requires<[Not64BitMode]>;
 let mayStore = 1 in
 def ARPL16mr : I<0x63, MRMDestMem, (outs), (ins i16mem:$dst, GR16:$src),
                  "arpl\t{$src, $dst|$dst, $src}", []>,
-                 Requires<[Not64BitMode]>, NotMemoryFoldable;
+                 Requires<[Not64BitMode]>;
 } // SchedRW
 
 //===----------------------------------------------------------------------===//
@@ -1203,6 +1177,70 @@ let Predicates = [HasRDSEED], Defs = [EFLAGS], SchedRW = [WriteSystem] in {
 //===----------------------------------------------------------------------===//
 // LZCNT Instruction
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+class lzcntrr<bits<8> opcode, string mnemonic, SDNode node, X86TypeInfo info,
+              SchedWrite sched>
+  : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+        (ins info.RegClass:$src), mnemonic, "{$src, $dst|$dst, $src}",
+        [(set info.RegClass:$dst, (node info.RegClass:$src)),
+                                  (implicit EFLAGS)]>,
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrm<bits<8> opcode, string mnemonic, SDNode node, X86TypeInfo info,
+              SchedWrite sched>
+  : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+        (ins info.MemOperand:$src), mnemonic, "{$src, $dst|$dst, $src}",
+        [(set info.RegClass:$dst, (node (info.LoadNode addr:$src))),
+                                  (implicit EFLAGS)]>, 
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrr_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info,
+                   SchedWrite sched>
+  : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+             (ins info.RegClass:$src),
+             mnemonic, "{$src, $dst|$dst, $src}", []>,
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrm_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info,
+                   SchedWrite sched>
+  : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+             (ins info.MemOperand:$src), mnemonic,
+             "{$src, $dst|$dst, $src}", []>, 
+    Sched<[sched]> {
+  let Opcode = opcode;
+  let mayLoad = 1;
+}
+
+multiclass lzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
+let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
+  def rr : lzcntrr<opcode, "lzcnt", ctlz, info, WriteLZCNT>, XS;
+  def rm : lzcntrm<opcode, "lzcnt", ctlz, info, WriteLZCNTLd>, XS;
+}
+let Predicates = [HasLZCNT, In64BitMode] in {
+let Defs = [EFLAGS] in {
+  def rr_EVEX : lzcntrr_EVEX<opcode2, "lzcnt", info, WriteLZCNT>,
+                EmitVEXOrEVEXPrefix;
+  def rm_EVEX : lzcntrm_EVEX<opcode2, "lzcnt", info, WriteLZCNTLd>,
+                EmitVEXOrEVEXPrefix;
+}
+  def rr_NF : lzcntrr_EVEX<opcode2, "lzcnt", info, WriteLZCNT>,
+              EVEX_NF;
+  def rm_NF : lzcntrm_EVEX<opcode2, "lzcnt", info, WriteLZCNTLd>,
+              EVEX_NF;
+}
+}
+
+defm LZCNT16 : lzcnt_base<0xBD, 0xF5, Xi16>;
+defm LZCNT32 : lzcnt_base<0xBD, 0xF5, Xi32>;
+defm LZCNT64 : lzcnt_base<0xBD, 0xF5, Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
   def LZCNT16rr : I<0xBD, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
                     "lzcnt{w}\t{$src, $dst|$dst, $src}",
@@ -1231,10 +1269,37 @@ let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
                      [(set GR64:$dst, (ctlz (loadi64 addr:$src))),
                       (implicit EFLAGS)]>, XS, Sched<[WriteLZCNTLd]>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // BMI Instructions
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass tzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
+let Predicates = [HasBMI], Defs = [EFLAGS] in {
+  def rr : lzcntrr<opcode, "tzcnt", cttz, info, WriteTZCNT>, XS;
+  def rm : lzcntrm<opcode, "tzcnt", cttz, info, WriteTZCNTLd>, XS;
+}
+let Predicates = [HasBMI, In64BitMode] in {
+let Defs = [EFLAGS] in {
+  def rr_EVEX : lzcntrr_EVEX<opcode2, "tzcnt", info, WriteTZCNT>,
+                EmitVEXOrEVEXPrefix;
+  def rm_EVEX : lzcntrm_EVEX<opcode2, "tzcnt", info, WriteTZCNTLd>,
+                EmitVEXOrEVEXPrefix;
+}
+  def rr_NF : lzcntrr_EVEX<opcode2, "tzcnt", info, WriteTZCNT>,
+              EVEX_NF;
+  def rm_NF : lzcntrm_EVEX<opcode2, "tzcnt", info, WriteTZCNTLd>,
+              EVEX_NF;
+}
+}
+
+defm TZCNT16 : tzcnt_base<0xBC, 0xF4, Xi16>;
+defm TZCNT32 : tzcnt_base<0xBC, 0xF4, Xi32>;
+defm TZCNT64 : tzcnt_base<0xBC, 0xF4, Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasBMI], Defs = [EFLAGS] in {
   def TZCNT16rr : I<0xBC, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
                     "tzcnt{w}\t{$src, $dst|$dst, $src}",
@@ -1263,6 +1328,8 @@ let Predicates = [HasBMI], Defs = [EFLAGS] in {
                      [(set GR64:$dst, (cttz (loadi64 addr:$src))),
                       (implicit EFLAGS)]>, XS, Sched<[WriteTZCNTLd]>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 multiclass bmi_bls<string mnemonic, Format RegMRM, Format MemMRM,
                   RegisterClass RC, X86MemOperand x86memop,
@@ -1280,11 +1347,11 @@ let hasSideEffects = 0 in {
 
 let Predicates = [HasBMI], Defs = [EFLAGS] in {
   defm BLSR32 : bmi_bls<"blsr{l}", MRM1r, MRM1m, GR32, i32mem, WriteBLS>;
-  defm BLSR64 : bmi_bls<"blsr{q}", MRM1r, MRM1m, GR64, i64mem, WriteBLS>, VEX_W;
+  defm BLSR64 : bmi_bls<"blsr{q}", MRM1r, MRM1m, GR64, i64mem, WriteBLS>, REX_W;
   defm BLSMSK32 : bmi_bls<"blsmsk{l}", MRM2r, MRM2m, GR32, i32mem, WriteBLS>;
-  defm BLSMSK64 : bmi_bls<"blsmsk{q}", MRM2r, MRM2m, GR64, i64mem, WriteBLS>, VEX_W;
+  defm BLSMSK64 : bmi_bls<"blsmsk{q}", MRM2r, MRM2m, GR64, i64mem, WriteBLS>, REX_W;
   defm BLSI32 : bmi_bls<"blsi{l}", MRM3r, MRM3m, GR32, i32mem, WriteBLS>;
-  defm BLSI64 : bmi_bls<"blsi{q}", MRM3r, MRM3m, GR64, i64mem, WriteBLS>, VEX_W;
+  defm BLSI64 : bmi_bls<"blsi{q}", MRM3r, MRM3m, GR64, i64mem, WriteBLS>, REX_W;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1367,7 +1434,7 @@ let Predicates = [HasBMI], Defs = [EFLAGS] in {
   defm BEXTR32 : bmi_bextr<0xF7, "bextr{l}", GR32, i32mem,
                            X86bextr, loadi32, WriteBEXTR>;
   defm BEXTR64 : bmi_bextr<0xF7, "bextr{q}", GR64, i64mem,
-                           X86bextr, loadi64, WriteBEXTR>, VEX_W;
+                           X86bextr, loadi64, WriteBEXTR>, REX_W;
 }
 
 multiclass bmi_bzhi<bits<8> opc, string mnemonic, RegisterClass RC,
@@ -1393,7 +1460,7 @@ let Predicates = [HasBMI2], Defs = [EFLAGS] in {
   defm BZHI32 : bmi_bzhi<0xF5, "bzhi{l}", GR32, i32mem,
                          X86bzhi, loadi32, WriteBZHI>;
   defm BZHI64 : bmi_bzhi<0xF5, "bzhi{q}", GR64, i64mem,
-                         X86bzhi, loadi64, WriteBZHI>, VEX_W;
+                         X86bzhi, loadi64, WriteBZHI>, REX_W;
 }
 
 def CountTrailingOnes : SDNodeXForm<imm, [{
@@ -1451,11 +1518,11 @@ let Predicates = [HasBMI2] in {
   defm PDEP32 : bmi_pdep_pext<"pdep{l}", GR32, i32mem,
                                X86pdep, loadi32>, T8XD;
   defm PDEP64 : bmi_pdep_pext<"pdep{q}", GR64, i64mem,
-                               X86pdep, loadi64>, T8XD, VEX_W;
+                               X86pdep, loadi64>, T8XD, REX_W;
   defm PEXT32 : bmi_pdep_pext<"pext{l}", GR32, i32mem,
                                X86pext, loadi32>, T8XS;
   defm PEXT64 : bmi_pdep_pext<"pext{q}", GR64, i64mem,
-                               X86pext, loadi64>, T8XS, VEX_W;
+                               X86pext, loadi64>, T8XS, REX_W;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1469,9 +1536,9 @@ def SLWPCB : I<0x12, MRM1r, (outs GR32:$dst), (ins), "slwpcb\t$dst",
                [(set GR32:$dst, (int_x86_slwpcb))]>, XOP, XOP9;
 
 def LLWPCB64 : I<0x12, MRM0r, (outs), (ins GR64:$src), "llwpcb\t$src",
-                 [(int_x86_llwpcb GR64:$src)]>, XOP, XOP9, VEX_W;
+                 [(int_x86_llwpcb GR64:$src)]>, XOP, XOP9, REX_W;
 def SLWPCB64 : I<0x12, MRM1r, (outs GR64:$dst), (ins), "slwpcb\t$dst",
-                 [(set GR64:$dst, (int_x86_slwpcb))]>, XOP, XOP9, VEX_W;
+                 [(set GR64:$dst, (int_x86_slwpcb))]>, XOP, XOP9, REX_W;
 
 multiclass lwpins_intr<RegisterClass RC> {
   def rri : Ii32<0x12, MRM0r, (outs), (ins RC:$src0, GR32:$src1, i32imm:$cntl),
@@ -1487,7 +1554,7 @@ multiclass lwpins_intr<RegisterClass RC> {
 
 let Defs = [EFLAGS] in {
   defm LWPINS32 : lwpins_intr<GR32>;
-  defm LWPINS64 : lwpins_intr<GR64>, VEX_W;
+  defm LWPINS64 : lwpins_intr<GR64>, REX_W;
 } // EFLAGS
 
 multiclass lwpval_intr<RegisterClass RC, Intrinsic Int> {
@@ -1502,7 +1569,7 @@ multiclass lwpval_intr<RegisterClass RC, Intrinsic Int> {
 }
 
 defm LWPVAL32 : lwpval_intr<GR32, int_x86_lwpval32>;
-defm LWPVAL64 : lwpval_intr<GR64, int_x86_lwpval64>, VEX_W;
+defm LWPVAL64 : lwpval_intr<GR64, int_x86_lwpval64>, REX_W;
 
 } // HasLWP, SchedRW
 
@@ -1730,7 +1797,7 @@ def CMPCCXADDmr64 : I<0xe0, MRMDestMem4VOp3CC, (outs GR64:$dst),
           "cmp${cond}xadd\t{$src3, $dst, $dstsrc2|$dstsrc2, $dst, $src3}",
           [(set GR64:$dst, (X86cmpccxadd addr:$dstsrc2,
             GR64:$dstsrc1, GR64:$src3, timm:$cond))]>,
-          VEX_4V, VEX_W, T8PD, Sched<[WriteXCHG]>;
+          VEX_4V, REX_W, T8PD, Sched<[WriteXCHG]>;
 }
 
 #if INTEL_CUSTOMIZATION

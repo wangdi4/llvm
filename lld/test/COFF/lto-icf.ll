@@ -3,7 +3,7 @@
 ; Previously, when we didn't enable function sections, ICF didn't work.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: lld-link -opt:icf -dll -noentry -mllvm:-opaque-pointers %t.bc -out:%t.dll
+; RUN: lld-link -opt:icf -dll -noentry %t.bc -out:%t.dll
 ; RUN: llvm-readobj --coff-exports %t.dll | FileCheck %s
 
 ; CHECK: Export {

@@ -6,8 +6,8 @@
 ;   int g = 1;
 ; }
 ;
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -17,46 +17,45 @@ target triple = "x86_64-pc-linux"
 define void @test() #0 !dbg !9 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 !kernel_execution_length !13 !no_barrier_path !14 !kernel_has_global_sync !14 {
 entry:
 ; CHECK-LABEL: entry:
-; CHECK: %g.addr = alloca i32*
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{[0-9]+}}
+; CHECK: %g.addr = alloca ptr
 ; CHECK-NOT: %g = alloca i32
 
   call void @dummy_barrier.()
   %__ocl_dbg_gid0 = alloca i64
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !15, metadata !DIExpression()), !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !15, metadata !DIExpression()), !dbg !18
   %GlobalID_01 = call i64 @_Z13get_global_idj(i32 0)
-  store i64 %GlobalID_01, i64* %__ocl_dbg_gid0
+  store i64 %GlobalID_01, ptr %__ocl_dbg_gid0
   %__ocl_dbg_gid1 = alloca i64
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !19, metadata !DIExpression()), !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !19, metadata !DIExpression()), !dbg !18
   %GlobalID_12 = call i64 @_Z13get_global_idj(i32 1)
-  store i64 %GlobalID_12, i64* %__ocl_dbg_gid1
+  store i64 %GlobalID_12, ptr %__ocl_dbg_gid1
   %__ocl_dbg_gid2 = alloca i64
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !20, metadata !DIExpression()), !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !20, metadata !DIExpression()), !dbg !18
   %GlobalID_23 = call i64 @_Z13get_global_idj(i32 2)
-  store i64 %GlobalID_23, i64* %__ocl_dbg_gid2
+  store i64 %GlobalID_23, ptr %__ocl_dbg_gid2
   %g = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %g, metadata !21, metadata !DIExpression()), !dbg !18
-  store i32 1, i32* %g, align 4, !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %g, metadata !21, metadata !DIExpression()), !dbg !18
+  store i32 1, ptr %g, align 4, !dbg !18
 
 ; CHECK-LABEL: SyncBB1:
-; CHECK-NEXT: [[Index:%SBIndex]] = load i64, i64* %pCurrSBIndex
+; CHECK:      [[Index:%SBIndex]] = load i64, ptr %pCurrSBIndex
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset]] = add nuw i64 [[Index]], {{[0-9]+}}
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset]]
-; CHECK-NEXT: [[LocalId:%pSB_LocalId]] = bitcast i8* [[GEP]] to i32*
-; CHECK-NEXT: store i32* [[LocalId]], i32** %g.addr
-; CHECK-NEXT: [[G:%[0-9]+]] = load i32*, i32** %g.addr
-; CHECK: store i32 1, i32* [[G]], align 4, !dbg !{{[0-9]+}}
+; CHECK-NEXT: [[GEP:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
+; CHECK-NEXT: store ptr [[GEP]], ptr %g.addr
+; CHECK-NEXT: [[G:%[0-9]+]] = load ptr, ptr %g.addr
+; CHECK:      call void @llvm.dbg.declare(metadata ptr %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
+; CHECK-NEXT: store i32 1, ptr [[G]], align 4, !dbg
 
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %entry
   call void @_Z18work_group_barrierj(i32 1)
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store i64 %GlobalID_2, i64* %__ocl_dbg_gid2
+  store i64 %GlobalID_2, ptr %__ocl_dbg_gid2
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store i64 %GlobalID_1, i64* %__ocl_dbg_gid1
+  store i64 %GlobalID_1, ptr %__ocl_dbg_gid1
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store i64 %GlobalID_0, i64* %__ocl_dbg_gid0
+  store i64 %GlobalID_0, ptr %__ocl_dbg_gid0
   ret void, !dbg !23
 }
 
@@ -96,7 +95,7 @@ attributes #3 = { nounwind readnone }
 !5 = !{i32 1, i32 2}
 !6 = !{!"-g", !"-cl-opt-disable"}
 !7 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!8 = !{void ()* @test}
+!8 = !{ptr @test}
 !9 = distinct !DISubprogram(name: "test", scope: !10, file: !10, line: 1, type: !11, scopeLine: 2, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !10 = !DIFile(filename: "SyncBBUsers.cl", directory: "")
 !11 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !12)

@@ -46,6 +46,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
+#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
@@ -55,7 +56,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MachineValueType.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -313,7 +313,16 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     if (Op.getOpcode() == ISD::STRICT_SINT_TO_FP ||
         Op.getOpcode() == ISD::STRICT_UINT_TO_FP)
       ValVT = Node->getOperand(1).getValueType();
-    Action = TLI.getOperationAction(Node->getOpcode(), ValVT);
+    if (Op.getOpcode() == ISD::STRICT_FSETCC ||
+        Op.getOpcode() == ISD::STRICT_FSETCCS) {
+      MVT OpVT = Node->getOperand(1).getSimpleValueType();
+      ISD::CondCode CCCode = cast<CondCodeSDNode>(Node->getOperand(3))->get();
+      Action = TLI.getCondCodeAction(CCCode, OpVT);
+      if (Action == TargetLowering::Legal)
+        Action = TLI.getOperationAction(Node->getOpcode(), OpVT);
+    } else {
+      Action = TLI.getOperationAction(Node->getOpcode(), ValVT);
+    }
     // If we're asked to expand a strict vector floating-point operation,
     // by default we're going to simply unroll it.  That is usually the
     // best approach, except in the case where the resulting strict (scalar)
@@ -385,9 +394,7 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   case ISD::FSQRT:
   case ISD::FSIN:
   case ISD::FCOS:
-#if INTEL_CUSTOMIZATION
-  case ISD::LDEXP:
-#endif // INTEL_CUSTOMIZATION
+  case ISD::FLDEXP:
   case ISD::FPOWI:
   case ISD::FPOW:
   case ISD::FLOG:
@@ -422,6 +429,7 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   case ISD::SMULO:
   case ISD::UMULO:
   case ISD::FCANONICALIZE:
+  case ISD::FFREXP:
   case ISD::SADDSAT:
   case ISD::UADDSAT:
   case ISD::SSUBSAT:
@@ -461,6 +469,8 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   case ISD::VECREDUCE_FMUL:
   case ISD::VECREDUCE_FMAX:
   case ISD::VECREDUCE_FMIN:
+  case ISD::VECREDUCE_FMAXIMUM:
+  case ISD::VECREDUCE_FMINIMUM:
     Action = TLI.getOperationAction(Node->getOpcode(),
                                     Node->getOperand(0).getValueType());
     break;
@@ -474,7 +484,7 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     ISD::CondCode CCCode = cast<CondCodeSDNode>(Node->getOperand(2))->get();
     Action = TLI.getCondCodeAction(CCCode, OpVT);
     if (Action == TargetLowering::Legal)
-      Action = TLI.getOperationAction(Node->getOpcode(), Node->getValueType(0));
+      Action = TLI.getOperationAction(Node->getOpcode(), OpVT);
     break;
   }
 
@@ -805,6 +815,13 @@ void VectorLegalizer::Expand(SDNode *Node, SmallVectorImpl<SDValue> &Results) {
       return;
     }
     break;
+  case ISD::ABDS:
+  case ISD::ABDU:
+    if (SDValue Expanded = TLI.expandABD(Node, DAG)) {
+      Results.push_back(Expanded);
+      return;
+    }
+    break;
   case ISD::BITREVERSE:
     ExpandBITREVERSE(Node, Results);
     return;
@@ -963,6 +980,8 @@ void VectorLegalizer::Expand(SDNode *Node, SmallVectorImpl<SDValue> &Results) {
   case ISD::VECREDUCE_FMUL:
   case ISD::VECREDUCE_FMAX:
   case ISD::VECREDUCE_FMIN:
+  case ISD::VECREDUCE_FMAXIMUM:
+  case ISD::VECREDUCE_FMINIMUM:
     Results.push_back(TLI.expandVecReduce(Node, DAG));
     return;
   case ISD::VECREDUCE_SEQ_FADD:
@@ -978,7 +997,9 @@ void VectorLegalizer::Expand(SDNode *Node, SmallVectorImpl<SDValue> &Results) {
     return;
   }
 
-  Results.push_back(DAG.UnrollVectorOp(Node));
+  SDValue Unrolled = DAG.UnrollVectorOp(Node);
+  for (unsigned I = 0, E = Unrolled->getNumValues(); I != E; ++I)
+    Results.push_back(Unrolled.getValue(I));
 }
 
 SDValue VectorLegalizer::ExpandSELECT(SDNode *Node) {
@@ -1324,11 +1345,11 @@ SDValue VectorLegalizer::ExpandVP_SELECT(SDNode *Node) {
     return DAG.UnrollVectorOp(Node);
 
   SDValue Ones = DAG.getAllOnesConstant(DL, VT);
-  SDValue NotMask = DAG.getNode(ISD::VP_XOR, DL, VT, Mask, Ones, Mask, EVL);
+  SDValue NotMask = DAG.getNode(ISD::VP_XOR, DL, VT, Mask, Ones, Ones, EVL);
 
-  Op1 = DAG.getNode(ISD::VP_AND, DL, VT, Op1, Mask, Mask, EVL);
-  Op2 = DAG.getNode(ISD::VP_AND, DL, VT, Op2, NotMask, Mask, EVL);
-  return DAG.getNode(ISD::VP_OR, DL, VT, Op1, Op2, Mask, EVL);
+  Op1 = DAG.getNode(ISD::VP_AND, DL, VT, Op1, Mask, Ones, EVL);
+  Op2 = DAG.getNode(ISD::VP_AND, DL, VT, Op2, NotMask, Ones, EVL);
+  return DAG.getNode(ISD::VP_OR, DL, VT, Op1, Op2, Ones, EVL);
 }
 
 SDValue VectorLegalizer::ExpandVP_MERGE(SDNode *Node) {
@@ -1536,39 +1557,54 @@ void VectorLegalizer::ExpandSETCC(SDNode *Node,
                                   SmallVectorImpl<SDValue> &Results) {
   bool NeedInvert = false;
   bool IsVP = Node->getOpcode() == ISD::VP_SETCC;
-  SDLoc dl(Node);
-  MVT OpVT = Node->getOperand(0).getSimpleValueType();
-  ISD::CondCode CCCode = cast<CondCodeSDNode>(Node->getOperand(2))->get();
+  bool IsStrict = Node->getOpcode() == ISD::STRICT_FSETCC ||
+                  Node->getOpcode() == ISD::STRICT_FSETCCS;
+  bool IsSignaling = Node->getOpcode() == ISD::STRICT_FSETCCS;
+  unsigned Offset = IsStrict ? 1 : 0;
+
+  SDValue Chain = IsStrict ? Node->getOperand(0) : SDValue();
+  SDValue LHS = Node->getOperand(0 + Offset);
+  SDValue RHS = Node->getOperand(1 + Offset);
+  SDValue CC = Node->getOperand(2 + Offset);
+
+  MVT OpVT = LHS.getSimpleValueType();
+  ISD::CondCode CCCode = cast<CondCodeSDNode>(CC)->get();
 
   if (TLI.getCondCodeAction(CCCode, OpVT) != TargetLowering::Expand) {
+    if (IsStrict) {
+      UnrollStrictFPOp(Node, Results);
+      return;
+    }
     Results.push_back(UnrollVSETCC(Node));
     return;
   }
 
-  SDValue Chain;
-  SDValue LHS = Node->getOperand(0);
-  SDValue RHS = Node->getOperand(1);
-  SDValue CC = Node->getOperand(2);
   SDValue Mask, EVL;
   if (IsVP) {
-    Mask = Node->getOperand(3);
-    EVL = Node->getOperand(4);
+    Mask = Node->getOperand(3 + Offset);
+    EVL = Node->getOperand(4 + Offset);
   }
 
+  SDLoc dl(Node);
   bool Legalized =
       TLI.LegalizeSetCCCondCode(DAG, Node->getValueType(0), LHS, RHS, CC, Mask,
-                                EVL, NeedInvert, dl, Chain);
+                                EVL, NeedInvert, dl, Chain, IsSignaling);
 
   if (Legalized) {
     // If we expanded the SETCC by swapping LHS and RHS, or by inverting the
     // condition code, create a new SETCC node.
     if (CC.getNode()) {
-      if (!IsVP)
-        LHS = DAG.getNode(ISD::SETCC, dl, Node->getValueType(0), LHS, RHS, CC,
-                          Node->getFlags());
-      else
+      if (IsStrict) {
+        LHS = DAG.getNode(Node->getOpcode(), dl, Node->getVTList(),
+                          {Chain, LHS, RHS, CC}, Node->getFlags());
+        Chain = LHS.getValue(1);
+      } else if (IsVP) {
         LHS = DAG.getNode(ISD::VP_SETCC, dl, Node->getValueType(0),
                           {LHS, RHS, CC, Mask, EVL}, Node->getFlags());
+      } else {
+        LHS = DAG.getNode(ISD::SETCC, dl, Node->getValueType(0), LHS, RHS, CC,
+                          Node->getFlags());
+      }
     }
 
     // If we expanded the SETCC by inverting the condition code, then wrap
@@ -1580,6 +1616,8 @@ void VectorLegalizer::ExpandSETCC(SDNode *Node,
         LHS = DAG.getVPLogicalNOT(dl, LHS, Mask, EVL, LHS->getValueType(0));
     }
   } else {
+    assert(!IsStrict && "Don't know how to expand for strict nodes.");
+
     // Otherwise, SETCC for the given comparison type must be completely
     // illegal; expand it into a SELECT_CC.
     EVT VT = Node->getValueType(0);
@@ -1591,6 +1629,8 @@ void VectorLegalizer::ExpandSETCC(SDNode *Node,
   }
 
   Results.push_back(LHS);
+  if (IsStrict)
+    Results.push_back(Chain);
 }
 
 void VectorLegalizer::ExpandUADDSUBO(SDNode *Node,
@@ -1635,6 +1675,12 @@ void VectorLegalizer::ExpandStrictFPOp(SDNode *Node,
   }
   if (Node->getOpcode() == ISD::STRICT_FP_TO_UINT) {
     ExpandFP_TO_UINT(Node, Results);
+    return;
+  }
+
+  if (Node->getOpcode() == ISD::STRICT_FSETCC ||
+      Node->getOpcode() == ISD::STRICT_FSETCCS) {
+    ExpandSETCC(Node, Results);
     return;
   }
 

@@ -21,13 +21,12 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Value.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/RuntimeService.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 
 using namespace llvm;
 using namespace SYCLChannelPipeUtils;

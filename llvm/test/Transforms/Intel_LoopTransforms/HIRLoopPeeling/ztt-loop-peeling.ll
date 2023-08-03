@@ -35,7 +35,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture noundef writeonly %A, i32 noundef %n, i32 noundef %m) {
+define dso_local void @foo(ptr nocapture noundef writeonly %A, i32 noundef %n, i32 noundef %m) {
 entry:
   %cmp17 = icmp sgt i32 %n, 0
   br i1 %cmp17, label %for.cond1.preheader.lr.ph, label %for.end6
@@ -57,8 +57,8 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
   %t.116 = phi i32 [ %1, %for.body3 ], [ %t.019, %for.body3.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %t.116, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %t.116, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %1 = trunc i64 %indvars.iv to i32
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count

@@ -205,6 +205,14 @@ private:
       }
     }
 
+    for (size_t Idx = 0; Idx < NewArgs.size(); ++Idx) {
+      if (auto *PTy = dyn_cast<PointerType>(NewArgs[Idx]->getType())) {
+        auto *FArgTy = NewF->getArg(Idx)->getType();
+        if (PTy->getAddressSpace() != FArgTy->getPointerAddressSpace())
+          NewArgs[Idx] = Builder.CreateAddrSpaceCast(NewArgs[Idx], FArgTy);
+      }
+    }
+
     // With materialization of fpga pipe built-in calls, we import new
     // declarations for them, leaving old declarations unused. Add these unused
     // declarations with avoiding of duplications to the list of functions to
@@ -282,8 +290,7 @@ private:
                        CompilationUtils::ADDRESS_SPACE_GENERIC) {
         // Get type and value for create or get new builtin function
         PointerType *NewType = PointerType::getWithSamePointeeType(
-            dyn_cast<PointerType>(Arg->getType()),
-            CompilationUtils::ADDRESS_SPACE_GENERIC);
+            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
         Value *NewOp =
             Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
         FuncArgValues.push_back(NewOp);
@@ -464,12 +471,10 @@ static void setBlockLiteralSizeMetadata(Function &F) {
   }
 }
 
-// Add sycl_kernel attribute and set C calling conventions for kernels.
-static void formKernelsMetadata(Module &M) {
+// Find kernel and set external linkage.
+static auto findKernels(Module &M) {
   assert(!M.getNamedMetadata("sycl.kernels") &&
          "Do not expect sycl.kernels Metadata");
-
-  using namespace SYCLKernelMetadataAPI;
 
   KernelList::KernelVectorTy Kernels;
 
@@ -491,8 +496,8 @@ static void formKernelsMetadata(Module &M) {
       setBlockLiteralSizeMetadata(F);
     }
   }
-  SYCLKernelMetadataAPI::KernelList KernelList(M);
-  KernelList.set(Kernels);
+
+  return Kernels;
 }
 
 static void addWGSortBuiltinAliasInfo(
@@ -699,10 +704,12 @@ static void setNotVectorizeForUnsupportedOmpConstructs(
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
-  bool Changed = false;
+  // Find kernel list in the module.
+  auto Kernels = findKernels(M);
 
-  // form kernel list in the module.
-  formKernelsMetadata(M);
+  // Set sycl.kernels metadata.
+  SYCLKernelMetadataAPI::KernelList KernelList(M);
+  KernelList.set(Kernels);
 
   auto BuiltinModules =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getBuiltinModules();
@@ -713,13 +720,10 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
   // Remove unused declarations.
   for (auto *FDecl : FuncDeclToRemove)
     FDecl->eraseFromParent();
-
-  Changed |= FuncMaterializer.isChanged();
-
+  std::ignore = FuncMaterializer.isChanged();
 #if INTEL_CUSTOMIZATION
   // Set intel_vec_len_hint metadata before unsupported OpenMP functions are
   // inlined at a later stage.
-  auto Kernels = KernelList(&M).getList();
   if (isGeneratedFromOMP(M) && !Kernels.empty()) {
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -733,5 +737,6 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   std::ignore = renameAliasingBuiltins(M);
 
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  // Module is always changed.
+  return PreservedAnalyses::none();
 }

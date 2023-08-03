@@ -675,12 +675,12 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
     // Set up the builtin include directory in the module map.
     SmallString<128> P = StringRef(HSOpts.ResourceDir);
     llvm::sys::path::append(P, "include");
-    if (auto Dir = HS.getFileMgr().getDirectory(P))
+    if (auto Dir = HS.getFileMgr().getOptionalDirectoryRef(P))
       HS.getModuleMap().setBuiltinIncludeDir(*Dir);
 #if INTEL_CUSTOMIZATION
     else if (!IntelSystem.empty()) {
       P = StringRef(IntelSystem);
-      if (auto Dir = HS.getFileMgr().getDirectory(P.str()))
+      if (auto Dir = HS.getFileMgr().getOptionalDirectoryRef(P.str()))
         HS.getModuleMap().setBuiltinIncludeDir(*Dir);
     }
 #endif // INTEL_CUSTOMIZATION

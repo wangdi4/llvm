@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(float* nocapture readonly %A, i32 %n, i32* nocapture %r) #0 {
+define void @foo(ptr nocapture readonly %A, i32 %n, ptr nocapture %r) #0 {
 entry:
   %cmp16 = icmp sgt i32 %n, 0
   br i1 %cmp16, label %for.body, label %for.end
@@ -24,8 +24,8 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %sum.018 = phi float [ %add5, %for.body ], [ 0.000000e+00, %entry ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %cmp1 = fcmp ogt float %0, 1.000000e+00
   %.op = fadd float %0, 8.800000e+01
   %add4 = select i1 %cmp1, float %.op, float 1.870000e+02
@@ -41,7 +41,7 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   %sum.0.lcssa = phi i32 [ 0, %entry ], [ %phitmp, %for.end.loopexit ]
-  store i32 %sum.0.lcssa, i32* %r, align 4, !tbaa !5
+  store i32 %sum.0.lcssa, ptr %r, align 4, !tbaa !5
   ret void
 }
 

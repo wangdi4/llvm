@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==---------------- helpers.hpp - SYCL helpers ----------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -23,7 +38,7 @@
 #include <vector>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 class context;
 class event;
 template <int Dims, bool WithOffset> class item;
@@ -37,14 +52,18 @@ enum class memory_order;
 
 namespace detail {
 
+class buffer_impl;
 class context_impl;
 // The function returns list of events that can be passed to OpenCL API as
 // dependency list and waits for others.
-__SYCL_EXPORT std::vector<RT::PiEvent>
+__SYCL_EXPORT std::vector<sycl::detail::pi::PiEvent>
 getOrWaitEvents(std::vector<sycl::event> DepEvents,
                 std::shared_ptr<sycl::detail::context_impl> Context);
 
 __SYCL_EXPORT void waitEvents(std::vector<sycl::event> DepEvents);
+
+__SYCL_EXPORT void
+markBufferAsInternal(const std::shared_ptr<buffer_impl> &BufImpl);
 
 template <typename T> T *declptr() { return static_cast<T *>(nullptr); }
 
@@ -82,14 +101,14 @@ public:
   }
 
   template <int Dims, bool WithOffset>
-  static detail::enable_if_t<WithOffset, item<Dims, WithOffset>>
+  static std::enable_if_t<WithOffset, item<Dims, WithOffset>>
   createItem(const range<Dims> &Extent, const id<Dims> &Index,
              const id<Dims> &Offset) {
     return item<Dims, WithOffset>(Extent, Index, Offset);
   }
 
   template <int Dims, bool WithOffset>
-  static detail::enable_if_t<!WithOffset, item<Dims, WithOffset>>
+  static std::enable_if_t<!WithOffset, item<Dims, WithOffset>>
   createItem(const range<Dims> &Extent, const id<Dims> &Index) {
     return item<Dims, WithOffset>(Extent, Index);
   }
@@ -140,8 +159,7 @@ public:
   }
 
   template <int Dims, bool WithOffset>
-  static detail::enable_if_t<WithOffset, const item<Dims, WithOffset>>
-  getItem() {
+  static std::enable_if_t<WithOffset, const item<Dims, WithOffset>> getItem() {
     static_assert(is_valid_dimensions<Dims>::value, "invalid dimensions");
     id<Dims> GlobalId{__spirv::initGlobalInvocationId<Dims, id<Dims>>()};
     range<Dims> GlobalSize{__spirv::initGlobalSize<Dims, range<Dims>>()};
@@ -150,8 +168,7 @@ public:
   }
 
   template <int Dims, bool WithOffset>
-  static detail::enable_if_t<!WithOffset, const item<Dims, WithOffset>>
-  getItem() {
+  static std::enable_if_t<!WithOffset, const item<Dims, WithOffset>> getItem() {
     static_assert(is_valid_dimensions<Dims>::value, "invalid dimensions");
     id<Dims> GlobalId{__spirv::initGlobalInvocationId<Dims, id<Dims>>()};
     range<Dims> GlobalSize{__spirv::initGlobalSize<Dims, range<Dims>>()};
@@ -241,15 +258,15 @@ getSPIRVMemorySemanticsMask(const access::fence_space AccessSpace,
 
 // To ensure loop unrolling is done when processing dimensions.
 template <size_t... Inds, class F>
-void dim_loop_impl(std::integer_sequence<size_t, Inds...>, F &&f) {
-  (f(Inds), ...);
+void loop_impl(std::integer_sequence<size_t, Inds...>, F &&f) {
+  // Partial temporary revert because of the CMPLRLLVM-47016.
+  (f(Inds), ...); // INTEL
 }
 
-template <size_t count, class F> void dim_loop(F &&f) {
-  dim_loop_impl(std::make_index_sequence<count>{}, std::forward<F>(f));
+template <size_t count, class F> void loop(F &&f) {
+  loop_impl(std::make_index_sequence<count>{}, std::forward<F>(f));
 }
-
 } // namespace detail
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

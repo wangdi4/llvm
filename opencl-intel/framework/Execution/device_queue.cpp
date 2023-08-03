@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -65,8 +65,4 @@ cl_int DeviceQueue::GetInfoInternal(cl_int iParamName, void *pBuf, size_t szBuf,
     return OclCommandQueue::GetInfoInternal(iParamName, pBuf, szBuf, szOuput);
   }
   return CL_SUCCESS;
-}
-
-void DeviceQueue::BecomeVisible() {
-  m_pContext->GetContextModule().CommandQueueCreated(this);
 }

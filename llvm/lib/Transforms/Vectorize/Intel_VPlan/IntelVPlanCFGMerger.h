@@ -41,6 +41,14 @@ class VPlanCFGMerger {
   unsigned MainVF;
   unsigned MainUF;
 
+  /// When dynamic peeling, if this value is non-zero, emit a trip-count check
+  /// to see if the real TC is less than this value. If so, we skip to the main
+  /// loop and proceed unaligned.
+  uint64_t MinimumProfitablePeelTC = 0;
+
+  // Jump to a scalar remainder loop if runtime TC is less than this value.
+  uint64_t MinProfitableMaskedRemTC = 0;
+
   // Instruction that contain PeelCount. It's assigned during VPlan CG for peel
   // count calculation and used in the follow up VPlan CG for various checks.
   VPValue *PeelCount = nullptr;
@@ -165,6 +173,13 @@ private:
   template <class LoopTy>
   void emitSkeleton(std::list<PlanDescr> &Plans, LoopTy *OrigLoop);
 
+  // Create a check (before \p InsertBefore block) for the runtime TC value and
+  // jump to \p MergeBlk (merge block before scalar remainder) in case if the
+  // value less than masked vector remainver profitable TC value.
+  VPBasicBlock *createMaskedRemTCCheck(VPBasicBlock *InsertBefore,
+                                       VPBasicBlock *MergeBlk,
+                                       VPValue *Subtract = nullptr);
+
   // Create a check for whether the loop described by \p PrevDescr should be
   // executed after the loop described by \p Descr. I.e. the check for the upper
   // bound of the loop from \p Descr is not equal to the upper bound of the loop
@@ -175,10 +190,9 @@ private:
 
   // Create a sequence of instructions to compare (PeelCount + \p VF) with
   // \p UB (PeelCount is a class member initialized during corresponding
-  // instructions insertion). The comparison is created with predicate \p Pred.
+  // instructions insertion). The comparison is created with predicate ICMP_UGT.
   // The \p Builder's insertion point should be setup before the call.
-  VPCmpInst *createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
-                                  CmpInst::Predicate Pred, unsigned VF);
+  VPCmpInst *createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder, unsigned VF);
 
   // Create a top test, i.e. the sequence of instructions (placed in a separate
   // basic block)
@@ -268,10 +282,10 @@ private:
   //  speculative loads the alignment is required and we should go to the scalar
   //  remainder.
   template <class LoopTy>
-  void createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
-                          VPBasicBlock *InsertBefore,
-                          VPBasicBlock *NonZeroMerge, VPlan &P,
-                          VPValue *&PeelBasePtr, LoopTy *OrigLoop);
+  VPBasicBlock *createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
+                                   VPBasicBlock *InsertBefore,
+                                   VPBasicBlock *NonZeroMerge, VPlan &P,
+                                   VPValue *&PeelBasePtr, LoopTy *OrigLoop);
 
   // Predicate whether we need peel for safety, e.g. in the search loop.
   bool needPeelForSafety() const;

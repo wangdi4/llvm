@@ -76,6 +76,11 @@ public:
 
 template <typename DerivedTy>
 class HIRPassInfoMixin : public PassInfoMixin<DerivedTy> {
+protected:
+  // Once we fix all the derived passes to set this flag correctly, we can
+  // reinitialize it to false.
+  bool ModifiedHIR = true;
+
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
 
@@ -86,7 +91,12 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     bool ShouldPrintFunc = isFunctionInPrintList(F.getName());
 
-    if (ShouldPrintFunc && shouldPrintBeforePass(DerivedTy::PassName)) {
+    // HIR before hir-temp-cleanup acts as the reference HIR with 'PrintChanged'
+    // option.
+    if (ShouldPrintFunc &&
+        (shouldPrintBeforePass(DerivedTy::PassName) ||
+         (PrintChanged != ChangePrinter::None &&
+          StringRef(DerivedTy::PassName).equals("hir-temp-cleanup")))) {
       dbgs() << "*** IR Dump Before " << DerivedPtr->name() << " ***\n";
       dbgs() << "Function: " << F.getName() << "\n";
       HIRF.print(false, dbgs());
@@ -96,10 +106,16 @@ public:
     auto PA = DerivedPtr->runImpl(F, AM, HIRF);
 
     // Run framework verifier.
-    HIRF.verify();
+    if (ModifiedHIR) {
+      HIRF.verify();
+    }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (ShouldPrintFunc && shouldPrintAfterPass(DerivedTy::PassName)) {
+    // TODO: We can skip printing of HIR in 'quiet' mode of 'PrintChanged' and
+    // just print the banner.
+    if (ShouldPrintFunc &&
+        (shouldPrintAfterPass(DerivedTy::PassName) ||
+         (PrintChanged != ChangePrinter::None && ModifiedHIR))) {
       dbgs() << "*** IR Dump After " << DerivedPtr->name() << " ***\n";
       dbgs() << "Function: " << F.getName() << "\n";
       HIRF.print(false, dbgs());

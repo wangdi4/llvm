@@ -38,7 +38,7 @@
 // RUN: %run %t.dir4/merge4
 // RUN: %run %t.dir4/merge4
 // RUN: %run %t.dir4/merge4
-// RUN: rm -f %t.dir4/merge4
+// RUN: rm -f %t.dir4/merge4*
 // INTEL_CUSTOMIZATION
 // The _PGOPTI_Prof_Dump_All method exports a method needed for DLLs to call. This
 // also causes .lib/.exp files to be produced when producing the exeucutable, so we

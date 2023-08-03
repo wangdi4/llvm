@@ -1,4 +1,4 @@
-; RUN: opt %s -S -opaque-pointers -xmain-enable-gep0-removal -passes=instcombine -o - \
+; RUN: opt %s -S -passes=instcombine -o - \
 ; RUN: | FileCheck %s
 
 ;; Check that when instcombine sinks an instruction used by a dbg.assign, the

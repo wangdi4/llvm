@@ -111,7 +111,7 @@ TypeDesc GetTypeDesc(llvm::Type *type, const llvm::DataLayout *td) {
     ret.SetType(TPOINTER);
     ret.SetNumberOfElements(1);
     TypeDesc subElemType =
-        GetTypeDesc(llvm::cast<llvm::PointerType>(type)->getElementType(), td);
+        GetTypeDesc(type->getNonOpaquePointerElementType(), td);
     ret.SetSubTypeDesc(0, subElemType);
     break;
   }
@@ -174,7 +174,7 @@ const BufferDesc GetBufferDesc(size_t size, const llvm::Argument &func_arg,
   // Do not record pointer.
   llvm::Type *elType = func_arg.getType();
   if (elType->isPointerTy()) {
-    elType = (llvm::cast<llvm::PointerType>(elType))->getElementType();
+    elType = elType->getNonOpaquePointerElementType();
   }
   TypeDesc elemType = GetTypeDesc(elType, td);
   /// When size of buffer is not multiple of element size
@@ -210,7 +210,7 @@ DataTypeVal GetDataType(const llvm::Type *type) {
   case llvm::Type::ScalableVectorTyID:
     return GetDataType(llvm::cast<llvm::VectorType>(type)->getElementType());
   case llvm::Type::PointerTyID:
-    return GetDataType(llvm::cast<llvm::PointerType>(type)->getElementType());
+    return GetDataType(type->getNonOpaquePointerElementType());
   default:
     assert(false && "Unsupported parameter type");
     throw Exception::InvalidArgument("Unsupported parameter type");

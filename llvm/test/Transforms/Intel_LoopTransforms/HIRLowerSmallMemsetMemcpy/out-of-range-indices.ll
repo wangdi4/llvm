@@ -1,5 +1,7 @@
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy,print<hir>" -hir-create-function-level-region -disable-output < %s 2>&1 | FileCheck %s
 
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy" -hir-create-function-level-region -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; The test checks that memset intrinsic is not transformed by HIR Lower Small Memset/Memcpy pass
 ; because it would create out-of-range array access (%a[0][0][i1] with i1 going from 0 to 8).
 
@@ -15,6 +17,11 @@
 ; CHECK:           ret ;
 ; CHECK:     END REGION
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLowerSmallMemsetMemcpy
 
 define void @foo() {
 entry:

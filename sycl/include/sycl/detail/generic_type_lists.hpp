@@ -20,14 +20,10 @@
 
 // Forward declarations
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 template <typename T, int N> class vec;
 template <typename Type, std::size_t NumElements> class marray;
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
-} // namespace sycl
 
-namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 namespace gtl {
 // floating point types
@@ -432,36 +428,39 @@ using marray_byte_list = type_list<marray<std::byte, 1>, marray<std::byte, 2>,
 #endif
 
 // integer types
-using scalar_signed_integer_list = type_list<
-    conditional_t<std::is_signed<char>::value,
+using scalar_signed_integer_list =
+    type_list<std::conditional_t<
+                  std::is_signed_v<char>,
                   type_list<scalar_default_char_list, scalar_signed_char_list>,
                   scalar_signed_char_list>,
-    scalar_signed_short_list, scalar_signed_int_list, scalar_signed_long_list,
-    scalar_signed_longlong_list>;
+              scalar_signed_short_list, scalar_signed_int_list,
+              scalar_signed_long_list, scalar_signed_longlong_list>;
 
-using vector_signed_integer_list = type_list<
-    conditional_t<std::is_signed<char>::value,
+using vector_signed_integer_list =
+    type_list<std::conditional_t<
+                  std::is_signed_v<char>,
                   type_list<vector_default_char_list, vector_signed_char_list>,
                   vector_signed_char_list>,
-    vector_signed_short_list, vector_signed_int_list, vector_signed_long_list,
-    vector_signed_longlong_list>;
+              vector_signed_short_list, vector_signed_int_list,
+              vector_signed_long_list, vector_signed_longlong_list>;
 
-using marray_signed_integer_list = type_list<
-    conditional_t<std::is_signed<char>::value,
+using marray_signed_integer_list =
+    type_list<std::conditional_t<
+                  std::is_signed_v<char>,
                   type_list<marray_default_char_list, marray_signed_char_list>,
                   marray_signed_char_list>,
-    marray_signed_short_list, marray_signed_int_list, marray_signed_long_list,
-    marray_signed_longlong_list>;
+              marray_signed_short_list, marray_signed_int_list,
+              marray_signed_long_list, marray_signed_longlong_list>;
 
 using signed_integer_list =
     type_list<scalar_signed_integer_list, vector_signed_integer_list,
               marray_signed_integer_list>;
 
 using scalar_unsigned_integer_list =
-    type_list<conditional_t<std::is_unsigned<char>::value,
-                            type_list<scalar_default_char_list,
-                                      scalar_unsigned_char_list>,
-                            scalar_unsigned_char_list>,
+    type_list<std::conditional_t<std::is_unsigned_v<char>,
+                                 type_list<scalar_default_char_list,
+                                           scalar_unsigned_char_list>,
+                                 scalar_unsigned_char_list>,
               scalar_unsigned_short_list, scalar_unsigned_int_list,
               scalar_unsigned_long_list, scalar_unsigned_longlong_list
 #if (!defined(_HAS_STD_BYTE) || _HAS_STD_BYTE != 0)
@@ -471,10 +470,10 @@ using scalar_unsigned_integer_list =
               >;
 
 using vector_unsigned_integer_list =
-    type_list<conditional_t<std::is_unsigned<char>::value,
-                            type_list<vector_default_char_list,
-                                      vector_unsigned_char_list>,
-                            vector_unsigned_char_list>,
+    type_list<std::conditional_t<std::is_unsigned_v<char>,
+                                 type_list<vector_default_char_list,
+                                           vector_unsigned_char_list>,
+                                 vector_unsigned_char_list>,
               vector_unsigned_short_list, vector_unsigned_int_list,
               vector_unsigned_long_list, vector_unsigned_longlong_list
 #if (!defined(_HAS_STD_BYTE) || _HAS_STD_BYTE != 0)
@@ -484,10 +483,10 @@ using vector_unsigned_integer_list =
               >;
 
 using marray_unsigned_integer_list =
-    type_list<conditional_t<std::is_unsigned<char>::value,
-                            type_list<marray_default_char_list,
-                                      marray_unsigned_char_list>,
-                            marray_unsigned_char_list>,
+    type_list<std::conditional_t<std::is_unsigned_v<char>,
+                                 type_list<marray_default_char_list,
+                                           marray_unsigned_char_list>,
+                                 marray_unsigned_char_list>,
               marray_unsigned_short_list, marray_unsigned_int_list,
               marray_unsigned_long_list, marray_unsigned_longlong_list
 #if (!defined(_HAS_STD_BYTE) || _HAS_STD_BYTE != 0)
@@ -521,6 +520,9 @@ using marray_bool_list =
 using scalar_bool_list = type_list<bool>;
 
 using bool_list = type_list<scalar_bool_list, marray_bool_list>;
+
+using vector_bool_list = type_list<vec<bool, 1>, vec<bool, 2>, vec<bool, 3>,
+                                   vec<bool, 4>, vec<bool, 8>, vec<bool, 16>>;
 
 // basic types
 using scalar_signed_basic_list =
@@ -585,5 +587,5 @@ using nonlocal_address_space_list =
                        access::address_space::ext_intel_global_host_space>;
 } // namespace gvl
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

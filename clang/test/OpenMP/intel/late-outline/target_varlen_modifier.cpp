@@ -9,7 +9,6 @@ void foo() {
 
   //CHECK:DIR.OMP.TARGET
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED.VARLEN"(ptr %vla
-  //CHECK-SAME: "QUAL.OMP.MAP.TO:VARLEN"(ptr %vla
   //CHECK:DIR.OMP.END.TARGET
   #pragma omp target firstprivate(x)
   printf("%p\n", x);

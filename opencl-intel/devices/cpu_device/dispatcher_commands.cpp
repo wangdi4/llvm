@@ -77,8 +77,6 @@ unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
     COLOR(204, 204, 204), COLOR(153, 153, 153), COLOR(102, 102, 102),
     COLOR(51, 51, 51)};
 
-AtomicCounter NDRange::RGBTableCounter;
-
 using namespace Intel::OpenCL::BuiltInKernels;
 
 /**
@@ -751,7 +749,7 @@ bool UnmapMemObject::Execute() {
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Kernel execution
-Intel::OpenCL::Utils::AtomicCounter NDRange::s_lGlbNDRangeId;
+std::atomic<long> NDRange::s_lGlbNDRangeId{0};
 
 cl_dev_err_code NDRange::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                                 SharedPtr<ITaskBase> *pTask,
@@ -1008,14 +1006,13 @@ bool NDRange::Finish(FINISH_REASON /*reason*/) {
 
   // regular stuff:
 #ifdef _DEBUG
-  long lVal =
-      (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
+  long lVal = (m_lExecuting.load() | m_lAttaching.load());
   assert(lVal == 0);
   m_lFinish.exchange(1);
 #endif
 
 #ifdef _DEBUG
-  lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
+  lVal = (m_lExecuting.load() | m_lAttaching.load());
   assert(lVal == 0);
 #endif
 
@@ -1049,8 +1046,7 @@ void *NDRange::AttachToThread(void *pWgContextBase, size_t uiNumberOfWorkGroups,
 #endif
 
 #ifdef _DEBUG
-  long lVal = m_lFinish.test_and_set(0, 0);
-  if (lVal == 1) {
+  if (m_lFinish.load() == 1) {
     assert(0);
   }
   ++m_lAttaching;
@@ -1123,7 +1119,7 @@ void NDRange::DetachFromThread(void * /*pWgContext*/) {
 
 bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void *pWgCtx) {
 #ifdef _DEBUG
-  long lVal = m_lFinish.test_and_set(0, 0);
+  long lVal = m_lFinish.load();
   assert(lVal == 0);
   ++m_lExecuting;
 #endif
@@ -1141,7 +1137,7 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void *pWgCtx) {
     assert(tDimArr[i] < val);
   }
 
-  lVal = m_lFinish.test_and_set(0, 0);
+  lVal = m_lFinish.load();
   assert(lVal == 0);
 #endif
 
@@ -1480,9 +1476,8 @@ bool MigrateUSMMemObject::Execute() {
   return true;
 }
 
-// DeviceNDRange:
-
-AtomicCounter DeviceNDRange::sm_cmdIdCnt;
+// DeviceNDRange
+std::atomic<long> DeviceNDRange::sm_cmdIdCnt{0};
 
 void DeviceNDRange::InitBlockCmdDesc(
     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *pKernel,

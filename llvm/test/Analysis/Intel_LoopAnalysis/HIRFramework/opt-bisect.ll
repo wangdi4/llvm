@@ -11,52 +11,52 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 %"class.dealii::Polynomials::Polynomial.19" = type { %"class.dealii::Subscriptor", %"class.std::vector.51" }
-%"class.dealii::Subscriptor" = type { i32 (...)**, i32, %"class.std::map", %"class.std::type_info"* }
+%"class.dealii::Subscriptor" = type { ptr, i32, %"class.std::map", ptr }
 %"class.std::map" = type { %"class.std::_Rb_tree" }
 %"class.std::_Rb_tree" = type { %"struct.std::_Rb_tree<const char *, std::pair<const char *const, unsigned int>, std::_Select1st<std::pair<const char *const, unsigned int> >, std::less<const char *>, std::allocator<std::pair<const char *const, unsigned int> > >::_Rb_tree_impl" }
 %"struct.std::_Rb_tree<const char *, std::pair<const char *const, unsigned int>, std::_Select1st<std::pair<const char *const, unsigned int> >, std::less<const char *>, std::allocator<std::pair<const char *const, unsigned int> > >::_Rb_tree_impl" = type { %"struct.std::less", %"struct.std::_Rb_tree_node_base", i32 }
 %"struct.std::less" = type { i8 }
-%"struct.std::_Rb_tree_node_base" = type { i32, %"struct.std::_Rb_tree_node_base"*, %"struct.std::_Rb_tree_node_base"*, %"struct.std::_Rb_tree_node_base"* }
-%"class.std::type_info" = type { i32 (...)**, i8* }
+%"struct.std::_Rb_tree_node_base" = type { i32, ptr, ptr, ptr }
+%"class.std::type_info" = type { ptr, ptr }
 %"class.std::vector.51" = type { %"struct.std::_Vector_base.4.104" }
 %"struct.std::_Vector_base.4.104" = type { %"struct.std::_Vector_base<double, std::allocator<double> >::_Vector_impl" }
-%"struct.std::_Vector_base<double, std::allocator<double> >::_Vector_impl" = type { double*, double*, double* }
+%"struct.std::_Vector_base<double, std::allocator<double> >::_Vector_impl" = type { ptr, ptr, ptr }
 %"class.dealii::PolynomialSpace" = type { %"class.std::vector.32", i32, %"class.std::vector.8.550", %"class.std::vector.8.550" }
 %"class.std::vector.32" = type { %"struct.std::_Vector_base.33" }
 %"struct.std::_Vector_base.33" = type { %"struct.std::_Vector_base<dealii::Polynomials::Polynomial<double>, std::allocator<dealii::Polynomials::Polynomial<double> > >::_Vector_impl" }
-%"struct.std::_Vector_base<dealii::Polynomials::Polynomial<double>, std::allocator<dealii::Polynomials::Polynomial<double> > >::_Vector_impl" = type { %"class.dealii::Polynomials::Polynomial.19"*, %"class.dealii::Polynomials::Polynomial.19"*, %"class.dealii::Polynomials::Polynomial.19"* }
+%"struct.std::_Vector_base<dealii::Polynomials::Polynomial<double>, std::allocator<dealii::Polynomials::Polynomial<double> > >::_Vector_impl" = type { ptr, ptr, ptr }
 %"class.std::vector.8.550" = type { %"struct.std::_Vector_base.9.549" }
 %"struct.std::_Vector_base.9.549" = type { %"struct.std::_Vector_base<unsigned int, std::allocator<unsigned int> >::_Vector_impl" }
-%"struct.std::_Vector_base<unsigned int, std::allocator<unsigned int> >::_Vector_impl" = type { i32*, i32*, i32* }
+%"struct.std::_Vector_base<unsigned int, std::allocator<unsigned int> >::_Vector_impl" = type { ptr, ptr, ptr }
 %"class.dealii::Point.40" = type { %"class.dealii::Tensor.39" }
 %"class.dealii::Tensor.39" = type { [3 x double] }
 
 $_ZNK6dealii15PolynomialSpaceILi3EE13compute_valueEjRKNS_5PointILi3EEE = comdat any
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #0
 
 ; Function Attrs: uwtable
-declare dso_local double @_ZNK6dealii11Polynomials10PolynomialIdE5valueEd(%"class.dealii::Polynomials::Polynomial.19"*, double) local_unnamed_addr #1 align 2
+declare dso_local double @_ZNK6dealii11Polynomials10PolynomialIdE5valueEd(ptr, double) local_unnamed_addr #1 align 2
 
 ; Function Attrs: uwtable
-define weak_odr dso_local double @_ZNK6dealii15PolynomialSpaceILi3EE13compute_valueEjRKNS_5PointILi3EEE(%"class.dealii::PolynomialSpace"* %this, i32 %i, %"class.dealii::Point.40"* dereferenceable(24) %p) local_unnamed_addr #1 comdat align 2 {
+define weak_odr dso_local double @_ZNK6dealii15PolynomialSpaceILi3EE13compute_valueEjRKNS_5PointILi3EEE(ptr %this, i32 %i, ptr dereferenceable(24) %p) local_unnamed_addr #1 comdat align 2 {
 entry:
   %ix = alloca [3 x i32], align 4
-  %0 = bitcast [3 x i32]* %ix to i8*
-  call void @llvm.lifetime.start.p0i8(i64 12, i8* nonnull %0) #2
-  %_M_start.i.i = getelementptr inbounds %"class.dealii::PolynomialSpace", %"class.dealii::PolynomialSpace"* %this, i32 0, i32 2, i32 0, i32 0, i32 0
-  %1 = load i32*, i32** %_M_start.i.i, align 4, !tbaa !3, !std.container.ptr !9
-  %add.ptr.i.i = getelementptr inbounds i32, i32* %1, i32 %i
-  %2 = load i32, i32* %add.ptr.i.i, align 4, !tbaa !10, !std.container.ptr !9
-  %_M_finish.i.i = getelementptr inbounds %"class.dealii::PolynomialSpace", %"class.dealii::PolynomialSpace"* %this, i32 0, i32 0, i32 0, i32 0, i32 1
-  %3 = bitcast %"class.dealii::Polynomials::Polynomial.19"** %_M_finish.i.i to i32*
-  %4 = load i32, i32* %3, align 4, !tbaa !12
-  %5 = bitcast %"class.dealii::PolynomialSpace"* %this to i32*
-  %6 = load i32, i32* %5, align 4, !tbaa !16
+  %0 = bitcast ptr %ix to ptr
+  call void @llvm.lifetime.start.p0(i64 12, ptr nonnull %0) #2
+  %_M_start.i.i = getelementptr inbounds %"class.dealii::PolynomialSpace", ptr %this, i32 0, i32 2, i32 0, i32 0, i32 0
+  %1 = load ptr, ptr %_M_start.i.i, align 4, !tbaa !3, !std.container.ptr !9
+  %add.ptr.i.i = getelementptr inbounds i32, ptr %1, i32 %i
+  %2 = load i32, ptr %add.ptr.i.i, align 4, !tbaa !10, !std.container.ptr !9
+  %_M_finish.i.i = getelementptr inbounds %"class.dealii::PolynomialSpace", ptr %this, i32 0, i32 0, i32 0, i32 0, i32 1
+  %3 = bitcast ptr %_M_finish.i.i to ptr
+  %4 = load i32, ptr %3, align 4, !tbaa !12
+  %5 = bitcast ptr %this to ptr
+  %6 = load i32, ptr %5, align 4, !tbaa !16
   %sub.ptr.sub.i.i = sub i32 %4, %6
   %sub.ptr.div.i.i = sdiv exact i32 %sub.ptr.sub.i.i, 48
   %cmp60.i = icmp eq i32 %sub.ptr.div.i.i, 0
@@ -88,12 +88,12 @@ for.body6.i:                                      ; preds = %if.else.i, %for.bod
 
 if.then.i:                                        ; preds = %for.body6.i
   %sub10.i = sub i32 %2, %k.157.i
-  %arrayidx.i = getelementptr inbounds [3 x i32], [3 x i32]* %ix, i32 0, i32 0
-  store i32 %sub10.i, i32* %arrayidx.i, align 4, !tbaa !17
-  %arrayidx11.i = getelementptr inbounds [3 x i32], [3 x i32]* %ix, i32 0, i32 1
-  store i32 %iy.058.i, i32* %arrayidx11.i, align 4, !tbaa !17
-  %arrayidx12.i = getelementptr inbounds [3 x i32], [3 x i32]* %ix, i32 0, i32 2
-  store i32 %iz.062.i, i32* %arrayidx12.i, align 4, !tbaa !17
+  %arrayidx.i = getelementptr inbounds [3 x i32], ptr %ix, i32 0, i32 0
+  store i32 %sub10.i, ptr %arrayidx.i, align 4, !tbaa !17
+  %arrayidx11.i = getelementptr inbounds [3 x i32], ptr %ix, i32 0, i32 1
+  store i32 %iy.058.i, ptr %arrayidx11.i, align 4, !tbaa !17
+  %arrayidx12.i = getelementptr inbounds [3 x i32], ptr %ix, i32 0, i32 2
+  store i32 %iz.062.i, ptr %arrayidx12.i, align 4, !tbaa !17
   br label %_ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit
 
 if.else.i:                                        ; preds = %for.body6.i
@@ -110,23 +110,23 @@ for.inc16.i:                                      ; preds = %if.else.i, %for.bod
   br i1 %cmp.i, label %for.body.i, label %_ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit
 
 _ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit: ; preds = %for.inc16.i, %if.then.i, %entry
-  %_M_start.i = getelementptr inbounds %"class.dealii::PolynomialSpace", %"class.dealii::PolynomialSpace"* %this, i32 0, i32 0, i32 0, i32 0, i32 0
+  %_M_start.i = getelementptr inbounds %"class.dealii::PolynomialSpace", ptr %this, i32 0, i32 0, i32 0, i32 0, i32 0
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  call void @llvm.lifetime.end.p0i8(i64 12, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 12, ptr nonnull %0) #2
   ret double %mul
 
 for.body:                                         ; preds = %for.body, %_ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit
   %d.016 = phi i32 [ 0, %_ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit ], [ %inc, %for.body ]
   %result.015 = phi double [ 1.000000e+00, %_ZNK6dealii15PolynomialSpaceILi3EE13compute_indexEjRA3_j.exit ], [ %mul, %for.body ]
-  %arrayidx = getelementptr inbounds [3 x i32], [3 x i32]* %ix, i32 0, i32 %d.016
-  %7 = load i32, i32* %arrayidx, align 4, !tbaa !17
-  %8 = load %"class.dealii::Polynomials::Polynomial.19"*, %"class.dealii::Polynomials::Polynomial.19"** %_M_start.i, align 4, !tbaa !16, !std.container.ptr !19
-  %add.ptr.i = getelementptr inbounds %"class.dealii::Polynomials::Polynomial.19", %"class.dealii::Polynomials::Polynomial.19"* %8, i32 %7
-  %arrayidx.i10 = getelementptr inbounds %"class.dealii::Point.40", %"class.dealii::Point.40"* %p, i32 0, i32 0, i32 0, i32 %d.016
-  %9 = load double, double* %arrayidx.i10, align 4, !tbaa !20
-  %call3 = tail call fast double @_ZNK6dealii11Polynomials10PolynomialIdE5valueEd(%"class.dealii::Polynomials::Polynomial.19"* nonnull %add.ptr.i, double %9)
+  %arrayidx = getelementptr inbounds [3 x i32], ptr %ix, i32 0, i32 %d.016
+  %7 = load i32, ptr %arrayidx, align 4, !tbaa !17
+  %8 = load ptr, ptr %_M_start.i, align 4, !tbaa !16, !std.container.ptr !19
+  %add.ptr.i = getelementptr inbounds %"class.dealii::Polynomials::Polynomial.19", ptr %8, i32 %7
+  %arrayidx.i10 = getelementptr inbounds %"class.dealii::Point.40", ptr %p, i32 0, i32 0, i32 0, i32 %d.016
+  %9 = load double, ptr %arrayidx.i10, align 4, !tbaa !20
+  %call3 = tail call fast double @_ZNK6dealii11Polynomials10PolynomialIdE5valueEd(ptr nonnull %add.ptr.i, double %9)
   %mul = fmul fast double %call3, %result.015
   %inc = add nuw nsw i32 %d.016, 1
   %exitcond = icmp eq i32 %inc, 3

@@ -658,8 +658,6 @@ private:
   MetadataTypeMap VirtualMetadataIdMap;
   MetadataTypeMap GeneralizedMetadataIdMap;
 
-  llvm::DenseMap<const llvm::Constant *, llvm::GlobalVariable *> RTTIProxyMap;
-
   llvm::DenseMap<StringRef, const RecordDecl *> TypesWithAspects;
   const EnumDecl *AspectsEnumDecl = nullptr;
   // Helps squashing blocks of TopLevelStmtDecl into a single llvm::Function
@@ -803,27 +801,36 @@ public:
   }
 
 #ifdef INTEL_CUSTOMIZATION
-  llvm::MDNode *getAutoMultiversionMetadata() {
+  llvm::MDNode *getAutoMultiVersionMetadata(std::vector<std::string> &Targets) {
     if (AutoMultiVersionMetadata)
       return AutoMultiVersionMetadata;
 
-    std::vector<std::string> &Targets =
-        Target.getTargetOpts().AutoMultiVersionTargets;
-    if (Targets.empty())
-      return nullptr;
-
     using namespace llvm;
-    llvm::SmallVector<llvm::Metadata *> TargetMDs;
-    llvm::LLVMContext &Ctx = getLLVMContext();
-    llvm::Metadata *MagicStr =
-        llvm::MDString::get(Ctx, "auto-cpu-dispatch-target");
-    for (llvm::StringRef Target : Targets) {
-      std::array<llvm::Metadata *, 2> Ops = {MagicStr,
-                                             llvm::MDString::get(Ctx, Target)};
-      TargetMDs.push_back(llvm::MDNode::get(Ctx, Ops));
+    LLVMContext &Ctx = getLLVMContext();
+
+    SmallVector<Metadata *> TargetMDs;
+    for (StringRef Target : Targets) {
+      TargetMDs.push_back(MDString::get(Ctx, Target));
     }
-    AutoMultiVersionMetadata = llvm::MDNode::get(Ctx, TargetMDs);
+
+    AutoMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
     return AutoMultiVersionMetadata;
+  }
+
+  llvm::MDNode *getAutoCPUDispatchTargetsMetadata() {
+    if (Target.getTargetOpts().AutoCPUDispatchTargets.empty())
+      return nullptr;
+    assert(Target.getTargetOpts().AutoArchTargets.empty() &&
+           "AutoArchTargets should be empty");
+    return getAutoMultiVersionMetadata(Target.getTargetOpts().AutoCPUDispatchTargets);
+  }
+
+  llvm::MDNode *getAutoArchTargetsMetadata() {
+    if (Target.getTargetOpts().AutoArchTargets.empty())
+      return nullptr;
+    assert(Target.getTargetOpts().AutoCPUDispatchTargets.empty() &&
+           "AutoCPUDispatchTargets should be empty");
+    return getAutoMultiVersionMetadata(Target.getTargetOpts().AutoArchTargets);
   }
 #endif //INTEL_CUSTOMIZATION
 
@@ -1294,7 +1301,7 @@ public:
 
   bool isUnsupportedTargetFunction(const FunctionDecl *FD) {
     // Variadic functions are not supported in SPIR-V.
-    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
         getTriple().isSPIR())
       if (auto *FnTy = FD->getType()->getAs<FunctionProtoType>())
         if (FnTy->isVariadic())
@@ -1305,7 +1312,7 @@ public:
   unsigned getEffectiveAllocaAddrSpace() {
     // This matches the code in CreateTempAlloca so the addrspace of
     // the possibly casted alloca can be determined.
-    if (getLangOpts().OpenMPIsDevice &&
+    if (getLangOpts().OpenMPIsTargetDevice &&
         getASTAllocaAddressSpace() != LangAS::Default)
       return Context.getTargetAddressSpace(LangAS::Default);
     return getDataLayout().getAllocaAddrSpace();
@@ -1567,6 +1574,8 @@ public:
   /// function which relies on particular fast-math attributes for correctness.
   /// It's up to you to ensure that this is safe.
   void addDefaultFunctionDefinitionAttributes(llvm::Function &F);
+  void mergeDefaultFunctionDefinitionAttributes(llvm::Function &F,
+                                                bool WillInternalize);
 
   /// Like the overload taking a `Function &`, but intended specifically
   /// for frontends that want to build on Clang's target-configuration logic.
@@ -1647,8 +1656,8 @@ public:
   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
 
   /// Emit additional args of the annotation.
-  llvm::Constant *
-  EmitSYCLAnnotationArgs(const SYCLAddIRAnnotationsMemberAttr *Attr);
+  llvm::Constant *EmitSYCLAnnotationArgs(
+      SmallVectorImpl<std::pair<std::string, std::string>> &Pairs);
 
   /// Add attributes from add_ir_attributes_global_variable on TND to GV.
   void AddGlobalSYCLIRAttributes(llvm::GlobalVariable *GV,
@@ -1804,9 +1813,6 @@ public:
   std::vector<const CXXRecordDecl *>
   getMostBaseClasses(const CXXRecordDecl *RD);
 
-  llvm::GlobalVariable *
-  GetOrCreateRTTIProxyGlobalVariable(llvm::Constant *Addr);
-
   /// Get the declaration of std::terminate for the platform.
   llvm::FunctionCallee getTerminateFn();
 
@@ -1874,6 +1880,11 @@ public:
   /// because we'll lose all important information after each repl.
   void moveLazyEmissionStates(CodeGenModule *NewBuilder);
 
+  void getFPAccuracyFuncAttributes(StringRef Name,
+                                   llvm::AttributeList &AttrList,
+                                   llvm::Metadata *&MDs, unsigned ID,
+                                   const llvm::Type *FuncType);
+
 private:
   llvm::Constant *GetOrCreateLLVMFunction(
       StringRef MangledName, llvm::Type *Ty, GlobalDecl D, bool ForVTable,
@@ -1902,7 +1913,8 @@ private:
                         ForDefinition_t IsForDefinition = NotForDefinition);
 
   bool GetCPUAndFeaturesAttributes(GlobalDecl GD,
-                                   llvm::AttrBuilder &AttrBuilder);
+                                   llvm::AttrBuilder &AttrBuilder,
+                                   bool SetTargetFeatures = true);
   void setNonAliasAttributes(GlobalDecl GD, llvm::GlobalObject *GO);
 
   /// Set function attributes for a function declaration.
@@ -2032,7 +2044,7 @@ private:
 
   /// Emit the module flag metadata used to pass options controlling the
   /// the backend to LLVM.
-  void EmitBackendOptionsMetadata(const CodeGenOptions CodeGenOpts);
+  void EmitBackendOptionsMetadata(const CodeGenOptions &CodeGenOpts);
 
   /// Emits OpenCL specific Metadata e.g. OpenCL version.
   void EmitOpenCLMetadata();
@@ -2071,12 +2083,23 @@ private:
   /// function.
   void SimplifyPersonality();
 
+  /// Helper function for getDefaultFunctionAttributes. Builds a set of function
+  /// attributes which can be simply added to a function.
+  void getTrivialDefaultFunctionAttributes(StringRef Name, bool HasOptnone,
+                                           bool AttrOnCallSite,
+                                           llvm::AttrBuilder &FuncAttrs);
+
   /// Helper function for ConstructAttributeList and
   /// addDefaultFunctionDefinitionAttributes.  Builds a set of function
   /// attributes to add to a function with the given properties.
   void getDefaultFunctionAttributes(StringRef Name, bool HasOptnone,
                                     bool AttrOnCallSite,
                                     llvm::AttrBuilder &FuncAttrs);
+
+  void getDefaultFunctionFPAccuracyAttributes(StringRef Name,
+                                              llvm::AttrBuilder &FuncAttrs,
+                                              llvm::Metadata *&MD, unsigned ID,
+                                              const llvm::Type *FuncType);
 
   llvm::Metadata *CreateMetadataIdentifierImpl(QualType T, MetadataTypeMap &Map,
                                                StringRef Suffix);

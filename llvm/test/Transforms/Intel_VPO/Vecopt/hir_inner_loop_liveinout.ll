@@ -22,7 +22,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   + Loop metadata: No
 ; CHECK:       |   + DO i64 i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:       |   |   %0 = (@larr2)[0][i2 + 2 * %n2][i1];
-; CHECK:       |   |      <BLOB> LINEAR [100 x [100 x i64]]* @larr2 {sb:9}
+; CHECK:       |   |      <BLOB> LINEAR ptr @larr2 {sb:9}
 ; CHECK:       |   |      <BLOB> LINEAR i64 %n2 {sb:10}
 ; CHECK:       |   |   %sum.024 = %0  +  %sum.024;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR i64 %sum.024 {sb:3}
@@ -30,7 +30,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   + END LOOP
 ; CHECK:       |   (@larr1)[0][i1 + 2 * %n2 + %n1] = %sum.024;
 ; CHECK:       |      <BLOB> LINEAR i64 %n1 {sb:17}
-; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
+; CHECK:       |      <BLOB> LINEAR ptr @larr1 {sb:16}
 ; CHECK:       |      <BLOB> LINEAR i64 %n2 {sb:10}
 ; CHECK:       |   <RVAL-REG> NON-LINEAR i64 %sum.024 {sb:3}
 ; CHECK:       + END LOOP
@@ -45,25 +45,28 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   %phi.temp4 = 0;
 ; CHECK:       |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + LiveIn symbases: 9, 10, 23, 24
-; CHECK:       |   + LiveOut symbases: 23, 27
+; CHECK:       |   + LiveOut symbases: 28
 ; CHECK:       |   + Loop metadata:
 ; CHECK:       |   + DO i64 i2 = 0, 99, 1   <DO_LOOP> <novectorize>
 ; CHECK:       |   |   %.vec = (<4 x i64>*)(@larr2)[0][i2 + 2 * %n2][i1];
-; CHECK:       |   |      <BLOB> LINEAR [100 x [100 x i64]]* @larr2 {sb:9}
-; CHECK:       |   |   %.vec6 = i2 + 1 < 100;
-; CHECK:       |   |   %phi.temp = %phi.temp + %.vec;
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:27}
+; CHECK:       |   |      <BLOB> LINEAR ptr @larr2 {sb:9}
+; CHECK:       |   |   %.vec6 = %.vec  +  %phi.temp;
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:27}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
+; CHECK:       |   |   %.vec7 = i2 + 1 < 100;
+; CHECK:       |   |   %phi.temp = %.vec6;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
 ; CHECK:       |   |   %phi.temp4 = i2 + 1;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + END LOOP
-; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %phi.temp + %.vec;
-; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
+; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %.vec6;
+; CHECK:       |      <BLOB> LINEAR ptr @larr1 {sb:16}
 ; CHECK:       |      <BLOB> LINEAR i64 %n2 {sb:10}
 ; CHECK:       |      <BLOB> LINEAR i64 %n1 {sb:17}
-; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp + %.vec {sb:2}
-; CHECK:       |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |      <BLOB> NON-LINEAR <4 x i64> %.vec {sb:27}
+; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
 ; CHECK:       + END LOOP
 ;
 entry:
@@ -80,8 +83,8 @@ for.body3:                                        ; preds = %for.cond1.preheader
   %sum.024 = phi i64 [ 0, %for.cond1.preheader ], [ %add5, %for.body3 ]
   %l2.023 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nsw i64 %l2.023, %mul
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @larr2, i64 0, i64 %add, i64 %l1.025
-  %0 = load i64, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @larr2, i64 0, i64 %add, i64 %l1.025
+  %0 = load i64, ptr %arrayidx4, align 8
   %add5 = add nsw i64 %0, %sum.024
   %inc = add nuw nsw i64 %l2.023, 1
   %exitcond.not = icmp eq i64 %inc, 100
@@ -90,8 +93,8 @@ for.body3:                                        ; preds = %for.cond1.preheader
 for.end:                                          ; preds = %for.body3
   %add5.lcssa = phi i64 [ %add5, %for.body3 ]
   %add8 = add nsw i64 %add7, %l1.025
-  %arrayidx9 = getelementptr inbounds [100 x i64], [100 x i64]* @larr1, i64 0, i64 %add8
-  store i64 %add5.lcssa, i64* %arrayidx9, align 8
+  %arrayidx9 = getelementptr inbounds [100 x i64], ptr @larr1, i64 0, i64 %add8
+  store i64 %add5.lcssa, ptr %arrayidx9, align 8
   %inc11 = add nuw nsw i64 %l1.025, 1
   %exitcond26.not = icmp eq i64 %inc11, 100
   br i1 %exitcond26.not, label %for.end12, label %for.cond1.preheader

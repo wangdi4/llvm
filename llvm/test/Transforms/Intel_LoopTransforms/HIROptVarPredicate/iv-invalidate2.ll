@@ -1,4 +1,5 @@
-; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s -check-prefix=NOOPT
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -hir-opt-var-predicate-tc-threshold=1 -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s  -check-prefix=OPT
 
 ;           BEGIN REGION { }
 ;                  + DO i1 = 0, 3, 1   <DO_LOOP>
@@ -19,18 +20,37 @@
 ;                  + END LOOP
 ;            END REGION
 
-; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, -1 * undef + 3, 1   <DO_LOOP>
-; CHECK:           |   |   if (undef == 0)
-; CHECK:           |   |   {
-; CHECK:           |   |      + DO i3 = 0, 62, 1   <DO_LOOP>
-; CHECK:           |   |      |   @_Z6printbj();
-; CHECK:           |   |      + END LOOP
-; CHECK:           |   |   }
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:     END REGION
+; Optimization happens if TC threshold is lowered to 1.
+; OPT:     BEGIN REGION { modified }
+; OPT:           + DO i1 = 0, 2, 1   <DO_LOOP>
+; OPT:           |   + DO i2 = 0, -1 * undef + 3, 1   <DO_LOOP>
+; OPT:           |   |   if (undef == 0)
+; OPT:           |   |   {
+; OPT:           |   |      + DO i3 = 0, 62, 1   <DO_LOOP>
+; OPT:           |   |      |   @_Z6printbj();
+; OPT:           |   |      + END LOOP
+; OPT:           |   |   }
+; OPT:           |   + END LOOP
+; OPT:           + END LOOP
+; OPT:     END REGION
+
+; Default value for TC threshold is 5. No optimization happens for i1 loop.
+; NOOPT:     BEGIN REGION { modified }
+; NOOPT:           + DO i1 = 0, 3, 1   <DO_LOOP>
+; NOOPT:           |   + DO i2 = 0, -1 * undef + 3, 1   <DO_LOOP>
+; NOOPT:           |   |   if (undef == 0)
+; NOOPT:           |   |   {
+; NOOPT:           |   |      + DO i3 = 0, 62, 1   <DO_LOOP>
+; NOOPT:           |   |      |   if (i1 != 0)
+; NOOPT:           |   |      |   {
+; NOOPT:           |   |      |      @_Z6printbj();
+; NOOPT:           |   |      |   }
+; NOOPT:           |   |      + END LOOP
+; NOOPT:           |   |   }
+; NOOPT:           |   + END LOOP
+; NOOPT:           + END LOOP
+; NOOPT:     END REGION
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

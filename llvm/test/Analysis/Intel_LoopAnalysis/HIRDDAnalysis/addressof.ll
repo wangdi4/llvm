@@ -18,7 +18,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind
-define void @foo(i32** nocapture %a, i32* %b, i32** nocapture readnone %c, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %a, ptr %b, ptr nocapture readnone %c, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -34,9 +34,9 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.07 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %b, i32 %i.07
-  %arrayidx1 = getelementptr inbounds i32*, i32** %a, i32 %i.07
-  store i32* %arrayidx, i32** %arrayidx1, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %b, i32 %i.07
+  %arrayidx1 = getelementptr inbounds ptr, ptr %a, i32 %i.07
+  store ptr %arrayidx, ptr %arrayidx1, align 4
   %inc = add nuw nsw i32 %i.07, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

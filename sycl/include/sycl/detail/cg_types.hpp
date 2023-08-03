@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==---- cg_types.hpp - Auxiliary types required by command group class ----==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -28,14 +13,13 @@
 #include <sycl/group.hpp>
 #include <sycl/id.hpp>
 #include <sycl/interop_handle.hpp>
-#include <sycl/interop_handler.hpp>
 #include <sycl/kernel.hpp>
 #include <sycl/kernel_handler.hpp>
 #include <sycl/nd_item.hpp>
 #include <sycl/range.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 // The structure represents kernel argument.
@@ -169,16 +153,16 @@ static constexpr bool check_kernel_lambda_takes_args() {
 // check_kernel_lambda_takes_args with proper set of arguments. Also this type
 // trait workarounds compilation error which happens only with msvc.
 
-template <typename KernelType, typename LambdaArgType,
-          typename std::enable_if_t<std::is_same<LambdaArgType, void>::value>
-              * = nullptr>
+template <
+    typename KernelType, typename LambdaArgType,
+    typename std::enable_if_t<std::is_same_v<LambdaArgType, void>> * = nullptr>
 constexpr bool isKernelLambdaCallableWithKernelHandlerImpl() {
   return check_kernel_lambda_takes_args<KernelType, kernel_handler>();
 }
 
-template <typename KernelType, typename LambdaArgType,
-          typename std::enable_if_t<!std::is_same<LambdaArgType, void>::value>
-              * = nullptr>
+template <
+    typename KernelType, typename LambdaArgType,
+    typename std::enable_if_t<!std::is_same_v<LambdaArgType, void>> * = nullptr>
 constexpr bool isKernelLambdaCallableWithKernelHandlerImpl() {
   return check_kernel_lambda_takes_args<KernelType, LambdaArgType,
                                         kernel_handler>();
@@ -230,14 +214,6 @@ public:
   // Used to extract captured variables.
   virtual char *getPtr() = 0;
   virtual ~HostKernelBase() = default;
-};
-
-class InteropTask {
-  std::function<void(sycl::interop_handler)> MFunc;
-
-public:
-  InteropTask(std::function<void(sycl::interop_handler)> Func) : MFunc(Func) {}
-  void call(sycl::interop_handler &h) { MFunc(h); }
 };
 
 class HostTask {
@@ -296,13 +272,13 @@ public:
   char *getPtr() override { return reinterpret_cast<char *>(&MKernel); }
 
   template <class ArgT = KernelArgType>
-  typename detail::enable_if_t<std::is_same<ArgT, void>::value>
+  typename std::enable_if_t<std::is_same_v<ArgT, void>>
   runOnHost(const NDRDescT &) {
     runKernelWithoutArg(MKernel);
   }
 
   template <class ArgT = KernelArgType>
-  typename detail::enable_if_t<std::is_same<ArgT, sycl::id<Dims>>::value>
+  typename std::enable_if_t<std::is_same_v<ArgT, sycl::id<Dims>>>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
@@ -319,16 +295,15 @@ public:
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
-      sycl::item<Dims, /*Offset=*/true> Item =
-          IDBuilder::createItem<Dims, true>(Range, ID, Offset);
+          sycl::item<Dims, /*Offset=*/true> Item =
+              IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
-    });
+          runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
+        });
   }
 
   template <class ArgT = KernelArgType>
-  typename detail::enable_if_t<
-      std::is_same<ArgT, item<Dims, /*Offset=*/false>>::value>
+  typename std::enable_if_t<std::is_same_v<ArgT, item<Dims, /*Offset=*/false>>>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::id<Dims> ID;
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
@@ -345,8 +320,7 @@ public:
   }
 
   template <class ArgT = KernelArgType>
-  typename detail::enable_if_t<
-      std::is_same<ArgT, item<Dims, /*Offset=*/true>>::value>
+  typename std::enable_if_t<std::is_same_v<ArgT, item<Dims, /*Offset=*/true>>>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
@@ -363,15 +337,15 @@ public:
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
-      sycl::item<Dims, /*Offset=*/true> Item =
-          IDBuilder::createItem<Dims, true>(Range, ID, Offset);
+          sycl::item<Dims, /*Offset=*/true> Item =
+              IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      runKernelWithArg<sycl::item<Dims, /*Offset=*/true>>(MKernel, Item);
-    });
+          runKernelWithArg<sycl::item<Dims, /*Offset=*/true>>(MKernel, Item);
+        });
   }
 
   template <class ArgT = KernelArgType>
-  typename detail::enable_if_t<std::is_same<ArgT, nd_item<Dims>>::value>
+  typename std::enable_if_t<std::is_same_v<ArgT, nd_item<Dims>>>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> GroupSize(InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
@@ -412,7 +386,7 @@ public:
   }
 
   template <typename ArgT = KernelArgType>
-  enable_if_t<std::is_same<ArgT, sycl::group<Dims>>::value>
+  std::enable_if_t<std::is_same_v<ArgT, sycl::group<Dims>>>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> NGroups(InitializedVal<Dims, range>::template get<0>());
 
@@ -442,5 +416,5 @@ public:
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

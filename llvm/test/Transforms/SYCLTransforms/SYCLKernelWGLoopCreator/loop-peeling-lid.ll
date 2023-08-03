@@ -1,14 +1,14 @@
 ; This test checks that peeling loop is generated and get_local_id call is
 ; replaced with zero.
 ;
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 {
+define void @test(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !arg_type_null_val !19 {
 entry:
   %call = tail call i64 @_Z12get_group_idj(i32 0) #2
   %call1 = tail call i64 @_Z14get_local_sizej(i32 0) #2
@@ -17,8 +17,8 @@ entry:
   %add = add i64 %mul, %call2
   %sext = shl i64 %add, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %idxprom
-  store i32 3, i32 addrspace(1)* %arrayidx, align 4, !tbaa !12
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %idxprom
+  store i32 3, ptr addrspace(1) %arrayidx, align 4, !tbaa !12
   ret void
 
 ; CHECK-LABEL: WGLoopsEntry:
@@ -30,7 +30,7 @@ entry:
 ; CHECK-NEXT: [[MUL0:%.*]] = mul i64 [[LSize0]], [[GroupID0]]
 ; CHECK-NEXT: add i64 [[MUL0]], 0
 
-; CHECK: %peel.ptr2int = ptrtoint <16 x i32> addrspace(1)* %{{.*}} to i64
+; CHECK: %peel.ptr2int = ptrtoint ptr addrspace(1) %{{.*}} to i64
 ; CHECK-NEXT: %peel.quotient = ashr i64 %peel.ptr2int, 2
 ; CHECK-NEXT: %peel.quotient.multiplier = mul i64 %peel.quotient, 15
 ; CHECK-NEXT: %peel.count.dynamic = and i64 %peel.quotient.multiplier, 15
@@ -81,7 +81,7 @@ declare i64 @_Z14get_local_sizej(i32) local_unnamed_addr #1
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) {
+define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %0) {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -102,7 +102,7 @@ entry:
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent norecurse nounwind
-define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !10 !no_barrier_path !9 !scalar_kernel !0 !vectorized_width !16 !kernel_execution_length !17 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !vectorization_dimension !6 !can_unite_workgroups !5 {
+define void @__Vectorized_.test(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !10 !no_barrier_path !9 !scalar_kernel !0 !vectorized_width !16 !kernel_execution_length !17 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !vectorization_dimension !6 !can_unite_workgroups !5 {
 entry:
   %call = tail call i64 @_Z12get_group_idj(i32 0) #2
   %call1 = tail call i64 @_Z14get_local_sizej(i32 0) #2
@@ -111,9 +111,8 @@ entry:
   %0 = add i64 %mul, %call2
   %1 = shl i64 %0, 32
   %extract = ashr exact i64 %1, 32
-  %2 = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %extract
-  %ptrTypeCast = bitcast i32 addrspace(1)* %2 to <16 x i32> addrspace(1)*
-  store <16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x i32> addrspace(1)* %ptrTypeCast, align 4, !intel.preferred_alignment !18
+  %2 = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %extract
+  store <16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, ptr addrspace(1) %2, align 4, !intel.preferred_alignment !18
   ret void
 }
 
@@ -123,7 +122,7 @@ attributes #2 = { convergent nounwind readnone }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 1}
 !2 = !{!"none"}
 !3 = !{!"int*"}
@@ -131,7 +130,7 @@ attributes #2 = { convergent nounwind readnone }
 !5 = !{i1 false}
 !6 = !{i32 0}
 !7 = !{!"dst"}
-!8 = !{void (i32 addrspace(1)*)* @__Vectorized_.test}
+!8 = !{ptr @__Vectorized_.test}
 !9 = !{i1 true}
 !10 = !{null}
 !11 = !{i32 10}
@@ -142,7 +141,8 @@ attributes #2 = { convergent nounwind readnone }
 !16 = !{i32 16}
 !17 = !{i32 11}
 !18 = !{i32 64}
+!19 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-COUNT-45: WARNING: Instruction with empty DebugLoc in function test
-; DEBUGIFY: WARNING: Missing line 35
+; DEBUGIFY: WARNING: Missing line 34
 ; DEBUGIFY-NOT: WARNING

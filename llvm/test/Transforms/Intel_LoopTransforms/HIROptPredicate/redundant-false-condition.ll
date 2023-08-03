@@ -25,7 +25,7 @@
 ; CHECK-NOT: (%p)[0] = 5
 ; CHECK: + END LOOP
 
-define void @foo(i64* %p, i64* %q, i64 %n) {
+define void @foo(ptr %p, ptr %q, i64 %n) {
 entry:
   br label %loop
 
@@ -36,17 +36,17 @@ loop:
   br i1 %cx, label %first, label %loop_inc
 
 first:
-  %v = load i64, i64* %q
+  %v = load i64, ptr %q
   %c1 = icmp eq i64 %v, 0
   %c2 = and i1 %c1, false
   br i1 %c2, label %st1, label %st2
 
 st1:
-  store i64 5, i64* %p
+  store i64 5, ptr %p
   br label %loop_inc
 
 st2:
-  store i64 1, i64* %p
+  store i64 1, ptr %p
   br label %loop_inc
 
 loop_inc:

@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { double, double }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @Vsub(double* nocapture readonly %a, %struct.S* nocapture %b, double %n, i32 %m) local_unnamed_addr #0 {
+define dso_local void @Vsub(ptr nocapture readonly %a, ptr nocapture %b, double %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp23 = icmp sgt i32 %m, 0
   br i1 %cmp23, label %for.body.lr.ph, label %for.cond.cleanup
@@ -51,17 +51,17 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds double, double* %a, i64 %indvars.iv
-  %1 = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds double, ptr %a, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
   %mul1 = fmul double %mul, %1
-  %X = getelementptr inbounds %struct.S, %struct.S* %b, i64 %indvars.iv, i32 0
-  store double %mul1, double* %X, align 8, !tbaa !6
+  %X = getelementptr inbounds %struct.S, ptr %b, i64 %indvars.iv, i32 0
+  store double %mul1, ptr %X, align 8, !tbaa !6
   %2 = or i64 %indvars.iv, 1
-  %arrayidx6 = getelementptr inbounds double, double* %a, i64 %2
-  %3 = load double, double* %arrayidx6, align 8, !tbaa !2
+  %arrayidx6 = getelementptr inbounds double, ptr %a, i64 %2
+  %3 = load double, ptr %arrayidx6, align 8, !tbaa !2
   %mul7 = fmul double %mul, %3
-  %Y = getelementptr inbounds %struct.S, %struct.S* %b, i64 %2, i32 1
-  store double %mul7, double* %Y, align 8, !tbaa !8
+  %Y = getelementptr inbounds %struct.S, ptr %b, i64 %2, i32 1
+  store double %mul7, ptr %Y, align 8, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit

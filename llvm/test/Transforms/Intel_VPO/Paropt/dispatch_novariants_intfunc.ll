@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
 
 ; // C++ source
 ; int __attribute__((nothrow,noinline))  foo_gpu(int aaa, int* bbb) {
@@ -41,21 +43,24 @@
 ;     store i32 %callphi, i32* %rrr, align 4
 ;     br label %DIR.OMP.END.DISPATCH.3
 
-; CHECK:      call i32 @__tgt_is_device_available
-; CHECK:      [[DOVARIANTS:%[a-zA-Z._0-9]+]] = icmp eq i1 %{{.*}}, false
-; CHECK-NEXT: [[AVAILABLE:%[a-zA-Z._0-9]+]] = and i1 %{{.*}}, [[DOVARIANTS]]
-; CHECK-NEXT: br i1 [[AVAILABLE]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
+; ALL:      call i32 @__tgt_is_device_available
+; ALL:      [[DOVARIANTS:%[a-zA-Z._0-9]+]] = icmp eq i1 %{{.*}}, false
+; ALL-NEXT: [[AVAILABLE:%[a-zA-Z._0-9]+]] = and i1 %{{.*}}, [[DOVARIANTS]]
+; ALL-NEXT: br i1 [[AVAILABLE]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
 
-; CHECK-DAG:  [[IFTHEN]]:
-; CHECK-NEXT: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @_Z7foo_gpuiPi(i32 0, i32* %{{[0-9]+}})
-; CHECK-NEXT: br label %[[IFEND:[a-zA-Z._0-9]+]]
+; ALL-DAG:  [[IFTHEN]]:
+; ALL-NEXT: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @_Z7foo_gpuiPi(i32 0, i32* %{{[0-9]+}})
+; NCG-NEXT: %my.tid = load i32, i32* @"@tid.addr", align 4
+; NCG-NEXT: %current.task = call i8* @__kmpc_get_current_task(i32 %my.tid)
+; NCG-NEXT: call void @__tgt_target_sync(%struct.ident_t* @{{.*}}, i32 %my.tid, i8* %current.task, i8* null)
+; ALL-NEXT: br label %[[IFEND:[a-zA-Z._0-9]+]]
 
-; CHECK-DAG:  [[IFELSE]]:
-; CHECK-NEXT: [[BASECALL:%[a-zA-Z._0-9]+]] = call i32 @_Z3fooiPi(i32 0, i32* %{{[0-9]+}})
-; CHECK-NEXT: br label %[[IFEND]]
+; ALL-DAG:  [[IFELSE]]:
+; ALL-NEXT: [[BASECALL:%[a-zA-Z._0-9]+]] = call i32 @_Z3fooiPi(i32 0, i32* %{{[0-9]+}})
+; ALL-NEXT: br label %[[IFEND]]
 
-; CHECK:      [[IFEND]]:
-; CHECK-NEXT: phi i32 [ [[VARIANT]], %[[IFTHEN]] ], [ [[BASECALL]], %[[IFELSE]] ]
+; ALL:      [[IFEND]]:
+; ALL-NEXT: phi i32 [ [[VARIANT]], %[[IFTHEN]] ], [ [[BASECALL]], %[[IFELSE]] ]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

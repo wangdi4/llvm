@@ -297,18 +297,6 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention,
     if (iDstArr_correct != NULL) {
       free(iDstArr_correct);
     }
-
-    // release buffers
-    if (srcBuf1) {
-      clReleaseMemObject(srcBuf1);
-    }
-    if (srcBuf2) {
-      clReleaseMemObject(srcBuf2);
-    }
-    if (dstBuf) {
-      clReleaseMemObject(dstBuf);
-    }
-
   } catch (const std::exception &exe) {
     cerr << exe.what() << endl;
     bResult = false;

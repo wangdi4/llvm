@@ -50,43 +50,43 @@
 ; CHECK-DAG: &((%3)[%5 + 25 * (-1 + %4) + 24]) >=u &((%1)[0]);
 ; CHECK-DAG: &((%1)[25 * sext.i32.i64((-1 + %4)) + 24]) >=u &((%3)[1]);
 ; CHECK: %mv.and7 =
-; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
+; CHECK: if (%mv.and == 0 & %mv.and7 == 0)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.loops_params_s = type { i32, i32, i32, i32, i32, i32, i32, [32 x i32], [32 x i32], i32, i32, i32, i32, i32, i8*, i32, i32, float**, i32**, float*, float**, float**, float*, i32*, i8*, %struct.intparts_s*, float, float*, float*, i32, float* }
+%struct.loops_params_s = type { i32, i32, i32, i32, i32, i32, i32, [32 x i32], [32 x i32], i32, i32, i32, i32, i32, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, float, ptr, ptr, i32, ptr }
 %struct.intparts_s = type { i8, i16, i32, i32 }
 
 @presets_loops = common global [8 x %struct.loops_params_s] zeroinitializer, align 4
 @pgo_training_run = external global i32, align 4
 
-declare float* @reinit_vec_limited(%struct.loops_params_s*, float*, i32) #0
+declare ptr @reinit_vec_limited(ptr, ptr, i32) #0
 
 ; Function Attrs: nounwind
-declare float @get_array_feedback(float*, i32) #1
+declare float @get_array_feedback(ptr, i32) #1
 
-declare void @zero_vec(float*, i32) #0
+declare void @zero_vec(ptr, i32) #0
 
 ; Function Attrs: nounwind
-define float @matmul(%struct.loops_params_s* %p) #1 {
+define float @matmul(ptr %p) #1 {
 entry:
-  %m2 = getelementptr inbounds %struct.loops_params_s, %struct.loops_params_s* %p, i64 0, i32 20
-  %0 = load float**, float*** %m2, align 4
-  %1 = load float*, float** %0, align 4
-  %arrayidx2 = getelementptr inbounds float*, float** %0, i64 1
-  %2 = load float*, float** %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds float*, float** %0, i64 2
-  %3 = load float*, float** %arrayidx4, align 4
-  %N = getelementptr inbounds %struct.loops_params_s, %struct.loops_params_s* %p, i64 0, i32 5
-  %4 = load i32, i32* %N, align 4
-  %Loop = getelementptr inbounds %struct.loops_params_s, %struct.loops_params_s* %p, i64 0, i32 9
-  %5 = load i32, i32* %Loop, align 4
+  %m2 = getelementptr inbounds %struct.loops_params_s, ptr %p, i64 0, i32 20
+  %0 = load ptr, ptr %m2, align 4
+  %1 = load ptr, ptr %0, align 4
+  %arrayidx2 = getelementptr inbounds ptr, ptr %0, i64 1
+  %2 = load ptr, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %0, i64 2
+  %3 = load ptr, ptr %arrayidx4, align 4
+  %N = getelementptr inbounds %struct.loops_params_s, ptr %p, i64 0, i32 5
+  %4 = load i32, ptr %N, align 4
+  %Loop = getelementptr inbounds %struct.loops_params_s, ptr %p, i64 0, i32 9
+  %5 = load i32, ptr %Loop, align 4
   %mul = mul nsw i32 %4, 25
-  tail call void @zero_vec(float* %1, i32 %mul) #2
-  %call = tail call float* @reinit_vec_limited(%struct.loops_params_s* %p, float* %2, i32 %mul) #2
+  tail call void @zero_vec(ptr %1, i32 %mul) #2
+  %call = tail call ptr @reinit_vec_limited(ptr %p, ptr %2, i32 %mul) #2
   %add = add nsw i32 %mul, %5
-  %call7 = tail call float* @reinit_vec_limited(%struct.loops_params_s* %p, float* %3, i32 %add) #2
+  %call7 = tail call ptr @reinit_vec_limited(ptr %p, ptr %3, i32 %add) #2
   %cmp33 = icmp slt i32 %5, 1
   br i1 %cmp33, label %for.end37, label %for.cond8.preheader.lr.ph
 
@@ -112,24 +112,24 @@ for.cond14.preheader:                             ; preds = %for.inc29, %for.con
 
 for.body16.lr.ph:                                 ; preds = %for.cond14.preheader
   %9 = add nsw i64 %indvars.iv37, %7
-  %arrayidx19 = getelementptr inbounds float, float* %2, i64 %9
+  %arrayidx19 = getelementptr inbounds float, ptr %2, i64 %9
   br label %for.body16
 
 for.body16:                                       ; preds = %for.body16, %for.body16.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body16.lr.ph ], [ %indvars.iv.next, %for.body16 ]
-  %10 = load float, float* %arrayidx19, align 4
+  %10 = load float, ptr %arrayidx19, align 4
   %11 = mul nuw nsw i64 %indvars.iv, 25
   %12 = trunc i64 %11 to i32
   %add22 = add i32 %add21, %12
   %13 = sext i32 %add22 to i64
-  %arrayidx23 = getelementptr inbounds float, float* %3, i64 %13
-  %14 = load float, float* %arrayidx23, align 4
+  %arrayidx23 = getelementptr inbounds float, ptr %3, i64 %13
+  %14 = load float, ptr %arrayidx23, align 4
   %mul24 = fmul float %10, %14
   %15 = add nuw nsw i64 %11, %indvars.iv37
-  %arrayidx27 = getelementptr inbounds float, float* %1, i64 %15
-  %16 = load float, float* %arrayidx27, align 4
+  %arrayidx27 = getelementptr inbounds float, ptr %1, i64 %15
+  %16 = load float, ptr %arrayidx27, align 4
   %add28 = fadd float %16, %mul24
-  store float %add28, float* %arrayidx27, align 4
+  store float %add28, ptr %arrayidx27, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %4
@@ -157,7 +157,7 @@ for.end37.loopexit:                               ; preds = %for.inc35
   br label %for.end37
 
 for.end37:                                        ; preds = %for.end37.loopexit, %entry
-  %call39 = tail call float @get_array_feedback(float* %1, i32 %mul)
+  %call39 = tail call float @get_array_feedback(ptr %1, i32 %mul)
   ret float %call39
 }
 

@@ -9,18 +9,21 @@
 
 declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
-@testKernel.structWithPointers.2 = internal addrspace(3) global i32* null, align 4
+@testKernel.structWithPointers.2 = internal addrspace(3) global ptr null, align 4
 
-define void @test(i32 addrspace(1)* nocapture %results) nounwind {
+define void @test(ptr addrspace(1) nocapture %results) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %PackedAlloca = alloca <4 x i32>, align 16
   %pint = alloca i32, align 4
-  %call = call i32 @_Z13get_global_idj(i32 0) nounwind readnone
+  %call = call i32 @_Z13get_global_idj(i32 0)
   %temp = insertelement <4 x i32> undef, i32 %call, i32 0
   %vector = shufflevector <4 x i32> %temp, <4 x i32> undef, <4 x i32> zeroinitializer
   %0 = add <4 x i32> %vector, <i32 0, i32 1, i32 2, i32 3>
-  store i32* %pint, i32* addrspace(3)* @testKernel.structWithPointers.2, align 4
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %results, i32 %call
-  store i32 1, i32 addrspace(1)* %arrayidx, align 4
+  store ptr %pint, ptr addrspace(3) @testKernel.structWithPointers.2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %results, i32 %call
+  store i32 1, ptr addrspace(1) %arrayidx, align 4
   ret void
 }
+
+!0 = !{!"int*"}
+!1 = !{i32 addrspace(1)* null}

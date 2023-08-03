@@ -20,6 +20,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
@@ -28,7 +29,6 @@ namespace llvm {
 class BlockFrequencyInfo;
 class DTransImmutableInfo;
 class Function;
-class GEPOperator;
 class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
@@ -322,10 +322,6 @@ private:
   // store information and safety bits about the types.
   DenseMap<DTransType *, dtrans::TypeInfo *> TypeInfoMap;
 
-  // List of TypeInfo object allocations that need to be destroyed upon
-  // DTransSafetyInfo destruction.
-  SmallVector<dtrans::TypeInfo *, 256> TypeInfoAllocs;
-
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
   dtrans::CallInfoManager CIM;
@@ -416,8 +412,6 @@ private:
 };
 
 } // end namespace dtransOP
-
-ModulePass *createDTransSafetyAnalyzerTestWrapperPass();
 
 } // end namespace llvm
 

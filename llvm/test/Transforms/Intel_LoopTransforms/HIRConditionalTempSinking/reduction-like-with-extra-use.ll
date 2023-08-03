@@ -1,5 +1,7 @@
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-conditional-temp-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-conditional-temp-sinking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; Verify that we bail out of sinking reduction-like candidate because the reduction temp (%t.02) is used in a non-reduction instruction (%tt = %t.02  +  4).
 
 ; Before Change-
@@ -33,6 +35,11 @@
 ; CHECK: |   %tt = %t.02  +  4;
 ; CHECK: + END LOOP
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRConditionalTempSinking
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -48,8 +55,8 @@ for.body:                                         ; preds = %entry, %for.inc
   %t.02 = phi i32 [ 0, %entry ], [ %t.1, %for.inc ]
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 0
   br i1 %cmp1, label %if.then, label %if.else
 
@@ -58,8 +65,8 @@ if.then:                                          ; preds = %for.body
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %idxprom
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %idxprom
+  %1 = load i32, ptr %arrayidx5, align 4
   %add6 = add nsw i32 %t.02, %1
   br label %for.inc
 

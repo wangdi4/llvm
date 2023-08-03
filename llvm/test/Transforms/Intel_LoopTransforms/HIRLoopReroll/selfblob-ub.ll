@@ -33,20 +33,20 @@ entry:
   br label %for.body408
 
 for.body408:                                      ; preds = %for.body408, %entry
-  %dz1.01357 = phi float* [ %add.ptr415, %for.body408 ], [ undef, %entry ], !in.de.ssa !1
-  %dz2.01356 = phi float* [ %add.ptr416, %for.body408 ], [ undef, %entry ], !in.de.ssa !2
+  %dz1.01357 = phi ptr [ %add.ptr415, %for.body408 ], [ undef, %entry ], !in.de.ssa !1
+  %dz2.01356 = phi ptr [ %add.ptr416, %for.body408 ], [ undef, %entry ], !in.de.ssa !2
   %x.31355 = phi i32 [ %inc414, %for.body408 ], [ 0, %entry ], !in.de.ssa !3
-  %arrayidx409 = getelementptr inbounds float, float* %dz1.01357, i64 1
-  store float 0.000000e+00, float* %arrayidx409, align 4, !tbaa !4
-  %arrayidx410 = getelementptr inbounds float, float* %dz2.01356, i64 1
-  store float 0.000000e+00, float* %arrayidx410, align 4, !tbaa !4
-  %arrayidx411 = getelementptr inbounds float, float* %dz1.01357, i64 3
-  store float 0.000000e+00, float* %arrayidx411, align 4, !tbaa !4
-  %arrayidx412 = getelementptr inbounds float, float* %dz2.01356, i64 3
-  store float 0.000000e+00, float* %arrayidx412, align 4, !tbaa !4
+  %arrayidx409 = getelementptr inbounds float, ptr %dz1.01357, i64 1
+  store float 0.000000e+00, ptr %arrayidx409, align 4, !tbaa !4
+  %arrayidx410 = getelementptr inbounds float, ptr %dz2.01356, i64 1
+  store float 0.000000e+00, ptr %arrayidx410, align 4, !tbaa !4
+  %arrayidx411 = getelementptr inbounds float, ptr %dz1.01357, i64 3
+  store float 0.000000e+00, ptr %arrayidx411, align 4, !tbaa !4
+  %arrayidx412 = getelementptr inbounds float, ptr %dz2.01356, i64 3
+  store float 0.000000e+00, ptr %arrayidx412, align 4, !tbaa !4
   %inc414 = add nuw nsw i32 %x.31355, 1
-  %add.ptr415 = getelementptr inbounds float, float* %dz1.01357, i64 4, !intel-tbaa !4
-  %add.ptr416 = getelementptr inbounds float, float* %dz2.01356, i64 4, !intel-tbaa !4
+  %add.ptr415 = getelementptr inbounds float, ptr %dz1.01357, i64 4, !intel-tbaa !4
+  %add.ptr416 = getelementptr inbounds float, ptr %dz2.01356, i64 4, !intel-tbaa !4
   %exitcond1398 = icmp eq i32 %inc414, %add98
   br i1 %exitcond1398, label %for.end417.loopexit, label %for.body408
 

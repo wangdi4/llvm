@@ -1,5 +1,6 @@
 ; RUN: opt -passes="vplan-vec" -debug-only=LoopVectorizationPlanner --disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -debug-only=LoopVectorizationPlanner --disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; REQUIRES: asserts
 
@@ -12,6 +13,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: The forced vectorization factor or safelen specified by the user is 1.
 
 ; OPTRPTMED: remark #15436: loop was not vectorized: The forced vectorization factor or safelen specified by the user is 1.
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After vpo::VPlanDriverHIR
 
 define void @_Z3fooPfS_S_(ptr %A, ptr %B, ptr %C) {
 DIR.OMP.SIMD.1:

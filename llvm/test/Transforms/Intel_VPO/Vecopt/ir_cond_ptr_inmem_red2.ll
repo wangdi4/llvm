@@ -18,8 +18,8 @@ define dso_local i32 @_Z3zooPiS_(i1 %m, ptr nocapture noundef readonly %a) {
 ;
 ; CHECK-LABEL: VPlan IR for: _Z3zooPiS_:omp.inner.for.body
 ; loop preheader
-; CHECK:     ptr [[VP_R2_RED:%.*]] = allocate-priv ptr, OrigAlign = 4
-; CHECK:     ptr [[VP_R_RED:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     ptr [[VP_R2_RED:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK:     ptr [[VP_R_RED:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK:     ptr [[VP_RA_RED:%.*]] = getelementptr inbounds i32, ptr [[R_RED0:%.*]] i32 0
 ; CHECK:     i32 [[VP_LOAD:%.*]] = load ptr [[R_RED0]]
 ; CHECK:     i32 [[VP_R_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]

@@ -26,24 +26,25 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
   int Gathers = MaskedGathers + UnmaskedGathers;
   int Scatters = MaskedScatters + UnmaskedScatters;
 #define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
-  if (Gathers) Builder.addRemark(Lp, OptReportVerbosity::High, 15567);         \
-  if (Scatters) Builder.addRemark(Lp, OptReportVerbosity::High, 15568);
+  if (Gathers)                                                                 \
+    Builder.addRemark(Lp, OptReportVerbosity::High,                            \
+                      OptRemarkID::GatherReason);                              \
+  if (Scatters)                                                                \
+    Builder.addRemark(Lp, OptReportVerbosity::High, OptRemarkID::ScatterReason);
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
+  if (NAME != 0)                                                               \
+    Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Arg.empty())                                                       \
-      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID);               \
-    else                                                                       \
-      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);      \
+    Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.Remark);                   \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder.addOrigin(Lp, Itr.RemarkID);                                       \
+    Builder.addOrigin(Lp, static_cast<OptRemarkID>(Itr.Remark.getRemarkID())); \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }
@@ -60,27 +61,27 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
   int Scatters = MaskedScatters + UnmaskedScatters;
 #define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
   if (Gathers)                                                                 \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15567u);           \
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, OptRemarkID::GatherReason);       \
   if (Scatters)                                                                \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15568u);
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, OptRemarkID::ScatterReason);
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder(*Lp, *VPLI)                                                          \
-      .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
+  if (NAME != 0)                                                               \
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Arg.empty())                                                       \
-      Builder(*Lp, *VPLI).addRemark(Itr.MessageVerbosity, Itr.RemarkID);       \
-    else                                                                       \
-      Builder(*Lp, *VPLI)                                                      \
-          .addRemark(Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);             \
+    Builder(*Lp, *VPLI).addRemark(Itr.MessageVerbosity, Itr.Remark);           \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder(*Lp, *VPLI).addOrigin(Itr.RemarkID);                               \
+    Builder(*Lp, *VPLI)                                                        \
+        .addOrigin(static_cast<OptRemarkID>(Itr.Remark.getRemarkID()));        \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }

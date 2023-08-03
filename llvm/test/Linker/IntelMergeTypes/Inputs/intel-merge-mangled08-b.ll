@@ -50,37 +50,37 @@ target triple = "x86_64-pc-windows-msvc19.16.27045"
 define dso_local i32 @"?barUpdate@@YAHXZ"() local_unnamed_addr #0 {
 entry:
   %T = alloca %"class..?AV?$TestClass@H@@.TestClass", align 4
-  %0 = bitcast %"class..?AV?$TestClass@H@@.TestClass"* %T to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #3
-  call void @"?foo@@YAXPEAV?$TestClass@H@@H@Z"(%"class..?AV?$TestClass@H@@.TestClass"* nonnull %T, i32 10)
-  %val.i = getelementptr inbounds %"class..?AV?$TestClass@H@@.TestClass", %"class..?AV?$TestClass@H@@.TestClass"* %T, i64 0, i32 0, !intel-tbaa !17
-  %1 = load i32, i32* %val.i, align 4, !tbaa !17
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #3
+  %0 = bitcast ptr %T to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %0) #3
+  call void @"?foo@@YAXPEAV?$TestClass@H@@H@Z"(ptr nonnull %T, i32 10)
+  %val.i = getelementptr inbounds %"class..?AV?$TestClass@H@@.TestClass", ptr %T, i64 0, i32 0, !intel-tbaa !17
+  %1 = load i32, ptr %val.i, align 4, !tbaa !17
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %0) #3
   ret i32 %1
 }
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0i8(i64 immarg, ptr nocapture) #1
 
-declare !intel.dtrans.func.type !22 dso_local void @"?foo@@YAXPEAV?$TestClass@H@@H@Z"(%"class..?AV?$TestClass@H@@.TestClass"* "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
+declare !intel.dtrans.func.type !22 dso_local void @"?foo@@YAXPEAV?$TestClass@H@@H@Z"(ptr "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0i8(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: uwtable
 define dso_local double @"?cazUpdate@@YANXZ"() local_unnamed_addr #0 {
 entry:
   %T = alloca %"class..?AV?$TestClass@N@@.TestClass", align 8
-  %0 = bitcast %"class..?AV?$TestClass@N@@.TestClass"* %T to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #3
-  call void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(%"class..?AV?$TestClass@N@@.TestClass"* nonnull %T, double 1.000000e+01)
-  %val.i = getelementptr inbounds %"class..?AV?$TestClass@N@@.TestClass", %"class..?AV?$TestClass@N@@.TestClass"* %T, i64 0, i32 0, !intel-tbaa !24
-  %1 = load double, double* %val.i, align 8, !tbaa !24
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #3
+  %0 = bitcast ptr %T to ptr
+  call void @llvm.lifetime.start.p0i8(i64 8, ptr nonnull %0) #3
+  call void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(ptr nonnull %T, double 1.000000e+01)
+  %val.i = getelementptr inbounds %"class..?AV?$TestClass@N@@.TestClass", ptr %T, i64 0, i32 0, !intel-tbaa !24
+  %1 = load double, ptr %val.i, align 8, !tbaa !24
+  call void @llvm.lifetime.end.p0i8(i64 8, ptr nonnull %0) #3
   ret double %1
 }
 
-declare !intel.dtrans.func.type !27 dso_local void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(%"class..?AV?$TestClass@N@@.TestClass"* "intel_dtrans_func_index"="1", double) local_unnamed_addr #2
+declare !intel.dtrans.func.type !27 dso_local void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(ptr "intel_dtrans_func_index"="1", double) local_unnamed_addr #2
 
 attributes #0 = { uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly mustprogress nofree nosync nounwind willreturn }

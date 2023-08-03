@@ -2,9 +2,9 @@
 ; REQUIRES: intel_feature_sw_advanced
 
 ; Inline report
-; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
+; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
+; RUN: opt -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
 
 ; Check that all instances of @wolff_ are inlined due to the inline budget and
 ; single callsite local linkage heuristics. This is the same test case as

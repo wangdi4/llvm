@@ -66,7 +66,7 @@ unsigned long long SystemInfo::HostTime() {
 
 std::string SystemInfo::GetExecutableFilename() {
   std::string name;
-#if defined(WIN32)
+#if defined(_WIN32)
   WCHAR path[MAX_PATH];
   if (GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
     std::wstring wstr(path);
@@ -75,7 +75,7 @@ std::string SystemInfo::GetExecutableFilename() {
   // Remove .exe from the name.
   if (!name.empty())
     name = llvm::sys::path::stem(llvm::StringRef(name)).str();
-#else  // WIN32
+#else  // _WIN32
   char buf[PATH_MAX];
   ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
   if (-1 != len) {
@@ -85,7 +85,7 @@ std::string SystemInfo::GetExecutableFilename() {
   // Find the base name by searching for the last '/' in the name
   if (!name.empty())
     name = llvm::sys::path::filename(llvm::StringRef(name)).str();
-#endif // WIN32
+#endif // _WIN32
 
   return name;
 }

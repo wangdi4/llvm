@@ -71,49 +71,55 @@
 ; This produces a partial inlining of foo into bar rather than fully inlining.
 ;
 ; The test case will check that the inline report was printed correctly.
+; This is the same test case as intel_simple_partial_inline_report.ll, but it
+; checks for opaque pointers.
 ;
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 -disable-output 2>&1 | FileCheck %s
-
-; CHECK: COMPILE FUNC: _Z3fooP4Node.1
-; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
 
 ; CHECK: COMPILE FUNC: _Z3barP4Node
 ; CHECK: -> INLINE: _Z3fooP4Node.1{{.*}}<<Preferred for partial inlining>>
 ; CHECK:      -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
+; CHECK: COMPILE FUNC: _Z3fooP4Node.1
+; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
 
-%struct.Node = type { i32, %struct.Node* }
 
-define i1 @_Z3fooP4Node(%struct.Node* %List) {
+; ModuleID = 'intel_simple_partial_inline_report.ll'
+source_filename = "intel_simple_partial_inline_report.ll"
+
+%struct.Node = type { i32, ptr }
+
+define i1 @_Z3fooP4Node(ptr %List) {
 entry:
-  %cmp8 = icmp eq %struct.Node* %List, null
+  %cmp8 = icmp eq ptr %List, null
   br i1 %cmp8, label %for.end, label %for.body
 
-for.body:                                         ; preds = %entry, %for.body
+for.body:                                         ; preds = %for.body, %entry
   %Num.010 = phi i32 [ %add, %for.body ], [ 0, %entry ]
-  %Head.09 = phi %struct.Node* [ %1, %for.body ], [ %List, %entry ]
-  %Num1 = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 0
-  %0 = load i32, i32* %Num1
+  %Head.09 = phi ptr [ %1, %for.body ], [ %List, %entry ]
+  %Num1 = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 0
+  %0 = load i32, ptr %Num1, align 4
   %add = add nsw i32 %0, %Num.010
   %phitmp = icmp eq i32 %add, 0
-  %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
-  %1 = load %struct.Node*, %struct.Node** %Next
-  %cmp = icmp eq %struct.Node* %1, null
+  %Next = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 1
+  %1 = load ptr, ptr %Next, align 8
+  %cmp = icmp eq ptr %1, null
   br i1 %cmp, label %for.end, label %for.body
 
-for.end:                                          ; preds = %for.end, %entry
+for.end:                                          ; preds = %for.body, %entry
   %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp, %for.body ]
   ret i1 %Num.0.lcssa
 }
 
-
-define i1 @_Z3barP4Node(%struct.Node* %List) #0 {
+; Function Attrs: noinline
+define i1 @_Z3barP4Node(ptr %List) #0 {
 entry:
-  %List.addr = alloca %struct.Node*
-  store %struct.Node* %List, %struct.Node** %List.addr
-  %0 = load %struct.Node*, %struct.Node** %List.addr
-  %call = call zeroext i1 @_Z3fooP4Node(%struct.Node* %0)
+  %List.addr = alloca ptr, align 8
+  store ptr %List, ptr %List.addr, align 8
+  %0 = load ptr, ptr %List.addr, align 8
+  %call = call zeroext i1 @_Z3fooP4Node(ptr %0)
   ret i1 %call
 }
 
 attributes #0 = { noinline }
+
 ; end INTEL_FEATURE_SW_ADVANCED

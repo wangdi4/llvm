@@ -58,8 +58,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc20
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ], !in.de.ssa !3
-  %arrayidx7 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], [1000 x [1000 x [1000 x i32]]]* @a, i64 0, i64 %indvars.iv, i64 %indvars.iv, i64 %indvars.iv49, !intel-tbaa !4
-  store i32 5, i32* %arrayidx7, align 4, !tbaa !4
+  %arrayidx7 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], ptr @a, i64 0, i64 %indvars.iv, i64 %indvars.iv, i64 %indvars.iv49, !intel-tbaa !4
+  store i32 5, ptr %arrayidx7, align 4, !tbaa !4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 500
   %indvars.iv.in52 = call i64 @llvm.ssa.copy.i64(i64 %indvars.iv.next), !in.de.ssa !3
@@ -72,8 +72,8 @@ for.body10.preheader:                             ; preds = %for.body3
 for.body10:                                       ; preds = %for.body10.preheader, %for.body10
   %indvars.iv46 = phi i64 [ %indvars.iv.next47, %for.body10 ], [ 0, %for.body10.preheader ], !in.de.ssa !11
   %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 1
-  %arrayidx16 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], [1000 x [1000 x [1000 x i32]]]* @a, i64 0, i64 %indvars.iv46, i64 %indvars.iv.next47, i64 %indvars.iv49, !intel-tbaa !4
-  store i32 6, i32* %arrayidx16, align 4, !tbaa !4
+  %arrayidx16 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], ptr @a, i64 0, i64 %indvars.iv46, i64 %indvars.iv.next47, i64 %indvars.iv49, !intel-tbaa !4
+  store i32 6, ptr %arrayidx16, align 4, !tbaa !4
   %exitcond48 = icmp eq i64 %indvars.iv.next47, 500
   %indvars.iv46.in = call i64 @llvm.ssa.copy.i64(i64 %indvars.iv.next47), !in.de.ssa !11
   br i1 %exitcond48, label %for.inc20, label %for.body10
@@ -86,8 +86,8 @@ for.inc20:                                        ; preds = %for.body10
 
 for.end22:                                        ; preds = %for.inc20
   %idxprom23 = sext i32 %N to i64
-  %arrayidx28 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], [1000 x [1000 x [1000 x i32]]]* @a, i64 0, i64 %idxprom23, i64 %idxprom23, i64 500, !intel-tbaa !4
-  %0 = load i32, i32* %arrayidx28, align 16, !tbaa !4
+  %arrayidx28 = getelementptr inbounds [1000 x [1000 x [1000 x i32]]], ptr @a, i64 0, i64 %idxprom23, i64 %idxprom23, i64 500, !intel-tbaa !4
+  %0 = load i32, ptr %arrayidx28, align 16, !tbaa !4
   ret i32 %0
 }
 

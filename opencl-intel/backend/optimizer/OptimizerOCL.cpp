@@ -70,6 +70,7 @@
 using namespace llvm;
 
 extern bool SYCLForceOptnone;
+extern bool SYCLEnableSubGroupEmulation;
 extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
 namespace Intel {
@@ -105,6 +106,11 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
   vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization &&
                                     Level == OptimizationLevel::O0);
+  vpo::VPlanDriverPass::setVecErrorHandler(
+      [](Function *F, vpo::VecErrorKind K) {
+        F->addFnAttr(KernelAttribute::VectorVariantFailure,
+                     K == vpo::VecErrorKind::Bailout ? "Bailout" : "Fatal");
+      });
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               getVerifyEachPass(), PrintPassOpts);
@@ -156,11 +162,13 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
 }
 
 void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
+  MPM.addPass(KernelTargetExtTypeLowerPass());
   if (m_IsSYCL)
     MPM.addPass(SPIRVToOCL20Pass());
 
   MPM.addPass(NameAnonGlobalPass());
   MPM.addPass(SYCLEqualizerPass());
+  MPM.addPass(ExternalizeGlobalVariablesPass());
   Triple TargetTriple(m_M.getTargetTriple());
   if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
@@ -273,7 +281,8 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
       const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
       // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
       // doesn't allow the customization.
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold); // INTEL
+      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(
+          threshold); // INTEL
       FPM3.addPass(LoopUnrollPass(UnrollOpts));
     }
   }
@@ -318,7 +327,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
 
 void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(SetPreferVectorWidthPass(ISA));
-  if (m_IsSPIRV && Config.GetRelaxedMath())
+  if (m_IsSYCL && Config.GetRelaxedMath())
     MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
 
   // Here we are internalizing non-kernal functions to allow inliner to remove
@@ -341,7 +350,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   }
 
   // Flatten get_{local, global}_linear_id()
-  if (m_IsOcl20)
+  if (m_HasOcl20)
     MPM.addPass(LinearIdResolverPass());
   // Resolve variable argument of get_global_id, get_local_id and get_group_id.
   MPM.addPass(ResolveVarTIDCallPass());
@@ -349,8 +358,8 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
       Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
-    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(ChannelPipeTransformationPass());
+    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(PipeIOTransformationPass());
     MPM.addPass(PipeOrderingPass());
     MPM.addPass(AutorunReplicatorPass());
@@ -359,7 +368,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
-  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
+  if (m_HasOcl20 && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Static resolution of generic address space pointers
     FPM.addPass(PromotePass());
@@ -389,7 +398,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(RequireAnalysisPass<ImplicitArgsAnalysis, Module>());
 
-  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
+  if (m_HasOcl20 && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
@@ -424,11 +433,13 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   // Should be called before vectorizer!
   MPM.addPass(InstToFuncCallPass(ISA));
+  // Select math builtin based on required accuracy
+  MPM.addPass(MathFuncSelectPass());
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
   MPM.addPass(SYCLKernelAnalysisPass(
-      Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
+      Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasSPR()));
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
     MPM.addPass(WGLoopBoundariesPass());
@@ -481,8 +492,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     if (!m_IsSYCL)
       MPM.addPass(
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
-    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA,
-                                        !m_IsSYCL && !m_IsOMP));
+    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA));
 
     MPM.addPass(VectorVariantFillIn());
     MPM.addPass(UpdateCallAttrs());
@@ -500,11 +510,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
           /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
     }
     FPM2.addPass(VPOCFGRestructuringPass());
-    // TODO support FatalErrorHandler
-    // [](Function *F) {
-    //      F->addFnAttr(llvm::KernelAttribute::VectorVariantFailure,
-    //                   "failed to vectorize");
-    // }
     FPM2.addPass(vpo::VPlanDriverPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
     MPM.addPass(SYCLKernelPostVecPass());
@@ -533,7 +538,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
     MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
   } else {
-#else // INTEL_CUSTOMIZATION
+#else  // INTEL_CUSTOMIZATION
   {
 #endif // INTEL_CUSTOMIZATION
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
@@ -647,15 +652,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(VerifierPass());
 #endif
 
-  // Externalize globals if IR is generated from OpenMP offloading. Now we
-  // cannot get address of globals with internal/private linkage from LLJIT
-  // (by design), but it's necessary by OpenMP to pass address of declare
-  // target variables to the underlying OpenCL Runtime via
-  // clSetKernelExecInfo. So we have to externalize globals for IR generated
-  // from OpenMP.
-  if (m_IsOMP)
-    MPM.addPass(ExternalizeGlobalVariablesPass());
-
   if (!m_RtlModules.empty()) {
     // Inline BI function
     MPM.addPass(BuiltinImportPass(CPUPrefix));
@@ -677,7 +673,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     auto InlineParams = getInlineParams();
     InlineParams.DefaultThreshold = 4096;
     MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
-  } else if (m_IsOcl20) {
+  } else if (m_HasOcl20) {
     // Ensure that the built-in functions to be processed by
     // PatchCallbackArgsPass are inlined.
     MPM.addPass(AlwaysInlinerPass());
@@ -685,7 +681,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
-  if (m_IsOcl20)
+  if (m_HasOcl20)
     MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
   if (Level != OptimizationLevel::O0) {
@@ -767,8 +763,6 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     FPM.addPass(DCEPass());
     FPM.addPass(SimplifyCFGPass());
     FPM.addPass(PromotePass());
-    FPM.addPass(PhiCanonicalization());
-    FPM.addPass(RedundantPhiNode());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
@@ -782,7 +776,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  if (!SYCLEnableO0Vectorization) { // INTEL
+  if (SYCLEnableSubGroupEmulation) {
     // Begin sub-group emulation
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());

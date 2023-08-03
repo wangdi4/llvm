@@ -53,19 +53,19 @@ for.body9:                                        ; preds = %for.body9, %for.bod
   %indvars.iv = phi i64 [ 0, %for.body9.lr.ph ], [ %indvars.iv.next, %for.body9 ]
   %4 = mul nuw nsw i64 %indvars.iv, 25
   %5 = add nuw nsw i64 %4, %indvars.iv64
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @px, i64 0, i64 %5
-  %6 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @px, i64 0, i64 %5
+  %6 = load float, ptr %arrayidx, align 4, !tbaa !1
   %7 = add nsw i64 %3, %indvars.iv
-  %arrayidx14 = getelementptr inbounds [1000 x float], [1000 x float]* @vy, i64 0, i64 %7
-  %8 = load float, float* %arrayidx14, align 4, !tbaa !1
+  %arrayidx14 = getelementptr inbounds [1000 x float], ptr @vy, i64 0, i64 %7
+  %8 = load float, ptr %arrayidx14, align 4, !tbaa !1
   %9 = trunc i64 %4 to i32
   %add17 = add i32 %add16, %9
   %idxprom18 = sext i32 %add17 to i64
-  %arrayidx19 = getelementptr inbounds [1000 x float], [1000 x float]* @cx, i64 0, i64 %idxprom18
-  %10 = load float, float* %arrayidx19, align 4, !tbaa !1
+  %arrayidx19 = getelementptr inbounds [1000 x float], ptr @cx, i64 0, i64 %idxprom18
+  %10 = load float, ptr %arrayidx19, align 4, !tbaa !1
   %mul20 = fmul float %8, %10
   %add21 = fadd float %6, %mul20
-  store float %add21, float* %arrayidx, align 4, !tbaa !1
+  store float %add21, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

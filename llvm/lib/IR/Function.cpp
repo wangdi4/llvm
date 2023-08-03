@@ -732,17 +732,30 @@ void Function::addDereferenceableOrNullParamAttr(unsigned ArgNo,
 
 DenormalMode Function::getDenormalMode(const fltSemantics &FPType) const {
   if (&FPType == &APFloat::IEEEsingle()) {
-    Attribute Attr = getFnAttribute("denormal-fp-math-f32");
-    StringRef Val = Attr.getValueAsString();
-    if (!Val.empty())
-      return parseDenormalFPAttribute(Val);
-
+    DenormalMode Mode = getDenormalModeF32Raw();
     // If the f32 variant of the attribute isn't specified, try to use the
     // generic one.
+    if (Mode.isValid())
+      return Mode;
   }
 
+  return getDenormalModeRaw();
+}
+
+DenormalMode Function::getDenormalModeRaw() const {
   Attribute Attr = getFnAttribute("denormal-fp-math");
-  return parseDenormalFPAttribute(Attr.getValueAsString());
+  StringRef Val = Attr.getValueAsString();
+  return parseDenormalFPAttribute(Val);
+}
+
+DenormalMode Function::getDenormalModeF32Raw() const {
+  Attribute Attr = getFnAttribute("denormal-fp-math-f32");
+  if (Attr.isValid()) {
+    StringRef Val = Attr.getValueAsString();
+    return parseDenormalFPAttribute(Val);
+  }
+
+  return DenormalMode::getInvalid();
 }
 
 const std::string &Function::getGC() const {
@@ -934,11 +947,13 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
   std::string Result;
   if (PointerType *PTyp = dyn_cast<PointerType>(Ty)) {
     Result += "p" + utostr(PTyp->getAddressSpace());
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     // Opaque pointer doesn't have pointee type information, so we just mangle
     // address space for opaque pointer.
     if (!PTyp->isOpaque())
       Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
                                   HasUnnamedType);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);
@@ -1053,70 +1068,11 @@ std::string Intrinsic::getNameNoUnnamedTypes(ID Id, ArrayRef<Type *> Tys) {
 /// IIT_Info - These are enumerators that describe the entries returned by the
 /// getIntrinsicInfoTableEntries function.
 ///
-/// NOTE: This must be kept in synch with the copy in TblGen/IntrinsicEmitter!
+/// Defined in Intrinsics.td.
 enum IIT_Info {
-  // Common values should be encoded with 0-15.
-  IIT_Done = 0,
-  IIT_I1 = 1,
-  IIT_I8 = 2,
-  IIT_I16 = 3,
-  IIT_I32 = 4,
-  IIT_I64 = 5,
-  IIT_F16 = 6,
-  IIT_F32 = 7,
-  IIT_F64 = 8,
-  IIT_V2 = 9,
-  IIT_V4 = 10,
-  IIT_V8 = 11,
-  IIT_V16 = 12,
-  IIT_V32 = 13,
-  IIT_PTR = 14,
-  IIT_ARG = 15,
-
-  // Values from 16+ are only encodable with the inefficient encoding.
-  IIT_V64 = 16,
-  IIT_MMX = 17,
-  IIT_TOKEN = 18,
-  IIT_METADATA = 19,
-  IIT_EMPTYSTRUCT = 20,
-  IIT_STRUCT2 = 21,
-  IIT_STRUCT3 = 22,
-  IIT_STRUCT4 = 23,
-  IIT_STRUCT5 = 24,
-  IIT_EXTEND_ARG = 25,
-  IIT_TRUNC_ARG = 26,
-  IIT_ANYPTR = 27,
-  IIT_V1 = 28,
-  IIT_VARARG = 29,
-  IIT_HALF_VEC_ARG = 30,
-  IIT_SAME_VEC_WIDTH_ARG = 31,
-  IIT_PTR_TO_ARG = 32,
-  IIT_PTR_TO_ELT = 33,
-  IIT_VEC_OF_ANYPTRS_TO_ELT = 34,
-  IIT_I128 = 35,
-  IIT_V512 = 36,
-  IIT_V1024 = 37,
-  IIT_STRUCT6 = 38,
-  IIT_STRUCT7 = 39,
-  IIT_STRUCT8 = 40,
-  IIT_F128 = 41,
-  IIT_VEC_ELEMENT = 42,
-  IIT_SCALABLE_VEC = 43,
-  IIT_SUBDIVIDE2_ARG = 44,
-  IIT_SUBDIVIDE4_ARG = 45,
-  IIT_VEC_OF_BITCASTS_TO_INT = 46,
-  IIT_V128 = 47,
-  IIT_BF16 = 48,
-  IIT_STRUCT9 = 49,
-  IIT_V256 = 50,
-  IIT_AMX = 51,
-  IIT_PPCF128 = 52,
-  IIT_V3 = 53,
-  IIT_EXTERNREF = 54,
-  IIT_FUNCREF = 55,
-  IIT_ANYPTR_TO_ELT = 56,
-  IIT_I2 = 57,
-  IIT_I4 = 58,
+#define GET_INTRINSIC_IITINFO
+#include "llvm/IR/IntrinsicImpl.inc"
+#undef GET_INTRINSIC_IITINFO
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -1174,6 +1130,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   case IIT_I4:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Integer, 4));
+    return;
+  case IIT_AARCH64_SVCOUNT:
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::AArch64Svcount, 0));
     return;
   case IIT_I8:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Integer, 8));
@@ -1285,6 +1244,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
                                              ArgInfo));
     return;
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IIT_PTR_TO_ARG: {
     unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::PtrToArgument,
@@ -1303,6 +1263,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
         IITDescriptor::get(IITDescriptor::AnyPtrToElt, ArgNo, RefNo));
     return;
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   case IIT_VEC_OF_ANYPTRS_TO_ELT: {
     unsigned short ArgNo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     unsigned short RefNo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
@@ -1416,6 +1377,8 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::Double: return Type::getDoubleTy(Context);
   case IITDescriptor::Quad: return Type::getFP128Ty(Context);
   case IITDescriptor::PPCQuad: return Type::getPPC_FP128Ty(Context);
+  case IITDescriptor::AArch64Svcount:
+    return TargetExtType::get(Context, "aarch64.svcount");
 
   case IITDescriptor::Integer:
     return IntegerType::get(Context, D.Integer_Width);
@@ -1467,6 +1430,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
       return VectorType::get(EltTy, VTy->getElementCount());
     return EltTy;
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::PtrToArgument: {
     Type *Ty = Tys[D.getArgumentNumber()];
     return PointerType::getUnqual(Ty);
@@ -1479,6 +1443,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
     Type *EltTy = VTy->getElementType();
     return PointerType::getUnqual(EltTy);
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::VecElementArgument: {
     Type *Ty = Tys[D.getArgumentNumber()];
     if (VectorType *VTy = dyn_cast<VectorType>(Ty))
@@ -1494,9 +1459,11 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::VecOfAnyPtrsToElt:
     // Return the overloaded type (which determines the pointers address space)
     return Tys[D.getOverloadArgNumber()];
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   case IITDescriptor::AnyPtrToElt:
     // Return the overloaded type (which determines the pointers address space)
     return Tys[D.getOverloadArgNumber()];
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
   llvm_unreachable("unhandled");
 }
@@ -1590,6 +1557,9 @@ static bool matchIntrinsicType(
     case IITDescriptor::Quad: return !Ty->isFP128Ty();
     case IITDescriptor::PPCQuad: return !Ty->isPPC_FP128Ty();
     case IITDescriptor::Integer: return !Ty->isIntegerTy(D.Integer_Width);
+    case IITDescriptor::AArch64Svcount:
+      return !isa<TargetExtType>(Ty) ||
+             cast<TargetExtType>(Ty)->getName() != "aarch64.svcount";
     case IITDescriptor::Vector: {
       VectorType *VT = dyn_cast<VectorType>(Ty);
       return !VT || VT->getElementCount() != D.Vector_Width ||
@@ -1722,6 +1692,7 @@ static bool matchIntrinsicType(
       return matchIntrinsicType(EltTy, Infos, ArgTys, DeferredChecks,
                                 IsDeferredCheck);
     }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     case IITDescriptor::PtrToArgument: {
       if (D.getArgumentNumber() >= ArgTys.size())
         return IsDeferredCheck || DeferCheck(Ty);
@@ -1766,6 +1737,7 @@ static bool matchIntrinsicType(
       return !ThisArgType->isOpaqueOrPointeeTypeMatches(
           ReferenceType->getElementType());
     }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     case IITDescriptor::VecOfAnyPtrsToElt: {
       unsigned RefArgNumber = D.getRefArgNumber();
       if (RefArgNumber >= ArgTys.size()) {
@@ -1791,12 +1763,7 @@ static bool matchIntrinsicType(
       if (!ThisArgVecTy || !ReferenceType ||
           (ReferenceType->getElementCount() != ThisArgVecTy->getElementCount()))
         return true;
-      PointerType *ThisArgEltTy =
-          dyn_cast<PointerType>(ThisArgVecTy->getElementType());
-      if (!ThisArgEltTy)
-        return true;
-      return !ThisArgEltTy->isOpaqueOrPointeeTypeMatches(
-          ReferenceType->getElementType());
+      return !ThisArgVecTy->getElementType()->isPointerTy();
     }
     case IITDescriptor::VecElementArgument: {
       if (D.getArgumentNumber() >= ArgTys.size())

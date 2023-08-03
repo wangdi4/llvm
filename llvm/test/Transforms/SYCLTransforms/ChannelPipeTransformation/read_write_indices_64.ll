@@ -36,27 +36,25 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
 %struct.st = type { i32 }
-%opencl.channel_t = type opaque
 
-@foo.s = private unnamed_addr addrspace(2) constant %struct.st { i32 100 }, align 4
-@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@lar_arr = common addrspace(1) global [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] zeroinitializer, align 8, !packet_size !3, !packet_align !3
+@__const.foo.s = private unnamed_addr addrspace(2) constant %struct.st { i32 100 }, align 4
+@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@lar_arr = addrspace(1) global [6 x [5 x [4 x [3 x target("spirv.Channel")]]]] zeroinitializer, align 8, !packet_size !3, !packet_align !3
 
 ; CHECK: %[[CINDEX0:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX0]]
 ; CHECK: %[[GEP_BAR_PIPE_ARR_W:.*]] = getelementptr {{.*}} @bar_arr.pipe, i64 0, i64 %[[BAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_W]]
-; CHECK: %[[CAST_BAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE_ARR_W]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR_W]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_BAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX1:.*]] = load {{.*}} %char_index
 ; CHECK: %[[FAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX1]]
@@ -65,8 +63,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[FAR_PIPE_ARR_W_INDEX1:.*]] = sext {{.*}} %[[SINDEX0]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_W1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_W0]], i64 0, i64 %[[FAR_PIPE_ARR_W_INDEX1]]
 ; CHECK: %[[LOAD_FAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_FAR_PIPE_ARR_W1]]
-; CHECK: %[[CAST_FAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE_ARR_W]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR_W]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_FAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX2:.*]] = load {{.*}} %char_index
 ; CHECK: %[[STAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX2]]
@@ -78,8 +75,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[STAR_PIPE_ARR_W_INDEX2:.*]] = sext {{.*}} %[[IINDEX0]]
 ; CHECK: %[[GEP_STAR_PIPE_ARR_W2:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_W1]], i64 0, i64 %[[STAR_PIPE_ARR_W_INDEX2]]
 ; CHECK: %[[LOAD_STAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_STAR_PIPE_ARR_W2]]
-; CHECK: %[[CAST_STAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR_W]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR_W]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_STAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX3:.*]] = load {{.*}} %char_index
 ; CHECK: %[[LAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX3]]
@@ -93,15 +89,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LAR_PIPE_ARR_W_INDEX3:.*]] = load {{.*}} %long_index
 ; CHECK: %[[GEP_LAR_PIPE_ARR_W3:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_W2]], i64 0, i64 %[[LAR_PIPE_ARR_W_INDEX3]]
 ; CHECK: %[[LOAD_LAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_LAR_PIPE_ARR_W3]]
-; CHECK: %[[CAST_LAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_LAR_PIPE_ARR_W]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_LAR_PIPE_ARR_W]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_LAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX4:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX4]]
 ; CHECK: %[[GEP_BAR_PIPE_ARR_R:.*]] = getelementptr {{.*}} @bar_arr.pipe, i64 0, i64 %[[BAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_R]]
-; CHECK: %[[CAST_BAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE_ARR_R]]
-; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR_R]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_BAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX5:.*]] = load {{.*}} %char_index
 ; CHECK: %[[FAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX5]]
@@ -110,8 +104,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[FAR_PIPE_ARR_R_INDEX1:.*]] = sext {{.*}} %[[SINDEX3]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_R1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_R0]], i64 0, i64 %[[FAR_PIPE_ARR_R_INDEX1]]
 ; CHECK: %[[LOAD_FAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_FAR_PIPE_ARR_R1]]
-; CHECK: %[[CAST_FAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE_ARR_R]]
-; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR_R]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_FAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX6:.*]] = load {{.*}} %char_index
 ; CHECK: %[[STAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX6]]
@@ -123,8 +116,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[STAR_PIPE_ARR_R_INDEX2:.*]] = sext {{.*}} %[[IINDEX2]]
 ; CHECK: %[[GEP_STAR_PIPE_ARR_R2:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_R1]], i64 0, i64 %[[STAR_PIPE_ARR_R_INDEX2]]
 ; CHECK: %[[LOAD_STAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_STAR_PIPE_ARR_R2]]
-; CHECK: %[[CAST_STAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR_R]]
-; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR_R]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_STAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX7:.*]] = load {{.*}} %char_index
 ; CHECK: %[[LAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX7]]
@@ -138,11 +130,10 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LAR_PIPE_ARR_R_INDEX3:.*]] = load {{.*}} %long_index
 ; CHECK: %[[GEP_LAR_PIPE_ARR_R3:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_R2]], i64 0, i64 %[[LAR_PIPE_ARR_R_INDEX3]]
 ; CHECK: %[[LOAD_LAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_LAR_PIPE_ARR_R3]]
-; CHECK: %[[CAST_LAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_LAR_PIPE_ARR_R]]
-; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_LAR_PIPE_ARR_R]]
+; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_LAR_PIPE_ARR_R]]
 
-; Function Attrs: nounwind
-define spir_kernel void @foo() #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !12 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !12 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local void @foo() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !arg_type_null_val !5 {
 entry:
   %char_index = alloca i8, align 1
   %short_index = alloca i16, align 2
@@ -153,192 +144,184 @@ entry:
   %s = alloca %struct.st, align 4
   %l = alloca i64, align 8
   %tmp = alloca %struct.st, align 4
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* %char_index) #3
-  store i8 4, i8* %char_index, align 1, !tbaa !14
-  %0 = bitcast i16* %short_index to i8*
-  call void @llvm.lifetime.start.p0i8(i64 2, i8* %0) #3
-  store i16 3, i16* %short_index, align 2, !tbaa !17
-  %1 = bitcast i32* %int_index to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #3
-  store i32 2, i32* %int_index, align 4, !tbaa !19
-  %2 = bitcast i64* %long_index to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %2) #3
-  store i64 1, i64* %long_index, align 8, !tbaa !21
-  %3 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %3) #3
-  store i32 42, i32* %i, align 4, !tbaa !19
-  %4 = bitcast float* %f to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %4) #3
-  store float 0x40091EB860000000, float* %f, align 4, !tbaa !23
-  %5 = bitcast %struct.st* %s to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #3
-  %6 = bitcast %struct.st* %s to i8*
-  call void @llvm.memcpy.p0i8.p2i8.i64(i8* %6, i8 addrspace(2)* bitcast (%struct.st addrspace(2)* @foo.s to i8 addrspace(2)*), i64 4, i32 4, i1 false)
-  %7 = bitcast i64* %l to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %7) #3
-  store i64 500, i64* %l, align 8, !tbaa !21
-  %8 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom = sext i8 %8 to i64
-  %arrayidx = getelementptr inbounds [5 x %opencl.channel_t addrspace(1)*], [5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, i64 0, i64 %idxprom
-  %9 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx, align 4, !tbaa !14
-  %10 = load i32, i32* %i, align 4, !tbaa !19
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %9, i32 %10)
-  %11 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom1 = sext i8 %11 to i64
-  %arrayidx2 = getelementptr inbounds [5 x [4 x %opencl.channel_t addrspace(1)*]], [5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @far_arr, i64 0, i64 %idxprom1
-  %12 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom3 = sext i16 %12 to i64
-  %arrayidx4 = getelementptr inbounds [4 x %opencl.channel_t addrspace(1)*], [4 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx2, i64 0, i64 %idxprom3
-  %13 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx4, align 4, !tbaa !14
-  %14 = load float, float* %f, align 4, !tbaa !23
-  call void @_Z19write_channel_intel11ocl_channelff(%opencl.channel_t addrspace(1)* %13, float %14)
-  %15 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom5 = sext i8 %15 to i64
-  %arrayidx6 = getelementptr inbounds [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, i64 0, i64 %idxprom5
-  %16 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom7 = sext i16 %16 to i64
-  %arrayidx8 = getelementptr inbounds [4 x [3 x %opencl.channel_t addrspace(1)*]], [4 x [3 x %opencl.channel_t addrspace(1)*]] addrspace(1)* %arrayidx6, i64 0, i64 %idxprom7
-  %17 = load i32, i32* %int_index, align 4, !tbaa !19
-  %idxprom9 = sext i32 %17 to i64
-  %arrayidx10 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx8, i64 0, i64 %idxprom9
-  %18 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx10, align 4, !tbaa !14
-  call void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)* %18, %struct.st* byval(%struct.st) align 4 %s)
-  %19 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom11 = sext i8 %19 to i64
-  %arrayidx12 = getelementptr inbounds [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]], [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] addrspace(1)* @lar_arr, i64 0, i64 %idxprom11
-  %20 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom13 = sext i16 %20 to i64
-  %arrayidx14 = getelementptr inbounds [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* %arrayidx12, i64 0, i64 %idxprom13
-  %21 = load i32, i32* %int_index, align 4, !tbaa !19
-  %idxprom15 = sext i32 %21 to i64
-  %arrayidx16 = getelementptr inbounds [4 x [3 x %opencl.channel_t addrspace(1)*]], [4 x [3 x %opencl.channel_t addrspace(1)*]] addrspace(1)* %arrayidx14, i64 0, i64 %idxprom15
-  %22 = load i64, i64* %long_index, align 8, !tbaa !21
-  %arrayidx17 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx16, i64 0, i64 %22
-  %23 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx17, align 8, !tbaa !14
-  %24 = load i64, i64* %l, align 8, !tbaa !21
-  call void @_Z19write_channel_intel11ocl_channelll(%opencl.channel_t addrspace(1)* %23, i64 %24)
-  %25 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom18 = sext i8 %25 to i64
-  %arrayidx19 = getelementptr inbounds [5 x %opencl.channel_t addrspace(1)*], [5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, i64 0, i64 %idxprom18
-  %26 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx19, align 4, !tbaa !14
-  %call = call i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)* %26)
-  store i32 %call, i32* %i, align 4, !tbaa !19
-  %27 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom20 = sext i8 %27 to i64
-  %arrayidx21 = getelementptr inbounds [5 x [4 x %opencl.channel_t addrspace(1)*]], [5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @far_arr, i64 0, i64 %idxprom20
-  %28 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom22 = sext i16 %28 to i64
-  %arrayidx23 = getelementptr inbounds [4 x %opencl.channel_t addrspace(1)*], [4 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx21, i64 0, i64 %idxprom22
-  %29 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx23, align 4, !tbaa !14
-  %call24 = call float @_Z18read_channel_intel11ocl_channelf(%opencl.channel_t addrspace(1)* %29)
-  store float %call24, float* %f, align 4, !tbaa !23
-  %30 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom25 = sext i8 %30 to i64
-  %arrayidx26 = getelementptr inbounds [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, i64 0, i64 %idxprom25
-  %31 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom27 = sext i16 %31 to i64
-  %arrayidx28 = getelementptr inbounds [4 x [3 x %opencl.channel_t addrspace(1)*]], [4 x [3 x %opencl.channel_t addrspace(1)*]] addrspace(1)* %arrayidx26, i64 0, i64 %idxprom27
-  %32 = load i32, i32* %int_index, align 4, !tbaa !19
-  %idxprom29 = sext i32 %32 to i64
-  %arrayidx30 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx28, i64 0, i64 %idxprom29
-  %33 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx30, align 4, !tbaa !14
-  call void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret(%struct.st) %tmp, %opencl.channel_t addrspace(1)* %33)
-  %34 = bitcast %struct.st* %s to i8*
-  %35 = bitcast %struct.st* %tmp to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %34, i8* %35, i64 4, i32 4, i1 false), !tbaa.struct !25
-  %36 = load i8, i8* %char_index, align 1, !tbaa !14
-  %idxprom31 = sext i8 %36 to i64
-  %arrayidx32 = getelementptr inbounds [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]], [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] addrspace(1)* @lar_arr, i64 0, i64 %idxprom31
-  %37 = load i16, i16* %short_index, align 2, !tbaa !17
-  %idxprom33 = sext i16 %37 to i64
-  %arrayidx34 = getelementptr inbounds [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* %arrayidx32, i64 0, i64 %idxprom33
-  %38 = load i32, i32* %int_index, align 4, !tbaa !19
-  %idxprom35 = sext i32 %38 to i64
-  %arrayidx36 = getelementptr inbounds [4 x [3 x %opencl.channel_t addrspace(1)*]], [4 x [3 x %opencl.channel_t addrspace(1)*]] addrspace(1)* %arrayidx34, i64 0, i64 %idxprom35
-  %39 = load i64, i64* %long_index, align 8, !tbaa !21
-  %arrayidx37 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx36, i64 0, i64 %39
-  %40 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx37, align 8, !tbaa !14
-  %call38 = call i64 @_Z18read_channel_intel11ocl_channell(%opencl.channel_t addrspace(1)* %40)
-  store i64 %call38, i64* %l, align 8, !tbaa !21
-  %41 = bitcast i64* %l to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %41) #3
-  %42 = bitcast %struct.st* %s to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %42) #3
-  %43 = bitcast float* %f to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %43) #3
-  %44 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %44) #3
-  %45 = bitcast i64* %long_index to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %45) #3
-  %46 = bitcast i32* %int_index to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %46) #3
-  %47 = bitcast i16* %short_index to i8*
-  call void @llvm.lifetime.end.p0i8(i64 2, i8* %47) #3
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* %char_index) #3
+  call void @llvm.lifetime.start.p0(i64 1, ptr %char_index) #4
+  store i8 4, ptr %char_index, align 1, !tbaa !8
+  call void @llvm.lifetime.start.p0(i64 2, ptr %short_index) #4
+  store i16 3, ptr %short_index, align 2, !tbaa !11
+  call void @llvm.lifetime.start.p0(i64 4, ptr %int_index) #4
+  store i32 2, ptr %int_index, align 4, !tbaa !13
+  call void @llvm.lifetime.start.p0(i64 8, ptr %long_index) #4
+  store i64 1, ptr %long_index, align 8, !tbaa !15
+  call void @llvm.lifetime.start.p0(i64 4, ptr %i) #4
+  store i32 42, ptr %i, align 4, !tbaa !13
+  call void @llvm.lifetime.start.p0(i64 4, ptr %f) #4
+  store float 0x40091EB860000000, ptr %f, align 4, !tbaa !17
+  call void @llvm.lifetime.start.p0(i64 4, ptr %s) #4
+  call void @llvm.memcpy.p0.p2.i64(ptr align 4 %s, ptr addrspace(2) align 4 @__const.foo.s, i64 4, i1 false)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %l) #4
+  store i64 500, ptr %l, align 8, !tbaa !15
+  %0 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom = sext i8 %0 to i64
+  %arrayidx = getelementptr inbounds [5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom
+  %1 = load ptr addrspace(1), ptr addrspace(1) %arrayidx, align 4, !tbaa !8
+  %2 = load i32, ptr %i, align 4, !tbaa !13
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %1, i32 noundef %2) #5
+  %3 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom1 = sext i8 %3 to i64
+  %arrayidx2 = getelementptr inbounds [5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom1
+  %4 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom3 = sext i16 %4 to i64
+  %arrayidx4 = getelementptr inbounds [4 x target("spirv.Channel")], ptr addrspace(1) %arrayidx2, i64 0, i64 %idxprom3
+  %5 = load ptr addrspace(1), ptr addrspace(1) %arrayidx4, align 4, !tbaa !8
+  %6 = load float, ptr %f, align 4, !tbaa !17
+  call void @_Z19write_channel_intel11ocl_channelff(ptr addrspace(1) %5, float noundef %6) #5
+  %7 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom5 = sext i8 %7 to i64
+  %arrayidx6 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom5
+  %8 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom7 = sext i16 %8 to i64
+  %arrayidx8 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx6, i64 0, i64 %idxprom7
+  %9 = load i32, ptr %int_index, align 4, !tbaa !13
+  %idxprom9 = sext i32 %9 to i64
+  %arrayidx10 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx8, i64 0, i64 %idxprom9
+  %10 = load ptr addrspace(1), ptr addrspace(1) %arrayidx10, align 4, !tbaa !8
+  call void @_Z19write_channel_intel11ocl_channel2stS_(ptr addrspace(1) %10, ptr noundef byval(%struct.st) align 4 %s) #5
+  %11 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom11 = sext i8 %11 to i64
+  %arrayidx12 = getelementptr inbounds [6 x [5 x [4 x [3 x target("spirv.Channel")]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom11
+  %12 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom13 = sext i16 %12 to i64
+  %arrayidx14 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) %arrayidx12, i64 0, i64 %idxprom13
+  %13 = load i32, ptr %int_index, align 4, !tbaa !13
+  %idxprom15 = sext i32 %13 to i64
+  %arrayidx16 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx14, i64 0, i64 %idxprom15
+  %14 = load i64, ptr %long_index, align 8, !tbaa !15
+  %arrayidx17 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx16, i64 0, i64 %14
+  %15 = load ptr addrspace(1), ptr addrspace(1) %arrayidx17, align 8, !tbaa !8
+  %16 = load i64, ptr %l, align 8, !tbaa !15
+  call void @_Z19write_channel_intel11ocl_channelll(ptr addrspace(1) %15, i64 noundef %16) #5
+  %17 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom18 = sext i8 %17 to i64
+  %arrayidx19 = getelementptr inbounds [5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom18
+  %18 = load ptr addrspace(1), ptr addrspace(1) %arrayidx19, align 4, !tbaa !8
+  %call = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %18) #5
+  store i32 %call, ptr %i, align 4, !tbaa !13
+  %19 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom20 = sext i8 %19 to i64
+  %arrayidx21 = getelementptr inbounds [5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom20
+  %20 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom22 = sext i16 %20 to i64
+  %arrayidx23 = getelementptr inbounds [4 x target("spirv.Channel")], ptr addrspace(1) %arrayidx21, i64 0, i64 %idxprom22
+  %21 = load ptr addrspace(1), ptr addrspace(1) %arrayidx23, align 4, !tbaa !8
+  %call24 = call float @_Z18read_channel_intel11ocl_channelf(ptr addrspace(1) %21) #5
+  store float %call24, ptr %f, align 4, !tbaa !17
+  call void @llvm.lifetime.start.p0(i64 4, ptr %tmp) #4
+  %22 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom25 = sext i8 %22 to i64
+  %arrayidx26 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom25
+  %23 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom27 = sext i16 %23 to i64
+  %arrayidx28 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx26, i64 0, i64 %idxprom27
+  %24 = load i32, ptr %int_index, align 4, !tbaa !13
+  %idxprom29 = sext i32 %24 to i64
+  %arrayidx30 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx28, i64 0, i64 %idxprom29
+  %25 = load ptr addrspace(1), ptr addrspace(1) %arrayidx30, align 4, !tbaa !8
+  call void @_Z18read_channel_intel11ocl_channel2st(ptr sret(%struct.st) align 4 %tmp, ptr addrspace(1) %25) #5
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %s, ptr align 4 %tmp, i64 4, i1 false), !tbaa.struct !19
+  call void @llvm.lifetime.end.p0(i64 4, ptr %tmp) #4
+  %26 = load i8, ptr %char_index, align 1, !tbaa !8
+  %idxprom31 = sext i8 %26 to i64
+  %arrayidx32 = getelementptr inbounds [6 x [5 x [4 x [3 x target("spirv.Channel")]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom31
+  %27 = load i16, ptr %short_index, align 2, !tbaa !11
+  %idxprom33 = sext i16 %27 to i64
+  %arrayidx34 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) %arrayidx32, i64 0, i64 %idxprom33
+  %28 = load i32, ptr %int_index, align 4, !tbaa !13
+  %idxprom35 = sext i32 %28 to i64
+  %arrayidx36 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx34, i64 0, i64 %idxprom35
+  %29 = load i64, ptr %long_index, align 8, !tbaa !15
+  %arrayidx37 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx36, i64 0, i64 %29
+  %30 = load ptr addrspace(1), ptr addrspace(1) %arrayidx37, align 8, !tbaa !8
+  %call38 = call i64 @_Z18read_channel_intel11ocl_channell(ptr addrspace(1) %30) #5
+  store i64 %call38, ptr %l, align 8, !tbaa !15
+  call void @llvm.lifetime.end.p0(i64 8, ptr %l) #4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %s) #4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %f) #4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %i) #4
+  call void @llvm.lifetime.end.p0(i64 8, ptr %long_index) #4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %int_index) #4
+  call void @llvm.lifetime.end.p0(i64 2, ptr %short_index) #4
+  call void @llvm.lifetime.end.p0(i64 1, ptr %char_index) #4
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p2i8.i64(i8* nocapture writeonly, i8 addrspace(2)* nocapture readonly, i64, i32, i1) #1
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p2.i64(ptr noalias nocapture writeonly, ptr addrspace(2) noalias nocapture readonly, i64, i1 immarg) #2
 
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
-declare void @_Z19write_channel_intel11ocl_channelff(%opencl.channel_t addrspace(1)*, float) #2
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
-declare void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)*, %struct.st* byval(%struct.st) align 4) #2
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1), i32 noundef) #3
 
-declare void @_Z19write_channel_intel11ocl_channelll(%opencl.channel_t addrspace(1)*, i64) #2
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channelff(ptr addrspace(1), float noundef) #3
 
-declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)*) #2
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channel2stS_(ptr addrspace(1), ptr noundef byval(%struct.st) align 4) #3
 
-declare float @_Z18read_channel_intel11ocl_channelf(%opencl.channel_t addrspace(1)*) #2
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channelll(ptr addrspace(1), i64 noundef) #3
 
-declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret(%struct.st), %opencl.channel_t addrspace(1)*) #2
+; Function Attrs: convergent nounwind
+declare i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1)) #3
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #1
+; Function Attrs: convergent nounwind
+declare float @_Z18read_channel_intel11ocl_channelf(ptr addrspace(1)) #3
 
-declare i64 @_Z18read_channel_intel11ocl_channell(%opencl.channel_t addrspace(1)*) #2
+; Function Attrs: convergent nounwind
+declare void @_Z18read_channel_intel11ocl_channel2st(ptr sret(%struct.st) align 4, ptr addrspace(1)) #3
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+; Function Attrs: convergent nounwind
+declare i64 @_Z18read_channel_intel11ocl_channell(ptr addrspace(1)) #3
 
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { nounwind }
+attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #3 = { convergent nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
+attributes #4 = { nounwind }
+attributes #5 = { convergent nounwind }
 
-!llvm.module.flags = !{!10}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!11}
-!opencl.spir.version = !{!11}
-!opencl.used.extensions = !{!12}
-!opencl.used.optional.core.features = !{!12}
-!opencl.compiler.options = !{!12}
-!llvm.ident = !{!13}
+!opencl.ocl.version = !{!4}
+!opencl.spir.version = !{!4}
+!opencl.compiler.options = !{!5}
+!llvm.ident = !{!6}
+!sycl.kernels = !{!7}
 
 !0 = !{i32 4}
 !1 = !{i32 0}
 !2 = !{i32 3}
 !3 = !{i32 8}
-!10 = !{i32 1, !"wchar_size", i32 4}
-!11 = !{i32 2, i32 0}
-!12 = !{}
-!13 = !{!"clang version 5.0.0 "}
-!14 = !{!15, !15, i64 0}
-!15 = !{!"omnipotent char", !16, i64 0}
-!16 = !{!"Simple C/C++ TBAA"}
+!4 = !{i32 2, i32 0}
+!5 = !{}
+!6 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!7 = !{ptr @foo}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"omnipotent char", !10, i64 0}
+!10 = !{!"Simple C/C++ TBAA"}
+!11 = !{!12, !12, i64 0}
+!12 = !{!"short", !9, i64 0}
+!13 = !{!14, !14, i64 0}
+!14 = !{!"int", !9, i64 0}
+!15 = !{!16, !16, i64 0}
+!16 = !{!"long", !9, i64 0}
 !17 = !{!18, !18, i64 0}
-!18 = !{!"short", !15, i64 0}
-!19 = !{!20, !20, i64 0}
-!20 = !{!"int", !15, i64 0}
-!21 = !{!22, !22, i64 0}
-!22 = !{!"long", !15, i64 0}
-!23 = !{!24, !24, i64 0}
-!24 = !{!"float", !15, i64 0}
-!25 = !{i64 0, i64 4, !19}
+!18 = !{!"float", !9, i64 0}
+!19 = !{i64 0, i64 4, !13}
 
 ; DEBUGIFY-NOT: WARNING: Missing line

@@ -33,40 +33,7 @@
 using namespace llvm;
 using namespace MDInliningReport;
 
-/// \brief Inlining report level option
-///
-/// Specified with -inline-report=N
-///   N is a bit mask with the following interpretation of the bits
-///   0x0000: No inlining report
-///   0x0001: Simple inlining report
-///   0x0002: Add inlining reasons
-///   0x0004: Put the inlining reasons on the same line as the call sites
-///   0x0008: Print the line and column info for each call site if available
-///   0x0010: Print the file for each call site
-///   0x0020: Print linkage info for each function and call site
-///   0x0040: Print the early exit cost vs. threshold info, where applicable
-///   0x0080: Create metadata-based inline report
-///   0x0100: Create composite inline report for an -flto compilation.
-///   0x0200: Create the inlining report info for the special intrinsic call sites
-///   0x0400: Print the source language: 'C' for C/C++ and 'F' for Fortran
-///   0x0800: Print the inlining option values
-///   0x1000: Print both early exit and real inlining costs
-///   0x2000: Print dead static functions
-///   0x4000: Print external function callsites
-///   0x8000: Print indirect function callsites
-///
-///  The driver will be set to emit the following settings when -qopt-report=X
-///  is used:
-///    -qopt-report=1  0x0019
-///    -qopt-report=2  0x2819 (default)
-///    -qopt-report=3  0xf859
-///
-cl::opt<unsigned>
-IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
-  cl::Optional, cl::desc("Print inline report"));
-
 #define DEBUG_TYPE "inlinereportsetup"
-
 
 // Walking metadata nodes is not convenient. To make the procedure of inserting
 // new nodes easier I use auxiliary structure: InlineReportTree. It replicates
@@ -137,6 +104,8 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
       Reason = NinlrIntrinsic;
     else if (Callee && Callee->isDeclaration())
       Reason = NinlrExtern;
+    else if (!Callee)
+      Reason = NinlrIndirect;
     CSIR = new CallSiteInliningReport(CB, nullptr, Reason);
     CallI->setMetadata(CallSiteTag, CSIR->get());
     MDIR.addCallback(CallI);
@@ -400,14 +369,9 @@ static bool verifyFunctionInliningReport(Function *F,
   uint64_t NumCallSitesWithMDIR = 0;
   for (BasicBlock &BB : *F)
     for (Instruction &I : BB) {
-      if (auto *II = dyn_cast<IntrinsicInst>(&I))
-        if (!(MDIR.getLevel() & DontSkipIntrin) &&
-            shouldSkipIntrinsic(II))
-          continue;
       auto CB = dyn_cast<CallBase>(&I);
-      if (!CB)
+      if (!CB || MDIR.shouldSkipCallBase(CB))
         continue;
-
       if (CB->getMetadata(CallSiteTag))
         NumCallSitesWithMDIR++;
       FunctionCallSites.push_back(CB);
@@ -482,17 +446,16 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       auto CB = dyn_cast<CallBase>(&I);
       // If this isn't a call, or it is a call to an intrinsic, it can
       // never be inlined.
-      if (!CB)
+      if (!CB || MDIR.shouldSkipCallBase(CB))
         continue;
+      Function *Callee = CB->getCalledFunction();
       InlineReason Reason = NinlrNoReason;
       if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
-        if (!(MDIR.getLevel() & DontSkipIntrin) &&
-            shouldSkipIntrinsic(II))
-          continue;
         Reason = NinlrIntrinsic;
-      } else if (Function *Callee = CB->getCalledFunction()) {
-        if (Callee->isDeclaration())
-          Reason = NinlrExtern;
+      } else if (Callee && Callee->isDeclaration()) {
+        Reason = NinlrExtern;
+      } else if (!Callee) {
+        Reason = NinlrIndirect;
       }
       CallSiteInliningReport CSIR(CB, nullptr, Reason);
       CB->setMetadata(CallSiteTag, CSIR.get());
@@ -500,7 +463,8 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       CSs.push_back(CSIR.get());
     }
   }
-  FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/);
+  FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/,
+                                MDIR.getLevel() & Compact);
   MDIR.addCallback(F);
   return NewFIR.get();
 }
@@ -536,6 +500,7 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
         // We do not expect to actually get in here because on the link step we
         // expect every function we encounter to already have an inlining report
         // in the metadata.
+        MDIR.initFunctionTemps(F);
         ModuleInlineReport->addOperand(FIR);
         FuncIndex = ModuleInlineReport->getNumOperands() - 1;
       }
@@ -567,8 +532,10 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
   // replace existing compile-step inline report with newly created.
   if (!(MDIR.getLevel() & CompositeReport) && IsInModule)
     ModuleInlineReport->setOperand(FuncIndex, FIR);
-  else
+  else {
+    MDIR.initFunctionTemps(F);
     ModuleInlineReport->addOperand(FIR);
+  }
   return FIR;
 }
 
@@ -580,8 +547,11 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
 // inlining report for two declarations would be identical and would be merged
 // in one metadata node automatically.
 static void removeDuplicatedFunctionMDNodes(NamedMDNode *ModuleInlineReport,
+                                            InlineReportBuilder &MDIR,
                                             Module &M) {
   SmallVector<MDNode *, 100> Ops;
+  MDIR.deleteAllFunctionTemps();
+  unsigned J = 0;
   for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     InliningReport IR(cast<MDTuple>(Node));
@@ -595,15 +565,19 @@ static void removeDuplicatedFunctionMDNodes(NamedMDNode *ModuleInlineReport,
       getOpVal(FIR->getOperand(FMDIR_IsDeclaration),
                "isDeclaration: ", &IsDecl);
       if (IsDecl) {
-        if (F->isDeclaration() && F->getMetadata(FunctionTag) == FIR)
+        if (F->isDeclaration() && F->getMetadata(FunctionTag) == FIR) {
           Ops.push_back(Node);
-        else
+          MDIR.initFunctionTempsAtIndex(F, J++);
+        } else
           continue;
-      } else
+      } else {
         Ops.push_back(Node);
+        MDIR.initFunctionTempsAtIndex(F, J++);
+      }
     } else {
       // It is a dead function. Keep it as it is.
       Ops.push_back(Node);
+      J++;
     }
   }
   ModuleInlineReport->clearOperands();
@@ -617,7 +591,7 @@ bool setupInlineReport(Module &M, InlineReportBuilder &MDIR) {
     return false;
   LLVM_DEBUG(dbgs() << "\nMDIR setup: start\n");
   NamedMDNode *ModuleInlineReport = M.getOrInsertNamedMetadata(ModuleTag);
-  removeDuplicatedFunctionMDNodes(ModuleInlineReport, M);
+  removeDuplicatedFunctionMDNodes(ModuleInlineReport, MDIR, M);
   for (Function &F : M)
     findOrCreateFunctionInliningReport(&F, ModuleInlineReport, MDIR);
 

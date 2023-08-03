@@ -167,39 +167,7 @@ bool runImpl(Module &M) {
   return Changed;
 }
 
-#if INTEL_CUSTOMIZATION
-/// Autorelease pool elimination.
-class ObjCARCAPElim : public ModulePass {
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnModule(Module &M) override;
-
-public:
-  static char ID;
-  ObjCARCAPElim() : ModulePass(ID) {
-    initializeObjCARCAPElimPass(*PassRegistry::getPassRegistry());
-  }
-};
-#endif // INTEL_CUSTOMIZATION
-
 } // namespace
-
-#if INTEL_CUSTOMIZATION
-char ObjCARCAPElim::ID = 0;
-INITIALIZE_PASS(ObjCARCAPElim, "objc-arc-apelim",
-                "ObjC ARC autorelease pool elimination", false, false)
-
-Pass *llvm::createObjCARCAPElimPass() { return new ObjCARCAPElim(); }
-
-void ObjCARCAPElim::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesCFG();
-}
-
-bool ObjCARCAPElim::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-  return runImpl(M);
-}
-#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses ObjCARCAPElimPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M))

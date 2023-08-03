@@ -97,15 +97,7 @@ public:
    * Arguments:
    * Return value:    false on error
    ****************************************************************************/
-  bool ActivateTaskExecutor() const;
-
-  /*****************************************************************************
-   * Function:     Deactivate
-   * Description:    Simple TaskExecutor Interface for Framework
-   * Arguments:
-   * Return value:
-   ****************************************************************************/
-  void DeactivateTaskExecutor() const;
+  bool ActivateTaskExecutor();
 
   /*****************************************************************************
    * Function:     CancelAllTasks()
@@ -198,12 +190,10 @@ private:
   // destroyed. As SharedPtr accesses the object itself to manage counters, we
   // cannot use SharedPointers at all.
   mutable Intel::OpenCL::TaskExecutor::ITaskExecutor *m_pTaskExecutor;
-  mutable Intel::OpenCL::TaskExecutor::ITaskList *m_pTaskList;
-  mutable Intel::OpenCL::TaskExecutor::ITaskList *m_pTaskList_immediate;
-  mutable unsigned int m_uiTEActivationCount;
+  SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> m_pTaskList;
+  SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> m_pTaskList_immediate;
 
-  // a lock to prevent double initialization
-  mutable std::recursive_mutex m_initializationMutex;
+  static FrameworkProxy *m_instance;
 
   // handle to the logger client
   DECLARE_LOGGER_CLIENT;

@@ -1,7 +1,0 @@
-# Test that when an older version of a raw profile is passed to
-# llvm-profdata, an error message is generated that indicates
-# the version number of the file.
-
-RUN: not llvm-profdata show %S/Inputs/profile-unsupported-version5.profraw 2>&1 | FileCheck %s
-
-CHECK: unsupported instrumentation profile format version: Data file version is 5

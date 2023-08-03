@@ -58,7 +58,6 @@ public:
 
 class RemoveDeadDTransTypeMetadata {
 public:
-public:
   bool run(Module &M) {
     NamedMDNode *DTMDTypes = TypeMetadataReader::mapStructsToMDNodes(
         M, MDStructDescriptorMap, /*IncludeOpaque=*/true);
@@ -72,6 +71,9 @@ public:
     // without trying to interpret the types, so it is ok if there is incomplete
     // metadata.
     (void)Reader.initialize(M);
+
+    for (Function &F : M)
+      cleanDeadArgumentMetadata(F);
 
     // Find all the structure types used in the IR to collect which
     // DTransStructTypes will need to be preserved when generating a new
@@ -138,6 +140,85 @@ public:
   }
 
 private:
+  // Update the DTrans return/type argument type metadata lists to remove
+  // metadata references for deleted entities. For example:
+  //   define i64 @test1(ptr "intel_dtrans_func_index" = "2" % in,
+  //                     ptr "intel_dtrans_func_index" = "4" % in2)
+  //          !intel.dtrans.func.type !7 {
+  // where
+  //   !7 = distinct !{!3, !4, !5, !3}
+  //
+  // In this case, the metadata node refers to types that have been deleted from
+  // the function signature. (It is by design that the locations that remove
+  // function parameters do not need to update the metadata as a way of avoiding
+  // a lot of locations in the compiler from needing to know about the specific
+  // encoding of DTransTypeMetadata). This function will rewrite the metadata to
+  // be:
+  //    define i64 @test1(ptr "intel_dtrans_func_index"="1" %in,
+  //                      ptr "intel_dtrans_func_index"="2" %in2)
+  //           !intel.dtrans.func.type !2 {
+  // where
+  //   !2 = distinct !{!3, !4}
+  //
+  void cleanDeadArgumentMetadata(Function &F) {
+    MDNode *MDTypeListNode = F.getMetadata(DTransFuncTypeMDTag);
+    if (!MDTypeListNode)
+      return;
+
+    // First, this will identify the operands of the metadata tag that are
+    // referenced by the "intel_dtrans_func_index" attributes, and create
+    // mapping from the entity with the attribute to the metadata node.
+    unsigned Count = MDTypeListNode->getNumOperands();
+    std::vector<int> UseCount;
+    UseCount.resize(Count);
+
+    // Map from item (0 for return value, 1..n for arguments) that has
+    // a DTrans type metadata attribute to the actual metadata.
+    SmallVector<std::pair<int, Metadata *>> AttrMap;
+
+    AttributeList Attrs = F.getAttributes();
+    AttributeSet RetAttrs = Attrs.getRetAttrs();
+    uint64_t Index = DTransTypeAttributeUtil::GetMetadataIndex(RetAttrs);
+    if (Index && Index <= Count) {
+      // Note, the metadata index in the attribute counts from 1, but operands
+      // in the MDTyhpeListNode counts start from 0.
+      UseCount[Index - 1]++;
+      AttrMap.push_back(
+          {AttributeList::ReturnIndex, MDTypeListNode->getOperand(Index - 1)});
+    }
+    unsigned ArgCount = F.arg_size();
+    for (unsigned ArgNum = 0; ArgNum < ArgCount; ++ArgNum) {
+      AttributeSet ParamAttrs = Attrs.getParamAttrs(ArgNum);
+      uint64_t Index = DTransTypeAttributeUtil::GetMetadataIndex(ParamAttrs);
+      if (Index && Index <= Count) {
+        UseCount[Index - 1]++;
+        AttrMap.push_back({ArgNum + AttributeList::FirstArgIndex,
+                           MDTypeListNode->getOperand(Index - 1)});
+      }
+    }
+
+    bool HasUnusedElements = std::any_of(UseCount.begin(), UseCount.end(),
+                                         [](int Count) { return Count == 0; });
+    if (!HasUnusedElements)
+      return;
+
+    // Rewrite the metadata to remove the unused elements.
+    SmallVector<Metadata *, 8> MDTypeList;
+    SmallVector<int, 8> AttrIndices;
+    for (auto &KV : AttrMap) {
+      DTransTypeAttributeUtil::RemoveDTransFuncIndexAttribute(&F, KV.first);
+      DTransTypeAttributeUtil::AddDTransFuncIndexAttribute(
+          &F, KV.second, KV.first, MDTypeList);
+    }
+
+    // Set the new value for the !intel.dtrans.func.type metadata.
+    F.setMetadata(DTransFuncTypeMDTag, nullptr);
+    if (!MDTypeList.empty()) {
+      auto *MDTypes = MDTuple::getDistinct(F.getContext(), MDTypeList);
+      F.addMetadata(DTransFuncTypeMDTag, *MDTypes);
+    }
+  }
+
   // Update 'IRReferencedStructs' with structure types reachable from 'Ty'
   void incorporateType(DTransTypeManager &TM, llvm::Type *Ty) {
     SmallVector<llvm::Type *, 16> Worklist;

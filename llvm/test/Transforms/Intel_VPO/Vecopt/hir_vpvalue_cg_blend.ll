@@ -26,26 +26,26 @@ entry:
 
 for.body:                                         ; preds = %if.end, %entry
   %i.010 = phi i64 [ 0, %entry ], [ %inc, %if.end ]
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @arr1, i64 0, i64 %i.010
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @arr1, i64 0, i64 %i.010
+  %0 = load i64, ptr %arrayidx, align 8
   %tobool = icmp eq i64 %0, 0
   br i1 %tobool, label %if.else, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx1 = getelementptr inbounds [100 x i64], [100 x i64]* @arr2, i64 0, i64 %i.010
-  %1 = load i64, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds [100 x i64], ptr @arr2, i64 0, i64 %i.010
+  %1 = load i64, ptr %arrayidx1, align 8
   %add = add nsw i64 %1, 10
   br label %if.end
 
 if.else:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds [100 x i64], [100 x i64]* @arr3, i64 0, i64 %i.010
-  %2 = load i64, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds [100 x i64], ptr @arr3, i64 0, i64 %i.010
+  %2 = load i64, ptr %arrayidx2, align 8
   %sub = add nsw i64 %2, -20
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   %t1.0 = phi i64 [ %add, %if.then ], [ %sub, %if.else ]
-  store i64 %t1.0, i64* %arrayidx, align 8
+  store i64 %t1.0, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %i.010, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

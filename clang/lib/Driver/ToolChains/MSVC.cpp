@@ -371,8 +371,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT_traceback,
-                  options::OPT_fprofile_sample_generate))
+  if (Args.hasArg(options::OPT_traceback))
     CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
 
   // PGO cannot work with incremental linking on Windows
@@ -382,6 +381,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                  options::OPT_fno_profile_instr_generate))
       if (!A->getOption().matches(options::OPT_fno_profile_instr_generate))
         CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
+
+  if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ))
+    CmdArgs.push_back(Args.MakeArgString("-profile-sample-generate"));
 #endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
@@ -395,7 +397,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(std::string("-out:") + Output.getFilename()));
 
   // Control Flow Guard checks
-  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+  for (const Arg *A : Args.filtered(options::OPT__SLASH_guard)) {
     StringRef GuardArgs = A->getValue();
     if (GuardArgs.equals_insensitive("cf") ||
         GuardArgs.equals_insensitive("cf,nochecks")) {
@@ -431,9 +433,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
     SmallString<128> LibPath(TC.getDriver().Dir);
-    LibPath.append(TC.getArch() == llvm::Triple::x86_64
-                       ? "/../../opt/compiler/lib"
-                       : "/../../opt/compiler/lib32");
+    LibPath.append(TC.getArch() == llvm::Triple::x86_64 ? "/../../lib"
+                                                        : "/../../lib32");
 #else
     SmallString<128> LibPath(TC.getDriver().Dir + "/../lib");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
@@ -462,57 +463,32 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     AddRunTimeLibs(TC, TC.getDriver(), CmdArgs, Args);
   }
 
-  // Add filenames, libraries, and other linker inputs.
-  for (const auto &Input : Inputs) {
-    if (Input.isFilename()) {
-      if (Input.getType() == types::TY_Tempfilelist) {
-        // Take the list file and pass it in with '@'.
-        std::string FileName(Input.getFilename());
-        const char *ArgFile = Args.MakeArgString("@" + FileName);
-        CmdArgs.push_back(ArgFile);
-        continue;
-      }
-      CmdArgs.push_back(Input.getFilename());
-      continue;
-    }
-
-    const Arg &A = Input.getInputArg();
-
-    // Render -l options differently for the MSVC linker.
-    if (A.getOption().matches(options::OPT_l)) {
-      StringRef Lib = A.getValue();
-      const char *LinkLibArg;
-      if (Lib.endswith(".lib"))
-        LinkLibArg = Args.MakeArgString(Lib);
-      else
-        LinkLibArg = Args.MakeArgString(Lib + ".lib");
-      CmdArgs.push_back(LinkLibArg);
-      continue;
-    }
-
-    // Otherwise, this is some other kind of linker input option like -Wl, -z,
-    // or -L. Render it, even if MSVC doesn't understand it.
-    A.renderAsInput(Args, CmdArgs);
-  }
-
-  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
-
-  TC.addProfileRTLibs(Args, CmdArgs);
-
-  std::vector<const char *> Environment;
-
-  // We need to special case some linker paths.  In the case of lld, we need to
-  // translate 'lld' into 'lld-link', and in the case of the regular msvc
-  // linker, we need to use a special search algorithm.
-  llvm::SmallString<128> linkPath;
-  StringRef Linker
-    = Args.getLastArgValue(options::OPT_fuse_ld_EQ, CLANG_DEFAULT_LINKER);
+  StringRef Linker =
+      Args.getLastArgValue(options::OPT_fuse_ld_EQ, CLANG_DEFAULT_LINKER);
   if (Linker.empty())
     Linker = "link";
-  if (Linker.equals_insensitive("lld"))
+  // We need to translate 'lld' into 'lld-link'.
+  else if (Linker.equals_insensitive("lld"))
     Linker = "lld-link";
 
+  if (Linker == "lld-link") {
+    for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
+      CmdArgs.push_back(
+          Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
+
 #if INTEL_CUSTOMIZATION
+    if (C.getDriver().isUsingLTO() &&
+        Args.hasFlag(options::OPT_gsplit_dwarf, options::OPT_gno_split_dwarf,
+                     false)) {
+      if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+        CmdArgs.push_back(
+            Args.MakeArgString(Twine("/dwodir:") + A->getValue()));
+      else
+        CmdArgs.push_back(Args.MakeArgString(Twine("/dwodir:") +
+                                             Output.getFilename() + "_dwo"));
+    }
+  }
+
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
   // Windows compilation paths.
@@ -564,20 +540,50 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
-
-  if (Linker == "lld-link") {
-    for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
-      CmdArgs.push_back(
-          Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
-
-    if (Args.hasArg(options::OPT_fprofile_sample_generate)) {
-      if (!Args.hasArg(options::OPT__SLASH_Z7, options::OPT_g_Group))
-        CmdArgs.push_back("-debug:dwarf");
-      CmdArgs.push_back("-profile");
-    }
-  }
 #endif // INTEL_CUSTOMIZATION
 
+  // Add filenames, libraries, and other linker inputs.
+  for (const auto &Input : Inputs) {
+    if (Input.isFilename()) {
+      if (Input.getType() == types::TY_Tempfilelist) {
+        // Take the list file and pass it in with '@'.
+        std::string FileName(Input.getFilename());
+        const char *ArgFile = Args.MakeArgString("@" + FileName);
+        CmdArgs.push_back(ArgFile);
+        continue;
+      }
+      CmdArgs.push_back(Input.getFilename());
+      continue;
+    }
+
+    const Arg &A = Input.getInputArg();
+
+    // Render -l options differently for the MSVC linker.
+    if (A.getOption().matches(options::OPT_l)) {
+      StringRef Lib = A.getValue();
+      const char *LinkLibArg;
+      if (Lib.endswith(".lib"))
+        LinkLibArg = Args.MakeArgString(Lib);
+      else
+        LinkLibArg = Args.MakeArgString(Lib + ".lib");
+      CmdArgs.push_back(LinkLibArg);
+      continue;
+    }
+
+    // Otherwise, this is some other kind of linker input option like -Wl, -z,
+    // or -L. Render it, even if MSVC doesn't understand it.
+    A.renderAsInput(Args, CmdArgs);
+  }
+
+  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+
+  TC.addProfileRTLibs(Args, CmdArgs);
+
+  std::vector<const char *> Environment;
+
+  // We need to special case some linker paths. In the case of the regular msvc
+  // linker, we need to use a special search algorithm.
+  llvm::SmallString<128> linkPath;
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
@@ -642,7 +648,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       // find it.
       for (const char *Cursor = EnvBlock.data(); *Cursor != '\0';) {
         llvm::StringRef EnvVar(Cursor);
-        if (EnvVar.startswith_insensitive("path=")) {
+        if (EnvVar.starts_with_insensitive("path=")) {
           constexpr size_t PrefixLen = 5; // strlen("path=")
           Environment.push_back(Args.MakeArgString(
               EnvVar.substr(0, PrefixLen) +
@@ -715,10 +721,6 @@ Tool *MSVCToolChain::buildAssembler() const {
     return new tools::darwin::Assembler(*this);
   getDriver().Diag(clang::diag::err_no_external_assembler);
   return nullptr;
-}
-
-bool MSVCToolChain::IsIntegratedAssemblerDefault() const {
-  return true;
 }
 
 ToolChain::UnwindTableLevel
@@ -1082,6 +1084,9 @@ VersionTuple MSVCToolChain::computeMSVCVersion(const Driver *D,
       Args.hasFlag(options::OPT_fms_extensions, options::OPT_fno_ms_extensions,
                    IsWindowsMSVC)) {
     // -fms-compatibility-version=19.20 is default, aka 2019, 16.x
+    // NOTE: when changing this value, also update
+    // clang/docs/CommandGuide/clang.rst and clang/docs/UsersManual.rst
+    // accordingly.
     MSVT = VersionTuple(19, 20);
   }
   return MSVT;

@@ -74,6 +74,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -4206,6 +4207,9 @@ bool MultiVersionImpl::run(void) {
 
 PreservedAnalyses CallTreeCloningPass::run(Module &M,
                                            ModuleAnalysisManager &MAM) {
+  if (DisableCallTreeCloning)
+    return PreservedAnalyses::all();
+
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);

@@ -17,6 +17,7 @@ from typing import Any, List
 parser = argparse.ArgumentParser("Emit .ll from TableGen'ed json file")
 parser.add_argument('jsonfile')
 parser.add_argument('-o', '--output-file', dest='output', required=True)
+parser.add_argument('--global-func-attr', nargs='*')
 
 
 class PrintableData(object):
@@ -38,6 +39,7 @@ class LLBuilder(object):
 
     def __init__(self, records: dict) -> None:
         self.records = records
+        self.global_func_attrs = []
 
     @staticmethod
     def from_file(filename: str):
@@ -135,7 +137,7 @@ class LLDeclare(Record):
 
     @property
     def func_attrs(self) -> List[str]:
-        return self.data["FuncAttrs"]
+        return self.data["FuncAttrs"] + self.builder.global_func_attrs
 
     def get_attrs_suffix(self) -> str:
         attrs_suffix = ""
@@ -197,4 +199,5 @@ class LLDefine(Record):
 if __name__ == "__main__":
     args = parser.parse_args()
     builder = LLBuilder.from_file(args.jsonfile)
+    builder.global_func_attrs = args.global_func_attr
     builder.build(args.output)

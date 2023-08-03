@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='intel-math-libraries-decl' -enable-intel-advanced-opts -S < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='intel-math-libraries-decl' -enable-intel-advanced-opts -S < %s 2>&1 | FileCheck %s
 
 ; Check that a declaration of __intel_new_feature_proc_init is generated
 ; when auto CPU dispatch is employed and -intel-libirc-allowed=true
@@ -35,5 +35,4 @@ define i32 @bar(i32 %a) {
   ret i32 %ret
 }
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"haswell"}
+!0 = !{!"haswell"}

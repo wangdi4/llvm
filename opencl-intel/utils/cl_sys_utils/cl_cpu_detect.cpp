@@ -40,17 +40,24 @@ const std::map<int, std::string> FeatureMap = {
     {CFS_AVX512BW, "avx512bw"},
     {CFS_AVX512DQ, "avx512dq"},
     {CFS_AVX512VL, "avx512vl"},
+    {CFS_PKU, "pku"},
+    {CFS_CLWB, "clwb"},
+    {CFS_AVX512VNNI, "avx512vnni"},
     {CFS_AVX512VBMI, "avx512vbmi"},
     {CFS_AVX512IFMA, "avx512ifma"},
     {CFS_AVX512BITALG, "avx512bitalg"},
     {CFS_AVX512VBMI2, "avx512vbmi2"},
     {CFS_AVX512VPOPCNTDQ, "avx512vpopcntdq"},
-    {CFS_CLWB, "clwb"},
     {CFS_WBNOINVD, "wbnoinvd"},
+    {CFS_PCONFIG, "pconfig"},
     {CFS_AMXTILE, "amx-tile"},
     {CFS_AMXINT8, "amx-int8"},
     {CFS_AMXBF16, "amx-bf16"},
+    {CFS_AVX512FP16, "avx512fp16"},
+    {CFS_AVX512BF16, "avx512bf16"},
     {CFS_F16C, "f16c"},
+    {CFS_AMXFP16, "amx-fp16"},
+    {CFS_PREFETCHI, "prefetchi"},
 };
 
 const std::vector<std::string> CPUDetect::CPUArchStr = {
@@ -138,24 +145,20 @@ void CPUDetect::ResetCPU(
   m_CPUFeatures["sse2"] = true;
 
   // Add standard features
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core2")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core2")) {
     m_CPUFeatures["sse3"] = true;
     m_CPUFeatures["ssse3"] = true;
   }
 
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7")) {
     m_CPUFeatures["sse4.1"] = true;
-    m_CPUFeatures["sss4.2"] = true;
+    m_CPUFeatures["sse4.2"] = true;
   }
 
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7-avx"))
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7-avx"))
     m_CPUFeatures["avx"] = true;
 
-  if (cpuId >= (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName(
-                   "core-avx2")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core-avx2")) {
     m_CPUFeatures["avx"] = true;
     m_CPUFeatures["avx2"] = true;
     m_CPUFeatures["fma"] = true;
@@ -164,10 +167,6 @@ void CPUDetect::ResetCPU(
   }
 
   // Add forced features
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+sse4.1") !=
-      forcedFeatures.end())
-    m_CPUFeatures["sse4.1"] = true;
-
   if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx2") !=
       forcedFeatures.end()) {
     m_CPUFeatures["avx"] = true;
@@ -175,69 +174,11 @@ void CPUDetect::ResetCPU(
     m_CPUFeatures["fma"] = true;
   }
 
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512f") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512f"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512bw") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512bw"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512cd") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512cd"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512dq") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512dq"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vl") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512vl"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vbmi") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512vbmi"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512ifma") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512ifma"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(),
-                "+avx512bitalg") != forcedFeatures.end())
-    m_CPUFeatures["avx512bitalg"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vbmi2") !=
-      forcedFeatures.end())
-    m_CPUFeatures["avx512vbmi2"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(),
-                "+avx512vpopcntdq") != forcedFeatures.end())
-    m_CPUFeatures["avx512vpopcntdq"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+clwb") !=
-      forcedFeatures.end())
-    m_CPUFeatures["clwb"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+wbnoinvd") !=
-      forcedFeatures.end())
-    m_CPUFeatures["wbnoinvd"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+amx-tile") !=
-      forcedFeatures.end())
-    m_CPUFeatures["amx-tile"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+amx-int8") !=
-      forcedFeatures.end())
-    m_CPUFeatures["amx-int8"] = true;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+amx-bf16") !=
-      forcedFeatures.end())
-    m_CPUFeatures["amx-bf16"] = true;
+  for (auto &feature : forcedFeatures) {
+    assert(feature[0] == '+' ||
+           feature[0] == '-' && "feature doesn't have valid prefix");
+    m_CPUFeatures[feature.substr(1)] = (feature[0] == '+');
+  }
 
   if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "-sse4.1") !=
       forcedFeatures.end()) {
@@ -257,18 +198,6 @@ void CPUDetect::ResetCPU(
     m_CPUFeatures["avx2"] = false;
     m_CPUFeatures["fma"] = false;
   }
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "-fma") !=
-      forcedFeatures.end())
-    m_CPUFeatures["fma"] = false;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "-bmi") !=
-      forcedFeatures.end())
-    m_CPUFeatures["bmi"] = false;
-
-  if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "-bmi2") !=
-      forcedFeatures.end())
-    m_CPUFeatures["bmi2"] = false;
 }
 
 CPUDetect *CPUDetect::Instance = nullptr;
@@ -305,11 +234,27 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   if (HasAVX512SKX())
     m_CPUArch = CPU_SKX;
 
+  if (HasAVX512CLX())
+    m_CPUArch = CPU_CLX;
+
   if (HasAVX512ICL())
     m_CPUArch = CPU_ICL;
 
-  if (HasAMX())
+  if (HasAVX512ICX())
+    m_CPUArch = CPU_ICX;
+
+  if (HasSPR())
     m_CPUArch = CPU_SPR;
+
+  if (HasGNR())
+    m_CPUArch = CPU_GNR;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  if (HasDMR())
+    m_CPUArch = CPU_DMR;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
   if (m_CPUArch == CPU_UNKNOWN) {
     std::string errMessage = m_CPUString + ": Unsupported CPU!";

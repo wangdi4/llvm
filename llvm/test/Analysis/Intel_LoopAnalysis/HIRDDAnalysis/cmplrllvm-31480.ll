@@ -57,10 +57,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @foo_(i32* noalias nocapture readonly dereferenceable(4) %"N", double* noalias nocapture readonly dereferenceable(8) %"X", i32* noalias nocapture readonly dereferenceable(4) %"M", double* noalias nocapture readonly dereferenceable(8) %"C", double* noalias nocapture dereferenceable(8) %"Z") local_unnamed_addr {
+define void @foo_(ptr noalias nocapture readonly dereferenceable(4) %"N", ptr noalias nocapture readonly dereferenceable(8) %"X", ptr noalias nocapture readonly dereferenceable(4) %"M", ptr noalias nocapture readonly dereferenceable(8) %"C", ptr noalias nocapture dereferenceable(8) %"Z") local_unnamed_addr {
 alloca_0:
-  %"M_fetch.2" = load i32, i32* %"M", align 1
-  %"N_fetch.3" = load i32, i32* %"N", align 1
+  %"M_fetch.2" = load i32, ptr %"M", align 1
+  %"N_fetch.3" = load i32, ptr %"N", align 1
   %rel.1 = icmp slt i32 %"N_fetch.3", 1
   br i1 %rel.1, label %bb5, label %bb4.preheader
 
@@ -76,10 +76,10 @@ bb4:                                              ; preds = %bb4.preheader, %bb9
   br i1 %rel.2, label %bb9, label %bb8.preheader
 
 bb8.preheader:                                    ; preds = %bb4
-  %"X[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"X", i64 %indvars.iv14)
-  %"X[]_fetch.7" = load double, double* %"X[]", align 1
-  %"Z[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"Z", i64 %indvars.iv14)
-  %"Z[].promoted" = load double, double* %"Z[]", align 1
+  %"X[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"X", i64 %indvars.iv14)
+  %"X[]_fetch.7" = load double, ptr %"X[]", align 1
+  %"Z[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"Z", i64 %indvars.iv14)
+  %"Z[].promoted" = load double, ptr %"Z[]", align 1
   br label %bb8
 
 bb8:                                              ; preds = %bb8.preheader, %bb8
@@ -89,8 +89,8 @@ bb8:                                              ; preds = %bb8.preheader, %bb8
   %"J.0" = add nsw i32 %"J.0.in", -1
   %mul.1 = fmul reassoc ninf nsz arcp contract afn double %"X[]_fetch.7", %add.113
   %int_sext212 = zext i32 %"J.0" to i64
-  %"C[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"C", i64 %int_sext212)
-  %"C[]_fetch.11" = load double, double* %"C[]", align 1
+  %"C[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"C", i64 %int_sext212)
+  %"C[]_fetch.11" = load double, ptr %"C[]", align 1
   %add.1 = fadd reassoc ninf nsz arcp contract afn double %mul.1, %"C[]_fetch.11"
   %rel.3 = icmp sgt i64 %indvars.iv, 2
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
@@ -98,7 +98,7 @@ bb8:                                              ; preds = %bb8.preheader, %bb8
 
 bb9.loopexit:                                     ; preds = %bb8
   %add.1.lcssa = phi double [ %add.1, %bb8 ]
-  store double %add.1.lcssa, double* %"Z[]", align 1
+  store double %add.1.lcssa, ptr %"Z[]", align 1
   br label %bb9
 
 bb9:                                              ; preds = %bb9.loopexit, %bb4
@@ -114,5 +114,5 @@ bb5:                                              ; preds = %bb5.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 

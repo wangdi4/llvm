@@ -51,7 +51,7 @@ void matrix_verify_add(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TM, TK> sub_a(sg);
 
            joint_matrix_fill(sg, sub_a, make_bf16(5.0));
@@ -60,10 +60,11 @@ void matrix_verify_add(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_a.length(); i++) {
              wi_slice_a[i] = wi_slice_a[i] + make_bf16(2);
            }
-           joint_matrix_store(sg, sub_a,
-                              accA.get_pointer() + (sg_startx * TM) * N +
-                                  sg_starty / SG_SZ * TN,
-                              N, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_a,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
+               N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufA.get_host_access(read_only), ref);
@@ -84,7 +85,7 @@ void matrix_verify_sub(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TM, TK> sub_a(sg);
 
            joint_matrix_fill(sg, sub_a, make_bf16(5.0));
@@ -93,10 +94,11 @@ void matrix_verify_sub(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_a.length(); i++) {
              wi_slice_a[i] = wi_slice_a[i] - make_bf16(2);
            }
-           joint_matrix_store(sg, sub_a,
-                              accA.get_pointer() + (sg_startx * TM) * N +
-                                  sg_starty / SG_SZ * TN,
-                              N, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_a,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
+               N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufA.get_host_access(read_only), ref);
@@ -117,7 +119,7 @@ void matrix_verify_mul(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TM, TK> sub_a(sg);
 
            joint_matrix_fill(sg, sub_a, make_bf16(5.0));
@@ -126,10 +128,11 @@ void matrix_verify_mul(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_a.length(); i++) {
              wi_slice_a[i] = wi_slice_a[i] * make_bf16(3.0);
            }
-           joint_matrix_store(sg, sub_a,
-                              accA.get_pointer() + (sg_startx * TM) * N +
-                                  sg_starty / SG_SZ * TN,
-                              N, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_a,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
+               N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufA.get_host_access(read_only), ref);
@@ -150,7 +153,7 @@ void matrix_verify_div(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TM, TK> sub_a(sg);
 
            joint_matrix_fill(sg, sub_a, make_bf16(4.0));
@@ -159,10 +162,11 @@ void matrix_verify_div(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_a.length(); i++) {
              wi_slice_a[i] = wi_slice_a[i] / make_bf16(2.0);
            }
-           joint_matrix_store(sg, sub_a,
-                              accA.get_pointer() + (sg_startx * TM) * N +
-                                  sg_starty / SG_SZ * TN,
-                              N, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_a,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
+               N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufA.get_host_access(read_only), ref);
@@ -182,7 +186,7 @@ void matrix_verify_logic(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TM, TK> sub_a(sg);
 
            joint_matrix_fill(sg, sub_a, make_bf16(5.0));
@@ -210,10 +214,11 @@ void matrix_verify_logic(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
                }
              }
            }
-           joint_matrix_store(sg, sub_a,
-                              accA.get_pointer() + (sg_startx * TM) * N +
-                                  sg_starty / SG_SZ * TN,
-                              N, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_a,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
+               N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufA.get_host_access(read_only), ref);

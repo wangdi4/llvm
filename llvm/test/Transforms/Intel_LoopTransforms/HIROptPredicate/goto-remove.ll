@@ -85,7 +85,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %p, i32* nocapture %q, i32* nocapture readnone %r, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %p, ptr nocapture %q, ptr nocapture readnone %r, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp18 = icmp sgt i32 %n, 0
   br i1 %cmp18, label %for.body.lr.ph, label %for.cond.cleanup
@@ -110,24 +110,24 @@ if.end:                                           ; preds = %for.body
   br i1 %cmp2, label %if.end.L_crit_edge, label %if.end4
 
 if.end.L_crit_edge:                               ; preds = %if.end
-  %.pre = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
+  %.pre = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
   br label %L
 
 L2:                                               ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  store i32 0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  store i32 0, ptr %arrayidx, align 4
   br label %if.end4
 
 if.end4:                                          ; preds = %L2, %if.end
-  %arrayidx6 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  store i32 0, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  store i32 0, ptr %arrayidx6, align 4
   br label %L
 
 L:                                                ; preds = %if.end4, %if.end.L_crit_edge
-  %arrayidx8.pre-phi = phi i32* [ %.pre, %if.end.L_crit_edge ], [ %arrayidx6, %if.end4 ]
-  %0 = load i32, i32* %arrayidx8.pre-phi, align 4
+  %arrayidx8.pre-phi = phi ptr [ %.pre, %if.end.L_crit_edge ], [ %arrayidx6, %if.end4 ]
+  %0 = load i32, ptr %arrayidx8.pre-phi, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx8.pre-phi, align 4
+  store i32 %inc, ptr %arrayidx8.pre-phi, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

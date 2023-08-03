@@ -66,7 +66,7 @@ public:
   const X86MachineFunctionInfo *X86FI = nullptr;
   const X86FrameLowering *X86FL = nullptr;
 
-  bool runOnMachineFunction(MachineFunction &Fn) override;
+  bool runOnMachineFunction(MachineFunction &MF) override;
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties().set(
@@ -94,7 +94,7 @@ private:
   /// placed into separate block guarded by check for al register(for SystemV
   /// abi).
   void ExpandVastartSaveXmmRegs(
-      MachineBasicBlock *MBB,
+      MachineBasicBlock *EntryBlk,
       MachineBasicBlock::iterator VAStartPseudoInstr) const;
 };
 char X86ExpandPseudo::ID = 0;
@@ -548,10 +548,24 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     Register Reg0 = TRI->getSubReg(Reg, X86::sub_mask_0);
     Register Reg1 = TRI->getSubReg(Reg, X86::sub_mask_1);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    bool HasEGPR = STI->hasEGPR();
+    auto MIBLo =
+        BuildMI(MBB, MBBI, DL,
+                TII->get(HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm))
+            .addReg(Reg0, RegState::Define | getDeadRegState(DstIsDead));
+    auto MIBHi =
+        BuildMI(MBB, MBBI, DL,
+                TII->get(HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm))
+            .addReg(Reg1, RegState::Define | getDeadRegState(DstIsDead));
+#else // INTEL_FEATURE_ISA_APX_F
     auto MIBLo = BuildMI(MBB, MBBI, DL, TII->get(X86::KMOVWkm))
       .addReg(Reg0, RegState::Define | getDeadRegState(DstIsDead));
     auto MIBHi = BuildMI(MBB, MBBI, DL, TII->get(X86::KMOVWkm))
       .addReg(Reg1, RegState::Define | getDeadRegState(DstIsDead));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     for (int i = 0; i < X86::AddrNumOperands; ++i) {
       MIBLo.add(MBBI->getOperand(1 + i));

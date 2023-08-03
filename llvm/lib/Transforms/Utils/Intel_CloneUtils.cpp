@@ -1,6 +1,6 @@
 //===------ Intel_CloneUtils.cpp - Utilities for Cloning -----===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -267,25 +267,34 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     } else {
       if (SawBasis)
         return false;
-      auto AI = dyn_cast<AllocaInst>(CB->arg_begin() + Arg.getArgNo());
-      if (!AI)
-        return false;
       bool SawStore = false;
-      for (User *V : AI->users()) {
-        if (CB == V)
-          continue;
-        if (SawStore)
+      Use *AV = CB->arg_begin() + Arg.getArgNo();
+      if (auto GV = dyn_cast<GlobalVariable>(AV)) {
+        if (GV->isConstant())
+          if (auto BCI = dyn_cast<ConstantInt>(GV->getInitializer())) {
+            SawStore = true;
+            LocalStart = BCI->getSExtValue();
+          }
+      } else {
+        auto AI = dyn_cast<AllocaInst>(AV);
+        if (!AI)
           return false;
-        auto SCI = dyn_cast<StoreInst>(V);
-        if (!SCI)
-          return false;
-        if (SCI->getPointerOperand() != AI)
-          return false;
-        auto BCI = dyn_cast<ConstantInt>(SCI->getValueOperand());
-        if (!BCI)
-          return false;
-        SawStore = true;
-        LocalStart = BCI->getSExtValue();
+        for (User *V : AI->users()) {
+          if (CB == V)
+            continue;
+          if (SawStore)
+            return false;
+          auto SCI = dyn_cast<StoreInst>(V);
+          if (!SCI)
+            return false;
+          if (SCI->getPointerOperand() != AI)
+            return false;
+          auto BCI = dyn_cast<ConstantInt>(SCI->getValueOperand());
+          if (!BCI)
+            return false;
+          SawStore = true;
+          LocalStart = BCI->getSExtValue();
+        }
       }
       if (!SawStore)
         return false;
@@ -471,19 +480,17 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 //
 static bool isRecProgressionCloneArgument(bool TestCountForConstant,
                                           Argument &Arg, unsigned &Count,
-                                          int &Start, int &Inc,
-                                          bool &IsByRef, Type *&ArgType,
-                                          bool &IsCyclic) {
-
-   bool RV = false;
-   Type *LArgType = nullptr;
-   RV = isRecProgressionCloneArgument1(TestCountForConstant, Arg, Count,
-                                       Start, Inc, LArgType);
-   if (RV) {
-     IsByRef = true;
-     ArgType = LArgType;
-     IsCyclic = false;
-     return true;
+                                          int &Start, int &Inc, bool &IsByRef,
+                                          Type *&ArgType, bool &IsCyclic) {
+  bool RV = false;
+  Type *LArgType = nullptr;
+  RV = isRecProgressionCloneArgument1(TestCountForConstant, Arg, Count, Start,
+                                      Inc, LArgType);
+  if (RV) {
+    IsByRef = true;
+    ArgType = LArgType;
+    IsCyclic = false;
+    return true;
    }
    RV = isRecProgressionCloneArgument2(TestCountForConstant, Arg, Count,
                                        Start, Inc);

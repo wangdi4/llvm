@@ -8,7 +8,7 @@
 
 ; Check that original alloca's alignment is captured in VPlan.
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK:     [3 x double]* [[VP_F1_PRIV:%.*]] = allocate-priv [3 x double]*, OrigAlign = 16
+; CHECK:     [3 x double]* [[VP_F1_PRIV:%.*]] = allocate-priv [3 x double], OrigAlign = 16
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

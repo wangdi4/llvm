@@ -26,10 +26,10 @@
 ;   !$OMP END parallel
 ; END PROGRAM parallel__do__simd
 
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
-; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
-; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -38,8 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @"parallel__do__simd_$N1" = internal global i32 64, align 8
 @0 = internal unnamed_addr constant i32 2
 
-; Function Attrs: nounwind uwtable
-define void @MAIN__() local_unnamed_addr #0 {
+define void @MAIN__() local_unnamed_addr {
 ; CHECK:  define internal void @MAIN__.DIR.OMP.PARALLEL.2({{.*}})
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK:         [[TEMP90:%.*]] = alloca float, align 4
@@ -47,128 +46,130 @@ define void @MAIN__() local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label {{%.*}}
 
 ; CHECK:       bb6:
-; CHECK-NEXT:    [[TEMP_FETCH_250:%.*]] = load i32, i32* [[TEMP100:%.*]], align 4
-; CHECK-NEXT:    [[TEMP_FETCH_260:%.*]] = load i32, i32* [[TEMP120:%.*]], align 4
+; CHECK-NEXT:    [[TEMP_FETCH_250:%.*]] = load i32, ptr [[TEMP100:%.*]], align 4
+; CHECK-NEXT:    [[TEMP_FETCH_260:%.*]] = load i32, ptr [[TEMP120:%.*]], align 4
 ; CHECK-NEXT:    [[MUL_40:%.*]] = mul nsw i32 0, [[TEMP_FETCH_260]]
 ; CHECK-NEXT:    [[ADD_30:%.*]] = add nsw i32 [[MUL_40]], [[TEMP_FETCH_250]]
-; CHECK-NEXT:    store i32 [[ADD_30]], i32* %"parallel__do__simd_$I2.linear.iv", align 1
-; TYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE:TYPED"(float* [[TEMP90]], float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* [[TEMP0]], float 0.000000e+00, i32 1) ]
-; UNTYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(float* [[TEMP90]]), "QUAL.OMP.PRIVATE"(float* [[TEMP0]]) ]
+; CHECK-NEXT:    store i32 [[ADD_30]], ptr %"parallel__do__simd_$I2.linear.iv", align 1
+; TYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"parallel__do__simd_$I2.linear.iv", i32 0, i64 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.PRIVATE:TYPED"(ptr [[TEMP90]], float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[TEMP0]], float 0.000000e+00, i32 1) ]
+; UNTYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"parallel__do__simd_$I2.linear.iv", i32 0, i64 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.PRIVATE"(ptr [[TEMP90]]), "QUAL.OMP.PRIVATE"(ptr [[TEMP0]]) ]
 ; CHECK-NEXT:    br label {{%.*}}
 
 ; CHECK:       bb11:
-; CHECK-NEXT:    %"(i8*)parallel__do__simd_$COUNTER_N0$" = bitcast float* %"parallel__do__simd_$COUNTER_N0" to i8*
-; CHECK-NEXT:    %"(i8*)temp$" = bitcast float* [[TEMP90]] to i8*
-; CHECK-NEXT:    call void @__atomic_load(i64 4, i8* %"(i8*)parallel__do__simd_$COUNTER_N0$", i8* nonnull %"(i8*)temp$", i32 0)
-; CHECK-NEXT:    [[TEMP_FETCH_310:%.*]] = load float, float* [[TEMP90]], align 4
+; CHECK-NEXT:    call void @__atomic_load(i64 4, ptr %"parallel__do__simd_$COUNTER_N0", ptr nonnull [[TEMP90]], i32 0)
+; CHECK-NEXT:    [[TEMP_FETCH_310:%.*]] = load float, ptr [[TEMP90]], align 4
 ; CHECK-NEXT:    [[ADD_50:%.*]] = fadd reassoc ninf nsz arcp contract afn float [[TEMP_FETCH_310]], 1.000000e+00
-; CHECK-NEXT:    store float [[ADD_50]], float* [[TEMP0]], align 4
-; CHECK-NEXT:    %"(i8*)temp$6" = bitcast float* [[TEMP0]] to i8*
-; CHECK-NEXT:    [[FUNC_RESULT80:%.*]] = call i1 @__atomic_compare_exchange(i64 4, i8* %"(i8*)parallel__do__simd_$COUNTER_N0$", i8* nonnull %"(i8*)temp$", i8* nonnull %"(i8*)temp$6", i32 0, i32 0)
-;
+; CHECK-NEXT:    store float [[ADD_50]], ptr [[TEMP0]], align 4
+; CHECK-NEXT:    [[FUNC_RESULT80:%.*]] = call i1 @__atomic_compare_exchange(i64 4, ptr %"parallel__do__simd_$COUNTER_N0", ptr nonnull [[TEMP90]], ptr nonnull [[TEMP0]], i32 0, i32 0)
+
 DIR.OMP.PARALLEL.3:
   %"parallel__do__simd_$COUNTER_N0" = alloca float, align 8
   %"parallel__do__simd_$I2" = alloca i32, align 8
   %"parallel__do__simd_$I1" = alloca i32, align 8
-  %func_result = call i32 @for_set_reentrancy(i32* nonnull @0) #2
-  store float 0.000000e+00, float* %"parallel__do__simd_$COUNTER_N0", align 8
+  %func_result = call i32 @for_set_reentrancy(ptr nonnull @0)
+  store float 0.000000e+00, ptr %"parallel__do__simd_$COUNTER_N0", align 8
   br label %DIR.OMP.PARALLEL.1
 
 DIR.OMP.PARALLEL.1:                               ; preds = %DIR.OMP.PARALLEL.3
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(float* %"parallel__do__simd_$COUNTER_N0"), "QUAL.OMP.SHARED"(i32* @"parallel__do__simd_$N2"), "QUAL.OMP.SHARED"(i32* @"parallel__do__simd_$N1"), "QUAL.OMP.PRIVATE"(i32* %"parallel__do__simd_$I2"), "QUAL.OMP.PRIVATE"(i32* %"parallel__do__simd_$I1") ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED:TYPED"(ptr %"parallel__do__simd_$COUNTER_N0", float 0.000000e+00, i64 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr @"parallel__do__simd_$N2", i32 0, i64 1),
+    "QUAL.OMP.SHARED:TYPED"(ptr @"parallel__do__simd_$N1", i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %"parallel__do__simd_$I2", i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %"parallel__do__simd_$I1", i32 0, i64 1) ]
   br label %DIR.OMP.PARALLEL.338
 
 DIR.OMP.PARALLEL.338:                             ; preds = %DIR.OMP.PARALLEL.2
   br label %DIR.OMP.LOOP.12
 
 bb1:                                              ; preds = %DIR.OMP.LOOP.4
-  store volatile i32 0, i32* %temp20, align 4
-  %temp_fetch.11 = load i32, i32* %temp16, align 1
-  %temp_fetch.12 = load i32, i32* %temp18, align 1
-  %temp_fetch.13 = load volatile i32, i32* %temp20, align 4
+  store volatile i32 0, ptr %temp20, align 4
+  %temp_fetch.11 = load i32, ptr %temp16, align 1
+  %temp_fetch.12 = load i32, ptr %temp18, align 1
+  %temp_fetch.13 = load volatile i32, ptr %temp20, align 4
   %mul.2 = mul nsw i32 %temp_fetch.13, %temp_fetch.12
   %add.1 = add nsw i32 %mul.2, %temp_fetch.11
-  store i32 %add.1, i32* %"parallel__do__simd_$I1", align 1
+  store i32 %add.1, ptr %"parallel__do__simd_$I1", align 1
   br label %DIR.OMP.SIMD.5
 
 DIR.OMP.SIMD.5:                                   ; preds = %DIR.OMP.END.SIMD.740, %bb1
-  %temp_fetch.14 = load i32, i32* %temp16, align 1
-  %temp_fetch.15 = load i32, i32* %temp18, align 1
-  %temp_fetch.16 = load volatile i32, i32* %temp20, align 4
+  %temp_fetch.14 = load i32, ptr %temp16, align 1
+  %temp_fetch.15 = load i32, ptr %temp18, align 1
+  %temp_fetch.16 = load volatile i32, ptr %temp20, align 4
   %mul.3 = mul nsw i32 %temp_fetch.16, %temp_fetch.15
   %add.2 = add nsw i32 %mul.3, %temp_fetch.14
-  store i32 %add.2, i32* %"parallel__do__simd_$I1", align 1
+  store i32 %add.2, ptr %"parallel__do__simd_$I1", align 1
   %temp10 = alloca i32, align 4
   %temp12 = alloca i32, align 4
   %temp13 = alloca i32, align 4
   %temp14 = alloca i32, align 4
   %temp15 = alloca i32, align 4
-  %"parallel__do__simd_$N2_fetch.17" = load i32, i32* @"parallel__do__simd_$N2", align 1
-  store i32 1, i32* %temp10, align 4
-  store i32 1, i32* %temp12, align 4
-  store i32 1, i32* %"parallel__do__simd_$I2", align 1
-  store i32 0, i32* %temp13, align 4
-  store volatile i32 0, i32* %temp14, align 4
+  %"parallel__do__simd_$N2_fetch.17" = load i32, ptr @"parallel__do__simd_$N2", align 1
+  store i32 1, ptr %temp10, align 4
+  store i32 1, ptr %temp12, align 4
+  store i32 1, ptr %"parallel__do__simd_$I2", align 1
+  store i32 0, ptr %temp13, align 4
+  store volatile i32 0, ptr %temp14, align 4
   %sub.2 = add nsw i32 %"parallel__do__simd_$N2_fetch.17", -1
-  store volatile i32 %sub.2, i32* %temp15, align 4
+  store volatile i32 %sub.2, ptr %temp15, align 4
   br label %DIR.OMP.SIMD.4
 
 DIR.OMP.SIMD.4:                                   ; preds = %DIR.OMP.SIMD.5
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2", i32 1), "QUAL.OMP.NORMALIZED.IV"(i32* %temp14), "QUAL.OMP.NORMALIZED.UB"(i32* %temp15) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"parallel__do__simd_$I2", i32 0, i64 1, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %temp14, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %temp15, i32 0) ]
   br label %DIR.OMP.SIMD.539
 
 DIR.OMP.SIMD.539:                                 ; preds = %DIR.OMP.SIMD.4
   br label %DIR.OMP.SIMD.1
 
 bb6:                                              ; preds = %DIR.OMP.SIMD.1
-  store volatile i32 0, i32* %temp14, align 4
-  %temp_fetch.25 = load i32, i32* %temp10, align 4
-  %temp_fetch.26 = load i32, i32* %temp12, align 4
-  %temp_fetch.27 = load volatile i32, i32* %temp14, align 4
+  store volatile i32 0, ptr %temp14, align 4
+  %temp_fetch.25 = load i32, ptr %temp10, align 4
+  %temp_fetch.26 = load i32, ptr %temp12, align 4
+  %temp_fetch.27 = load volatile i32, ptr %temp14, align 4
   %mul.4 = mul nsw i32 %temp_fetch.27, %temp_fetch.26
   %add.3 = add nsw i32 %mul.4, %temp_fetch.25
-  store i32 %add.3, i32* %"parallel__do__simd_$I2", align 1
+  store i32 %add.3, ptr %"parallel__do__simd_$I2", align 1
   br label %bb10
 
 bb10:                                             ; preds = %bb12, %bb6
-  %temp_fetch.28 = load i32, i32* %temp10, align 4
-  %temp_fetch.29 = load i32, i32* %temp12, align 4
-  %temp_fetch.30 = load volatile i32, i32* %temp14, align 4
+  %temp_fetch.28 = load i32, ptr %temp10, align 4
+  %temp_fetch.29 = load i32, ptr %temp12, align 4
+  %temp_fetch.30 = load volatile i32, ptr %temp14, align 4
   %mul.5 = mul nsw i32 %temp_fetch.30, %temp_fetch.29
   %add.4 = add nsw i32 %mul.5, %temp_fetch.28
-  store i32 %add.4, i32* %"parallel__do__simd_$I2", align 1
+  store i32 %add.4, ptr %"parallel__do__simd_$I2", align 1
   %temp9 = alloca float, align 4
   br label %bb11
 
 bb11:                                             ; preds = %bb11, %bb10
-  %"(i8*)parallel__do__simd_$COUNTER_N0$" = bitcast float* %"parallel__do__simd_$COUNTER_N0" to i8*
-  %"(i8*)temp$" = bitcast float* %temp9 to i8*
-  call void @__atomic_load(i64 4, i8* %"(i8*)parallel__do__simd_$COUNTER_N0$", i8* nonnull %"(i8*)temp$", i32 0) #2
-  %temp_fetch.31 = load float, float* %temp9, align 4
+  call void @__atomic_load(i64 4, ptr %"parallel__do__simd_$COUNTER_N0", ptr nonnull %temp9, i32 0)
+  %temp_fetch.31 = load float, ptr %temp9, align 4
   %add.5 = fadd reassoc ninf nsz arcp contract afn float %temp_fetch.31, 1.000000e+00
   %temp = alloca float, align 4
-  store float %add.5, float* %temp, align 4
-  %"(i8*)temp$6" = bitcast float* %temp to i8*
-  %func_result8 = call i1 @__atomic_compare_exchange(i64 4, i8* %"(i8*)parallel__do__simd_$COUNTER_N0$", i8* nonnull %"(i8*)temp$", i8* nonnull %"(i8*)temp$6", i32 0, i32 0) #2
+  store float %add.5, ptr %temp, align 4
+  %func_result8 = call i1 @__atomic_compare_exchange(i64 4, ptr %"parallel__do__simd_$COUNTER_N0", ptr nonnull %temp9, ptr nonnull %temp, i32 0, i32 0)
   br i1 %func_result8, label %bb12, label %bb11
 
 bb12:                                             ; preds = %bb11
-  %temp_fetch.33 = load volatile i32, i32* %temp14, align 4
+  %temp_fetch.33 = load volatile i32, ptr %temp14, align 4
   %add.6 = add nsw i32 %temp_fetch.33, 1
-  store volatile i32 %add.6, i32* %temp14, align 4
-  %temp_fetch.34 = load volatile i32, i32* %temp15, align 4
-  %temp_fetch.35 = load volatile i32, i32* %temp14, align 4
+  store volatile i32 %add.6, ptr %temp14, align 4
+  %temp_fetch.34 = load volatile i32, ptr %temp15, align 4
+  %temp_fetch.35 = load volatile i32, ptr %temp14, align 4
   %rel.3.not = icmp sgt i32 %temp_fetch.35, %temp_fetch.34
   br i1 %rel.3.not, label %DIR.OMP.END.SIMD.7.loopexit, label %bb10
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.539
-  %temp_fetch.22 = load i32, i32* %temp13, align 4
-  store volatile i32 %temp_fetch.22, i32* %temp14, align 4
-  %temp_fetch.23 = load volatile i32, i32* %temp14, align 4
-  %temp_fetch.24 = load volatile i32, i32* %temp15, align 4
+  %temp_fetch.22 = load i32, ptr %temp13, align 4
+  store volatile i32 %temp_fetch.22, ptr %temp14, align 4
+  %temp_fetch.23 = load volatile i32, ptr %temp14, align 4
+  %temp_fetch.24 = load volatile i32, ptr %temp15, align 4
   %rel.2 = icmp slt i32 %temp_fetch.24, %temp_fetch.23
   br i1 %rel.2, label %DIR.OMP.END.SIMD.7, label %bb6
 
@@ -183,19 +184,19 @@ DIR.OMP.END.SIMD.6:                               ; preds = %DIR.OMP.END.SIMD.7
   br label %DIR.OMP.END.SIMD.740
 
 DIR.OMP.END.SIMD.740:                             ; preds = %DIR.OMP.END.SIMD.6
-  %temp_fetch.37 = load volatile i32, i32* %temp20, align 4
+  %temp_fetch.37 = load volatile i32, ptr %temp20, align 4
   %add.7 = add nsw i32 %temp_fetch.37, 1
-  store volatile i32 %add.7, i32* %temp20, align 4
-  %temp_fetch.38 = load volatile i32, i32* %temp21, align 4
-  %temp_fetch.39 = load volatile i32, i32* %temp20, align 4
+  store volatile i32 %add.7, ptr %temp20, align 4
+  %temp_fetch.38 = load volatile i32, ptr %temp21, align 4
+  %temp_fetch.39 = load volatile i32, ptr %temp20, align 4
   %rel.4.not = icmp sgt i32 %temp_fetch.39, %temp_fetch.38
   br i1 %rel.4.not, label %DIR.OMP.END.LOOP.8.loopexit, label %DIR.OMP.SIMD.5
 
 DIR.OMP.LOOP.4:                                   ; preds = %DIR.OMP.LOOP.1243
-  %temp_fetch.8 = load i32, i32* %temp19, align 1
-  store volatile i32 %temp_fetch.8, i32* %temp20, align 4
-  %temp_fetch.9 = load volatile i32, i32* %temp20, align 4
-  %temp_fetch.10 = load volatile i32, i32* %temp21, align 4
+  %temp_fetch.8 = load i32, ptr %temp19, align 1
+  store volatile i32 %temp_fetch.8, ptr %temp20, align 4
+  %temp_fetch.9 = load volatile i32, ptr %temp20, align 4
+  %temp_fetch.10 = load volatile i32, ptr %temp21, align 4
   %rel.1 = icmp slt i32 %temp_fetch.10, %temp_fetch.9
   br i1 %rel.1, label %DIR.OMP.END.LOOP.8, label %bb1
 
@@ -226,48 +227,39 @@ DIR.OMP.LOOP.12:                                  ; preds = %DIR.OMP.PARALLEL.33
   %temp19 = alloca i32, align 4
   %temp20 = alloca i32, align 4
   %temp21 = alloca i32, align 4
-  %"parallel__do__simd_$N1_fetch.3" = load i32, i32* @"parallel__do__simd_$N1", align 1
-  store i32 1, i32* %temp16, align 4
-  store i32 %"parallel__do__simd_$N1_fetch.3", i32* %temp17, align 4
-  store i32 1, i32* %temp18, align 4
-  store i32 1, i32* %"parallel__do__simd_$I1", align 1
-  store i32 0, i32* %temp19, align 4
-  store volatile i32 0, i32* %temp20, align 4
-  %temp_fetch.5 = load i32, i32* %temp18, align 4
-  %temp_fetch.6 = load i32, i32* %temp16, align 4
-  %temp_fetch.7 = load i32, i32* %temp17, align 4
+  %"parallel__do__simd_$N1_fetch.3" = load i32, ptr @"parallel__do__simd_$N1", align 1
+  store i32 1, ptr %temp16, align 4
+  store i32 %"parallel__do__simd_$N1_fetch.3", ptr %temp17, align 4
+  store i32 1, ptr %temp18, align 4
+  store i32 1, ptr %"parallel__do__simd_$I1", align 1
+  store i32 0, ptr %temp19, align 4
+  store volatile i32 0, ptr %temp20, align 4
+  %temp_fetch.5 = load i32, ptr %temp18, align 4
+  %temp_fetch.6 = load i32, ptr %temp16, align 4
+  %temp_fetch.7 = load i32, ptr %temp17, align 4
   %sub.1 = sub nsw i32 %temp_fetch.7, %temp_fetch.6
   %div.1 = sdiv i32 %sub.1, %temp_fetch.5
-  store volatile i32 %div.1, i32* %temp21, align 4
+  store volatile i32 %div.1, ptr %temp21, align 4
   br label %DIR.OMP.LOOP.11
 
 DIR.OMP.LOOP.11:                                  ; preds = %DIR.OMP.LOOP.12
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %"parallel__do__simd_$I1"), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp19), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp18), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp17), "QUAL.OMP.FIRSTPRIVATE"(i32* %temp16), "QUAL.OMP.NORMALIZED.IV"(i32* %temp20), "QUAL.OMP.NORMALIZED.UB"(i32* %temp21) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %"parallel__do__simd_$I1", i32 0, i64 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %temp19, i32 0, i64 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %temp18, i32 0, i64 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %temp17, i32 0, i64 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %temp16, i32 0, i64 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %temp20, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %temp21, i32 0) ]
   br label %DIR.OMP.LOOP.1243
 
 DIR.OMP.LOOP.1243:                                ; preds = %DIR.OMP.LOOP.11
   br label %DIR.OMP.LOOP.4
 }
 
-; Function Attrs: nofree
-declare i32 @for_set_reentrancy(i32* nocapture readonly) local_unnamed_addr #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nofree
-declare void @__atomic_load(i64, i8*, i8*, i32) local_unnamed_addr #3
-
-declare i1 @__atomic_compare_exchange(i64, i8*, i8*, i8*, i32, i32) local_unnamed_addr
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-attributes #0 = { nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nofree "intel-lang"="fortran" }
-attributes #2 = { nounwind }
-attributes #3 = { nofree }
-
-!omp_offload.info = !{}
-
+declare i32 @for_set_reentrancy(ptr nocapture readonly) local_unnamed_addr
+declare token @llvm.directive.region.entry()
+declare void @__atomic_load(i64, ptr, ptr, i32) local_unnamed_addr
+declare i1 @__atomic_compare_exchange(i64, ptr, ptr, ptr, i32, i32) local_unnamed_addr
+declare void @llvm.directive.region.exit(token)
 ; end INTEL_CUSTOMIZATION

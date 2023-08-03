@@ -840,6 +840,19 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
     return;
   }
 
+  // Single bblock countable loops with many instructions may still be
+  // vectorizable so we allow them to form at O3. Single phi helps check that
+  // the loop does not have any backward temp depenencies as the only phi
+  // represents the loop IV.
+  if ((OptLevel > 2) && !IsUnknownLoop && (Lp.getNumBlocks() == 1)) {
+    auto InstIt = Lp.getHeader()->begin();
+
+    if (isa<PHINode>(InstIt) && !isa<PHINode>(std::next(InstIt))) {
+      IsProfitable = true;
+      return;
+    }
+  }
+
   // Do not throttle IVDep loops except for outer 'branchy' loops since they can
   // potentially cause compilation issues.
   if (isIVDepLoop(Lp) &&
@@ -850,11 +863,21 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
   // Only allow innermost multi-exit loops for now.
   if (!IsSingleExitLoop && !IsInnermostLoop) {
-    printOptReportRemark(
-        &Lp, nullptr,
-        "Outer multi-exit loop throttled for compile time reasons.");
-    IsProfitable = false;
-    return;
+    // Ignore unreachable exits
+    SmallVector<BasicBlock *, 4> ExitBlocks;
+    Lp.getExitBlocks(ExitBlocks);
+    unsigned NumUnreachableExits = 0;
+    for (auto *BB : ExitBlocks)
+      if (isa<UnreachableInst>(BB->getTerminator()))
+        ++NumUnreachableExits;
+
+    if (NumUnreachableExits + 1 != ExitBlocks.size()) {
+      printOptReportRemark(
+          &Lp, nullptr,
+          "Outer multi-exit loop throttled for compile time reasons.");
+      IsProfitable = false;
+      return;
+    }
   }
 
   // Only handle standalone single bblock unknown loops at O2. We allow bigger

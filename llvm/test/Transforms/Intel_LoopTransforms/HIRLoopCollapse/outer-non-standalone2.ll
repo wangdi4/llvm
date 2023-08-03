@@ -34,7 +34,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @foo([500 x i32]* nocapture %A) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -45,8 +45,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc6
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
   %0 = add nuw nsw i64 %indvars.iv, %indvars.iv22
-  %arrayidx5 = getelementptr inbounds [500 x i32], [500 x i32]* %A, i64 %0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds [500 x i32], ptr %A, i64 %0, i64 %indvars.iv
+  store i32 0, ptr %arrayidx5, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 500
   br i1 %exitcond.not, label %for.inc6, label %for.body3, !llvm.loop !8
@@ -57,8 +57,8 @@ for.inc6:                                         ; preds = %for.body3
   br i1 %exitcond24.not, label %for.end8, label %for.cond1.preheader, !llvm.loop !10
 
 for.end8:                                         ; preds = %for.inc6
-  %arrayidx10 = getelementptr inbounds [500 x i32], [500 x i32]* %A, i64 1, i64 7
-  %1 = load i32, i32* %arrayidx10, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds [500 x i32], ptr %A, i64 1, i64 7
+  %1 = load i32, ptr %arrayidx10, align 4, !tbaa !3
   ret i32 %1
 }
 

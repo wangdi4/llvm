@@ -17,7 +17,6 @@
 #define LLVM_ANALYSIS_INTEL_FP_VALUE_RANGE_H
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/IR/Operator.h"
 
 namespace llvm {

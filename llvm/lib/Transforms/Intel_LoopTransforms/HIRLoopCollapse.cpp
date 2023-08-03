@@ -103,6 +103,11 @@ static cl::opt<bool>
     DisableDynShapeArray("disable-dynshape-array", cl::init(false), cl::Hidden,
                          cl::desc("Disable Dynamic Shape Array Support"));
 
+// Disallow near-perfect loop nests.
+static cl::opt<bool> DisableNearPerfectLoopNests(
+    "disable-hir-loop-collapse-near-perfect", cl::init(false), cl::Hidden,
+    cl::desc("Disallow near-perfect loop nests (HLC)"));
+
 STATISTIC(HIRLoopNestsCollapsed, "Number of HIR LoopNest(s) Collapsed");
 
 // ** Ref Collector **
@@ -199,8 +204,95 @@ void HIRLoopCollapse::CollectRefs::collectRef(RegDDRef *Ref) {
   Ref->hasGEPInfo() ? GEPRefVec.push_back(Ref) : RefVec.push_back(Ref);
 }
 
+// Following kind of near-perfect loop nest is considered eligible.
+//               %t1 = ...
+//
+//               + DO i1
+//      S1:      |   %t2 = %t1;
+//               |
+//               |   + DO i2
+//               |   |   %t3 = ...
+//               |   |   ... = %t3 op %t2;
+//      S2:      |   |   %t2 = %t3;
+//               |   + END LOOP
+//               |
+//      S3:      |   %t1 = %t3;
+//               + END LOOP
+// Where %t1 is i1-loop live-in & not-live-out and it is not i2-loop live-in.
+// %t2 is not live-out of i1 loop.
+//
+// We expect to transform it into:
+//               %t1 = ...
+//               %t2 = %t1;
+//               + DO i1 <collapsed>
+//               |   %t3 = ...
+//               |   ... = %t3 op %t2;
+//               |   %t2 = %t3;
+//               + END LOOP
+
+bool isEligibleNearPerfectCandidate(const HLLoop *Loop,
+                                    const HLLoop *InnermostLoop) {
+  if (DisableNearPerfectLoopNests)
+    return false;
+
+  HLLoop *ParentLoop = InnermostLoop->getParentLoop();
+
+  // Limit optimization to two-level loopnest.
+  if (ParentLoop != Loop)
+    return false;
+
+  if (ParentLoop->getNumChildren() != 3)
+    return false;
+
+  auto *FirstCopyInst = dyn_cast<HLInst>(ParentLoop->getFirstChild());
+  if (!FirstCopyInst || !FirstCopyInst->isCopyInst())
+    return false;
+
+  auto *LastCopyInst = dyn_cast<HLInst>(ParentLoop->getLastChild());
+  if (!LastCopyInst || !LastCopyInst->isCopyInst())
+    return false;
+
+  assert((InnermostLoop == FirstCopyInst->getNextNode()) &&
+         "Innermost loop expected");
+
+  auto *LastInstInInnermostLoop =
+      dyn_cast<HLInst>(InnermostLoop->getLastChild());
+  if (!LastInstInInnermostLoop || !LastInstInInnermostLoop->isCopyInst())
+    return false;
+
+  auto *FirstCopyLHS = FirstCopyInst->getLvalDDRef();
+  auto *FirstCopyRHS = FirstCopyInst->getRvalDDRef();
+  auto *LastCopyLHS = LastCopyInst->getLvalDDRef();
+  auto *LastCopyRHS = LastCopyInst->getRvalDDRef();
+  auto *InnerCopyLHS = LastInstInInnermostLoop->getLvalDDRef();
+  auto *InnerCopyRHS = LastInstInInnermostLoop->getRvalDDRef();
+
+  if (!FirstCopyRHS->isTerminalRef() || !LastCopyRHS->isTerminalRef() ||
+      !InnerCopyRHS->isTerminalRef())
+    return false;
+
+  // Check that temps in S1, S2 and S3 copy instructions match each other.
+  unsigned T1Symbase = FirstCopyRHS->getSymbase();
+  unsigned T2Symbase = FirstCopyLHS->getSymbase();
+  unsigned T3Symbase = LastCopyRHS->getSymbase();
+  if ((T1Symbase != LastCopyLHS->getSymbase()) ||
+      (InnerCopyLHS->getSymbase() != T2Symbase) ||
+      (InnerCopyRHS->getSymbase() != T3Symbase))
+    return false;
+
+  // t1 should not be live-out as we will be eliminating it's definition (S3).
+  if (ParentLoop->isLiveOut(T1Symbase) || InnermostLoop->isLiveIn(T1Symbase))
+    return false;
+
+  if (ParentLoop->isLiveOut(T2Symbase))
+    return false;
+
+  return true;
+}
+
 // ** LoopNest Collector **
-// Gather all perfect LoopNest(s) starting from an given Outermost Loop
+// Gather all perfect and near-perfect LoopNest(s) starting from an given
+// Outermost Loop
 class HIRLoopCollapse::CollectCandidateLoops final : public HLNodeVisitorBase {
   SmallVectorImpl<InnerOuterLoopPairTy> &CandidateLoops;
   HLNode *SkipNode;
@@ -215,20 +307,29 @@ public:
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   // main collection routine:
-  // Find perfect-loop nest, and collect its (OutermostLp, InnermostLp) pair
+  // Find loop nest, and collect its (OutermostLp, InnermostLp) pair.
   void visit(HLLoop *Loop) {
 
-    // Gather all perfect loop nests:
+    // Gather all perfect and near-perfect loop nests:
     const HLLoop *InnermostLoop = nullptr;
-
+    bool IsNearPerfect = false;
     if (Loop->isInnermost()) {
       SkipNode = Loop;
-    } else if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
+    } else if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false,
+                                              &IsNearPerfect)) {
       CandidateLoops.push_back(
           std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
 
       // Once collected, NO need to recurse deeper into the current loop nest
       // starting from Loop.
+      SkipNode = Loop;
+    } else if (IsNearPerfect &&
+               isEligibleNearPerfectCandidate(Loop, InnermostLoop)) {
+      CandidateLoops.push_back(
+          std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
+
+      // Once collected, NO need to recurse deeper into the current loop
+      // nest starting from Loop.
       SkipNode = Loop;
     }
   }
@@ -246,9 +347,10 @@ bool HIRLoopCollapse::run() {
   HNU = &HIRF.getHLNodeUtils();
   BU = &HIRF.getBlobUtils();
 
-  // Collect all possible perfect-LoopNest candidate InnerOuterLoopPairs into
-  // CandidateLoops. Each InnerOuterLoopPair marks (OutermostLp,InnermostLp),
-  // forming a perfect (sub) LoopNest.
+  // Collect all possible perfect and near-perfect LoopNest candidate
+  // InnerOuterLoopPairs into CandidateLoops.
+  // Each InnerOuterLoopPair marks (OutermostLp,InnermostLp), forming a (sub)
+  // LoopNest.
   //
   // E.g.
   // | i1:
@@ -259,8 +361,8 @@ bool HIRLoopCollapse::run() {
   // |  |
   // |
   //
-  // There is no perfect loop nest within the original i1-i2-i3 nesting, but
-  // (i2-i3) is a perfect sub loop nest, thus is collected as a
+  // There is no perfect loop nest within the original i1-i2-i3 nesting,
+  // but (i2-i3) is a perfect sub loop nest, thus is collected as a
   // InnerOuterLoopPair candidate.
   //
   SmallVector<InnerOuterLoopPairTy, 12> CandidateLoops;
@@ -269,15 +371,15 @@ bool HIRLoopCollapse::run() {
 
   if (CandidateLoops.empty()) {
     LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
-                      << "() has no perfect loop nest\n";);
+                      << "() has no perfect or near-perfect loop nest\n";);
     return false;
   }
 
   bool Result = false;
 
   for (auto &LPPair : CandidateLoops) {
-    // Do loop collapse over a non-single-level perfect loop nest in
-    // [OutermostLp, .., InnermostLp]
+    // Do loop collapse over a non-single-level perfect or near-perfect loop
+    // nest in [OutermostLp, .., InnermostLp]
     Result = doLoopCollapse(LPPair.first, LPPair.second) || Result;
   }
 
@@ -285,7 +387,7 @@ bool HIRLoopCollapse::run() {
 }
 
 bool HIRLoopCollapse::doLoopCollapse(HLLoop *OutermostLp, HLLoop *InnermostLp) {
-  // Setup environment for the current perfect loop nest from
+  // Setup environment for the current perfect or near-perfect loop nest from
   // (OutermostLp, InnermostLp) pair.
   setupEnvLoopNest(OutermostLp, InnermostLp);
 
@@ -892,6 +994,11 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   moveZttLiveIn(ToCollapseLp, OrigInnermostLevel, OrigOutermostLevel, ZTTs,
                 ZTTLiveInSBs);
 
+  // If the loopnest was near-perfect - obtain the first copy instruction to
+  // move it before the loop.
+  HLInst *NearPerfectCopyBeforeLoop =
+      cast_or_null<HLInst>(ToCollapseLp->getPrevNode());
+
   // *** Accumulate and update TripCount ***
 
   // Base case: from the innermost loop
@@ -934,7 +1041,13 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // |  .....
   // |  | ..|  empty body
   //
-  HNU->moveBefore(OrigOutermostLp, ToCollapseLp);
+  HLNodeUtils::moveBefore(OrigOutermostLp, ToCollapseLp);
+
+  if (NearPerfectCopyBeforeLoop) {
+    HLNodeUtils::moveBefore(ToCollapseLp, NearPerfectCopyBeforeLoop);
+    NearPerfectCopyBeforeLoop->getRvalDDRef()->makeConsistent();
+    NearPerfectCopyBeforeLoop->getLvalDDRef()->makeConsistent();
+  }
 
   // Upper bound may have new temp blobs. Add them as livein to loop.
   for (auto BRefIt = UBRef->blob_begin(), E = UBRef->blob_end(); BRefIt != E;
@@ -1013,7 +1126,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   // ID: 25567u, remark string: "%d loops have been collapsed"
   ORBuilder(*ToCollapseLp)
-      .addRemark(OptReportVerbosity::Low, 25567u, NumCollapsableLoops);
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::NumCollapsedLoops,
+                 NumCollapsableLoops);
 
   LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
              dbgs() << "\n";);
@@ -1463,7 +1577,7 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printTCArry(void) const {
 PreservedAnalyses HIRLoopCollapsePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
-  HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR = HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

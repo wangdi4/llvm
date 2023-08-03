@@ -6,7 +6,7 @@
 ; HIR:
 ;            BEGIN REGION { }
 ;                  + DO i1 = 0, 9, 1   <DO_LOOP>
-;                  |   @llvm.memset.p0i8.i64(&((%SSS)[0].0.0[0]),  97,  30,  0);
+;                  |   @llvm.memset.p0.i64(&((%SSS)[0].0.0[0]),  97,  30,  0);
 ;                  + END LOOP
 ;            END REGION
 
@@ -31,34 +31,34 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local noundef i32 @main(i32 noundef %n) local_unnamed_addr #0 {
 entry:
   %SSS = alloca %struct.s1, align 1
-  %0 = getelementptr inbounds %struct.s1, %struct.s1* %SSS, i64 0, i32 0, i32 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 100, i8* nonnull %0) #3
+  %0 = getelementptr inbounds %struct.s1, ptr %SSS, i64 0, i32 0, i32 0, i64 0
+  call void @llvm.lifetime.start.p0(i64 100, ptr nonnull %0) #3
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %i.03 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(30) %0, i8 97, i64 30, i1 false)
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 1 dereferenceable(30) %0, i8 97, i64 30, i1 false)
   %inc = add nuw nsw i32 %i.03, 1
   %exitcond.not = icmp eq i32 %inc, 10
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !3
 
 for.end:                                          ; preds = %for.body
   %idxprom = sext i32 %n to i64
-  %arrayidx = getelementptr inbounds %struct.s1, %struct.s1* %SSS, i64 0, i32 0, i32 0, i64 %idxprom, !intel-tbaa !5
-  %1 = load i8, i8* %arrayidx, align 1, !tbaa !5
+  %arrayidx = getelementptr inbounds %struct.s1, ptr %SSS, i64 0, i32 0, i32 0, i64 %idxprom, !intel-tbaa !5
+  %1 = load i8, ptr %arrayidx, align 1, !tbaa !5
   %conv = sext i8 %1 to i32
-  call void @llvm.lifetime.end.p0i8(i64 100, i8* nonnull %0) #3
+  call void @llvm.lifetime.end.p0(i64 100, ptr nonnull %0) #3
   ret i32 %conv
 }
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind readnone willreturn uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly mustprogress nocallback nofree nosync nounwind willreturn }

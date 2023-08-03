@@ -5,7 +5,7 @@
 ; CHECK:call fastcc void @"foo.1|7"(), !dbg !61
 ;                                      ^^^^^^^^
 
-; ModuleID = 'ld-temp.o'
+
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,101 +16,101 @@ target triple = "x86_64-unknown-linux-gnu"
 @glob = common dso_local local_unnamed_addr global i32 0, align 4, !dbg !0
 
 ; Function Attrs: noinline nounwind uwtable
-define internal fastcc void @foo(i32) unnamed_addr #0 !dbg !13 {
+define internal fastcc void @foo(i32 %0) unnamed_addr #0 !dbg !13 {
   call void @llvm.dbg.value(metadata i32 %0, metadata !17, metadata !DIExpression()), !dbg !19
-  %2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([15 x i8], [15 x i8]* @.str, i64 0, i64 0), i32 %0), !dbg !20
+  %2 = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([15 x i8], ptr @.str, i64 0, i64 0), i32 %0), !dbg !20
   call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21
   %3 = add i32 %0, 4, !dbg !22
   %4 = icmp sgt i32 %3, 0, !dbg !25
   br i1 %4, label %9, label %5, !dbg !26
 
-; <label>:5:                                      ; preds = %9, %1
+5:                                                ; preds = %9, %1
   call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21
   %6 = shl i32 %0, 1, !dbg !27
   %7 = add i32 %6, 14, !dbg !30
   %8 = icmp sgt i32 %7, 0, !dbg !31
   br i1 %8, label %13, label %17, !dbg !32
 
-; <label>:9:                                      ; preds = %9, %1
+9:                                                ; preds = %9, %1
   %10 = phi i32 [ %11, %9 ], [ 0, %1 ]
   call void @llvm.dbg.value(metadata i32 %10, metadata !18, metadata !DIExpression()), !dbg !21
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i32 %10) #5, !dbg !33
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.1, i64 0, i64 0), i32 %10) #5, !dbg !33
   %11 = add nuw nsw i32 %10, 1, !dbg !35
   call void @llvm.dbg.value(metadata i32 %11, metadata !18, metadata !DIExpression()), !dbg !21
   %12 = icmp eq i32 %11, %3, !dbg !25
   br i1 %12, label %5, label %9, !dbg !26, !llvm.loop !36
 
-; <label>:13:                                     ; preds = %13, %5
+13:                                               ; preds = %13, %5
   %14 = phi i32 [ %15, %13 ], [ 0, %5 ]
   call void @llvm.dbg.value(metadata i32 %14, metadata !18, metadata !DIExpression()), !dbg !21
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i32 %14) #5, !dbg !38
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.2, i64 0, i64 0), i32 %14) #5, !dbg !38
   %15 = add nuw nsw i32 %14, 1, !dbg !40
   call void @llvm.dbg.value(metadata i32 %15, metadata !18, metadata !DIExpression()), !dbg !21
   %16 = icmp eq i32 %15, %7, !dbg !31
   br i1 %16, label %17, label %13, !dbg !32, !llvm.loop !41
 
-; <label>:17:                                     ; preds = %13, %5
+17:                                               ; preds = %13, %5
   ret void, !dbg !43
 }
 
-; Function Attrs: nounwind readnone speculatable
+; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
-declare dso_local i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #2
+declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2
 
-declare dso_local void @printf1(i8*, i32) local_unnamed_addr #3
+declare dso_local void @printf1(ptr, i32) local_unnamed_addr #3
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #4 !dbg !44 {
+define dso_local i32 @main(i32 %0, ptr nocapture readnone %1) local_unnamed_addr #4 !dbg !44 {
   call void @llvm.dbg.value(metadata i32 %0, metadata !51, metadata !DIExpression()), !dbg !53
-  call void @llvm.dbg.value(metadata i8** %1, metadata !52, metadata !DIExpression()), !dbg !54
-  store i32 %0, i32* @glob, align 4, !dbg !55, !tbaa !56
+  call void @llvm.dbg.value(metadata ptr %1, metadata !52, metadata !DIExpression()), !dbg !54
+  store i32 %0, ptr @glob, align 4, !dbg !55, !tbaa !56
   tail call fastcc void @foo(i32 %0), !dbg !60
   tail call fastcc void @foo.1(i32 7), !dbg !61
   ret i32 0, !dbg !62
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define internal fastcc void @foo.1(i32) unnamed_addr #0 !dbg !63 {
+define internal fastcc void @foo.1(i32 %0) unnamed_addr #0 !dbg !63 {
   call void @llvm.dbg.value(metadata i32 %0, metadata !65, metadata !DIExpression()), !dbg !67
-  %2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([15 x i8], [15 x i8]* @.str, i64 0, i64 0), i32 %0), !dbg !68
+  %2 = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([15 x i8], ptr @.str, i64 0, i64 0), i32 %0), !dbg !68
   call void @llvm.dbg.value(metadata i32 0, metadata !66, metadata !DIExpression()), !dbg !69
   %3 = add i32 %0, 4, !dbg !70
   %4 = icmp sgt i32 %3, 0, !dbg !73
   br i1 %4, label %9, label %5, !dbg !74
 
-; <label>:5:                                      ; preds = %9, %1
+5:                                                ; preds = %9, %1
   call void @llvm.dbg.value(metadata i32 0, metadata !66, metadata !DIExpression()), !dbg !69
   %6 = shl i32 %0, 1, !dbg !75
   %7 = add i32 %6, 14, !dbg !78
   %8 = icmp sgt i32 %7, 0, !dbg !79
   br i1 %8, label %13, label %17, !dbg !80
 
-; <label>:9:                                      ; preds = %9, %1
+9:                                                ; preds = %9, %1
   %10 = phi i32 [ %11, %9 ], [ 0, %1 ]
   call void @llvm.dbg.value(metadata i32 %10, metadata !66, metadata !DIExpression()), !dbg !69
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i32 %10) #5, !dbg !81
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.1, i64 0, i64 0), i32 %10) #5, !dbg !81
   %11 = add nuw nsw i32 %10, 1, !dbg !83
   call void @llvm.dbg.value(metadata i32 %11, metadata !66, metadata !DIExpression()), !dbg !69
   %12 = icmp eq i32 %11, %3, !dbg !73
   br i1 %12, label %5, label %9, !dbg !74, !llvm.loop !84
 
-; <label>:13:                                     ; preds = %13, %5
+13:                                               ; preds = %13, %5
   %14 = phi i32 [ %15, %13 ], [ 0, %5 ]
   call void @llvm.dbg.value(metadata i32 %14, metadata !66, metadata !DIExpression()), !dbg !69
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i32 %14) #5, !dbg !86
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.2, i64 0, i64 0), i32 %14) #5, !dbg !86
   %15 = add nuw nsw i32 %14, 1, !dbg !88
   call void @llvm.dbg.value(metadata i32 %15, metadata !66, metadata !DIExpression()), !dbg !69
   %16 = icmp eq i32 %15, %7, !dbg !79
   br i1 %16, label %17, label %13, !dbg !80, !llvm.loop !89
 
-; <label>:17:                                     ; preds = %13, %5
+17:                                               ; preds = %13, %5
   ret void, !dbg !91
 }
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone speculatable }
+attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
 attributes #2 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo3PfPi(float* noalias nocapture %A, float* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo3PfPi(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -37,19 +37,19 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %mul = mul nsw i64 %indvars.iv, 3
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %mul
-  %ld = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %mul
+  %ld = load float, ptr %ptridx2, align 4
   %add3 = fadd fast float %ld, 2.000000e+00
-  store float %add3, float* %ptridx2, align 4
-  %ptridx3 = getelementptr inbounds float, float* %ptridx2, i64 5
-  %ld2 = load float, float* %ptridx3, align 4
+  store float %add3, ptr %ptridx2, align 4
+  %ptridx3 = getelementptr inbounds float, ptr %ptridx2, i64 5
+  %ld2 = load float, ptr %ptridx3, align 4
   %add4 = fadd fast float %ld2, 2.000000e+00
-  store float %add4, float* %ptridx3, align 4
+  store float %add4, ptr %ptridx3, align 4
   %div = udiv i64 %indvars.iv, 3
-  %ptridx4 = getelementptr inbounds float, float* %B, i64 %div
-  %ld3 = load float, float* %ptridx4, align 4
+  %ptridx4 = getelementptr inbounds float, ptr %B, i64 %div
+  %ld3 = load float, ptr %ptridx4, align 4
   %add5 = fadd fast float %ld3, 2.000000e+00
-  store float %add5, float* %ptridx4, align 4
+  store float %add5, ptr %ptridx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

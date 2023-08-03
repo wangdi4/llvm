@@ -22,9 +22,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %a) local_unnamed_addr #0 !dbg !8 {
+define void @foo(ptr nocapture %a) local_unnamed_addr #0 !dbg !8 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %a, metadata !14, metadata !DIExpression()), !dbg !16
+  call void @llvm.dbg.value(metadata ptr %a, metadata !14, metadata !DIExpression()), !dbg !16
   call void @llvm.dbg.value(metadata i32 0, metadata !15, metadata !DIExpression()), !dbg !17
   br label %for.body, !dbg !18
 
@@ -35,8 +35,8 @@ for.body:                                         ; preds = %if.end, %entry
   br i1 %cmp1, label %if.then, label %if.end, !dbg !24
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv, !dbg !32
-  store i32 0, i32* %arrayidx3, align 4, !dbg !25, !tbaa !27
+  %arrayidx3 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv, !dbg !32
+  store i32 0, ptr %arrayidx3, align 4, !dbg !25, !tbaa !27
   br label %if.end, !dbg !31
 
 if.end:                                           ; preds = %if.then, %for.body

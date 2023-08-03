@@ -12,13 +12,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume -intel-libirc-allowed    \
 ; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
-; RUN:     -S  %s -enable-npm-dtrans -opaque-pointers                   \
+; RUN:     -S  %s -enable-npm-dtrans                   \
 ; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK: Running pass: Annotation2MetadataPass
-; CHECK-NEXT: Running pass: CrossDSOCFIPass
+; CHECK: Running pass: CrossDSOCFIPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -32,8 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK: Running pass: ForceFunctionAttrsPass
-; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: InferFunctionAttrsPass
 ; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
@@ -46,6 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
+; CHECK-NEXT: Running analysis: DTransImmutableAnalysis
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPass
@@ -54,12 +53,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Note: Weak align uses the same pass for opaque and non-opaque pointers,
 ; so it is not in the dtransOP namespace.
 ; CHECK-NEXT: Running pass: dtrans::WeakAlignPass
-; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
+; Not using '-NEXT' here because weak align causes some TargetLibraryAnalysis
+; to run.
+; CHECK: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReuseFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
-; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
+; CHECK-NEXT: Running pass: dtransOP::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtransOP::DynClonePass on
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleanerPass
 

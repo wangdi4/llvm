@@ -121,7 +121,6 @@ define void @reschedule(ptr %dst, ptr %p, i64 %i1, i64 %i2) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i64> poison, i64 [[I1:%.*]], i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i64> [[TMP1]], i64 [[I2:%.*]], i32 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc <2 x i64> [[TMP2]] to <2 x i32>
-; CHECK-NEXT:    [[STA1:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = sub <2 x i32> <i32 1, i32 1>, [[TMP3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <2 x i32> [[TMP4]], i32 0
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i32 [[TMP5]]
@@ -133,7 +132,7 @@ define void @reschedule(ptr %dst, ptr %p, i64 %i1, i64 %i2) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i32> poison, i32 [[LD1]], i32 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <2 x i32> [[TMP8]], i32 [[LD2]], i32 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <2 x i32> [[TMP7]], [[TMP9]]
-; CHECK-NEXT:    store <2 x i32> [[TMP10]], ptr [[STA1]], align 4
+; CHECK-NEXT:    store <2 x i32> [[TMP10]], ptr [[DST:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
   %idx1 = trunc i64 %i1 to i32
@@ -171,8 +170,7 @@ define void @reschedule(ptr %dst, ptr %p, i64 %i1, i64 %i2) {
   %and1 = and i32 %sub1, 1
   %v1 = add i32 %ld1, %and1
 
-  %sta1 = getelementptr inbounds i32, ptr %dst, i64 0
-  store i32 %v1, ptr %sta1, align 4
+  store i32 %v1, ptr %dst, align 4
   %sta2 = getelementptr inbounds i32, ptr %dst, i64 1
   store i32 %v2, ptr %sta2, align 4
   ret void

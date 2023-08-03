@@ -26,6 +26,7 @@
 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -444,14 +445,18 @@ static Value *joinVectorsWithMask(ArrayRef<Value *> VectorsToJoin,
                                   IRBuilder<> &Builder, const Twine &Name) {
   Value *Result = joinVectors(VectorsToJoin, Builder, Name);
   if (SourceValue && Mask) {
-    assert(cast<FixedVectorType>(SourceValue->getType())->getNumElements() ==
-               cast<FixedVectorType>(Result->getType())->getNumElements() &&
-           cast<FixedVectorType>(Mask->getType())->getNumElements() ==
-               cast<FixedVectorType>(Result->getType())->getNumElements() &&
-           "Inconsistent vector length");
+    unsigned SourceVL =
+        cast<FixedVectorType>(SourceValue->getType())->getNumElements();
+    unsigned MaskVL = cast<FixedVectorType>(Mask->getType())->getNumElements();
+    // In case the element of vectors are complex numbers, SourceVL = 2 * MaskVL
+    unsigned ComponentVL = SourceVL / MaskVL;
+    assert(ComponentVL >= 1 && SourceVL % MaskVL == 0 &&
+           "Inconsistent mask length");
     assert(cast<FixedVectorType>(SourceValue->getType())->getElementType() ==
                cast<FixedVectorType>(Result->getType())->getElementType() &&
            "Vector element type mismatch");
+    if (ComponentVL > 1)
+      Mask = replicateVectorElts(Mask, ComponentVL, Builder, "mask.replicate");
     Result = Builder.CreateSelect(Mask, Result, SourceValue, "select.merge");
   }
   return Result;

@@ -8,7 +8,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK: found 0 uniform early exit conditions
 
 ; Function Attrs: nounwind
-define void @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE33_15clES2_EUlNS0_7nd_itemILi3EEEE36_8(i32 %_arg_, i32 %_arg_1, i32 %_arg_3, float addrspace(1)* noalias %_arg_5) !no_barrier_path !11 {
+define void @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE33_15clES2_EUlNS0_7nd_itemILi3EEEE36_8(i32 %_arg_, i32 %_arg_1, i32 %_arg_3, ptr addrspace(1) noalias %_arg_5) !no_barrier_path !11 {
 entry:
   %0 = tail call i64 @_Z12get_local_idj(i32 0) #2
   %cmp.i.i.i = icmp ult i64 %0, 2147483648
@@ -25,8 +25,8 @@ entry:
 
 if.end.i.i:                                       ; preds = %entry
   %div.zext.i.i = zext i32 %div14.i.i to i64
-  %ptridx.i.i67 = getelementptr inbounds float, float addrspace(1)* %_arg_5, i64 %div.zext.i.i
-  store float 0.000000e+00, float addrspace(1)* %ptridx.i.i67, align 4
+  %ptridx.i.i67 = getelementptr inbounds float, ptr addrspace(1) %_arg_5, i64 %div.zext.i.i
+  store float 0.000000e+00, ptr addrspace(1) %ptridx.i.i67, align 4
   br label %"_ZZZ4mainENK3$_0clERN2cl4sycl7handlerEENKUlNS1_7nd_itemILi3EEEE_clES5_.exit"
 
 "_ZZZ4mainENK3$_0clERN2cl4sycl7handlerEENKUlNS1_7nd_itemILi3EEEE_clES5_.exit": ; preds = %if.end.i.i, %entry
@@ -59,10 +59,10 @@ attributes #2 = { nounwind readnone }
 !3 = !{i32 1, i32 0}
 !4 = !{}
 !5 = !{i16 6, i16 14}
-!6 = !{void (i32, i32, i32, float addrspace(1)*)* @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE33_15clES2_EUlNS0_7nd_itemILi3EEEE36_8}
+!6 = !{ptr @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE33_15clES2_EUlNS0_7nd_itemILi3EEEE36_8}
 !7 = !{i32 0, i32 0, i32 0, i32 1}
 !8 = !{!"none", !"none", !"none", !"none"}
-!9 = !{!"int", !"int", !"int", !"float*"}
+!9 = !{!"int", !"int", !"int", !"ptr"}
 !10 = !{!"", !"", !"", !""}
 !11 = !{i1 true}
 

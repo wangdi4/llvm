@@ -1,4 +1,5 @@
 ; Compiled from:
+; (disable warn_channel_is_used_from_more_than_one_kernel)
 ; ----------------------------------------------------
 ; #pragma OPENCL EXTENSION cl_intel_channels: enable
 ;
@@ -30,16 +31,14 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
-
-@a = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@b = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@a = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@b = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define {{.*}} @foo
 ; CHECK: %[[A_PIPE:.*]] = load {{.*}} @a.pipe
@@ -52,128 +51,124 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[B_PIPE1:.*]] = load {{.*}} @b.pipe
 ; CHECK: call void @sendData2{{.*}} %[[A_PIPE1]], {{.*}} %[[B_PIPE1]]
 ;
-; CHECK: define {{.*}} @sendData(%opencl.pipe_rw_t {{.*}}* %0)
-; CHECK: %[[PIPE_ARG_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
-; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG_ADDR]]
+; CHECK: define {{.*}} @sendData(ptr addrspace(1) %ch)
+; CHECK: %[[PIPE_ARG_ADDR:.*]] = alloca ptr addrspace(1)
+; CHECK: store {{.*}} %ch, {{.*}} %[[PIPE_ARG_ADDR]]
 ; CHECK: %[[PIPE:.*]] = load {{.*}} %[[PIPE_ARG_ADDR]]
-; CHECK: %[[PIPE_BITCAST:.*]] = bitcast {{.*}} %[[PIPE]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[PIPE_BITCAST]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[PIPE]]
 ;
-; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, i32 %2)
-; CHECK: %[[PIPE_ARG0_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
-; CHECK: %[[PIPE_ARG1_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
-; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG0_ADDR]]
-; CHECK: store {{.*}} %1, {{.*}} %[[PIPE_ARG1_ADDR]]
+; CHECK: define {{.*}} @sendData2(ptr addrspace(1) %a, ptr addrspace(1) %b, i32 noundef %f)
+; CHECK: %[[PIPE_ARG0_ADDR:.*]] = alloca ptr addrspace(1), align 8
+; CHECK: %[[PIPE_ARG1_ADDR:.*]] = alloca ptr addrspace(1), align 8
+; CHECK: store {{.*}} %a, {{.*}} %[[PIPE_ARG0_ADDR]]
+; CHECK: store {{.*}} %b, {{.*}} %[[PIPE_ARG1_ADDR]]
 ; CHECK: %[[PIPE0:.*]] = load {{.*}} %[[PIPE_ARG0_ADDR]]
-; CHECK: %[[PIPE0_BITCAST:.*]] = bitcast {{.*}} %[[PIPE0]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE0_BITCAST]]
+; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE0]]
 ; CHECK: %[[PIPE1:.*]] = load {{.*}} %[[PIPE_ARG1_ADDR]]
-; CHECK: %[[PIPE1_BITCAST:.*]] = bitcast {{.*}} %[[PIPE1]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE1_BITCAST]]
+; CHECK: call i32 @__write_pipe{{.*}} %[[PIPE1]]
 
-; Function Attrs: convergent noinline nounwind
-define spir_func void @sendData(%opencl.channel_t addrspace(1)* %ch) #0 {
-entry:
-  %ch.addr = alloca %opencl.channel_t addrspace(1)*, align 4
-  store %opencl.channel_t addrspace(1)* %ch, %opencl.channel_t addrspace(1)** %ch.addr, align 4, !tbaa !8
-  %0 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)** %ch.addr, align 4, !tbaa !8
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %0, i32 5) #3
-  ret void
-}
-
-; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #1
-
-; Function Attrs: convergent nounwind
-define spir_kernel void @foo(i32 %f) #2 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local void @foo(i32 noundef %f) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !arg_type_null_val !5 {
 entry:
   %f.addr = alloca i32, align 4
-  store i32 %f, i32* %f.addr, align 4, !tbaa !16
-  %0 = load i32, i32* %f.addr, align 4, !tbaa !16
+  store i32 %f, ptr %f.addr, align 4, !tbaa !10
+  %0 = load i32, ptr %f.addr, align 4, !tbaa !10
   %cmp = icmp slt i32 %0, 0
   br i1 %cmp, label %if.then, label %if.else
 
 if.then:                                          ; preds = %entry
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @a, align 4, !tbaa !8
-  call spir_func void @sendData(%opencl.channel_t addrspace(1)* %1) #3
+  %1 = load ptr addrspace(1), ptr addrspace(1) @a, align 4, !tbaa !14
+  call void @sendData(ptr addrspace(1) %1) #3
   br label %if.end
 
 if.else:                                          ; preds = %entry
-  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @b, align 4, !tbaa !8
-  call spir_func void @sendData(%opencl.channel_t addrspace(1)* %2) #3
+  %2 = load ptr addrspace(1), ptr addrspace(1) @b, align 4, !tbaa !14
+  call void @sendData(ptr addrspace(1) %2) #3
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   ret void
 }
 
-; Function Attrs: convergent noinline nounwind
-define spir_func void @sendData2(%opencl.channel_t addrspace(1)* %a, %opencl.channel_t addrspace(1)* %b, i32 %f) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local void @bar(i32 noundef %f) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !arg_type_null_val !5 {
 entry:
-  %a.addr = alloca %opencl.channel_t addrspace(1)*, align 4
-  %b.addr = alloca %opencl.channel_t addrspace(1)*, align 4
   %f.addr = alloca i32, align 4
-  store %opencl.channel_t addrspace(1)* %a, %opencl.channel_t addrspace(1)** %a.addr, align 4, !tbaa !8
-  store %opencl.channel_t addrspace(1)* %b, %opencl.channel_t addrspace(1)** %b.addr, align 4, !tbaa !8
-  store i32 %f, i32* %f.addr, align 4, !tbaa !16
-  %0 = load i32, i32* %f.addr, align 4, !tbaa !16
+  store i32 %f, ptr %f.addr, align 4, !tbaa !10
+  %0 = load ptr addrspace(1), ptr addrspace(1) @a, align 4, !tbaa !14
+  %1 = load ptr addrspace(1), ptr addrspace(1) @b, align 4, !tbaa !14
+  %2 = load i32, ptr %f.addr, align 4, !tbaa !10
+  call void @sendData2(ptr addrspace(1) %0, ptr addrspace(1) %1, i32 noundef %2) #3
+  ret void
+}
+
+; Function Attrs: convergent noinline norecurse nounwind
+define dso_local void @sendData(ptr addrspace(1) %ch) #1 !arg_type_null_val !15 {
+entry:
+  %ch.addr = alloca ptr addrspace(1), align 4
+  store ptr addrspace(1) %ch, ptr %ch.addr, align 4, !tbaa !14
+  %0 = load ptr addrspace(1), ptr %ch.addr, align 4, !tbaa !14
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %0, i32 noundef 5) #3
+  ret void
+}
+
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1), i32 noundef) #2
+
+; Function Attrs: convergent noinline norecurse nounwind
+define dso_local void @sendData2(ptr addrspace(1) %a, ptr addrspace(1) %b, i32 noundef %f) #1 !arg_type_null_val !16 {
+entry:
+  %a.addr = alloca ptr addrspace(1), align 4
+  %b.addr = alloca ptr addrspace(1), align 4
+  %f.addr = alloca i32, align 4
+  store ptr addrspace(1) %a, ptr %a.addr, align 4, !tbaa !14
+  store ptr addrspace(1) %b, ptr %b.addr, align 4, !tbaa !14
+  store i32 %f, ptr %f.addr, align 4, !tbaa !10
+  %0 = load i32, ptr %f.addr, align 4, !tbaa !10
   %tobool = icmp ne i32 %0, 0
   br i1 %tobool, label %cond.true, label %cond.false
 
 cond.true:                                        ; preds = %entry
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)** %a.addr, align 4, !tbaa !8
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %1, i32 5) #3
+  %1 = load ptr addrspace(1), ptr %a.addr, align 4, !tbaa !14
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %1, i32 noundef 5) #3
   br label %cond.end
 
 cond.false:                                       ; preds = %entry
-  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)** %b.addr, align 4, !tbaa !8
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %2, i32 5) #3
+  %2 = load ptr addrspace(1), ptr %b.addr, align 4, !tbaa !14
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %2, i32 noundef 5) #3
   br label %cond.end
 
 cond.end:                                         ; preds = %cond.false, %cond.true
   ret void
 }
 
-; Function Attrs: convergent nounwind
-define spir_kernel void @bar(i32 %f) #2 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 {
-entry:
-  %f.addr = alloca i32, align 4
-  store i32 %f, i32* %f.addr, align 4, !tbaa !16
-  %0 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @a, align 4, !tbaa !8
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @b, align 4, !tbaa !8
-  %2 = load i32, i32* %f.addr, align 4, !tbaa !16
-  call spir_func void @sendData2(%opencl.channel_t addrspace(1)* %0, %opencl.channel_t addrspace(1)* %1, i32 %2) #3
-  ret void
-}
+attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" }
+attributes #1 = { convergent noinline norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
+attributes #2 = { convergent nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
+attributes #3 = { convergent nounwind }
 
-attributes #0 = { convergent noinline nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { convergent }
-
-!llvm.module.flags = !{!4}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!5}
-!opencl.spir.version = !{!5}
-!opencl.used.extensions = !{!6}
-!opencl.used.optional.core.features = !{!6}
-!opencl.compiler.options = !{!6}
-!llvm.ident = !{!7}
+!opencl.ocl.version = !{!1}
+!opencl.spir.version = !{!1}
+!opencl.compiler.options = !{!2}
+!llvm.ident = !{!3}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 4}
-!4 = !{i32 1, !"wchar_size", i32 4}
-!5 = !{i32 2, i32 0}
-!6 = !{}
-!7 = !{!"clang version 6.0.0 "}
-!8 = !{!9, !9, i64 0}
-!9 = !{!"omnipotent char", !10, i64 0}
-!10 = !{!"Simple C/C++ TBAA"}
-!11 = !{i32 0}
-!12 = !{!"none"}
-!13 = !{!"int"}
-!14 = !{!""}
-!15 = !{i1 false}
-!16 = !{!17, !17, i64 0}
-!17 = !{!"int", !9, i64 0}
+!1 = !{i32 2, i32 0}
+!2 = !{}
+!3 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!4 = !{ptr @foo, ptr @bar}
+!5 = !{i32 0}
+!6 = !{!"none"}
+!7 = !{!"int"}
+!8 = !{!""}
+!9 = !{i1 false}
+!10 = !{!11, !11, i64 0}
+!11 = !{!"int", !12, i64 0}
+!12 = !{!"omnipotent char", !13, i64 0}
+!13 = !{!"Simple C/C++ TBAA"}
+!14 = !{!12, !12, i64 0}
+!15 = !{target("spirv.Channel") zeroinitializer}
+!16 = !{target("spirv.Channel") zeroinitializer, target("spirv.Channel") zeroinitializer, i32 0}
 
 ; DEBUGIFY-NOT: WARNING: Missing line

@@ -1,8 +1,5 @@
 ; Tests that we'll generate the store to the final suspend index if we see the unwind coro end.
-; INTEL_CUSTOMIZATION
-; In xmain, the GEP(X,0,0) removal is off by default.
-; RUN: opt < %s -xmain-enable-gep0-removal -passes='cgscc(coro-split),simplifycfg,early-cse' -S | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; RUN: opt < %s -passes='cgscc(coro-split),simplifycfg,early-cse' -S | FileCheck %s
 
 define ptr @unwind_coro_end() presplitcoroutine personality i32 3 {
 entry:
@@ -20,9 +17,10 @@ init_suspend:
   ret ptr %hdl
 
 init_resume:
-  br label %susp
+  invoke void @print(i32 1)
+          to label %final_suspend unwind label %lpad
 
-susp:
+final_suspend:
   %0 = call i8 @llvm.coro.suspend(token none, i1 true)
   switch i8 %0, label %suspend [i8 0, label %resume
                                 i8 1, label %suspend]
@@ -52,6 +50,19 @@ eh.resume:
 
 ; Tests that we need to store the final index if we see unwind coro end.
 ; CHECK: define{{.*}}@unwind_coro_end.resume
+; CHECK: invoke{{.*}}print
+; CHECK-NEXT: to label %[[RESUME:.*]] unwind label %[[LPAD:.*]]
+
+; CHECK: [[RESUME]]:
+; CHECK-NOT: {{.*:}}
+; CHECK: store ptr null, ptr %hdl
+; CHECK-NOT: {{.*:}}
+; CHECK: store i1 true, ptr %index.addr
+
+; CHECK: [[LPAD]]:
+; CHECK-NOT: {{.*:}}
+; CHECK: store ptr null, ptr %hdl
+; CHECK-NOT: {{.*:}}
 ; CHECK: store i1 true, ptr %index.addr
 
 ; Tests the use of final index in the destroy function.

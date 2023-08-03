@@ -14,11 +14,11 @@ vpand %ymm1, %ymm0, %ymm0
 
 # CHECK:      Iterations:        100
 # CHECK-NEXT: Instructions:      300
-# CHECK-NEXT: Total Cycles:      503
+# CHECK-NEXT: Total Cycles:      303
 # CHECK-NEXT: Total uOps:        500
 
-# CHECK:      Dispatch Width:    6
-# CHECK-NEXT: uOps Per Cycle:    0.99
-# CHECK-NEXT: IPC:               0.60
+# CHECK:      Dispatch Width:    10
+# CHECK-NEXT: uOps Per Cycle:    1.65
+# CHECK-NEXT: IPC:               0.99
 # CHECK-NEXT: Block RThroughput: 1.0
 # end INTEL_FEATURE_CPU_RYL

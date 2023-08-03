@@ -29,11 +29,11 @@
 ; CHECK-NEXT:       Shadow Stack GC Lowering
 ; CHECK-NEXT:       Lower constant intrinsics
 ; CHECK-NEXT:       Remove unreachable blocks from the CFG
-; CHECK-NEXT:       MapIntrinToIml ;INTEL
 ; CHECK-NEXT:       Expand vector predication intrinsics
 ; CHECK-NEXT:       Scalarize Masked Memory Intrinsics
 ; CHECK-NEXT:       Expand reduction intrinsics
 ; CHECK-NEXT:       Expand complex intrinsics ;INTEL
+; CHECK-NEXT:       MapIntrinToIml ;INTEL
 ; CHECK-NEXT:       Expand indirectbr instructions
 ; CHECK-NEXT:       FPBuiltin Function Selection
 ; CHECK-NEXT:       Exception handling preparation
@@ -70,6 +70,7 @@
 ; CHECK-NEXT:       Two-Address instruction pass
 ; CHECK-NEXT:       Fast Register Allocator
 ; CHECK-NEXT:       Fast Tile Register Configure
+; CHECK-NEXT:       MachineDominator Tree Construction
 ; CHECK-NEXT:       X86 Lower Tile Copy
 ; CHECK-NEXT:       Bundle Machine CFG Edges
 ; CHECK-NEXT:       X86 FP Stackifier

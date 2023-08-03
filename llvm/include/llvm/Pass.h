@@ -47,6 +47,9 @@
 
 #include "llvm/Config/llvm-config.h" // INTEL
 
+#ifdef EXPENSIVE_CHECKS
+#include <cstdint>
+#endif
 #include <string>
 
 namespace llvm {

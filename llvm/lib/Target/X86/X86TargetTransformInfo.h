@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -121,6 +121,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningNoDomainDelayShuffle,
       X86::TuningNoDomainDelayBlend,
       X86::TuningPreferShiftShuffle,
+      X86::TuningFastImmVectorShift,
 
       // Perf-tuning flags.
       X86::TuningFastGather,
@@ -218,6 +219,7 @@ public:
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
                                        const Value *Base,
                                        const TTI::PointersChainInfo &Info,
+                                       Type *AccessTy,
                                        TTI::TargetCostKind CostKind);
   InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                             const SCEV *Ptr);
@@ -243,10 +245,12 @@ public:
                                              std::optional<FastMathFlags> FMF,
                                              TTI::TargetCostKind CostKind);
 
-  InstructionCost getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned);
+  InstructionCost getMinMaxCost(Intrinsic::ID IID, Type *Ty,
+                                TTI::TargetCostKind CostKind,
+                                FastMathFlags FMF);
 
-  InstructionCost getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
-                                         bool IsUnsigned,
+  InstructionCost getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
+                                         FastMathFlags FMF,
                                          TTI::TargetCostKind CostKind);
 
   InstructionCost getInterleavedMemoryOpCost(
@@ -326,6 +330,7 @@ public:
   bool isIntelAdvancedOptimEnabled() const;
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
+  bool isIntelLibMAllowed() const;
   unsigned getMaxScale() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
@@ -342,6 +347,7 @@ public:
   bool has2KDSB() const;
   bool has4KDSB() const;
   bool displacementFoldable() const;
+  void getVectorUnrollingPreferences(TTI::VectorUnrollingPreferences &) const;
 #endif // INTEL_CUSTOMIZATION
   bool isLegalAltInstr(VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
                        const SmallBitVector &OpcodeMask) const;
@@ -352,6 +358,11 @@ public:
                            const Function *Callee) const;
   bool areTypesABICompatible(const Function *Caller, const Function *Callee,
                              const ArrayRef<Type *> &Type) const;
+
+  uint64_t getMaxMemIntrinsicInlineSizeThreshold() const {
+    return ST->getMaxInlineSizeThreshold();
+  }
+
   TTI::MemCmpExpansionOptions enableMemCmpExpansion(bool OptSize,
                                                     bool IsZeroCmp) const;
   bool prefersVectorizedAddressing() const;

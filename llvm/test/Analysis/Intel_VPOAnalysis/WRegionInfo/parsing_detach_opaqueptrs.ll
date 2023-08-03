@@ -18,8 +18,8 @@
 ;   }
 ; }
 
-; CHECK: DETACH clause (size=1): (ptr %e) , TYPED (TYPE: i64, NUM_ELEMENTS: i32 1)
-; CHECK: DETACH clause (size=1): BYREF(ptr %e_ref) , TYPED (TYPE: i64, NUM_ELEMENTS: i32 1)
+; CHECK: DETACH clause (size=1): TYPED(ptr %e, TYPE: i64, NUM_ELEMENTS: i32 1)
+; CHECK: DETACH clause (size=1): BYREF,TYPED(ptr %e_ref, TYPE: i64, NUM_ELEMENTS: i32 1)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

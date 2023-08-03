@@ -125,12 +125,7 @@ GetAllObjects(OCLObjectsMap<typename Object::OCLObjectHandleType> &mapObjects,
  * Forcibly shutdown all contextes
  *
  ******************************************************************/
-typedef std::list<SharedPtr<OclCommandQueue>> QueueListType;
 void ContextModule::ShutDown(bool wait_for_finish) {
-  QueueListType queue_list;
-  QueueListType::iterator queue_list_it;
-  QueueListType::iterator queue_list_it_end;
-
   FrameworkProxy *framework_proxy = FrameworkProxy::Instance();
   ExecutionModule *execution_module = framework_proxy->GetExecutionModule();
   EventsManager *eventsManager = execution_module->GetEventsManager();
@@ -138,36 +133,31 @@ void ContextModule::ShutDown(bool wait_for_finish) {
   // 1. Cancel all build tasks
   framework_proxy->CancelAllTasks(wait_for_finish);
 
-  // 2. Delete all user-accessible queues. If queue already holds some command
-  // it will not be deleted.
-  framework_proxy->GetExecutionModule()->DeleteAllActiveQueues(true);
+  // 2. Switch all active command queues to a cancel state
+  // If a command is enqueued just before this, there is a race condition
+  // between 'RuntimeCommandTask::Cancel' and 'TaskExecutor::execute_command'.
+  // Since we will try to finish all active queues below, this behavior try to
+  // cancel all active queues is not necessary. So we intentionally disable this
+  // code here.
+#if 0
+  execution_module->CancelAllActiveQueues();
+#endif
 
-  // 3. Loop though all existing queues and switch them to a cancel state
-  m_setQueues.getObjects(queue_list);
-  queue_list_it_end = queue_list.end();
-
-  for (queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end;
-       ++queue_list_it) {
-    SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
-    pQueue->CancelAll();
-  }
-
-  // 4. Signal all non-completed user events to push queues forward
+  // 3. Signal all non-completed user events to push queues forward
   //    Release all non-released user events
   execution_module->ReleaseAllUserEvents(true);
 
-  // 5. clFinish() of all queueus
-  if (wait_for_finish) {
-    for (queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end;
-         ++queue_list_it) {
-      SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
-      if (pQueue.DynamicCast<IOclCommandQueueBase>().GetPtr() != NULL) {
-        execution_module->Finish(pQueue.DynamicCast<IOclCommandQueueBase>());
-      }
-    }
+  // 4. clFinish() of all queueus
+  // FIXME: Some fpga tests intentionally write a kernel with infinite loop that
+  // will cause hang at this line. So we temporarily allow FPGA emulator not to
+  // wait for command queues finish.
+  if (wait_for_finish &&
+      framework_proxy->GetOCLConfig()->GetDeviceMode() != FPGA_EMU_DEVICE) {
+    execution_module->FinishAllActiveQueues();
   }
 
-  queue_list.clear();
+  // 5. Delete all active queues
+  execution_module->DeleteAllActiveQueues(true);
 
   // 6. Emulate Release of all objects maintained by user
   RemoveAllMemObjects(true);
@@ -185,20 +175,31 @@ void ContextModule::ShutDown(bool wait_for_finish) {
 
   m_pPlatformModule->RemoveAllDevices(true);
 
-  // 7. Ensure that all devices really closed
+// Intentionally disable this code due to shutdown issue
+#if 0
+  // FIXME: Autorun kernels will hold some internal objects so that devices
+  // can't be closed during shutdown process. This is a workaround that we
+  // don't wait for devices to close in FPGA emulator device mode. And the right
+  // way is to refine execution model for autorun kernel so that we can decide
+  // when to turn it off.
+  if (framework_proxy->GetOCLConfig()->GetDeviceMode() != FPGA_EMU_DEVICE) {
+    // 7. Ensure that all devices really closed
 #ifdef _DEBUG
-  const unsigned long long TIMEOUT = 100 * 1000000000LL; // 100 sec
-  const unsigned long long endTime = HostTime() + TIMEOUT;
-  while (0 < m_pPlatformModule->GetActiveDeviceCount()) {
-    if (HostTime() > endTime) {
-      DumpSharedPts("ContextModule::ShutDown - Device Agents cannot be closed, "
-                    "time out. Only SharedPtrs local to intelocl DLL",
-                    true);
-      break;
+    const unsigned long long TIMEOUT = 100 * 1000000000LL; // 100 sec
+    const unsigned long long endTime = HostTime() + TIMEOUT;
+    while (0 < m_pPlatformModule->GetActiveDeviceCount()) {
+      if (HostTime() > endTime) {
+        DumpSharedPts(
+            "ContextModule::ShutDown - Device Agents cannot be closed, "
+            "time out. Only SharedPtrs local to intelocl DLL",
+            true);
+        break;
+      }
     }
-  }
 #else
-  m_pPlatformModule->WaitForAllDevices();
+    m_pPlatformModule->WaitForAllDevices();
+#endif
+  }
 #endif
 
   // At that point still some internal threads in different DLLs may handle
@@ -1297,26 +1298,10 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
   }
 
   // get kernels and add them to the context module's map list
-  cl_uint uiKerenls = 0;
-  clErrRet = pProgram->GetKernels(0, nullptr, &uiKerenls);
-  if (CL_FAILED(clErrRet)) {
-    return CL_ERR_OUT(clErrRet);
-  }
-  if (uiKerenls > 0) {
-    SharedPtr<Kernel> *ppKernels = new SharedPtr<Kernel>[uiKerenls];
-    if (nullptr == ppKernels) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-    clErrRet = pProgram->GetKernels(uiKerenls, ppKernels, nullptr);
-    if (CL_FAILED(clErrRet)) {
-      delete[] ppKernels;
-      return CL_ERR_OUT(clErrRet);
-    }
-    for (cl_uint ui = 0; ui < uiKerenls; ++ui) {
-      m_mapKernels.AddObject(ppKernels[ui], false);
-    }
-
-    delete[] ppKernels;
+  std::vector<SharedPtr<Kernel>> Kernels;
+  pProgram->GetKernels(Kernels);
+  for (const auto &Kern : Kernels) {
+    m_mapKernels.AddObject(Kern, false);
   }
   return CL_SUCCESS;
 }
@@ -2815,6 +2800,11 @@ SharedPtr<Kernel> ContextModule::GetKernel(cl_kernel clKernel) {
       .DynamicCast<Kernel>();
 }
 
+SharedPtr<Program> ContextModule::GetProgram(const cl_program clProgram) {
+  return m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
+      .DynamicCast<Program>();
+}
+
 SharedPtr<MemoryObject>
 ContextModule::GetMemoryObject(const cl_mem clMemObjId) {
   return m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObjId)
@@ -3530,14 +3520,6 @@ cl_int ContextModule::SetKernelArgUSMPointer(cl_kernel clKernel,
 // Utility functions
 //
 /////////////////////////////////////////////////////////////////////////////
-void ContextModule::CommandQueueCreated(OclCommandQueue *queue) {
-  m_setQueues.add(queue);
-}
-
-void ContextModule::CommandQueueRemoved(OclCommandQueue *queue) {
-  m_setQueues.remove(queue);
-}
-
 void ContextModule::RegisterMappedMemoryObject(MemoryObject *pMemObj) {
   m_setMappedMemObjects.add(pMemObj);
 }

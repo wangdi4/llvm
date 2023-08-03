@@ -5,36 +5,36 @@
 ; The test checks that the cost of i16 loads in CM dumps is 1 (i.e. the
 ; load is recognized to be unit stride load.
 
-; CHECK: Cost 1.046875 for i16 %vp{{[0-9]+}} = load i16* %vp{{[0-9]+}}
-; CHECK: Cost 1.046875 for i16 %vp{{[0-9]+}} = load i16* %vp{{[0-9]+}}
+; CHECK: Cost 1.046875 for i16 %vp{{[0-9]+}} = load ptr %vp{{[0-9]+}}
+; CHECK: Cost 1.046875 for i16 %vp{{[0-9]+}} = load ptr %vp{{[0-9]+}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.wombat = type { i32, i32, i32, i32, i8* }
+%struct.wombat = type { i32, i32, i32, i32, ptr }
 
 @global = external hidden unnamed_addr global %struct.wombat
 @global.1 = external hidden unnamed_addr global %struct.wombat
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden void @zot(i32* nocapture readonly %arg, i32* nocapture readnone %arg1, i64 %arg2, i64 %arg3, i16* nocapture %arg4, i64 %arg5, i64 %arg6, i64 %arg7, i16* nocapture readonly %arg8, i16* nocapture readonly %arg9, i64 %arg10, i64 %arg11) #0 {
+define hidden void @zot(ptr nocapture readonly %arg, ptr nocapture readnone %arg1, i64 %arg2, i64 %arg3, ptr nocapture %arg4, i64 %arg5, i64 %arg6, i64 %arg7, ptr nocapture readonly %arg8, ptr nocapture readonly %arg9, i64 %arg10, i64 %arg11) #0 {
 bb:
   %tmp = alloca i32, align 4
   %tmp12 = alloca i32, align 4
   %tmp13 = alloca i32, align 4
   %tmp14 = alloca i32, align 4
-  store i32 0, i32* %tmp, align 4
+  store i32 0, ptr %tmp, align 4
   %tmp15 = trunc i64 %arg3 to i32
   %tmp16 = trunc i64 %arg5 to i32
   %tmp17 = trunc i64 %arg7 to i32
   %tmp18 = trunc i64 %arg11 to i32
-  %tmp19 = load i32, i32* %arg, align 4
-  store i32 0, i32* %tmp12, align 4
-  store i32 %tmp18, i32* %tmp13, align 4
-  store i32 1, i32* %tmp14, align 4
-  call void @__kmpc_for_static_init_4(%struct.wombat* nonnull @global, i32 %tmp19, i32 34, i32* nonnull %tmp, i32* nonnull %tmp12, i32* nonnull %tmp13, i32* nonnull %tmp14, i32 1, i32 1)
-  %tmp20 = load i32, i32* %tmp12, align 4
-  %tmp21 = load i32, i32* %tmp13, align 4
+  %tmp19 = load i32, ptr %arg, align 4
+  store i32 0, ptr %tmp12, align 4
+  store i32 %tmp18, ptr %tmp13, align 4
+  store i32 1, ptr %tmp14, align 4
+  call void @__kmpc_for_static_init_4(ptr nonnull @global, i32 %tmp19, i32 34, ptr nonnull %tmp, ptr nonnull %tmp12, ptr nonnull %tmp13, ptr nonnull %tmp14, i32 1, i32 1)
+  %tmp20 = load i32, ptr %tmp12, align 4
+  %tmp21 = load i32, ptr %tmp13, align 4
   %tmp22 = icmp sgt i32 %tmp20, %tmp21
   br i1 %tmp22, label %bb48, label %bb23
 
@@ -72,7 +72,7 @@ bb47:                                             ; preds = %bb69
   br label %bb48
 
 bb48:                                             ; preds = %bb47, %bb
-  tail call void @__kmpc_for_static_fini(%struct.wombat* nonnull @global.1, i32 %tmp19)
+  tail call void @__kmpc_for_static_fini(ptr nonnull @global.1, i32 %tmp19)
   ret void
 
 bb49:                                             ; preds = %bb80, %bb46
@@ -92,7 +92,7 @@ bb49:                                             ; preds = %bb80, %bb46
   %tmp63 = mul nuw nsw i32 %tmp62, 1096
   %tmp64 = add nsw i32 %tmp60, %tmp63
   %tmp65 = sext i32 %tmp64 to i64
-  %tmp66 = getelementptr inbounds i16, i16* %arg4, i64 %tmp65
+  %tmp66 = getelementptr inbounds i16, ptr %arg4, i64 %tmp65
   %tmp67 = sext i32 %tmp56 to i64
   br label %bb72
 
@@ -171,8 +171,8 @@ bb117:                                            ; preds = %bb176
 
 bb119:                                            ; preds = %bb117, %bb115
   %tmp120 = phi i16 [ %tmp116, %bb115 ], [ %tmp118, %bb117 ]
-  %tmp121 = getelementptr inbounds i16, i16* %tmp66, i64 %tmp73
-  store i16 %tmp120, i16* %tmp121, align 2
+  %tmp121 = getelementptr inbounds i16, ptr %tmp66, i64 %tmp73
+  store i16 %tmp120, ptr %tmp121, align 2
   %tmp122 = add nuw nsw i64 %tmp73, 1
   %tmp123 = icmp eq i64 %tmp122, 1089
   br i1 %tmp123, label %bb80, label %bb72
@@ -193,12 +193,12 @@ bb155:                                            ; preds = %bb155, %bb106
   %tmp158 = trunc i64 %tmp156 to i32
   %tmp159 = add i32 %tmp112, %tmp158
   %tmp160 = sext i32 %tmp159 to i64
-  %tmp161 = getelementptr inbounds i16, i16* %arg8, i64 %tmp160
-  %tmp162 = load i16, i16* %tmp161, align 2
+  %tmp161 = getelementptr inbounds i16, ptr %arg8, i64 %tmp160
+  %tmp162 = load i16, ptr %tmp161, align 2
   %tmp163 = zext i16 %tmp162 to i32
   %tmp164 = add nsw i64 %tmp114, %tmp156
-  %tmp165 = getelementptr inbounds i16, i16* %arg9, i64 %tmp164
-  %tmp166 = load i16, i16* %tmp165, align 2
+  %tmp165 = getelementptr inbounds i16, ptr %arg9, i64 %tmp164
+  %tmp166 = load i16, ptr %tmp165, align 2
   %tmp167 = zext i16 %tmp166 to i32
   %tmp168 = sub nsw i32 %tmp163, %tmp167
   %tmp169 = icmp slt i32 %tmp168, 0
@@ -218,10 +218,10 @@ bb176:                                            ; preds = %bb155
 }
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_init_4(%struct.wombat* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32) local_unnamed_addr #1
+declare void @__kmpc_for_static_init_4(ptr nocapture readonly, i32, i32, ptr nocapture, ptr nocapture, ptr nocapture, ptr nocapture, i32, i32) local_unnamed_addr #1
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_fini(%struct.wombat* nocapture readonly, i32) local_unnamed_addr #1
+declare void @__kmpc_for_static_fini(ptr nocapture readonly, i32) local_unnamed_addr #1
 
 attributes #0 = { nofree nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "mt-func"="true" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nofree nounwind }

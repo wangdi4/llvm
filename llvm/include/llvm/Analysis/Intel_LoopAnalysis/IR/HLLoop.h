@@ -187,6 +187,12 @@ private:
   // Contains info specified in prefetching pragma.
   SmallVector<PrefetchingPragmaInfo, 0> PrefetchingInfoVec;
 
+  // Contains NoAlias scopes specified in
+  // @llvm.experimental.noalias.scope.decl() inside the loop in the incoming IR.
+  // We will generate @llvm.experimental.noalias.scope.decl() using them during
+  // CodeGen.
+  SmallVector<MDNode *, 2> NoAliasScopeLists;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -809,6 +815,9 @@ public:
   const HLInst* getSIMDEntryIntrinsic() const {
     return getDirective(DIR_OMP_SIMD);
   }
+
+  // Return SIMD Exit intrinsic
+  const HLInst *getSIMDExitIntrinsic() const;
 
   /// Checks whether SIMD directive is attached to the loop or its parents.
   bool isInSIMDRegion() const {
@@ -1478,6 +1487,23 @@ public:
   ///   i++;
   /// } while (i != 5);
   bool canTripCountEqualIVTypeRangeSize() const;
+
+  /// Adds a NoAlias scope list to the loop.
+  void addNoAliasScopeList(MDNode *ScopeList) {
+    assert(ScopeList && "Attempt to add null scope!");
+    NoAliasScopeLists.push_back(ScopeList);
+  }
+
+  /// Returns all the NoAlias scope lists associated with this loop.
+  ArrayRef<MDNode *> getNoAliasScopeLists() const { return NoAliasScopeLists; }
+
+  /// Removes all NoAlias scope lists associated with this loop.
+  void clearNoAliasScopeLists() { NoAliasScopeLists.clear(); }
+
+  /// Creates a new scoped list for each scope in \p NoAliasScopeLists which is
+  /// mapped to a different scope in \p NoAliasScopeMap and adds it to loop.
+  void addMappedNoAliasScopes(ArrayRef<MDNode *> NoAliasScopeLists,
+                              NoAliasScopeMapTy &NoAliasScopeMap);
 };
 
 /// Loop information related to its parallel characteristics, such as

@@ -24,8 +24,8 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
   %and = and i32 %i.05, 1023
   %idxprom = zext i32 %and to i64
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @A, i64 0, i64 %idxprom
-  store i32 %i.05, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @A, i64 0, i64 %idxprom
+  store i32 %i.05, ptr %arrayidx, align 4
   %inc = add nuw i32 %i.05, 1
   %cmp = icmp eq i32 %inc, -1
   br i1 %cmp, label %for.end, label %for.body

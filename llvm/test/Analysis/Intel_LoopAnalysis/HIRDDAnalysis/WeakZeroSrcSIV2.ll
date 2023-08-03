@@ -14,22 +14,22 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = common global [200 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @sub(float* nocapture %A, i32 %N) #0 {
+define void @sub(ptr nocapture %A, i32 %N) #0 {
 entry:
-  %arrayidx = getelementptr inbounds float, float* %A, i64 100
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 100
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
   %conv = fptosi float %0 to i32
-  store i32 %conv, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @B, i64 0, i64 100), align 16, !tbaa !1
+  store i32 %conv, ptr getelementptr inbounds ([200 x i32], ptr @B, i64 0, i64 100), align 16, !tbaa !1
   ret void
 
 for.body:                                         ; preds = %for.body, %entry
   %i.08 = phi i64 [ 1, %entry ], [ %inc, %for.body ]
-  %0 = load float, float* %arrayidx, align 4, !tbaa !5
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !5
   %conv1 = sitofp i64 %i.08 to float
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %i.08
-  store float %conv1, float* %arrayidx2, align 4, !tbaa !5
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %i.08
+  store float %conv1, ptr %arrayidx2, align 4, !tbaa !5
   %inc = add nuw nsw i64 %i.08, 1
   %exitcond = icmp eq i64 %inc, 101
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

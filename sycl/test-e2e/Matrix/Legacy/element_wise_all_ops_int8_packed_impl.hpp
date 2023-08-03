@@ -36,7 +36,7 @@ void matrix_verify_add(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<T, TK, TN, matrix_layout::packed_b> sub_b(sg);
 
            joint_matrix_fill(sg, sub_b, 5);
@@ -45,10 +45,11 @@ void matrix_verify_add(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_b.length(); i++) {
              wi_slice_b[i] = wi_slice_b[i] + 2;
            }
-           joint_matrix_store(sg, sub_b,
-                              accA.get_pointer() + (sg_startx * TM) * N * 4 +
-                                  sg_starty / SG_SZ * TN * 4,
-                              N * 4, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_b,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N * 4 + sg_starty / SG_SZ * TN * 4,
+               N * 4, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufB.get_host_access(read_only), ref);
@@ -69,7 +70,7 @@ void matrix_verify_sub(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<int8_t, TK, TN, matrix_layout::packed_b> sub_b(sg);
 
            joint_matrix_fill(sg, sub_b, 5);
@@ -78,10 +79,11 @@ void matrix_verify_sub(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_b.length(); i++) {
              wi_slice_b[i] = wi_slice_b[i] - 2;
            }
-           joint_matrix_store(sg, sub_b,
-                              accA.get_pointer() + (sg_startx * TM) * N * 4 +
-                                  sg_starty / SG_SZ * TN * 4,
-                              N * 4, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_b,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N * 4 + sg_starty / SG_SZ * TN * 4,
+               N * 4, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufB.get_host_access(read_only), ref);
@@ -102,7 +104,7 @@ void matrix_verify_mul(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<int8_t, TK, TN, matrix_layout::packed_b> sub_b(sg);
 
            joint_matrix_fill(sg, sub_b, 5);
@@ -111,10 +113,11 @@ void matrix_verify_mul(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_b.length(); i++) {
              wi_slice_b[i] = wi_slice_b[i] * 3;
            }
-           joint_matrix_store(sg, sub_b,
-                              accA.get_pointer() + (sg_startx * TM) * N * 4 +
-                                  sg_starty / SG_SZ * TN * 4,
-                              N * 4, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_b,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N * 4 + sg_starty / SG_SZ * TN * 4,
+               N * 4, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufB.get_host_access(read_only), ref);
@@ -135,7 +138,7 @@ void matrix_verify_div(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<int8_t, TK, TN, matrix_layout::packed_b> sub_b(sg);
 
            joint_matrix_fill(sg, sub_b, 4);
@@ -144,10 +147,11 @@ void matrix_verify_div(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            for (int i = 0; i < wi_slice_b.length(); i++) {
              wi_slice_b[i] = wi_slice_b[i] / 2;
            }
-           joint_matrix_store(sg, sub_b,
-                              accA.get_pointer() + (sg_startx * TM) * N * 4 +
-                                  sg_starty / SG_SZ * TN * 4,
-                              N * 4, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_b,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N * 4 + sg_starty / SG_SZ * TN * 4,
+               N * 4, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufB.get_host_access(read_only), ref);
@@ -168,7 +172,7 @@ void matrix_verify_logic(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<int8_t, TK, TN, matrix_layout::packed_b> sub_b(sg);
 
            joint_matrix_fill(sg, sub_b, 5);
@@ -192,10 +196,11 @@ void matrix_verify_logic(queue q, big_matrix<T, M, N> &A, nd_range<2> &r,
                }
              }
            }
-           joint_matrix_store(sg, sub_b,
-                              accA.get_pointer() + (sg_startx * TM) * N * 4 +
-                                  sg_starty / SG_SZ * TN * 4,
-                              N * 4, matrix_layout::row_major);
+           joint_matrix_store(
+               sg, sub_b,
+               accA.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * TM) * N * 4 + sg_starty / SG_SZ * TN * 4,
+               N * 4, matrix_layout::row_major);
          }); // parallel for
    }).wait();
   assert_ops_ref<T, M, N>(bufB.get_host_access(read_only), ref);

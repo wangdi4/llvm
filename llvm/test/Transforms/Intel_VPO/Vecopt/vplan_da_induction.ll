@@ -12,7 +12,7 @@ define void @test_induction_strides(i64* %g.arr) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1

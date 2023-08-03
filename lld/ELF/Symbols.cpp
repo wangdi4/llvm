@@ -62,9 +62,7 @@ LLVM_ATTRIBUTE_UNUSED static inline void assertSymbols() {
 
 // Returns a symbol for an error message.
 static std::string maybeDemangleSymbol(StringRef symName) {
-  if (elf::config->demangle)
-    return demangle(symName.str());
-  return symName.str();
+  return elf::config->demangle ? demangle(symName.str()) : symName.str();
 }
 
 std::string lld::toString(const elf::Symbol &sym) {
@@ -88,6 +86,7 @@ Defined *ElfSym::globalOffsetTable;
 Defined *ElfSym::mipsGp;
 Defined *ElfSym::mipsGpDisp;
 Defined *ElfSym::mipsLocalGp;
+Defined *ElfSym::riscvGlobalPointer;
 Defined *ElfSym::relaIpltStart;
 Defined *ElfSym::relaIpltEnd;
 Defined *ElfSym::tlsModuleBase;

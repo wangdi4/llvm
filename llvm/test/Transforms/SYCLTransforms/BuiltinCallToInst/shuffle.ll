@@ -1,27 +1,26 @@
 ; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(<4 x i32> %x, <8 x i32> %y, <2 x i8> %c, <2 x double> %d, <4 x i32> addrspace(1)* %p1, <8 x i32> addrspace(1)* %p2, <16 x i32> addrspace(1)* %p3, <8 x i32> addrspace(1)* %p4, <2 x i8> addrspace(1)* %p5, <2 x double> addrspace(1)* %p6) nounwind {
+define void @sample_test(<4 x i32> %x, <8 x i32> %y, <2 x i8> %c, <2 x double> %d, ptr addrspace(1) %p1, ptr addrspace(1) %p2, ptr addrspace(1) %p3, ptr addrspace(1) %p4, ptr addrspace(1) %p5, ptr addrspace(1) %p6) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %call1 = call <4 x i32> @_Z7shuffleDv4_iDv4_j(<4 x i32> %x, <4 x i32> <i32 3, i32 2, i32 1, i32 0>) nounwind readnone
-  store <4 x i32> %call1, <4 x i32> addrspace(1)* %p1
+  store <4 x i32> %call1, ptr addrspace(1) %p1
 
   %call2 = call <8 x i32> @_Z7shuffleDv8_iDv8_j(<8 x i32> %y, <8 x i32> <i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>) nounwind readnone
-  store <8 x i32> %call2, <8 x i32> addrspace(1)* %p2
+  store <8 x i32> %call2, ptr addrspace(1) %p2
 
   %call3 = call <16 x i32> @_Z7shuffleDv4_iDv16_j(<4 x i32> %x, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 3, i32 2, i32 1, i32 0, i32 0, i32 1, i32 2, i32 3, i32 3, i32 2, i32 1, i32 0>) nounwind readnone
-  store <16 x i32> %call3, <16 x i32> addrspace(1)* %p3
+  store <16 x i32> %call3, ptr addrspace(1) %p3
 
   %call4 = call <8 x i32> @_Z7shuffleDv4_iDv8_j(<4 x i32> %x, <8 x i32> %y) nounwind readnone
-  store <8 x i32> %call4, <8 x i32> addrspace(1)* %p4
+  store <8 x i32> %call4, ptr addrspace(1) %p4
 
   %call5 = call <2 x i8> @_Z7shuffleDv2_cDv2_h(<2 x i8> %c, <2 x i8> <i8 1, i8 0>) nounwind readnone
-  store <2 x i8> %call5, <2 x i8> addrspace(1)* %p5
+  store <2 x i8> %call5, ptr addrspace(1) %p5
 
   %call6 = call <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double> %d, <2 x i64> <i64 1, i64 0>) nounwind readnone
-  store <2 x double> %call6, <2 x double> addrspace(1)* %p6
+  store <2 x double> %call6, ptr addrspace(1) %p6
   ret void
 }
 
@@ -64,3 +63,6 @@ declare <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double>, <2 x i64>) nounwind rea
 ; CHECK-NOT:    call <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double> %d, <2 x i64> <i64 1, i64 0>)
 
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"int4", !"int8", !"char2", !"double2", !"int4*", !"int8*", !"int16*", !"int8*", !"char2*", !"double2*"}
+!1 = !{<4 x i32> <i32 0, i32 0, i32 0, i32 0>, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, <2 x i8> <i8 0, i8 0>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, <4 x i32> addrspace(1)* null, <8 x i32> addrspace(1)* null, <16 x i32> addrspace(1)* null, <8 x i32> addrspace(1)* null, <2 x i8> addrspace(1)* null, <2 x double> addrspace(1)* null}

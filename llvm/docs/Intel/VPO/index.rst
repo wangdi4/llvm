@@ -8,11 +8,23 @@ VPO Vectorizer
 .. toctree::
    :hidden:
 
+   VPlanVectorizer/index
    VectorizationPlan
    VPlanHCFGBuilder/index
    SIMDLaneEvolution/index
    Predication/index
    Misc/index
+
+Note
+====
+
+Some of the documentation in the VPO folder is outdated, including the information in this file.
+It reflects an earlier design (AVR) that predated the current VPlan vectorizer.  Documentation
+for the VPlan vectorizer is under construction, and can be found in the VPO/VPlanVectorizer folder
+(VPlanVectorizer_).
+Over time, we plan to remove obsolete documentation and reorganize into one folder again.
+
+.. _VPlanVectorizer: VPlanVectorizer/index.html
 
 Introduction
 ============

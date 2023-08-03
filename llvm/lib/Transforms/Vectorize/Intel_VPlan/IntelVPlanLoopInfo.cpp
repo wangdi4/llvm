@@ -23,10 +23,12 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopIterator.h"
 #include "IntelVPlanValue.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
+using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "vplan-loop-info"
 
@@ -208,6 +210,51 @@ VPCmpInst *VPLoop::getLatchComparison() const {
   if (AllZeroCheck && AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck)
     return dyn_cast<VPCmpInst>(AllZeroCheck->getOperand(0));
   return nullptr;
+}
+
+VPPHINode *VPLoop::getInductionPHI() const {
+  LatchCondDescr CD = classifyLatchCond();
+  assert(CD.Kind != LckUnknown && "Unexpected loop latch!");
+  assert(CD.IndIncr &&
+         "No induction increment for LckDoLoop or LckAllZero loop?");
+
+  // Try to get the loop PHI by matching on the induction increment. In most
+  // cases, this is a simple pattern match, but may be more complicated in the
+  // presence of unrolling. If the loop is unrolled, we may need to walk back
+  // from each cascaded increment until we reach the loop PHI.
+  const auto Opcode = CD.IndIncr->getOpcode();
+  VPInstruction *Increment = CD.IndIncr;
+  VPPHINode *LoopPHI = nullptr;
+  while (LoopPHI == nullptr) {
+    VPInductionInitStep *Step = nullptr;
+    // If the increment is of the form
+    //    <increment> = <bin-op> <PHI> <step> or
+    //    <increment> = <bin-op> <step> <PHI>
+    if (match(Increment, m_c_BinOp(Opcode, m_Bind(LoopPHI), m_Bind(Step)))) {
+      // Base case: we've found our loop PHI.
+      break;
+    }
+    // If the increment is of the form
+    //    <increment> = <bin-op> <prev-increment> <step> or
+    //    <increment> = <bin-op> <step> <prev-increment>
+    VPInstruction *PrevIncr = nullptr;
+    if (match(Increment, m_c_BinOp(Opcode, m_Bind(PrevIncr), m_Bind(Step)))) {
+      // Inductive case: update our current needle and continue searching.
+      Increment = PrevIncr;
+      continue;
+    }
+    // We must be operating on IR of unknown form. Bail out.
+    llvm_unreachable(
+        "latch increment has no PHI or cascaded increment operands?");
+  }
+  return LoopPHI;
+}
+
+VPInductionInit *VPLoop::getInductionInit() const {
+  // Return the VPInductionInit which serves as the incoming value from the loop
+  // preheader to the induction PHI used in the latch condition.
+  return cast<VPInductionInit>(
+      getInductionPHI()->getIncomingValue(getLoopPreheader()));
 }
 
 MDNode *VPLoop::getLoopID() const {

@@ -25,6 +25,7 @@
 #include "cpu_dev_test.h"
 #include "task_executor.h"
 
+#include <atomic>
 #include <stdio.h>
 #ifdef _WIN32
 #include <Windows.h>
@@ -44,7 +45,7 @@ static SharedPtr<ITEDevice> g_pRootDevice = NULL;
 class TestSet : public ITaskSet {
   int m_id;
   volatile int *m_pDone;
-  AtomicCounter m_attached;
+  std::atomic<long> m_attached{0};
 
 public:
   PREPARE_SHARED_PTR(TestSet)
@@ -125,8 +126,7 @@ public:
   bool PreferNumaNodes() const override { return false; }
 
 private:
-  TestSet(int id, volatile int *pDone)
-      : m_id(id), m_pDone(pDone), m_attached(0) {}
+  TestSet(int id, volatile int *pDone) : m_id(id), m_pDone(pDone) {}
 };
 
 RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT MasterThread(void *pParam) {

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/PipeSupport.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
@@ -53,29 +54,69 @@ static bool hasUsersInFunction(Value &V, Function &F) {
 }
 
 static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
-  int PipesNum = 0;
+  SmallPtrSet<Value *, 8> Pipes;
 
-  // Count local pipes
-  for (auto &Arg : F.args()) {
-    if (PipeTypes.isPipeType(Arg.getType()))
-      ++PipesNum;
+  // Count local pipes.
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
+  // TODO update LIT tests so that ArgTypeNullValList exists.
+  if (KIMD.ArgTypeNullValList.hasValue()) {
+    for (const auto &[Idx, C] : llvm::enumerate(KIMD.ArgTypeNullValList))
+      if (auto *TETy = dyn_cast<TargetExtType>(C->getType());
+          TETy && (TETy->getName() == "spirv.Pipe" ||
+                   TETy->getName() == "spirv.Channel"))
+        Pipes.insert(F.getArg(Idx));
+  }
+  // TODO not needed when opaque pointer is enabled.
+  if (Pipes.empty()) {
+    for (auto &Arg : F.args())
+      if (PipeTypes.isPipeType(Arg.getType()))
+        Pipes.insert(&Arg);
+  }
+  if (Pipes.empty()) {
+    // Parse pipe from mangled non-kernel function name, e.g. the first
+    // parameter of a sycl device function:
+    // static int32_t
+    // __latency_control_nb_read_wrapper(__ocl_RPipeTy<_T> Pipe, _T *Data,
+    //                                   int32_t AnchorID, int32_t TargetAnchor,
+    //                                   int32_t Type, int32_t Cycle)
+    ItaniumPartialDemangler Demangler;
+    std::string FName = F.getName().str();
+    if (!Demangler.partialDemangle(FName.c_str())) {
+      char *Params = Demangler.getFunctionParameters(nullptr, nullptr);
+      SmallVector<StringRef, 8> ParamList;
+      StringRef ParamsRef(Params);
+      std::ignore = ParamsRef.consume_front("(");
+      std::ignore = ParamsRef.consume_back(")");
+      SplitString(ParamsRef, ParamList, ",");
+      // Skip kernel name which doesn't follow Itanium C++ ABI mangling.
+      if (ParamList.size() == F.getFunctionType()->getNumParams()) {
+        for (const auto &[Idx, Arg] : llvm::enumerate(F.args()))
+          if (ParamList[Idx].ltrim(" ") == "ocl_pipe")
+            Pipes.insert(&Arg);
+      }
+      free(Params);
+    }
   }
 
   // Count global pipes
   auto *M = F.getParent();
-  for (auto &GV : M->globals()) {
-    auto *Ty = GV.getValueType();
+  for (auto &GV : M->globals())
+    if (isGlobalPipe(&GV))
+      Pipes.insert(&GV);
 
-    auto *ArrTy = dyn_cast<ArrayType>(Ty);
-    if (ArrTy)
-      Ty = getArrayElementType(ArrTy);
+  unsigned PipesNum = 0;
+  llvm::for_each(Pipes, [&](Value *V) {
+    if (!hasUsersInFunction(*V, F) && !isa<Argument>(V))
+      return;
+    if (const auto *GV = dyn_cast<GlobalVariable>(V)) {
+      if (auto *ArrTy = dyn_cast<ArrayType>(GV->getValueType())) {
+        PipesNum += getNumElementsOfNestedArray(ArrTy);
+        return;
+      }
+    }
+    PipesNum += 1;
+  });
 
-    if (!PipeTypes.isGlobalPipeType(Ty))
-      continue;
-
-    if (hasUsersInFunction(GV, F))
-      PipesNum += (ArrTy) ? getNumElementsOfNestedArray(ArrTy) : 1;
-  }
   return PipesNum;
 }
 

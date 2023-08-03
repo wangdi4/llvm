@@ -59,37 +59,37 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i32* nocapture noundef writeonly %A, i32* nocapture noundef readonly %B, i32 noundef %t) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture noundef writeonly %A, ptr nocapture noundef readonly %B, i32 noundef %t) local_unnamed_addr #0 {
 entry:
   %0 = sext i32 %t to i64
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %2 = shl nuw nsw i64 %indvars.iv, 2
   %3 = add nsw i64 %2, %0
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %3
-  store i32 %1, i32* %arrayidx2, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %3
+  store i32 %1, ptr %arrayidx2, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv.next
-  %4 = load i32, i32* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv.next
+  %4 = load i32, ptr %arrayidx5, align 4, !tbaa !3
   %5 = add nsw i64 %3, 1
-  %arrayidx10 = getelementptr inbounds i32, i32* %A, i64 %5
-  store i32 %4, i32* %arrayidx10, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds i32, ptr %A, i64 %5
+  store i32 %4, ptr %arrayidx10, align 4, !tbaa !3
   %6 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx13 = getelementptr inbounds i32, i32* %B, i64 %6
-  %7 = load i32, i32* %arrayidx13, align 4, !tbaa !3
+  %arrayidx13 = getelementptr inbounds i32, ptr %B, i64 %6
+  %7 = load i32, ptr %arrayidx13, align 4, !tbaa !3
   %8 = add nsw i64 %3, 2
-  %arrayidx18 = getelementptr inbounds i32, i32* %A, i64 %8
-  store i32 %7, i32* %arrayidx18, align 4, !tbaa !3
+  %arrayidx18 = getelementptr inbounds i32, ptr %A, i64 %8
+  store i32 %7, ptr %arrayidx18, align 4, !tbaa !3
   %9 = add nuw nsw i64 %indvars.iv, 3
-  %arrayidx21 = getelementptr inbounds i32, i32* %B, i64 %9
-  %10 = load i32, i32* %arrayidx21, align 4, !tbaa !3
+  %arrayidx21 = getelementptr inbounds i32, ptr %B, i64 %9
+  %10 = load i32, ptr %arrayidx21, align 4, !tbaa !3
   %11 = add nsw i64 %3, 3
-  %arrayidx26 = getelementptr inbounds i32, i32* %A, i64 %11
-  store i32 %10, i32* %arrayidx26, align 4, !tbaa !3
+  %arrayidx26 = getelementptr inbounds i32, ptr %A, i64 %11
+  store i32 %10, ptr %arrayidx26, align 4, !tbaa !3
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !7
 

@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; VEC: llvm.x86.avx512.conflict.q.256
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i32* noalias nocapture noundef %a, i32* noalias nocapture noundef readonly %b, i32* noalias nocapture noundef readonly %c, i32* noalias nocapture noundef %d, i32* noalias nocapture noundef readonly %e) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef %a, ptr noalias nocapture noundef readonly %b, ptr noalias nocapture noundef readonly %c, ptr noalias nocapture noundef %d, ptr noalias nocapture noundef readonly %e) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -20,24 +20,24 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %idxprom1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %c, i64 %idxprom1
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %idxprom1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %c, i64 %idxprom1
+  %2 = load i32, ptr %arrayidx4, align 4
   %add = add nsw i32 %2, %1
-  store i32 %add, i32* %arrayidx2, align 4
-  %arrayidx8 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx8, align 4
+  store i32 %add, ptr %arrayidx2, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx8, align 4
   %idxprom9 = sext i32 %3 to i64
-  %arrayidx10 = getelementptr inbounds i32, i32* %d, i64 %idxprom9
-  %4 = load i32, i32* %arrayidx10, align 4
-  %arrayidx12 = getelementptr inbounds i32, i32* %e, i64 %idxprom9
-  %5 = load i32, i32* %arrayidx12, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %d, i64 %idxprom9
+  %4 = load i32, ptr %arrayidx10, align 4
+  %arrayidx12 = getelementptr inbounds i32, ptr %e, i64 %idxprom9
+  %5 = load i32, ptr %arrayidx12, align 4
   %add13 = add nsw i32 %5, %4
-  store i32 %add13, i32* %arrayidx10, align 4
+  store i32 %add13, ptr %arrayidx10, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

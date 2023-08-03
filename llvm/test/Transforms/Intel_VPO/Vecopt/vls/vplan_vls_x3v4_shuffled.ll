@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<4 x i32>* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ;  typedef int32_t v4i32 __attribute__((vector_size(16)));
 ;  v4i32 *ary, t0, t1, t2;
 ;  for (i = 0; i < 1024; i += 3) {
@@ -34,31 +34,29 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:   #5 <4 x 128> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY0:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
-; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr <4 x i32>, <4 x i32>* [[SCALAR_GEP0]], i64 -1
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP50]] to <16 x i128>*
-; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0v16i128(<16 x i128>* [[TMP1]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> poison)
+; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <4 x i32>, ptr [[ARY0:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
+; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr <4 x i32>, ptr [[SCALAR_GEP0]], i64 -1
+; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0(ptr [[SCALAR_GEP50]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> poison)
 ; CHECK-NEXT:    [[VP_L20:%.*]] = shufflevector <16 x i128> [[VLS_LOAD0]], <16 x i128> [[VLS_LOAD0]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i128> [[VP_L20]] to <16 x i32>
 ; CHECK-NEXT:    [[VP_L00:%.*]] = shufflevector <16 x i128> [[VLS_LOAD0]], <16 x i128> [[VLS_LOAD0]], <4 x i32> <i32 1, i32 4, i32 7, i32 10>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i128> [[VP_L00]] to <16 x i32>
 ; CHECK-NEXT:    [[VP_L10:%.*]] = shufflevector <16 x i128> [[VLS_LOAD0]], <16 x i128> [[VLS_LOAD0]], <4 x i32> <i32 2, i32 5, i32 8, i32 11>
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i128> [[VP_L10]] to <16 x i32>
-; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY0]], i64 [[UNI_PHI40:%.*]]
+; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds <4 x i32>, ptr [[ARY0]], i64 [[UNI_PHI40:%.*]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <16 x i32> [[TMP3]], <i32 10, i32 11, i32 12, i32 13, i32 10, i32 11, i32 12, i32 13, i32 10, i32 11, i32 12, i32 13, i32 10, i32 11, i32 12, i32 13>
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <16 x i32> [[TMP4]], <i32 20, i32 21, i32 22, i32 23, i32 20, i32 21, i32 22, i32 23, i32 20, i32 21, i32 22, i32 23, i32 20, i32 21, i32 22, i32 23>
 ; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <16 x i32> [[TMP2]], <i32 30, i32 31, i32 32, i32 33, i32 30, i32 31, i32 32, i32 33, i32 30, i32 31, i32 32, i32 33, i32 30, i32 31, i32 32, i32 33>
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <16 x i32> [[TMP5]] to <4 x i128>
-; CHECK-NEXT:    [[EXTENDED_0:%.*]] = shufflevector <4 x i128> [[TMP8]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_0:%.*]] = shufflevector <4 x i128> [[TMP8]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <16 x i128> undef, <16 x i128> [[EXTENDED_0]], <16 x i32> <i32 16, i32 1, i32 2, i32 17, i32 4, i32 5, i32 18, i32 7, i32 8, i32 19, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <16 x i32> [[TMP7]] to <4 x i128>
-; CHECK-NEXT:    [[EXTENDED_70:%.*]] = shufflevector <4 x i128> [[TMP10]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_70:%.*]] = shufflevector <4 x i128> [[TMP10]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <16 x i128> [[TMP9]], <16 x i128> [[EXTENDED_70]], <16 x i32> <i32 0, i32 16, i32 2, i32 3, i32 17, i32 5, i32 6, i32 18, i32 8, i32 9, i32 19, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <16 x i32> [[TMP6]] to <4 x i128>
-; CHECK-NEXT:    [[EXTENDED_80:%.*]] = shufflevector <4 x i128> [[TMP12]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_80:%.*]] = shufflevector <4 x i128> [[TMP12]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <16 x i128> [[TMP11]], <16 x i128> [[EXTENDED_80]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP60]] to <16 x i128>*
-; CHECK-NEXT:    call void @llvm.masked.store.v16i128.p0v16i128(<16 x i128> [[TMP13]], <16 x i128>* [[TMP14]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
+; CHECK-NEXT:    call void @llvm.masked.store.v16i128.p0(<16 x i128> [[TMP13]], ptr [[SCALAR_GEP60]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -69,29 +67,29 @@ for.body:                                         ; preds = %entry, %for.body
 
   ; l0 = ary[i + 1];
   %i0 = add nsw i64 %indvars.iv, 1
-  %p0 = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %i0
-  %l0 = load <4 x i32>, <4 x i32>* %p0, align 4
+  %p0 = getelementptr inbounds <4 x i32>, ptr %ary, i64 %i0
+  %l0 = load <4 x i32>, ptr %p0, align 4
 
   ; l1 = ary[i + 2];
   %i1 = add nsw i64 %indvars.iv, 2
-  %p1 = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %i1
-  %l1 = load <4 x i32>, <4 x i32>* %p1, align 4
+  %p1 = getelementptr inbounds <4 x i32>, ptr %ary, i64 %i1
+  %l1 = load <4 x i32>, ptr %p1, align 4
 
   ; l2 = ary[i + 0];
-  %p2 = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %indvars.iv
-  %l2 = load <4 x i32>, <4 x i32>* %p2, align 4
+  %p2 = getelementptr inbounds <4 x i32>, ptr %ary, i64 %indvars.iv
+  %l2 = load <4 x i32>, ptr %p2, align 4
 
   ; ary[i + 0] = l0 + 11;
   %t0 = add nsw <4 x i32> %l0, <i32 10, i32 11, i32 12, i32 13>
-  store <4 x i32> %t0, <4 x i32>* %p2, align 4
+  store <4 x i32> %t0, ptr %p2, align 4
 
   ; ary[i + 2] = l1 + 22;
   %t1 = add nsw <4 x i32> %l1, <i32 20, i32 21, i32 22, i32 23>
-  store <4 x i32> %t1, <4 x i32>* %p1, align 4
+  store <4 x i32> %t1, ptr %p1, align 4
 
   ; ary[i + 1] = l2 + 33;
   %t2 = add nsw <4 x i32> %l2, <i32 30, i32 31, i32 32, i32 33>
-  store <4 x i32> %t2, <4 x i32>* %p0, align 4
+  store <4 x i32> %t2, ptr %p0, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 1024

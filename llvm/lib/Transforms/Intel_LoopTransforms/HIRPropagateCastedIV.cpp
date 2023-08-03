@@ -314,7 +314,12 @@ bool HIRPropagateCastedIV::run() {
 
 PreservedAnalyses HIRPropagateCastedIVPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRPropagateCastedIV(HIRF).run();
+  // Force instantiation of HIRLoopStatistics as it is needed by domination
+  // utility. This is a hack. Ideally, we should pass HLS to domination utility
+  // as an argument.
+  ModifiedHIR =
+      HIRPropagateCastedIV(HIRF, &AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 
@@ -337,7 +342,8 @@ public:
       return false;
     }
 
-    return HIRPropagateCastedIV(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+    return HIRPropagateCastedIV(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                                nullptr)
         .run();
   }
 };

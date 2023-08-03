@@ -275,14 +275,24 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 
   if (Map != OCLBuiltin.end()) {
     StringRef NewName = Map->second;
-    if (UseRoundToNearestEven) {
-      if (NewName == "_Z17__spirv_ocl_roundf")
-        NewName =    "_Z19__spirv_ocl_roundnef";
-      else if (NewName == "_Z17__spirv_ocl_roundd")
-        NewName =         "_Z19__spirv_ocl_roundned";
+
+    // Do not convert llvm intrinsics if 'PreserveDeviceIntrin' is enabled.
+    bool CanConvert =
+        !PreserveDeviceIntrin || !OldName.consume_front(LLVM_INTRIN_PREF0);
+
+    // Convert llvm round intrinsic and associated builtins to use round
+    // nearest even until replaced builtins are well supported.
+    // Do this conversion only for device SIMD code generation.
+    if (UseRoundToNearestEven && VPOParoptUtils::enableDeviceSimdCodeGen()) {
+      if (NewName == "_Z17__spirv_ocl_roundf") {
+        NewName = "_Z19__spirv_ocl_roundnef";
+        CanConvert = true;
+      } else if (NewName == "_Z17__spirv_ocl_roundd") {
+        NewName = "_Z19__spirv_ocl_roundned";
+        CanConvert = true;
+      }
     }
-    if (!PreserveDeviceIntrin ||
-        !OldName.consume_front(LLVM_INTRIN_PREF0)) {
+    if (CanConvert) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
                         << NewName << '\n');
       F.setName(NewName);
@@ -753,13 +763,27 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedVec, true);
   SmallPtrSet<GlobalValue *, 16u> UsedSet(UsedVec.begin(), UsedVec.end());
 
+  // The aliasee of GlobalAlias could be either a GlobalValue or a ConstantExpr.
+  // Consider this example:
+  //
+  // Dead Global Value:
+  // define void @times_two_()
+  //
+  // Dead Global Alias:
+  // @times_two_.alias = addrspacecast (ptr @times_two_ to ptr addrspace(1))
+  //
+  // Instead of GlobalValue, the aliasee of GlobalAias is a ConstantExpr.
   SmallPtrSet<GlobalAlias *, 16u> DeadAlias; // Keep track of dead Alias
   for (GlobalAlias &A : M.aliases()) {
-    if (isa<GlobalValue>(A.getAliasee())) {
-      auto *F = dyn_cast<Function>(A.getAliasee());
+    Constant *Aliasee = A.getAliasee();
+    if (isa<GlobalValue>(Aliasee) || isa<ConstantExpr>(Aliasee)) {
+      auto *F = dyn_cast<Function>(Aliasee->stripPointerCasts());
       if (F && !UsedSet.count(F) &&
           !F->getAttributes().hasFnAttr("openmp-target-declare") &&
           !F->getAttributes().hasFnAttr("target.declare")) {
+        Constant *NullValue = ConstantPointerNull::get(A.getType());
+        A.setAliasee(NullValue);
+        A.replaceAllUsesWith(NullValue);
         DeadAlias.insert(&A);
       }
     }
@@ -767,7 +791,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
 
   for (GlobalAlias *DA : DeadAlias) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << "Deleteing GlobalAlias "
-                          << DA->getName());
+                      << DA->getName());
     DA->eraseFromParent();
   }
 
@@ -882,6 +906,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
         }
     }
   }
+
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
     // TODO  The check of use_empty will be removed after the frontend
     // generates target_declare attribute for the variable GV.

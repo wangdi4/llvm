@@ -37,7 +37,6 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InlineAdvisor.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -47,6 +46,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/PGOOptions.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -64,6 +64,7 @@
 #include "llvm/Transforms/IPO/CrossDSOCFI.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/ElimAvailExtern.h"
+#include "llvm/Transforms/IPO/EmbedBitcodePass.h"
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
@@ -89,6 +90,7 @@
 #include "llvm/Transforms/Instrumentation/ControlHeightReduction.h"
 #include "llvm/Transforms/Instrumentation/InstrOrderFile.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/Inference.h" // INTEL
 #include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
@@ -143,6 +145,7 @@
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
+#include "llvm/Transforms/Utils/MoveAutoInit.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/RelLookupTableConverter.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
@@ -168,6 +171,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_DeadDopeVectorElimination.h"
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
@@ -187,6 +191,9 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_RecursiveFunctionMemoize.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_UnpredictableProfileLoader.h"
@@ -215,6 +222,7 @@
 #include "llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
+#include "llvm/Transforms/Scalar/Intel_GVBasedMultiVersioning.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -321,6 +329,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNonPerfectNestLoopBlockingPass.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 
 #if INTEL_FEATURE_SW_DTRANS
@@ -434,47 +443,172 @@ static cl::opt<bool> EnableWPA(
     "enable-npm-whole-program-analysis", cl::init(true), cl::ReallyHidden,
     cl::desc("Enable Whole Program analysis in the new pass manager"));
 
-extern cl::opt<bool> ConvertToSubs;
-extern cl::opt<bool> EnableLV;
-enum class ThroughputMode { None, SingleJob, MultipleJob };
-extern cl::opt<ThroughputMode> ThroughputModeOpt;
-extern cl::opt<bool> EnableLoadCoalescing;
-extern cl::opt<bool> EnableSROAAfterSLP;
+static cl::opt<bool>
+    ProfileMLUse("profile-ml-use", cl::Hidden, cl::init(false),
+                 cl::desc("Use Machine Learning for profile inference"));
+cl::opt<bool> ConvertToSubs(
+    "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
+    cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
 
-namespace llvm {
-extern cl::opt<bool> EnableHandlePragmaVectorAligned;
-// Andersen AliasAnalysis
-extern cl::opt<bool> EnableAndersen;
-extern cl::opt<bool> EnableArgNoAliasProp;
-extern cl::opt<bool> RunLoopOptFrameworkOnly;
-enum class LoopOptMode { None, LightWeight, Full };
-extern cl::opt<LoopOptMode> RunLoopOpts;
-extern cl::opt<bool> EnableTbaaProp;
-extern cl::opt<bool> EnableVPlanDriver;
-extern cl::opt<bool> RunVecClone;
-extern cl::opt<bool> EnableDeviceSimd;
-extern cl::opt<bool> EnableVPlanDriverHIR;
-extern cl::opt<bool> RunVPOVecopt;
-extern cl::opt<bool> RunPreLoopOptVPOPasses;
-extern cl::opt<bool> RunPostLoopOptVPOPasses;
-extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
-extern cl::opt<bool> EnableVPOParoptTargetInline;
-extern cl::opt<bool> EnableEarlyLSR;
-extern cl::opt<bool> EnableStdContainerOpt;
-extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
-extern cl::opt<bool> EarlyJumpThreading;
-} // namespace llvm
-#endif // INTEL_CUSTOMIZATION
+cl::opt<bool> EnableLV("enable-lv", cl::init(false), cl::Hidden,
+                       cl::desc("Enable community loop vectorizer"));
+
+cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing", cl::init(true),
+                                   cl::Hidden, cl::ZeroOrMore,
+                                   cl::desc("Enable load coalescing"));
+
+cl::opt<bool>
+    EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
+                       cl::desc("Run SROA pass after the SLP vectorizer"));
+
+enum class ThroughputMode { None, SingleJob, MultipleJob };
+cl::opt<ThroughputMode> ThroughputModeOpt(
+    "throughput-opt", cl::init(ThroughputMode::None), cl::Hidden,
+    cl::ValueOptional,
+    cl::desc(
+        "Specifies if compiler should optimize for throughput performance"),
+    cl::values(clEnumValN(ThroughputMode::None, "0", "No mode speficied"),
+               clEnumValN(ThroughputMode::SingleJob, "1",
+                          "Assume application will run a single copy"),
+               clEnumValN(ThroughputMode::MultipleJob, "2",
+                          "Assume application will run multiple copies")));
 
 #if INTEL_COLLAB
-namespace llvm {
-// TODO: Change this to an enum class in PassManagerBuilder.cpp
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
-extern cl::opt<unsigned> RunVPOOpt;
-extern cl::opt<unsigned> RunVPOParopt;
-extern cl::opt<bool> SPIRVOptimizationMode;
-} // namespace llvm
+cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                            cl::Hidden, cl::desc("Runs all VPO passes"));
+
+// The user can use -mllvm -paropt=<mode> to enable various paropt
+// transformations, where <mode> is a bit vector (see enum VPOParoptMode
+// for a description of the bits.) For example, paropt=0x7 enables
+// "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
+// TODO: this does not seem to work with the new pass manager,
+//       so we need to fix it soon.
+static cl::opt<unsigned> RunVPOParopt("paropt", cl::init(0x00000000),
+                                      cl::Hidden,
+                                      cl::desc("Run VPO Paropt Pass"));
+static cl::opt<bool>
+    SPIRVOptimizationMode("spirv-opt", cl::init(false), cl::Hidden,
+                          cl::desc("Enable SPIR-V optimization mode."));
 #endif // INTEL_COLLAB
+
+cl::opt<bool> RunVPOVecopt("vecopt", cl::init(false), cl::Hidden,
+                           cl::desc("Run VPO Vecopt Pass"));
+
+// Switch to enable or disable all VPO related pre-loopopt passes
+cl::opt<bool> RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Run VPO passes before loopot"));
+
+// Switch to enable or disable all VPO related post-loopopt passes
+cl::opt<bool> RunPostLoopOptVPOPasses("post-loopopt-vpo-passes", cl::init(true),
+                                      cl::Hidden,
+                                      cl::desc("Run VPO passes after loopot"));
+
+// Set LLVM-IR VPlan driver pass to be enabled by default
+cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true), cl::Hidden,
+                                cl::desc("Enable VPlan Driver"));
+
+cl::opt<bool> RunVecClone("enable-vec-clone", cl::init(true), cl::Hidden,
+                          cl::desc("Run Vector Function Cloning"));
+
+cl::opt<bool>
+    EnableDeviceSimd("enable-device-simd", cl::init(false), cl::Hidden,
+                     cl::desc("Enable VPlan vectorzer for SIMD on device"));
+
+cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+                                   cl::Hidden, cl::desc("Enable VPlan Driver"));
+// INTEL - HIR passes
+enum class LoopOptMode { None, LightWeight, Full };
+cl::opt<LoopOptMode> RunLoopOpts(
+    "loopopt", cl::init(LoopOptMode::None), cl::Hidden, cl::ValueOptional,
+    cl::desc("Runs loop optimization passes"),
+    cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
+               clEnumValN(LoopOptMode::LightWeight, "1",
+                          "Enable lightweight loopopt(minimal passes)"),
+               clEnumValN(LoopOptMode::Full, "2", "Enable all loopopt passes"),
+               // Value assumed when just -loopopt is specified.
+               clEnumValN(LoopOptMode::Full, "", "")));
+
+cl::opt<bool> RunLoopOptFrameworkOnly(
+    "loopopt-framework-only", cl::init(false), cl::Hidden,
+    cl::desc("Enables loopopt framework without any transformation passes"));
+
+// register promotion for global vars at -O2 and above.
+cl::opt<bool> EnableNonLTOGlobalVarOpt(
+    "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
+    cl::desc("Enable register promotion for global vars outside of the LTO."));
+
+// Std Container Optimization at -O2 and above.
+cl::opt<bool>
+    EnableStdContainerOpt("enable-std-container-opt", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable Std Container Optimization"));
+
+static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
+                                    cl::Hidden,
+                                    cl::desc("Enable Tbaa Propagation"));
+
+// Andersen AliasAnalysis
+cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true), cl::Hidden,
+                             cl::desc("Enable Andersen's Alias Analysis"));
+
+#if INTEL_FEATURE_SW_DTRANS
+// DTrans optimizations -- this is a placeholder for future work.
+static cl::opt<bool> EnableDTrans("enable-dtrans", cl::init(false), cl::Hidden,
+                                  cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_FEATURE_SW_DTRANS
+
+// PGO based function splitting
+static cl::opt<bool> EnableFunctionSplitting(
+    "enable-function-splitting", cl::init(false), cl::Hidden,
+    cl::desc("Enable function splitting optimization based on PGO data"));
+
+cl::opt<bool> EnableHandlePragmaVectorAligned(
+    "enable-handle-pragma-vector-aligned", cl::init(true),
+    cl::desc("Enable Handle Pragma Vector Aligned pass"));
+
+#if INTEL_FEATURE_CSA
+// CSA graph splitter.
+static cl::opt<bool> RunCSAGraphSplitter(
+    "enable-csa-graph-splitter", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Run CSA graph splitter after late outlining."));
+
+// Add extra passes for CSA target.
+static cl::opt<bool>
+    EnableCSAPasses("enable-csa-passes", cl::init(false), cl::ReallyHidden,
+                    cl::ZeroOrMore,
+                    cl::desc("Enable extra passes for CSA target."));
+#endif // INTEL_FEATURE_CSA
+
+cl::opt<bool> EnableArgNoAliasProp(
+    "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Enable noalias propagation for function arguments."));
+
+cl::opt<bool> EnableVPOParoptSharedPrivatization(
+    "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
+
+cl::opt<bool> EnableVPOParoptTargetInline(
+    "enable-vpo-paropt-target-inline", cl::init(false), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Target Inline pass."));
+
+cl::opt<bool>
+    EnableEarlyLSR("enable-early-lsr", cl::init(false), cl::Hidden,
+                   cl::ZeroOrMore,
+                   cl::desc("Enable early Loop Strength Reduction pass."));
+
+cl::opt<bool> EarlyJumpThreading("early-jump-threading", cl::init(true),
+                                 cl::Hidden,
+                                 cl::desc("Run the early jump threading pass"));
+
+// The "legacy" loop unswitcher currently has better performance.
+static cl::opt<bool> EnableSimpleLoopUnswitch(
+    "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
+    cl::desc("Enable the simple loop unswitch pass. Also enables independent "
+             "cleanup passes integrated into the loop pass manager pipeline."));
+
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -498,9 +632,6 @@ static cl::opt<bool>
     EnablePGOInlineDeferral("enable-npm-pgo-inline-deferral", cl::init(true),
                             cl::Hidden,
                             cl::desc("Enable inline deferral during PGO"));
-
-static cl::opt<bool> EnableMemProfiler("enable-mem-prof", cl::Hidden,
-                                       cl::desc("Enable memory profiler"));
 
 static cl::opt<bool> EnableModuleInliner("enable-module-inliner",
                                          cl::init(false), cl::Hidden,
@@ -635,6 +766,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   CallGraphProfile = true;
   DisableIntelProprietaryOpts = false; // INTEL
   EnableAutoCPUDispatch = EnableAX;    // INTEL
+  UnifiedLTO = false;
   MergeFunctions = EnableMergeFunctions;
   InlinerThreshold = -1;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
@@ -649,6 +781,61 @@ void PassBuilder::invokePeepholeEPCallbacks(FunctionPassManager &FPM,
                                             OptimizationLevel Level) {
   for (auto &C : PeepholeEPCallbacks)
     C(FPM, Level);
+}
+void PassBuilder::invokeLateLoopOptimizationsEPCallbacks(
+    LoopPassManager &LPM, OptimizationLevel Level) {
+  for (auto &C : LateLoopOptimizationsEPCallbacks)
+    C(LPM, Level);
+}
+void PassBuilder::invokeLoopOptimizerEndEPCallbacks(LoopPassManager &LPM,
+                                                    OptimizationLevel Level) {
+  for (auto &C : LoopOptimizerEndEPCallbacks)
+    C(LPM, Level);
+}
+void PassBuilder::invokeScalarOptimizerLateEPCallbacks(
+    FunctionPassManager &FPM, OptimizationLevel Level) {
+  for (auto &C : ScalarOptimizerLateEPCallbacks)
+    C(FPM, Level);
+}
+void PassBuilder::invokeCGSCCOptimizerLateEPCallbacks(CGSCCPassManager &CGPM,
+                                                      OptimizationLevel Level) {
+  for (auto &C : CGSCCOptimizerLateEPCallbacks)
+    C(CGPM, Level);
+}
+void PassBuilder::invokeVectorizerStartEPCallbacks(FunctionPassManager &FPM,
+                                                   OptimizationLevel Level) {
+  for (auto &C : VectorizerStartEPCallbacks)
+    C(FPM, Level);
+}
+void PassBuilder::invokeOptimizerEarlyEPCallbacks(ModulePassManager &MPM,
+                                                  OptimizationLevel Level) {
+  for (auto &C : OptimizerEarlyEPCallbacks)
+    C(MPM, Level);
+}
+void PassBuilder::invokeOptimizerLastEPCallbacks(ModulePassManager &MPM,
+                                                 OptimizationLevel Level) {
+  for (auto &C : OptimizerLastEPCallbacks)
+    C(MPM, Level);
+}
+void PassBuilder::invokeFullLinkTimeOptimizationEarlyEPCallbacks(
+    ModulePassManager &MPM, OptimizationLevel Level) {
+  for (auto &C : FullLinkTimeOptimizationEarlyEPCallbacks)
+    C(MPM, Level);
+}
+void PassBuilder::invokeFullLinkTimeOptimizationLastEPCallbacks(
+    ModulePassManager &MPM, OptimizationLevel Level) {
+  for (auto &C : FullLinkTimeOptimizationLastEPCallbacks)
+    C(MPM, Level);
+}
+void PassBuilder::invokePipelineStartEPCallbacks(ModulePassManager &MPM,
+                                                 OptimizationLevel Level) {
+  for (auto &C : PipelineStartEPCallbacks)
+    C(MPM, Level);
+}
+void PassBuilder::invokePipelineEarlySimplificationEPCallbacks(
+    ModulePassManager &MPM, OptimizationLevel Level) {
+  for (auto &C : PipelineEarlySimplificationEPCallbacks)
+    C(MPM, Level);
 }
 
 // Helper to add AnnotationRemarksPass.
@@ -707,7 +894,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Disable clang-format in following block to avoid conflicts.
   // clang-format off
 if (!SYCLOptimizationMode) {
-  
  // FIXME: re-association increases variables liveness and therefore register
  // pressure.
 #if INTEL_COLLAB
@@ -774,8 +960,7 @@ if (!SYCLOptimizationMode) {
     LPM2.addPass(IndVarSimplifyPass());
 #endif // INTEL_COLLAB
 
-  for (auto &C : LateLoopOptimizationsEPCallbacks)
-    C(LPM2, Level);
+  invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
 
   LPM2.addPass(LoopDeletionPass());
 
@@ -793,13 +978,8 @@ if (!SYCLOptimizationMode) {
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
                                     PTO.ForgetAllSCEVInLoopUnroll));
 
-  for (auto &C : LoopOptimizerEndEPCallbacks)
-    C(LPM2, Level);
+  invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
-  // We provide the opt remark emitter pass for LICM to use. We only need to do
-  // this once as it is immutable.
-  FPM.addPass(
-      RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
@@ -837,8 +1017,7 @@ if (!SYCLOptimizationMode) {
 
   FPM.addPass(CoroElidePass());
 
-  for (auto &C : ScalarOptimizerLateEPCallbacks)
-    C(FPM, Level);
+  invokeScalarOptimizerLateEPCallbacks(FPM, Level);
 
   // Finally, do an expensive DCE pass to catch all the dead code exposed by
   // the simplifications and basic cleanup after all the simplifications.
@@ -915,9 +1094,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
-#endif // INTEL_CUSTOMIZATION
   if (Level == OptimizationLevel::O3)
     FPM.addPass(AggressiveInstCombinePass());
+#endif // INTEL_CUSTOMIZATION
 
   if (EnableConstraintElimination)
     FPM.addPass(ConstraintEliminationPass());
@@ -1020,8 +1199,7 @@ if (!SYCLOptimizationMode) {
   LPM2.addPass(IndVarSimplifyPass());
 #endif // INTEL_COLLAB
 
-  for (auto &C : LateLoopOptimizationsEPCallbacks)
-    C(LPM2, Level);
+  invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
 
   LPM2.addPass(LoopDeletionPass());
 
@@ -1042,13 +1220,8 @@ if (!SYCLOptimizationMode) {
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
                                     PTO.ForgetAllSCEVInLoopUnroll));
 
-  for (auto &C : LoopOptimizerEndEPCallbacks)
-    C(LPM2, Level);
+  invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
-  // We provide the opt remark emitter pass for LICM to use. We only need to do
-  // this once as it is immutable.
-  FPM.addPass(
-      RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
@@ -1132,15 +1305,16 @@ if (!SYCLOptimizationMode) {
 #endif // INTEL_CUSTOMIZATION
 
   FPM.addPass(DSEPass());
+  FPM.addPass(MoveAutoInitPass());
+
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),
-      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   FPM.addPass(CoroElidePass());
 
-  for (auto &C : ScalarOptimizerLateEPCallbacks)
-    C(FPM, Level);
+  invokeScalarOptimizerLateEPCallbacks(FPM, Level);
 
 #if INTEL_CUSTOMIZATION
   // Hoisting of common instructions can result in unstructured CFG input to
@@ -1439,8 +1613,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
     MainCGPipeline.addPass(OpenMPOptCGSCCPass());
 
-  for (auto &C : CGSCCOptimizerLateEPCallbacks)
-    C(MainCGPipeline, Level);
+  invokeCGSCCOptimizerLateEPCallbacks(MainCGPipeline, Level);
 
   // Add the core function simplification pipeline nested inside the
   // CGSCC walk.
@@ -1512,6 +1685,12 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
 ModulePassManager
 PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                                ThinOrFullLTOPhase Phase) {
+  assert(Level != OptimizationLevel::O0 &&
+         "Should not be used for O0 pipeline");
+
+  assert(Phase != ThinOrFullLTOPhase::FullLTOPostLink &&
+         "FullLTOPostLink shouldn't call buildModuleSimplificationPipeline!");
+
   ModulePassManager MPM;
 
   // Place pseudo probe instrumentation as the first pass of the pipeline to
@@ -1554,78 +1733,84 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (Phase == ThinOrFullLTOPhase::ThinLTOPostLink && !LoadSampleProfile)
     MPM.addPass(PGOIndirectCallPromotion(true /* InLTO */, HasSampleProfile));
 
-  // Do basic inference of function attributes from known properties of system
-  // libraries and other oracles.
-  MPM.addPass(InferFunctionAttrsPass());
-#if INTEL_CUSTOMIZATION
-  if (RunVPOOpt && RunVPOParopt)
-    MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineReportSetupPass());
-  MPM.addPass(InlineListsPass());
-  if (RunVPOParopt && EnableVPOParoptTargetInline)
-    MPM.addPass(VPOParoptTargetInlinePass());
-#endif // INTEL_CUSTOMIZATION
-  MPM.addPass(CoroEarlyPass());
-
   // Create an early function pass manager to cleanup the output of the
-  // frontend.
-  FunctionPassManager EarlyFPM;
+  // frontend. Not necessary with LTO post link pipelines since the pre link
+  // pipeline already cleaned up the frontend output.
+  if (Phase != ThinOrFullLTOPhase::ThinLTOPostLink) {
+    // Do basic inference of function attributes from known properties of system
+    // libraries and other oracles.
+    MPM.addPass(InferFunctionAttrsPass());
+#if INTEL_CUSTOMIZATION
+    if (RunVPOOpt && RunVPOParopt)
+      MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+    // Parse -[no]inline-list option and set corresponding attributes.
+    MPM.addPass(InlineReportSetupPass());
+    MPM.addPass(InlineListsPass());
+    if (RunVPOParopt && EnableVPOParoptTargetInline)
+      MPM.addPass(VPOParoptTargetInlinePass());
+#endif // INTEL_CUSTOMIZATION
+    MPM.addPass(CoroEarlyPass());
+
+    // Create an early function pass manager to cleanup the output of the
+    // frontend.
+    FunctionPassManager EarlyFPM;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
-  // Marker count intrinsic should be emitted before any inline or loop opt pass
-  // b/c we may have different decisions base on ISA set and optimization level.
-  if (TM && (TM->Options.MarkerCountKind & MarkerCount::ME ||
-             !TM->Options.OverrideMarkerCountFile.empty()))
-    EarlyFPM.addPass(MarkerCountIntrinsicInserterPass(
-        TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
+    // Marker count intrinsic should be emitted before any inline or loop opt pass
+    // b/c we may have different decisions base on ISA set and optimization level.
+    if (TM && (TM->Options.MarkerCountKind & MarkerCount::ME ||
+               !TM->Options.OverrideMarkerCountFile.empty()))
+      EarlyFPM.addPass(MarkerCountIntrinsicInserterPass(
+          TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
 #endif // INTEL_FEATURE_MARKERCOUNT
-  if (isLoopOptEnabled(Level))
-    EarlyFPM.addPass(LoopOptMarkerPass());
-  else
-    EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
+    if (isLoopOptEnabled(Level))
+      EarlyFPM.addPass(LoopOptMarkerPass());
+    else
+      EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
 
-  EarlyFPM.addPass(DopeVectorConstPropPass());
+    EarlyFPM.addPass(DopeVectorConstPropPass());
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-  if (RunVPOOpt && RunVPOParopt)
-    addVPOPreparePasses(EarlyFPM);
+    if (RunVPOOpt && RunVPOParopt)
+      addVPOPreparePasses(EarlyFPM);
 #endif //INTEL_COLLAB
-  // Lower llvm.expect to metadata before attempting transforms.
-  // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
-  EarlyFPM.addPass(LowerExpectIntrinsicPass());
-  EarlyFPM.addPass(SimplifyCFGPass());
-  EarlyFPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+    // Lower llvm.expect to metadata before attempting transforms.
+    // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
+    EarlyFPM.addPass(LowerExpectIntrinsicPass());
+    EarlyFPM.addPass(SimplifyCFGPass());
+    EarlyFPM.addPass(SROAPass(SROAOptions::ModifyCFG));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled && PrepareForLTO)
-    EarlyFPM.addPass(FunctionRecognizerPass());
+    if (DTransEnabled && PrepareForLTO)
+      EarlyFPM.addPass(FunctionRecognizerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-  EarlyFPM.addPass(EarlyCSEPass());
+    EarlyFPM.addPass(EarlyCSEPass());
 #if INTEL_COLLAB
 
-  // Process OpenMP directives at -O1 and above
-  if (RunVPOParopt && RunVPOOpt == InvokeParoptBeforeInliner) {
-    // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
-    // in the legacy pass manager. For now we can stick to the same with NPM as
-    // well, even though that would break the FPM pipeline here.
-    addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
-  }
+    // Process OpenMP directives at -O1 and above
+    if (RunVPOParopt && RunVPOOpt == InvokeParoptBeforeInliner) {
+      // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
+      // in the legacy pass manager. For now we can stick to the same with NPM as
+      // well, even though that would break the FPM pipeline here.
+      addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
+    }
 #endif // INTEL_COLLAB
-  if (Level == OptimizationLevel::O3)
-    EarlyFPM.addPass(CallSiteSplittingPass());
-
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
-                                                PTO.EagerlyInvalidateAnalyses));
+    if (Level == OptimizationLevel::O3)
+      EarlyFPM.addPass(CallSiteSplittingPass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
+  }
 
 #if INTEL_CUSTOMIZATION
   // This should run before AggressiveSpeculation so that the expected IR
-  // annotations are present.
-  MPM.addPass(UnpredictableProfileLoaderPass());
+  // annotations are present. It re-uses the PGOOpt execution frequency
+  // profile to reason about mispredict ratios.
+  if (LoadSampleProfile)
+    MPM.addPass(UnpredictableProfileLoaderPass(PGOOpt->ProfileFile));
   // This may be able to merge call sites, so do it before any inlining which
   // may happen in SampleProfileLoader.
   MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
@@ -1641,8 +1826,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
     // Do not invoke ICP in the LTOPrelink phase as it makes it hard
     // for the profile annotation to be accurate in the LTO backend.
-    if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
-        Phase != ThinOrFullLTOPhase::FullLTOPreLink)
+    if (!isLTOPreLink(Phase))
       // We perform early indirect call promotion here, before globalopt.
       // This is important for the ThinLTO backend phase because otherwise
       // imported available_externally functions look unreferenced and are
@@ -1656,10 +1840,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_COLLAB
   // If OpenMP codegen is to be done by Paropt after the inliner,
   // then OpenMPOpt cannot be run here, before the inliner.
-  if (Level != OptimizationLevel::O0 &&
-      (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner))
-#else // INTEL_COLLAB
-  if (Level != OptimizationLevel::O0)
+  if (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner)
 #endif // INTEL_COLLAB
     MPM.addPass(OpenMPOptPass());
 
@@ -1672,8 +1853,12 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (Phase == ThinOrFullLTOPhase::ThinLTOPostLink)
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
-  for (auto &C : PipelineEarlySimplificationEPCallbacks)
-    C(MPM, Level);
+  invokePipelineEarlySimplificationEPCallbacks(MPM, Level);
+
+#if INTEL_CUSTOMIZATION
+  if (Level == OptimizationLevel::O3)
+    MPM.addPass(RecursiveFunctionMemoizePass());
+#endif // INTEL_CUSTOMIZATION
 
   // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.
@@ -1683,8 +1868,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
               IPSCCPOptions(/*AllowFuncSpec=*/
                             Level != OptimizationLevel::Os &&
                             Level != OptimizationLevel::Oz &&
-                            Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
-                            Phase != ThinOrFullLTOPhase::FullLTOPreLink)));
+                            !isLTOPreLink(Phase))));
 
   // Attach metadata to indirect call sites indicating the set of functions
   // they may target at run-time. This should follow IPSCCP.
@@ -1723,15 +1907,22 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  if (PrepareForLTO && DTransEnabled) {
-    MPM.addPass(dtrans::DTransForceInlinePass());
+  if (PrepareForLTO && DTransEnabled)
     MPM.addPass(dtransOP::DTransForceInlineOPPass());
-  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  bool MLPGO = PGOOpt && PGOOpt->Action == PGOOptions::MLUse;
+  if (MLPGO)
+    MPM.addPass(MLPGOInference());
+
+  assert(!(PGOOpt && PGOOpt->Action == PGOOptions::IRUse && MLPGO) &&
+         "Both MLPGO and PGO Use enabled!");
+
   // Add all the requested passes for instrumentation PGO, if requested.
-  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+  if (PGOOpt && !PGOOpt->IsCGPGO &&
+      Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse)) {
     addPGOInstrPasses(MPM, Level,
@@ -1740,9 +1931,16 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                       PGOOpt->ProfileRemappingFile, Phase, PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
-  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+
+  if (PGOOpt && !PGOOpt->IsCGPGO &&
+      Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       PGOOpt->CSAction == PGOOptions::CSIRInstr)
     MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
+#endif // INTEL_CUSTOMIZATION
+
+  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+      !PGOOpt->MemoryProfile.empty())
+    MPM.addPass(MemProfUsePass(PGOOpt->MemoryProfile, PGOOpt->FS));
 
   // Synthesize function entry counts for non-PGO compilation.
   if (EnableSyntheticCounts && !PGOOpt)
@@ -1779,16 +1977,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   // Optimize globals now that functions are fully simplified.
   MPM.addPass(GlobalOptPass());
-
-  // Remove dead code, except in the ThinLTO pre-link pipeline where we may want
-  // to keep available_externally functions.
-  if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink)
-    MPM.addPass(GlobalDCEPass());
-
-  if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
-    MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
-    MPM.addPass(ModuleMemProfilerPass());
-  }
+  MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
   MPM.addPass(Intel_DebugPass(TM));
@@ -1875,8 +2064,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                          /*AllowSpeculation=*/true));
     LPM.addPass(SimpleLoopUnswitchPass(/* NonTrivial */ Level ==
                                        OptimizationLevel::O3));
-    ExtraPasses.addPass(
-        RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
     ExtraPasses.addPass(
         createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
                                         /*UseBlockFrequencyInfo=*/true));
@@ -1991,6 +2178,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
+#endif // INTEL_CUSTOMIZATION
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -2001,16 +2189,23 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // the CFG mess this may created if allowed to modify CFG, so forbid that.
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 #endif // !INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-    FPM.addPass(
-        RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-    FPM.addPass(createFunctionToLoopPassAdaptor(
-        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
-                 /*AllowSpeculation=*/true),
-        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+
+  // This is needed for two reasons:
+  //   1. It works around problems that instcombine introduces, such as sinking
+  //      expensive FP divides into loops containing multiplications using the
+  //      divide result.
+  //   2. It helps to clean up some loop-invariant code created by the loop
+  //      unroll pass when IsFullLTO=false.
+  FPM.addPass(createFunctionToLoopPassAdaptor(
+      LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
+               /*AllowSpeculation=*/true),
+      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
   }
 
   // Now that we've vectorized and unrolled loops, we may have more refined
@@ -2064,7 +2259,7 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
 void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
                                OptimizationLevel Level, bool RunVec,
                                bool Simplify) {
-  if (!EnableO0Vectorization && !RunVPOParopt)
+  if (!RunVPOParopt)
     return;
 
   unsigned OptLevel = Level.getSpeedupLevel();
@@ -2462,6 +2657,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRMultiExitLoopRerollPass());
     FPM.addPass(HIRLoopCollapsePass());
     FPM.addPass(HIRLoopFusionPass());
+#if INTEL_FEATURE_SW_ADVANCED
+    if (Level.getSpeedupLevel() > 2 && IsLTO)
+      FPM.addPass(HIRNonPerfectNestLoopBlockingPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
     FPM.addPass(HIRDeadStoreEliminationPass());
     FPM.addPass(HIRLoopIndependentScalarReplPass());
     FPM.addPass(HIRIdiomRecognitionPass());
@@ -2478,8 +2677,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRSpecialOptPredicatePass());
       FPM.addPass(HIRLMMPass());
       if (RunVPOOpt) {
-        FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
         if (EnableVPlanDriverHIR) {
+          FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3),
+                      LoopOptLimiter::LoopOpt);
           bool WillRunLLVMIRVPlan =
               EnableVPlanDriver && RunPostLoopOptVPOPasses;
           FPM.addPass(vpo::VPlanDriverHIRPass(true, WillRunLLVMIRVPlan),
@@ -2576,10 +2776,15 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     if (!FPM.isEmpty())
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(VecClonePass());
+
+    // Use AutoCPUClonePass to generate -vecabi=cmdtarget clones.
+    MPM.addPass(AutoCPUClonePass(/*GenerateVectorVariants=*/true));
+
     // VecClonePass can generate redundant geps/loads for vector parameters when
     // accessing elem[i] within the inserted simd loop. This makes DD testing
     // harder, so run CSE here to do some clean-up before HIR construction.
     FPM.addPass(EarlyCSEPass());
+
     // Propagate any alignment assumptions.
     FPM.addPass(AlignmentFromAssumptionsPass());
   }
@@ -2632,8 +2837,7 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                                              ThinOrFullLTOPhase LTOPhase) {
-  const bool LTOPreLink = (LTOPhase == ThinOrFullLTOPhase::ThinLTOPreLink ||
-                           LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
+  const bool LTOPreLink = isLTOPreLink(LTOPhase);
   ModulePassManager MPM;
 
   // Run partial inlining pass to partially inline functions that have
@@ -2716,8 +2920,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // memory operations.
   MPM.addPass(RecomputeGlobalsAAPass());
 
-  for (auto &C : OptimizerEarlyEPCallbacks)
-    C(MPM, Level);
+  invokeOptimizerEarlyEPCallbacks(MPM, Level);
 
   FunctionPassManager OptimizePM;
   OptimizePM.addPass(Float2IntPass());
@@ -2740,8 +2943,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // rather than on each loop in an inside-out manner, and so they are actually
   // function passes.
 
-  for (auto &C : VectorizerStartEPCallbacks)
-    C(OptimizePM, Level);
+  invokeVectorizerStartEPCallbacks(OptimizePM, Level);
 
   // Disable clang-format in following block to avoid conflicts.
   // clang-format off
@@ -2823,8 +3025,7 @@ if (!SYCLOptimizationMode) {
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
-  for (auto &C : OptimizerLastEPCallbacks)
-    C(MPM, Level);
+  invokeOptimizerLastEPCallbacks(MPM, Level);
 
   // Split out cold code. Splitting is done late to avoid hiding context from
   // other optimizations and inadvertently regressing performance. The tradeoff
@@ -2889,12 +3090,11 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
-  // Apply module pipeline start EP callback.
-  for (auto &C : PipelineStartEPCallbacks)
-    C(MPM, Level);
-
   if (PGOOpt && PGOOpt->DebugInfoForProfiling)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
+
+  // Apply module pipeline start EP callback.
+  invokePipelineStartEPCallbacks(MPM, Level);
 
   const ThinOrFullLTOPhase LTOPhase = LTOPreLink
                                           ? ThinOrFullLTOPhase::FullLTOPreLink
@@ -2905,6 +3105,57 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPhase));
 
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  if (LTOPhase == ThinOrFullLTOPhase::None) {
+    std::optional<std::string> MLPGO = sys::Process::GetEnv("INTEL_MLPGO_CG");
+    if (MLPGO)
+      MPM.addPass(MLPGOInference());
+
+    if (!PGOOpt) {
+      std::optional<std::string> MLPGO_CG_GEN =
+          sys::Process::GetEnv("INTEL_MLPGO_CG_GEN");
+      std::optional<std::string> MLPGO_CG_USE =
+          sys::Process::GetEnv("INTEL_MLPGO_CG_USE");
+
+      assert((!MLPGO_CG_GEN || !MLPGO_CG_USE) &&
+             "Both INTEL_MLPGO_CG_GEN and INTEL_MLPGO_CG_USE defined!");
+      assert((!MLPGO_CG_USE || !MLPGO) &&
+             "Both INTEL_MLPGOO_CG and INTEL_MLPGO_CG_USE defined!");
+
+      if (MLPGO_CG_GEN) {
+        PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
+                            PGOOptions::IRInstr, PGOOptions::NoCSAction);
+        PGOOpt->IsCGPGO = true;
+      } else if (MLPGO_CG_USE) {
+        PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
+                            PGOOptions::IRUse, PGOOptions::NoCSAction);
+        PGOOpt->IsCGPGO = true;
+      }
+    }
+
+    // Add all the requested passes for instrumentation PGO, if requested.
+    // TODO: PGOOpt->IsCGPGO is always false now. We can enable it by
+    // environment variable (like INTEL_MLPGO_CG_GEN/USE for lto) for non-post
+    // lto optimization.
+    if (PGOOpt && PGOOpt->IsCGPGO &&
+        LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+        (PGOOpt->Action == PGOOptions::IRInstr ||
+         PGOOpt->Action == PGOOptions::IRUse)) {
+    addPGOInstrPasses(MPM, Level,
+                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
+                      /* IsCS */ false, PGOOpt->ProfileFile,
+                      PGOOpt->ProfileRemappingFile, LTOPhase, PGOOpt->FS);
+    MPM.addPass(PGOIndirectCallPromotion(false, false));
+    }
+    if (PGOOpt && PGOOpt->IsCGPGO &&
+        LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+        PGOOpt->CSAction == PGOOptions::CSIRInstr)
+    MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
+
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
     MPM.addPass(PseudoProbeUpdatePass());
@@ -2914,7 +3165,18 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
 
   if (LTOPreLink)
     addRequiredLTOPreLinkPasses(MPM);
+  return MPM;
+}
 
+ModulePassManager
+PassBuilder::buildFatLTODefaultPipeline(OptimizationLevel Level, bool ThinLTO,
+                                        bool EmitSummary) {
+  ModulePassManager MPM;
+  MPM.addPass(EmbedBitcodePass(ThinLTO, EmitSummary,
+                               ThinLTO
+                                   ? buildThinLTOPreLinkDefaultPipeline(Level)
+                                   : buildLTOPreLinkDefaultPipeline(Level)));
+  MPM.addPass(buildPerModuleDefaultPipeline(Level));
   return MPM;
 }
 
@@ -2935,8 +3197,7 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
   // Apply module pipeline start EP callback.
-  for (auto &C : PipelineStartEPCallbacks)
-    C(MPM, Level);
+  invokePipelineStartEPCallbacks(MPM, Level);
 
   // If we are planning to perform ThinLTO later, we don't bloat the code with
   // unrolling/vectorization/... now. Just simplify the module as much as we
@@ -2961,10 +3222,8 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   // Handle Optimizer{Early,Last}EPCallbacks added by clang on PreLink. Actual
   // optimization is going to be done in PostLink stage, but clang can't add
   // callbacks there in case of in-process ThinLTO called by linker.
-  for (auto &C : OptimizerEarlyEPCallbacks)
-    C(MPM, Level);
-  for (auto &C : OptimizerLastEPCallbacks)
-    C(MPM, Level);
+  invokeOptimizerEarlyEPCallbacks(MPM, Level);
+  invokeOptimizerLastEPCallbacks(MPM, Level);
 
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
@@ -2978,10 +3237,12 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     OptimizationLevel Level, const ModuleSummaryIndex *ImportSummary) {
   ModulePassManager MPM;
 
-  // Convert @llvm.global.annotations to !annotation metadata.
-  MPM.addPass(Annotation2MetadataPass());
-
   if (ImportSummary) {
+    // For ThinLTO we must apply the context disambiguation decisions early, to
+    // ensure we can correctly match the callsites to summary data.
+    if (EnableMemProfContextDisambiguation)
+      MPM.addPass(MemProfContextDisambiguation(ImportSummary));
+
     // These passes import type identifier resolutions for whole-program
     // devirtualization and CFI. They must run early because other passes may
     // disturb the specific instruction patterns that these passes look for,
@@ -3012,9 +3273,6 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     MPM.addPass(GlobalDCEPass());
     return MPM;
   }
-
-  // Force any function attributes we want the rest of the pipeline to observe.
-  MPM.addPass(ForceFunctionAttrsPass());
 
   // Add the core simplification pipeline.
   MPM.addPass(buildModuleSimplificationPipeline(
@@ -3049,11 +3307,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   LinkForLTO = true;
 #endif // INTEL_CUSTOMIZATION
-  // Convert @llvm.global.annotations to !annotation metadata.
-  MPM.addPass(Annotation2MetadataPass());
-
-  for (auto &C : FullLinkTimeOptimizationEarlyEPCallbacks)
-    C(MPM, Level);
+  invokeFullLinkTimeOptimizationEarlyEPCallbacks(MPM, Level);
 
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.
@@ -3079,8 +3333,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     // in ICP.
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
-    for (auto &C : FullLinkTimeOptimizationLastEPCallbacks)
-      C(MPM, Level);
+    invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
 
     // Emit annotation remarks.
     addAnnotationRemarksPass(MPM);
@@ -3182,7 +3435,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Remove unused virtual tables to improve the quality of code generated by
   // whole-program devirtualization and bitset lowering.
-  MPM.addPass(GlobalDCEPass());
+  MPM.addPass(GlobalDCEPass(/*InLTOPostLink=*/true));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -3210,9 +3463,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-
-  // Force any function attributes we want the rest of the pipeline to observe.
-  MPM.addPass(ForceFunctionAttrsPass());
 
   // Do basic inference of function attributes from known properties of system
   // libraries and other oracles.
@@ -3293,8 +3543,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     // pipeline).
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
-    for (auto &C : FullLinkTimeOptimizationLastEPCallbacks)
-      C(MPM, Level);
+    invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
 
     // Emit annotation remarks.
     addAnnotationRemarksPass(MPM);
@@ -3312,6 +3561,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (DTransEnabled)
     MPM.addPass(TileMVInlMarkerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
+  MPM.addPass(DeadDopeVectorEliminationPass());
   MPM.addPass(DopeVectorConstPropPass());
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
               ArgumentPromotionPass()));
@@ -3347,7 +3597,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM;
   addInstCombinePass(PeepholeFPM, !DTransEnabled, !DTransEnabled); // INTEL
-  if (Level == OptimizationLevel::O3)
+  if (Level == OptimizationLevel::O3) // INTEL
     PeepholeFPM.addPass(AggressiveInstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
@@ -3394,11 +3644,19 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-  MPM.addPass(ModuleInlinerWrapperPass(
-      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
-      SYCLOptimizationMode), /* MandatoryFirst */ true,
-      InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
-                    InlinePass::CGSCCInliner}));
+  if (EnableModuleInliner) {
+    MPM.addPass(ModuleInlinerPass(
+        getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
+                                    SYCLOptimizationMode),
+        UseInlineAdvisor, ThinOrFullLTOPhase::FullLTOPostLink));
+  } else {
+    MPM.addPass(ModuleInlinerWrapperPass(
+        getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
+                                    SYCLOptimizationMode),
+        /* MandatoryFirst */ true,
+        InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
+                      InlinePass::CGSCCInliner}));
+  }
 
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
@@ -3451,7 +3709,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(OpenMPOptPass(ThinOrFullLTOPhase::FullLTOPostLink));
 
   // Garbage collect dead functions.
-  MPM.addPass(GlobalDCEPass());
+  MPM.addPass(GlobalDCEPass(/*InLTOPostLink=*/true));
 
   // If we didn't decide to inline a function, check to see if we can
   // transform it to pass arguments by value instead of by reference.
@@ -3459,7 +3717,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
   // The IPO Passes may leave cruft around. Clean up after them.
-  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled); // INTEL
+#if INTEL_CUSTOMIZATION
+  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled);
+
+  if (Level == OptimizationLevel::O3 && DTransEnabled)
+    FPM.addPass(GVBasedMultiVersioningPass());
+#endif
+
   invokePeepholeEPCallbacks(FPM, Level);
 
   if (EnableConstraintElimination)
@@ -3567,7 +3831,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),
-      /*USeMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+      /*USeMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   if (RunNewGVN)
     MainFPM.addPass(NewGVNPass());
@@ -3581,6 +3845,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Nuke dead stores.
   MainFPM.addPass(DSEPass());
+  MainFPM.addPass(MoveAutoInitPass());
   MainFPM.addPass(MergedLoadStoreMotionPass());
 
   LoopPassManager LPM;
@@ -3645,16 +3910,24 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(HotColdSplittingPass());
 
   // Add late LTO optimization passes.
+  FunctionPassManager LateFPM;
+
+  // LoopSink pass sinks instructions hoisted by LICM, which serves as a
+  // canonicalization pass that enables other optimizations. As a result,
+  // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
+  // result too early.
+  LateFPM.addPass(LoopSinkPass());
+
+  // This hoists/decomposes div/rem ops. It should run after other sink/hoist
+  // passes to avoid re-sinking, but before SimplifyCFG because it can allow
+  // flattening of blocks.
+  LateFPM.addPass(DivRemPairsPass());
+
   // Delete basic blocks, which optimization passes may have killed.
-#if INTEL_CUSTOMIZATION
-  // 28038: Avoid excessive hoisting as it increases register pressure and
-  // select conversion without clear gains.
-  // MPM.addPass(createModuleToFunctionPassAdaptor(
-  //   SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass(
+  LateFPM.addPass(SimplifyCFGPass(
       SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true))));
-#endif // INTEL_CUSTOMIZATION
+          true)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(LateFPM)));
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll can expose opportunities for optimizing globals and
@@ -3667,7 +3940,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(EliminateAvailableExternallyPass());
 
   // Now that we have optimized the program, discard unreachable functions.
-  MPM.addPass(GlobalDCEPass());
+  MPM.addPass(GlobalDCEPass(/*InLTOPostLink=*/true));
 
   if (PTO.MergeFunctions)
     MPM.addPass(MergeFunctionsPass());
@@ -3675,8 +3948,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (PTO.CallGraphProfile)
     MPM.addPass(CGProfilePass());
 
-  for (auto &C : FullLinkTimeOptimizationLastEPCallbacks)
-    C(MPM, Level);
+  invokeFullLinkTimeOptimizationLastEPCallbacks(MPM, Level);
 
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
@@ -3687,6 +3959,46 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                       Level.getSizeLevel(), false));
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  if (!PGOOpt) {
+    std::optional<std::string> MLPGO_CG_GEN =
+        sys::Process::GetEnv("INTEL_MLPGO_CG_GEN");
+    std::optional<std::string> MLPGO_CG_USE =
+        sys::Process::GetEnv("INTEL_MLPGO_CG_USE");
+    std::optional<std::string> MLPGO = sys::Process::GetEnv("INTEL_MLPGO_LTO");
+
+    assert((!MLPGO_CG_GEN || !MLPGO_CG_USE) &&
+           "Both INTEL_MLPGO_CG_GEN and INTEL_MLPGO_CG_USE defined!");
+    assert((!MLPGO_CG_USE || !MLPGO) &&
+           "Both INTEL_MLPGO_LTO and INTEL_MLPGO_CG_USE defined!");
+
+    if (MLPGO)
+      MPM.addPass(MLPGOInference());
+
+    if (MLPGO_CG_GEN) {
+      PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
+                          PGOOptions::IRInstr, PGOOptions::NoCSAction);
+      PGOOpt->IsCGPGO = true;
+    } else if (MLPGO_CG_USE) {
+      PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
+                          PGOOptions::IRUse, PGOOptions::NoCSAction);
+      PGOOpt->IsCGPGO = true;
+    }
+  }
+  // Add all the requested passes for instrumentation PGO, if requested.
+  if (PGOOpt && PGOOpt->IsCGPGO &&
+      (PGOOpt->Action == PGOOptions::IRInstr ||
+       PGOOpt->Action == PGOOptions::IRUse)) {
+    addPGOInstrPasses(MPM, Level,
+                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
+                      /* IsCS */ false, PGOOpt->ProfileFile,
+                      PGOOpt->ProfileRemappingFile,
+                      ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
+    MPM.addPass(PGOIndirectCallPromotion(false, false));
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
   return MPM;
 }
 
@@ -3712,14 +4024,12 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
         /* IsCS */ false, PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
         PGOOpt->FS);
 
-  for (auto &C : PipelineStartEPCallbacks)
-    C(MPM, Level);
+  invokePipelineStartEPCallbacks(MPM, Level);
 
   if (PGOOpt && PGOOpt->DebugInfoForProfiling)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
-  for (auto &C : PipelineEarlySimplificationEPCallbacks)
-    C(MPM, Level);
+  invokePipelineEarlySimplificationEPCallbacks(MPM, Level);
 
 #if INTEL_CUSTOMIZATION
   if (RunVPOOpt && RunVPOParopt) {
@@ -3759,15 +4069,13 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
   if (!CGSCCOptimizerLateEPCallbacks.empty()) {
     CGSCCPassManager CGPM;
-    for (auto &C : CGSCCOptimizerLateEPCallbacks)
-      C(CGPM, Level);
+    invokeCGSCCOptimizerLateEPCallbacks(CGPM, Level);
     if (!CGPM.isEmpty())
       MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
   }
   if (!LateLoopOptimizationsEPCallbacks.empty()) {
     LoopPassManager LPM;
-    for (auto &C : LateLoopOptimizationsEPCallbacks)
-      C(LPM, Level);
+    invokeLateLoopOptimizationsEPCallbacks(LPM, Level);
     if (!LPM.isEmpty()) {
       MPM.addPass(createModuleToFunctionPassAdaptor(
           createFunctionToLoopPassAdaptor(std::move(LPM))));
@@ -3775,8 +4083,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   }
   if (!LoopOptimizerEndEPCallbacks.empty()) {
     LoopPassManager LPM;
-    for (auto &C : LoopOptimizerEndEPCallbacks)
-      C(LPM, Level);
+    invokeLoopOptimizerEndEPCallbacks(LPM, Level);
     if (!LPM.isEmpty()) {
       MPM.addPass(createModuleToFunctionPassAdaptor(
           createFunctionToLoopPassAdaptor(std::move(LPM))));
@@ -3784,20 +4091,20 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   }
   if (!ScalarOptimizerLateEPCallbacks.empty()) {
     FunctionPassManager FPM;
-    for (auto &C : ScalarOptimizerLateEPCallbacks)
-      C(FPM, Level);
+    invokeScalarOptimizerLateEPCallbacks(FPM, Level);
     if (!FPM.isEmpty())
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
-  for (auto &C : OptimizerEarlyEPCallbacks)
-    C(MPM, Level);
+  invokeOptimizerEarlyEPCallbacks(MPM, Level);
 
 #if INTEL_COLLAB
   if (RunVPOOpt) {
 #if INTEL_CUSTOMIZATION
-    if (RunVecClone && RunVPOVecopt)
+    if (RunVecClone && RunVPOVecopt) {
       MPM.addPass(VecClonePass());
+      MPM.addPass(AutoCPUClonePass(/*GenerateVectorVariants=*/true));
+    }
 #endif // INTEL_CUSTOMIZATION
     // Add VPO transform and vec passes.
     FunctionPassManager FPM;
@@ -3809,8 +4116,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_COLLAB
   if (!VectorizerStartEPCallbacks.empty()) {
     FunctionPassManager FPM;
-    for (auto &C : VectorizerStartEPCallbacks)
-      C(FPM, Level);
+    invokeVectorizerStartEPCallbacks(FPM, Level);
     if (!FPM.isEmpty())
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
@@ -3824,8 +4130,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   CoroPM.addPass(GlobalDCEPass());
   MPM.addPass(CoroConditionalWrapper(std::move(CoroPM)));
 
-  for (auto &C : OptimizerLastEPCallbacks)
-    C(MPM, Level);
+  invokeOptimizerLastEPCallbacks(MPM, Level);
 
   if (LTOPreLink)
     addRequiredLTOPreLinkPasses(MPM);

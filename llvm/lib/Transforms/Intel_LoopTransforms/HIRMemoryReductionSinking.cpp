@@ -1,6 +1,6 @@
 //===-------------------- HIRMemoryReductionSinking.cpp -------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -134,19 +134,13 @@ FunctionPass *llvm::createHIRMemoryReductionSinkingPass() {
   return new HIRMemoryReductionSinkingLegacyPass();
 }
 
-static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst,
-                                 bool CheckSelfBlobRval) {
+static HLInst *getReductionStore(HLInst *LoadInst, bool CheckSelfBlobRval) {
   // We only handle consecutive load and store instructions when looking for
   // reductions.
   // TODO: Extend logic to handle non-consecutive loads and stores.
   auto *SInst = dyn_cast_or_null<HLInst>(LoadInst->getNextNode());
 
   if (!SInst || !isa<StoreInst>(SInst->getLLVMInstruction())) {
-    return nullptr;
-  }
-
-  auto *StoreRef = SInst->getLvalDDRef();
-  if (!DDRefUtils::areEqual(LoadRef, StoreRef)) {
     return nullptr;
   }
 
@@ -221,31 +215,35 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
       }
 
       LoadRef = HInst->getOperandDDRef(1);
-
-      // Try both memref operands of commutative operations.
-      if (!LoadRef->isMemRef() && Instruction::isCommutative(Opcode)) {
+      if (Instruction::isCommutative(Opcode))
         AlternateLoadRef = HInst->getOperandDDRef(2);
 
-        if (!AlternateLoadRef->isMemRef()) {
-          AlternateLoadRef = nullptr;
-        }
-      }
+      if (!LoadRef->isMemRef() &&
+          (!AlternateLoadRef || !AlternateLoadRef->isMemRef()))
+        continue;
+
       IsFirstPattern = false;
 
     } else {
       continue;
     }
 
-    StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
-
-    if (!StoreInst && AlternateLoadRef) {
-      LoadRef = AlternateLoadRef;
-      StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
-    }
-
-    if (!StoreInst || !HLNodeUtils::postDominates(StoreInst, FirstChild)) {
+    StoreInst = getReductionStore(HInst, !IsFirstPattern);
+    if (!StoreInst)
       continue;
+
+    auto *StoreRef = StoreInst->getLvalDDRef();
+
+    if (!LoadRef->isMemRef() || !DDRefUtils::areEqual(LoadRef, StoreRef)) {
+      if (AlternateLoadRef && AlternateLoadRef->isMemRef() &&
+          DDRefUtils::areEqual(AlternateLoadRef, StoreRef))
+        LoadRef = AlternateLoadRef;
+      else
+        continue;
     }
+
+    if (!HLNodeUtils::postDominates(StoreInst, FirstChild))
+      continue;
 
     if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
       InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
@@ -360,12 +358,15 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
         continue;
       }
 
+      auto *SinkRegRef = cast<RegDDRef>(SinkRef);
       // Give up if there is a possibiliy of partial overlap between dependent
       // refs. Partial overlap is not possible between refs of same type, same
-      // alignment and alignment >= size.
+      // alignment, and alignment >= size if the base and shape aren't equal.
       if ((StoreTy != SinkRef->getDestType()) ||
-          (StoreAlignment != cast<RegDDRef>(SinkRef)->getAlignment()) ||
-          (StoreAlignment < StoreSize)) {
+          (StoreAlignment != SinkRegRef->getAlignment()) ||
+          (StoreAlignment < StoreSize &&
+           !DDRefUtils::haveEqualBaseAndShapeAndOffsets(SinkRegRef, StoreRef,
+                                                        false))) {
         Escapes = true;
         break;
       }
@@ -514,7 +515,8 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
     }
 
     // Load/Store of reduction at line %d sinked after loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25528u, StoreLineNum);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::MemoryReductionSinking, StoreLineNum);
 
     // Linear (invariant) memrefs can become non-linear in post-exit as they are
     // now in outer loop scope.
@@ -535,7 +537,7 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;
@@ -595,7 +597,8 @@ bool HIRMemoryReductionSinkingLegacyPass::runOnFunction(Function &F) {
 
 PreservedAnalyses HIRMemoryReductionSinkingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  runMemoryReductionSinking(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                            AM.getResult<HIRDDAnalysisPass>(F));
+  ModifiedHIR = runMemoryReductionSinking(
+      HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      AM.getResult<HIRDDAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

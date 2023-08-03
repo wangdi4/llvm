@@ -14,16 +14,16 @@
 ; CHECK: |   (%p1)[0][0] = 1.000000e+00;
 ; CHECK: + END LOOP
 
-define void @foo(double* %A) {
+define void @foo(ptr %A) {
 entry:
   br label %loop
 
 loop:
   %i = phi i32 [0, %entry], [%ip, %loop]
-  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) nonnull %A, i64 10), !ifx.array_extent !0
-  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 32, double* elementtype(double) nonnull %p1, i64 0)
-  %p3 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) nonnull %p2, i64 0)
-  store double 1.0, double* %p3
+  %p1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(double) nonnull %A, i64 10), !ifx.array_extent !0
+  %p2 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 32, ptr elementtype(double) nonnull %p1, i64 0)
+  %p3 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(double) nonnull %p2, i64 0)
+  store double 1.0, ptr %p3
   %ip = add nsw nuw i32 %i, 1
   %cmp = icmp ult i32 %ip, 2
   br i1 %cmp, label %loop, label %exit
@@ -32,6 +32,6 @@ exit:
   ret void
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 
 !0 = !{i64 200}

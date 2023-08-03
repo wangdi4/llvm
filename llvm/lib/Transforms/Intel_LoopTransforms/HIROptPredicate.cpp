@@ -78,6 +78,7 @@
 #define OPT_SWITCH "hir-opt-predicate"
 #define OPT_DESC "HIR OptPredicate"
 #define DEBUG_TYPE OPT_SWITCH
+#define LLVM_DEBUG_DETAIL(X) DEBUG_WITH_TYPE(OPT_SWITCH "-detail", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -154,35 +155,127 @@ static cl::opt<bool> DisableUnswitchSelect("disable-" OPT_SWITCH "-select",
                                                      " for select "
                                                      "instructions"));
 
+// Disable the optimization for SIMD cases
+static cl::opt<bool> DisableUnswitchSIMD("disable-" OPT_SWITCH "-simd",
+                                         cl::init(false), cl::Hidden,
+                                         cl::desc("Disable " OPT_DESC
+                                                  " when the loop is "
+                                                  "inside SIMD directives"));
+
+// Disable the optimization for SIMD at region level
+static cl::opt<bool>
+    DisableUnswitchRegionSIMD("disable-" OPT_SWITCH "-region-simd",
+                              cl::init(true), cl::Hidden,
+                              cl::desc("Disable " OPT_DESC " when the loop is "
+                                       "inside SIMD directives at region "
+                                       "level"));
+
 namespace {
 
-// Partial Unswitch context
+// Structure to handle the information if the condition can be partially
+// unswitched. Current cases that can be handled:
+//
+//   LoadPUC: This partial unswitching will be considered when a temp that
+//            loads from the same memref inside a loop is used in the candidate
+//            condition, and the memref can be modified inside the Then or Else
+//            branch. In this case the branch that won't modify the memref will
+//            be unswitched. The new condition will only contain the predicate
+//            with the candidate temp, the loop with branch that won't modify
+//            the memref in one branch of the new condition, and the original
+//            loop in the other branch. For example:
+//
+//     HIR before transformation:
+//
+//       DO i1 = 0, 5
+//         %0 = a[0]
+//         if (%0 != 1) {
+//           a[i1] = 1
+//           ...
+//         } else {
+//           %t = %t + i1
+//         }
+//       END DO
+//
+//     HIR after transformation:
+//
+//       %0 = a[0]
+//       if (%0 == 1) {
+//         DO i1 = 0, 5
+//           %t = %t + i1
+//         END DO
+//       } else {
+//         DO i1 = 0, 5
+//           %0 = a[0]
+//           if (%0 != 1) {
+//             a[i1] = i1
+//             ...
+//           } else {
+//             %t = %t + i1
+//           }
+//         END DO
+//       }
+//
+//   InvariantPredPUC: The whole condition can't be hoisted, but one
+//                     predicate can be moved hoisted. If there are multiple
+//                     predicates, then the predicate that can be hoisted to
+//                     the outermost loop will be selected. Also, all
+//                     predicates should be bitwise 'AND'd. For example:
+//
+//     HIR before transformation:
+//
+//       BEGIN REGION { }
+//             + DO i1 = 0, 99, 1   <DO_LOOP>
+//             |   if (i1 != 0 & %t > 1)
+//             |   {
+//             |      (%A)[i1] = i1;
+//             |   }
+//             + END LOOP
+//       END REGION
+//
+//     HIR after transformation
+//
+//       BEGIN REGION { modified }
+//             if (%t > 1)
+//             {
+//                + DO i1 = 0, 99, 1   <DO_LOOP>
+//                |   if (i1 != 0)
+//                |   {
+//                |      (%A)[i1] = i1;
+//                |   }
+//                + END LOOP
+//             }
+//       END REGION
+//
 struct PUCandidate {
-  bool IsRequired = false;
 
-  SmallPtrSet<HLInst *, 8> Instructions;
+  // Handle the possible types that the PUCandidate can be. Only one type can
+  // be set.
+  enum PUCType {
+    LoadPUC,          // Load used for condition is modified in one branch
+    InvariantPredPUC, // One predicate in the condition can be hoisted
+    None              // Not candidate for partial unswitch
+  };
 
-  bool IsUpdatedInThenBranch = false;
-  bool IsUpdatedInElseBranch = false;
+  PUCType Type;
+
+  SmallPtrSet<HLInst *, 8> LoadInstructions;
+
+  bool IsLoadUpdatedInThenBranch;
+  bool IsLoadUpdatedInElseBranch;
+
+  // Position of the predicate the could be removed if the type is
+  // InvariantPredPUC. The numbering starts at 0 (first predicate).
+  unsigned InvariantPredPos;
 
 public:
-  SmallPtrSetImpl<HLInst *> &getInstructions() { return Instructions; }
-
-  bool isPUCandidate() const {
-    return !(IsUpdatedInThenBranch && IsUpdatedInElseBranch);
-  }
-
-  bool isPURequired() const { return IsRequired; }
-
-  void setPURequired() { IsRequired = true; }
-
-  PUCandidate() {}
+  PUCandidate() { reset(); }
 
   PUCandidate(const PUCandidate &Arg, const HLNodeMapper &Mapper)
-      : IsRequired(Arg.IsRequired),
-        IsUpdatedInThenBranch(Arg.IsUpdatedInThenBranch),
-        IsUpdatedInElseBranch(Arg.IsUpdatedInElseBranch) {
-    for (HLInst *Inst : Arg.Instructions) {
+      : Type(Arg.Type),
+        IsLoadUpdatedInThenBranch(Arg.IsLoadUpdatedInThenBranch),
+        IsLoadUpdatedInElseBranch(Arg.IsLoadUpdatedInElseBranch),
+        InvariantPredPos(Arg.InvariantPredPos) {
+    for (HLInst *Inst : Arg.LoadInstructions) {
       // Skip instructions that are already removed.
       if (!Inst->getParent()) {
         continue;
@@ -190,8 +283,48 @@ public:
 
       HLInst *ClonedInst = Mapper.getMapped(Inst);
       assert(ClonedInst && "Nullptr instruction");
-      Instructions.insert(ClonedInst);
+      LoadInstructions.insert(ClonedInst);
     }
+  }
+
+  SmallPtrSetImpl<HLInst *> &getLoadInstructions() {
+    assert(Type == PUCType::LoadPUC &&
+           "Trying to collect Load instructions from a non-Load PUC");
+    return LoadInstructions;
+  }
+
+  void setLoadPUC(SmallPtrSetImpl<HLInst *> &LoadPUCInstructions) {
+    // An If condition can have multiple prodicates that can be candidates for
+    // Load PU.
+    assert(Type == PUCType::None && "Trying to change LoadPUC type");
+    Type = PUCType::LoadPUC;
+    LoadInstructions.insert(LoadPUCInstructions.begin(),
+                            LoadPUCInstructions.end());
+  }
+
+  void setInvariantPredPUC(unsigned PredPos) {
+    assert(Type == PUCType::None && "Trying to change InvariantPredPUC type");
+    Type = PUCType::InvariantPredPUC;
+    InvariantPredPos = PredPos;
+  }
+
+  void reset() {
+    Type = PUCType::None;
+    InvariantPredPos = 0;
+    LoadInstructions.clear();
+    IsLoadUpdatedInThenBranch = false;
+    IsLoadUpdatedInElseBranch = false;
+  }
+
+  bool isSet() const { return Type != PUCType::None; }
+  bool isInvariantPredPUC() const { return Type == PUCType::InvariantPredPUC; }
+  bool isLoadPUC() const { return Type == PUCType::LoadPUC; }
+
+  PUCType getType() const { return Type; }
+  unsigned getInvariantPredicatePos() const {
+    assert(Type == PUCType::InvariantPredPUC &&
+           "Trying to get the invariant predicate in an invalid type");
+    return InvariantPredPos;
   }
 
 #ifndef NDEBUG
@@ -199,12 +332,12 @@ public:
   void dump() {
     dbgs() << "[ ";
 
-    dbgs() << (IsUpdatedInThenBranch ? "T" : "F");
+    dbgs() << (IsLoadUpdatedInThenBranch ? "T" : "F");
     dbgs() << "/";
-    dbgs() << (IsUpdatedInElseBranch ? "T" : "F");
+    dbgs() << (IsLoadUpdatedInElseBranch ? "T" : "F");
     dbgs() << " ";
 
-    for (HLInst *Inst : Instructions) {
+    for (HLInst *Inst : LoadInstructions) {
       dbgs() << "<" << Inst->getNumber() << "> ";
     }
     dbgs() << "]";
@@ -273,6 +406,11 @@ struct HoistCandidate {
   // HLIf and set the candidate's type as UnswitchType::If. This function is
   // used when converting a Select instruction into If/Else to do unswitching.
   void convertSelectToIf();
+
+  // If the candidate is for partial unswitching with type
+  // PUCType::InvariantPredPUC, then generate an if condition with the
+  // predicate that will be hoisted.
+  void generatePUCInvariantPredicateIf();
 
   // Return true if the candidate may contain any side effect that could
   // possibly increase the code size.
@@ -428,14 +566,16 @@ private:
   SmallPtrSet<HLLoop *, 8> OptReportVisitedSet;
 
   /// Returns true if the non-linear rval Ref of the If condition may be
-  /// unswitched together with its definition.
-  bool isPUCandidate(const HLIf *If, const RegDDRef *Ref, PUContext &PU) const;
+  /// unswitched together with its definition. Also, set the PU as required.
+  bool
+  checkForLoadPUCandidate(const HLIf *If, const RegDDRef *Ref, PUContext &PU,
+                          SmallPtrSet<HLInst *, 8> &LoadInstructions) const;
 
   /// Returns true of false whatever \p Edge prevents unswitching of non-linear
   /// condition. Populates PU and RefsStack.
   bool processPUEdge(const HLIf *If, DDEdge *Edge, PUContext &PU,
-                     SmallVectorImpl<const RegDDRef *> &RefsStack,
-                     DDGraph &DDG) const;
+                     SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG,
+                     SmallPtrSetImpl<HLInst *> &LoadInstructions) const;
 
   /// Sorts candidates in top sort number descending.
   /// They will be handled from right to left.
@@ -451,16 +591,14 @@ private:
 
   /// Returns the deepest level at which any of the If/Ref operands is defined.
   unsigned getPossibleDefLevel(const HLIf *If, PUContext &PUC);
-  unsigned getPossibleDefLevel(const HLSwitch *Switch, PUContext &PUC);
+  unsigned getPossibleDefLevel(const HLSwitch *Switch);
   unsigned getPossibleDefLevel(const HLDDNode *Node, const RegDDRef *Ref,
-                               PUContext &PUC);
+                               bool *NonLinearRef = nullptr);
 
   /// Returns the possible level where CE is defined.
   ///
-  /// NonLinearBlob is set true whenever CE contains a non-linear blob.
   /// UDivBlob is set to true whenever CE contains a non-constant division.
-  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob,
-                               bool &UDivBlob);
+  unsigned getPossibleCEDefLevel(const CanonExpr *CE, bool &UDivBlob);
 
   // Return true if we should reduce the cost of doing unswitching for Switch
   bool shouldUseReducedSwitchCost(const HLLoop *ParentLoop,
@@ -499,7 +637,7 @@ private:
   void addPredicateOptReportRemark(
       HLLoop *TargetLoop,
       const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
-      unsigned RemarkID);
+      OptRemarkID RemarkID);
 
   /// Return true if all candidates belong to outer loops. It will be used for
   /// disabling the GenCode flag since unswitching by itself may not be
@@ -568,32 +706,58 @@ public:
   decltype(Candidates) &getNewCandidates() { return NewCandidates; }
 };
 
-template <typename VisitorTy>
-static void visitChildren(VisitorTy &Visitor, HLIf *If) {
-  HLNodeUtils::visitRange(Visitor, If->then_begin(), If->then_end());
-  HLNodeUtils::visitRange(Visitor, If->else_begin(), If->else_end());
-}
-
-template <typename VisitorTy>
-static void visitChildren(VisitorTy &Visitor, HLSwitch *Switch) {
-  for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
-    HLNodeUtils::visitRange(Visitor, Switch->case_child_begin(I),
-                            Switch->case_child_end(I));
-  }
-  HLNodeUtils::visitRange(Visitor, Switch->default_case_child_begin(),
-                          Switch->default_case_child_end());
-}
-
 static bool isUnswitchDisabled(HLSwitch *) { return false; }
 static bool isUnswitchDisabled(HLIf *If) { return If->isUnswitchDisabled(); }
 
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
+
+  // Helper structure to handle the constraints that wouldn't allow a condition
+  // be a candidate.
+  struct CandidateConstraints {
+    unsigned MinLevel;       // Outermost level allowed to apply unswitching
+    bool CanTransformParent; // Parent loop is allowed to be transformed
+    bool PUCAllowed;         // Partial unswitching is allowed for the
+                             //   current candidate
+
+    // NOTE: This field could be improved by making it as MaxLevel, which
+    // represents the innermost loop that could be hoisted into. For now,
+    // we only check in some cases if the condition can be fully hoisted.
+    bool RequiresLoopnestUnswitch; // Candidates needs to be unswitched to the
+                                   //   outermost loop
+
+    bool RequiresRegionInvariant; // Candidate condition needs to be invariant
+                                  // to the region
+
+    CandidateConstraints(unsigned MinLevel, bool CanTransformParent,
+                         bool PUCAllowed, bool RequiresLoopnestUnswitch,
+                         bool RequiresRegionInvariant)
+        : MinLevel(MinLevel), CanTransformParent(CanTransformParent),
+          PUCAllowed(PUCAllowed),
+          RequiresLoopnestUnswitch(RequiresLoopnestUnswitch),
+          RequiresRegionInvariant(RequiresRegionInvariant) {}
+
+    CandidateConstraints(CandidateConstraints &Constraints)
+        : MinLevel(Constraints.MinLevel),
+          CanTransformParent(Constraints.CanTransformParent),
+          PUCAllowed(Constraints.PUCAllowed),
+          RequiresLoopnestUnswitch(Constraints.RequiresLoopnestUnswitch),
+          RequiresRegionInvariant(Constraints.RequiresRegionInvariant) {}
+
+    CandidateConstraints &operator=(const CandidateConstraints &Constraints) {
+      MinLevel = Constraints.MinLevel;
+      CanTransformParent = Constraints.CanTransformParent;
+      PUCAllowed = Constraints.PUCAllowed;
+      RequiresLoopnestUnswitch = Constraints.RequiresLoopnestUnswitch;
+      RequiresRegionInvariant = Constraints.RequiresRegionInvariant;
+      return *this;
+    }
+  };
+
   HLNode *SkipNode;
   HIROptPredicate &Pass;
   HIRLoopStatistics &HLS;
+  CandidateConstraints Constraints;
   HLLoop *CurrLoop;
-  unsigned MinLevel;
-  bool TransformLoop;
   unsigned CostOfRegion;
   // If we are analyzing a loop, then we are going to keep the first Select
   // instruction that we found. All other Select instructions will be
@@ -601,11 +765,21 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLInst *FirstSelectCandidate;
 
   CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
-      HLLoop *CurrLoop = nullptr, bool TransformLoop = true,
-      unsigned MinLevel = 0, unsigned CostOfRegion = 0) : SkipNode(nullptr),
-      Pass(Pass), HLS(HLS), CurrLoop(CurrLoop), MinLevel(MinLevel),
-      TransformLoop(TransformLoop), CostOfRegion(CostOfRegion),
-      FirstSelectCandidate(nullptr) {}
+                  HLLoop *CurrLoop = nullptr, bool CanTransformParent = true,
+                  unsigned MinLevel = 0, unsigned CostOfRegion = 0)
+      : SkipNode(nullptr), Pass(Pass), HLS(HLS),
+        Constraints(MinLevel, CanTransformParent, true /*PUCAllowed*/,
+                    false /*RequiresLoopnestUnswitch*/,
+                    false /*RequiresRegionInvariant*/),
+        CurrLoop(CurrLoop), CostOfRegion(CostOfRegion),
+        FirstSelectCandidate(nullptr) {}
+
+  CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
+                  CandidateConstraints &NewConstraints,
+                  HLLoop *CurrLoop = nullptr, unsigned CostOfRegion = 0)
+      : SkipNode(nullptr), Pass(Pass), HLS(HLS), Constraints(NewConstraints),
+        CurrLoop(CurrLoop), CostOfRegion(CostOfRegion),
+        FirstSelectCandidate(nullptr) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
@@ -620,6 +794,9 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 
 private:
   bool isProfitableOuterLoop(ArrayRef<const HLNode *> ChildNodes);
+  bool canUnswitchInnerIf(HLIf *If, HLLoop *Loop);
+  bool isRestrictedByConstraints(HLNode *Node, unsigned Level, PUContext &PUC,
+                                 CandidateConstraints &Constraints);
 };
 
 // Helper structure used to count the number of nested loops in a region.
@@ -721,9 +898,130 @@ void HoistCandidate::convertSelectToIf() {
   CreatedFromSelect = true;
 }
 
+// Create a new If instruction that contains the invariant predicate. The
+// new If will replace the node to convert and hoisting will be applied.
+// For example, the condition %t > 1 in the following loop can be hoisted:
+//
+//   + DO i1 = 0, 99, 1   <DO_LOOP>
+//   |   if (i1 != 0 && %t > 1)
+//   |   {
+//   |      (%A)[i1] = i1;
+//   |   }
+//   + END LOOP
+//
+// Before applying the hoist, we need to separate the invariant predicate.
+// The loop will be cleanup as follows:
+//
+//   + DO i1 = 0, 99, 1   <DO_LOOP>
+//   |   if (%t > 1)
+//   |   {
+//   |      if (i1 != 0)
+//   |      {
+//   |         (%A)[i1] = i1;
+//   |      }
+//   |   }
+//   + END LOOP
+//
+// The transformation phase will use the new If to do the hoisting.
+//
+//   if (%t > 1)
+//   {
+//      + DO i1 = 0, 99, 1   <DO_LOOP>
+//      |   if (i1 != 0)
+//      |   {
+//      |      (%A)[i1] = i1;
+//      |   }
+//      + END LOOP
+//   }
+//
+void HoistCandidate::generatePUCInvariantPredicateIf() {
+  assert(PUC.isInvariantPredPUC() &&
+         "Trying to generate an HLIf for a non-invariant "
+         "predicate condition");
+
+  auto *If = cast<HLIf>(Node);
+
+  // Find the invariant predicate
+  auto CurrPred = If->pred_begin() + PUC.getInvariantPredicatePos();
+
+  // Move the condition
+  RegDDRef *Ref1 = If->removeLHSPredicateOperandDDRef(CurrPred);
+  RegDDRef *Ref2 = If->removeRHSPredicateOperandDDRef(CurrPred);
+  auto &Pred = *CurrPred;
+
+  // Generate the new If condition
+  auto &HLNU = If->getHLNodeUtils();
+  HLIf *NewIf = HLNU.createHLIf(Pred, Ref1, Ref2);
+
+  // We need to clone the Else branch. The reason is that if the condition
+  // have an Else, then we need to make sure it is taken. For example:
+  //
+  //   + DO i1 = 0, 99, 1   <DO_LOOP>
+  //   |   if (i1 != 0 && %t > 1)
+  //   |   {
+  //   |      (%A)[i1] = i1;
+  //   |   }
+  //   |   else
+  //   |   {
+  //   |      (%A)[i1] = i1 + 1;
+  //   |   }
+  //   + END LOOP
+  //
+  // If %t is less or equal than 1, or if i1 is not equal 0, then the Else
+  // branch will be taken. We need to generate the cleanup as follows:
+  //
+  //   + DO i1 = 0, 99, 1   <DO_LOOP>
+  //   |   if (%t > 1)
+  //   |   {
+  //   |      if (i1 != 0)
+  //   |      {
+  //   |         (%A)[i1] = i1;
+  //   |      }
+  //   |      else
+  //   |      {
+  //   |         (%A)[i1] = i1 + 1;
+  //   |      }
+  //   |   }
+  //   |   else
+  //   |   {
+  //   |      (%A)[i1] = i1 + 1;
+  //   |   }
+  //   + END LOOP
+  //
+  // This means, if the condition %t > 1 is true, but i1 != 0 is false, then we
+  // need to respect the Else branch.
+  //
+  // TODO: The clone sequence needs to use the LoopUnswitchNodeMapper to map
+  // any node that is a candidate and is inside the Else branch.
+  HLContainerTy ElseClones;
+  if (If->hasElseChildren())
+    HLNodeUtils::cloneSequence(&ElseClones, If->getFirstElseChild(),
+                               If->getLastElseChild());
+
+  // Remove the invariant predicate from the old If
+  If->removePredicate(CurrPred);
+
+  // Set the Else branch if needed
+  if (!ElseClones.empty())
+    HLNodeUtils::insertAsFirstElseChildren(NewIf, &ElseClones);
+
+  HLNodeUtils::insertBefore(If, NewIf);
+
+  // Set the old If as the Then branch in the new If
+  HLNodeUtils::moveAsFirstThenChild(NewIf, If);
+
+  // Reset the information for partial opt-predicate since the new If doesn't
+  // have any more predicates.
+  PUC.reset();
+
+  // Update the node to transform
+  Node = NewIf;
+}
+
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
-    SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG) const {
+    SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG,
+    SmallPtrSetImpl<HLInst *> &LoadInstructions) const {
   if (!Edge->isFlow()) {
     // May ignore non-flow edges.
     return true;
@@ -738,16 +1036,16 @@ bool HIROptPredicate::processPUEdge(
     // VRef is updated from the previous loop iteration
 
     if (If->isThenChild(Inst)) {
-      PU.IsUpdatedInThenBranch = true;
+      PU.IsLoadUpdatedInThenBranch = true;
     } else if (If->isElseChild(Inst)) {
-      PU.IsUpdatedInElseBranch = true;
+      PU.IsLoadUpdatedInElseBranch = true;
     } else {
       // Is updated outside of the If construct
       return false;
     }
 
     // Is updated in both If branches
-    if (PU.IsUpdatedInThenBranch && PU.IsUpdatedInElseBranch) {
+    if (PU.IsLoadUpdatedInThenBranch && PU.IsLoadUpdatedInElseBranch) {
       return false;
     }
 
@@ -820,7 +1118,7 @@ bool HIROptPredicate::processPUEdge(
     }
   }
 
-  PU.getInstructions().insert(Inst);
+  LoadInstructions.insert(Inst);
 
   auto RefsRange = concat<RegDDRef *>(
       make_range(Inst->rval_op_ddref_begin(), Inst->rval_op_ddref_end()),
@@ -863,8 +1161,9 @@ bool HIROptPredicate::processPUEdge(
 //   END DO
 // }
 //
-bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
-                                    PUContext &PU) const {
+bool HIROptPredicate::checkForLoadPUCandidate(
+    const HLIf *If, const RegDDRef *Ref, PUContext &PU,
+    SmallPtrSet<HLInst *, 8> &LoadInstructions) const {
   assert(isa<HLIf>(Ref->getHLDDNode()) && "Ref parent is not an HLIf");
   assert(Ref->getHLDDNode() == If && "HLIf should be a parent of Ref");
 
@@ -878,6 +1177,10 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
 
   HLLoop *ParentLoop = If->getParentLoop();
   unsigned ParentLoopLevel = ParentLoop->getNestingLevel();
+
+  if (Ref->hasIV(ParentLoopLevel))
+    return false;
+
   DDGraph DDG = DDA.getGraph(ParentLoop);
 
 #ifndef NDEBUG
@@ -895,24 +1198,23 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     const RegDDRef *VRef = RefsStack.pop_back_val();
     PU.VisitedRefs.insert(VRef);
 
-    // Check that the VRef value is independent from ParentLoop's IV.
+    // Check that the VRef value is invariant from ParentLoop's IV.
     if (VRef->hasIV(ParentLoopLevel)) {
       return false;
     }
 
     // Look for all incoming flow edges.
-
     for (const BlobDDRef *BDDRef :
          make_range(VRef->blob_begin(), VRef->blob_end())) {
       for (auto &Edge : DDG.incoming(BDDRef)) {
-        if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
+        if (!processPUEdge(If, Edge, PU, RefsStack, DDG, LoadInstructions)) {
           return false;
         }
       }
     }
 
     for (auto &Edge : DDG.incoming(VRef)) {
-      if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
+      if (!processPUEdge(If, Edge, PU, RefsStack, DDG, LoadInstructions)) {
         return false;
       }
     }
@@ -1052,6 +1354,62 @@ void HIROptPredicate::CandidateLookup::visit(HLSwitch *Switch) {
   visitIfOrSwitch(Switch);
 }
 
+// Return true if the input If, which isn't a candidate for unswitching,
+// has an inner If that can be unswitched.
+bool HIROptPredicate::CandidateLookup::canUnswitchInnerIf(HLIf *If,
+                                                          HLLoop *Loop) {
+
+  // Only apply it if we are at the innermost loop and the loop is a DO loop.
+  //
+  // NOTE: For now, this type of unswitching is allowed if the candidate can
+  // be moved out of the loopnest. Therefore, the min-level should be 0. This
+  // is conservative because it may affect other transformation like loop
+  // collapsing and/or loop interchange.
+  if (!Loop->isInnermost() || !Loop->isDo() || Constraints.MinLevel != 0)
+    return false;
+
+  // Currently, we support for single nested If. The reason is that we don't
+  // want to hoist a condition that is deeply nested. It would increase the
+  // chance for taking the branch when previously wasn't taken.
+  if (If->getParent() != Loop)
+    return false;
+
+  return true;
+}
+
+// Return true if there is at least one constraints for the input Node that
+// prevents the transformation.
+bool HIROptPredicate::CandidateLookup::isRestrictedByConstraints(
+    HLNode *Node, unsigned Level, PUContext &PUC,
+    CandidateConstraints &Constraints) {
+
+  // Check if partial unswitching is set and allowed
+  if (PUC.isSet() && !Constraints.PUCAllowed)
+    return true;
+
+  // Condition needs to be fully hoisted
+  if (Constraints.RequiresLoopnestUnswitch && Level != 0)
+    return true;
+
+  // Memrefs in the condition needs to be region invariant
+  if (Constraints.RequiresRegionInvariant) {
+    if (Level != 0)
+      return true;
+
+    // This is only supported for If conditions at the moment
+    HLIf *If = dyn_cast<HLIf>(Node);
+    if (!If)
+      return true;
+
+    for (auto *PredOP : make_range(If->op_ddref_begin(), If->op_ddref_end())) {
+      if (!PredOP->isStructurallyRegionInvariant())
+        return true;
+    }
+  }
+
+  return false;
+}
+
 template <typename NodeTy>
 void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   if (!CurrLoop) {
@@ -1063,24 +1421,78 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   // Partial unswitch context
   PUContext PUC;
 
-  bool IsCandidate = TransformLoop && !isUnswitchDisabled(Node);
+  bool IsCandidate =
+      Constraints.CanTransformParent && !isUnswitchDisabled(Node);
 
   // Skip candidates that are already at the outer most possible level.
   unsigned Level;
 
+  LLVM_DEBUG_DETAIL(dbgs() << "\n"; dbgs() << "CanTransformParent: ";
+                    StringRef Answer =
+                        Constraints.CanTransformParent ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "IsCandidate: ";
+                    StringRef Answer = IsCandidate ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "MinLevel: " << Constraints.MinLevel << "\n");
+
+  unsigned CurLevel = CurrLoop->getNestingLevel();
+
   if (IsCandidate) {
     // Determine target level to unswitch.
-    Level = std::max(Pass.getPossibleDefLevel(Node, PUC), MinLevel);
+    if (auto *If = dyn_cast<HLIf>(Node))
+      Level = std::max(Pass.getPossibleDefLevel(If, PUC), Constraints.MinLevel);
+    else if (auto *Switch = dyn_cast<HLSwitch>(Node))
+      Level = std::max(Pass.getPossibleDefLevel(Switch), Constraints.MinLevel);
+    else
+      llvm_unreachable("Trying to unswitch a Node that is not If or Switch");
 
-    if (Level < CurrLoop->getNestingLevel()) {
-      // Check if condition does not depend on both T/F branches at the same
-      // time.
-      IsCandidate = PUC.isPUCandidate();
-    } else {
-      IsCandidate = false;
-    }
+    // The hoisting level needs to be less than the the current node level.
+    IsCandidate = Level < CurLevel;
   } else {
-    Level = CurrLoop->getNestingLevel();
+    Level = CurLevel;
+  }
+
+  // Check if there is any restriction that we shouldn't do the transformation
+  if (IsCandidate && isRestrictedByConstraints(Node, Level, PUC, Constraints)) {
+    IsCandidate = false;
+    Level = CurLevel;
+  }
+
+  if (IsCandidate) {
+    auto *TargetLoop = Node->getParentLoopAtLevel(Level + 1);
+    bool IsValidLevel = DisableUnswitchRegionSIMD ? Level >= 0 : Level > 0;
+
+    if (IsValidLevel && TargetLoop->isSIMD()) {
+      // We don't support hoisting outside non-innermost loop
+      // with SIMD pragma as it can inhibit the outer-loop vectorization
+      // of that outer loop. We update the level to CurrLoop's level
+      // so that inner-if see some valid opportunities.
+      // TODO: enhance the logic so that SIMD pragma can be moved/copied
+      //       with Opt Pred when possible (JR-47148)
+      //       Level updating logic can be further relaxed to hoist
+      //       inner-if to outside of outer-if when needed.
+      LLVM_DEBUG(
+          dbgs()
+          << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
+
+      IsCandidate = false;
+      Level = CurLevel;
+
+      // We only need to check the TargetLoop if it is not the same as the
+      // parent loop of candidate, (nesting level check below). This is because
+      // visit(HLLoop *) disables all candidates within it if it has convergent
+      // calls. Ideally, we should do the same for SIMD loops as well.
+    } else if ((Level != CurLevel - 1) &&
+               HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
+
+      LLVM_DEBUG(
+          dbgs()
+          << "Hoisting disabled as target loop contains convergent calls.\n");
+
+      IsCandidate = false;
+      Level = CurLevel;
+    }
   }
 
   if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
@@ -1089,8 +1501,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // passes.
     uint64_t TC;
     bool IsCompleteUnrollCandidate =
-        (CurrLoop->isInnermost() &&
-         (Level == CurrLoop->getNestingLevel() - 1) &&
+        (CurrLoop->isInnermost() && (Level == CurLevel - 1) &&
          CurrLoop->isConstTripLoop(&TC) && TC < 4);
 
     // Check if unswitching breaks the existing loopnest perfectness.
@@ -1098,14 +1509,14 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
                   (Node->getParentLoopAtLevel(Level)->getNumChildren() > 1);
   }
 
-  if (IsCandidate && PUC.isPURequired()) {
+  if (IsCandidate && PUC.isLoadPUC()) {
     // HLIf should be unconditionally executed to unswitch.
     IsCandidate = HLNodeUtils::postDominates(Node, CurrLoop->getFirstChild());
   }
 
   // Check for unsafe calls in branches that can modify the condition.
   // TODO: Do we need HIRStatistics instead of LoopStatistics?
-  if (IsCandidate && PUC.isPURequired()) {
+  if (IsCandidate && PUC.isLoadPUC()) {
     // Implemented for HLIfs only
     HLIf *If = cast<HLIf>(Node);
     UnsafeCallFinder LoopUnsafe(Node), ThenUnsafe, ElseUnsafe;
@@ -1113,13 +1524,14 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
                             CurrLoop->child_end());
     HLNodeUtils::visitRange(ThenUnsafe, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(ElseUnsafe, If->else_begin(), If->else_end());
-    PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch ||
-                                ThenUnsafe.hasUnsafeCall() ||
-                                LoopUnsafe.hasUnsafeCall();
-    PUC.IsUpdatedInElseBranch = PUC.IsUpdatedInElseBranch ||
-                                ElseUnsafe.hasUnsafeCall() ||
-                                LoopUnsafe.hasUnsafeCall();
-    IsCandidate = PUC.isPUCandidate();
+    PUC.IsLoadUpdatedInThenBranch = PUC.IsLoadUpdatedInThenBranch ||
+                                    ThenUnsafe.hasUnsafeCall() ||
+                                    LoopUnsafe.hasUnsafeCall();
+    PUC.IsLoadUpdatedInElseBranch = PUC.IsLoadUpdatedInElseBranch ||
+                                    ElseUnsafe.hasUnsafeCall() ||
+                                    LoopUnsafe.hasUnsafeCall();
+    IsCandidate =
+        !PUC.IsLoadUpdatedInThenBranch || !PUC.IsLoadUpdatedInElseBranch;
   }
 
   // Disable the optimization for the current node if it represents a switch
@@ -1137,14 +1549,23 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     });
   }
 
-  LLVM_DEBUG(dbgs() << "Opportunity: ");
-  LLVM_DEBUG(Node->dumpHeader());
-  LLVM_DEBUG(dbgs() << " --> Level " << Level << ", Candidate: " << IsCandidate
-                    << (PUC.isPURequired() ? "(PU)" : "") << "\n");
+  LLVM_DEBUG({
+    dbgs() << "Opportunity: ";
+    Node->dumpHeader();
+    StringRef PUCString = "";
+    if (PUC.isLoadPUC())
+      PUCString = " (PUC: Load)";
+    else if (PUC.isInvariantPredPUC())
+      PUCString = " (PUC: InvariantPred)";
+
+    dbgs() << " --> Level " << Level
+           << ", Candidate: " << (IsCandidate ? "Yes" : "No") << PUCString
+           << "\n";
+  });
 
   // Tell inner candidates that parent candidate will not be unswitched.
   // Do not unswitch inner candidates in case of partial unswitching.
-  bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
+  bool WillUnswitchParent = IsCandidate && !PUC.isSet();
 
   bool HoistingIncreaseCodeSize = true;
   if (WillUnswitchParent && isa<HLIf>(Node)) {
@@ -1162,10 +1583,71 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     });
   }
 
-  // Collect candidates within HLIf branches.
-  CandidateLookup
-      Lookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level, CostOfRegion);
-  visitChildren(Lookup, Node);
+  LLVM_DEBUG_DETAIL(dbgs() << "WillUnswitchParent: ";
+                    StringRef Answer = WillUnswitchParent ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "Level: " << Level << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "CurrLoop: " << CurrLoop->getNumber() << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "Node: " << Node->getNumber() << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "CostOfRegion: " << CostOfRegion << "\n");
+
+  // We use RequiresLoopnestUnswitch to identify if an If condition can be
+  // unswitched while its parent If condition is not a candidate for
+  // opt-predicate. If that is the case, the aren't going to allow any more
+  // unswitching for inner conditions.
+  if (!Constraints.RequiresLoopnestUnswitch) {
+    // Collect candidates within HLIf branches.
+    if (auto *If = dyn_cast<HLIf>(Node)) {
+      CandidateConstraints ThenConstraints(Level, WillUnswitchParent,
+                                           Constraints.PUCAllowed,
+                                           Constraints.RequiresLoopnestUnswitch,
+                                           Constraints.RequiresRegionInvariant);
+
+      // If the current If couldn't be hoisted, then check if there is an
+      // opportunity to hoist an inner If.
+      if (!IsCandidate && Constraints.CanTransformParent) {
+        if (canUnswitchInnerIf(If, CurrLoop)) {
+          ThenConstraints.MinLevel = Constraints.MinLevel;
+          ThenConstraints.CanTransformParent = Constraints.CanTransformParent;
+          ThenConstraints.PUCAllowed = false;
+          ThenConstraints.RequiresLoopnestUnswitch = true;
+        }
+      }
+
+      // If the current node is candidate for invariant predicate PUC, then
+      // we will check for more unswitching in the Else branch in the current
+      // loop.
+      CandidateLookup ThenLookup(Pass, HLS, ThenConstraints, CurrLoop,
+                                 CostOfRegion);
+      HLNodeUtils::visitRange(ThenLookup, If->then_begin(), If->then_end());
+
+      if (If->hasElseChildren()) {
+        CandidateConstraints ElseConstraints(ThenConstraints);
+
+        // NOTE: We can still apply a similar logic for LoadPUC, but in this
+        // case we need to know which branch will be converted.
+        if (IsCandidate && PUC.isInvariantPredPUC())
+          ElseConstraints.CanTransformParent = true;
+
+        CandidateLookup ElseLookup(Pass, HLS, ElseConstraints, CurrLoop,
+                                   CostOfRegion);
+        HLNodeUtils::visitRange(ElseLookup, If->else_begin(), If->else_end());
+      }
+
+    } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
+      CandidateLookup SwitchLookup(Pass, HLS, CurrLoop, WillUnswitchParent,
+                                   Level, CostOfRegion);
+      for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+        HLNodeUtils::visitRange(SwitchLookup, Switch->case_child_begin(I),
+                                Switch->case_child_end(I));
+      }
+      HLNodeUtils::visitRange(SwitchLookup, Switch->default_case_child_begin(),
+                              Switch->default_case_child_end());
+    } else {
+      llvm_unreachable(
+          "Trying to analyze the children of a non If or Switch node");
+    }
+  }
 
   if (!IsCandidate) {
     return;
@@ -1262,7 +1744,7 @@ bool HIROptPredicate::CandidateLookup::isProfitableOuterLoop(
   // TODO: If HoistingIncreaseCodeSize is false, code size won't increase,
   // then we can relax this by removing the restriction of HoistLevel == 0.
   unsigned HoistLevel = Pass.getPossibleDefLevel(If, PUC);
-  if (!(HoistLevel == 0 && !PUC.isPURequired()))
+  if (!(HoistLevel == 0 && !PUC.isSet()))
     return false;
 
   // TODO: This needs to move when we are creating a candidate.
@@ -1278,11 +1760,88 @@ bool HIROptPredicate::CandidateLookup::isProfitableOuterLoop(
   return true;
 }
 
+// Enum to handle the different cases of enclosing a loop with SIMD directives
+enum SIMDType {
+  None,           // Candidate is not inside a SIMD loop
+  PreAndPostLoop, // SIMD directives are in pre-header and post exit of
+                  //   the loop.
+  Region,         // SIMD directives covers the whole region
+  NotSupported    // SIMD directives aren't supported
+};
+
+// Return the type of SIMD directives that encapsulates the current loop.
+// This result will be used to used to identify which type of analysis will
+// be done.
+static SIMDType getSupportedSIMDType(const HLLoop *Loop) {
+  assert(Loop && "Trying to collect SIMD information from a null Loop");
+
+  auto *SIMDBegin = Loop->getSIMDEntryIntrinsic();
+  if (!SIMDBegin)
+    return SIMDType::None;
+
+  if (DisableUnswitchSIMD || !Loop->isInnermost())
+    return SIMDType::NotSupported;
+
+  const HLInst *SIMDEnd = Loop->getSIMDExitIntrinsic();
+  // There is a chance that the SIMD directives are enclosing a sibling loop.
+  // If that is the case, the SIMD end won't be found.
+  //
+  // NOTE: This problem is documented in CMPLRLLVM-49174. if this issue happens
+  // then SIMDBegin should be null for the current loop. We return NotSupported
+  // to keep the NFC behavior before PR #14212.
+  if (!SIMDEnd)
+    return SIMDType::NotSupported;
+
+  assert(SIMDEnd->isSIMDEndDirective() && "SIMD end directive expected");
+
+  if (Loop->getNumPreheader() == 1 && Loop->getNumPostexit() == 1) {
+    // Check if the SIMD directives encapsulates the loop in the preheader and
+    // postexit
+    auto *PreHeaderInst = Loop->getFirstPreheaderNode();
+    auto *PostExitInst = Loop->getFirstPostexitNode();
+    if (PreHeaderInst == SIMDBegin && PostExitInst == SIMDEnd)
+      return SIMDType::PreAndPostLoop;
+  }
+
+  if (isa<HLRegion>(SIMDBegin->getParent()) &&
+      isa<HLRegion>(SIMDEnd->getParent())) {
+
+    if (DisableUnswitchRegionSIMD)
+      return SIMDType::NotSupported;
+
+    return SIMDType::Region;
+  }
+
+  // TODO: Add support to a SIMD block, for example:
+  //
+  // HLRegion begin
+  //   HLNode
+  //   SIMD begin
+  //     Loop begin
+  //       HLIf
+  //     Loop end
+  //   SIMD end
+  //   HLNode
+  // HLRegion end
+  //
+  // Assume that the condition in the If is invariant within the SIMD block,
+  // but not invariant in the region (e.g. an instruction outside the SIMD
+  // block modifies a reference in the condition), then we can still apply
+  // the transformation. We just need to add the proof that all the memrefs
+  // in the condition needs to be invariant between the SIMD clauses.
+
+  return SIMDType::NotSupported;
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
   SkipNode = Loop;
 
-  bool TransformCurrentLoop = true;
+  // NOTE: Probably we may need only to initialize PUCAllowed only for
+  // innermost loops.
+  CandidateConstraints NewLoopConstraints(
+      Constraints.MinLevel, true /*CanTransformParent*/, true /*PUCAllowed*/,
+      false /*RequiresLoopnestUnswitch*/, Constraints.RequiresRegionInvariant);
 
   // Handle innermost loops and outer loops, but only if unswitching can make
   // the loopnest perfectly nested. In this case the loop will have only one
@@ -1305,29 +1864,22 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
     if (countMaxEqualConditions(ChildNodes) < 3 &&
         !isProfitableOuterLoop(ChildNodes))
-      TransformCurrentLoop = false;
+      NewLoopConstraints.CanTransformParent = false;
   }
 
-  // We will only process SIMD loops if the SIMD intrinsics are the only
-  // instructions in the pre-header and post-exit nodes of the loop. The
-  // reason is because they get cloned automatically without handling any
-  // special transformation.
-  if (Loop->isSIMD()) {
-    if (!Loop->isInnermost()) {
-      TransformCurrentLoop = false;
-    } else if (Loop->getNumPreheader() != 1 || Loop->getNumPostexit() != 1) {
-      TransformCurrentLoop = false;
-    } else {
-      auto *PreHeaderInst = cast<HLInst>(Loop->getFirstPreheaderNode());
-      auto *PostExitInst = cast<HLInst>(Loop->getFirstPostexitNode());
-      if (!PreHeaderInst->isSIMDDirective() ||
-          !PostExitInst->isSIMDEndDirective())
-        TransformCurrentLoop = false;
-    }
+  // Check for SIMD support if the current loop can be transformed
+  if (NewLoopConstraints.CanTransformParent) {
+    auto SIMDTy = getSupportedSIMDType(Loop);
+    NewLoopConstraints.CanTransformParent = SIMDTy != SIMDType::NotSupported;
+    NewLoopConstraints.RequiresRegionInvariant = SIMDTy == SIMDType::Region;
   }
 
-  CandidateLookup
-      Lookup(Pass, HLS, Loop, TransformCurrentLoop, MinLevel, CostOfRegion);
+  if (NewLoopConstraints.CanTransformParent &&
+      HLS.getTotalStatistics(Loop).hasConvergentCalls()) {
+    NewLoopConstraints.CanTransformParent = false;
+  }
+
+  CandidateLookup Lookup(Pass, HLS, NewLoopConstraints, Loop, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
 }
@@ -1337,7 +1889,13 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 // instruction will be converted into an If/Else which will be unswitched.
 void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
-      Pass.EarlyPredicateOpt || !TransformLoop)
+      Pass.EarlyPredicateOpt || !Constraints.CanTransformParent)
+    return;
+
+  // TODO: If the loop was marked in the constraints as region level, then
+  // we need to make sure that the memrefs in the predicate are region
+  // invariant.
+  if (Constraints.RequiresRegionInvariant)
     return;
 
   // Current loop should be innermost and a Do loop
@@ -1443,7 +2001,7 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
     // when Switch instructions are in the same loopnest (CMPLRLLVM-39714).
 
     // Check if the current loop contains any switch
-    auto LoopStats = HLS.getTotalLoopStatistics(CurrLoop);
+    auto LoopStats = HLS.getTotalStatistics(CurrLoop);
     if (LoopStats.hasSwitches())
       return;
 
@@ -1497,8 +2055,7 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
     if (CmpOp->getDestType()->isVectorTy())
       return;
 
-    PUContext PUC;
-    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp, PUC);
+    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp);
     if (DefLevel >= LoopLevel)
       return;
 
@@ -1589,6 +2146,7 @@ bool HIROptPredicate::run() {
   LLVM_DEBUG(dbgs() << "Opt Predicate for Function: "
                     << HIRF.getFunction().getName() << "\n");
 
+  bool Modified = false;
   for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
@@ -1610,6 +2168,7 @@ bool HIROptPredicate::run() {
       if (HasMultiexitLoop) {
         HLNodeUtils::updateNumLoopExits(Region);
       }
+      Modified = true;
     }
 
     clearOptReportState();
@@ -1618,12 +2177,11 @@ bool HIROptPredicate::run() {
     OuterLoopIfs.clear();
   }
 
-  return false;
+  return Modified;
 }
 
-unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
-                                              bool &NonLinearBlob,
-                                              bool &UDivBlob) {
+unsigned HIROptPredicate::getPossibleCEDefLevel(const CanonExpr *CE,
+                                                bool &UDivBlob) {
   unsigned IVMaxLevel = 0;
   unsigned IVLevel = 0;
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
@@ -1651,41 +2209,47 @@ unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
   }
 
   unsigned DefLevel = CE->getDefinedAtLevel();
-  if (DefLevel == NonLinearLevel) {
-    // The caller uses max IV level if there was non linear blobs.
-    NonLinearBlob = true;
-    return IVMaxLevel;
-  }
-
+  assert(DefLevel != NonLinearLevel && "Non linear CE found");
   return std::max(IVMaxLevel, DefLevel);
 }
 
+// Given a Ref that is used in Node, return at which loop level it is defined.
+// If NonLinearRef is passed, then store true or false if the Ref is considered
+// non-linear.
 unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
                                               const RegDDRef *Ref,
-                                              PUContext &PUC) {
+                                              bool *NonLinearRef) {
+
+  // If the input Ref is NonLinear or a memref, then return the current node
+  // level
+  if (Ref->isMemRef() || Ref->isNonLinear()) {
+    if (NonLinearRef)
+      *NonLinearRef = true;
+
+    return Node->getNodeLevel();
+  }
+
   unsigned Level = 0;
-  bool NonLinearRef = false;
   bool UDivBlob = false;
   bool HasGEPInfo = Ref->hasGEPInfo();
 
   if (HasGEPInfo) {
-    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef, UDivBlob);
+    Level = getPossibleCEDefLevel(Ref->getBaseCE(), UDivBlob);
   }
 
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I),
-                                                NonLinearRef, UDivBlob));
+    Level = std::max(
+        Level, getPossibleCEDefLevel(Ref->getDimensionIndex(I), UDivBlob));
 
     if (HasGEPInfo) {
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I),
-                                                  NonLinearRef, UDivBlob));
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I),
-                                                  NonLinearRef, UDivBlob));
+      Level = std::max(
+          Level, getPossibleCEDefLevel(Ref->getDimensionLower(I), UDivBlob));
+      Level = std::max(
+          Level, getPossibleCEDefLevel(Ref->getDimensionStride(I), UDivBlob));
     }
   }
 
   unsigned NodeLevel = Node->getNodeLevel();
-
   if (NodeLevel == Level) {
     // Reference is dependent on If's nesting level. Ex.: a[i1] or i1 + %b
     return Level;
@@ -1696,46 +2260,145 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
     Level = NodeLevel - 1;
   }
 
-  if (NonLinearRef || Ref->isMemRef()) {
-    // Return current level of attachment.
-    Level = NodeLevel;
-
-    const HLIf *If = dyn_cast<HLIf>(Node);
-
-    // May hoist one level up only.
-    if (If && isPUCandidate(If, Ref, PUC)) {
-      PUC.setPURequired();
-      Level -= 1;
-    }
-  }
-
   return Level;
 }
 
 unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   unsigned Level = 0;
+  unsigned NodeLevel = If->getParentLoop()->getNestingLevel();
+  unsigned PartialLevel = NodeLevel;
+  unsigned OuterMostPartialPred = 0;
+  bool IsLoadPUC = false;
+
+  SmallPtrSet<HLInst *, 8> LoadInstructions;
 
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
-    const RegDDRef *Ref1 = If->getLHSPredicateOperandDDRef(PI);
-    const RegDDRef *Ref2 = If->getRHSPredicateOperandDDRef(PI);
+    const RegDDRef *LRef = If->getLHSPredicateOperandDDRef(PI);
+    const RegDDRef *RRef = If->getRHSPredicateOperandDDRef(PI);
 
-    Level = std::max(Level, getPossibleDefLevel(If, Ref1, PUC));
-    if (Level == NonLinearLevel) {
-      return Level;
+    // Collect the possible levels where the Refs were defined
+    bool NonLinearLRef = false;
+    unsigned LRefLevel = getPossibleDefLevel(If, LRef, &NonLinearLRef);
+
+    bool NonLinearRRef = false;
+    unsigned RRefLevel = getPossibleDefLevel(If, RRef, &NonLinearRRef);
+
+    // If the current level is less that the partial level, it means that
+    // the current predicate can be hoisted at an outer level than the
+    // previous predicate found.
+    unsigned CurrPredLevel = std::max(LRefLevel, RRefLevel);
+    if (CurrPredLevel < PartialLevel && !LRef->containsUndef() &&
+        !RRef->containsUndef()) {
+      PartialLevel = CurrPredLevel;
+      OuterMostPartialPred = std::distance(If->pred_begin(), PI);
     }
 
-    Level = std::max(Level, getPossibleDefLevel(If, Ref2, PUC));
-    if (Level == NonLinearLevel) {
-      return Level;
+    if (NonLinearLRef &&
+        checkForLoadPUCandidate(If, LRef, PUC, LoadInstructions)) {
+      IsLoadPUC = true;
+      --LRefLevel;
+    }
+
+    Level = std::max(Level, LRefLevel);
+
+    if (NonLinearRRef &&
+        checkForLoadPUCandidate(If, RRef, PUC, LoadInstructions)) {
+      IsLoadPUC = true;
+      --RRefLevel;
+    }
+
+    Level = std::max(Level, RRefLevel);
+  }
+
+  // If we can't hoist the whole condition, then check if there is one
+  // predicate that we can partially hoist.
+  //
+  // TODO: There are two cases we can improve here.
+  //
+  //   Case 1:
+  //
+  //     BEGIN REGION { }
+  //          + DO i1 = 0, 99, 1   <DO_LOOP>
+  //          |   + DO i2 = 0, 99, 1   <DO_LOOP>
+  //          |   |   if (i1 != 0 && %t > 1)
+  //          |   |   {
+  //          |   |      (%A)[i2] = i2;
+  //          |   |   }
+  //          |   + END LOOP
+  //          + END LOOP
+  //     END REGION
+  //
+  //    In this case, the condition will be hoisted to the i1 loop since we
+  //    can hoist the whole condition. There is an opportunity to partial
+  //    hoist both conditions and produce something as follows.
+  //
+  //     BEGIN REGION { }
+  //          if (%t > 1)
+  //          {
+  //             + DO i1 = 0, 99, 1   <DO_LOOP>
+  //             |   if (i1 != 0)
+  //             |   {
+  //             |      + DO i2 = 0, 99, 1   <DO_LOOP>
+  //             |      |      (%A)[i2] = i2;
+  //             |      + END LOOP
+  //             |   }
+  //             + END LOOP
+  //          }
+  //     END REGION
+  //
+  //    Also, this case can be expanded if we have profile data. If we know
+  //    that i1 != 0 will always be false, but %t > 1 will be true, then we
+  //    can hoist only i1 != 0.
+  //
+  //   Case 2:
+  //
+  //    BEGIN REGION { }
+  //          + DO i1 = 0, 99, 1   <DO_LOOP>
+  //          |   + DO i2 = 0, 99, 1   <DO_LOOP>
+  //          |   |   if (i2 != 5 && %t > 1 && %t < 5)
+  //          |   |   {
+  //          |   |      (%A)[i2] = i2;
+  //          |   |   }
+  //          |   + END LOOP
+  //          + END LOOP
+  //    END REGION
+  //
+  //   In this case we have two candidates to hoist at the same level. We need
+  //   to be able to identify that '%t > 1' and '%t < 5' can be hoisted.
+  //
+  //    BEGIN REGION { }
+  //          if (%t > 1 && t < %5)
+  //          {
+  //             + DO i1 = 0, 99, 1   <DO_LOOP>
+  //             |   + DO i2 = 0, 99, 1   <DO_LOOP>
+  //             |   |   if (i2 != 5)
+  //             |   |   {
+  //             |   |      (%A)[i2] = i2;
+  //             |   |   }
+  //             |   + END LOOP
+  //             + END LOOP
+  //          }
+  //    END REGION
+  //
+  if (!DisablePartialUnswitch) {
+    assert(!PUC.isSet() &&
+           "Trying to set PU type in a candidate that was set before");
+    if (Level < NodeLevel) {
+      // Check if the condition is candidate for load PU
+      if (IsLoadPUC)
+        PUC.setLoadPUC(LoadInstructions);
+    } else if (PartialLevel < Level) {
+      // Check if the condition is candidate for invariant PU
+      PUC.setInvariantPredPUC(OuterMostPartialPred);
+      Level = PartialLevel;
     }
   }
 
   return Level;
 }
 
-unsigned HIROptPredicate::getPossibleDefLevel(const HLSwitch *Switch,
-                                              PUContext &PUC) {
-  return getPossibleDefLevel(Switch, Switch->getConditionDDRef(), PUC);
+unsigned HIROptPredicate::getPossibleDefLevel(const HLSwitch *Switch) {
+  return getPossibleDefLevel(Switch, Switch->getConditionDDRef());
 }
 
 void HIROptPredicate::clearOptReportState() {
@@ -1788,7 +2451,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     }
 
     HLRegion *ParentRegion = TargetLoop->getParentRegion();
-    auto LoopStats = HLS.getTotalLoopStatistics(TargetLoop);
+    auto LoopStats = HLS.getTotalStatistics(TargetLoop);
     bool SkipLoop = false;
     unsigned NumOfIfs = LoopStats.getNumIfs();
     if (!RegionThresholdSet.insert(ParentRegion) && Candidate.isIf() &&
@@ -1842,13 +2505,13 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     // nodes of the loop. We need to duplicate the SIMD intrinsics. This will
     // only happen if the SIMD intrinsics are part of the loop pre-header and
     // loop post-exit, and these are the only instructions in both lists.
-    if (!TargetLoop->isSIMD()) {
+    if (getSupportedSIMDType(TargetLoop) != SIMDType::PreAndPostLoop) {
       // TODO: check if candidate is defined in preheader
       TargetLoop->extractZttPreheaderAndPostexit();
     }
 
     // Calculate statistics
-    if (Candidate.PUC.isPURequired()) {
+    if (Candidate.PUC.isSet()) {
       ConditionsPUUnswitched++;
     }
 
@@ -1877,7 +2540,13 @@ static void addLvalAsLivein(const RegDDRef *LvalRef, HLLoop *Loop) {
   }
 }
 
-static bool hasEqualParentNode(HLNode *FromNode, HLLoop *ToLoop) {
+// Traverse through the parent nodes of the input Node to check if the
+// condition already exists outside. If CheckPredPosOnly is true, then the
+// predicate at position PredPos will be used for compare rather than the
+// whole condition. This is used for partial unswitching.
+static bool hasEqualParentNode(HLNode *FromNode, HLLoop *ToLoop,
+                               unsigned PredPos, bool CheckPredPosOnly) {
+
   HLIf *FromIf = dyn_cast<HLIf>(FromNode);
   HLSwitch *FromSwitch = dyn_cast<HLSwitch>(FromNode);
 
@@ -1886,17 +2555,22 @@ static bool hasEqualParentNode(HLNode *FromNode, HLLoop *ToLoop) {
     assert(Node && "FromNode should be a child of ToLoop");
 
     HLIf *ParentIf = dyn_cast<HLIf>(Node);
-    if (FromIf && ParentIf) {
-      if (HLNodeUtils::areEqualConditions(FromIf, ParentIf)) {
-        return true;
-      }
-    }
-
     HLSwitch *ParentSwitch = dyn_cast<HLSwitch>(Node);
-    if (FromSwitch && ParentSwitch) {
-      if (HLNodeUtils::areEqualConditions(FromSwitch, ParentSwitch)) {
+
+    if (FromIf && ParentIf) {
+      // If CheckPredPosOnly is true, then check if the If contains one
+      // condition and it matches with the predicate that will be partially
+      // unswitched.
+      bool IsValidIf = !CheckPredPosOnly
+                           ? HLNodeUtils::areEqualConditions(FromIf, ParentIf)
+                           : (ParentIf->getNumPredicates() == 1 &&
+                              HLNodeUtils::areEqualConditionsAtPos(
+                                  FromIf, PredPos, ParentIf, 0));
+      if (IsValidIf)
         return true;
-      }
+    } else if (FromSwitch && ParentSwitch &&
+               HLNodeUtils::areEqualConditions(FromSwitch, ParentSwitch)) {
+      return true;
     }
   }
 
@@ -1994,7 +2668,8 @@ void HIROptPredicate::transformSwitch(
     addPredicateOptReportOrigin(NewLoop);
     if (!IsRemarkAdded) {
       // Invariant Switch condition%s hoisted out of this loop
-      addPredicateOptReportRemark(NewLoop, SwitchCandidates, 25424u);
+      addPredicateOptReportRemark(NewLoop, SwitchCandidates,
+                                  OptRemarkID::InvariantSwitchConditionHoisted);
       IsRemarkAdded = true;
     }
 
@@ -2062,11 +2737,50 @@ void HIROptPredicate::transformSwitch(
                   OuterSwitch->child_end());
 }
 
+// Return true if the input loop has SIMD directives in the pre-header or
+// post-exit.
+static bool IsPreAndPostSIMDLoop(HLLoop *Loop) {
+  if (!Loop->isSIMD())
+    return false;
+
+  if (Loop->hasPreheader()) {
+    auto *CurrPre = Loop->getFirstPreheaderNode();
+    while (CurrPre) {
+      HLInst *Inst = dyn_cast<HLInst>(CurrPre);
+      if (Inst && Inst->isSIMDDirective())
+        return true;
+      CurrPre = CurrPre->getNextNode();
+    }
+  }
+
+  if (Loop->hasPostexit()) {
+    auto *CurrPost = Loop->getFirstPostexitNode();
+    while (CurrPost) {
+      HLInst *Inst = dyn_cast<HLInst>(CurrPost);
+      if (Inst && Inst->isSIMDEndDirective())
+        return true;
+      CurrPost = CurrPost->getNextNode();
+    }
+  }
+
+  return false;
+}
+
 void HIROptPredicate::transformIf(
     HLLoop *TargetLoop, iterator_range<HoistCandidate *> IfCandidates,
     CaseNodeContainerMapTy &CaseContainers,
     SmallPtrSet<HLNode *, 32> TrackClonedNodes,
     SmallVectorImpl<HoistCandidate> &NewCandidates) {
+
+  // Collect the SIMD clauses that aren't pre-header and post-exit if they are
+  // available before transforming the loop. SIMD directives in pre and post
+  // loop are handled differently.
+  const HLInst *SIMDBegin = nullptr;
+  const HLInst *SIMDEnd = nullptr;
+  if (!DisableUnswitchRegionSIMD && !IsPreAndPostSIMDLoop(TargetLoop)) {
+    SIMDBegin = TargetLoop->getSIMDEntryIntrinsic();
+    SIMDEnd = TargetLoop->getSIMDExitIntrinsic();
+  }
 
   // Create the else loop by cloning the main loop.
   LoopUnswitchNodeMapper CloneMapper(TrackClonedNodes, Candidates);
@@ -2099,10 +2813,10 @@ void HIROptPredicate::transformIf(
 
   // If the If/Else was created from a select instruction then we use a
   // generic opt-report remark
-  unsigned OptReportRemark = 25423u;
+  OptRemarkID OptReportRemark = OptRemarkID::InvariantIfConditionHoisted;
   for (auto &Candidate : IfCandidates) {
     if (Candidate.createdFromSelect()) {
-      OptReportRemark = 25422u;
+      OptReportRemark = OptRemarkID::InvariantConditionHoisted;
       // Select instructions will always create Else branch
       ThresholdNeeded = true;
       break;
@@ -2128,7 +2842,7 @@ void HIROptPredicate::transformIf(
 
     // Handle TargetLoop first
 
-    if (C.PUC.IsUpdatedInThenBranch) {
+    if (C.PUC.IsLoadUpdatedInThenBranch) {
       // Place original HLIf block
       HLNodeUtils::insertAsFirstThenChildren(If, &ThenContainer);
       HLNodeUtils::insertAsFirstElseChildren(If, &ElseContainer);
@@ -2137,7 +2851,7 @@ void HIROptPredicate::transformIf(
       if (!ThenContainer.empty()) {
         HLContainerTy *ThenContainerPtr = &ThenContainer;
         HLContainerTy CloneContainer;
-        if (C.PUC.IsUpdatedInElseBranch) {
+        if (C.PUC.IsLoadUpdatedInElseBranch) {
           // If true then nodes will be needed for second loop.
           HLNodeUtils::cloneSequence(&CloneContainer, &ThenContainer.front(),
                                      &ThenContainer.back());
@@ -2148,13 +2862,14 @@ void HIROptPredicate::transformIf(
       }
 
       removeOrHoistIf(C, TargetLoop, FirstIf, If, PivotIf);
-
-      for (HLInst *RedundantInst : C.PUC.getInstructions()) {
-        // Remove instruction if it's still attached. May be removed by
-        // another candidate.
-        if (RedundantInst->getParent()) {
-          addLvalAsLivein(RedundantInst->getLvalDDRef(), TargetLoop);
-          HLNodeUtils::remove(RedundantInst);
+      if (C.PUC.isLoadPUC()) {
+        for (HLInst *RedundantInst : C.PUC.getLoadInstructions()) {
+          // Remove instruction if it's still attached. May be removed by
+          // another candidate.
+          if (RedundantInst->getParent()) {
+            addLvalAsLivein(RedundantInst->getLvalDDRef(), TargetLoop);
+            HLNodeUtils::remove(RedundantInst);
+          }
         }
       }
     }
@@ -2180,7 +2895,7 @@ void HIROptPredicate::transformIf(
 
     HLIf *ClonedIf = CloneMapper.getMapped(If);
     assert(ClonedIf && "Can not get mapped If");
-    if (C.PUC.IsUpdatedInElseBranch) {
+    if (C.PUC.IsLoadUpdatedInElseBranch) {
       // Place original HLIf block
       HLNodeUtils::insertAsFirstThenChildren(ClonedIf, &ThenContainer);
       HLNodeUtils::insertAsFirstElseChildren(ClonedIf, &ElseContainer);
@@ -2192,17 +2907,18 @@ void HIROptPredicate::transformIf(
 
       removeOrHoistIf(C, TargetLoop, FirstIfClone, ClonedIf, PivotIf);
 
-      for (HLInst *RedundantInst : C.PUC.getInstructions()) {
-        // Remove instruction if it's still attached. May be removed by
-        // another candidate.
-        HLInst *RedundantInstClone = CloneMapper.getMapped(RedundantInst);
-        if (RedundantInstClone && RedundantInstClone->getParent()) {
-          addLvalAsLivein(RedundantInstClone->getLvalDDRef(), NewElseLoop);
-          HLNodeUtils::remove(RedundantInstClone);
+      if (C.PUC.isLoadPUC()) {
+        for (HLInst *RedundantInst : C.PUC.getLoadInstructions()) {
+          // Remove instruction if it's still attached. May be removed by
+          // another candidate.
+          HLInst *RedundantInstClone = CloneMapper.getMapped(RedundantInst);
+          if (RedundantInstClone && RedundantInstClone->getParent()) {
+            addLvalAsLivein(RedundantInstClone->getLvalDDRef(), NewElseLoop);
+            HLNodeUtils::remove(RedundantInstClone);
+          }
         }
       }
     }
-
   }
 
   assert(PivotIf && "should be defined");
@@ -2224,10 +2940,105 @@ void HIROptPredicate::transformIf(
     HLNodeUtils::remove(NewElseLoop);
   }
 
+  // If the PivotIf is inside a SIMD block, then we need to move everything
+  // inside the Then and Else branches. The target loop's SIMD directives will
+  // be enclosing the PivotIf at this point.
+  if (SIMDBegin && SIMDEnd) {
+    // If the Else branch was created then clone the nodes before and after the
+    // condition, and insert them before and after the loop in the else part.
+    if (PivotIf->hasElseChildren()) {
+      HLContainerTy ElseClonesBeforeLoop;
+      HLContainerTy ElseClonesAfterLoop;
+      HLNodeUtils::cloneSequence(&ElseClonesBeforeLoop, SIMDBegin,
+                                 PivotIf->getPrevNode());
+      HLNodeUtils::cloneSequence(&ElseClonesAfterLoop, PivotIf->getNextNode(),
+                                 SIMDEnd);
+
+      HLNodeUtils::insertAsFirstElseChildren(PivotIf, &ElseClonesBeforeLoop);
+      HLNodeUtils::insertAsLastElseChildren(PivotIf, &ElseClonesAfterLoop);
+    }
+
+    auto *SIMDStart = const_cast<HLInst *>(SIMDBegin);
+    auto *SIMDExit = const_cast<HLInst *>(SIMDEnd);
+
+    auto SIMDItStart = SIMDStart->getIterator();
+    auto PivotIfIt = PivotIf->getIterator();
+    auto AfterIfIt = PivotIf->getNextNode()->getIterator();
+    auto SIMDItEnd = SIMDExit->getIterator();
+
+    // Move [SIMD begin - pivot If) inside the then branch, before the target
+    // loop.
+    HLNodeUtils::moveAsFirstThenChildren(PivotIf, SIMDItStart, PivotIfIt);
+
+    // Move [after the pivot If - SIMD end) inside the then branch, after the
+    // target loop.
+    HLNodeUtils::moveAsLastThenChildren(PivotIf, AfterIfIt, SIMDItEnd);
+
+    // Move the SIMD end
+    HLNodeUtils::moveAsLastThenChild(PivotIf, SIMDExit);
+  }
+
   NewCandidates.append(CloneMapper.getNewCandidates().begin(),
                        CloneMapper.getNewCandidates().end());
 
   updateDefLevels(PivotIf, PivotIf->child_begin(), PivotIf->child_end());
+}
+
+// Return true if CandA and CandB can be treated as equal conditions at
+// loop TargetLoop.
+static bool areEquivalentCandidates(const HoistCandidate &CandA,
+                                    const HoistCandidate &CandB,
+                                    HLLoop *TargetLoop) {
+
+  if (CandB == CandA)
+    return true;
+
+  if (CandB.Level != CandA.Level)
+    return false;
+
+  unsigned PUCPredPos = 0;
+  bool CheckPredPosOnly = false;
+  bool IsEquiv =
+      CandB.isIf() == CandA.isIf() &&
+      // Have same condition
+      ((CandB.isIf() &&
+        HLNodeUtils::areEqualConditions(CandB.getIf(), CandA.getIf())) ||
+       (CandB.isSwitch() && HLNodeUtils::areEqualConditions(
+                                CandB.getSwitch(), CandA.getSwitch()))) &&
+      // And are in the same target loop
+      HLNodeUtils::contains(TargetLoop, CandB.getNode(), false);
+
+  // Check the special cases
+  if (!IsEquiv) {
+    if (CandB.isSelect() && CandA.isIf()) {
+      // Check if the current candidate is a Select instruction that will
+      // be converted into an If. If so, then collect all the possible
+      // equal conditions
+      IsEquiv =
+          HLNodeUtils::areEqualConditions(CandB.getSelect(), CandA.getIf()) &&
+          HLNodeUtils::contains(TargetLoop, CandB.getSelect(), false);
+
+    } else if (CandB.PUC.isInvariantPredPUC() && CandA.isIf() &&
+               CandA.getIf()->getNumPredicates() == 1) {
+      // Check if the candidate will be partially unswitched, or if the
+      // condition can be mixed with one If that will be partially
+      // unswitched
+      IsEquiv = (HLNodeUtils::areEqualConditionsAtPos(
+                     CandA.getIf(), 0, CandB.getIf(),
+                     CandB.PUC.getInvariantPredicatePos()) &&
+                 HLNodeUtils::contains(TargetLoop, CandB.getNode(), false));
+
+      CheckPredPosOnly = IsEquiv;
+      PUCPredPos = CandB.PUC.getInvariantPredicatePos();
+    }
+  }
+
+  if (!IsEquiv)
+    return false;
+
+  // Can not handle candidate if there is an equal parent node.
+  return !hasEqualParentNode(CandB.getNode(), TargetLoop, PUCPredPos,
+                             CheckPredPosOnly);
 }
 
 // transformLoop - Perform the OptPredicate transformation for the given loop.
@@ -2240,44 +3051,21 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
   // conditions.
   std::function<bool(const HoistCandidate &)> IsEquivCandidate =
       [TargetLoop, &Candidate](const HoistCandidate &C) {
-        if (C == Candidate) {
-          return true;
-        }
-
-        bool IsEquiv =
-            C.Level == Candidate.Level && C.isIf() == Candidate.isIf() &&
-            // Have same condition
-            ((C.isIf() &&
-              HLNodeUtils::areEqualConditions(C.getIf(), Candidate.getIf())) ||
-             (C.isSwitch() && HLNodeUtils::areEqualConditions(
-                               C.getSwitch(), Candidate.getSwitch()))) &&
-          // And are in the same target loop
-          HLNodeUtils::contains(TargetLoop, C.getNode(), false);
-
-        // Check if the current candidate is a Select instruction that will be
-        // converted into an If. If so, then collect all the possible equal
-        // conditions
-        if (!IsEquiv && C.Level == Candidate.Level && C.isSelect() &&
-            Candidate.isIf()) {
-          IsEquiv =
-              HLNodeUtils::areEqualConditions(C.getSelect(),
-                                              Candidate.getIf()) &&
-              HLNodeUtils::contains(TargetLoop, C.getSelect(), false);
-        }
-
-        if (!IsEquiv) {
-          return false;
-        }
-
-        // Can not handle candidate if there is an equal parent node.
-        return !hasEqualParentNode(C.getNode(), TargetLoop);
+        return areEquivalentCandidates(Candidate, C, TargetLoop);
       };
 
-
-  // The Candidate that is a Select instruction must have a temporary If
-  // at this point, convert it
-  if (Candidate.isSelect())
+  // Clean any candidate needed before checking if we can merge them. Ideally,
+  // we would prefer to clean all the candidates and then let the equivalent
+  // candidates run by itself. The issue is that we are giving up in some
+  // candidates if the thresholds are reached.
+  if (Candidate.isSelect()) {
+    // The Candidate that is a Select instruction must have a temporary If
+    // at this point, convert it
     Candidate.convertSelectToIf();
+  } else if (Candidate.PUC.isInvariantPredPUC()) {
+    // Clean up the candidate if it for partial unswitching
+    Candidate.generatePUCInvariantPredicateIf();
+  }
 
   auto EquivCandidatesI = std::stable_partition(
       Candidates.begin(), Candidates.end(), std::not_fn(IsEquivCandidate));
@@ -2287,10 +3075,14 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
     LLVM_DEBUG(Iter->dump());
     LLVM_DEBUG(dbgs() << "\n");
 
-    // The equivalent candidate that is a Select instruction must have a
-    // temporary If at this point, convert it
-    if (Iter->isSelect())
+    if (Iter->isSelect()) {
+      // The equivalent candidate that is a Select instruction must have a
+      // temporary If at this point, convert it
       Iter->convertSelectToIf();
+    } else if (Iter->PUC.isInvariantPredPUC()) {
+      // Extract the partial entry that we want to convert
+      Iter->generatePUCInvariantPredicateIf();
+    }
 
     // Disable further unswitching in case of pass will be called more than
     // once.
@@ -2304,8 +3096,9 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
 
   for (auto &C : Candidates) {
     // Also track the condition definition instructions.
-    TrackClonedNodes.insert(C.PUC.getInstructions().begin(),
-                            C.PUC.getInstructions().end());
+    if (C.PUC.isLoadPUC())
+      TrackClonedNodes.insert(C.PUC.getLoadInstructions().begin(),
+                              C.PUC.getLoadInstructions().end());
   }
 
   // [Label: [Node: Container]]
@@ -2380,29 +3173,33 @@ void HIROptPredicate::removeOrHoistIf(HoistCandidate &Candidate,
   if (!PivotIf && If == FirstIf) {
     // Move the If condition outside.
 
-    SmallVector<HLInst *, 8> DefInstructions(
-        Candidate.PUC.getInstructions().begin(),
-        Candidate.PUC.getInstructions().end());
+    // If the candidate is set as LoadPUC, then we need to move the definition
+    // of the temps too.
+    if (Candidate.PUC.isLoadPUC()) {
+      SmallVector<HLInst *, 8> DefInstructions(
+          Candidate.PUC.getLoadInstructions().begin(),
+          Candidate.PUC.getLoadInstructions().end());
 
-    std::sort(DefInstructions.begin(), DefInstructions.end(),
-              [](const HLInst *A, const HLInst *B) {
-                return A->getTopSortNum() < B->getTopSortNum();
-              });
+      std::sort(DefInstructions.begin(), DefInstructions.end(),
+                [](const HLInst *A, const HLInst *B) {
+                  return A->getTopSortNum() < B->getTopSortNum();
+                });
 
-    unsigned Level = TargetLoop->getNestingLevel();
-    for (HLInst *DefInst : DefInstructions) {
-      // Skip instructions that may already be removed by other candidates.
-      if (!DefInst->getParent()) {
-        continue;
-      }
+      unsigned Level = TargetLoop->getNestingLevel();
+      for (HLInst *DefInst : DefInstructions) {
+        // Skip instructions that may already be removed by other candidates.
+        if (!DefInst->getParent()) {
+          continue;
+        }
 
-      HLInst *DefInstClone = DefInst->clone();
-      HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
+        HLInst *DefInstClone = DefInst->clone();
+        HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
 
-      // Update def levels in DefInstructions.
-      for (RegDDRef *Ref : make_range(DefInstClone->ddref_begin(),
-                                      DefInstClone->ddref_end())) {
-        Ref->updateDefLevel(Level - 1);
+        // Update def levels in DefInstructions.
+        for (RegDDRef *Ref : make_range(DefInstClone->ddref_begin(),
+                                        DefInstClone->ddref_end())) {
+          Ref->updateDefLevel(Level - 1);
+        }
       }
     }
 
@@ -2455,7 +3252,7 @@ void HIROptPredicate::addPredicateOptReportOrigin(HLLoop *TargetLoop) {
 
   if (!OptReportVisitedSet.count(TargetLoop)) {
     // Predicate Optimized v%d
-    ORBuilder(*TargetLoop).addOrigin(25476u, VNum);
+    ORBuilder(*TargetLoop).addOrigin(OptRemarkID::PredicateOptimized, VNum);
     VNum++;
     OptReportVisitedSet.insert(TargetLoop);
   }
@@ -2464,7 +3261,7 @@ void HIROptPredicate::addPredicateOptReportOrigin(HLLoop *TargetLoop) {
 void HIROptPredicate::addPredicateOptReportRemark(
     HLLoop *TargetLoop,
     const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
-    unsigned RemarkID) {
+    OptRemarkID RemarkID) {
   OptReportBuilder &ORBuilder =
       TargetLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -2488,10 +3285,10 @@ void HIROptPredicate::addPredicateOptReportRemark(
 
 PreservedAnalyses HIROptPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  EnablePartialUnswitch, EarlyPredicateOpt)
-      .run();
+  ModifiedHIR = HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                                AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                EnablePartialUnswitch, EarlyPredicateOpt)
+                    .run();
 
   return PreservedAnalyses::all();
 }

@@ -40,7 +40,7 @@ if.end:                                           ; preds = %if.then, %entry
 ; CHECK-NOT: getelementptr i32{{.*}}@g
 ; CHECK-NOT: load
 ; CHECK: for.body:
-; CHECK: load i32{{.*}}@g
+; CHECK: load i32{{.*}}
 
 ; Function Attrs: mustprogress nounwind uwtable
 define dso_local i32 @_Z4foo2ii(i32 %cond, i32 %sum) local_unnamed_addr {

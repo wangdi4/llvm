@@ -4,9 +4,9 @@
 
 ;      BEGIN REGION { }
 ;        + DO i1 = 0, %n + -1, 1
-; CHECK: |   (%b)[0:0:8(%struct.A**:0)] = &((%a.addr.07)[0:0:0(%struct.A*:0)]);
-;        |   %1 = (@glob_a)[0:0:8(%struct.A**:0)];
-;        |   %a.addr.07 = &((%1)[0:0:0(%struct.A*:0)]);
+; CHECK: |   (%b)[0:0:8(%struct.A*:0)] = &((%a.addr.07)[0:0:0(null:0)]);
+;        |   %1 = (@glob_a)[0:0:8(%struct.A*:0)];
+;        |   %a.addr.07 = &((%1)[0:0:0(%struct.A:0)]);
 ;        + END LOOP
 ;      END REGION
 

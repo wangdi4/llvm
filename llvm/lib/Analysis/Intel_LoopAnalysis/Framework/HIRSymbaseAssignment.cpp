@@ -66,6 +66,8 @@ class HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor
 
   void addToAST(RegDDRef *Ref);
 
+  SmallPtrSet<MDNode *, 8> LoopLevelNoAliasScopes;
+
 public:
   HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, BatchAAResults &AA)
       : SA(CurSA), AST(AA, AASaturationThresholdOveridden) {}
@@ -78,10 +80,30 @@ public:
     return RefsIt->second;
   }
 
-  void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
+
+  // Add this loop's NoAlias scopes to the visitor.
+  void visit(HLLoop *Lp) {
+    for (auto *ScopeList : Lp->getNoAliasScopeLists()) {
+      assert(ScopeList->getNumOperands() == 1 && "Only one scope expected!");
+
+      LoopLevelNoAliasScopes.insert(cast<MDNode>(ScopeList->getOperand(0)));
+    }
+
+    visit(cast<HLDDNode>(Lp));
+  }
+
+  // Remove this loop's NoAlias scopes from the visitor.
+  void postVisit(HLLoop *Lp) {
+    for (auto *ScopeList : Lp->getNoAliasScopeLists()) {
+      assert(ScopeList->getNumOperands() == 1 && "Only one scope expected!");
+
+      LoopLevelNoAliasScopes.erase(cast<MDNode>(ScopeList->getOperand(0)));
+    }
+  }
+
+  void visit(HLNode *Node) {}
   void postVisit(HLNode *) {}
-  void postVisit(HLDDNode *) {}
 };
 
 // TODO: add special handling for memrefs with undefined base pointers.
@@ -97,6 +119,10 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
 
   AAMDNodes AANodes;
   Ref->getAAMetadata(AANodes);
+
+  // This call will remove all NoAlias scopes found in parent loops until this
+  // point and make symbase assignment more conservative.
+  DDRefUtils::removeNoAliasScopes(AANodes, LoopLevelNoAliasScopes);
 
   if (Ref->isStructurallyRegionInvariant()) {
     // The entire pointer (base and indexing) is region invariant. A normal AST

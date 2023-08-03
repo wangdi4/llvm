@@ -92,6 +92,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -403,15 +404,15 @@ class MachineBlockPlacement : public MachineFunctionPass {
 
   /// Pair struct containing basic block and taildup profitability
   struct BlockAndTailDupResult {
-    MachineBasicBlock *BB;
+    MachineBasicBlock *BB = nullptr;
     bool ShouldTailDup;
   };
 
   /// Triple struct containing edge weight and the edge.
   struct WeightedEdge {
     BlockFrequency Weight;
-    MachineBasicBlock *Src;
-    MachineBasicBlock *Dest;
+    MachineBasicBlock *Src = nullptr;
+    MachineBasicBlock *Dest = nullptr;
   };
 
   /// work lists of blocks that are ready to be laid out
@@ -422,32 +423,32 @@ class MachineBlockPlacement : public MachineFunctionPass {
   DenseMap<const MachineBasicBlock *, BlockAndTailDupResult> ComputedEdges;
 
   /// Machine Function
-  MachineFunction *F;
+  MachineFunction *F = nullptr;
 
   /// A handle to the branch probability pass.
-  const MachineBranchProbabilityInfo *MBPI;
+  const MachineBranchProbabilityInfo *MBPI = nullptr;
 
   /// A handle to the function-wide block frequency pass.
   std::unique_ptr<MBFIWrapper> MBFI;
 
   /// A handle to the loop info.
-  MachineLoopInfo *MLI;
+  MachineLoopInfo *MLI = nullptr;
 
   /// Preferred loop exit.
   /// Member variable for convenience. It may be removed by duplication deep
   /// in the call stack.
-  MachineBasicBlock *PreferredLoopExit;
+  MachineBasicBlock *PreferredLoopExit = nullptr;
 
   /// A handle to the target's instruction info.
-  const TargetInstrInfo *TII;
+  const TargetInstrInfo *TII = nullptr;
 
   /// A handle to the target's lowering info.
-  const TargetLoweringBase *TLI;
+  const TargetLoweringBase *TLI = nullptr;
 
   /// A handle to the post dominator tree.
-  MachinePostDominatorTree *MPDT;
+  MachinePostDominatorTree *MPDT = nullptr;
 
-  ProfileSummaryInfo *PSI;
+  ProfileSummaryInfo *PSI = nullptr;
 
   /// Duplicator used to duplicate tails during placement.
   ///
@@ -461,7 +462,7 @@ class MachineBlockPlacement : public MachineFunctionPass {
 
   /// True:  use block profile count to compute tail duplication cost.
   /// False: use block frequency to compute tail duplication cost.
-  bool UseProfileCount;
+  bool UseProfileCount = false;
 
   /// Allocator and owner of BlockChain structures.
   ///
@@ -1227,7 +1228,7 @@ bool MachineBlockPlacement::canTailDuplicateUnplacedPreds(
     // tail-duplicated into.
     // Skip any blocks that are already placed or not in this loop.
     if (Pred == BB || (BlockFilter && !BlockFilter->count(Pred))
-        || BlockToChain[Pred] == &Chain)
+        || (BlockToChain[Pred] == &Chain && !Succ->succ_empty()))
       continue;
     if (!TailDup.canTailDuplicate(Succ, Pred)) {
       if (Successors.size() > 1 && hasSameSuccessors(*Pred, Successors))
@@ -3682,6 +3683,11 @@ void MachineBlockPlacement::initDupThreshold() {
 bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (MF.getMMI().getModule()->getModuleFlag("eh-asynch"))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Check for single-block functions and skip them.
   if (std::next(MF.begin()) == MF.end())

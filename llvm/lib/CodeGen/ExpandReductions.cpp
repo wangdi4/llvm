@@ -1,4 +1,4 @@
-//===--- ExpandReductions.cpp - Expand experimental reduction intrinsics --===//
+//===- ExpandReductions.cpp - Expand reduction intrinsics -----------------===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -163,44 +163,36 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
-
-#if INTEL_CUSTOMIZATION
     case Intrinsic::vector_reduce_and:
     case Intrinsic::vector_reduce_or: {
+      // Canonicalize logical or/and reductions:
+      // Or reduction for i1 is represented as:
+      // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+      // %res = cmp ne iReduxWidth %val, 0
+      // And reduction for i1 is represented as:
+      // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+      // %res = cmp eq iReduxWidth %val, 11111
       Value *Vec = II->getArgOperand(0);
-      // Transform reduce.or/reduce.and to bitcast+icmp when the scalar type
-      // is i1:
-      // %out = reduce.or/and(<vN x i1> %in)
-      // ==>
-      // %iN = bitcast <vN x i1> %in to iN
-      // %out = icmp.ne/eq %iN, 0/-1
-      if (TTI->isAdvancedOptEnabled(
-              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
-        auto VecTy = cast<FixedVectorType>(Vec->getType());
-        Type *ScalarTy = VecTy->getElementType();
+      auto *FTy = cast<FixedVectorType>(Vec->getType());
+      unsigned NumElts = FTy->getNumElements();
+      if (!isPowerOf2_32(NumElts))
+        continue;
 
-        if (ScalarTy->isIntegerTy() && ScalarTy->getIntegerBitWidth() == 1) {
-          unsigned BitWidth = VecTy->getNumElements();
-          Value *BitCast = Builder.CreateBitCast(
-              Vec, Type::getIntNTy(II->getContext(), BitWidth));
-
-          ICmpInst::Predicate Pred =
-              ID == Intrinsic::vector_reduce_or
-                  ? ICmpInst::ICMP_NE
-                  : ICmpInst::ICMP_EQ;
-
-          Value *CmpValue =
-              ID == Intrinsic::vector_reduce_or
-                  ? Constant::getNullValue(BitCast->getType())
-                  : Constant::getAllOnesValue(BitCast->getType());
-
-          Rdx = Builder.CreateICmp(Pred, BitCast, CmpValue);
-          break;
+      if (FTy->getElementType() == Builder.getInt1Ty()) {
+        Rdx = Builder.CreateBitCast(Vec, Builder.getIntNTy(NumElts));
+        if (ID == Intrinsic::vector_reduce_and) {
+          Rdx = Builder.CreateICmpEQ(
+              Rdx, ConstantInt::getAllOnesValue(Rdx->getType()));
+        } else {
+          assert(ID == Intrinsic::vector_reduce_or && "Expected or reduction.");
+          Rdx = Builder.CreateIsNotNull(Rdx);
         }
+        break;
       }
+
+      Rdx = getShuffleReduction(Builder, Vec, getOpcode(ID), RK);
+      break;
     }
-    LLVM_FALLTHROUGH;
-#endif // INTEL_CUSTOMIZATION
     case Intrinsic::vector_reduce_add:
     case Intrinsic::vector_reduce_mul:
     case Intrinsic::vector_reduce_xor:

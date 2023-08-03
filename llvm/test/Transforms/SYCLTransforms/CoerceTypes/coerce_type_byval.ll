@@ -1,8 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
-
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -16,17 +13,17 @@ target triple = "x86_64-pc-linux"
 @__const.test.f = private unnamed_addr addrspace(2) constant %struct.F { i32 1, i64 2 }, align 8
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define dso_local void @foo1(%struct.B* byval(%struct.B) align 8 %b) #0 {
+define dso_local void @foo1(ptr byval(%struct.B) align 8 %b) #0 {
   ret void
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define dso_local void @foo2(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #0 {
+define dso_local void @foo2(ptr byval(%struct.F) align 8 %f, ptr byval(%struct.B) align 8 %b) #0 {
   ret void
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define dso_local void @foo3(<4 x i64>* byval(<4 x i64>) align 32 %0) #0 {
+define dso_local void @foo3(ptr byval(<4 x i64>) align 32 %0) #0 {
   ret void
 }
 
@@ -42,39 +39,29 @@ entry:
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-; NONOPAQUE: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds %struct.B, %struct.B* [[ALLOCA0]]
-; NONOPAQUE-NEXT: [[BITCAST0:%[a-zA-Z0-9]+]] = bitcast %struct.B* [[GEP0]] to i8*
-; NONOPAQUE-NEXT: [[BITCAST1:%[a-zA-Z0-9]+]] = bitcast %struct.B* [[ALLOCA1]] to i8*
-; NONOPAQUE-NEXT: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[BITCAST0]], i8* align 8 [[BITCAST1]], i64 32, i1 false)
 
 
-; OPAQUE: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds %struct.B, ptr [[ALLOCA0]]
-; OPAQUE-NEXT: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[GEP0]], ptr align 8 [[ALLOCA1]], i64 32, i1 false)
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds %struct.B, ptr [[ALLOCA0]]
+; CHECK-NEXT: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[GEP0]], ptr align 8 [[ALLOCA1]], i64 32, i1 false)
 
-  %0 = bitcast %struct.B* %b to i8*
-  call void @llvm.memcpy.p0i8.p2i8.i64(i8* align 8 %0, i8 addrspace(2)* align 8 bitcast (%struct.B addrspace(2)* @__const.test.b to i8 addrspace(2)*), i64 32, i1 false)
-  %1 = bitcast %struct.F* %f to i8*
-  call void @llvm.memcpy.p0i8.p2i8.i64(i8* align 8 %1, i8 addrspace(2)* align 8 bitcast (%struct.F addrspace(2)* @__const.test.f to i8 addrspace(2)*), i64 16, i1 false)
-  call void @foo2(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #7
+  call void @llvm.memcpy.p0.p2.i64(ptr align 8 %b, ptr addrspace(2) align 8 @__const.test.b, i64 32, i1 false)
+  call void @llvm.memcpy.p0.p2.i64(ptr align 8 %f, ptr addrspace(2) align 8 @__const.test.f, i64 16, i1 false)
+  call void @foo2(ptr byval(%struct.F) align 8 %f, ptr byval(%struct.B) align 8 %b) #7
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
   ret void
 }
 
-; NONOPAQUE: define void @foo1(%struct.B* %b)
-; NONOPAQUE: define void @foo2(i64 %f.coerce.high, i64 %f.coerce.low, %struct.B* %b)
-; NONOPAQUE: define void @foo3(<4 x i64>* %0)
-
-; OPAQUE: define void @foo1(ptr %b)
-; OPAQUE: define void @foo2(i64 %f.coerce.high, i64 %f.coerce.low, ptr %b)
-; OPAQUE: define void @foo3(ptr %0)
+; CHECK: define void @foo1(ptr %b)
+; CHECK: define void @foo2(i64 %f.coerce.high, i64 %f.coerce.low, ptr %b)
+; CHECK: define void @foo3(ptr %0)
 
 ; Function Attrs: convergent nounwind readnone willreturn
 declare i64 @_Z13get_global_idj(i32) #2
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.memcpy.p0i8.p2i8.i64(i8* noalias nocapture writeonly, i8 addrspace(2)* noalias nocapture readonly, i64, i1 immarg) #3
+declare void @llvm.memcpy.p0.p2.i64(ptr noalias nocapture writeonly, ptr addrspace(2) noalias nocapture readonly, i64, i1 immarg) #3
 
 attributes #0 = { convergent noinline norecurse nounwind "frame-pointer"="none" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" }
 attributes #1 = { convergent norecurse nounwind "frame-pointer"="none" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" }
@@ -98,7 +85,7 @@ attributes #7 = { convergent }
 !0 = !{i32 1, i32 2}
 !1 = !{}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2021.2.0 (2021.x.0.YYYYMMDD)"}
-!3 = !{void ()* @test}
+!3 = !{ptr @test}
 !4 = !{!5, !7, i64 0}
 !5 = !{!"B", !6, i64 0, !6, i64 16}
 !6 = !{!"F", !7, i64 0, !10, i64 8}

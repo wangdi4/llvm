@@ -15,12 +15,12 @@ define void @foo() {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i32* [[VP_I:%.*]],
-; CHECK-NEXT:   Memory: i32* @i
+; CHECK-NEXT:    Linked values: ptr [[VP_I:%.*]],
+; CHECK-NEXT:   Memory: ptr @i
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: Array
-; CHECK-NEXT:    Linked values: [1024 x i32]* [[VP_ARR:%.*]],
-; CHECK-NEXT:   Memory: [1024 x i32]* @arr
+; CHECK-NEXT:    Linked values: ptr [[VP_ARR:%.*]],
+; CHECK-NEXT:   Memory: ptr @arr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i32 [[VP_STOREMERGE10]] = phi  [ i32 [[VP_ADD3]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP_STOREMERGE10_IND_INIT]], [[BB2:BB[0-9]+]] ]
 ;
@@ -33,8 +33,8 @@ define void @foo() {
 ; CHECK-NEXT:     br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]]
-; CHECK-NEXT:     [1024 x i32]* [[VP_ARR]] = allocate-priv [1024 x i32]*, OrigAlign = 4
-; CHECK-NEXT:     i32* [[VP_I]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_ARR]] = allocate-priv [1024 x i32], OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_I]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_INIT]] = induction-init{add} i32 live-in1 i32 1
 ; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
@@ -78,7 +78,7 @@ define void @foo() {
 ; CHECK-NEXT:      Live-Out:   [[STOREMERGE100]] = phi i32 [ [[ADD30]], [[OMP_INNER_FOR_INC0]] ], [ 0, [[ENTRY0]] ]
 ;
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* @arr, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* @i, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr @arr, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr @i, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %entry

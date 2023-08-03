@@ -14,7 +14,7 @@ define void @foo() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] [12 x i16]* [[VP0:%.*]] = allocate-priv [12 x i16]*, OrigAlign = 2
+; CHECK-NEXT:     [DA: Div] [12 x i16]* [[VP0:%.*]] = allocate-priv [12 x i16], OrigAlign = 2
 ; CHECK-NEXT:     [DA: Div] i8* [[VP1:%.*]] = bitcast [12 x i16]* [[VP0]]
 ; CHECK-NEXT:     [DA: Div] call i64 24 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = induction-init{add} i32 0 i32 1

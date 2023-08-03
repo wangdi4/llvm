@@ -31,15 +31,15 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.011 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i8], [100 x i8]* @c1, i64 0, i64 %l1.011
-  %0 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds [100 x i8], ptr @c1, i64 0, i64 %l1.011
+  %0 = load i8, ptr %arrayidx, align 1
   %conv = zext i8 %0 to i32
-  %arrayidx1 = getelementptr inbounds [100 x i8], [100 x i8]* @c2, i64 0, i64 %l1.011
-  %1 = load i8, i8* %arrayidx1, align 1
+  %arrayidx1 = getelementptr inbounds [100 x i8], ptr @c2, i64 0, i64 %l1.011
+  %1 = load i8, ptr %arrayidx1, align 1
   %conv2 = zext i8 %1 to i32
   %add = add nuw nsw i32 %conv2, %conv
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @i1, i64 0, i64 %l1.011
-  store i32 %add, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @i1, i64 0, i64 %l1.011
+  store i32 %add, ptr %arrayidx3, align 4
   %inc = add nuw nsw i64 %l1.011, 1
   %exitcond = icmp eq i64 %inc, 80
   br i1 %exitcond, label %for.end, label %for.body

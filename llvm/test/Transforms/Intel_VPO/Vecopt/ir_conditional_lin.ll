@@ -11,11 +11,11 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP0:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP0]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 1 StartVal: ? EndVal: ? BinOp: i64 [[VP_K_IV_NEXT:%.*]] = phi  [ i64 [[VP_K_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_K_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_K_IV:%.*]], i64 [[VP_K_IV_NEXT]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP:%.*]], i64 [[VP1:%.*]], i64 [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 1 StartVal: ? EndVal: ? BinOp: i64 [[VP1:%.*]] = add i64 [[VP_K_IV:%.*]] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: i64 [[VP_K_IV]], i64 [[VP_K_IV_NEXT:%.*]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP]], i64 [[VP1]], i64 [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -32,14 +32,14 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_K_IV]]
-; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1]], [[BB2]]
+; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64 [[VP_K_IV_N2]] = add i64 [[VP_K_IV]] i64 1
+; CHECK-NEXT:       i64 [[VP_K_IV_N2:%.*]] = add i64 [[VP_K_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64 [[VP_K_IV_N1]] = add i64 [[VP_K_IV]] i64 1
+; CHECK-NEXT:       i64 [[VP_K_IV_N1:%.*]] = add i64 [[VP_K_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB1]]
@@ -61,15 +61,15 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ;
 entry:
   %k = alloca i64, align 4
-  store i64 0, i64* %k, align 4
+  store i64 0, ptr %k, align 4
   br label %reg.entry
 
 reg.entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(i64* %k, i64 0, i64 1, i64 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(ptr %k, i64 0, i64 1, i64 1) ]
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64, i64* %k, align 4
+  %k.iv.b = load i64, ptr %k, align 4
   br label %for.body
 
 for.body:

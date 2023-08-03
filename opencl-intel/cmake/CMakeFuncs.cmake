@@ -525,13 +525,12 @@ endfunction()
 function(link_target_with_tbb_library target)
   if(WIN32)
     set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_RELEASE
-      " tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib \
-      /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll ")
+      " tbb12${TBB_BINARIES_POSTFIX}.lib \
+      /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll ")
     set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_DEBUG
-      " /NODEFAULTLIB:MSVCRT tbbmalloc_debug.lib \
-      tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll \
+      " /NODEFAULTLIB:MSVCRT tbb12_debug${TBB_BINARIES_POSTFIX}.lib \
       /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll ")
   else()
-    target_link_libraries(${target} PRIVATE tbb tbbmalloc)
+    target_link_libraries(${target} PRIVATE TBB::tbb)
   endif()
 endfunction()

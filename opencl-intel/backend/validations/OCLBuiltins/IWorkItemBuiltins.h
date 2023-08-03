@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,8 +15,8 @@
 #ifndef I_WORK_ITEM_BUILTINS
 #define I_WORK_ITEM_BUILTINS
 
+#include "llvm/IR/DerivedTypes.h"
 #include <cassert>
-#include <llvm/IR/DerivedTypes.h>
 
 namespace Validation {
 namespace OCLBuiltins {

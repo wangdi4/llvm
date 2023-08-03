@@ -36,6 +36,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -82,18 +83,18 @@ static cl::opt<bool>
 // This flag controls various codegen versions for the dispatch construct.
 // Keeping the old codegen is useful for debugging. This is important as
 // the work is in progress and we expect future change(s) to dispatch codegen.
-//   Version 0 (default): original implementation.
+//   Version 0: original implementation.
 //               Calls __tgt_create_interop_obj() to create interop objs;
 //                 this API does not support prefer_type in append_args.
 //               Calls __tgt_use_interop() for #pragma omp interop use.
-//   Version 1:
+//   Version 1(default):
 //               Calls __tgt_get_interop_obj() to create interop objs;
 //                 this API supports prefer_type in append_args.
 //               Calls __tgt_interop_use_async() for #pragma omp interop use.
-// TODO: When runtime supporting Version1 is in xmain, enable it by default.
-static cl::opt<uint32_t> DispatchCodegenVersion(
-    "vpo-paropt-dispatch-codegen-version", cl::Hidden, cl::init(0),
-    cl::desc("Codegen version for dispatch construct."));
+static cl::opt<uint32_t>
+    DispatchCodegenVersion("vpo-paropt-dispatch-codegen-version", cl::Hidden,
+                           cl::init(1),
+                           cl::desc("Codegen version for dispatch construct."));
 
 static cl::opt<bool> SimulateGetNumThreadsInTarget(
     "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
@@ -654,19 +655,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
           Builder.CreateLoad(OffloadError->getAllocatedType(), OffloadError);
       ConstantInt *ValueZero = ConstantInt::getSigned(Type::getInt32Ty(C), 0);
       Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
       Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                    false, nullptr, DT, LI);
+                                                    false, nullptr, &DTU, LI);
       Term->getParent()->setName("omp_offload.failed");
       LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
           "omp_offload.cont");
 
-      // Host fallback code should be run with 1 thread. Set thread_limit to 1
-      // with __kmpc_push_num_teams(LOC, /*tid*/ 0,
-      //                            /*default num_teams*/ 0, /*num_threads*/ 1)
-      ConstantInt *ValueOne = ConstantInt::getSigned(Type::getInt32Ty(C), 1);
-      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, ValueZero, ValueZero,
-                                          ValueZero->getType(),
-                                          ValueOne, ValueOne->getType(), Term);
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
     } else if (isa<WRNTargetDataNode>(W)) {
@@ -1626,16 +1621,23 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     FoundProperItem = true;
 
     assert(BufTy && "Found untyped reduction item");
-    uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
+
+    // For arrays/arrsects the type of the buffer is expected to be
+    //    [M x [N * ElemTy]], where
+    // M = {
+    //  AtomicFreeRedLocalBufSize x AtomicFreeRedGlobalBufSize, local buffer
+    //  AtomicFreeRedGlobalBufSize,                             global buffer
+    // },
+    // N = NumElems (i.e. section size),
+    // ElemTy = BufTy returned by getItemInfo (i.e. item element type)
+    if (NumElems)
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
+
     uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
-
-    if (RedI->getIsArraySection()) {
-      assert(NumElems && "No elements number specified for array section");
-      BufTy =
-          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
-    }
+    uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
 
     Module *M = F->getParent();
     assert(M && "Function has no parent module.");
@@ -1670,10 +1672,7 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       addMapForValue(GlobalBuf, MapType, MapTypeVal, MapGlobalSize);
     }
 
-    bool IsArrayOrArraySection =
-        RedI->getIsArraySection() || BufTy->isArrayTy() || NumElems;
-    bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-    if (NeedsLocalBuffer && !IsArrayOrArraySection && !IsUDR) {
+    if (NeedsLocalBuffer) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
@@ -3137,8 +3136,8 @@ bool VPOParoptTransform::mayCallOmpGetNumThreads(WRegionNode *W) {
   return logAndReturn(false);
 }
 
-bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
-  return (F->getAttributes().hasFnAttr("openmp-target-declare"));
+bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() const {
+  return (F->hasFnAttribute("openmp-target-declare"));
 }
 
 // This function inserts artificial uses for arguments of some clauses
@@ -3736,8 +3735,8 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
   DeviceNum = Builder.CreateZExtOrTrunc(DeviceNum, Int64Ty);
   assert(DeviceNum->getType()->isIntegerTy(64) && "DeviceID is not an i64.");
 
-  CallInst *TaskAllocCI =
-      VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+  CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+      W, IdentTy, TidPtrHolder, InsertPt);
 
   if (!DepClause.empty() || W->getDepArray()) {
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
@@ -4321,12 +4320,13 @@ void VPOParoptTransform::processNeedDevicePtrClause(WRegionNode *W,
 
 // Handle the depend clause of the dispatch construct by emitting these calls
 // around the VariantCall:
-//   @__kmpc_omp_wait_deps(loc, tid, ...)                                  (1)
-//   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (2)
+//   dummytaskthunk = @__kmpc_omp_task_alloc(loc, tid, ... )               (1)
+//   @__kmpc_omp_wait_deps(loc, tid, ...)                                  (2)
+//   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (3)
 //   VariantCall(...)
-//   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (3)
+//   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (4)
 //
-// The calls to (2) and (3) are for OMPT tracing only;
+// The calls to (1), (3) and (4) are for OMPT tracing only;
 // do not emit them if SupportOMPTTracing==false
 void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
                                               CallInst *VariantCall,
@@ -4346,21 +4346,24 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
 
   // Insert code before VariantCall;
   Instruction *InsertPt = VariantCall;
-  CallInst *TaskAllocCI =
-      VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+  CallInst *TaskAllocCI = nullptr;
+
+  if (SupportOMPTTracing)
+    TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+        W, IdentTy, TidPtrHolder, InsertPt); //                            (1)
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(ParentTask, InsertPt);
   genTaskDeps(ParentTask, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
-              DummyTaskTDependRec, InsertPt, true); //                     (1)
+              DummyTaskTDependRec, InsertPt, true); //                     (2)
 
   if (SupportOMPTTracing) {
     VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                                        InsertPt); //                      (2)
+                                        InsertPt); //                      (3)
 
     // Insert code after VariantCall
     VPOParoptUtils::genKmpcTaskCompleteIf0(
         W, IdentTy, TidPtrHolder, TaskAllocCI,
-        InsertPt->getNextNonDebugInstruction()); //                        (3)
+        InsertPt->getNextNonDebugInstruction()); //                        (4)
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDependForDispatch\n");

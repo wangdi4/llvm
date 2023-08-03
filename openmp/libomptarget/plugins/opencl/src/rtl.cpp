@@ -99,9 +99,6 @@
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
-/// Additional TARGET_ALLOC* definition for the plugin
-constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
-
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
@@ -555,15 +552,6 @@ struct ExtensionsTy {
   int32_t getExtensionsInfoForDevice(int32_t DeviceId);
 };
 
-/// Data transfer method
-enum DataTransferMethodTy {
-  DATA_TRANSFER_METHOD_INVALID = -1,   // Invalid
-  DATA_TRANSFER_METHOD_CLMEM = 0,      // Use Buffer on SVM
-  DATA_TRANSFER_METHOD_SVMMAP,         // Use SVMMap/Unmap
-  DATA_TRANSFER_METHOD_SVMMEMCPY,      // Use SVMMemcpy
-  DATA_TRANSFER_METHOD_LAST,
-};
-
 #if INTEL_CUSTOMIZATION
 struct DynamicMemHeapTy {
   /// Base address memory is allocated from
@@ -657,9 +645,6 @@ class OpenCLProgramTy {
 #if INTEL_CUSTOMIZATION
   /// Program data copied to device
   ProgramDataTy PGMData;
-
-  /// Cached address of the program data on device
-  void *PGMDataPtr = nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   /// Final OpenCL program
@@ -707,18 +692,6 @@ public:
 
   int32_t linkPrograms(std::string &LinkingOptions);
 
-  /// Looks up an external global variable with the given \p Name
-  /// in the device environment for device \p DeviceId.
-  /// \p Size must not be null. If (*SizePtr) is not zero, then
-  /// the lookup verifies that the found variable's size matches
-  /// (*SizePtr), otherwise, the found variable's size is returned
-  /// via \p Size.
-  void *getVarDeviceAddr(const char *Name, size_t *SizePtr);
-
-  /// Looks up an external global variable with the given \p Name
-  /// and \p Size in the device environment for device \p DeviceId.
-  void *getVarDeviceAddr(const char *Name, size_t Size);
-
   /// Build kernels from all modules.
   int32_t buildKernels();
 
@@ -741,28 +714,33 @@ public:
 
   /// Returns the auxiliary kernel information for the specified kernel.
   const KernelInfoTy *getKernelInfo(cl_kernel Kernel) const;
+
+  /// Read data from the location in the device image which corresponds to the
+  /// specified global variable name.
+  int32_t readGlobalVariable(const char *Name, size_t Size, void *HostPtr);
+
+  /// Write data to the location in the device image which corresponds to the
+  /// specified global variable name.
+  int32_t writeGlobalVariable(const char *Name, size_t Size,
+                              const void *HostPtr);
 };
 
 /// RTL flags
 struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
-  uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
-  uint64_t UseSVM : 1;
-  uint64_t UseBuffer : 1;
   uint64_t UseSingleContext : 1;
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 53;
+  uint64_t Reserved : 56;
   RTLFlagsTy()
-      : EnableProfile(0), UseHostMemForUSM(0), UseDriverGroupSizes(0),
-        EnableSimd(0), UseSVM(0), UseBuffer(0), UseSingleContext(0),
-        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0),
-        NDRangeIgnoreTripcount(0), Reserved(0) {}
+      : EnableProfile(0), UseDriverGroupSizes(0), EnableSimd(0),
+        UseSingleContext(0), UseImageOptions(1), ShowBuildLog(0),
+        LinkLibDevice(0), NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
 /// Kernel properties.
@@ -926,15 +904,11 @@ public:
   }
 
   /// Add a list of implicit arguments to the output vector.
-  void getImplicitArgs(
-      std::vector<void *> &SVMArgs, std::vector<void *> &USMArgs) {
+  void getImplicitArgs(std::vector<void *> &USMArgs) {
     std::lock_guard<std::mutex> Lock(Mtx);
     for (auto &AllocInfo : Map) {
       if (AllocInfo.second.ImplicitArg) {
-        if (AllocInfo.second.Kind == TARGET_ALLOC_SVM)
-          SVMArgs.push_back(AllocInfo.first);
-        else
-          USMArgs.push_back(AllocInfo.first);
+        USMArgs.push_back(AllocInfo.first);
       }
     }
   }
@@ -956,9 +930,6 @@ public:
 struct RTLOptionTy {
   /// Binary flags
   RTLFlagsTy Flags;
-
-  /// Data transfer method when SVM is used
-  int32_t DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
 
   /// Plugin profiling resolution (msec by default)
   int64_t ProfileResolution = 1000;
@@ -1037,22 +1008,6 @@ struct RTLOptionTy {
 
   RTLOptionTy() {
     const char *Env;
-
-    // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD"))) {
-      std::string Value(Env);
-      DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
-      if (Value.size() == 1 && std::isdigit(Value.c_str()[0])) {
-        int Method = std::stoi(Env);
-        if (Method < DATA_TRANSFER_METHOD_LAST)
-          DataTransferMethod = Method;
-      }
-      if (DataTransferMethod == DATA_TRANSFER_METHOD_INVALID) {
-        WARNING("Invalid data transfer method (%s) selected"
-                " -- using default method.\n", Env);
-        DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
-      }
-    }
 
     // Read LIBOMPTARGET_DEVICETYPE
     if ((Env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
@@ -1139,27 +1094,6 @@ struct RTLOptionTy {
         Flags.UseDriverGroupSizes = 1;
     }
 #endif  // INTEL_CUSTOMIZATION
-
-    // Read LIBOMPTARGET_USM_HOST_MEM
-    if ((Env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM"))) {
-      if (parseBool(Env) == 1)
-        Flags.UseHostMemForUSM = 1;
-    }
-
-    // Read LIBOMPTARGET_OPENCL_USE_SVM
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
-      int32_t Value = parseBool(Env);
-      if (Value == 1)
-        Flags.UseSVM = 1;
-      else if (Value == 0)
-        Flags.UseSVM = 0;
-    }
-
-    // Read LIBOMPTARGET_OPENCL_USE_BUFFER
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_USE_BUFFER"))) {
-      if (parseBool(Env) == 1)
-        Flags.UseBuffer = 1;
-    }
 
     // Read LIBOMPTARGET_USE_SINGLE_CONTEXT
     if ((Env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
@@ -1406,8 +1340,6 @@ public:
 
   std::mutex *ProfileLocks;
 
-  std::vector<std::set<void *>> ClMemBuffers;
-
   /// Memory owned by the plugin
   std::vector<std::vector<void *>> OwnedMemory;
 
@@ -1468,6 +1400,7 @@ public:
     case clDeviceMemAllocINTELId:
     case clSharedMemAllocINTELId:
     case clMemFreeINTELId:
+    case clMemBlockingFreeINTELId:
     case clSetKernelArgMemPointerINTELId:
     case clEnqueueMemcpyINTELId:
       return Extensions[DeviceId].UnifiedSharedMemory == ExtensionStatusEnabled;
@@ -1488,9 +1421,6 @@ public:
 
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
-
-  /// Allocate cl_mem data
-  void *allocDataClMem(int32_t DeviceId, size_t Size);
 
   /// Get PCI device ID
   uint32_t getPCIDeviceId(int32_t DeviceId) const;
@@ -1946,18 +1876,14 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
   DataAllocTimer.start();
 
-  if (DeviceInfo->Option.Flags.UseSVM) {
-    AllocKind = TARGET_ALLOC_SVM;
-    CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
-  } else {
-    cl_int RC;
-    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
-    CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
-                     DeviceInfo->Devices[DeviceId], AllocProp->data(),
-                     AllocSize, Align);
-    if (RC != CL_SUCCESS)
-      return nullptr;
-  }
+  cl_int RC;
+  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
+  CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
+                   DeviceInfo->Devices[DeviceId], AllocProp->data(), AllocSize,
+                   Align);
+  if (RC != CL_SUCCESS)
+    return nullptr;
+
   if (!Base) {
     DP("Error: Failed to allocate base buffer\n");
     return nullptr;
@@ -2034,64 +1960,12 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   const char *ProfileKey = "DataWrite (Host to Device)";
   cl_event Event = nullptr;
+  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE, TgtPtr,
+                       HstPtr, Size, 0, nullptr, &Event);
+  CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
 
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
-                       Size, HstPtr, 0, nullptr, &Event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-      return OFFLOAD_SUCCESS;
-    }
-  }
-
-  if (!DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
-                         TgtPtr, HstPtr, Size, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-    return OFFLOAD_SUCCESS;
-  }
-
-  switch (DeviceInfo->Option.DataTransferMethod) {
-  case DATA_TRANSFER_METHOD_SVMMAP: {
-    ProfileIntervalTy SubmitTime(ProfileKey, DeviceId);
-    SubmitTime.start();
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_WRITE, TgtPtr,
-                     Size, 0, nullptr, nullptr);
-    memcpy(TgtPtr, HstPtr, Size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    SubmitTime.stop();
-  } break;
-  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, TgtPtr, HstPtr, Size,
-                     0, nullptr, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  } break;
-  case DATA_TRANSFER_METHOD_CLMEM:
-  default: {
-    cl_int RC;
-    cl_mem Mem = nullptr;
-    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
-                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
-    if (RC != CL_SUCCESS) {
-      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(TgtPtr));
-      return OFFLOAD_FAIL;
-    }
-    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, Mem, CL_FALSE, 0, Size,
-                     HstPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  }
-  }
   return OFFLOAD_SUCCESS;
 }
 
@@ -2106,64 +1980,11 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   const char *ProfileKey = "DataRead (Device to Host)";
   cl_event Event = nullptr;
-
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
-                       Size, HstPtr, 0, nullptr, &Event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-      return OFFLOAD_SUCCESS;
-    }
-  }
-
-  if (!DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
-                         HstPtr, TgtPtr, Size, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-    return OFFLOAD_SUCCESS;
-  }
-
-  switch (DeviceInfo->Option.DataTransferMethod) {
-  case DATA_TRANSFER_METHOD_SVMMAP: {
-    ProfileIntervalTy RetrieveTime(ProfileKey, DeviceId);
-    RetrieveTime.start();
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_READ, TgtPtr, Size,
-                     0, nullptr, nullptr);
-    memcpy(HstPtr, TgtPtr, Size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    RetrieveTime.stop();
-  } break;
-  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, HstPtr, TgtPtr, Size,
-                     0, nullptr, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  } break;
-  case DATA_TRANSFER_METHOD_CLMEM:
-  default: {
-    cl_int RC;
-    cl_mem Mem = nullptr;
-    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
-                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
-    if (RC != CL_SUCCESS) {
-      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(TgtPtr));
-      return OFFLOAD_FAIL;
-    }
-    CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, Mem, CL_FALSE, 0, Size, HstPtr,
-                     0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  }
-  }
+  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE, HstPtr,
+                       TgtPtr, Size, 0, nullptr, &Event);
+  CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   return OFFLOAD_SUCCESS;
 }
 
@@ -2742,23 +2563,14 @@ static inline int32_t runTargetTeamNDRegion(
     } else {
       ArgType = "Pointer";
       void *Ptr = (void *)((intptr_t)TgtArgs[I] + Offset);
-      if (DeviceInfo->Option.Flags.UseBuffer &&
-          DeviceInfo->ClMemBuffers[DeviceId].count(Ptr) > 0) {
-        CALL_CL_RET_FAIL(clSetKernelArg, Kernel, I, sizeof(cl_mem), &Ptr);
-        ArgType = "ClMem";
-      } else if (DeviceInfo->Option.Flags.UseSVM) {
-        CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
-      } else {
-        CALL_CL_EXT_RET_FAIL(
-            DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I, Ptr);
-      }
+      CALL_CL_EXT_RET_FAIL(DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I,
+                           Ptr);
     }
     DP("Kernel %s Arg %d set successfully\n", ArgType, I);
     (void)ArgType;
   }
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  std::vector<void *> ImplicitSVMArgs;
   std::vector<void *> ImplicitUSMArgs;
   std::map<int32_t, bool> HasUSMArgs{
       {TARGET_ALLOC_DEVICE, false},
@@ -2792,12 +2604,8 @@ static inline int32_t runTargetTeamNDRegion(
     // use "search" instead of "find".
     auto *Info = AllocInfos[DeviceId]->search(Ptr);
     if (Info) {
-      if ((int32_t)Info->Kind == TARGET_ALLOC_SVM) {
-        ImplicitSVMArgs.push_back(Ptr);
-      } else {
-        ImplicitUSMArgs.push_back(Ptr);
-        HasUSMArgs[Info->Kind] = true;
-      }
+      ImplicitUSMArgs.push_back(Ptr);
+      HasUSMArgs[Info->Kind] = true;
     }
     if (DeviceInfo->Option.Flags.UseSingleContext) {
       Info = AllocInfos[DeviceInfo->NumDevices]->search(Ptr);
@@ -2809,23 +2617,15 @@ static inline int32_t runTargetTeamNDRegion(
   }
 
   /// Kernel-independent implicit arguments
-  AllocInfos[DeviceId]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+  AllocInfos[DeviceId]->getImplicitArgs(ImplicitUSMArgs);
   for (auto &ArgKind : HasUSMArgs)
     if (AllocInfos[DeviceId]->hasImplicitUSMArg(ArgKind.first))
       ArgKind.second = true;
   if (DeviceInfo->Option.Flags.UseSingleContext) {
     auto ID = DeviceInfo->NumDevices;
-    AllocInfos[ID]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+    AllocInfos[ID]->getImplicitArgs(ImplicitUSMArgs);
     if (AllocInfos[ID]->hasImplicitUSMArg(TARGET_ALLOC_HOST))
       HasUSMArgs[TARGET_ALLOC_HOST] = true;
-  }
-
-  if (ImplicitSVMArgs.size() > 0) {
-    DP("Calling clSetKernelExecInfo to pass %zu implicit SVM arguments "
-       "to kernel " DPxMOD "\n", ImplicitSVMArgs.size(), DPxPTR(Kernel));
-    CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
-                     sizeof(void *) * ImplicitSVMArgs.size(),
-                     ImplicitSVMArgs.data());
   }
 
   if (ImplicitUSMArgs.size() > 0) {
@@ -2866,26 +2666,17 @@ static inline int32_t runTargetTeamNDRegion(
 #endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
-  bool IsDiscrete = DeviceInfo->isDiscreteDevice(DeviceId);
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
 #endif // INTEL_CUSTOMIZATION
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
-  if (IsDiscrete)
-    KernelLock.unlock();
+  KernelLock.unlock();
 
   DP("Started executing kernel.\n");
 
   CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-
-  // There seems to be subtle race condition when launching target regions with
-  // reduction from multiple host threads on integrated devices. We do not have
-  // overlapping kernel execution anyway with this plugin, so protect the kernel
-  // execution only on integrated devices.
-  if (!IsDiscrete)
-    KernelLock.unlock();
 
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
@@ -2918,22 +2709,6 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
-
-void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
-  cl_mem ret = nullptr;
-  cl_int rc;
-
-  CALL_CL_RVRC(ret, clCreateBuffer, rc, getContext(DeviceId),
-               CL_MEM_READ_WRITE, Size, nullptr);
-  if (rc != CL_SUCCESS)
-    return nullptr;
-
-  std::unique_lock<std::mutex> lock(Mutexes[DeviceId]);
-  ClMemBuffers[DeviceId].insert((void *)ret);
-
-  DP("Allocated cl_mem data " DPxMOD "\n", DPxPTR(ret));
-  return (void *)ret;
-}
 
 uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) const {
   if (Extensions[DeviceId].DeviceAttributeQuery == ExtensionStatusEnabled)
@@ -3744,13 +3519,6 @@ void *OpenCLProgramTy::initDynamicMemPool() {
 }
 
 int32_t OpenCLProgramTy::initProgramData() {
-  // Look up program data location on device
-  PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
-  if (!PGMDataPtr) {
-    DP("Warning: cannot find program data location on device.\n");
-    return OFFLOAD_SUCCESS;
-  }
-
   // Prepare host data to copy
   auto &P = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t TotalEUs =
@@ -3795,19 +3563,21 @@ int32_t OpenCLProgramTy::initProgramData() {
                          // Teams thread limit
   };
 
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId], CL_TRUE, PGMDataPtr,
-                       &PGMData, sizeof(PGMData), 0, nullptr, nullptr);
+  // Initialize __omp_spirv_program_data.
+  auto RC = writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                                &PGMData);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot write global program data on device\n");
+  }
   return OFFLOAD_SUCCESS;
 }
 
 int32_t OpenCLProgramTy::resetProgramData() {
-  if (!PGMDataPtr)
-    return OFFLOAD_SUCCESS;
-
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId], CL_TRUE, PGMDataPtr,
-                       &PGMData, sizeof(PGMData), 0, nullptr, nullptr);
+  auto RC = writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                                &PGMData);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot write global program data on device\n");
+  }
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -3818,59 +3588,52 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
   const char *Name = KernelEntry.name;
   std::string InfoVarName(Name);
   InfoVarName += "_kernel_info";
-  size_t InfoVarSize = 0;
-  void *InfoVarAddr = getVarDeviceAddr(InfoVarName.c_str(), &InfoVarSize);
-  // If there is no kernel info variable, then the kernel might have been
-  // produced by older toolchain - this is acceptable, so return success.
-  if (!InfoVarAddr)
-    return true;
-  if (InfoVarSize == 0) {
-    DP("Error: kernel info variable cannot have 0 size.\n");
-    return false;
-  }
-  std::vector<char> InfoBuffer;
-  InfoBuffer.resize(InfoVarSize);
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  /*blocking=*/CL_TRUE, InfoBuffer.data(),
-                  InfoVarAddr, InfoVarSize,
-                  /*num_events_in_wait_list=*/0,
-                  /*event_wait_list=*/nullptr,
-                  /*event=*/nullptr);
-  // TODO: add support for big-endian devices, if needed.
-  //       Currently supported devices are little-endian.
-  char *ReadPtr = InfoBuffer.data();
-  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
-  if (Version == 0) {
+
+  // Read info version and number of kernel arguments to decide size of the
+  // kernel info data structure.
+  struct InfoHeaderTy {
+    uint32_t Version;
+    uint32_t NumArgs;
+  } InfoHeader;
+  auto RC =
+      readGlobalVariable(InfoVarName.c_str(), sizeof(InfoHeader), &InfoHeader);
+  if (RC != OFFLOAD_SUCCESS)
+    return true; // Proceed without kernel information
+
+  // Decide the data structure size
+  size_t InfoVarSize = static_cast<size_t>(InfoHeader.NumArgs) * 8 + 8;
+  switch (InfoHeader.Version) {
+  case 5: // Not introduced new data member
+    [[fallthrough]];
+  case 4: // Introduced 8B WINum
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 3: // Introduced 8B WGNum
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 2: // Introduced 8B Attribute flags
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 1: // First version
+    break;
+  case 0:
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
-  }
-  if (Version > 5) {
+  default:
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
-       Version);
+       InfoHeader.Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
     return false;
   }
-  ReadPtr += 4;
-  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
-  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
-  // Support Attributes1 since version 2.
-  if (Version > 1)
-    ExpectedInfoVarSize += 8;
-  // Support WGNum since version 3.
-  if (Version > 2)
-    ExpectedInfoVarSize += 8;
-  // Support WINum since version 4.
-  if (Version > 3)
-    ExpectedInfoVarSize += 8;
-  if (InfoVarSize != ExpectedInfoVarSize) {
-    DP("Error: expected kernel info variable size %zu - got %zu\n",
-       ExpectedInfoVarSize, InfoVarSize);
-    return false;
-  }
-  KernelInfoTy Info(Version);
-  ReadPtr += 4;
-  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
+
+  std::vector<char> InfoBuffer(InfoVarSize);
+  RC = readGlobalVariable(InfoVarName.c_str(), InfoVarSize, InfoBuffer.data());
+  if (RC != OFFLOAD_SUCCESS)
+    return true; // Proceed without kernel information
+
+  KernelInfoTy Info(InfoHeader.Version);
+  char *ReadPtr = InfoBuffer.data() + 8;
+  for (uint32_t I = 0; I < InfoHeader.NumArgs; I++) {
     bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
     ReadPtr += 4;
     uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
@@ -3878,21 +3641,21 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
     Info.addArgInfo(ArgIsLiteral, ArgSize);
   }
 
-  if (Version > 1) {
+  if (InfoHeader.Version > 1) {
     // Read 8-byte Attributes1 since version 2.
     uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
     Info.setAttributes1(Attributes1);
     ReadPtr += 8;
   }
 
-  if (Version > 2) {
+  if (InfoHeader.Version > 2) {
     // Read 8-byte WGNum since version 3.
     uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
     Info.setWGNum(WGNum);
     ReadPtr += 8;
   }
 
-  if (Version > 3) {
+  if (InfoHeader.Version > 3) {
     // Read 8-byte WGNum since version 3.
     uint32_t WINum = llvm::support::endian::read64le(ReadPtr);
     Info.setWINum(WINum);
@@ -3904,21 +3667,11 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
 }
 
 bool OpenCLProgramTy::loadOffloadTable(size_t NumEntries) {
-  const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
-  void *OffloadTableSizeVarAddr =
-      getVarDeviceAddr(OffloadTableSizeVarName, sizeof(int64_t));
-
-  if (!OffloadTableSizeVarAddr) {
-    DP("Warning: cannot get device value for global variable '%s'.\n",
-       OffloadTableSizeVarName);
-    return false;
-  }
-
   int64_t TableSizeVal = 0;
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  CL_TRUE, &TableSizeVal, OffloadTableSizeVarAddr,
-                  sizeof(int64_t), 0, nullptr, nullptr);
+  auto RC = readGlobalVariable("__omp_offloading_entries_table_size",
+                               sizeof(TableSizeVal), &TableSizeVal);
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -3934,19 +3687,11 @@ bool OpenCLProgramTy::loadOffloadTable(size_t NumEntries) {
        "offload tables mismatch (%zu != %zu).\n", NumEntries, DeviceNumEntries);
   }
 
-  const char *OffloadTableVarName = "__omp_offloading_entries_table";
-  void *OffloadTableVarAddr = getVarDeviceAddr(OffloadTableVarName, TableSize);
-  if (!OffloadTableVarAddr) {
-    DP("Warning: cannot get device value for global variable '%s'.\n",
-       OffloadTableVarName);
-    return false;
-  }
-
   OffloadEntries.resize(DeviceNumEntries);
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  CL_TRUE, OffloadEntries.data(), OffloadTableVarAddr,
-                  TableSize, 0, nullptr, nullptr);
+  RC = readGlobalVariable("__omp_offloading_entries_table", TableSize,
+                          OffloadEntries.data());
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
 
   size_t I = 0;
   const char *PreviousName = "";
@@ -4037,62 +3782,11 @@ void *OpenCLProgramTy::getOffloadVarDeviceAddr(const char *Name, size_t Size) {
 
     DP("Warning: global variable '%s' was not found in the offload table.\n",
        Name);
-  } else
-    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
-
-  // Fallback to the lookup by name.
-  return getVarDeviceAddr(Name, Size);
-}
-
-void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t *SizePtr) {
-  size_t DeviceSize = 0;
-  void *TgtAddr = nullptr;
-  size_t Size = *SizePtr;
-  bool SizeIsKnown = (Size != 0);
-  if (SizeIsKnown) {
-    DP("Looking up device global variable '%s' of size %zu bytes "
-       "on device %d.\n", Name, Size, DeviceId);
   } else {
-    DP("Looking up device global variable '%s' of unknown size "
-       "on device %d.\n", Name, DeviceId);
+    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
   }
 
-  if (!DeviceInfo->isExtensionFunctionEnabled(
-          DeviceId, clGetDeviceGlobalVariablePointerINTELId))
-    return nullptr;
-
-  cl_int RC;
-  auto clGetDeviceGlobalVariablePointerINTELFn =
-      reinterpret_cast<clGetDeviceGlobalVariablePointerINTEL_fn>(
-          DeviceInfo->getExtensionFunctionPtr(
-              DeviceId, clGetDeviceGlobalVariablePointerINTELId));
-  RC = clGetDeviceGlobalVariablePointerINTELFn(
-      Device, FinalProgram, Name, &DeviceSize, &TgtAddr);
-
-  if (RC != CL_SUCCESS) {
-    DP("Warning: clGetDeviceGlobalVariablePointerINTEL API returned "
-       "nullptr for global variable '%s'.\n", Name);
-    DeviceSize = 0;
-  } else if (Size != DeviceSize && SizeIsKnown) {
-    DP("Warning: size mismatch for host (%zu) and device (%zu) versions "
-       "of global variable: %s\n.  Direct references "
-       "to this variable will not work properly.\n",
-       Size, DeviceSize, Name);
-    DeviceSize = 0;
-  }
-
-  if (DeviceSize == 0) {
-    DP("Warning: global variable lookup failed.\n");
-    return nullptr;
-  }
-
-  DP("Global variable lookup succeeded (size: %zu bytes).\n", DeviceSize);
-  *SizePtr = DeviceSize;
-  return TgtAddr;
-}
-
-void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t Size) {
-  return getVarDeviceAddr(Name, &Size);
+  return nullptr;
 }
 
 const KernelInfoTy *OpenCLProgramTy::getKernelInfo(
@@ -4102,6 +3796,44 @@ const KernelInfoTy *OpenCLProgramTy::getKernelInfo(
     return &(I->second);
   else
     return nullptr;
+}
+
+int32_t OpenCLProgramTy::readGlobalVariable(const char *Name, size_t Size,
+                                            void *HostPtr) {
+  size_t SizeDummy = 0;
+  void *DevicePtr = nullptr;
+  cl_int RC;
+  CALL_CL_EXT_SILENT(DeviceId, RC, clGetDeviceGlobalVariablePointerINTEL,
+                     Device, FinalProgram, Name, &SizeDummy, &DevicePtr);
+  if (RC != CL_SUCCESS || !DevicePtr) {
+    DP("Warning: cannot read from device global variable %s\n", Name);
+    return OFFLOAD_FAIL;
+  }
+  auto CmdQueue = DeviceInfo->Queues[DeviceId];
+  CALL_CL_EXT_RET_FAIL(
+      DeviceId, clEnqueueMemcpyINTEL, CmdQueue, CL_TRUE /* Blocking */, HostPtr,
+      DevicePtr, Size, 0 /* Number of wait events */,
+      nullptr /* List of wait events */, nullptr /* Signal event */);
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t OpenCLProgramTy::writeGlobalVariable(const char *Name, size_t Size,
+                                             const void *HostPtr) {
+  size_t SizeDummy = 0;
+  void *DevicePtr = nullptr;
+  cl_int RC;
+  CALL_CL_EXT_SILENT(DeviceId, RC, clGetDeviceGlobalVariablePointerINTEL,
+                     Device, FinalProgram, Name, &SizeDummy, &DevicePtr);
+  if (RC != CL_SUCCESS || !DevicePtr) {
+    DP("Warning: cannot write to device global variable %s\n", Name);
+    return OFFLOAD_FAIL;
+  }
+  auto CmdQueue = DeviceInfo->Queues[DeviceId];
+  CALL_CL_EXT_RET_FAIL(
+      DeviceId, clEnqueueMemcpyINTEL, CmdQueue, CL_TRUE /* Blocking */,
+      DevicePtr, HostPtr, Size, 0 /* Number of wait events */,
+      nullptr /* List of wait events */, nullptr /* Signal event */);
+  return OFFLOAD_SUCCESS;
 }
 
 ///
@@ -4193,7 +3925,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Queues.resize(DeviceInfo->NumDevices);
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->NumDevices, nullptr);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ClMemBuffers.resize(DeviceInfo->NumDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Names.resize(DeviceInfo->NumDevices);
@@ -4216,10 +3947,18 @@ int32_t __tgt_rtl_number_of_devices() {
 }
 
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
+  if (DeviceId < 0 || (cl_uint)DeviceId >= DeviceInfo->NumDevices) {
+    DP("Bad device ID %" PRId32 "\n", DeviceId);
+    return OFFLOAD_FAIL;
+  }
+  if ((DeviceInfo->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
+      DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
+    WARNING("Required \"unified_shared_memory\" is not supported.\n");
+    return OFFLOAD_FAIL;
+  }
+
   cl_int RC;
   DP("Initialize OpenCL device\n");
-  assert(DeviceId >= 0 && (cl_uint)DeviceId < DeviceInfo->NumDevices &&
-         "bad device id");
 
   // Use out-of-order queue by default.
   std::vector<cl_queue_properties> QProperties {
@@ -4392,10 +4131,6 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
       // Explicit allocation
       return dataAllocExplicit(DeviceId, Size, Kind);
     }
-    if (DeviceInfo->Option.Flags.UseBuffer) {
-      // Experimental CL buffer allocation
-      return DeviceInfo->allocDataClMem(DeviceId, Size);
-    }
   }
   return dataAlloc(DeviceId, Size, HstPtr, HstPtr, ImplicitArg);
 }
@@ -4436,25 +4171,11 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
   if (SrcId != DstId)
     return OFFLOAD_FAIL;
 
-  // This is OK for same-device copy with SVM or USM extension.
+  // This is OK for same-device copy.
   return __tgt_rtl_data_submit(DstId, DstPtr, SrcPtr, Size);
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
-  DeviceInfo->Mutexes[DeviceId].lock();
-
-  // Deallocate cl_mem data
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    auto &ClMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
-    if (ClMemBuffers.count(TgtPtr) > 0) {
-      ClMemBuffers.erase(TgtPtr);
-      CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)TgtPtr);
-      return OFFLOAD_SUCCESS;
-    }
-  }
-
-  DeviceInfo->Mutexes[DeviceId].unlock();
-
   MemAllocInfoTy Info;
   auto &AllocInfos = DeviceInfo->MemAllocInfo;
   auto Removed = AllocInfos[DeviceId]->remove(TgtPtr, &Info);
@@ -4468,11 +4189,8 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   }
 
   auto Context = DeviceInfo->getContext(DeviceId);
-  if (DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_VOID(clSVMFree, Context, Info.Base);
-  } else {
-    CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Info.Base);
-  }
+  std::lock_guard<std::mutex> LG(DeviceInfo->Mutexes[DeviceId]);
+  CALL_CL_EXT_VOID(DeviceId, clMemBlockingFreeINTEL, Context, Info.Base);
 
   return OFFLOAD_SUCCESS;
 }
@@ -4560,13 +4278,6 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
   return TgtPtr;
 }
 
-// Allocate a managed memory object.
-void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  int32_t Kind = DeviceInfo->Option.Flags.UseHostMemForUSM
-                    ? TARGET_ALLOC_HOST : TARGET_ALLOC_SHARED;
-  return dataAllocExplicit(DeviceId, Size, Kind);
-}
-
 void *__tgt_rtl_data_realloc(
     int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
   const MemAllocInfoTy *Info = nullptr;
@@ -4593,17 +4304,10 @@ void *__tgt_rtl_data_realloc(
   void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
 
   if (Mem && Info) {
-    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE ||
-        Info->Kind == TARGET_ALLOC_SVM) {
-      // TARGET_ALLOC_SVM is for "Device" memory type when SVM is enabled
+    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE) {
       auto Queue = DeviceInfo->Queues[DeviceId];
-      if (DeviceInfo->Option.Flags.UseSVM) {
-        CALL_CL_RET_NULL(clEnqueueSVMMemcpy, Queue, CL_TRUE, Mem, Ptr,
-                         Info->Size, 0, nullptr, nullptr);
-      } else {
-        CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE,
-                             Mem, Ptr, Info->Size, 0, nullptr, nullptr);
-      }
+      CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE, Mem,
+                           Ptr, Info->Size, 0, nullptr, nullptr);
     } else {
       std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
     }
@@ -4834,12 +4538,18 @@ int32_t __tgt_rtl_is_accessible_addr_range(
     return 0;
 
   auto MemType = DeviceInfo->getMemAllocType(DeviceId, Ptr);
-  if (MemType != CL_MEM_TYPE_HOST_INTEL && MemType != CL_MEM_TYPE_SHARED_INTEL)
+  switch (MemType) {
+  case CL_MEM_TYPE_HOST_INTEL:
+    if (DeviceInfo->Option.Flags.UseSingleContext)
+      DeviceId = DeviceInfo->NumDevices;
+    [[fallthrough]];
+  case CL_MEM_TYPE_DEVICE_INTEL:
+    [[fallthrough]];
+  case CL_MEM_TYPE_SHARED_INTEL:
+    break;
+  default:
     return 0;
-
-  if (MemType == CL_MEM_TYPE_HOST_INTEL &&
-      DeviceInfo->Option.Flags.UseSingleContext)
-    DeviceId = DeviceInfo->NumDevices;
+  }
 
   if (DeviceInfo->MemAllocInfo[DeviceId]->contains(Ptr, Size))
     return 1;
@@ -4890,16 +4600,6 @@ int32_t __tgt_rtl_set_function_ptr_map(
 
   ProfileIntervalTy Timer("Function pointers init", DeviceId);
   auto &Program = DeviceInfo->Programs[DeviceId].back();
-  void *DeviceMapSizeVarAddr = Program.getVarDeviceAddr(
-      "__omp_offloading_fptr_map_size", sizeof(uint64_t));
-
-  // getVarDeviceAddr() will return the device pointer size
-  // in DeviceMapPtrVarSize.
-  size_t DeviceMapPtrVarSize = 0;
-  void *DeviceMapPtrVarAddr = Program.getVarDeviceAddr(
-      "__omp_offloading_fptr_map_p", &DeviceMapPtrVarSize);
-  if (!DeviceMapSizeVarAddr || !DeviceMapPtrVarAddr)
-    return OFFLOAD_FAIL;
 
   // Allocate memory for the function pointers map on the device,
   // and transfer the host map to the allocated memory.
@@ -4945,85 +4645,23 @@ int32_t __tgt_rtl_set_function_ptr_map(
                        /*num_events_in_wait_list*/nullptr,
                        /*event=*/nullptr);
 
-  // Initialize __omp_offloading_fptr_map_p global with the value of
-  // FnPtrMapMem.
-  if (DeviceMapPtrVarSize != sizeof(void *)) {
-    // Device pointer size is different from the host pointer size.
-    // This is worth to mention, but the address transfer below
-    // should be correct (given that __omp_offloading_fptr_map_p is
-    // nullptr initially).
-    DP("Warning: device pointer size is %zu, host pointer size is %zu.\n",
-       DeviceMapPtrVarSize, static_cast<size_t>(sizeof(void *)));
+  // Initialize __omp_offloading_fptr_map_p
+  RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_p",
+                                   sizeof(void *), &FnPtrMapMem);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot construct function pointer map on device\n");
+    return OFFLOAD_SUCCESS; // proceed without map
   }
-  size_t PtrTransferSize =
-      std::min<size_t>(DeviceMapPtrVarSize, sizeof(void *));
-
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId],
-                       /*blocking=*/CL_TRUE,
-                       DeviceMapPtrVarAddr, &FnPtrMapMem, PtrTransferSize,
-                       /*num_events_in_wait_list=*/0,
-                       /*num_events_in_wait_list*/nullptr,
-                       /*event=*/nullptr);
 
   // Initialize __omp_offloading_fptr_map_size with the table size.
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId],
-                       /*blocking=*/CL_TRUE,
-                       DeviceMapSizeVarAddr, &Size, sizeof(uint64_t),
-                       /*num_events_in_wait_list=*/0,
-                       /*num_events_in_wait_list*/nullptr,
-                       /*event=*/nullptr);
-
-  return OFFLOAD_SUCCESS;
+  RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_size",
+                                   sizeof(uint64_t), &Size);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Warning: cannot construct function pointer map on device\n");
+  }
+  return OFFLOAD_SUCCESS; // proceed without map
 }
 #endif // INTEL_CUSTOMIZATION
-
-void *__tgt_rtl_alloc_per_hw_thread_scratch(
-    int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
-  void *Mem = nullptr;
-  cl_uint NumHWThreads = DeviceInfo->DeviceProperties[DeviceId].NumHWThreads;
-
-  if (NumHWThreads == 0)
-    return Mem;
-
-  // Only support USM
-  cl_int RC;
-  auto Context = DeviceInfo->getContext(DeviceId);
-  auto Device = DeviceInfo->Devices[DeviceId];
-  size_t AllocSize = ObjSize * NumHWThreads;
-  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
-
-  switch (AllocKind) {
-  case TARGET_ALLOC_HOST:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-    break;
-  case TARGET_ALLOC_SHARED:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-    break;
-  case TARGET_ALLOC_DEVICE:
-  default:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clDeviceMemAllocINTEL, RC, Context, Device,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-  }
-
-  if (RC != CL_SUCCESS) {
-    DP("Failed to allocate per-hw-thread scratch space.\n");
-    return nullptr;
-  }
-
-  DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
-     AllocSize, DPxPTR(Mem));
-
-  return Mem;
-}
-
-void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
-  auto Context = DeviceInfo->getContext(DeviceId);
-  CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Ptr);
-}
 
 int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
                                   size_t InfoSize, void *InfoValue,

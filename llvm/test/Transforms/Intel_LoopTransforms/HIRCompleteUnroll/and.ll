@@ -27,11 +27,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %and = and i32 %0, 1
-  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %indvars.iv
-  store i32 %and, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store i32 %and, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.end, label %for.body

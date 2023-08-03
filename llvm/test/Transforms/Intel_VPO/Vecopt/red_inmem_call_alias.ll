@@ -25,7 +25,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[S_RED0]]

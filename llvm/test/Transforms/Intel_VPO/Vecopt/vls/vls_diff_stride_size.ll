@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; HIRCHECK-NEXT:    |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
 ; HIRCHECK-NEXT:    |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
 ; HIRCHECK-NEXT:    |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 4, i32 6, i32 8>;
-; HIRCHECK-NEXT:    |   %.vec = %vls.extract2  *  %vls.extract;
+; HIRCHECK-NEXT:    |   %.vec = %vls.extract  *  %vls.extract2;
 ; HIRCHECK-NEXT:    |   (<4 x i64>*)(%arr1)[i1] = %vls.extract3 + %.vec;
 ; HIRCHECK-NEXT:    + END LOOP
 ;
@@ -90,7 +90,7 @@ for.end:
 ; HIRCHECK-NEXT:    |   %vls.extract = shufflevector %shuffle,  %shuffle,  <i32 0, i32 2, i32 4, i32 6>;
 ; HIRCHECK-NEXT:    |   %vls.extract2 = shufflevector %shuffle,  %shuffle,  <i32 1, i32 3, i32 5, i32 7>;
 ; HIRCHECK-NEXT:    |   %.vec = (<4 x i64>*)(%arr2)[-2 * i1 + -2 * <i64 0, i64 1, i64 2, i64 3> + 2];
-; HIRCHECK-NEXT:    |   %.vec3 = %vls.extract2  *  %vls.extract;
+; HIRCHECK-NEXT:    |   %.vec3 = %vls.extract  *  %vls.extract2;
 ; HIRCHECK-NEXT:    |   (<4 x i64>*)(%arr1)[i1] = %.vec + %.vec3;
 ; HIRCHECK-NEXT:    + END LOOP
 ;
@@ -166,7 +166,7 @@ for.end:
 ; HIRCHECK-NEXT:    |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
 ; HIRCHECK-NEXT:    |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
 ; HIRCHECK-NEXT:    |   %.vec3 = (<4 x i64>*)(%arr2)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 2], Mask = @{%.vec};
-; HIRCHECK-NEXT:    |   %.vec5 = %vls.extract2  *  %vls.extract;
+; HIRCHECK-NEXT:    |   %.vec5 = %vls.extract  *  %vls.extract2;
 ; HIRCHECK-NEXT:    |   (<4 x i64>*)(%arr1)[i1] = %.vec3 + %.vec5, Mask = @{%.vec};
 ; HIRCHECK-NEXT:    + END LOOP
 ;

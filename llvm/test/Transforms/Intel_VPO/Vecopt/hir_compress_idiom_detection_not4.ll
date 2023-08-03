@@ -20,7 +20,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local noundef i32 @_Z3fooPiiS_(i32* nocapture noundef readnone %f, i32 noundef %n, i32* nocapture noundef %a) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3fooPiiS_(ptr nocapture noundef readnone %f, i32 noundef %n, ptr nocapture noundef %a) local_unnamed_addr #0 {
 entry:
   %cmp12 = icmp sgt i32 %n, 0
   br i1 %cmp12, label %for.body.preheader, label %for.cond.cleanup
@@ -40,15 +40,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %k.013 = phi i32 [ 0, %for.body.preheader ], [ %k.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %inc = add nsw i32 %k.013, 1
   %add = add nsw i32 %k.013, 3
-  store i32 %add, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %add, ptr %arrayidx, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

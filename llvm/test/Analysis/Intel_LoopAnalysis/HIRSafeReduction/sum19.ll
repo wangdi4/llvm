@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @e = local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @_Z3subPiiii(i32* nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
+define i32 @_Z3subPiiii(ptr nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
 entry:
   %cmp52 = icmp sgt i32 %n1, 0
   br i1 %cmp52, label %for.body.preheader, label %for.cond2.preheader
@@ -50,8 +50,8 @@ for.body5.preheader:                              ; preds = %for.cond2.preheader
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv60 = phi i64 [ %indvars.iv.next61, %for.body ], [ 0, %for.body.preheader ]
   %s.053 = phi i32 [ %sub, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv60
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv60
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %sub = sub nsw i32 %0, %s.053
   %indvars.iv.next61 = add nuw nsw i64 %indvars.iv60, 1
   %exitcond63 = icmp eq i64 %indvars.iv.next61, %wide.trip.count62
@@ -69,8 +69,8 @@ for.body16.preheader:                             ; preds = %for.cond13.preheade
 for.body5:                                        ; preds = %for.body5.preheader, %for.body5
   %indvars.iv56 = phi i64 [ %indvars.iv.next57, %for.body5 ], [ 0, %for.body5.preheader ]
   %s1.049 = phi float [ %sub8, %for.body5 ], [ 0.000000e+00, %for.body5.preheader ]
-  %arrayidx7 = getelementptr inbounds [1000 x float], [1000 x float]* @d, i64 0, i64 %indvars.iv56
-  %1 = load float, float* %arrayidx7, align 4, !tbaa !5
+  %arrayidx7 = getelementptr inbounds [1000 x float], ptr @d, i64 0, i64 %indvars.iv56
+  %1 = load float, ptr %arrayidx7, align 4, !tbaa !5
   %sub8 = fsub float %1, %s1.049
   %indvars.iv.next57 = add nuw nsw i64 %indvars.iv56, 1
   %exitcond59 = icmp eq i64 %indvars.iv.next57, %wide.trip.count58
@@ -86,11 +86,11 @@ for.cond.cleanup15:                               ; preds = %for.body16, %for.co
 for.body16:                                       ; preds = %for.body16.preheader, %for.body16
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body16 ], [ 0, %for.body16.preheader ]
   %s2.046 = phi float [ %sub22, %for.body16 ], [ 0.000000e+00, %for.body16.preheader ]
-  %arrayidx18 = getelementptr inbounds [1000 x float], [1000 x float]* @d, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx18, align 4, !tbaa !5
+  %arrayidx18 = getelementptr inbounds [1000 x float], ptr @d, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx18, align 4, !tbaa !5
   %sub19 = fsub float %2, %s2.046
-  %arrayidx21 = getelementptr inbounds [1000 x float], [1000 x float]* @e, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx21, align 4, !tbaa !5
+  %arrayidx21 = getelementptr inbounds [1000 x float], ptr @e, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx21, align 4, !tbaa !5
   %sub22 = fsub float %3, %sub19
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

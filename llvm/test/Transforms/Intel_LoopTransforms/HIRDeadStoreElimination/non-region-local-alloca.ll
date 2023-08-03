@@ -26,22 +26,22 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo(i32 %t) {
 entry:
   %A = alloca [10 x i32], align 16
-  %bc = bitcast [10 x i32]* %A to i8*
-  %gep = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 5
-  %A0 = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 0
+  %bc = bitcast ptr %A to ptr
+  %gep = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 5
+  %A0 = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 0
   br label %loop
 
 loop:
   %iv = phi i32 [ 0, %entry], [ %iv.inc, %loop]
-  store i32 %t, i32* %gep, align 4
-  %ld1 = load i32, i32* %gep, align 4
+  store i32 %t, ptr %gep, align 4
+  %ld1 = load i32, ptr %gep, align 4
   %iv.inc = add i32 %iv, 1
   %cmp = icmp eq i32 %iv.inc, 5
   br i1 %cmp, label %exit, label %loop
 
 exit:
   %ld.lcssa = phi i32 [ %ld1, %loop ]
-  %ld2 = load i32, i32* %gep, align 4
+  %ld2 = load i32, ptr %gep, align 4
   %add = add i32 %ld.lcssa, %ld2
   ret i32 %add
 }

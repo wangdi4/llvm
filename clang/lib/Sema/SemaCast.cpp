@@ -42,6 +42,7 @@
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include <set>
 using namespace clang;
 
@@ -82,9 +83,13 @@ namespace {
       //   If a pr-value initially has the type cv-T, where T is a
       //   cv-unqualified non-class, non-array type, the type of the
       //   expression is adjusted to T prior to any further analysis.
+      // C2x 6.5.4p6:
+      //   Preceding an expression by a parenthesized type name converts the
+      //   value of the expression to the unqualified, non-atomic version of
+      //   the named type.
       if (!S.Context.getLangOpts().ObjC && !DestType->isRecordType() &&
           !DestType->isArrayType()) {
-        DestType = DestType.getUnqualifiedType();
+        DestType = DestType.getAtomicUnqualifiedType();
       }
 
       if (const BuiltinType *placeholder =
@@ -467,9 +472,27 @@ static bool tryDiagnoseOverloadedCast(Sema &S, CastType CT,
   switch (sequence.getFailureKind()) {
   default: return false;
 
+  case InitializationSequence::FK_ParenthesizedListInitFailed:
+    // In C++20, if the underlying destination type is a RecordType, Clang
+    // attempts to perform parentesized aggregate initialization if constructor
+    // overload fails:
+    //
+    // C++20 [expr.static.cast]p4:
+    //   An expression E can be explicitly converted to a type T...if overload
+    //   resolution for a direct-initialization...would find at least one viable
+    //   function ([over.match.viable]), or if T is an aggregate type having a
+    //   first element X and there is an implicit conversion sequence from E to
+    //   the type of X.
+    //
+    // If that fails, then we'll generate the diagnostics from the failed
+    // previous constructor overload attempt. Array initialization, however, is
+    // not done after attempting constructor overloading, so we exit as there
+    // won't be a failed overload result.
+    if (destType->isArrayType())
+      return false;
+    break;
   case InitializationSequence::FK_ConstructorOverloadFailed:
   case InitializationSequence::FK_UserConversionOverloadFailed:
-  case InitializationSequence::FK_ParenthesizedListInitFailed:
     break;
   }
 
@@ -2373,6 +2396,12 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
       return TC_Success;
     }
 
+    // Allow bitcasting between SVE VLATs and VLSTs, and vice-versa.
+    if (Self.isValidRVVBitcast(SrcType, DestType)) {
+      Kind = CK_BitCast;
+      return TC_Success;
+    }
+
     // The non-vector type, if any, must have integral type.  This is
     // the same rule that C vector casts use; note, however, that enum
     // types are not integral in C++.
@@ -2776,6 +2805,15 @@ void CastOperation::CheckCXXCStyleCast(bool FunctionalStyle,
     }
   }
 
+  // WebAssembly tables cannot be cast.
+  QualType SrcType = SrcExpr.get()->getType();
+  if (SrcType->isWebAssemblyTableType()) {
+    Self.Diag(OpRange.getBegin(), diag::err_wasm_cast_table)
+        << 1 << SrcExpr.get()->getSourceRange();
+    SrcExpr = ExprError();
+    return;
+  }
+
   // C++ [expr.cast]p5: The conversions performed by
   //   - a const_cast,
   //   - a static_cast,
@@ -2951,6 +2989,13 @@ void CastOperation::CheckCStyleCast() {
     return;
   QualType SrcType = SrcExpr.get()->getType();
 
+  if (SrcType->isWebAssemblyTableType()) {
+    Self.Diag(OpRange.getBegin(), diag::err_wasm_cast_table)
+        << 1 << SrcExpr.get()->getSourceRange();
+    SrcExpr = ExprError();
+    return;
+  }
+
   assert(!SrcType->isPlaceholderType());
 
   checkAddressSpaceCast(SrcType, DestType);
@@ -2973,6 +3018,13 @@ void CastOperation::CheckCStyleCast() {
   // Allow bitcasting between compatible SVE vector types.
   if ((SrcType->isVectorType() || DestType->isVectorType()) &&
       Self.isValidSveBitcast(SrcType, DestType)) {
+    Kind = CK_BitCast;
+    return;
+  }
+
+  // Allow bitcasting between compatible RVV vector types.
+  if ((SrcType->isVectorType() || DestType->isVectorType()) &&
+      Self.isValidRVVBitcast(SrcType, DestType)) {
     Kind = CK_BitCast;
     return;
   }
@@ -3111,20 +3163,6 @@ void CastOperation::CheckCStyleCast() {
 
   if (isa<ObjCSelectorExpr>(SrcExpr.get())) {
     Self.Diag(SrcExpr.get()->getExprLoc(), diag::err_cast_selector_expr);
-    SrcExpr = ExprError();
-    return;
-  }
-
-  // Can't cast to or from bfloat
-  if (DestType->isBFloat16Type() && !SrcType->isBFloat16Type()) {
-    Self.Diag(SrcExpr.get()->getExprLoc(), diag::err_cast_to_bfloat16)
-        << SrcExpr.get()->getSourceRange();
-    SrcExpr = ExprError();
-    return;
-  }
-  if (SrcType->isBFloat16Type() && !DestType->isBFloat16Type()) {
-    Self.Diag(SrcExpr.get()->getExprLoc(), diag::err_cast_from_bfloat16)
-        << SrcExpr.get()->getSourceRange();
     SrcExpr = ExprError();
     return;
   }

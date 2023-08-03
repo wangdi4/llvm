@@ -1,4 +1,21 @@
 //===- IndirectCallPromotionAnalysis.h - Indirect call analysis -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -30,8 +47,21 @@ private:
   // TotalCount is the total call count for the indirect-call callsite.
   // RemainingCount is the TotalCount minus promoted-direct-call count.
   // Return true we should promote this indirect-call target.
+#if INTEL_CUSTOMIZATION
+  // When 'IngoreTotalPercent' is set to 'true', only require the Count to meet
+  // threshold requirment for the remaining count percentage, and not the total
+  // count percentage. This is used when considering the final candidate to
+  // enable that target to be converted even if the percentage is lower than the
+  // total percentage, since all targets with a higher percentage have already
+  // been converted. For example:
+  //   Target1: 97.5%
+  //   Target2: 2.5%
+  // Normally, we would avoid converting Target2, but since there are no other
+  // candidates, we might as well convert that one as well, so that all targets
+  // will be direct.
   bool isPromotionProfitable(uint64_t Count, uint64_t TotalCount,
-                             uint64_t RemainingCount);
+                             uint64_t RemainingCount, bool IngoreTotalPercent);
+#endif // INTEL_CUSTOMIZATION
 
   // Returns the number of profitable candidates to promote for the
   // current ValueDataArray and the given \p Inst.

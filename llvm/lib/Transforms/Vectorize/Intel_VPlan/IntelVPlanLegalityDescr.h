@@ -336,11 +336,12 @@ private:
   RecurKind Kind;
   bool IsSigned;
   bool IsComplex;
+  Type* RedType;
 
 public:
-  RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex)
+  RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex, Type *Ty)
       : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed),
-        IsComplex(Complex) {}
+        IsComplex(Complex), RedType(Ty) {}
 
   // Move constructor
   RedDescr(RedDescr &&Other) = default;
@@ -353,6 +354,8 @@ public:
 
   void setIsComplex(bool V) { IsComplex = V; }
   bool isComplex() const { return IsComplex; }
+
+  Type *getType() const { return RedType; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -379,11 +382,11 @@ private:
   std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
 
 public:
-  RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
+  RedDescrUDR(Value *RegV, Type *Ty, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
               std::optional<InscanReductionKind> InscanRedKind = std::nullopt)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/,
-                        false /*Complex*/),
+                        false /*Complex*/, Ty),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}
 
@@ -575,6 +578,58 @@ public:
     // Copy Assign function is not always present
     if (CopyAssign)
       OS << CopyAssign->getName();
+    OS << "}\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// Specialized class to represent Fortran Dope Vector private descriptors
+// specified explicitly via SIMD private clause.
+template <typename Value> class PrivDescrF90DV : public PrivDescr<Value> {
+  using PrivateKind = typename PrivDescr<Value>::PrivateKind;
+  Type *F90DVElementType;
+
+public:
+  // Value can be of type llvm::Value or loopopt::DDRef
+  PrivDescrF90DV(Value *RegV, Type *Ty, PrivateKind KindV, Type *ElTy)
+      : PrivDescr<Value>(RegV, Ty, KindV, true /* IsF90 */),
+        F90DVElementType(ElTy) {}
+
+  // Copy constructor
+  PrivDescrF90DV(const PrivDescrF90DV &Other)
+      : PrivDescr<Value>(Other), F90DVElementType(Other.F90DVElementType) {}
+
+  // Move constructor
+  PrivDescrF90DV(PrivDescrF90DV &&Other)
+      : PrivDescr<Value>(std::move(Other)),
+        F90DVElementType(std::exchange(Other.F90DVElementType, nullptr)) {}
+
+  // Copy assign
+  PrivDescrF90DV &operator=(const PrivDescrF90DV &Other) {
+    if (this == &Other)
+      return *this;
+    PrivDescr<Value>::operator=(Other);
+    F90DVElementType = Other.F90DVElementType;
+    return *this;
+  }
+
+  // Move assign
+  PrivDescrF90DV &operator=(PrivDescrF90DV &&Other) {
+    if (this == &Other)
+      return *this;
+    PrivDescr<Value>::operator=(std::move(Other));
+    std::swap(F90DVElementType, Other.F90DVElementType);
+    return *this;
+  }
+
+  /// Get element type of Fortran Dope Vector.
+  Type *getF90DVElementType() const { return F90DVElementType; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, unsigned Indent = 0) const override {
+    PrivDescr<Value>::print(OS);
+    OS << "PrivDescrF90DV: ";
+    OS << "{F90DVElementType: " << F90DVElementType;
     OS << "}\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

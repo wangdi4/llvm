@@ -62,6 +62,8 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -182,9 +184,12 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     uint64_t TotalCount, uint32_t NumCandidates) {
   std::vector<PromotionCandidate> Ret;
 
-  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << CB
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << "["
+                    << CB.getFunction()->getName() << "]" << CB
                     << " Num_targets: " << ValueDataRef.size()
                     << " Num_candidates: " << NumCandidates << "\n");
+#endif // INTEL_CUSTOMIZATION
   NumOfPGOICallsites++;
   if (ICPCSSkip != 0 && NumOfPGOICallsites <= ICPCSSkip) {
     LLVM_DEBUG(dbgs() << " Skip: User options.\n");
@@ -275,6 +280,10 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
 
   CallBase &NewInst =
       promoteCallWithIfThenElse(CB, DirectCallee, BranchWeights);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->addIndirectCallBaseTarget(InlICSPGO, &CB, &NewInst);
+  getMDInlineReport()->addIndirectCallBaseTarget(InlICSPGO, &CB, &NewInst);
+#endif // INTEL_CUSTOMIZATION
 
   if (AttachProfToDirectCall) {
     MDBuilder MDB(NewInst.getContext());
@@ -308,6 +317,9 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
     CB.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
   }
+  LLVM_DEBUG(dbgs() << "  Promoted call with count: " << Count
+                    << " out of total: " << TotalCount << "\n  " << NewInst
+                    << "\n");
 #endif // INTEL_CUSTOMIZATION
   using namespace ore;
 
@@ -372,9 +384,8 @@ bool ICallPromotionFunc::processFunction(ProfileSummaryInfo *PSI) {
 }
 
 // A wrapper function that does the actual work.
-static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
-                                 bool InLTO, bool SamplePGO,
-                                 ModuleAnalysisManager *AM = nullptr) {
+static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI, bool InLTO,
+                                 bool SamplePGO, ModuleAnalysisManager &MAM) {
   if (DisableICP)
     return false;
   InstrProfSymtab Symtab;
@@ -388,18 +399,11 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
     if (F.isDeclaration() || F.hasOptNone())
       continue;
 
-    std::unique_ptr<OptimizationRemarkEmitter> OwnedORE;
-    OptimizationRemarkEmitter *ORE;
-    if (AM) {
-      auto &FAM =
-          AM->getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-      ORE = &FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
-    } else {
-      OwnedORE = std::make_unique<OptimizationRemarkEmitter>(&F);
-      ORE = OwnedORE.get();
-    }
+    auto &FAM =
+        MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+    auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
-    ICallPromotionFunc ICallPromotion(F, &M, &Symtab, SamplePGO, *ORE);
+    ICallPromotionFunc ICallPromotion(F, &M, &Symtab, SamplePGO, ORE);
     bool FuncChanged = ICallPromotion.processFunction(PSI);
     if (ICPDUMPAFTER && FuncChanged) {
       LLVM_DEBUG(dbgs() << "\n== IR Dump After =="; F.print(dbgs()));
@@ -415,11 +419,11 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
 }
 
 PreservedAnalyses PGOIndirectCallPromotion::run(Module &M,
-                                                ModuleAnalysisManager &AM) {
-  ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
+                                                ModuleAnalysisManager &MAM) {
+  ProfileSummaryInfo *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
 
   if (!promoteIndirectCalls(M, PSI, InLTO | ICPLTOMode,
-                            SamplePGO | ICPSamplePGOMode, &AM))
+                            SamplePGO | ICPSamplePGOMode, MAM))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();        // INTEL

@@ -55,7 +55,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond5.preheader:                              ; preds = %for.cond.cleanup7, %for.cond1.preheader
   %indvars.iv35 = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next36, %for.cond.cleanup7 ]
-  %0 = load i32, i32* undef, align 4
+  %0 = load i32, ptr undef, align 4
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -70,13 +70,13 @@ for.cond.cleanup7:                                ; preds = %for.inc
 
 for.body8:                                        ; preds = %for.inc, %for.cond5.preheader
   %indvars.iv = phi i64 [ 1, %for.cond5.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %q, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %q, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp12 = icmp ult i32 %1, %0
   br i1 %cmp12, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body8
-  store i32 undef, i32* null, align 16
+  store i32 undef, ptr null, align 16
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body8

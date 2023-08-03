@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.point2d = type { i32, i32 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @test_debug_info(%struct.point2d* nocapture readonly %src, %struct.point2d* nocapture %dst) {
+define dso_local i32 @test_debug_info(ptr nocapture readonly %src, ptr nocapture %dst) {
 ; LLVMIR:       VPOLegality PrivateList:
 ; LLVMIR-NEXT:  Ref:   [[MYPOINT2_PRIV0:%.*]] = alloca [[STRUCT_POINT2D0:%.*]], align 4
 ; LLVMIR-EMPTY:
@@ -21,8 +21,8 @@ define dso_local i32 @test_debug_info(%struct.point2d* nocapture readonly %src, 
 ; LLVMIR:       Private list
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:    Private tag: Non-POD
-; LLVMIR-NEXT:    Linked values: %struct.point2d* [[MYPOINT2_PRIV0]],
-; LLVMIR-NEXT:   Memory: %struct.point2d* [[MYPOINT2_PRIV0]]
+; LLVMIR-NEXT:    Linked values: ptr [[MYPOINT2_PRIV0]],
+; LLVMIR-NEXT:   Memory: ptr [[MYPOINT2_PRIV0]]
 
 ; HIR:       HIRLegality PrivatesNonPODList:
 ; HIR-NEXT:  Ref: &(([[MYPOINT2_PRIV0:%.*]])[0])
@@ -34,41 +34,40 @@ define dso_local i32 @test_debug_info(%struct.point2d* nocapture readonly %src, 
 ; HIR:       Private list
 ; HIR-EMPTY:
 ; HIR-NEXT:    Private tag: Non-POD
-; HIR-NEXT:    Linked values: %struct.point2d* [[MYPOINT2_PRIV0]],
-; HIR-NEXT:   Memory: %struct.point2d* [[MYPOINT2_PRIV0]]
+; HIR-NEXT:    Linked values: ptr [[MYPOINT2_PRIV0]],
+; HIR-NEXT:   Memory: ptr [[MYPOINT2_PRIV0]]
 ;
 omp.inner.for.body.lr.ph:
   %i.linear.iv = alloca i32, align 4
   %myPoint2.priv = alloca %struct.point2d, align 4
-  %0 = call %struct.point2d* @_ZTS7point2d.omp.def_constr(%struct.point2d* nonnull %myPoint2.priv)
+  %0 = call ptr @_ZTS7point2d.omp.def_constr(ptr nonnull %myPoint2.priv)
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.point2d* %myPoint2.priv, %struct.point2d zeroinitializer, i32 1, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %myPoint2.priv, %struct.point2d zeroinitializer, i32 1, ptr @_ZTS7point2d.omp.def_constr, ptr @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %y = getelementptr inbounds %struct.point2d, %struct.point2d* %myPoint2.priv, i64 0, i32 1
-  %2 = load i32, i32* %y, align 4
-  %x2 = getelementptr inbounds %struct.point2d, %struct.point2d* %myPoint2.priv, i64 0, i32 0
+  %y = getelementptr inbounds %struct.point2d, ptr %myPoint2.priv, i64 0, i32 1
+  %2 = load i32, ptr %y, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %3 = trunc i64 %indvars.iv to i32
   %add1 = add nsw i32 %2, %3
-  %x3 = getelementptr inbounds %struct.point2d, %struct.point2d* %src, i64 %indvars.iv, i32 0
-  %4 = load i32, i32* %x3, align 4
+  %x3 = getelementptr inbounds %struct.point2d, ptr %src, i64 %indvars.iv, i32 0
+  %4 = load i32, ptr %x3, align 4
   %add5 = add nsw i32 %4, %add1
-  %x8 = getelementptr inbounds %struct.point2d, %struct.point2d* %dst, i64 %indvars.iv, i32 0
-  store i32 %add5, i32* %x8, align 4
+  %x8 = getelementptr inbounds %struct.point2d, ptr %dst, i64 %indvars.iv, i32 0
+  store i32 %add5, ptr %x8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
   %5 = add i32 %2, 999
-  store i32 %5, i32* %x2, align 4
+  store i32 %5, ptr %myPoint2.priv, align 4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
@@ -86,7 +85,7 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-declare %struct.point2d* @_ZTS7point2d.omp.def_constr(%struct.point2d* returned %0)
+declare ptr @_ZTS7point2d.omp.def_constr(ptr returned %0)
 
 ; Function Attrs: nounwind uwtable
-declare void @_ZTS7point2d.omp.destr(%struct.point2d* nocapture %0)
+declare void @_ZTS7point2d.omp.destr(ptr nocapture %0)

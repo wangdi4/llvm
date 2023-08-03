@@ -1009,13 +1009,6 @@ Constant *ConstantFP::getZero(Type *Ty, bool Negative) {
   return C;
 }
 
-Constant *ConstantFP::getZeroValueForNegation(Type *Ty) {
-  if (Ty->isFPOrFPVectorTy())
-    return getNegativeZero(Ty);
-
-  return Constant::getNullValue(Ty);
-}
-
 
 // ConstantFP accessors.
 ConstantFP* ConstantFP::get(LLVMContext &Context, const APFloat& V) {
@@ -2233,7 +2226,7 @@ Constant *ConstantExpr::getAddrSpaceCast(Constant *C, Type *DstTy,
                                          bool OnlyIfReduced) {
   assert(CastInst::castIsValid(Instruction::AddrSpaceCast, C, DstTy) &&
          "Invalid constantexpr addrspacecast!");
-
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Canonicalize addrspacecasts between different pointer types by first
   // bitcasting the pointer type and then converting the address space.
   PointerType *SrcScalarTy = cast<PointerType>(C->getType()->getScalarType());
@@ -2248,6 +2241,7 @@ Constant *ConstantExpr::getAddrSpaceCast(Constant *C, Type *DstTy,
     }
     C = getBitCast(C, MidTy);
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return getFoldedCast(Instruction::AddrSpaceCast, C, DstTy, OnlyIfReduced);
 }
 
@@ -2266,21 +2260,8 @@ Constant *ConstantExpr::get(unsigned Opcode, Constant *C1, Constant *C2,
   case Instruction::Add:
   case Instruction::Sub:
   case Instruction::Mul:
-  case Instruction::UDiv:
-  case Instruction::SDiv:
-  case Instruction::URem:
-  case Instruction::SRem:
     assert(C1->getType()->isIntOrIntVectorTy() &&
            "Tried to create an integer operation on a non-integer type!");
-    break;
-  case Instruction::FAdd:
-  case Instruction::FSub:
-  case Instruction::FMul:
-  case Instruction::FDiv:
-  case Instruction::FRem:
-    assert(C1->getType()->isFPOrFPVectorTy() &&
-           "Tried to create a floating-point operation on a "
-           "non-floating-point type!");
     break;
   case Instruction::And:
   case Instruction::Or:
@@ -2415,36 +2396,30 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
                                          ArrayRef<Value *> Idxs, bool InBounds,
                                          std::optional<unsigned> InRangeIndex,
                                          Type *OnlyIfReducedTy) {
-  PointerType *OrigPtrTy = cast<PointerType>(C->getType()->getScalarType());
   assert(Ty && "Must specify element type");
   assert(isSupportedGetElementPtr(Ty) && "Element type is unsupported!");
-  assert(OrigPtrTy->isOpaqueOrPointeeTypeMatches(Ty));
 
   if (Constant *FC =
           ConstantFoldGetElementPtr(Ty, C, InBounds, InRangeIndex, Idxs))
     return FC;          // Fold a few common cases.
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  assert(GetElementPtrInst::getIndexedType(Ty, Idxs) &&
+         "GEP indices invalid!");;
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
   // Get the result type of the getelementptr!
-  Type *DestTy = GetElementPtrInst::getIndexedType(Ty, Idxs);
-  assert(DestTy && "GEP indices invalid!");
-  unsigned AS = OrigPtrTy->getAddressSpace();
-  Type *ReqTy = OrigPtrTy->isOpaque()
-      ? PointerType::get(OrigPtrTy->getContext(), AS)
-      : DestTy->getPointerTo(AS);
-
-  auto EltCount = ElementCount::getFixed(0);
-  if (VectorType *VecTy = dyn_cast<VectorType>(C->getType()))
-    EltCount = VecTy->getElementCount();
-  else
-    for (auto *Idx : Idxs)
-      if (VectorType *VecTy = dyn_cast<VectorType>(Idx->getType()))
-        EltCount = VecTy->getElementCount();
-
-  if (EltCount.isNonZero())
-    ReqTy = VectorType::get(ReqTy, EltCount);
-
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *ReqTy = GetElementPtrInst::getGEPReturnType(C, Idxs);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *ReqTy = GetElementPtrInst::getGEPReturnType(Ty, C, Idxs);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   if (OnlyIfReducedTy == ReqTy)
     return nullptr;
+
+  auto EltCount = ElementCount::getFixed(0);
+  if (VectorType *VecTy = dyn_cast<VectorType>(ReqTy))
+    EltCount = VecTy->getElementCount();
 
   // Look up the constant in the table first to ensure uniqueness
   std::vector<Constant*> ArgVec;
@@ -2601,8 +2576,7 @@ Constant *ConstantExpr::getShuffleVector(Constant *V1, Constant *V2,
 Constant *ConstantExpr::getNeg(Constant *C, bool HasNUW, bool HasNSW) {
   assert(C->getType()->isIntOrIntVectorTy() &&
          "Cannot NEG a nonintegral value!");
-  return getSub(ConstantFP::getZeroValueForNegation(C->getType()),
-                C, HasNUW, HasNSW);
+  return getSub(ConstantInt::get(C->getType(), 0), C, HasNUW, HasNSW);
 }
 
 Constant *ConstantExpr::getNot(Constant *C) {

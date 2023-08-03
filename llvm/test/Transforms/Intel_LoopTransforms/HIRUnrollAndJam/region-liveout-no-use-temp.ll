@@ -25,7 +25,7 @@
 define void @foo() {
 entry:
   %so = alloca [100 x i32], align 16
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %so, i64 0, i64 0
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %so, i64 0, i64 0
   br label %for.cond4.preheader.lr.ph
 
 for.cond4.preheader.lr.ph:                        ; preds = %entry, %for.inc25
@@ -45,9 +45,9 @@ for.body6.preheader:                              ; preds = %for.cond4.preheader
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body6 ], [ 9, %for.body6.preheader ]
-  %t3 = load i32, i32* %arrayidx, align 16
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %so, i64 0, i64 %indvars.iv
-  store i32 %t3, i32* %arrayidx7, align 4
+  %t3 = load i32, ptr %arrayidx, align 16
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr %so, i64 0, i64 %indvars.iv
+  store i32 %t3, ptr %arrayidx7, align 4
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
   %cmp5 = icmp ugt i64 %indvars.iv.next, %indvars.iv58
   br i1 %cmp5, label %for.body6, label %for.inc22.loopexit

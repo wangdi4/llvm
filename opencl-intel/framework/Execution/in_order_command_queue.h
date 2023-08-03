@@ -20,6 +20,8 @@
 #include <Logger.h>
 #include <cl_synch_objects.h>
 #include <cl_types.h>
+
+#include <atomic>
 #include <list>
 
 namespace Intel {
@@ -84,8 +86,8 @@ protected:
   Intel::OpenCL::Utils::OclNaiveConcurrentQueue<CommandSharedPtr<>>
       m_submittedQueue;
 #endif
-  Intel::OpenCL::Utils::AtomicCounter m_submittedQueueGuard;
-  Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
+  std::atomic<long> m_submittedQueueGuard{0};
+  std::atomic<long> m_commandsInExecution{0};
 };
 } // namespace Framework
 } // namespace OpenCL

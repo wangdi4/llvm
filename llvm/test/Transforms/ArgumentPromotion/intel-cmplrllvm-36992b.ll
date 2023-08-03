@@ -13,23 +13,23 @@ target triple = "x86_64-unknown-linux-gnu"
 @mylocalstruct = dso_local global %struct.MYSTRUCT { i32 0, i32 1, i32 2 }, align 4
 
 ; Function Attrs: mustprogress nounwind uwtable
-define internal dso_local noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(12) %myarg) #0 {
+define internal noundef i32 @_Z3fooR8MYSTRUCT(ptr noundef nonnull align 4 dereferenceable(12) %myarg) #0 {
 entry:
-  %myint0 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 0, !intel-tbaa !3
-  %0 = load i32, i32* %myint0, align 4, !tbaa !3
-  %myint1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 1, !intel-tbaa !8
-  %1 = load i32, i32* %myint1, align 4, !tbaa !8
-  %add = add nsw i32 %0, %1
-  %myint2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myarg, i32 0, i32 2, !intel-tbaa !9
-  %2 = load i32, i32* %myint2, align 4, !tbaa !9
-  %add1 = add nsw i32 %add, %2
+  %myint0 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 0, !intel-tbaa !3
+  %i = load i32, ptr %myint0, align 4, !tbaa !3
+  %myint1 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 1, !intel-tbaa !8
+  %i1 = load i32, ptr %myint1, align 4, !tbaa !8
+  %add = add nsw i32 %i, %i1
+  %myint2 = getelementptr inbounds %struct.MYSTRUCT, ptr %myarg, i32 0, i32 2, !intel-tbaa !9
+  %i2 = load i32, ptr %myint2, align 4, !tbaa !9
+  %add1 = add nsw i32 %add, %i2
   ret i32 %add1
 }
 
 ; Function Attrs: mustprogress norecurse nounwind uwtable
 define dso_local noundef i32 @main() #1 {
 entry:
-  %call = call noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(12) @mylocalstruct)
+  %call = call noundef i32 @_Z3fooR8MYSTRUCT(ptr noundef nonnull align 4 dereferenceable(12) @mylocalstruct)
   ret i32 %call
 }
 

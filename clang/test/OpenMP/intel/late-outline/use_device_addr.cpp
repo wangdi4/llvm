@@ -68,6 +68,29 @@ void foo() {
   //CHECK: "DIR.OMP.END.TARGET.DATA"()
 }
 
+int a[10];
+extern "C" int printf(const char*,...);
+//CHECK-LABEL: zoo
+void zoo() {
+  a[1] = 111;
+  int *p = &a[0];
+  int *&pref = p;
+  //CHECK-DAG: [[P:%p.*]] = alloca ptr,
+  //CHECK-DAG: [[PREF:%pref.*]] = alloca ptr,
+  //CHECK-DAG: [[PREFTEMP:%pref.map.ptr.tmp]] = alloca ptr,
+  //CHECK-DAG: [[LPREF:%[0-9]+]] = load ptr, ptr [[PREF]],
+  //CHECK: "DIR.OMP.TARGET.DATA"()
+  //CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[P]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[LPREF]],
+  //CHECK-SAME: "QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[LPREF]])
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr [[PREFTEMP]]
+  //CHECK-DAG: store ptr [[LPREF]], ptr [[PREFTEMP]]
+  //CHECK-DAG: load ptr, ptr [[PREFTEMP]]
+#pragma omp target data map(to:p) use_device_addr(pref)
+  printf("%p\n", &pref);
+  //CHECK: "DIR.OMP.END.TARGET.DATA"()
+}
+
 //CHECK-LABEL: main
 int main() {
   float a = 0;
@@ -114,6 +137,7 @@ int main() {
                use_device_addr(a, ptr [3:4], ref, ptr[0], arr[:(int)a], vla[0])
   ++a, ++*ptr, ++ref, ++arr[0], ++vla[0];
   //CHECK: "DIR.OMP.END.TARGET.DATA"()
+  zoo();
   return a;
 }
 

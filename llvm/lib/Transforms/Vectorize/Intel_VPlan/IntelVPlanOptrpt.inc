@@ -69,40 +69,52 @@ VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(OriginRemarks)
 // General purpose remarks
 VPLAN_OPTRPT_VEC_HANDLE(GeneralRemarks)
 
-VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475u)
+VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(OptRemarkID::BeginVectorLoopCostSummary)
 // Remarks related to CM
 VPLAN_OPTRPT_VEC_HANDLE(CostModelRemarks)
 // Basically everything vectorizable through TargetLibraryInfo.
-VPLAN_OPTRPT_HANDLE_FUNC(15482u, VectorMathCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::VectorizedMathLibCalls, VectorMathCalls)
 // Vectorizable due to vector-variants attribute.
-VPLAN_OPTRPT_HANDLE_FUNC(15484u, VectorVariantCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::VectorFunctionCalls, VectorVariantCalls)
 // Calls that get serialized.
-VPLAN_OPTRPT_HANDLE_FUNC(15485u, SerializedCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::SerializedFunctionCalls, SerializedCalls)
 // Serialized code and scalar instructions reasons
 VPLAN_OPTRPT_VEC_HANDLE(SerializedInstRemarks)
-VPLAN_OPTRPT_HANDLE_FUNC_GROUP_END(15488u)
+VPLAN_OPTRPT_HANDLE_FUNC_GROUP_END(OptRemarkID::EndVectorLoopCostSummary)
 
-VPLAN_OPTRPT_HANDLE_MEM_GROUP_BEGIN(15447u)
-VPLAN_OPTRPT_HANDLE_MEM(15450u, UnmaskedUnalignedUnitStrideLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15451u, UnmaskedUnalignedUnitStrideStores)
-VPLAN_OPTRPT_HANDLE_MEM(15456u, MaskedUnalignedUnitStrideLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15457u, MaskedUnalignedUnitStrideStores)
-VPLAN_OPTRPT_HANDLE_MEM(15458u, MaskedGathers)
-VPLAN_OPTRPT_HANDLE_MEM(15459u, MaskedScatters)
-VPLAN_OPTRPT_HANDLE_MEM(15462u, UnmaskedGathers)
-VPLAN_OPTRPT_HANDLE_MEM(15463u, UnmaskedScatters)
+VPLAN_OPTRPT_HANDLE_MEM_GROUP_BEGIN(OptRemarkID::BeginVectorLoopMemRefSummary)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedAlignedUnitStrideLoads,
+                        UnmaskedAlignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedAlignedUnitStrideStores,
+                        UnmaskedAlignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedUnalignedUnitStrideLoads,
+                        UnmaskedUnalignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedUnalignedUnitStrideStores,
+                        UnmaskedUnalignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedAlignedUnitStrideLoads,
+                        MaskedAlignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedAlignedUnitStrideStores,
+                        MaskedAlignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedUnalignedUnitStrideLoads,
+                        MaskedUnalignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedUnalignedUnitStrideStores,
+                        MaskedUnalignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedGathers, MaskedGathers)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedScatters, MaskedScatters)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedGathers, UnmaskedGathers)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedScatters, UnmaskedScatters)
 // Remarks about gathers/scatters generating reasons
 VPLAN_OPTRPT_GS(Gathers, Scatters)
-VPLAN_OPTRPT_HANDLE_MEM(15554u, UnmaskedVLSLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15555u, MaskedVLSLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15556u, UnmaskedVLSStores)
-VPLAN_OPTRPT_HANDLE_MEM(15557u, MaskedVLSStores)
-VPLAN_OPTRPT_HANDLE_MEM(15497u, CompressStores)
-VPLAN_OPTRPT_HANDLE_MEM(15498u, ExpandLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedVLSLoads, UnmaskedVLSLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedVLSLoads, MaskedVLSLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedVLSStores, UnmaskedVLSStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedVLSStores, MaskedVLSStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::VectorCompressStores, CompressStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::VectorExpandLoads, ExpandLoads)
 
 // TODO: No entry for serialized atomic/volatile loads/stores.
 // TODO: No entry for loads from uniform address (O0/kernel vectorization).
-VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474u)
+VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(OptRemarkID::EndVectorLoopMemRefSummary)
 
 // Remarks related to reduction reasons
 VPLAN_OPTRPT_VEC_HANDLE(ReductionInstRemarks)

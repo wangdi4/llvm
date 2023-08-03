@@ -19,7 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;       priv = 13;
 ; }
 
-; CHECK: COPYPRIVATE clause (size=1): i32* @priv, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: COPYPRIVATE clause (size=1): TYPED(i32* @priv, TYPE: i32, NUM_ELEMENTS: i32 1)
 
 @nder = dso_local thread_private global i32 0, align 4
 @priv = dso_local thread_private global i32 0, align 4

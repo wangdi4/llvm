@@ -51,7 +51,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp27 = icmp sgt i32 %n, 0
   br i1 %cmp27, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -64,7 +64,7 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
 
 for.cond1.preheader:                              ; preds = %cleanup, %for.cond1.preheader.lr.ph
   %indvars.iv30 = phi i64 [ 0, %for.cond1.preheader.lr.ph ], [ %indvars.iv.next31, %cleanup ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv30
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv30
   br label %for.body4
 
 for.cond.cleanup.loopexit:                        ; preds = %cleanup
@@ -76,21 +76,21 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body4:                                        ; preds = %for.cond1.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %if.end ]
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp5, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body4
   %indvars.iv.next.lcssa = phi i64 [ %indvars.iv.next, %for.body4 ]
   %1 = trunc i64 %indvars.iv.next.lcssa to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   br label %cleanup
 
 if.end:                                           ; preds = %for.body4
-  %arrayidx9 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx9, align 4
   %inc10 = add nsw i32 %2, 1
-  store i32 %inc10, i32* %arrayidx9, align 4
+  store i32 %inc10, ptr %arrayidx9, align 4
   %cmp2 = icmp slt i64 %indvars.iv, 9
   br i1 %cmp2, label %for.body4, label %cleanup.loopexit
 

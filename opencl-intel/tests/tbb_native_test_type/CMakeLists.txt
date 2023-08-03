@@ -23,8 +23,6 @@ add_definitions(-DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
 find_sources(${IGNORE_FILES})
 calculate_target_sources()
 
-link_directories(${TBB_LIB_DIR})
-
 add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES})
 
 if(WIN32)
@@ -34,26 +32,15 @@ if(WIN32)
   set_target_properties(
     ${TARGET}
     PROPERTIES
-      LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
-  )
-  set_target_properties(
-    ${TARGET}
-    PROPERTIES
       LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll /DEBUG")
+      "${LINK_FLAGS_RELEASE} /DEBUG")
   list(APPEND LINK_LIBS delayimp.lib)
 else(WIN32)
   if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
     set_property(
       TARGET ${TARGET}
       APPEND_STRING
       PROPERTY LINK_FLAGS " -pie")
-  else()
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX})
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX})
   endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif(WIN32)
 
@@ -61,5 +48,7 @@ endif(WIN32)
 list(APPEND LINK_LIBS LLVMSupport)
 
 target_link_libraries(${TARGET} PRIVATE ${LINK_LIBS})
+
+link_target_with_tbb_library(${TARGET})
 
 add_dependencies(${TARGET} ${OCL_RT_TEST_DEPS})

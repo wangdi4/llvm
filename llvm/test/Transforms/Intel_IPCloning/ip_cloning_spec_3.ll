@@ -19,7 +19,7 @@
 ; Function Attrs: norecurse nounwind uwtable
 define void @bar() local_unnamed_addr  {
 entry:
-  %0 = load i32, i32* @Val, align 4
+  %0 = load i32, ptr @Val, align 4
   switch i32 %0, label %sw.epilog [
     i32 100, label %sw.bb
     i32 200, label %sw.bb1
@@ -61,15 +61,15 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [2056 x i32], [2056 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx6 = getelementptr inbounds [2056 x i32], [2056 x i32]* @b, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx6, align 4
+  %arrayidx = getelementptr inbounds [2056 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx6 = getelementptr inbounds [2056 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx6, align 4
   %mul = mul nsw i32 %1, %0
-  %arrayidx8 = getelementptr inbounds [2056 x i32], [2056 x i32]* @c, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [2056 x i32], ptr @c, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx8, align 4
   %add = add nsw i32 %2, %mul
-  store i32 %add, i32* %arrayidx8, align 4
+  store i32 %add, ptr %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 2056
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

@@ -43,7 +43,6 @@ define dso_local i32 @main() {
 
 entry:
   %dn = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %dn to i8*
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
@@ -66,16 +65,16 @@ if.then3:                                         ; preds = %if.then
   br i1 %tobool5.not, label %for.inc, label %if.then6
 
 if.then6:                                         ; preds = %if.then3
-  %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %dn, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx7, align 4
-  %sub8 = add i32 %2, -1
-  store i32 %sub8, i32* %arrayidx7, align 4
+  %0 = add nsw i64 %indvars.iv, -1
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr %dn, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx7, align 4
+  %sub8 = add i32 %1, -1
+  store i32 %sub8, ptr %arrayidx7, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %if.then
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %dn, i64 0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %dn, i64 0, i64 %indvars.iv
+  store i32 0, ptr %arrayidx10, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else, %if.then6, %if.then3, %for.body

@@ -39,15 +39,15 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.inc, %loop ]
   %iv.inc = add nsw i64 %iv, 1
-  %gep.iv = getelementptr inbounds [3 x %struct.ab], [3 x %struct.ab]* %alloc, i64 0, i64 %iv
-  %gep.iv.inc0 = getelementptr inbounds [3 x %struct.ab], [3 x %struct.ab]* %alloc, i64 0, i64 %iv.inc, i32 0
-  %gep.iv.inc1 = getelementptr inbounds [3 x %struct.ab], [3 x %struct.ab]* %alloc, i64 0, i64 %iv.inc, i32 1
-  store i32 0, i32* %gep.iv.inc0
-  store i32 1, i32* %gep.iv.inc1
-  %bc = bitcast %struct.ab* %gep.iv to i64*
-  %ld0 = load i64, i64* %bc
+  %gep.iv = getelementptr inbounds [3 x %struct.ab], ptr %alloc, i64 0, i64 %iv
+  %gep.iv.inc0 = getelementptr inbounds [3 x %struct.ab], ptr %alloc, i64 0, i64 %iv.inc, i32 0
+  %gep.iv.inc1 = getelementptr inbounds [3 x %struct.ab], ptr %alloc, i64 0, i64 %iv.inc, i32 1
+  store i32 0, ptr %gep.iv.inc0
+  store i32 1, ptr %gep.iv.inc1
+  %bc = bitcast ptr %gep.iv to ptr
+  %ld0 = load i64, ptr %bc
   %trunc = trunc i64 %ld0 to i32
-  %ld1 = load i32, i32* %gep.iv.inc1
+  %ld1 = load i32, ptr %gep.iv.inc1
   %add = add i32 %trunc, %ld1
   %cmp = icmp eq i64 %iv.inc, 2
   br i1 %cmp, label %exit, label %loop

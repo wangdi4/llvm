@@ -24,7 +24,7 @@ namespace Framework {
 /*******************************************************************************
  * Configuration keys
  ******************************************************************************/
-#ifdef WIN32
+#ifdef _WIN32
 #define DEFAULT_LOG_FILE_NAME "C:\\cl.log"
 #else
 #define DEFAULT_LOG_FILE_NAME "~/intel_ocl.log"

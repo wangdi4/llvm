@@ -69,9 +69,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* noalias nocapture %a, i32* nocapture %b, i32* nocapture readnone %c) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %a, ptr nocapture %b, ptr nocapture readnone %c) local_unnamed_addr #0 {
 entry:
-  %arrayidx5 = getelementptr inbounds i32, i32* %b, i64 1
+  %arrayidx5 = getelementptr inbounds i32, ptr %b, i64 1
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %if.end13
@@ -79,27 +79,27 @@ for.cond.cleanup:                                 ; preds = %if.end13
 
 for.body:                                         ; preds = %if.end13, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end13 ]
-  %0 = load i32, i32* %a, align 4
+  %0 = load i32, ptr %a, align 4
   %1 = trunc i32 %0 to i8
   %cmp2 = icmp eq i8 %1, 0
   br i1 %cmp2, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %arrayidx4 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  %arrayidx4 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
   %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx4, align 4
+  store i32 %2, ptr %arrayidx4, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
-  %3 = load i32, i32* %arrayidx5, align 4
+  %3 = load i32, ptr %arrayidx5, align 4
   %4 = trunc i32 %3 to i8
   %cmp8 = icmp eq i8 %4, 0
   br i1 %cmp8, label %if.then10, label %if.end13
 
 if.then10:                                        ; preds = %if.end
-  %arrayidx12 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
+  %arrayidx12 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
   %5 = trunc i64 %indvars.iv to i32
-  store i32 %5, i32* %arrayidx12, align 4
+  store i32 %5, ptr %arrayidx12, align 4
   br label %if.end13
 
 if.end13:                                         ; preds = %if.then10, %if.end

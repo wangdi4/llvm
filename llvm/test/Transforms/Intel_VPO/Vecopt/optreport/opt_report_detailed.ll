@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare void @serial_call() nounwind
 
-define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
+define void @test_serialized(ptr nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL:  Global optimization report for : test_serialized
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -21,8 +21,6 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
-; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
-; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
 ; LLVM-NEXT:      remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; LLVM-NEXT:      remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
@@ -57,8 +55,6 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
-; HIR-NEXT:      remark #15482: vectorized math library calls: 0
-; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 2
 ; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
@@ -84,7 +80,7 @@ loop.exit:
 declare void @vec_func(i64) #0
 declare void @_ZGVBN4v_vec_func(i64)
 
-define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
+define void @test_vector_variant(ptr nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL:  Global optimization report for : test_vector_variant
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -96,9 +92,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
-; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
-; LLVM-NEXT:      remark #15485: serialized function calls: 0
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -124,9 +118,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
-; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 1
-; HIR-NEXT:      remark #15485: serialized function calls: 0
 ; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
@@ -150,7 +142,7 @@ loop.exit:
 declare double @llvm.sqrt.f64(double %val) #1
 declare double @_Z4sqrtd(double %val) #1
 declare double @sqrt(double %val) #1
-define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
+define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-LABEL:  Global optimization report for : test_sqrt
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -163,8 +155,6 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
-; LLVM-NEXT:      remark #15484: vector function calls: 0
-; LLVM-NEXT:      remark #15485: serialized function calls: 0
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -193,8 +183,6 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
-; HIR-NEXT:      remark #15484: vector function calls: 0
-; HIR-NEXT:      remark #15485: serialized function calls: 0
 ; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
@@ -220,7 +208,7 @@ loop.exit:
   ret void
 }
 
-define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
+define void @test_nonvls_mem(ptr %ptr, ptr %ptr2) #1 {
 ; LLVM-LABEL:  Global optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -293,25 +281,25 @@ header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %latch ]
   %non.linear = mul nsw nuw i64 %iv, %iv
   %neg = sub nsw nuw i64 0, %iv
-  %linear.gep = getelementptr i64, i64 *%ptr, i64 %iv
-  %reverse.linear.gep = getelementptr i64, i64 *%ptr, i64 %neg
-  %nonlinear.gep = getelementptr i64, i64 *%ptr2, i64 %non.linear
+  %linear.gep = getelementptr i64, ptr %ptr, i64 %iv
+  %reverse.linear.gep = getelementptr i64, ptr %ptr, i64 %neg
+  %nonlinear.gep = getelementptr i64, ptr %ptr2, i64 %non.linear
 
-  %unmasked.unit.load = load i64, i64 *%linear.gep
-  store i64 42, i64 *%linear.gep ; unmasked.unit.store
+  %unmasked.unit.load = load i64, ptr %linear.gep
+  store i64 42, ptr %linear.gep ; unmasked.unit.store
   %cond = icmp eq i64 %unmasked.unit.load, 76
 
-  %unmasked.gather = load i64, i64 *%nonlinear.gep
-  store i64 42, i64 *%nonlinear.gep ; unmasked.scatter
+  %unmasked.gather = load i64, ptr %nonlinear.gep
+  store i64 42, ptr %nonlinear.gep ; unmasked.scatter
 
   br i1 %cond, label %if, label %latch
 
 if:
-  %masked.reverse.unit.load = load i64, i64 *%reverse.linear.gep
-  store i64 42, i64 *%reverse.linear.gep ; masked.reverse.unit.store
+  %masked.reverse.unit.load = load i64, ptr %reverse.linear.gep
+  store i64 42, ptr %reverse.linear.gep ; masked.reverse.unit.store
 
-  %masked.gather = load i64, i64 *%nonlinear.gep
-  store i64 77, i64 *%nonlinear.gep ; masked.scatter
+  %masked.gather = load i64, ptr %nonlinear.gep
+  store i64 77, ptr %nonlinear.gep ; masked.scatter
   br label %latch
 
 latch:
@@ -324,19 +312,13 @@ loop.exit:
   ret void
 }
 
-define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
+define void @test_vls_mem(ptr %ptr, ptr %ptr2, ptr %ptr3, ptr %ptr4) #1 {
 ; LLVM-LABEL:  Global optimization report for : test_vls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
-; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0
-; LLVM-NEXT:      remark #15451: unmasked unaligned unit stride stores: 0
-; LLVM-NEXT:      remark #15456: masked unaligned unit stride loads: 0
-; LLVM-NEXT:      remark #15457: masked unaligned unit stride stores: 0
-; LLVM-NEXT:      remark #15458: masked indexed (or gather) loads: 0
-; LLVM-NEXT:      remark #15459: masked indexed (or scatter) stores: 0
 ; Gaps aren't supported by VLS yet.
 ; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
 ; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
@@ -346,8 +328,6 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
-; LLVM-NEXT:      remark #15497: vector compress: 0
-; LLVM-NEXT:      remark #15498: vector expand: 0
 ; LLVM-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -390,12 +370,6 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR:           remark #15447: --- begin vector loop memory reference summary ---
-; HIR-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0
-; HIR-NEXT:      remark #15451: unmasked unaligned unit stride stores: 0
-; HIR-NEXT:      remark #15456: masked unaligned unit stride loads: 0
-; HIR-NEXT:      remark #15457: masked unaligned unit stride stores: 0
-; HIR-NEXT:      remark #15458: masked indexed (or gather) loads: 0
-; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 0
 ; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
 ; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
 ; HIR-NEXT:      remark #15567: Gathers are generated due to non-unit stride index of the corresponding loads.
@@ -404,8 +378,6 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
-; HIR-NEXT:      remark #15497: vector compress: 0
-; HIR-NEXT:      remark #15498: vector expand: 0
 ; HIR-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
@@ -419,37 +391,37 @@ header:
   %iv.x2 = mul nsw nuw i64 %iv, 2
 
   ; Group with gaps but no predicate
-  %gep.x3.1 = getelementptr i64, i64 *%ptr, i64 %iv.x3
-  %gep.x3.2 = getelementptr i64, i64 *%gep.x3.1, i64 1
-  %ld.x3.1 = load i64, i64 *%gep.x3.1
-  %ld.x3.2 = load i64, i64 *%gep.x3.2
-  store i64 41, i64 *%gep.x3.1
-  store i64 %ld.x3.1, i64 *%gep.x3.2
+  %gep.x3.1 = getelementptr i64, ptr %ptr, i64 %iv.x3
+  %gep.x3.2 = getelementptr i64, ptr %gep.x3.1, i64 1
+  %ld.x3.1 = load i64, ptr %gep.x3.1
+  %ld.x3.2 = load i64, ptr %gep.x3.2
+  store i64 41, ptr %gep.x3.1
+  store i64 %ld.x3.1, ptr %gep.x3.2
 
   ; Group without gaps and without predicate
-  %gep.x2.1 = getelementptr i64, i64 *%ptr2, i64 %iv.x2
-  %gep.x2.2 = getelementptr i64, i64 *%gep.x2.1, i64 1
-  %ld.x2.1 = load i64, i64 *%gep.x2.1
-  %ld.x2.2 = load i64, i64 *%gep.x2.2
-  store i64 41, i64 *%gep.x2.1
-  store i64 %ld.x2.1, i64 *%gep.x2.2
+  %gep.x2.1 = getelementptr i64, ptr %ptr2, i64 %iv.x2
+  %gep.x2.2 = getelementptr i64, ptr %gep.x2.1, i64 1
+  %ld.x2.1 = load i64, ptr %gep.x2.1
+  %ld.x2.2 = load i64, ptr %gep.x2.2
+  store i64 41, ptr %gep.x2.1
+  store i64 %ld.x2.1, ptr %gep.x2.2
 
   ; Group without gaps but under a predicate
   %cond = icmp eq i64 %ld.x2.1, 67
-  %gep.x2.mask.1 = getelementptr i64, i64 *%ptr3, i64 %iv.x2
-  %gep.x2.mask.2 = getelementptr i64, i64 *%gep.x2.mask.1, i64 1
-  %gep.st.x2.mask.1 = getelementptr i64, i64 *%ptr4, i64 %iv.x2
-  %gep.st.x2.mask.2 = getelementptr i64, i64 *%gep.st.x2.mask.1, i64 1
+  %gep.x2.mask.1 = getelementptr i64, ptr %ptr3, i64 %iv.x2
+  %gep.x2.mask.2 = getelementptr i64, ptr %gep.x2.mask.1, i64 1
+  %gep.st.x2.mask.1 = getelementptr i64, ptr %ptr4, i64 %iv.x2
+  %gep.st.x2.mask.2 = getelementptr i64, ptr %gep.st.x2.mask.1, i64 1
   br i1 %cond, label %if, label %latch
 
 ; Current VLS (at least LLVM IR) works in single BB only. If that will ever be
 ; generalized to multiple BBs one load/store should be hoisted/sinked into
 ; unpredicated block.
 if:
-  %ld.x2.mask.1 = load i64, i64 *%gep.x2.mask.1
-  %ld.x2.mask.2 = load i64, i64 *%gep.x2.mask.2
-  store i64 41, i64 *%gep.st.x2.mask.1
-  store i64 42, i64 *%gep.st.x2.mask.2
+  %ld.x2.mask.1 = load i64, ptr %gep.x2.mask.1
+  %ld.x2.mask.2 = load i64, ptr %gep.x2.mask.2
+  store i64 41, ptr %gep.st.x2.mask.1
+  store i64 42, ptr %gep.st.x2.mask.2
   br label %latch
 
 latch:

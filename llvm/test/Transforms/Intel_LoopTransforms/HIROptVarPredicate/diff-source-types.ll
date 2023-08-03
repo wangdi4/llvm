@@ -32,14 +32,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind writeonly uwtable
-define dso_local void @foo(float* nocapture noundef writeonly %p, float* nocapture noundef writeonly %q, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture noundef writeonly %p, ptr nocapture noundef writeonly %q, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.preheader, label %for.cond.cleanup
 
 for.body.preheader:                               ; preds = %entry
   %wide.trip.count = zext i32 %N to i64
-  %arrayidx = getelementptr inbounds float, float* %p, i64 1
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 1
   br label %for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %for.inc
@@ -56,14 +56,14 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !3
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !3
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
   %0 = trunc i64 %indvars.iv to i32
   %conv2 = sitofp i32 %0 to float
-  %arrayidx4 = getelementptr inbounds float, float* %q, i64 %indvars.iv
-  store float %conv2, float* %arrayidx4, align 4, !tbaa !3
+  %arrayidx4 = getelementptr inbounds float, ptr %q, i64 %indvars.iv
+  store float %conv2, ptr %arrayidx4, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

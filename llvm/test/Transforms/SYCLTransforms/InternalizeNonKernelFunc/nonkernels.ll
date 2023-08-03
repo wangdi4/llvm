@@ -24,7 +24,7 @@ entry:
   ret i32 %res
 }
 
-define float @notKernel2(float %input) nounwind {
+define float @notKernel2(float %input) nounwind optnone noinline {
 entry:
   %result = fmul float %input, 2.0
   ret float %result

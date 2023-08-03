@@ -1,4 +1,21 @@
 //===- ValueProfileCollector.h - determine what to value profile ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -77,6 +94,14 @@ private:
   class ValueProfileCollectorImpl;
   std::unique_ptr<ValueProfileCollectorImpl> PImpl;
 };
+
+#if INTEL_CUSTOMIZATION
+// For value profiling of loop trip counts, these constants are used within
+// metadata to indicate which instructions the instrumentation and feedback pass
+// identified for the LoopTripCountPlugin to profile.
+static constexpr uint32_t LTCP_CounterResult = 1;
+static constexpr uint32_t LTCP_AnnotationResult = 2;
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace llvm
 

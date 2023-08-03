@@ -45,6 +45,11 @@ public:
   /// bound (see override below for details.)
   virtual int maxPeelCount() const = 0;
 
+  /// \Returns whether the specified peeling is guaranteed to execute before the
+  /// main loop. For static peel, this is always true, whereas in the dynamic
+  /// case, the peel may be skipped, and the main loop proceeds unaligned.
+  virtual bool isGuaranteedToExecuteBeforeMainLoop() const = 0;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(errs()); }
   virtual void print(raw_ostream &OS) const = 0;
@@ -64,6 +69,8 @@ public:
 
   int peelCount() const { return PeelCount; }
   int maxPeelCount() const override { return peelCount(); }
+
+  bool isGuaranteedToExecuteBeforeMainLoop() const override { return true; }
 
   // VPlanStaticPeeling{0}
   static VPlanStaticPeeling NoPeelLoop;
@@ -100,13 +107,19 @@ public:
                       Align TargetAlignment);
 
   VPLoadStoreInst *memref() { return Memref; }
+  const VPLoadStoreInst *memref() const { return Memref; }
   VPlanSCEV *invariantBase() { return InvariantBase; }
-  Align requiredAlignment() { return RequiredAlignment; }
-  Align targetAlignment() { return TargetAlignment; }
-  int multiplier() { return Multiplier; }
+  Align requiredAlignment() const { return RequiredAlignment; }
+  Align targetAlignment() const { return TargetAlignment; }
+  int multiplier() const { return Multiplier; }
 
   int maxPeelCount() const override {
     return TargetAlignment.value() / RequiredAlignment.value() - 1;
+  }
+
+  bool isGuaranteedToExecuteBeforeMainLoop() const override {
+    // TODO: check conditions to see if we will *not* skip the main loop.
+    return false;
   }
 
   static bool classof(const VPlanPeelingVariant *Peeling) {
@@ -300,14 +313,26 @@ public:
   /// guaranteed). The returned alignment is computed using the memory address
   /// either in the first vector lane (if the stride is positive) or in the last
   /// lane (if the stride is negative).
-  Align getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
-                               VPlanPeelingVariant *GuaranteedPeeling) const;
+  Align
+  getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
+                         const VPlanPeelingVariant *GuaranteedPeeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be
   /// used when either \p Memref is not unit-strided or when exact run-time
   /// peeling is unknown.
   Align getAlignment(VPLoadStoreInst &Memref);
+
+  /// Returns whether the given \p Memref is unit-stride aligned given the
+  /// provided \p Peeling variant. If the peeled alignment is greater than or
+  /// equal to the target alignment (required alignment * VF), this method
+  /// returns true.
+  ///
+  /// NOTE: If the peeled alignment is greater than the required alignment,
+  /// but less than the target alignment (possible with congruent memrefs) this
+  /// method still returns false.
+  bool isAlignedUnitStride(const VPLoadStoreInst &Memref,
+                           const VPlanPeelingVariant *Peeling) const;
 
   /// Try to compute an alignment for pointer \p Val, with an optional
   /// instruction context \val CtxI. If a known alignment can be extracted using
@@ -316,12 +341,23 @@ public:
   MaybeAlign tryGetKnownAlignment(const VPValue *Val,
                                   const VPInstruction *CtxI) const;
 
+  /// Given a \p Plan, a \p VF and a \p GuaranteedPeeling variant, propagate
+  /// alignment from the specified peeling to affected load/stores.
+  ///
+  /// NOTE: This method takes the guaranteed peeling variant as a separate
+  /// parameter instead of calling VPlan::getGuaranteedPeeling(), as this
+  /// method can be called on remainder VPlans, which do not have peeling set;
+  /// in such a case, the peeling variant should come from the peeling selected
+  /// on the main VPlan.
+  static void propagateAlignment(VPlanVector *Plan, unsigned VF,
+                                 const VPlanPeelingVariant *GuaranteedPeeling);
+
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   VPlanStaticPeeling &SP) const;
+                                   const VPlanStaticPeeling &SP) const;
 
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   VPlanDynamicPeeling &DP) const;
+                                   const VPlanDynamicPeeling &DP) const;
 
 private:
   VPlanScalarEvolution *VPSE;

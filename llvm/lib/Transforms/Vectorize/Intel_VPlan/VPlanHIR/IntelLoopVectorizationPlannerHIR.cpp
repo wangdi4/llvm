@@ -60,6 +60,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   // Set hoist loop for reductions.
   CG->setRednHoistPtForVectorLoop();
 
+  if (VecScenario.getMinimumProfitablePeelTC() > 0) {
+    // If we have computed or assigned a minimum profitable peel trip-count, we
+    // will emit a check at run-time to skip the peel loop if the actual
+    // trip-count is lower than that threshold. In this case, it is unsafe to
+    // emit an aligned load for the peeled memref.
+    CG->setEmitAlignedLoadForPeeledMemref(false);
+  }
+
   bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;
@@ -106,14 +114,18 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   if (EnableSOAAnalysisHIR)
     Plan->enableSOAAnalysis();
 
+  // Set early-exit loop property.
+  if (VPlanEnableEarlyExitLoops && TheLoop->isDoMultiExit())
+    Plan->setIsEarlyExitLoop(true);
+
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, *DT,
                                   AC);
   if (!HCFGBuilder.buildHierarchicalCFG()) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-            "Unable to construct control-flow graph for this loop.");
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+            INTERNAL("Unable to construct control-flow graph for this loop."));
     return nullptr;
   }
 
@@ -139,9 +151,9 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   assert(LE && "No loop entities for loop!");
   if (!LE) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-            "There are no loop entities (e.g., inductions or "
-            "reductions) for this loop.");
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+            INTERNAL("There are no loop entities (e.g., inductions or "
+                     "reductions) for this loop."));
     return false;
   }
 
@@ -151,10 +163,11 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
       // inductions and reductions.
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
-          bailout(OptReportVerbosity::Medium,
-                  VPlanDriverImpl::VecTypeRednRemarkID, "loop",
-                  "A reduction or induction of a vector type is not "
-                  "supported.");
+          bailoutWithDebug(OptReportVerbosity::Medium,
+                           OptRemarkID::VecFailReducingVectorType,
+                           INTERNAL("A reduction or induction of a vector "
+                                    "type is not supported."),
+                           std::string("loop"));
           LLVM_DEBUG(dbgs() << Inst << "\n");
           return false;
         }
@@ -162,15 +175,16 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                  !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadLiveOutRemarkID,
-                "loop",
-                "Loop contains a live-out value that could not be "
-                "identified as an induction or reduction.");
+        bailoutWithDebug(OptReportVerbosity::Medium,
+                         OptRemarkID::VecFailUnknownLiveOut,
+                         INTERNAL("Loop contains a live-out value that could "
+                                  "not be identified as an induction or "
+                                  "reduction."),
+                         std::string("loop"));
         return false;
       }
-      // Specialization for handling sincos functions in CG is done based on
-      // underlying HIR. Privatization for such sincos cannot be implemented
-      // until it is uplifted to be fully VPValue-based.
+
+      // Nested regions are not supported.
       if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
         auto *CalledF = VPCall->getCalledFunction();
         if (!CalledF)
@@ -178,10 +192,13 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
 
         auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
         if (UnderlyingCall &&
-            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
-          bailout(OptReportVerbosity::Medium,
-                  VPlanDriverImpl::NestedSimdRemarkID, "simd loop",
-                  "Unsupported nested OpenMP (simd) loop or region.");
+            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall) &&
+            NestedSimdStrategy != NestedSimdStrategies::Outermost) {
+          bailoutWithDebug(OptReportVerbosity::Medium,
+                           OptRemarkID::VecFailNestedSimdRegion,
+                           INTERNAL("Unsupported nested OpenMP (simd) loop or "
+                                    "region."),
+                           std::string("simd loop"));
           LLVM_DEBUG(dbgs() << *UnderlyingCall << "\n");
           return false;
         }
@@ -192,9 +209,9 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              "Select-compare reductions are not expected on this "
-              "path.");
+      bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+              INTERNAL("Select-compare reductions are not expected on this "
+                       "path."));
       return false;
     }
   // All checks passed.
@@ -260,6 +277,11 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
   return Result;
 }
 
+const loopopt::DDGraph *LoopVectorizationPlannerHIR::getDDGraph() const {
+  DDG = DDA->getGraph(TheLoop);
+  return &DDG;
+}
+
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
   if (isSearchLoop())
@@ -309,8 +331,8 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   assert(ExactUB && "Exact UB expected for decomposed HLLoops.");
   CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
 
-  // The multi-exit loops are processed in a special way
-  if (!CandidateLoop->getUniqueExitBlock())
+  // Implicit multi-exit loops are processed in a special way
+  if (!VPlanEnableEarlyExitLoops && !CandidateLoop->getUniqueExitBlock())
     return;
 
   // TODO: All loops in HIR path are expected to be normalized. Move this

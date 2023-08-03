@@ -1,4 +1,6 @@
 ; RUN: opt -mtriple=x86_64 -passes=vplan-vec -vplan-force-vf=8 -vplan-print-after-call-vec-decisions -disable-output < %s | FileCheck %s
+; RUN: opt -mtriple=x86_64 -passes=vplan-vec -vplan-force-vf=8 -S < %s | FileCheck %s -check-prefix=VPLANCG
+; RUN: opt -mtriple=x86_64 -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-cg' -vplan-force-vf=8 -S < %s | FileCheck %s -check-prefix=HIRCG
 
 @ARRAY_SIZE = external dso_local local_unnamed_addr constant i32, align 4
 
@@ -17,7 +19,17 @@ define dso_local void @run_test.a(ptr noundef %vals, ptr nocapture noundef reado
 ; AVX512 vector variant calls
 ; CHECK:     [DA: Div] double [[VP0:%.*]] = call double [[VP1:%.*]] ptr %vals _ZGVZN8vu_Interpolate [x 1]
 ; CHECK:     [DA: Div] double [[VP2:%.*]] = call double [[VP3:%.*]] ptr %vals _ZGVZM8vu_Interpolate [x 1]
-
+;
+; VPLANCG:  define dso_local void @run_test.a(ptr noundef [[VALS0:%.*]], ptr nocapture noundef readonly [[SRC0:%.*]], ptr nocapture noundef writeonly [[DST0:%.*]]) local_unnamed_addr #2 {
+; VPLANCG:  [[TMP4:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <8 x double> @_ZGVZN8vu_Interpolate(<8 x double> noundef nofpclass(nan inf) [[WIDE_LOAD0:%.*]], ptr noundef [[VALS0]]) #0
+; VPLANCG:  [[TMP14:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <8 x double> @_ZGVZM8vu_Interpolate(<8 x double> noundef nofpclass(nan inf) [[WIDE_MASKED_LOAD0:%.*]], ptr noundef [[VALS0]], i32 [[MASKCAST0:%.*]]) #0
+; VPLANCG:  [[CALLRET0:%.*]] = call fast nofpclass(nan inf) double @Interpolate(double noundef nofpclass(nan inf) [[TMP22:%.*]], ptr noundef [[VALS0]]) #0
+;
+; HIRCG:    define dso_local void @run_test.a(ptr noundef [[VALS0:%.*]], ptr nocapture noundef readonly [[SRC0:%.*]], ptr nocapture noundef writeonly [[DST0:%.*]]) local_unnamed_addr #2 {
+; HIRCG:    [[CALLRET0:%.*]] = call fast nofpclass(nan inf) double @Interpolate(double noundef nofpclass(nan inf) [[TMP2:%.*]], ptr noundef [[VALS0]]) #0
+; HIRCG:    [[TMP14:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <8 x double> @_ZGVZM8vu_Interpolate(<8 x double> noundef nofpclass(nan inf) [[T43_0:%.*]], ptr noundef [[VALS0]], i32 [[T45_0:%.*]]) #0
+; HIRCG:    [[TMP25:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <8 x double> @_ZGVZN8vu_Interpolate(<8 x double> noundef nofpclass(nan inf) [[T29_0:%.*]], ptr noundef [[VALS0]]) #0
+;
 entry:
   %i.linear.iv = alloca i32, align 4
   %0 = load i32, ptr @ARRAY_SIZE, align 4

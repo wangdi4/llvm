@@ -1,6 +1,6 @@
 //===- HIRMVForConstUB.cpp - Multiversioning for constant UB -================//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
@@ -50,7 +51,7 @@ class HIRMVForConstUB {
   HIRFramework &HIRF;
   DDRefUtils &DRU;
   BlobUtils &BU;
-  DenseMap<HLLoop *, BlobIdxAndNewValue> MaxTCEstMVCandidates;
+  MapVector<HLLoop *, BlobIdxAndNewValue> MaxTCEstMVCandidates;
 
 public:
   HIRMVForConstUB(HIRFramework &HIRF)
@@ -61,7 +62,8 @@ public:
 private:
   bool analyzeAndTransformLoop(HLLoop *Loop);
   void transformLoop(HLLoop *Loop, unsigned TempIndex, int64_t Constant);
-  bool transformLoopNest(HLLoop *Loop, unsigned BlobIndex, int64_t NewValue);
+  bool transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop, unsigned BlobIndex,
+                          int64_t NewValue);
   void transformLoop(HLLoop *Loop, SmallVectorImpl<unsigned> &TripCounts);
 
   class LoopVisitor final : public HLNodeVisitorBase {
@@ -85,9 +87,10 @@ private:
 };
 } // namespace
 
-static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
+static void propagateConstant(HLNode *Node, unsigned TempIndex,
                               int64_t Constant) {
   bool LoopChanged = false;
+  HLLoop *Loop = dyn_cast<HLLoop>(Node);
 
   auto ReplaceBlobByConstant = [=](CanonExpr *CE, bool &Changed) {
     if (CE->replaceTempBlobByConstant(TempIndex, Constant)) {
@@ -96,7 +99,7 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
     }
   };
 
-  ForEach<RegDDRef>::visit(Loop, [&](RegDDRef *Ref) {
+  ForEach<RegDDRef>::visit(Node, [&](RegDDRef *Ref) {
     if (Ref->isConstant()) {
       return;
     }
@@ -114,7 +117,8 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
 
     if (Changed) {
       Ref->makeConsistent();
-      LoopChanged = true;
+      if (Loop)
+        LoopChanged = true;
     }
   });
 
@@ -123,7 +127,7 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
     Loop->setMaxTripCountEstimate(0);
     Loop->setLegalMaxTripCount(0);
 
-    HLNodeUtils::removeRedundantNodes(Loop);
+    HLNodeUtils::removeRedundantNodes(Node);
   }
 }
 
@@ -157,6 +161,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
   }
 
   Loop->extractZtt();
+  Loop->extractPreheader();
 
   unsigned Level = Loop->getNestingLevel();
   RegDDRef *OrigUpperRef = Loop->getUpperDDRef();
@@ -205,6 +210,9 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
 
 void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
+  Loop->extractZtt();
+  Loop->extractPreheader();
+
   unsigned Level = Loop->getNestingLevel();
 
   RegDDRef *LHS = DRU.createSelfBlobRef(TempIndex, 0);
@@ -226,58 +234,80 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   LoopsMultiversioned++;
 }
 
-  // Try to multivesion loopnest if one of innermost loops has small MAX_TC_EST.
-  // Ex.:
-  // Before optimization:
-  //      DO i1 =
-  //        %N = ...;
-  //        DO i2 =
-  //          DO i3 = 1, %N      <MAX_TC_EST = 5>
-  //            ...
-  //          ENDDO
-  //        ENDDO
-  //      ENDDO
-  // After optimization:
-  //      DO i1 =
-  //        %N = ...;
-  //        if (%N == 3) {
-  //          DO i2 =
-  //            DO i3 = 0, 2, 1
-  //              ...
-  //            ENDDO
-  //          ENDDO
-  //        else {
-  //          DO i2 =
-  //            DO i3 = 0, %N -1      <MAX_TC_EST = 5>
-  //              ...
-  //            ENDDO
-  //          ENDDO
-  //        }
-  //      ENDDO
-bool HIRMVForConstUB::transformLoopNest(HLLoop *OuterLoop, unsigned BlobIndex,
-                                        int64_t NewValue) {
+// Try to multivesion loopnest range if one of innermost loops has small
+// MAX_TC_EST. Ex.:
+// Before optimization:
+//      DO i1 =
+//        %N = ...;
+//        DO i2 =
+//          DO i3 = 1, %N      <MAX_TC_EST = 5>
+//            ...
+//          ENDDO
+//        ENDDO
+//      ENDDO
+// After optimization:
+//      DO i1 =
+//        %N = ...;
+//        if (%N == 3) {
+//          DO i2 =
+//            DO i3 = 0, 2, 1
+//              ...
+//            ENDDO
+//          ENDDO
+//        else {
+//          DO i2 =
+//            DO i3 = 0, %N -1      <MAX_TC_EST = 5>
+//              ...
+//            ENDDO
+//          ENDDO
+//        }
+//      ENDDO
+//
+// In most of the cases the loop range would consist of single loop. But if
+// multiple sibling loops are candidates with same BlobIdx and same NewValue,
+// we would like to put all of them under the same condition.
+bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
+                                         unsigned BlobIndex, int64_t NewValue) {
+  // Since we multiversion those loops under the same condition using the same
+  // blob, the blob should be defined no later than in the preheader of the very
+  // first loop. So extract that.
+  FromLoop->extractPreheader();
+
   // Create multiversioning condition.
-  RegDDRef *LHS = DRU.createSelfBlobRef(BlobIndex, OuterLoop->getNestingLevel() - 1);
+  RegDDRef *LHS =
+      DRU.createSelfBlobRef(BlobIndex, FromLoop->getNestingLevel() - 1);
   RegDDRef *RHS = DRU.createConstDDRef(LHS->getDestType(), NewValue);
 
   HLIf *If =
-      OuterLoop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
+      FromLoop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
 
-  // Insert original loop nest on the else branch and its clone on the true
+  // Insert original node range on the else branch and its clone on the true
   // branch of the multiversioning 'if'.
-  HLNodeUtils::insertAfter(OuterLoop, If);
-  auto *ThenLoop = OuterLoop->clone();
-  HLNodeUtils::insertAsFirstThenChild(If, ThenLoop);
-  HLNodeUtils::moveAsFirstElseChild(If, OuterLoop);
-
+  HLNodeUtils::insertBefore(FromLoop, If);
   LHS->makeConsistent();
 
-  // Propogate new constant value of TC throught loopnest.
-  propagateConstant(ThenLoop, BlobIndex, NewValue);
+  for (HLNode *CurNode = FromLoop, *EndNode = ToLoop->getNextNode();
+       CurNode != EndNode; CurNode = CurNode->getNextNode()) {
+
+    // Update statistics
+    if (isa<HLLoop>(CurNode)) {
+      LoopsMultiversioned++;
+    }
+
+    // Insert cloned node into then branch.
+    auto *ThenNode = CurNode->clone();
+    HLNodeUtils::insertAsLastThenChild(If, ThenNode);
+
+    // Propogate new constant value of blob throught loopnest.
+    propagateConstant(ThenNode, BlobIndex, NewValue);
+  }
+
+  // Move original node range into else branch.
+  HLNodeUtils::moveAsLastElseChildren(If, FromLoop->getIterator(),
+                                      std::next(ToLoop->getIterator()));
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
-  LoopsMultiversioned++;
   return true;
 }
 
@@ -311,10 +341,10 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
     return true;
   }
 
-  // Try to multivesion loopnest if one of innermost loops has small MAX_TC_EST.
-  // If innermost loop has single blob in the TC and this blob is defined at
-  // some nesting level L, then do loop multivertioning on the base of the blob
-  // value calculated from MAX_TC_EST.
+  // Try to multiversion loopnest if one of innermost loops has small
+  // MAX_TC_EST. If innermost loop has single blob in the TC and this blob is
+  // defined at some nesting level L, then do loop multivertioning on the base
+  // of the blob value calculated from MAX_TC_EST.
   if (!Loop->isInnermost() || (Loop->getNestingLevel() == 1) ||
       (MaxTCEstMVCandidates.size() > 64)) {
     return false;
@@ -381,6 +411,23 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
 
   int64_t NewBlobValue = (TC - Const) / Coeff;
 
+  // Now check if we will end up with zero-TC parent loop at one of the levels
+  // after multiversioning.
+  for (auto *Parent = Loop->getParentLoop();
+       Parent && (Parent->getNestingLevel() > DefAtLvl);
+       Parent = Parent->getParentLoop()) {
+    auto *TCCanonExpr = Parent->getTripCountCanonExpr();
+    if (TCCanonExpr &&
+        TCCanonExpr->replaceTempBlobByConstant(BlobIndex, NewBlobValue)) {
+      TCCanonExpr->simplify(true, true);
+      // There is no point in multiversioning if one of the parent loops becomes
+      // zero-TC loop and will be removed.
+      int64_t TCConst;
+      if (TCCanonExpr->isIntConstant(&TCConst) && (TCConst <= 0))
+        return false;
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "\t MAX_TC_EST candidate:  ";
              dbgs() << NewBlobValue << " = "; BU.getBlob(BlobIndex)->dump();
              ParentL->dump(););
@@ -402,8 +449,55 @@ bool HIRMVForConstUB::run() {
   LoopVisitor V(*this);
   HLNodeUtils::visitRange(V, HIRF.hir_begin(), HIRF.hir_end());
 
-  for (auto &Cand : MaxTCEstMVCandidates) {
-    transformLoopNest(Cand.first, Cand.second.first, Cand.second.second);
+  // Multiversioning for MAX_TC_EST has not happened yet, we only collected
+  // candidates. The candidate loop nests are gathered in the lexical order.
+  // Check if next candidate have the same parent as current loop and supposed
+  // to be versioned under the same condition.
+  for (auto Cand = MaxTCEstMVCandidates.begin(),
+            End = MaxTCEstMVCandidates.end();
+       Cand != End; ++Cand) {
+    unsigned BlobIdx = Cand->second.first;
+    int64_t NewVal = Cand->second.second;
+    HLLoop *CurLoop = Cand->first;
+
+    // First and Last loops are used to determine a lexical range of the nodes
+    // needed to be multiversioned.
+    HLLoop *LastLoop = CurLoop;
+    HLNode *CurParent = CurLoop->getParent();
+
+    // Check if we can separate a chain of the sibling successor loops, which
+    // could be multiversioned under the same condition.
+    for (auto NextCand = Cand + 1; NextCand != End; ++NextCand) {
+      HLLoop *NextLoop = NextCand->first;
+      if (NextCand->second.first != BlobIdx ||
+          NextCand->second.second != NewVal)
+        break;
+
+      // Handle cases where loops are under same parent.
+      if (CurParent != NextLoop->getParent())
+        break;
+
+      // Only handle cases where both loops are in the same case of If/Switch
+      // parent.
+      if (auto *IfParent = dyn_cast<HLIf>(CurParent)) {
+        if (IfParent->isThenChild(CurLoop) != IfParent->isThenChild(NextLoop))
+          break;
+      } else if (auto *SwitchParent = dyn_cast<HLSwitch>(CurParent)) {
+        if (SwitchParent->getChildCaseNum(CurLoop) !=
+            SwitchParent->getChildCaseNum(NextLoop))
+          break;
+      }
+
+      // Update end marker of multiversioning range.
+      LastLoop = NextLoop;
+
+      // Increment Cand to skip loops in the range.
+      ++Cand;
+    }
+
+    // Multiversion a range of HLNodes starting from FromLoop and ending with
+    // ToLoop under the same condition.
+    transformLoopRange(CurLoop, LastLoop, BlobIdx, NewVal);
   }
 
   return true;

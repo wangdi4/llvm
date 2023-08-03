@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -S -switch-to-offload -vpo-paropt %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -S -switch-to-offload -passes='vpo-paropt' %s | FileCheck %s
-;
+; RUN: opt -bugpoint-enable-legacy-pm -S -switch-to-offload -vpo-paropt %s | FileCheck %s
+; RUN: opt -S -switch-to-offload -passes='vpo-paropt' %s | FileCheck %s
+
 ; Verify type information from different scopes is emitting into the offload
 ; device code correctly.
-;
+
 ; // Global declaration used inside parallel region.
 ; struct S0 { ... };
 ; int main() {
@@ -87,8 +87,8 @@
 ;     inlined(..., [=](int i) { ... });
 ;   }
 ; }
-;
-; CHECK: %struct.S6 = type { %struct.S6* }
+
+; CHECK: %struct.S6 = type { ptr }
 ; CHECK: %struct.S5 = type { %struct.anon }
 ; CHECK: %struct.S4 = type { double }
 ; CHECK: %struct.S3 = type { float }
@@ -111,29 +111,29 @@
 ; CHECK: [[V0:%[^ ]+]] = alloca %struct.S0
 ;
 ; CHECK-LABEL: DIR.OMP.TARGET{{.*}}:
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S6* [[V6]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V6]],
 ; CHECK-SAME: metadata [[S6:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S5* [[V5]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V5]],
 ; CHECK-SAME: metadata [[S5:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S4* [[V4]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V4]],
 ; CHECK-SAME: metadata [[S4:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S3* [[V3]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V3]],
 ; CHECK-SAME: metadata [[S3:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S2* [[V2]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V2]],
 ; CHECK-SAME: metadata [[S2:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S1* [[V1]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V1]],
 ; CHECK-SAME: metadata [[S1:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
-; CHECK: call void @llvm.dbg.declare(metadata %struct.S0* [[V0]],
+; CHECK: call void @llvm.dbg.declare(metadata ptr [[V0]],
 ; CHECK-SAME: metadata [[S0:![0-9]+]],
 ; CHECK-SAME: metadata !DIExpression())
 ;
-; CHECK: [[T7:%[^ ]+]] = load i32, i32* [[V7]]
+; CHECK: [[T7:%[^ ]+]] = load i32, ptr [[V7]]
 ; CHECK: call void @llvm.dbg.value(metadata i32 [[T7]],
 ; CHECK-SAME: metadata [[S7:![0-9]+]]
 ; CHECK-SAME: metadata !DIExpression())
@@ -254,10 +254,7 @@
 ; CHECK: [[T7M2]] = !DISubprogram(name: "operator()"
 ; CHECK-SAME: scope: [[T7]]
 ; CHECK-SAME: )
-;
-; -----------------------------------------------------------------------------
-; ModuleID = '<stdin>'
-source_filename = "test.cpp"
+
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
@@ -269,16 +266,16 @@ target device_triples = "spir64"
 %struct.S4 = type { double }
 %struct.S5 = type { %struct.anon }
 %struct.anon = type { i32 }
-%struct.S6 = type { %struct.S6* }
+%struct.S6 = type { ptr }
 
 @"@tid.addr" = external global i32
 
 ; Function Attrs: convergent mustprogress noinline norecurse nounwind optnone
-define hidden i32 @main(i32 %argc, i8 addrspace(4)* addrspace(4)* %argv) #0 !dbg !10 {
+define hidden i32 @main(i32 %argc, ptr addrspace(4) %argv) #0 !dbg !10 {
 entry:
   %retval = alloca i32, align 4
   %argc.addr = alloca i32, align 4
-  %argv.addr = alloca i8 addrspace(4)* addrspace(4)*, align 8
+  %argv.addr = alloca ptr addrspace(4), align 8
   %i = alloca i32, align 4
   %s0 = alloca %struct.S0, align 4
   %s1 = alloca %struct.S1, align 2
@@ -288,23 +285,23 @@ entry:
   %s5 = alloca %struct.S5, align 8
   %s6 = alloca %struct.S6, align 8
   %s7 = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
-  %argc.addr.ascast = addrspacecast i32* %argc.addr to i32 addrspace(4)*
-  %argv.addr.ascast = addrspacecast i8 addrspace(4)* addrspace(4)** %argv.addr to i8 addrspace(4)* addrspace(4)* addrspace(4)*
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  %s0.ascast = addrspacecast %struct.S0* %s0 to %struct.S0 addrspace(4)*
-  %s1.ascast = addrspacecast %struct.S1* %s1 to %struct.S1 addrspace(4)*
-  %s2.ascast = addrspacecast %struct.S2* %s2 to %struct.S2 addrspace(4)*
-  %s3.ascast = addrspacecast %struct.S3* %s3 to %struct.S3 addrspace(4)*
-  %s4.ascast = addrspacecast %struct.S4* %s4 to %struct.S4 addrspace(4)*
-  %s5.ascast = addrspacecast %struct.S5* %s5 to %struct.S5 addrspace(4)*
-  %s6.ascast = addrspacecast %struct.S6* %s6 to %struct.S6 addrspace(4)*
-  %s7.ascast = addrspacecast i32* %s7 to i32 addrspace(4)*
-  store i32 0, i32 addrspace(4)* %retval.ascast, align 4
-  store i32 %argc, i32 addrspace(4)* %argc.addr.ascast, align 4
-  call void @llvm.dbg.declare(metadata i32* %argc.addr, metadata !19, metadata !DIExpression()), !dbg !20
-  store i8 addrspace(4)* addrspace(4)* %argv, i8 addrspace(4)* addrspace(4)* addrspace(4)* %argv.addr.ascast, align 8
-  call void @llvm.dbg.declare(metadata i8 addrspace(4)* addrspace(4)** %argv.addr, metadata !21, metadata !DIExpression()), !dbg !22
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %argc.addr.ascast = addrspacecast ptr %argc.addr to ptr addrspace(4)
+  %argv.addr.ascast = addrspacecast ptr %argv.addr to ptr addrspace(4)
+  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  %s0.ascast = addrspacecast ptr %s0 to ptr addrspace(4)
+  %s1.ascast = addrspacecast ptr %s1 to ptr addrspace(4)
+  %s2.ascast = addrspacecast ptr %s2 to ptr addrspace(4)
+  %s3.ascast = addrspacecast ptr %s3 to ptr addrspace(4)
+  %s4.ascast = addrspacecast ptr %s4 to ptr addrspace(4)
+  %s5.ascast = addrspacecast ptr %s5 to ptr addrspace(4)
+  %s6.ascast = addrspacecast ptr %s6 to ptr addrspace(4)
+  %s7.ascast = addrspacecast ptr %s7 to ptr addrspace(4)
+  store i32 0, ptr addrspace(4) %retval.ascast, align 4
+  store i32 %argc, ptr addrspace(4) %argc.addr.ascast, align 4
+  call void @llvm.dbg.declare(metadata ptr %argc.addr, metadata !19, metadata !DIExpression()), !dbg !20
+  store ptr addrspace(4) %argv, ptr addrspace(4) %argv.addr.ascast, align 8
+  call void @llvm.dbg.declare(metadata ptr %argv.addr, metadata !21, metadata !DIExpression()), !dbg !22
   br label %DIR.OMP.TARGET.1, !dbg !22
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
@@ -324,11 +321,22 @@ DIR.OMP.TARGET.112:                               ; preds = %DIR.OMP.TARGET.15.s
   br label %DIR.OMP.TARGET.213, !dbg !23
 
 DIR.OMP.TARGET.213:                               ; preds = %DIR.OMP.TARGET.112
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE:WILOCAL"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S0 addrspace(4)* %s0.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S1 addrspace(4)* %s1.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S2 addrspace(4)* %s2.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S3 addrspace(4)* %s3.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S4 addrspace(4)* %s4.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S5 addrspace(4)* %s5.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(%struct.S6 addrspace(4)* %s6.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(i32 addrspace(4)* %s7.ascast), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ], !dbg !23
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s0.ascast, %struct.S0 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s1.ascast, %struct.S1 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s2.ascast, %struct.S2 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s3.ascast, %struct.S3 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s4.ascast, %struct.S4 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s5.ascast, %struct.S5 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s6.ascast, %struct.S6 zeroinitializer, i32 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %s7.ascast, i32 0, i32 1),
+    "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp) ], !dbg !23
   br label %DIR.OMP.TARGET.314, !dbg !23
 
 DIR.OMP.TARGET.314:                               ; preds = %DIR.OMP.TARGET.213
-  %temp.load = load volatile i1, i1* %end.dir.temp, align 1, !dbg !23
+  %temp.load = load volatile i1, ptr %end.dir.temp, align 1, !dbg !23
   %cmp = icmp ne i1 %temp.load, false, !dbg !23
   br i1 %cmp, label %DIR.OMP.END.TARGET.4.split, label %1, !dbg !23
 
@@ -336,34 +344,34 @@ DIR.OMP.TARGET.314:                               ; preds = %DIR.OMP.TARGET.213
   br label %DIR.OMP.TARGET.3, !dbg !23
 
 DIR.OMP.TARGET.3:                                 ; preds = %1
-  call void @llvm.dbg.declare(metadata i32* %i, metadata !26, metadata !DIExpression()), !dbg !28
-  call void @llvm.dbg.declare(metadata %struct.S0* %s0, metadata !29, metadata !DIExpression()), !dbg !35
-  call void @llvm.dbg.declare(metadata %struct.S1* %s1, metadata !36, metadata !DIExpression()), !dbg !41
-  call void @llvm.dbg.declare(metadata %struct.S2* %s2, metadata !42, metadata !DIExpression()), !dbg !47
-  call void @llvm.dbg.declare(metadata %struct.S3* %s3, metadata !48, metadata !DIExpression()), !dbg !53
-  call void @llvm.dbg.declare(metadata %struct.S4* %s4, metadata !54, metadata !DIExpression()), !dbg !59
-  call void @llvm.dbg.declare(metadata %struct.S5* %s5, metadata !60, metadata !DIExpression()), !dbg !67
-  call void @llvm.dbg.declare(metadata %struct.S6* %s6, metadata !68, metadata !DIExpression()), !dbg !88
-  %s7.local = load i32, i32 addrspace(4)* %s7.ascast, align 4
-  call void @llvm.dbg.value(metadata i32 %s7.local, metadata !73, metadata !DIExpression()), !dbg !89
-  %m = getelementptr inbounds %struct.S0, %struct.S0 addrspace(4)* %s0.ascast, i32 0, i32 0, !dbg !90
-  store i32 1234, i32 addrspace(4)* %m, align 4, !dbg !88
-  %m1 = getelementptr inbounds %struct.S1, %struct.S1 addrspace(4)* %s1.ascast, i32 0, i32 0, !dbg !85
-  store i16 42, i16 addrspace(4)* %m1, align 2, !dbg !86
-  %m2 = getelementptr inbounds %struct.S2, %struct.S2 addrspace(4)* %s2.ascast, i32 0, i32 0, !dbg !87
-  store i64 12345678, i64 addrspace(4)* %m2, align 8, !dbg !88
-  %m3 = getelementptr inbounds %struct.S3, %struct.S3 addrspace(4)* %s3.ascast, i32 0, i32 0, !dbg !90
-  store float 0x4010CCCCC0000000, float addrspace(4)* %m3, align 4, !dbg !85
-  %m4 = getelementptr inbounds %struct.S4, %struct.S4 addrspace(4)* %s4.ascast, i32 0, i32 0, !dbg !86
-  store double 0x400921FB54411744, double addrspace(4)* %m4, align 8, !dbg !87
-  %m5 = getelementptr inbounds %struct.S5, %struct.S5 addrspace(4)* %s5.ascast, i32 0, i32 0
-  %n5 = getelementptr inbounds %struct.anon, %struct.anon addrspace(4)* %m5, i32 0, i32 0
-  store i32 42, i32 addrspace(4)* %n5, align 4
-  %m6 = getelementptr inbounds %struct.S6, %struct.S6 addrspace(4)* %s6.ascast, i32 0, i32 0
-  store %struct.S6* null, %struct.S6* addrspace(4)* %m6, align 8
-  store i32 %s7.local, i32 addrspace(4)* %s7.ascast, align 4
-  store i32 0, i32 addrspace(4)* %i.ascast, align 4, !dbg !88
-  br label %DIR.OMP.END.TARGET.4, !dbg !88
+  call void @llvm.dbg.declare(metadata ptr %i, metadata !26, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.declare(metadata ptr %s0, metadata !29, metadata !DIExpression()), !dbg !35
+  call void @llvm.dbg.declare(metadata ptr %s1, metadata !36, metadata !DIExpression()), !dbg !41
+  call void @llvm.dbg.declare(metadata ptr %s2, metadata !42, metadata !DIExpression()), !dbg !47
+  call void @llvm.dbg.declare(metadata ptr %s3, metadata !48, metadata !DIExpression()), !dbg !53
+  call void @llvm.dbg.declare(metadata ptr %s4, metadata !54, metadata !DIExpression()), !dbg !59
+  call void @llvm.dbg.declare(metadata ptr %s5, metadata !60, metadata !DIExpression()), !dbg !67
+  call void @llvm.dbg.declare(metadata ptr %s6, metadata !68, metadata !DIExpression()), !dbg !73
+  %s7.local = load i32, ptr addrspace(4) %s7.ascast, align 4
+  call void @llvm.dbg.value(metadata i32 %s7.local, metadata !74, metadata !DIExpression()), !dbg !83
+  %m = getelementptr inbounds %struct.S0, ptr addrspace(4) %s0.ascast, i32 0, i32 0, !dbg !84
+  store i32 1234, ptr addrspace(4) %m, align 4, !dbg !73
+  %m1 = getelementptr inbounds %struct.S1, ptr addrspace(4) %s1.ascast, i32 0, i32 0, !dbg !85
+  store i16 42, ptr addrspace(4) %m1, align 2, !dbg !86
+  %m2 = getelementptr inbounds %struct.S2, ptr addrspace(4) %s2.ascast, i32 0, i32 0, !dbg !87
+  store i64 12345678, ptr addrspace(4) %m2, align 8, !dbg !73
+  %m3 = getelementptr inbounds %struct.S3, ptr addrspace(4) %s3.ascast, i32 0, i32 0, !dbg !84
+  store float 0x4010CCCCC0000000, ptr addrspace(4) %m3, align 4, !dbg !85
+  %m4 = getelementptr inbounds %struct.S4, ptr addrspace(4) %s4.ascast, i32 0, i32 0, !dbg !86
+  store double 0x400921FB54411744, ptr addrspace(4) %m4, align 8, !dbg !87
+  %m5 = getelementptr inbounds %struct.S5, ptr addrspace(4) %s5.ascast, i32 0, i32 0
+  %n5 = getelementptr inbounds %struct.anon, ptr addrspace(4) %m5, i32 0, i32 0
+  store i32 42, ptr addrspace(4) %n5, align 4
+  %m6 = getelementptr inbounds %struct.S6, ptr addrspace(4) %s6.ascast, i32 0, i32 0
+  store ptr null, ptr addrspace(4) %m6, align 8
+  store i32 %s7.local, ptr addrspace(4) %s7.ascast, align 4
+  store i32 0, ptr addrspace(4) %i.ascast, align 4, !dbg !73
+  br label %DIR.OMP.END.TARGET.4, !dbg !73
 
 DIR.OMP.END.TARGET.4:                             ; preds = %DIR.OMP.TARGET.3
   br label %DIR.OMP.END.TARGET.4.split, !dbg !23
@@ -376,14 +384,14 @@ DIR.OMP.END.TARGET.415:                           ; preds = %DIR.OMP.END.TARGET.
   br label %DIR.OMP.END.TARGET.5, !dbg !23
 
 DIR.OMP.END.TARGET.5:                             ; preds = %DIR.OMP.END.TARGET.415
-  ret i32 0, !dbg !90
+  ret i32 0, !dbg !84
 }
 
-; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
-declare void @llvm.dbg.value(metadata %0, metadata %1, metadata %2) #1
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -392,7 +400,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 attributes #0 = { convergent mustprogress noinline norecurse nounwind optnone "approx-func-fp-math"="true" "contains-openmp-target"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
-attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 attributes #2 = { nounwind }
 
 !llvm.dbg.cu = !{!0}
@@ -407,7 +415,7 @@ attributes #2 = { nounwind }
 !5 = !{i32 1, !"wchar_size", i32 4}
 !6 = !{i32 7, !"openmp", i32 50}
 !7 = !{i32 7, !"openmp-device", i32 50}
-!8 = !{i32 7, !"PIC Level", i32 2}
+!8 = !{i32 8, !"PIC Level", i32 2}
 !9 = !{i32 7, !"frame-pointer", i32 2}
 !10 = distinct !DISubprogram(name: "main", scope: !1, file: !1, line: 3, type: !11, scopeLine: 3, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !18)
 !11 = !DISubroutineType(types: !12)
@@ -472,26 +480,18 @@ attributes #2 = { nounwind }
 !70 = !{!71}
 !71 = !DIDerivedType(tag: DW_TAG_member, name: "m", scope: !69, file: !1, line: 19, baseType: !72, size: 64)
 !72 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !69, size: 64)
-
-!73 = !DILocalVariable(name: "f", arg: 3, scope: !91, file: !1, line: 17, type: !74)
-!74 = distinct !DICompositeType(tag: DW_TAG_class_type, name: "_ZTSZ8timestepiEUliE_", file: !1, line: 34, size: 32, flags: DIFlagTypePassByValue | DIFlagNonTrivial, elements: !75)
-!75 = !{!76, !77}
-!76 = !DIDerivedType(tag: DW_TAG_member, name: "t", scope: !74, file: !1, line: 35, baseType: !13, size: 32)
-!77 = !DISubprogram(name: "operator()", linkageName: "_ZZ8timestepiENKUliE_clEi", scope: !74, file: !1, line: 34, type: !92, scopeLine: 34, flags: DIFlagPublic | DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagOptimized)
-!78 = !DILocation(line: 21, column: 14, scope: !30)
-!79 = !DILocation(line: 21, column: 12, scope: !30)
-!80 = !DILocation(line: 22, column: 12, scope: !30)
-!81 = !DILocation(line: 22, column: 14, scope: !30)
-!82 = !DILocation(line: 23, column: 12, scope: !30)
-!83 = !DILocation(line: 23, column: 14, scope: !30)
-!84 = !DILocation(line: 24, column: 12, scope: !30)
+!73 = distinct !DILocation(line: 26, column: 11, scope: !30)
+!74 = !DILocalVariable(name: "f", arg: 3, scope: !75, file: !1, line: 17, type: !79)
+!75 = distinct !DISubprogram(name: "forall<...>", linkageName: "_Z6forallIiZ8timestepiEUliE_EvT_S1_T0_", scope: !1, file: !1, line: 21, type: !76, scopeLine: 21, flags: DIFlagPrototyped | DIFlagAllCallsDescribed, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !78)
+!76 = !DISubroutineType(types: !77)
+!77 = !{null}
+!78 = !{!74}
+!79 = distinct !DICompositeType(tag: DW_TAG_class_type, name: "_ZTSZ8timestepiEUliE_", file: !1, line: 34, size: 32, flags: DIFlagTypePassByValue | DIFlagNonTrivial, elements: !80)
+!80 = !{!81, !82}
+!81 = !DIDerivedType(tag: DW_TAG_member, name: "t", scope: !79, file: !1, line: 35, baseType: !13, size: 32)
+!82 = !DISubprogram(name: "operator()", linkageName: "_ZZ8timestepiENKUliE_clEi", scope: !79, file: !1, line: 34, type: !76, scopeLine: 34, flags: DIFlagPublic | DIFlagPrototyped, spFlags: DISPFlagLocalToUnit | DISPFlagOptimized)
+!83 = !DILocation(line: 27, column: 15, scope: !75, inlinedAt: !73)
+!84 = !DILocation(line: 31, column: 3, scope: !10)
 !85 = !DILocation(line: 24, column: 14, scope: !30)
 !86 = !DILocation(line: 25, column: 12, scope: !30)
 !87 = !DILocation(line: 25, column: 14, scope: !30)
-!88 = distinct !DILocation(line: 26, column: 11, scope: !30)
-!89 = !DILocation(line: 27, column: 15, scope: !91, inlinedAt: !88)
-!90 = !DILocation(line: 31, column: 3, scope: !10)
-!91 = distinct !DISubprogram(name: "forall<...>", linkageName: "_Z6forallIiZ8timestepiEUliE_EvT_S1_T0_", scope: !1, file: !1, line: 21, type: !92, scopeLine: 21, flags: DIFlagPrototyped | DIFlagAllCallsDescribed, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !94)
-!92 = !DISubroutineType(types: !93)
-!93 = !{null}
-!94 = !{!73}

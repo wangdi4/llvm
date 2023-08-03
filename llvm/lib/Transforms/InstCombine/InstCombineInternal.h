@@ -190,7 +190,9 @@ public:
   Instruction *visitPHINode(PHINode &PN);
   Instruction *visitGetElementPtrInst(GetElementPtrInst &GEP);
   Instruction *visitGEPOfGEP(GetElementPtrInst &GEP, GEPOperator *Src);
+  #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *visitGEPOfBitcast(BitCastInst *BCI, GetElementPtrInst &GEP);
+  #endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *visitAllocaInst(AllocaInst &AI);
   Instruction *visitAllocSite(Instruction &FI);
   Instruction *visitFree(CallInst &FI, Value *FreedOp);
@@ -370,8 +372,7 @@ private:
   Instruction *optimizeBitCastFromPhi(CastInst &CI, PHINode *PN);
   Instruction *matchSAddSubSat(IntrinsicInst &MinMax1);
   Instruction *foldNot(BinaryOperator &I);
-
-  void freelyInvertAllUsersOf(Value *V, Value *IgnoredUser = nullptr);
+  Instruction *foldBinOpOfDisplacedShifts(BinaryOperator &I);
 
   /// Determine if a pair of casts can be replaced by a single cast.
   ///
@@ -456,11 +457,11 @@ public:
   /// without having to rewrite the CFG from within InstCombine.
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
-    new StoreInst(ConstantInt::getTrue(Ctx),
-                  PoisonValue::get(Type::getInt1PtrTy(Ctx)),
-                  InsertAt);
+    auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
+                             PoisonValue::get(Type::getInt1PtrTy(Ctx)),
+                             /*isVolatile*/ false, Align(1));
+    InsertNewInstBefore(SI, *InsertAt);
   }
-
 
   /// Combiner aware instruction erasure.
   ///
@@ -484,10 +485,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
     // Make sure that we reprocess all operands now that we reduced their
     // use counts.
-    for (Use &Operand : I.operands())
-      if (auto *Inst = dyn_cast<Instruction>(Operand))
-        Worklist.add(Inst);
-
+    SmallVector<Value *> Ops(I.operands());
     Worklist.remove(&I);
     I.eraseFromParent();
 #if INTEL_CUSTOMIZATION
@@ -508,6 +506,8 @@ public:
           if (auto *CE = dyn_cast<ConstantExpr>(BCOS))
             CE->destroyConstant();
 #endif // INTEL_CUSTOMIZATION
+    for (Value *Op : Ops)
+      Worklist.handleUseCountDecrement(Op);
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI
   }
@@ -540,6 +540,12 @@ public:
   // efficiently reorganized.
   Value *SimplifySelectsFeedingBinaryOp(BinaryOperator &I, Value *LHS,
                                         Value *RHS);
+
+  // (Binop1 (Binop2 (logic_shift X, C), C1), (logic_shift Y, C))
+  //    -> (logic_shift (Binop1 (Binop2 X, inv_logic_shift(C1, C)), Y), C)
+  // (Binop1 (Binop2 (logic_shift X, Amt), Mask), (logic_shift Y, Amt))
+  //    -> (BinOp (logic_shift (BinOp X, Y)), Mask)
+  Instruction *foldBinOpShiftWithShift(BinaryOperator &I);
 
   /// This tries to simplify binary operations by factorizing out common terms
   /// (e. g. "(A*B)+(A*C)" -> "A*(B+C)").
@@ -640,7 +646,7 @@ public:
                            ICmpInst::Predicate Cond, Instruction &I);
   Instruction *foldSelectICmp(ICmpInst::Predicate Pred, SelectInst *SI,
                               Value *RHS, const ICmpInst &I);
-  Instruction *foldAllocaCmp(ICmpInst &ICI, const AllocaInst *Alloca);
+  bool foldAllocaCmp(AllocaInst *Alloca);
   Instruction *foldCmpLoadFromIndexedGlobal(LoadInst *LI,
                                             GetElementPtrInst *GEP,
                                             GlobalVariable *GV, CmpInst &ICI,
@@ -730,10 +736,14 @@ public:
                             SelectPatternFlavor SPF2, Value *C);
   Instruction *foldSelectInstWithICmp(SelectInst &SI, ICmpInst *ICI);
   Instruction *foldSelectValueEquivalence(SelectInst &SI, ICmpInst &ICI);
+  bool replaceInInstruction(Value *V, Value *Old, Value *New,
+                            unsigned Depth = 0);
 
   Value *insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                          bool isSigned, bool Inside);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   bool mergeStoreIntoSuccessor(StoreInst &SI);
 
   /// Given an initial instruction, check to see if it is the root of a
@@ -756,6 +766,7 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
@@ -769,6 +780,14 @@ public:
   /// pair. Returns whether or not it was successful.
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+  bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
+
+  bool removeInstructionsBeforeUnreachable(Instruction &I);
+  bool handleUnreachableFrom(Instruction *I);
+  bool handlePotentiallyDeadSuccessors(BasicBlock *BB, BasicBlock *LiveSucc);
+  void freelyInvertAllUsersOf(Value *V, Value *IgnoredUser = nullptr);
 };
 
 class Negator final {

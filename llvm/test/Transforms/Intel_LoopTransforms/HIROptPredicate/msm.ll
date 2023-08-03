@@ -113,7 +113,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = common local_unnamed_addr global [1000 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(i8* nocapture readonly %p, i8* nocapture readnone %q, i32 %x, i32 %y) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %p, ptr nocapture readnone %q, i32 %x, i32 %y) local_unnamed_addr #0 {
 entry:
   %cmp4 = icmp slt i32 %x, 50
   %cmp10 = icmp sgt i32 %y, 0
@@ -121,9 +121,9 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.inc15, %entry
   %indvars.iv32 = phi i64 [ 0, %entry ], [ %indvars.iv.next33, %for.inc15 ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @a, i64 0, i64 %indvars.iv32
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @a, i64 0, i64 %indvars.iv32
   %cmp5 = icmp slt i64 %indvars.iv32, 50
-  %arrayidx8 = getelementptr inbounds [1000 x i32], [1000 x i32]* @b, i64 0, i64 %indvars.iv32
+  %arrayidx8 = getelementptr inbounds [1000 x i32], ptr @b, i64 0, i64 %indvars.iv32
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
@@ -132,7 +132,7 @@ for.body3:                                        ; preds = %for.inc, %for.cond1
 
 if.then:                                          ; preds = %for.body3
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body3
@@ -140,17 +140,17 @@ if.end:                                           ; preds = %if.then, %for.body3
 
 if.then6:                                         ; preds = %if.end
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx8, align 4
+  store i32 %1, ptr %arrayidx8, align 4
   br label %if.end9
 
 if.end9:                                          ; preds = %if.then6, %if.end
   br i1 %cmp10, label %if.then11, label %for.inc
 
 if.then11:                                        ; preds = %if.end9
-  %arrayidx13 = getelementptr inbounds [1000 x i32], [1000 x i32]* @a, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [1000 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx13, align 4
   %add = add nsw i32 %2, %y
-  store i32 %add, i32* %arrayidx13, align 4
+  store i32 %add, ptr %arrayidx13, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end9, %if.then11
@@ -164,16 +164,16 @@ for.inc15:                                        ; preds = %for.inc
   br i1 %exitcond34, label %for.end17, label %for.cond1.preheader
 
 for.end17:                                        ; preds = %for.inc15
-  %3 = load i8, i8* %p, align 1
+  %3 = load i8, ptr %p, align 1
   %conv = sext i8 %3 to i32
   ret i32 %conv
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

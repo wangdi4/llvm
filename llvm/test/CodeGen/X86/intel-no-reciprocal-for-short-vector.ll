@@ -17,7 +17,7 @@ define void @v2f32_one_step2(<2 x float> %x, float* %ret1, float* %ret2) #0 {
 ; RECIP-LABEL: v2f32_one_step2:
 ; RECIP:       # %bb.0:
 ; RECIP-NEXT:    vrcpps %xmm0, %xmm1
-; RECIP-NEXT:    vmovddup {{.*#+}} xmm2 = [4611686019492741120,4611686019492741120]
+; RECIP-NEXT:    vmovddup {{.*#+}} xmm2 = [1.0E+0,2.0E+0,1.0E+0,2.0E+0]
 ; RECIP-NEXT:    # xmm2 = mem[0,0]
 ; RECIP-NEXT:    vmulps %xmm2, %xmm1, %xmm3
 ; RECIP-NEXT:    vfmsub213ps {{.*#+}} xmm0 = (xmm3 * xmm0) - xmm2
@@ -28,7 +28,8 @@ define void @v2f32_one_step2(<2 x float> %x, float* %ret1, float* %ret2) #0 {
 ;
 ; NO-RECIP-LABEL: v2f32_one_step2:
 ; NO-RECIP:       # %bb.0:
-; NO-RECIP-NEXT:    vmovaps {{.*#+}} xmm1 = <1.0E+0,2.0E+0,u,u>
+; NO-RECIP-NEXT:    vmovddup {{.*#+}} xmm1 = [1.0E+0,2.0E+0,1.0E+0,2.0E+0]
+; NO-RECIP-NEXT:    # xmm1 = mem[0,0]
 ; NO-RECIP-NEXT:    vdivps %xmm0, %xmm1, %xmm0
 ; NO-RECIP-NEXT:    vmovss %xmm0, (%rdi)
 ; NO-RECIP-NEXT:    vextractps $1, %xmm0, (%rsi)

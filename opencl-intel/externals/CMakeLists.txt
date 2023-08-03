@@ -12,3 +12,4 @@
 if(WIN32)
     add_subdirectory(protobuf)
 endif()
+add_subdirectory(hwloc)

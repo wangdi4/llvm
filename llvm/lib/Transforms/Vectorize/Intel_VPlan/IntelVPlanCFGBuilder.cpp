@@ -190,6 +190,10 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
         DirID == DIR_VPO_END_GUARD_MEM_MOTION)
       return nullptr;
+
+    if (NestedSimdStrategy == NestedSimdStrategies::Outermost &&
+        (DirID == DIR_OMP_SIMD || DirID == DIR_OMP_END_SIMD))
+      return nullptr;
   }
 
   VPInstruction *NewVPInst{nullptr};
@@ -207,20 +211,12 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
       VPOperands.push_back(getOrCreateVPOperand(Op));
 
     // Special processing of instructions without explicit operands. For
-    // example, mask in shufflevector, indices in {insert|extract}value.
-    // TODO: Consider having a separate subclass of VPInstruction to represent
-    // {insert|extract}value and shufflevector instructions.
+    // example, mask in shufflevector.
+    // TODO: Once the community cleans up the bitcode representation we'd want
+    // to have a separate subclass of VPInstruction to store the mask.
     if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
       VPOperands.push_back(
           getOrCreateVPOperand(Shuffle->getShuffleMaskForBitcode()));
-    } else if (auto *InsertValue = dyn_cast<InsertValueInst>(Inst)) {
-      ArrayRef<unsigned> Idxs = InsertValue->getIndices();
-      auto *IdxsConst = ConstantDataArray::get(*Plan->getLLVMContext(), Idxs);
-      VPOperands.push_back(getOrCreateVPOperand(IdxsConst));
-    } else if (auto *ExtractValue = dyn_cast<ExtractValueInst>(Inst)) {
-      ArrayRef<unsigned> Idxs = ExtractValue->getIndices();
-      auto *IdxsConst = ConstantDataArray::get(*Plan->getLLVMContext(), Idxs);
-      VPOperands.push_back(getOrCreateVPOperand(IdxsConst));
     }
 
     if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
@@ -261,6 +257,14 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
       cast<VPLoadStoreInst>(NewVPInst)->setOrdering(Store->getOrdering());
       cast<VPLoadStoreInst>(NewVPInst)->setVolatile(Store->isVolatile());
       cast<VPLoadStoreInst>(NewVPInst)->setSyncScopeID(Store->getSyncScopeID());
+    } else if (auto *InsertVal = dyn_cast<InsertValueInst>(Inst)) {
+      NewVPInst = VPIRBuilder.create<VPInsertExtractValue>(
+          "vpinsert", InsertVal->getOpcode(), InsertVal->getType(), VPOperands,
+          InsertVal->getIndices());
+    } else if (auto *ExtractVal = dyn_cast<ExtractValueInst>(Inst)) {
+      NewVPInst = VPIRBuilder.create<VPInsertExtractValue>(
+          "vpextract", ExtractVal->getOpcode(), ExtractVal->getType(),
+          VPOperands, ExtractVal->getIndices());
     } else
       // Build VPInstruction for any arbitraty Instruction without specific
       // representation in VPlan.

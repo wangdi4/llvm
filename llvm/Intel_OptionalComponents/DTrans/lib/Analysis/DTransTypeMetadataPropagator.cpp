@@ -1,6 +1,6 @@
 //===----DTransTypeMetadataPropagator.cpp - DTrans metadata propagation----===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -429,5 +429,186 @@ void DTransTypeMetadataPropagator::setNewGlobVarArrayDTransMetadata(
                               CharPtrMD});
   GV->setMetadata(llvm::dtransOP::MDDTransTypeTag, MD);
 }
+
+//---------------------------------------------------------------------------
+// Begin implementation of functions for DTransMDFieldNodeRetriever
+//---------------------------------------------------------------------------
+
+MDNode *DTransMDFieldNodeRetriever::GetNodeForField(Function *F,
+                                                    llvm::StructType *STy,
+                                                    uint32_t FieldNum) {
+  ParseAllTypesTag(F->getParent());
+  auto *StructMDNode = TypeToMDDescriptor.lookup(STy);
+  if (StructMDNode) {
+    unsigned int NumOps = StructMDNode->getNumOperands();
+    if (NumOps < DTransStructMDConstants::FieldNodeOffset)
+      return nullptr;
+    auto *FieldCountVal = mdconst::dyn_extract<llvm::ConstantInt>(
+        StructMDNode->getOperand(DTransStructMDConstants::FieldCountOffset));
+    if (!FieldCountVal)
+      return nullptr;
+    int32_t FieldCount = FieldCountVal->getSExtValue();
+
+    // Opaque structure types have a field count of -1.
+    if (FieldCount < 0)
+      return nullptr;
+
+    uint32_t MDIndex = FieldNum + DTransStructMDConstants::FieldNodeOffset;
+    if (FieldNum < (uint32_t)FieldCount && MDIndex < NumOps) {
+      auto *FieldMD = dyn_cast<MDNode>(StructMDNode->getOperand(MDIndex));
+      return FieldMD;
+    }
+  }
+
+  return nullptr;
+}
+
+void DTransMDFieldNodeRetriever::ParseAllTypesTag(Module *M) {
+  // Building a table of all the DTrans metadata requires walking a lot of
+  // metadata, only do this once.
+  if (InitializedM == M)
+    return;
+
+  InitializedM = M;
+  TypeToMDDescriptor.clear();
+  TypeMetadataReader::mapStructsToMDNodes(*M, TypeToMDDescriptor, false);
+}
+
+//---------------------------------------------------------------------------
+// Begin implementation of functions for DTransTypeMDArgPromoPropagator
+//---------------------------------------------------------------------------
+
+void DTransTypeMDArgPromoPropagator::initialize(Function *F) {
+  PerFunction.F = F;
+  PerFunction.MDTypeListNode = F->getMetadata(dtransOP::DTransFuncTypeMDTag);
+  PerFunction.DTransMDAttrs.clear();
+}
+
+void DTransTypeMDArgPromoPropagator::addArg(llvm::Type *NewArgTy,
+                                            uint32_t OrigArgNo,
+                                            uint32_t NewArgNo,
+                                            uint32_t ByteOffset) {
+  // Only need to compute metadata for pointer parameters
+  if (!NewArgTy->isPointerTy())
+    return;
+
+  if (!PerFunction.MDTypeListNode)
+    return;
+
+  // Try to determine pointed-to structure type of the original argument based
+  // on the DTrans type information of the existing argument.
+  AttributeList PAL = PerFunction.F->getAttributes();
+  AttributeSet ParamAttrs = PAL.getParamAttrs(OrigArgNo);
+  Attribute Attr = ParamAttrs.getAttribute(dtransOP::DTransFuncIndexTag);
+  if (!Attr.isValid())
+    return;
+
+  StringRef TagName = Attr.getValueAsString();
+  uint64_t Index = stoi(TagName.str());
+  if (Index > PerFunction.MDTypeListNode->getNumOperands())
+    return;
+
+  auto *RefMD =
+      dyn_cast<MDNode>(PerFunction.MDTypeListNode->getOperand(Index - 1));
+  if (!RefMD || RefMD->getNumOperands() != 2)
+    return;
+
+  auto *RefTypeMD = dyn_cast<ConstantAsMetadata>(RefMD->getOperand(0));
+  auto *PtrLevelCI =
+      mdconst::dyn_extract<llvm::ConstantInt>(RefMD->getOperand(1));
+  if (!RefTypeMD || !PtrLevelCI)
+    return;
+  unsigned PtrLevel = PtrLevelCI->getZExtValue();
+  llvm::Type *RefTy = RefTypeMD->getType();
+  if (!RefTy->isStructTy() || PtrLevel != 1)
+    return;
+
+  llvm::StructType *PtrStructType = cast<llvm::StructType>(RefTy);
+  LLVM_DEBUG(dbgs() << "DTransTypeMDArgPromoPropagator: Got type: "
+                    << *PtrStructType << " for argument number " << OrigArgNo
+                    << " of function " << PerFunction.F->getName() << "\n");
+
+  // If the original argument type was a pointer to a structure type, and the
+  // new argument is a field within that structure, then we can try to find the
+  // type for that field. This is currently limited to only looking at direct
+  // fields of the structure, and does not support the case where the memory
+  // offset corresponds to a member of a nested structure.
+  if (PtrStructType->isOpaque())
+    return;
+
+  Module *M = PerFunction.F->getParent();
+  const DataLayout &DL = M->getDataLayout();
+  const StructLayout *SL = DL.getStructLayout(PtrStructType);
+  unsigned int ElemNum = SL->getElementContainingOffset(ByteOffset);
+  unsigned int ElemOffset = SL->getElementOffset(ElemNum);
+  if (ElemOffset == ByteOffset) {
+    MDNode *MD =
+        Retriever.GetNodeForField(PerFunction.F, PtrStructType, ElemNum);
+    if (MD) {
+      PerFunction.DTransMDAttrs.push_back({NewArgNo, MD});
+      LLVM_DEBUG(dbgs() << "  Recorded DTrans MD node: " << *MD
+                        << "for new argument: " << NewArgNo << "\n");
+    }
+  }
+}
+
+void DTransTypeMDArgPromoPropagator::setMDAttributes(Function *NF) {
+  if (!PerFunction.MDTypeListNode || PerFunction.DTransMDAttrs.empty())
+    return;
+
+  LLVM_DEBUG(dbgs() << "Before DTrans type attribute update: " << *NF);
+
+  // Find all the existing "intel_dtrans_func_index" that currently exist on the
+  // new function signature that correspond to arguments that were unchanged.
+  AttributeList Attrs = NF->getAttributes();
+
+  // Map from item (0 for return value, 1..n for arguments) that currently has
+  // a DTrans type metadata attribute to the actual metadata node for the new
+  // function.
+  SmallVector<std::pair<uint32_t, Metadata *>> AttrMap;
+  MDNode *MDTypeListNode = NF->getMetadata(dtransOP::DTransFuncTypeMDTag);
+  unsigned MDLen = MDTypeListNode->getNumOperands();
+  AttributeSet RetAttrs = Attrs.getRetAttrs();
+  uint64_t Index = DTransTypeAttributeUtil::GetMetadataIndex(RetAttrs);
+  if (Index && Index <= MDLen)
+    AttrMap.push_back(
+        {AttributeList::ReturnIndex, MDTypeListNode->getOperand(Index - 1)});
+
+  unsigned ArgCount = PerFunction.F->arg_size();
+  for (unsigned ArgNum = 0; ArgNum < ArgCount; ++ArgNum) {
+    AttributeSet ParamAttrs = Attrs.getParamAttrs(ArgNum);
+    uint64_t Index = DTransTypeAttributeUtil::GetMetadataIndex(ParamAttrs);
+    if (Index && Index <= MDLen) {
+      AttrMap.push_back({ArgNum + AttributeList::FirstArgIndex,
+                         MDTypeListNode->getOperand(Index - 1)});
+    }
+  }
+
+  // Add the new items that were determined by 'addArg' to the map.
+  for (auto &Pair : PerFunction.DTransMDAttrs) {
+    auto [ArgNum, MD] = std::tie(Pair.first, Pair.second);
+    AttrMap.push_back({ArgNum + AttributeList::FirstArgIndex, MD});
+  }
+
+  // Finally, rewrite the attribute index values and the DTrans type metadata
+  // node Rewrite the metadata to remove the unused elements.
+  SmallVector<Metadata *, 8> MDTypeList;
+  SmallVector<int, 8> AttrIndices;
+  for (auto &KV : AttrMap) {
+    DTransTypeAttributeUtil::RemoveDTransFuncIndexAttribute(NF, KV.first);
+    DTransTypeAttributeUtil::AddDTransFuncIndexAttribute(NF, KV.second,
+                                                         KV.first, MDTypeList);
+  }
+
+  // Set the new value for the !intel.dtrans.func.type metadata.
+  NF->setMetadata(DTransFuncTypeMDTag, nullptr);
+  if (!MDTypeList.empty()) {
+    auto *MDTypes = MDTuple::getDistinct(NF->getContext(), MDTypeList);
+    NF->addMetadata(DTransFuncTypeMDTag, *MDTypes);
+  }
+
+  LLVM_DEBUG(dbgs() << "After DTrans type attribute update: " << *NF);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm

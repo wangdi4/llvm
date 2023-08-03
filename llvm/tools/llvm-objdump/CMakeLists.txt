@@ -22,7 +22,6 @@ set(LLVM_LINK_COMPONENTS
   BinaryFormat
   DebugInfoDWARF
   DebugInfoTraceBack # INTEL
-  DebugInfoPDB
   Demangle
   MC
   MCDisassembler

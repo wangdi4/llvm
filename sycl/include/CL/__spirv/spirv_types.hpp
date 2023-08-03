@@ -1,19 +1,4 @@
 //===------------ spirv_types.hpp --- SPIRV types -------------------------===//
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,8 +8,6 @@
 
 #pragma once
 
-#include "sycl/half_type.hpp"
-#include <sycl/detail/defines.hpp>
 #include <sycl/detail/defines_elementary.hpp>
 #include <sycl/half_type.hpp>
 
@@ -124,7 +107,8 @@ struct MemorySemanticsMask {
 enum class GroupOperation : uint32_t {
   Reduce = 0,
   InclusiveScan = 1,
-  ExclusiveScan = 2
+  ExclusiveScan = 2,
+  ClusteredReduce = 3,
 };
 
 #if (SYCL_EXT_ONEAPI_MATRIX_VERSION > 1)
@@ -200,12 +184,12 @@ struct ConstantPipeStorage {
 };
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 // Arbitrary precision integer type
 template <int Bits> using ap_int = _BitInt(Bits);
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 #endif // __SYCL_DEVICE_ONLY__
 

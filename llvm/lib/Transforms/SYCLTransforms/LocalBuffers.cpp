@@ -219,9 +219,8 @@ static void replaceAllUsesOfConstantWith(Constant *From, Instruction *To) {
   From->removeDeadConstantUsers();
 }
 
-void LocalBuffersPass::attachDebugInfoToLocalMem(GlobalVariable *GV,
-                                                 Value *LocalMem,
-                                                 unsigned offset) {
+void LocalBuffersPass::attachDebugInfoToLocalAddr(GlobalVariable *GV,
+                                                  Value *LocalAddr) {
   SmallVector<DIGlobalVariableExpression *, 1> DIGVExprs;
   GV->getDebugInfo(DIGVExprs);
 
@@ -232,14 +231,14 @@ void LocalBuffersPass::attachDebugInfoToLocalMem(GlobalVariable *GV,
     if (DIGV->getScope() != SP)
       continue;
     auto *DIExpr = DIGVExpr->getExpression();
-    DIExpr = DIExpression::prepend(DIExpr, DIExpression::DerefBefore, offset);
+    DIExpr = DIExpression::prepend(DIExpr, DIExpression::DerefBefore);
 
     // Create a function-level Debug local variable
     auto *DILV = DIB.createAutoVariable(
         DIGV->getScope(), DIGV->getName(), DIGV->getFile(), DIGV->getLine(),
         DIGV->getType(), true, DINode::FlagArtificial);
 
-    DIB.insertDbgValueIntrinsic(LocalMem, DILV, DIExpr,
+    DIB.insertDbgValueIntrinsic(LocalAddr, DILV, DIExpr,
                                 DILocation::get(*Context, 0, 0, SP),
                                 InsertPoint);
   }
@@ -281,7 +280,7 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
     replaceAllUsesOfConstantWith(GV, dyn_cast<Instruction>(Replacement));
 
     if (SP)
-      attachDebugInfoToLocalMem(GV, LocalMem, Offset);
+      attachDebugInfoToLocalAddr(GV, LocalAddr);
   }
 }
 

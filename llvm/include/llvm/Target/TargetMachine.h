@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -252,6 +252,8 @@ public:
   /// Set the code model.
   void setCodeModel(CodeModel::Model CM) { CMModel = CM; }
 
+  bool isLargeData() const;
+
   bool isPositionIndependent() const;
 
   bool shouldAssumeDSOLocal(const Module &M, const GlobalValue *GV) const;
@@ -289,6 +291,8 @@ public:
   void setIntelLibIRCAllowed(bool Value) {
     Options.IntelLibIRCAllowed = Value;
   }
+
+  void setIntelLibMAllowed(bool Value) { Options.IntelLibMAllowed = Value; }
 
   void setIntelABICompatible(bool Value) {
     Options.IntelABICompatible = Value;
@@ -527,6 +531,9 @@ public:
   /// The default variant to use in unqualified `asm` instructions.
   /// If this returns 0, `asm "$(foo$|bar$)"` will evaluate to `asm "foo"`.
   virtual int unqualifiedInlineAsmVariant() const { return 0; }
+
+  // MachineRegisterInfo callback function
+  virtual void registerMachineRegisterInfoCallback(MachineFunction &MF) const {}
 };
 
 /// Helper method for getting the code model, returning Default if

@@ -36,6 +36,7 @@
 #include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
+#include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -1178,7 +1179,7 @@ StmtResult Parser::HandlePragmaLoopFuse() {
   ParsedAttributes Attrs(AttrFactory);
   ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
   Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
-               AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
+               AttrLoc, AttrArgs, 2, ParsedAttr::Form::Pragma());
   R = Actions.ActOnAttributedStmt(Attrs, FuseScopeStmt);
   return R;
 }
@@ -2184,7 +2185,8 @@ void Parser::HandlePragmaAttribute() {
     ConsumeToken();
   };
 
-  if (Tok.is(tok::l_square) && NextToken().is(tok::l_square)) {
+  if ((Tok.is(tok::l_square) && NextToken().is(tok::l_square)) ||
+      Tok.isRegularKeywordAttribute()) {
     // Parse the CXX11 style attribute.
     ParseCXX11AttributeSpecifier(Attrs);
   } else if (Tok.is(tok::kw___attribute)) {
@@ -2216,11 +2218,12 @@ void Parser::HandlePragmaAttribute() {
 
       if (Tok.isNot(tok::l_paren))
         Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                     ParsedAttr::AS_GNU);
+                     ParsedAttr::Form::GNU());
       else
         ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, /*EndLoc=*/nullptr,
                               /*ScopeName=*/nullptr,
-                              /*ScopeLoc=*/SourceLocation(), ParsedAttr::AS_GNU,
+                              /*ScopeLoc=*/SourceLocation(),
+                              ParsedAttr::Form::GNU(),
                               /*Declarator=*/nullptr);
     } while (TryConsumeToken(tok::comma));
 
@@ -4681,7 +4684,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
                           ArgsUnion(Hint.ArrayExpr)};
   Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
                Hint.PragmaNameLoc->Loc, ArgHints, 5,
-               ParsedAttr::AS_Pragma);
+               ParsedAttr::Form::Pragma());
   return true;
 }
 
@@ -4911,7 +4914,8 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
                             ArgsUnion(Hint.ValueExpr),
                             ArgsUnion(Hint.ArrayExpr)};
     Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-                 OptionTok.getLocation(), ArgHints, 5, ParsedAttr::AS_Pragma);
+                 OptionTok.getLocation(), ArgHints, 5,
+                 ParsedAttr::Form::Pragma());
   };
   if (NextToken().is(tok::eod))
     AddNewAttr(Tok, OptionInfo);
@@ -5344,6 +5348,7 @@ void PragmaMaxTokensTotalHandler::HandlePragma(Preprocessor &PP,
 }
 
 // Handle '#pragma clang riscv intrinsic vector'.
+//        '#pragma clang riscv intrinsic sifive_vector'.
 void PragmaRISCVHandler::HandlePragma(Preprocessor &PP,
                                       PragmaIntroducer Introducer,
                                       Token &FirstToken) {
@@ -5359,9 +5364,10 @@ void PragmaRISCVHandler::HandlePragma(Preprocessor &PP,
 
   PP.Lex(Tok);
   II = Tok.getIdentifierInfo();
-  if (!II || !II->isStr("vector")) {
+  if (!II || !(II->isStr("vector") || II->isStr("sifive_vector"))) {
     PP.Diag(Tok.getLocation(), diag::warn_pragma_invalid_argument)
-        << PP.getSpelling(Tok) << "riscv" << /*Expected=*/true << "'vector'";
+        << PP.getSpelling(Tok) << "riscv" << /*Expected=*/true
+        << "'vector' or 'sifive_vector'";
     return;
   }
 
@@ -5372,5 +5378,8 @@ void PragmaRISCVHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  Actions.DeclareRISCVVBuiltins = true;
+  if (II->isStr("vector"))
+    Actions.DeclareRISCVVBuiltins = true;
+  else if (II->isStr("sifive_vector"))
+    Actions.DeclareRISCVSiFiveVectorBuiltins = true;
 }

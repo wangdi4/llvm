@@ -215,13 +215,15 @@ static unsigned getMaxDepDist(const RefGroupTy &Group, unsigned LoopLevel) {
 //
 // Returns -1 if not max index load is not applicable.
 static unsigned getMaxLoadIndex(const RefGroupTy &Group, unsigned LoopLevel,
-                                unsigned MaxDepDist) {
+                                unsigned MaxDepDist,
+                                bool *ConditionalStoreHasMinTopSortNum) {
 
   // *MAY* find the MaxLoad if there is 1+ load(s)
   unsigned Size = Group.size();
   unsigned MinTopNum = unsigned(-1); // may shrink
   const RegDDRef *FirstRef = Group[0];
   bool DepDistExist = false, MaxIndexIsRVal = false;
+  bool IsConditional = false;
   int64_t DepDist = 0;
   unsigned MaxLoadIdx = 0;
 
@@ -239,15 +241,21 @@ static unsigned getMaxLoadIndex(const RefGroupTy &Group, unsigned LoopLevel,
       break;
     }
 
+    bool IsRval = MemRef->isRval();
+
     // Find the minimal TOPO#: + record its matching Index
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
     // Override store at same top sort number with load.
-    if (CurTopNum < MinTopNum || (CurTopNum == MinTopNum && MemRef->isRval())) {
+    if (CurTopNum < MinTopNum || (CurTopNum == MinTopNum && IsRval)) {
       MinTopNum = CurTopNum;
-      // Set flag based on whether MemRef is Rval or not
-      MaxIndexIsRVal = MemRef->isRval();
+      IsConditional = !isa<HLLoop>(MemRef->getHLDDNode()->getParent());
+      MaxIndexIsRVal = IsRval;
       MaxLoadIdx = I;
     }
+  }
+
+  if (IsConditional && !MaxIndexIsRVal) {
+    *ConditionalStoreHasMinTopSortNum = true;
   }
 
   return MaxIndexIsRVal ? MaxLoadIdx : -1;
@@ -356,41 +364,124 @@ void MemRefGroup::setHasIndexGap(const RefGroupTy &Group) {
   }
 }
 
+// Stores the index in the ref vector of the min-index store with max top sort
+// number. E.g. A[i](W), A[i](W), A[i](W), A[i+1](.) ...
+//                        ^min_index store with max top sort num
+//
+// It also stores the position where the min-index store needs to be generated.
+void MemRefGroup::computeMinStoreInfo(const RefGroupTy &Group) {
+
+  if (NumStores == 0) {
+    return;
+  }
+
+  unsigned MaxStoreTopSortNum = 0;
+  const HLNode *MinStorePos = nullptr;
+  const RegDDRef *MinIndexStore = nullptr;
+  int64_t DepDist = 0;
+
+  for (unsigned I = 0, E = Group.size(); I < E; ++I) {
+
+    auto *MemRef = Group[I];
+
+    if (MemRef->isRval()) {
+      continue;
+    }
+
+    if (!MinIndexStore) {
+      MinIndexStore = MemRef;
+
+    } else if (DDRefUtils::getConstIterationDistance(MemRef, MinIndexStore,
+                                                     LoopLevel, &DepDist) &&
+               (DepDist != 0)) {
+      // We are already past the min index.
+      break;
+    }
+
+    auto *CurNode = MemRef->getHLDDNode();
+    unsigned CurTopSortNum = CurNode->getTopSortNum();
+
+    // Keep track of max top sort num of all stores to store insert position of
+    // min index store.
+    if (CurTopSortNum > MaxStoreTopSortNum) {
+      MaxStoreTopSortNum = CurTopSortNum;
+      MinStorePos = CurNode;
+      MinStoreIndex = I;
+    }
+  }
+
+  if (!isa<HLLoop>(MinStorePos->getParent())) {
+    MinStorePos = HLNodeUtils::getImmediateChildContainingNode(Lp, MinStorePos);
+  }
+
+  MinStoreInsertAfterPos = const_cast<HLNode *>(MinStorePos);
+}
+
 bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
   bool IsUnknown = Lp->isUnknown();
   bool HasForwardGotos = (Lp->getNumExits() > 1) ||
-                         HSRA.HLS.getSelfLoopStatistics(Lp).hasForwardGotos();
+                         HSRA.HLS.getSelfStatistics(Lp).hasForwardGotos();
+
+  bool HasUnconditionalStore = false;
+  bool HasConditionalStore = false;
 
   // Perform basic checks on the group.
   for (auto *MemRef : Group) {
     if (MemRef->isLval()) {
       // Do not handle stores in unknown loop. This can be extended by
-      // creating copy instruction for IV. Do not handle conditional stores.
-      // Conditional loads are okay.
-      if (IsUnknown || HasForwardGotos ||
-          !isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
+      // creating copy instruction for IV. Do not handle stores in loop with
+      // gotos. Conditional loads are okay.
+      if (IsUnknown || HasForwardGotos) {
         return false;
       }
+
+      if (!isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
+        HasConditionalStore = true;
+      } else {
+        HasUnconditionalStore = true;
+      }
+
       ++NumStores;
     } else {
       ++NumLoads;
     }
   }
 
-  if (!canHoistMinLoadIndex(Group, Lp)) {
-    return false;
-  }
-
-  MaxDepDist = getMaxDepDist(Group, LoopLevel);
+  MaxDepDist =
+      HSRA.LoopIndependentReplOnly ? 0 : getMaxDepDist(Group, LoopLevel);
 
   assert((!isVectorLoop() || MaxDepDist == 0) &&
          "unexpected group with non-zero distance in vector loop");
 
-  if (NumLoads != 0) {
-    MaxLoadIndex = getMaxLoadIndex(Group, LoopLevel, MaxDepDist);
+  // No hoisting required for groups with zero distance.
+  if ((MaxDepDist != 0) && !canHoistMinLoadIndex(Group, Lp)) {
+    return false;
   }
 
-  // TODO: set min store here as well for simplicity.
+  if (HasConditionalStore) {
+    // Only handle conditional stores for loop-independant groups.
+    if (MaxDepDist != 0) {
+      return false;
+    }
+
+    // Only allow conditional store if we have an unconditional store in the
+    // group.
+    if (!HasUnconditionalStore) {
+      return false;
+    }
+  }
+
+  if (NumLoads != 0) {
+    bool ConditionalStoreHasMinTopSortNum = false;
+    MaxLoadIndex = getMaxLoadIndex(Group, LoopLevel, MaxDepDist,
+                                   &ConditionalStoreHasMinTopSortNum);
+
+    // Bail out for groups that start with conditional stores as that can result
+    // in undefined scalar-replaced temp in some paths.
+    if (ConditionalStoreHasMinTopSortNum) {
+      return false;
+    }
+  }
 
   // MaxLoad should be unconditionally executed within the loop.
   if (hasMaxLoadIndex() &&
@@ -398,6 +489,8 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
                               Lp->getLastChild())) {
     return false;
   }
+
+  computeMinStoreInfo(Group);
 
   setHasIndexGap(Group);
 
@@ -415,7 +508,7 @@ MemRefGroup::MemRefGroup(HIRScalarReplArray &HSRA, HLLoop *Lp,
     : HSRA(HSRA), Lp(Lp), NumLoads(0), NumStores(0),
       LoopLevel(Lp->getNestingLevel()), IsValid(true), HasIndexGap(false),
       MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0),
-      IsVectorLoop(IsVectorLoop) {
+      IsVectorLoop(IsVectorLoop), MinStoreInsertAfterPos(nullptr) {
 
   if (!createRefTuple(Group)) {
     IsValid = false;
@@ -453,63 +546,6 @@ bool MemRefGroup::belongs(RegDDRef *Ref) const {
   }
 
   return false;
-}
-
-void MemRefGroup::markMinStore(void) {
-  if (NumStores == 0) {
-    return;
-  }
-
-  // Identify the 1st store and its DepDist (MinDD): must Find!
-  unsigned MinDD = 0;
-  bool FindMinDD = false;
-  unsigned Size = RefTupleVec.size();
-
-  for (unsigned I = 0; I <= Size - 1; ++I) {
-    RefTuple *RT = &RefTupleVec[I];
-
-    // Only try 1st store
-    RegDDRef *MemRef = RT->getMemRef();
-    if (MemRef->isLval()) {
-      MinDD = RT->getTmpId();
-      FindMinDD = true;
-      break;
-    }
-  }
-
-  // must find if there is 1+ store.
-  assert(FindMinDD && "Fail to find MinDD\n");
-  (void)FindMinDD;
-
-  unsigned MaxTopNum = 0; // will grow
-
-  for (unsigned I = 0; I <= Size - 1; ++I) { // may search the full vector
-    RefTuple *RT = &RefTupleVec[I];
-
-    // Only check Store(s)
-    RegDDRef *MemRef = RT->getMemRef();
-    if (MemRef->isRval()) {
-      continue;
-    }
-
-    // Only check any RT whose TmpId == MinDD
-    uint64_t TmpId = RT->getTmpId();
-    if (TmpId < MinDD) {
-      continue;
-    } else if (TmpId > MinDD) {
-      break;
-    }
-
-    // Find the largest TOPO#
-    unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
-    if (CurTopNum > MaxTopNum) {
-      MinStoreIndex = I;
-      MaxTopNum = CurTopNum;
-    }
-  }
-
-  // must find the MinIndxStoreRT
-  assert(hasMinStoreIndex() && "fail to find MinStoreIndex\n");
 }
 
 void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &IndexGaps) {
@@ -577,6 +613,20 @@ bool MemRefGroup::areDDEdgesLegal(DDGraph &DDG) const {
 
       if (!HasIndexGap) {
         DVKind DVElem = DV[LoopLevel - 1];
+
+        // Disable transformation of loop-independent groups with conditional
+        // stores if the new location of the store would convert a lexically
+        // forward loop carried edge into a lexically backward edge making
+        // vectorization illegal.
+        auto *MinStorePos = getMinStoreInsertAfterPos();
+        if (MinStorePos && !isa<HLInst>(MinStorePos)) {
+          if (!IsIncoming && Ref->isLval() && (DVElem == DVKind::LT) &&
+              Edge->isForwardDep() &&
+              (MinStorePos->getMaxTopSortNum() >=
+               Edge->getSink()->getHLDDNode()->getTopSortNum())) {
+            return false;
+          }
+        }
 
         // If the loop-level DV is '<' or '>' the ref was either not included in
         // group due to distance threshold or the distance could not be computed
@@ -1113,6 +1163,7 @@ bool HIRScalarReplArray::run() {
     return false;
   }
 
+  bool Modified = false;
   for (auto &Lp : CandidateLoops) {
     clearWorkingSetMemory();
 
@@ -1121,11 +1172,12 @@ bool HIRScalarReplArray::run() {
       continue;
     }
 
+    Modified = true;
     doTransform(Lp);
   }
 
   CandidateLoops.clear();
-  return false;
+  return Modified;
 }
 
 bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
@@ -1152,7 +1204,7 @@ bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
 }
 
 bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnknownAliasing()) {
     return false;
@@ -1354,7 +1406,9 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Number of Array Refs Scalar Replaced In Loop: %d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumRefsPromoted);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::NumArrayRefsScalarReplaced,
+                           NumRefsPromoted);
 
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics
@@ -1374,8 +1428,6 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   // Preparations:
   MRG.handleTemps();
   assert(MRG.verify() && "MRG verification failed\n");
-
-  MRG.markMinStore();
 
   SmallVector<bool, 16> IndexGaps;
   MRG.identifyGaps(IndexGaps);
@@ -1468,8 +1520,8 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     RegDDRef *TmpRefClone = MinStoreRefTuple->getTmpRef()->clone();
 
     HLInst *StoreInst = HNU.createStore(TmpRefClone, "store", MemRefClone);
-    HLDDNode *DDNode = MemRef->getHLDDNode();
-    HLNodeUtils::insertAfter(DDNode, StoreInst);
+
+    HLNodeUtils::insertAfter(MRG.getMinStoreInsertAfterPos(), StoreInst);
   }
 
   // Replace each MemRef with its matching Temp
@@ -1541,18 +1593,20 @@ void HIRScalarReplArray::printRefGroupTy(RefGroupTy &Group, bool PrintNewLine) {
 
 PreservedAnalyses HIRScalarReplArrayPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
-      .run();
+  ModifiedHIR =
+      HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
+          .run();
 
   return PreservedAnalyses::all();
 }
 
 PreservedAnalyses HIRLoopIndependentScalarReplPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F), true)
-      .run();
+  ModifiedHIR =
+      HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F), true)
+          .run();
 
   return PreservedAnalyses::all();
 }

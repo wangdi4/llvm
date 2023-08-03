@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -86,15 +86,12 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -506,41 +503,75 @@ memoryIsNotModifiedBetween(Instruction *FirstI, Instruction *SecondI,
   return true;
 }
 
-static void shortenAssignment(Instruction *Inst, uint64_t OldOffsetInBits,
-                              uint64_t OldSizeInBits, uint64_t NewSizeInBits,
-                              bool IsOverwriteEnd) {
-  DIExpression::FragmentInfo DeadFragment;
-  DeadFragment.SizeInBits = OldSizeInBits - NewSizeInBits;
-  DeadFragment.OffsetInBits =
+static void shortenAssignment(Instruction *Inst, Value *OriginalDest,
+                              uint64_t OldOffsetInBits, uint64_t OldSizeInBits,
+                              uint64_t NewSizeInBits, bool IsOverwriteEnd) {
+  const DataLayout &DL = Inst->getModule()->getDataLayout();
+  uint64_t DeadSliceSizeInBits = OldSizeInBits - NewSizeInBits;
+  uint64_t DeadSliceOffsetInBits =
       OldOffsetInBits + (IsOverwriteEnd ? NewSizeInBits : 0);
-
-  auto CreateDeadFragExpr = [Inst, DeadFragment]() {
-    // FIXME: This should be using the DIExpression in the Alloca's dbg.assign
-    // for the variable, since that could also contain a fragment?
-    return *DIExpression::createFragmentExpression(
-        DIExpression::get(Inst->getContext(), std::nullopt),
+  auto SetDeadFragExpr = [](DbgAssignIntrinsic *DAI,
+                            DIExpression::FragmentInfo DeadFragment) {
+    // createFragmentExpression expects an offset relative to the existing
+    // fragment offset if there is one.
+    uint64_t RelativeOffset = DeadFragment.OffsetInBits -
+                              DAI->getExpression()
+                                  ->getFragmentInfo()
+                                  .value_or(DIExpression::FragmentInfo(0, 0))
+                                  .OffsetInBits;
+    if (auto NewExpr = DIExpression::createFragmentExpression(
+            DAI->getExpression(), RelativeOffset, DeadFragment.SizeInBits)) {
+      DAI->setExpression(*NewExpr);
+      return;
+    }
+    // Failed to create a fragment expression for this so discard the value,
+    // making this a kill location.
+    auto *Expr = *DIExpression::createFragmentExpression(
+        DIExpression::get(DAI->getContext(), std::nullopt),
         DeadFragment.OffsetInBits, DeadFragment.SizeInBits);
+    DAI->setExpression(Expr);
+    DAI->setKillLocation();
   };
 
   // A DIAssignID to use so that the inserted dbg.assign intrinsics do not
   // link to any instructions. Created in the loop below (once).
   DIAssignID *LinkToNothing = nullptr;
+  LLVMContext &Ctx = Inst->getContext();
+  auto GetDeadLink = [&Ctx, &LinkToNothing]() {
+    if (!LinkToNothing)
+      LinkToNothing = DIAssignID::getDistinct(Ctx);
+    return LinkToNothing;
+  };
 
   // Insert an unlinked dbg.assign intrinsic for the dead fragment after each
-  // overlapping dbg.assign intrinsic.
-  for (auto *DAI : at::getAssignmentMarkers(Inst)) {
-    if (auto FragInfo = DAI->getExpression()->getFragmentInfo()) {
-      if (!DIExpression::fragmentsOverlap(*FragInfo, DeadFragment))
-        continue;
+  // overlapping dbg.assign intrinsic. The loop invalidates the iterators
+  // returned by getAssignmentMarkers so save a copy of the markers to iterate
+  // over.
+  auto LinkedRange = at::getAssignmentMarkers(Inst);
+  SmallVector<DbgAssignIntrinsic *> Linked(LinkedRange.begin(),
+                                           LinkedRange.end());
+  for (auto *DAI : Linked) {
+    std::optional<DIExpression::FragmentInfo> NewFragment;
+    if (!at::calculateFragmentIntersect(DL, OriginalDest, DeadSliceOffsetInBits,
+                                        DeadSliceSizeInBits, DAI,
+                                        NewFragment) ||
+        !NewFragment) {
+      // We couldn't calculate the intersecting fragment for some reason. Be
+      // cautious and unlink the whole assignment from the store.
+      DAI->setKillAddress();
+      DAI->setAssignId(GetDeadLink());
+      continue;
     }
+    // No intersect.
+    if (NewFragment->SizeInBits == 0)
+      continue;
 
     // Fragments overlap: insert a new dbg.assign for this dead part.
     auto *NewAssign = cast<DbgAssignIntrinsic>(DAI->clone());
     NewAssign->insertAfter(DAI);
-    if (!LinkToNothing)
-      LinkToNothing = DIAssignID::getDistinct(Inst->getContext());
-    NewAssign->setAssignId(LinkToNothing);
-    NewAssign->setExpression(CreateDeadFragExpr());
+    NewAssign->setAssignId(GetDeadLink());
+    if (NewFragment)
+      SetDeadFragExpr(NewAssign, *NewFragment);
     NewAssign->setKillAddress();
   }
 }
@@ -617,8 +648,8 @@ static bool tryToShorten(Instruction *DeadI, int64_t &DeadStart,
   DeadIntrinsic->setLength(TrimmedLength);
   DeadIntrinsic->setDestAlignment(PrefAlign);
 
+  Value *OrigDest = DeadIntrinsic->getRawDest();
   if (!IsOverwriteEnd) {
-    Value *OrigDest = DeadIntrinsic->getRawDest();
     Type *Int8PtrTy =
         Type::getInt8PtrTy(DeadIntrinsic->getContext(),
                            OrigDest->getType()->getPointerAddressSpace());
@@ -637,7 +668,7 @@ static bool tryToShorten(Instruction *DeadI, int64_t &DeadStart,
   }
 
   // Update attached dbg.assign intrinsics. Assume 8-bit byte.
-  shortenAssignment(DeadI, DeadStart * 8, DeadSize * 8, NewSize * 8,
+  shortenAssignment(DeadI, OrigDest, DeadStart * 8, DeadSize * 8, NewSize * 8,
                     IsOverwriteEnd);
 
   // Finally update start and size of dead access.
@@ -2059,7 +2090,15 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                                 const LoopInfo &LI) {
   bool MadeChange = false;
 
-  MSSA.ensureOptimizedUses();
+#if INTEL_CUSTOMIZATION
+  // Community has removed ensureOptimizedUses call to improve compile-time. But
+  // this is causing some dead store instructions are not removed by DSE pass.
+  // Some DTrans optimizations are not triggered due to the presence of these
+  // dead store instructions. For now, call ensureOptimizedUses at least for
+  // routines that are marked with "noinline-dtrans" attribute.
+  if (F.hasFnAttribute("noinline-dtrans"))
+    MSSA.ensureOptimizedUses();
+#endif // INTEL_CUSTOMIZATION
   DSEState State(F, AA, MSSA, DT, PDT, AC, TLI, LI);
   // For each store:
   for (unsigned I = 0; I < State.MemDefs.size(); I++) {

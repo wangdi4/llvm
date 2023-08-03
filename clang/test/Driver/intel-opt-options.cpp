@@ -232,3 +232,46 @@
 // NO_VEC: "-mllvm" "-enable-o0-vectorization=false"
 // NO_VEC: "-mllvm" "-vplan-driver=false"
 // NO_VEC: "-mllvm" "-vplan-driver-hir=false"
+
+// check -qopt-prefetch behaviors
+// RUN: %clang --intel -qopt-prefetch=0 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=NO_PREFETCH
+// RUN: %clang --intel -qno-opt-prefetch -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=NO_PREFETCH
+// RUN: %clang_cl --intel -Qopt-prefetch:0 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=NO_PREFETCH
+// RUN: %clang_cl --intel -Qopt-prefetch- -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=NO_PREFETCH
+// NO_PREFETCH: "-mllvm" "-disable-hir-prefetching"
+
+// RUN: %clang --intel -qopt-prefetch=3 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_3
+// RUN: %clang --intel -qopt-prefetch=4 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_3
+// RUN: %clang_cl --intel /Qopt-prefetch:3 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_3
+// RUN: %clang_cl --intel -Qopt-prefetch=4 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_3
+// RUN: %clang --intel -qopt-prefetch=5 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=PREFETCH_3,PREFETCH_5
+// RUN: %clang_cl --intel /Qopt-prefetch:5 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=PREFETCH_3,PREFETCH_5
+// PREFETCH_3: "-mllvm" "-hir-prefetching-num-cachelines-threshold=0"
+// PREFETCH_3: "-mllvm" "-hir-prefetching-skip-num-memory-streams-check"
+// PREFETCH_3: "-mllvm" "-hir-prefetching-trip-count-threshold=0"
+// PREFETCH_3: "-mllvm" "-hir-prefetching-skip-non-modified-regions"
+// PREFETCH_5: "-mllvm" "-hir-prefetching-enable-indirect-prefetching"
+
+// RUN: %clang --intel -qopt-prefetch -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang_cl --intel /Qopt-prefetch -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang --intel -qopt-prefetch=2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang_cl --intel /Qopt-prefetch:2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-num-cachelines-threshold=0"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-skip-num-memory-streams-check"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-trip-count-threshold=0"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-skip-non-modified-regions"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-enable-indirect-prefetching"

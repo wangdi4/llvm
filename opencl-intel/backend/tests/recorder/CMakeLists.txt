@@ -26,9 +26,9 @@ add_opencl_executable(
   ${OCL_SOURCE_DIR}/tests/test_utils/test_utils.cpp)
 
 # linking
-link_directories(${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/)
+link_directories(${CMAKE_INSTALL_PREFIX}/bin/)
 
-target_link_libraries(${TARGET_NAME}
+target_link_libraries(${TARGET_NAME} PRIVATE
   LLVMSupport
   LLVMTargetParser
   llvm_gtest
@@ -39,17 +39,12 @@ target_link_libraries(${TARGET_NAME}
   )
 
 if(NOT WIN32)
-  target_link_libraries(${TARGET_NAME} ${PTHREAD_LIB})
+  target_link_libraries(${TARGET_NAME} PRIVATE ${PTHREAD_LIB})
 else(NOT WIN32)
-  target_link_libraries(${TARGET_NAME} delayimp)
-  set_target_properties(
-    ${TARGET_NAME}
-    PROPERTIES
-      LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG}   /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll")
+  target_link_libraries(${TARGET_NAME} PRIVATE delayimp)
 endif(NOT WIN32)
+
+link_target_with_tbb_library(${TARGET_NAME})
 
 set(CMAKE_CXX_FLAGS_DEBUG "-D OCLFRONTEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

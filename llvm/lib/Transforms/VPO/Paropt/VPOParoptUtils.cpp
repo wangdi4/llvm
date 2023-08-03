@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include <string>
 
 #if INTEL_CUSTOMIZATION
@@ -1449,21 +1450,21 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 enum class IndexBuiltinKind {
   LOCAL_ID,
   GROUP_ID,
+  GLOBAL_ID,
   LOCAL_SIZE,
   NUM_GROUPS,
+  GLOBAL_SIZE,
   INDEX_BUILTIN_MAX
 };
 
 static const StringRef IndexBuiltinNamesOCL[] = {
-    "_Z12get_local_idj", "_Z12get_group_idj", "_Z14get_local_sizej",
-    "_Z14get_num_groupsj"};
+    "_Z12get_local_idj",   "_Z12get_group_idj",   "_Z13get_global_idj",
+    "_Z14get_local_sizej", "_Z14get_num_groupsj", "_Z15get_global_sizej"};
 
 static const StringRef IndexBuiltinNamesSPV[] = {
-    "_Z27__spirv_LocalInvocationId",
-    "_Z21__spirv_WorkgroupId",
-    "_Z23__spirv_WorkgroupSize",
-    "_Z23__spirv_NumWorkgroups",
-};
+    "_Z27__spirv_LocalInvocationId",  "_Z21__spirv_WorkgroupId",
+    "_Z28__spirv_GlobalInvocationId", "_Z23__spirv_WorkgroupSize",
+    "_Z23__spirv_NumWorkgroups",      "_Z20__spirv_GlobalSize"};
 
 static CallInst *genIndexingBuiltinCall(IndexBuiltinKind BuiltinId, int Dim,
                                         Instruction *InsertPt) {
@@ -1507,6 +1508,11 @@ CallInst *VPOParoptUtils::genGroupIdCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::GROUP_ID, Dim, InsertPt);
 }
 
+// Generate a call to get global id for the dimension provided
+CallInst *VPOParoptUtils::genGlobalIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GLOBAL_ID, Dim, InsertPt);
+}
+
 // Generate a call to get local (group) size for the dimension provided
 CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_SIZE, Dim, InsertPt);
@@ -1515,6 +1521,11 @@ CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
 // Generate a call to get number of groups the dimension provided
 CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::NUM_GROUPS, Dim, InsertPt);
+}
+
+// Generate a call to get local (group) size for the dimension provided
+CallInst *VPOParoptUtils::genGlobalSizeCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GLOBAL_SIZE, Dim, InsertPt);
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
@@ -2668,7 +2679,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
     }
   }
 
-  if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetTask()) {
+  if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetNowaitTask()) {
     W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
     TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }
@@ -2721,19 +2732,18 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   return TaskAllocCall;
 }
 
-CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(WRegionNode *W,
-                                                          StructType *IdentTy,
-                                                          Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
   Type *Int32Ty = Builder.getInt32Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
 
   Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  Value *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
 
-  CallInst *TaskAllocCall =
-      genKmpcTaskAllocImpl(W, IdentTy, ValueZero, ValueZero, ValueZero, 0,
-                           NullPtr, InsertPt, false);
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, Tid, ValueZero, ValueZero, 0, NullPtr, InsertPt, false);
   return TaskAllocCall;
 }
 
@@ -5151,16 +5161,11 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
 //   ...
 //   __kmpc_end_critical()
 //   EndInst
-bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
-                                                StructType *IdentTy,
-                                                Constant *TidPtr,
-                                                Instruction *BeginInst,
-                                                Instruction *EndInst,
-                                                GlobalVariable *LockVar,
-                                                DominatorTree *DT,
-                                                LoopInfo *LI,
-                                                bool IsTargetSPIRV,
-                                                uint32_t Hint) {
+bool VPOParoptUtils::genKmpcCriticalSectionImpl(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
+    DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV, uint32_t Hint,
+    bool GenerateLoop) {
 
   assert(W && "WRegionNode is null.");
   assert(IdentTy && "IdentTy is null.");
@@ -5244,13 +5249,12 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   EndCritical->insertBefore(EndInst);
   addFuncletOperandBundle(EndCritical, DT);
 
-  if (IsTargetSPIRV) {
-    if (!isa<WRNTeamsNode>(W))
-      // Critical loop must not be generated for teams region,
-      // since it will result in redundant execution and incorrect
-      // result. Only the master thread must execute the critical
-      // section (the master thread guards will be generated later).
-      genCriticalLoopForSPIR(W, BeginCritical, EndCritical, DT, LI);
+  if (GenerateLoop && IsTargetSPIRV && !isa<WRNTeamsNode>(W)) {
+    // Critical loop must not be generated for teams region,
+    // since it will result in redundant execution and incorrect
+    // result. Only the master thread must execute the critical
+    // section (the master thread guards will be generated later).
+    genCriticalLoopForSPIR(W, BeginCritical, EndCritical, DT, LI);
   }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
@@ -5342,11 +5346,12 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   // LoopExitBB:
   //   call spir_func void @__kmpc_end_critical
   Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm =
       SplitBlockAndInsertIfThen(ExitPred, SplitPt,
                                 /*Unreachable=*/false,
                                 /*BranchWeights=*/nullptr,
-                                DT, LI);
+                                &DTU, LI);
   BasicBlock *JumpToExitBB = ThenTerm->getParent();
   ThenTerm->setSuccessor(0, LoopExitBB);
   if (DT)
@@ -5397,7 +5402,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   ThenTerm = SplitBlockAndInsertIfThen(SkipPred, LoopBodyInsertPt,
                                        /*Unreachable=*/false,
                                        /*BranchWeights=*/nullptr,
-                                       DT, LI);
+                                       &DTU, LI);
   ThenTerm->setSuccessor(0, LoopIncBB);
   if (DT)
     DT->changeImmediateDominator(LoopIncBB, LoopBodyBB);
@@ -5513,14 +5518,14 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
 
 // Generate the serialization loop for code inside a critical section.
 bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
-                                            CallInst *BeginCritical,
-                                            CallInst *EndCritical,
-                                            DominatorTree *DT,
-                                            LoopInfo *LI) {
+                                            Instruction *BeginCritical,
+                                            Instruction *EndCritical,
+                                            DominatorTree *DT, LoopInfo *LI) {
   assert(BeginCritical && EndCritical && "Invalid begin and end instructions.");
 
   Module *M = BeginCritical->getModule();
-  std::pair<CallInst *, CallInst *> Regions[2] = {{BeginCritical, EndCritical}};
+  std::pair<Instruction *, Instruction *> Regions[2] = {
+      {BeginCritical, EndCritical}};
 
   // We will need to split the block *before* EndCritical, because it will be
   // an exit point for the get_sub_group_size() loop. We may also need to
@@ -5555,13 +5560,13 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     VPOUtils::singleRegionMultiVersioning(
         BeginCriticalBB, EndCriticalBB, BBSet, VMap, Cond, DT, LI);
 
-    CallInst *NewBeginCritical = cast<CallInst>(VMap[BeginCritical]);
-    CallInst *NewEndCritical = cast<CallInst>(VMap[EndCritical]);
+    Instruction *NewBeginCritical = cast<Instruction>(VMap[BeginCritical]);
+    Instruction *NewEndCritical = cast<Instruction>(VMap[EndCritical]);
     Regions[1] = {NewBeginCritical, NewEndCritical};
   }
 
   for (int I = 0; I < 2; ++I) {
-    CallInst *CurBeginCritical = Regions[I].first;
+    Instruction *CurBeginCritical = Regions[I].first;
     if (!CurBeginCritical)
       continue;
 
@@ -5594,15 +5599,11 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
 // Generates a critical section around Instructions `BeginInst` and `Endinst`,
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
-bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            Constant *TidPtr,
-                                            Instruction *BeginInst,
-                                            Instruction *EndInst,
-                                            DominatorTree *DT,
-                                            LoopInfo *LI,
-                                            bool IsTargetSPIRV,
-                                            const Twine &LockNameSuffix,
-                                            uint32_t Hint) {
+bool VPOParoptUtils::genKmpcCriticalSection(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *BeginInst, Instruction *EndInst, DominatorTree *DT,
+    LoopInfo *LI, bool IsTargetSPIRV, const Twine &LockNameSuffix,
+    uint32_t Hint, bool GenerateLoop) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -5615,7 +5616,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create critical section lock variable.");
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                    Lock, DT, LI, IsTargetSPIRV, Hint);
+                                    Lock, DT, LI, IsTargetSPIRV, Hint,
+                                    GenerateLoop);
 }
 
 // Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.
@@ -6251,6 +6253,17 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
     return false;
 
   return true;
+}
+
+Instruction *VPOParoptUtils::getInsertionPtForImplicitBarrier(WRegionNode *W,
+                                                              DominatorTree *DT,
+                                                              LoopInfo *LI) {
+  assert(W && "Null WRegionNode.");
+
+  BasicBlock *ExitSucc = W->getExitBBlock()->getSingleSuccessor();
+  BasicBlock *ExitSuccSplit =
+      SplitBlock(ExitSucc, ExitSucc->getFirstNonPHI(), DT, LI);
+  return &ExitSuccSplit->front();
 }
 
 Instruction *VPOParoptUtils::getInsertionPtForAllocas(
@@ -7014,6 +7027,9 @@ Function *VPOParoptUtils::genOutlineFunction(
     W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
         Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(F);
+#endif // INTEL_CUSTOMIZATION
   auto *NewFunction = CE.extractCodeRegion(
       UseEmptyCodeExtractorAnalysisCache
           ? CodeExtractorAnalysisCache()
@@ -7021,6 +7037,10 @@ Function *VPOParoptUtils::genOutlineFunction(
       /* hoistAlloca */ true);
 
   auto *CallSite = getSingleCallSite(NewFunction);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->doOutlining(F, NewFunction, CallSite);
+  getMDInlineReport()->doOutlining(F, NewFunction, CallSite);
+#endif // INTEL_CUSTOMIZATION
 
   // Remove the extracted blocks from the LoopInfo of enclosing regions. The
   // Loops and Blocks in the extracted function are no longer valid
@@ -7797,5 +7817,4 @@ Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
   }
   return ReductionVar;
 }
-
 #endif // INTEL_COLLAB

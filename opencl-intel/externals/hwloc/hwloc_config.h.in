@@ -1,0 +1,116 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2023 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+/* -*- c -*-
+ * Copyright © 2009 CNRS
+ * Copyright © 2009-2022 Inria.  All rights reserved.
+ * Copyright © 2009-2012 Université Bordeaux
+ * Copyright © 2009-2011 Cisco Systems, Inc.  All rights reserved.
+ * See COPYING in top-level directory.
+ */
+
+/* The configuration file */
+
+#ifndef HWLOC_CONFIG_H
+#define HWLOC_CONFIG_H
+
+#define HWLOC_VERSION "2.9.0"
+#define HWLOC_VERSION_MAJOR 2
+#define HWLOC_VERSION_MINOR 9
+#define HWLOC_VERSION_RELEASE 0
+#define HWLOC_VERSION_GREEK ""
+
+/* #undef HWLOC_PCI_COMPONENT_BUILTIN */
+/* #undef HWLOC_OPENCL_COMPONENT_BUILTIN */
+/* #undef HWLOC_CUDA_COMPONENT_BUILTIN */
+/* #undef HWLOC_NVML_COMPONENT_BUILTIN */
+/* #undef HWLOC_RSMI_COMPONENT_BUILTIN */
+/* #undef HWLOC_LEVELZERO_COMPONENT_BUILTIN */
+/* #undef HWLOC_GL_COMPONENT_BUILTIN */
+/* #undef HWLOC_XML_LIBXML_COMPONENT_BUILTIN */
+
+#if (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95))
+# define __hwloc_restrict __restrict
+#else
+# if __STDC_VERSION__ >= 199901L
+#  define __hwloc_restrict restrict
+# else
+#  define __hwloc_restrict
+# endif
+#endif
+
+/* Note that if we're compiling C++, then just use the "inline"
+   keyword, since it's part of C++ */
+#if defined(c_plusplus) || defined(__cplusplus)
+#  define __hwloc_inline inline
+#elif defined(_MSC_VER) || defined(__HP_cc)
+#  define __hwloc_inline __inline
+#else
+#  define __hwloc_inline __inline__
+#endif
+
+#define __hwloc_attribute_unused
+#define __hwloc_attribute_malloc
+#define __hwloc_attribute_const
+#define __hwloc_attribute_pure
+#define __hwloc_attribute_deprecated
+#define __hwloc_attribute_may_alias
+#define __hwloc_attribute_warn_unused_result
+#define HWLOC_DECLSPEC
+
+/* Defined to 1 on Linux */
+#cmakedefine HWLOC_LINUX_SYS @HWLOC_LINUX_SYS@
+
+/* Defined to 1 if you have the `windows.h' header. */
+#cmakedefine HWLOC_HAVE_WINDOWS_H @HWLOC_HAVE_WINDOWS_H@
+
+/* Defined to 1 if the CPU_SET macro works */
+#cmakedefine HWLOC_HAVE_CPU_SET @HWLOC_HAVE_CPU_SET@
+
+#if HWLOC_HAVE_WINDOWS_H
+#define hwloc_pid_t HANDLE
+#define hwloc_thread_t HANDLE
+#  include <windows.h>
+typedef DWORDLONG hwloc_uint64_t;
+
+#else
+#define hwloc_pid_t pid_t
+#define hwloc_thread_t pthread_t
+#  include <pthread.h>
+
+/* Defined to 1 if you have the <stdint.h> header file. */
+#cmakedefine HAVE_UNISTD_H @HAVE_UNISTD_H@
+#cmakedefine HWLOC_HAVE_STDINT_H @HWLOC_HAVE_STDINT_H@
+#  ifdef HAVE_UNISTD_H
+#    include <unistd.h>
+#  endif
+#  ifdef HWLOC_HAVE_STDINT_H
+#    include <stdint.h>
+     typedef uint64_t hwloc_uint64_t;
+#  else
+     typedef unsigned long long hwloc_uint64_t;
+#  endif
+
+#endif /* HWLOC_HAVE_WINDOWS_H */
+
+/* Whether we need to re-define all the hwloc public symbols or not */
+#define HWLOC_SYM_TRANSFORM 0
+
+/* The hwloc symbol prefix */
+#define HWLOC_SYM_PREFIX hwloc_
+
+/* The hwloc symbol prefix in all caps */
+#define HWLOC_SYM_PREFIX_CAPS HWLOC_
+
+#endif /* HWLOC_CONFIG_H */

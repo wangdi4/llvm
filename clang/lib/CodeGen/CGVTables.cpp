@@ -482,7 +482,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
 
 #if INTEL_COLLAB
   // If encountered in OpenMP device codegen mark it for the target.
-  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsTargetDevice)
     Fn->addFnAttr("openmp-target-declare", "true");
 #endif  // INTEL_COLLAB
 
@@ -818,6 +818,17 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       // Method is acceptable, continue processing as usual.
     }
 
+#if INTEL_COLLAB
+    if (CGM.getLangOpts().SYCLIsDevice) {
+      // Don't emit virtual functions which were not marked with device
+      // indirectly callable attribute.
+      const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
+      if (!MD->hasAttr<SYCLDeviceIndirectlyCallableAttr>())
+        return builder.add(
+            llvm::ConstantExpr::getNullValue(CGM.DefaultInt8PtrTy));
+    }
+#endif // INTEL_COLLAB
+
     auto getSpecialVirtualFn = [&](StringRef name) -> llvm::Constant * {
       // FIXME(PR43094): When merging comdat groups, lld can select a local
       // symbol as the signature symbol even though it cannot be accessed
@@ -831,7 +842,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
 
       // For NVPTX devices in OpenMP emit special functon as null pointers,
       // otherwise linking ends up with unresolved references.
-      if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsDevice &&
+      if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsTargetDevice &&
           CGM.getTriple().isNVPTX())
         return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
       llvm::FunctionType *fnTy =
@@ -1118,19 +1129,20 @@ CodeGenModule::getVTableLinkage(const CXXRecordDecl *RD) {
     switch (keyFunction->getTemplateSpecializationKind()) {
       case TSK_Undeclared:
       case TSK_ExplicitSpecialization:
-        assert((def || CodeGenOpts.OptimizationLevel > 0 ||
-                CodeGenOpts.getDebugInfo() != codegenoptions::NoDebugInfo) &&
-               "Shouldn't query vtable linkage without key function, "
-               "optimizations, or debug info");
-        if (!def && CodeGenOpts.OptimizationLevel > 0)
-          return llvm::GlobalVariable::AvailableExternallyLinkage;
+      assert(
+          (def || CodeGenOpts.OptimizationLevel > 0 ||
+           CodeGenOpts.getDebugInfo() != llvm::codegenoptions::NoDebugInfo) &&
+          "Shouldn't query vtable linkage without key function, "
+          "optimizations, or debug info");
+      if (!def && CodeGenOpts.OptimizationLevel > 0)
+        return llvm::GlobalVariable::AvailableExternallyLinkage;
 
-        if (keyFunction->isInlined())
-          return !Context.getLangOpts().AppleKext ?
-                   llvm::GlobalVariable::LinkOnceODRLinkage :
-                   llvm::Function::InternalLinkage;
+      if (keyFunction->isInlined())
+        return !Context.getLangOpts().AppleKext
+                   ? llvm::GlobalVariable::LinkOnceODRLinkage
+                   : llvm::Function::InternalLinkage;
 
-        return llvm::GlobalVariable::ExternalLinkage;
+      return llvm::GlobalVariable::ExternalLinkage;
 
       case TSK_ImplicitInstantiation:
         return !Context.getLangOpts().AppleKext ?
@@ -1244,9 +1256,16 @@ bool CodeGenVTables::isVTableExternal(const CXXRecordDecl *RD) {
   if (!keyFunction)
     return false;
 
+  const FunctionDecl *Def;
   // Otherwise, if we don't have a definition of the key function, the
   // vtable must be defined somewhere else.
-  return !keyFunction->hasBody();
+  if (!keyFunction->hasBody(Def))
+    return true;
+
+  assert(Def && "The body of the key function is not assigned to Def?");
+  // If the non-inline key function comes from another module unit, the vtable
+  // must be defined there.
+  return Def->isInAnotherModuleUnit() && !Def->isInlineSpecified();
 }
 
 /// Given that we're currently at the end of the translation unit, and
@@ -1284,7 +1303,8 @@ void CodeGenModule::EmitDeferredVTables() {
 }
 
 bool CodeGenModule::AlwaysHasLTOVisibilityPublic(const CXXRecordDecl *RD) {
-  if (RD->hasAttr<LTOVisibilityPublicAttr>() || RD->hasAttr<UuidAttr>())
+  if (RD->hasAttr<LTOVisibilityPublicAttr>() || RD->hasAttr<UuidAttr>() ||
+      RD->hasAttr<DLLExportAttr>() || RD->hasAttr<DLLImportAttr>())
     return true;
 
   if (!getCodeGenOpts().LTOVisibilityPublicStd)
@@ -1311,13 +1331,9 @@ bool CodeGenModule::HasHiddenLTOVisibility(const CXXRecordDecl *RD) {
   if (!isExternallyVisible(LV.getLinkage()))
     return true;
 
-  if (getTriple().isOSBinFormatCOFF()) {
-    if (RD->hasAttr<DLLExportAttr>() || RD->hasAttr<DLLImportAttr>())
-      return false;
-  } else {
-    if (LV.getVisibility() != HiddenVisibility)
-      return false;
-  }
+  if (!getTriple().isOSBinFormatCOFF() &&
+      LV.getVisibility() != HiddenVisibility)
+    return false;
 
   return !AlwaysHasLTOVisibilityPublic(RD);
 }
@@ -1341,13 +1357,13 @@ llvm::GlobalObject::VCallVisibility CodeGenModule::GetVCallVisibilityLevel(
   else
     TypeVis = llvm::GlobalObject::VCallVisibilityPublic;
 
-  for (auto B : RD->bases())
+  for (const auto &B : RD->bases())
     if (B.getType()->getAsCXXRecordDecl()->isDynamicClass())
       TypeVis = std::min(
           TypeVis,
           GetVCallVisibilityLevel(B.getType()->getAsCXXRecordDecl(), Visited));
 
-  for (auto B : RD->vbases())
+  for (const auto &B : RD->vbases())
     if (B.getType()->getAsCXXRecordDecl()->isDynamicClass())
       TypeVis = std::min(
           TypeVis,

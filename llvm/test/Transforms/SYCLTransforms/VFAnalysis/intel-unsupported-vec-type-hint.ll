@@ -27,4 +27,4 @@ define void @vec_len_hint() !intel_vec_len_hint !{i32 16} !vec_type_hint !{i1 un
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @unsupported_half, void ()* @unsupported_i1, void ()* @vec_len_hint}
+!0 = !{ptr @unsupported_half, ptr @unsupported_i1, ptr @vec_len_hint}

@@ -395,7 +395,7 @@ private:
     unsigned NumCaptures : 15;
 
     /// The number of explicit captures in this lambda.
-    unsigned NumExplicitCaptures : 13;
+    unsigned NumExplicitCaptures : 12;
 
     /// Has known `internal` linkage.
     unsigned HasKnownInternalLinkage : 1;
@@ -403,6 +403,10 @@ private:
     /// The number used to indicate this lambda expression for name
     /// mangling in the Itanium C++ ABI.
     unsigned ManglingNumber : 31;
+
+    /// The index of this lambda within its context declaration. This is not in
+    /// general the same as the mangling number.
+    unsigned IndexInContext;
 
     /// The declaration that provides context for this lambda, if the
     /// actual DeclContext does not suffice. This is used for lambdas that
@@ -424,7 +428,7 @@ private:
         : DefinitionData(D), DependencyKind(DK), IsGenericLambda(IsGeneric),
           CaptureDefault(CaptureDefault), NumCaptures(0),
           NumExplicitCaptures(0), HasKnownInternalLinkage(0), ManglingNumber(0),
-          MethodTyInfo(Info) {
+          IndexInContext(0), MethodTyInfo(Info) {
       IsLambda = true;
 
       // C++1z [expr.prim.lambda]p4:
@@ -1446,7 +1450,7 @@ public:
   }
 
   /// Notify the class that this destructor is now selected.
-  /// 
+  ///
   /// Important properties of the class depend on destructor properties. Since
   /// C++20, it is possible to have multiple destructor declarations in a class
   /// out of which one will be selected at the end.
@@ -1772,18 +1776,31 @@ public:
   /// the declaration context suffices.
   Decl *getLambdaContextDecl() const;
 
-  /// Set the mangling number and context declaration for a lambda
-  /// class.
-  void setLambdaMangling(unsigned ManglingNumber, Decl *ContextDecl,
-                         bool HasKnownInternalLinkage = false) {
+  /// Retrieve the index of this lambda within the context declaration returned
+  /// by getLambdaContextDecl().
+  unsigned getLambdaIndexInContext() const {
     assert(isLambda() && "Not a lambda closure type!");
-    getLambdaData().ManglingNumber = ManglingNumber;
-    getLambdaData().ContextDecl = ContextDecl;
-    getLambdaData().HasKnownInternalLinkage = HasKnownInternalLinkage;
+    return getLambdaData().IndexInContext;
   }
 
-  /// Set the device side mangling number.
-  void setDeviceLambdaManglingNumber(unsigned Num) const;
+  /// Information about how a lambda is numbered within its context.
+  struct LambdaNumbering {
+    Decl *ContextDecl = nullptr;
+    unsigned IndexInContext = 0;
+    unsigned ManglingNumber = 0;
+    unsigned DeviceManglingNumber = 0;
+    bool HasKnownInternalLinkage = false;
+  };
+
+  /// Set the mangling numbers and context declaration for a lambda class.
+  void setLambdaNumbering(LambdaNumbering Numbering);
+
+  // Get the mangling numbers and context declaration for a lambda class.
+  LambdaNumbering getLambdaNumbering() const {
+    return {getLambdaContextDecl(), getLambdaIndexInContext(),
+            getLambdaManglingNumber(), getDeviceLambdaManglingNumber(),
+            hasKnownLambdaInternalLinkage()};
+  }
 
   /// Retrieve the device side mangling number.
   unsigned getDeviceLambdaManglingNumber() const;
@@ -1925,13 +1942,13 @@ private:
                         ExplicitSpecifier ES,
                         const DeclarationNameInfo &NameInfo, QualType T,
                         TypeSourceInfo *TInfo, SourceLocation EndLocation,
-                        CXXConstructorDecl *Ctor)
+                        CXXConstructorDecl *Ctor, DeductionCandidate Kind)
       : FunctionDecl(CXXDeductionGuide, C, DC, StartLoc, NameInfo, T, TInfo,
                      SC_None, false, false, ConstexprSpecKind::Unspecified),
         Ctor(Ctor), ExplicitSpec(ES) {
     if (EndLocation.isValid())
       setRangeEnd(EndLocation);
-    setIsCopyDeductionCandidate(false);
+    setDeductionCandidateKind(Kind);
   }
 
   CXXConstructorDecl *Ctor;
@@ -1946,7 +1963,8 @@ public:
   Create(ASTContext &C, DeclContext *DC, SourceLocation StartLoc,
          ExplicitSpecifier ES, const DeclarationNameInfo &NameInfo, QualType T,
          TypeSourceInfo *TInfo, SourceLocation EndLocation,
-         CXXConstructorDecl *Ctor = nullptr);
+         CXXConstructorDecl *Ctor = nullptr,
+         DeductionCandidate Kind = DeductionCandidate::Normal);
 
   static CXXDeductionGuideDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
@@ -1963,16 +1981,15 @@ public:
 
   /// Get the constructor from which this deduction guide was generated, if
   /// this is an implicit deduction guide.
-  CXXConstructorDecl *getCorrespondingConstructor() const {
-    return Ctor;
+  CXXConstructorDecl *getCorrespondingConstructor() const { return Ctor; }
+
+  void setDeductionCandidateKind(DeductionCandidate K) {
+    FunctionDeclBits.DeductionCandidateKind = static_cast<unsigned char>(K);
   }
 
-  void setIsCopyDeductionCandidate(bool isCDC = true) {
-    FunctionDeclBits.IsCopyDeductionCandidate = isCDC;
-  }
-
-  bool isCopyDeductionCandidate() const {
-    return FunctionDeclBits.IsCopyDeductionCandidate;
+  DeductionCandidate getDeductionCandidateKind() const {
+    return static_cast<DeductionCandidate>(
+        FunctionDeclBits.DeductionCandidateKind);
   }
 
   // Implement isa/cast/dyncast/etc.

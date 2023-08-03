@@ -84,6 +84,7 @@
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
+#include <tuple>
 #include <utility>
 
 using namespace llvm;
@@ -125,10 +126,19 @@ void Ctx::reset() {
   needsTlsLd.store(false, std::memory_order_relaxed);
 }
 
-bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-               llvm::raw_ostream &stderrOS, bool exitEarly,
-               bool disableOutput) {
-  // This driver-specific context will be freed later by lldMain().
+llvm::raw_fd_ostream Ctx::openAuxiliaryFile(llvm::StringRef filename,
+                                            std::error_code &ec) {
+  using namespace llvm::sys::fs;
+  OpenFlags flags =
+      auxiliaryFiles.insert(filename).second ? OF_None : OF_Append;
+  return {filename, ec, flags};
+}
+
+namespace lld {
+namespace elf {
+bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput) {
+  // This driver-specific context will be freed later by unsafeLldMain().
   auto *ctx = new CommonLinkerContext;
 
   ctx->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
@@ -165,12 +175,14 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 
   return errorCount() == 0;
 }
+} // namespace elf
+} // namespace lld
 
 // Parses a linker -m option.
 static std::tuple<ELFKind, uint16_t, uint8_t> parseEmulation(StringRef emul) {
   uint8_t osabi = 0;
   StringRef s = emul;
-  if (s.endswith("_fbsd")) {
+  if (s.ends_with("_fbsd")) {
     s = s.drop_back(5);
     osabi = ELFOSABI_FREEBSD;
   }
@@ -180,6 +192,7 @@ static std::tuple<ELFKind, uint16_t, uint8_t> parseEmulation(StringRef emul) {
           .Cases("aarch64elf", "aarch64linux", {ELF64LEKind, EM_AARCH64})
           .Cases("aarch64elfb", "aarch64linuxb", {ELF64BEKind, EM_AARCH64})
           .Cases("armelf", "armelf_linux_eabi", {ELF32LEKind, EM_ARM})
+          .Cases("armelfb", "armelfb_linux_eabi", {ELF32BEKind, EM_ARM})
           .Case("elf32_x86_64", {ELF32LEKind, EM_X86_64})
           .Cases("elf32btsmip", "elf32btsmipn32", {ELF32BEKind, EM_MIPS})
           .Cases("elf32ltsmip", "elf32ltsmipn32", {ELF32LEKind, EM_MIPS})
@@ -463,11 +476,20 @@ static void checkOptions() {
   if (config->fixCortexA8 && config->emachine != EM_ARM)
     error("--fix-cortex-a8 is only supported on ARM targets");
 
+  if (config->armBe8 && config->emachine != EM_ARM)
+    error("--be8 is only supported on ARM targets");
+
+  if (config->fixCortexA8 && !config->isLE)
+    error("--fix-cortex-a8 is not supported on big endian targets");
+
   if (config->tocOptimize && config->emachine != EM_PPC64)
     error("--toc-optimize is only supported on PowerPC64 targets");
 
   if (config->pcRelOptimize && config->emachine != EM_PPC64)
     error("--pcrel-optimize is only supported on PowerPC64 targets");
+
+  if (config->relaxGP && config->emachine != EM_RISCV)
+    error("--relax-gp is only supported on RISC-V targets");
 
   if (config->pie && config->shared)
     error("-shared and -pie may not be used together");
@@ -638,11 +660,11 @@ constexpr const char *knownZFlags[] = {
 
 static bool isKnownZFlag(StringRef s) {
   return llvm::is_contained(knownZFlags, s) ||
-         s.startswith("common-page-size=") || s.startswith("bti-report=") ||
-         s.startswith("cet-report=") ||
-         s.startswith("dead-reloc-in-nonalloc=") ||
-         s.startswith("max-page-size=") || s.startswith("stack-size=") ||
-         s.startswith("start-stop-visibility=");
+         s.starts_with("common-page-size=") || s.starts_with("bti-report=") ||
+         s.starts_with("cet-report=") ||
+         s.starts_with("dead-reloc-in-nonalloc=") ||
+         s.starts_with("max-page-size=") || s.starts_with("stack-size=") ||
+         s.starts_with("start-stop-visibility=");
 }
 
 // Report a warning for an unknown -z option.
@@ -821,7 +843,7 @@ static bool isOutputFormatBinary(opt::InputArgList &args) {
   StringRef s = args.getLastArgValue(OPT_oformat, "elf");
   if (s == "binary")
     return true;
-  if (!s.startswith("elf"))
+  if (!s.starts_with("elf"))
     error("unknown --oformat value: " + s);
   return false;
 }
@@ -905,7 +927,7 @@ static StripPolicy getStrip(opt::InputArgList &args) {
 static uint64_t parseSectionAddress(StringRef s, opt::InputArgList &args,
                                     const opt::Arg &arg) {
   uint64_t va = 0;
-  if (s.startswith("0x"))
+  if (s.starts_with("0x"))
     s = s.drop_front(2);
   if (!to_integer(s, va, 16))
     error("invalid argument: " + arg.getAsString(args));
@@ -970,7 +992,7 @@ getBuildId(opt::InputArgList &args) {
     return {BuildIdKind::Sha1, {}};
   if (s == "uuid")
     return {BuildIdKind::Uuid, {}};
-  if (s.startswith("0x"))
+  if (s.starts_with("0x"))
     return {BuildIdKind::Hexstring, parseHex(s.substr(2))};
 
   if (s != "none")
@@ -1099,21 +1121,19 @@ template <class ELFT> static void readCallGraphsFromObjectFiles() {
   }
 }
 
-static DebugCompressionType getCompressDebugSections(opt::InputArgList &args) {
-  StringRef s = args.getLastArgValue(OPT_compress_debug_sections, "none");
-  if (s == "zlib") {
-    if (!compression::zlib::isAvailable())
-      error("--compress-debug-sections: zlib is not available");
-    return DebugCompressionType::Zlib;
+static DebugCompressionType getCompressionType(StringRef s, StringRef option) {
+  DebugCompressionType type = StringSwitch<DebugCompressionType>(s)
+                                  .Case("zlib", DebugCompressionType::Zlib)
+                                  .Case("zstd", DebugCompressionType::Zstd)
+                                  .Default(DebugCompressionType::None);
+  if (type == DebugCompressionType::None) {
+    if (s != "none")
+      error("unknown " + option + " value: " + s);
+  } else if (const char *reason = compression::getReasonIfUnsupported(
+                 compression::formatFor(type))) {
+    error(option + ": " + reason);
   }
-  if (s == "zstd") {
-    if (!compression::zstd::isAvailable())
-      error("--compress-debug-sections: zstd is not available");
-    return DebugCompressionType::Zstd;
-  }
-  if (s != "none")
-    error("unknown --compress-debug-sections value: " + s);
-  return DebugCompressionType::None;
+  return type;
 }
 
 static StringRef getAliasSpelling(opt::Arg *arg) {
@@ -1133,6 +1153,14 @@ static std::pair<StringRef, StringRef> getOldNewOptions(opt::InputArgList &args,
   if (ret.second.empty())
     error(getAliasSpelling(arg) + " expects 'old;new' format, but got " + s);
   return ret;
+}
+
+// Parse options of the form "old;new[;extra]".
+static std::tuple<StringRef, StringRef, StringRef>
+getOldNewOptionsExtra(opt::InputArgList &args, unsigned id) {
+  auto [oldDir, second] = getOldNewOptions(args, id);
+  auto [newDir, extraDir] = second.split(';');
+  return {oldDir, newDir, extraDir};
 }
 
 // Parse the symbol ordering file and warn for any duplicate entries.
@@ -1177,6 +1205,25 @@ static bool isValidReportString(StringRef arg) {
   return arg == "none" || arg == "warning" || arg == "error";
 }
 
+// Process a remap pattern 'from-glob=to-file'.
+static bool remapInputs(StringRef line, const Twine &location) {
+  SmallVector<StringRef, 0> fields;
+  line.split(fields, '=');
+  if (fields.size() != 2 || fields[1].empty()) {
+    error(location + ": parse error, not 'from-glob=to-file'");
+    return true;
+  }
+  if (!hasWildcard(fields[0]))
+    config->remapInputs[fields[0]] = fields[1];
+  else if (Expected<GlobPattern> pat = GlobPattern::create(fields[0]))
+    config->remapInputsWildcards.emplace_back(std::move(*pat), fields[1]);
+  else {
+    error(location + ": " + toString(pat.takeError()));
+    return true;
+  }
+  return false;
+}
+
 // Initializes Config members by the command line options.
 static void readConfigs(opt::InputArgList &args) {
   errorHandler().verbose = args.hasArg(OPT_verbose);
@@ -1193,6 +1240,7 @@ static void readConfigs(opt::InputArgList &args) {
                                             OPT_no_android_memtag_stack, false);
   config->androidMemtagMode = getMemtagMode(args);
   config->auxiliaryList = args::getStrings(args, OPT_auxiliary);
+  config->armBe8 = args.hasArg(OPT_be8);
   if (opt::Arg *arg =
           args.getLastArg(OPT_Bno_symbolic, OPT_Bsymbolic_non_weak_functions,
                           OPT_Bsymbolic_functions, OPT_Bsymbolic)) {
@@ -1206,7 +1254,9 @@ static void readConfigs(opt::InputArgList &args) {
   config->checkSections =
       args.hasFlag(OPT_check_sections, OPT_no_check_sections, true);
   config->chroot = args.getLastArgValue(OPT_chroot);
-  config->compressDebugSections = getCompressDebugSections(args);
+  config->compressDebugSections = getCompressionType(
+      args.getLastArgValue(OPT_compress_debug_sections, "none"),
+      "--compress-debug-sections");
   config->cref = args.hasArg(OPT_cref);
   config->optimizeBBJumps =
       args.hasFlag(OPT_optimize_bb_jumps, OPT_no_optimize_bb_jumps, false);
@@ -1323,10 +1373,12 @@ static void readConfigs(opt::InputArgList &args) {
       args.hasFlag(OPT_print_icf_sections, OPT_no_print_icf_sections, false);
   config->printGcSections =
       args.hasFlag(OPT_print_gc_sections, OPT_no_print_gc_sections, false);
+  config->printMemoryUsage = args.hasArg(OPT_print_memory_usage);
   config->printArchiveStats = args.getLastArgValue(OPT_print_archive_stats);
   config->printSymbolOrder =
       args.getLastArgValue(OPT_print_symbol_order);
   config->relax = args.hasFlag(OPT_relax, OPT_no_relax, true);
+  config->relaxGP = args.hasFlag(OPT_relax_gp, OPT_no_relax_gp, false);
   config->rpath = getRpath(args);
   config->relocatable = args.hasArg(OPT_relocatable);
 
@@ -1368,8 +1420,9 @@ static void readConfigs(opt::InputArgList &args) {
   config->thinLTOIndexOnlyArg = args.getLastArgValue(OPT_thinlto_index_only_eq);
   config->thinLTOObjectSuffixReplace =
       getOldNewOptions(args, OPT_thinlto_object_suffix_replace_eq);
-  config->thinLTOPrefixReplace =
-      getOldNewOptions(args, OPT_thinlto_prefix_replace_eq);
+  std::tie(config->thinLTOPrefixReplaceOld, config->thinLTOPrefixReplaceNew,
+           config->thinLTOPrefixReplaceNativeObject) =
+      getOldNewOptionsExtra(args, OPT_thinlto_prefix_replace_eq);
   if (config->thinLTOEmitIndexFiles && !config->thinLTOIndexOnly) {
     if (args.hasArg(OPT_thinlto_object_suffix_replace_eq))
       error("--thinlto-object-suffix-replace is not supported with "
@@ -1377,6 +1430,11 @@ static void readConfigs(opt::InputArgList &args) {
     else if (args.hasArg(OPT_thinlto_prefix_replace_eq))
       error("--thinlto-prefix-replace is not supported with "
             "--thinlto-emit-index-files");
+  }
+  if (!config->thinLTOPrefixReplaceNativeObject.empty() &&
+      config->thinLTOIndexOnlyArg.empty()) {
+    error("--thinlto-prefix-replace=old_dir;new_dir;obj_dir must be used with "
+          "--thinlto-index-only=");
   }
   config->thinLTOModulesToCompile =
       args::getStrings(args, OPT_thinlto_single_module_eq);
@@ -1447,6 +1505,21 @@ static void readConfigs(opt::InputArgList &args) {
       config->optEB = true;
     else
       config->optEL = true;
+  }
+
+  for (opt::Arg *arg : args.filtered(OPT_remap_inputs)) {
+    StringRef value(arg->getValue());
+    remapInputs(value, arg->getSpelling());
+  }
+  for (opt::Arg *arg : args.filtered(OPT_remap_inputs_file)) {
+    StringRef filename(arg->getValue());
+    std::optional<MemoryBufferRef> buffer = readFile(filename);
+    if (!buffer)
+      continue;
+    // Parse 'from-glob=to-file' lines, ignoring #-led comments.
+    for (auto [lineno, line] : llvm::enumerate(args::getLines(*buffer)))
+      if (remapInputs(line, filename + ":" + Twine(lineno + 1)))
+        break;
   }
 
   for (opt::Arg *arg : args.filtered(OPT_shuffle_sections)) {
@@ -1521,7 +1594,7 @@ static void readConfigs(opt::InputArgList &args) {
   // unsupported LLVMgold.so option and error.
   for (opt::Arg *arg : args.filtered(OPT_plugin_opt_eq)) {
     StringRef v(arg->getValue());
-    if (!v.endswith("lto-wrapper") && !v.endswith("lto-wrapper.exe"))
+    if (!v.ends_with("lto-wrapper") && !v.ends_with("lto-wrapper.exe"))
       error(arg->getSpelling() + ": unknown plugin option '" + arg->getValue() +
             "'");
   }
@@ -1534,8 +1607,23 @@ static void readConfigs(opt::InputArgList &args) {
     config->mllvmOpts.emplace_back(arg->getValue());
   }
 
+  config->ltoKind = LtoKind::Default;
+  if (auto *arg = args.getLastArg(OPT_lto)) {
+    StringRef s = arg->getValue();
+    if (s == "thin")
+      config->ltoKind = LtoKind::UnifiedThin;
+    else if (s == "full")
+      config->ltoKind = LtoKind::UnifiedRegular;
+    else if (s == "default")
+      config->ltoKind = LtoKind::Default;
+    else
+      error("unknown LTO mode: " + s);
+  }
+
   // --threads= takes a positive integer and provides the default value for
-  // --thinlto-jobs=.
+  // --thinlto-jobs=. If unspecified, cap the number of threads since
+  // overhead outweighs optimization for used parallel algorithms for the
+  // non-LTO parts.
   if (auto *arg = args.getLastArg(OPT_threads)) {
     StringRef v(arg->getValue());
     unsigned threads = 0;
@@ -1544,6 +1632,9 @@ static void readConfigs(opt::InputArgList &args) {
             arg->getValue() + "'");
     parallel::strategy = hardware_concurrency(threads);
     config->thinLTOJobs = v;
+  } else if (parallel::strategy.compute_thread_count() > 16) {
+    log("set maximum concurrency to 16, specify --threads= to change");
+    parallel::strategy = hardware_concurrency(16);
   }
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
@@ -1580,7 +1671,7 @@ static void readConfigs(opt::InputArgList &args) {
     std::tie(config->ekind, config->emachine, config->osabi) =
         parseEmulation(s);
     config->mipsN32Abi =
-        (s.startswith("elf32btsmipn32") || s.startswith("elf32ltsmipn32"));
+        (s.starts_with("elf32btsmipn32") || s.starts_with("elf32ltsmipn32"));
     config->emulation = s;
   }
 
@@ -2276,7 +2367,7 @@ static void writeArchiveStats() {
     return;
 
   std::error_code ec;
-  raw_fd_ostream os(config->printArchiveStats, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->printArchiveStats, ec);
   if (ec) {
     error("--print-archive-stats=: cannot open " + config->printArchiveStats +
           ": " + ec.message());
@@ -2306,7 +2397,7 @@ static void writeWhyExtract() {
     return;
 
   std::error_code ec;
-  raw_fd_ostream os(config->whyExtract, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->whyExtract, ec);
   if (ec) {
     error("cannot open --why-extract= file " + config->whyExtract + ": " +
           ec.message());
@@ -2365,7 +2456,7 @@ static void reportBackrefs() {
 // easily.
 static void writeDependencyFile() {
   std::error_code ec;
-  raw_fd_ostream os(config->dependencyFile, ec, sys::fs::OF_None);
+  raw_fd_ostream os = ctx.openAuxiliaryFile(config->dependencyFile, ec);
   if (ec) {
     error("cannot open " + config->dependencyFile + ": " + ec.message());
     return;

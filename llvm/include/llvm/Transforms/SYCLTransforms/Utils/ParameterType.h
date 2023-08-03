@@ -425,13 +425,33 @@ struct TypeVisitor {
   virtual ~TypeVisitor() {}
 };
 
+///@brief template cast function for ParamType derived classes.
+///@param ParamType given param type.
+///@return required casting type if given param type is an instance if
+//         that type, assert otherwise.
+template <typename T> T *cast(ParamType *Ty) {
+  assert(Ty && "cast does not support casting of NULL");
+  assert(T::enumTy == Ty->getTypeId() && "cast argument of incompatible type");
+  return (T *)Ty;
+}
+
+///@brief template cast function for ParamType derived classes (const version).
+///@param ParamType given param type.
+///@return required casting type if given param type is an instance if
+//         that type, assert otherwise.
+template <typename T> const T *cast(const ParamType *Ty) {
+  assert(Ty && "cast does not support casting of NULL");
+  assert(T::enumTy == Ty->getTypeId() && "cast argument of incompatible type");
+  return (const T *)Ty;
+}
+
 ///@brief template dynamic cast function for ParamType derived classes
 ///@param ParamType given param type
 ///@return required casting type if given param type is an instance if
 //         that type, NULL otherwise.
-template <typename T> T *dyn_cast(ParamType *pType) {
-  assert(pType && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == pType->getTypeId()) ? (T *)pType : nullptr;
+template <typename T> T *dyn_cast(ParamType *Ty) {
+  assert(Ty && "dyn_cast does not support casting of NULL");
+  return (T::enumTy == Ty->getTypeId()) ? (T *)Ty : nullptr;
 }
 
 ///@brief template dynamic cast function for ParamType derived classes
@@ -439,9 +459,9 @@ template <typename T> T *dyn_cast(ParamType *pType) {
 ///@param ParamType given param type
 ///@return required casting type if given param type is an instance if
 //         that type, NULL otherwise.
-template <typename T> const T *dyn_cast(const ParamType *pType) {
-  assert(pType && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == pType->getTypeId()) ? (const T *)pType : nullptr;
+template <typename T> const T *dyn_cast(const ParamType *Ty) {
+  assert(Ty && "dyn_cast does not support casting of NULL");
+  return (T::enumTy == Ty->getTypeId()) ? (const T *)Ty : nullptr;
 }
 
 StringRef mangledPrimitiveString(TypePrimitiveEnum primitive);

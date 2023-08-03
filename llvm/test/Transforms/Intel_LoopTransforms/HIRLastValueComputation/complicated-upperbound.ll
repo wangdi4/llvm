@@ -6,7 +6,7 @@
 ;Function: conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57
 ;
 ;<0>          BEGIN REGION { }
-;<71>               + DO i1 = 0, sext.i32.i64((1 + %ub.new)) + -1 * sext.i32.i64(%lb.new) + -1, 1   <DO_LOOP>
+;<71>               + DO i1 = 0, sext.i32.i64(%ub.new) + -1 * sext.i32.i64(%lb.new), 1   <DO_LOOP>
 ;<3>                |   %3 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new)];
 ;<6>                |   %4 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new) + 1];
 ;<8>                |   %d.fpriv538.priv.sroa.0.0 = 0;
@@ -46,7 +46,7 @@
 ;Function: conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57
 ;
 ; CHECK:    BEGIN REGION { }
-; CHECK:           + DO i1 = 0, sext.i32.i64((1 + %ub.new)) + -1 * sext.i32.i64(%lb.new) + -1, 1   <DO_LOOP>
+; CHECK:           + DO i1 = 0, sext.i32.i64(%ub.new) + -1 * sext.i32.i64(%lb.new), 1   <DO_LOOP>
 ; CHECK:           |   %3 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new)];
 ; CHECK:           |   %4 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new) + 1];
 ; CHECK:           |   %d.fpriv538.priv.sroa.0.0 = 0;
@@ -84,7 +84,7 @@ source_filename = "cg.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
 @.kmpc_loc.0.0.168 = external hidden unnamed_addr global %struct.ident_t
 @.kmpc_loc.0.0.170 = external hidden unnamed_addr global %struct.ident_t
@@ -96,13 +96,13 @@ declare token @llvm.directive.region.entry() #0
 declare void @llvm.directive.region.exit(token) #0
 
 ; Function Attrs: nounwind
-declare void @__kmpc_dist_for_static_init_4(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32*, i32, i32) local_unnamed_addr #0
+declare void @__kmpc_dist_for_static_init_4(ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32) local_unnamed_addr #0
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32) local_unnamed_addr #1
+declare void @__kmpc_for_static_fini(ptr nocapture readonly, i32) local_unnamed_addr #1
 
 ; Function Attrs: nounwind uwtable
-define hidden void @conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57(i32* nocapture readonly %tid, i32* nocapture readnone %bid, i32** noalias nocapture readonly %colidx.map.ptr.tmp307.priv, i32** noalias nocapture readonly %rowstr.map.ptr.tmp306.priv, double** noalias nocapture readonly %z.map.ptr.tmp309.priv, double** noalias nocapture readonly %a.map.ptr.tmp308.priv, double** noalias nocapture readonly %r.map.ptr.tmp310.priv, i32* noalias nocapture %k.fpriv, i32* nocapture readnone %tmp3.fpriv, i64 %.omp.lb322.priv.val, i64 %.omp.ub323.priv.val) #2 {
+define hidden void @conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr noalias nocapture readonly %colidx.map.ptr.tmp307.priv, ptr noalias nocapture readonly %rowstr.map.ptr.tmp306.priv, ptr noalias nocapture readonly %z.map.ptr.tmp309.priv, ptr noalias nocapture readonly %a.map.ptr.tmp308.priv, ptr noalias nocapture readonly %r.map.ptr.tmp310.priv, ptr noalias nocapture %k.fpriv, ptr nocapture readnone %tmp3.fpriv, i64 %.omp.lb322.priv.val, i64 %.omp.ub323.priv.val) #2 {
 DIR.OMP.DISTRIBUTE.PARLOOP.108:
   %is.last = alloca i32, align 4
   %lower.bnd = alloca i32, align 4
@@ -111,12 +111,12 @@ DIR.OMP.DISTRIBUTE.PARLOOP.108:
   %upperD = alloca i32, align 4
   %d.fpriv538.red = alloca double, align 8
   %k.fpriv.linear.iv = alloca i32, align 4
-  store i32 0, i32* %is.last, align 4
-  %colidx.map.ptr.tmp307.priv.v = load i32*, i32** %colidx.map.ptr.tmp307.priv, align 8, !alias.scope !18, !noalias !23
-  %rowstr.map.ptr.tmp306.priv.v = load i32*, i32** %rowstr.map.ptr.tmp306.priv, align 8, !alias.scope !108, !noalias !23
-  %z.map.ptr.tmp309.priv.v = load double*, double** %z.map.ptr.tmp309.priv, align 8, !alias.scope !111, !noalias !23
-  %a.map.ptr.tmp308.priv.v = load double*, double** %a.map.ptr.tmp308.priv, align 8, !alias.scope !114, !noalias !23
-  %r.map.ptr.tmp310.priv.v = load double*, double** %r.map.ptr.tmp310.priv, align 8, !alias.scope !117, !noalias !23
+  store i32 0, ptr %is.last, align 4
+  %colidx.map.ptr.tmp307.priv.v = load ptr, ptr %colidx.map.ptr.tmp307.priv, align 8, !alias.scope !18, !noalias !23
+  %rowstr.map.ptr.tmp306.priv.v = load ptr, ptr %rowstr.map.ptr.tmp306.priv, align 8, !alias.scope !108, !noalias !23
+  %z.map.ptr.tmp309.priv.v = load ptr, ptr %z.map.ptr.tmp309.priv, align 8, !alias.scope !111, !noalias !23
+  %a.map.ptr.tmp308.priv.v = load ptr, ptr %a.map.ptr.tmp308.priv, align 8, !alias.scope !114, !noalias !23
+  %r.map.ptr.tmp310.priv.v = load ptr, ptr %r.map.ptr.tmp310.priv, align 8, !alias.scope !117, !noalias !23
   %0 = trunc i64 %.omp.ub323.priv.val to i32
   %cmp32510 = icmp sgt i32 0, %0
   br i1 %cmp32510, label %omp.precond.end374.exitStub, label %omp.inner.for.body326.lr.ph
@@ -125,14 +125,14 @@ omp.precond.end374.exitStub:                      ; preds = %loop.region.exit, %
   ret void
 
 omp.inner.for.body326.lr.ph:                      ; preds = %DIR.OMP.DISTRIBUTE.PARLOOP.108
-  %my.tid = load i32, i32* %tid, align 4
-  store i32 0, i32* %lower.bnd, align 4
-  store i32 %0, i32* %upper.bnd, align 4
-  store i32 1, i32* %stride, align 4
-  store i32 %0, i32* %upperD, align 4
-  call void @__kmpc_dist_for_static_init_4(%struct.ident_t* nonnull @.kmpc_loc.0.0.168, i32 %my.tid, i32 34, i32* nonnull %is.last, i32* nonnull %lower.bnd, i32* nonnull %upper.bnd, i32* nonnull %upperD, i32* nonnull %stride, i32 1, i32 1)
-  %lb.new = load i32, i32* %lower.bnd, align 4
-  %ub.new = load i32, i32* %upper.bnd, align 4
+  %my.tid = load i32, ptr %tid, align 4
+  store i32 0, ptr %lower.bnd, align 4
+  store i32 %0, ptr %upper.bnd, align 4
+  store i32 1, ptr %stride, align 4
+  store i32 %0, ptr %upperD, align 4
+  call void @__kmpc_dist_for_static_init_4(ptr nonnull @.kmpc_loc.0.0.168, i32 %my.tid, i32 34, ptr nonnull %is.last, ptr nonnull %lower.bnd, ptr nonnull %upper.bnd, ptr nonnull %upperD, ptr nonnull %stride, i32 1, i32 1)
+  %lb.new = load i32, ptr %lower.bnd, align 4
+  %ub.new = load i32, ptr %upper.bnd, align 4
   %omp.ztt = icmp sgt i32 %lb.new, %ub.new
   br i1 %omp.ztt, label %loop.region.exit, label %omp.inner.for.body326.preheader
 
@@ -144,11 +144,11 @@ omp.inner.for.body326.preheader:                  ; preds = %omp.inner.for.body3
 
 omp.inner.for.body326:                            ; preds = %omp.precond.end366, %omp.inner.for.body326.preheader
   %indvars.iv15 = phi i64 [ %1, %omp.inner.for.body326.preheader ], [ %indvars.iv.next16, %omp.precond.end366 ]
-  %arrayidx330 = getelementptr inbounds i32, i32* %rowstr.map.ptr.tmp306.priv.v, i64 %indvars.iv15
-  %3 = load i32, i32* %arrayidx330, align 4, !tbaa !120, !alias.scope !124, !noalias !125
+  %arrayidx330 = getelementptr inbounds i32, ptr %rowstr.map.ptr.tmp306.priv.v, i64 %indvars.iv15
+  %3 = load i32, ptr %arrayidx330, align 4, !tbaa !120, !alias.scope !124, !noalias !125
   %indvars.iv.next16 = add nsw i64 %indvars.iv15, 1
-  %arrayidx333 = getelementptr inbounds i32, i32* %rowstr.map.ptr.tmp306.priv.v, i64 %indvars.iv.next16
-  %4 = load i32, i32* %arrayidx333, align 4, !tbaa !120, !alias.scope !126, !noalias !125
+  %arrayidx333 = getelementptr inbounds i32, ptr %rowstr.map.ptr.tmp306.priv.v, i64 %indvars.iv.next16
+  %4 = load i32, ptr %arrayidx333, align 4, !tbaa !120, !alias.scope !126, !noalias !125
   %cmp343 = icmp sgt i32 %4, %3
   br i1 %cmp343, label %DIR.OMP.SIMD.110, label %omp.precond.end366
 
@@ -156,22 +156,22 @@ loop.region.exit.loopexit:                        ; preds = %omp.precond.end366
   br label %loop.region.exit
 
 loop.region.exit:                                 ; preds = %loop.region.exit.loopexit, %omp.inner.for.body326.lr.ph
-  call void @__kmpc_for_static_fini(%struct.ident_t* nonnull @.kmpc_loc.0.0.170, i32 %my.tid)
+  call void @__kmpc_for_static_fini(ptr nonnull @.kmpc_loc.0.0.170, i32 %my.tid)
   br label %omp.precond.end374.exitStub
 
 omp.precond.end366:                               ; preds = %DIR.OMP.END.SIMD.92, %omp.inner.for.body326
   %d.fpriv538.priv.sroa.0.0 = phi i64 [ %d.fpriv538.priv.sroa.0.1, %DIR.OMP.END.SIMD.92 ], [ 0, %omp.inner.for.body326 ]
-  %arrayidx368 = getelementptr inbounds double, double* %r.map.ptr.tmp310.priv.v, i64 %indvars.iv15
-  %5 = bitcast double* %arrayidx368 to i64*
-  store i64 %d.fpriv538.priv.sroa.0.0, i64* %5, align 8, !tbaa !127, !alias.scope !129, !noalias !130
+  %arrayidx368 = getelementptr inbounds double, ptr %r.map.ptr.tmp310.priv.v, i64 %indvars.iv15
+  %5 = bitcast ptr %arrayidx368 to ptr
+  store i64 %d.fpriv538.priv.sroa.0.0, ptr %5, align 8, !tbaa !127, !alias.scope !129, !noalias !130
   %exitcond18 = icmp eq i64 %indvars.iv.next16, %wide.trip.count17
   br i1 %exitcond18, label %loop.region.exit.loopexit, label %omp.inner.for.body326
 
 DIR.OMP.SIMD.110:                                 ; preds = %omp.inner.for.body326
   %6 = xor i32 %3, -1
   %sub339 = add i32 %4, %6
-  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(double* %d.fpriv538.red), "QUAL.OMP.LINEAR:IV"(i32* %k.fpriv.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
-  store double 0.000000e+00, double* %d.fpriv538.red, align 8
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(ptr %d.fpriv538.red), "QUAL.OMP.LINEAR:IV"(ptr %k.fpriv.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
+  store double 0.000000e+00, ptr %d.fpriv538.red, align 8
   %cmp34852 = icmp slt i32 %sub339, 0
   br i1 %cmp34852, label %DIR.OMP.END.SIMD.92, label %omp.inner.for.body349.preheader
 
@@ -192,13 +192,13 @@ omp.inner.for.body349:                            ; preds = %omp.inner.for.body3
   %indvars.iv = phi i64 [ 0, %omp.inner.for.body349.preheader ], [ %indvars.iv.next, %omp.inner.for.body349 ]
   %11 = phi double [ 0.000000e+00, %omp.inner.for.body349.preheader ], [ %add359, %omp.inner.for.body349 ]
   %12 = add nsw i64 %indvars.iv, %9
-  %arrayidx353 = getelementptr inbounds i32, i32* %colidx.map.ptr.tmp307.priv.v, i64 %12
-  %13 = load i32, i32* %arrayidx353, align 4, !tbaa !120, !alias.scope !134, !noalias !125
-  %arrayidx355 = getelementptr inbounds double, double* %a.map.ptr.tmp308.priv.v, i64 %12
-  %14 = load double, double* %arrayidx355, align 8, !tbaa !127, !alias.scope !135, !noalias !125
+  %arrayidx353 = getelementptr inbounds i32, ptr %colidx.map.ptr.tmp307.priv.v, i64 %12
+  %13 = load i32, ptr %arrayidx353, align 4, !tbaa !120, !alias.scope !134, !noalias !125
+  %arrayidx355 = getelementptr inbounds double, ptr %a.map.ptr.tmp308.priv.v, i64 %12
+  %14 = load double, ptr %arrayidx355, align 8, !tbaa !127, !alias.scope !135, !noalias !125
   %idxprom356 = sext i32 %13 to i64
-  %arrayidx357 = getelementptr inbounds double, double* %z.map.ptr.tmp309.priv.v, i64 %idxprom356
-  %15 = load double, double* %arrayidx357, align 8, !tbaa !127, !alias.scope !136, !noalias !125
+  %arrayidx357 = getelementptr inbounds double, ptr %z.map.ptr.tmp309.priv.v, i64 %idxprom356
+  %15 = load double, ptr %arrayidx357, align 8, !tbaa !127, !alias.scope !136, !noalias !125
   %mul358 = fmul reassoc nnan ninf nsz arcp afn double %14, %15
   %add359 = fadd reassoc nnan ninf nsz arcp afn double %11, %mul358
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -210,9 +210,9 @@ omp.inner.for.cond347.omp.loop.exit365.split_crit_edge.split.split: ; preds = %o
   %add359.lcssa = phi double [ %add359, %omp.inner.for.body349 ]
   %16 = trunc i64 %.lcssa to i32
   %17 = add i32 %16, 1
-  store i32 %17, i32* %k.fpriv.linear.iv, align 4, !tbaa !120, !alias.scope !137, !noalias !138
-  store double %add359.lcssa, double* %d.fpriv538.red, align 8, !tbaa !127, !alias.scope !139, !noalias !140
-  store i32 %17, i32* %k.fpriv, align 4
+  store i32 %17, ptr %k.fpriv.linear.iv, align 4, !tbaa !120, !alias.scope !137, !noalias !138
+  store double %add359.lcssa, ptr %d.fpriv538.red, align 8, !tbaa !127, !alias.scope !139, !noalias !140
+  store i32 %17, ptr %k.fpriv, align 4
   %18 = fadd double %add359.lcssa, 0.000000e+00
   %19 = bitcast double %18 to i64
   br label %DIR.OMP.END.SIMD.92

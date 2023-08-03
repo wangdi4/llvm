@@ -36,25 +36,25 @@
 ; CHECK:      ret %t;
 
 
-define i32 @foo(i32* noalias %A, i32* noalias %B, i32 %t, i1 %cond) {
+define i32 @foo(ptr noalias %A, ptr noalias %B, i32 %t, i1 %cond) {
 entry:
   br label %bb
 
 bb:                                         ; preds = %entry
-  store i32 %t, i32* %A, align 4
+  store i32 %t, ptr %A, align 4
   br i1 %cond, label %then, label %else
 
 then:
-  store i32 1, i32* %B, align 4
+  store i32 1, ptr %B, align 4
   br label %end
 
 else:
-  store i32 2, i32* %B, align 4
+  store i32 2, ptr %B, align 4
   br label %end
  
 end:
-  %ld = load i32, i32* %A, align 4
-  store i32 5, i32* %A, align 4
+  %ld = load i32, ptr %A, align 4
+  store i32 5, ptr %A, align 4
   ret i32 %ld
 }
 

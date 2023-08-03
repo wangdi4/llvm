@@ -213,9 +213,7 @@ class VPExternalValues {
   // operands.
   friend class VPOCodeGen;
 
-  const DataLayout *DL = nullptr;
-
-  LLVMContext *Context = nullptr;
+  Module *M = nullptr;
 
   /// Holds all the VPConstants created for this VPlan.
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
@@ -274,7 +272,7 @@ class VPExternalValues {
   mutable DenseMap<const VPLoop *, OptReportStatsTracker> OptRptStatsTrackers;
 
 public:
-  VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
+  VPExternalValues(Module *M) : M(M) {}
   VPExternalValues(const VPExternalValues &) = delete;
 
   ~VPExternalValues() {
@@ -288,8 +286,9 @@ public:
       delete ExtDef;
   }
 
-  const DataLayout *getDataLayout() const { return DL; }
-  LLVMContext *getLLVMContext(void) const { return Context; }
+  const DataLayout *getDataLayout() const { return &M->getDataLayout(); }
+  LLVMContext *getLLVMContext(void) const { return &M->getContext(); }
+  Module *getModule() const { return M; }
 
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
@@ -503,7 +502,7 @@ public:
   /// Create a new VPMetadataAsValue for Metadata \p MD if it doesn't exist or
   /// retrieve the existing one.
   VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
-    return getVPMetadataAsValue(MetadataAsValue::get(*Context, MD));
+    return getVPMetadataAsValue(MetadataAsValue::get(M->getContext(), MD));
   }
 
   VPValue *getOriginalIncomingValue(int MergeId) const {

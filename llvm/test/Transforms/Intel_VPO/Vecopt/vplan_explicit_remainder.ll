@@ -4,8 +4,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64* nocapture %ptr, i64 %n) local_unnamed_addr #0 {
-; CHECK:  define void @foo(i64* nocapture [[PTR0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr {
+define void @foo(ptr nocapture %ptr, i64 %n) local_unnamed_addr #0 {
+; CHECK:  define void @foo(ptr nocapture [[PTR0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
@@ -27,7 +27,7 @@ define void @foo(i64* nocapture %ptr, i64 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[VEC_PHI40:%.*]] = phi <4 x i64> [ zeroinitializer, [[VPLANNEDBB20]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI40]], [[VEC_PHI0]]
+; CHECK-NEXT:    [[TMP5]] = add <4 x i64> [[VEC_PHI40]], [[VEC_PHI0]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP4]], [[TMP2]]
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:

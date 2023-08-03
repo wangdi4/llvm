@@ -3,7 +3,7 @@
 
 define void @loop_strided_soa_geps() {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8192]] ptr [[VP_PTR0:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8192]] ptr [[VP_PTR1:%.*]] = phi  [ ptr [[VP_PTR0]], [[BB2:BB[0-9]+]] ],  [ ptr [[VP_PTR_INC:%.*]], [[BB4:BB[0-9]+]] ]
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8192]] ptr [[VP_PTR_INC]] = getelementptr inbounds [1024 x i64], ptr [[VP_PTR1]] i64 1

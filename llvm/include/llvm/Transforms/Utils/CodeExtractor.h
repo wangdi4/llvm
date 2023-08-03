@@ -4,7 +4,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -145,6 +145,17 @@ public:
   private:
     const OrderedArgs *TgtClauseArgs = nullptr;
 
+    // If SimdPrivatization is true then output variables of non-C-standard
+    // integer types (e.g. i1, i2, i11) are allocated as standard integers of
+    // the nearest bigger size (e.g. i1,i2,i4 as i8, i11 as i16 etc) and
+    // corresponding zext/trunc instructions are emitted before/after
+    // store/load of them. That is needed for correct simd
+    // privatization/scalarization: vectorizer creates a private memory for
+    // a vector of those integers and, when scalarizing the call, vectorizer
+    // needs to pass addresses of individual items of that vector. That is
+    // impossible if the items are of non standard size.
+    bool SimdPrivatization = false;
+
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
@@ -178,6 +189,11 @@ public:
     /// not be caught, which is OK for paropt.
     /// If AllowUnreachableBlocks is true, then add even those blocks in \p BBs
     /// which are unreachable from entry, to the extracted function.
+    /// If SimdPrivatization is true then output variables of non-C-standard
+    /// integer types like i1, i2, i11 are allocated as standard integers of
+    /// the nearest bigger size (e.g. i1,i2,i4 as i8, i11 as i16 etc) and
+    /// corresponding zext/trunc instructions are emitted before/after
+    /// store/load of them.
 #endif // INTEL_COLLAB
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
@@ -189,7 +205,8 @@ public:
                   std::string Suffix = "",
                   bool AllowEHTypeID = false,
                   bool AllowUnreachableBlocks = false,
-                  const OrderedArgs *TgtClauseArgs = nullptr);
+                  const OrderedArgs *TgtClauseArgs = nullptr,
+                  bool SimdPrivatization = false);
 #else // INTEL_COLLAB
                   std::string Suffix = "");
 #endif // INTEL_COLLAB
@@ -329,6 +346,17 @@ public:
                                 Function *oldFunction, Module *M);
 
 #if INTEL_COLLAB
+    /// Return Type that should be used for the new function output parameter.
+    /// For simd privates we can't use non-C-standard integers.
+    Type *getOutputType(Type *Ty) {
+      if (!SimdPrivatization || !Ty->isIntegerTy())
+        return Ty;
+      unsigned NearestPow = llvm::Log2_32_Ceil(Ty->getIntegerBitWidth());
+      if (NearestPow < 3)
+        NearestPow = 3;
+      return Type::getIntNTy(Ty->getContext(), 1 << NearestPow);
+    }
+
     /// Create debug information for an extracted routine, including a
     /// subprogram and debug intrinsics for parameter values.
     void constructFunctionDebug(Function *OF, Function *NF,

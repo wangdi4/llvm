@@ -32,17 +32,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable willreturn writeonly
 define dso_local void @_Z7initFooi(i32 %I) local_unnamed_addr #0 {
 entry:
-  store i32 %I, i32* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globFoo, i64 0, i32 0), align 4, !tbaa !8
+  store i32 %I, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globFoo, i64 0, i32 0), align 4, !tbaa !8
   %add = add nsw i32 %I, 100
-  store i32 %add, i32* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globFoo, i64 0, i32 1), align 4, !tbaa !13
+  store i32 %add, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globFoo, i64 0, i32 1), align 4, !tbaa !13
   ret void
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
 define dso_local i32 @_Z3fooi(i32 %I) local_unnamed_addr #1 {
 entry:
-  %0 = load i32, i32* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globFoo, i64 0, i32 0), align 4, !tbaa !8
-  %1 = load i32, i32* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globFoo, i64 0, i32 1), align 4, !tbaa !13
+  %0 = load i32, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globFoo, i64 0, i32 0), align 4, !tbaa !8
+  %1 = load i32, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globFoo, i64 0, i32 1), align 4, !tbaa !13
   %add = add i32 %0, %I
   %add1 = add i32 %add, %1
   ret i32 %add1

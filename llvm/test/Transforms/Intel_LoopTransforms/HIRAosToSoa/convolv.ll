@@ -1,7 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
-
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa" -print-changed < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check if array of structures are copied into temp arrays and later read from temp arrays.
 ; Temp arrays are allocated with alloca.
@@ -44,7 +43,10 @@
 ; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
+; Verify that pass is dumped with print-changed when it triggers.
 
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRAosToSoa
 
 ; *** IR Dump Before HIR AOS to SOA ***
 ; Function: foo
@@ -178,29 +180,27 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 %struct._Image = type { i64, i64, i16, i16, i16 }
-%struct._KernelInfo = type { i64, i64, double* }
+%struct._KernelInfo = type { i64, i64, ptr }
 %struct._ShortPixelPacket = type { i16, i16, i16 }
 %struct._DoublePixelPacket = type { double, double, double }
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(%struct._Image* nocapture readonly %image, %struct._KernelInfo* nocapture readonly %kernel, %struct._ShortPixelPacket* noalias nocapture readonly %p, double* noalias nocapture readnone %k, %struct._DoublePixelPacket* noalias nocapture %q) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %image, ptr nocapture readonly %kernel, ptr noalias nocapture readonly %p, ptr noalias nocapture readnone %k, ptr noalias nocapture %q) local_unnamed_addr #0 {
 entry:
-  %columns = getelementptr inbounds %struct._Image, %struct._Image* %image, i64 0, i32 0, !intel-tbaa !2
-  %0 = load i64, i64* %columns, align 8, !tbaa !2
-  %width = getelementptr inbounds %struct._KernelInfo, %struct._KernelInfo* %kernel, i64 0, i32 0, !intel-tbaa !8
-  %1 = load i64, i64* %width, align 8, !tbaa !8
+  %0 = load i64, ptr %image, align 8, !tbaa !2
+  %1 = load i64, ptr %kernel, align 8, !tbaa !8
   %add = add i64 %0, -1
   %sub = add i64 %add, %1
-  %rows = getelementptr inbounds %struct._Image, %struct._Image* %image, i64 0, i32 1, !intel-tbaa !11
-  %2 = load i64, i64* %rows, align 8, !tbaa !11
+  %rows = getelementptr inbounds %struct._Image, ptr %image, i64 0, i32 1, !intel-tbaa !11
+  %2 = load i64, ptr %rows, align 8, !tbaa !11
   %cmp172 = icmp eq i64 %2, 0
   br i1 %cmp172, label %for.end90, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
   %cmp3169 = icmp eq i64 %0, 0
-  %height = getelementptr inbounds %struct._KernelInfo, %struct._KernelInfo* %kernel, i64 0, i32 1
+  %height = getelementptr inbounds %struct._KernelInfo, ptr %kernel, i64 0, i32 1
   %cmp10153 = icmp eq i64 %1, 0
-  %values = getelementptr inbounds %struct._KernelInfo, %struct._KernelInfo* %kernel, i64 0, i32 2
+  %values = getelementptr inbounds %struct._KernelInfo, ptr %kernel, i64 0, i32 2
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.inc88
@@ -208,18 +208,18 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
   br i1 %cmp3169, label %for.inc88, label %for.body4.lr.ph
 
 for.body4.lr.ph:                                  ; preds = %for.cond1.preheader
-  %3 = load i64, i64* %height, align 8, !tbaa !12
+  %3 = load i64, ptr %height, align 8, !tbaa !12
   %cmp6160 = icmp eq i64 %3, 0
   br label %for.body4
 
 for.body4:                                        ; preds = %for.cond.cleanup, %for.body4.lr.ph
   %x.0170 = phi i64 [ 0, %for.body4.lr.ph ], [ %inc86, %for.cond.cleanup ]
-  %result.sroa.0.0..sroa_idx = getelementptr inbounds %struct._DoublePixelPacket, %struct._DoublePixelPacket* %q, i64 %x.0170, i32 0
-  %result.sroa.0.0.copyload = load double, double* %result.sroa.0.0..sroa_idx, align 8
-  %result.sroa.6.0..sroa_idx109 = getelementptr inbounds %struct._DoublePixelPacket, %struct._DoublePixelPacket* %q, i64 %x.0170, i32 1
-  %result.sroa.6.0.copyload = load double, double* %result.sroa.6.0..sroa_idx109, align 8
-  %result.sroa.9.0..sroa_idx112 = getelementptr inbounds %struct._DoublePixelPacket, %struct._DoublePixelPacket* %q, i64 %x.0170, i32 2
-  %result.sroa.9.0.copyload = load double, double* %result.sroa.9.0..sroa_idx112, align 8
+  %result.sroa.0.0..sroa_idx = getelementptr inbounds %struct._DoublePixelPacket, ptr %q, i64 %x.0170, i32 0
+  %result.sroa.0.0.copyload = load double, ptr %result.sroa.0.0..sroa_idx, align 8
+  %result.sroa.6.0..sroa_idx109 = getelementptr inbounds %struct._DoublePixelPacket, ptr %q, i64 %x.0170, i32 1
+  %result.sroa.6.0.copyload = load double, ptr %result.sroa.6.0..sroa_idx109, align 8
+  %result.sroa.9.0..sroa_idx112 = getelementptr inbounds %struct._DoublePixelPacket, ptr %q, i64 %x.0170, i32 2
+  %result.sroa.9.0.copyload = load double, ptr %result.sroa.9.0..sroa_idx112, align 8
   br i1 %cmp6160, label %for.cond.cleanup, label %for.cond8.preheader.preheader
 
 for.cond8.preheader.preheader:                    ; preds = %for.body4
@@ -233,7 +233,7 @@ for.cond8.preheader:                              ; preds = %for.cond8.preheader
   br i1 %cmp10153, label %for.cond.cleanup11, label %for.body12.lr.ph
 
 for.body12.lr.ph:                                 ; preds = %for.cond8.preheader
-  %4 = load double*, double** %values, align 8, !tbaa !13
+  %4 = load ptr, ptr %values, align 8, !tbaa !13
   %reass.add = add i64 %3, %v.0164
   %reass.mul = mul i64 %reass.add, %1
   %add17 = sub i64 %reass.mul, %1
@@ -251,9 +251,9 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
   %result.sroa.9.0.lcssa = phi double [ %result.sroa.9.0.copyload, %for.body4 ], [ %result.sroa.9.1.lcssa.lcssa, %for.cond.cleanup.loopexit ]
   %result.sroa.6.0.lcssa = phi double [ %result.sroa.6.0.copyload, %for.body4 ], [ %result.sroa.6.1.lcssa.lcssa, %for.cond.cleanup.loopexit ]
   %result.sroa.0.0.lcssa = phi double [ %result.sroa.0.0.copyload, %for.body4 ], [ %result.sroa.0.1.lcssa.lcssa, %for.cond.cleanup.loopexit ]
-  store double %result.sroa.0.0.lcssa, double* %result.sroa.0.0..sroa_idx, align 8, !tbaa !14
-  store double %result.sroa.6.0.lcssa, double* %result.sroa.6.0..sroa_idx109, align 8, !tbaa !17
-  store double %result.sroa.9.0.lcssa, double* %result.sroa.9.0..sroa_idx112, align 8, !tbaa !18
+  store double %result.sroa.0.0.lcssa, ptr %result.sroa.0.0..sroa_idx, align 8, !tbaa !14
+  store double %result.sroa.6.0.lcssa, ptr %result.sroa.6.0..sroa_idx109, align 8, !tbaa !17
+  store double %result.sroa.9.0.lcssa, ptr %result.sroa.9.0..sroa_idx112, align 8, !tbaa !18
   %inc86 = add nuw i64 %x.0170, 1
   %exitcond174 = icmp eq i64 %inc86, %0
   br i1 %exitcond174, label %for.inc88.loopexit, label %for.body4
@@ -278,21 +278,21 @@ for.body12:                                       ; preds = %for.body12, %for.bo
   %result.sroa.6.1155 = phi double [ %result.sroa.6.0162, %for.body12.lr.ph ], [ %add51, %for.body12 ]
   %result.sroa.9.1154 = phi double [ %result.sroa.9.0161, %for.body12.lr.ph ], [ %add72, %for.body12 ]
   %add21 = sub i64 %add17, %u.0157
-  %arrayidx22 = getelementptr inbounds double, double* %4, i64 %add21
-  %5 = load double, double* %arrayidx22, align 8, !tbaa !19
+  %arrayidx22 = getelementptr inbounds double, ptr %4, i64 %add21
+  %5 = load double, ptr %arrayidx22, align 8, !tbaa !19
   %add25 = add i64 %add23, %u.0157
-  %r = getelementptr inbounds %struct._ShortPixelPacket, %struct._ShortPixelPacket* %p, i64 %add25, i32 0
-  %6 = load i16, i16* %r, align 2, !tbaa !20
+  %r = getelementptr inbounds %struct._ShortPixelPacket, ptr %p, i64 %add25, i32 0
+  %6 = load i16, ptr %r, align 2, !tbaa !20
   %conv27 = uitofp i16 %6 to double
   %mul28 = fmul double %5, %conv27
   %add30 = fadd double %result.sroa.0.1156, %mul28
-  %g = getelementptr inbounds %struct._ShortPixelPacket, %struct._ShortPixelPacket* %p, i64 %add25, i32 1
-  %7 = load i16, i16* %g, align 2, !tbaa !22
+  %g = getelementptr inbounds %struct._ShortPixelPacket, ptr %p, i64 %add25, i32 1
+  %7 = load i16, ptr %g, align 2, !tbaa !22
   %conv48 = uitofp i16 %7 to double
   %mul49 = fmul double %5, %conv48
   %add51 = fadd double %result.sroa.6.1155, %mul49
-  %b = getelementptr inbounds %struct._ShortPixelPacket, %struct._ShortPixelPacket* %p, i64 %add25, i32 2
-  %8 = load i16, i16* %b, align 2, !tbaa !23
+  %b = getelementptr inbounds %struct._ShortPixelPacket, ptr %p, i64 %add25, i32 2
+  %8 = load i16, ptr %b, align 2, !tbaa !23
   %conv69 = uitofp i16 %8 to double
   %mul70 = fmul double %5, %conv69
   %add72 = fadd double %result.sroa.9.1154, %mul70

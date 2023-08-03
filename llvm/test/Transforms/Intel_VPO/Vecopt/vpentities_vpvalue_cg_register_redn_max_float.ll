@@ -31,23 +31,23 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local float @foo_float(float* nocapture readonly %ptr, i32 %n) local_unnamed_addr #0 {
+define dso_local float @foo_float(ptr nocapture readonly %ptr, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca float, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %s.red, float zeroinitializer, i32 1) ]
-  store float 0xFFF0000000000000, float* %s.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr %s.red, float zeroinitializer, i32 1) ]
+  store float 0xFFF0000000000000, ptr %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %.23 = phi float [ 0xFFF0000000000000, %DIR.OMP.SIMD.1 ], [ %., %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %ptr, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %ptr, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp6 = fcmp ogt float %.23, %1
   %. = select i1 %cmp6, float %.23, float %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -56,7 +56,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit_crit_edge.split.split: ; preds = %omp.inner.for.body
   %..lcssa = phi float [ %., %omp.inner.for.body ]
-  store float %..lcssa, float* %s.red, align 4, !tbaa !2
+  store float %..lcssa, ptr %s.red, align 4, !tbaa !2
   %isOGT = fcmp olt float %..lcssa, 1.000000e+01
   %max = select i1 %isOGT, float 1.000000e+01, float %..lcssa
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]

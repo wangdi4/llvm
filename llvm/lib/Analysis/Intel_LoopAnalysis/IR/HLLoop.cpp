@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
@@ -139,7 +140,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
       VecTag(HLLoopObj.VecTag),
-      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec) {
+      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec),
+      NoAliasScopeLists(HLLoopObj.NoAliasScopeLists) {
 
   initialize();
 
@@ -378,7 +380,22 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  if (!NoAliasScopeLists.empty()) {
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ NoAlias scope lists: ";
+
+    ListSeparator LS(", ");
+    auto *Module = &getHLNodeUtils().getModule();
+
+    for (auto *ScopeList : NoAliasScopeLists) {
+      OS << LS;
+      ScopeList->printAsOperand(OS, Module);
+    }
+  }
+
   OS << "\n";
+
 #endif // INTEL_PRODUCT_RELEASE
 }
 
@@ -1302,6 +1319,28 @@ const HLInst *HLLoop::getDirective(int DirectiveID) const {
   // Allow SIMD loop detection inside if conditions inside SIMD region
   if (auto *Parent = dyn_cast<HLIf>(getParent())) {
     return getDirectiveFromNode(Parent, DirectiveID);
+  }
+
+  return nullptr;
+}
+
+const HLInst *HLLoop::getSIMDExitIntrinsic() const {
+  // PostExit
+  const HLNode *Node = getFirstPostexitNode();
+  while (Node) {
+    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
+      if (Inst->isSIMDEndDirective())
+        return Inst;
+    Node = Node->getNextNode();
+  }
+
+  // PostLoop
+  Node = getNextNode();
+  while (Node) {
+    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
+      if (Inst->isSIMDEndDirective())
+        return Inst;
+    Node = Node->getNextNode();
   }
 
   return nullptr;
@@ -2539,4 +2578,29 @@ bool HLLoop::hasLikelySmallTripCount(unsigned SmallTCThreshold) const {
   }
 
   return false;
+}
+
+void HLLoop::addMappedNoAliasScopes(ArrayRef<MDNode *> NoAliasScopeLists,
+                                    NoAliasScopeMapTy &NoAliasScopeMap) {
+
+  assert((NoAliasScopeLists.empty() || !NoAliasScopeMap.empty()) &&
+         "NoAliasScopeMap is not expected to be empty when there are scopes to "
+         "be mapped!");
+
+  auto &Context = getHLNodeUtils().getContext();
+
+  for (auto *OrigScopeList : NoAliasScopeLists) {
+    auto *OrigScope = cast<MDNode>(OrigScopeList->getOperand(0));
+    auto *NewScope = NoAliasScopeMap[OrigScope];
+
+    // The reason we sometimes fail to find the mapped scope is because for
+    // unknown loop unrolling, the caller passes extra scopes which were mapped
+    // for previous unroll iteration.
+    if (!NewScope)
+      continue;
+
+    auto *NewScopeList = MDNode::get(Context, {NewScope});
+
+    addNoAliasScopeList(NewScopeList);
+  }
 }

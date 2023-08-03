@@ -1,6 +1,6 @@
 //===--------------- DynClone.h - DTransDynClonePass ------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,27 +15,19 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_DYNCLONE_H
 #define INTEL_DTRANS_TRANSFORMS_DYNCLONE_H
 
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
 
+class TargetLibraryInfo;
+class WholeProgramInfo;
+
 namespace dtrans {
 
 using LoopInfoFuncType = std::function<LoopInfo &(Function &)>;
 using DynGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
-
-/// Pass to perform Dynamic Cloning optimization.
-class DynClonePass : public PassInfoMixin<DynClonePass> {
-public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, DynGetTLITy GetTLI,
-               WholeProgramInfo &WPInfo, LoopInfoFuncType &GetLI);
-};
 
 } // namespace dtrans
 
@@ -50,15 +42,11 @@ class DynClonePass : public PassInfoMixin<DynClonePass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
-  // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransSafetyInfo &DTInfo, DynGetTLITy GetTLI,
                WholeProgramInfo &WPInfo, LoopInfoFuncType &GetLI);
 };
 
 } // namespace dtransOP
-
-ModulePass *createDTransDynCloneWrapperPass();
-ModulePass *createDTransDynCloneOPWrapperPass();
 
 } // namespace llvm
 

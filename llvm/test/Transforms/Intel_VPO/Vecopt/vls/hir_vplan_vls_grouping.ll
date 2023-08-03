@@ -26,16 +26,16 @@
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
-; CHECK-NEXT:   #1 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1]
-; CHECK-NEXT:   #2 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1 + 1]
-; CHECK-NEXT:   #3 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1 + 2]
+; CHECK-NEXT:   #1 <8 x 32> SLoad: i32 %{{.*}} = load ptr %{{.*}} | (@x)[0][3 * i1]
+; CHECK-NEXT:   #2 <8 x 32> SLoad: i32 %{{.*}} = load ptr %{{.*}} | (@x)[0][3 * i1 + 1]
+; CHECK-NEXT:   #3 <8 x 32> SLoad: i32 %{{.*}} = load ptr %{{.*}} | (@x)[0][3 * i1 + 2]
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
-; CHECK-NEXT:   #4 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1]
-; CHECK-NEXT:   #5 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 1]
-; CHECK-NEXT:   #6 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 2]
+; CHECK-NEXT:   #4 <8 x 32> SStore: store i32 %{{.*}} ptr %{{.*}} | (@x)[0][3 * i1]
+; CHECK-NEXT:   #5 <8 x 32> SStore: store i32 %{{.*}} ptr %{{.*}} | (@x)[0][3 * i1 + 1]
+; CHECK-NEXT:   #6 <8 x 32> SStore: store i32 %{{.*}} ptr %{{.*}} | (@x)[0][3 * i1 + 2]
 
 target triple = "x86_64-unknown-linux-gnu"
 @x = dso_local local_unnamed_addr global [300 x i32] zeroinitializer, align 16
@@ -47,20 +47,20 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [300 x i32], ptr @x, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %1, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [300 x i32], ptr @x, i64 0, i64 %1, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx2, align 4, !tbaa !2
   %3 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx5 = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %3, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [300 x i32], ptr @x, i64 0, i64 %3, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   %add6 = add nsw i32 %0, 1
-  store i32 %add6, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %add6, ptr %arrayidx, align 4, !tbaa !2
   %add9 = add nsw i32 %2, 1
-  store i32 %add9, i32* %arrayidx2, align 4, !tbaa !2
+  store i32 %add9, ptr %arrayidx2, align 4, !tbaa !2
   %add13 = add nsw i32 %4, 1
-  store i32 %add13, i32* %arrayidx5, align 4, !tbaa !2
+  store i32 %add13, ptr %arrayidx5, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 300
   br i1 %cmp, label %for.body, label %for.end

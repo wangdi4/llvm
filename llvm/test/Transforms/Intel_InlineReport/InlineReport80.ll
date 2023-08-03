@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -S -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
+; RUN: opt < %s -S -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 
 ; Check results for type #1 double external callsite inlining heuristic
 

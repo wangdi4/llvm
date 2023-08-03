@@ -1,4 +1,19 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- elf_light.cpp - Basic ELF functionality -----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -830,16 +845,27 @@ public:
 template <class ELFT> class ElfLNoteImpl : public ElfLNoteImplBase {
   using Elf_Note = typename ELFT::Note;
   const Elf_Note Note;
+  // FIXME: Using 1 as default alignment.
+  size_t Align = 1;
 
 public:
   ElfLNoteImpl(const Elf_Note Note) : Note(Note) {}
+  ElfLNoteImpl(const Elf_Note Note, size_t Align_) : Note(Note) {
+    // FIXME: 0 alignment will hit assertion when calling getDesc().
+    if (Align_ > 0)
+      Align = Align_;
+  }
   ElfLNoteImpl(const ElfLNoteImpl &) = default;
   ElfLNoteImplBase *clone() const override { return new ElfLNoteImpl(*this); }
   ~ElfLNoteImpl() = default;
   size_t getNameSize() const override { return Note.getName().size(); }
   const char *getName() const override { return Note.getName().data(); }
-  size_t getDescSize() const override { return Note.getDesc().size(); }
-  const uint8_t *getDesc() const override { return Note.getDesc().data(); }
+  size_t getDescSize() const override { return Note.getDesc(Align).size(); }
+  const uint8_t *getDesc() const override {
+    // FIXME: For some reason, the returned descriptor array is off by one
+    // while the base address has '\0'.
+    return Note.getDesc(Align).data() + 1;
+  }
   uint32_t getType() const override { return Note.getType(); }
 };
 
@@ -1019,7 +1045,7 @@ public:
   ElfLNoteImplBase *operator*() const override {
     assert(*this != ElfLSectionNoteIteratorImpl(getEF(), getErr(), true) &&
            "Dereferencing the end iterator.");
-    return new ElfLNoteImpl<ELFT>(*getNotesIt());
+    return new ElfLNoteImpl<ELFT>(*getNotesIt(), SectionsIt->sh_addralign);
   }
 
   static bool classof(const ElfLNoteIteratorImplBase *B) {
@@ -1152,7 +1178,7 @@ public:
   ElfLNoteImplBase *operator*() const override {
     assert(*this != ElfLSegmentNoteIteratorImpl(getEF(), getErr(), true) &&
            "Dereferencing the end iterator.");
-    return new ElfLNoteImpl<ELFT>(*getNotesIt());
+    return new ElfLNoteImpl<ELFT>(*getNotesIt(), SegmentsIt->p_align);
   }
 
   static bool classof(const ElfLNoteIteratorImplBase *B) {
@@ -1681,4 +1707,4 @@ ElfLSection ElfLSectionIterator::operator*() const {
   return ElfLSection(**IImpl);
 }
 #endif // !MAY_USE_LIBELF
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

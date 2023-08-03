@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
 ; Check that predicate opt will be tested 
 
@@ -8,23 +8,36 @@
 ; CHECK: Selected many recursive calls predicate opt
 ; CHECK: MRC Predicate Opt: Loops: 5
 ; CHECK: MRC Predicate Opt: LIRestrict: T
+; CHECK: MRC Predicate Opt: LIRestrictType: T
 ; CHECK: MRC Predicate Opt: RestrictVarHoistablePastWrapperF: T
 ; CHECK: MRC Predicate Opt: BaseFArg6Field1Hoistable: T
-; CHECK: MRC PredicateOpt: HoistYes: {0,1,3,6,7,14,15,16}
-; CHECK: MRC PredicateOpt: HoistNo: {18,21}
+; CHECK: MRC PredicateOpt: HoistYes: {0,1,3,6,7,8,14,15,16,23,25,29}
+; CHECK: MRC PredicateOpt: HoistNo: {4,17,18,19,21}
 ; CHECK: MRC Predicate Opt: Hoistable: T
 ; CHECK: MRC Predicate Opt: FindMultiLoop: T
 ; CHECK: MRC PredicateOpt: Loop Stores To: {{.*}} alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
 ; CHECK: MRC Predicate Opt: ValidateMultiLoop: T
+; CHECK: MRC Predicate Opt: MLX: T
+; CHECK: MRC Predicate Opt: MLY: T
+; CHECK: MRC Predicate Opt: W2: T
+; CHECK: MRC Predicate Opt: H2: T
 ; CHECK: MRC PredicateOpt: Loop Depth = 5
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
 ; CHECK: BigLoopF: MeanShiftImage
+; CHECK: MRC Predicate: DidPDSE : T
 ; CHECK: MRC Predicate: OptF: MeanShiftImage.bb123.1
 ; CHECK: MRC Predicate: NoOptF: MeanShiftImage.bb123
 ; CHECK: MRC Predicate: OptWrapperF : GetOneCacheViewVirtualPixel.2
 ; CHECK: MRC Predicate: OptBaseF : GetVirtualPixelsFromNexus.3
 ; CHECK: MRC Predicate: ColdF : GetVirtualPixelsFromNexus.3.bb206
+; CHECK: MRC Predicate: CHANGE SUCCESSOR
+; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 4 
+; CHECK: MRC Predicate: TO TRUE: {{.*}}icmp {{.*}}, 2 
+; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 0 
+; CHECK: MRC Predicate: 6 CacheInfo Branches Simplified
+; CHECK: MRC Predicate: 5 NexusInfoRegion Uses Simplified
+; CHECK: MRC Predicate: 2 OptBaseF Args Propagated
 
 ; Check the IR
 
@@ -37,53 +50,186 @@
 ; CHECK: %[[I1:[A-Za-z0-9]+]] = load ptr, ptr %[[I0]], align 8
 ; CHECK: %[[I2:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I1]], i64 0, i32 49
 ; CHECK: %[[I3:[A-Za-z0-9]+]] = load ptr, ptr %[[I2]], align 8
-; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 0
+; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 0
 ; CHECK: %[[I5:[A-Za-z0-9]+]] = load i32, ptr %[[I4]], align 4
 ; CHECK: %[[I6:[A-Za-z0-9]+]] = icmp eq i32 %[[I5]], 2
-; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 1
+; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 1
 ; CHECK: %[[I8:[A-Za-z0-9]+]] = load i32, ptr %[[I7]], align 4
 ; CHECK: %[[I9:[A-Za-z0-9]+]] = icmp eq i32 %[[I8]], 12
 ; CHECK: %[[I10:[A-Za-z0-9]+]] = or i1 %[[I6]], %[[I9]]
 ; CHECK: %[[I11:[A-Za-z0-9]+]] = xor i1 %[[I10]], true
-; CHECK: br i1 %[[I11]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
-; CHECK: [[L1]]:
+; CHECK: %[[I12:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 3
+; CHECK: %[[I13:[A-Za-z0-9]+]] = load i32, ptr %[[I12]], align 4
+; CHECK: %[[I14:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 1
+; CHECK: %[[I15:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 2
+; CHECK: %[[I16:[A-Za-z0-9]+]] = or i1 %[[I14]], %[[I15]]
+; CHECK: %[[I17:[A-Za-z0-9]+]] = and i1 %[[I11]], %[[I16]]
+; CHECK: %[[I18:[A-Za-z0-9]+]] = icmp sge i64 %i120, %i48
+; CHECK: %[[I19:[A-Za-z0-9]+]] = and i1 %[[I17]], %[[I18]]
+; CHECK: %[[I20:[A-Za-z0-9]+]] = icmp sge i64 %i122, %i49
+; CHECK: %[[I21:[A-Za-z0-9]+]] = and i1 %[[I19]], %[[I20]]
+; CHECK: %[[I22:[A-Za-z0-9]+]] = add i64 %i120, %i48
+; CHECK: %[[I23:[A-Za-z0-9]+]] = add i64 %i122, %i49
+; CHECK: %[[I24:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 6
+; CHECK: %[[I25:[A-Za-z0-9]+]] = load i64, ptr %[[I24]], align 8
+; CHECK: %[[I26:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 7
+; CHECK: %[[I27:[A-Za-z0-9]+]] = load i64, ptr %[[I26]], align 8
+; CHECK: %[[I28:[A-Za-z0-9]+]] = icmp slt i64 %[[I22]], %[[I25]]
+; CHECK: %[[I29:[A-Za-z0-9]+]] = and i1 %[[I21]], %[[I28]]
+; CHECK: %[[I30:[A-Za-z0-9]+]] = icmp slt i64 %[[I23]], %[[I27]]
+; CHECK: %[[I31:[A-Za-z0-9]+]] = and i1 %[[I29]], %[[I30]]
+; CHECK: %[[I32:[A-Za-z0-9]+]] = icmp sge i64 %i122, %i49
+; CHECK: %[[I33:[A-Za-z0-9]+]] = and i1 %[[I31]], %[[I32]]
+; CHECK: %[[I34:[A-Za-z0-9]+]] = icmp sge i64 %i120, %i48
+; CHECK: %[[I35:[A-Za-z0-9]+]] = and i1 %[[I33]], %[[I34]]
+; CHECK: %[[I36:[A-Za-z0-9]+]] = sub i64 %[[I27]], 1
+; CHECK: %[[I37:[A-Za-z0-9]+]] = sub i64 %[[I36]], %i49
+; CHECK: %[[I38:[A-Za-z0-9]+]] = icmp sle i64 %i122, %[[I37]]
+; CHECK: %[[I39:[A-Za-z0-9]+]] = and i1 %[[I35]], %[[I38]]
+; CHECK: %[[I40:[A-Za-z0-9]+]] = sub i64 %[[I25]], 1
+; CHECK: %[[I41:[A-Za-z0-9]+]] = sub i64 %[[I40]], %i48
+; CHECK: %[[I42:[A-Za-z0-9]+]] = icmp sle i64 %i120, %[[I41]]
+; CHECK: %[[I43:[A-Za-z0-9]+]] = and i1 %[[I39]], %[[I42]]
+; CHECK: br i1 %[[I43]], label %optpath, label %codeRepl
 ; This is the branch to the non-predicate optimized version.
-; CHECK: call void @MeanShiftImage.bb123
-; CHECK: br label %[[L2:[A-Za-z0-9.]+]]
-; CHECK: [[L0]]:
+; CHECK-LABEL: codeRepl:
+; CHECK: call void @MeanShiftImage.bb123(
+; CHECK: %[[NO1:[A-Za-z0-9.]+]] = load i32, ptr
+; CHECK: %[[NO2:[A-Za-z0-9.]+]] = load double, ptr
+; CHECK: %[[NO3:[A-Za-z0-9.]+]] = load double, ptr
+; CHECK: %[[NO4:[A-Za-z0-9.]+]] = load i64, ptr
+; CHECK: br label %bb194
+; This is the branch to the common code:
+; CHECK-LABEL: bb194:
+; CHECK: phi i32 {{.*}}, [ %[[NO1]], %codeRepl ], [ %[[YO1:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi double {{.*}}, [ %[[NO2]], %codeRepl ], [ %[[YO2:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi double {{.*}}, [ %[[NO3]], %codeRepl ], [ %[[YO3:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi i64 {{.*}}, [ %[[NO4]], %codeRepl ], [ %[[YO4:[A-Za-z0-9.]+]], %optpath ]
 ; This is the branch to the predicate optimized version.
-; CHECK: call void @MeanShiftImage.bb123.1
-; CHECK: br label %[[L2]]
-; CHECK: [[L2]]:
+; CHECK-LABEL: optpath:
+; CHECK: call void @MeanShiftImage.bb123.1(
+; CHECK: %[[YO1]] = load i32, ptr
+; CHECK: %[[YO2]] = load double, ptr
+; CHECK: %[[YO3]] = load double, ptr
+; CHECK: %[[YO4]] = load i64, ptr
+; CHECK: br label %bb194
+; This is the non-predicate optimized version.
+; CHECK: define internal i32 @GetOneCacheViewVirtualPixel(
+; CHECK: %[[Y0:[A-Za-z0-9]+]] = tail call ptr @GetVirtualPixelsFromNexus(
+; CHECK: %[[Y1:[A-Za-z0-9]+]] = icmp eq ptr %[[Y0]], null
+; CHECK: br i1 %[[Y1]], label %[[LY0:[A-Za-z0-9]+]], label %[[LY1:[A-Za-z0-9]+]]
+; CHECK: [[LY1]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LY2:[A-Za-z0-9]+]]
+; CHECK: [[LY2]]:
+; CHECK: %[[Y2:[A-Za-z0-9]+]] = phi i32 [ 1, %[[LY1]] ], [ 0, %[[LY3:[A-Za-z0-9]+]] ]
+; CHECK: ret i32 %[[Y2]]
+; CHECK: [[LY3]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LY2]]
 
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
-; CHECK: load ptr, ptr {{.*}} !predicate-opt-data ![[P0:[0-9]+]]
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[MDPOR:[0-9]+]]
 ; CHECK: tail call ptr @AcquirePixelCacheNexus
 
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal void @MeanShiftImage.bb123(
 ; CHECK: call i32 @GetOneCacheViewVirtualPixel(
-
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal void @MeanShiftImage.bb123.1(
 ; CHECK: call i32 @GetOneCacheViewVirtualPixel.2(
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal i32 @GetOneCacheViewVirtualPixel.2(
-; CHECK: tail call ptr @GetVirtualPixelsFromNexus.3(
+; CHECK: %[[Z0:[A-Za-z0-9]+]] = tail call ptr @GetVirtualPixelsFromNexus.3(
+; CHECK: %[[Z1:[A-Za-z0-9]+]] = icmp eq ptr %[[Z0]], null
+; CHECK: br i1 %[[Z1]], label %[[LZ0:[A-Za-z0-9]+]], label %[[LZ1:[A-Za-z0-9]+]]
+; CHECK: [[LZ1]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LZ2:[A-Za-z0-9]+]]
+; CHECK: [[LZ2]]:
+; CHECK: %[[Z2:[A-Za-z0-9]+]] = phi i32 [ 1, %[[LZ1]] ], [ 0, %[[LZ3:[A-Za-z0-9]+]] ]
+; CHECK: ret i32 %[[Z2]]
+; CHECK: [[LZ3]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LZ2]]
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
+; Check for two optimized conditionals
+; CHECK: br i1 false, label
+; CHECK: %[[I100:[A-Za-z0-9]+]] = or i1 {{.*}}, true
+; The next two basic blocks will branch around the complex conditional
+; CHECK: br i1 %[[I100]], label %[[L100:[A-Za-z0-9]+]], label %[[L101:[A-Za-z0-9]+]]
+; CHECK: br i1 {{.*}}, label %[[L100]], label %[[L101]]
+; Check for the instructions sunk out of the complex conditional
+; CHECK: [[L101]]:
+; CHECK: %[[I102:[A-Za-z0-9]+]] = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[PO:[A-Za-z0-9]+]], i64 0, i32 6
+; CHECK: %[[I103:[A-Za-z0-9]+]] = load i64, ptr %[[I102]], align 8
+; CHECK: %[[I104:[A-Za-z0-9]+]] = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[PO]], i64 0, i32 7
+; CHECK: %[[I105:[A-Za-z0-9]+]] = load i64, ptr %[[I104]], align 8
+; Check for the alternate branch
+; CHECK: [[L100]]
+; Check that the assignments to the fields of nexus_info->region were eliminated
+; CHECK: tail call ptr @RelinquishAlignedMemory(
+; CHECK: br label %[[L303:[A-Za-z0-9]+]]
+; CHECK: [[L301:[A-Za-z0-9]+]]:
+; CHECK: br label %[[L303]]
+; Check for one more optimized conditional
+; CHECK: br i1 false, label
+; Check that key tests after SetPixelCacheNexusPixels have been optimized
+; CHECK: %[[N3:[A-Za-z0-9]+]] = add i64 1, -1
+; CHECK: %[[N4:[A-Za-z0-9]+]] = mul i64 %[[N3]], %[[N1:[A-Za-z0-9]+]]
+; CHECK: %[[N5:[A-Za-z0-9]+]] = add nsw i64 %[[N12:[A-Za-z0-9]+]], -1
+; CHECK: %[[N6:[A-Za-z0-9]+]] = add i64 %[[N13:[A-Za-z0-9]+]], 1
+; CHECK: %[[N7:[A-Za-z0-9]+]] = add i64 %[[N6]], %[[N14:[A-Za-z0-9]+]]
+; CHECK: %[[N8:[A-Za-z0-9]+]] = icmp ult i64 %[[N7]], %[[N2:[A-Za-z0-9]+]]
+; CHECK: %[[N9:[A-Za-z0-9]+]] = icmp sgt i64 %arg2, -1
+; CHECK: %[[N10:[A-Za-z0-9]+]] = and i1 %[[N8]], true
+; CHECK: br i1 %[[N10]], label %[[L200:[A-Za-z0-9]+]], label %[[L201:[A-Za-z0-9]+]]
+; CHECK: [[L200]]: 
+; CHECK: %[[N21:[A-Za-z0-9]+]] = add i64 1, %arg2
+; CHECK: %[[N22:[A-Za-z0-9]+]] = icmp sgt i64 %[[N21]], %[[N1]]
+; CHECK: %[[N23:[A-Za-z0-9]+]] = icmp slt i64 %arg3, 0
+; CHECK: %[[N24:[A-Za-z0-9]+]] = or i1 false, false
+; CHECK: %[[N25:[A-Za-z0-9]+]] = add i64 1, %arg3
+; CHECK: %[[N26:[A-Za-z0-9]+]] = icmp sgt i64 %[[N25]], %[[N0:[A-Za-z0-9]+]]
+; CHECK: %[[N27:[A-Za-z0-9]+]] = select i1 %[[N24]], i1 true, i1 false
+; CHECK: br i1 %[[N27]], label %[[L201]], label
+; CHECK: tail call fastcc i32 @ReadPixelCachePixels(
+
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
 
 ; This is the cold code extracted out of the predicate optimized version.
-; CHECK-LABEL: define internal void @GetVirtualPixelsFromNexus.3.bb206(
+; Check that it is annotated appropriately with DTrans metadata.
+; CHECK: define internal void @GetVirtualPixelsFromNexus.3.bb206(i32 %arg1, ptr "intel_dtrans_func_index"="1" %i8, ptr "intel_dtrans_func_index"="2" %i, i64 %arg5, i64 %arg4, ptr "intel_dtrans_func_index"="3" %i10, ptr "intel_dtrans_func_index"="4" %i160, ptr "intel_dtrans_func_index"="5" %i164, i64 %arg3, i64 %arg2, ptr "intel_dtrans_func_index"="6" %i165, ptr "intel_dtrans_func_index"="7" %i166, ptr "intel_dtrans_func_index"="8" %arg, ptr "intel_dtrans_func_index"="9" %arg7) #10 !intel.dtrans.func.type ![[MD229:[0-9]+]] {
+
 ; CHECK: tail call ptr @AcquirePixelCacheNexus(
 
-; This indicates that the memory opt was for a restrict pointer.
-; CHECK: ![[P0]] = !{!"predicate-opt-restrict"}
-
+; These are DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
+; CHECK: ![[MD15:[0-9]+]] = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
+; CHECK: ![[MD19:[0-9]+]] = !{%struct._ZTS6_Image._Image zeroinitializer, i32 1}
+; This is the terminator for the restrict metadata
+; CHECK: ![[MDPOR]] = !{}
+; These are also DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
+; CHECK: ![[MD229]] = distinct !{![[MD15]], ![[MD230:[0-9]+]], ![[MD231:[0-9]+]], ![[MD232:[0-9]+]], ![[MD232]], ![[MD233:[0-9]+]], ![[MD233]], ![[MD19]], ![[MD232]]}
+; CHECK: ![[MD230]] = !{i16 0, i32 1}
+; CHECK: ![[MD231]] = !{%struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 1}
+; CHECK: ![[MD232]] = !{i1 false, i32 1}
+; CHECK: ![[MD233]] = !{i64 0, i32 1}
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -116,12 +262,96 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.3.140 = private unnamed_addr constant [5 x i8] c"`%s'\00", align 1
 @.str.17.1497 = private unnamed_addr constant [16 x i8] c"MeanShift/Image\00", align 1
 @.str.18.1485 = private unnamed_addr constant [6 x i8] c"%s/%s\00", align 1
+@.str.19.155 = private unnamed_addr constant [9 x i8] c"`%s': %s\00", align 1
+@.str.27.154 = private unnamed_addr constant [17 x i8] c"UnableToOpenFile\00", align 1
+@.str.28.156 = private unnamed_addr constant [23 x i8] c"UnableToReadPixelCache\00", align 1
+
 @DitherMatrix = internal unnamed_addr constant [64 x i64] [i64 0, i64 48, i64 12, i64 60, i64 3, i64 51, i64 15, i64 63, i64 32, i64 16, i64 44, i64 28, i64 35, i64 19, i64 47, i64 31, i64 8, i64 56, i64 4, i64 52, i64 11, i64 59, i64 7, i64 55, i64 40, i64 24, i64 36, i64 20, i64 43, i64 27, i64 39, i64 23, i64 2, i64 50, i64 14, i64 62, i64 1, i64 49, i64 13, i64 61, i64 34, i64 18, i64 46, i64 30, i64 33, i64 17, i64 45, i64 29, i64 10, i64 58, i64 6, i64 54, i64 9, i64 57, i64 5, i64 53, i64 42, i64 26, i64 38, i64 22, i64 41, i64 25, i64 37, i64 21], align 16, !intel_dtrans_type !0
 
 declare dso_local void @__intel_new_feature_proc_init(i32, i64)
 
+declare i32 @AcquireMagickResource(i32 noundef %0, i64 noundef %1)
+
+declare i32 @AcquireUniqueFileResource(ptr noundef %0)
+
+declare fastcc void @ClosePixelCacheOnDisk(ptr nocapture noundef %0)
+
+declare ptr @DestroyString(ptr noundef %0)
+
+declare ptr @GetExceptionMessage(i32 noundef %0)
+
+declare i64 @GetMagickResource(i32 noundef %0)
+
+declare i64 @GetMagickResourceLimit(i32 noundef %0)
+
+declare void @LockSemaphoreInfo(ptr nocapture noundef %0)
+
+declare void @UnlockSemaphoreInfo(ptr nocapture noundef %0)
+
+declare i64 @lseek(i32 noundef %0, i64 noundef %1, i32 noundef %2)
+
+declare i32 @open(ptr nocapture noundef readonly %0, i32 noundef %1, ...)
+
+declare i64 @read(i32 noundef %0, ptr nocapture noundef %1, i64 noundef %2)
+
+declare i64 @ReadDistributePixelCacheIndexes(ptr nocapture noundef readnone %0, ptr nocapture noundef readnone %1, i64 noundef %2, ptr nocapture noundef readnone %3)
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
+
+; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(none)
+declare dso_local ptr @__errno_location()
+
+; Function Attrs: mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) memory(inaccessiblemem: readwrite)
+declare dso_local noalias noundef ptr @malloc(i64 noundef %0)
+
 ; Function Attrs: mustprogress nofree nounwind willreturn allocsize(0,1) memory(write, inaccessiblemem: readwrite) uwtable
-declare "intel_dtrans_func_index"="1" ptr @AcquireAlignedMemory(i64 noundef, i64 noundef) #0
+define internal ptr @AcquireAlignedMemory(i64 noundef %0, i64 noundef %1) {
+  %3 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
+  %4 = extractvalue { i64, i1 } %3, 0
+  %5 = icmp eq i64 %0, 0
+  br i1 %5, label %8, label %6
+
+6:                                                ; preds = %2
+  %7 = extractvalue { i64, i1 } %3, 1
+  br i1 %7, label %8, label %10
+
+8:                                                ; preds = %6, %2
+  %9 = tail call ptr @__errno_location()
+  store i32 12, ptr %9, align 4
+  br label %28
+
+10:                                               ; preds = %6
+  %11 = icmp eq i64 %4, 0
+  br i1 %11, label %28, label %12
+
+12:                                               ; preds = %10
+  %13 = add i64 %4, 63
+  %14 = and i64 %13, -64
+  %15 = icmp uge i64 %14, %4
+  %16 = icmp ult i64 %4, -71
+  %17 = and i1 %15, %16
+  br i1 %17, label %18, label %28
+
+18:                                               ; preds = %12
+  %19 = add nuw i64 %4, 71
+  %20 = tail call noalias ptr @malloc(i64 noundef %19)
+  %21 = icmp eq ptr %20, null
+  br i1 %21, label %28, label %22
+
+22:                                               ; preds = %18
+  %23 = ptrtoint ptr %20 to i64
+  %24 = add i64 %23, 71
+  %25 = and i64 %24, -64
+  %26 = inttoptr i64 %25 to ptr
+  %27 = getelementptr inbounds ptr, ptr %26, i64 -1
+  store ptr %20, ptr %27, align 8
+  br label %28
+
+28:                                               ; preds = %22, %18, %12, %10, %8
+  %29 = phi ptr [ null, %8 ], [ null, %12 ], [ null, %10 ], [ %26, %22 ], [ null, %18 ]
+  ret ptr %29
+}
 
 ; Function Attrs: nounwind uwtable
 declare "intel_dtrans_func_index"="1" ptr @AcquireAuthenticCacheView(ptr noundef "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") #1
@@ -172,13 +402,363 @@ declare double @GetPseudoRandomValue(ptr nocapture noundef "intel_dtrans_func_in
 declare void @InheritException(ptr nocapture noundef "intel_dtrans_func_index"="1", ptr nocapture noundef readonly "intel_dtrans_func_index"="2") #1
 
 ; Function Attrs: nounwind uwtable
-declare fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_index"="1", ptr noalias nocapture noundef readonly "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") unnamed_addr #1
+define fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_index"="1", ptr noalias nocapture noundef readonly "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") unnamed_addr #1 {
+  %4 = alloca %struct._ZTS14_RectangleInfo._RectangleInfo, align 8
+  %5 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 16
+  %6 = load i32, ptr %5, align 8
+  %7 = icmp eq i32 %6, 0
+  br i1 %7, label %235, label %8
+
+8:                                                ; preds = %3
+  %9 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo, ptr %1, i64 0, i32 5
+  %10 = load i32, ptr %9, align 8
+  %11 = icmp eq i32 %10, 0
+  br i1 %11, label %12, label %235
+
+12:                                               ; preds = %8
+  %13 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo, ptr %1, i64 0, i32 1
+  %14 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %13, i64 0, i32 3
+  %15 = load i64, ptr %14, align 8
+  %16 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 6
+  %17 = load i64, ptr %16, align 8
+  %18 = mul i64 %17, %15
+  %19 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %13, i64 0, i32 2
+  %20 = load i64, ptr %19, align 8
+  %21 = add i64 %18, %20
+  %22 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %13, i64 0, i32 0
+  %23 = load i64, ptr %22, align 8
+  %24 = shl i64 %23, 1
+  %25 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %13, i64 0, i32 1
+  %26 = load i64, ptr %25, align 8
+  %27 = mul i64 %24, %26
+  %28 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo, ptr %1, i64 0, i32 6
+  %29 = load ptr, ptr %28, align 8
+  %30 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 3
+  %31 = load i32, ptr %30, align 8
+  switch i32 %31, label %197 [
+    i32 1, label %32
+    i32 2, label %32
+    i32 3, label %50
+    i32 5, label %176
+  ]
+
+32:                                               ; preds = %12, %12
+  %33 = icmp eq i64 %17, %23
+  %34 = select i1 %33, i64 %27, i64 %24
+  %35 = select i1 %33, i64 1, i64 %26
+  %36 = icmp sgt i64 %35, 0
+  br i1 %36, label %37, label %197
+
+37:                                               ; preds = %32
+  %38 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 15
+  %39 = load ptr, ptr %38, align 8
+  %40 = getelementptr inbounds i16, ptr %39, i64 %21
+  br label %41
+
+41:                                               ; preds = %41, %37
+  %42 = phi ptr [ %46, %41 ], [ %40, %37 ]
+  %43 = phi i64 [ %48, %41 ], [ 0, %37 ]
+  %44 = phi ptr [ %47, %41 ], [ %29, %37 ]
+  tail call void @llvm.memcpy.p0.p0.i64(ptr align 2 %44, ptr align 2 %42, i64 %34, i1 false)
+  %45 = load i64, ptr %16, align 8
+  %46 = getelementptr inbounds i16, ptr %42, i64 %45
+  %47 = getelementptr inbounds i16, ptr %44, i64 %23
+  %48 = add nuw nsw i64 %43, 1
+  %49 = icmp eq i64 %48, %35
+  br i1 %49, label %209, label %41
+
+50:                                               ; preds = %12
+  %51 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 29
+  %52 = load ptr, ptr %51, align 8
+  tail call void @LockSemaphoreInfo(ptr noundef %52) #70
+  %53 = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 17
+  %54 = load i32, ptr %53, align 4
+  %55 = icmp eq i32 %54, -1
+  br i1 %55, label %56, label %82
+
+56:                                               ; preds = %50
+  %57 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 19
+  %58 = getelementptr inbounds [4096 x i8], ptr %57, i64 0, i64 0
+  %59 = load i8, ptr %58, align 8
+  %60 = icmp eq i8 %59, 0
+  br i1 %60, label %61, label %63
+
+61:                                               ; preds = %56
+  %62 = tail call i32 @AcquireUniqueFileResource(ptr noundef nonnull %58) #70
+  br label %68
+
+63:                                               ; preds = %56
+  %64 = tail call i32 (ptr, i32, ...) @open(ptr noundef nonnull %58, i32 noundef 194, i32 noundef 384) #70
+  %65 = icmp eq i32 %64, -1
+  br i1 %65, label %66, label %71
+
+66:                                               ; preds = %63
+  %67 = tail call i32 (ptr, i32, ...) @open(ptr noundef nonnull %58, i32 noundef 2, i32 noundef 384) #70
+  br label %68
+
+68:                                               ; preds = %66, %61
+  %69 = phi i32 [ %62, %61 ], [ %67, %66 ]
+  %70 = icmp eq i32 %69, -1
+  br i1 %70, label %75, label %71
+
+71:                                               ; preds = %68, %63
+  %72 = phi i32 [ %69, %68 ], [ %64, %63 ]
+  %73 = tail call i32 @AcquireMagickResource(i32 noundef 3, i64 noundef 1) #70
+  store i32 %72, ptr %53, align 4
+  %74 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 4
+  store i32 2, ptr %74, align 4
+  br label %82
+
+75:                                               ; preds = %68
+  %76 = tail call ptr @__errno_location() #72
+  %77 = load i32, ptr %76, align 4
+  %78 = tail call ptr @GetExceptionMessage(i32 noundef %77) #70
+  %79 = tail call i32 (ptr, ptr, ptr, i64, i32, ptr, ptr, ...) @ThrowMagickException(ptr noundef %2, ptr noundef nonnull @.str.137, ptr noundef nonnull @.str.1.138, i64 noundef 4270, i32 noundef 430, ptr noundef nonnull @.str.27.154, ptr noundef nonnull @.str.19.155, ptr noundef nonnull %58, ptr noundef %78) #70
+  %80 = tail call ptr @DestroyString(ptr noundef %78) #70
+  %81 = load ptr, ptr %51, align 8
+  tail call void @UnlockSemaphoreInfo(ptr noundef %81) #70
+  br label %235
+
+82:                                               ; preds = %71, %50
+  %83 = load i64, ptr %16, align 8
+  %84 = icmp eq i64 %83, %23
+  %85 = icmp ult i64 %27, 262143
+  %86 = select i1 %84, i1 %85, i1 false
+  %87 = select i1 %86, i64 1, i64 %26
+  %88 = icmp sgt i64 %87, 0
+  br i1 %88, label %89, label %168
+
+89:                                               ; preds = %82
+  %90 = select i1 %86, i64 %27, i64 %24
+  %91 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 7
+  %92 = load i64, ptr %91, align 8
+  %93 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 8
+  %94 = shl i64 %83, 3
+  %95 = mul i64 %94, %92
+  %96 = freeze i64 %90
+  %97 = icmp sgt i64 %96, 0
+  br i1 %97, label %98, label %138
+
+98:                                               ; preds = %126, %89
+  %99 = phi i64 [ %127, %126 ], [ %23, %89 ]
+  %100 = phi i64 [ %131, %126 ], [ 0, %89 ]
+  %101 = phi ptr [ %130, %126 ], [ %29, %89 ]
+  %102 = phi i64 [ %129, %126 ], [ %21, %89 ]
+  %103 = load i64, ptr %93, align 8
+  %104 = shl i64 %102, 1
+  %105 = add i64 %104, %95
+  %106 = add i64 %105, %103
+  %107 = load i32, ptr %53, align 4
+  %108 = tail call i64 @lseek(i32 noundef %107, i64 noundef %106, i32 noundef 0) #70
+  %109 = icmp slt i64 %108, 0
+  br i1 %109, label %126, label %110
+
+110:                                              ; preds = %122, %98
+  %111 = phi i64 [ %124, %122 ], [ 0, %98 ]
+  %112 = getelementptr inbounds i8, ptr %101, i64 %111
+  %113 = sub i64 %96, %111
+  %114 = icmp ult i64 %113, 9223372036854775807
+  %115 = select i1 %114, i64 %113, i64 9223372036854775807
+  %116 = tail call i64 @read(i32 noundef %107, ptr noundef %112, i64 noundef %115) #70
+  %117 = icmp slt i64 %116, 1
+  br i1 %117, label %118, label %122
+
+118:                                              ; preds = %110
+  %119 = tail call ptr @__errno_location() #72
+  %120 = load i32, ptr %119, align 4
+  %121 = icmp eq i32 %120, 4
+  br i1 %121, label %122, label %133
+
+122:                                              ; preds = %118, %110
+  %123 = phi i64 [ 0, %118 ], [ %116, %110 ]
+  %124 = add nsw i64 %123, %111
+  %125 = icmp slt i64 %124, %96
+  br i1 %125, label %110, label %133
+
+126:                                              ; preds = %136, %98
+  %127 = phi i64 [ %137, %136 ], [ %99, %98 ]
+  %128 = load i64, ptr %16, align 8
+  %129 = add i64 %128, %102
+  %130 = getelementptr inbounds i16, ptr %101, i64 %127
+  %131 = add nuw nsw i64 %100, 1
+  %132 = icmp eq i64 %131, %87
+  br i1 %132, label %168, label %98
+
+133:                                              ; preds = %122, %118
+  %134 = phi i64 [ %124, %122 ], [ %111, %118 ]
+  %135 = icmp ult i64 %134, %96
+  br i1 %135, label %168, label %136
+
+136:                                              ; preds = %133
+  %137 = load i64, ptr %22, align 8
+  br label %126
+
+138:                                              ; preds = %89
+  %139 = icmp eq i64 %96, 0
+  br i1 %139, label %155, label %140
+
+140:                                              ; preds = %150, %138
+  %141 = phi i64 [ %153, %150 ], [ 0, %138 ]
+  %142 = phi i64 [ %152, %150 ], [ %21, %138 ]
+  %143 = load i64, ptr %93, align 8
+  %144 = shl i64 %142, 1
+  %145 = add i64 %144, %95
+  %146 = add i64 %145, %143
+  %147 = load i32, ptr %53, align 4
+  %148 = tail call i64 @lseek(i32 noundef %147, i64 noundef %146, i32 noundef 0) #70
+  %149 = icmp slt i64 %148, 0
+  br i1 %149, label %150, label %168
+
+150:                                              ; preds = %140
+  %151 = load i64, ptr %16, align 8
+  %152 = add i64 %151, %142
+  %153 = add nuw nsw i64 %141, 1
+  %154 = icmp eq i64 %153, %87
+  br i1 %154, label %168, label %140
+
+155:                                              ; preds = %155, %138
+  %156 = phi i64 [ %166, %155 ], [ 0, %138 ]
+  %157 = phi i64 [ %165, %155 ], [ %21, %138 ]
+  %158 = load i64, ptr %93, align 8
+  %159 = shl i64 %157, 1
+  %160 = add i64 %159, %95
+  %161 = add i64 %160, %158
+  %162 = load i32, ptr %53, align 4
+  %163 = tail call i64 @lseek(i32 noundef %162, i64 noundef %161, i32 noundef 0) #70
+  %164 = load i64, ptr %16, align 8
+  %165 = add i64 %164, %157
+  %166 = add nuw nsw i64 %156, 1
+  %167 = icmp eq i64 %166, %87
+  br i1 %167, label %168, label %155
+
+168:                                              ; preds = %155, %150, %140, %133, %126, %82
+  %169 = phi i64 [ 0, %82 ], [ %87, %126 ], [ %100, %133 ], [ %87, %155 ], [ %87, %150 ], [ %141, %140 ]
+  %170 = tail call i64 @GetMagickResource(i32 noundef 3) #70
+  %171 = tail call i64 @GetMagickResourceLimit(i32 noundef 3) #70
+  %172 = icmp ugt i64 %170, %171
+  br i1 %172, label %173, label %174
+
+173:                                              ; preds = %168
+  tail call fastcc void @ClosePixelCacheOnDisk(ptr noundef %0)
+  br label %174
+
+174:                                              ; preds = %173, %168
+  %175 = load ptr, ptr %51, align 8
+  tail call void @UnlockSemaphoreInfo(ptr noundef %175) #70
+  br label %197
+
+176:                                              ; preds = %12
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %4) #70
+  %177 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 29
+  %178 = load ptr, ptr %177, align 8
+  tail call void @LockSemaphoreInfo(ptr noundef %178) #70
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(32) %4, ptr noundef nonnull align 8 dereferenceable(32) %13, i64 32, i1 false)
+  %179 = load i64, ptr %16, align 8
+  %180 = icmp ne i64 %179, %23
+  %181 = icmp ugt i64 %27, 262142
+  %182 = select i1 %180, i1 true, i1 %181
+  br i1 %182, label %183, label %186
+
+183:                                              ; preds = %176
+  %184 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %4, i64 0, i32 1
+  store i64 1, ptr %184, align 8
+  %185 = icmp sgt i64 %26, 0
+  br i1 %185, label %186, label %194
+
+186:                                              ; preds = %183, %176
+  %187 = phi i64 [ %26, %183 ], [ 1, %176 ]
+  %188 = phi i64 [ %24, %183 ], [ %27, %176 ]
+  %189 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 23
+  %190 = getelementptr inbounds %struct._ZTS14_RectangleInfo._RectangleInfo, ptr %4, i64 0, i32 3
+  br label %191
+
+191:                                              ; preds = %186
+  %192 = load ptr, ptr %189, align 8
+  %193 = call i64 @ReadDistributePixelCacheIndexes(ptr noundef %192, ptr noundef nonnull %4, i64 noundef %188, ptr noundef %29) #7
+  br label %194
+194:                                              ; preds = %191, %183
+  %195 = phi i64 [ %26, %183 ], [ %187, %191 ]
+  %196 = load ptr, ptr %177, align 8
+  call void @UnlockSemaphoreInfo(ptr noundef %196) #70
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %4) #70
+  br label %197
+
+197:                                              ; preds = %194, %174, %32, %12
+  %198 = phi i64 [ 0, %12 ], [ 0, %194 ], [ %169, %174 ], [ 0, %32 ]
+  %199 = phi i64 [ %26, %12 ], [ %195, %194 ], [ %87, %174 ], [ %26, %32 ]
+  %200 = icmp slt i64 %198, %199
+  br i1 %200, label %201, label %209
+
+201:                                              ; preds = %197
+  %202 = tail call ptr @__errno_location() #72
+  %203 = load i32, ptr %202, align 4
+  %204 = call ptr @GetExceptionMessage(i32 noundef %203) #70
+  %205 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 19
+  %206 = getelementptr inbounds [4096 x i8], ptr %205, i64 0, i64 0
+  %207 = call i32 (ptr, ptr, ptr, i64, i32, ptr, ptr, ...) @ThrowMagickException(ptr noundef %2, ptr noundef nonnull @.str.137, ptr noundef nonnull @.str.1.138, i64 noundef 4331, i32 noundef 445, ptr noundef nonnull @.str.28.156, ptr noundef nonnull @.str.19.155, ptr noundef nonnull %206, ptr noundef %204) #70
+  %208 = call ptr @DestroyString(ptr noundef %204) #70
+  br label %235
+
+209:                                              ; preds = %197, %41
+  %210 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 25
+  %211 = load i32, ptr %210, align 4
+  %212 = icmp eq i32 %211, 0
+  br i1 %212, label %235, label %213
+
+213:                                              ; preds = %209
+  %214 = load i64, ptr %14, align 8
+  %215 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 7
+  %216 = load i64, ptr %215, align 8
+  %217 = icmp ult i64 %216, 101
+  %218 = add i64 %216, -1
+  %219 = icmp eq i64 %218, %214
+  %220 = or i1 %217, %219
+  br i1 %220, label %225, label %221
+
+221:                                              ; preds = %213
+  %222 = udiv i64 %216, 100
+  %223 = urem i64 %214, %222
+  %224 = icmp eq i64 %223, 0
+  br i1 %224, label %225, label %235
+
+225:                                              ; preds = %221, %213
+  %226 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 18
+  %227 = getelementptr inbounds [4096 x i8], ptr %226, i64 0, i64 0
+  %228 = load i64, ptr %22, align 8
+  %229 = uitofp i64 %228 to double
+  %230 = load i64, ptr %25, align 8
+  %231 = uitofp i64 %230 to double
+  %232 = load i64, ptr %19, align 8
+  %233 = sitofp i64 %232 to double
+  %234 = sitofp i64 %214 to double
+  br label %235
+
+235:                                              ; preds = %225, %221, %209, %201, %75, %8, %3
+  %236 = phi i32 [ 0, %201 ], [ 0, %75 ], [ 0, %3 ], [ 1, %8 ], [ 1, %225 ], [ 1, %221 ], [ 1, %209 ]
+  ret i32 %236
+}
+
 
 ; Function Attrs: nounwind uwtable
 declare fastcc i32 @ReadPixelCachePixels(ptr noalias noundef "intel_dtrans_func_index"="1", ptr noalias nocapture noundef readonly "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") unnamed_addr #1
 
+; Function Attrs: mustprogress nounwind willreturn allockind("free") memory(argmem: readwrite, inaccessiblemem: readwrite)
+declare dso_local void @free(ptr allocptr nocapture noundef %0)
+
 ; Function Attrs: mustprogress nounwind willreturn uwtable
-declare noalias "intel_dtrans_func_index"="1" ptr @RelinquishAlignedMemory(ptr noundef readonly "intel_dtrans_func_index"="2") #6
+define internal noalias ptr @RelinquishAlignedMemory(ptr noundef readonly %0) {
+  %2 = icmp eq ptr %0, null
+  br i1 %2, label %6, label %3
+
+3:                                                ; preds = %1
+  %4 = getelementptr inbounds ptr, ptr %0, i64 -1
+  %5 = load ptr, ptr %4, align 8
+  tail call void @free(ptr noundef %5)
+  br label %6
+
+6:                                                ; preds = %3, %1
+  ret ptr null
+}
 
 ; Function Attrs: nounwind uwtable
 declare "intel_dtrans_func_index"="1" ptr @RelinquishMagickMemory(ptr noundef "intel_dtrans_func_index"="2") #1
@@ -665,7 +1245,7 @@ bb:
   call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %i) #11
   call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i8) #11
   %i9 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %arg, i64 0, i32 49, !intel-tbaa !120
-  %i10 = load ptr, ptr %i9, align 8, !tbaa !120
+  %i10 = load ptr, ptr %i9, align 8, !tbaa !120, !predicate-opt-restrict !230 
   %i11 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %i10, i64 0, i32 3, !intel-tbaa !121
   %i12 = load i32, ptr %i11, align 8, !tbaa !121, !alias.scope !132, !noalias !135
   %i13 = icmp eq i32 %i12, 0
@@ -862,8 +1442,6 @@ bb122:                                            ; preds = %bb116
 
 bb124:                                            ; preds = %bb122, %bb116
   %i125 = phi ptr [ %i123, %bb122 ], [ null, %bb116 ]
-  tail call void @llvm.experimental.noalias.scope.decl(metadata !168)
-  tail call void @llvm.experimental.noalias.scope.decl(metadata !171)
   %i126 = load i32, ptr %i11, align 8, !tbaa !121, !alias.scope !168, !noalias !171
   %i127 = icmp eq i32 %i126, 4
   br i1 %i127, label %bb128, label %bb135
@@ -1560,7 +2138,7 @@ attributes #12 = { hot nounwind }
 attributes #13 = { nounwind allocsize(0,1) }
 attributes #14 = { hot }
 
-!intel.dtrans.types = !{!2, !6, !8, !19, !33, !34, !2}
+!intel.dtrans.types = !{!2, !6, !8, !19, !33, !34, !2, !231, !232, !233, !234}
 !llvm.ident = !{!35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35}
 !llvm.module.flags = !{!36, !37, !38, !39, !40, !41}
 
@@ -1572,7 +2150,7 @@ attributes #14 = { hot }
 !5 = !{float 0.000000e+00, i32 0}
 !6 = !{!"S", %struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 4, !7, !7, !7, !7}
 !7 = !{i16 0, i32 0}
-!8 = !{!"S", %struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 32, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !3, !9, !1, !10, !11, !12, !3, !3, !13, !13, !15, !16, !1, !17, !3, !3, !3, !1, !18, !18, !1, !1}
+!8 = !{!"S", %struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 32, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !3, !9, !1, !17, !17, !17, !3, !3, !13, !13, !15, !17, !1, !17, !3, !3, !3, !1, !17, !17, !1, !1}
 !9 = !{%struct._ZTS18_MagickPixelPacket._MagickPixelPacket zeroinitializer, i32 0}
 !10 = !{%struct._ZTS10_NexusInfo._NexusInfo zeroinitializer, i32 2}
 !11 = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
@@ -1583,7 +2161,7 @@ attributes #14 = { hot }
 !16 = !{%struct._ZTS11_RandomInfo._RandomInfo zeroinitializer, i32 1}
 !17 = !{i8 0, i32 1}
 !18 = !{%struct._ZTS13SemaphoreInfo.SemaphoreInfo zeroinitializer, i32 1}
-!19 = !{!"S", %struct._ZTS6_Image._Image zeroinitializer, i32 85, !3, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !11, !20, !20, !20, !4, !21, !3, !17, !3, !17, !17, !17, !1, !4, !4, !22, !22, !22, !4, !4, !4, !3, !3, !3, !3, !3, !3, !23, !1, !1, !1, !1, !1, !1, !24, !25, !26, !17, !17, !17, !28, !29, !13, !13, !13, !1, !1, !30, !3, !1, !18, !31, !31, !32, !1, !1, !23, !23, !23, !3, !3, !20, !23, !22, !17, !17, !3, !3, !1, !3, !1, !1, !3, !1}
+!19 = !{!"S", %struct._ZTS6_Image._Image zeroinitializer, i32 85, !3, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !11, !20, !20, !20, !4, !21, !3, !17, !3, !17, !17, !17, !1, !4, !4, !22, !22, !22, !4, !4, !4, !3, !3, !3, !3, !3, !3, !23, !1, !1, !1, !1, !1, !1, !24, !25, !26, !17, !17, !17, !17, !17, !13, !13, !13, !1, !1, !30, !3, !1, !18, !31, !31, !17, !1, !1, !23, !23, !23, !3, !3, !20, !23, !22, !17, !17, !3, !3, !1, !3, !1, !1, !3, !1}
 !20 = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 0}
 !21 = !{%struct._ZTS17_ChromaticityInfo._ChromaticityInfo zeroinitializer, i32 0}
 !22 = !{%struct._ZTS14_RectangleInfo._RectangleInfo zeroinitializer, i32 0}
@@ -1598,7 +2176,7 @@ attributes #14 = { hot }
 !31 = !{%struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 0}
 !32 = !{%struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 1}
 !33 = !{!"S", %struct._ZTS14_RectangleInfo._RectangleInfo zeroinitializer, i32 4, !1, !1, !1, !1}
-!34 = !{!"S", %struct._ZTS10_CacheView._CacheView zeroinitializer, i32 -1}
+!34 = !{!"S", %struct._ZTS10_CacheView._CacheView zeroinitializer, i32 6, !17, !3, !1, !17, !3, !1}
 !35 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)"}
 !36 = !{i32 1, !"wchar_size", i32 4}
 !37 = !{i32 1, !"Virtual Function Elim", i32 0}
@@ -1794,4 +2372,10 @@ attributes #14 = { hot }
 !227 = distinct !{!227, !95}
 !228 = distinct !{!228, !95}
 !229 = !{!154, !48, i64 80}
+!230 = !{}
+!231 = !{!"S", %struct._ZTS13_CacheMethods._CacheMethods zeroinitializer, i32 11, !17, !17, !17, !17, !17, !17, !17, !17, !17, !17, !17}
+!232 = !{!"S", %struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 4, !17, !1, !17, !1}
+!233 = !{!"S", %struct._ZTS14_ExceptionInfo._ExceptionInfo zeroinitializer, i32 8, !3, !3, !17, !17, !17, !3, !17, !1}
+!234 = !{!"S", %struct._ZTS10_NexusInfo._NexusInfo zeroinitializer, i32 8, !3, !22, !1, !17, !17, !3, !18, !1}
+!235 = !{!"S", %struct._ZTS13SemaphoreInfo.SemaphoreInfo zeroinitializer, i32 4, !1, !24, !3, !1}
 ; end INTEL_FEATURE_SW_ADVANCED

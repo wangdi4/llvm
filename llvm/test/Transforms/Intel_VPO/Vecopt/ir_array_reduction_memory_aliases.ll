@@ -18,7 +18,7 @@ define i32 @test(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [2 x i32]* [[VP_SUM]] = allocate-priv [2 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     [2 x i32]* [[VP_SUM]] = allocate-priv [2 x i32], OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast [2 x i32]* [[VP_SUM]]
 ; CHECK-NEXT:     call i64 8 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32* [[VP_ELEM1:%.*]] = getelementptr inbounds [2 x i32]* [[VP_SUM]] i32 0 i32 1

@@ -107,10 +107,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %p, i32* nocapture %q, i32 %n) local_unnamed_addr #0 !dbg !8 {
+define dso_local void @foo(ptr nocapture %p, ptr nocapture %q, i32 %n) local_unnamed_addr #0 !dbg !8 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p, metadata !14, metadata !DIExpression()), !dbg !23
-  call void @llvm.dbg.value(metadata i32* %q, metadata !15, metadata !DIExpression()), !dbg !24
+  call void @llvm.dbg.value(metadata ptr %p, metadata !14, metadata !DIExpression()), !dbg !23
+  call void @llvm.dbg.value(metadata ptr %q, metadata !15, metadata !DIExpression()), !dbg !24
   call void @llvm.dbg.value(metadata i32 %n, metadata !16, metadata !DIExpression()), !dbg !25
   call void @llvm.dbg.value(metadata i32 0, metadata !17, metadata !DIExpression()), !dbg !26
   %cmp46 = icmp sgt i32 %n, 0, !dbg !27
@@ -124,7 +124,7 @@ for.body4.lr.ph:                                  ; preds = %for.cond1.preheader
   %indvars.iv48 = phi i64 [ 0, %for.cond1.preheader.lr.ph ], [ %indvars.iv.next49, %for.cond.cleanup3 ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv48, metadata !17, metadata !DIExpression()), !dbg !26
   call void @llvm.dbg.value(metadata i32 0, metadata !19, metadata !DIExpression()), !dbg !29
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv48
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %indvars.iv48
   %cmp5 = icmp eq i64 %indvars.iv48, 16
   %cmp12 = icmp eq i64 %indvars.iv48, 4
   br label %for.body4, !dbg !30
@@ -145,30 +145,30 @@ for.body4:                                        ; preds = %for.inc, %for.body4
   %indvars.iv = phi i64 [ 0, %for.body4.lr.ph ], [ %indvars.iv.next, %for.inc ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !19, metadata !DIExpression()), !dbg !29
   %0 = trunc i64 %indvars.iv to i32, !dbg !35
-  store i32 %0, i32* %arrayidx, align 4, !dbg !35, !tbaa !38
+  store i32 %0, ptr %arrayidx, align 4, !dbg !35, !tbaa !38
   br i1 %cmp5, label %if.then, label %if.end, !dbg !42
 
 if.then:                                          ; preds = %for.body4
-  %arrayidx7 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv, !dbg !43
-  %1 = load i32, i32* %arrayidx7, align 4, !dbg !46, !tbaa !38
+  %arrayidx7 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv, !dbg !43
+  %1 = load i32, ptr %arrayidx7, align 4, !dbg !46, !tbaa !38
   %inc = add nsw i32 %1, 1, !dbg !46
-  store i32 %inc, i32* %arrayidx7, align 4, !dbg !46, !tbaa !38
-  %arrayidx941 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv, !dbg !47
-  %2 = load i32, i32* %arrayidx941, align 4, !dbg !47, !tbaa !38
-  store i32 %2, i32* %arrayidx7, align 4, !dbg !48, !tbaa !38
+  store i32 %inc, ptr %arrayidx7, align 4, !dbg !46, !tbaa !38
+  %arrayidx941 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv, !dbg !47
+  %2 = load i32, ptr %arrayidx941, align 4, !dbg !47, !tbaa !38
+  store i32 %2, ptr %arrayidx7, align 4, !dbg !48, !tbaa !38
   br label %for.inc, !dbg !49
 
 if.end:                                           ; preds = %for.body4
-  %arrayidx9 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv, !dbg !47
-  %3 = load i32, i32* %arrayidx9, align 4, !dbg !47, !tbaa !38
-  %arrayidx11 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv, !dbg !50
-  store i32 %3, i32* %arrayidx11, align 4, !dbg !48, !tbaa !38
+  %arrayidx9 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv, !dbg !47
+  %3 = load i32, ptr %arrayidx9, align 4, !dbg !47, !tbaa !38
+  %arrayidx11 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv, !dbg !50
+  store i32 %3, ptr %arrayidx11, align 4, !dbg !48, !tbaa !38
   br i1 %cmp12, label %if.then13, label %for.inc, !dbg !49
 
 if.then13:                                        ; preds = %if.end
-  %4 = load i32, i32* %arrayidx9, align 4, !dbg !51, !tbaa !38
+  %4 = load i32, ptr %arrayidx9, align 4, !dbg !51, !tbaa !38
   %add = add nsw i32 %4, 1, !dbg !54
-  store i32 %add, i32* %arrayidx11, align 4, !dbg !55, !tbaa !38
+  store i32 %add, ptr %arrayidx11, align 4, !dbg !55, !tbaa !38
   br label %for.inc, !dbg !56
 
 for.inc:                                          ; preds = %if.then, %if.end, %if.then13

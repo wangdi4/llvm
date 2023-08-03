@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -50,10 +50,14 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
-
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -232,7 +236,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   IRBuilder<> Builder(InsertPt);
 
   if (LprivI->getIsVla()) {
-    MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
+    MaybeAlign Align(DL.getABITypeAlign(ItemTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
   } else if (!VPOUtils::canBeRegisterized(ItemTy, DL) ||
@@ -241,7 +245,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
     assert((!NumElements || isa<ConstantInt>(NumElements)) &&
            "Lastprivate item should have been classified as VLA.");
     VPOUtils::genMemcpy(Dst, Src, Size, NumElements,
-                        DL.getABITypeAlignment(ItemTy), Builder);
+                        DL.getABITypeAlign(ItemTy).value(), Builder);
   } else {
     LoadInst *Load = Builder.CreateLoad(ItemTy, Src);
     Builder.CreateStore(Load, Dst);
@@ -324,17 +328,18 @@ void VPOParoptTransform::genTaskTRedType() {
 
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
-  IntegerType *Int64Ty = Type::getInt64Ty(C);
   PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  IntegerType *SizeTTy = DL.getIntPtrType(C);
 
   if (Mode & OmpTbb)
     KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
         F, "__struct.kmp_task_t_red_item",
-        {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
+        {Int8PtrTy, SizeTTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
   else
     KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
         F, "__struct.kmp_taskred_input_t",
-        {Int8PtrTy, Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy,
+        {Int8PtrTy, Int8PtrTy, SizeTTy, Int8PtrTy, Int8PtrTy, Int8PtrTy,
          Int32Ty});
 }
 
@@ -351,13 +356,8 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 
   LLVMContext &C = F->getContext();
 
-  IntegerType *IntTy;
   const DataLayout &DL = F->getParent()->getDataLayout();
-
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
-    IntTy = Type::getInt64Ty(C);
-  else
-    IntTy = Type::getInt32Ty(C);
+  IntegerType *IntTy = DL.getIntPtrType(C);
 
   Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
 
@@ -633,9 +633,10 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
 
   Instruction *BranchPt = &*Builder.GetInsertPoint();
 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       IsSizeNonZero, BranchPt, false,
-      MDBuilder(Builder.getContext()).createBranchWeights(4, 1), DT, LI);
+      MDBuilder(Builder.getContext()).createBranchWeights(4, 1), &DTU, LI);
   BasicBlock *ThenBB = ThenTerm->getParent();
   ThenBB->setName("size.is.non.zero.then");
 
@@ -1027,7 +1028,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
       Size = Builder.getInt32(
           DL.getTypeAllocSize(Src->getAllocatedType()));
 
-    MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
+    MaybeAlign Align(DL.getABITypeAlign(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
   }
 
@@ -1198,7 +1199,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
       std::tie(ItemTy, std::ignore, std::ignore) =
           VPOParoptUtils::getItemInfo(FprivI);
 
-      MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
+      MaybeAlign Align(DL.getABITypeAlign(ItemTy));
 
       Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                            FprivI->getThunkBufferSize());
@@ -2084,6 +2085,14 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getMDInlineReport()->replaceFunctionWithFunction(NewF, MTFn);
+  getInlineReport()->replaceCallBaseWithCallBase(NewCall, TaskAllocCI);
+  getMDInlineReport()->replaceCallBaseWithCallBase(NewCall, TaskAllocCI);
+  getInlineReport()->setBrokerTarget(TaskAllocCI, MTFn);
+  getMDInlineReport()->setBrokerTarget(TaskAllocCI, MTFn);
+#endif // INTEL_CUSTOMIZATION
   NewCall->eraseFromParent();
   NewF->eraseFromParent();
   MTFnCI->eraseFromParent();

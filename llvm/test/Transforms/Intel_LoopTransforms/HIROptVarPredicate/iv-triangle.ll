@@ -65,7 +65,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
-define dso_local void @foo(i32* nocapture writeonly %p, i32* nocapture writeonly %q, i64 %n, i64 %m, i64 %d) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture writeonly %p, ptr nocapture writeonly %q, i64 %n, i64 %m, i64 %d) local_unnamed_addr #0 {
 entry:
   %cmp220 = icmp sgt i64 %n, 0
   %cmp23 = icmp sgt i64 %m, 0
@@ -81,7 +81,7 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
 
 for.body3.preheader:                              ; preds = %for.cond1.preheader
   %conv = trunc i64 %add to i32
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %add
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %add
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.inc
@@ -90,13 +90,13 @@ for.body3:                                        ; preds = %for.body3.preheader
   br i1 %cmp4, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body3
-  store i32 %conv, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %conv, ptr %arrayidx, align 4, !tbaa !3
   br label %for.inc
 
 if.else:                                          ; preds = %for.body3
   %conv5 = trunc i64 %j.021 to i32
-  %arrayidx6 = getelementptr inbounds i32, i32* %q, i64 %j.021
-  store i32 %conv5, i32* %arrayidx6, align 4, !tbaa !3
+  %arrayidx6 = getelementptr inbounds i32, ptr %q, i64 %j.021
+  store i32 %conv5, ptr %arrayidx6, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

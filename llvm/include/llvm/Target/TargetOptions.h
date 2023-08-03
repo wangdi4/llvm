@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -146,8 +146,9 @@ namespace llvm {
           ApproxFuncFPMath(false), EnableAIXExtendedAltivecABI(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
 #if INTEL_CUSTOMIZATION
-          IntelAdvancedOptim(false), IntelLibIRCAllowed(false), X87Precision(0),
-          DoFMAOpt(true), IntelSpillParms(false), IntelABICompatible(false),
+          IntelAdvancedOptim(false), IntelLibIRCAllowed(false),
+          IntelLibMAllowed(false), X87Precision(0), DoFMAOpt(true),
+          IntelSpillParms(false), IntelABICompatible(false),
 #if INTEL_FEATURE_MARKERCOUNT
           MarkerCountKind(0),
 #endif // INTEL_FEATURE_MARKERCOUNT
@@ -159,14 +160,14 @@ namespace llvm {
           IgnoreXCOFFVisibility(false), XCOFFTracebackTable(true),
           UniqueSectionNames(true), UniqueBasicBlockSectionNames(false),
           TrapUnreachable(false), NoTrapAfterNoreturn(false), TLSSize(0),
-          EmulatedTLS(false), ExplicitEmulatedTLS(false), EnableIPRA(false),
-          EmitStackSizeSection(false), EnableMachineOutliner(false),
-          EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
-          EmitAddrsig(false), EmitCallSiteInfo(false),
-          SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
-          ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
-          XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
-          Hotpatch(false), PPCGenScalarMASSEntries(false), JMCInstrument(false),
+          EmulatedTLS(false), EnableIPRA(false), EmitStackSizeSection(false),
+          EnableMachineOutliner(false), EnableMachineFunctionSplitter(false),
+          SupportsDefaultOutlining(false), EmitAddrsig(false),
+          EmitCallSiteInfo(false), SupportsDebugEntryValues(false),
+          EnableDebugEntryValues(false), ValueTrackingVariableLocations(false),
+          ForceDwarfFrameSection(false), XRayFunctionIndex(true),
+          DebugStrictDwarf(false), Hotpatch(false),
+          PPCGenScalarMASSEntries(false), JMCInstrument(false),
           EnableCFIFixup(false), MisExpect(false), XCOFFReadOnlyPointers(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
@@ -245,6 +246,11 @@ namespace llvm {
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
     unsigned IntelLibIRCAllowed : 1;
+
+    /// IntelLibMAllowed - When true, this indicates that intel libm is
+    /// available for the compiler to make calls to.  When false, the
+    /// compiler cannot generate libm calls.
+    unsigned IntelLibMAllowed : 1;
 
     /// X87Precision - Indicate how to set the precision of X87 FPU
     /// The value can be 0, 32, 64 and 80.
@@ -348,9 +354,6 @@ namespace llvm {
     /// function in the runtime library..
     unsigned EmulatedTLS : 1;
 
-    /// Whether -emulated-tls or -no-emulated-tls is set.
-    unsigned ExplicitEmulatedTLS : 1;
-
     /// This flag enables InterProcedural Register Allocation (IPRA).
     unsigned EnableIPRA : 1;
 
@@ -400,7 +403,7 @@ namespace llvm {
     unsigned ForceDwarfFrameSection : 1;
 
     /// Emit XRay Function Index section
-    unsigned XRayOmitFunctionIndex : 1;
+    unsigned XRayFunctionIndex : 1;
 
     /// When set to true, don't use DWARF extensions in later DWARF versions.
     /// By default, it is set to false.

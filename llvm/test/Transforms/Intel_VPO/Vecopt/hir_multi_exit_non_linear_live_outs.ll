@@ -69,7 +69,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @liveout_example(i32 %len_limit, i8* nocapture readonly %pb, i8* nocapture readonly %cur) local_unnamed_addr #0 {
+define dso_local i32 @liveout_example(i32 %len_limit, ptr nocapture readonly %pb, ptr nocapture readonly %cur) local_unnamed_addr #0 {
 entry:
   %cmp11 = icmp eq i32 %len_limit, 1
   br i1 %cmp11, label %while.end, label %while.body.preheader
@@ -86,10 +86,10 @@ while.cond:
 while.body:
   %inc12 = phi i32 [ %inc, %while.cond ], [ 1, %while.body.preheader ]
   %idxprom = zext i32 %inc12 to i64
-  %idx = getelementptr inbounds i8, i8* %pb, i64 %idxprom
-  %0 = load i8, i8* %idx
-  %idx2 = getelementptr inbounds i8, i8* %cur, i64 %idxprom
-  %1 = load i8, i8* %idx2
+  %idx = getelementptr inbounds i8, ptr %pb, i64 %idxprom
+  %0 = load i8, ptr %idx
+  %idx2 = getelementptr inbounds i8, ptr %cur, i64 %idxprom
+  %1 = load i8, ptr %idx2
   %cmp4 = icmp eq i8 %0, %1
   br i1 %cmp4, label %while.cond, label %while.end.loopexit
 

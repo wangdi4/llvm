@@ -13,7 +13,7 @@
 ; NeedLoopCarried flag is true or false.
 ;
 ; L2:
-;  %local_var.0 = phi double* [ %G1, %L0 ], [ %G2, %L1 ]
+;  %local_var.0 = phi ptr [ %G1, %L0 ], [ %G2, %L1 ]
 
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
@@ -23,37 +23,37 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@sumdeijda = internal unnamed_addr global double* null, align 8
-@riff = internal unnamed_addr global double* null, align 8
+@sumdeijda = internal unnamed_addr global ptr null, align 8
+@riff = internal unnamed_addr global ptr null, align 8
 
-define dso_local i32 @foo(double* %Ptr, i32 %b) {
+define dso_local i32 @foo(ptr %Ptr, i32 %b) {
 L0:
-  %local_var = alloca double*, align 8
-  %call1 = tail call noalias i8* @malloc(i64 1024)
-  store i8* %call1, i8** bitcast (double** @sumdeijda to i8**)
-  %G1 = load double*, double** @sumdeijda
-  store double* %G1, double** %local_var
+  %local_var = alloca ptr, align 8
+  %call1 = tail call noalias ptr @malloc(i64 1024)
+  store ptr %call1, ptr bitcast (ptr @sumdeijda to ptr)
+  %G1 = load ptr, ptr @sumdeijda
+  store ptr %G1, ptr %local_var
   %cmp = icmp eq i32 %b, 0
   br i1 %cmp, label %L2, label %L1
 L1:
-  %call2 = tail call noalias i8* @malloc(i64 1024)
-  store i8* %call2, i8** bitcast (double** @sumdeijda to i8**)
-  %G2 = load double*, double** @sumdeijda
-  store double* %G2, double** %local_var
+  %call2 = tail call noalias ptr @malloc(i64 1024)
+  store ptr %call2, ptr bitcast (ptr @sumdeijda to ptr)
+  %G2 = load ptr, ptr @sumdeijda
+  store ptr %G2, ptr %local_var
   br label %L2
 L2:
-  %ld2 = load double*, double** %local_var
-  %bc2 = bitcast double* %ld2 to i8*
-  call void @llvm.memset.p0i8.i64(i8* %bc2, i8 1, i64 1024, i1 false)
-  %call3 = tail call noalias i8* @malloc(i64 1024)
-  store i8* %call3, i8** bitcast (double** @sumdeijda to i8**)
-  %G3 = load double*, double** @riff
+  %ld2 = load ptr, ptr %local_var
+  %bc2 = bitcast ptr %ld2 to ptr
+  call void @llvm.memset.p0i8.i64(ptr %bc2, i8 1, i64 1024, i1 false)
+  %call3 = tail call noalias ptr @malloc(i64 1024)
+  store ptr %call3, ptr bitcast (ptr @sumdeijda to ptr)
+  %G3 = load ptr, ptr @riff
 
 ; these loads are needed to trigger aa-eval
-  %ld.G3 = load double, double* %G3, align 8
-  %ld.ld2 = load double, double* %ld2
+  %ld.G3 = load double, ptr %G3, align 8
+  %ld.ld2 = load double, ptr %ld2
   ret i32 0
 }
 
-declare dso_local noalias i8* @malloc(i64)
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+declare dso_local noalias ptr @malloc(i64)
+declare void @llvm.memset.p0i8.i64(ptr nocapture writeonly, i8, i64, i1 immarg)

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -S -passes=sycl-kernel-barrier %s | FileCheck %s
+; RUN: opt -S -passes=sycl-kernel-barrier %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -8,8 +8,8 @@ entry:
   call void @dummy_barrier.()
   call void @llvm.dbg.value(metadata i32 %a, metadata !14, metadata !DIExpression()), !dbg !16
   %g = alloca i32, align 4
-  call void @llvm.dbg.value(metadata i32* %g, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !18
-  store i32 1, i32* %g, align 4, !dbg !18
+  call void @llvm.dbg.value(metadata ptr %g, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !18
+  store i32 1, ptr %g, align 4, !dbg !18
   br label %barrier
 
 barrier:
@@ -24,9 +24,7 @@ barrier:
 ; CHECK-SAME:   !dbg [[TEST:![0-9]+]]
 ; CHECK-SAME:   {
 ; CHECK:      entry:
-; CHECK:        call void @llvm.dbg.value(metadata i32 %a,
-; CHECK-SAME:                             metadata [[A:![0-9]+]]
-; CHECK-SAME:                             metadata !DIExpression()
+; CHECK:        call void @llvm.dbg.value(metadata i32 %a, metadata [[A:![0-9]+]], metadata !DIExpression()
 ; CHECK:        br label %FirstBB
 ;
 ; CHECK:      FirstBB:
@@ -34,9 +32,7 @@ barrier:
 ;
 ; CHECK:      SyncBB1:
 ; CHECK-NOT:    call void @llvm.dbg.value(metadata i32 %a,
-; CHECK:        call void @llvm.dbg.value(metadata i32* undef
-; CHECK:                                  metadata !21,
-; CHECK:                                  metadata !DIExpression(DW_OP_deref)
+; CHECK:        call void @llvm.dbg.value(metadata ptr undef, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)
 ; CHECK:        br label %barrier
 ; CHECK:      }
 
@@ -71,7 +67,7 @@ attributes #3 = { nounwind readnone }
 !5 = !{i32 1, i32 2}
 !6 = !{!"-g", !"-cl-opt-disable"}
 !7 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!8 = !{void (i32)* @test}
+!8 = !{ptr @test}
 !9 = distinct !DISubprogram(name: "test", scope: !1, file: !1, line: 1, type: !10, scopeLine: 2, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !10 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !11)
 !11 = !{null}

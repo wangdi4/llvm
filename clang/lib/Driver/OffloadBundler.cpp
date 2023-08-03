@@ -43,11 +43,11 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/Triple.h"
 #include <algorithm>
@@ -85,12 +85,25 @@ OffloadTargetInfo::OffloadTargetInfo(const StringRef Target,
   if (clang::StringToCudaArch(TripleOrGPU.second) != clang::CudaArch::UNKNOWN) {
     auto KindTriple = TripleOrGPU.first.split('-');
     this->OffloadKind = KindTriple.first;
-    this->Triple = llvm::Triple(KindTriple.second);
-    this->TargetID = Target.substr(Target.find(TripleOrGPU.second));
+
+    // Enforce optional env field to standardize bundles
+    llvm::Triple t = llvm::Triple(KindTriple.second);
+    this->Triple = llvm::Triple(t.getArchName(), t.getVendorName(),
+                                t.getOSName(), t.getEnvironmentName());
+
+    if (TripleOrGPU.second.empty())
+      this->TargetID = "";
+    else
+      this->TargetID = Target.substr(Target.find(TripleOrGPU.second));
   } else {
     auto KindTriple = TargetFeatures.first.split('-');
     this->OffloadKind = KindTriple.first;
-    this->Triple = llvm::Triple(KindTriple.second);
+
+    // Enforce optional env field to standardize bundles
+    llvm::Triple t = llvm::Triple(KindTriple.second);
+    this->Triple = llvm::Triple(t.getArchName(), t.getVendorName(),
+                                t.getOSName(), t.getEnvironmentName());
+
     this->TargetID = "";
   }
 }
@@ -110,11 +123,11 @@ bool OffloadTargetInfo::isOffloadKindCompatible(
   if (OffloadKind == TargetOffloadKind)
     return true;
   if (BundlerConfig.HipOpenmpCompatible) {
-    bool HIPCompatibleWithOpenMP = OffloadKind.startswith_insensitive("hip") &&
+    bool HIPCompatibleWithOpenMP = OffloadKind.starts_with_insensitive("hip") &&
                                    TargetOffloadKind == "openmp";
     bool OpenMPCompatibleWithHIP =
         OffloadKind == "openmp" &&
-        TargetOffloadKind.startswith_insensitive("hip");
+        TargetOffloadKind.starts_with_insensitive("hip");
     return HIPCompatibleWithOpenMP || OpenMPCompatibleWithHIP;
   }
   return false;
@@ -1292,7 +1305,7 @@ private:
         MemoryBuffer::getMemBuffer(Obj->getMemoryBufferRef(), false);
     ObjectFileHandler OFH(std::move(Obj), BundlerConfig);
     if (Error Err = OFH.ReadHeader(*Buf))
-      return Err;
+      return {std::move(Err)};
     Expected<std::optional<StringRef>> NameOrErr = OFH.ReadBundleStart(*Buf);
     if (!NameOrErr)
       return NameOrErr.takeError();
@@ -1309,20 +1322,6 @@ private:
     return Targets;
   }
 
-  bool CheckIfTargetIsExcluded(StringRef Triple) {
-    // NOTE: "-sycldevice" Triple component has been deprecated.
-    // However, it still can be met in libraries that have been compiled before
-    // deprecation. For example, here Triple might be the following:
-    //  sycl-fpga_aoco-intel-unknown-sycldevice
-    //
-    // The workaround is to strip this Triple component if it is present.
-    Triple.consume_back("-sycldevice");
-    const auto &ExcludedTargetNames = BundlerConfig.ExcludedTargetNames;
-    auto It = std::find(ExcludedTargetNames.begin(), ExcludedTargetNames.end(),
-                        Triple);
-    return It != ExcludedTargetNames.end();
-  }
-
   // Function reads targets from Child and checks whether one of Targets
   // is in Excluded list.
   Expected<bool>
@@ -1335,11 +1334,13 @@ private:
       return TargetNamesOrErr.takeError();
 
     auto TargetNames = TargetNamesOrErr.get();
-    for (const auto &TargetName : TargetNames)
-      if (CheckIfTargetIsExcluded(TargetName))
-        return true;
-
-    return false;
+    const auto &ExcludedTargets = BundlerConfig.ExcludedTargetNames;
+    return std::any_of(TargetNames.begin(), TargetNames.end(),
+                       [&ExcludedTargets](const std::string &Target) {
+                         auto It = std::find(ExcludedTargets.begin(),
+                                             ExcludedTargets.end(), Target);
+                         return It != ExcludedTargets.end();
+                       });
   }
 };
 
@@ -1550,22 +1551,8 @@ Error OffloadBundler::UnbundleFiles() {
       }
     }
 
-    if (Output == Worklist.end()) {
-      // FIXME: temporary solution for supporting binaries produced by old
-      // versions of SYCL toolchain. Old versions used triples with 'sycldevice'
-      // environment component of the triple, whereas new toolchain use
-      // 'unknown' value for that triple component. Here we assume that if we
-      // are looking for a bundle for sycl offload kind, for the same target
-      // triple there might be either one with 'sycldevice' environment or with
-      // 'unknown' environment, but not both. So we will look for any of these
-      // two variants.
-      if (!CurTriple.startswith("sycl-") || !CurTriple.endswith("-sycldevice"))
-        continue;
-      Output =
-          Worklist.find(CurTriple.drop_back(11 /*length of "-sycldevice"*/));
-      if (Output == Worklist.end())
-        continue;
-    }
+    if (Output == Worklist.end())
+      continue;
     // Check if the output file can be opened and copy the bundle to it.
     std::error_code EC;
     raw_fd_ostream OutputFile((*Output).second, EC, sys::fs::OF_None);
@@ -1639,66 +1626,53 @@ Error OffloadBundler::UnbundleFiles() {
   return Error::success();
 }
 
-// Unbundle the files. Return true if an error was found.
+// Unbundle the files. Return false if an error was found.
 Expected<bool>
 clang::CheckBundledSection(const OffloadBundlerConfig &BundlerConfig) {
   // Open Input file.
   ErrorOr<std::unique_ptr<MemoryBuffer>> CodeOrErr =
       MemoryBuffer::getFileOrSTDIN(BundlerConfig.InputFileNames.front());
   if (std::error_code EC = CodeOrErr.getError())
-    return createFileError(BundlerConfig.InputFileNames.front(), EC);
+    return false;
   MemoryBuffer &Input = *CodeOrErr.get();
 
   // Select the right files handler.
   Expected<std::unique_ptr<FileHandler>> FileHandlerOrErr =
       CreateFileHandler(Input, BundlerConfig);
   if (!FileHandlerOrErr)
-    return FileHandlerOrErr.takeError();
+    return false;
 
   std::unique_ptr<FileHandler> &FH = *FileHandlerOrErr;
 
   // Quit if we don't have a handler.
   if (!FH)
-    return true;
+    return false;
 
   // Seed temporary filename generation with the stem of the input file.
   FH->SetTempFileNameBase(llvm::sys::path::stem(BundlerConfig.InputFileNames.front()));
 
   // Read the header of the bundled file.
   if (Error Err = FH->ReadHeader(Input))
-    return std::move(Err);
+    return false;
 
   StringRef triple = BundlerConfig.TargetNames.front();
 
-  // FIXME: temporary solution for supporting binaries produced by old versions
-  // of SYCL toolchain. Old versions used triples with 'sycldevice' environment
-  // component of the triple, whereas new toolchain use 'unknown' value for that
-  // triple component. Here we assume that if we are looking for a bundle for
-  // sycl offload kind, for the same target triple there might be either one
-  // with 'sycldevice' environment or with 'unknown' environment, but not both.
-  // So we will look for any of these two variants.
-  OffloadTargetInfo TI(triple, BundlerConfig);
-  bool checkCompatibleTriple =
-      (TI.OffloadKind == "sycl") &&
-      (TI.Triple.getEnvironment() == Triple::UnknownEnvironment);
-  TI.Triple.setEnvironmentName("sycldevice");
-  std::string compatibleTriple = Twine("sycl-" + TI.Triple.str()).str();
-
+  // Read all the bundles that are in the work list. If we find no bundles we
   // assume the file is meant for the host target.
   bool found = false;
   while (!found) {
     Expected<std::optional<StringRef>> CurTripleOrErr =
         FH->ReadBundleStart(Input);
     if (!CurTripleOrErr)
-      return CurTripleOrErr.takeError();
+      return false;
 
     // We don't have more bundles.
     if (!*CurTripleOrErr)
       break;
 
-    if (*CurTripleOrErr == triple ||
-        (checkCompatibleTriple &&
-         *CurTripleOrErr == StringRef(compatibleTriple))) {
+    StringRef CurTriple = **CurTripleOrErr;
+    if (OffloadTargetInfo(CurTriple, BundlerConfig).Triple.str() ==
+        OffloadTargetInfo(triple, BundlerConfig).Triple.str()) {
       found = true;
       break;
     }

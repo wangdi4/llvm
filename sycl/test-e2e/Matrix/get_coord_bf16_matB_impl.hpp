@@ -132,17 +132,18 @@ void matrix_sum_cols(queue q, big_matrix<T, M, N> &B, nd_range<2> &r) {
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
 
            // TK = 32, TN = 16
            joint_matrix<sub_group, int8_t, use::b, TK, TN,
                         ext::intel::experimental::matrix::layout::packed>
                sub_b;
 
-           joint_matrix_load(sg, sub_b,
-                             accB.get_pointer() + (global_idx * (TK / 4) * N) +
-                                 sg_starty / SG_SZ * TN * 4,
-                             N);
+           joint_matrix_load(
+               sg, sub_b,
+               accB.template get_multi_ptr<access::decorated::no>() +
+                   (sg_startx * (TK / 4) * N) + sg_starty / SG_SZ * TN * 4,
+               N);
 
            int32_t sum_local_cols[N] = {0}; // 4 local cols, N total
            // sub_b has 32x16 elements, 32 elements per WI, 4 per WI per row
@@ -206,7 +207,7 @@ int main() {
 
   for (int i = 0; i < MATRIX_K; i++) {
     for (int j = 0; j < MATRIX_N; j++) {
-      B[i][j] = i;
+      B[i][j] = i + j;
     }
   }
 

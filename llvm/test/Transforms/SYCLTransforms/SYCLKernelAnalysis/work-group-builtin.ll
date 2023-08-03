@@ -106,6 +106,6 @@ declare spir_func i32 @_Z29work_group_scan_inclusive_minj(i32) #0
 attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @kernel_contains_wg_all, void ()* @kernel_contains_wg_any, void ()* @kernel_contains_wg_broadcastij, void ()* @kernel_contains_wg_broadcastijj, void ()* @kernel_contains_wg_broadcastijjj, void ()* @kernel_contains_wg_reduce_add, void ()* @kernel_contains_wg_reduce_min, void ()* @kernel_contains_wg_scan_exclusive_add, void ()* @kernel_contains_wg_scan_exclusive_min, void ()* @kernel_contains_wg_scan_inclusive_add, void ()* @kernel_contains_wg_scan_inclusive_min}
+!0 = !{ptr @kernel_contains_wg_all, ptr @kernel_contains_wg_any, ptr @kernel_contains_wg_broadcastij, ptr @kernel_contains_wg_broadcastijj, ptr @kernel_contains_wg_broadcastijjj, ptr @kernel_contains_wg_reduce_add, ptr @kernel_contains_wg_reduce_min, ptr @kernel_contains_wg_scan_exclusive_add, ptr @kernel_contains_wg_scan_exclusive_min, ptr @kernel_contains_wg_scan_inclusive_add, ptr @kernel_contains_wg_scan_inclusive_min}
 
 ; DEBUGIFY-NOT: WARNING

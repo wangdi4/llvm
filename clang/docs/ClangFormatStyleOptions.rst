@@ -7,7 +7,7 @@
 .. raw:: html
 
       <style type="text/css">
-        .versionbadge { background-color: #1c913d; height: 20px; display: inline-block; width: 120px; text-align: center; border-radius: 5px; color: #FFFFFF; font-family: "Verdana,Geneva,DejaVu Sans,sans-serif"; }
+        .versionbadge { background-color: #1c913d; height: 20px; display: inline-block; min-width: 120px; text-align: center; border-radius: 5px; color: #FFFFFF; font-family: "Verdana,Geneva,DejaVu Sans,sans-serif"; }
       </style>
 
 .. role:: versionbadge
@@ -239,9 +239,10 @@ the configuration (without a prefix: ``Auto``).
       )
 
 
-    .. warning:: 
+    .. note::
 
-     Note: This currently only applies to parentheses.
+     This currently only applies to braced initializer lists (when
+     ``Cpp11BracedListStyle`` is ``true``) and parentheses.
 
 
 
@@ -251,8 +252,11 @@ the configuration (without a prefix: ``Auto``).
   if not ``None``, when using initialization for an array of structs
   aligns the fields into columns.
 
-  NOTE: As of clang-format 15 this option only applied to arrays with equal
-  number of columns per row.
+
+  .. note::
+
+   As of clang-format 15 this option only applied to arrays with equal
+   number of columns per row.
 
   Possible values:
 
@@ -878,8 +882,11 @@ the configuration (without a prefix: ``Auto``).
 **AlignTrailingComments** (``TrailingCommentsAlignmentStyle``) :versionbadge:`clang-format 3.7` :ref:`¶ <AlignTrailingComments>`
   Control of trailing comments.
 
-  NOTE: As of clang-format 16 this option is not a bool but can be set
-  to the options. Conventional bool options still can be parsed as before.
+
+  .. note::
+
+   As of clang-format 16 this option is not a bool but can be set
+   to the options. Conventional bool options still can be parsed as before.
 
 
   .. code-block:: yaml
@@ -1676,8 +1683,11 @@ the configuration (without a prefix: ``Auto``).
       }
 
   * ``bool AfterObjCDeclaration`` Wrap ObjC definitions (interfaces, implementations...).
-    @autoreleasepool and @synchronized blocks are wrapped
-    according to `AfterControlStatement` flag.
+
+    .. note::
+
+     @autoreleasepool and @synchronized blocks are wrapped
+     according to ``AfterControlStatement`` flag.
 
   * ``bool AfterStruct`` Wrap struct definitions.
 
@@ -1793,9 +1803,10 @@ the configuration (without a prefix: ``Auto``).
 
   * ``bool SplitEmptyFunction`` If ``false``, empty function body can be put on a single line.
     This option is used only if the opening brace of the function has
-    already been wrapped, i.e. the `AfterFunction` brace wrapping mode is
+    already been wrapped, i.e. the ``AfterFunction`` brace wrapping mode is
     set, and the function could/should not be put on a single line (as per
-    `AllowShortFunctionsOnASingleLine` and constructor formatting options).
+    ``AllowShortFunctionsOnASingleLine`` and constructor formatting
+    options).
 
     .. code-block:: c++
 
@@ -1806,7 +1817,7 @@ the configuration (without a prefix: ``Auto``).
 
   * ``bool SplitEmptyRecord`` If ``false``, empty record (e.g. class, struct or union) body
     can be put on a single line. This option is used only if the opening
-    brace of the record has already been wrapped, i.e. the `AfterClass`
+    brace of the record has already been wrapped, i.e. the ``AfterClass``
     (for classes) brace wrapping mode is set.
 
     .. code-block:: c++
@@ -1818,7 +1829,7 @@ the configuration (without a prefix: ``Auto``).
 
   * ``bool SplitEmptyNamespace`` If ``false``, empty namespace body can be put on a single line.
     This option is used only if the opening brace of the namespace has
-    already been wrapped, i.e. the `AfterNamespace` brace wrapping mode is
+    already been wrapped, i.e. the ``AfterNamespace`` brace wrapping mode is
     set.
 
     .. code-block:: c++
@@ -1828,6 +1839,41 @@ the configuration (without a prefix: ``Auto``).
       {}                   {
                            }
 
+
+.. _BracedInitializerIndentWidth:
+
+**BracedInitializerIndentWidth** (``Unsigned``) :versionbadge:`clang-format 17` :ref:`¶ <BracedInitializerIndentWidth>`
+  The number of columns to use to indent the contents of braced init lists.
+  If unset, ``ContinuationIndentWidth`` is used.
+
+  .. code-block:: c++
+
+    AlignAfterOpenBracket: AlwaysBreak
+    BracedInitializerIndentWidth: 2
+
+    void f() {
+      SomeClass c{
+        "foo",
+        "bar",
+        "baz",
+      };
+      auto s = SomeStruct{
+        .foo = "foo",
+        .bar = "bar",
+        .baz = "baz",
+      };
+      SomeArrayT a[3] = {
+        {
+          foo,
+          bar,
+        },
+        {
+          foo,
+          bar,
+        },
+        SomeArrayT{},
+      };
+    }
 
 .. _BreakAfterAttributes:
 
@@ -1881,11 +1927,14 @@ the configuration (without a prefix: ``Auto``).
 .. _BreakArrays:
 
 **BreakArrays** (``Boolean``) :versionbadge:`clang-format 16` :ref:`¶ <BreakArrays>`
-  If ``true``, clang-format will always break after a Json array `[`
-  otherwise it will scan until the closing `]` to determine if it should add
-  newlines between elements (prettier compatible).
+  If ``true``, clang-format will always break after a Json array ``[``
+  otherwise it will scan until the closing ``]`` to determine if it should
+  add newlines between elements (prettier compatible).
 
-  NOTE: This is currently only for formatting JSON.
+
+  .. note::
+
+   This is currently only for formatting JSON.
 
   .. code-block:: c++
 
@@ -2397,7 +2446,7 @@ the configuration (without a prefix: ``Auto``).
       } // namespace N
 
   * ``BS_Custom`` (in configuration: ``Custom``)
-    Configure each individual brace in `BraceWrapping`.
+    Configure each individual brace in ``BraceWrapping``.
 
 
 
@@ -2418,7 +2467,7 @@ the configuration (without a prefix: ``Auto``).
   * ``BBCDS_Allowed`` (in configuration: ``Allowed``)
     Breaking between template declaration and ``concept`` is allowed. The
     actual behavior depends on the content and line breaking rules and
-    penalities.
+    penalties.
 
   * ``BBCDS_Always`` (in configuration: ``Always``)
     Always break before ``concept``, putting it in the line after the
@@ -2841,8 +2890,11 @@ the configuration (without a prefix: ``Auto``).
   made, clang-format analyzes whether there are other bin-packed cases in
   the input file and act accordingly.
 
-  NOTE: This is an experimental flag, that might go away or be renamed. Do
-  not use this in config files, etc. Use at your own risk.
+
+  .. note::
+
+   This is an experimental flag, that might go away or be renamed. Do
+   not use this in config files, etc. Use at your own risk.
 
 .. _FixNamespaceComments:
 
@@ -3283,11 +3335,11 @@ the configuration (without a prefix: ``Auto``).
   and ``while``) in C++ unless the control statements are inside macro
   definitions or the braces would enclose preprocessor directives.
 
-  .. warning:: 
+  .. warning::
 
-   Setting this option to `true` could lead to incorrect code formatting due
-   to clang-format's lack of complete semantic information. As such, extra
-   care should be taken to review code changes made by this option.
+   Setting this option to ``true`` could lead to incorrect code formatting
+   due to clang-format's lack of complete semantic information. As such,
+   extra care should be taken to review code changes made by this option.
 
   .. code-block:: c++
 
@@ -3375,6 +3427,10 @@ the configuration (without a prefix: ``Auto``).
       Decimal: 3
       Hex: -1
 
+  You can also specify a minimum number of digits (``BinaryMinDigits``,
+  ``DecimalMinDigits``, and ``HexMinDigits``) the integer literal must
+  have in order for the separators to be inserted.
+
   * ``int8_t Binary`` Format separators in binary literals.
 
     .. code-block:: text
@@ -3384,6 +3440,15 @@ the configuration (without a prefix: ``Auto``).
       /*  3: */ b = 0b100'111'101'101;
       /*  4: */ b = 0b1001'1110'1101;
 
+  * ``int8_t BinaryMinDigits`` Format separators in binary literals with a minimum number of digits.
+
+    .. code-block:: text
+
+      // Binary: 3
+      // BinaryMinDigits: 7
+      b1 = 0b101101;
+      b2 = 0b1'101'101;
+
   * ``int8_t Decimal`` Format separators in decimal literals.
 
     .. code-block:: text
@@ -3392,6 +3457,15 @@ the configuration (without a prefix: ``Auto``).
       /*  0: */ d = 184467'440737'0'95505'92ull;
       /*  3: */ d = 18'446'744'073'709'550'592ull;
 
+  * ``int8_t DecimalMinDigits`` Format separators in decimal literals with a minimum number of digits.
+
+    .. code-block:: text
+
+      // Decimal: 3
+      // DecimalMinDigits: 5
+      d1 = 2023;
+      d2 = 10'000;
+
   * ``int8_t Hex`` Format separators in hexadecimal literals.
 
     .. code-block:: text
@@ -3399,6 +3473,16 @@ the configuration (without a prefix: ``Auto``).
       /* -1: */ h = 0xDEADBEEFDEADBEEFuz;
       /*  0: */ h = 0xDEAD'BEEF'DE'AD'BEE'Fuz;
       /*  2: */ h = 0xDE'AD'BE'EF'DE'AD'BE'EFuz;
+
+  * ``int8_t HexMinDigits`` Format separators in hexadecimal literals with a minimum number of
+    digits.
+
+    .. code-block:: text
+
+      // Hex: 2
+      // HexMinDigits: 6
+      h1 = 0xABCDE;
+      h2 = 0xAB'CD'EF;
 
 
 .. _JavaImportGroups:
@@ -3488,6 +3572,11 @@ the configuration (without a prefix: ``Auto``).
      false:
      import {VeryLongImportsAreAnnoying, VeryLongImportsAreAnnoying, VeryLongImportsAreAnnoying,} from "some/module.js"
 
+.. _KeepEmptyLinesAtEOF:
+
+**KeepEmptyLinesAtEOF** (``Boolean``) :versionbadge:`clang-format 17` :ref:`¶ <KeepEmptyLinesAtEOF>`
+  Keep empty lines (up to ``MaxEmptyLinesToKeep``) at end of file.
+
 .. _KeepEmptyLinesAtTheStartOfBlocks:
 
 **KeepEmptyLinesAtTheStartOfBlocks** (``Boolean``) :versionbadge:`clang-format 3.7` :ref:`¶ <KeepEmptyLinesAtTheStartOfBlocks>`
@@ -3508,11 +3597,7 @@ the configuration (without a prefix: ``Auto``).
   causes the lambda body to be indented one additional level relative to
   the indentation level of the signature. ``OuterScope`` forces the lambda
   body to be indented one additional level relative to the parent scope
-  containing the lambda signature. For callback-heavy code, it may improve
-  readability to have the signature indented two levels and to use
-  ``OuterScope``. The KJ style guide requires ``OuterScope``.
-  `KJ style guide
-  <https://github.com/capnproto/capnproto/blob/master/style-guide.md>`_
+  containing the lambda signature.
 
   Possible values:
 
@@ -3536,6 +3621,11 @@ the configuration (without a prefix: ``Auto``).
            [](SomeReallyLongLambdaSignatureArgument foo) {
          return;
        });
+
+       someMethod(someOtherMethod(
+           [](SomeReallyLongLambdaSignatureArgument foo) {
+         return;
+       }));
 
 
 
@@ -3657,7 +3747,7 @@ the configuration (without a prefix: ``Auto``).
     A(a*b);
 
   will usually be interpreted as a call to a function A, and the
-  multiplication expression will be formatted as `a * b`.
+  multiplication expression will be formatted as ``a * b``.
 
   If we specify the macro definition:
 
@@ -3667,7 +3757,7 @@ the configuration (without a prefix: ``Auto``).
     - A(x)=x
 
   the code will now be parsed as a declaration of the variable b of type a*,
-  and formatted as `a* b` (depending on pointer-binding rules).
+  and formatted as ``a* b`` (depending on pointer-binding rules).
 
   Features and restrictions:
    * Both function-like macros and object-like macros are supported.
@@ -4036,9 +4126,9 @@ the configuration (without a prefix: ``Auto``).
 **QualifierAlignment** (``QualifierAlignmentStyle``) :versionbadge:`clang-format 14` :ref:`¶ <QualifierAlignment>`
   Different ways to arrange specifiers and qualifiers (e.g. const/volatile).
 
-  .. warning:: 
+  .. warning::
 
-   Setting ``QualifierAlignment``  to something other than `Leave`, COULD
+   Setting ``QualifierAlignment``  to something other than ``Leave``, COULD
    lead to incorrect code formatting due to incorrect decisions made due to
    clang-formats lack of complete semantic information.
    As such extra care should be taken to review code changes made by the use
@@ -4103,10 +4193,14 @@ the configuration (without a prefix: ``Auto``).
     * restrict
     * type
 
-  Note: it MUST contain 'type'.
+
+  .. note::
+
+   it MUST contain 'type'.
+
   Items to the left of 'type' will be placed to the left of the type and
-  aligned in the order supplied. Items to the right of 'type' will be placed
-  to the right of the type and aligned in the order supplied.
+  aligned in the order supplied. Items to the right of 'type' will be
+  placed to the right of the type and aligned in the order supplied.
 
 
   .. code-block:: yaml
@@ -4212,15 +4306,15 @@ the configuration (without a prefix: ``Auto``).
   Remove optional braces of control statements (``if``, ``else``, ``for``,
   and ``while``) in C++ according to the LLVM coding style.
 
-  .. warning:: 
+  .. warning::
 
    This option will be renamed and expanded to support other styles.
 
-  .. warning:: 
+  .. warning::
 
-   Setting this option to `true` could lead to incorrect code formatting due
-   to clang-format's lack of complete semantic information. As such, extra
-   care should be taken to review code changes made by this option.
+   Setting this option to ``true`` could lead to incorrect code formatting
+   due to clang-format's lack of complete semantic information. As such,
+   extra care should be taken to review code changes made by this option.
 
   .. code-block:: c++
 
@@ -4264,16 +4358,60 @@ the configuration (without a prefix: ``Auto``).
       }
     }
 
+.. _RemoveParentheses:
+
+**RemoveParentheses** (``RemoveParenthesesStyle``) :versionbadge:`clang-format 17` :ref:`¶ <RemoveParentheses>`
+  Remove redundant parentheses.
+
+  .. warning::
+
+   Setting this option to any value other than ``Leave`` could lead to
+   incorrect code formatting due to clang-format's lack of complete semantic
+   information. As such, extra care should be taken to review code changes
+   made by this option.
+
+  Possible values:
+
+  * ``RPS_Leave`` (in configuration: ``Leave``)
+    Do not remove parentheses.
+
+    .. code-block:: c++
+
+      class __declspec((dllimport)) X {};
+      co_return (((0)));
+      return ((a + b) - ((c + d)));
+
+  * ``RPS_MultipleParentheses`` (in configuration: ``MultipleParentheses``)
+    Replace multiple parentheses with single parentheses.
+
+    .. code-block:: c++
+
+      class __declspec(dllimport) X {};
+      co_return (0);
+      return ((a + b) - (c + d));
+
+  * ``RPS_ReturnStatement`` (in configuration: ``ReturnStatement``)
+    Also remove parentheses enclosing the expression in a
+    ``return``/``co_return`` statement.
+
+    .. code-block:: c++
+
+      class __declspec(dllimport) X {};
+      co_return 0;
+      return (a + b) - (c + d);
+
+
+
 .. _RemoveSemicolon:
 
 **RemoveSemicolon** (``Boolean``) :versionbadge:`clang-format 16` :ref:`¶ <RemoveSemicolon>`
   Remove semicolons after the closing brace of a non-empty function.
 
-  .. warning:: 
+  .. warning::
 
-   Setting this option to `true` could lead to incorrect code formatting due
-   to clang-format's lack of complete semantic information. As such, extra
-   care should be taken to review code changes made by this option.
+   Setting this option to ``true`` could lead to incorrect code formatting
+   due to clang-format's lack of complete semantic information. As such,
+   extra care should be taken to review code changes made by this option.
 
   .. code-block:: c++
 
@@ -4391,7 +4529,7 @@ the configuration (without a prefix: ``Auto``).
        }
 
   * ``REI_Keyword`` (in configuration: ``Keyword``)
-    Align requires expression body relative to the `requires` keyword.
+    Align requires expression body relative to the ``requires`` keyword.
 
     .. code-block:: c++
 
@@ -4493,11 +4631,6 @@ the configuration (without a prefix: ``Auto``).
 
 **SortIncludes** (``SortIncludesOptions``) :versionbadge:`clang-format 3.8` :ref:`¶ <SortIncludes>`
   Controls if and how clang-format will sort ``#includes``.
-  If ``Never``, includes are never sorted.
-  If ``CaseInsensitive``, includes are sorted in an ASCIIbetical or case
-  insensitive fashion.
-  If ``CaseSensitive``, includes are sorted in an alphabetical or case
-  sensitive fashion.
 
   Possible values:
 
@@ -4746,6 +4879,19 @@ the configuration (without a prefix: ``Auto``).
      true:                                  false:
      class Foo : Bar {}             vs.     class Foo: Bar {}
 
+.. _SpaceBeforeJsonColon:
+
+**SpaceBeforeJsonColon** (``Boolean``) :versionbadge:`clang-format 17` :ref:`¶ <SpaceBeforeJsonColon>`
+  If ``true``, a space will be added before a JSON colon. For other
+  languages, e.g. JavaScript, use ``SpacesInContainerLiterals`` instead.
+
+  .. code-block:: c++
+
+     true:                                  false:
+     {                                      {
+       "key" : "value"              vs.       "key": "value"
+     }                                      }
+
 .. _SpaceBeforeParens:
 
 **SpaceBeforeParens** (``SpaceBeforeParensStyle``) :versionbadge:`clang-format 3.5` :ref:`¶ <SpaceBeforeParens>`
@@ -4820,7 +4966,7 @@ the configuration (without a prefix: ``Auto``).
 
   * ``SBPO_Custom`` (in configuration: ``Custom``)
     Configure each individual space before parentheses in
-    `SpaceBeforeParensOptions`.
+    ``SpaceBeforeParensOptions``.
 
 
 
@@ -4988,9 +5134,12 @@ the configuration (without a prefix: ``Auto``).
   The number of spaces before trailing line comments
   (``//`` - comments).
 
-  This does not affect trailing block comments (``/*`` - comments) as
-  those commonly have different usage patterns and a number of special
-  cases.
+  This does not affect trailing block comments (``/*`` - comments) as those
+  commonly have different usage patterns and a number of special cases.  In
+  the case of Verilog, it doesn't affect a comment right after the opening
+  parenthesis in the port or parameter list in a module header, because it
+  is probably for the port on the following line instead of the parenthesis
+  it follows.
 
   .. code-block:: c++
 
@@ -5055,8 +5204,9 @@ the configuration (without a prefix: ``Auto``).
 .. _SpacesInContainerLiterals:
 
 **SpacesInContainerLiterals** (``Boolean``) :versionbadge:`clang-format 3.7` :ref:`¶ <SpacesInContainerLiterals>`
-  If ``true``, spaces are inserted inside container literals (e.g.
-  ObjC and Javascript array and dict literals).
+  If ``true``, spaces are inserted inside container literals (e.g.  ObjC and
+  Javascript array and dict literals). For JSON, use
+  ``SpaceBeforeJsonColon`` instead.
 
   .. code-block:: js
 
@@ -5206,6 +5356,16 @@ the configuration (without a prefix: ``Auto``).
 **TabWidth** (``Unsigned``) :versionbadge:`clang-format 3.7` :ref:`¶ <TabWidth>`
   The number of columns used for tab stops.
 
+.. _TypeNames:
+
+**TypeNames** (``List of Strings``) :versionbadge:`clang-format 17` :ref:`¶ <TypeNames>`
+  A vector of non-keyword identifiers that should be interpreted as type
+  names.
+
+  A ``*``, ``&``, or ``&&`` between a type name and another non-keyword
+  identifier is annotated as a pointer or reference token instead of a
+  binary operator.
+
 .. _TypenameMacros:
 
 **TypenameMacros** (``List of Strings``) :versionbadge:`clang-format 9` :ref:`¶ <TypenameMacros>`
@@ -5257,6 +5417,22 @@ the configuration (without a prefix: ``Auto``).
     one tab stop to the next one.
 
 
+
+.. _VerilogBreakBetweenInstancePorts:
+
+**VerilogBreakBetweenInstancePorts** (``Boolean``) :versionbadge:`clang-format 17` :ref:`¶ <VerilogBreakBetweenInstancePorts>`
+  For Verilog, put each port on its own line in module instantiations.
+
+  .. code-block:: c++
+
+     true:
+     ffnand ff1(.q(),
+                .qbar(out1),
+                .clear(in1),
+                .preset(in2));
+
+     false:
+     ffnand ff1(.q(), .qbar(out1), .clear(in1), .preset(in2));
 
 .. _WhitespaceSensitiveMacros:
 

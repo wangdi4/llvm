@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check for tls mode. Local variable used in scalar kernel and vector kernel has
 ; the same offset in both kernels. Local buffer size is the same for both kernels.
@@ -8,63 +8,60 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32, !dbg !0
-@pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef, align 8
+@pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
 ; CHECK-NOT: @test.i = external addrspace(3) global i32,
-; CHECK: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef, align 8
+; CHECK: @pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
 define internal fastcc void @foo() {
 ; CHECK: define internal fastcc void @foo()
 ; CHECK-NOT: !local_buffer_size
 ; CHECK-SAME: {
-; CHECK:   %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8
-; CHECK:   %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; CHECK:   %1 = bitcast i8 addrspace(3)* %0 to i32 addrspace(3)*
-; CHECK:   store i32 1, i32 addrspace(3)* %1, align 4, !dbg
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   [[GEP0:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
+; CHECK:   store i32 1, ptr addrspace(3) [[GEP0]], align 4, !dbg
 ;
 entry:
-  store i32 1, i32 addrspace(3)* @test.i, align 4, !dbg !14
+  store i32 1, ptr addrspace(3) @test.i, align 4, !dbg !14
   ret void
 }
 
-define dso_local void @test(i32 addrspace(1)* noundef align 4 %dst) !dbg !2 !kernel_arg_addr_space !17 !vectorized_kernel !18 !vectorized_width !17 {
-; CHECK: define dso_local void @test(i32 addrspace(1)* noundef align 4 %dst)
+define dso_local void @test(ptr addrspace(1) noundef align 4 %dst) !dbg !2 !kernel_arg_addr_space !17 !vectorized_kernel !18 !vectorized_width !17 {
+; CHECK: define dso_local void @test(ptr addrspace(1) noundef align 4 %dst)
 ; CHECK-SAME: !vectorized_kernel [[VECTORIZED_KERNEL:![0-9]+]]
 ; CHECK-SAME: !vectorized_width [[VECTORIZED_WIDTH1:![0-9]+]]
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE:![0-9]+]]
-; CHECK:   %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8
-; CHECK:   %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; CHECK:   %1 = bitcast i8 addrspace(3)* %0 to i32 addrspace(3)*
-; CHECK:   call void @llvm.dbg.value(metadata i8 addrspace(3)* %LocalMemBase, metadata {{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg
-; CHECK:   store i32 %conv, i32 addrspace(3)* %1, align 4, !dbg
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   [[GEP1:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
+; CHECK:   call void @llvm.dbg.value(metadata ptr addrspace(3) [[GEP1]], metadata {{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg
+; CHECK:   store i32 %conv, ptr addrspace(3) [[GEP1]], align 4, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
-; CHECK:   [[LOAD1:%[0-9]+]] = load i32, i32 addrspace(3)* %1, align 4, !dbg
-; CHECK:   store i32 [[LOAD1]], i32 addrspace(1)* %dst, align 4, !dbg
+; CHECK:   [[LOAD1:%[0-9]+]] = load i32, ptr addrspace(3) [[GEP1]], align 4, !dbg
+; CHECK:   store i32 [[LOAD1]], ptr addrspace(1) %dst, align 4, !dbg
 ;
 entry:
   br label %SyncBB2
 
 SyncBB2:                                          ; preds = %SyncBB2, %entry
   %conv = trunc i64 0 to i32
-  store i32 %conv, i32 addrspace(3)* @test.i, align 4, !dbg !19
+  store i32 %conv, ptr addrspace(3) @test.i, align 4, !dbg !19
   br label %SyncBB2
 
 Dispatch8:                                        ; preds = %Dispatch8
   tail call fastcc void @foo() #0, !dbg !20
-  %0 = load i32, i32 addrspace(3)* @test.i, align 4, !dbg !21
-  store i32 %0, i32 addrspace(1)* %dst, align 4, !dbg !22
+  %0 = load i32, ptr addrspace(3) @test.i, align 4, !dbg !21
+  store i32 %0, ptr addrspace(1) %dst, align 4, !dbg !22
   br label %Dispatch8
 }
 
-define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noundef align 4 %dst) !vectorized_width !23 !scalar_kernel !13 {
-; CHECK: define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noundef align 4 %dst)
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst) !vectorized_width !23 !scalar_kernel !13 {
+; CHECK: define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst)
 ; CHECK-SAME: !vectorized_width [[VECTORIZED_WIDTH16:![0-9]+]]
 ; CHECK-SAME: !scalar_kernel [[SCALAR_KERNEL:![0-9]+]]
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE]]
-; CHECK:   %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8
-; CHECK:   %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; CHECK:   %1 = bitcast i8 addrspace(3)* %0 to i32 addrspace(3)*
-; CHECK:   store i32 %.extract.15..lcssa, i32 addrspace(3)* %1, align 4, !dbg
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   [[GEP2:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
+; CHECK:   store i32 %.extract.15..lcssa, ptr addrspace(3) [[GEP2]], align 4, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
@@ -81,15 +78,15 @@ define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noundef align 4 %dst) !v
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg
-; CHECK:   [[LOAD2:%[0-9]+]] = load i32, i32 addrspace(3)* %1, align 4, !dbg
-; CHECK:   store i32 [[LOAD2]], i32 addrspace(1)* %dst, align 4, !dbg
+; CHECK:   [[LOAD2:%[0-9]+]] = load i32, ptr addrspace(3) [[GEP2]], align 4, !dbg
+; CHECK:   store i32 [[LOAD2]], ptr addrspace(1) %dst, align 4, !dbg
 ;
 entry:
   br label %LoopEnd_0
 
 LoopEnd_0:                                        ; preds = %entry
   %.extract.15..lcssa = phi i32 [ 0, %entry ]
-  store i32 %.extract.15..lcssa, i32 addrspace(3)* @test.i, align 4, !dbg !24
+  store i32 %.extract.15..lcssa, ptr addrspace(3) @test.i, align 4, !dbg !24
   tail call fastcc void @foo() #0, !dbg !26
   tail call fastcc void @foo() #0, !dbg !26
   tail call fastcc void @foo() #0, !dbg !26
@@ -106,8 +103,8 @@ LoopEnd_0:                                        ; preds = %entry
   tail call fastcc void @foo() #0, !dbg !26
   tail call fastcc void @foo() #0, !dbg !26
   tail call fastcc void @foo() #0, !dbg !26
-  %0 = load i32, i32 addrspace(3)* @test.i, align 4, !dbg !27
-  store i32 %0, i32 addrspace(1)* %dst, align 4, !dbg !28
+  %0 = load i32, ptr addrspace(3) @test.i, align 4, !dbg !27
+  store i32 %0, ptr addrspace(1) %dst, align 4, !dbg !28
   ret void
 }
 
@@ -130,12 +127,12 @@ attributes #0 = { convergent }
 !10 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !11 = !{i32 7, !"Dwarf Version", i32 4}
 !12 = !{i32 2, !"Debug Info Version", i32 3}
-!13 = !{void (i32 addrspace(1)*)* @test}
+!13 = !{ptr @test}
 !14 = !DILocation(line: 2, column: 6, scope: !15)
 !15 = distinct !DISubprogram(name: "foo", scope: !3, file: !3, line: 1, type: !16, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !6, retainedNodes: !9)
 !16 = !DISubroutineType(cc: DW_CC_LLVM_SpirFunction, types: !5)
 !17 = !{i32 1}
-!18 = !{void (i32 addrspace(1)*)* @_ZGVeN16u_test}
+!18 = !{ptr @_ZGVeN16u_test}
 !19 = !DILocation(line: 7, column: 5, scope: !2)
 !20 = !DILocation(line: 9, column: 3, scope: !2)
 !21 = !DILocation(line: 10, column: 12, scope: !2)
@@ -147,8 +144,8 @@ attributes #0 = { convergent }
 !27 = !DILocation(line: 10, column: 12, scope: !25)
 !28 = !DILocation(line: 10, column: 10, scope: !25)
 
-; CHECK: [[SCALAR_KERNEL]] = !{void (i32 addrspace(1)*)* @test}
+; CHECK: [[SCALAR_KERNEL]] = !{ptr @test}
 ; CHECK: [[VECTORIZED_WIDTH1]] = !{i32 1}
-; CHECK: [[VECTORIZED_KERNEL]] = !{void (i32 addrspace(1)*)* @_ZGVeN16u_test}
+; CHECK: [[VECTORIZED_KERNEL]] = !{ptr @_ZGVeN16u_test}
 ; CHECK: [[LOCAL_SIZE]] = !{i32 4}
 ; CHECK: [[VECTORIZED_WIDTH16]] = !{i32 16}

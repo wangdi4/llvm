@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; This test checks that
 ;   * WG loops are only created for kernel without barrier path.
@@ -10,16 +10,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(i32 addrspace(1)* noalias noundef %dst) #0 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst) #0 !kernel_arg_base_type !4 !arg_type_null_val !13 {
 entry:
   %retval = alloca i32, align 4
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8
   %call = call i64 @_Z13get_global_idj(i32 noundef 0) #5
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %call
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4
-  %1 = load i32, i32* %retval, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %call
+  store i32 0, ptr addrspace(1) %arrayidx, align 4
+  %1 = load i32, ptr %retval, align 4
   ret i32 %1
 }
 
@@ -27,60 +27,60 @@ entry:
 declare i64 @_Z13get_global_idj(i32 noundef) #1
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @bar(i32 addrspace(1)* noalias noundef %dst) #0 {
+define dso_local i32 @bar(ptr addrspace(1) noalias noundef %dst) #0 !kernel_arg_base_type !4 !arg_type_null_val !13 {
 entry:
   %retval = alloca i32, align 4
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8
   %call = call i64 @_Z13get_global_idj(i32 noundef 0) #5
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %call
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4
-  %1 = load i32, i32* %retval, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %call
+  store i32 0, ptr addrspace(1) %arrayidx, align 4
+  %1 = load i32, ptr %retval, align 4
   ret i32 %1
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %dst) #2 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !no_barrier_path !10 !kernel_has_sub_groups !7 !kernel_execution_length !11 !kernel_has_global_sync !7 !recommended_vector_length !2 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #2 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !no_barrier_path !10 !kernel_has_sub_groups !7 !kernel_execution_length !11 !kernel_has_global_sync !7 !recommended_vector_length !2 !arg_type_null_val !13 {
 entry:
 ; CHECK-LABEL @test(
 ; CHECK: %local.ids = alloca [3 x i64], align 8
-; CHECK-NEXT: %local.id0 = getelementptr inbounds [3 x i64], [3 x i64]* %local.ids, i64 0, i32 0
-; CHECK-NEXT: %local.id1 = getelementptr inbounds [3 x i64], [3 x i64]* %local.ids, i64 0, i32 1
-; CHECK-NEXT: %local.id2 = getelementptr inbounds [3 x i64], [3 x i64]* %local.ids, i64 0, i32 2
+; CHECK-NEXT: %local.id0 = getelementptr inbounds [3 x i64], ptr %local.ids, i64 0, i32 0
+; CHECK-NEXT: %local.id1 = getelementptr inbounds [3 x i64], ptr %local.ids, i64 0, i32 1
+; CHECK-NEXT: %local.id2 = getelementptr inbounds [3 x i64], ptr %local.ids, i64 0, i32 2
 ; CHECK: scalar_kernel_entry:
 ; CHECK: %dim_0_tid = phi i64 [ %dim_0_sub_lid, %dim_0_pre_head ], [ %dim_0_inc_tid, %scalar_kernel_entry ]
-; CHECK-NEXT: store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: [[LOAD:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: store i64 %dim_0_tid, i64* %local.id0, align 8
-; CHECK-NEXT: store i64 %dim_1_tid, i64* %local.id1, align 8
-; CHECK-NEXT: store i64 %dim_2_tid, i64* %local.id2, align 8
-; CHECK-NEXT: call i32 @foo(i32 addrspace(1)* {{.*}} [[LOAD]], [3 x i64]* {{.*}} %local.ids)
+; CHECK-NEXT: store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr addrspace(1), ptr %dst.addr, align 8
+; CHECK-NEXT: store i64 %dim_0_tid, ptr %local.id0, align 8
+; CHECK-NEXT: store i64 %dim_1_tid, ptr %local.id1, align 8
+; CHECK-NEXT: store i64 %dim_2_tid, ptr %local.id2, align 8
+; CHECK-NEXT: call i32 @foo(ptr addrspace(1) {{.*}} [[LOAD]], ptr {{.*}} %local.ids)
 
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-  %call = call i32 @foo(i32 addrspace(1)* noundef %0) #6
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8
+  %call = call i32 @foo(ptr addrspace(1) noundef %0) #6
   ret void
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test_barrier(i32 addrspace(1)* noalias noundef align 4 %dst) #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !no_barrier_path !7 !kernel_has_sub_groups !7 !kernel_execution_length !12 !kernel_has_global_sync !7 !recommended_vector_length !2 {
+define dso_local void @test_barrier(ptr addrspace(1) noalias noundef align 4 %dst) #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !no_barrier_path !7 !kernel_has_sub_groups !7 !kernel_execution_length !12 !kernel_has_global_sync !7 !recommended_vector_length !2 !arg_type_null_val !13 {
 entry:
 ; CHECK-LABEL: @test_barrier
 ; CHECK-NEXT: entry:
-; CHECK-NEXT: %dst.addr = alloca i32 addrspace(1)*, align 8
-; CHECK-NEXT: store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
+; CHECK-NEXT: %dst.addr = alloca ptr addrspace(1), align 8
+; CHECK-NEXT: store ptr addrspace(1) %dst, ptr %dst.addr, align 8
 ; CHECK-NEXT: call void @_Z7barrierj(i32 noundef 1)
-; CHECK-NEXT: [[LOAD:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: %call = call i32 @bar(i32 addrspace(1)* noundef [[LOAD]])
+; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr addrspace(1), ptr %dst.addr, align 8
+; CHECK-NEXT: %call = call i32 @bar(ptr addrspace(1) noundef [[LOAD]])
 ; CHECK-NEXT: ret void
 
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
   call void @_Z7barrierj(i32 noundef 1) #7
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-  %call = call i32 @bar(i32 addrspace(1)* noundef %0) #6
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8
+  %call = call i32 @bar(ptr addrspace(1) noundef %0) #6
   ret void
 }
 
@@ -100,7 +100,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !sycl.kernels = !{!1}
 
 !0 = !{!"-cl-std=CL2.0", !"-cl-opt-disable"}
-!1 = !{void (i32 addrspace(1)*)* @test, void (i32 addrspace(1)*)* @test_barrier}
+!1 = !{ptr @test, ptr @test_barrier}
 !2 = !{i32 1}
 !3 = !{!"none"}
 !4 = !{!"int*"}
@@ -112,6 +112,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !10 = !{i1 true}
 !11 = !{i32 5}
 !12 = !{i32 6}
+!13 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} call i64 @get_base_global_id.(i32 0)
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} call i64 @_Z14get_local_sizej(i32 0)

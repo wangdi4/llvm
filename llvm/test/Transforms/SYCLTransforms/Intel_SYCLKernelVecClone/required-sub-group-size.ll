@@ -1,7 +1,7 @@
 ; Check that Vec Clone works with required sub group size
 
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -10,12 +10,12 @@ target triple = "x86_64-pc-linux"
 %"class.cl::sycl::detail::array" = type { [1 x i64] }
 
 ; Function Attrs: nounwind
-define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"),
-%"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32 addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"),
-%"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32 addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"),
-%"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32 addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"),
-%"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) local_unnamed_addr #0 !kernel_arg_addr_space !8
-!kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_type_qual !11 !kernel_arg_base_type !12 !no_barrier_path !13 !kernel_has_sub_groups !13 !recommended_vector_length !14 !intel_reqd_sub_group_size !15{
+define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(ptr addrspace(1), ptr byval(%"class.cl::sycl::range"),
+ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr addrspace(1), ptr byval(%"class.cl::sycl::range"),
+ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr addrspace(1), ptr byval(%"class.cl::sycl::range"),
+ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr addrspace(1), ptr byval(%"class.cl::sycl::range"),
+ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range")) local_unnamed_addr #0 !kernel_arg_addr_space !8
+!kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_type_qual !11 !kernel_arg_base_type !12 !no_barrier_path !13 !kernel_has_sub_groups !13 !recommended_vector_length !14 !intel_reqd_sub_group_size !15 !arg_type_null_val !16 {
 ; Remaining non-vectorized function
 ; CHECK-LABEL: _ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test
 
@@ -45,13 +45,13 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; CHECK-LABEL: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
   %gid = call i64 @_Z13get_global_idj(i32 0) #1
-  %gep1 = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %gid
-  %ld = load i32, i32 addrspace(1)* %gep1, align 4
+  %gep1 = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %gid
+  %ld = load i32, ptr addrspace(1) %gep1, align 4
   %gid.trunc = trunc i64 %gid to i32
-  store i32 %gid.trunc, i32 addrspace(1)* %gep1, align 4
+  store i32 %gid.trunc, ptr addrspace(1) %gep1, align 4
 
   %slid = call i32 @_Z22get_sub_group_local_idv() #1
-  store i32 %slid, i32 addrspace(1)* %gep1, align 4
+  store i32 %slid, ptr addrspace(1) %gep1, align 4
 
   ret void
 }
@@ -82,7 +82,7 @@ attributes #1 = { nounwind readnone }
 !3 = !{!"cl_khr_subgroups"}
 !4 = !{}
 !5 = !{i16 6, i16 14}
-!6 = !{void (i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*)* @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"}
+!6 = !{ptr @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"}
 !7 = !{i32 0}
 !8 = !{i32 1, i32 0, i32 0, i32 0, i32 1, i32 0, i32 0, i32 0, i32 1, i32 0, i32 0, i32 0, i32 1, i32 0, i32 0, i32 0}
 !9 = !{!"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
@@ -92,6 +92,7 @@ attributes #1 = { nounwind readnone }
 !13 = !{i1 true}
 !14 = !{i32 8}
 !15 = !{i32 16}
+!16 = !{i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} call
@@ -110,7 +111,6 @@ attributes #1 = { nounwind readnone }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} alloca
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} call

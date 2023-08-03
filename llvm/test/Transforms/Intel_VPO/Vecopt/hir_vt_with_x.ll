@@ -31,26 +31,26 @@
 ; CHECK-NEXT:  END REGION
 ;
 ; CHECK:       getKnownBits({(%src + 4 * sext.i32.i64((5 * %x))),+,0})
-; CHECK-NEXT:    -> {Zero=3, One=0}
+; CHECK-NEXT:    -> ??????????????????????????????????????????????????????????????00
 ;
 ; CHECK:       getKnownBits({(4 * sext.i32.i64((5 * %x)) + %dst + 28),+,0})
-; CHECK-NEXT:    -> {Zero=3, One=0}
+; CHECK-NEXT:    -> ??????????????????????????????????????????????????????????????00
 ;
 ; CHECK:       getKnownBits({(-1 * %src + %dst + 28),+,0})
-; CHECK-NEXT:    -> {Zero=27, One=36}
+; CHECK-NEXT:    -> ??????????????????????????????????????????????????????????100100
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias %dst, i32* noalias %src, i32 %x, i32 %size) {
+define void @foo(ptr noalias %dst, ptr noalias %src, i32 %x, i32 %size) {
 entry:
-  %0 = ptrtoint i32* %dst to i64
+  %0 = ptrtoint ptr %dst to i64
   %dst.maskedptr = and i64 %0, 127
   %dst.maskcond = icmp eq i64 %dst.maskedptr, 32
   call void @llvm.assume(i1 %dst.maskcond)
 
-  %1 = ptrtoint i32* %src to i64
+  %1 = ptrtoint ptr %src to i64
   %src.maskedptr = and i64 %1, 63
   %src.maskcond = icmp eq i64 %src.maskedptr, 24
   call void @llvm.assume(i1 %src.maskcond)
@@ -73,14 +73,14 @@ for.cond.cleanup:
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %3 = add nsw i64 %indvars.iv, %2
-  %ptridx = getelementptr inbounds i32, i32* %src, i64 %3
-  %4 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %src, i64 %3
+  %4 = load i32, ptr %ptridx, align 4
   %5 = mul nsw i64 %indvars.iv, %indvars.iv
   %6 = trunc i64 %5 to i32
   %add2 = add nsw i32 %4, %6
   %7 = add nsw i64 %3, 7
-  %ptridx7 = getelementptr inbounds i32, i32* %dst, i64 %7
-  store i32 %add2, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %dst, i64 %7
+  store i32 %add2, ptr %ptridx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count22
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

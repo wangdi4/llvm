@@ -421,7 +421,8 @@ static bool tryToFPToSat(Instruction &I, TargetTransformInfo &TTI) {
 /// pessimistic codegen that has to account for setting errno and can enable
 /// vectorization.
 static bool foldSqrt(Instruction &I, TargetTransformInfo &TTI,
-                     TargetLibraryInfo &TLI) {
+                     TargetLibraryInfo &TLI, AssumptionCache &AC,
+                     DominatorTree &DT) {
   // Match a call to sqrt mathlib function.
   auto *Call = dyn_cast<CallInst>(&I);
   if (!Call)
@@ -444,7 +445,9 @@ static bool foldSqrt(Instruction &I, TargetTransformInfo &TTI,
   Type *Ty = Call->getType();
   Value *Arg = Call->getArgOperand(0);
   if (TTI.haveFastSqrt(Ty) &&
-      (Call->hasNoNaNs() || CannotBeOrderedLessThanZero(Arg, &TLI))) {
+      (Call->hasNoNaNs() ||
+       cannotBeOrderedLessThanZero(Arg, M->getDataLayout(), &TLI, 0, &AC, &I,
+                                   &DT))) {
     IRBuilder<> Builder(&I);
     IRBuilderBase::FastMathFlagGuard Guard(Builder);
     Builder.setFastMathFlags(Call->getFastMathFlags());
@@ -632,7 +635,7 @@ struct LoadOps {
   LoadInst *RootInsert = nullptr;
   bool FoundRoot = false;
   uint64_t LoadSize = 0;
-  Value *Shift = nullptr;
+  const APInt *Shift = nullptr;
   Type *ZextType;
   AAMDNodes AATags;
 };
@@ -642,7 +645,7 @@ struct LoadOps {
 // (ZExt(L1) << shift1) | ZExt(L2) -> ZExt(L3)
 static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
                                AliasAnalysis &AA) {
-  Value *ShAmt2 = nullptr;
+  const APInt *ShAmt2 = nullptr;
   Value *X;
   Instruction *L1, *L2;
 
@@ -650,7 +653,7 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
   if (match(V, m_OneUse(m_c_Or(
                    m_Value(X),
                    m_OneUse(m_Shl(m_OneUse(m_ZExt(m_OneUse(m_Instruction(L2)))),
-                                  m_Value(ShAmt2)))))) ||
+                                  m_APInt(ShAmt2)))))) ||
       match(V, m_OneUse(m_Or(m_Value(X),
                              m_OneUse(m_ZExt(m_OneUse(m_Instruction(L2)))))))) {
     if (!foldLoadsRecursive(X, LOps, DL, AA) && LOps.FoundRoot)
@@ -661,11 +664,11 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
 
   // Check if the pattern has loads
   LoadInst *LI1 = LOps.Root;
-  Value *ShAmt1 = LOps.Shift;
+  const APInt *ShAmt1 = LOps.Shift;
   if (LOps.FoundRoot == false &&
       (match(X, m_OneUse(m_ZExt(m_Instruction(L1)))) ||
        match(X, m_OneUse(m_Shl(m_OneUse(m_ZExt(m_OneUse(m_Instruction(L1)))),
-                               m_Value(ShAmt1)))))) {
+                               m_APInt(ShAmt1)))))) {
     LI1 = dyn_cast<LoadInst>(L1);
   }
   LoadInst *LI2 = dyn_cast<LoadInst>(L2);
@@ -759,12 +762,11 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
     std::swap(ShAmt1, ShAmt2);
 
   // Find Shifts values.
-  const APInt *Temp;
   uint64_t Shift1 = 0, Shift2 = 0;
-  if (ShAmt1 && match(ShAmt1, m_APInt(Temp)))
-    Shift1 = Temp->getZExtValue();
-  if (ShAmt2 && match(ShAmt2, m_APInt(Temp)))
-    Shift2 = Temp->getZExtValue();
+  if (ShAmt1)
+    Shift1 = ShAmt1->getZExtValue();
+  if (ShAmt2)
+    Shift2 = ShAmt2->getZExtValue();
 
   // First load is always LI1. This is where we put the new load.
   // Use the merged load size available from LI1 for forward loads.
@@ -806,7 +808,8 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
 // pattern which suggests that the loads can be combined. The one and only use
 // of the loads is to form a wider load.
 static bool foldConsecutiveLoads(Instruction &I, const DataLayout &DL,
-                                 TargetTransformInfo &TTI, AliasAnalysis &AA) {
+                                 TargetTransformInfo &TTI, AliasAnalysis &AA,
+                                 const DominatorTree &DT) {
   // Only consider load chains of scalar values.
   if (isa<VectorType>(I.getType()))
     return false;
@@ -837,18 +840,25 @@ static bool foldConsecutiveLoads(Instruction &I, const DataLayout &DL,
   if (!Allowed || !Fast)
     return false;
 
-  // Make sure the Load pointer of type GEP/non-GEP is above insert point
-  Instruction *Inst = dyn_cast<Instruction>(LI1->getPointerOperand());
-  if (Inst && Inst->getParent() == LI1->getParent() &&
-      !Inst->comesBefore(LOps.RootInsert))
-    Inst->moveBefore(LOps.RootInsert);
-
-  // New load can be generated
+  // Get the Index and Ptr for the new GEP.
   Value *Load1Ptr = LI1->getPointerOperand();
   Builder.SetInsertPoint(LOps.RootInsert);
+  if (!DT.dominates(Load1Ptr, LOps.RootInsert)) {
+    APInt Offset1(DL.getIndexTypeSizeInBits(Load1Ptr->getType()), 0);
+    Load1Ptr = Load1Ptr->stripAndAccumulateConstantOffsets(
+        DL, Offset1, /* AllowNonInbounds */ true);
+    Load1Ptr = Builder.CreateGEP(Builder.getInt8Ty(), Load1Ptr,
+                                 Builder.getInt32(Offset1.getZExtValue()));
+  }
+  // Generate wider load.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  NewLoad = Builder.CreateAlignedLoad(WiderType, Load1Ptr, LI1->getAlign(),
+                                      LI1->isVolatile(), "");
+#else
   Value *NewPtr = Builder.CreateBitCast(Load1Ptr, WiderType->getPointerTo(AS));
   NewLoad = Builder.CreateAlignedLoad(WiderType, NewPtr, LI1->getAlign(),
                                       LI1->isVolatile(), "");
+#endif
   NewLoad->takeName(LI1);
   // Set the New Load AATags Metadata.
   if (LOps.AATags)
@@ -862,10 +872,52 @@ static bool foldConsecutiveLoads(Instruction &I, const DataLayout &DL,
   // Check if shift needed. We need to shift with the amount of load1
   // shift if not zero.
   if (LOps.Shift)
-    NewOp = Builder.CreateShl(NewOp, LOps.Shift);
+    NewOp = Builder.CreateShl(NewOp, ConstantInt::get(I.getContext(), *LOps.Shift));
   I.replaceAllUsesWith(NewOp);
 
   return true;
+}
+
+// Calculate GEP Stride and accumulated const ModOffset. Return Stride and
+// ModOffset
+static std::pair<APInt, APInt>
+getStrideAndModOffsetOfGEP(Value *PtrOp, const DataLayout &DL) {
+  unsigned BW = DL.getIndexTypeSizeInBits(PtrOp->getType());
+  std::optional<APInt> Stride;
+  APInt ModOffset(BW, 0);
+  // Return a minimum gep stride, greatest common divisor of consective gep
+  // index scales(c.f. Bézout's identity).
+  while (auto *GEP = dyn_cast<GEPOperator>(PtrOp)) {
+    MapVector<Value *, APInt> VarOffsets;
+    if (!GEP->collectOffset(DL, BW, VarOffsets, ModOffset))
+      break;
+
+    for (auto [V, Scale] : VarOffsets) {
+      // Only keep a power of two factor for non-inbounds
+      if (!GEP->isInBounds())
+        Scale = APInt::getOneBitSet(Scale.getBitWidth(), Scale.countr_zero());
+
+      if (!Stride)
+        Stride = Scale;
+      else
+        Stride = APIntOps::GreatestCommonDivisor(*Stride, Scale);
+    }
+
+    PtrOp = GEP->getPointerOperand();
+  }
+
+  // Check whether pointer arrives back at Global Variable via at least one GEP.
+  // Even if it doesn't, we can check by alignment.
+  if (!isa<GlobalVariable>(PtrOp) || !Stride)
+    return {APInt(BW, 1), APInt(BW, 0)};
+
+  // In consideration of signed GEP indices, non-negligible offset become
+  // remainder of division by minimum GEP stride.
+  ModOffset = ModOffset.srem(*Stride);
+  if (ModOffset.isNegative())
+    ModOffset += *Stride;
+
+  return {*Stride, ModOffset};
 }
 
 /// If C is a constant patterned array and all valid loaded results for given
@@ -882,29 +934,24 @@ static bool foldPatternedLoads(Instruction &I, const DataLayout &DL) {
   if (!GV || !GV->isConstant() || !GV->hasDefinitiveInitializer())
     return false;
 
-  Type *LoadTy = LI->getType();
-  Constant *C = GV->getInitializer();
-
   // Bail for large initializers in excess of 4K to avoid too many scans.
+  Constant *C = GV->getInitializer();
   uint64_t GVSize = DL.getTypeAllocSize(C->getType());
   if (!GVSize || 4096 < GVSize)
     return false;
 
-  // Check whether pointer arrives back at Global Variable.
-  // If PtrOp is neither GlobalVariable nor GEP, it might not arrive back at
-  // GlobalVariable.
-  // TODO: implement GEP handling
+  Type *LoadTy = LI->getType();
   unsigned BW = DL.getIndexTypeSizeInBits(PtrOp->getType());
-  // TODO: Determine stride based on GEPs.
-  APInt Stride(BW, 1);
-  APInt ConstOffset(BW, 0);
+  auto [Stride, ConstOffset] = getStrideAndModOffsetOfGEP(PtrOp, DL);
 
   // Any possible offset could be multiple of GEP stride. And any valid
   // offset is multiple of load alignment, so checking only multiples of bigger
   // one is sufficient to say results' equality.
   if (auto LA = LI->getAlign();
-      LA <= GV->getAlign().valueOrOne() && Stride.getZExtValue() < LA.value())
+      LA <= GV->getAlign().valueOrOne() && Stride.getZExtValue() < LA.value()) {
+    ConstOffset = APInt(BW, 0);
     Stride = APInt(BW, LA.value());
+  }
 
   Constant *Ca = ConstantFoldLoadFromConst(C, LoadTy, ConstOffset, DL);
   if (!Ca)
@@ -920,12 +967,237 @@ static bool foldPatternedLoads(Instruction &I, const DataLayout &DL) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Compute a specific formula (described in mathPowTable()) into
+// a static table.
+
+static const char *PowTableName = "_PowTable";
+static const int TableRowSize = 256;
+static const int TableNumRows = 2;
+
+// Return true, if the given Table has been generated for the given set of
+// parameters.
+static bool verifyPowTable(Value *Table, ConstantFP *Scale0, ConstantFP *Scale1,
+                           ConstantFP *Multiplier, ConstantFP *Offset,
+                           ConstantFP *Exp) {
+  // The table must be internal linkage and have an initializer of the
+  // correct size.
+  auto *GV = dyn_cast_or_null<GlobalVariable>(Table);
+  if (!GV || GV->getLinkage() != GlobalVariable::InternalLinkage)
+    return false;
+  auto *TableInit = GV->getInitializer();
+  if (!TableInit)
+    return false;
+  auto *TableTy = dyn_cast<ArrayType>(TableInit->getType());
+  // 2 rows + 5 elements for verification
+  if (!TableTy ||
+      (TableTy->getNumElements() != TableRowSize * TableNumRows + 5))
+    return false;
+
+  // Read the last 5 elements in the table. These are the input parameters,
+  // and they must match the current parameter set.
+  SmallVector<ConstantFP *, 5> MyParms = {Scale0, Scale1, Multiplier, Offset,
+                                          Exp};
+  const unsigned StartOfParms = TableRowSize * TableNumRows;
+  for (unsigned i = 0; i < 5; i++) {
+    auto *Elt = dyn_cast_or_null<ConstantFP>(
+        TableInit->getAggregateElement(StartOfParms + i));
+    if (!Elt || (Elt->getValue() != MyParms[i]->getValue()))
+      return false;
+  }
+  return true;
+}
+
+// Parameters must be finite normal numbers, magnitude < 20 (try to prevent
+// overflow)
+static bool checkTableParmsRange(SmallVector<ConstantFP *, 5> &Parms) {
+  for (auto *Parm : Parms) {
+    const APFloat &APF = Parm->getValue();
+    if (APF.isDenormal() || !APF.isFinite() ||
+        fabs(APF.convertToDouble()) >= 20.0)
+      return false;
+  }
+  return true;
+}
+
+// Create a table with the given parameters, and this formula:
+//
+// powf(Byte * (Flag ? Scale0 : Scale1) * Multiplier + Offset, Exp)
+//
+// Byte and Flag are variables, all others are constant.
+// Byte is range [0,255], Flag is [0,1].
+//
+// 256 elements are generated with Flag == 0. Next 256 elements are generated
+// with Flag == 1.
+// If the table already exists with the given parameters, return the existing
+// one. There is support only for a single table. Attempts to create a table
+// with different parameters will return nullptr.
+static Value *genPowTable(ConstantFP *Scale0, ConstantFP *Scale1,
+                          ConstantFP *Multiplier, ConstantFP *Offset,
+                          ConstantFP *Exp, IRBuilder<> &Builder) {
+  // If there is already a table, verify it against the parameters. If it
+  // has the same parameters, use the existing table. Otherwise nullptr.
+  Module *M = Builder.GetInsertBlock()->getModule();
+  if (auto *Existing = M->getNamedValue(PowTableName)) {
+    if (!verifyPowTable(Existing, Scale0, Scale1, Multiplier, Offset, Exp)) {
+      LLVM_DEBUG(dbgs() << "Existing table doesn't match parms.");
+      return nullptr;
+    }
+    LLVM_DEBUG(dbgs() << "Existing table found.");
+    return Existing;
+  }
+
+  // Check the ranges on the parameters. Prevent non-finite values.
+  SmallVector<ConstantFP *, 5> Parms = {Scale0, Scale1, Multiplier, Offset,
+                                        Exp};
+  if (!checkTableParmsRange(Parms)) {
+    LLVM_DEBUG(dbgs() << "Parms out of range.");
+    return nullptr;
+  }
+
+  // Extract float values from parameters, so we can compute the table faster.
+  float Scale0Val, Scale1Val, MultiplierVal, OffsetVal, ExpVal;
+  Scale0Val = Scale0->getValue().convertToFloat();
+  Scale1Val = Scale1->getValue().convertToFloat();
+  MultiplierVal = Multiplier->getValue().convertToFloat();
+  OffsetVal = Offset->getValue().convertToFloat();
+  ExpVal = Exp->getValue().convertToFloat();
+
+  // The table will be computed into a plain array, and then copied into a
+  // vector of Constants.
+  float ValueArray[TableRowSize * TableNumRows];
+  std::vector<Constant *> Values;
+  // 5 extra elements are reserved for verification.
+  Values.reserve(TableRowSize * TableNumRows + 5);
+
+  // Table is indexed as [Flag*TableRowSize+Byte]
+  // 1st row will have Flag=false, using "Scale1".
+  for (int Byte = 0; Byte < TableRowSize; Byte++)
+    ValueArray[Byte] =
+        powf(Byte * Scale1Val * MultiplierVal + OffsetVal, ExpVal);
+
+  // next row uses Flag=true, using "Scale0".
+  for (int Byte = 0; Byte < TableRowSize; Byte++)
+    ValueArray[TableRowSize + Byte] =
+        powf(Byte * Scale0Val * MultiplierVal + OffsetVal, ExpVal);
+
+  auto *FloatType = Builder.getFloatTy();
+  for (int i = 0; i < TableRowSize * TableNumRows; i++) {
+    float result = ValueArray[i];
+    // this may not work depending on compiler flags, we try to avoid OV
+    // by limiting the values of the constants.
+    if (!std::isfinite(result))
+      return nullptr;
+    Values.push_back(ConstantFP::get(FloatType, result));
+  }
+
+  // Last 5 entries are the parameters themselves, for verification.
+  Values.push_back(Scale0);
+  Values.push_back(Scale1);
+  Values.push_back(Multiplier);
+  Values.push_back(Offset);
+  Values.push_back(Exp);
+
+  ArrayType *ValueArrayTy = ArrayType::get(FloatType, TableRowSize * 2 + 5);
+  GlobalVariable *lookupTable = new GlobalVariable(
+      *M, ValueArrayTy, true, GlobalVariable::InternalLinkage,
+      ConstantArray::get(ValueArrayTy, Values), PowTableName);
+
+  return lookupTable;
+}
+
+// Given this formula:
+// powf(Byte * (Flag ? Scale0 : Scale1) * Multiplier + Offset, Exp)
+//
+// With this IR:
+//
+// %scale = select i1 %Flag, float %Scale0, float %Scale1
+// %Byte = uitofp i8 %anyvalue to float
+// %mul = fmul float %scale, %Byte
+// %mul2 = fmul float %mul, %Multiplier
+// %add = fadd float %mul, %Offset
+// %result = call fast float @llvm.pow.f32(%add, %Exp)
+//
+// Scale0, Scale1, Multiplier, Offset, Exp are all constants.
+// Flag is range [0,1], Byte is range [0,255].
+//
+// Create a lookup table indexed by Byte and Flag.
+// The "pow" call can be replaced with a simple load from the lookup table.
+//
+// "I" arg is the llvm.pow call.
+static bool matchPowTable(Instruction &I) {
+  // Check the pow() args first. Float type, fast math, constant exponent.
+  auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II || II->getIntrinsicID() != Intrinsic::pow || !II->isFast())
+    return false;
+  auto *BaseOp = II->getOperand(0);
+  if (!BaseOp->getType()->isFloatTy())
+    return false;
+  ConstantFP *Exp = dyn_cast<ConstantFP>(II->getOperand(1));
+  if (!Exp || !Exp->getType()->isFloatTy())
+    return false;
+
+  // Match the pattern above, except for Byte.
+  Value *Flag;
+  Instruction *ByteCast;
+  ConstantFP *Scale0, *Scale1, *Multiplier, *Offset;
+  if (match(BaseOp,
+            m_FAdd(m_FMul(m_FMul(m_Select(m_Value(Flag), m_ConstantFP(Scale0),
+                                          m_ConstantFP(Scale1)),
+                                 m_Instruction(ByteCast)),
+                          m_ConstantFP(Multiplier)),
+                   m_ConstantFP(Offset)))) {
+    // Check that ByteCast is an 8-bit uitofp.
+    if (!isa<UIToFPInst>(ByteCast))
+      return false;
+    auto *Byte = ByteCast->getOperand(0);
+    if (!Byte->getType()->isIntegerTy(8))
+      return false;
+    // We have a match. Generate the table from the parameters.
+    LLVM_DEBUG(dbgs() << I << " is candidate for precomputed table.");
+    IRBuilder<> Builder(&I);
+    Value *PowTable =
+        genPowTable(Scale0, Scale1, Multiplier, Offset, Exp, Builder);
+    // The table may not have generated, because the parameters are not
+    // valid, or there is an existing table with different parameters.
+    if (!PowTable) {
+      LLVM_DEBUG(dbgs() << "Could not precompute table.");
+      return false;
+    }
+
+    // Generate this IR to load the value from the table.
+    // %flagval = zext i1 %flag to i32
+    // %byte32 = zext i8 %byte to i32
+    // %rowsel = mul nsw nuw i32 %flag, RowSize
+    // %colsel = add nsw nuw i32 %rowsel, %byte32
+    // %gep = getelementptr ptr @_PowTable, i32 %colsel
+    // %result = load float, ptr %gep, align 4
+    auto *IdxTy = Type::getInt32Ty(I.getContext());
+    auto *FlagVal = Builder.CreateZExt(Flag, IdxTy);
+    auto *Byte32 = Builder.CreateZExt(Byte, IdxTy);
+    // bool values are the no-wrap flags
+    auto *RowSel = Builder.CreateMul(
+        FlagVal, Constant::getIntegerValue(IdxTy, APInt(32, TableRowSize)), "",
+        true, true);
+    auto *ColSel = Builder.CreateAdd(RowSel, Byte32, "", true, true);
+    SmallVector<Value *, 1> GEPIdx = {ColSel};
+    auto *GEP = Builder.CreateInBoundsGEP(I.getType(), PowTable, GEPIdx);
+    auto *LoadInst = Builder.CreateAlignedLoad(I.getType(), GEP, Align(4));
+    LLVM_DEBUG(dbgs() << "Converted to precomputed table.");
+    I.replaceAllUsesWith(LoadInst);
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// This is the entry point for folds that could be implemented in regular
 /// InstCombine, but they are separated because they are not expected to
 /// occur frequently and/or have more than a constant-length pattern match.
 static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
                                 TargetTransformInfo &TTI,
-                                TargetLibraryInfo &TLI, AliasAnalysis &AA) {
+                                TargetLibraryInfo &TLI, AliasAnalysis &AA,
+                                AssumptionCache &AC) {
   bool MadeChange = false;
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
@@ -945,12 +1217,15 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       MadeChange |= tryToRecognizePopCount(I);
       MadeChange |= tryToFPToSat(I, TTI);
       MadeChange |= tryToRecognizeTableBasedCttz(I);
-      MadeChange |= foldConsecutiveLoads(I, DL, TTI, AA);
+      MadeChange |= foldConsecutiveLoads(I, DL, TTI, AA, DT);
       MadeChange |= foldPatternedLoads(I, DL);
+#if INTEL_CUSTOMIZATION
+      MadeChange |= matchPowTable(I);
+#endif // INTEL_CUSTOMIZATION
       // NOTE: This function introduces erasing of the instruction `I`, so it
       // needs to be called at the end of this sequence, otherwise we may make
       // bugs.
-      MadeChange |= foldSqrt(I, TTI, TLI);
+      MadeChange |= foldSqrt(I, TTI, TLI, AC, DT);
     }
   }
 
@@ -971,7 +1246,7 @@ static bool runImpl(Function &F, AssumptionCache &AC, TargetTransformInfo &TTI,
   const DataLayout &DL = F.getParent()->getDataLayout();
   TruncInstCombine TIC(AC, TLI, DL, DT);
   MadeChange |= TIC.run(F);
-  MadeChange |= foldUnusualPatterns(F, DT, TTI, TLI, AA);
+  MadeChange |= foldUnusualPatterns(F, DT, TTI, TLI, AA, AC);
   return MadeChange;
 }
 

@@ -39,7 +39,7 @@ protected:
   void SetUp() override {
     M.reset(new Module("GEPTest", C));
     DL.reset(new DataLayout(M.get()));
-    Externals.reset(new VPExternalValues(&C, DL.get()));
+    Externals.reset(new VPExternalValues(M.get()));
   };
 
   void TearDown() override {

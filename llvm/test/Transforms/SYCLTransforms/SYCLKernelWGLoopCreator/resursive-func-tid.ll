@@ -13,19 +13,19 @@ target triple = "x86_64-pc-linux"
 declare i64 @_Z13get_global_idj(i32 noundef) local_unnamed_addr #0
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @foo(i32 addrspace(1)* noalias noundef %results) unnamed_addr #1 !recursive_call !1 {
+define internal fastcc void @foo(ptr addrspace(1) noalias noundef %results) unnamed_addr #1 !recursive_call !1 !kernel_arg_base_type !8 !arg_type_null_val !9 {
 entry:
-  tail call fastcc void @foo(i32 addrspace(1)* noundef %results) #3
+  tail call fastcc void @foo(ptr addrspace(1) noundef %results) #3
   %call.i = tail call i64 @_Z13get_global_idj(i32 noundef 0) #4
-  %arrayidx.i = getelementptr inbounds i32, i32 addrspace(1)* %results, i64 %call.i
-  store i32 0, i32 addrspace(1)* %arrayidx.i, align 4, !tbaa !2
+  %arrayidx.i = getelementptr inbounds i32, ptr addrspace(1) %results, i64 %call.i
+  store i32 0, ptr addrspace(1) %arrayidx.i, align 4, !tbaa !2
   ret void
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr #2 !recursive_call !1 !no_barrier_path !1 !kernel_has_sub_groups !6 !kernel_has_global_sync !6 !max_wg_dimensions !7 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr #2 !recursive_call !1 !no_barrier_path !1 !kernel_has_sub_groups !6 !kernel_has_global_sync !6 !max_wg_dimensions !7 !kernel_arg_base_type !8 !arg_type_null_val !9 {
 entry:
-  tail call fastcc void @foo(i32 addrspace(1)* noundef %results) #3
+  tail call fastcc void @foo(ptr addrspace(1) noundef %results) #3
   ret void
 }
 
@@ -37,7 +37,7 @@ attributes #4 = { convergent nounwind readnone willreturn }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
@@ -45,6 +45,8 @@ attributes #4 = { convergent nounwind readnone willreturn }
 !5 = !{!"Simple C/C++ TBAA"}
 !6 = !{i1 false}
 !7 = !{i32 1}
+!8 = !{!"int*"}
+!9 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function test --  %base.gid.dim0 = call i64 @get_base_global_id.(i32 0)

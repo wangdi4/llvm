@@ -701,7 +701,7 @@ bool HIRMultiExitLoopReroll::isApplicable(const HLLoop *Lp) const {
     return false;
   }
 
-  auto &LS = HLS.getSelfLoopStatistics(Lp);
+  auto &LS = HLS.getSelfStatistics(Lp);
 
   if (LS.hasLabels() || LS.hasCalls() || LS.hasSwitches()) {
     return false;
@@ -769,7 +769,8 @@ static bool doReroll(HLLoop *Lp, unsigned RerollFactor,
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // remark: Loop rerolled by %d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoopRerollFactor, RerollFactor);
 
   return true;
 }
@@ -826,8 +827,9 @@ bool HIRMultiExitLoopReroll::run() {
 
 PreservedAnalyses HIRMultiExitLoopRerollPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRMultiExitLoopReroll(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRMultiExitLoopReroll(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 

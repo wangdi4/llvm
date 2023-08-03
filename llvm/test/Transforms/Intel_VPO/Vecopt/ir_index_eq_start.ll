@@ -10,7 +10,7 @@
 ;  return k;
 ;}
 ;
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:

@@ -65,7 +65,7 @@
 ;           |   |   |
 ;           |   |   |   %lb_max95 = (0 <= i2) ? i2 : 0;                      // Similar to the above changes, now for the original loop at line 16.
 ;           |   |   |   %ub_min96 = (2 <= %tile_e_min) ? 2 : %tile_e_min;
-;           |   |   |   if (i3 <= 0 && 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
+;           |   |   |   if (i3 <= 0 & 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
 ;                                                                            // First dimensions are for i3-loop, thus i3 = 0;
 ;                                                                            // After the transformation i3 becomes i5.
 ;                                                                            // guard is ( tile_begin <= i5 <= tile_end) --> (i3 <= 0 <= tile_end)
@@ -104,7 +104,7 @@
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   [[LBMAX_3:%lb_max[0-9]+]] = (0 <= i2) ? i2 : 0;
 ; CHECK:           |   |   |   [[UBMIN_3:%ub_min[0-9]+]] = (2 <= [[TILE_1]]) ? 2 : [[TILE_1]];
-; CHECK:           |   |   |   if (i3 <= 0 && 0 <= [[TILE_2]])
+; CHECK:           |   |   |   if (i3 <= 0 & 0 <= [[TILE_2]])
 ; CHECK:           |   |   |   {
 ; CHECK:           |   |   |      + DO i4 = 0, -1 * [[LBMAX_3]] + [[UBMIN_3]], 1   <DO_LOOP>
 ; CHECK:           |   |   |      |   %add34 = (%"sub1_$A")[i4 + [[LBMAX_3]]][0]  +  2.000000e+00;
@@ -123,12 +123,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind
-define void @sub1_(double* noalias nocapture %"sub1_$A", double* noalias nocapture %"sub1_$B", i32* noalias nocapture readonly %"sub1_$N", i32* noalias nocapture readonly %"sub1_$NTIMES") local_unnamed_addr #0 {
+define void @sub1_(ptr noalias nocapture %"sub1_$A", ptr noalias nocapture %"sub1_$B", ptr noalias nocapture readonly %"sub1_$N", ptr noalias nocapture readonly %"sub1_$NTIMES") local_unnamed_addr #0 {
 alloca_0:
-  %"sub1_$N_fetch" = load i32, i32* %"sub1_$N", align 1
+  %"sub1_$N_fetch" = load i32, ptr %"sub1_$N", align 1
   %int_sext = sext i32 %"sub1_$N_fetch" to i64
   %mul = shl nsw i64 %int_sext, 3
-  %"sub1_$NTIMES_fetch" = load i32, i32* %"sub1_$NTIMES", align 1
+  %"sub1_$NTIMES_fetch" = load i32, ptr %"sub1_$NTIMES", align 1
   %rel = icmp slt i32 %"sub1_$NTIMES_fetch", 1
   br i1 %rel, label %bb1, label %bb4.preheader
 
@@ -143,17 +143,17 @@ bb4:                                              ; preds = %bb4.preheader, %bb3
 
 bb8:                                              ; preds = %bb13, %bb4
   %"sub1_$I.0" = phi i64 [ 1, %bb4 ], [ %add27, %bb13 ]
-  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %"sub1_$B", i64 %"sub1_$I.0")
-  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %"sub1_$A", i64 %"sub1_$I.0")
+  %"sub1_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) %"sub1_$B", i64 %"sub1_$I.0")
+  %"sub1_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) %"sub1_$A", i64 %"sub1_$I.0")
   br label %bb12
 
 bb12:                                             ; preds = %bb12, %bb8
   %"sub1_$J.0" = phi i64 [ 1, %bb8 ], [ %add19, %bb12 ]
-  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub1_$B[]", i64 %"sub1_$J.0")
-  %"sub1_$B[][]_fetch" = load double, double* %"sub1_$B[][]", align 1
+  %"sub1_$B[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sub1_$B[]", i64 %"sub1_$J.0")
+  %"sub1_$B[][]_fetch" = load double, ptr %"sub1_$B[][]", align 1
   %add6 = fadd double %"sub1_$B[][]_fetch", 1.000000e+00
-  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub1_$A[]", i64 %"sub1_$J.0")
-  store double %add6, double* %"sub1_$A[][]", align 1
+  %"sub1_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sub1_$A[]", i64 %"sub1_$J.0")
+  store double %add6, ptr %"sub1_$A[][]", align 1
   %add19 = add nuw nsw i64 %"sub1_$J.0", 1
   %exitcond = icmp eq i64 %add19, 4
   br i1 %exitcond, label %bb13, label %bb12
@@ -168,13 +168,13 @@ bb30.preheader:                                   ; preds = %bb13
 
 bb30:                                             ; preds = %bb30.preheader, %bb30
   %"sub1_$I.1" = phi i64 [ %add51, %bb30 ], [ 1, %bb30.preheader ]
-  %"sub1_$A[]32" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.1")
-  %"sub1_$A[]32[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub1_$A[]32", i64 1)
-  %"sub1_$A[]32[]_fetch" = load double, double* %"sub1_$A[]32[]", align 1
+  %"sub1_$A[]32" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.1")
+  %"sub1_$A[]32[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sub1_$A[]32", i64 1)
+  %"sub1_$A[]32[]_fetch" = load double, ptr %"sub1_$A[]32[]", align 1
   %add34 = fadd double %"sub1_$A[]32[]_fetch", 2.000000e+00
-  %"sub1_$B[]43" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.1")
-  %"sub1_$B[]43[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub1_$B[]43", i64 1)
-  store double %add34, double* %"sub1_$B[]43[]", align 1
+  %"sub1_$B[]43" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.1")
+  %"sub1_$B[]43[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sub1_$B[]43", i64 1)
+  store double %add34, ptr %"sub1_$B[]43[]", align 1
   %add51 = add nuw nsw i64 %"sub1_$I.1", 1
   %exitcond86 = icmp eq i64 %add51, 4
   br i1 %exitcond86, label %bb31, label %bb30
@@ -192,7 +192,7 @@ bb1:                                              ; preds = %bb1.loopexit, %allo
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nounwind "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
 attributes #1 = { nounwind readnone speculatable }

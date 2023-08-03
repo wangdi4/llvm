@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -pass-remarks-missed=openmp -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -pass-remarks-missed=openmp -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -pass-remarks-missed=openmp -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -pass-remarks-missed=openmp -S %s 2>&1 | FileCheck %s
 ;
 ;Test SRC:
 ;
@@ -25,7 +25,7 @@ entry:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTEROP"() ]
 
 ;check for @__tgt_create_interop creation
-;CHECK:  %[[TASK1:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+;CHECK:  %[[TASK1:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32  %{{[^ ,]+}}, i8* %[[TASK1]])
 ;CHECK-NEXT:  %[[CREATE_INTEROP:[^ ]+]] = call i8* @__tgt_create_interop(i64  %{{[^ ,]+}}, i32 0, i32 0, i8* null)
 ;CHECK-NEXT:  store i8* %[[CREATE_INTEROP]], i8** %[[OBJ:[^ ]+]], align 8
@@ -35,7 +35,7 @@ entry:
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.INTEROP"() ]
 
 ;check for @__tgt_use_interop(i8* %objinterop.obj.val)
-;CHECK:  %[[TASK2:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+;CHECK:  %[[TASK2:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK2]])
 ;CHECK-NEXT:  %[[INTEROP_VAL:[^ ]+]] = load i8*, i8** %[[OBJ]], align 8
 ;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_VAL]])
@@ -45,7 +45,7 @@ entry:
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.INTEROP"() ]
 
 ;check for @__tgt_release_interop
-;CHECK:  %[[TASK3:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+;CHECK:  %[[TASK3:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK3]])
 ;CHECK-NEXT: %[[INTEROP_VAL2:[^ ]+]] = load i8*, i8** %[[OBJ]], align 8
 ;CHECK-NEXT: %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_VAL2]])

@@ -48,7 +48,7 @@
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP7]] = phi  [ i64 [[VP13]], [[BB1]] ],  [ i64 [[VP14:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5]], [[BB2]] ]
-; CHECK-NEXT:     i64 [[VP15:%.*]] = compress-expand-index i64 [[VP7]] i64 2
+; CHECK-NEXT:     i64 [[VP15:%.*]] = compress-expand-index {stride: 2} i64 [[VP7]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
@@ -60,12 +60,11 @@
 ; CHECK-NEXT:       i32 [[VP_LOAD]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[B0]] i64 [[VP15]]
 ; CHECK-NEXT:       compress-store-nonu i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT]] i64 [[MASK]]
-; CHECK-NEXT:       i64 [[VP9]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i64 [[VP8]] = phi  [ i64 [[VP9]], [[BB4]] ],  [ i64 [[VP7]], [[BB0]] ]
-; CHECK-NEXT:     i64 [[VP14]] = compress-expand-index-inc i64 [[VP8]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
+; CHECK-NEXT:     i64 [[VP14]] = compress-expand-index-inc {stride: 2} i64 [[VP7]] i1 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP5]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -79,11 +78,10 @@
 ; CHECK-NEXT:     br <External Block>
 
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[J_0130]],  0
-; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[J_0130]]
 ; CHECK:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = undef
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = undef
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 2, i64 4, i64 6>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
@@ -91,17 +89,19 @@
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i4([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
-; CHECK-NEXT:        |   [[CAST30:%.*]] = bitcast.i4.<4 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[DOTVEC20]] = (<4 x i32>*)([[A0]])[i1], Mask = @{[[DOTVEC10]]}
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4i32([[DOTVEC20]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v4i32.v4p0i32([[COMPRESS0]],  &((<4 x i32*>)([[B0]])[%add]),  0,  [[CAST30]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 2 : [[PHI_TEMP0]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i64([[SELECT0]])
-; CHECK-NEXT:        |   [[INSERT40:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
-; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[INSERT40]]
+; CHECK-NEXT:        |   [[CAST20:%.*]] = bitcast.i4.<4 x i1>([[XOR0]])
+; CHECK-NEXT:        |   [[DOTVEC30]] = (<4 x i32>*)([[A0]])[i1], Mask = @{[[DOTVEC10]]}
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4i32([[DOTVEC30]],  poison,  [[DOTVEC10]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v4i32.v4p0i32([[COMPRESS0]],  &((<4 x i32*>)([[B0]])[%add]),  0,  [[CAST20]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
+; CHECK-NEXT:        |   [[CAST40:%.*]] = bitcast.<4 x i1>.i4([[SELECT0]])
+; CHECK-NEXT:        |   [[POPCNT50:%.*]] = @llvm.ctpop.i4([[CAST40]])
+; CHECK-NEXT:        |   [[ZEXT0:%.*]] = zext.i4.i64([[POPCNT50]])
+; CHECK-NEXT:        |   [[MUL0:%.*]] = [[ZEXT0]]  *  2
+; CHECK-NEXT:        |   [[ADD60:%.*]] = [[PHI_TEMP0]]  +  [[MUL0]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[ADD60]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[INSERT40]],  0
-; CHECK-NEXT:        [[J_0130]] = [[EXTRACT_0_0]]
+; CHECK:             [[J_0130]] = [[ADD60]]
 ; CHECK-NEXT:  END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

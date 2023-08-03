@@ -35,24 +35,24 @@ for.body:                                         ; preds = %for.body, %entry
   %0 = trunc i64 %indvars.iv63 to i32
   %and = and i32 %0, 7
   %conv = sitofp i32 %and to double
-  %arrayidx = getelementptr inbounds [100 x double], [100 x double]* @b, i64 0, i64 %indvars.iv63
-  store double %conv, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x double], ptr @b, i64 0, i64 %indvars.iv63
+  store double %conv, ptr %arrayidx, align 8
   %add = add nuw nsw i32 %and, 1
   %conv2 = sitofp i32 %add to double
-  %arrayidx4 = getelementptr inbounds [100 x double], [100 x double]* @a1, i64 0, i64 %indvars.iv63
-  store double %conv2, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x double], ptr @a1, i64 0, i64 %indvars.iv63
+  store double %conv2, ptr %arrayidx4, align 8
   %sub = add nsw i32 %and, -1
   %conv6 = sitofp i32 %sub to double
-  %arrayidx8 = getelementptr inbounds [100 x double], [100 x double]* @a2, i64 0, i64 %indvars.iv63
-  store double %conv6, double* %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds [100 x double], ptr @a2, i64 0, i64 %indvars.iv63
+  store double %conv6, ptr %arrayidx8, align 8
   %add10 = add nuw nsw i32 %and, 2
   %conv11 = sitofp i32 %add10 to double
-  %arrayidx13 = getelementptr inbounds [100 x double], [100 x double]* @a3, i64 0, i64 %indvars.iv63
-  store double %conv11, double* %arrayidx13, align 8
+  %arrayidx13 = getelementptr inbounds [100 x double], ptr @a3, i64 0, i64 %indvars.iv63
+  store double %conv11, ptr %arrayidx13, align 8
   %sub15 = add nsw i32 %and, -2
   %conv16 = sitofp i32 %sub15 to double
-  %arrayidx18 = getelementptr inbounds [100 x double], [100 x double]* @a4, i64 0, i64 %indvars.iv63
-  store double %conv16, double* %arrayidx18, align 8
+  %arrayidx18 = getelementptr inbounds [100 x double], ptr @a4, i64 0, i64 %indvars.iv63
+  store double %conv16, ptr %arrayidx18, align 8
   %indvars.iv.next64 = add nuw nsw i64 %indvars.iv63, 1
   %exitcond65 = icmp eq i64 %indvars.iv.next64, 100
   br i1 %exitcond65, label %for.body22, label %for.body

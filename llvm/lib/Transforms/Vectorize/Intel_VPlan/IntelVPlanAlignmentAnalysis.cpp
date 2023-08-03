@@ -30,6 +30,10 @@ static cl::opt<bool>
 using namespace llvm;
 using namespace llvm::vpo;
 
+static LoopVPlanDumpControl
+    AlignmentPropagationControl("alignment-propagation",
+                                "propagating alignment due to peeling");
+
 /// Modular multiplicative inverse.
 static int modularMultiplicativeInverse(int Val, int Mod) {
   assert(Val > 0 && Mod > Val && "Invalid Arguments");
@@ -410,7 +414,6 @@ void VPlanPeelingAnalysis::dump() {
 
   for (auto &Mrf : CandidateMemrefs) {
     // Print the memref.
-    dbgs() << '[' << Mrf.memref() << "] ";
     Mrf.memref()->printWithoutAnalyses(dbgs());
 
     // Print 8 low (known) bits.
@@ -429,7 +432,7 @@ void VPlanPeelingAnalysis::dump() {
     // Print congruent memrefs.
     auto &CongruentList = CongruentMemrefs[Mrf.memref()];
     for (auto &Pair : CongruentList) {
-      dbgs() << "  -> [" << Pair.first << "] ";
+      dbgs() << "  -> ";
       Pair.first->printWithoutAnalyses(dbgs());
       dbgs() << " (A" << Pair.second.value() << ")\n";
     }
@@ -440,7 +443,7 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    const VPLoadStoreInst &Memref, VPlanPeelingVariant *Peeling) const {
+    const VPLoadStoreInst &Memref, const VPlanPeelingVariant *Peeling) const {
   if (!Peeling || VF == 1)
     return Memref.getAlignment();
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
@@ -448,6 +451,20 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *DP);
   llvm_unreachable("Unsupported peeling variant");
+}
+
+bool VPlanAlignmentAnalysis::isAlignedUnitStride(
+    const VPLoadStoreInst &Memref, const VPlanPeelingVariant *Peeling) const {
+  Align RequiredAlignment = Memref.getAlignment();
+
+  if (const auto Induction =
+          VPSE->asConstStepInduction(Memref.getAddressSCEV()))
+    if (Induction->Step > 0)
+      RequiredAlignment = Align{MinAlign(0, Induction->Step)};
+
+  const Align TargetAlignment = Align{RequiredAlignment * VF};
+  const Align PeeledAlignment = getAlignmentUnitStride(Memref, Peeling);
+  return PeeledAlignment >= TargetAlignment;
 }
 
 MaybeAlign
@@ -466,8 +483,39 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
   return std::nullopt;
 }
 
+void VPlanAlignmentAnalysis::propagateAlignment(
+    VPlanVector *Plan, unsigned VF,
+    const VPlanPeelingVariant *GuaranteedPeeling) {
+  LLVM_DEBUG(dbgs() << "Propagating alignment for " << Plan->getName() << "\n");
+
+  if (!GuaranteedPeeling || VF == 1) {
+    LLVM_DEBUG(dbgs() << "Skip: no alignment to propagate");
+    return;
+  }
+
+  bool NegOneStride;
+  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF);
+  for (auto &Inst : vpinstructions(Plan)) {
+    if (auto *LS = dyn_cast<VPLoadStoreInst>(&Inst)) {
+      if (!isVectorizableLoadStore(LS) ||
+          !Plan->getVPlanDA()->isUnitStrideLoadStore(LS, NegOneStride))
+        continue;
+
+      const auto TargetAlign = VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
+      if (TargetAlign > LS->getAlignment()) {
+        LLVM_DEBUG(dbgs() << "Upgrading alignment of " << *LS << "from "
+                          << LS->getAlignment().value() << " to "
+                          << TargetAlign.value() << "\n");
+        LS->setAlignment(TargetAlign);
+      }
+    }
+  }
+
+  VPLAN_DUMP(AlignmentPropagationControl, Plan);
+}
+
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
-    const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
+    const VPLoadStoreInst &Memref, const VPlanStaticPeeling &SP) const {
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -497,7 +545,7 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
-    const VPLoadStoreInst &Memref, VPlanDynamicPeeling &DP) const {
+    const VPLoadStoreInst &Memref, const VPlanDynamicPeeling &DP) const {
   Align AlignFromIR = Memref.getAlignment();
 
   VPlanSCEV *DstScev = Memref.getAddressSCEV();

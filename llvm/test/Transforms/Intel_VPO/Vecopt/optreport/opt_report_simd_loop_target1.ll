@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare void @serial_call() nounwind
 
-define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
+define void @test_serialized(ptr nocapture %arr) local_unnamed_addr {
 ; AVX512-LABEL: Global optimization report for : test_serialized
 ; AVX512-EMPTY:
 ; AVX512-NEXT:  LOOP BEGIN

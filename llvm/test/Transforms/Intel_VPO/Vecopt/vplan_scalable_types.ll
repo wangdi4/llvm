@@ -7,11 +7,11 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-%struct.Node = type { i32, i32, %struct.Node addrspace(1)* }
+%struct.Node = type { i32, i32, ptr addrspace(1) }
 ; Function Attrs: convergent nounwind
 define void @test_scalable_type_passthrough() {
 entry:
-  %list.pNodes = alloca %struct.Node addrspace(1)*, align 8
+  %list.pNodes = alloca ptr addrspace(1), align 8
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
@@ -24,8 +24,8 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add = add nuw i64 %idx, 1
   %sext = shl i64 %add, 32
   %idxprom = ashr exact i64 %sext, 32
-  %load.pNodes = load %struct.Node addrspace(1)*, %struct.Node addrspace(1)** %list.pNodes, align 8
-  %global_id = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %load.pNodes, i64 %add, i32 0
+  %load.pNodes = load ptr addrspace(1), ptr %list.pNodes, align 8
+  %global_id = getelementptr inbounds %struct.Node, ptr addrspace(1) %load.pNodes, i64 %add, i32 0
   br label %simd.loop.exit
 
 simd.loop.exit:

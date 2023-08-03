@@ -7,12 +7,15 @@ target triple = "x86_64-pc-linux"
 ; CHECK: define double @test(<2 x float>
 ; CHECK: call double @creal(double {{.*}}, double {{.*}})
 
-define double @test({ float, float }* byval({ float, float }) %z) {
+define double @test(ptr byval({ float, float }) %z) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
-  %call = tail call double @creal({ double, double }* null)
+  %call = tail call double @creal(ptr null)
   ret double 0.000000e+00
 }
 
-declare double @creal({ double, double }* byval({ double, double }))
+declare double @creal(ptr byval({ double, double }))
+
+!0 = !{!"{float, float }*"}
+!1 = !{{float, float }* null}
 
 ; DEBUGIFY-NOT: WARNING

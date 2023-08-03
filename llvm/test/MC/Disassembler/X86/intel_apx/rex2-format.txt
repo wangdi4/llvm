@@ -112,33 +112,37 @@
 
 ## MRMDestMem
 
-# ATT:   movl	(%r16,%rax), %ebx
-# INTEL: mov	ebx, dword ptr [r16 + rax]
-0xd5,0x10,0x8b,0x1c,0x00
+# ATT:   movl	%ebx, (%r16,%rax)
+# INTEL: mov	dword ptr [r16 + rax], ebx
+0xd5,0x10,0x89,0x1c,0x00
 
-# ATT:   movl	(%rax,%r16), %ebx
-# INTEL: mov	ebx, dword ptr [rax + r16]
-0xd5,0x20,0x8b,0x1c,0x00
+# ATT:   movl	%ebx, (%rax,%r16)
+# INTEL: mov	dword ptr [rax + r16], ebx
+0xd5,0x20,0x89,0x1c,0x00
 
-# ATT:   movl	(%rax,%rbx), %r16d
-# INTEL: mov	r16d, dword ptr [rax + rbx]
-0xd5,0x40,0x8b,0x04,0x18
+# ATT:   movl	%r16d, (%rax,%rbx)
+# INTEL: mov	dword ptr [rax + rbx], r16d
+0xd5,0x40,0x89,0x04,0x18
 
-# ATT:   movl	(%r16,%r17), %eax
-# INTEL: mov	eax, dword ptr [r16 + r17]
-0xd5,0x30,0x8b,0x04,0x08
+# ATT:   movl	%eax, (%r16,%r17)
+# INTEL: mov	dword ptr [r16 + r17], eax
+0xd5,0x30,0x89,0x04,0x08
 
-# ATT:   movl	(%rax,%r16), %r17d
-# INTEL: mov	r17d, dword ptr [rax + r16]
-0xd5,0x60,0x8b,0x0c,0x00
+# ATT:   movl	%r17d, (%rax,%r16)
+# INTEL: mov	dword ptr [rax + r16], r17d
+0xd5,0x60,0x89,0x0c,0x00
 
-# ATT:   movl	(%r16,%rax), %r17d
-# INTEL: mov	r17d, dword ptr [r16 + rax]
-0xd5,0x50,0x8b,0x0c,0x00
+# ATT:   movl	%r17d, (%r16,%rax)
+# INTEL: mov	dword ptr [r16 + rax], r17d
+0xd5,0x50,0x89,0x0c,0x00
 
-# ATT:   movl	(%r16,%r17), %r18d
-# INTEL: mov	r18d, dword ptr [r16 + r17]
-0xd5,0x70,0x8b,0x14,0x08
+# ATT:   movl	%r18d, (%r16,%r17)
+# INTEL: mov	dword ptr [r16 + r17], r18d
+0xd5,0x70,0x89,0x14,0x08
+
+# ATT:   movb    %bpl, (%r16,%r14)
+# INTEL: mov    byte ptr [r16 + r14], bpl
+0xd5,0x12,0x88,0x2c,0x30
 
 ## MRMXmCC
 

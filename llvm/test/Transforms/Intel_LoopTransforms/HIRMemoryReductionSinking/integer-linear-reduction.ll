@@ -43,16 +43,16 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 2
-  store i32 %add, i32* %arrayidx, align 4
-  %1 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 5), align 4
+  store i32 %add, ptr %arrayidx, align 4
+  %1 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 5), align 4
   %add3 = add nsw i32 %1, 3
-  store i32 %add3, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 5), align 4
-  %2 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 8), align 4
+  store i32 %add3, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 5), align 4
+  %2 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 8), align 4
   %add4 = add nsw i32 %2, 9
-  store i32 %add4, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 8), align 4
+  store i32 %add4, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 8), align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

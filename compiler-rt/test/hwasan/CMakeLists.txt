@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 set(HWASAN_LIT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(HWASAN_TESTSUITES)
@@ -13,6 +31,11 @@ foreach(arch ${HWASAN_TEST_ARCH})
 
   # FIXME: Set this.
   set(HWASAN_ANDROID_FILES_TO_PUSH [])
+
+  # INTEL_CUSTOMIZATION
+  # JIRA: CMPLRLLVM-45382
+  append("${USE_RDRIVE_GCC_FLAG}" HWASAN_TEST_TARGET_CFLAGS)
+  # end INTEL_CUSTOMIZATION
 
   configure_lit_site_cfg(
     ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in

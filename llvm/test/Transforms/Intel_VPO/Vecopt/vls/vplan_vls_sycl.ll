@@ -10,7 +10,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
+define void @foo(ptr nocapture %dst, ptr nocapture %src, i64 %x) {
 ;  for (i = 0; i < 2048; i += 2) {
 ;    t0 = src[3*x + i] + 7;
 ;    t1 = src[3*x + i + 1] + 11;
@@ -33,22 +33,20 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ; CHECK-NEXT:   #4 <4 x 32> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC:%.*]], i64 [[DOTEXTRACT_0_:%.*]]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP]] to <8 x i32>*
-; CHECK-NEXT:    [[VLS_LOAD:%.*]] = load <8 x i32>, <8 x i32>* [[TMP1]], align 4
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[SRC:%.*]], i64 [[DOTEXTRACT_0_:%.*]]
+; CHECK-NEXT:    [[VLS_LOAD:%.*]] = load <8 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[VP_SRC_0:%.*]] = shufflevector <8 x i32> [[VLS_LOAD]], <8 x i32> [[VLS_LOAD]], <4 x i32> <i32 0, i32 2, i32 4, i32 6>
 ; CHECK-NEXT:    [[VP_SRC_1:%.*]] = shufflevector <8 x i32> [[VLS_LOAD]], <8 x i32> [[VLS_LOAD]], <4 x i32> <i32 1, i32 3, i32 5, i32 7>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[VP_SRC_0]], <i32 7, i32 7, i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[VP_SRC_1]], <i32 11, i32 11, i32 11, i32 11>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT5:%.*]], [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <4 x i64> [[TMP4]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP7:%.*]] = getelementptr inbounds i32, i32* [[DST:%.*]], i64 [[DOTEXTRACT_0_6]]
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SCALAR_GEP7:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i64 [[DOTEXTRACT_0_6]]
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; CHECK-NEXT:    [[EXTENDED_8:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_8:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i32> [[TMP5]], <8 x i32> [[EXTENDED_8]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP7]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
+; CHECK-NEXT:    store <8 x i32> [[TMP6]], ptr [[SCALAR_GEP7]], align 4
 ;
 entry:
   %x3 = mul nsw i64 %x, 3
@@ -65,11 +63,11 @@ for.body:                                         ; preds = %entry, %for.body
   %src.i.0 = add nsw i64 %x3, %indvars.iv
   %src.i.1 = add nsw i64 %src.i.0, 1
 
-  %src.p.0 = getelementptr inbounds i32, i32* %src, i64 %src.i.0
-  %src.p.1 = getelementptr inbounds i32, i32* %src, i64 %src.i.1
+  %src.p.0 = getelementptr inbounds i32, ptr %src, i64 %src.i.0
+  %src.p.1 = getelementptr inbounds i32, ptr %src, i64 %src.i.1
 
-  %src.0 = load i32, i32* %src.p.0, align 4
-  %src.1 = load i32, i32* %src.p.1, align 4
+  %src.0 = load i32, ptr %src.p.0, align 4
+  %src.1 = load i32, ptr %src.p.1, align 4
 
   %add.0 = add i32 %src.0, 7
   %add.1 = add i32 %src.1, 11
@@ -77,11 +75,11 @@ for.body:                                         ; preds = %entry, %for.body
   %dst.i.0 = add nsw i64 %x4, %indvars.iv
   %dst.i.1 = add nsw i64 %dst.i.0, 1
 
-  %dst.p.0 = getelementptr inbounds i32, i32* %dst, i64 %dst.i.0
-  %dst.p.1 = getelementptr inbounds i32, i32* %dst, i64 %dst.i.1
+  %dst.p.0 = getelementptr inbounds i32, ptr %dst, i64 %dst.i.0
+  %dst.p.1 = getelementptr inbounds i32, ptr %dst, i64 %dst.i.1
 
-  store i32 %add.0, i32* %dst.p.0, align 4
-  store i32 %add.1, i32* %dst.p.1, align 4
+  store i32 %add.0, ptr %dst.p.0, align 4
+  store i32 %add.1, ptr %dst.p.1, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 2048

@@ -67,7 +67,7 @@ void SYCLPrepareKernelForVecClone::createEncodingForVectorVariants(
     Function &F, unsigned VF, ArrayRef<VFParamKind> ParamKinds,
     bool NeedMaskedVariant) {
 
-  assert(!F.hasFnAttribute(KernelAttribute::VectorVariants) &&
+  assert(!F.hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
          "Do not expect existing vector variants!");
 
   // Encodes masked/non-masked operations.
@@ -80,7 +80,7 @@ void SYCLPrepareKernelForVecClone::createEncodingForVectorVariants(
     Variants.push_back(VFInfo::get(ISA, true, VF, ParamKinds, FName).VectorName);
   }
 
-  F.addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
+  F.addFnAttr(VectorUtils::VectorVariantsAttrName, join(Variants, ","));
 }
 
 // For each kernel, it creates vector-variant attributes which are needed to

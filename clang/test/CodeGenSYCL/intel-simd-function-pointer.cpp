@@ -7,12 +7,23 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   kernelFunc();
 }
 
+struct CC {
+  double a = 0;
+  double b = 0;
+};
+
 typedef int(*func)(int, int);
 typedef int(*fptr)(int);
+typedef int(*fptrs)(CC);
+typedef int(*fpi)(int, CC);
+typedef int(*fpc)(CC, int);
 extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int bar(int, int);
 extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int zoo(int);
 extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int moo(int);
 extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) void xoo();
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int yoo(CC);
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int roo(CC, int);
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int too(int, CC);
 const func two = &bar;
 __attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one;
 //CHECK: @"_Z2f1i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f1i], align 8
@@ -110,8 +121,20 @@ extern void test1(){
 extern void qoo(func pt) {
 //CHECK:call{{.*}}@__intel_indirect_call_2
   pt(1,1);
+  fptrs one = &yoo;
+  CC c{2,3};
+  one(c);
+//CHECK:call{{.*}}@__intel_indirect_call_3
+  fpi x = &too;
+  x(1, c);
+//CHECK:call{{.*}}@__intel_indirect_call_4
+  fpc y = &roo;
+  y(c, 1);
+//CHECK:call{{.*}}@__intel_indirect_call_5
 }
-
+//CHECK: declare spir_func {{.*}} i32 @__intel_indirect_call_3(i32 (%struct.CC*)* addrspace(4)*, %struct.CC* noundef byval(%struct.CC) align 8)
+//CHECK: declare spir_func noundef i32 @__intel_indirect_call_4(i32 (i32, %struct.CC*)* addrspace(4)*, i32 noundef, %struct.CC* noundef byval(%struct.CC) align 8)
+//CHECK: declare spir_func noundef i32 @__intel_indirect_call_5(i32 (%struct.CC*, i32)* addrspace(4)*, %struct.CC* noundef byval(%struct.CC) align 8, i32 noundef)
 //CHECK: attributes #[[ATT4]] = {{.*}}"vector_function_ptrs"="_Z3zooi$SIMDTable()"
 //CHECK: attributes #[[ATT5]] = {{.*}}"vector_function_ptrs"="_Z3barii$SIMDTable()"
 //CHECK: attributes #[[ATT6]] = {{.*}}"vector_function_ptrs"="_Z3mooi$SIMDTable()"

@@ -21,7 +21,7 @@ define i32 @test() {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[ARRAYIDX667]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = sub <4 x i32> [[TMP1]], [[TMP0]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, ptr [[ARRAYIDX677]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x i32> [[I130]], <8 x i32> poison, <4 x i32> <i32 7, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x i32> [[I130]], <8 x i32> poison, <4 x i32> <i32 7, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP3]], <4 x i32> <i32 0, i32 4, i32 5, i32 6>
 ; CHECK-NEXT:    [[TMP6:%.*]] = sub <4 x i32> [[TMP3]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[TMP6]], [[TMP2]]

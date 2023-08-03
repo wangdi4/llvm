@@ -17,22 +17,22 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
 
-%struct.__tgt_offload_entry.0 = type { i8*, i8*, i64, i32, i32 }
+%struct.__tgt_offload_entry.0 = type { ptr, ptr, i64, i32, i32 }
 
-@.omp_offloading.entry.__omp_offloading_10309_bcd6a20__ZN1b1dEiii_l727 = weak target_declare constant %struct.__tgt_offload_entry.0 { i8* bitcast (void ()* @__omp_offloading_10309_bcd6a20__ZN1b1dEiii_l727 to i8*), i8* poison, i64 0, i32 0, i32 0 }
+@.omp_offloading.entry.__omp_offloading_10309_bcd6a20__ZN1b1dEiii_l727 = weak target_declare constant %struct.__tgt_offload_entry.0 { ptr @__omp_offloading_10309_bcd6a20__ZN1b1dEiii_l727, ptr poison, i64 0, i32 0, i32 0 }
 
-; CHECK: define private void @_Z1fiPfS_iiii.internalized(i32 %g, float* %_dst_, float* %h, i32 %i, i32 %j, i32 %0, i32 %1) #[[ATTR0:[0-9]+]] {
+; CHECK: define private void @_Z1fiPfS_iiii.internalized(i32 %g, ptr %_dst_, ptr %h, i32 %i, i32 %j, i32 %0, i32 %1) #[[ATTR0:[0-9]+]] {
 
-define void @_Z1fiPfS_iiii(i32 %g, float* %_dst_, float* %h, i32 %i, i32 %j, i32 %0, i32 %1) #1 {
-; CHECK:       define void @_Z1fiPfS_iiii(i32 %g, float* %_dst_, float* %h, i32 %i, i32 %j, i32 %0, i32 %1) #[[ATTR1:[0-9]+]] {
+define void @_Z1fiPfS_iiii(i32 %g, ptr %_dst_, ptr %h, i32 %i, i32 %j, i32 %0, i32 %1) #1 {
+; CHECK:       define void @_Z1fiPfS_iiii(i32 %g, ptr %_dst_, ptr %h, i32 %i, i32 %j, i32 %0, i32 %1) #[[ATTR1:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[DOTOMP_UB:%.*]] = alloca i32, i32 0, align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_214:%.*]]
 ; CHECK:       DIR.OMP.SIMD.214:
-; CHECK-NEXT:    store i32 [[I:%.*]], i32* [[DOTOMP_UB]], align 4
+; CHECK-NEXT:    store i32 [[I:%.*]], ptr [[DOTOMP_UB]], align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1_SPLIT:%.*]]
 ; CHECK:       DIR.OMP.SIMD.1.split:
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[DOTOMP_UB]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_2:%.*]]
 ; CHECK:       DIR.OMP.SIMD.2:
 ; CHECK-NEXT:    [[CMP4_NOT17:%.*]] = icmp sgt i32 0, [[TMP2]]
@@ -43,7 +43,7 @@ define void @_Z1fiPfS_iiii(i32 %g, float* %_dst_, float* %h, i32 %i, i32 %j, i32
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY:%.*]]
 ; CHECK:       omp.inner.for.body:
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_018:%.*]] = phi i32 [ 0, [[OMP_INNER_FOR_BODY_LR_PH]] ], [ 1, [[OMP_INNER_FOR_BODY]] ], !in.de.ssa !5
-; CHECK-NEXT:    call void @_Z1fiPfS_iiii(i32 0, float* null, float* null, i32 0, i32 0, i32 0, i32 0)
+; CHECK-NEXT:    call void @_Z1fiPfS_iiii(i32 0, ptr null, ptr null, i32 0, i32 0, i32 0, i32 0)
 ; CHECK-NEXT:    [[CMP4_NOT:%.*]] = icmp sgt i32 1, [[DOTOMP_IV_LOCAL_018]]
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_018_IN1:%.*]] = call i32 @llvm.ssa.copy.i32(i32 1), !in.de.ssa !5
 ; CHECK-NEXT:    br i1 [[CMP4_NOT]], label [[OMP_INNER_FOR_BODY]], label [[OMP_INNER_FOR_COND_DIR_OMP_END_SIMD_3_LOOPEXIT_CRIT_EDGE:%.*]]
@@ -60,11 +60,11 @@ entry:
   br label %DIR.OMP.SIMD.214
 
 DIR.OMP.SIMD.214:                                 ; preds = %entry
-  store i32 %i, i32* %.omp.ub, align 4
+  store i32 %i, ptr %.omp.ub, align 4
   br label %DIR.OMP.SIMD.1.split
 
 DIR.OMP.SIMD.1.split:                             ; preds = %DIR.OMP.SIMD.214
-  %2 = load i32, i32* %.omp.ub, align 4
+  %2 = load i32, ptr %.omp.ub, align 4
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1.split
@@ -77,7 +77,7 @@ omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %.omp.iv.local.018 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ 1, %omp.inner.for.body ]
-  call void @_Z1fiPfS_iiii(i32 0, float* null, float* null, i32 0, i32 0, i32 0, i32 0)
+  call void @_Z1fiPfS_iiii(i32 0, ptr null, ptr null, i32 0, i32 0, i32 0, i32 0)
   %cmp4.not = icmp sgt i32 1, %.omp.iv.local.018
   br i1 %cmp4.not, label %omp.inner.for.body, label %omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge
 
@@ -94,14 +94,14 @@ define internal void @__omp_offloading_10309_bcd6a20__ZN1b1dEiii_l727() {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[FOR_COND4:%.*]]
 ; CHECK:       for.cond4:
-; CHECK-NEXT:    call void @_Z1fiPfS_iiii.internalized(i32 0, float* null, float* null, i32 1, i32 0, i32 0, i32 0)
+; CHECK-NEXT:    call void @_Z1fiPfS_iiii.internalized(i32 0, ptr null, ptr null, i32 1, i32 0, i32 0, i32 0)
 ; CHECK-NEXT:    br label [[FOR_COND4]]
 ;
 newFuncRoot:
   br label %for.cond4
 
 for.cond4:                                        ; preds = %for.cond4, %newFuncRoot
-  call void @_Z1fiPfS_iiii(i32 0, float* null, float* null, i32 1, i32 0, i32 0, i32 0)
+  call void @_Z1fiPfS_iiii(i32 0, ptr null, ptr null, i32 1, i32 0, i32 0, i32 0)
   br label %for.cond4
 }
 

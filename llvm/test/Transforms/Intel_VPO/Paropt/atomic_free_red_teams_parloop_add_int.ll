@@ -46,18 +46,15 @@
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK-LABEL: master.thread.code{{[0-9]+}}:
 ; CHECK: %[[LOCAL_LD:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_PTR]]
 ; CHECK: store i32 %[[LOCAL_LD]], ptr addrspace(1) %[[LOCAL_SUM_GEP]]
 ; CHECK-LABEL: counter_check:
 ; CHECK: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
-; CHECK-LABEL: master.thread.code{{[0-9]+}}:
-; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i32 @__kmpc_atomic_fixed4_add_cpt(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 1, i32 1)
-; CHECK: store i32 %[[UPD_CNTR]], ptr addrspace(3) @.broadcast.ptr.__local, align 4
-; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
-; CHECK: %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
-; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
+; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i1 @__kmpc_team_reduction_ready(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 %[[NUM_GROUPS_TRUNC]])
+; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %[[UPD_CNTR]], true
 ; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 1)
@@ -80,6 +77,7 @@
 ; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(1) %sum.ascast
 ; TC_ZEROINIT-NEXT: store i32 0, ptr addrspace(1) %teams_counter
 ; TC_FP-NOT: store i32 0, ptr addrspace(1) %teams_counter
+; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
 
 ; MAP:              Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4096, i64 1152)
 ; MAP_TC_ZEROINIT:  Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 16544)

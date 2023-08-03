@@ -1944,10 +1944,12 @@ void HIRPMSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
 
 PreservedAnalyses HIRPMSymbolicTripCountCompleteUnrollPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  ModifiedHIR = false;
 #if INTEL_FEATURE_SW_ADVANCED
-  HIRPMSymbolicTripCountCompleteUnroll(HIRF, AM.getResult<TargetIRAnalysis>(F),
-                                       AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+  ModifiedHIR = HIRPMSymbolicTripCountCompleteUnroll(
+                    HIRF, AM.getResult<TargetIRAnalysis>(F),
+                    AM.getResult<HIRDDAnalysisPass>(F))
+                    .run();
 
 #endif //INTEL_FEATURE_SW_ADVANCED
   return PreservedAnalyses::all();

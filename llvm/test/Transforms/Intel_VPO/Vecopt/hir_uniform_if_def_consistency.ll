@@ -34,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @control = dso_local local_unnamed_addr global i32 0, align 8
 
-define dso_local void @foo(i64* nocapture readnone %arr1, i64* nocapture readnone %arr2) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readnone %arr1, ptr nocapture readnone %arr2) local_unnamed_addr #0 {
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i64 i1 = 0, 199, 1   <DO_LOOP>
 ; CHECK:          |   %control.fetch = (@control)[0];
@@ -63,7 +63,7 @@ simd.start:
   br label %inner.ph
 
 inner.ph:
-  %control.fetch = load i32, i32* @control, align 8
+  %control.fetch = load i32, ptr @control, align 8
   %and = and i32 %control.fetch, 1
   %uni.cond = icmp eq i32 %and, 0
   br label %inner.header
@@ -73,13 +73,13 @@ inner.header:
   br i1 %uni.cond, label %if.then, label %if.else
 
 if.then:
-  %gep1 = getelementptr inbounds i64, i64* %arr1, i64 %inner.iv
-  store i64 %inner.iv, i64* %gep1, align 8
+  %gep1 = getelementptr inbounds i64, ptr %arr1, i64 %inner.iv
+  store i64 %inner.iv, ptr %gep1, align 8
   br label %inner.latch
 
 if.else:
-  %gep2 = getelementptr inbounds i64, i64* %arr2, i64 %inner.iv
-  store i64 %inner.iv, i64* %gep2, align 8
+  %gep2 = getelementptr inbounds i64, ptr %arr2, i64 %inner.iv
+  store i64 %inner.iv, ptr %gep2, align 8
   br label %inner.latch
 
 inner.latch:

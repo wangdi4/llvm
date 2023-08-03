@@ -70,9 +70,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @block_(float* noalias nocapture readonly dereferenceable(4) %"block_$A", float* noalias nocapture readonly dereferenceable(4) %"block_$B", float* noalias nocapture dereferenceable(4) %"block_$C", i32* noalias nocapture readonly dereferenceable(4) %"block_$N") local_unnamed_addr #0 {
+define void @block_(ptr noalias nocapture readonly dereferenceable(4) %"block_$A", ptr noalias nocapture readonly dereferenceable(4) %"block_$B", ptr noalias nocapture dereferenceable(4) %"block_$C", ptr noalias nocapture readonly dereferenceable(4) %"block_$N") local_unnamed_addr #0 {
 DIR.PRAGMA.BLOCK_LOOP.151:
-  %"block_$N_fetch.1" = load i32, i32* %"block_$N", align 1, !tbaa !0
+  %"block_$N_fetch.1" = load i32, ptr %"block_$N", align 1, !tbaa !0
   %int_sext = sext i32 %"block_$N_fetch.1" to i64
   %mul.1 = shl nsw i64 %int_sext, 2
   br label %DIR.PRAGMA.BLOCK_LOOP.1
@@ -92,26 +92,26 @@ bb2.preheader:                                    ; preds = %DIR.PRAGMA.BLOCK_LO
 
 bb10.preheader.preheader:                         ; preds = %bb7, %bb2.preheader
   %indvars.iv47 = phi i64 [ 1, %bb2.preheader ], [ %indvars.iv.next48, %bb7 ]
-  %"block_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.1, float* nonnull elementtype(float) %"block_$A", i64 %indvars.iv47)
+  %"block_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"block_$A", i64 %indvars.iv47)
   br label %bb10.preheader
 
 bb10.preheader:                                   ; preds = %bb10.preheader.preheader, %bb11
   %indvars.iv43 = phi i64 [ 1, %bb10.preheader.preheader ], [ %indvars.iv.next44, %bb11 ]
-  %"block_$C[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.1, float* nonnull elementtype(float) %"block_$C", i64 %indvars.iv43)
-  %"block_$B[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.1, float* nonnull elementtype(float) %"block_$B", i64 %indvars.iv43)
-  %"block_$B[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"block_$B[]", i64 %indvars.iv47)
-  %"block_$B[][]_fetch.28" = load float, float* %"block_$B[][]", align 1, !tbaa !4
+  %"block_$C[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"block_$C", i64 %indvars.iv43)
+  %"block_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"block_$B", i64 %indvars.iv43)
+  %"block_$B[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"block_$B[]", i64 %indvars.iv47)
+  %"block_$B[][]_fetch.28" = load float, ptr %"block_$B[][]", align 1, !tbaa !4
   br label %bb10
 
 bb10:                                             ; preds = %bb10.preheader, %bb10
   %indvars.iv = phi i64 [ 1, %bb10.preheader ], [ %indvars.iv.next, %bb10 ]
-  %"block_$C[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"block_$C[]", i64 %indvars.iv)
-  %"block_$C[][]_fetch.14" = load float, float* %"block_$C[][]", align 1, !tbaa !6
-  %"block_$A[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"block_$A[]", i64 %indvars.iv)
-  %"block_$A[][]_fetch.21" = load float, float* %"block_$A[][]", align 1, !tbaa !8
+  %"block_$C[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"block_$C[]", i64 %indvars.iv)
+  %"block_$C[][]_fetch.14" = load float, ptr %"block_$C[][]", align 1, !tbaa !6
+  %"block_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"block_$A[]", i64 %indvars.iv)
+  %"block_$A[][]_fetch.21" = load float, ptr %"block_$A[][]", align 1, !tbaa !8
   %mul.7 = fmul fast float %"block_$B[][]_fetch.28", %"block_$A[][]_fetch.21"
   %add.4 = fadd fast float %mul.7, %"block_$C[][]_fetch.14"
-  store float %add.4, float* %"block_$C[][]", align 1, !tbaa !6
+  store float %add.4, ptr %"block_$C[][]", align 1, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count4953
   br i1 %exitcond, label %bb11, label %bb10
@@ -144,7 +144,7 @@ DIR.PRAGMA.END.BLOCK_LOOP.4:                      ; preds = %DIR.PRAGMA.END.BLOC
 declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #2
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1

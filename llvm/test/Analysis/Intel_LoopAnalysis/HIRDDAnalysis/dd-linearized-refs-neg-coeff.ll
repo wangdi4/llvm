@@ -40,7 +40,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind writeonly uwtable
-define dso_local noundef i32 @_Z3subPfi(float* nocapture noundef writeonly %A, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3subPfi(ptr nocapture noundef writeonly %A, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp75 = icmp sgt i32 %N, 0
   br i1 %cmp75, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -92,16 +92,16 @@ for.body12:                                       ; preds = %for.body12.lr.ph, %
   %sub = sub i32 %add15, %0
   %add16 = add nsw i32 %sub, -9216
   %idxprom = sext i32 %add16 to i64
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %idxprom
-  store float 1.000000e+00, float* %arrayidx, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %idxprom
+  store float 1.000000e+00, ptr %arrayidx, align 4, !tbaa !7
   %add23 = add nsw i32 %sub, -9215
   %idxprom24 = sext i32 %add23 to i64
-  %arrayidx25 = getelementptr inbounds float, float* %A, i64 %idxprom24
-  store float 2.000000e+00, float* %arrayidx25, align 4, !tbaa !7
+  %arrayidx25 = getelementptr inbounds float, ptr %A, i64 %idxprom24
+  store float 2.000000e+00, ptr %arrayidx25, align 4, !tbaa !7
   %add32 = add nsw i32 %sub, -9217
   %idxprom33 = sext i32 %add32 to i64
-  %arrayidx34 = getelementptr inbounds float, float* %A, i64 %idxprom33
-  store float 3.000000e+00, float* %arrayidx34, align 4, !tbaa !7
+  %arrayidx34 = getelementptr inbounds float, ptr %A, i64 %idxprom33
+  store float 3.000000e+00, ptr %arrayidx34, align 4, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup11, label %for.body12, !llvm.loop !11

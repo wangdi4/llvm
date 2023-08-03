@@ -1,2 +1,7 @@
+# INTEL_CUSTOMIZATION
+# CMPLRTST-20484
+# Disable this lit test for further investigation
+UNSUPPORTED: linux
+# end INTEL_CUSTOMIZATION#
 RUN: %cpp_compiler %S/SymbolizeDeadlock.cpp -o %t
 RUN: not %run %t -rss_limit_mb=20 2>&1

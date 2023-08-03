@@ -4,11 +4,11 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !recommended_vector_length !5 {
+define spir_kernel void @a(ptr addrspace(1) nocapture readonly %a, ptr addrspace(1) nocapture %b) local_unnamed_addr #0 !recommended_vector_length !5 !kernel_arg_base_type !6 !arg_type_null_val !7 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #0
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !0
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !0
   %1 = trunc i32 %0 to i16
 ; CHECK: [[WIDE_LOAD_TRUNCi16:%.*]] = trunc <4 x i32> %wide.load to <4 x i16>
   %2 = trunc i32 %0 to i8
@@ -118,12 +118,13 @@ attributes #0 = { convergent nounwind readnone }
 !1 = !{!"int", !2, i64 0}
 !2 = !{!"omnipotent char", !3, i64 0}
 !3 = !{!"Simple C/C++ TBAA"}
-!4 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
+!4 = !{ptr @a}
 !5 = !{i32 4}
+!6 = !{!"int*", !"int*"}
+!7 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br

@@ -16,6 +16,8 @@
 ;}
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ;*** IR Dump Before HIR Identity Matrix Idiom Recognition ***
 ;
@@ -39,6 +41,13 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRIdentityMatrixIdiomRecognition
+
 ;Module Before HIR
 ; ModuleID = 't.c'
 source_filename = "t.c"
@@ -59,9 +68,9 @@ for.cond1.preheader:                              ; preds = %for.inc11, %entry
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
   %cmp4 = icmp eq i64 %indvars.iv23, %indvars.iv
-  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %indvars.iv23, i64 %indvars.iv
+  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %indvars.iv23, i64 %indvars.iv
   %. = select i1 %cmp4, float 1.000000e+00, float 0.000000e+00
-  store float %., float* %arrayidx6, align 4, !tbaa !2
+  store float %., ptr %arrayidx6, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.inc11, label %for.body3

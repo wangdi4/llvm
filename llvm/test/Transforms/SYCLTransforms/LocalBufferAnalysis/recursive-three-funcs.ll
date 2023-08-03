@@ -25,46 +25,48 @@ target triple = "x86_64-pc-linux"
 
 define internal fastcc zeroext i1 @yyy() !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([10 x i32], [10 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4, !tbaa !2
+  %0 = load i32, ptr addrspace(3) @test.i, align 4, !tbaa !2
   %1 = tail call fastcc zeroext i1 @foo()
   ret i1 false
 }
 
 define internal fastcc zeroext i1 @foo() !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([10 x i32], [10 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4, !tbaa !2
+  %0 = load i32, ptr addrspace(3) @test.i, align 4, !tbaa !2
   %1 = tail call fastcc zeroext i1 @xxx()
   ret i1 false
 }
 
 define internal fastcc zeroext i1 @xxx() !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* @test.k, align 4, !tbaa !2
+  %0 = load i32, ptr addrspace(3) @test.k, align 4, !tbaa !2
   %1 = tail call fastcc zeroext i1 @yyy()
   ret i1 false
 }
 
 define internal fastcc zeroext i1 @bar() !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* @test.j, align 4, !tbaa !2
+  %0 = load i32, ptr addrspace(3) @test.j, align 4, !tbaa !2
   %1 = tail call fastcc zeroext i1 @foo()
   ret i1 false
 }
 
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %results) !recursive_call !1 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %results) !recursive_call !1 !kernel_arg_base_type !6 !arg_type_null_val !7 {
 entry:
-  store i32 1234, i32 addrspace(3)* getelementptr inbounds ([10 x i32], [10 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4, !tbaa !2
-  store i32 1234, i32 addrspace(3)* @test.j, align 4, !tbaa !2
-  store i32 1234, i32 addrspace(3)* @test.k, align 4, !tbaa !2
+  store i32 1234, ptr addrspace(3) @test.i, align 4, !tbaa !2
+  store i32 1234, ptr addrspace(3) @test.j, align 4, !tbaa !2
+  store i32 1234, ptr addrspace(3) @test.k, align 4, !tbaa !2
   %0 = tail call fastcc zeroext i1 @bar()
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
+!6 = !{!"int*"}
+!7 = !{ptr addrspace(1) null}

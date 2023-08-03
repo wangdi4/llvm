@@ -125,12 +125,12 @@ TEST_F(VPOperandBundlesTest, getOperandBundleFromTag) {
   const VPCallInstruction *Call;
   SETUP_AND_ASSERT_SINGLE_CALL(Call);
 
-  const Optional<VPOperandBundle> AlignBundle =
+  const std::optional<VPOperandBundle> AlignBundle =
       Call->getOperandBundle("align");
   ASSERT_TRUE(AlignBundle.has_value());
   ASSERT_BUNDLE_EQ(*AlignBundle, Call->getOperandBundleAt(0));
 
-  const Optional<VPOperandBundle> NonNullBundle =
+  const std::optional<VPOperandBundle> NonNullBundle =
       Call->getOperandBundle("nonnull");
   ASSERT_TRUE(NonNullBundle.has_value());
   ASSERT_BUNDLE_EQ(*NonNullBundle, Call->getOperandBundleAt(1));

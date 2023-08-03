@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 
 ; Test call info collection for special kinds of user allocation and free functions.
 ; This case is the same as safety-useralloc-mm01.ll, but pointer types and bitcasts

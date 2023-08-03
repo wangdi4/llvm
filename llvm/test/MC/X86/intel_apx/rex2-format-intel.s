@@ -111,33 +111,37 @@
 
 ## MRMDestMem
 
-# CHECK: mov	ebx, dword ptr [r16 + rax]
-# CHECK: encoding: [0xd5,0x10,0x8b,0x1c,0x00]
-         mov	ebx, dword ptr [r16 + rax]
+# CHECK: mov	dword ptr [r16 + rax], ebx
+# CHECK: encoding: [0xd5,0x10,0x89,0x1c,0x00]
+         mov	dword ptr [r16 + rax], ebx
 
-# CHECK: mov	ebx, dword ptr [rax + r16]
-# CHECK: encoding: [0xd5,0x20,0x8b,0x1c,0x00]
-         mov	ebx, dword ptr [rax + r16]
+# CHECK: mov	dword ptr [rax + r16], ebx
+# CHECK: encoding: [0xd5,0x20,0x89,0x1c,0x00]
+         mov	dword ptr [rax + r16], ebx
 
-# CHECK: mov	r16d, dword ptr [rax + rbx]
-# CHECK: encoding: [0xd5,0x40,0x8b,0x04,0x18]
-         mov	r16d, dword ptr [rax + rbx]
+# CHECK: mov	dword ptr [rax + rbx], r16d
+# CHECK: encoding: [0xd5,0x40,0x89,0x04,0x18]
+         mov	dword ptr [rax + rbx], r16d
 
-# CHECK: mov	eax, dword ptr [r16 + r17]
-# CHECK: encoding: [0xd5,0x30,0x8b,0x04,0x08]
-         mov	eax, dword ptr [r16 + r17]
+# CHECK: mov	dword ptr [r16 + r17], eax
+# CHECK: encoding: [0xd5,0x30,0x89,0x04,0x08]
+         mov	dword ptr [r16 + r17], eax
 
-# CHECK: mov	r17d, dword ptr [rax + r16]
-# CHECK: encoding: [0xd5,0x60,0x8b,0x0c,0x00]
-         mov	r17d, dword ptr [rax + r16]
+# CHECK: mov	dword ptr [rax + r16], r17d
+# CHECK: encoding: [0xd5,0x60,0x89,0x0c,0x00]
+         mov	dword ptr [rax + r16], r17d
 
-# CHECK: mov	r17d, dword ptr [r16 + rax]
-# CHECK: encoding: [0xd5,0x50,0x8b,0x0c,0x00]
-         mov	r17d, dword ptr [r16 + rax]
+# CHECK: mov	dword ptr [r16 + rax], r17d
+# CHECK: encoding: [0xd5,0x50,0x89,0x0c,0x00]
+         mov	dword ptr [r16 + rax], r17d
 
-# CHECK: mov	r18d, dword ptr [r16 + r17]
-# CHECK: encoding: [0xd5,0x70,0x8b,0x14,0x08]
-         mov	r18d, dword ptr [r16 + r17]
+# CHECK: mov	dword ptr [r16 + r17], r18d
+# CHECK: encoding: [0xd5,0x70,0x89,0x14,0x08]
+         mov	dword ptr [r16 + r17], r18d
+
+# CHECK: mov    byte ptr [r16 + r14], bpl
+# CHECK: encoding: [0xd5,0x12,0x88,0x2c,0x30]
+         mov    byte ptr [r16 + r14], bpl
 
 ## MRMXmCC
 

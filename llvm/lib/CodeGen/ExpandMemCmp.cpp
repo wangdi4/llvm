@@ -71,18 +71,18 @@ class MemCmpExpansion {
     ResultBlock() = default;
   };
 
-  CallInst *const CI;
+  CallInst *const CI = nullptr;
   ResultBlock ResBlock;
   const uint64_t Size;
   unsigned MaxLoadSize = 0;
   uint64_t NumLoadsNonOneByte = 0;
   const uint64_t NumLoadsPerBlockForZeroCmp;
   std::vector<BasicBlock *> LoadCmpBlocks;
-  BasicBlock *EndBlock;
-  PHINode *PhiRes;
+  BasicBlock *EndBlock = nullptr;
+  PHINode *PhiRes = nullptr;
   const bool IsUsedForZeroCmp;
   const DataLayout &DL;
-  DomTreeUpdater *DTU;
+  DomTreeUpdater *DTU = nullptr;
   IRBuilder<> Builder;
   // Represents the decomposition in blocks of the expansion. For example,
   // comparing 33 bytes on X86+sse can be done with 2x16-byte loads and
@@ -288,6 +288,10 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
   Align RhsAlign = RhsSource->getPointerAlignment(DL);
   if (OffsetBytes > 0) {
     auto *ByteType = Type::getInt8Ty(CI->getContext());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    LhsSource = Builder.CreateConstGEP1_64(ByteType, LhsSource, OffsetBytes);
+    RhsSource = Builder.CreateConstGEP1_64(ByteType, RhsSource, OffsetBytes);
+#else
     LhsSource = Builder.CreateConstGEP1_64(
         ByteType, Builder.CreateBitCast(LhsSource, ByteType->getPointerTo()),
         OffsetBytes);
@@ -296,9 +300,12 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
         OffsetBytes);
     LhsAlign = commonAlignment(LhsAlign, OffsetBytes);
     RhsAlign = commonAlignment(RhsAlign, OffsetBytes);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   LhsSource = Builder.CreateBitCast(LhsSource, LoadSizeType->getPointerTo());
   RhsSource = Builder.CreateBitCast(RhsSource, LoadSizeType->getPointerTo());
+#endif
 
   // Create a constant or a load from the source.
   Value *Lhs = nullptr;

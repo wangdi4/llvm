@@ -29,6 +29,8 @@
 #include "ConfusableIdentifierCheck.h"
 #include "ConstCorrectnessCheck.h"
 #include "DefinitionsInHeadersCheck.h"
+#include "HeaderIncludeCycleCheck.h"
+#include "IncludeCleanerCheck.h"
 #include "MisleadingBidirectional.h"
 #include "MisleadingIdentifier.h"
 #include "MisplacedConstCheck.h"
@@ -58,6 +60,9 @@ public:
         "misc-const-correctness");
     CheckFactories.registerCheck<DefinitionsInHeadersCheck>(
         "misc-definitions-in-headers");
+    CheckFactories.registerCheck<HeaderIncludeCycleCheck>(
+        "misc-header-include-cycle");
+    CheckFactories.registerCheck<IncludeCleanerCheck>("misc-include-cleaner");
     CheckFactories.registerCheck<MisleadingBidirectionalCheck>(
         "misc-misleading-bidirectional");
     CheckFactories.registerCheck<MisleadingIdentifierCheck>(

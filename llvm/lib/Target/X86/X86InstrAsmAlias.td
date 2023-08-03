@@ -1,4 +1,21 @@
 //==- X86InstrAsmAlias.td - Assembler Instruction Aliases --*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,6 +74,137 @@ multiclass CMPCCXADD_Aliases<string Cond, int CC> {
                   (CMPCCXADDmr64 GR64:$dst, i64mem:$dstsrc2, GR64:$src3, CC), 0>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// CCMP Instructions Alias
+multiclass CCMP_Aliases<string Cond, int CC> {
+let Predicates = [In64BitMode] in {
+def : InstAlias<"ccmp"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP8rr  GR8:$src1,  GR8:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16rr GR16:$src1, GR16:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32rr GR32:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64rr GR64:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP8rm  GR8:$src1,  i8mem:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16rm GR16:$src1, i16mem:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32rm GR32:$src1, i32mem:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64rm GR64:$src1, i64mem:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP8mr  i8mem:$src1,  GR8:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16mr i16mem:$src1, GR16:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32mr i32mem:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64mr i64mem:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP8ri  GR8:$src1,  i8imm:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16ri GR16:$src1, i16imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32ri GR32:$src1, i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64ri32 GR64:$src1, i64i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16ri8 GR16:$src1, i16i8imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32ri8 GR32:$src1, i32i8imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64ri8 GR64:$src1, i64i8imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP8mi  i8mem:$src1,  i8imm:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16mi i16mem:$src1, i16imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32mi i32mem:$src1, i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64mi32 i64mem:$src1, i64i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP16mi8 i16mem:$src1, i16i8imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32mi8 i32mem:$src1, i32i8imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64mi8 i64mem:$src1, i64i8imm:$src2, cflags:$dcf, CC), 0>;
+}
+}
+defm : CCMP_Aliases<"o" ,  0>;
+defm : CCMP_Aliases<"no",  1>;
+defm : CCMP_Aliases<"b" ,  2>;
+defm : CCMP_Aliases<"ae",  3>;
+defm : CCMP_Aliases<"e" ,  4>;
+defm : CCMP_Aliases<"ne",  5>;
+defm : CCMP_Aliases<"be",  6>;
+defm : CCMP_Aliases<"a" ,  7>;
+defm : CCMP_Aliases<"s" ,  8>;
+defm : CCMP_Aliases<"ns",  9>;
+defm : CCMP_Aliases<"t" , 10>;
+defm : CCMP_Aliases<"f", 11>;
+defm : CCMP_Aliases<"l" , 12>;
+defm : CCMP_Aliases<"ge", 13>;
+defm : CCMP_Aliases<"le", 14>;
+defm : CCMP_Aliases<"g" , 15>;
+
+// CTEST Instructions Alias
+multiclass CTEST_Aliases<string Cond, int CC> {
+let Predicates = [In64BitMode] in {
+def : InstAlias<"ctest"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST8rr  GR8:$src1,  GR8:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST16rr GR16:$src1, GR16:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST32rr GR32:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST64rr GR64:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST8mr  i8mem:$src1,  GR8:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST16mr i16mem:$src1, GR16:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST32mr i32mem:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST64mr i64mem:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST8ri  GR8:$src1,  i8imm:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST16ri GR16:$src1, i16imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST32ri GR32:$src1, i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST64ri32 GR64:$src1, i64i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{b} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST8mi  i8mem:$src1,  i8imm:$src2,  cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{w} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST16mi i16mem:$src1, i16imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST32mi i32mem:$src1, i32imm:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ctest"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CTEST64mi32 i64mem:$src1, i64i32imm:$src2, cflags:$dcf, CC), 0>;
+}
+}
+defm : CTEST_Aliases<"o" ,  0>;
+defm : CTEST_Aliases<"no",  1>;
+defm : CTEST_Aliases<"b" ,  2>;
+defm : CTEST_Aliases<"ae",  3>;
+defm : CTEST_Aliases<"e" ,  4>;
+defm : CTEST_Aliases<"ne",  5>;
+defm : CTEST_Aliases<"be",  6>;
+defm : CTEST_Aliases<"a" ,  7>;
+defm : CTEST_Aliases<"s" ,  8>;
+defm : CTEST_Aliases<"ns",  9>;
+defm : CTEST_Aliases<"t" , 10>;
+defm : CTEST_Aliases<"f", 11>;
+defm : CTEST_Aliases<"l" , 12>;
+defm : CTEST_Aliases<"ge", 13>;
+defm : CTEST_Aliases<"le", 14>;
+defm : CTEST_Aliases<"g" , 15>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Assembler Mnemonic Aliases
 //===----------------------------------------------------------------------===//
@@ -268,7 +416,35 @@ defm : IntegerCondCodeMnemonicAlias<"cmov", "l", "att">;
 defm : IntegerCondCodeMnemonicAlias<"cmov", "q", "att">;
 // No size suffix for intel-style asm.
 defm : IntegerCondCodeMnemonicAlias<"cmov", "", "intel">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// Aliases for cfcmov<CC>{w,l,q}
+defm : IntegerCondCodeMnemonicAlias<"cfcmov", "w", "att">;
+defm : IntegerCondCodeMnemonicAlias<"cfcmov", "l", "att">;
+defm : IntegerCondCodeMnemonicAlias<"cfcmov", "q", "att">;
+// No size suffix for intel-style asm.
+defm : IntegerCondCodeMnemonicAlias<"cfcmov", "", "intel">;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// Aliases for ccmp<CC>{b,w,l,q}
+defm : IntegerCondCodeMnemonicAlias<"ccmp", "b", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ccmp", "w", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ccmp", "l", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ccmp", "q", "att">;
+// No size suffix for intel-style asm.
+defm : IntegerCondCodeMnemonicAlias<"ccmp", "", "intel">;
+// Aliases for ctest<CC>{b,w,l,q}
+defm : IntegerCondCodeMnemonicAlias<"ctest", "b", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ctest", "w", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ctest", "l", "att">;
+defm : IntegerCondCodeMnemonicAlias<"ctest", "q", "att">;
+// No size suffix for intel-style asm.
+defm : IntegerCondCodeMnemonicAlias<"ctest", "", "intel">;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Assembler Instruction Aliases
 //===----------------------------------------------------------------------===//
@@ -551,34 +727,6 @@ def : InstAlias<"shrd{w}\t{$reg, $mem|$mem, $reg}", (SHRD16mrCL i16mem:$mem, GR1
 def : InstAlias<"shrd{l}\t{$reg, $mem|$mem, $reg}", (SHRD32mrCL i32mem:$mem, GR32:$reg), 0>;
 def : InstAlias<"shrd{q}\t{$reg, $mem|$mem, $reg}", (SHRD64mrCL i64mem:$mem, GR64:$reg), 0>;
 
-/*  FIXME: This is disabled because the asm matcher is currently incapable of
- *  matching a fixed immediate like $1.
-// "shl X, $1" is an alias for "shl X".
-multiclass ShiftRotateByOneAlias<string Mnemonic, string Opc> {
- def : InstAlias<!strconcat(Mnemonic, "b $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "8r1")) GR8:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "w $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "16r1")) GR16:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "l $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "32r1")) GR32:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "q $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "64r1")) GR64:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "b $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "8m1")) i8mem:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "w $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "16m1")) i16mem:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "l $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "32m1")) i32mem:$op)>;
- def : InstAlias<!strconcat(Mnemonic, "q $op, $$1"),
-                 (!cast<Instruction>(!strconcat(Opc, "64m1")) i64mem:$op)>;
-}
-
-defm : ShiftRotateByOneAlias<"rcl", "RCL">;
-defm : ShiftRotateByOneAlias<"rcr", "RCR">;
-defm : ShiftRotateByOneAlias<"rol", "ROL">;
-defm : ShiftRotateByOneAlias<"ror", "ROR">;
-FIXME */
-
 // test: We accept "testX <reg>, <mem>" and "testX <mem>, <reg>" as synonyms.
 def : InstAlias<"test{b}\t{$mem, $val|$val, $mem}",
                 (TEST8mr  i8mem :$mem, GR8 :$val), 0>;
@@ -663,6 +811,24 @@ multiclass CMOV_SETCC_Aliases<string Cond, int CC> {
                   (CMOV64rr GR64:$dst, GR64:$src, CC), 0>;
   def : InstAlias<"cmov"#Cond#"{q}\t{$src, $dst|$dst, $src}",
                   (CMOV64rm GR64:$dst, i64mem:$src, CC), 0>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [In64BitMode] in {
+  def : InstAlias<"cmov"#Cond#"{w}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV16rr_ND GR16:$dst, GR16:$src1, GR16:$src2, CC), 0>;
+  def : InstAlias<"cmov"#Cond#"{w}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV16rm_ND GR16:$dst, GR16:$src1, i16mem:$src2, CC), 0>;
+  def : InstAlias<"cmov"#Cond#"{l}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV32rr_ND GR32:$dst, GR32:$src1, GR32:$src2, CC), 0>;
+  def : InstAlias<"cmov"#Cond#"{l}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV32rm_ND GR32:$dst, GR32:$src1, i32mem:$src2, CC), 0>;
+  def : InstAlias<"cmov"#Cond#"{q}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV64rr_ND GR64:$dst, GR64:$src1, GR64:$src2, CC), 0>;
+  def : InstAlias<"cmov"#Cond#"{q}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CMOV64rm_ND GR64:$dst, GR64:$src1, i64mem:$src2, CC), 0>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   def : InstAlias<"set"#Cond#"\t$dst", (SETCCr GR8:$dst, CC), 0>;
   def : InstAlias<"set"#Cond#"\t$dst", (SETCCm i8mem:$dst, CC), 0>;
@@ -685,6 +851,62 @@ defm : CMOV_SETCC_Aliases<"ge", 13>;
 defm : CMOV_SETCC_Aliases<"le", 14>;
 defm : CMOV_SETCC_Aliases<"g" , 15>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// CFCMOV Instructions Alias
+multiclass CFCMOV_Aliases<string Cond, int CC> {
+let Predicates = [In64BitMode] in {
+  def : InstAlias<"cfcmov"#Cond#"{w}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV16rr GR16:$dst, GR16:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{l}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV32rr GR32:$dst, GR32:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{q}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV64rr GR64:$dst, GR64:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{w}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV16rm GR16:$dst, i16mem:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{l}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV32rm GR32:$dst, i32mem:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{q}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV64rm GR64:$dst, i64mem:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{w}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV16mr i16mem:$dst, GR16:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{l}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV32mr i32mem:$dst, GR32:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{q}\t{$src, $dst|$dst, $src}",
+                  (CFCMOV64mr i64mem:$dst, GR64:$src, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{w}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV16rr_ND GR16:$dst, GR16:$src1, GR16:$src2, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{l}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV32rr_ND GR32:$dst, GR32:$src1, GR32:$src2, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{q}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV64rr_ND GR64:$dst, GR64:$src1, GR64:$src2, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{w}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV16rm_ND GR16:$dst, GR16:$src1, i16mem:$src2, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{l}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV32rm_ND GR32:$dst, GR32:$src1, i32mem:$src2, CC), 0>;
+  def : InstAlias<"cfcmov"#Cond#"{q}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  (CFCMOV64rm_ND GR64:$dst, GR64:$src1, i64mem:$src2, CC), 0>;
+}
+}
+defm : CFCMOV_Aliases<"o" ,  0>;
+defm : CFCMOV_Aliases<"no",  1>;
+defm : CFCMOV_Aliases<"b" ,  2>;
+defm : CFCMOV_Aliases<"ae",  3>;
+defm : CFCMOV_Aliases<"e" ,  4>;
+defm : CFCMOV_Aliases<"ne",  5>;
+defm : CFCMOV_Aliases<"be",  6>;
+defm : CFCMOV_Aliases<"a" ,  7>;
+defm : CFCMOV_Aliases<"s" ,  8>;
+defm : CFCMOV_Aliases<"ns",  9>;
+defm : CFCMOV_Aliases<"p" , 10>;
+defm : CFCMOV_Aliases<"np", 11>;
+defm : CFCMOV_Aliases<"l" , 12>;
+defm : CFCMOV_Aliases<"ge", 13>;
+defm : CFCMOV_Aliases<"le", 14>;
+defm : CFCMOV_Aliases<"g" , 15>;
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // Condition dump instructions Alias
 def : InstAlias<"jo\t$dst",  (JCC_1 brtarget8:$dst,  0), 0>;
 def : InstAlias<"jno\t$dst", (JCC_1 brtarget8:$dst,  1), 0>;

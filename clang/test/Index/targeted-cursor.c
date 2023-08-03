@@ -6,52 +6,52 @@ int LocalVar1;
 int LocalVar2;
 
 // RUN: c-index-test -write-pch %t.h.pch %S/targeted-top.h
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%s:5:10 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%s:5:10 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=LOCAL-CURSOR1
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-top.h:11:15 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-top.h:11:15 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=vector_get_x  \
 // RUN:  | FileCheck %s -check-prefix=TOP-CURSOR1
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-nested1.h:2:16 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-nested1.h:2:16 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=NESTED-CURSOR1
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-fields.h:2:7 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-fields.h:2:7 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=FIELD-CURSOR1
 
-// RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-fields.h:1:1 %s -include %t.h \
+// INTEL RUN: env CINDEXTEST_FAILONERROR=1 c-index-test -cursor-at=%S/targeted-fields.h:1:1 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=FIELD-CURSOR2
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -cursor-at=%s:5:10 %s -include %t.h \
+// INTEL RUN:   c-index-test -cursor-at=%s:5:10 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=LOCAL-CURSOR1
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -cursor-at=%S/targeted-top.h:11:15 %s -include %t.h \
+// INTEL RUN:   c-index-test -cursor-at=%S/targeted-top.h:11:15 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=vector_get_x  \
 // RUN:  | FileCheck %s -check-prefix=TOP-CURSOR1
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -cursor-at=%S/targeted-nested1.h:2:16 %s -include %t.h \
+// INTEL RUN:   c-index-test -cursor-at=%S/targeted-nested1.h:2:16 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=PreambleVar  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=NESTED-CURSOR1
 
 // RUN: env CINDEXTEST_FAILONERROR=1 CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_NO_CACHING=1 \
-// RUN:   c-index-test -cursor-at=%S/targeted-preamble.h:2:15 %s -include %t.h \
+// INTEL RUN:   c-index-test -cursor-at=%S/targeted-preamble.h:2:15 %s -include-pch %t.h.pch \
 // RUN:    -Xclang -error-on-deserialized-decl=NestedVar1  \
 // RUN:    -Xclang -error-on-deserialized-decl=TopVar  \
 // RUN:  | FileCheck %s -check-prefix=PREAMBLE-CURSOR1

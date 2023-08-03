@@ -88,10 +88,10 @@ source_filename = "lc.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._IO_marker = type { ptr, ptr, i32 }
 
-@stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+@stderr = external dso_local local_unnamed_addr global ptr, align 8
 @.str = private unnamed_addr constant [5 x i8] c" %i \00", align 1
 
 ; Function Attrs: nounwind readnone uwtable
@@ -101,14 +101,10 @@ entry:
   %b2 = alloca [15 x [15 x [15 x i32]]], align 16
   %d2 = alloca [15 x [15 x [15 x i32]]], align 16
   %c3 = alloca [15 x [15 x i32]], align 16
-  %0 = bitcast [15 x [15 x [15 x i32]]]* %a1 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 13500, i8* nonnull %0) #4
-  %1 = bitcast [15 x [15 x [15 x i32]]]* %b2 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 13500, i8* nonnull %1) #4
-  %2 = bitcast [15 x [15 x [15 x i32]]]* %d2 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 13500, i8* nonnull %2) #4
-  %3 = bitcast [15 x [15 x i32]]* %c3 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 900, i8* nonnull %3) #4
+  call void @llvm.lifetime.start.p0(i64 13500, ptr nonnull %a1) #4
+  call void @llvm.lifetime.start.p0(i64 13500, ptr nonnull %b2) #4
+  call void @llvm.lifetime.start.p0(i64 13500, ptr nonnull %d2) #4
+  call void @llvm.lifetime.start.p0(i64 900, ptr nonnull %c3) #4
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc74, %entry
@@ -121,14 +117,14 @@ for.cond4.preheader:                              ; preds = %for.inc71, %for.con
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %a1, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
-  store i32 1, i32* %arrayidx10, align 4, !tbaa !30
-  %arrayidx34 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %b2, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
-  store i32 1, i32* %arrayidx34, align 4, !tbaa !30
-  %arrayidx52 = getelementptr inbounds [15 x [15 x i32]], [15 x [15 x i32]]* %c3, i64 0, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !37
-  store i32 1, i32* %arrayidx52, align 4, !tbaa !37
-  %arrayidx64 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %d2, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
-  store i32 1, i32* %arrayidx64, align 4, !tbaa !30
+  %arrayidx10 = getelementptr inbounds [15 x [15 x [15 x i32]]], ptr %a1, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
+  store i32 1, ptr %arrayidx10, align 4, !tbaa !30
+  %arrayidx34 = getelementptr inbounds [15 x [15 x [15 x i32]]], ptr %b2, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
+  store i32 1, ptr %arrayidx34, align 4, !tbaa !30
+  %arrayidx52 = getelementptr inbounds [15 x [15 x i32]], ptr %c3, i64 0, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !37
+  store i32 1, ptr %arrayidx52, align 4, !tbaa !37
+  %arrayidx64 = getelementptr inbounds [15 x [15 x [15 x i32]]], ptr %d2, i64 0, i64 %indvars.iv135, i64 %indvars.iv132, i64 %indvars.iv, !intel-tbaa !30
+  store i32 1, ptr %arrayidx64, align 4, !tbaa !30
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 15
   br i1 %exitcond, label %for.inc71, label %for.body6, !prof !38
@@ -144,41 +140,40 @@ for.inc74:                                        ; preds = %for.inc71
   br i1 %exitcond137, label %for.end76, label %for.cond1.preheader, !prof !40
 
 for.end76:                                        ; preds = %for.inc74
-  %arrayidx79 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %a1, i64 0, i64 0, i64 0, i64 0, !intel-tbaa !30
-  %4 = load i32, i32* %arrayidx79, align 16, !tbaa !30
-  %arrayidx82 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %b2, i64 0, i64 1, i64 1, i64 1, !intel-tbaa !30
-  %5 = load i32, i32* %arrayidx82, align 4, !tbaa !30
-  %add = add nsw i32 %5, %4
-  %arrayidx84 = getelementptr inbounds [15 x [15 x i32]], [15 x [15 x i32]]* %c3, i64 0, i64 2, i64 2, !intel-tbaa !37
-  %6 = load i32, i32* %arrayidx84, align 8, !tbaa !37
-  %add85 = add nsw i32 %add, %6
-  %arrayidx88 = getelementptr inbounds [15 x [15 x [15 x i32]]], [15 x [15 x [15 x i32]]]* %d2, i64 0, i64 3, i64 3, i64 3, !intel-tbaa !30
-  %7 = load i32, i32* %arrayidx88, align 4, !tbaa !30
-  %add89 = add nsw i32 %add85, %7
-  call void @llvm.lifetime.end.p0i8(i64 900, i8* nonnull %3) #4
-  call void @llvm.lifetime.end.p0i8(i64 13500, i8* nonnull %2) #4
-  call void @llvm.lifetime.end.p0i8(i64 13500, i8* nonnull %1) #4
-  call void @llvm.lifetime.end.p0i8(i64 13500, i8* nonnull %0) #4
+  %0 = load i32, ptr %a1, align 16, !tbaa !30
+  %arrayidx82 = getelementptr inbounds [15 x [15 x [15 x i32]]], ptr %b2, i64 0, i64 1, i64 1, i64 1, !intel-tbaa !30
+  %1 = load i32, ptr %arrayidx82, align 4, !tbaa !30
+  %add = add nsw i32 %1, %0
+  %arrayidx84 = getelementptr inbounds [15 x [15 x i32]], ptr %c3, i64 0, i64 2, i64 2, !intel-tbaa !37
+  %2 = load i32, ptr %arrayidx84, align 8, !tbaa !37
+  %add85 = add nsw i32 %add, %2
+  %arrayidx88 = getelementptr inbounds [15 x [15 x [15 x i32]]], ptr %d2, i64 0, i64 3, i64 3, i64 3, !intel-tbaa !30
+  %3 = load i32, ptr %arrayidx88, align 4, !tbaa !30
+  %add89 = add nsw i32 %add85, %3
+  call void @llvm.lifetime.end.p0(i64 900, ptr nonnull %c3) #4
+  call void @llvm.lifetime.end.p0(i64 13500, ptr nonnull %d2) #4
+  call void @llvm.lifetime.end.p0(i64 13500, ptr nonnull %b2) #4
+  call void @llvm.lifetime.end.p0(i64 13500, ptr nonnull %a1) #4
   ret i32 %add89
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: cold nofree nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #2 !prof !29 {
 entry:
-  %0 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8, !tbaa !41
+  %0 = load ptr, ptr @stderr, align 8, !tbaa !41
   %call = tail call i32 @foo(), !intel-profx !43
-  %call1 = tail call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %0, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0), i32 %call) #5, !intel-profx !43
+  %call1 = tail call i32 (ptr, ptr, ...) @fprintf(ptr %0, ptr @.str, i32 %call) #5, !intel-profx !43
   ret i32 0
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local i32 @fprintf(%struct._IO_FILE* nocapture, i8* nocapture readonly, ...) local_unnamed_addr #3
+declare dso_local i32 @fprintf(ptr nocapture, ptr nocapture readonly, ...) local_unnamed_addr #3
 
 attributes #0 = { nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7" "target-features"="+cx16,+cx8,+fxsr,+mmx,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }

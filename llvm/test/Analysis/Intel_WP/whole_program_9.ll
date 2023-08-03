@@ -18,7 +18,7 @@
 ; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
 
 ; Create the Base, Derived and Derived2 classes
-%class.Base = type { i32 (...)** }
+%class.Base = type { ptr }
 %class.Derived = type { %class.Base }
 %class.Derived2 = type { %class.Derived }
 
@@ -27,20 +27,21 @@
 ; Derived d;
 ; Derived d2;
 
-@b = dso_local local_unnamed_addr global %class.Base* null, align 8
-@d = dso_local global %class.Derived { %class.Base { i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV7Derived, i32 0, inrange i32 0, i32 2) to i32 (...)**) } }, align 8
-@d2 = dso_local global %class.Derived2 { %class.Derived { %class.Base { i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV8Derived2, i32 0, inrange i32 0, i32 2) to i32 (...)**) } } }, align 8
+@b = dso_local local_unnamed_addr global ptr null, align 8
+@d = dso_local global %class.Derived { %class.Base { ptr getelementptr inbounds ({ [3 x ptr] }, ptr @_ZTV7Derived, i32 0, inrange i32 0, i32 2) } }, align 8
+@d2 = dso_local global %class.Derived2 { %class.Derived { %class.Base { ptr getelementptr inbounds ({ [3 x ptr] }, ptr @_ZTV8Derived2, i32 0, inrange i32 0, i32 2) } } }, align 8
 
 ; Setup the virtual tables
-@_ZTV7Derived = linkonce_odr dso_local unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI7Derived to i8*), i8* bitcast (i1 (%class.Derived*)* @_ZN7Derived3fooEv to i8*)] }, align 8, !type !0, !type !1, !type !2, !type !3
-@_ZTVN10__cxxabiv120__si_class_type_infoE = external dso_local global i8*
+@_ZTV7Derived = linkonce_odr dso_local unnamed_addr constant { [3 x ptr] } { [3 x ptr] [ptr null, ptr @_ZTI7Derived, ptr @_ZN7Derived3fooEv] }, align 8, !type !0, !type !1, !type !2, !type !3
+@_ZTVN10__cxxabiv120__si_class_type_infoE = external dso_local global ptr
 @_ZTS7Derived = linkonce_odr dso_local constant [9 x i8] c"7Derived\00"
-@_ZTVN10__cxxabiv117__class_type_infoE = external dso_local global i8*
+@_ZTVN10__cxxabiv117__class_type_infoE = external dso_local global ptr
 @_ZTS4Base = linkonce_odr dso_local constant [6 x i8] c"4Base\00"
-@_ZTI4Base = linkonce_odr dso_local constant { i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv117__class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @_ZTS4Base, i32 0, i32 0) }
-@_ZTI7Derived = linkonce_odr dso_local constant { i8*, i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @_ZTS7Derived, i32 0, i32 0), i8* bitcast ({ i8*, i8* }* @_ZTI4Base to i8*) }
-@_ZTV8Derived2 = available_externally dso_local unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast (i8** @_ZTI8Derived2 to i8*), i8* bitcast (i1 (%class.Derived2*)* @_ZN8Derived23fooEv to i8*)] }, align 8
-@_ZTI8Derived2 = external dso_local constant i8*
+@_ZTI4Base = linkonce_odr dso_local constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv117__class_type_infoE, i64 2), ptr @_ZTS4Base }
+@_ZTI7Derived = linkonce_odr dso_local constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2), ptr @_ZTS7Derived, ptr @_ZTI4Base }
+@_ZTV8Derived2 = available_externally dso_local unnamed_addr constant { [3 x ptr] } { [3 x ptr] [ptr null, ptr @_ZTI8Derived2, ptr @_ZN8Derived23fooEv] }, align 8
+@_ZTI8Derived2 = external dso_local constant ptr
+@llvm.used = appending global [1 x ptr] [ptr @_ZN8Derived23fooEv]
 
 ; Create main
 ; int main(int argc, char* argv* []) {
@@ -53,33 +54,31 @@
 ; }
 
 ; Function Attrs: norecurse uwtable
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %cmp = icmp slt i32 %argc, 2
-  %. = select i1 %cmp, i1 (%class.Base*)*** bitcast (%class.Derived* @d to i1 (%class.Base*)***), i1 (%class.Base*)*** bitcast (%class.Derived2* @d2 to i1 (%class.Base*)***)
-  %.1 = select i1 %cmp, %class.Base* getelementptr inbounds (%class.Derived, %class.Derived* @d, i64 0, i32 0), %class.Base* getelementptr inbounds (%class.Derived2, %class.Derived2* @d2, i64 0, i32 0, i32 0)
-  store i1 (%class.Base*)*** %., i1 (%class.Base*)**** bitcast (%class.Base** @b to i1 (%class.Base*)****), align 8, !tbaa !6
-  %vtable = load i1 (%class.Base*)**, i1 (%class.Base*)*** %., align 8, !tbaa !10
-  %0 = load i1 (%class.Base*)*, i1 (%class.Base*)** %vtable, align 8
-  %call = tail call zeroext i1 %0(%class.Base* %.1)
+  %. = select i1 %cmp, ptr @d, ptr @d2
+  %.1 = select i1 %cmp, ptr @d, ptr @d2
+  store ptr %., ptr @b, align 8, !tbaa !4
+  %vtable = load ptr, ptr %., align 8, !tbaa !8
+  %i = load ptr, ptr %vtable, align 8
+  %call = tail call zeroext i1 %i(ptr %.1)
   ret i32 0
 }
 
 ; Create Derived::foo() { return true; }
 
 ; Function Attrs: noinline
-define linkonce_odr dso_local zeroext i1 @_ZN7Derived3fooEv(%class.Derived* %this) #0{
+define linkonce_odr dso_local zeroext i1 @_ZN7Derived3fooEv(ptr %this) #0{
 entry:
   ret i1 true
 }
 
 ; Create Derived2::foo();
-define weak_odr zeroext i1 @_ZN8Derived23fooEv(%class.Derived2* %this) #0 {
+define weak_odr zeroext i1 @_ZN8Derived23fooEv(ptr %this) #0 {
 entry:
   ret i1 true
 }
-
-@llvm.used = appending global [1 x i8*] [i8* bitcast (i1 (%class.Derived2*)* @_ZN8Derived23fooEv to i8*)]
 
 attributes #0 = { noinline }
 
@@ -88,10 +87,9 @@ attributes #0 = { noinline }
 !1 = !{i64 16, !"_ZTSM4BaseFbvE.virtual"}
 !2 = !{i64 16, !"_ZTS7Derived"}
 !3 = !{i64 16, !"_ZTSM7DerivedFbvE.virtual"}
-
-!6 = !{!7, !7, i64 0}
-!7 = !{!"unspecified pointer", !8, i64 0}
-!8 = !{!"omnipotent char", !9, i64 0}
-!9 = !{!"Simple C++ TBAA"}
-!10 = !{!11, !11, i64 0}
-!11 = !{!"vtable pointer", !9, i64 0}
+!4 = !{!5, !5, i64 0}
+!5 = !{!"unspecified pointer", !6, i64 0}
+!6 = !{!"omnipotent char", !7, i64 0}
+!7 = !{!"Simple C++ TBAA"}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"vtable pointer", !7, i64 0}

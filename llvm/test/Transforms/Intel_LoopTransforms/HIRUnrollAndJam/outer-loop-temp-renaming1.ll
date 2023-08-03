@@ -61,7 +61,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32* noalias %A, i32* noalias %B, i32 %t) {
+define dso_local void @foo(ptr noalias %A, ptr noalias %B, i32 %t) {
 entry:
   %cmp4 = icmp sgt i32 %t, 0
   br label %for.cond1.preheader
@@ -69,7 +69,7 @@ entry:
 for.cond1.preheader:                              ; preds = %entry, %for.inc7
   %indvars.iv21 = phi i64 [ 0, %entry ], [ %indvars.iv.next22, %for.inc7 ]
   %s.020 = phi i32 [ 0, %entry ], [ %s.2.lcssa, %for.inc7 ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv21
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv21
   br label %for.body3
 
 for.body3:                                        ; preds = %for.cond1.preheader, %if.end
@@ -78,13 +78,13 @@ for.body3:                                        ; preds = %for.cond1.preheader
   br i1 %cmp4, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body3
-  %0 = load i32, i32* %ptridx, align 4
+  %0 = load i32, ptr %ptridx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body3
   %s.2 = phi i32 [ %0, %if.then ], [ %s.118, %for.body3 ]
-  %ptridx6 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %s.2, i32* %ptridx6, align 4
+  %ptridx6 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %s.2, ptr %ptridx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.inc7, label %for.body3

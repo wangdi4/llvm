@@ -1,0 +1,145 @@
+# REQUIRES: system-linux
+
+# Test llvm-profdata option to print demangled function names
+
+# RUN: llvm-profdata show -all-functions -demangle=0 %s | FileCheck %s --check-prefix=MANGLED
+# RUN: llvm-profdata show -all-functions -demangle=1 %s | FileCheck %s --check-prefix=DEMANGLED
+
+# MANGLED: _Z8ConvolveiiPfS_Pii:
+# MANGLED: convolvexmain.cpp:_ZL4initiiiPiPfS0_:
+# MANGLED: convolvexmain.cpp:_ZL7do_testiiiiPiPfS0_:
+# MANGLED: main:
+
+# DEMANGLED: Convolve(int, int, float*, float*, int*, int):
+# DEMANGLED: convolvexmain.cpp:init(int, int, int, int*, float*, float*):
+# DEMANGLED: convolvexmain.cpp:do_test(int, int, int, int, int*, float*, float*):
+# DEMANGLED: main:
+
+# This test is generated using the following source and commands:
+# 
+# File: convolvexmain.cpp
+# ----------------------------------------------------
+# #include <stdio.h>
+# int  kernel[100];
+# void Convolve(int height, int width, float *sum,  float *P, 
+# 	            int *Kernel,  int channel);
+#                 
+# static void init(int height, int width, int depth, int *kernel, float *sum, float *pixel)
+# {
+#   for (int i = 0; i < width; i++) {
+#      sum[i] = 0.0f;
+#      kernel[i] = i;
+#   }
+#   for (int i=0; i < height * width * depth; i++) {
+#     pixel[i] = i % 10;
+#   }
+# }
+# static float do_test(int iter, int height, int width, int depth, int *kernel, float *sum, float *pixel)
+# {
+#   float result = 0.0f;
+#   for (int i=0; i < iter; i++) {
+#     Convolve(height,  width, sum,  pixel, kernel, depth); 
+#     result = sum[0] + sum[3];
+#     for (int j=0; j < width; j++) {
+#       sum[j] = 0;
+#     }
+#   }
+#   return result;
+# }
+# int main()
+# {
+#   int height = 100;
+#   int width  = 100;
+#   int channel = 4; 
+#   float P[40000];
+#   float sum[100];
+#   init(height, width, channel, &kernel[0], sum, P);
+#   float result1 = do_test(10, height, width, channel, &kernel[0], sum, P);  
+#   init(height / 4, width / 4, channel, &kernel[0], sum, P);
+#   float result2 = do_test(2000, height / 4, width / 4, channel, &kernel[0], sum, P);
+#   if (result1 != 4000 || result2 != 1000)
+#     printf("fail\n");
+#   else
+#     printf("pass\n");
+#   return 0;
+# }
+# ----------------------------------------------------
+#
+# File: convolvex.cpp
+# ----------------------------------------------------
+# void Convolve(int height, int width, float  *sum,  float *P, int *Kernel, int channel)
+# {
+#   for (int  i = 0; i  < height; i++)
+#    {                                 
+#     for (int j = 0; j  < width; j++)
+#      {                               
+#       float *Pixel = P + (j + i * width) * channel;
+#       float sum0 = 0;
+#       for (int c = 0; c < channel; c++)
+#        {
+#  	       sum0 += Pixel[c] * Kernel[c];
+#        }
+#       sum[j] += sum0;
+#     }
+#   }
+# }
+# ----------------------------------------------------
+#
+# Commands for generation:
+# ----------------------------------------------------
+# icpx -c -O0 -fprofile-generate convolvexmain.cpp
+# icpx -c -O0 -fprofile-generate convolvex.cpp
+# icpx -fprofile-generate convolvexmain.o convolvex.o -o convolvex
+# ./convolvex
+# $ICS_WSRES/llvm/bin/llvm-profdata merge --text default_*.profraw > pgo.txt
+
+# IR level Instrumentation Flag
+:ir
+_Z8ConvolveiiPfS_Pii
+# Func Hash:
+391331301368674999
+# Num Counters:
+4
+# Counter Values:
+5400000
+1350000
+51000
+2010
+# Num Value Kinds:
+1
+# ValueKind = IPVK_LoopTripCount:
+2
+# NumValueSites:
+1
+1
+4:1350000
+
+convolvexmain.cpp:_ZL4initiiiPiPfS0_
+# Func Hash:
+798733564482556826
+# Num Counters:
+3
+# Counter Values:
+125
+42500
+2
+
+convolvexmain.cpp:_ZL7do_testiiiiPiPfS0_
+# Func Hash:
+798733566382720768
+# Num Counters:
+3
+# Counter Values:
+51000
+2010
+2
+
+main
+# Func Hash:
+238984484093187152
+# Num Counters:
+3
+# Counter Values:
+0
+1
+1

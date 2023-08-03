@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/VectorVariantFillIn.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -80,6 +81,12 @@ bool VectorVariantFillIn::runImpl(Module &M) {
         size_t PosEnd = Var.find(')');
         assert(PosBegin != StringRef::npos && PosEnd != StringRef::npos &&
                "Expecting brackets in vector_function_ptrs attribute");
+        // Skip empty vector variant string for vector_function_ptrs attribute,
+        // e.g., "vector_function_ptrs"="_Z1fi$SIMDTable()".
+        if (PosBegin + 1 == PosEnd) {
+          Var = Var.slice(PosEnd + 1, Var.size());
+          continue;
+        }
 
         StringRef VarName = Var.slice(0, PosBegin);
         StringRef VariantsStr = Var.slice(PosBegin + 1, PosEnd);
@@ -154,11 +161,12 @@ bool VectorVariantFillIn::runImpl(Module &M) {
 
       if (!Callee ||
           !Callee->getName().startswith("__intel_create_simd_variant") ||
-          !Call.hasFnAttr("vector-variants"))
+          !Call.hasFnAttr(VectorUtils::VectorVariantsAttrName))
         continue;
 
       // Replace the simd variant creation with an explicit function pointer.
-      Attribute Attr = Call.getCallSiteOrFuncAttr("vector-variants");
+      Attribute Attr =
+          Call.getCallSiteOrFuncAttr(VectorUtils::VectorVariantsAttrName);
       Function *Fn = M.getFunction(Attr.getValueAsString());
       assert(Fn && "Function expected to be exist");
 

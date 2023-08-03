@@ -24,7 +24,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdS_S_PiS0_S_i(double* noalias nocapture noundef readnone %A1, double* noalias nocapture noundef readnone %A2, double* noalias nocapture noundef %B, i32* noalias nocapture noundef readonly %C1, i32* noalias nocapture noundef readonly %C2, double* noalias nocapture noundef writeonly %C3, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdS_S_PiS0_S_i(ptr noalias nocapture noundef readnone %A1, ptr noalias nocapture noundef readnone %A2, ptr noalias nocapture noundef %B, ptr noalias nocapture noundef readonly %C1, ptr noalias nocapture noundef readonly %C2, ptr noalias nocapture noundef writeonly %C3, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp30 = icmp sgt i32 %N, 0
   br i1 %cmp30, label %for.body.preheader, label %for.cond.cleanup
@@ -43,32 +43,32 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end12 ]
   %n2.032 = phi i32 [ 0, %for.body.preheader ], [ %n2.1, %if.end12 ]
   %n1.031 = phi i32 [ 0, %for.body.preheader ], [ %n1.1, %if.end12 ]
-  %arrayidx = getelementptr inbounds i32, i32* %C1, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C1, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %if.else, label %if.end12
 
 if.else:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %C2, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx3, align 4, !tbaa !3
+  %arrayidx3 = getelementptr inbounds i32, ptr %C2, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx3, align 4, !tbaa !3
   %cmp4.not = icmp eq i32 %1, 0
   br i1 %cmp4.not, label %if.else6, label %if.end12
 
 if.else6:                                         ; preds = %if.else
   %inc = add nsw i32 %n2.032, 1
   %idxprom7 = sext i32 %n2.032 to i64
-  %arrayidx8 = getelementptr inbounds double, double* %B, i64 %idxprom7
-  store double 2., double* %arrayidx8, align 8, !tbaa !7
+  %arrayidx8 = getelementptr inbounds double, ptr %B, i64 %idxprom7
+  store double 2., ptr %arrayidx8, align 8, !tbaa !7
   %inc9 = add nsw i32 %n1.031, 1
   br label %if.end12
 
 if.end12:                                         ; preds = %if.else6, %if.else, %for.body
   %n1.1 = phi i32 [ %n1.031, %for.body ], [ %n1.031, %if.else ], [ %inc9, %if.else6 ]
   %n2.1 = phi i32 [ %n2.032, %for.body ], [ %n2.032, %if.else ], [ %inc, %if.else6 ]
-  %arrayidx14 = getelementptr inbounds double, double* %B, i64 %indvars.iv
-  %2 = load double, double* %arrayidx14, align 8, !tbaa !7
-  %arrayidx16 = getelementptr inbounds double, double* %C3, i64 %indvars.iv
-  store double %2, double* %arrayidx16, align 8, !tbaa !7
+  %arrayidx14 = getelementptr inbounds double, ptr %B, i64 %indvars.iv
+  %2 = load double, ptr %arrayidx14, align 8, !tbaa !7
+  %arrayidx16 = getelementptr inbounds double, ptr %C3, i64 %indvars.iv
+  store double %2, ptr %arrayidx16, align 8, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !9

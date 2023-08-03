@@ -94,14 +94,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 entry:
-  %.pre = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 5), align 4, !tbaa !2
+  %.pre = load i32, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 5), align 4, !tbaa !2
   br label %for.body
 
 for.body:                                         ; preds = %for.inc21, %entry
   %0 = phi i32 [ %.pre, %entry ], [ %inc, %for.inc21 ]
   %n.039 = phi i32 [ 0, %entry ], [ %inc22, %for.inc21 ]
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 5), align 4, !tbaa !2
+  store i32 %inc, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 5), align 4, !tbaa !2
   br label %for.cond4.preheader
 
 for.cond4.preheader:                              ; preds = %for.inc18, %for.body
@@ -115,13 +115,13 @@ for.cond7.preheader:                              ; preds = %for.inc15, %for.con
 
 for.body9:                                        ; preds = %for.body9, %for.cond7.preheader
   %indvars.iv = phi i64 [ 0, %for.cond7.preheader ], [ %indvars.iv.next, %for.body9 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %3 = add nuw nsw i64 %1, %indvars.iv
-  %arrayidx12 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %3, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx12, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %3, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx12, align 4, !tbaa !2
   %add13 = add nsw i32 %4, %2
-  store i32 %add13, i32* %arrayidx12, align 4, !tbaa !2
+  store i32 %add13, ptr %arrayidx12, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.inc15, label %for.body9, !llvm.loop !7

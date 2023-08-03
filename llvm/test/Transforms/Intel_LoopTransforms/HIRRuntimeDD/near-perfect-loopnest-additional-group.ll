@@ -27,7 +27,7 @@
 ; CHECK: %mv.test6 = &((@vrow)[0][zext.i32.i64(%height) + -1][zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * smax(0, sext.i32.i64(%other_channels))) + -1]) >=u &((%prow)[0]);
 ; CHECK: %mv.test7 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((@vrow)[0][0][(sext.i32.i64((-1 + %width)) * smin(0, sext.i32.i64(%other_channels)))]);
 ; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
-; CHECK: if (%mv.and == 0 && %mv.and8 == 0)  <MVTag: 62>
+; CHECK: if (%mv.and == 0 & %mv.and8 == 0)  <MVTag: 62>
 ; CHECK: {
 ; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 62>
 ; CHECK:    |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 63>
@@ -67,9 +67,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @vrow = external dso_local local_unnamed_addr global [2000 x [8000 x i8]], align 16
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z19composite_referenceiiiiPvPhS0_(i32 %width, i32 %height, i32 %channels, i32 %other_channels, i8* nocapture readnone %highP, i8* nocapture %prow, i8* nocapture readonly %new_row) local_unnamed_addr #0 {
+define dso_local void @_Z19composite_referenceiiiiPvPhS0_(i32 %width, i32 %height, i32 %channels, i32 %other_channels, ptr nocapture readnone %highP, ptr nocapture %prow, ptr nocapture readonly %new_row) local_unnamed_addr #0 {
 entry:
-  %arrayidx6 = getelementptr inbounds i8, i8* %new_row, i64 3
+  %arrayidx6 = getelementptr inbounds i8, ptr %new_row, i64 3
   %cmp853 = icmp sgt i32 %channels, 0
   %idx.ext = sext i32 %channels to i64
   %idx.ext21 = sext i32 %other_channels to i64
@@ -96,7 +96,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %cmp355, label %for.body5.preheader, label %for.cond.cleanup4
 
 for.body5.preheader:                              ; preds = %for.body
-  %arrayidx1 = getelementptr inbounds [2000 x [8000 x i8]], [2000 x [8000 x i8]]* @vrow, i64 0, i64 %indvars.iv63, i64 0, !intel-tbaa !3
+  %arrayidx1 = getelementptr inbounds [2000 x [8000 x i8]], ptr @vrow, i64 0, i64 %indvars.iv63, i64 0, !intel-tbaa !3
   br label %for.body5
 
 for.cond.cleanup4.loopexit:                       ; preds = %for.cond.cleanup9
@@ -108,10 +108,10 @@ for.cond.cleanup4:                                ; preds = %for.cond.cleanup4.l
   br i1 %exitcond67.not, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !8
 
 for.body5:                                        ; preds = %for.body5.preheader, %for.cond.cleanup9
-  %other_row.058 = phi i8* [ %add.ptr22, %for.cond.cleanup9 ], [ %arrayidx1, %for.body5.preheader ]
+  %other_row.058 = phi ptr [ %add.ptr22, %for.cond.cleanup9 ], [ %arrayidx1, %for.body5.preheader ]
   %x.057 = phi i32 [ %inc24, %for.cond.cleanup9 ], [ 0, %for.body5.preheader ]
-  %this_row.056 = phi i8* [ %add.ptr, %for.cond.cleanup9 ], [ %prow, %for.body5.preheader ]
-  %2 = load i8, i8* %arrayidx6, align 1, !tbaa !10
+  %this_row.056 = phi ptr [ %add.ptr, %for.cond.cleanup9 ], [ %prow, %for.body5.preheader ]
+  %2 = load i8, ptr %arrayidx6, align 1, !tbaa !10
   %conv = zext i8 %2 to i32
   %sub = xor i32 %conv, 255
   br i1 %cmp853, label %for.body10.preheader, label %for.cond.cleanup9
@@ -123,26 +123,26 @@ for.cond.cleanup9.loopexit:                       ; preds = %for.body10
   br label %for.cond.cleanup9
 
 for.cond.cleanup9:                                ; preds = %for.cond.cleanup9.loopexit, %for.body5
-  %add.ptr = getelementptr inbounds i8, i8* %this_row.056, i64 %idx.ext, !intel-tbaa !10
-  %add.ptr22 = getelementptr inbounds i8, i8* %other_row.058, i64 %idx.ext21, !intel-tbaa !10
+  %add.ptr = getelementptr inbounds i8, ptr %this_row.056, i64 %idx.ext, !intel-tbaa !10
+  %add.ptr22 = getelementptr inbounds i8, ptr %other_row.058, i64 %idx.ext21, !intel-tbaa !10
   %inc24 = add nuw nsw i32 %x.057, 1
   %exitcond62.not = icmp eq i32 %inc24, %width
   br i1 %exitcond62.not, label %for.cond.cleanup4.loopexit, label %for.body5, !llvm.loop !11
 
 for.body10:                                       ; preds = %for.body10.preheader, %for.body10
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body10 ], [ 0, %for.body10.preheader ]
-  %arrayidx12 = getelementptr inbounds i8, i8* %other_row.058, i64 %indvars.iv
-  %3 = load i8, i8* %arrayidx12, align 1, !tbaa !10
+  %arrayidx12 = getelementptr inbounds i8, ptr %other_row.058, i64 %indvars.iv
+  %3 = load i8, ptr %arrayidx12, align 1, !tbaa !10
   %conv13 = zext i8 %3 to i32
   %mul = mul nuw nsw i32 %conv13, %conv
-  %arrayidx15 = getelementptr inbounds i8, i8* %this_row.056, i64 %indvars.iv
-  %4 = load i8, i8* %arrayidx15, align 1, !tbaa !10
+  %arrayidx15 = getelementptr inbounds i8, ptr %this_row.056, i64 %indvars.iv
+  %4 = load i8, ptr %arrayidx15, align 1, !tbaa !10
   %conv16 = zext i8 %4 to i32
   %mul17 = mul nuw nsw i32 %sub, %conv16
   %add = add nuw nsw i32 %mul17, %mul
   %div = udiv i32 %add, 255
   %conv18 = trunc i32 %div to i8
-  store i8 %conv18, i8* %arrayidx15, align 1, !tbaa !10
+  store i8 %conv18, ptr %arrayidx15, align 1, !tbaa !10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %1
   br i1 %exitcond.not, label %for.cond.cleanup9.loopexit, label %for.body10, !llvm.loop !12

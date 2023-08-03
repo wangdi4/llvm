@@ -4,10 +4,12 @@
 ; caused assertion. We now have a check for that.
 
 ; CHECK: + DO i1 = 0, 43, 1   <DO_LOOP>
+; CHECK: |   %v_dmzu.7607.out1 = %v_dmzu.7607.root;
+; CHECK: |   %v_dmzu.7607.root = 4294967242 * %v_dmzu.7607.out1  &  4294967294;
 ; CHECK: |   %ld = (@a1_zalp)[0][-1 * i1 + 63];
-; CHECK: |   (@a1_m)[0][-1 * i1 + 63] = -1 * trunc.i32.i2(%ld) + -2 * (trunc.i64.i2(%v_dmzu.7607) * trunc.i64.i2(%indvars.iv621));
-; CHECK: |   %or332 = 2 * zext.i31.i64((-27 * trunc.i64.i31(%v_dmzu.7607)))  |  97;
-; CHECK: |   %v_dmzu.7607 = %or332;
+; CHECK: |   (@a1_m)[0][-1 * i1 + 63] = -1 * trunc.i32.i2(%ld) + (trunc.i64.i2(%indvars.iv621) * trunc.i64.i2(%v_dmzu.7607.root));
+; CHECK: |   %v_dmzu.7607.root = %v_dmzu.7607.root  |  97;
+; CHECK: |   %v_dmzu.7607.out = %v_dmzu.7607.root;
 ; CHECK: |   %indvars.iv621 = -1 * i1 + 62;
 ; CHECK: + END LOOP
 
@@ -30,14 +32,14 @@ for.end335:                                       ; preds = %for.end335, %entry
   %conv311 = mul i64 %v_dmzu.7607, 4294967242
   %conv312 = and i64 %conv311, 4294967294
   %mul319 = mul i64 %conv312, %indvars.iv621
-  %arrayidx320 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_zalp, i64 0, i64 %indvars.iv621
-  %ld = load i32, i32* %arrayidx320, align 4
+  %arrayidx320 = getelementptr inbounds [192 x i32], ptr @a1_zalp, i64 0, i64 %indvars.iv621
+  %ld = load i32, ptr %arrayidx320, align 4
   %mul321 = mul i32 %ld, 71
   %conv322 = zext i32 %mul321 to i64
   %add323 = add i64 %mul319, %conv322
-  %arrayidx324 = getelementptr inbounds [192 x i64], [192 x i64]* @a1_m, i64 0, i64 %indvars.iv621
+  %arrayidx324 = getelementptr inbounds [192 x i64], ptr @a1_m, i64 0, i64 %indvars.iv621
   %and331 = and i64 %add323, 3
-  store i64 %and331, i64* %arrayidx324, align 8
+  store i64 %and331, ptr %arrayidx324, align 8
   %or332 = or i64 %conv312, 97
   %indvars.iv.next622 = add nsw i64 %indvars.iv621, -1
   %cmp306 = icmp ugt i64 %indvars.iv.next622, 19

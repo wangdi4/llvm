@@ -61,12 +61,11 @@
 ; CHECK-NEXT:       i64 [[VP10]] = sext i32 [[VP7]] to i64
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP10]]
 ; CHECK-NEXT:       compress-store double [[VP_LOAD]] double* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP7]] i32 1
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP9]], [[BB3]] ],  [ i32 [[VP7]], [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP17:%.*]] = compress-expand-index-inc i32 [[VP8]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = phi  [ i1 true, [[BB3]] ],  [ i1 false, [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP17]] = compress-expand-index-inc {stride: 1} i32 [[VP7]] i1 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -83,22 +82,22 @@
 ; CHECK-NEXT:  Id: 0   i32 [[VP16]] -> [[VP14:%.*]] = {%j.015}
 
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[J_0150]],  0
-; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[J_0150]]
 ; CHECK:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTVEC0]] != 0
 ; CHECK-NEXT:        |   [[DOTVEC30]] = (<4 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC20]]}
-; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<4 x double*>)([[B0]])[%phi.temp]),  0
-; CHECK-NEXT:        |   @llvm.masked.compressstore.v4f64([[DOTVEC30]],  [[EXTRACT_0_0]],  [[DOTVEC20]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC20]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])
-; CHECK-NEXT:        |   [[INSERT40:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
-; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[INSERT40]]
+; CHECK-NEXT:        |   @llvm.masked.compressstore.v4f64([[DOTVEC30]],  &((double*)([[B0]])[%phi.temp]),  [[DOTVEC20]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC20]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
+; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<4 x i1>.i4([[SELECT0]])
+; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i4([[CAST0]])
+; CHECK-NEXT:        |   [[ZEXT0:%.*]] = zext.i4.i32([[POPCNT0]])
+; CHECK-NEXT:        |   [[MUL0:%.*]] = [[ZEXT0]]  *  1
+; CHECK-NEXT:        |   [[ADD0:%.*]] = [[PHI_TEMP0]]  +  [[MUL0]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[ADD0]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[EXTRACT_0_60:%.*]] = extractelement [[INSERT40]],  0
-; CHECK-NEXT:        [[J_0150]] = [[EXTRACT_0_60]]
+; CHECK:             [[J_0150]] = [[ADD0]]
 ; CHECK-NEXT:  END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

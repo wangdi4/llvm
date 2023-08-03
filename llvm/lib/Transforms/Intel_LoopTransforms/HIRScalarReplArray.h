@@ -82,19 +82,27 @@ struct MemRefGroup {
                          //         0   1    2      3    4    5
                          //             ^StLB                 ^StUB
                          // MaxStoreDist is 5-1 = 4
+
   bool IsVectorLoop;
+
+  // Stores the location where min index store of the group needs to be
+  // generted. This might be a non-inst for a group with conditional stores.
+  HLNode *MinStoreInsertAfterPos;
 
   MemRefGroup(HIRScalarReplArray &HSR, HLLoop *Lp, const RefGroupTy &Group,
               bool IsVectorLoop);
 
   // Getters + Setters
   bool isValid() const { return IsValid; }
+
   bool isVectorLoop() const { return IsVectorLoop; }
 
   unsigned getNumTemps(void) const { return MaxDepDist + 1; }
 
   bool isLoadOnly(void) { return (NumStores == 0); }
   unsigned getNumStores(void) const { return NumStores; }
+
+  HLNode *getMinStoreInsertAfterPos() const { return MinStoreInsertAfterPos; }
 
   // Only have Stores, and NO MemRef gap
   bool isCompleteStoreOnly(void);
@@ -139,16 +147,8 @@ struct MemRefGroup {
   //
   bool requiresLoadInPrehdr(void) const { return (MaxDepDist > 0); }
 
-  // Mark min-index store with MAX TOPO#: must find if #Stores >0
-  // E.g. A[i](W), A[i](W), A[i](W), A[i+1](.) ...
-  //                        ^min_index store with MaxTOPO#
-  //
-  // - identify the MinDD (DD of 1st store)
-  // - examine all MemRef(s)(W) whose DD is MinDD
-  // - if not empty:
-  //   . mark the one with MAX TOPO# as MinStore
-  //
-  void markMinStore(void);
+  // Refer to comments on definition.
+  void computeMinStoreInfo(const RefGroupTy &Group);
 
   // Check if CodeGen for Store(s) is required in Lp's postexit:
   // - MaxStore and MinStore can't be on the same position

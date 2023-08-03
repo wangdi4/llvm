@@ -289,7 +289,7 @@ define dso_local i32 @main() local_unnamed_addr #1 {
   %24 = add nuw nsw i32 %23, %22
   %25 = tail call fastcc i32 @foofail11(i32 0, i32 %3)
   %26 = add nuw nsw i32 %25, %24
-  %27 = load i32, i32* @myglobal, align 4
+  %27 = load i32, ptr @myglobal, align 4
   %28 = tail call fastcc i32 @foofail12(i32 %27, i32 %3)
   %29 = add nuw nsw i32 %28, %16
   %30 = add nuw nsw i32 %3, 1

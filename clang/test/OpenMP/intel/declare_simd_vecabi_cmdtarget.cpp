@@ -34,23 +34,23 @@ int FindPosition(double x) { return 0; }
 // VCHK-DAG: _ZGVZN8v__Z12FindPositiond
 
 // dispatch
-// DCHK-DAG:_ZGVxN4u__Z4funcPi:core_i7_sse4_2
-// DCHK-DAG:_ZGVYN8u__Z4funcPi:haswell
-// DCHK-DAG:_ZGVZN16u__Z4funcPi:skylake_avx512
-// DCHK-DAG:_ZGVxN4l4__Z4funcPi:core_i7_sse4_2
-// DCHK-DAG:_ZGVYN8l4__Z4funcPi:haswell
-// DCHK-DAG:_ZGVZN16l4__Z4funcPi:skylake_avx512
-// DCHK-DAG:_ZGVxN4v__Z4funcPi:core_i7_sse4_2
-// DCHK-DAG:_ZGVYN8v__Z4funcPi:haswell
-// DCHK-DAG:_ZGVZN16v__Z4funcPi:skylake_avx512,tigerlake
+// DCHK-DAG:_ZGVxN4u__Z4funcPi:corei7
+// DCHK-DAG:_ZGVYN8u__Z4funcPi:core-avx2
+// DCHK-DAG:_ZGVZN16u__Z4funcPi:skylake-avx512
+// DCHK-DAG:_ZGVxN4l4__Z4funcPi:corei7
+// DCHK-DAG:_ZGVYN8l4__Z4funcPi:core-avx2
+// DCHK-DAG:_ZGVZN16l4__Z4funcPi:skylake-avx512
+// DCHK-DAG:_ZGVxN4v__Z4funcPi:corei7
+// DCHK-DAG:_ZGVYN8v__Z4funcPi:core-avx2
+// DCHK-DAG:_ZGVZN16v__Z4funcPi:skylake-avx512,skylake_avx512,tigerlake
 
-// DCHK-DAG: _ZGVxN8v__Z12FindPositiond:core_i7_sse4_2
-// DCHK-DAG: _ZGVxM8v__Z12FindPositiond:core_i7_sse4_2
-// DCHK-DAG: _ZGVYN8v__Z12FindPositiond:haswell
-// DCHK-DAG: _ZGVYM8v__Z12FindPositiond:haswell
-// DCHK-DAG: _ZGVZN8v__Z12FindPositiond:skylake_avx512,tigerlake
-// DCHK-DAG: _ZGVZM8v__Z12FindPositiond:skylake_avx512,tigerlake
+// DCHK-DAG: _ZGVxN8v__Z12FindPositiond:corei7
+// DCHK-DAG: _ZGVxM8v__Z12FindPositiond:corei7
+// DCHK-DAG: _ZGVYN8v__Z12FindPositiond:core-avx2
+// DCHK-DAG: _ZGVYM8v__Z12FindPositiond:core-avx2
+// DCHK-DAG: _ZGVZN8v__Z12FindPositiond:skylake-avx512,tigerlake
+// DCHK-DAG: _ZGVZM8v__Z12FindPositiond:skylake-avx512,tigerlake
 
-// DCHK-DAG: _ZGVxN4v__Z12FindPositiond:core_i7_sse4_2
-// DCHK-DAG: _ZGVYN4v__Z12FindPositiond:haswell
-// DCHK-DAG: _ZGVZN4v__Z12FindPositiond:skylake_avx512
+// DCHK-DAG: _ZGVxN4v__Z12FindPositiond:corei7
+// DCHK-DAG: _ZGVYN4v__Z12FindPositiond:core-avx2
+// DCHK-DAG: _ZGVZN4v__Z12FindPositiond:skylake-avx512

@@ -117,3 +117,15 @@
 // OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
 // OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
 // OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "concat"
+
+/// Verify ocloc can be found with OCLOCROOT/OCLOCVER or LIB for non-splitting
+/// environments.
+// RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc-nosplit" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device skl" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_NOSPLIT
+// RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc-nosplit" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device skl" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_NOSPLIT
+// OCLOC_NOSPLIT: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc-nosplit{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "skl"

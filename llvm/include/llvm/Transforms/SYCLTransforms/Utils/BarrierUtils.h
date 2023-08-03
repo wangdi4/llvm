@@ -70,12 +70,12 @@ public:
   /// \param M module to process
   void init(Module *M);
 
-  /// \brief return BasicBlock of pUserInst (if it is not a PHINode) Otherwise,
-  /// return the prevBB of pUserInst with respect to pVal \param pVal value that
-  /// pUserInst is using \param pUserInst instruction that is using Inst value
+  /// \brief return the prevBB of pPhiNode with respect to pVal
+  /// \param pVal value that pPhiNode is using
+  /// \param pPhiNode PhiNode that is using pVal
   /// \returns BasicBlock of usage instruction with respect to value it is using
-  static BasicBlock *findBasicBlockOfUsageInst(Value *pVal,
-                                               Instruction *pUserInst);
+  static SmallVector<BasicBlock *> findBasicBlocksOfPhiNode(Value *pVal,
+                                                            PHINode *pPhiNode);
 
   /// \brief return synchronize type of given instruction
   /// \param Inst instruction to observe its synchronize type
@@ -93,7 +93,8 @@ public:
   InstVec getAllSynchronizeInstructions();
 
   /// \brief Find all functions  in the module that contain synchronize
-  /// instructions \returns InstSet container with found functions
+  /// instructions
+  /// \returns InstSet container with found functions
   FuncSet getAllFunctionsWithSynchronization();
 
   /// @bried return all functions which both call recursive functions and
@@ -214,6 +215,9 @@ public:
   /// searched pathes.
   static bool isCrossedByBarrier(const InstSet &SyncInstructions,
                                  BasicBlock *ValUsageBB, BasicBlock *ValBB);
+
+  /// Return true if \p Val is barrier or dummy barrier call.
+  static bool isBarrierOrDummyBarrierCall(Value *Val);
 
   /// \brief Find dummybarrier - dummybarrier region.
   /// \param F Function.

@@ -1,8 +1,8 @@
-; RUN: opt < %s -S -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt  < %s -S -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; CHECK: define internal void @myoutput
-; CHECK-NOT: tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40
-; CHECK-NOT: tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4
+; CHECK-NOT: tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40
+; CHECK-NOT: tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4
 
 ; Check that dope vector constant propagation will happen for the loads
 ; indicated in the trace, but that it will not happen within @myoutput,
@@ -64,451 +64,451 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$" = type { %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
-%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE" = type { %"__DTRT_QNCA_a0$float*$rank2$" }
-%"__DTRT_QNCA_a0$float*$rank2$" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$float*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"PHYSPROPMOD$.btPHYSPROP_TYPE" = type { %"QNCA_a0$float*$rank2$" }
 
 @anon.2bc5e417881711fb3ab09da8e681987f.0 = internal unnamed_addr constant i32 2
-@physpropmod_mp_physprop_ = internal global %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$" { %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* null, i64 0, i64 0, i64 0, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
-@"main_$MYLOCALARRAY" = internal global %"__DTRT_QNCA_a0$float*$rank2$" { float* null, i64 0, i64 0, i64 1073741952, i64 2, i64 0, [2 x { i64, i64, i64 }] zeroinitializer }
+@physpropmod_mp_physprop_ = internal global %"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$" { ptr null, i64 0, i64 0, i64 0, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
+@"main_$MYLOCALARRAY" = internal global %"QNCA_a0$float*$rank2$" { ptr null, i64 0, i64 0, i64 1073741952, i64 2, i64 0, [2 x { i64, i64, i64 }] zeroinitializer }
 
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4) %0) #0 {
-  %2 = alloca [8 x i64], align 16
-  %3 = alloca [4 x i8], align 1
-  %4 = alloca { i64, i8* }, align 8
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 1), i32 0)
-  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 2), i32 0)
-  %7 = load i32, i32* %0, align 1
-  %8 = sext i32 %7 to i64
-  br label %9
+define internal void @myinit_(ptr noalias nocapture readonly dereferenceable(4) %arg) #0 {
+bb:
+  %i = alloca [8 x i64], align 16
+  %i1 = alloca [4 x i8], align 1
+  %i2 = alloca { i64, ptr }, align 8
+  %i3 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 1), i32 0)
+  %i4 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 2), i32 0)
+  %i5 = load i32, ptr %arg, align 1
+  %i6 = sext i32 %i5 to i64
+  br label %bb7
 
-9:                                                ; preds = %38, %1
-  %10 = phi i64 [ %39, %38 ], [ 1, %1 ]
-  br label %11
+bb7:                                              ; preds = %bb36, %bb
+  %i8 = phi i64 [ %i37, %bb36 ], [ 1, %bb ]
+  br label %bb9
 
-11:                                               ; preds = %11, %9
-  %12 = phi i64 [ %36, %11 ], [ 1, %9 ]
-  %13 = add nuw nsw i64 %12, %10
-  %14 = trunc i64 %13 to i32
-  %15 = sitofp i32 %14 to float
-  %16 = load %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 0), align 1
-  %17 = load i64, i64* %5, align 1
-  %18 = load i64, i64* %6, align 1
-  %19 = tail call %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %18, i64 %17, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE") %16, i64 %8)
-  %20 = getelementptr inbounds %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE", %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* %19, i32 0, i32 0
-  %21 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %20, i32 0, i32 0
-  %22 = load float*, float** %21, align 1
-  %23 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %20, i32 0, i32 6, i32 0
-  %24 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %23, i32 0, i32 1
-  %25 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %24, i32 0)
-  %26 = load i64, i64* %25, align 1
-  %27 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %23, i32 0, i32 2
-  %28 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %27, i32 0)
-  %29 = load i64, i64* %28, align 1
-  %30 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %24, i32 1)
-  %31 = load i64, i64* %30, align 1
-  %32 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %27, i32 1)
-  %33 = load i64, i64* %32, align 1
-  %34 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %33, i64 %31, float* elementtype(float) %22, i64 %12)
-  %35 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %29, i64 %26, float* elementtype(float) %34, i64 %10)
-  store float %15, float* %35, align 1
-  %36 = add nuw nsw i64 %12, 1
-  %37 = icmp ne i64 %36, 11
-  br i1 %37, label %11, label %38
+bb9:                                              ; preds = %bb9, %bb7
+  %i10 = phi i64 [ %i34, %bb9 ], [ 1, %bb7 ]
+  %i11 = add nuw nsw i64 %i10, %i8
+  %i12 = trunc i64 %i11 to i32
+  %i13 = sitofp i32 %i12 to float
+  %i14 = load ptr, ptr @physpropmod_mp_physprop_, align 1
+  %i15 = load i64, ptr %i3, align 1
+  %i16 = load i64, ptr %i4, align 1
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i16, i64 %i15, ptr elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %i14, i64 %i6)
+  %i18 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", ptr %i17, i32 0, i32 0
+  %i19 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i18, i32 0, i32 0
+  %i20 = load ptr, ptr %i19, align 1
+  %i21 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i18, i32 0, i32 6, i32 0
+  %i22 = getelementptr inbounds { i64, i64, i64 }, ptr %i21, i32 0, i32 1
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i22, i32 0)
+  %i24 = load i64, ptr %i23, align 1
+  %i25 = getelementptr inbounds { i64, i64, i64 }, ptr %i21, i32 0, i32 2
+  %i26 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i25, i32 0)
+  %i27 = load i64, ptr %i26, align 1
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i22, i32 1)
+  %i29 = load i64, ptr %i28, align 1
+  %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i25, i32 1)
+  %i31 = load i64, ptr %i30, align 1
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i31, i64 %i29, ptr elementtype(float) %i20, i64 %i10)
+  %i33 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i27, i64 %i24, ptr elementtype(float) %i32, i64 %i8)
+  store float %i13, ptr %i33, align 1
+  %i34 = add nuw nsw i64 %i10, 1
+  %i35 = icmp ne i64 %i34, 11
+  br i1 %i35, label %bb9, label %bb36
 
-38:                                               ; preds = %11
-  %39 = add nuw nsw i64 %10, 1
-  %40 = icmp ne i64 %39, 11
-  br i1 %40, label %9, label %41
+bb36:                                             ; preds = %bb9
+  %i37 = add nuw nsw i64 %i8, 1
+  %i38 = icmp ne i64 %i37, 11
+  br i1 %i38, label %bb7, label %bb39
 
-41:                                               ; preds = %38
-  %42 = tail call i8* @llvm.stacksave()
-  %43 = load %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 0), align 1
-  %44 = load i64, i64* %5, align 1
-  %45 = load i64, i64* %6, align 1
-  %46 = tail call %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %45, i64 %44, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE") %43, i64 %8)
-  %47 = getelementptr inbounds %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE", %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* %46, i32 0, i32 0
-  %48 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %47, i32 0, i32 3
-  %49 = load i64, i64* %48, align 1
-  %50 = and i64 %49, 4
-  %51 = icmp ne i64 %50, 0
-  %52 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %47, i32 0, i32 6, i32 0
-  %53 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %52, i32 0, i32 1
-  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %53, i32 0)
-  %55 = load i64, i64* %54, align 1, !range !3
-  %56 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %47, i32 0, i32 1
-  %57 = load i64, i64* %56, align 1
-  %58 = icmp eq i64 %55, %57
-  %59 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %53, i32 1)
-  %60 = load i64, i64* %59, align 1, !range !3
-  %61 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %52, i32 0, i32 0
-  %62 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %61, i32 0)
-  %63 = load i64, i64* %62, align 1
-  %64 = mul nsw i64 %63, %55
-  %65 = icmp eq i64 %60, %64
-  %66 = and i1 %58, %65
-  %67 = or i1 %51, %66
-  %68 = xor i1 %67, true
-  %69 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %47, i32 0, i32 0
-  %70 = load float*, float** %69, align 1
-  %71 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %52, i32 0, i32 2
-  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 0)
-  %73 = load i64, i64* %72, align 1
-  %74 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 1)
-  %75 = load i64, i64* %74, align 1
-  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %61, i32 1)
-  %77 = load i64, i64* %76, align 1
-  %78 = mul nsw i64 %63, 4
-  br i1 %68, label %79, label %111
+bb39:                                             ; preds = %bb36
+  %i40 = tail call ptr @llvm.stacksave()
+  %i41 = load ptr, ptr @physpropmod_mp_physprop_, align 1
+  %i42 = load i64, ptr %i3, align 1
+  %i43 = load i64, ptr %i4, align 1
+  %i44 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i43, i64 %i42, ptr elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %i41, i64 %i6)
+  %i45 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", ptr %i44, i32 0, i32 0
+  %i46 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i45, i32 0, i32 3
+  %i47 = load i64, ptr %i46, align 1
+  %i48 = and i64 %i47, 4
+  %i49 = icmp ne i64 %i48, 0
+  %i50 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i45, i32 0, i32 6, i32 0
+  %i51 = getelementptr inbounds { i64, i64, i64 }, ptr %i50, i32 0, i32 1
+  %i52 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i51, i32 0)
+  %i53 = load i64, ptr %i52, align 1, !range !3
+  %i54 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i45, i32 0, i32 1
+  %i55 = load i64, ptr %i54, align 1
+  %i56 = icmp eq i64 %i53, %i55
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i51, i32 1)
+  %i58 = load i64, ptr %i57, align 1, !range !3
+  %i59 = getelementptr inbounds { i64, i64, i64 }, ptr %i50, i32 0, i32 0
+  %i60 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i59, i32 0)
+  %i61 = load i64, ptr %i60, align 1
+  %i62 = mul nsw i64 %i61, %i53
+  %i63 = icmp eq i64 %i58, %i62
+  %i64 = and i1 %i56, %i63
+  %i65 = or i1 %i49, %i64
+  %i66 = xor i1 %i65, true
+  %i67 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i45, i32 0, i32 0
+  %i68 = load ptr, ptr %i67, align 1
+  %i69 = getelementptr inbounds { i64, i64, i64 }, ptr %i50, i32 0, i32 2
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 0)
+  %i71 = load i64, ptr %i70, align 1
+  %i72 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 1)
+  %i73 = load i64, ptr %i72, align 1
+  %i74 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i59, i32 1)
+  %i75 = load i64, ptr %i74, align 1
+  %i76 = mul nsw i64 %i61, 4
+  br i1 %i66, label %bb77, label %bb109
 
-79:                                               ; preds = %41
-  %80 = mul nsw i64 %77, %78
-  %81 = sdiv i64 %80, 4
-  %82 = alloca float, i64 %81, align 4
-  %83 = icmp sle i64 1, %77
-  br i1 %83, label %84, label %109
+bb77:                                             ; preds = %bb39
+  %i78 = mul nsw i64 %i75, %i76
+  %i79 = sdiv i64 %i78, 4
+  %i80 = alloca float, i64 %i79, align 4
+  %i81 = icmp sle i64 1, %i75
+  br i1 %i81, label %bb82, label %bb107
 
-84:                                               ; preds = %79
-  %85 = icmp sle i64 1, %63
-  %86 = add i64 %63, 1
-  %87 = add nuw i64 %77, 1
-  br label %102
+bb82:                                             ; preds = %bb77
+  %i83 = icmp sle i64 1, %i61
+  %i84 = add i64 %i61, 1
+  %i85 = add nuw i64 %i75, 1
+  br label %bb100
 
-88:                                               ; preds = %105, %88
-  %89 = phi i64 [ %73, %105 ], [ %94, %88 ]
-  %90 = phi i64 [ 1, %105 ], [ %95, %88 ]
-  %91 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %73, i64 %55, float* elementtype(float) %106, i64 %89)
-  %92 = load float, float* %91, align 1
-  %93 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %107, i64 %90)
-  store float %92, float* %93, align 1
-  %94 = add nsw i64 %89, 1
-  %95 = add nuw nsw i64 %90, 1
-  %96 = icmp ne i64 %95, %86
-  br i1 %96, label %88, label %97
+bb86:                                             ; preds = %bb103, %bb86
+  %i87 = phi i64 [ %i71, %bb103 ], [ %i92, %bb86 ]
+  %i88 = phi i64 [ 1, %bb103 ], [ %i93, %bb86 ]
+  %i89 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i71, i64 %i53, ptr elementtype(float) %i104, i64 %i87)
+  %i90 = load float, ptr %i89, align 1
+  %i91 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %i105, i64 %i88)
+  store float %i90, ptr %i91, align 1
+  %i92 = add nsw i64 %i87, 1
+  %i93 = add nuw nsw i64 %i88, 1
+  %i94 = icmp ne i64 %i93, %i84
+  br i1 %i94, label %bb86, label %bb95
 
-97:                                               ; preds = %88
-  br label %98
+bb95:                                             ; preds = %bb86
+  br label %bb96
 
-98:                                               ; preds = %102, %97
-  %99 = add nsw i64 %103, 1
-  %100 = add nuw nsw i64 %104, 1
-  %101 = icmp ne i64 %100, %87
-  br i1 %101, label %102, label %108
+bb96:                                             ; preds = %bb100, %bb95
+  %i97 = add nsw i64 %i101, 1
+  %i98 = add nuw nsw i64 %i102, 1
+  %i99 = icmp ne i64 %i98, %i85
+  br i1 %i99, label %bb100, label %bb106
 
-102:                                              ; preds = %98, %84
-  %103 = phi i64 [ %75, %84 ], [ %99, %98 ]
-  %104 = phi i64 [ 1, %84 ], [ %100, %98 ]
-  br i1 %85, label %105, label %98
+bb100:                                            ; preds = %bb96, %bb82
+  %i101 = phi i64 [ %i73, %bb82 ], [ %i97, %bb96 ]
+  %i102 = phi i64 [ 1, %bb82 ], [ %i98, %bb96 ]
+  br i1 %i83, label %bb103, label %bb96
 
-105:                                              ; preds = %102
-  %106 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %75, i64 %60, float* elementtype(float) %70, i64 %103)
-  %107 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %78, float* nonnull elementtype(float) %82, i64 %104)
-  br label %88
+bb103:                                            ; preds = %bb100
+  %i104 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i73, i64 %i58, ptr elementtype(float) %i68, i64 %i101)
+  %i105 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i76, ptr nonnull elementtype(float) %i80, i64 %i102)
+  br label %bb86
 
-108:                                              ; preds = %98
-  br label %109
+bb106:                                            ; preds = %bb96
+  br label %bb107
 
-109:                                              ; preds = %108, %79
-  %110 = bitcast float* %82 to i8*
-  br label %114
+bb107:                                            ; preds = %bb106, %bb77
+  %i108 = bitcast ptr %i80 to ptr
+  br label %bb112
 
-111:                                              ; preds = %41
-  %112 = bitcast float* %70 to i8*
-  %113 = mul nsw i64 %77, %78
-  br label %114
+bb109:                                            ; preds = %bb39
+  %i110 = bitcast ptr %i68 to ptr
+  %i111 = mul nsw i64 %i75, %i76
+  br label %bb112
 
-114:                                              ; preds = %111, %109
-  %115 = phi i64 [ %113, %111 ], [ %80, %109 ]
-  %116 = phi i8* [ %110, %109 ], [ %112, %111 ]
-  %117 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 0
-  store i8 26, i8* %117, align 1
-  %118 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 1
-  store i8 5, i8* %118, align 1
-  %119 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 2
-  store i8 1, i8* %119, align 1
-  %120 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 3
-  store i8 0, i8* %120, align 1
-  %121 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %4, i32 0, i32 0
-  store i64 %115, i64* %121, align 1
-  %122 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %4, i32 0, i32 1
-  store i8* %116, i8** %122, align 1
-  %123 = bitcast [8 x i64]* %2 to i8*
-  %124 = bitcast [4 x i8]* %3 to i8*
-  %125 = bitcast { i64, i8* }* %4 to i8*
-  %126 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %123, i32 -1, i64 1239157112576, i8* nonnull %124, i8* nonnull %125)
-  call void @llvm.stackrestore(i8* %42)
+bb112:                                            ; preds = %bb109, %bb107
+  %i113 = phi i64 [ %i111, %bb109 ], [ %i78, %bb107 ]
+  %i114 = phi ptr [ %i108, %bb107 ], [ %i110, %bb109 ]
+  %i115 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 0
+  store i8 26, ptr %i115, align 1
+  %i116 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 1
+  store i8 5, ptr %i116, align 1
+  %i117 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 2
+  store i8 1, ptr %i117, align 1
+  %i118 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 3
+  store i8 0, ptr %i118, align 1
+  %i119 = getelementptr inbounds { i64, ptr }, ptr %i2, i32 0, i32 0
+  store i64 %i113, ptr %i119, align 1
+  %i120 = getelementptr inbounds { i64, ptr }, ptr %i2, i32 0, i32 1
+  store ptr %i114, ptr %i120, align 1
+  %i121 = bitcast ptr %i to ptr
+  %i122 = bitcast ptr %i1 to ptr
+  %i123 = bitcast ptr %i2 to ptr
+  %i124 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i121, i32 -1, i64 1239157112576, ptr nonnull %i122, ptr nonnull %i123)
+  call void @llvm.stackrestore(ptr %i40)
   ret void
 }
 
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* elementtype(i64) %3, i32 %4) #1
-
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 %0, i64 %1, i64 %2, float* elementtype(float) %3, i64 %4) #1
-
-; Function Attrs: mustprogress nofree nosync nounwind willreturn
-declare i8* @llvm.stacksave() #2
+; Function Attrs: nocallback nofree nosync nounwind willreturn
+declare ptr @llvm.stacksave() #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) #3
+declare dso_local i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) #2
 
-; Function Attrs: mustprogress nofree nosync nounwind willreturn
-declare void @llvm.stackrestore(i8* %0) #2
+; Function Attrs: nocallback nofree nosync nounwind willreturn
+declare void @llvm.stackrestore(ptr) #1
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local void @MAIN__() #4 {
-  %1 = alloca i32, align 8
-  %2 = tail call i32 @for_set_reentrancy(i32* @anon.2bc5e417881711fb3ab09da8e681987f.0)
-  store i64 0, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 5), align 1
-  store i64 96, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 1), align 1
-  store i64 1, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 4), align 1
-  store i64 0, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 2), align 1
-  %3 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 2), i32 0)
-  store i64 1, i64* %3, align 1
-  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 0), i32 0)
-  store i64 10, i64* %4, align 1
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 1), i32 0)
-  store i64 96, i64* %5, align 1
-  store i64 1073741829, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 3), align 1
-  %6 = tail call i32 @for_allocate_handle(i64 960, i8** bitcast (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_ to i8**), i32 262144, i8* null)
-  %7 = load i64, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 3), align 1
-  %8 = and i64 %7, 256
-  %9 = lshr i64 %8, 8
-  %10 = shl nuw nsw i64 %9, 8
-  %11 = add nuw nsw i64 %10, 133
-  %12 = and i64 %7, 1030792151040
-  %13 = lshr i64 %12, 36
-  %14 = and i64 %11, -1030792151041
-  %15 = shl nuw nsw i64 %13, 36
-  %16 = add nuw nsw i64 %14, %15
-  store i64 0, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 5), align 1
-  store i64 4, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 1), align 1
-  store i64 2, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 4), align 1
-  store i64 0, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 2), align 1
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 2), i32 0)
-  store i64 1, i64* %17, align 1
-  %18 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 0), i32 0)
-  store i64 5, i64* %18, align 1
-  %19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 2), i32 1)
-  store i64 1, i64* %19, align 1
-  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 0), i32 1)
-  store i64 5, i64* %20, align 1
-  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 1), i32 0)
-  store i64 4, i64* %21, align 1
-  %22 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 1), i32 1)
-  store i64 20, i64* %22, align 1
-  %23 = and i64 %16, -68451041281
-  %24 = or i64 %23, 1073741824
-  store i64 %24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 3), align 1
-  %25 = and i64 %16, 1
-  %26 = shl nuw nsw i64 %25, 1
-  %27 = trunc i64 %26 to i32
-  %28 = and i32 %27, -2097169
-  %29 = and i64 %16, 1030792151040
-  %30 = lshr i64 %29, 36
-  %31 = and i32 %28, -31457281
-  %32 = shl nuw nsw i64 %30, 21
-  %33 = trunc i64 %32 to i32
-  %34 = or i32 %31, %33
-  %35 = and i64 %16, 1099511627776
-  %36 = lshr i64 %35, 40
-  %37 = and i32 %34, -33554433
-  %38 = shl nuw nsw i64 %36, 25
-  %39 = trunc i64 %38 to i32
-  %40 = or i32 %37, %39
-  %41 = and i32 %40, -2031617
-  %42 = or i32 %41, 262144
-  %43 = tail call i32 @for_alloc_allocatable_handle(i64 100, i8** bitcast (%"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY" to i8**), i32 %42, i8* null)
-  %44 = load i64, i64* %17, align 1
-  %45 = load i64, i64* %19, align 1
-  %46 = load i64, i64* %22, align 1, !range !3
-  %47 = load float*, float** getelementptr inbounds (%"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY", i32 0, i32 0), align 1
-  %48 = load i64, i64* %18, align 1
-  %49 = load i64, i64* %20, align 1
-  %50 = icmp sle i64 1, %49
-  br i1 %50, label %51, label %73
+define dso_local void @MAIN__() #3 {
+bb:
+  %i = alloca i32, align 8
+  %i1 = tail call i32 @for_set_reentrancy(ptr @anon.2bc5e417881711fb3ab09da8e681987f.0)
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 5), align 1
+  store i64 96, ptr getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 1), align 1
+  store i64 1, ptr getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 4), align 1
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 2), align 1
+  %i2 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 2), i32 0)
+  store i64 1, ptr %i2, align 1
+  %i3 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 0), i32 0)
+  store i64 10, ptr %i3, align 1
+  %i4 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 6, i32 0, i32 1), i32 0)
+  store i64 96, ptr %i4, align 1
+  store i64 1073741829, ptr getelementptr inbounds (%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$", ptr @physpropmod_mp_physprop_, i32 0, i32 3), align 1
+  %i5 = tail call i32 @for_allocate_handle(i64 960, ptr @physpropmod_mp_physprop_, i32 262144, ptr null)
+  %i6 = load i64, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 3), align 1
+  %i7 = and i64 %i6, 256
+  %i8 = lshr i64 %i7, 8
+  %i9 = shl nuw nsw i64 %i8, 8
+  %i10 = add nuw nsw i64 %i9, 133
+  %i11 = and i64 %i6, 1030792151040
+  %i12 = lshr i64 %i11, 36
+  %i13 = and i64 %i10, -1030792151041
+  %i14 = shl nuw nsw i64 %i12, 36
+  %i15 = add nuw nsw i64 %i13, %i14
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 5), align 1
+  store i64 4, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 1), align 1
+  store i64 2, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 4), align 1
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 2), align 1
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 2), i32 0)
+  store i64 1, ptr %i16, align 1
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 0), i32 0)
+  store i64 5, ptr %i17, align 1
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 2), i32 1)
+  store i64 1, ptr %i18, align 1
+  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 0), i32 1)
+  store i64 5, ptr %i19, align 1
+  %i20 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 1), i32 0)
+  store i64 4, ptr %i20, align 1
+  %i21 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 6, i32 0, i32 1), i32 1)
+  store i64 20, ptr %i21, align 1
+  %i22 = and i64 %i15, -68451041281
+  %i23 = or i64 %i22, 1073741824
+  store i64 %i23, ptr getelementptr inbounds (%"QNCA_a0$float*$rank2$", ptr @"main_$MYLOCALARRAY", i32 0, i32 3), align 1
+  %i24 = and i64 %i15, 1
+  %i25 = shl nuw nsw i64 %i24, 1
+  %i26 = trunc i64 %i25 to i32
+  %i27 = and i32 %i26, -2097169
+  %i28 = and i64 %i15, 1030792151040
+  %i29 = lshr i64 %i28, 36
+  %i30 = and i32 %i27, -31457281
+  %i31 = shl nuw nsw i64 %i29, 21
+  %i32 = trunc i64 %i31 to i32
+  %i33 = or i32 %i30, %i32
+  %i34 = and i64 %i15, 1099511627776
+  %i35 = lshr i64 %i34, 40
+  %i36 = and i32 %i33, -33554433
+  %i37 = shl nuw nsw i64 %i35, 25
+  %i38 = trunc i64 %i37 to i32
+  %i39 = or i32 %i36, %i38
+  %i40 = and i32 %i39, -2031617
+  %i41 = or i32 %i40, 262144
+  %i42 = tail call i32 @for_alloc_allocatable_handle(i64 100, ptr @"main_$MYLOCALARRAY", i32 %i41, ptr null)
+  %i43 = load i64, ptr %i16, align 1
+  %i44 = load i64, ptr %i18, align 1
+  %i45 = load i64, ptr %i21, align 1, !range !3
+  %i46 = load ptr, ptr @"main_$MYLOCALARRAY", align 1
+  %i47 = load i64, ptr %i17, align 1
+  %i48 = load i64, ptr %i19, align 1
+  %i49 = icmp sle i64 1, %i48
+  br i1 %i49, label %bb50, label %bb72
 
-51:                                               ; preds = %0
-  %52 = icmp sle i64 1, %48
-  %53 = add i64 %48, 1
-  %54 = add nuw i64 %49, 1
-  br label %67
+bb50:                                             ; preds = %bb
+  %i51 = icmp sle i64 1, %i47
+  %i52 = add i64 %i47, 1
+  %i53 = add nuw i64 %i48, 1
+  br label %bb66
 
-55:                                               ; preds = %70, %55
-  %56 = phi i64 [ 1, %70 ], [ %60, %55 ]
-  %57 = phi i64 [ %44, %70 ], [ %59, %55 ]
-  %58 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %44, i64 4, float* elementtype(float) %71, i64 %57)
-  store float 5.000000e+00, float* %58, align 1
-  %59 = add nsw i64 %57, 1
-  %60 = add nuw nsw i64 %56, 1
-  %61 = icmp ne i64 %60, %53
-  br i1 %61, label %55, label %62
+bb54:                                             ; preds = %bb69, %bb54
+  %i55 = phi i64 [ 1, %bb69 ], [ %i59, %bb54 ]
+  %i56 = phi i64 [ %i43, %bb69 ], [ %i58, %bb54 ]
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i43, i64 4, ptr elementtype(float) %i70, i64 %i56)
+  store float 5.000000e+00, ptr %i57, align 1
+  %i58 = add nsw i64 %i56, 1
+  %i59 = add nuw nsw i64 %i55, 1
+  %i60 = icmp ne i64 %i59, %i52
+  br i1 %i60, label %bb54, label %bb61
 
-62:                                               ; preds = %55
-  br label %63
+bb61:                                             ; preds = %bb54
+  br label %bb62
 
-63:                                               ; preds = %67, %62
-  %64 = add nsw i64 %68, 1
-  %65 = add nuw nsw i64 %69, 1
-  %66 = icmp ne i64 %65, %54
-  br i1 %66, label %67, label %72
+bb62:                                             ; preds = %bb66, %bb61
+  %i63 = add nsw i64 %i67, 1
+  %i64 = add nuw nsw i64 %i68, 1
+  %i65 = icmp ne i64 %i64, %i53
+  br i1 %i65, label %bb66, label %bb71
 
-67:                                               ; preds = %63, %51
-  %68 = phi i64 [ %45, %51 ], [ %64, %63 ]
-  %69 = phi i64 [ 1, %51 ], [ %65, %63 ]
-  br i1 %52, label %70, label %63
+bb66:                                             ; preds = %bb62, %bb50
+  %i67 = phi i64 [ %i44, %bb50 ], [ %i63, %bb62 ]
+  %i68 = phi i64 [ 1, %bb50 ], [ %i64, %bb62 ]
+  br i1 %i51, label %bb69, label %bb62
 
-70:                                               ; preds = %67
-  %71 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %45, i64 %46, float* elementtype(float) %47, i64 %68)
-  br label %55
+bb69:                                             ; preds = %bb66
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i44, i64 %i45, ptr elementtype(float) %i46, i64 %i67)
+  br label %bb54
 
-72:                                               ; preds = %63
-  br label %73
+bb71:                                             ; preds = %bb62
+  br label %bb72
 
-73:                                               ; preds = %72, %0
-  store i32 1, i32* %1, align 1
-  br i1 false, label %74, label %75
+bb72:                                             ; preds = %bb71, %bb
+  store i32 1, ptr %i, align 1
+  br i1 false, label %bb73, label %bb74
 
-74:                                               ; preds = %73
-  br label %117
+bb73:                                             ; preds = %bb72
+  br label %bb116
 
-75:                                               ; preds = %73
-  br label %76
+bb74:                                             ; preds = %bb72
+  br label %bb75
 
-76:                                               ; preds = %76, %75
-  %77 = phi i32 [ %115, %76 ], [ 1, %75 ]
-  %78 = load %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 0), align 1
-  %79 = load i64, i64* %5, align 1
-  %80 = load i64, i64* %3, align 1
-  %81 = sext i32 %77 to i64
-  %82 = call %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %80, i64 %79, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE") %78, i64 %81)
-  %83 = getelementptr inbounds %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE", %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* %82, i32 0, i32 0
-  %84 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 3
-  store i64 5, i64* %84, align 1
-  %85 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 5
-  store i64 0, i64* %85, align 1
-  %86 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 1
-  store i64 4, i64* %86, align 1
-  %87 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 4
-  store i64 2, i64* %87, align 1
-  %88 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 2
-  store i64 0, i64* %88, align 1
-  %89 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 6, i32 0
-  %90 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %89, i32 0, i32 2
-  %91 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %90, i32 0)
-  store i64 1, i64* %91, align 1
-  %92 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %89, i32 0, i32 0
-  %93 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 0)
-  store i64 10, i64* %93, align 1
-  %94 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %90, i32 1)
-  store i64 1, i64* %94, align 1
-  %95 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 1)
-  store i64 10, i64* %95, align 1
-  %96 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %89, i32 0, i32 1
-  %97 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %96, i32 0)
-  store i64 4, i64* %97, align 1
-  %98 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %96, i32 1)
-  store i64 40, i64* %98, align 1
-  %99 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %83, i32 0, i32 0
-  %100 = load i64, i64* %84, align 1
-  %101 = and i64 %100, -68451041281
-  %102 = or i64 %101, 1073741824
-  store i64 %102, i64* %84, align 1
-  %103 = load i64, i64* %85, align 1
-  %104 = inttoptr i64 %103 to i8*
-  %105 = bitcast float** %99 to i8**
-  %106 = call i32 @for_allocate_handle(i64 400, i8** %105, i32 262144, i8* %104)
-  call void @myinit_(i32* nonnull %1)
-  %107 = load %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i32 0, i32 0), align 1
-  %108 = load i64, i64* %5, align 1
-  %109 = load i64, i64* %3, align 1
-  %110 = load i32, i32* %1, align 1
-  %111 = sext i32 %110 to i64
-  %112 = call %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %109, i64 %108, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE") %107, i64 %111)
-  %113 = getelementptr inbounds %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE", %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* %112, i32 0, i32 0
-  call void @myoutput_.1(%"__DTRT_QNCA_a0$float*$rank2$"* %113)
-  %114 = load i32, i32* %1, align 1
-  %115 = add nsw i32 %114, 1
-  store i32 %115, i32* %1, align 1
-  br i1 true, label %76, label %116
+bb75:                                             ; preds = %bb75, %bb74
+  %i76 = phi i32 [ %i114, %bb75 ], [ 1, %bb74 ]
+  %i77 = load ptr, ptr @physpropmod_mp_physprop_, align 1
+  %i78 = load i64, ptr %i4, align 1
+  %i79 = load i64, ptr %i2, align 1
+  %i80 = sext i32 %i76 to i64
+  %i81 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i79, i64 %i78, ptr elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %i77, i64 %i80)
+  %i82 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", ptr %i81, i32 0, i32 0
+  %i83 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 3
+  store i64 5, ptr %i83, align 1
+  %i84 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 5
+  store i64 0, ptr %i84, align 1
+  %i85 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 1
+  store i64 4, ptr %i85, align 1
+  %i86 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 4
+  store i64 2, ptr %i86, align 1
+  %i87 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 2
+  store i64 0, ptr %i87, align 1
+  %i88 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 6, i32 0
+  %i89 = getelementptr inbounds { i64, i64, i64 }, ptr %i88, i32 0, i32 2
+  %i90 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i89, i32 0)
+  store i64 1, ptr %i90, align 1
+  %i91 = getelementptr inbounds { i64, i64, i64 }, ptr %i88, i32 0, i32 0
+  %i92 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i91, i32 0)
+  store i64 10, ptr %i92, align 1
+  %i93 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i89, i32 1)
+  store i64 1, ptr %i93, align 1
+  %i94 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i91, i32 1)
+  store i64 10, ptr %i94, align 1
+  %i95 = getelementptr inbounds { i64, i64, i64 }, ptr %i88, i32 0, i32 1
+  %i96 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i95, i32 0)
+  store i64 4, ptr %i96, align 1
+  %i97 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i95, i32 1)
+  store i64 40, ptr %i97, align 1
+  %i98 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i82, i32 0, i32 0
+  %i99 = load i64, ptr %i83, align 1
+  %i100 = and i64 %i99, -68451041281
+  %i101 = or i64 %i100, 1073741824
+  store i64 %i101, ptr %i83, align 1
+  %i102 = load i64, ptr %i84, align 1
+  %i103 = inttoptr i64 %i102 to ptr
+  %i104 = bitcast ptr %i98 to ptr
+  %i105 = call i32 @for_allocate_handle(i64 400, ptr %i104, i32 262144, ptr %i103)
+  call void @myinit_(ptr nonnull %i)
+  %i106 = load ptr, ptr @physpropmod_mp_physprop_, align 1
+  %i107 = load i64, ptr %i4, align 1
+  %i108 = load i64, ptr %i2, align 1
+  %i109 = load i32, ptr %i, align 1
+  %i110 = sext i32 %i109 to i64
+  %i111 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i108, i64 %i107, ptr elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %i106, i64 %i110)
+  %i112 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", ptr %i111, i32 0, i32 0
+  call void @myoutput_.1(ptr %i112)
+  %i113 = load i32, ptr %i, align 1
+  %i114 = add nsw i32 %i113, 1
+  store i32 %i114, ptr %i, align 1
+  br i1 true, label %bb75, label %bb115
 
-116:                                              ; preds = %76
-  br label %117
+bb115:                                            ; preds = %bb75
+  br label %bb116
 
-117:                                              ; preds = %116, %74
-  call void @myoutput_.1(%"__DTRT_QNCA_a0$float*$rank2$"* @"main_$MYLOCALARRAY")
+bb116:                                            ; preds = %bb115, %bb73
+  call void @myoutput_.1(ptr @"main_$MYLOCALARRAY")
   ret void
 }
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly %0) #3
+declare dso_local i32 @for_set_reentrancy(ptr nocapture readonly) #2
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_allocate_handle(i64 %0, i8** nocapture %1, i32 %2, i8* %3) #3
+declare dso_local i32 @for_allocate_handle(i64, ptr nocapture, i32, ptr) #2
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_alloc_allocatable_handle(i64 %0, i8** nocapture %1, i32 %2, i8* %3) #3
-
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s___DTRT_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 %0, i64 %1, i64 %2, %"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"__DTRT_PHYSPROPMOD$.btPHYSPROP_TYPE") %3, i64 %4) #1
+declare dso_local i32 @for_alloc_allocatable_handle(i64, ptr nocapture, i32, ptr) #2
 
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @myoutput_.1(%"__DTRT_QNCA_a0$float*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %0) #0 {
-  %2 = alloca [8 x i64], align 16
-  %3 = alloca [4 x i8], align 1
-  %4 = alloca { float }, align 8
-  %5 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %0, i32 0, i32 6, i32 0
-  br label %6
+define internal void @myoutput_.1(ptr noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg) #0 {
+bb:
+  %i = alloca [8 x i64], align 16
+  %i1 = alloca [4 x i8], align 1
+  %i2 = alloca { float }, align 8
+  %i3 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %arg, i32 0, i32 6, i32 0
+  br label %bb4
 
-6:                                                ; preds = %1
-  br label %8
+bb4:                                              ; preds = %bb
+  br label %bb6
 
-7:                                                ; No predecessors!
-  br label %8
+bb5:                                              ; No predecessors!
+  br label %bb6
 
-8:                                                ; preds = %7, %6
-  br label %9
+bb6:                                              ; preds = %bb5, %bb4
+  br label %bb7
 
-9:                                                ; preds = %8
-  br label %11
+bb7:                                              ; preds = %bb6
+  br label %bb9
 
-10:                                               ; No predecessors!
-  br label %11
+bb8:                                              ; No predecessors!
+  br label %bb9
 
-11:                                               ; preds = %10, %9
-  %12 = getelementptr inbounds %"__DTRT_QNCA_a0$float*$rank2$", %"__DTRT_QNCA_a0$float*$rank2$"* %0, i32 0, i32 0
-  %13 = load float*, float** %12, align 1
-  %14 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %5, i32 0, i32 1
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 0)
-  %16 = load i64, i64* %15, align 1
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 1)
-  %18 = load i64, i64* %17, align 1
-  %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %18, float* elementtype(float) %13, i64 0)
-  %20 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %16, float* nonnull elementtype(float) %19, i64 1)
-  %21 = load float, float* %20, align 1
-  %22 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 0
-  store i8 26, i8* %22, align 1
-  %23 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 1
-  store i8 1, i8* %23, align 1
-  %24 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 2
-  store i8 1, i8* %24, align 1
-  %25 = getelementptr inbounds [4 x i8], [4 x i8]* %3, i32 0, i32 3
-  store i8 0, i8* %25, align 1
-  %26 = getelementptr inbounds { float }, { float }* %4, i32 0, i32 0
-  store float %21, float* %26, align 1
-  %27 = bitcast [8 x i64]* %2 to i8*
-  %28 = bitcast [4 x i8]* %3 to i8*
-  %29 = bitcast { float }* %4 to i8*
-  %30 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %27, i32 -1, i64 1239157112576, i8* nonnull %28, i8* nonnull %29)
+bb9:                                              ; preds = %bb8, %bb7
+  %i10 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %arg, i32 0, i32 0
+  %i11 = load ptr, ptr %i10, align 1
+  %i12 = getelementptr inbounds { i64, i64, i64 }, ptr %i3, i32 0, i32 1
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i12, i32 0)
+  %i14 = load i64, ptr %i13, align 1
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i12, i32 1)
+  %i16 = load i64, ptr %i15, align 1
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i16, ptr elementtype(float) %i11, i64 0)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 %i14, ptr nonnull elementtype(float) %i17, i64 1)
+  %i19 = load float, ptr %i18, align 1
+  %i20 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 0
+  store i8 26, ptr %i20, align 1
+  %i21 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 1
+  store i8 1, ptr %i21, align 1
+  %i22 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 2
+  store i8 1, ptr %i22, align 1
+  %i23 = getelementptr inbounds [4 x i8], ptr %i1, i32 0, i32 3
+  store i8 0, ptr %i23, align 1
+  %i24 = getelementptr inbounds { float }, ptr %i2, i32 0, i32 0
+  store float %i19, ptr %i24, align 1
+  %i25 = bitcast ptr %i to ptr
+  %i26 = bitcast ptr %i1 to ptr
+  %i27 = bitcast ptr %i2 to ptr
+  %i28 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i25, i32 -1, i64 1239157112576, ptr nonnull %i26, ptr nonnull %i27)
   ret void
 }
 
-attributes #0 = { nofree noinline nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
-attributes #1 = { nofree nosync nounwind readnone speculatable }
-attributes #2 = { mustprogress nofree nosync nounwind willreturn }
-attributes #3 = { nofree "intel-lang"="fortran" }
-attributes #4 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #4
+
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #4
+
+attributes #0 = { nofree noinline nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
+attributes #1 = { nocallback nofree nosync nounwind willreturn }
+attributes #2 = { nofree "intel-lang"="fortran" }
+attributes #3 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
+attributes #4 = { nounwind readnone speculatable }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}

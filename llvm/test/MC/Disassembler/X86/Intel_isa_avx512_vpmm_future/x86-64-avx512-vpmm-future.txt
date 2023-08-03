@@ -1,0 +1,28 @@
+// REQUIRES: intel_feature_isa_avx512_vpmm
+
+# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck -check-prefix=ATT %s
+# RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck -check-prefix=INTEL %s
+
+# ATT:   vmmxf16ps       %xmm4, %xmm3, %xmm0
+# INTEL: vmmxf16ps       xmm0, xmm3, xmm4
+0x62,0xf6,0x66,0x08,0x7f,0xc4
+
+# ATT:   vmmxf16ps       %ymm4, %ymm3, %ymm0
+# INTEL: vmmxf16ps       ymm0, ymm3, ymm4
+0x62,0xf6,0x66,0x28,0x7f,0xc4
+
+# ATT:   vmmxf16ps       %zmm4, %zmm3, %zmm0
+# INTEL: vmmxf16ps       zmm0, zmm3, zmm4
+0x62,0xf6,0x66,0x48,0x7f,0xc4
+
+# ATT:   vmmif16ps       $0, %xmm4, %xmm3, %xmm0
+# INTEL: vmmif16ps xmm0, xmm3, xmm4, 0
+0x62,0xf3,0x66,0x08,0x6f,0xc4,0x00
+
+# ATT:   vmmif16ps       $0, %ymm4, %ymm3, %ymm0
+# INTEL: vmmif16ps       ymm0, ymm3, ymm4, 0
+0x62,0xf3,0x66,0x28,0x6f,0xc4,0x00
+
+# ATT:   vmmif16ps       $0, %zmm4, %zmm3, %zmm0
+# INTEL: vmmif16ps       zmm0, zmm3, zmm4, 0
+0x62,0xf3,0x66,0x48,0x6f,0xc4,0x00

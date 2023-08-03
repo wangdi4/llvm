@@ -22,8 +22,8 @@
 ; CHECK: BEGIN SIMD ID=1 {
 ; ...
 ; CHECK:   REDUCTION-INSCAN maps: (1: EXCLUSIVE)
-; CHECK:   REDUCTION clause (size=1): (ADD: i32* @x, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1) INSCAN<1>)
-; CHECK:   LINEAR clause (size=1): IV(i32* %i, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
+; CHECK:   REDUCTION clause (size=1): (INSCAN<1>, ADD: TYPED(i32* @x, TYPE: i32, NUM_ELEMENTS: i32 1))
+; CHECK:   LINEAR clause (size=1): IV(TYPED(i32* %i, TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
 ; ...
 ; CHECK:   BEGIN GUARD.MEM.MOTION ID=2 {
 ; ...

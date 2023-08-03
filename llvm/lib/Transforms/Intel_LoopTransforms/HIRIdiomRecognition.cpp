@@ -568,7 +568,8 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
         Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
     // Memset generated
-    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25408u);
+    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::MemsetGenerated);
     return true;
   }
 
@@ -642,7 +643,8 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Memcopy generated
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25399u);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::MemcopyGenerated);
   return true;
 }
 
@@ -696,7 +698,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   }
 
   // Check for EH context
-  // HLS->getTotalLoopStatistics()
+  // HLS->getTotalStatistics()
 
   SmallVector<MemOpCandidate, 16> Candidates;
 
@@ -795,12 +797,12 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       // The loop has been multiversioned for the small trip count
       // Multiversioned v1
       ORBuilder(*Loop)
-          .addOrigin(25474u, 1)
-          .addRemark(OptReportVerbosity::Low, 25562u);
+          .addOrigin(OptRemarkID::LoopMultiversioned, 1)
+          .addRemark(OptReportVerbosity::Low,
+                     OptRemarkID::LoopMultiversionedSmallTripCount);
 
       // Multiversioned v2
-      ORBuilder(*OrigLoopClone)
-          .addOrigin(25474u, 2);
+      ORBuilder(*OrigLoopClone).addOrigin(OptRemarkID::LoopMultiversioned, 2);
     }
 
     HLNodeUtils::removeEmptyNodes(Loop, false);
@@ -868,15 +870,16 @@ bool HIRIdiomRecognition::run() {
   }
 
   LLVM_DEBUG(dbgs() << "\n");
-  return false;
+  return !NodesToInvalidate.empty();
 }
 
 PreservedAnalyses HIRIdiomRecognitionPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                      AM.getResult<HIRDDAnalysisPass>(F),
-                      AM.getResult<TargetLibraryAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                          AM.getResult<HIRDDAnalysisPass>(F),
+                          AM.getResult<TargetLibraryAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 

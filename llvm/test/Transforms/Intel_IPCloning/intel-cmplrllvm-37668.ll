@@ -27,11 +27,12 @@
 @.str.4 = private unnamed_addr constant [19 x i8] c"  gee(%d, %d, %d)\0A\00", align 1
 @glob = common dso_local global i32 0, align 4
 @.str.5 = private unnamed_addr constant [6 x i8] c"main\0A\00", align 1
+@GV = internal global [15 x i32] zeroinitializer, align 16
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @foo(i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #0 {
 bb:
-  tail call void @printf4(i8* getelementptr inbounds ([27 x i8], [27 x i8]* @.str, i64 0, i64 0), i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #3
+  tail call void @printf4(ptr @.str, i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #3
   %i = add i32 %arg1, %arg
   %i4 = icmp sgt i32 %i, 0
   br i1 %i4, label %bb12, label %bb5
@@ -49,14 +50,14 @@ bb9:                                              ; preds = %bb5
 
 bb12:                                             ; preds = %bb12, %bb
   %i13 = phi i32 [ %i14, %bb12 ], [ 0, %bb ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i32 %i13) #3
+  tail call void @printf1(ptr @.str.1, i32 %i13) #3
   %i14 = add nuw nsw i32 %i13, 1
   %i15 = icmp eq i32 %i14, %i
   br i1 %i15, label %bb5, label %bb12
 
 bb16:                                             ; preds = %bb16, %bb9
   %i17 = phi i32 [ %i18, %bb16 ], [ 0, %bb9 ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i32 %i17) #3
+  tail call void @printf1(ptr @.str.2, i32 %i17) #3
   %i18 = add nuw nsw i32 %i17, 1
   %i19 = icmp eq i32 %i18, %i11
   br i1 %i19, label %bb20, label %bb16
@@ -68,7 +69,7 @@ bb20:                                             ; preds = %bb16, %bb5
 ; Function Attrs: noinline nounwind uwtable
 define internal void @goo(i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #0 {
 bb:
-  tail call void @printf4(i8* getelementptr inbounds ([27 x i8], [27 x i8]* @.str, i64 0, i64 0), i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #3
+  tail call void @printf4(ptr @.str, i32 %arg, i32 %arg1, i32 %arg2, i32 %arg3) #3
   %i = add i32 %arg1, %arg
   %i4 = icmp sgt i32 %i, 0
   br i1 %i4, label %bb12, label %bb5
@@ -86,14 +87,14 @@ bb9:                                              ; preds = %bb5
 
 bb12:                                             ; preds = %bb12, %bb
   %i13 = phi i32 [ %i14, %bb12 ], [ 0, %bb ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i32 %i13) #3
+  tail call void @printf1(ptr @.str.1, i32 %i13) #3
   %i14 = add nuw nsw i32 %i13, 1
   %i15 = icmp eq i32 %i14, %i
   br i1 %i15, label %bb5, label %bb12
 
 bb16:                                             ; preds = %bb16, %bb9
   %i17 = phi i32 [ %i18, %bb16 ], [ 0, %bb9 ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i32 %i17) #3
+  tail call void @printf1(ptr @.str.2, i32 %i17) #3
   %i18 = add nuw nsw i32 %i17, 1
   %i19 = icmp eq i32 %i18, %i11
   br i1 %i19, label %bb20, label %bb16
@@ -102,20 +103,18 @@ bb20:                                             ; preds = %bb16, %bb5
   ret void
 }
 
-declare dso_local void @printf4(i8*, i32, i32, i32, i32) local_unnamed_addr #1
+declare dso_local void @printf4(ptr, i32, i32, i32, i32) local_unnamed_addr #1
 
-declare dso_local void @printf1(i8*, i32) local_unnamed_addr #1
-
-@GV = internal global [15 x i32] zeroinitializer, align 16
+declare dso_local void @printf1(ptr, i32) local_unnamed_addr #1
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @bar(i32 %arg, i32 %arg1, i32 %arg2) #0 {
 bb:
-  tail call void @printf3(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.3, i64 0, i64 0), i32 %arg, i32 %arg1, i32 %arg2) #3
+  tail call void @printf3(ptr @.str.3, i32 %arg, i32 %arg1, i32 %arg2) #3
   %i = add nsw i32 %arg1, 1
   %i3 = add nsw i32 %arg2, %arg
-  %t1 = getelementptr [15 x i32], [15 x i32]* @GV, i64 0, i32 %i
-  %t0 = load i32, i32* %t1, align 8
+  %t1 = getelementptr [15 x i32], ptr @GV, i64 0, i32 %i
+  %t0 = load i32, ptr %t1, align 8
   tail call void @foo(i32 %t0, i32 %t0, i32 %t0, i32 %t0)
   %i4 = add nsw i32 %arg1, %arg
   %i5 = add nsw i32 %arg2, %arg1
@@ -124,13 +123,13 @@ bb:
   ret void
 }
 
-declare dso_local void @printf3(i8*, i32, i32, i32) local_unnamed_addr #1
+declare dso_local void @printf3(ptr, i32, i32, i32) local_unnamed_addr #1
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @gee(i32 %arg, i32 %arg1, i32 %arg2) #0 {
 bb:
-  tail call void @printf3(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.4, i64 0, i64 0), i32 %arg, i32 %arg1, i32 %arg2) #3
-  %i = load i32, i32* @glob, align 4, !tbaa !1
+  tail call void @printf3(ptr @.str.4, i32 %arg, i32 %arg1, i32 %arg2) #3
+  %i = load i32, ptr @glob, align 4, !tbaa !1
   %i3 = add nsw i32 %arg1, 1
   %i4 = add nsw i32 %arg2, 1
   tail call void @bar(i32 %i, i32 %i3, i32 %i4)
@@ -140,15 +139,15 @@ bb:
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @main(i32 %arg, i8** nocapture readnone %arg1) #2 {
+define dso_local i32 @main(i32 %arg, ptr nocapture readnone %arg1) #2 {
 bb:
-  store i32 %arg, i32* @glob, align 4, !tbaa !1
-  tail call void @printf0(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.5, i64 0, i64 0)) #3
+  store i32 %arg, ptr @glob, align 4, !tbaa !1
+  tail call void @printf0(ptr @.str.5) #3
   tail call void @gee(i32 2, i32 4, i32 5)
   ret i32 0
 }
 
-declare dso_local void @printf0(i8*) local_unnamed_addr #1
+declare dso_local void @printf0(ptr) local_unnamed_addr #1
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

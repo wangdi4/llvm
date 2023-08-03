@@ -211,6 +211,8 @@ void OneToNPatternRewriter::replaceOp(Operation *op, ValueRange newValues,
   // original op with those.
   assert(newValues.size() == resultMapping.getConvertedTypes().size());
   assert(op->getResultTypes() == resultMapping.getOriginalTypes());
+  PatternRewriter::InsertionGuard g(*this);
+  setInsertionPointAfter(op);
   SmallVector<Value> castResults =
       buildUnrealizedBackwardsCasts(newValues, resultMapping, *this);
   replaceOp(op, castResults);
@@ -218,6 +220,8 @@ void OneToNPatternRewriter::replaceOp(Operation *op, ValueRange newValues,
 
 Block *OneToNPatternRewriter::applySignatureConversion(
     Block *block, OneToNTypeMapping &argumentConversion) {
+  PatternRewriter::InsertionGuard g(*this);
+
   // Split the block at the beginning to get a new block to use for the
   // updated signature.
   SmallVector<Location> locs;
@@ -384,7 +388,7 @@ applyPartialOneToNConversion(Operation *op, OneToNTypeConverter &typeConverter,
         assert(castKind == getCastKindName(CastKind::Argument) &&
                "unexpected value of cast kind attribute");
         assert(llvm::all_of(operands,
-                            [&](Value v) { return v.isa<BlockArgument>(); }));
+                            [&](Value v) { return isa<BlockArgument>(v); }));
         maybeResult = typeConverter.materializeArgumentConversion(
             rewriter, castOp->getLoc(), resultTypes.front(),
             castOp.getOperands());

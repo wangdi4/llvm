@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt  < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the dope vector information was collected and
 ; propagated even though the data allocation comes from the user input
@@ -86,566 +86,565 @@
 
 ; Check that the constants were propagated in function @arr_mod_mp_allocate_arr_
 ; CHECK: define internal void @arr_mod_mp_allocate_arr_
-; CHECK:   %44 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %41, i64 %43)
-; CHECK:   %78 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %76, i64 %43)
-; CHECK:   %112 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %110, i64 %43)
+; CHECK:   %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i39, i64 %i41)
+; CHECK:   %i76 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i74, i64 %i41)
+; CHECK:   %i110 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i108, i64 %i41)
 
 ; Check that the constants were propagated in function @arr_mod_mp_initialize_arr_
 ; CHECK: define internal void @arr_mod_mp_initialize_arr_
-; CHECK:   %30 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %28, i64 %12)
-; CHECK:   %43 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %40, float* elementtype(float) %32, i64 %22)
-; CHECK:   %44 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %43, i64 %27)
-; CHECK:   %49 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %47, i64 %12)
-; CHECK:   %66 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %63, float* elementtype(float) %51, i64 %46)
-; CHECK:   %67 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %59, float* elementtype(float) %66, i64 %22)
-; CHECK:   %68 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %67, i64 %27)
-; CHECK:   %79 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %77, i64 %12)
-; CHECK:   %89 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %81, i64 %88)
+; CHECK:   %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i26, i64 %i10)
+; CHECK:   %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i38, ptr elementtype(float) %i30, i64 %i20)
+; CHECK:   %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i41, i64 %i25)
+; CHECK:   %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i45, i64 %i10)
+; CHECK:   %i64 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %i61, ptr elementtype(float) %i49, i64 %i44)
+; CHECK:   %i65 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i57, ptr elementtype(float) %i64, i64 %i20)
+; CHECK:   %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i65, i64 %i25)
+; CHECK:   %i77 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i75, i64 %i10)
+; CHECK:   %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i79, i64 %i86)
 
 ; Check that the constants were propagated in function @arr_mod_mp_print_arr_
 ; CHECK: define internal void @arr_mod_mp_print_arr_
-; CHECK:   %47 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %45, i64 %19)
-; CHECK:   %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %57, float* elementtype(float) %49, i64 %42)
-; CHECK:   %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %60, i64 %44)
-; CHECK:   %68 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %66, i64 %19)
-; CHECK:   %85 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %82, float* elementtype(float) %70, i64 %65)
-; CHECK:   %86 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %78, float* elementtype(float) %85, i64 %42)
-; CHECK:   %87 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %86, i64 %44)
-; CHECK:   %101 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %99, i64 %19)
-; CHECK:   %112 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %103, i64 %111)
+; CHECK:   %i45 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i43, i64 %i17)
+; CHECK:   %i58 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i55, ptr elementtype(float) %i47, i64 %i40)
+; CHECK:   %i59 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i58, i64 %i42)
+; CHECK:   %i66 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i64, i64 %i17)
+; CHECK:   %i83 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %i80, ptr elementtype(float) %i68, i64 %i63)
+; CHECK:   %i84 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i76, ptr elementtype(float) %i83, i64 %i40)
+; CHECK:   %i85 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i84, i64 %i42)
+; CHECK:   %i99 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i97, i64 %i17)
+; CHECK:   %i110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i101, i64 %i109)
 
-; ModuleID = 'ld-temp.o'
-source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" = type { %"ARR_MOD$.btT_TESTTYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 %"ARR_MOD$.btT_TESTTYPE" = type { %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank1$" }
-%"QNCA_a0$float*$rank2$" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
-%"QNCA_a0$float*$rank3$" = type { float*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
-%"QNCA_a0$float*$rank1$" = type { float*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$float*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$float*$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+%"QNCA_a0$float*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
-@arr_mod_mp_a_ = internal global %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" { %"ARR_MOD$.btT_TESTTYPE"* null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
+@arr_mod_mp_a_ = internal global %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" { ptr null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
 @anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
 
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1) #0 {
-  %3 = alloca i64, align 8
-  %4 = alloca i64, align 8
-  %5 = alloca i64, align 8
-  %6 = alloca i64, align 8
-  %7 = load i32, i32* %0, align 1
-  %8 = icmp eq i32 %7, 1
-  br i1 %8, label %11, label %9
+define internal void @arr_mod_mp_allocate_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1) #0 {
+bb:
+  %i = alloca i64, align 8
+  %i2 = alloca i64, align 8
+  %i3 = alloca i64, align 8
+  %i4 = alloca i64, align 8
+  %i5 = load i32, ptr %arg, align 1
+  %i6 = icmp eq i32 %i5, 1
+  br i1 %i6, label %bb9, label %bb7
 
-9:                                                ; preds = %2
-  %10 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  br label %39
+bb7:                                              ; preds = %bb
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  br label %bb37
 
-11:                                               ; preds = %2
-  %12 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
-  %13 = and i64 %12, 1030792151296
-  %14 = or i64 %13, 133
-  store i64 %14, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
-  store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 5), align 8
-  store i64 288, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 1), align 8
-  store i64 1, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 4), align 16
-  store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 2), align 16
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  store i64 1, i64* %15, align 1
-  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0)
-  store i64 1, i64* %16, align 1
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0)
-  store i64 288, i64* %17, align 1
-  %18 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %3, i32 2, i64 1, i64 288) #3
-  %19 = load i64, i64* %3, align 8
-  %20 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
-  %21 = and i64 %20, -68451041281
-  %22 = or i64 %21, 1073741824
-  store i64 %22, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
-  %23 = trunc i64 %20 to i32
-  %24 = shl i32 %23, 1
-  %25 = and i32 %24, 2
-  %26 = shl i32 %18, 4
-  %27 = and i32 %26, 16
-  %28 = lshr i64 %20, 15
-  %29 = trunc i64 %28 to i32
-  %30 = and i32 %29, 31457280
-  %31 = and i32 %29, 33554432
-  %32 = or i32 %27, %25
-  %33 = or i32 %32, %30
-  %34 = or i32 %33, %31
-  %35 = or i32 %34, 262144
-  %36 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 5), align 8
-  %37 = inttoptr i64 %36 to i8*
-  %38 = tail call i32 @for_alloc_allocatable_handle(i64 %19, i8** bitcast (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_ to i8**), i32 %35, i8* %37) #3
-  br label %39
+bb9:                                              ; preds = %bb
+  %i10 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %i11 = and i64 %i10, 1030792151296
+  %i12 = or i64 %i11, 133
+  store i64 %i12, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 5), align 8
+  store i64 288, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 1), align 8
+  store i64 1, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 4), align 16
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 2), align 16
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  store i64 1, ptr %i13, align 1
+  %i14 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0)
+  store i64 1, ptr %i14, align 1
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0)
+  store i64 288, ptr %i15, align 1
+  %i16 = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %i, i32 2, i64 1, i64 288) #3
+  %i17 = load i64, ptr %i, align 8
+  %i18 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %i19 = and i64 %i18, -68451041281
+  %i20 = or i64 %i19, 1073741824
+  store i64 %i20, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %i21 = trunc i64 %i18 to i32
+  %i22 = shl i32 %i21, 1
+  %i23 = and i32 %i22, 2
+  %i24 = shl i32 %i16, 4
+  %i25 = and i32 %i24, 16
+  %i26 = lshr i64 %i18, 15
+  %i27 = trunc i64 %i26 to i32
+  %i28 = and i32 %i27, 31457280
+  %i29 = and i32 %i27, 33554432
+  %i30 = or i32 %i25, %i23
+  %i31 = or i32 %i30, %i28
+  %i32 = or i32 %i31, %i29
+  %i33 = or i32 %i32, 262144
+  %i34 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 5), align 8
+  %i35 = inttoptr i64 %i34 to ptr
+  %i36 = tail call i32 @for_alloc_allocatable_handle(i64 %i17, ptr @arr_mod_mp_a_, i32 %i33, ptr %i35) #3
+  br label %bb37
 
-39:                                               ; preds = %11, %9
-  %40 = phi i64* [ %10, %9 ], [ %15, %11 ]
-  %41 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %42 = load i64, i64* %40, align 1
-  %43 = sext i32 %7 to i64
-  %44 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %42, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %41, i64 %43)
-  %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 3
-  store i64 5, i64* %45, align 1
-  %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 5
-  store i64 0, i64* %46, align 1
-  %47 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 1
-  store i64 4, i64* %47, align 1
-  %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 4
-  store i64 2, i64* %48, align 1
-  %49 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 2
-  store i64 0, i64* %49, align 1
-  %50 = load i32, i32* %1, align 1
-  %51 = sext i32 %50 to i64
-  %52 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 6, i64 0, i32 2
-  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 0)
-  store i64 1, i64* %53, align 1
-  %54 = icmp sgt i64 %51, 0
-  %55 = select i1 %54, i64 %51, i64 0
-  %56 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 6, i64 0, i32 0
-  %57 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %56, i32 0)
-  store i64 %55, i64* %57, align 1
-  %58 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 1)
-  store i64 1, i64* %58, align 1
-  %59 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %56, i32 1)
-  store i64 %55, i64* %59, align 1
-  %60 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %44, i64 0, i32 0, i32 6, i64 0, i32 1
-  %61 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %60, i32 0)
-  store i64 4, i64* %61, align 1
-  %62 = shl nuw nsw i64 %55, 2
-  %63 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %60, i32 1)
-  store i64 %62, i64* %63, align 1
-  %64 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %4, i32 3, i64 %55, i64 %55, i64 4) #3
-  %65 = load i64, i64* %4, align 8
-  %66 = load i64, i64* %45, align 1
-  %67 = and i64 %66, -68451041281
-  %68 = or i64 %67, 1073741824
-  store i64 %68, i64* %45, align 1
-  %69 = shl i32 %64, 4
-  %70 = and i32 %69, 16
-  %71 = or i32 %70, 262144
-  %72 = load i64, i64* %46, align 1
-  %73 = inttoptr i64 %72 to i8*
-  %74 = bitcast %"ARR_MOD$.btT_TESTTYPE"* %44 to i8**
-  %75 = tail call i32 @for_allocate_handle(i64 %65, i8** %74, i32 %71, i8* %73) #3
-  %76 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %77 = load i64, i64* %40, align 1
-  %78 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %77, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %76, i64 %43)
-  %79 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 3
-  store i64 5, i64* %79, align 1
-  %80 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 5
-  store i64 0, i64* %80, align 1
-  %81 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 1
-  store i64 4, i64* %81, align 1
-  %82 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 4
-  store i64 3, i64* %82, align 1
-  %83 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 2
-  store i64 0, i64* %83, align 1
-  %84 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 6, i64 0, i32 2
-  %85 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %84, i32 0)
-  store i64 1, i64* %85, align 1
-  %86 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 6, i64 0, i32 0
-  %87 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %86, i32 0)
-  store i64 %55, i64* %87, align 1
-  %88 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %84, i32 1)
-  store i64 1, i64* %88, align 1
-  %89 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %86, i32 1)
-  store i64 %55, i64* %89, align 1
-  %90 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %84, i32 2)
-  store i64 1, i64* %90, align 1
-  %91 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %86, i32 2)
-  store i64 %55, i64* %91, align 1
-  %92 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 6, i64 0, i32 1
-  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 0)
-  store i64 4, i64* %93, align 1
-  %94 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 1)
-  store i64 %62, i64* %94, align 1
-  %95 = mul nuw nsw i64 %62, %55
-  %96 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 2)
-  store i64 %95, i64* %96, align 1
-  %97 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %5, i32 4, i64 %55, i64 %55, i64 %55, i64 4) #3
-  %98 = load i64, i64* %5, align 8
-  %99 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 0
-  %100 = load i64, i64* %79, align 1
-  %101 = and i64 %100, -68451041281
-  %102 = or i64 %101, 1073741824
-  store i64 %102, i64* %79, align 1
-  %103 = shl i32 %97, 4
-  %104 = and i32 %103, 16
-  %105 = or i32 %104, 262144
-  %106 = load i64, i64* %80, align 1
-  %107 = inttoptr i64 %106 to i8*
-  %108 = bitcast float** %99 to i8**
-  %109 = tail call i32 @for_allocate_handle(i64 %98, i8** nonnull %108, i32 %105, i8* %107) #3
-  %110 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %111 = load i64, i64* %40, align 1
-  %112 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %111, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %110, i64 %43)
-  %113 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 3
-  store i64 5, i64* %113, align 1
-  %114 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 5
-  store i64 0, i64* %114, align 1
-  %115 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 1
-  store i64 4, i64* %115, align 1
-  %116 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 4
-  store i64 1, i64* %116, align 1
-  %117 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 2
-  store i64 0, i64* %117, align 1
-  %118 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 6, i64 0, i32 2
-  %119 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %118, i32 0)
-  store i64 1, i64* %119, align 1
-  %120 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 6, i64 0, i32 0
-  %121 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %120, i32 0)
-  store i64 %55, i64* %121, align 1
-  %122 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 6, i64 0, i32 1
-  %123 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %122, i32 0)
-  store i64 4, i64* %123, align 1
-  %124 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %6, i32 2, i64 %55, i64 4) #3
-  %125 = load i64, i64* %6, align 8
-  %126 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %112, i64 0, i32 2, i32 0
-  %127 = load i64, i64* %113, align 1
-  %128 = and i64 %127, -68451041281
-  %129 = or i64 %128, 1073741824
-  store i64 %129, i64* %113, align 1
-  %130 = shl i32 %124, 4
-  %131 = and i32 %130, 16
-  %132 = or i32 %131, 262144
-  %133 = load i64, i64* %114, align 1
-  %134 = inttoptr i64 %133 to i8*
-  %135 = bitcast float** %126 to i8**
-  %136 = tail call i32 @for_allocate_handle(i64 %125, i8** nonnull %135, i32 %132, i8* %134) #3
+bb37:                                             ; preds = %bb9, %bb7
+  %i38 = phi ptr [ %i8, %bb7 ], [ %i13, %bb9 ]
+  %i39 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i40 = load i64, ptr %i38, align 1
+  %i41 = sext i32 %i5 to i64
+  %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i40, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i39, i64 %i41)
+  %i43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 3
+  store i64 5, ptr %i43, align 1
+  %i44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 5
+  store i64 0, ptr %i44, align 1
+  %i45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 1
+  store i64 4, ptr %i45, align 1
+  %i46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 4
+  store i64 2, ptr %i46, align 1
+  %i47 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 2
+  store i64 0, ptr %i47, align 1
+  %i48 = load i32, ptr %arg1, align 1
+  %i49 = sext i32 %i48 to i64
+  %i50 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 6, i64 0, i32 2
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 0)
+  store i64 1, ptr %i51, align 1
+  %i52 = icmp sgt i64 %i49, 0
+  %i53 = select i1 %i52, i64 %i49, i64 0
+  %i54 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 6, i64 0, i32 0
+  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i54, i32 0)
+  store i64 %i53, ptr %i55, align 1
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 1)
+  store i64 1, ptr %i56, align 1
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i54, i32 1)
+  store i64 %i53, ptr %i57, align 1
+  %i58 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i42, i64 0, i32 0, i32 6, i64 0, i32 1
+  %i59 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i58, i32 0)
+  store i64 4, ptr %i59, align 1
+  %i60 = shl nuw nsw i64 %i53, 2
+  %i61 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i58, i32 1)
+  store i64 %i60, ptr %i61, align 1
+  %i62 = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %i2, i32 3, i64 %i53, i64 %i53, i64 4) #3
+  %i63 = load i64, ptr %i2, align 8
+  %i64 = load i64, ptr %i43, align 1
+  %i65 = and i64 %i64, -68451041281
+  %i66 = or i64 %i65, 1073741824
+  store i64 %i66, ptr %i43, align 1
+  %i67 = shl i32 %i62, 4
+  %i68 = and i32 %i67, 16
+  %i69 = or i32 %i68, 262144
+  %i70 = load i64, ptr %i44, align 1
+  %i71 = inttoptr i64 %i70 to ptr
+  %i72 = bitcast ptr %i42 to ptr
+  %i73 = tail call i32 @for_allocate_handle(i64 %i63, ptr %i72, i32 %i69, ptr %i71) #3
+  %i74 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i75 = load i64, ptr %i38, align 1
+  %i76 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i75, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i74, i64 %i41)
+  %i77 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 3
+  store i64 5, ptr %i77, align 1
+  %i78 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 5
+  store i64 0, ptr %i78, align 1
+  %i79 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 1
+  store i64 4, ptr %i79, align 1
+  %i80 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 4
+  store i64 3, ptr %i80, align 1
+  %i81 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 2
+  store i64 0, ptr %i81, align 1
+  %i82 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 6, i64 0, i32 2
+  %i83 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i82, i32 0)
+  store i64 1, ptr %i83, align 1
+  %i84 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 6, i64 0, i32 0
+  %i85 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i84, i32 0)
+  store i64 %i53, ptr %i85, align 1
+  %i86 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i82, i32 1)
+  store i64 1, ptr %i86, align 1
+  %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i84, i32 1)
+  store i64 %i53, ptr %i87, align 1
+  %i88 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i82, i32 2)
+  store i64 1, ptr %i88, align 1
+  %i89 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i84, i32 2)
+  store i64 %i53, ptr %i89, align 1
+  %i90 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 6, i64 0, i32 1
+  %i91 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i90, i32 0)
+  store i64 4, ptr %i91, align 1
+  %i92 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i90, i32 1)
+  store i64 %i60, ptr %i92, align 1
+  %i93 = mul nuw nsw i64 %i60, %i53
+  %i94 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i90, i32 2)
+  store i64 %i93, ptr %i94, align 1
+  %i95 = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %i3, i32 4, i64 %i53, i64 %i53, i64 %i53, i64 4) #3
+  %i96 = load i64, ptr %i3, align 8
+  %i97 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i76, i64 0, i32 1, i32 0
+  %i98 = load i64, ptr %i77, align 1
+  %i99 = and i64 %i98, -68451041281
+  %i100 = or i64 %i99, 1073741824
+  store i64 %i100, ptr %i77, align 1
+  %i101 = shl i32 %i95, 4
+  %i102 = and i32 %i101, 16
+  %i103 = or i32 %i102, 262144
+  %i104 = load i64, ptr %i78, align 1
+  %i105 = inttoptr i64 %i104 to ptr
+  %i106 = bitcast ptr %i97 to ptr
+  %i107 = tail call i32 @for_allocate_handle(i64 %i96, ptr nonnull %i106, i32 %i103, ptr %i105) #3
+  %i108 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i109 = load i64, ptr %i38, align 1
+  %i110 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i109, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i108, i64 %i41)
+  %i111 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 3
+  store i64 5, ptr %i111, align 1
+  %i112 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 5
+  store i64 0, ptr %i112, align 1
+  %i113 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 1
+  store i64 4, ptr %i113, align 1
+  %i114 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 4
+  store i64 1, ptr %i114, align 1
+  %i115 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 2
+  store i64 0, ptr %i115, align 1
+  %i116 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 6, i64 0, i32 2
+  %i117 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i116, i32 0)
+  store i64 1, ptr %i117, align 1
+  %i118 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 6, i64 0, i32 0
+  %i119 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i118, i32 0)
+  store i64 %i53, ptr %i119, align 1
+  %i120 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 6, i64 0, i32 1
+  %i121 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i120, i32 0)
+  store i64 4, ptr %i121, align 1
+  %i122 = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %i4, i32 2, i64 %i53, i64 4) #3
+  %i123 = load i64, ptr %i4, align 8
+  %i124 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i110, i64 0, i32 2, i32 0
+  %i125 = load i64, ptr %i111, align 1
+  %i126 = and i64 %i125, -68451041281
+  %i127 = or i64 %i126, 1073741824
+  store i64 %i127, ptr %i111, align 1
+  %i128 = shl i32 %i122, 4
+  %i129 = and i32 %i128, 16
+  %i130 = or i32 %i129, 262144
+  %i131 = load i64, ptr %i112, align 1
+  %i132 = inttoptr i64 %i131 to ptr
+  %i133 = bitcast ptr %i124 to ptr
+  %i134 = tail call i32 @for_allocate_handle(i64 %i123, ptr nonnull %i133, i32 %i130, ptr %i132) #3
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #1
+; Function Attrs: nofree
+declare dso_local i32 @for_check_mult_overflow64(ptr nocapture, i32, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_check_mult_overflow64(i64* nocapture, i32, ...) local_unnamed_addr #2
+declare dso_local i32 @for_alloc_allocatable_handle(i64, ptr nocapture, i32, ptr) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_alloc_allocatable_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #2
-
-; Function Attrs: nounwind readnone speculatable
-declare %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8, i64, i64, %"ARR_MOD$.btT_TESTTYPE"*, i64) #1
-
-; Function Attrs: nofree
-declare dso_local i32 @for_allocate_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #2
+declare dso_local i32 @for_allocate_handle(i64, ptr nocapture, i32, ptr) local_unnamed_addr #1
 
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2, i32* noalias nocapture readonly dereferenceable(4) %3) #0 {
-  %5 = load i32, i32* %1, align 1
-  %6 = icmp slt i32 %5, 1
-  br i1 %6, label %92, label %7
+define internal void @arr_mod_mp_initialize_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1, ptr noalias nocapture readonly dereferenceable(4) %arg2, ptr noalias nocapture readonly dereferenceable(4) %arg3) #0 {
+bb:
+  %i = load i32, ptr %arg1, align 1
+  %i4 = icmp slt i32 %i, 1
+  br i1 %i4, label %bb90, label %bb5
 
-7:                                                ; preds = %4
-  %8 = load i32, i32* %2, align 1
-  %9 = icmp slt i32 %8, 1
-  %10 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  %11 = load i32, i32* %0, align 1
-  %12 = sext i32 %11 to i64
-  %13 = load i32, i32* %3, align 1
-  %14 = icmp slt i32 %13, 1
-  %15 = add nuw nsw i32 %13, 1
-  %16 = add i32 %8, 1
-  %17 = add nuw nsw i32 %5, 1
-  %18 = sext i32 %17 to i64
-  %19 = sext i32 %16 to i64
-  %20 = sext i32 %15 to i64
-  br label %21
+bb5:                                              ; preds = %bb
+  %i6 = load i32, ptr %arg2, align 1
+  %i7 = icmp slt i32 %i6, 1
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %i9 = load i32, ptr %arg, align 1
+  %i10 = sext i32 %i9 to i64
+  %i11 = load i32, ptr %arg3, align 1
+  %i12 = icmp slt i32 %i11, 1
+  %i13 = add nuw nsw i32 %i11, 1
+  %i14 = add i32 %i6, 1
+  %i15 = add nuw nsw i32 %i, 1
+  %i16 = sext i32 %i15 to i64
+  %i17 = sext i32 %i14 to i64
+  %i18 = sext i32 %i13 to i64
+  br label %bb19
 
-21:                                               ; preds = %74, %7
-  %22 = phi i64 [ 1, %7 ], [ %90, %74 ]
-  br i1 %9, label %74, label %23
+bb19:                                             ; preds = %bb72, %bb5
+  %i20 = phi i64 [ 1, %bb5 ], [ %i88, %bb72 ]
+  br i1 %i7, label %bb72, label %bb21
 
-23:                                               ; preds = %21
-  %24 = trunc i64 %22 to i32
-  %25 = sitofp i32 %24 to float
-  br label %26
+bb21:                                             ; preds = %bb19
+  %i22 = trunc i64 %i20 to i32
+  %i23 = sitofp i32 %i22 to float
+  br label %bb24
 
-26:                                               ; preds = %71, %23
-  %27 = phi i64 [ 1, %23 ], [ %72, %71 ]
-  %28 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %29 = load i64, i64* %10, align 1
-  %30 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %29, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %28, i64 %12)
-  %31 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %30, i64 0, i32 0, i32 0
-  %32 = load float*, float** %31, align 1
-  %33 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %30, i64 0, i32 0, i32 6, i64 0, i32 1
-  %34 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %33, i32 0)
-  %35 = load i64, i64* %34, align 1
-  %36 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %30, i64 0, i32 0, i32 6, i64 0, i32 2
-  %37 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %36, i32 0)
-  %38 = load i64, i64* %37, align 1
-  %39 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %33, i32 1)
-  %40 = load i64, i64* %39, align 1
-  %41 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %36, i32 1)
-  %42 = load i64, i64* %41, align 1
-  %43 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %42, i64 %40, float* elementtype(float) %32, i64 %22)
-  %44 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %38, i64 %35, float* elementtype(float) %43, i64 %27)
-  store float %25, float* %44, align 1
-  br i1 %14, label %71, label %45
+bb24:                                             ; preds = %bb69, %bb21
+  %i25 = phi i64 [ 1, %bb21 ], [ %i70, %bb69 ]
+  %i26 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i27 = load i64, ptr %i8, align 1
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i27, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i26, i64 %i10)
+  %i29 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i28, i64 0, i32 0, i32 0
+  %i30 = load ptr, ptr %i29, align 1
+  %i31 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i28, i64 0, i32 0, i32 6, i64 0, i32 1
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i31, i32 0)
+  %i33 = load i64, ptr %i32, align 1
+  %i34 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i28, i64 0, i32 0, i32 6, i64 0, i32 2
+  %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i34, i32 0)
+  %i36 = load i64, ptr %i35, align 1
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i31, i32 1)
+  %i38 = load i64, ptr %i37, align 1
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i34, i32 1)
+  %i40 = load i64, ptr %i39, align 1
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i40, i64 %i38, ptr elementtype(float) %i30, i64 %i20)
+  %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i36, i64 %i33, ptr elementtype(float) %i41, i64 %i25)
+  store float %i23, ptr %i42, align 1
+  br i1 %i12, label %bb69, label %bb43
 
-45:                                               ; preds = %45, %26
-  %46 = phi i64 [ %69, %45 ], [ 1, %26 ]
-  %47 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %48 = load i64, i64* %10, align 1
-  %49 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %48, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %47, i64 %12)
-  %50 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %49, i64 0, i32 1, i32 0
-  %51 = load float*, float** %50, align 1
-  %52 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %49, i64 0, i32 1, i32 6, i64 0, i32 1
-  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 0)
-  %54 = load i64, i64* %53, align 1
-  %55 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %49, i64 0, i32 1, i32 6, i64 0, i32 2
-  %56 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %55, i32 0)
-  %57 = load i64, i64* %56, align 1
-  %58 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 1)
-  %59 = load i64, i64* %58, align 1
-  %60 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %55, i32 1)
-  %61 = load i64, i64* %60, align 1
-  %62 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 2)
-  %63 = load i64, i64* %62, align 1
-  %64 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %55, i32 2)
-  %65 = load i64, i64* %64, align 1
-  %66 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %65, i64 %63, float* elementtype(float) %51, i64 %46)
-  %67 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %61, i64 %59, float* elementtype(float) %66, i64 %22)
-  %68 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %57, i64 %54, float* elementtype(float) %67, i64 %27)
-  store float %25, float* %68, align 1
-  %69 = add nuw nsw i64 %46, 1
-  %70 = icmp eq i64 %69, %20
-  br i1 %70, label %71, label %45
+bb43:                                             ; preds = %bb43, %bb24
+  %i44 = phi i64 [ %i67, %bb43 ], [ 1, %bb24 ]
+  %i45 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i46 = load i64, ptr %i8, align 1
+  %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i46, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i45, i64 %i10)
+  %i48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i47, i64 0, i32 1, i32 0
+  %i49 = load ptr, ptr %i48, align 1
+  %i50 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i47, i64 0, i32 1, i32 6, i64 0, i32 1
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 0)
+  %i52 = load i64, ptr %i51, align 1
+  %i53 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i47, i64 0, i32 1, i32 6, i64 0, i32 2
+  %i54 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i53, i32 0)
+  %i55 = load i64, ptr %i54, align 1
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 1)
+  %i57 = load i64, ptr %i56, align 1
+  %i58 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i53, i32 1)
+  %i59 = load i64, ptr %i58, align 1
+  %i60 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 2)
+  %i61 = load i64, ptr %i60, align 1
+  %i62 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i53, i32 2)
+  %i63 = load i64, ptr %i62, align 1
+  %i64 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %i63, i64 %i61, ptr elementtype(float) %i49, i64 %i44)
+  %i65 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i59, i64 %i57, ptr elementtype(float) %i64, i64 %i20)
+  %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i55, i64 %i52, ptr elementtype(float) %i65, i64 %i25)
+  store float %i23, ptr %i66, align 1
+  %i67 = add nuw nsw i64 %i44, 1
+  %i68 = icmp eq i64 %i67, %i18
+  br i1 %i68, label %bb69, label %bb43
 
-71:                                               ; preds = %45, %26
-  %72 = add nuw nsw i64 %27, 1
-  %73 = icmp eq i64 %72, %19
-  br i1 %73, label %74, label %26
+bb69:                                             ; preds = %bb43, %bb24
+  %i70 = add nuw nsw i64 %i25, 1
+  %i71 = icmp eq i64 %i70, %i17
+  br i1 %i71, label %bb72, label %bb24
 
-74:                                               ; preds = %71, %21
-  %75 = phi i32 [ 1, %21 ], [ %16, %71 ]
-  %76 = sitofp i32 %75 to float
-  %77 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %78 = load i64, i64* %10, align 1
-  %79 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %78, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %77, i64 %12)
-  %80 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %79, i64 0, i32 2, i32 0
-  %81 = load float*, float** %80, align 1
-  %82 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %79, i64 0, i32 2, i32 6, i64 0, i32 1
-  %83 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %82, i32 0)
-  %84 = load i64, i64* %83, align 1
-  %85 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %79, i64 0, i32 2, i32 6, i64 0, i32 2
-  %86 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %85, i32 0)
-  %87 = load i64, i64* %86, align 1
-  %88 = sext i32 %75 to i64
-  %89 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %87, i64 %84, float* elementtype(float) %81, i64 %88)
-  store float %76, float* %89, align 1
-  %90 = add nuw nsw i64 %22, 1
-  %91 = icmp eq i64 %90, %18
-  br i1 %91, label %92, label %21
+bb72:                                             ; preds = %bb69, %bb19
+  %i73 = phi i32 [ 1, %bb19 ], [ %i14, %bb69 ]
+  %i74 = sitofp i32 %i73 to float
+  %i75 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i76 = load i64, ptr %i8, align 1
+  %i77 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i76, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i75, i64 %i10)
+  %i78 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i77, i64 0, i32 2, i32 0
+  %i79 = load ptr, ptr %i78, align 1
+  %i80 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i77, i64 0, i32 2, i32 6, i64 0, i32 1
+  %i81 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i80, i32 0)
+  %i82 = load i64, ptr %i81, align 1
+  %i83 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i77, i64 0, i32 2, i32 6, i64 0, i32 2
+  %i84 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i83, i32 0)
+  %i85 = load i64, ptr %i84, align 1
+  %i86 = sext i32 %i73 to i64
+  %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i85, i64 %i82, ptr elementtype(float) %i79, i64 %i86)
+  store float %i74, ptr %i87, align 1
+  %i88 = add nuw nsw i64 %i20, 1
+  %i89 = icmp eq i64 %i88, %i16
+  br i1 %i89, label %bb90, label %bb19
 
-92:                                               ; preds = %74, %4
+bb90:                                             ; preds = %bb72, %bb
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
-
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2, i32* noalias nocapture readonly dereferenceable(4) %3) #0 {
-  %5 = alloca [8 x i64], align 16
-  %6 = alloca [4 x i8], align 1
-  %7 = alloca { float }, align 8
-  %8 = alloca [4 x i8], align 1
-  %9 = alloca { float }, align 8
-  %10 = alloca [4 x i8], align 1
-  %11 = alloca { float }, align 8
-  %12 = load i32, i32* %1, align 1
-  %13 = icmp slt i32 %12, 1
-  br i1 %13, label %118, label %14
+define internal void @arr_mod_mp_print_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1, ptr noalias nocapture readonly dereferenceable(4) %arg2, ptr noalias nocapture readonly dereferenceable(4) %arg3) #0 {
+bb:
+  %i = alloca [8 x i64], align 16
+  %i4 = alloca [4 x i8], align 1
+  %i5 = alloca { float }, align 8
+  %i6 = alloca [4 x i8], align 1
+  %i7 = alloca { float }, align 8
+  %i8 = alloca [4 x i8], align 1
+  %i9 = alloca { float }, align 8
+  %i10 = load i32, ptr %arg1, align 1
+  %i11 = icmp slt i32 %i10, 1
+  br i1 %i11, label %bb116, label %bb12
 
-14:                                               ; preds = %4
-  %15 = load i32, i32* %2, align 1
-  %16 = icmp slt i32 %15, 1
-  %17 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  %18 = load i32, i32* %0, align 1
-  %19 = sext i32 %18 to i64
-  %20 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 0
-  %21 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 1
-  %22 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 2
-  %23 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 3
-  %24 = getelementptr inbounds { float }, { float }* %7, i64 0, i32 0
-  %25 = bitcast [8 x i64]* %5 to i8*
-  %26 = bitcast { float }* %7 to i8*
-  %27 = load i32, i32* %3, align 1
-  %28 = icmp slt i32 %27, 1
-  %29 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 0
-  %30 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 1
-  %31 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 2
-  %32 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 3
-  %33 = getelementptr inbounds { float }, { float }* %9, i64 0, i32 0
-  %34 = bitcast { float }* %9 to i8*
-  %35 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 0
-  %36 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 1
-  %37 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 2
-  %38 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 3
-  %39 = getelementptr inbounds { float }, { float }* %11, i64 0, i32 0
-  %40 = bitcast { float }* %11 to i8*
-  br label %41
+bb12:                                             ; preds = %bb
+  %i13 = load i32, ptr %arg2, align 1
+  %i14 = icmp slt i32 %i13, 1
+  %i15 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %i16 = load i32, ptr %arg, align 1
+  %i17 = sext i32 %i16 to i64
+  %i18 = getelementptr inbounds [4 x i8], ptr %i4, i64 0, i64 0
+  %i19 = getelementptr inbounds [4 x i8], ptr %i4, i64 0, i64 1
+  %i20 = getelementptr inbounds [4 x i8], ptr %i4, i64 0, i64 2
+  %i21 = getelementptr inbounds [4 x i8], ptr %i4, i64 0, i64 3
+  %i22 = getelementptr inbounds { float }, ptr %i5, i64 0, i32 0
+  %i23 = bitcast ptr %i to ptr
+  %i24 = bitcast ptr %i5 to ptr
+  %i25 = load i32, ptr %arg3, align 1
+  %i26 = icmp slt i32 %i25, 1
+  %i27 = getelementptr inbounds [4 x i8], ptr %i6, i64 0, i64 0
+  %i28 = getelementptr inbounds [4 x i8], ptr %i6, i64 0, i64 1
+  %i29 = getelementptr inbounds [4 x i8], ptr %i6, i64 0, i64 2
+  %i30 = getelementptr inbounds [4 x i8], ptr %i6, i64 0, i64 3
+  %i31 = getelementptr inbounds { float }, ptr %i7, i64 0, i32 0
+  %i32 = bitcast ptr %i7 to ptr
+  %i33 = getelementptr inbounds [4 x i8], ptr %i8, i64 0, i64 0
+  %i34 = getelementptr inbounds [4 x i8], ptr %i8, i64 0, i64 1
+  %i35 = getelementptr inbounds [4 x i8], ptr %i8, i64 0, i64 2
+  %i36 = getelementptr inbounds [4 x i8], ptr %i8, i64 0, i64 3
+  %i37 = getelementptr inbounds { float }, ptr %i9, i64 0, i32 0
+  %i38 = bitcast ptr %i9 to ptr
+  br label %bb39
 
-41:                                               ; preds = %97, %14
-  %42 = phi i64 [ 1, %14 ], [ %115, %97 ]
-  br i1 %16, label %97, label %43
+bb39:                                             ; preds = %bb95, %bb12
+  %i40 = phi i64 [ 1, %bb12 ], [ %i113, %bb95 ]
+  br i1 %i14, label %bb95, label %bb41
 
-43:                                               ; preds = %93, %41
-  %44 = phi i64 [ %94, %93 ], [ 1, %41 ]
-  %45 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %46 = load i64, i64* %17, align 1
-  %47 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %46, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %45, i64 %19)
-  %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %47, i64 0, i32 0, i32 0
-  %49 = load float*, float** %48, align 1
-  %50 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %47, i64 0, i32 0, i32 6, i64 0, i32 1
-  %51 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %50, i32 0)
-  %52 = load i64, i64* %51, align 1
-  %53 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %47, i64 0, i32 0, i32 6, i64 0, i32 2
-  %54 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %53, i32 0)
-  %55 = load i64, i64* %54, align 1
-  %56 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %50, i32 1)
-  %57 = load i64, i64* %56, align 1
-  %58 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %53, i32 1)
-  %59 = load i64, i64* %58, align 1
-  %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %59, i64 %57, float* elementtype(float) %49, i64 %42)
-  %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %55, i64 %52, float* elementtype(float) %60, i64 %44)
-  %62 = load float, float* %61, align 1
-  store i8 26, i8* %20, align 1
-  store i8 1, i8* %21, align 1
-  store i8 1, i8* %22, align 1
-  store i8 0, i8* %23, align 1
-  store float %62, float* %24, align 8
-  %63 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %25, i32 -1, i64 1239157112576, i8* nonnull %20, i8* nonnull %26) #3
-  br i1 %28, label %93, label %64
+bb41:                                             ; preds = %bb91, %bb39
+  %i42 = phi i64 [ %i92, %bb91 ], [ 1, %bb39 ]
+  %i43 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i44 = load i64, ptr %i15, align 1
+  %i45 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i44, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i43, i64 %i17)
+  %i46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i45, i64 0, i32 0, i32 0
+  %i47 = load ptr, ptr %i46, align 1
+  %i48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i45, i64 0, i32 0, i32 6, i64 0, i32 1
+  %i49 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i48, i32 0)
+  %i50 = load i64, ptr %i49, align 1
+  %i51 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i45, i64 0, i32 0, i32 6, i64 0, i32 2
+  %i52 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i51, i32 0)
+  %i53 = load i64, ptr %i52, align 1
+  %i54 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i48, i32 1)
+  %i55 = load i64, ptr %i54, align 1
+  %i56 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i51, i32 1)
+  %i57 = load i64, ptr %i56, align 1
+  %i58 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i57, i64 %i55, ptr elementtype(float) %i47, i64 %i40)
+  %i59 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i53, i64 %i50, ptr elementtype(float) %i58, i64 %i42)
+  %i60 = load float, ptr %i59, align 1
+  store i8 26, ptr %i18, align 1
+  store i8 1, ptr %i19, align 1
+  store i8 1, ptr %i20, align 1
+  store i8 0, ptr %i21, align 1
+  store float %i60, ptr %i22, align 8
+  %i61 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i23, i32 -1, i64 1239157112576, ptr nonnull %i18, ptr nonnull %i24) #3
+  br i1 %i26, label %bb91, label %bb62
 
-64:                                               ; preds = %64, %43
-  %65 = phi i64 [ %90, %64 ], [ 1, %43 ]
-  %66 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %67 = load i64, i64* %17, align 1
-  %68 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %67, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %66, i64 %19)
-  %69 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %68, i64 0, i32 1, i32 0
-  %70 = load float*, float** %69, align 1
-  %71 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %68, i64 0, i32 1, i32 6, i64 0, i32 1
-  %72 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 0)
-  %73 = load i64, i64* %72, align 1
-  %74 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %68, i64 0, i32 1, i32 6, i64 0, i32 2
-  %75 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %74, i32 0)
-  %76 = load i64, i64* %75, align 1
-  %77 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 1)
-  %78 = load i64, i64* %77, align 1
-  %79 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %74, i32 1)
-  %80 = load i64, i64* %79, align 1
-  %81 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 2)
-  %82 = load i64, i64* %81, align 1
-  %83 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %74, i32 2)
-  %84 = load i64, i64* %83, align 1
-  %85 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %84, i64 %82, float* elementtype(float) %70, i64 %65)
-  %86 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %80, i64 %78, float* elementtype(float) %85, i64 %42)
-  %87 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %76, i64 %73, float* elementtype(float) %86, i64 %44)
-  %88 = load float, float* %87, align 1
-  store i8 26, i8* %29, align 1
-  store i8 1, i8* %30, align 1
-  store i8 1, i8* %31, align 1
-  store i8 0, i8* %32, align 1
-  store float %88, float* %33, align 8
-  %89 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %25, i32 -1, i64 1239157112576, i8* nonnull %29, i8* nonnull %34) #3
-  %90 = add nuw i64 %65, 1
-  %91 = trunc i64 %90 to i32
-  %92 = icmp slt i32 %27, %91
-  br i1 %92, label %93, label %64
+bb62:                                             ; preds = %bb62, %bb41
+  %i63 = phi i64 [ %i88, %bb62 ], [ 1, %bb41 ]
+  %i64 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i65 = load i64, ptr %i15, align 1
+  %i66 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i65, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i64, i64 %i17)
+  %i67 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i66, i64 0, i32 1, i32 0
+  %i68 = load ptr, ptr %i67, align 1
+  %i69 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i66, i64 0, i32 1, i32 6, i64 0, i32 1
+  %i70 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 0)
+  %i71 = load i64, ptr %i70, align 1
+  %i72 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i66, i64 0, i32 1, i32 6, i64 0, i32 2
+  %i73 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i72, i32 0)
+  %i74 = load i64, ptr %i73, align 1
+  %i75 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 1)
+  %i76 = load i64, ptr %i75, align 1
+  %i77 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i72, i32 1)
+  %i78 = load i64, ptr %i77, align 1
+  %i79 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 2)
+  %i80 = load i64, ptr %i79, align 1
+  %i81 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i72, i32 2)
+  %i82 = load i64, ptr %i81, align 1
+  %i83 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %i82, i64 %i80, ptr elementtype(float) %i68, i64 %i63)
+  %i84 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i78, i64 %i76, ptr elementtype(float) %i83, i64 %i40)
+  %i85 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i74, i64 %i71, ptr elementtype(float) %i84, i64 %i42)
+  %i86 = load float, ptr %i85, align 1
+  store i8 26, ptr %i27, align 1
+  store i8 1, ptr %i28, align 1
+  store i8 1, ptr %i29, align 1
+  store i8 0, ptr %i30, align 1
+  store float %i86, ptr %i31, align 8
+  %i87 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i23, i32 -1, i64 1239157112576, ptr nonnull %i27, ptr nonnull %i32) #3
+  %i88 = add nuw i64 %i63, 1
+  %i89 = trunc i64 %i88 to i32
+  %i90 = icmp slt i32 %i25, %i89
+  br i1 %i90, label %bb91, label %bb62
 
-93:                                               ; preds = %64, %43
-  %94 = add nuw i64 %44, 1
-  %95 = trunc i64 %94 to i32
-  %96 = icmp slt i32 %15, %95
-  br i1 %96, label %97, label %43
+bb91:                                             ; preds = %bb62, %bb41
+  %i92 = add nuw i64 %i42, 1
+  %i93 = trunc i64 %i92 to i32
+  %i94 = icmp slt i32 %i13, %i93
+  br i1 %i94, label %bb95, label %bb41
 
-97:                                               ; preds = %93, %41
-  %98 = phi i64 [ 1, %41 ], [ %94, %93 ]
-  %99 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %100 = load i64, i64* %17, align 1
-  %101 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %100, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %99, i64 %19)
-  %102 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %101, i64 0, i32 2, i32 0
-  %103 = load float*, float** %102, align 1
-  %104 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %101, i64 0, i32 2, i32 6, i64 0, i32 1
-  %105 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %104, i32 0)
-  %106 = load i64, i64* %105, align 1
-  %107 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %101, i64 0, i32 2, i32 6, i64 0, i32 2
-  %108 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %107, i32 0)
-  %109 = load i64, i64* %108, align 1
-  %110 = shl i64 %98, 32
-  %111 = ashr exact i64 %110, 32
-  %112 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %109, i64 %106, float* elementtype(float) %103, i64 %111)
-  %113 = load float, float* %112, align 1
-  store i8 26, i8* %35, align 1
-  store i8 1, i8* %36, align 1
-  store i8 1, i8* %37, align 1
-  store i8 0, i8* %38, align 1
-  store float %113, float* %39, align 8
-  %114 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %25, i32 -1, i64 1239157112576, i8* nonnull %35, i8* nonnull %40) #3
-  %115 = add nuw i64 %42, 1
-  %116 = trunc i64 %115 to i32
-  %117 = icmp slt i32 %12, %116
-  br i1 %117, label %118, label %41
+bb95:                                             ; preds = %bb91, %bb39
+  %i96 = phi i64 [ 1, %bb39 ], [ %i92, %bb91 ]
+  %i97 = load ptr, ptr @arr_mod_mp_a_, align 16
+  %i98 = load i64, ptr %i15, align 1
+  %i99 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i98, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i97, i64 %i17)
+  %i100 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i99, i64 0, i32 2, i32 0
+  %i101 = load ptr, ptr %i100, align 1
+  %i102 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i99, i64 0, i32 2, i32 6, i64 0, i32 1
+  %i103 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i102, i32 0)
+  %i104 = load i64, ptr %i103, align 1
+  %i105 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i99, i64 0, i32 2, i32 6, i64 0, i32 2
+  %i106 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i105, i32 0)
+  %i107 = load i64, ptr %i106, align 1
+  %i108 = shl i64 %i96, 32
+  %i109 = ashr exact i64 %i108, 32
+  %i110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i107, i64 %i104, ptr elementtype(float) %i101, i64 %i109)
+  %i111 = load float, ptr %i110, align 1
+  store i8 26, ptr %i33, align 1
+  store i8 1, ptr %i34, align 1
+  store i8 1, ptr %i35, align 1
+  store i8 0, ptr %i36, align 1
+  store float %i111, ptr %i37, align 8
+  %i112 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i23, i32 -1, i64 1239157112576, ptr nonnull %i33, ptr nonnull %i38) #3
+  %i113 = add nuw i64 %i40, 1
+  %i114 = trunc i64 %i113 to i32
+  %i115 = icmp slt i32 %i10, %i114
+  br i1 %i115, label %bb116, label %bb39
 
-118:                                              ; preds = %97, %4
+bb116:                                            ; preds = %bb95, %bb
   ret void
 }
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #2
+declare dso_local i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree noinline nounwind uwtable
 define dso_local void @MAIN__() #0 {
-  %1 = alloca [8 x i64], align 16
-  %2 = alloca i32, align 8
-  %3 = alloca i32, align 8
-  %4 = alloca [4 x i8], align 1
-  %5 = alloca { i8* }, align 8
-  %6 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.0) #3
-  %7 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 0
-  store i8 9, i8* %7, align 1
-  %8 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 1
-  store i8 3, i8* %8, align 1
-  %9 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 2
-  store i8 1, i8* %9, align 1
-  %10 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 3
-  store i8 0, i8* %10, align 1
-  %11 = bitcast { i8* }* %5 to i32**
-  store i32* %2, i32** %11, align 8
-  %12 = bitcast [8 x i64]* %1 to i8*
-  %13 = bitcast { i8* }* %5 to i8*
-  %14 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %12, i32 -4, i64 1239157112576, i8* nonnull %7, i8* nonnull %13) #3
-  store i32 1, i32* %3, align 8
-  br label %15
+bb:
+  %i = alloca [8 x i64], align 16
+  %i1 = alloca i32, align 8
+  %i2 = alloca i32, align 8
+  %i3 = alloca [4 x i8], align 1
+  %i4 = alloca { ptr }, align 8
+  %i5 = tail call i32 @for_set_reentrancy(ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.0) #3
+  %i6 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 0
+  store i8 9, ptr %i6, align 1
+  %i7 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 1
+  store i8 3, ptr %i7, align 1
+  %i8 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 2
+  store i8 1, ptr %i8, align 1
+  %i9 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 3
+  store i8 0, ptr %i9, align 1
+  %i10 = bitcast ptr %i4 to ptr
+  store ptr %i1, ptr %i10, align 8
+  %i11 = bitcast ptr %i to ptr
+  %i12 = bitcast ptr %i4 to ptr
+  %i13 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_read_seq_lis(ptr nonnull %i11, i32 -4, i64 1239157112576, ptr nonnull %i6, ptr nonnull %i12) #3
+  store i32 1, ptr %i2, align 8
+  br label %bb14
 
-15:                                               ; preds = %15, %0
-  %16 = phi i32 [ %17, %15 ], [ 1, %0 ]
-  call void @arr_mod_mp_allocate_arr_(i32* nonnull %3, i32* nonnull %2)
-  call void @arr_mod_mp_initialize_arr_(i32* nonnull %3, i32* nonnull %2, i32* nonnull %2, i32* nonnull %2)
-  call void @arr_mod_mp_print_arr_(i32* nonnull %3, i32* nonnull %2, i32* nonnull %2, i32* nonnull %2)
-  %17 = add nuw nsw i32 %16, 1
-  store i32 %17, i32* %3, align 8
-  %18 = icmp eq i32 %17, 11
-  br i1 %18, label %19, label %15
+bb14:                                             ; preds = %bb14, %bb
+  %i15 = phi i32 [ %i16, %bb14 ], [ 1, %bb ]
+  call void @arr_mod_mp_allocate_arr_(ptr nonnull %i2, ptr nonnull %i1)
+  call void @arr_mod_mp_initialize_arr_(ptr nonnull %i2, ptr nonnull %i1, ptr nonnull %i1, ptr nonnull %i1)
+  call void @arr_mod_mp_print_arr_(ptr nonnull %i2, ptr nonnull %i1, ptr nonnull %i1, ptr nonnull %i1)
+  %i16 = add nuw nsw i32 %i15, 1
+  store i32 %i16, ptr %i2, align 8
+  %i17 = icmp eq i32 %i16, 11
+  br i1 %i17, label %bb18, label %bb14
 
-19:                                               ; preds = %15
+bb18:                                             ; preds = %bb14
   ret void
 }
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly) local_unnamed_addr #2
+declare dso_local i32 @for_set_reentrancy(ptr nocapture readonly) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_read_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #2
+declare dso_local i32 @for_read_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #1
 
-attributes #0 = { nofree noinline nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind readnone speculatable }
-attributes #2 = { nofree "intel-lang"="fortran" }
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
+
+attributes #0 = { nofree noinline nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #1 = { nofree "intel-lang"="fortran" }
+attributes #2 = { nounwind readnone speculatable }
 attributes #3 = { nounwind }
 
 !omp_offload.info = !{}

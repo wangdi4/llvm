@@ -16,7 +16,7 @@
 #include <sycl/property_list.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 enum class addressing_mode : unsigned int {
   mirrored_repeat = PI_SAMPLER_ADDRESSING_MODE_MIRRORED_REPEAT,
   repeat = PI_SAMPLER_ADDRESSING_MODE_REPEAT,
@@ -124,7 +124,15 @@ private:
             access::placeholder IsPlaceholder>
   friend class detail::image_accessor;
 };
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+
+// SYCL 2020 image_sampler struct
+struct image_sampler {
+  addressing_mode addressing;
+  coordinate_normalization_mode coordinate;
+  filtering_mode filtering;
+};
+
+} // namespace _V1
 } // namespace sycl
 
 namespace std {

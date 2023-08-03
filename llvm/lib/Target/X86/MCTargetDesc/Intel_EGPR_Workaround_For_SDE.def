@@ -1,0 +1,38 @@
+#if INTEL_FEATURE_ISA_APX_F
+//===--- Intel_EGPR_Workaround_For_SDE.def -----------------------*- C++ -*-===//
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2023 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines a blacklist of instructions that have not been supported
+/// by SDE for feature egpr.
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef BLACK_INSN
+#define BLACK_INSN(NAME)
+#endif
+
+BLACK_INSN(ST_F32m)
+BLACK_INSN(ST_F64m)
+BLACK_INSN(ST_FP32m)
+BLACK_INSN(ST_FP64m)
+BLACK_INSN(ST_FP80m)
+BLACK_INSN(IST_F16m)
+BLACK_INSN(IST_F32m)
+BLACK_INSN(IST_FP16m)
+BLACK_INSN(IST_FP32m)
+BLACK_INSN(IST_FP64m)
+
+#undef BLACK_INSN
+
+#endif // INTEL_FEATURE_ISA_APX_F

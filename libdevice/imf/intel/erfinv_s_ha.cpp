@@ -1,10 +1,10 @@
 /*******************************************************************************
 * INTEL CONFIDENTIAL
-* Modifications, Copyright (C) 1996-2022 Intel Corporation
+* Copyright 1996-2022 Intel Corporation.
 *
 * This software and the related documents are Intel copyrighted  materials,  and
 * your use of  them is  governed by the  express license  under which  they were
-* provided to you ("License"). Unless the License provides otherwise, you may not
+* provided to you (License).  Unless the License provides otherwise, you may not
 * use, modify, copy, publish, distribute,  disclose or transmit this software or
 * the related documents without Intel's prior written permission.
 *
@@ -14,428 +14,3735 @@
 *******************************************************************************/
 #include "_imf_include_fp32.hpp"
 #ifdef __LIBDEVICE_IMF_ENABLED__
-namespace __imf_impl_erfinv_s_ha
-{
+namespace __imf_impl_erfinv_s_ha {
 namespace {
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_two32 = { 0x4f800000u };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c10 = { 0xbd8770dcu };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c9 = { 0x3e1c5827u };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c8 = { 0xbe434bdeu };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c7 = { 0x3e55e9b0u };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c6 = { 0xbe75d6cau };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c5 = { 0x3e93a7cbu };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c4 = { 0xbeb8aabcu };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c3 = { 0x3ef6389fu };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_c2h = { 0xbf38aa3bu };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_ldc1 = { 0xbff715476395bd86UL };
-
-///////////////////////////////////////////////////////////////////
-// erfinv coefficients for [2^(-13), 0.75)
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc13 = { 0x40364513fb32496aUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc12 = { 0xc055e615de9c23d8UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc11 = { 0x4063250adeb67481UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc10 = { 0xc063642141c3fcd8UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc9 = { 0x40591a9ba3a93979UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc8 = { 0xc0458e3d3fb254dbUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc7 = { 0x402900c22cb40c15UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc6 = { 0xc002eb6a9fc1820aUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc5 = { 0x3fda8c7e93681dabUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc4 = { 0xbf95453043a8bf6aUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc3 = { 0x3fcdcc80066bd690UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc2 = { 0xbee9e6381d15b179UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc1 = { 0x3fec5bf8a8908326UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_dc0 = { 0xbda14da505e70051UL };
-
-// coefficients for erfinv(1-2^(-x*x))
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc11 = { 0xbe81916980246624UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc10 = { 0x3ed607a64a827a60UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc9 = { 0xbf19297f8a2f6c59UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc8 = { 0x3f5152e913d4b64cUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc7 = { 0xbf8008e722b9f5f4UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc6 = { 0x3fa50d4270b5e77cUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc5 = { 0xbfc42188ef6e882bUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc4 = { 0x3fdc47bb483a77e3UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc3 = { 0xbfece3f2a959013bUL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc2 = { 0x3ff496898ae92338UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc1 = { 0xbfd194293932af46UL };
-
-static const union
-{
-    uint64_t w;
-    uint32_t w32[2];
-    int32_t s32[2];
-    double f;
-} __serfinv_ha_nc0 = { 0x3fa9002affe368c5UL };
-
-// sqrt(pi)/2
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_small_coeff = { 0x4f62DFC4u };
-
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_small_coeff_l = { 0x430DA77Bu };
-
-// 2^(-32)
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_two_m32 = { 0x2f800000u };
-
-// 2^(-13)
-static const union
-{
-    uint32_t w;
-    float f;
-} __serfinv_ha_small_thres = { 0x39000000u };
-
-inline int __devicelib_imf_internal_serfinv (const float *a, float *r)
-{
-    int nRet = 0;
-    float xin = *a;
-    union
-    {
-        uint32_t w;
-        float f;
-    } x, xa, mant, res, small_res;
-    int32_t iexpon;
-    uint32_t sgn_x;
-    float R, poly, RS, ea;
-    double dR, dRS, lpoly, expon, dS, dRS2, eps;
-    union
-    {
-        uint32_t w;
-        float f;
-    } rcpf, fnpoly, fdpoly;
-    union
-    {
-        uint64_t w;
-        uint32_t w32[2];
-        int32_t s32[2];
-        double f;
-    } npoly, dpoly, rcp;
-    xa.f = xin;
-    sgn_x = xa.w & 0x80000000u;
-    // |xin|
-    xa.w ^= sgn_x;
-    // 1 - |x|
-    x.f = 1.0f - xa.f;
-    // normalize mantissa to [0.75, 1.5)
-    // normalized, unbiased exponent
-    iexpon = (x.w - 0x3f400000u) & 0xff800000u;
-    // normalized mantissa
-    mant.w = x.w - iexpon;
-    // exponent
-    iexpon >>= 23;
-    // reduced argument
-    R = mant.f - 1.0f;
-    expon = (double) iexpon;
-    // polynomial
-    poly = __fma (__serfinv_ha_c10.f, R, __serfinv_ha_c9.f);
-    poly = __fma (poly, R, __serfinv_ha_c8.f);
-    poly = __fma (poly, R, __serfinv_ha_c7.f);
-    poly = __fma (poly, R, __serfinv_ha_c6.f);
-    poly = __fma (poly, R, __serfinv_ha_c5.f);
-    poly = __fma (poly, R, __serfinv_ha_c4.f);
-    poly = __fma (poly, R, __serfinv_ha_c3.f);
-    poly = __fma (poly, R, __serfinv_ha_c2h.f);
-    dR = (double) R;
-    lpoly = (double) poly;
-    lpoly = __fma (-(lpoly), dR, __serfinv_ha_ldc1.f);
-    lpoly = __fma (lpoly, dR, -(expon));
-    // dRS ~ 1.0/sqrt(-log2(1-xin))
-    poly = (float) lpoly;
-    RS = 1.0f / __sqrt (poly);
-    dRS = (double) RS;
-    // sqrt(-log2(1-xin))
-    dRS2 = __fma (dRS, 0.5, 0.0);
-    dS = __fma (lpoly, dRS, 0.0);
-    eps = __fma (-(dS), dRS2, 0.5);
-    // dRS ~ 1.0/sqrt(-log2(1-xin))
-    dS = __fma (dS, eps, dS);
-    dR = (double) xa.f;
-    npoly.f = __fma (__serfinv_ha_nc11.f, dS, __serfinv_ha_nc10.f);
-    dpoly.f = __fma (__serfinv_ha_dc13.f, dR, __serfinv_ha_dc12.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc9.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc11.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc8.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc10.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc7.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc9.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc6.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc8.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc5.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc7.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc4.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc6.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc3.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc5.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc2.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc4.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc1.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc3.f);
-    npoly.f = __fma (npoly.f, dS, __serfinv_ha_nc0.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc2.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc1.f);
-    dpoly.f = __fma (dpoly.f, dR, __serfinv_ha_dc0.f);
-    dpoly.f = (dR < 0.75) ? dpoly.f : npoly.f;
-    poly = (float) (dpoly.f);
-    // fix result for |x|<2^(-13)
-    small_res.f = __fma (xa.f, __serfinv_ha_small_coeff.f, __fma (xa.f, __serfinv_ha_small_coeff_l.f, 0.0f));
-    small_res.f = __fma (small_res.f, __serfinv_ha_two_m32.f, 0.0f);
-    res.f = (xa.f < __serfinv_ha_small_thres.f) ? small_res.f : poly;
-    // fix special cases
-    if (!(xa.f < 1.0f))
-    {
-        // rsqrt(1-xa), to cover special cases
-        res.f = 1.0f / __sqrt (x.f);
-        nRet = (xa.f == 1.0) ? 2 : 1;
+typedef struct {
+  VUINT32 sPoly[24][8][8];
+  VUINT32 iSignMask;
+  VUINT32 iHiRange;
+  VUINT32 iLoRange;
+  VUINT32 sOne;
+  VUINT32 iIndexBase;
+  VUINT32 sReducedMask;
+  VUINT32 sReducedBase;
+  VUINT32 sSplitMask;
+  VUINT32 iTwiceBias;
+  /* scalar part follow */
+  VUINT32 sSignMask;
+  VUINT32 SqrtPiDiv2;
+  VUINT32 sInfs[2];
+  VUINT32 sOnes[2];
+  VUINT32 sZeros[2];
+} __devicelib_imf_internal_serfinv_data_t;
+/* Table look-up: all SP/DP constants are presented in hexadecimal form */
+static const __devicelib_imf_internal_serfinv_data_t
+    __devicelib_imf_internal_serfinv_data = {
+        /*== sPoly == P3 table follow [i=1..24, j=7..0] ==*/
+        {{{
+              /*== i= 1, j=7 == max.err=2.90e-12 ==*/
+              0xb1bd5936u /* -5.51076606569722571293e-09 P0.lo */
+              ,
+              0x359a2b9fu /*  1.14865895284310681745e-06 P1.lo */
+              ,
+              0x3d6e593bu /*  5.81905655562877655029e-02 P2    */
+              ,
+              0xbb030d10u /* -1.99967995285987854003e-03 P3    */
+              ,
+              0x3c040d8au /*  8.05986858904361724853e-03 P4    */
+              ,
+              0xba061d39u /* -5.11604885105043649673e-04 P5    */
+              ,
+              0x3f62eea0u /*  8.86453628540039062500e-01 P0.hi */
+              ,
+              0xbbede000u /* -7.25936889648437500000e-03 P1.hi */
+          },
+          {
+              /*== i= 1, j=6 == max.err=3.39e-12 ==*/
+              0xb2ab17a9u /* -1.99177794257821005885e-08 P0.lo */
+              ,
+              0x35dc70adu /*  1.64240702815732220187e-06 P1.lo */
+              ,
+              0x3d7492eeu /*  5.97104355692863464355e-02 P2    */
+              ,
+              0xbbc9e0bcu /* -6.16082362830638885498e-03 P3    */
+              ,
+              0x3c0ed31fu /*  8.71732737869024276733e-03 P4    */
+              ,
+              0xbad48325u /* -1.62134005222469568252e-03 P5    */
+              ,
+              0x3f63660fu /*  8.88276040554046630859e-01 P0.hi */
+              ,
+              0xbcb3f000u /* -2.19650268554687500000e-02 P1.hi */
+          },
+          {
+              /*== i= 1, j=5 == max.err=4.51e-12 ==*/
+              0x32e0a1b5u /*  2.61505679333140506059e-08 P0.lo */
+              ,
+              0x37470808u /*  1.18631942314095795154e-05 P1.lo */
+              ,
+              0x3d80c493u /*  6.28749355673789978027e-02 P2    */
+              ,
+              0xbc3184f1u /* -1.08349183574318885803e-02 P3    */
+              ,
+              0x3c263a29u /*  1.01457023993134498596e-02 P4    */
+              ,
+              0xbb45acf4u /* -3.01629025489091873168e-03 P5    */
+              ,
+              0x3f64580eu /*  8.91968607902526855468e-01 P0.hi */
+              ,
+              0xbd18a000u /* -3.72619628906250000000e-02 P1.hi */
+          },
+          {
+              /*== i= 1, j=4 == max.err=6.61e-12 ==*/
+              0x31a79489u /*  4.87722617847907713439e-09 P0.lo */
+              ,
+              0xb5db4f23u /* -1.63398033237172057852e-06 P1.lo */
+              ,
+              0x3d8b2c24u /*  6.79552853107452392578e-02 P2    */
+              ,
+              0xbc86dff2u /* -1.64642073214054107666e-02 P3    */
+              ,
+              0x3c4e8b2du /*  1.26064242795109748840e-02 P4    */
+              ,
+              0xbba35174u /* -4.98407520353794097900e-03 P5    */
+              ,
+              0x3f65cb26u /*  8.97631049156188964843e-01 P0.hi */
+              ,
+              0xbd5b6000u /* -5.35583496093750000000e-02 P1.hi */
+          },
+          {
+              /*== i= 1, j=3 == max.err=1.04e-11 ==*/
+              0x32d14c79u /*  2.43655779996743149240e-08 P0.lo */
+              ,
+              0x3786897du /*  1.60380677698412910103e-05 P1.lo */
+              ,
+              0x3d9a7572u /*  7.54193216562271118164e-02 P2    */
+              ,
+              0xbcc1f078u /* -2.36742347478866577148e-02 P3    */
+              ,
+              0x3c87f184u /*  1.65946558117866516113e-02 P4    */
+              ,
+              0xbc0337e6u /* -8.00893269479274749755e-03 P5    */
+              ,
+              0x3f67c9d1u /*  9.05423223972320556640e-01 P0.hi */
+              ,
+              0xbd925000u /* -7.14416503906250000000e-02 P1.hi */
+          },
+          {
+              /*== i= 1, j=2 == max.err=1.74e-11 ==*/
+              0xb2e33ecfu /* -2.64548400963349195080e-08 P0.lo */
+              ,
+              0xb7089bbcu /* -8.14249142422340810298e-06 P1.lo */
+              ,
+              0x3db02ebfu /*  8.60266610980033874511e-02 P2    */
+              ,
+              0xbd08edc6u /* -3.34298834204673767089e-02 P3    */
+              ,
+              0x3cbc9851u /*  2.30218488723039627075e-02 P4    */
+              ,
+              0xbc54d217u /* -1.29895424470305442810e-02 P5    */
+              ,
+              0x3f6a637bu /*  9.15580451488494873046e-01 P0.hi */
+              ,
+              0xbdbb7000u /* -9.15222167968750000000e-02 P1.hi */
+          },
+          {
+              /*== i= 1, j=1 == max.err=3.10e-11 ==*/
+              0xb2666d7bu /* -1.34126549866664390719e-08 P0.lo */
+              ,
+              0x36cb3413u /*  6.05593368163681589066e-06 P1.lo */
+              ,
+              0x3dcedb7fu /*  1.01004593074321746826e-01 P2    */
+              ,
+              0xbd41d9a9u /* -4.73267175257205963134e-02 P3    */
+              ,
+              0x3d09a6ddu /*  3.36063988506793975830e-02 P4    */
+              ,
+              0xbcb1fda6u /* -2.17273943126201629638e-02 P5    */
+              ,
+              0x3f6dae10u /*  9.28437232971191406250e-01 P0.hi */
+              ,
+              0xbdeb2000u /* -1.14807128906250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 1, j=0 == max.err=5.92e-11 ==*/
+              0x31e8d7d4u /*  6.77662548298485489794e-09 P0.lo */
+              ,
+              0x37863e8au /*  1.60031668201554566621e-05 P1.lo */
+              ,
+              0x3dfaa323u /*  1.22381471097469329833e-01 P2    */
+              ,
+              0xbd8ba1a6u /* -6.81794136762619018554e-02 P3    */
+              ,
+              0x3d53fcf6u /*  5.17549142241477966308e-02 P4    */
+              ,
+              0xbd1c2631u /* -3.81223596632480621337e-02 P5    */
+              ,
+              0x3f71c895u /*  9.44466888904571533203e-01 P0.hi */
+              ,
+              0xbe120000u /* -1.42578125000000000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 2, j=7 == max.err=1.57e-12 ==*/
+              0x32513102u /*  1.21765442173682458815e-08 P0.lo */
+              ,
+              0x37cd9afeu /*  2.45100782194640487432e-05 P1.lo */
+              ,
+              0x3d141985u /*  3.61571498215198516845e-02 P2    */
+              ,
+              0xbc3b3bf4u /* -1.14278681576251983642e-02 P3    */
+              ,
+              0x3b97f287u /*  4.63706580922007560729e-03 P4    */
+              ,
+              0xbaf7260fu /* -1.88559468369930982589e-03 P5    */
+              ,
+              0x3f757ef0u /*  9.58968162536621093750e-01 P0.hi */
+              ,
+              0xbdab9000u /* -8.37707519531250000000e-02 P1.hi */
+          },
+          {
+              /*== i= 2, j=6 == max.err=2.31e-12 ==*/
+              0xb2b56d3eu /* -2.11208508460458688205e-08 P0.lo */
+              ,
+              0xb6dd0afcu /* -6.58759199723135679960e-06 P1.lo */
+              ,
+              0x3d279871u /*  4.09168638288974761962e-02 P2    */
+              ,
+              0xbc66932bu /* -1.40731735154986381530e-02 P3    */
+              ,
+              0x3bc5b1d4u /*  6.03316165506839752197e-03 P4    */
+              ,
+              0xbb2c635fu /* -2.63043469749391078948e-03 P5    */
+              ,
+              0x3f78538eu /*  9.70024943351745605468e-01 P0.hi */
+              ,
+              0xbdbf3000u /* -9.33532714843750000000e-02 P1.hi */
+          },
+          {
+              /*== i= 2, j=5 == max.err=3.49e-12 ==*/
+              0xb22aebfdu /* -9.94895987815880289417e-09 P0.lo */
+              ,
+              0x37247708u /*  9.80287586571648716926e-06 P1.lo */
+              ,
+              0x3d3fc172u /*  4.68153432011604309082e-02 P2    */
+              ,
+              0xbc8fc2bdu /* -1.75489131361246109008e-02 P3    */
+              ,
+              0x3c0323e5u /*  8.00416339188814163208e-03 P4    */
+              ,
+              0xbb761a94u /* -3.75524628907442092895e-03 P5    */
+              ,
+              0x3f7b7c29u /*  9.82363283634185791015e-01 P0.hi */
+              ,
+              0xbdd5a000u /* -1.04309082031250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 2, j=4 == max.err=5.45e-12 ==*/
+              0x32f042ebu /*  2.79701080074801211594e-08 P0.lo */
+              ,
+              0xb734fefeu /* -1.07882060547126457095e-05 P1.lo */
+              ,
+              0x3d5e1c41u /*  5.42261637747287750244e-02 P2    */
+              ,
+              0xbcb5f604u /* -2.22120359539985656738e-02 P3    */
+              ,
+              0x3c31e385u /*  1.08574675396084785461e-02 P4    */
+              ,
+              0xbbb472d9u /* -5.50685497000813484191e-03 P5    */
+              ,
+              0x3f7f04e6u /*  9.96168494224548339843e-01 P0.hi */
+              ,
+              0xbdef6000u /* -1.16882324218750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 2, j=3 == max.err=8.82e-12 ==*/
+              0xb313638cu /* -3.43166419725093874149e-08 P0.lo */
+              ,
+              0x37167b84u /*  8.96945493877865374088e-06 P1.lo */
+              ,
+              0x3d827076u /*  6.36910647153854370117e-02 P2    */
+              ,
+              0xbcea7401u /* -2.86197680979967117309e-02 P3    */
+              ,
+              0x3c77932eu /*  1.51107739657163619995e-02 P4    */
+              ,
+              0xbc08892fu /* -8.33348836749792098999e-03 P5    */
+              ,
+              0x3f817e86u /*  1.01167368888854980468e+00 P0.hi */
+              ,
+              0xbe06c000u /* -1.31591796875000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 2, j=2 == max.err=1.49e-11 ==*/
+              0xb3773177u /* -5.75541569958204490831e-08 P0.lo */
+              ,
+              0xb853098cu /* -5.03152114106342196464e-05 P1.lo */
+              ,
+              0x3d9bb008u /*  7.60193467140197753906e-02 P2    */
+              ,
+              0xbd1a5034u /* -3.76741439104080200195e-02 P3    */
+              ,
+              0x3cb18d8au /*  2.16739363968372344970e-02 P4    */
+              ,
+              0xbc5677abu /* -1.30900545045733451843e-02 P5    */
+              ,
+              0x3f83bc0fu /*  1.02917659282684326171e+00 P0.hi */
+              ,
+              0xbe188000u /* -1.48925781250000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 2, j=1 == max.err=2.65e-11 ==*/
+              0x336dfd4eu /*  5.54112418171825993340e-08 P0.lo */
+              ,
+              0x384f5a7bu /*  4.94369123771321028470e-05 P1.lo */
+              ,
+              0x3dbd5d6bu /*  9.24633368849754333496e-02 P2    */
+              ,
+              0xbd507bafu /* -5.08992038667201995849e-02 P3    */
+              ,
+              0x3d04024au /*  3.22287455201148986816e-02 P4    */
+              ,
+              0xbcb02a77u /* -2.15046238154172897338e-02 P5    */
+              ,
+              0x3f8647c8u /*  1.04906558990478515625e+00 P0.hi */
+              ,
+              0xbe2e1000u /* -1.69982910156250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 2, j=0 == max.err=5.03e-11 ==*/
+              0xb2ee5b59u /* -2.77483866994998606969e-08 P0.lo */
+              ,
+              0x37caf7aeu /*  2.41956113313790410757e-05 P1.lo */
+              ,
+              0x3deb9c73u /*  1.15044496953487396240e-01 P2    */
+              ,
+              0xbd916b4au /* -7.10054188966751098632e-02 P3    */
+              ,
+              0x3d4d1ec6u /*  5.00781759619712829589e-02 P4    */
+              ,
+              0xbd18e002u /* -3.73230054974555969238e-02 P5    */
+              ,
+              0x3f8932b6u /*  1.07186007499694824218e+00 P0.hi */
+              ,
+              0xbe487000u /* -1.95739746093750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 3, j=7 == max.err=1.33e-12 ==*/
+              0x332631beu /*  3.86951271025282039772e-08 P0.lo */
+              ,
+              0x3734201eu /*  1.07363139250082895159e-05 P1.lo */
+              ,
+              0x3d0d4d5du /*  3.44976074993610382080e-02 P2    */
+              ,
+              0xbc3f8e26u /* -1.16916056722402572631e-02 P3    */
+              ,
+              0x3b936a1du /*  4.49873367324471473693e-03 P4    */
+              ,
+              0xbaf09e2bu /* -1.83576846029609441757e-03 P5    */
+              ,
+              0x3f8baf22u /*  1.09128212928771972656e+00 P0.hi */
+              ,
+              0xbde0a000u /* -1.09680175781250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=6 == max.err=1.95e-12 ==*/
+              0xb05ea118u /* -8.09920575051137348054e-10 P0.lo */
+              ,
+              0x378f6963u /*  1.70960029208799824118e-05 P1.lo */
+              ,
+              0x3d212545u /*  3.93421836197376251220e-02 P2    */
+              ,
+              0xbc699dabu /* -1.42587823793292045593e-02 P3    */
+              ,
+              0x3bbfe108u /*  5.85568323731422424316e-03 P4    */
+              ,
+              0xbb275060u /* -2.55300849676132202148e-03 P5    */
+              ,
+              0x3f8d82cau /*  1.10555386543273925781e+00 P0.hi */
+              ,
+              0xbdf38000u /* -1.18896484375000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=5 == max.err=2.94e-12 ==*/
+              0x30d86ebeu /*  1.57475432693843231390e-09 P0.lo */
+              ,
+              0x37c2be38u /*  2.32151796808466315269e-05 P1.lo */
+              ,
+              0x3d398411u /*  4.52919639647006988525e-02 P2    */
+              ,
+              0xbc9070b3u /* -1.76318641752004623413e-02 P3    */
+              ,
+              0x3bfe78d1u /*  7.76586728170514106750e-03 P4    */
+              ,
+              0xbb6e3514u /* -3.63475549966096878051e-03 P5    */
+              ,
+              0x3f8f7ed3u /*  1.12105786800384521484e+00 P0.hi */
+              ,
+              0xbe049000u /* -1.29455566406250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=4 == max.err=4.58e-12 ==*/
+              0xb207e28cu /* -7.90954501894702843856e-09 P0.lo */
+              ,
+              0x3781182cu /*  1.53892542584799230098e-05 P1.lo */
+              ,
+              0x3d57e558u /*  5.27089536190032958984e-02 P2    */
+              ,
+              0xbcb57c86u /* -2.21541039645671844482e-02 P3    */
+              ,
+              0x3c2c6c9eu /*  1.05239432305097579956e-02 P4    */
+              ,
+              0xbbae39a8u /* -5.31693175435066223144e-03 P5    */
+              ,
+              0x3f91a95du /*  1.13798105716705322265e+00 P0.hi */
+              ,
+              0xbe111000u /* -1.41662597656250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=3 == max.err=7.40e-12 ==*/
+              0x3354612fu /*  4.94484844182352389907e-08 P0.lo */
+              ,
+              0xb6f274f8u /* -7.22577897249720990657e-06 P1.lo */
+              ,
+              0x3d7e6e22u /*  6.21167495846748352050e-02 P2    */
+              ,
+              0xbce85476u /* -2.83605866134166717529e-02 P3    */
+              ,
+              0x3c6f9f9fu /*  1.46254589781165122985e-02 P4    */
+              ,
+              0xbc0385c3u /* -8.02749674767255783081e-03 P5    */
+              ,
+              0x3f940a0bu /*  1.15655648708343505859e+00 P0.hi */
+              ,
+              0xbe1fb000u /* -1.55944824218750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=2 == max.err=1.24e-11 ==*/
+              0xb370a664u /* -5.60306858687908970750e-08 P0.lo */
+              ,
+              0xb7bf3e85u /* -2.27980872296029701828e-05 P1.lo */
+              ,
+              0x3d982855u /*  7.42956772446632385253e-02 P2    */
+              ,
+              0xbd18072cu /* -3.71162146329879760742e-02 P3    */
+              ,
+              0x3cab8aafu /*  2.09401529282331466674e-02 P4    */
+              ,
+              0xbc4e23f9u /* -1.25818187370896339416e-02 P5    */
+              ,
+              0x3f96aa92u /*  1.17708039283752441406e+00 P0.hi */
+              ,
+              0xbe311000u /* -1.72912597656250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=1 == max.err=2.21e-11 ==*/
+              0xb22b6b5bu /* -9.97791982371154517750e-09 P0.lo */
+              ,
+              0xb71509c1u /* -8.88336307980353012681e-06 P1.lo */
+              ,
+              0x3db93e1au /*  9.04504805803298950195e-02 P2    */
+              ,
+              0xbd4c4f05u /* -4.98800463974475860595e-02 P3    */
+              ,
+              0x3cfe8dfau /*  3.10735590755939483642e-02 P4    */
+              ,
+              0xbca8f88au /* -2.06263251602649688720e-02 P5    */
+              ,
+              0x3f999782u /*  1.19993615150451660156e+00 P0.hi */
+              ,
+              0xbe461000u /* -1.93420410156250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 3, j=0 == max.err=4.20e-11 ==*/
+              0x32f47275u /*  2.84573875575233614654e-08 P0.lo */
+              ,
+              0x3822a9c3u /*  3.87819127354305237531e-05 P1.lo */
+              ,
+              0x3de671bfu /*  1.12521640956401824951e-01 P2    */
+              ,
+              0xbd8dcf46u /* -6.92429989576339721679e-02 P3    */
+              ,
+              0x3d455302u /*  4.81748655438423156738e-02 P4    */
+              ,
+              0xbd1255b2u /* -3.57262566685676574707e-02 P5    */
+              ,
+              0x3f9ce191u /*  1.22563374042510986328e+00 P0.hi */
+              ,
+              0xbe5ff000u /* -2.18688964843750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 4, j=7 == max.err=1.11e-12 ==*/
+              0xb2c85b90u /* -2.33247021697025047615e-08 P0.lo */
+              ,
+              0x36dd0769u /*  6.58717590340529568493e-06 P1.lo */
+              ,
+              0x3d0a17fbu /*  3.37142758071422576904e-02 P2    */
+              ,
+              0xbc3a26fdu /* -1.13618345931172370910e-02 P3    */
+              ,
+              0x3b8d908au /*  4.32020891457796096801e-03 P4    */
+              ,
+              0xbae5fd07u /* -1.75467215012758970260e-03 P5    */
+              ,
+              0x3f9fa3abu /*  1.24718225002288818359e+00 P0.hi */
+              ,
+              0xbdf79000u /* -1.20880126953125000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=6 == max.err=1.62e-12 ==*/
+              0x3338b64cu /*  4.30066364742742734961e-08 P0.lo */
+              ,
+              0x374b3bc2u /*  1.21136563393520191311e-05 P1.lo */
+              ,
+              0x3d1d5ae0u /*  3.84167432785034179687e-02 P2    */
+              ,
+              0xbc6284d4u /* -1.38256140053272247314e-02 P3    */
+              ,
+              0x3bb80b0fu /*  5.61655266210436820983e-03 P4    */
+              ,
+              0xbb1fc520u /* -2.43789702653884887695e-03 P5    */
+              ,
+              0x3fa1a4cau /*  1.26284146308898925781e+00 P0.hi */
+              ,
+              0xbe050000u /* -1.29882812500000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=5 == max.err=2.45e-12 ==*/
+              0xb31f791du /* -3.71302242285764805274e-08 P0.lo */
+              ,
+              0x37e8fb97u /*  2.77737108262954279780e-05 P1.lo */
+              ,
+              0x3d34f548u /*  4.41792309284210205078e-02 P2    */
+              ,
+              0xbc8bbf28u /* -1.70589238405227661132e-02 P3    */
+              ,
+              0x3bf3c8b1u /*  7.43969576433300971984e-03 P4    */
+              ,
+              0xbb63414cu /* -3.46763711422681808471e-03 P5    */
+              ,
+              0x3fa3cd58u /*  1.27970409393310546875e+00 P0.hi */
+              ,
+              0xbe0f9000u /* -1.40197753906250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=4 == max.err=3.82e-12 ==*/
+              0xb273013fu /* -1.41447449308884642960e-08 P0.lo */
+              ,
+              0x37bd6297u /*  2.25764651986537501215e-05 P1.lo */
+              ,
+              0x3d52517au /*  5.13472333550453186035e-02 P2    */
+              ,
+              0xbcaf36eeu /* -2.13884972035884857177e-02 P3    */
+              ,
+              0x3c24fb44u /*  1.00696720182895660400e-02 P4    */
+              ,
+              0xbba61086u /* -5.06788771599531173706e-03 P5    */
+              ,
+              0x3fa62341u /*  1.29795086383819580078e+00 P0.hi */
+              ,
+              0xbe1bc000u /* -1.52099609375000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=3 == max.err=6.17e-12 ==*/
+              0xb2ca960cu /* -2.35841284279558749403e-08 P0.lo */
+              ,
+              0x3769e651u /*  1.39415069497772492468e-05 P1.lo */
+              ,
+              0x3d777af8u /*  6.04200065135955810546e-02 P2    */
+              ,
+              0xbcdfd531u /* -2.73233372718095779418e-02 P3    */
+              ,
+              0x3c6500a8u /*  1.39772072434425354003e-02 P4    */
+              ,
+              0xbbfa8189u /* -7.64483632519841194152e-03 P5    */
+              ,
+              0x3fa8ade8u /*  1.31780719757080078125e+00 P0.hi */
+              ,
+              0xbe2a0000u /* -1.66015625000000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=2 == max.err=1.04e-11 ==*/
+              0xb249e4b8u /* -1.17517444664372305851e-08 P0.lo */
+              ,
+              0x384f99c7u /*  4.94958621857222169637e-05 P1.lo */
+              ,
+              0x3d93bea0u /*  7.21409320831298828125e-02 P2    */
+              ,
+              0xbd122b21u /* -3.56856621801853179931e-02 P3    */
+              ,
+              0x3ca3be1eu /*  1.99881158769130706787e-02 P4    */
+              ,
+              0xbc4426cbu /* -1.19721395894885063171e-02 P5    */
+              ,
+              0x3fab76a7u /*  1.33955848217010498046e+00 P0.hi */
+              ,
+              0xbe3af000u /* -1.82556152343750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=1 == max.err=1.85e-11 ==*/
+              0xb37ec480u /* -5.93176991969812661409e-08 P0.lo */
+              ,
+              0x36c9a554u /*  6.00951352680567651987e-06 P1.lo */
+              ,
+              0x3db38561u /*  8.76567438244819641113e-02 P2    */
+              ,
+              0xbd440aa7u /* -4.78617213666439056396e-02 P3    */
+              ,
+              0x3cf2b2b9u /*  2.96262372285127639770e-02 P4    */
+              ,
+              0xbca0a886u /* -1.96116082370281219482e-02 P5    */
+              ,
+              0x3fae8998u /*  1.36357402801513671875e+00 P0.hi */
+              ,
+              0xbe4f4000u /* -2.02392578125000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 4, j=0 == max.err=3.51e-11 ==*/
+              0xb30ff82fu /* -3.35205037060859467601e-08 P0.lo */
+              ,
+              0x36a3e0c3u /*  4.88394425701699219644e-06 P1.lo */
+              ,
+              0x3dded957u /*  1.08812980353832244873e-01 P2    */
+              ,
+              0xbd87ce7eu /* -6.63118213415145874023e-02 P3    */
+              ,
+              0x3d3bec27u /*  4.58795092999935150146e-02 P4    */
+              ,
+              0xbd0b0983u /* -3.39446179568767547607e-02 P5    */
+              ,
+              0x3fb1f6c5u /*  1.39034330844879150390e+00 P0.hi */
+              ,
+              0xbe684000u /* -2.26806640625000000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 5, j=7 == max.err=9.30e-13 ==*/
+              0xb332bfabu /* -4.16181755724664981244e-08 P0.lo */
+              ,
+              0xb78b5cf7u /* -1.66133813763735815882e-05 P1.lo */
+              ,
+              0x3d054fbdu /*  3.25467474758625030517e-02 P2    */
+              ,
+              0xbc3204d9u /* -1.08654135838150978088e-02 P3    */
+              ,
+              0x3b86b685u /*  4.11111349239945411682e-03 P4    */
+              ,
+              0xbada695cu /* -1.66634796187281608581e-03 P5    */
+              ,
+              0x3fb4d0c2u /*  1.41262078285217285156e+00 P0.hi */
+              ,
+              0xbdff1000u /* -1.24542236328125000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=6 == max.err=1.36e-12 ==*/
+              0xb224dfdcu /* -9.59695611868482956197e-09 P0.lo */
+              ,
+              0x352aca86u /*  6.36246454632782842963e-07 P1.lo */
+              ,
+              0x3d17b8efu /*  3.70416007936000823974e-02 P2    */
+              ,
+              0xbc586bf1u /* -1.32093289867043495178e-02 P3    */
+              ,
+              0x3baf0bf9u /*  5.34200342372059822082e-03 P4    */
+              ,
+              0xbb17af17u /* -2.31451331637799739837e-03 P5    */
+              ,
+              0x3fb6e058u /*  1.42872142791748046875e+00 P0.hi */
+              ,
+              0xbe087000u /* -1.33239746093750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=5 == max.err=2.06e-12 ==*/
+              0x3331c6feu /*  4.13920062669603794347e-08 P0.lo */
+              ,
+              0x37d23ee7u /*  2.50632419920293614268e-05 P1.lo */
+              ,
+              0x3d2e434bu /*  4.25446443259716033935e-02 P2    */
+              ,
+              0xbc8565a2u /* -1.62838138639926910400e-02 P3    */
+              ,
+              0x3be7c16cu /*  7.07261823117733001708e-03 P4    */
+              ,
+              0xbb57b29fu /* -3.29128629527986049652e-03 P5    */
+              ,
+              0x3fb915f2u /*  1.44598221778869628906e+00 P0.hi */
+              ,
+              0xbe12a000u /* -1.43188476562500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=4 == max.err=3.21e-12 ==*/
+              0xb33adb85u /* -4.35061515702273027272e-08 P0.lo */
+              ,
+              0xb7aa9ce7u /* -2.03386425710050389170e-05 P1.lo */
+              ,
+              0x3d4a46b2u /*  4.93838265538215637207e-02 P2    */
+              ,
+              0xbca71b5du /* -2.03987900167703628540e-02 P3    */
+              ,
+              0x3c1cc53fu /*  9.56851150840520858764e-03 P4    */
+              ,
+              0xbb9d957cu /* -4.80907969176769256591e-03 P5    */
+              ,
+              0x3fbb773bu /*  1.46457612514495849609e+00 P0.hi */
+              ,
+              0xbe1e5000u /* -1.54602050781250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=3 == max.err=5.19e-12 ==*/
+              0xb2537337u /* -1.23080132752306781185e-08 P0.lo */
+              ,
+              0x37cb5a45u /*  2.42415208049351349472e-05 P1.lo */
+              ,
+              0x3d6db3f6u /*  5.80329522490501403808e-02 P2    */
+              ,
+              0xbcd54b98u /* -2.60370224714279174804e-02 P3    */
+              ,
+              0x3c5983e2u /*  1.32760722190141677856e-02 P4    */
+              ,
+              0xbbedab7bu /* -7.25310808047652244567e-03 P5    */
+              ,
+              0x3fbe0b3cu /*  1.48471784591674804687e+00 P0.hi */
+              ,
+              0xbe2c1000u /* -1.68029785156250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=2 == max.err=8.78e-12 ==*/
+              0xb317effcu /* -3.53756917093051015399e-08 P0.lo */
+              ,
+              0xb720a968u /* -9.57618613028898835182e-06 P1.lo */
+              ,
+              0x3d8db757u /*  6.91973492503166198730e-02 P2    */
+              ,
+              0xbd0b2cd6u /* -3.39783057570457458496e-02 P3    */
+              ,
+              0x3c9b78b4u /*  1.89784541726112365722e-02 P4    */
+              ,
+              0xbc3a136du /* -1.13571705296635627746e-02 P5    */
+              ,
+              0x3fc0dae1u /*  1.50667965412139892578e+00 P0.hi */
+              ,
+              0xbe3c4000u /* -1.83837890625000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=1 == max.err=1.56e-11 ==*/
+              0x32de8639u /*  2.59052388429381608148e-08 P0.lo */
+              ,
+              0x38242b58u /*  3.91410139854997396469e-05 P1.lo */
+              ,
+              0x3dabf5c9u /*  8.39648917317390441894e-02 P2    */
+              ,
+              0xbd3a855fu /* -4.55373488366603851318e-02 P3    */
+              ,
+              0x3ce65dd1u /*  2.81209070235490798950e-02 P4    */
+              ,
+              0xbc986509u /* -1.86028648167848587036e-02 P5    */
+              ,
+              0x3fc3f1afu /*  1.53081309795379638671e+00 P0.hi */
+              ,
+              0xbe4fd000u /* -2.02941894531250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 5, j=0 == max.err=2.97e-11 ==*/
+              0x3335b352u /*  4.23054373754894186276e-08 P0.lo */
+              ,
+              0xb782dd35u /* -1.56002151925349608063e-05 P1.lo */
+              ,
+              0x3dd52b26u /*  1.04086205363273620605e-01 P2    */
+              ,
+              0xbd811f1bu /* -6.30476102232933044433e-02 P3    */
+              ,
+              0x3d325495u /*  4.35376949608325958251e-02 P4    */
+              ,
+              0xbd03e2b9u /* -3.21986414492130279541e-02 P5    */
+              ,
+              0x3fc75eecu /*  1.55758428573608398437e+00 P0.hi */
+              ,
+              0xbe67b000u /* -2.26257324218750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 6, j=7 == max.err=7.89e-13 ==*/
+              0xb313d1d6u /* -3.44169492905166407581e-08 P0.lo */
+              ,
+              0x36c172d3u /*  5.76521551920450292527e-06 P1.lo */
+              ,
+              0x3cfec701u /*  3.11007518321275711059e-02 P2    */
+              ,
+              0xbc292d26u /* -1.03257056325674057006e-02 P3    */
+              ,
+              0x3b7fa42bu /*  3.90077638439834117889e-03 P4    */
+              ,
+              0xbacf2f19u /* -1.58068828750401735305e-03 P5    */
+              ,
+              0x3fca35d5u /*  1.57976782321929931640e+00 P0.hi */
+              ,
+              0xbdfd9000u /* -1.23809814453125000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=6 == max.err=1.16e-12 ==*/
+              0xb31f8b4eu /* -3.71467692161786544602e-08 P0.lo */
+              ,
+              0x383e3bd7u /*  4.53552602266427129507e-05 P1.lo */
+              ,
+              0x3d10e1ebu /*  3.53717021644115447998e-02 P2    */
+              ,
+              0xbc4d9cf9u /* -1.25496322289109230041e-02 P3    */
+              ,
+              0x3ba614ffu /*  5.06842089816927909851e-03 P4    */
+              ,
+              0xbb0fe578u /* -2.19568423926830291748e-03 P5    */
+              ,
+              0x3fcc418du /*  1.59575045108795166015e+00 P0.hi */
+              ,
+              0xbe075000u /* -1.32141113281250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=5 == max.err=1.75e-12 ==*/
+              0xb1d87956u /* -6.30022167769084262545e-09 P0.lo */
+              ,
+              0xb7f1f87fu /* -2.88451537926448509097e-05 P1.lo */
+              ,
+              0x3d264b5au /*  4.05992045998573303222e-02 P2    */
+              ,
+              0xbc7d67b3u /* -1.54666183516383171081e-02 P3    */
+              ,
+              0x3bdbe1a6u /*  6.71024899929761886596e-03 P4    */
+              ,
+              0xbb4ca4ceu /* -3.12261609360575675964e-03 P5    */
+              ,
+              0x3fce7192u /*  1.61284089088439941406e+00 P0.hi */
+              ,
+              0xbe10f000u /* -1.41540527343750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=4 == max.err=2.73e-12 ==*/
+              0xb3501346u /* -4.84463029692960844840e-08 P0.lo */
+              ,
+              0x37dbf5e2u /*  2.62213325186166912317e-05 P1.lo */
+              ,
+              0x3d40e60fu /*  4.70944009721279144287e-02 P2    */
+              ,
+              0xbc9eaf73u /* -1.93707700818777084350e-02 P3    */
+              ,
+              0x3c14bd6fu /*  9.07836761325597763061e-03 P4    */
+              ,
+              0xbb95872eu /* -4.56323381513357162475e-03 P5    */
+              ,
+              0x3fd0cb46u /*  1.63120341300964355468e+00 P0.hi */
+              ,
+              0xbe1c3000u /* -1.52526855468750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=3 == max.err=4.43e-12 ==*/
+              0x31a7cf23u /*  4.88388840480524777376e-09 P0.lo */
+              ,
+              0x37ca3d96u /*  2.41089546761941164731e-05 P1.lo */
+              ,
+              0x3d628969u /*  5.53068257868289947509e-02 P2    */
+              ,
+              0xbcca823eu /* -2.47203074395656585693e-02 P3    */
+              ,
+              0x3c4e6237u /*  1.25966584309935569763e-02 P4    */
+              ,
+              0xbbe18f15u /* -6.88351178541779518127e-03 P5    */
+              ,
+              0x3fd35558u /*  1.65104198455810546875e+00 P0.hi */
+              ,
+              0xbe294000u /* -1.65283203125000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=2 == max.err=7.51e-12 ==*/
+              0xb34ad7e2u /* -4.72281342922542535234e-08 P0.lo */
+              ,
+              0x36e7f3cfu /*  6.91271952746319584548e-06 P1.lo */
+              ,
+              0x3d86f9a2u /*  6.59058243036270141601e-02 P2    */
+              ,
+              0xbd041e62u /* -3.22555378079414367675e-02 P3    */
+              ,
+              0x3c93879au /*  1.80089958012104034423e-02 P4    */
+              ,
+              0xbc30a206u /* -1.07808168977499008178e-02 P5    */
+              ,
+              0x3fd61841u /*  1.67261517047882080078e+00 P0.hi */
+              ,
+              0xbe38b000u /* -1.80358886718750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=1 == max.err=1.34e-11 ==*/
+              0x318ad6a4u /*  4.04073041693209233926e-09 P0.lo */
+              ,
+              0xb716637bu /* -8.96385881787864491343e-06 P1.lo */
+              ,
+              0x3da3af2au /*  7.99239426851272583007e-02 P2    */
+              ,
+              0xbd310ca4u /* -4.32249456644058227539e-02 P3    */
+              ,
+              0x3cdaa200u /*  2.66885757446289062500e-02 P4    */
+              ,
+              0xbc90b36du /* -1.76636818796396255493e-02 P5    */
+              ,
+              0x3fd91ef0u /*  1.69625663757324218750e+00 P0.hi */
+              ,
+              0xbe4b4000u /* -1.98486328125000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 6, j=0 == max.err=2.55e-11 ==*/
+              0xb2703132u /* -1.39810243382498811115e-08 P0.lo */
+              ,
+              0xb80328eau /* -3.12709380523301661014e-05 P1.lo */
+              ,
+              0x3dcaccb0u /*  9.90232229232788085937e-02 P2    */
+              ,
+              0xbd752031u /* -5.98451532423496246337e-02 P3    */
+              ,
+              0x3d2948f6u /*  4.13293465971946716308e-02 P4    */
+              ,
+              0xbcfa8a63u /* -3.05835660547018051147e-02 P5    */
+              ,
+              0x3fdc77e5u /*  1.72240889072418212890e+00 P0.hi */
+              ,
+              0xbe620000u /* -2.20703125000000000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 7, j=7 == max.err=6.80e-13 ==*/
+              0xb346d394u /* -4.62928966271647368557e-08 P0.lo */
+              ,
+              0xb2e06074u /* -2.61208938923118694219e-08 P1.lo */
+              ,
+              0x3cf24badu /*  2.95771006494760513305e-02 P2    */
+              ,
+              0xbc209716u /* -9.80164669454097747802e-03 P3    */
+              ,
+              0x3b72ba31u /*  3.70372482575476169586e-03 P4    */
+              ,
+              0xbac4d8e8u /* -1.50182563811540603637e-03 P5    */
+              ,
+              0x3fdf3c3du /*  1.74402582645416259765e+00 P0.hi */
+              ,
+              0xbdf6d000u /* -1.20513916015625000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=6 == max.err=1.00e-12 ==*/
+              0xb1ea241au /* -6.81440059935312092420e-09 P0.lo */
+              ,
+              0xb82e7a62u /* -4.15988106396980583667e-05 P1.lo */
+              ,
+              0x3d09c115u /*  3.36314029991626739501e-02 P2    */
+              ,
+              0xbc43307eu /* -1.19134169071912765502e-02 P3    */
+              ,
+              0x3b9db861u /*  4.81323944404721260070e-03 P4    */
+              ,
+              0xbb08bfc7u /* -2.08662613295018672943e-03 P5    */
+              ,
+              0x3fe139aau /*  1.75957226753234863281e+00 P0.hi */
+              ,
+              0xbe037000u /* -1.28356933593750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=5 == max.err=1.51e-12 ==*/
+              0x3319987au /*  3.57617651047803519759e-08 P0.lo */
+              ,
+              0xb77b4ff4u /* -1.49793813761789351701e-05 P1.lo */
+              ,
+              0x3d1e14dcu /*  3.85941118001937866210e-02 P2    */
+              ,
+              0xbc70946fu /* -1.46838268265128135681e-02 P3    */
+              ,
+              0x3bd0da9du /*  6.37371698394417762756e-03 P4    */
+              ,
+              0xbb4287aeu /* -2.96829221770167350769e-03 P5    */
+              ,
+              0x3fe3599bu /*  1.77617204189300537109e+00 P0.hi */
+              ,
+              0xbe0cb000u /* -1.37390136718750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=4 == max.err=2.36e-12 ==*/
+              0x31a2b18au /*  4.73500438857854533125e-09 P0.lo */
+              ,
+              0xb7f733d5u /* -2.94688306894386187195e-05 P1.lo */
+              ,
+              0x3d375740u /*  4.47609424591064453125e-02 P2    */
+              ,
+              0xbc96ac20u /* -1.83926224708557128906e-02 P3    */
+              ,
+              0x3c0d505fu /*  8.62511899322271347045e-03 P4    */
+              ,
+              0xbb8e2dffu /* -4.33897925540804862976e-03 P5    */
+              ,
+              0x3fe5a12cu /*  1.79398107528686523437e+00 P0.hi */
+              ,
+              0xbe175000u /* -1.47766113281250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=3 == max.err=3.84e-12 ==*/
+              0x310f056eu /*  2.08123251965730560186e-09 P0.lo */
+              ,
+              0xb7151484u /* -8.88586873770691454410e-06 P1.lo */
+              ,
+              0x3d57486bu /*  5.25592975318431854248e-02 P2    */
+              ,
+              0xbcc05048u /* -2.34757810831069946289e-02 P3    */
+              ,
+              0x3c442232u /*  1.19710434228181838989e-02 P4    */
+              ,
+              0xbbd68b5du /* -6.54737511649727821350e-03 P5    */
+              ,
+              0x3fe816b6u /*  1.81319308280944824218e+00 P0.hi */
+              ,
+              0xbe23c000u /* -1.59912109375000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=2 == max.err=6.52e-12 ==*/
+              0x33156c9fu /*  3.47905562136929802363e-08 P0.lo */
+              ,
+              0xb7058337u /* -7.95796859165420755743e-06 P1.lo */
+              ,
+              0x3d8041ebu /*  6.26257285475730895996e-02 P2    */
+              ,
+              0xbcfafc64u /* -3.06379273533821105957e-02 P3    */
+              ,
+              0x3c8c3f45u /*  1.71200130134820938110e-02 P4    */
+              ,
+              0xbc2811d1u /* -1.02581540122628211975e-02 P5    */
+              ,
+              0x3feac243u /*  1.83405339717864990234e+00 P0.hi */
+              ,
+              0xbe327000u /* -1.74255371093750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=1 == max.err=1.16e-11 ==*/
+              0xb21fdbebu /* -9.30502164209201509947e-09 P0.lo */
+              ,
+              0x37d30273u /*  2.51543006015708670020e-05 P1.lo */
+              ,
+              0x3d9b87c9u /*  7.59425833821296691894e-02 P2    */
+              ,
+              0xbd2836b6u /* -4.10678014159202575683e-02 P3    */
+              ,
+              0x3ccfeac1u /*  2.53804940730333328247e-02 P4    */
+              ,
+              0xbc89be4au /* -1.68143697082996368408e-02 P5    */
+              ,
+              0x3fedae38u /*  1.85687923431396484375e+00 P0.hi */
+              ,
+              0xbe442000u /* -1.91528320312500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 7, j=0 == max.err=2.23e-11 ==*/
+              0xb251c225u /* -1.22095444865522040345e-08 P0.lo */
+              ,
+              0xb84d98f2u /* -4.90182501380331814289e-05 P1.lo */
+              ,
+              0x3dc0b323u /*  9.40916761755943298339e-02 P2    */
+              ,
+              0xbd68f7b9u /* -5.68768717348575592041e-02 P3    */
+              ,
+              0x3d210e9du /*  3.93205769360065460205e-02 P4    */
+              ,
+              0xbcee9ba6u /* -2.91269533336162567138e-02 P5    */
+              ,
+              0x3ff0e859u /*  1.88209068775177001953e+00 P0.hi */
+              ,
+              0xbe59b000u /* -2.12585449218750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 8, j=7 == max.err=5.94e-13 ==*/
+              0x3225862du /*  9.63477209126040179398e-09 P0.lo */
+              ,
+              0x37046313u /*  7.89088062447262927889e-06 P1.lo */
+              ,
+              0x3ce63e0fu /*  2.81057637184858322143e-02 P2    */
+              ,
+              0xbc18ab6au /* -9.31821204721927642822e-03 P3    */
+              ,
+              0x3b67039au /*  3.52499494329094886779e-03 P4    */
+              ,
+              0xbabb8afcu /* -1.43083883449435234069e-03 P5    */
+              ,
+              0x3ff3924du /*  1.90290224552154541015e+00 P0.hi */
+              ,
+              0xbded8000u /* -1.15966796875000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=6 == max.err=8.76e-13 ==*/
+              0xb1bd661cu /* -5.51223244826815061969e-09 P0.lo */
+              ,
+              0xb704b4e2u /* -7.90992817201185971498e-06 P1.lo */
+              ,
+              0x3d02e90du /*  3.19605357944965362548e-02 P2    */
+              ,
+              0xbc399a8fu /* -1.13283535465598106384e-02 P3    */
+              ,
+              0x3b962673u /*  4.58222022280097007751e-03 P4    */
+              ,
+              0xbb0252d9u /* -1.98858068324625492095e-03 P5    */
+              ,
+              0x3ff57c49u /*  1.91785538196563720703e+00 P0.hi */
+              ,
+              0xbdfcd000u /* -1.23443603515625000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=5 == max.err=1.32e-12 ==*/
+              0xb25364d2u /* -1.23047403377540831570e-08 P0.lo */
+              ,
+              0x3706871fu /*  8.01848273113137111067e-06 P1.lo */
+              ,
+              0x3d163de6u /*  3.66801247000694274902e-02 P2    */
+              ,
+              0xbc64d275u /* -1.39661924913525581359e-02 P3    */
+              ,
+              0x3bc6e393u /*  6.06960942968726158142e-03 P4    */
+              ,
+              0xbb3972c4u /* -2.82971654087305068969e-03 P5    */
+              ,
+              0x3ff78712u /*  1.93380951881408691406e+00 P0.hi */
+              ,
+              0xbe073000u /* -1.32019042968750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=4 == max.err=2.07e-12 ==*/
+              0x32efaf02u /*  2.79028462557562306756e-08 P0.lo */
+              ,
+              0x37a7410bu /*  1.99382393475389108061e-05 P1.lo */
+              ,
+              0x3d2e4523u /*  4.25464026629924774169e-02 P2    */
+              ,
+              0xbc8f5943u /* -1.74986179918050765991e-02 P3    */
+              ,
+              0x3c069d8bu /*  8.21627210825681686401e-03 P4    */
+              ,
+              0xbb8796afu /* -4.13783593103289604187e-03 P5    */
+              ,
+              0x3ff9b783u /*  1.95091283321380615234e+00 P0.hi */
+              ,
+              0xbe115000u /* -1.41906738281250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=3 == max.err=3.38e-12 ==*/
+              0xb34bba0au /* -4.74338222034020873252e-08 P0.lo */
+              ,
+              0xb805aafau /* -3.18689053528942167758e-05 P1.lo */
+              ,
+              0x3d4caa16u /*  4.99668940901756286621e-02 P2    */
+              ,
+              0xbcb705f7u /* -2.23417114466428756713e-02 P3    */
+              ,
+              0x3c3ae74du /*  1.14076854661107063293e-02 P4    */
+              ,
+              0xbbccacecu /* -6.24619983136653900146e-03 P5    */
+              ,
+              0x3ffc13a8u /*  1.96934986114501953125e+00 P0.hi */
+              ,
+              0xbe1d1000u /* -1.53381347656250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=2 == max.err=5.74e-12 ==*/
+              0x333d065au /*  4.40107683630230894777e-08 P0.lo */
+              ,
+              0x367a1e99u /*  3.72707131646166089922e-06 P1.lo */
+              ,
+              0x3d73e96au /*  5.95487728714942932128e-02 P2    */
+              ,
+              0xbceef220u /* -2.91681885719299316406e-02 P3    */
+              ,
+              0x3c85b33cu /*  1.63208171725273132324e-02 P4    */
+              ,
+              0xbc20678eu /* -9.79031436145305633544e-03 P5    */
+              ,
+              0x3ffea325u /*  1.98935377597808837890e+00 P0.hi */
+              ,
+              0xbe2b1000u /* -1.67053222656250000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=1 == max.err=1.03e-11 ==*/
+              0x3399b5a0u /*  7.15765509085031226277e-08 P0.lo */
+              ,
+              0x37e55662u /*  2.73391524387989193201e-05 P1.lo */
+              ,
+              0x3d93ed03u /*  7.22294077277183532714e-02 P2    */
+              ,
+              0xbd203566u /* -3.91134247183799743652e-02 P3    */
+              ,
+              0x3cc64c6au /*  2.42063589394092559814e-02 P4    */
+              ,
+              0xbc838565u /* -1.60548184067010879516e-02 P5    */
+              ,
+              0x4000b7f0u /*  2.01122665405273437500e+00 P0.hi */
+              ,
+              0xbe3be000u /* -1.83471679687500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 8, j=0 == max.err=1.97e-11 ==*/
+              0xb19f228au /* -4.63143567941415312816e-09 P0.lo */
+              ,
+              0x36e064c9u /*  6.68745315124397166073e-06 P1.lo */
+              ,
+              0x3db755afu /*  8.95188972353935241699e-02 P2    */
+              ,
+              0xbd5dfb8eu /* -5.41949793696403503417e-02 P3    */
+              ,
+              0x3d19aeb1u /*  3.75201143324375152587e-02 P4    */
+              ,
+              0xbce3f1e0u /* -2.78252959251403808593e-02 P5    */
+              ,
+              0x4002437bu /*  2.03536868095397949218e+00 P0.hi */
+              ,
+              0xbe507000u /* -2.03552246093750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i= 9, j=7 == max.err=5.26e-13 ==*/
+              0xb3979498u /* -7.05851448401517700403e-08 P0.lo */
+              ,
+              0x377776c6u /*  1.47500013554235920310e-05 P1.lo */
+              ,
+              0x3cdb1d40u /*  2.67473459243774414062e-02 P2    */
+              ,
+              0xbc1186ffu /* -8.88228323310613632202e-03 P3    */
+              ,
+              0x3b5c869du /*  3.36495717056095600128e-03 P4    */
+              ,
+              0xbab33b98u /* -1.36743765324354171752e-03 P5    */
+              ,
+              0x400389cdu /*  2.05528569221496582031e+00 P0.hi */
+              ,
+              0xbde34000u /* -1.10961914062500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=6 == max.err=7.76e-13 ==*/
+              0x338d1e7fu /*  6.57137135817720263730e-08 P0.lo */
+              ,
+              0xb6c5b1a3u /* -5.89173714615753851830e-06 P1.lo */
+              ,
+              0x3cf93839u /*  3.04223168641328811645e-02 P2    */
+              ,
+              0xbc30f896u /* -1.08014550060033798217e-02 P3    */
+              ,
+              0x3b8f6043u /*  4.37548896297812461853e-03 P4    */
+              ,
+              0xbaf92c35u /* -1.90103671047836542129e-03 P5    */
+              ,
+              0x4004742au /*  2.06959009170532226562e+00 P0.hi */
+              ,
+              0xbdf1d000u /* -1.18072509765625000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=5 == max.err=1.17e-12 ==*/
+              0x33ae59c1u /*  8.11883253959422290790e-08 P0.lo */
+              ,
+              0xb6d0fc04u /* -6.22822153673041611909e-06 P1.lo */
+              ,
+              0x3d0f0b85u /*  3.49230952560901641845e-02 P2    */
+              ,
+              0xbc5a3f0cu /* -1.33206956088542938232e-02 P3    */
+              ,
+              0x3bbdfa06u /*  5.79762738198041915893e-03 P4    */
+              ,
+              0xbb315758u /* -2.70601175725460052490e-03 P5    */
+              ,
+              0x40056e24u /*  2.08484745025634765625e+00 P0.hi */
+              ,
+              0xbe014000u /* -1.26220703125000000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=4 == max.err=1.84e-12 ==*/
+              0xb3818e1bu /* -6.03287944045405311044e-08 P0.lo */
+              ,
+              0xb73506d8u /* -1.07900341390632092952e-05 P1.lo */
+              ,
+              0x3d25f776u /*  4.05192002654075622558e-02 P2    */
+              ,
+              0xbc88c4d7u /* -1.66954230517148971557e-02 P3    */
+              ,
+              0x3c00a0a7u /*  7.85080250352621078491e-03 P4    */
+              ,
+              0xbb81b4b5u /* -3.95830953493714332580e-03 P5    */
+              ,
+              0x40067a0cu /*  2.10119915008544921875e+00 P0.hi */
+              ,
+              0xbe0ae000u /* -1.35620117187500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=3 == max.err=3.01e-12 ==*/
+              0x3355856fu /*  4.97142842448283772682e-08 P0.lo */
+              ,
+              0xb6601704u /* -3.33919979311758652329e-06 P1.lo */
+              ,
+              0x3d42f8a5u /*  4.76004071533679962158e-02 P2    */
+              ,
+              0xbcaeaf9du /* -2.13239733129739761352e-02 P3    */
+              ,
+              0x3c32a80cu /*  1.09043233096599578857e-02 P4    */
+              ,
+              0xbbc3de3fu /* -5.97742153331637382507e-03 P5    */
+              ,
+              0x40079ac2u /*  2.11882066726684570312e+00 P0.hi */
+              ,
+              0xbe162000u /* -1.46606445312500000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=2 == max.err=5.12e-12 ==*/
+              0x331f0c66u /*  3.70313486541817837860e-08 P0.lo */
+              ,
+              0x369661bdu /*  4.48172659162082709372e-06 P1.lo */
+              ,
+              0x3d687040u /*  5.67476749420166015625e-02 P2    */
+              ,
+              0xbce426ecu /* -2.78505906462669372558e-02 P3    */
+              ,
+              0x3c7fb47eu /*  1.56069975346326828002e-02 P4    */
+              ,
+              0xbc19906du /* -9.37281269580125808715e-03 P5    */
+              ,
+              0x4008d3eeu /*  2.13793516159057617187e+00 P0.hi */
+              ,
+              0xbe237000u /* -1.59606933593750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=1 == max.err=9.20e-12 ==*/
+              0x3362e182u /*  5.28248236264516890514e-08 P0.lo */
+              ,
+              0x363bd205u /*  2.79874188890971709042e-06 P1.lo */
+              ,
+              0x3d8d058eu /*  6.88582509756088256835e-02 P2    */
+              ,
+              0xbd1909f9u /* -3.73630262911319732666e-02 P3    */
+              ,
+              0x3cbdb5beu /*  2.31579504907131195068e-02 P4    */
+              ,
+              0xbc7bef9eu /* -1.53769534081220626831e-02 P5    */
+              ,
+              0x400a2a48u /*  2.15883064270019531250e+00 P0.hi */
+              ,
+              0xbe337000u /* -1.75231933593750000000e-01 P1.hi */
+          },
+          {
+              /*== i= 9, j=0 == max.err=1.76e-11 ==*/
+              0x33a97172u /*  7.89031133763273828662e-08 P0.lo */
+              ,
+              0x35134a04u /*  5.48694742974475957453e-07 P1.lo */
+              ,
+              0x3daedac3u /*  8.53781923651695251464e-02 P2    */
+              ,
+              0xbd542707u /* -5.17950318753719329833e-02 P3    */
+              ,
+              0x3d131936u /*  3.59127148985862731933e-02 P4    */
+              ,
+              0xbcda6d3fu /* -2.66634207218885421752e-02 P5    */
+              ,
+              0x400ba413u /*  2.18188929557800292968e+00 P0.hi */
+              ,
+              0xbe471000u /* -1.94396972656250000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=10, j=7 == max.err=4.71e-13 ==*/
+              0xb1d671fau /* -6.24117735270601770025e-09 P0.lo */
+              ,
+              0x36eff181u /*  7.15086980562773533165e-06 P1.lo */
+              ,
+              0x3cd10e8cu /*  2.55196318030357360839e-02 P2    */
+              ,
+              0xbc0b23b4u /* -8.49239900708198547363e-03 P3    */
+              ,
+              0x3b5329a4u /*  3.22208646684885025024e-03 P4    */
+              ,
+              0xbaabd05au /* -1.31083582527935504913e-03 P5    */
+              ,
+              0x400cdbb6u /*  2.20091009140014648437e+00 P0.hi */
+              ,
+              0xbdd90000u /* -1.05957031250000000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=6 == max.err=6.96e-13 ==*/
+              0xb38e2138u /* -6.61843273519480135291e-08 P0.lo */
+              ,
+              0x3701a148u /*  7.72655039327219128608e-06 P1.lo */
+              ,
+              0x3cedd854u /*  2.90338173508644104003e-02 P2    */
+              ,
+              0xbc2940a8u /* -1.03303566575050354003e-02 P3    */
+              ,
+              0x3b89540fu /*  4.19092876836657524108e-03 P4    */
+              ,
+              0xbaeeed40u /* -1.82286649942398071289e-03 P5    */
+              ,
+              0x400dbb84u /*  2.21457004547119140625e+00 P0.hi */
+              ,
+              0xbde6f000u /* -1.12762451171875000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=5 == max.err=1.05e-12 ==*/
+              0xb3d0dae3u /* -9.72557003819929377641e-08 P0.lo */
+              ,
+              0xb79bee3eu /* -1.85883800440933555364e-05 P1.lo */
+              ,
+              0x3d088e77u /*  3.33389900624752044677e-02 P2    */
+              ,
+              0xbc50cb04u /* -1.27437151968479156494e-02 P3    */
+              ,
+              0x3bb60506u /*  5.55479805916547775268e-03 P4    */
+              ,
+              0xbb2a19b7u /* -2.59552686475217342376e-03 P5    */
+              ,
+              0x400eaa38u /*  2.22913932800292968750e+00 P0.hi */
+              ,
+              0xbdf6d000u /* -1.20513916015625000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=4 == max.err=1.66e-12 ==*/
+              0xb3a7917bu /* -7.80300624114715901669e-08 P0.lo */
+              ,
+              0x36af9f6eu /*  5.23396647622575983405e-06 P1.lo */
+              ,
+              0x3d1e7d34u /*  3.86936217546463012695e-02 P2    */
+              ,
+              0xbc82e38bu /* -1.59776415675878524780e-02 P3    */
+              ,
+              0x3bf68fcau /*  7.52446521073579788208e-03 P4    */
+              ,
+              0xbb78e68eu /* -3.79792181774973869323e-03 P5    */
+              ,
+              0x400faa09u /*  2.24475312232971191406e+00 P0.hi */
+              ,
+              0xbe04a000u /* -1.29516601562500000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=3 == max.err=2.70e-12 ==*/
+              0xb31310a7u /* -3.42412498355315619846e-08 P0.lo */
+              ,
+              0xb837da05u /* -4.38336464867461472749e-05 P1.lo */
+              ,
+              0x3d3a407cu /*  4.54716533422470092773e-02 P2    */
+              ,
+              0xbca73c86u /* -2.04146020114421844482e-02 P3    */
+              ,
+              0x3c2b4a82u /*  1.04547757655382156372e-02 P4    */
+              ,
+              0xbbbbff3au /* -5.73721248656511306762e-03 P5    */
+              ,
+              0x4010bdb9u /*  2.26157975196838378906e+00 P0.hi */
+              ,
+              0xbe0f5000u /* -1.39953613281250000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=2 == max.err=4.61e-12 ==*/
+              0xb3d623e6u /* -9.97168143612725543789e-08 P0.lo */
+              ,
+              0xb6e06b43u /* -6.68820712235174141824e-06 P1.lo */
+              ,
+              0x3d5e20eau /*  5.42306080460548400878e-02 P2    */
+              ,
+              0xbcda8224u /* -2.66733840107917785644e-02 P3    */
+              ,
+              0x3c7541e8u /*  1.49693265557289123535e-02 P4    */
+              ,
+              0xbc1372c4u /* -8.99953022599220275878e-03 P5    */
+              ,
+              0x4011e8c7u /*  2.27983260154724121093e+00 P0.hi */
+              ,
+              0xbe1c1000u /* -1.52404785156250000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=1 == max.err=8.30e-12 ==*/
+              0x334b6f88u /*  4.73660577426926465705e-08 P0.lo */
+              ,
+              0x372a8210u /*  1.01630721474066376686e-05 P1.lo */
+              ,
+              0x3d86d2dbu /*  6.58318623900413513183e-02 P2    */
+              ,
+              0xbd12a21au /* -3.57991233468055725097e-02 P3    */
+              ,
+              0x3cb608f1u /*  2.22210604697465896606e-02 P4    */
+              ,
+              0xbc720047u /* -1.47705739364027976989e-02 P5    */
+              ,
+              0x40132fb7u /*  2.29978728294372558593e+00 P0.hi */
+              ,
+              0xbe2b6000u /* -1.67358398437500000000e-01 P1.hi */
+          },
+          {
+              /*== i=10, j=0 == max.err=1.59e-11 ==*/
+              0x3383461au /*  6.11291426366733503527e-08 P0.lo */
+              ,
+              0xb70f75c4u /* -8.55088364914990961551e-06 P1.lo */
+              ,
+              0x3da73f92u /*  8.16642194986343383789e-02 P2    */
+              ,
+              0xbd4b5e5eu /* -4.96505424380302429199e-02 P3    */
+              ,
+              0x3d0d3657u /*  3.44756506383419036865e-02 P4    */
+              ,
+              0xbcd1e83eu /* -2.56234370172023773193e-02 P5    */
+              ,
+              0x4014988au /*  2.32181024551391601562e+00 P0.hi */
+              ,
+              0xbe3e2000u /* -1.85668945312500000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=11, j=7 == max.err=4.26e-13 ==*/
+              0xb3b03f50u /* -8.20715513327741064131e-08 P0.lo */
+              ,
+              0x37816a36u /*  1.54274566739331930875e-05 P1.lo */
+              ,
+              0x3cc80a85u /*  2.44190786033868789672e-02 P2    */
+              ,
+              0xbc056e3au /* -8.14395584166049957275e-03 P3    */
+              ,
+              0x3b4ac9c7u /*  3.09430225752294063568e-03 P4    */
+              ,
+              0xbaa52b88u /* -1.26014743000268936157e-03 P5    */
+              ,
+              0x4015c238u /*  2.33997917175292968750e+00 P0.hi */
+              ,
+              0xbdcf5000u /* -1.01226806640625000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=6 == max.err=6.31e-13 ==*/
+              0xb25842e3u /* -1.25880630363894852052e-08 P0.lo */
+              ,
+              0x3661a02fu /*  3.36208518092462327331e-06 P1.lo */
+              ,
+              0x3ce3a6edu /*  2.77895573526620864868e-02 P2    */
+              ,
+              0xbc225a77u /* -9.90926381200551986694e-03 P3    */
+              ,
+              0x3b83eae3u /*  4.02580341324210166931e-03 P4    */
+              ,
+              0xbae5bf60u /* -1.75283476710319519042e-03 P5    */
+              ,
+              0x40169806u /*  2.35302877426147460937e+00 P0.hi */
+              ,
+              0xbddca000u /* -1.07727050781250000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=5 == max.err=9.59e-13 ==*/
+              0xb2888228u /* -1.58916719783519511111e-08 P0.lo */
+              ,
+              0x36881109u /*  4.05509899792377837002e-06 P1.lo */
+              ,
+              0x3d02be68u /*  3.19198668003082275390e-02 P2    */
+              ,
+              0xbc48576au /* -1.22278723865747451782e-02 P3    */
+              ,
+              0x3baee5d9u /*  5.33745856955647468566e-03 P4    */
+              ,
+              0xbb239c53u /* -2.49650026671588420867e-03 P5    */
+              ,
+              0x40177c17u /*  2.36694884300231933593e+00 P0.hi */
+              ,
+              0xbdebe000u /* -1.15173339843750000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=4 == max.err=1.50e-12 ==*/
+              0xb3a54fadu /* -7.69790418075899651739e-08 P0.lo */
+              ,
+              0x37483f05u /*  1.19356018331018276512e-05 P1.lo */
+              ,
+              0x3d17cabfu /*  3.70585881173610687255e-02 P2    */
+              ,
+              0xbc7b42cdu /* -1.53357507660984992980e-02 P3    */
+              ,
+              0x3becfc9au /*  7.23226089030504226684e-03 P4    */
+              ,
+              0xbb6f7991u /* -3.65409650839865207672e-03 P5    */
+              ,
+              0x4018708bu /*  2.38186907768249511718e+00 P0.hi */
+              ,
+              0xbdfd8000u /* -1.23779296875000000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=3 == max.err=2.46e-12 ==*/
+              0xb3c4321bu /* -9.13607536290328425820e-08 P0.lo */
+              ,
+              0xb7c1741cu /* -2.30614605243317782878e-05 P1.lo */
+              ,
+              0x3d3271b0u /*  4.35654520988464355468e-02 P2    */
+              ,
+              0xbca09286u /* -1.96011178195476531982e-02 P3    */
+              ,
+              0x3c24b160u /*  1.00520551204681396484e-02 P4    */
+              ,
+              0xbbb4ef4au /* -5.52168954163789749145e-03 P5    */
+              ,
+              0x40197807u /*  2.39795088768005371093e+00 P0.hi */
+              ,
+              0xbe090000u /* -1.33789062500000000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=2 == max.err=4.19e-12 ==*/
+              0x33d7ce17u /*  1.00492052013123611686e-07 P0.lo */
+              ,
+              0xb78fa31eu /* -1.71228857652749866247e-05 P1.lo */
+              ,
+              0x3d54e5ceu /*  5.19769713282585144042e-02 P2    */
+              ,
+              0xbcd1e0d1u /* -2.56198961287736892700e-02 P3    */
+              ,
+              0x3c6be49du /*  1.43977673724293708801e-02 P4    */
+              ,
+              0xbc0df523u /* -8.66440217941999435424e-03 P5    */
+              ,
+              0x401a95e5u /*  2.41539883613586425781e+00 P0.hi */
+              ,
+              0xbe153000u /* -1.45690917968750000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=1 == max.err=7.56e-12 ==*/
+              0xb3e43fecu /* -1.06287046719444333575e-07 P0.lo */
+              ,
+              0x36ed5c91u /*  7.07392655385774560272e-06 P1.lo */
+              ,
+              0x3d814647u /*  6.31223246455192565917e-02 P2    */
+              ,
+              0xbd0ce5e2u /* -3.43989208340644836425e-02 P3    */
+              ,
+              0x3caf26bcu /*  2.13807746767997741699e-02 P4    */
+              ,
+              0xbc69134eu /* -1.42257940024137496948e-02 P5    */
+              ,
+              0x401bce7fu /*  2.43447852134704589843e+00 P0.hi */
+              ,
+              0xbe23e000u /* -1.60034179687500000000e-01 P1.hi */
+          },
+          {
+              /*== i=11, j=0 == max.err=1.45e-11 ==*/
+              0x338235b0u /*  6.06336243436089716851e-08 P0.lo */
+              ,
+              0x36d18431u /*  6.24407448412966914474e-06 P1.lo */
+              ,
+              0x3da07023u /*  7.83388838171958923339e-02 P2    */
+              ,
+              0xbd437fefu /* -4.77294288575649261474e-02 P3    */
+              ,
+              0x3d07edddu /*  3.31858284771442413330e-02 P4    */
+              ,
+              0xbcca3f3bu /* -2.46883537620306015014e-02 P5    */
+              ,
+              0x401d2795u /*  2.45554089546203613281e+00 P0.hi */
+              ,
+              0xbe35e000u /* -1.77612304687500000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=12, j=7 == max.err=3.89e-13 ==*/
+              0x33285140u /*  3.91894445783691480755e-08 P0.lo */
+              ,
+              0xb685fa02u /* -3.99281361751491203904e-06 P1.lo */
+              ,
+              0x3cbff7c2u /*  2.34335698187351226806e-02 P2    */
+              ,
+              0xbc00504fu /* -7.83164706081151962280e-03 P3    */
+              ,
+              0x3b434465u /*  2.97954049892723560333e-03 P4    */
+              ,
+              0xba9f3151u /* -1.21454347390681505203e-03 P5    */
+              ,
+              0x401e445bu /*  2.47292208671569824218e+00 P0.hi */
+              ,
+              0xbdc65000u /* -9.68322753906250000000e-02 P1.hi */
+          },
+          {
+              /*== i=12, j=6 == max.err=5.76e-13 ==*/
+              0x33bd0d27u /*  8.80339072750757622998e-08 P0.lo */
+              ,
+              0x35edff66u /*  1.77322067429486196488e-06 P1.lo */
+              ,
+              0x3cda85fdu /*  2.66752187162637710571e-02 P2    */
+              ,
+              0xbc1c2ad3u /* -9.53169446438550949096e-03 P3    */
+              ,
+              0x3b7e1c9eu /*  3.87743813917040824890e-03 P4    */
+              ,
+              0xbadd7c2eu /* -1.68979703448712825775e-03 P5    */
+              ,
+              0x401f10f0u /*  2.48540878295898437500e+00 P0.hi */
+              ,
+              0xbdd32000u /* -1.03088378906250000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=5 == max.err=8.77e-13 ==*/
+              0xb2c110feu /* -2.24758842648498102789e-08 P0.lo */
+              ,
+              0xb6ae035au /* -5.18599426868604496121e-06 P1.lo */
+              ,
+              0x3cfb12fdu /*  3.06487027555704116821e-02 P2    */
+              ,
+              0xbc40c29cu /* -1.17651484906673431396e-02 P3    */
+              ,
+              0x3ba87ee9u /*  5.14208199456334114074e-03 P4    */
+              ,
+              0xbb1dc412u /* -2.40731658414006233215e-03 P5    */
+              ,
+              0x401feb36u /*  2.49873113632202148437e+00 P0.hi */
+              ,
+              0xbde1c000u /* -1.10229492187500000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=4 == max.err=1.37e-12 ==*/
+              0x333d710au /*  4.41078000790184887591e-08 P0.lo */
+              ,
+              0xb7bbdab0u /* -2.23939714487642049789e-05 P1.lo */
+              ,
+              0x3d11cab4u /*  3.55937033891677856445e-02 P2    */
+              ,
+              0xbc71d29au /* -1.47596839815378189086e-02 P3    */
+              ,
+              0x3be45feau /*  6.96944165974855422973e-03 P4    */
+              ,
+              0xbb66fb2eu /* -3.52449296042323112487e-03 P5    */
+              ,
+              0x4020d537u /*  2.51301360130310058593e+00 P0.hi */
+              ,
+              0xbdf2a000u /* -1.18469238281250000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=3 == max.err=2.25e-12 ==*/
+              0x32eb27a0u /*  2.73756199931085575371e-08 P0.lo */
+              ,
+              0x3809e838u /*  3.28796159010380506515e-05 P1.lo */
+              ,
+              0x3d2b7265u /*  4.18571420013904571533e-02 P2    */
+              ,
+              0xbc9a96aau /* -1.88706703484058380126e-02 P3    */
+              ,
+              0x3c1ec133u /*  9.68961697071790695190e-03 P4    */
+              ,
+              0xbbae911bu /* -5.32735651358962059020e-03 P5    */
+              ,
+              0x4021d180u /*  2.52841186523437500000e+00 P0.hi */
+              ,
+              0xbe034000u /* -1.28173828125000000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=2 == max.err=3.84e-12 ==*/
+              0x3381b301u /*  6.03959122713604301679e-08 P0.lo */
+              ,
+              0x377aa602u /*  1.49398128996836021542e-05 P1.lo */
+              ,
+              0x3d4c9f49u /*  4.99565936625003814697e-02 P2    */
+              ,
+              0xbcca1fd3u /* -2.46733780950307846069e-02 P3    */
+              ,
+              0x3c6375afu /*  1.38830384239554405212e-02 P4    */
+              ,
+              0xbc0900d7u /* -8.36201664060354232788e-03 P5    */
+              ,
+              0x4022e34bu /*  2.54512286186218261718e+00 P0.hi */
+              ,
+              0xbe0ef000u /* -1.39587402343750000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=1 == max.err=6.93e-12 ==*/
+              0xb31d1b8eu /* -3.65794718959477904718e-08 P0.lo */
+              ,
+              0xb79166c1u /* -1.73331955011235550045e-05 P1.lo */
+              ,
+              0x3d789860u /*  6.06921911239624023437e-02 P2    */
+              ,
+              0xbd07bddbu /* -3.31400446593761444091e-02 P3    */
+              ,
+              0x3ca8f296u /*  2.06234864890575408935e-02 P4    */
+              ,
+              0xbc610402u /* -1.37338656932115554809e-02 P5    */
+              ,
+              0x40240ec7u /*  2.56340193748474121093e+00 P0.hi */
+              ,
+              0xbe1d0000u /* -1.53320312500000000000e-01 P1.hi */
+          },
+          {
+              /*== i=12, j=0 == max.err=1.33e-11 ==*/
+              0xb295ad77u /* -1.74247656303805342759e-08 P0.lo */
+              ,
+              0xb789e538u /* -1.64384109666571021080e-05 P1.lo */
+              ,
+              0x3d9a53abu /*  7.53548964858055114746e-02 P2    */
+              ,
+              0xbd3c6b6eu /* -4.60008904337882995605e-02 P3    */
+              ,
+              0x3d0329f7u /*  3.20224426686763763427e-02 P4    */
+              ,
+              0xbcc352f8u /* -2.38432735204696655273e-02 P5    */
+              ,
+              0x40255980u /*  2.58358764648437500000e+00 P0.hi */
+              ,
+              0xbe2e5000u /* -1.70227050781250000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=13, j=7 == max.err=3.58e-13 ==*/
+              0x33c0fcd6u /*  8.98668730542340199463e-08 P0.lo */
+              ,
+              0xb7853c5fu /* -1.58829479914857074618e-05 P1.lo */
+              ,
+              0x3cb8b845u /*  2.25488040596246719360e-02 P2    */
+              ,
+              0xbbf769dfu /* -7.55046261474490165710e-03 P3    */
+              ,
+              0x3b3c7a94u /*  2.87595856934785842895e-03 P4    */
+              ,
+              0xba99c97bu /* -1.17330194916576147079e-03 P5    */
+              ,
+              0x40266a82u /*  2.60025072097778320312e+00 P0.hi */
+              ,
+              0xbdbe2000u /* -9.28344726562500000000e-02 P1.hi */
+          },
+          {
+              /*== i=13, j=6 == max.err=5.30e-13 ==*/
+              0x33d5522eu /*  9.93353381772976717911e-08 P0.lo */
+              ,
+              0x3740d6e4u /*  1.14941249194089323282e-05 P1.lo */
+              ,
+              0x3cd25332u /*  2.56744362413883209228e-02 P2    */
+              ,
+              0xbc169855u /* -9.19159222394227981567e-03 P3    */
+              ,
+              0x3b7554d4u /*  3.74345947057008743286e-03 P4    */
+              ,
+              0xbad6025bu /* -1.63276062812656164169e-03 P5    */
+              ,
+              0x40272eb1u /*  2.61222481727600097656e+00 P0.hi */
+              ,
+              0xbdca8000u /* -9.88769531250000000000e-02 P1.hi */
+          },
+          {
+              /*== i=13, j=5 == max.err=8.07e-13 ==*/
+              0x33ad36e1u /*  8.06592268531858280766e-08 P0.lo */
+              ,
+              0xb64042b7u /* -2.86490626422164496034e-06 P1.lo */
+              ,
+              0x3cf1b7deu /*  2.95066200196743011474e-02 P2    */
+              ,
+              0xbc39ed7fu /* -1.13481273874640464782e-02 P3    */
+              ,
+              0x3ba2b61au /*  4.96555585414171218872e-03 P4    */
+              ,
+              0xbb187987u /* -2.32657953165471553802e-03 P5    */
+              ,
+              0x4028000du /*  2.62500309944152832031e+00 P0.hi */
+              ,
+              0xbdd89000u /* -1.05743408203125000000e-01 P1.hi */
+          },
+          {
+              /*== i=13, j=4 == max.err=1.27e-12 ==*/
+              0xb25fb74cu /* -1.30219852678692404879e-08 P0.lo */
+              ,
+              0x37465218u /*  1.18208336061798036098e-05 P1.lo */
+              ,
+              0x3d0c6604u /*  3.42769771814346313476e-02 P2    */
+              ,
+              0xbc694fd7u /* -1.42402267083525657653e-02 P3    */
+              ,
+              0x3bdc96ccu /*  6.73184357583522796630e-03 P4    */
+              ,
+              0xbb5f4997u /* -3.40709625743329524993e-03 P5    */
+              ,
+              0x4028e08fu /*  2.63870596885681152343e+00 P0.hi */
+              ,
+              0xbde8e000u /* -1.13708496093750000000e-01 P1.hi */
+          },
+          {
+              /*== i=13, j=3 == max.err=2.07e-12 ==*/
+              0x3304c419u /*  3.09119947417002549627e-08 P0.lo */
+              ,
+              0xb69ac77cu /* -4.61278068542014807462e-06 P1.lo */
+              ,
+              0x3d252779u /*  4.03208471834659576416e-02 P2    */
+              ,
+              0xbc95307eu /* -1.82115994393825531005e-02 P3    */
+              ,
+              0x3c19620bu /*  9.36175417155027389526e-03 P4    */
+              ,
+              0xbba8cb89u /* -5.15121640637516975402e-03 P5    */
+              ,
+              0x4029d2abu /*  2.65348315238952636718e+00 P0.hi */
+              ,
+              0xbdfbe000u /* -1.22985839843750000000e-01 P1.hi */
+          },
+          {
+              /*== i=13, j=2 == max.err=3.55e-12 ==*/
+              0x33f7c088u /*  1.15368550268613034859e-07 P0.lo */
+              ,
+              0x37f33b1bu /*  2.89953804895048961043e-05 P1.lo */
+              ,
+              0x3d452d03u /*  4.81386296451091766357e-02 P2    */
+              ,
+              0xbcc31f9bu /* -2.38187815994024276733e-02 P3    */
+              ,
+              0x3c5bd361u /*  1.34170958772301673889e-02 P4    */
+              ,
+              0xbc04827du /* -8.08775145560503005981e-03 P5    */
+              ,
+              0x402ad97fu /*  2.66952490806579589843e+00 P0.hi */
+              ,
+              0xbe094000u /* -1.34033203125000000000e-01 P1.hi */
+          },
+          {
+              /*== i=13, j=1 == max.err=6.40e-12 ==*/
+              0x325084f8u /*  1.21374270634078129660e-08 P0.lo */
+              ,
+              0x36ea9ceau /*  6.99201063980581238865e-06 P1.lo */
+              ,
+              0x3d6fa207u /*  5.85041306912899017333e-02 P2    */
+              ,
+              0xbd031525u /* -3.20025868713855743408e-02 P3    */
+              ,
+              0x3ca353e1u /*  1.99374575167894363403e-02 P4    */
+              ,
+              0xbc59b330u /* -1.32873505353927612304e-02 P5    */
+              ,
+              0x402bf915u /*  2.68707776069641113281e+00 P0.hi */
+              ,
+              0xbe16d000u /* -1.47277832031250000000e-01 P1.hi */
+          },
+          {
+              /*== i=13, j=0 == max.err=1.23e-11 ==*/
+              0xb2cd5ac6u /* -2.39064199547556199831e-08 P0.lo */
+              ,
+              0x368035c6u /*  3.82095731765730306506e-06 P1.lo */
+              ,
+              0x3d94d201u /*  7.26661756634712219238e-02 P2    */
+              ,
+              0xbd360465u /* -4.44377847015857696533e-02 P3    */
+              ,
+              0x3cfdafe3u /*  3.09676583856344223022e-02 P4    */
+              ,
+              0xbcbd08fau /* -2.30755694210529327392e-02 P5    */
+              ,
+              0x402d36c8u /*  2.70646858215332031250e+00 P0.hi */
+              ,
+              0xbe278000u /* -1.63574218750000000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=14, j=7 == max.err=3.31e-13 ==*/
+              0x33ff52d8u /*  1.18894320166873512789e-07 P0.lo */
+              ,
+              0xb6c409edu /* -5.84241070100688375532e-06 P1.lo */
+              ,
+              0x3cb22f59u /*  2.17510927468538284301e-02 P2    */
+              ,
+              0xbbef1369u /* -7.29601504281163215637e-03 P3    */
+              ,
+              0x3b3651e8u /*  2.78198160231113433837e-03 P4    */
+              ,
+              0xba94df89u /* -1.13581225741654634475e-03 P5    */
+              ,
+              0x402e3d21u /*  2.72248101234436035156e+00 P0.hi */
+              ,
+              0xbdb6c000u /* -8.92333984375000000000e-02 P1.hi */
+          },
+          {
+              /*== i=14, j=6 == max.err=4.90e-13 ==*/
+              0xb342a992u /* -4.53233681696474377531e-08 P0.lo */
+              ,
+              0xb72fa3dfu /* -1.04689670479274354875e-05 P1.lo */
+              ,
+              0x3ccaee0cu /*  2.47717127203941345214e-02 P2    */
+              ,
+              0xbc118cd7u /* -8.88367649167776107788e-03 P3    */
+              ,
+              0x3b6d5c78u /*  3.62184457480907440185e-03 P4    */
+              ,
+              0xbacf35cau /* -1.58088770695030689239e-03 P5    */
+              ,
+              0x402ef9b5u /*  2.73399090766906738281e+00 P0.hi */
+              ,
+              0xbdc2a000u /* -9.50317382812500000000e-02 P1.hi */
+          },
+          {
+              /*== i=14, j=5 == max.err=7.48e-13 ==*/
+              0x33dd19cfu /*  1.02958090053562045795e-07 P0.lo */
+              ,
+              0x3633db4du /*  2.68007283921178895980e-06 P1.lo */
+              ,
+              0x3ce9465eu /*  2.84759365022182464599e-02 P2    */
+              ,
+              0xbc33bd14u /* -1.09703727066516876220e-02 P3    */
+              ,
+              0x3b9d753du /*  4.80523565784096717834e-03 P4    */
+              ,
+              0xbb13a8f9u /* -2.25311354734003543853e-03 P5    */
+              ,
+              0x402fc2feu /*  2.74627637863159179687e+00 P0.hi */
+              ,
+              0xbdd04000u /* -1.01684570312500000000e-01 P1.hi */
+          },
+          {
+              /*== i=14, j=4 == max.err=1.17e-12 ==*/
+              0x33a1f5e2u /*  7.54187254869975731708e-08 P0.lo */
+              ,
+              0xb739f6f4u /* -1.10843575384933501482e-05 P1.lo */
+              ,
+              0x3d078757u /*  3.30880545079708099365e-02 P2    */
+              ,
+              0xbc61991bu /* -1.37694133445620536804e-02 P3    */
+              ,
+              0x3bd583a0u /*  6.51593506336212158203e-03 P4    */
+              ,
+              0xbb58485fu /* -3.30021209083497524261e-03 P5    */
+              ,
+              0x40309ae6u /*  2.75945425033569335937e+00 P0.hi */
+              ,
+              0xbddff000u /* -1.09344482421875000000e-01 P1.hi */
+          },
+          {
+              /*== i=14, j=3 == max.err=1.92e-12 ==*/
+              0x33ffe14cu /*  1.19153440891750506125e-07 P0.lo */
+              ,
+              0xb742110cu /* -1.15672701213043183088e-05 P1.lo */
+              ,
+              0x3d1f780du /*  3.89328487217426300048e-02 P2    */
+              ,
+              0xbc904afbu /* -1.76138784736394882202e-02 P3    */
+              ,
+              0x3c147fa9u /*  9.06363967806100845336e-03 P4    */
+              ,
+              0xbba38978u /* -4.99075278639793395996e-03 P5    */
+              ,
+              0x403183ccu /*  2.77366924285888671875e+00 P0.hi */
+              ,
+              0xbdf25000u /* -1.18316650390625000000e-01 P1.hi */
+          },
+          {
+              /*== i=14, j=2 == max.err=3.29e-12 ==*/
+              0x33a031c6u /*  7.45963433246288332156e-08 P0.lo */
+              ,
+              0x36408822u /*  2.86894692180794663727e-06 P1.lo */
+              ,
+              0x3d3e71a3u /*  4.64950911700725555419e-02 P2    */
+              ,
+              0xbcbcc520u /* -2.30432152748107910156e-02 P3    */
+              ,
+              0x3c54e137u /*  1.29931485280394554138e-02 P4    */
+              ,
+              0xbc0069d5u /* -7.83773232251405715942e-03 P5    */
+              ,
+              0x403280b4u /*  2.78910541534423828125e+00 P0.hi */
+              ,
+              0xbe041000u /* -1.28967285156250000000e-01 P1.hi */
+          },
+          {
+              /*== i=14, j=1 == max.err=5.95e-12 ==*/
+              0x323a26b5u /*  1.08354258898657462850e-08 P0.lo */
+              ,
+              0x3696fa73u /*  4.49950448455638252198e-06 P1.lo */
+              ,
+              0x3d678654u /*  5.65245896577835083007e-02 P2    */
+              ,
+              0xbcfdb3dfu /* -3.09695582836866378784e-02 P3    */
+              ,
+              0x3c9e35e5u /*  1.93128082901239395141e-02 P4    */
+              ,
+              0xbc5306b6u /* -1.28800179809331893920e-02 P5    */
+              ,
+              0x40339585u /*  2.80600094795227050781e+00 P0.hi */
+              ,
+              0xbe113000u /* -1.41784667968750000000e-01 P1.hi */
+          },
+          {
+              /*== i=14, j=0 == max.err=1.14e-11 ==*/
+              0x339ff24au /*  7.44808659192131017334e-08 P0.lo */
+              ,
+              0x3546c042u /*  7.40405198484950233250e-07 P1.lo */
+              ,
+              0x3d8fd5abu /*  7.02317580580711364746e-02 P2    */
+              ,
+              0xbd3032a1u /* -4.30170334875583648681e-02 P3    */
+              ,
+              0x3cf5d025u /*  3.00064776092767715454e-02 P4    */
+              ,
+              0xbcb74b1cu /* -2.23746821284294128417e-02 P5    */
+              ,
+              0x4034c76eu /*  2.82467222213745117187e+00 P0.hi */
+              ,
+              0xbe215000u /* -1.57531738281250000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=15, j=7 == max.err=3.08e-13 ==*/
+              0x330bf62fu /*  3.25873621420669223880e-08 P0.lo */
+              ,
+              0xb63e875fu /* -2.83910026155353989452e-06 P1.lo */
+              ,
+              0x3cac43a5u /*  2.10283491760492324829e-02 P2    */
+              ,
+              0xbbe77e09u /* -7.06458510830998420715e-03 P3    */
+              ,
+              0x3b30b43au /*  2.69628921523690223693e-03 P4    */
+              ,
+              0xba906260u /* -1.10156461596488952636e-03 P5    */
+              ,
+              0x4035c422u /*  2.84009599685668945312e+00 P0.hi */
+              ,
+              0xbdb01000u /* -8.59680175781250000000e-02 P1.hi */
+          },
+          {
+              /*== i=15, j=6 == max.err=4.56e-13 ==*/
+              0xb3f60c96u /* -1.14575570364650047849e-07 P0.lo */
+              ,
+              0x35e0ff93u /*  1.67636824244254967197e-06 P1.lo */
+              ,
+              0x3cc439fdu /*  2.39534322172403335571e-02 P2    */
+              ,
+              0xbc0cf59cu /* -8.60347971320152282714e-03 P3    */
+              ,
+              0x3b66171au /*  3.51089844480156898498e-03 P4    */
+              ,
+              0xbac8ff03u /* -1.53347884770482778549e-03 P5    */
+              ,
+              0x403679d3u /*  2.85118556022644042968e+00 P0.hi */
+              ,
+              0xbdbb9000u /* -9.15832519531250000000e-02 P1.hi */
+          },
+          {
+              /*== i=15, j=5 == max.err=6.96e-13 ==*/
+              0xb3896749u /* -6.39834709659226064104e-08 P0.lo */
+              ,
+              0xb7333bfau /* -1.06831957964459434151e-05 P1.lo */
+              ,
+              0x3ce19e0du /*  2.75411847978830337524e-02 P2    */
+              ,
+              0xbc2e1a8eu /* -1.06264483183622360229e-02 P3    */
+              ,
+              0x3b98a9bcu /*  4.65890578925609588623e-03 P4    */
+              ,
+              0xbb0f41efu /* -2.18593678437173366546e-03 P5    */
+              ,
+              0x40373bceu /*  2.86302518844604492187e+00 P0.hi */
+              ,
+              0xbdc8b000u /* -9.79919433593750000000e-02 P1.hi */
+          },
+          {
+              /*== i=15, j=4 == max.err=1.09e-12 ==*/
+              0x33c5b746u /*  9.20686460403885575942e-08 P0.lo */
+              ,
+              0x37599519u /*  1.29689224195317365229e-05 P1.lo */
+              ,
+              0x3d031c11u /*  3.20091880857944488525e-02 P2    */
+              ,
+              0xbc5a9239u /* -1.33405262604355812072e-02 P3    */
+              ,
+              0x3bcf0da0u /*  6.31876289844512939453e-03 P4    */
+              ,
+              0xbb51dfcfu /* -3.20242694579064846038e-03 P5    */
+              ,
+              0x40380becu /*  2.87572765350341796875e+00 P0.hi */
+              ,
+              0xbdd7f000u /* -1.05438232421875000000e-01 P1.hi */
+          },
+          {
+              /*== i=15, j=3 == max.err=1.79e-12 ==*/
+              0xb3f2be7du /* -1.13036527693566313246e-07 P0.lo */
+              ,
+              0xb5a15e68u /* -1.20229105959879234433e-06 P1.lo */
+              ,
+              0x3d1a4e92u /*  3.76725867390632629394e-02 P2    */
+              ,
+              0xbc8bd46cu /* -1.70690640807151794433e-02 P3    */
+              ,
+              0x3c100920u /*  8.79123806953430175781e-03 P4    */
+              ,
+              0xbb9eb94bu /* -4.84386598691344261169e-03 P5    */
+              ,
+              0x4038ec7cu /*  2.88943386077880859375e+00 P0.hi */
+              ,
+              0xbde9b000u /* -1.14105224609375000000e-01 P1.hi */
+          },
+          {
+              /*== i=15, j=2 == max.err=3.07e-12 ==*/
+              0xb3e6427au /* -1.07223016243551683146e-07 P0.lo */
+              ,
+              0x37abac05u /*  2.04648913495475426316e-05 P1.lo */
+              ,
+              0x3d3853d7u /*  4.50018309056758880615e-02 P2    */
+              ,
+              0xbcb6f9a8u /* -2.23358422517776489257e-02 P3    */
+              ,
+              0x3c4e8768u /*  1.26055255532264709472e-02 P4    */
+              ,
+              0xbbf952a5u /* -7.60872894898056983947e-03 P5    */
+              ,
+              0x4039e067u /*  2.90432143211364746093e+00 P0.hi */
+              ,
+              0xbdfed000u /* -1.24420166015625000000e-01 P1.hi */
+          },
+          {
+              /*== i=15, j=1 == max.err=5.55e-12 ==*/
+              0xb1e1bbe3u /* -6.56972209966966147476e-09 P0.lo */
+              ,
+              0xb7d8f91bu /* -2.58652053162222728133e-05 P1.lo */
+              ,
+              0x3d602712u /*  5.47247603535652160644e-02 P2    */
+              ,
+              0xbcf5fa8eu /* -3.00267003476619720458e-02 P3    */
+              ,
+              0x3c998757u /*  1.87412928789854049682e-02 P4    */
+              ,
+              0xbc4ce8ccu /* -1.25066749751567840576e-02 P5    */
+              ,
+              0x403aeb76u /*  2.92062139511108398437e+00 P0.hi */
+              ,
+              0xbe0c1000u /* -1.36779785156250000000e-01 P1.hi */
+          },
+          {
+              /*== i=15, j=0 == max.err=1.07e-11 ==*/
+              0xb31e00bdu /* -3.67879131601966946618e-08 P0.lo */
+              ,
+              0xb79da226u /* -1.87913647096138447523e-05 P1.lo */
+              ,
+              0x3d8b4c48u /*  6.80165886878967285156e-02 P2    */
+              ,
+              0xbd2ae1dau /* -4.17192950844764709472e-02 P3    */
+              ,
+              0x3cee9a7du /*  2.91264001280069351196e-02 P4    */
+              ,
+              0xbcb206e9u /* -2.17318106442689895629e-02 P5    */
+              ,
+              0x403c12b1u /*  2.93864083290100097656e+00 P0.hi */
+              ,
+              0xbe1bb000u /* -1.52038574218750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=16, j=7 == max.err=2.87e-13 ==*/
+              0xb2cd2634u /* -2.38825137444109714124e-08 P0.lo */
+              ,
+              0x34104507u /*  1.34361570758301240857e-07 P1.lo */
+              ,
+              0x3ca6df8cu /*  2.03702673316001892089e-02 P2    */
+              ,
+              0xbbe08fa1u /* -6.85305939987301826477e-03 P3    */
+              ,
+              0x3b2b8f0fu /*  2.61777988635003566741e-03 P4    */
+              ,
+              0xba8c43beu /* -1.07013410888612270355e-03 P5    */
+              ,
+              0x403d06a6u /*  2.95353078842163085937e+00 P0.hi */
+              ,
+              0xbdaa0000u /* -8.30078125000000000000e-02 P1.hi */
+          },
+          {
+              /*== i=16, j=6 == max.err=4.27e-13 ==*/
+              0xb3632bb5u /* -5.28923074227805045666e-08 P0.lo */
+              ,
+              0xb661e46cu /* -3.36605717166094109416e-06 P1.lo */
+              ,
+              0x3cbe1eb9u /*  2.32080090790987014770e-02 P2    */
+              ,
+              0xbc08c2f8u /* -8.34726542234420776367e-03 P3    */
+              ,
+              0x3b5f6d03u /*  3.40920756570994853973e-03 P4    */
+              ,
+              0xbac34a76u /* -1.48995104245841503143e-03 P5    */
+              ,
+              0x403db618u /*  2.96423912048339843750e+00 P0.hi */
+              ,
+              0xbdb52000u /* -8.84399414062500000000e-02 P1.hi */
+          },
+          {
+              /*== i=16, j=5 == max.err=6.51e-13 ==*/
+              0xb3da8a3du /* -1.01765614601845300057e-07 P0.lo */
+              ,
+              0x34cecf37u /*  3.85212587161731789819e-07 P1.lo */
+              ,
+              0x3cdaa360u /*  2.66892313957214355468e-02 P2    */
+              ,
+              0xbc28f2dbu /* -1.03118075057864189147e-02 P3    */
+              ,
+              0x3b94441cu /*  4.52472083270549774169e-03 P4    */
+              ,
+              0xbb0b36b1u /* -2.12423154152929782867e-03 P5    */
+              ,
+              0x403e7173u /*  2.97567439079284667968e+00 P0.hi */
+              ,
+              0xbdc1e000u /* -9.46655273437500000000e-02 P1.hi */
+          },
+          {
+              /*== i=16, j=4 == max.err=1.02e-12 ==*/
+              0xb30742d9u /* -3.14929344824577128747e-08 P0.lo */
+              ,
+              0x3712ff89u /*  8.76177455211291089653e-06 P1.lo */
+              ,
+              0x3cfe28e6u /*  3.10253612697124481201e-02 P2    */
+              ,
+              0xbc5423a9u /* -1.29479551687836647033e-02 P3    */
+              ,
+              0x3bc92024u /*  6.13786466419696807861e-03 P4    */
+              ,
+              0xbb4bfc22u /* -3.11256246641278266906e-03 P5    */
+              ,
+              0x403f3a81u /*  2.98794579505920410156e+00 P0.hi */
+              ,
+              0xbdd0a000u /* -1.01867675781250000000e-01 P1.hi */
+          },
+          {
+              /*== i=16, j=3 == max.err=1.68e-12 ==*/
+              0x33a5e197u /*  7.72444579411057929974e-08 P0.lo */
+              ,
+              0xb76de11eu /* -1.41787149914307519793e-05 P1.lo */
+              ,
+              0x3d1598cbu /*  3.65226678550243377685e-02 P2    */
+              ,
+              0xbc87be06u /* -1.65701024234294891357e-02 P3    */
+              ,
+              0x3c0bf054u /*  8.54118540883064270019e-03 P4    */
+              ,
+              0xbb9a4c57u /* -4.70880744978785514831e-03 P5    */
+              ,
+              0x4040137eu /*  3.00118970870971679687e+00 P0.hi */
+              ,
+              0xbde1d000u /* -1.10260009765625000000e-01 P1.hi */
+          },
+          {
+              /*== i=16, j=2 == max.err=2.88e-12 ==*/
+              0x33dbb84cu /*  1.02315055983126512728e-07 P0.lo */
+              ,
+              0x37806f1au /*  1.53105247591156512498e-05 P1.lo */
+              ,
+              0x3d32be3eu /*  4.36384603381156921386e-02 P2    */
+              ,
+              0xbcb1aa3bu /* -2.16876175254583358764e-02 P3    */
+              ,
+              0x3c48b221u /*  1.22495004907250404357e-02 P4    */
+              ,
+              0xbbf26b50u /* -7.39804655313491821289e-03 P5    */
+              ,
+              0x4040ff40u /*  3.01557922363281250000e+00 P0.hi */
+              ,
+              0xbdf65000u /* -1.20269775390625000000e-01 P1.hi */
+          },
+          {
+              /*== i=16, j=1 == max.err=5.20e-12 ==*/
+              0xb3ffacaau /* -1.19057702363534190226e-07 P0.lo */
+              ,
+              0xb7c0781eu /* -2.29441175179090350866e-05 P1.lo */
+              ,
+              0x3d596acbu /*  5.30803613364696502685e-02 P2    */
+              ,
+              0xbceee564u /* -2.91621163487434387207e-02 P3    */
+              ,
+              0x3c9539cbu /*  1.82160343974828720092e-02 P4    */
+              ,
+              0xbc474749u /* -1.21629917994141578674e-02 P5    */
+              ,
+              0x40420174u /*  3.03133869171142578125e+00 P0.hi */
+              ,
+              0xbe077000u /* -1.32263183593750000000e-01 P1.hi */
+          },
+          {
+              /*== i=16, j=0 == max.err=1.00e-11 ==*/
+              0x33d0d296u /*  9.72406013488580356352e-08 P0.lo */
+              ,
+              0x375b4783u /*  1.30700673253159038722e-05 P1.lo */
+              ,
+              0x3d872663u /*  6.59911856055259704589e-02 P2    */
+              ,
+              0xbd260126u /* -4.05284389853477478027e-02 P3    */
+              ,
+              0x3ce7f90bu /*  2.83169951289892196655e-02 P4    */
+              ,
+              0xbcad2cfau /* -2.11396105587482452392e-02 P5    */
+              ,
+              0x40431ef9u /*  3.04876542091369628906e+00 P0.hi */
+              ,
+              0xbe16a000u /* -1.47094726562500000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=17, j=7 == max.err=2.70e-13 ==*/
+              0xb30245a7u /* -3.03313321126097434898e-08 P0.lo */
+              ,
+              0x371f01c4u /*  9.47754961089231073856e-06 P1.lo */
+              ,
+              0x3ca1f0e5u /*  1.97681877762079238891e-02 P2    */
+              ,
+              0xbbda3266u /* -6.65883999317884445190e-03 P3    */
+              ,
+              0x3b26d2fcu /*  2.54553463310003280639e-03 P4    */
+              ,
+              0xba8877b9u /* -1.04116566944867372512e-03 P5    */
+              ,
+              0x40440afbu /*  3.06317019462585449218e+00 P0.hi */
+              ,
+              0xbda48000u /* -8.03222656250000000000e-02 P1.hi */
+          },
+          {
+              /*== i=17, j=6 == max.err=4.00e-13 ==*/
+              0xb38c6028u /* -6.53674874229182023555e-08 P0.lo */
+              ,
+              0xb78dca8fu /* -1.69028335221810266375e-05 P1.lo */
+              ,
+              0x3cb887dbu /*  2.25257184356451034545e-02 P2    */
+              ,
+              0xbc04e7d6u /* -8.11191461980342864990e-03 P3    */
+              ,
+              0x3b594a69u /*  3.31559241749346256256e-03 P4    */
+              ,
+              0xbabe07ccu /* -1.44981732591986656188e-03 P5    */
+              ,
+              0x4044b4bfu /*  3.07353186607360839843e+00 P0.hi */
+              ,
+              0xbdaf4000u /* -8.55712890625000000000e-02 P1.hi */
+          },
+          {
+              /*== i=17, j=5 == max.err=6.11e-13 ==*/
+              0xb300d821u /* -2.99988904828296654159e-08 P0.lo */
+              ,
+              0x378ba84du /*  1.66484624060103669762e-05 P1.lo */
+              ,
+              0x3cd43f3fu /*  2.59090643376111984252e-02 P2    */
+              ,
+              0xbc243614u /* -1.00226588547229766845e-02 P3    */
+              ,
+              0x3b90376eu /*  4.40113898366689682006e-03 P4    */
+              ,
+              0xbb077bc5u /* -2.06731376238167285919e-03 P5    */
+              ,
+              0x40456a12u /*  3.08459901809692382812e+00 P0.hi */
+              ,
+              0xbdbbb000u /* -9.16442871093750000000e-02 P1.hi */
+          },
+          {
+              /*== i=17, j=4 == max.err=9.64e-13 ==*/
+              0x31290af0u /*  2.45989539848778804298e-09 P0.lo */
+              ,
+              0x37b078b0u /*  2.10370344575494527816e-05 P1.lo */
+              ,
+              0x3cf6c68cu /*  3.01239714026451110839e-02 P2    */
+              ,
+              0xbc4e39c7u /* -1.25870173797011375427e-02 P3    */
+              ,
+              0x3bc3a9edu /*  5.97118446603417396545e-03 P4    */
+              ,
+              0xbb468cd2u /* -3.02963377907872200012e-03 P5    */
+              ,
+              0x40462cb2u /*  3.09647798538208007812e+00 P0.hi */
+              ,
+              0xbdca0000u /* -9.86328125000000000000e-02 P1.hi */
+          },
+          {
+              /*== i=17, j=3 == max.err=1.58e-12 ==*/
+              0xb339c8ebu /* -4.32564029040349851129e-08 P0.lo */
+              ,
+              0xb61ee69eu /* -2.36780715567874722182e-06 P1.lo */
+              ,
+              0x3d114774u /*  3.54685336351394653320e-02 P2    */
+              ,
+              0xbc83fb74u /* -1.61111131310462951660e-02 P3    */
+              ,
+              0x3c08297eu /*  8.31067375838756561279e-03 P4    */
+              ,
+              0xbb963653u /* -4.58411267027258872985e-03 P5    */
+              ,
+              0x4046fecbu /*  3.10930132865905761718e+00 P0.hi */
+              ,
+              0xbddab000u /* -1.06781005859375000000e-01 P1.hi */
+          },
+          {
+              /*== i=17, j=2 == max.err=2.70e-12 ==*/
+              0xb3baf9e8u /* -8.70675762598693836480e-08 P0.lo */
+              ,
+              0xb7b4da89u /* -2.15594354813219979405e-05 P1.lo */
+              ,
+              0x3d2d9ef4u /*  4.23879176378250122070e-02 P2    */
+              ,
+              0xbcacc703u /* -2.10909899324178695678e-02 P3    */
+              ,
+              0x3c4350d0u /*  1.19211226701736450195e-02 P4    */
+              ,
+              0xbbec0ac3u /* -7.20343133434653282165e-03 P5    */
+              ,
+              0x4047e31eu /*  3.12323713302612304687e+00 P0.hi */
+              ,
+              0xbdee8000u /* -1.16455078125000000000e-01 P1.hi */
+          },
+          {
+              /*== i=17, j=1 == max.err=4.89e-12 ==*/
+              0xb32d0817u /* -4.02870590221482416382e-08 P0.lo */
+              ,
+              0x371630bbu /*  8.95204266271321102976e-06 P1.lo */
+              ,
+              0x3d533c31u /*  5.15710748732089996337e-02 P2    */
+              ,
+              0xbce85f8bu /* -2.83658709377050399780e-02 P3    */
+              ,
+              0x3c914133u /*  1.77312847226858139038e-02 P4    */
+              ,
+              0xbc4212f4u /* -1.18453390896320343017e-02 P5    */
+              ,
+              0x4048dd3du /*  3.13850331306457519531e+00 P0.hi */
+              ,
+              0xbe034000u /* -1.28173828125000000000e-01 P1.hi */
+          },
+          {
+              /*== i=17, j=0 == max.err=9.47e-12 ==*/
+              0x32265c53u /*  9.68346380858520205947e-09 P0.lo */
+              ,
+              0xb7cd329eu /* -2.44614748226013034582e-05 P1.lo */
+              ,
+              0x3d835710u /*  6.41309022903442382812e-02 P2    */
+              ,
+              0xbd218262u /* -3.94309833645820617675e-02 P3    */
+              ,
+              0x3ce1d982u /*  2.75695361196994781494e-02 P4    */
+              ,
+              0xbca8b067u /* -2.05919276922941207885e-02 P5    */
+              ,
+              0x4049f1e8u /*  3.15538978576660156250e+00 P0.hi */
+              ,
+              0xbe11f000u /* -1.42517089843750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=18, j=7 == max.err=2.54e-13 ==*/
+              0xb3bb96e1u /* -8.73531078582345799077e-08 P0.lo */
+              ,
+              0xb61246c5u /* -2.17968886317976284772e-06 P1.lo */
+              ,
+              0x3c9d6880u /*  1.92148685455322265625e-02 P2    */
+              ,
+              0xbbd45424u /* -6.47975690662860870361e-03 P3    */
+              ,
+              0x3b22731au /*  2.47878441587090492248e-03 P4    */
+              ,
+              0xba84f457u /* -1.01436197292059659957e-03 P5    */
+              ,
+              0x404ad6a8u /*  3.16935157775878906250e+00 P0.hi */
+              ,
+              0xbd9f7000u /* -7.78503417968750000000e-02 P1.hi */
+          },
+          {
+              /*== i=18, j=6 == max.err=3.77e-13 ==*/
+              0xb34fb3c2u /* -4.83594320144220546353e-08 P0.lo */
+              ,
+              0xb660d648u /* -3.35033291776198893785e-06 P1.lo */
+              ,
+              0x3cb36453u /*  2.18984242528676986694e-02 P2    */
+              ,
+              0xbc015948u /* -7.89482146501541137695e-03 P3    */
+              ,
+              0x3b539ebcu /*  3.22906579822301864624e-03 P4    */
+              ,
+              0xbab92950u /* -1.41266919672489166259e-03 P5    */
+              ,
+              0x404b7b3cu /*  3.17939662933349609375e+00 P0.hi */
+              ,
+              0xbda9f000u /* -8.29772949218750000000e-02 P1.hi */
+          },
+          {
+              /*== i=18, j=5 == max.err=5.76e-13 ==*/
+              0xb3119d61u /* -3.39035786112162895733e-08 P0.lo */
+              ,
+              0x37789f35u /*  1.48190201798570342361e-05 P1.lo */
+              ,
+              0x3cce5e55u /*  2.51914653927087783813e-02 P2    */
+              ,
+              0xbc1fd6ecu /* -9.75583121180534362792e-03 P3    */
+              ,
+              0x3b8c78deu /*  4.28686942905187606811e-03 P4    */
+              ,
+              0xbb04078du /* -2.01461021788418292999e-03 P5    */
+              ,
+              0x404c2b0du /*  3.19012761116027832031e+00 P0.hi */
+              ,
+              0xbdb60000u /* -8.88671875000000000000e-02 P1.hi */
+          },
+          {
+              /*== i=18, j=4 == max.err=9.09e-13 ==*/
+              0xb3c54187u /* -9.18544671435483905952e-08 P0.lo */
+              ,
+              0xb5cfb9c5u /* -1.54767678850475931540e-06 P1.lo */
+              ,
+              0x3ceffafdu /*  2.92944852262735366821e-02 P2    */
+              ,
+              0xbc48c425u /* -1.22537957504391670227e-02 P3    */
+              ,
+              0x3bbe9c87u /*  5.81699935719370841979e-03 P4    */
+              ,
+              0xbb4183fcu /* -2.95281317085027694702e-03 P5    */
+              ,
+              0x404ce7cdu /*  3.20164799690246582031e+00 P0.hi */
+              ,
+              0xbdc3e000u /* -9.56420898437500000000e-02 P1.hi */
+          },
+          {
+              /*== i=18, j=3 == max.err=1.49e-12 ==*/
+              0x309be54cu /*  1.13429043935298068390e-09 P0.lo */
+              ,
+              0xb76f93bau /* -1.42799053719500079751e-05 P1.lo */
+              ,
+              0x3d0d4dc6u /*  3.44979986548423767089e-02 P2    */
+              ,
+              0xbc808261u /* -1.56871695071458816528e-02 P3    */
+              ,
+              0x3c04aabau /*  8.09734500944614410400e-03 P4    */
+              ,
+              0xbb926ceeu /* -4.46855183690786361694e-03 P5    */
+              ,
+              0x404db398u /*  3.21408653259277343750e+00 P0.hi */
+              ,
+              0xbdd42000u /* -1.03576660156250000000e-01 P1.hi */
+          },
+          {
+              /*== i=18, j=2 == max.err=2.55e-12 ==*/
+              0xb37b8194u /* -5.85583421752744470722e-08 P0.lo */
+              ,
+              0xb75ef02cu /* -1.32881505123805254697e-05 P1.lo */
+              ,
+              0x3d28e6ffu /*  4.12359200417995452880e-02 P2    */
+              ,
+              0xbca842bdu /* -2.05396357923746109008e-02 P3    */
+              ,
+              0x3c3e558au /*  1.16170737892389297485e-02 P4    */
+              ,
+              0xbbe62114u /* -7.02298618853092193603e-03 P5    */
+              ,
+              0x404e911eu /*  3.22760725021362304687e+00 P0.hi */
+              ,
+              0xbde77000u /* -1.13006591796875000000e-01 P1.hi */
+          },
+          {
+              /*== i=18, j=1 == max.err=4.62e-12 ==*/
+              0x33875d88u /*  6.30344061391951981931e-08 P0.lo */
+              ,
+              0xb6071ce4u /* -2.01333841687301173806e-06 P1.lo */
+              ,
+              0x3d4d8971u /*  5.01799024641513824462e-02 P2    */
+              ,
+              0xbce2578eu /* -2.76296399533748626708e-02 P3    */
+              ,
+              0x3c8d936du /*  1.72822121530771255493e-02 P4    */
+              ,
+              0xbc3d3efeu /* -1.15506630390882492065e-02 P5    */
+              ,
+              0x404f83d8u /*  3.24242210388183593750e+00 P0.hi */
+              ,
+              0xbdfec000u /* -1.24389648437500000000e-01 P1.hi */
+          },
+          {
+              /*== i=18, j=0 == max.err=8.94e-12 ==*/
+              0xb3f5c071u /* -1.14437064269168331520e-07 P0.lo */
+              ,
+              0xb7817972u /* -1.54345507326070219278e-05 P1.lo */
+              ,
+              0x3d7fa6f3u /*  6.24150745570659637451e-02 P2    */
+              ,
+              0xbd1d59b4u /* -3.84156256914138793945e-02 P3    */
+              ,
+              0x3cdc2c80u /*  2.68766880035400390625e-02 P4    */
+              ,
+              0xbca4864du /* -2.00835708528757095336e-02 P5    */
+              ,
+              0x40509068u /*  3.25881385803222656250e+00 P0.hi */
+              ,
+              0xbe0db000u /* -1.38366699218750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=19, j=7 == max.err=2.40e-13 ==*/
+              0xb3e05fc3u /* -1.04482317908605182310e-07 P0.lo */
+              ,
+              0xb6b138d1u /* -5.28162536284071393311e-06 P1.lo */
+              ,
+              0x3c9939a6u /*  1.87042467296123504638e-02 P2    */
+              ,
+              0xbbcee592u /* -6.31398800760507583618e-03 P3    */
+              ,
+              0x3b1e648cu /*  2.41688173264265060424e-03 P4    */
+              ,
+              0xba81b12bu /* -9.89471911452710628509e-04 P5    */
+              ,
+              0x40516e81u /*  3.27236962318420410156e+00 P0.hi */
+              ,
+              0xbd9ad000u /* -7.55920410156250000000e-02 P1.hi */
+          },
+          {
+              /*== i=19, j=6 == max.err=3.57e-13 ==*/
+              0x33ecf92cu /*  1.10349304804913117550e-07 P0.lo */
+              ,
+              0x36f8efa8u /*  7.41887561162002384662e-06 P1.lo */
+              ,
+              0x3caea5d8u /*  2.13193148374557495117e-02 P2    */
+              ,
+              0xbbfc1c3eu /* -7.69379641860723495483e-03 P3    */
+              ,
+              0x3b4e5c05u /*  3.14879533834755420684e-03 P4    */
+              ,
+              0xbab4a370u /* -1.37816183269023895263e-03 P5    */
+              ,
+              0x40520e53u /*  3.28212428092956542968e+00 P0.hi */
+              ,
+              0xbda51000u /* -8.05969238281250000000e-02 P1.hi */
+          },
+          {
+              /*== i=19, j=5 == max.err=5.45e-13 ==*/
+              0x3343c38cu /*  4.55798243592653307132e-08 P0.lo */
+              ,
+              0xb63183e2u /* -2.64518212134134955704e-06 P1.lo */
+              ,
+              0x3cc8f074u /*  2.45287194848060607910e-02 P2    */
+              ,
+              0xbc1bca35u /* -9.50865913182497024536e-03 P3    */
+              ,
+              0x3b88ff4au /*  4.18082345277070999145e-03 P4    */
+              ,
+              0xbb00d1e6u /* -1.96563592180609703063e-03 P5    */
+              ,
+              0x4052b917u /*  3.29254698753356933593e+00 P0.hi */
+              ,
+              0xbdb0c000u /* -8.63037109375000000000e-02 P1.hi */
+          },
+          {
+              /*== i=19, j=4 == max.err=8.60e-13 ==*/
+              0xb3f04566u /* -1.11884943976292561274e-07 P0.lo */
+              ,
+              0x36dc45f9u /*  6.56465681458939798176e-06 P1.lo */
+              ,
+              0x3ce9b3b4u /*  2.85280719399452209472e-02 P2    */
+              ,
+              0xbc43b4f2u /* -1.19449961930513381958e-02 P3    */
+              ,
+              0x3bb9ebbfu /*  5.67385507747530937194e-03 P4    */
+              ,
+              0xbb3cd5e6u /* -2.88140168413519859313e-03 P5    */
+              ,
+              0x40537073u /*  3.30373835563659667968e+00 P0.hi */
+              ,
+              0xbdbe5000u /* -9.29260253906250000000e-02 P1.hi */
+          },
+          {
+              /*== i=19, j=3 == max.err=1.41e-12 ==*/
+              0xb37bde0bu /* -5.86424384607653337297e-08 P0.lo */
+              ,
+              0xb751bc03u /* -1.25011456475476734340e-05 P1.lo */
+              ,
+              0x3d09a10au /*  3.36008444428443908691e-02 P2    */
+              ,
+              0xbc7a9437u /* -1.52941262349486351013e-02 P3    */
+              ,
+              0x3c016bb0u /*  7.89920985698699951171e-03 P4    */
+              ,
+              0xbb8ee76eu /* -4.36108466237783432006e-03 P5    */
+              ,
+              0x40543675u /*  3.31582379341125488281e+00 P0.hi */
+              ,
+              0xbdce2000u /* -1.00646972656250000000e-01 P1.hi */
+          },
+          {
+              /*== i=19, j=2 == max.err=2.42e-12 ==*/
+              0x33ad0cd9u /*  8.05827724548180412966e-08 P0.lo */
+              ,
+              0xb73cba2du /* -1.12490206447546370327e-05 P1.lo */
+              ,
+              0x3d2489d0u /*  4.01704907417297363281e-02 P2    */
+              ,
+              0xbca4123eu /* -2.00282298028469085693e-02 P3    */
+              ,
+              0x3c39b492u /*  1.13345552235841751098e-02 P4    */
+              ,
+              0xbbe0a0cbu /* -6.85510551556944847106e-03 P5    */
+              ,
+              0x40550dbbu /*  3.32896304130554199218e+00 P0.hi */
+              ,
+              0xbde0f000u /* -1.09832763671875000000e-01 P1.hi */
+          },
+          {
+              /*== i=19, j=1 == max.err=4.38e-12 ==*/
+              0x33e82d74u /*  1.08116097408128553070e-07 P0.lo */
+              ,
+              0x37980ba0u /*  1.81252253241837024688e-05 P1.lo */
+              ,
+              0x3d484393u /*  4.88925687968730926513e-02 P2    */
+              ,
+              0xbcdcbeb4u /* -2.69464030861854553222e-02 P3    */
+              ,
+              0x3c8a27eau /*  1.68647356331348419189e-02 P4    */
+              ,
+              0xbc38c08cu /* -1.12763755023479461669e-02 P5    */
+              ,
+              0x4055f9aau /*  3.34336328506469726562e+00 P0.hi */
+              ,
+              0xbdf7b000u /* -1.20941162109375000000e-01 P1.hi */
+          },
+          {
+              /*== i=19, j=0 == max.err=8.47e-12 ==*/
+              0xb38e44cfu /* -6.62490649006031162571e-08 P0.lo */
+              ,
+              0xb810ddddu /* -3.45389016729313880205e-05 P1.lo */
+              ,
+              0x3d792512u /*  6.08263686299324035644e-02 P2    */
+              ,
+              0xbd197d1du /* -3.74728329479694366455e-02 P3    */
+              ,
+              0x3cd6e4ffu /*  2.62322407215833663940e-02 P4    */
+              ,
+              0xbca0a572u /* -1.96101404726505279541e-02 P5    */
+              ,
+              0x4056fec5u /*  3.35929989814758300781e+00 P0.hi */
+              ,
+              0xbe09c000u /* -1.34521484375000000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=20, j=7 == max.err=2.28e-13 ==*/
+              0x336983adu /*  5.43692983967503096209e-08 P0.lo */
+              ,
+              0xb6a42c11u /* -4.89271087644738145172e-06 P1.lo */
+              ,
+              0x3c9559a6u /*  1.82312242686748504638e-02 P2    */
+              ,
+              0xbbc9d9cau /* -6.15999568253755569458e-03 P3    */
+              ,
+              0x3b1a9e21u /*  2.35927873291075229644e-03 P4    */
+              ,
+              0xba7d4e1du /* -9.66282386798411607742e-04 P5    */
+              ,
+              0x4057d6bfu /*  3.37248206138610839843e+00 P0.hi */
+              ,
+              0xbd969000u /* -7.35168457031250000000e-02 P1.hi */
+          },
+          {
+              /*== i=20, j=6 == max.err=3.38e-13 ==*/
+              0xb3cbfdf8u /* -9.49912077885528560727e-08 P0.lo */
+              ,
+              0xb79decb0u /* -1.88260746654123067855e-05 P1.lo */
+              ,
+              0x3caa4065u /*  2.07826588302850723266e-02 P2    */
+              ,
+              0xbbf5fd36u /* -7.50699173659086227416e-03 P3    */
+              ,
+              0x3b497674u /*  3.07407695800065994262e-03 P4    */
+              ,
+              0xbab06c58u /* -1.34600233286619186401e-03 P5    */
+              ,
+              0x40587232u /*  3.38196992874145507812e+00 P0.hi */
+              ,
+              0xbda08000u /* -7.83691406250000000000e-02 P1.hi */
+          },
+          {
+              /*== i=20, j=5 == max.err=5.17e-13 ==*/
+              0x339de7feu /*  7.35308134380829869769e-08 P0.lo */
+              ,
+              0xb6f8cba3u /* -7.41468238629749976098e-06 P1.lo */
+              ,
+              0x3cc3e7fcu /*  2.39143297076225280761e-02 P2    */
+              ,
+              0xbc18067eu /* -9.27889160811901092529e-03 P3    */
+              ,
+              0x3b85c2f7u /*  4.08207951113581657409e-03 P4    */
+              ,
+              0xbafba7cfu /* -1.91997911315411329269e-03 P5    */
+              ,
+              0x4059184eu /*  3.39210844039916992187e+00 P0.hi */
+              ,
+              0xbdabf000u /* -8.39538574218750000000e-02 P1.hi */
+          },
+          {
+              /*== i=20, j=4 == max.err=8.16e-13 ==*/
+              0xb2d83bdfu /* -2.51729357358954075607e-08 P0.lo */
+              ,
+              0xb787282du /* -1.61119623953709378838e-05 P1.lo */
+              ,
+              0x3ce3e118u /*  2.78172940015792846679e-02 P2    */
+              ,
+              0xbc3f0080u /* -1.16578340530395507812e-02 P3    */
+              ,
+              0x3bb58d40u /*  5.54051995277404785156e-03 P4    */
+              ,
+              0xbb387897u /* -2.81480490230023860931e-03 P5    */
+              ,
+              0x4059cab2u /*  3.40299654006958007812e+00 P0.hi */
+              ,
+              0xbdb92000u /* -9.03930664062500000000e-02 P1.hi */
+          },
+          {
+              /*== i=20, j=3 == max.err=1.33e-12 ==*/
+              0xb2948b5fu /* -1.72928462660593140753e-08 P0.lo */
+              ,
+              0x36979491u /*  4.51744608653825707733e-06 P1.lo */
+              ,
+              0x3d063839u /*  3.27684618532657623291e-02 P2    */
+              ,
+              0xbc749692u /* -1.49284768849611282348e-02 P3    */
+              ,
+              0x3bfcca9bu /*  7.71458214148879051208e-03 P4    */
+              ,
+              0xbb8b9e65u /* -4.26082545891404151916e-03 P5    */
+              ,
+              0x405a8b5fu /*  3.41475653648376464843e+00 P0.hi */
+              ,
+              0xbdc8a000u /* -9.79614257812500000000e-02 P1.hi */
+          },
+          {
+              /*== i=20, j=2 == max.err=2.29e-12 ==*/
+              0xb323fb48u /* -3.81799338811106281355e-08 P0.lo */
+              ,
+              0xb741fbf9u /* -1.15623633973882533609e-05 P1.lo */
+              ,
+              0x3d207ccfu /*  3.91815267503261566162e-02 P2    */
+              ,
+              0xbca02c12u /* -1.95522643625736236572e-02 P3    */
+              ,
+              0x3c3563ecu /*  1.10711865127086639404e-02 P4    */
+              ,
+              0xbbdb7e71u /* -6.69842259958386421203e-03 P5    */
+              ,
+              0x405b5ce3u /*  3.42754435539245605468e+00 P0.hi */
+              ,
+              0xbddaf000u /* -1.06903076171875000000e-01 P1.hi */
+          },
+          {
+              /*== i=20, j=1 == max.err=4.16e-12 ==*/
+              0x32ef9574u /*  2.78912253293128742370e-08 P0.lo */
+              ,
+              0xb7826e49u /* -1.55485631694318726658e-05 P1.lo */
+              ,
+              0x3d435df6u /*  4.76970300078392028808e-02 P2    */
+              ,
+              0xbcd78887u /* -2.63102184981107711791e-02 P3    */
+              ,
+              0x3c86f761u /*  1.64753813296556472778e-02 P4    */
+              ,
+              0xbc348e5fu /* -1.10202720388770103454e-02 P5    */
+              ,
+              0x405c428du /*  3.44156193733215332031e+00 P0.hi */
+              ,
+              0xbdf11000u /* -1.17706298828125000000e-01 P1.hi */
+          },
+          {
+              /*== i=20, j=0 == max.err=8.05e-12 ==*/
+              0x3235e7eau /*  1.05883177781151971430e-08 P0.lo */
+              ,
+              0xb82d3a78u /* -4.13008674513548612594e-05 P1.lo */
+              ,
+              0x3d731921u /*  5.93501366674900054931e-02 P2    */
+              ,
+              0xbd15e421u /* -3.65945138037204742431e-02 P3    */
+              ,
+              0x3cd1f7ebu /*  2.56309118121862411499e-02 P4    */
+              ,
+              0xbc9d05f7u /* -1.91678833216428756713e-02 P5    */
+              ,
+              0x405d40c5u /*  3.45707821846008300781e+00 P0.hi */
+              ,
+              0xbe062000u /* -1.30981445312500000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=21, j=7 == max.err=2.16e-13 ==*/
+              0xb3e8d338u /* -1.08417623323475709185e-07 P0.lo */
+              ,
+              0xb7247dbfu /* -9.80443928710883483290e-06 P1.lo */
+              ,
+              0x3c91bf76u /*  1.77914910018444061279e-02 P2    */
+              ,
+              0xbbc525d7u /* -6.01647375151515007019e-03 P3    */
+              ,
+              0x3b171803u /*  2.30550835840404033660e-03 P4    */
+              ,
+              0xba779fd2u /* -9.44611732847988605499e-04 P5    */
+              ,
+              0x405e1319u /*  3.46991562843322753906e+00 P0.hi */
+              ,
+              0xbd92a000u /* -7.15942382812500000000e-02 P1.hi */
+          },
+          {
+              /*== i=21, j=6 == max.err=3.21e-13 ==*/
+              0x33e244d4u /*  1.05364648561590001918e-07 P0.lo */
+              ,
+              0x35f40b09u /*  1.81826283096597762778e-06 P1.lo */
+              ,
+              0x3ca629d0u /*  2.02836096286773681640e-02 P2    */
+              ,
+              0xbbf04849u /* -7.33283581212162971496e-03 P3    */
+              ,
+              0x3b44e3f4u /*  3.00430972129106521606e-03 P4    */
+              ,
+              0xbaac7ba6u /* -1.31594086997210979461e-03 P5    */
+              ,
+              0x405eaa7fu /*  3.47915625572204589843e+00 P0.hi */
+              ,
+              0xbd9c6000u /* -7.63549804687500000000e-02 P1.hi */
+          },
+          {
+              /*== i=21, j=5 == max.err=4.91e-13 ==*/
+              0x32f06ed4u /*  2.79900760347118193749e-08 P0.lo */
+              ,
+              0xb6c44021u /* -5.84872077524778433144e-06 P1.lo */
+              ,
+              0x3cbf3966u /*  2.33427993953227996826e-02 P2    */
+              ,
+              0xbc1483bfu /* -9.06461384147405624389e-03 P3    */
+              ,
+              0x3b82bd4cu /*  3.98985110223293304443e-03 P4    */
+              ,
+              0xbaf60f55u /* -1.87728798482567071914e-03 P5    */
+              ,
+              0x405f4c4fu /*  3.48903250694274902343e+00 P0.hi */
+              ,
+              0xbda78000u /* -8.17871093750000000000e-02 P1.hi */
+          },
+          {
+              /*== i=21, j=4 == max.err=7.76e-13 ==*/
+              0xb3db9d2fu /* -1.02265737211837404174e-07 P0.lo */
+              ,
+              0xb76156d8u /* -1.34312649606727063655e-05 P1.lo */
+              ,
+              0x3cde75f7u /*  2.71558593958616256713e-02 P2    */
+              ,
+              0xbc3a9cdfu /* -1.13899400457739830017e-02 P3    */
+              ,
+              0x3bb17836u /*  5.41594158858060836791e-03 P4    */
+              ,
+              0xbb346386u /* -2.75251409038901329040e-03 P5    */
+              ,
+              0x405ffa1bu /*  3.49964022636413574218e+00 P0.hi */
+              ,
+              0xbdb46000u /* -8.80737304687500000000e-02 P1.hi */
+          },
+          {
+              /*== i=21, j=3 == max.err=1.27e-12 ==*/
+              0xb3f59128u /* -1.14351053071004571393e-07 P0.lo */
+              ,
+              0x364d8f9fu /*  3.06309789266379084438e-06 P1.lo */
+              ,
+              0x3d030baeu /*  3.19935604929924011230e-02 P2    */
+              ,
+              0xbc6eff4fu /* -1.45872374996542930603e-02 P3    */
+              ,
+              0x3bf7230bu /*  7.54201924428343772888e-03 P4    */
+              ,
+              0xbb888b79u /* -4.16701706126332283020e-03 P5    */
+              ,
+              0x4060b5d9u /*  3.51109910011291503906e+00 P0.hi */
+              ,
+              0xbdc38000u /* -9.54589843750000000000e-02 P1.hi */
+          },
+          {
+              /*== i=21, j=2 == max.err=2.18e-12 ==*/
+              0x33da6576u /*  1.01698717003273486625e-07 P0.lo */
+              ,
+              0x377cd364u /*  1.50695886986795812845e-05 P1.lo */
+              ,
+              0x3d1cb702u /*  3.82604673504829406738e-02 P2    */
+              ,
+              0xbc9c882au /* -1.91078968346118927001e-02 P3    */
+              ,
+              0x3c315b12u /*  1.08249355107545852661e-02 P4    */
+              ,
+              0xbbd6b033u /* -6.55176630243659019470e-03 P5    */
+              ,
+              0x40618207u /*  3.52356123924255371093e+00 P0.hi */
+              ,
+              0xbdd57000u /* -1.04217529296875000000e-01 P1.hi */
+          },
+          {
+              /*== i=21, j=1 == max.err=3.96e-12 ==*/
+              0x33eea0f1u /*  1.11120137091802462236e-07 P0.lo */
+              ,
+              0xb72dde79u /* -1.03634019978926517069e-05 P1.lo */
+              ,
+              0x3d3ecde3u /*  4.65830676257610321044e-02 P2    */
+              ,
+              0xbcd2aa63u /* -2.57160123437643051147e-02 P3    */
+              ,
+              0x3c83fb9au /*  1.61111839115619659423e-02 P4    */
+              ,
+              0xbc30a087u /* -1.07804602012038230895e-02 P5    */
+              ,
+              0x406261e3u /*  3.53722453117370605468e+00 P0.hi */
+              ,
+              0xbdeb0000u /* -1.14746093750000000000e-01 P1.hi */
+          },
+          {
+              /*== i=21, j=0 == max.err=7.67e-12 ==*/
+              0x33cb3bd6u /*  9.46380822597348014824e-08 P0.lo */
+              ,
+              0xb5a9e945u /* -1.26593715776834869757e-06 P1.lo */
+              ,
+              0x3d6d7615u /*  5.79739399254322052001e-02 P2    */
+              ,
+              0xbd128783u /* -3.57737652957439422607e-02 P3    */
+              ,
+              0x3ccd5bc7u /*  2.50681769102811813354e-02 P4    */
+              ,
+              0xbc99a11bu /* -1.87535788863897323608e-02 P5    */
+              ,
+              0x406359bau /*  3.55235147476196289062e+00 P0.hi */
+              ,
+              0xbe02d000u /* -1.27746582031250000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=22, j=7 == max.err=2.06e-13 ==*/
+              0x33c86598u /*  9.33170554162643384188e-08 P0.lo */
+              ,
+              0xb5cc8ea3u /* -1.52406971665186574682e-06 P1.lo */
+              ,
+              0x3c8e6368u /*  1.73813849687576293945e-02 P2    */
+              ,
+              0xbbc0c05eu /* -5.88230695575475692749e-03 P3    */
+              ,
+              0x3b13cb7cu /*  2.25517060607671737670e-03 P4    */
+              ,
+              0xba724cf8u /* -9.24303662031888961791e-04 P5    */
+              ,
+              0x406426d0u /*  3.56486892700195312500e+00 P0.hi */
+              ,
+              0xbd8f0000u /* -6.98242187500000000000e-02 P1.hi */
+          },
+          {
+              /*== i=22, j=6 == max.err=3.06e-13 ==*/
+              0xb2aa80fau /* -1.98492564607022359268e-08 P0.lo */
+              ,
+              0xb637aaf7u /* -2.73686396212724503129e-06 P1.lo */
+              ,
+              0x3ca25975u /*  1.98180470615625381469e-02 P2    */
+              ,
+              0xbbeaf237u /* -7.16998754069209098815e-03 P3    */
+              ,
+              0x3b409be4u /*  2.93897930532693862915e-03 P4    */
+              ,
+              0xbaa8ca21u /* -1.28776219207793474197e-03 P5    */
+              ,
+              0x4064ba77u /*  3.57388091087341308593e+00 P0.hi */
+              ,
+              0xbd988000u /* -7.44628906250000000000e-02 P1.hi */
+          },
+          {
+              /*== i=22, j=5 == max.err=4.68e-13 ==*/
+              0x32844b26u /*  1.54009960340317775262e-08 P0.lo */
+              ,
+              0xb7049864u /* -7.90329431765712797641e-06 P1.lo */
+              ,
+              0x3cbadae3u /*  2.28094514459371566772e-02 P2    */
+              ,
+              0xbc113b1cu /* -8.86419042944908142089e-03 P3    */
+              ,
+              0x3b7fd13du /*  3.90346278436481952667e-03 P4    */
+              ,
+              0xbaf0d036u /* -1.83725985698401927947e-03 P5    */
+              ,
+              0x40655849u /*  3.58351349830627441406e+00 P0.hi */
+              ,
+              0xbda36000u /* -7.97729492187500000000e-02 P1.hi */
+          },
+          {
+              /*== i=22, j=4 == max.err=7.40e-13 ==*/
+              0xb2c00671u /* -2.23546710031996553880e-08 P0.lo */
+              ,
+              0x36c60ea4u /*  5.90256422583479434251e-06 P1.lo */
+              ,
+              0x3cd96712u /*  2.65384055674076080322e-02 P2    */
+              ,
+              0xbc36818eu /* -1.11392866820096969604e-02 P3    */
+              ,
+              0x3bada50fu /*  5.29921753332018852233e-03 P4    */
+              ,
+              0xbb308f5bu /* -2.69409152679145336151e-03 P5    */
+              ,
+              0x406601d1u /*  3.59386086463928222656e+00 P0.hi */
+              ,
+              0xbdb00000u /* -8.59375000000000000000e-02 P1.hi */
+          },
+          {
+              /*== i=22, j=3 == max.err=1.21e-12 ==*/
+              0x32954625u /*  1.73777809919783976511e-08 P0.lo */
+              ,
+              0x36d67c33u /*  6.39215568298823200166e-06 P1.lo */
+              ,
+              0x3d0014e4u /*  3.12699228525161743164e-02 P2    */
+              ,
+              0xbc69c3b6u /* -1.42678525298833847045e-02 P3    */
+              ,
+              0x3bf1d64eu /*  7.38028343766927719116e-03 P4    */
+              ,
+              0xbb85a930u /* -4.07900661230087280273e-03 P5    */
+              ,
+              0x4066b8fau /*  3.60504007339477539062e+00 P0.hi */
+              ,
+              0xbdbec000u /* -9.31396484375000000000e-02 P1.hi */
+          },
+          {
+              /*== i=22, j=2 == max.err=2.08e-12 ==*/
+              0x317ea2a2u /*  3.70543107308662911236e-09 P0.lo */
+              ,
+              0x36088b27u /*  2.03465765480359550565e-06 P1.lo */
+              ,
+              0x3d1930c0u /*  3.74000072479248046875e-02 P2    */
+              ,
+              0xbc991f9fu /* -1.86918359249830245971e-02 P3    */
+              ,
+              0x3c2d92aeu /*  1.05940531939268112182e-02 P4    */
+              ,
+              0xbbd22d9au /* -6.41412753611803054809e-03 P5    */
+              ,
+              0x40678035u /*  3.61720013618469238281e+00 P0.hi */
+              ,
+              0xbdd04000u /* -1.01684570312500000000e-01 P1.hi */
+          },
+          {
+              /*== i=22, j=1 == max.err=3.78e-12 ==*/
+              0xb32960a5u /* -3.94362764666311704786e-08 P0.lo */
+              ,
+              0xb4e0b588u /* -4.18553327108384110033e-07 P1.lo */
+              ,
+              0x3d3a8a33u /*  4.55419532954692840576e-02 P2    */
+              ,
+              0xbcce1b2bu /* -2.51594390720129013061e-02 P3    */
+              ,
+              0x3c812f38u /*  1.57695859670639038085e-02 P4    */
+              ,
+              0xbc2cf02fu /* -1.05553111061453819274e-02 P5    */
+              ,
+              0x40685aacu /*  3.63053417205810546875e+00 P0.hi */
+              ,
+              0xbde56000u /* -1.11999511718750000000e-01 P1.hi */
+          },
+          {
+              /*== i=22, j=0 == max.err=7.32e-12 ==*/
+              0x33c32a19u /*  9.08805262156420212704e-08 P0.lo */
+              ,
+              0xb6f04c1au /* -7.16141676093684509396e-06 P1.lo */
+              ,
+              0x3d6830c7u /*  5.66871426999568939208e-02 P2    */
+              ,
+              0xbd0f610cu /* -3.50046604871749877929e-02 P3    */
+              ,
+              0x3cc90869u /*  2.45401430875062942504e-02 P4    */
+              ,
+              0xbc967108u /* -1.83644443750381469726e-02 P5    */
+              ,
+              0x40694c94u /*  3.64529895782470703125e+00 P0.hi */
+              ,
+              0xbdff6000u /* -1.24694824218750000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=23, j=7 == max.err=1.97e-13 ==*/
+              0x33d503cbu /*  9.91927535665126924868e-08 P0.lo */
+              ,
+              0x36adf2f3u /*  5.18408478455967269837e-06 P1.lo */
+              ,
+              0x3c8b3eebu /*  1.69977750629186630249e-02 P2    */
+              ,
+              0xbbbca157u /* -5.75653789564967155456e-03 P3    */
+              ,
+              0x3b10b2c4u /*  2.20792088657617568969e-03 P4    */
+              ,
+              0xba6d4c82u /* -9.05223307199776172637e-04 P5    */
+              ,
+              0x406a14cau /*  3.65751886367797851562e+00 P0.hi */
+              ,
+              0xbd8ba000u /* -6.81762695312500000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=6 == max.err=2.92e-13 ==*/
+              0x334fc0bcu /*  4.83712341292630298994e-08 P0.lo */
+              ,
+              0x37751e4bu /*  1.46101911013829521834e-05 P1.lo */
+              ,
+              0x3c9ec7eeu /*  1.93824432790279388427e-02 P2    */
+              ,
+              0xbbe5f151u /* -7.01729254797101020812e-03 P3    */
+              ,
+              0x3b3c96d0u /*  2.87764146924018859863e-03 P4    */
+              ,
+              0xbaa5518fu /* -1.26128073316067457199e-03 P5    */
+              ,
+              0x406aa4f3u /*  3.66631770133972167968e+00 P0.hi */
+              ,
+              0xbd94f000u /* -7.27233886718750000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=5 == max.err=4.47e-13 ==*/
+              0x33c82f3eu /*  9.32181905000106780789e-08 P0.lo */
+              ,
+              0x36846043u /*  3.94511289414367638528e-06 P1.lo */
+              ,
+              0x3cb6c40cu /*  2.23102793097496032714e-02 P2    */
+              ,
+              0xbc0e26aau /* -8.67621041834354400634e-03 P3    */
+              ,
+              0x3b7a801bu /*  3.82233294658362865447e-03 P4    */
+              ,
+              0xbaebe1abu /* -1.79963314440101385116e-03 P5    */
+              ,
+              0x406b3f0eu /*  3.67572355270385742187e+00 P0.hi */
+              ,
+              0xbd9f9000u /* -7.79113769531250000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=4 == max.err=7.07e-13 ==*/
+              0xb3a46569u /* -7.65529151180999178905e-08 P0.lo */
+              ,
+              0xb513a3c1u /* -5.50000606835965299978e-07 P1.lo */
+              ,
+              0x3cd4aac7u /*  2.59603392332792282104e-02 P2    */
+              ,
+              0xbc32a73cu /* -1.09041295945644378662e-02 P3    */
+              ,
+              0x3baa0d3fu /*  5.18956733867526054382e-03 P4    */
+              ,
+              0xbb2cf5beu /* -2.63915909454226493835e-03 P5    */
+              ,
+              0x406be49eu /*  3.68582868576049804687e+00 P0.hi */
+              ,
+              0xbdabe000u /* -8.39233398437500000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=3 == max.err=1.16e-12 ==*/
+              0x3398c27du /*  7.11342877934839634690e-08 P0.lo */
+              ,
+              0x368027d5u /*  3.81933432436198927462e-06 P1.lo */
+              ,
+              0x3cfa9c8au /*  3.05922217667102813720e-02 P2    */
+              ,
+              0xbc64da88u /* -1.39681175351142883300e-02 P3    */
+              ,
+              0x3becdb69u /*  7.22830416634678840637e-03 P4    */
+              ,
+              0xbb82f2ceu /* -3.99622973054647445678e-03 P5    */
+              ,
+              0x406c9782u /*  3.69674730300903320312e+00 P0.hi */
+              ,
+              0xbdba5000u /* -9.09729003906250000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=2 == max.err=1.99e-12 ==*/
+              0xb3e4658fu /* -1.06355507512034819228e-07 P0.lo */
+              ,
+              0x35974a9cu /*  1.12720908873598091304e-06 P1.lo */
+              ,
+              0x3d15e377u /*  3.65938805043697357177e-02 P2    */
+              ,
+              0xbc95ec7du /* -1.83012429624795913696e-02 P3    */
+              ,
+              0x3c2a046au /*  1.03770289570093154907e-02 P4    */
+              ,
+              0xbbcdef51u /* -6.28463225439190864562e-03 P5    */
+              ,
+              0x406d5a20u /*  3.70862579345703125000e+00 P0.hi */
+              ,
+              0xbdcb7000u /* -9.93347167968750000000e-02 P1.hi */
+          },
+          {
+              /*== i=23, j=1 == max.err=3.61e-12 ==*/
+              0xb3d7a0f2u /* -1.00409934589151816908e-07 P0.lo */
+              ,
+              0x36e2c209u /*  6.75791352477972395718e-06 P1.lo */
+              ,
+              0x3d368b0bu /*  4.45661954581737518310e-02 P2    */
+              ,
+              0xbcc9d2feu /* -2.46367417275905609130e-02 P3    */
+              ,
+              0x3c7d1b31u /*  1.54483774676918983459e-02 P4    */
+              ,
+              0xbc297767u /* -1.03434091433882713317e-02 P5    */
+              ,
+              0x406e2f8fu /*  3.72165274620056152343e+00 P0.hi */
+              ,
+              0xbde02000u /* -1.09436035156250000000e-01 P1.hi */
+          },
+          {
+              /*== i=23, j=0 == max.err=7.00e-12 ==*/
+              0xb3653e5au /* -5.33749258124771586153e-08 P0.lo */
+              ,
+              0xb664fd77u /* -3.41221834787575062364e-06 P1.lo */
+              ,
+              0x3d633fa3u /*  5.54806105792522430419e-02 P2    */
+              ,
+              0xbd0c6b5eu /* -3.42820808291435241699e-02 P3    */
+              ,
+              0x3cc4f6bdu /*  2.40434352308511734008e-02 P4    */
+              ,
+              0xbc9370b0u /* -1.79980695247650146484e-02 P5    */
+              ,
+              0x406f1befu /*  3.73607993125915527343e+00 P0.hi */
+              ,
+              0xbdf99000u /* -1.21856689453125000000e-01 P1.hi */
+          }},
+         {{
+              /*== i=24, j=7 == max.err=1.88e-13 ==*/
+              0x334208f0u /*  4.51772734777478035539e-08 P0.lo */
+              ,
+              0x37c778dfu /*  2.37789336097193881869e-05 P1.lo */
+              ,
+              0x3c884c58u /*  1.66379660367965698242e-02 P2    */
+              ,
+              0xbbb8c1cdu /* -5.63833722844719886779e-03 P3    */
+              ,
+              0x3b0dc8d7u /*  2.16346024535596370697e-03 P4    */
+              ,
+              0xba689693u /* -8.87253496330231428146e-04 P5    */
+              ,
+              0x406fdf98u /*  3.74802207946777343750e+00 P0.hi */
+              ,
+              0xbd888000u /* -6.66503906250000000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=6 == max.err=2.80e-13 ==*/
+              0xb3bd1f2fu /* -8.80667059277584485244e-08 P0.lo */
+              ,
+              0x36ead080u /*  6.99801603332161903381e-06 P1.lo */
+              ,
+              0x3c9b6edeu /*  1.89737640321254730224e-02 P2    */
+              ,
+              0xbbe13d37u /* -6.87375245615839958190e-03 P3    */
+              ,
+              0x3b38ce42u /*  2.81991111114621162414e-03 P4    */
+              ,
+              0xbaa20c86u /* -1.23633514158427715301e-03 P5    */
+              ,
+              0x40706c7fu /*  3.75662207603454589843e+00 P0.hi */
+              ,
+              0xbd919000u /* -7.10754394531250000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=5 == max.err=4.28e-13 ==*/
+              0xb358dd9bu /* -5.04929680289478710619e-08 P0.lo */
+              ,
+              0x376d96f0u /*  1.41614436870440840721e-05 P1.lo */
+              ,
+              0x3cb2eda6u /*  2.18418352305889129638e-02 P2    */
+              ,
+              0xbc0b4150u /* -8.49945843219757080078e-03 P3    */
+              ,
+              0x3b757eb8u /*  3.74595634639263153076e-03 P4    */
+              ,
+              0xbae73c10u /* -1.76418013870716094970e-03 P5    */
+              ,
+              0x40710322u /*  3.76581621170043945312e+00 P0.hi */
+              ,
+              0xbd9c0000u /* -7.61718750000000000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=4 == max.err=6.77e-13 ==*/
+              0x33fa6357u /*  1.16596019950065965531e-07 P0.lo */
+              ,
+              0x3764c094u /*  1.36346970975864678621e-05 P1.lo */
+              ,
+              0x3cd038c9u /*  2.54177022725343704223e-02 P2    */
+              ,
+              0xbc2f0791u /* -1.06829563155770301818e-02 P3    */
+              ,
+              0x3ba6ab1au /*  5.08631486445665359497e-03 P4    */
+              ,
+              0xbb299128u /* -2.58738733828067779541e-03 P5    */
+              ,
+              0x4071a4fbu /*  3.77569460868835449218e+00 P0.hi */
+              ,
+              0xbda81000u /* -8.20617675781250000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=3 == max.err=1.11e-12 ==*/
+              0x333d4f3bu /*  4.40770513421284704236e-08 P0.lo */
+              ,
+              0xb798ae0fu /* -1.82008643605513498187e-05 P1.lo */
+              ,
+              0x3cf565ffu /*  2.99558620899915695190e-02 P2    */
+              ,
+              0xbc603bc7u /* -1.36861270293593406677e-02 P3    */
+              ,
+              0x3be82a90u /*  7.08515197038650512695e-03 P4    */
+              ,
+              0xbb806432u /* -3.91819421201944351196e-03 P5    */
+              ,
+              0x407253e3u /*  3.78637003898620605468e+00 P0.hi */
+              ,
+              0xbdb62000u /* -8.89282226562500000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=2 == max.err=1.90e-12 ==*/
+              0xb33ec05cu /* -4.44127721266340813599e-08 P0.lo */
+              ,
+              0x334d35edu /*  4.77793271613791148411e-08 P1.lo */
+              ,
+              0x3d12c97au /*  3.58366742730140686035e-02 P2    */
+              ,
+              0xbc92e99cu /* -1.79336592555046081542e-02 P3    */
+              ,
+              0x3c26aac3u /*  1.01725487038493156433e-02 P4    */
+              ,
+              0xbbc9eef4u /* -6.16251863539218902587e-03 P5    */
+              ,
+              0x40731230u /*  3.79798507690429687500e+00 P0.hi */
+              ,
+              0xbdc6f000u /* -9.71374511718750000000e-02 P1.hi */
+          },
+          {
+              /*== i=24, j=1 == max.err=3.46e-12 ==*/
+              0xb3e9ce92u /* -1.08874829152227903250e-07 P0.lo */
+              ,
+              0x34b94475u /*  3.45087443065494881011e-07 P1.lo */
+              ,
+              0x3d32c9a3u /*  4.36493270099163055419e-02 P2    */
+              ,
+              0xbcc5cb0au /* -2.41446681320667266845e-02 P3    */
+              ,
+              0x3c782567u /*  1.51456361636519432067e-02 P4    */
+              ,
+              0xbc263105u /* -1.01435231044888496398e-02 P5    */
+              ,
+              0x4073e2ebu /*  3.81072497367858886718e+00 P0.hi */
+              ,
+              0xbddb3000u /* -1.07025146484375000000e-01 P1.hi */
+          },
+          {
+              /*== i=24, j=0 == max.err=6.71e-12 ==*/
+              0xb3b4df7bu /* -8.42255403199487773235e-08 P0.lo */
+              ,
+              0x357e595fu /*  9.47524256389442598447e-07 P1.lo */
+              ,
+              0x3d5e9a61u /*  5.43464459478855133056e-02 P2    */
+              ,
+              0xbd09a1cfu /* -3.36015783250331878662e-02 P3    */
+              ,
+              0x3cc1209au /*  2.35751159489154815673e-02 P4    */
+              ,
+              0xbc909ba8u /* -1.76523476839065551757e-02 P5    */
+              ,
+              0x4074ca1eu /*  3.82483625411987304687e+00 P0.hi */
+              ,
+              0xbdf42000u /* -1.19201660156250000000e-01 P1.hi */
+          }}}
+        /*== iSignMask = SP sign mask ==*/
+        ,
+        0x80000000u
+        /*== iHiRange = 1.0 SP ==*/
+        ,
+        0x3f800000u
+        /*== iLoRange = 2^(-24) SP ==*/
+        ,
+        0x33800000u
+        /*== sOne = 1.0 SP ==*/
+        ,
+        0x3f800000u
+        /*== iIndexBase = base index value ==*/
+        ,
+        ((0x7F - 1) * 8 + 7)
+        /*== sReducedMask = masks off sign, expo & 'm' significand index bits
+           ==*/
+        ,
+        0x000fffffu
+        /*== sReducedBase = (1+1/(2*m)) = approximation center base value ==*/
+        ,
+        0x3f880000u
+        /*== sSplitMask = SP mask off low significand bits, leave high 12 bits
+           ==*/
+        ,
+        0xfffff000u
+        /*== iTwiceBias = 2*IML_SP_BIAS in the position of SP exponent ==*/
+        ,
+        0x7f000000u
+        /* scalar part follow */
+        /*== sSignMask = SP sign mask ==*/
+        ,
+        0x80000000u
+        /*== SqrtPiDiv2 = sqrt(Pi)/2 ~ 0.88623046875 ==*/
+        ,
+        0x3f62dfc5u
+        /*== sInfs = SP infinity, +/- ==*/
+        ,
+        {0x7f800000u, 0xff800000u}
+        /*== sOnes = SP one, +/- ==*/
+        ,
+        {0x3f800000u, 0xbf800000u}
+        /*== sZeros = SP zero +/- ==*/
+        ,
+        {0x00000000u, 0x80000000u}}; /*sErfInv_HA_Table*/
+/*============================================================================*/
+inline int __devicelib_imf_internal_serfinv(const float *ap, float *rp) {
+  float SqrtPiD2;
+  float X;
+  float sX, sRes;
+  int iXSign;
+  unsigned int uUX, uIX;
+  /* load constants */
+  SqrtPiD2 = *(float const *)&__devicelib_imf_internal_serfinv_data.SqrtPiDiv2;
+  /* load x = a[i] */
+  sX = ap[0];
+  /* classify input value */
+  uUX = *((unsigned int *)(ap + 0));
+  uIX = (uUX & ~0x80000000);
+  /* special argument values: finite |x| >= 1.0, INF, NaN */
+  if (__builtin_expect(uIX >= 0x3f800000, 0)) {
+    /* special path: finite |x| >= 1, INF, NaN */
+    if (__builtin_expect(uIX == 0x3f800000, 0)) { /* |x| = 1 */
+      iXSign = (uUX >> 31);
+      rp[0] = ((*(const float *)&__devicelib_imf_internal_serfinv_data
+                     .sOnes[(iXSign)]) /
+               (*(const float *)(&__devicelib_imf_internal_serfinv_data
+                                      .sZeros[0])));
+      /* to main loop */
+      return 2;
     }
-    res.w ^= sgn_x;
-    *r = res.f;
-    return nRet;
+    /* finite |x| > 1, INF */
+    if (__builtin_expect(uIX <= 0x7f800000, 0)) { /* finite |x| > 1, INF */
+      rp[0] =
+          ((*(const float *)&__devicelib_imf_internal_serfinv_data.sInfs[0]) *
+           (*(const float *)(&__devicelib_imf_internal_serfinv_data
+                                  .sZeros[0])));
+      /* to main loop */
+      return 1;
+    }
+    /* NaN */
+    rp[0] = (sX + sX); /* signal and quietize SNaNs */
+    /* to main loop */
+    return 0;
+  }
+  /* small arguments: 0 <= |x| < 2^(-24) */
+  if (__builtin_expect(uIX < 0x33800000, 0)) { /* 0 <= |x| < 2^(-24) */
+    /* zeros */
+    if (__builtin_expect(uIX == 0, 0)) { /* |x| = 0 */
+      rp[0] = sX;
+      /* to main loop */
+      return 0;
+    }
+    /* small arguments: 0 < |x| < 2^(-24) */
+    /* compute x*sqrt(Pi)/2 */
+    X = sX;
+    sRes = (X * SqrtPiD2);
+    /* store r[i] = res */
+    rp[0] = sRes;
+    /* to main loop */
+    return 0;
+  }
+  return 0;
 }
-} // namespace
-} // namespace __imf_impl_erfinv_s_ha
-
-DEVICE_EXTERN_C_INLINE float __devicelib_imf_erfinvf (float a)
-{
-    float r;
-    __imf_impl_erfinv_s_ha::__devicelib_imf_internal_serfinv (&a, &r);
-    return r;
+} /* namespace */
+} /* namespace __imf_impl_erfinv_s_ha */
+DEVICE_EXTERN_C_INLINE float __devicelib_imf_erfinvf(float x) {
+  using namespace __imf_impl_erfinv_s_ha;
+  float r;
+  VUINT32 vm;
+  float va1;
+  float vr1;
+  va1 = x;
+  {
+    VUINT32 iSignMask;
+    VUINT32 iHiRange;
+    VUINT32 iLoRange;
+    float sOne;
+    VUINT32 iIndexBase;
+    float sReducedMask;
+    float sReducedBase;
+    float sSplitMask;
+    VUINT32 iTwiceBias;
+    VUINT32 iHiRangeMask;
+    VUINT32 iLoRangeMask;
+    VUINT32 iRangeMask;
+    VUINT32 iX;
+    float sXHi;
+    float sXLo;
+    float sXAbs;
+    VUINT32 iXAbs;
+    float sYHi;
+    float sYLo;
+    VUINT32 iYHi;
+    float sS;
+    VUINT32 iS;
+    float sR;
+    float sRHi;
+    float sRLo;
+    float sP;
+    float sPHi;
+    float sPLo;
+    float sP1Hi;
+    float sP1Lo;
+    float sPHiX;
+    float sPLoX;
+    float sT;
+    VUINT32 iI;
+    char *spP;
+    float sPP[8];
+    iX = as_uint(va1);
+    /* get |x| */
+    iSignMask = (__devicelib_imf_internal_serfinv_data.iSignMask);
+    iXAbs = (~(iSignMask)&iX);
+    sXAbs = as_float(iXAbs);
+    /* check argument value ranges */
+    iHiRange = (__devicelib_imf_internal_serfinv_data.iHiRange);
+    iLoRange = (__devicelib_imf_internal_serfinv_data.iLoRange);
+    iHiRangeMask = ((VUINT32)(-(VSINT32)((VSINT32)iHiRange > (VSINT32)iXAbs)));
+    iLoRangeMask = ((VUINT32)(-(VSINT32)((VSINT32)iXAbs > (VSINT32)iLoRange)));
+    iRangeMask = (iHiRangeMask & iLoRangeMask);
+    /* no need to split x when FMA is available */
+    /* yHi + yLo = y = 1 - |x| */
+    sOne = as_float(__devicelib_imf_internal_serfinv_data.sOne);
+    sYHi = (sOne - sXAbs);
+    sYLo = (sOne - sYHi);
+    sYLo = (sYLo - sXAbs);
+    /* combine and get argument value range mask */
+    vm = 0;
+    vm = (iRangeMask == 0);
+    /* s = 2^(-unbiased_expo(x)) */
+    iTwiceBias = (__devicelib_imf_internal_serfinv_data.iTwiceBias);
+    sS = as_float((as_uint(sYHi) & as_uint(sOne)));
+    iS = as_uint(sS);
+    iS = (iTwiceBias - iS);
+    sS = as_float(iS);
+    /* i = P3_INDEX_BASE - (INTEGER[y] >> (23-3)) */
+    iIndexBase = (__devicelib_imf_internal_serfinv_data.iIndexBase);
+    iYHi = as_uint(sYHi);
+    iI = ((VUINT32)(iYHi) >> (23 - 3));
+    iI = (iIndexBase - iI);
+    iI = (iI & iRangeMask);
+    /* INTEGER[y] = 3f800000 | (INTEGER[y] & 000fffff) */
+    sReducedMask = as_float(__devicelib_imf_internal_serfinv_data.sReducedMask);
+    sYHi = as_float((as_uint(sYHi) & as_uint(sReducedMask)));
+    sYHi = as_float((as_uint(sYHi) | as_uint(sOne)));
+    /* rHi + rLo = r = y - (1+1/(2*m)) */
+    sReducedBase = as_float(__devicelib_imf_internal_serfinv_data.sReducedBase);
+    /* no need to split r when FMA is available */
+    sR = (sYHi - sReducedBase);
+    sR = __fma(sS, sYLo, sR);
+    /* P = &TAB.sPoly[i] */
+    /* load polynomial coefficients 0..7 */
+    sPP[(0 + 0 + 0 + 0)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 0 + 0 + 0)]);
+    sPP[(0 + 0 + 0 + 1)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 0 + 0 + 1)]);
+    sPP[(0 + 0 + 2 + 0)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 0 + 2 + 0)]);
+    sPP[(0 + 0 + 2 + 1)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 0 + 2 + 1)]);
+    sPP[(0 + 4 + 0 + 0)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 4 + 0 + 0)]);
+    sPP[(0 + 4 + 0 + 1)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 4 + 0 + 1)]);
+    sPP[(0 + 4 + 2 + 0)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 4 + 2 + 0)]);
+    sPP[(0 + 4 + 2 + 1)] =
+        as_float(((const VUINT32 *)(__devicelib_imf_internal_serfinv_data
+                                        .sPoly))[(((0 + iI) * (8 * 4)) >> (2)) +
+                                                 0 + 0 + (0 + 4 + 2 + 1)]);
+    /* p = pHi + pLo = (((((P[5])*r + P[4])*r + P[3])*r + P[2])*r + P[1])*r +
+     * P[0] */
+    sT = __fma(sPP[5], sR, sPP[4]);
+    sT = __fma(sT, sR, sPP[3]);
+    sT = __fma(sT, sR, sPP[2]);
+    sT = __fma(sT, sR, sPP[1]);
+    sT = __fma(sT, sR, sPP[0]);
+    sPHi = __fma(sPP[7], sR, sPP[6]);
+    sPLo = (sPP[6] - sPHi);
+    sPLo = __fma(sPP[7], sR, sPLo);
+    sPLo = (sPLo + sT);
+    /* res = (pHi + pLo)*x */
+    sPLoX = (sPLo * va1);
+    vr1 = __fma(sPHi, va1, sPLoX);
+  }
+  if (__builtin_expect((vm) != 0, 0)) {
+    float __cout_a1;
+    float __cout_r1;
+    ((float *)&__cout_a1)[0] = va1;
+    ((float *)&__cout_r1)[0] = vr1;
+    __devicelib_imf_internal_serfinv(&__cout_a1, &__cout_r1);
+    vr1 = ((const float *)&__cout_r1)[0];
+  }
+  r = vr1;
+  return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/

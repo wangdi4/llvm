@@ -1,6 +1,6 @@
 ; RUN: opt %s -S -passes='vplan-vec' -vplan-entities-dump -vplan-print-after-live-inout-list | FileCheck %s
 
-define void @_ZGVeN32u__ZTSZ4mainEUlN4sycl3_V17nd_itemILi3EEEE_(i32 addrspace(1)* align 4 %_arg_result_device) {
+define void @_ZGVeN32u__ZTSZ4mainEUlN4sycl3_V17nd_itemILi3EEEE_(ptr addrspace(1) align 4 %_arg_result_device) {
 ; CHECK:       Private list
 ; CHECK:         Exit instr: i32 [[VP_RETVAL_1_I_I_I:%.*]] = phi  [ i32 [[SPEC_STORE_SELECT_I_I_I0:%.*]], [[BB0:BB[0-9]+]] ],  [ i32 [[TMP2:%.*]], [[BB1:BB[0-9]+]] ]
 ; CHECK-NEXT:    Linked values: i32 [[VP_RETVAL_1_I_I_I]], i32 [[VP_RETVAL_1_I_I_I_PRIV_FINAL:%.*]],
@@ -47,16 +47,16 @@ define void @_ZGVeN32u__ZTSZ4mainEUlN4sycl3_V17nd_itemILi3EEEE_(i32 addrspace(1)
 ; CHECK-NEXT:    br label [[FINAL_MERGE0:%.*]]
 ;
 entry:
-  %alloca._arg_result_device = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %_arg_result_device, i32 addrspace(1)** %alloca._arg_result_device, align 8
+  %alloca._arg_result_device = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %_arg_result_device, ptr %alloca._arg_result_device, align 8
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.UNIFORM"(i32 addrspace(1)** %alloca._arg_result_device) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.UNIFORM"(ptr %alloca._arg_result_device) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load._arg_result_device = load i32 addrspace(1)*, i32 addrspace(1)** %alloca._arg_result_device, align 8
+  %load._arg_result_device = load ptr addrspace(1), ptr %alloca._arg_result_device, align 8
   %cmp.i6.inv.i.i = icmp ult i32 0, 8
   %spec.store.select.i.i.i = select i1 %cmp.i6.inv.i.i, i32 1, i32 8
   %conv.i.i.i = zext i32 %spec.store.select.i.i.i to i64
@@ -90,7 +90,7 @@ simd.loop.latch:                                  ; preds = %_ZNK3Foo22get_local
 
 simd.end.region:                                  ; preds = %simd.loop.latch
   %retval.1.i.i.i.lcssa = phi i32 [ %retval.1.i.i.i, %simd.loop.latch ]
-  store i32 %retval.1.i.i.i.lcssa, i32 addrspace(1)* %load._arg_result_device, align 4
+  store i32 %retval.1.i.i.i.lcssa, ptr addrspace(1) %load._arg_result_device, align 4
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %simd.end.region

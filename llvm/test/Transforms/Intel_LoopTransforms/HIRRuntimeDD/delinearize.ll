@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>,hir-cg" -aa-pipeline="basic-aa" -force-hir-cg < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>,hir-cg" -aa-pipeline="basic-aa" -force-hir-cg < %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
 
 ; Check that loop can be multiversioned after reference delinearization.
 ;
@@ -38,12 +38,12 @@
 ; CHECK: sext.i32.i64(%k) + -1 < sext.i32.i64(%n)
 ; CHECK: <MVTag: {{[0-9]+}}, Delinearized: %p>
 
-; CHECK-REFS: &((%p)[0:100:4 * sext.i32.i64(%n)(i32*:0)][0:sext.i32.i64(%k) + -1:4(i32*:0)])
+; CHECK-REFS: &((%p)[0:100:4 * sext.i32.i64(%n)(i32:0)][0:sext.i32.i64(%k) + -1:4(i32:0)])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %p, i32* nocapture readonly %q, i32 %n, i32 %k) {
+define void @foo(ptr nocapture %p, ptr nocapture readonly %q, i32 %n, i32 %k) {
 entry:
   %cmp231 = icmp sgt i32 %k, 0
   br i1 %cmp231, label %for.cond1.preheader.us.preheader, label %for.cond.cleanup
@@ -60,15 +60,15 @@ for.cond1.preheader.us:                           ; preds = %for.cond1.for.cond.
 
 for.body4.us:                                     ; preds = %for.body4.us, %for.cond1.preheader.us
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader.us ], [ %indvars.iv.next, %for.body4.us ]
-  %arrayidx.us = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx.us, align 4
+  %arrayidx.us = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx.us, align 4
   %3 = add nsw i64 %indvars.iv, %1
-  %arrayidx6.us = getelementptr inbounds i32, i32* %p, i64 %3
-  store i32 %2, i32* %arrayidx6.us, align 4
-  %4 = load i32, i32* %arrayidx.us, align 4
+  %arrayidx6.us = getelementptr inbounds i32, ptr %p, i64 %3
+  store i32 %2, ptr %arrayidx6.us, align 4
+  %4 = load i32, ptr %arrayidx.us, align 4
   %5 = add nsw i64 %3, %0
-  %arrayidx13.us = getelementptr inbounds i32, i32* %p, i64 %5
-  store i32 %4, i32* %arrayidx13.us, align 4
+  %arrayidx13.us = getelementptr inbounds i32, ptr %p, i64 %5
+  store i32 %4, ptr %arrayidx13.us, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond1.for.cond.cleanup3_crit_edge.us, label %for.body4.us

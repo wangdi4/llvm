@@ -2,21 +2,21 @@
 ; RUN: opt -S -passes=vplan-vec -vplan-force-vf=8 < %s | FileCheck %s
 
 ; Function Attrs: nounwind
-declare i32 @foo_i32(i32 addrspace(1)*, i32) local_unnamed_addr #1
+declare i32 @foo_i32(ptr addrspace(1), i32) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-define void @testfun_i32(i32 addrspace(1)* noalias %_arg_) local_unnamed_addr {
+define void @testfun_i32(ptr addrspace(1) noalias %_arg_) local_unnamed_addr {
 entry:
-  %alloca._arg_ = alloca i32 addrspace(1)*
-  store i32 addrspace(1)* %_arg_, i32 addrspace(1)** %alloca._arg_
+  %alloca._arg_ = alloca ptr addrspace(1)
+  store ptr addrspace(1) %_arg_, ptr %alloca._arg_
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca._arg_, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca._arg_, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load._arg_ = load i32 addrspace(1)*, i32 addrspace(1)** %alloca._arg_
+  %load._arg_ = load ptr addrspace(1), ptr %alloca._arg_
   br label %simd.loop
 
 ; CHECK:       vector.body:
@@ -26,7 +26,7 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
-  %call2.i.i.i.i.i = call i32 @foo_i32(i32 addrspace(1)* %load._arg_, i32 1) #1
+  %call2.i.i.i.i.i = call i32 @foo_i32(ptr addrspace(1) %load._arg_, i32 1) #1
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -45,21 +45,21 @@ return:                                           ; preds = %simd.end.region
 ;
 ; Same as before but function's return type is void
 ;
-declare void @foo_void(i32 addrspace(1)*, i32) local_unnamed_addr #1
+declare void @foo_void(ptr addrspace(1), i32) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-define void @testfun_void(i32 addrspace(1)* noalias %_arg_) local_unnamed_addr {
+define void @testfun_void(ptr addrspace(1) noalias %_arg_) local_unnamed_addr {
 entry:
-  %alloca._arg_ = alloca i32 addrspace(1)*
-  store i32 addrspace(1)* %_arg_, i32 addrspace(1)** %alloca._arg_
+  %alloca._arg_ = alloca ptr addrspace(1)
+  store ptr addrspace(1) %_arg_, ptr %alloca._arg_
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca._arg_, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca._arg_, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load._arg_ = load i32 addrspace(1)*, i32 addrspace(1)** %alloca._arg_
+  %load._arg_ = load ptr addrspace(1), ptr %alloca._arg_
   br label %simd.loop
 
 ; CHECK:       vector.body:
@@ -69,7 +69,7 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
-  call void @foo_void(i32 addrspace(1)* %load._arg_, i32 1) #1
+  call void @foo_void(ptr addrspace(1) %load._arg_, i32 1) #1
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

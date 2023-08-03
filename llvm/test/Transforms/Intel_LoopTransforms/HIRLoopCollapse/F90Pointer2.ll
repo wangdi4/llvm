@@ -1,5 +1,5 @@
 
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;  Innermost 2 levels cab collaped 
 ;
@@ -14,7 +14,7 @@
 ;                 |   + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
 ;                 |   |   + DO i3 = 0, 4, 1   <DO_LOOP>
 ;                 |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
-;                 |   |   |   |   (%"aer_$A")[0:i1:1000(double*:0)][0:i2:200 * sext.i32.i64(%"aer_$N_fetch.1")(double*:0)][0:i3:40(double*:0)][0:i4:8(double*:5)] = 1.000000e+00;
+;                 |   |   |   |   (%"aer_$A")[0:i1:1000(double:0)][0:i2:200 * sext.i32.i64(%"aer_$N_fetch.1")(double:0)][0:i3:40(double:0)][0:i4:8(double:5)] = 1.000000e+00;
 ;                 |   |   |   + END LOOP
 ;                 |   |   + END LOOP
 ;                 |   + END LOOP
@@ -29,7 +29,7 @@
 ; CHECK:           + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK:           |   + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i3 = 0, 24, 1   <DO_LOOP>
-; CHECK:           |   |   |   (%"aer_$A")[0:i1:1000(double*:0)][0:i2:200 * sext.i32.i64(%"aer_$N_fetch.1")(double*:0)][0:0:40(double*:0)][0:i3:8(double*:5)] = 1.000000e+00;
+; CHECK:           |   |   |   (%"aer_$A")[0:i1:1000(double:0)][0:i2:200 * sext.i32.i64(%"aer_$N_fetch.1")(double:0)][0:0:40(double:0)][0:i3:8(double:5)] = 1.000000e+00;
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
@@ -42,63 +42,62 @@ source_filename = "F90Pointer2.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$double*$rank4$" = type { double*, i64, i64, i64, i64, i64, [4 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank4$" = type { ptr, i64, i64, i64, i64, i64, [4 x { i64, i64, i64 }] }
 
 ; Function Attrs: argmemonly nofree nosync nounwind uwtable
-define void @aer_(double* dereferenceable(8) %"aer_$A", i32* noalias nocapture readonly dereferenceable(4) %"aer_$N") local_unnamed_addr #0 {
+define void @aer_(ptr dereferenceable(8) %"aer_$A", ptr noalias nocapture readonly dereferenceable(4) %"aer_$N") local_unnamed_addr #0 {
 alloca_0:
-  %"aer_$P" = alloca %"QNCA_a0$double*$rank4$", align 8, !llfort.type_idx !0
-  %"aer_$P.addr_a0$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 0
-  %"aer_$P.flags$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 3
-  %"aer_$N_fetch.1" = load i32, i32* %"aer_$N", align 1, !tbaa !1
+  %"aer_$P" = alloca %"QNCA_a0$ptr$rank4$", align 8, !llfort.type_idx !0
+  %"aer_$P.flags$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 3
+  %"aer_$N_fetch.1" = load i32, ptr %"aer_$N", align 1, !tbaa !1
   %int_sext = sext i32 %"aer_$N_fetch.1" to i64
   %add.1 = add nsw i64 %int_sext, 4
   %div.1 = sdiv i64 %add.1, %int_sext
   %0 = tail call i64 @llvm.smax.i64(i64 %div.1, i64 0)
-  store i64 3, i64* %"aer_$P.flags$", align 8, !tbaa !5
-  %"aer_$P.addr_length$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 1
-  store i64 8, i64* %"aer_$P.addr_length$", align 8, !tbaa !8
-  %"aer_$P.dim$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 4
-  store i64 4, i64* %"aer_$P.dim$", align 8, !tbaa !9
-  %"aer_$P.codim$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 2
-  store i64 0, i64* %"aer_$P.codim$", align 8, !tbaa !10
-  %"aer_$P.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 6, i64 0, i32 1
-  %"aer_$P.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 0)
-  store i64 8, i64* %"aer_$P.dim_info$.spacing$[]", align 1, !tbaa !11
-  %"aer_$P.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 6, i64 0, i32 2
-  %"aer_$P.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 0)
-  store i64 1, i64* %"aer_$P.dim_info$.lower_bound$[]", align 1, !tbaa !12
-  %"aer_$P.dim_info$.extent$" = getelementptr inbounds %"QNCA_a0$double*$rank4$", %"QNCA_a0$double*$rank4$"* %"aer_$P", i64 0, i32 6, i64 0, i32 0
-  %"aer_$P.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 0)
-  store i64 5, i64* %"aer_$P.dim_info$.extent$[]", align 1, !tbaa !13
-  %"aer_$P.dim_info$.spacing$[]6" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 1)
-  store i64 40, i64* %"aer_$P.dim_info$.spacing$[]6", align 1, !tbaa !11
-  %"aer_$P.dim_info$.lower_bound$[]9" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 1)
-  store i64 1, i64* %"aer_$P.dim_info$.lower_bound$[]9", align 1, !tbaa !12
-  %"aer_$P.dim_info$.extent$[]12" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 1)
-  store i64 5, i64* %"aer_$P.dim_info$.extent$[]12", align 1, !tbaa !13
+  store i64 3, ptr %"aer_$P.flags$", align 8, !tbaa !5
+  %"aer_$P.addr_length$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 1
+  store i64 8, ptr %"aer_$P.addr_length$", align 8, !tbaa !8
+  %"aer_$P.dim$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 4
+  store i64 4, ptr %"aer_$P.dim$", align 8, !tbaa !9
+  %"aer_$P.codim$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 2
+  store i64 0, ptr %"aer_$P.codim$", align 8, !tbaa !10
+  %"aer_$P.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 6, i64 0, i32 1
+  %"aer_$P.dim_info$.spacing$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 0)
+  store i64 8, ptr %"aer_$P.dim_info$.spacing$[]", align 1, !tbaa !11
+  %"aer_$P.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 6, i64 0, i32 2
+  %"aer_$P.dim_info$.lower_bound$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 0)
+  store i64 1, ptr %"aer_$P.dim_info$.lower_bound$[]", align 1, !tbaa !12
+  %"aer_$P.dim_info$.extent$" = getelementptr inbounds %"QNCA_a0$ptr$rank4$", ptr %"aer_$P", i64 0, i32 6, i64 0, i32 0
+  %"aer_$P.dim_info$.extent$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 0)
+  store i64 5, ptr %"aer_$P.dim_info$.extent$[]", align 1, !tbaa !13
+  %"aer_$P.dim_info$.spacing$[]6" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 1)
+  store i64 40, ptr %"aer_$P.dim_info$.spacing$[]6", align 1, !tbaa !11
+  %"aer_$P.dim_info$.lower_bound$[]9" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 1)
+  store i64 1, ptr %"aer_$P.dim_info$.lower_bound$[]9", align 1, !tbaa !12
+  %"aer_$P.dim_info$.extent$[]12" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 1)
+  store i64 5, ptr %"aer_$P.dim_info$.extent$[]12", align 1, !tbaa !13
   %mul.6 = mul nsw i64 %int_sext, 200
-  %"aer_$P.dim_info$.spacing$[]16" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 2)
-  store i64 %mul.6, i64* %"aer_$P.dim_info$.spacing$[]16", align 1, !tbaa !11
-  %"aer_$P.dim_info$.lower_bound$[]19" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 2)
-  store i64 1, i64* %"aer_$P.dim_info$.lower_bound$[]19", align 1, !tbaa !12
-  %"aer_$P.dim_info$.extent$[]22" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 2)
-  store i64 %0, i64* %"aer_$P.dim_info$.extent$[]22", align 1, !tbaa !13
-  %"aer_$P.dim_info$.spacing$[]26" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 3)
-  store i64 1000, i64* %"aer_$P.dim_info$.spacing$[]26", align 1, !tbaa !11
-  %"aer_$P.dim_info$.lower_bound$[]29" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 3)
-  store i64 1, i64* %"aer_$P.dim_info$.lower_bound$[]29", align 1, !tbaa !12
-  %"aer_$P.dim_info$.extent$[]32" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 3)
-  store i64 5, i64* %"aer_$P.dim_info$.extent$[]32", align 1, !tbaa !13
-  store double* %"aer_$A", double** %"aer_$P.addr_a0$", align 8, !tbaa !14
+  %"aer_$P.dim_info$.spacing$[]16" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 2)
+  store i64 %mul.6, ptr %"aer_$P.dim_info$.spacing$[]16", align 1, !tbaa !11
+  %"aer_$P.dim_info$.lower_bound$[]19" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 2)
+  store i64 1, ptr %"aer_$P.dim_info$.lower_bound$[]19", align 1, !tbaa !12
+  %"aer_$P.dim_info$.extent$[]22" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 2)
+  store i64 %0, ptr %"aer_$P.dim_info$.extent$[]22", align 1, !tbaa !13
+  %"aer_$P.dim_info$.spacing$[]26" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.spacing$", i32 3)
+  store i64 1000, ptr %"aer_$P.dim_info$.spacing$[]26", align 1, !tbaa !11
+  %"aer_$P.dim_info$.lower_bound$[]29" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.lower_bound$", i32 3)
+  store i64 1, ptr %"aer_$P.dim_info$.lower_bound$[]29", align 1, !tbaa !12
+  %"aer_$P.dim_info$.extent$[]32" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"aer_$P.dim_info$.extent$", i32 3)
+  store i64 5, ptr %"aer_$P.dim_info$.extent$[]32", align 1, !tbaa !13
+  store ptr %"aer_$A", ptr %"aer_$P", align 8, !tbaa !14
   %rel.4.not147 = icmp slt i64 %div.1, 1
   %1 = add nuw nsw i64 %0, 1
   br label %loop_test13.preheader
 
 loop_body6:                                       ; preds = %loop_test5.preheader, %loop_body6
   %"var$7.0144" = phi i64 [ 1, %loop_test5.preheader ], [ %add.12, %loop_body6 ]
-  %"aer_$P.addr_a0$_fetch.2[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[][][]", i64 %"var$7.0144")
-  store double 1.000000e+00, double* %"aer_$P.addr_a0$_fetch.2[][][][]", align 1, !tbaa !15
+  %"aer_$P.addr_a0$_fetch.2[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[][][]", i64 %"var$7.0144")
+  store double 1.000000e+00, ptr %"aer_$P.addr_a0$_fetch.2[][][][]", align 1, !tbaa !15
   %add.12 = add nuw nsw i64 %"var$7.0144", 1
   %exitcond = icmp eq i64 %add.12, 6
   br i1 %exitcond, label %loop_exit7, label %loop_body6
@@ -110,7 +109,7 @@ loop_exit7:                                       ; preds = %loop_body6
 
 loop_test5.preheader:                             ; preds = %loop_test9.preheader, %loop_exit7
   %"var$8.0146" = phi i64 [ 1, %loop_test9.preheader ], [ %add.14, %loop_exit7 ]
-  %"aer_$P.addr_a0$_fetch.2[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[][]", i64 %"var$8.0146")
+  %"aer_$P.addr_a0$_fetch.2[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[][]", i64 %"var$8.0146")
   br label %loop_body6
 
 loop_exit11:                                      ; preds = %loop_exit7
@@ -120,7 +119,7 @@ loop_exit11:                                      ; preds = %loop_exit7
 
 loop_test9.preheader:                             ; preds = %loop_test9.preheader.lr.ph, %loop_exit11
   %"var$9.0149" = phi i64 [ 1, %loop_test9.preheader.lr.ph ], [ %add.16, %loop_exit11 ]
-  %"aer_$P.addr_a0$_fetch.2[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.6, double* nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[]", i64 %"var$9.0149")
+  %"aer_$P.addr_a0$_fetch.2[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.6, ptr nonnull elementtype(double) %"aer_$P.addr_a0$_fetch.2[]", i64 %"var$9.0149")
   br label %loop_test5.preheader
 
 loop_exit15.loopexit:                             ; preds = %loop_exit11
@@ -136,7 +135,7 @@ loop_test13.preheader:                            ; preds = %alloca_0, %loop_exi
   br i1 %rel.4.not147, label %loop_exit15, label %loop_test9.preheader.lr.ph
 
 loop_test9.preheader.lr.ph:                       ; preds = %loop_test13.preheader
-  %"aer_$P.addr_a0$_fetch.2[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 1000, double* nonnull elementtype(double) %"aer_$A", i64 %"var$10.0151")
+  %"aer_$P.addr_a0$_fetch.2[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 1000, ptr nonnull elementtype(double) %"aer_$A", i64 %"var$10.0151")
   br label %loop_test9.preheader
 
 loop_exit19:                                      ; preds = %loop_exit15
@@ -144,10 +143,10 @@ loop_exit19:                                      ; preds = %loop_exit15
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #1
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind readnone speculatable willreturn
 declare i64 @llvm.smax.i64(i64, i64) #2

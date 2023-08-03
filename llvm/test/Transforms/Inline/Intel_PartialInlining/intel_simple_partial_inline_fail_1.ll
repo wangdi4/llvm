@@ -27,6 +27,9 @@
 ;   return foo(List);
 ; }
 ;
+; This is the same test case as intel_simple_partial_inline_fail_1.ll, but it
+; is for opaque pointers.
+;
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline 2>&1 | FileCheck %s
 
 ; CHECK: No candidates for partial inlining
@@ -34,36 +37,39 @@
 ; CHECK-NOT: Analyzing Function: _Z3fooP4Node
 ; CHECK-NOT:     Result: Can partial inline
 
-%struct.Node = type { i32, %struct.Node* }
+; ModuleID = 'intel_simple_partial_inline_fail_1.ll'
+source_filename = "intel_simple_partial_inline_fail_1.ll"
 
-define i32 @_Z3fooP4Node(%struct.Node* %List) {
+%struct.Node = type { i32, ptr }
+
+define i32 @_Z3fooP4Node(ptr %List) {
 entry:
-  %cmp8 = icmp eq %struct.Node* %List, null
+  %cmp8 = icmp eq ptr %List, null
   br i1 %cmp8, label %for.end, label %for.body
 
-for.body:                                         ; preds = %entry, %for.body
+for.body:                                         ; preds = %for.body, %entry
   %Num.010 = phi i32 [ %add, %for.body ], [ 0, %entry ]
-  %Head.09 = phi %struct.Node* [ %1, %for.body ], [ %List, %entry ]
-  %Num1 = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 0
-  %0 = load i32, i32* %Num1
+  %Head.09 = phi ptr [ %1, %for.body ], [ %List, %entry ]
+  %Num1 = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 0
+  %0 = load i32, ptr %Num1, align 4
   %add = add nsw i32 %0, %Num.010
-  %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
-  %1 = load %struct.Node*, %struct.Node** %Next
-  %cmp = icmp eq %struct.Node* %1, null
+  %Next = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 1
+  %1 = load ptr, ptr %Next, align 8
+  %cmp = icmp eq ptr %1, null
   br i1 %cmp, label %for.end, label %for.body
 
-for.end:                                          ; preds = %for.end, %entry
+for.end:                                          ; preds = %for.body, %entry
   %Num.0.lcssa = phi i32 [ 0, %entry ], [ %add, %for.body ]
   ret i32 %Num.0.lcssa
 }
 
-
-define i32 @_Z3barP4Node(%struct.Node* %List) #0 {
+; Function Attrs: noinline
+define i32 @_Z3barP4Node(ptr %List) #0 {
 entry:
-  %List.addr = alloca %struct.Node*
-  store %struct.Node* %List, %struct.Node** %List.addr
-  %0 = load %struct.Node*, %struct.Node** %List.addr
-  %call = call zeroext i32 @_Z3fooP4Node(%struct.Node* %0)
+  %List.addr = alloca ptr, align 8
+  store ptr %List, ptr %List.addr, align 8
+  %0 = load ptr, ptr %List.addr, align 8
+  %call = call zeroext i32 @_Z3fooP4Node(ptr %0)
   ret i32 %call
 }
 

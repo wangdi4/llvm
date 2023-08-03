@@ -108,17 +108,18 @@ void DataPerValue::runOnFunction(Function &F) {
   SyncInstructions =
       DPB->hasSyncInstruction(&F) ? &DPB->getSyncInstructions(&F) : nullptr;
 
+  // clang-format off
   // Run over all the values of the function and Cluster into 3 groups
-  // Group-A   : Alloca instructions
+  // Group-A   : Alloca instructions (AllocaValuesPerFuncMap)
   //   Important: we make exclusion for Alloca instructions which
   //              reside between 2 dummyBarrier calls:
-  //              a) one     - the 1st instruction which inserted by
-  //              BarrierInFunctionPass b) another - the instruction which marks
-  //              the bottom of Allocas
+  //              a) one     - the 1st instruction which inserted by BarrierInFunctionPass
+  //              b) another - the instruction which marks the bottom of Allocas
   //                           of WG function return value accumulators
   // Group-B.1 : Values crossed barriers and the value is
-  //             related to WI-Id or initialized inside a loop
-  // Group-B.2 : Value crossed barrier but does not suit Group-B.2
+  //             related to WI-Id or initialized inside a loop (SpecialValuesPerFuncMap)
+  // Group-B.2 : Value crossed barrier but does not suit Group-B.2 (CrossBarrierValuesPerFuncMap)
+  // clang-format on
 
   // At first - collect exclusions from Group-A (allocas for WG function
   // results)
@@ -346,11 +347,13 @@ unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
 
   if (AllocaInst *AI = dyn_cast_or_null<AllocaInst>(Val)) {
     if (AI->isArrayAllocation()) {
-      const ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
-      assert(C && "We cannot handle non static allocas in barrier!");
-      assert((C->getValue().getActiveBits() <= 64) &&
-             "The array size cannot be bigger than a uint64_t!");
-      SizeInBits = SizeInBits * (C->getZExtValue());
+      constexpr unsigned VLAMaxSize = 4 * 1024;
+      ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
+      // Temporary solution to handle dynamic size array in barrier pass.
+      // We use fixed 4K size for all dynamic size array. It follows the
+      // same solution in GPU device.
+      // TODO: Support dynamic size arrary.
+      SizeInBits = SizeInBits * (C ? C->getZExtValue() : VLAMaxSize);
     }
   }
 

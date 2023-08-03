@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SetPreferVectorWidth.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/CommandLine.h"
 

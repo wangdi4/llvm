@@ -38,8 +38,8 @@
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s | FileCheck %s
 
 %struct.st = type { i32, float }
 %union.un = type { i32 }
@@ -66,105 +66,87 @@ entry:
   %iii = alloca %struct.st, align 4
   %tmp = alloca %struct.st, align 4
   %agg-temp2 = alloca %struct.st, align 4
-  %iiii = alloca %struct.st*, align 4
+  %iiii = alloca ptr, align 4
   %u1 = alloca %union.un, align 4
   %u2 = alloca %union.un, align 4
-  %u3 = alloca %union.un*, align 4
+  %u3 = alloca ptr, align 4
   %tmp3 = alloca %union.un, align 4
   %agg-temp4 = alloca %union.un, align 4
-  %ap = alloca i32*, align 4
-  %bp = alloca i32*, align 4
-  store i32 123, i32* %a, align 4
-  store i32 321, i32* %myA, align 4
-  %0 = load i32, i32* %a, align 4
-; CHECK: %[[LOADA1:[0-9]+]] = load i32, i32* %a, align 4
+  %ap = alloca ptr, align 4
+  %bp = alloca ptr, align 4
+  store i32 123, ptr %a, align 4
+  store i32 321, ptr %myA, align 4
+  %0 = load i32, ptr %a, align 4
+; CHECK: %[[LOADA1:[0-9]+]] = load i32, ptr %a, align 4
   %1 = call i32 @llvm.fpga.reg.i32(i32 %0)
 ; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
-  store i32 %1, i32* %b, align 4
-; CHECK: store i32 %[[LOADA1]], i32* %b, align 4
-  %2 = load i32, i32* %myA, align 4
-; CHECK: %[[LOADMYA:[0-9]+]] = load i32, i32* %myA, align 4
+  store i32 %1, ptr %b, align 4
+; CHECK: store i32 %[[LOADA1]], ptr %b, align 4
+  %2 = load i32, ptr %myA, align 4
+; CHECK: %[[LOADMYA:[0-9]+]] = load i32, ptr %myA, align 4
   %3 = call i32 @llvm.fpga.reg.i32(i32 %2)
 ; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
-  store i32 %3, i32* %myB, align 4
-; CHECK: store i32 %[[LOADMYA]], i32* %myB, align 4
+  store i32 %3, ptr %myB, align 4
+; CHECK: store i32 %[[LOADMYA]], ptr %myB, align 4
   %4 = call float @llvm.fpga.reg.f32(float 2.000000e+00)
 ; CHECK-NOT: %{{[0-9]+}} = call float @llvm.fpga.reg.f32(float 2.000000e+00)
   %conv = fptosi float %4 to i32
 ; CHECK: %conv = fptosi float 2.000000e+00 to i32
-  store i32 %conv, i32* %c, align 4
-  %5 = load i32, i32* %b, align 4
+  store i32 %conv, ptr %c, align 4
+  %5 = load i32, ptr %b, align 4
   %add = add nsw i32 %5, 12
   %6 = call i32 @llvm.fpga.reg.i32(i32 %add)
 ; CHECK-NOT: %[[RET1:[0-9]+]] = call i32 @llvm.fpga.reg.i32(i32 %add)
   %7 = call i32 @llvm.fpga.reg.i32(i32 %6)
 ; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
-  store i32 %7, i32* %d, align 4
-; CHECK: store i32 %add, i32* %d, align 4
-  %8 = load i32, i32* %a, align 4
-  %9 = load i32, i32* %b, align 4
+  store i32 %7, ptr %d, align 4
+; CHECK: store i32 %add, ptr %d, align 4
+  %8 = load i32, ptr %a, align 4
+  %9 = load i32, ptr %b, align 4
   %add1 = add nsw i32 %8, %9
   %10 = call i32 @llvm.fpga.reg.i32(i32 %add1)
 ; CHECK-NOT: %[[RET2:[0-9]+]] = call i32 @llvm.fpga.reg.i32(i32 %add1)
   %11 = call i32 @llvm.fpga.reg.i32(i32 %10)
 ; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
-  store i32 %11, i32* %e, align 4
-; CHECK: store i32 %add1, i32* %e, align 4
-  %12 = load i32, i32* %a, align 4
-; CHECK: %[[LOADA2:[0-9]+]] = load i32, i32* %a, align 4
+  store i32 %11, ptr %e, align 4
+; CHECK: store i32 %add1, ptr %e, align 4
+  %12 = load i32, ptr %a, align 4
+; CHECK: %[[LOADA2:[0-9]+]] = load i32, ptr %a, align 4
   %13 = call i32 @llvm.fpga.reg.i32(i32 %12)
 ; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
-  store i32 %13, i32* %f, align 4
-; CHECK: store i32 %[[LOADA2]], i32* %f, align 4
-  %14 = bitcast %struct.st* %i to i8*
-  call void @llvm.memcpy.p0i8.p2i8.i32(i8* align 4 %14, i8 addrspace(2)* align 4 bitcast (%struct.st addrspace(2)* @foo.i to i8 addrspace(2)*), i32 8, i1 false)
-  %15 = bitcast %struct.st* %agg-temp to i8*
-  %16 = bitcast %struct.st* %i to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %15, i8* align 4 %16, i32 8, i1 false)
-  call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %ii, %struct.st* %agg-temp)
-; CHECK-NOT: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %ii, %struct.st* %agg-temp)
-  %17 = bitcast %struct.st* %agg-temp2 to i8*
-  %18 = bitcast %struct.st* %ii to i8*
-; CHECK-NOT: %{{[0-9]+}} = bitcast %struct.st* %ii to i8*
-; CHECK: %{{[0-9]+}} = bitcast %struct.st* %agg-temp to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %17, i8* align 4 %18, i32 8, i1 false)
-  call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %tmp, %struct.st* %agg-temp2)
-; CHECK-NOT: call void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st* %tmp, %struct.st* %agg-temp2)
-  %19 = bitcast %struct.st* %iii to i8*
-  %20 = bitcast %struct.st* %tmp to i8*
-; CHECK-NOT: %{{[0-9]+}} = bitcast %struct.st* %tmp to i8*
-; CHECK: %{{[0-9]+}} = bitcast %struct.st* %agg-temp2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %19, i8* align 4 %20, i32 8, i1 false)
-  %21 = call %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st* %iii)
-; CHECK-NOT: %{{[0-9]+}} = call %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st* %iii)
-  store %struct.st* %21, %struct.st** %iiii, align 4
-; CHECK-NOT: store %struct.st* %{{[0-9]+}}, %struct.st** %iiii, align 4
-; CHECK: store %struct.st* %iii, %struct.st** %iiii, align 4
-  %22 = bitcast %union.un* %u1 to i8*
-  call void @llvm.memcpy.p0i8.p2i8.i32(i8* align 4 %22, i8 addrspace(2)* align 4 bitcast (%union.un addrspace(2)* @foo.u1 to i8 addrspace(2)*), i32 4, i1 false)
-  %23 = bitcast %union.un* %agg-temp4 to i8*
-  %24 = bitcast %union.un* %u1 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %23, i8* align 4 %24, i32 4, i1 false)
-  call void @llvm.fpga.reg.struct.p0s_union.uns(%union.un* %tmp3, %union.un* %agg-temp4)
-; CHECK-NOT: call void @llvm.fpga.reg.struct.p0s_union.uns(%union.un* %tmp3, %union.un* %agg-temp4)
-  %25 = bitcast %union.un* %u2 to i8*
-  %26 = bitcast %union.un* %tmp3 to i8*
-; CHECK-NOT: %{{[0-9]+}} = bitcast %union.un* %tmp3 to i8*
-; CHECK: %{{[0-9]+}} = bitcast %union.un* %agg-temp4 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %25, i8* align 4 %26, i32 4, i1 false)
-  %27 = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)
-; CHECK-NOT: %{{[0-9]+}} = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)
-  store %union.un* %27, %union.un** %u3, align 4
-; CHECK-NOT: store %union.un* %{{[0-9]+}}, %union.un** %u3, align 4
-; CHECK: store %union.un* %u2, %union.un** %u3, align 4
-  store i32* %a, i32** %ap, align 4
-  %28 = load i32*, i32** %ap, align 4
-; CHECK: %[[LOADAP:[0-9]+]] = load i32*, i32** %ap, align 4
-  %29 = call i32* @llvm.fpga.reg.p0i32(i32* %28)
-; CHECK-NOT: %{{[0-9]+}} = call i32* @llvm.fpga.reg.p0i32
-  store i32* %29, i32** %bp, align 4
-; CHECK-NOT: store i32* %{{[0-9]+}}, i32** %bp, align 4
-; CHECK: store i32* %[[LOADAP]], i32** %bp, align 4
+  store i32 %13, ptr %f, align 4
+; CHECK: store i32 %[[LOADA2]], ptr %f, align 4
+  call void @llvm.memcpy.p0.p2.i32(ptr align 4 %i, ptr addrspace(2) align 4 @foo.i, i32 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %agg-temp, ptr align 4 %i, i32 8, i1 false)
+  call void @llvm.fpga.reg.struct.p0(ptr %ii, ptr %agg-temp)
+; CHECK-NOT: call void @llvm.fpga.reg.struct.p0(ptr %ii, ptr %agg-temp)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %agg-temp2, ptr align 4 %ii, i32 8, i1 false)
+  call void @llvm.fpga.reg.struct.p0(ptr %tmp, ptr %agg-temp2)
+; CHECK-NOT: call void @llvm.fpga.reg.struct.p0(ptr %tmp, ptr %agg-temp2)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %iii, ptr align 4 %tmp, i32 8, i1 false)
+  %14 = call ptr @llvm.fpga.reg.p0(ptr %iii)
+; CHECK-NOT: %{{[0-9]+}} = call ptr @llvm.fpga.reg.p0(ptr %iii)
+  store ptr %14, ptr %iiii, align 4
+; CHECK-NOT: store ptr %{{[0-9]+}}, ptr %iiii, align 4
+; CHECK: store ptr %iii, ptr %iiii, align 4
+  call void @llvm.memcpy.p0.p2.i32(ptr align 4 %u1, ptr addrspace(2) align 4 @foo.u1, i32 4, i1 false)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %agg-temp4, ptr align 4 %u1, i32 4, i1 false)
+  call void @llvm.fpga.reg.struct.p0(ptr %tmp3, ptr %agg-temp4)
+; CHECK-NOT: call void @llvm.fpga.reg.struct.p0(ptr %tmp3, ptr %agg-temp4)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %u2, ptr align 4 %tmp3, i32 4, i1 false)
+  %15 = call ptr @llvm.fpga.reg.p0(ptr %u2)
+; CHECK-NOT: %{{[0-9]+}} = call ptr @llvm.fpga.reg.p0(ptr %u2)
+  store ptr %15, ptr %u3, align 4
+; CHECK-NOT: store ptr %{{[0-9]+}}, ptr %u3, align 4
+; CHECK: store ptr %u2, ptr %u3, align 4
+  store ptr %a, ptr %ap, align 4
+  %16 = load ptr, ptr %ap, align 4
+; CHECK: %[[LOADAP:[0-9]+]] = load ptr, ptr %ap, align 4
+  %17 = call ptr @llvm.fpga.reg.p0(ptr %16)
+; CHECK-NOT: %{{[0-9]+}} = call ptr @llvm.fpga.reg.p0
+  store ptr %17, ptr %bp, align 4
+; CHECK-NOT: store ptr %{{[0-9]+}}, ptr %bp, align 4
+; CHECK: store ptr %[[LOADAP]], ptr %bp, align 4
   ret void
 }
 
@@ -177,30 +159,27 @@ declare float @llvm.fpga.reg.f32(float) #1
 ; CHECK-NOT: declare float @llvm.fpga.reg.f32(float)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p2i8.i32(i8* nocapture writeonly, i8 addrspace(2)* nocapture readonly, i32, i1) #2
+declare void @llvm.memcpy.p0.p2.i32(ptr nocapture writeonly, ptr addrspace(2) nocapture readonly, i32, i1) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture writeonly, i8* nocapture readonly, i32, i1) #2
+declare void @llvm.memcpy.p0.p0.i32(ptr nocapture writeonly, ptr nocapture readonly, i32, i1) #2
 
 ; Function Attrs: nounwind
-declare void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st*, %struct.st*) #1
-; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st*, %struct.st*)
+declare void @llvm.fpga.reg.struct.p0(ptr, ptr) #1
+; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0(ptr, ptr)
 
 ; Function Attrs: nounwind
-declare %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st*) #1
-; CHECK-NOT: %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st*)
+declare ptr @llvm.fpga.reg.p0(ptr) #1
+; CHECK-NOT: ptr @llvm.fpga.reg.p0(ptr)
 
 ; Function Attrs: nounwind
-declare void @llvm.fpga.reg.struct.p0s_union.uns(%union.un*, %union.un*) #1
-; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0s_union.uns(%union.un*, %union.un*)
+; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0(ptr, ptr)
 
 ; Function Attrs: nounwind
-declare %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un*) #1
-; CHECK-NOT: %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un*)
+; CHECK-NOT: ptr @llvm.fpga.reg.p0(ptr)
 
 ; Function Attrs: nounwind
-declare i32* @llvm.fpga.reg.p0i32(i32*) #1
-; CHECK-NOT: declare i32* @llvm.fpga.reg.p0i32(i32*)
+; CHECK-NOT: declare ptr @llvm.fpga.reg.p0(ptr)
 
 attributes #0 = { convergent noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

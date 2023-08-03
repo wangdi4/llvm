@@ -174,7 +174,7 @@
 ; CHECK:     END REGION
 ;
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @__isoc99_scanf(i8* nocapture noundef readonly, ...) local_unnamed_addr #5
+declare dso_local noundef i32 @__isoc99_scanf(ptr nocapture noundef readonly, ...) local_unnamed_addr #5
 
 ; Function Attrs: nofree nounwind uwtable
 @.str = private unnamed_addr constant [24 x i8] c"%u %u %u %u %u %u %u %u\00", align 1
@@ -191,23 +191,23 @@ entry:
   %n5 = alloca i32, align 4
   %ra = alloca [100 x [100 x i32]], align 16
   %k = alloca i32, align 4
-  %t39 = load i32, i32* %k, align 4, !tbaa !3
+  %t39 = load i32, ptr %k, align 4, !tbaa !3
   %sub = sub i32 %t39, 1
   %idxprom = zext i32 %sub to i64
   %bq = alloca i32, align 4
   %rc9 = alloca [100 x i32], align 16
-  %arrayidx1 = getelementptr inbounds [100 x i32], [100 x i32]* %rc9, i64 0, i64 44, !intel-tbaa !10
-  %a.addr = alloca i32*, align 8
+  %arrayidx1 = getelementptr inbounds [100 x i32], ptr %rc9, i64 0, i64 44, !intel-tbaa !10
+  %a.addr = alloca ptr, align 8
   %j = alloca i32, align 4
-  %t8 = load i32*, i32** %a.addr, align 8, !tbaa !3
-  %arrayidx = getelementptr inbounds i32, i32* %t8, i64 %idxprom
+  %t8 = load ptr, ptr %a.addr, align 8, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %t8, i64 %idxprom
 
-  %call = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str, i64 0, i64 0), i32* nonnull %k, i32* nonnull %n5, i32* nonnull %bq, i32* nonnull %it6, i32* nonnull %n, i32* nonnull %jv, i32* nonnull %jv3, i32* nonnull %n4)
+  %call = call i32 (ptr, ...) @__isoc99_scanf(ptr @.str, ptr nonnull %k, ptr nonnull %n5, ptr nonnull %bq, ptr nonnull %it6, ptr nonnull %n, ptr nonnull %jv, ptr nonnull %jv3, ptr nonnull %n4)
   %u5 = alloca [100 x i32], align 16
-  %arraydecay5 = getelementptr inbounds [100 x i32], [100 x i32]* %u5, i64 0, i64 0
-  %arrayidx.promoted444 = load i32, i32* %arrayidx, align 8, !tbaa !10
-  %n5.promoted = load i32, i32* %n5, align 4, !tbaa !3
-  %bq.promoted = load i32, i32* %bq, align 4, !tbaa !3
+  %arraydecay5 = getelementptr inbounds [100 x i32], ptr %u5, i64 0, i64 0
+  %arrayidx.promoted444 = load i32, ptr %arrayidx, align 8, !tbaa !10
+  %n5.promoted = load i32, ptr %n5, align 4, !tbaa !3
+  %bq.promoted = load i32, ptr %bq, align 4, !tbaa !3
   br label %for.body
 
 for.cond.loopexit:                                ; preds = %for.body26
@@ -222,19 +222,19 @@ for.body:                                         ; preds = %for.cond.loopexit, 
   %inc446450 = phi i32 [ %n5.promoted, %entry ], [ %inc, %for.cond.loopexit ]
   %add23447449 = phi i32 [ %bq.promoted, %entry ], [ %add23, %for.cond.loopexit ]
   %indvars.iv.next467 = add nsw i64 %indvars.iv466, -1
-  %arrayidx12 = getelementptr inbounds [100 x i32], [100 x i32]* %la, i64 0, i64 %indvars.iv.next467, !intel-tbaa !7
-  store i32 %mul441.lcssa445451, i32* %arrayidx12, align 4, !tbaa !10
+  %arrayidx12 = getelementptr inbounds [100 x i32], ptr %la, i64 0, i64 %indvars.iv.next467, !intel-tbaa !7
+  store i32 %mul441.lcssa445451, ptr %arrayidx12, align 4, !tbaa !10
   %inc = add i32 %inc446450, 1
-  %arrayidx14 = getelementptr inbounds [100 x i32], [100 x i32]* %mx, i64 0, i64 %indvars.iv466, !intel-tbaa !7
-  %t52 = load i32, i32* %arrayidx14, align 4, !tbaa !10
+  %arrayidx14 = getelementptr inbounds [100 x i32], ptr %mx, i64 0, i64 %indvars.iv466, !intel-tbaa !7
+  %t52 = load i32, ptr %arrayidx14, align 4, !tbaa !10
   %add = add i32 %t52, %inc
-  store i32 %add, i32* %arrayidx14, align 4, !tbaa !10
-  %arrayidx16 = getelementptr inbounds [100 x i32], [100 x i32]* %rc9, i64 0, i64 %indvars.iv466, !intel-tbaa !7
-  %t53 = load i32, i32* %arrayidx16, align 4, !tbaa !10
-  %arrayidx18 = getelementptr inbounds [100 x i32], [100 x i32]* %la, i64 0, i64 %indvars.iv466, !intel-tbaa !7
-  %t54 = load i32, i32* %arrayidx18, align 4, !tbaa !10
+  store i32 %add, ptr %arrayidx14, align 4, !tbaa !10
+  %arrayidx16 = getelementptr inbounds [100 x i32], ptr %rc9, i64 0, i64 %indvars.iv466, !intel-tbaa !7
+  %t53 = load i32, ptr %arrayidx16, align 4, !tbaa !10
+  %arrayidx18 = getelementptr inbounds [100 x i32], ptr %la, i64 0, i64 %indvars.iv466, !intel-tbaa !7
+  %t54 = load i32, ptr %arrayidx18, align 4, !tbaa !10
   %sub19 = sub i32 %t54, %t53
-  store i32 %sub19, i32* %arrayidx18, align 4, !tbaa !10
+  store i32 %sub19, ptr %arrayidx18, align 4, !tbaa !10
   %add36 = shl i32 %inc, 1
   br label %for.body26
 
@@ -242,10 +242,10 @@ for.body26:                                       ; preds = %for.body26, %for.bo
   %indvars.iv463 = phi i64 [ 10, %for.body ], [ %indvars.iv.next464, %for.body26 ]
   %mul441442 = phi i32 [ %mul441.lcssa445451, %for.body ], [ %mul, %for.body26 ]
   %indvars.iv.next464 = add nsw i64 %indvars.iv463, -1
-  %arrayidx32 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %ra, i64 0, i64 %indvars.iv.next464, i64 %indvars.iv.next464, !intel-tbaa !12
-  %t55 = load i32, i32* %arrayidx32, align 4, !tbaa !13
-  %arrayidx35 = getelementptr inbounds [100 x i32], [100 x i32]* %rc9, i64 0, i64 %indvars.iv.next464, !intel-tbaa !7
-  store i32 %t55, i32* %arrayidx35, align 4, !tbaa !10
+  %arrayidx32 = getelementptr inbounds [100 x [100 x i32]], ptr %ra, i64 0, i64 %indvars.iv.next464, i64 %indvars.iv.next464, !intel-tbaa !12
+  %t55 = load i32, ptr %arrayidx32, align 4, !tbaa !13
+  %arrayidx35 = getelementptr inbounds [100 x i32], ptr %rc9, i64 0, i64 %indvars.iv.next464, !intel-tbaa !7
+  store i32 %t55, ptr %arrayidx35, align 4, !tbaa !10
   %mul = mul i32 %add36, %mul441442
   %cmp25 = icmp ugt i64 %indvars.iv.next464, 1
   br i1 %cmp25, label %for.body26, label %for.cond.loopexit, !llvm.loop !14
@@ -254,29 +254,29 @@ for.end39:                                        ; preds = %for.cond.loopexit
   %add23.lcssa = phi i32 [ %add23, %for.cond.loopexit ]
   %mul.lcssa.lcssa = phi i32 [ %mul.lcssa, %for.cond.loopexit ]
   %t56 = add i32 %n5.promoted, 8
-  store i32 1, i32* %k, align 4, !tbaa !3
-  store i32 %mul.lcssa.lcssa, i32* %arrayidx, align 8, !tbaa !10
-  store i32 %t56, i32* %n5, align 4, !tbaa !3
-  store i32 %add23.lcssa, i32* %bq, align 4, !tbaa !3
-  store i32 1, i32* %it6, align 4, !tbaa !3
-  %t57 = load i32, i32* %arrayidx1, align 16, !tbaa !10
-  %t58 = load i32, i32* %arraydecay5, align 16, !tbaa !10
+  store i32 1, ptr %k, align 4, !tbaa !3
+  store i32 %mul.lcssa.lcssa, ptr %arrayidx, align 8, !tbaa !10
+  store i32 %t56, ptr %n5, align 4, !tbaa !3
+  store i32 %add23.lcssa, ptr %bq, align 4, !tbaa !3
+  store i32 1, ptr %it6, align 4, !tbaa !3
+  %t57 = load i32, ptr %arrayidx1, align 16, !tbaa !10
+  %t58 = load i32, ptr %arraydecay5, align 16, !tbaa !10
   %sub41 = sub i32 %t58, %t57
-  store i32 %sub41, i32* %arraydecay5, align 16, !tbaa !10
-  %t59 = load i32, i32* %n, align 4, !tbaa !3
+  store i32 %sub41, ptr %arraydecay5, align 16, !tbaa !10
+  %t59 = load i32, ptr %n, align 4, !tbaa !3
   %dec42 = add i32 %t59, -1
-  store i32 %dec42, i32* %n, align 4, !tbaa !3
-  %arrayidx43 = getelementptr inbounds [100 x i32], [100 x i32]* %la, i64 0, i64 73, !intel-tbaa !7
-  %t60 = load i32, i32* %arrayidx43, align 4, !tbaa !10
+  store i32 %dec42, ptr %n, align 4, !tbaa !3
+  %arrayidx43 = getelementptr inbounds [100 x i32], ptr %la, i64 0, i64 73, !intel-tbaa !7
+  %t60 = load i32, ptr %arrayidx43, align 4, !tbaa !10
   %sub44 = sub i32 %t60, %dec42
-  store i32 %sub44, i32* %arrayidx43, align 4, !tbaa !10
-  %arrayidx45 = getelementptr inbounds [100 x i32], [100 x i32]* %li0, i64 0, i64 51, !intel-tbaa !7
-  %t61 = load i32, i32* %arrayidx45, align 4, !tbaa !10
+  store i32 %sub44, ptr %arrayidx43, align 4, !tbaa !10
+  %arrayidx45 = getelementptr inbounds [100 x i32], ptr %li0, i64 0, i64 51, !intel-tbaa !7
+  %t61 = load i32, ptr %arrayidx45, align 4, !tbaa !10
   %dec42.neg = sub i32 1, %t59
   %sub46 = add i32 %dec42.neg, %t57
   %add47 = add i32 %sub46, %t61
-  store i32 %add47, i32* %arrayidx1, align 16, !tbaa !10
-  %n4.promoted432 = load i32, i32* %n4, align 4, !tbaa !3
+  store i32 %add47, ptr %arrayidx1, align 16, !tbaa !10
+  %n4.promoted432 = load i32, ptr %n4, align 4, !tbaa !3
   br label %for.body50
 
 for.body50:

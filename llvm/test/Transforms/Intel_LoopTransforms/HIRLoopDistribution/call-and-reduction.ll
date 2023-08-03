@@ -40,7 +40,7 @@ entry:
 
 for.cond.cleanup:                                 ; preds = %for.body
   %add4.lcssa = phi float [ %add4, %for.body ]
-  store float %add4.lcssa, float* getelementptr inbounds ([100 x float], [100 x float]* @A, i64 0, i64 0), align 16
+  store float %add4.lcssa, ptr @A, align 16
   ret void
 
 for.body:                                         ; preds = %for.body, %entry
@@ -48,11 +48,11 @@ for.body:                                         ; preds = %for.body, %entry
   %t2.014 = phi float [ 0.000000e+00, %entry ], [ %add4, %for.body ]
   %0 = trunc i64 %indvars.iv to i32
   %call = tail call float @bar(i32 %0) #2
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %add = fadd float %call, %1
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4
   %add3 = fadd float %add, %2
   %add4 = fadd fast float %t2.014, %add3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

@@ -20,7 +20,7 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
-#ifndef WIN32
+#ifndef _WIN32
 typedef unsigned long long UINT64;
 typedef unsigned int UINT32;
 #endif

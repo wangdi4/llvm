@@ -41,7 +41,7 @@
 ; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -52,7 +52,7 @@
 ; CHECK-NEXT: <Predicate Optimized v7>
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -65,7 +65,7 @@
 ; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -76,7 +76,7 @@
 ; CHECK-NEXT: <Predicate Optimized v5>
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -88,7 +88,7 @@
 ; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -99,7 +99,7 @@
 ; CHECK-NEXT: <Predicate Optimized v4>
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -113,7 +113,7 @@
 ; CHECK-NEXT:     remark #25423: Invariant If condition at line 25 hoisted out of this loop
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-; CHECK-COUNT-25: remark{{.*}}:
+; CHECK-COUNT-10: remark{{.*}}:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -123,33 +123,30 @@
 ;
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.MyStruct = type { i32*, i32*, i32* }
+%struct.MyStruct = type { ptr, ptr, ptr }
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local void @foo(i32* noalias %offset_global, i32* noalias %size_global, i32* noalias %size_local, i32 %NumDims) local_unnamed_addr #0 !dbg !7 {
+define dso_local void @foo(ptr noalias %offset_global, ptr noalias %size_global, ptr noalias %size_local, i32 %NumDims) local_unnamed_addr #0 !dbg !7 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %offset_global, metadata !15, metadata !DIExpression()), !dbg !28
-  call void @llvm.dbg.value(metadata i32* %size_global, metadata !16, metadata !DIExpression()), !dbg !28
-  call void @llvm.dbg.value(metadata i32* %size_local, metadata !17, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.value(metadata ptr %offset_global, metadata !15, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.value(metadata ptr %size_global, metadata !16, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.value(metadata ptr %size_local, metadata !17, metadata !DIExpression()), !dbg !28
   call void @llvm.dbg.value(metadata i32 %NumDims, metadata !18, metadata !DIExpression()), !dbg !28
-  call void @llvm.dbg.value(metadata %struct.MyStruct* null, metadata !20, metadata !DIExpression()), !dbg !28
-  call void @llvm.dbg.value(metadata i8* undef, metadata !20, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.value(metadata ptr null, metadata !20, metadata !DIExpression()), !dbg !28
+  call void @llvm.dbg.value(metadata ptr undef, metadata !20, metadata !DIExpression()), !dbg !28
   %conv = sext i32 %NumDims to i64, !dbg !29
   %mul = shl nsw i64 %conv, 2, !dbg !30
-  %call1 = tail call i8* @malloc(i64 %mul), !dbg !31
-  %call5 = tail call i8* @malloc(i64 %mul), !dbg !32
-  %call9 = tail call i8* @malloc(i64 %mul), !dbg !33
+  %call1 = tail call ptr @malloc(i64 %mul), !dbg !31
+  %call5 = tail call ptr @malloc(i64 %mul), !dbg !32
+  %call9 = tail call ptr @malloc(i64 %mul), !dbg !33
   call void @llvm.dbg.value(metadata i32 0, metadata !19, metadata !DIExpression()), !dbg !28
   %cmp51 = icmp sgt i32 %NumDims, 0, !dbg !34
-  %0 = bitcast i8* %call1 to i32*, !dbg !37
-  %1 = bitcast i8* %call5 to i32*, !dbg !37
-  %2 = bitcast i8* %call9 to i32*, !dbg !37
   br i1 %cmp51, label %for.body.lr.ph, label %for.end, !dbg !37
 
 for.body.lr.ph:                                   ; preds = %entry
-  %tobool = icmp eq i32* %offset_global, null, !dbg !38
-  %tobool15 = icmp eq i32* %size_global, null, !dbg !41
-  %tobool23 = icmp eq i32* %size_local, null, !dbg !43
+  %tobool = icmp eq ptr %offset_global, null, !dbg !38
+  %tobool15 = icmp eq ptr %size_global, null, !dbg !41
+  %tobool23 = icmp eq ptr %size_local, null, !dbg !43
   br label %for.body, !dbg !37
 
 for.body:                                         ; preds = %for.inc, %for.body.lr.ph
@@ -158,30 +155,30 @@ for.body:                                         ; preds = %for.inc, %for.body.
   br i1 %tobool, label %if.end, label %if.then, !dbg !45
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %0, i64 %indvars.iv, !dbg !46
-  %3 = load i32, i32* %arrayidx, align 4, !dbg !46, !tbaa !48
-  %arrayidx14 = getelementptr inbounds i32, i32* %offset_global, i64 %indvars.iv, !dbg !52
-  store i32 %3, i32* %arrayidx14, align 4, !dbg !53, !tbaa !48
+  %arrayidx = getelementptr inbounds i32, ptr %call1, i64 %indvars.iv, !dbg !46
+  %0 = load i32, ptr %arrayidx, align 4, !dbg !46, !tbaa !48
+  %arrayidx14 = getelementptr inbounds i32, ptr %offset_global, i64 %indvars.iv, !dbg !52
+  store i32 %0, ptr %arrayidx14, align 4, !dbg !53, !tbaa !48
   br label %if.end, !dbg !54
 
 if.end:                                           ; preds = %for.body, %if.then
   br i1 %tobool15, label %if.end22, label %if.then16, !dbg !55
 
 if.then16:                                        ; preds = %if.end
-  %arrayidx19 = getelementptr inbounds i32, i32* %1, i64 %indvars.iv, !dbg !56
-  %4 = load i32, i32* %arrayidx19, align 4, !dbg !56, !tbaa !48
-  %arrayidx21 = getelementptr inbounds i32, i32* %size_global, i64 %indvars.iv, !dbg !58
-  store i32 %4, i32* %arrayidx21, align 4, !dbg !59, !tbaa !48
+  %arrayidx19 = getelementptr inbounds i32, ptr %call5, i64 %indvars.iv, !dbg !56
+  %1 = load i32, ptr %arrayidx19, align 4, !dbg !56, !tbaa !48
+  %arrayidx21 = getelementptr inbounds i32, ptr %size_global, i64 %indvars.iv, !dbg !58
+  store i32 %1, ptr %arrayidx21, align 4, !dbg !59, !tbaa !48
   br label %if.end22, !dbg !60
 
 if.end22:                                         ; preds = %if.end, %if.then16
   br i1 %tobool23, label %for.inc, label %if.then24, !dbg !61
 
 if.then24:                                        ; preds = %if.end22
-  %arrayidx27 = getelementptr inbounds i32, i32* %2, i64 %indvars.iv, !dbg !62
-  %5 = load i32, i32* %arrayidx27, align 4, !dbg !62, !tbaa !48
-  %arrayidx29 = getelementptr inbounds i32, i32* %size_local, i64 %indvars.iv, !dbg !64
-  store i32 %5, i32* %arrayidx29, align 4, !dbg !65, !tbaa !48
+  %arrayidx27 = getelementptr inbounds i32, ptr %call9, i64 %indvars.iv, !dbg !62
+  %2 = load i32, ptr %arrayidx27, align 4, !dbg !62, !tbaa !48
+  %arrayidx29 = getelementptr inbounds i32, ptr %size_local, i64 %indvars.iv, !dbg !64
+  store i32 %2, ptr %arrayidx29, align 4, !dbg !65, !tbaa !48
   br label %for.inc, !dbg !66
 
 for.inc:                                          ; preds = %if.end22, %if.then24
@@ -198,7 +195,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #1
+declare dso_local noalias ptr @malloc(i64) local_unnamed_addr #1
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #2
 

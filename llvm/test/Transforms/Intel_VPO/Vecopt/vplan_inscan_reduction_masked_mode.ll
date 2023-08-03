@@ -17,7 +17,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @omp_scan(float* %A, float* %B) {
+define void @omp_scan(ptr %A, ptr %B) {
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
@@ -30,12 +30,11 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:         br label [[DIR_OMP_SIMD_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK:        VPlannedBB25:
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast float* [[DOTVEC0_1:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP18]])
-; CHECK-NEXT:    [[TMP19:%.*]] = load float, float* [[X_RED0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[DOTVEC0_1:%.*]])
+; CHECK-NEXT:    [[TMP19:%.*]] = load float, ptr [[X_RED0]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT560:%.*]] = insertelement <2 x float> poison, float [[TMP19]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT570:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT560]], <2 x float> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP20:%.*]] = load float, float* [[X_RED0]], align 1
+; CHECK-NEXT:    [[TMP20:%.*]] = load float, ptr [[X_RED0]], align 1
 ; CHECK-NEXT:    [[TMP21:%.*]] = sub i64 1024, [[UNI_PHI230:%.*]]
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT320:%.*]] = insertelement <2 x i64> poison, i64 [[TMP21]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT330:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT320]], <2 x i64> poison, <2 x i32> zeroinitializer
@@ -47,7 +46,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[VEC_PHI290:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT570]], [[VPLANNEDBB250]] ], [ [[PREDBLEND0:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    [[TMP22:%.*]] = add nuw nsw  <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT310:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i64> [[TMP22]], i32 0
-; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float>* [[DOTVEC0]], align 1
+; CHECK-NEXT:    store <2 x float> zeroinitializer, ptr [[DOTVEC0]], align 1
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult i64 [[UNI_PHI270]], [[TMP21]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = icmp ult <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT330]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB340:%.*]]
@@ -63,12 +62,11 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB37:
 ; CHECK-NEXT:    [[TMP25:%.*]] = trunc <2 x i64> [[TMP22]] to <2 x i32>
-; CHECK-NEXT:    [[SCALAR_GEP380:%.*]] = getelementptr inbounds float, float* [[A0:%.*]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP26:%.*]] = bitcast float* [[SCALAR_GEP380]] to <2 x float>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0v2f32(<2 x float>* [[TMP26]], i32 4, <2 x i1> [[TMP24]], <2 x float> poison)
-; CHECK-NEXT:    [[WIDE_LOAD390:%.*]] = load <2 x float>, <2 x float>* [[DOTVEC0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP380:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0(ptr [[SCALAR_GEP380]], i32 4, <2 x i1> [[TMP24]], <2 x float> poison)
+; CHECK-NEXT:    [[WIDE_LOAD390:%.*]] = load <2 x float>, ptr [[DOTVEC0]], align 4
 ; CHECK-NEXT:    [[TMP27:%.*]] = fadd fast <2 x float> [[WIDE_LOAD390]], [[WIDE_MASKED_LOAD0]]
-; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP27]], <2 x float>* [[DOTVEC0]], i32 4, <2 x i1> [[TMP24]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[TMP27]], ptr [[DOTVEC0]], i32 4, <2 x i1> [[TMP24]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB400:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB40:
@@ -78,11 +76,11 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB420:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB42:
-; CHECK-NEXT:    [[WIDE_LOAD430:%.*]] = load <2 x float>, <2 x float>* [[DOTVEC0]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD430:%.*]] = load <2 x float>, ptr [[DOTVEC0]], align 1
 ; CHECK-NEXT:    [[TMP28:%.*]] = shufflevector <2 x float> [[WIDE_LOAD430]], <2 x float> zeroinitializer, <2 x i32> <i32 2, i32 0>
 ; CHECK-NEXT:    [[TMP29:%.*]] = fadd fast <2 x float> [[WIDE_LOAD430]], [[TMP28]]
 ; CHECK-NEXT:    [[TMP30:%.*]] = fadd fast <2 x float> [[TMP29]], [[VEC_PHI290]]
-; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[TMP30]], <2 x float>* [[DOTVEC0]], i32 1, <2 x i1> [[TMP24]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[TMP30]], ptr [[DOTVEC0]], i32 1, <2 x i1> [[TMP24]])
 ; CHECK-NEXT:    [[TMP31:%.*]] = bitcast <2 x i1> [[TMP24]] to i2
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP31]], i1 true)
 ; CHECK-NEXT:    [[TMP32:%.*]] = sub i2 1, [[CTLZ0]]
@@ -98,10 +96,9 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB460:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB46:
-; CHECK-NEXT:    [[WIDE_LOAD470:%.*]] = load <2 x float>, <2 x float>* [[DOTVEC0]], align 4
-; CHECK-NEXT:    [[SCALAR_GEP480:%.*]] = getelementptr inbounds float, float* [[B0:%.*]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP33:%.*]] = bitcast float* [[SCALAR_GEP480]] to <2 x float>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0v2f32(<2 x float> [[WIDE_LOAD470]], <2 x float>* [[TMP33]], i32 4, <2 x i1> [[TMP24]])
+; CHECK-NEXT:    [[WIDE_LOAD470:%.*]] = load <2 x float>, ptr [[DOTVEC0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP480:%.*]] = getelementptr inbounds float, ptr [[B0:%.*]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[WIDE_LOAD470]], ptr [[SCALAR_GEP480]], i32 4, <2 x i1> [[TMP24]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB490:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB49:
@@ -125,11 +122,11 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store float 0.000000e+00, float* %x.red, align 4
+  store float 0.000000e+00, ptr %x.red, align 4
   br label %DIR.OMP.SIMD.138
 
 DIR.OMP.SIMD.138:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(float* %x.red, float zeroinitializer, i32 1, i64 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float zeroinitializer, i32 1, i64 1) ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.426
 
 DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.138, %DIR.VPO.END.GUARD.MEM.MOTION.4
@@ -137,7 +134,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.138, %
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.SIMD.139
 
 DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -145,11 +142,11 @@ DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.M
 
 DIR.OMP.END.SCAN.335:                             ; preds = %DIR.OMP.SIMD.139
   %1 = trunc i64 %indvars.iv to i32
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
-  %3 = load float, float* %x.red, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
+  %3 = load float, ptr %x.red, align 4
   %add5 = fadd fast float %3, %2
-  store float %add5, float* %x.red, align 4
+  store float %add5, ptr %x.red, align 4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.552
 
 DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.OMP.END.SCAN.335
@@ -157,7 +154,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.OMP.END.SCAN.33
   br label %DIR.OMP.SCAN.3
 
 DIR.OMP.SCAN.3:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(float* %x.red, i64 1) ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
 DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.3
@@ -169,13 +166,13 @@ DIR.OMP.END.SCAN.5:                               ; preds = %DIR.OMP.SCAN.2
   br label %DIR.OMP.END.SCAN.9.split
 
 DIR.OMP.END.SCAN.9.split:
-  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
 DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.5
-  %5 = load float, float* %x.red, align 4
-  %arrayidx7 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  store float %5, float* %arrayidx7, align 4
+  %5 = load float, ptr %x.red, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  store float %5, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 

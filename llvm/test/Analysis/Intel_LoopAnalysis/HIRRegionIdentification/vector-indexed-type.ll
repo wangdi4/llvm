@@ -13,13 +13,13 @@
 %struct = type { <8 x i64> }
 
 
-define void @foo(%struct* %vec.ptr.arr, i64 %val) {
+define void @foo(ptr %vec.ptr.arr, i64 %val) {
 entry:
   br label %bb
 
 bb:                                      ; preds = %bb, %entry
-  %vec.elem.gep = getelementptr inbounds %struct, %struct* %vec.ptr.arr, i64 0, i32 0, i32 4
-  store i64 %val, i64* %vec.elem.gep
+  %vec.elem.gep = getelementptr inbounds %struct, ptr %vec.ptr.arr, i64 0, i32 0, i32 4
+  store i64 %val, ptr %vec.elem.gep
   ret void
 }
 

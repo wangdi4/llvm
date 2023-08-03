@@ -1,7 +1,7 @@
 ; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2 -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=HIR-CG
 
-define void @foo(<2 x i64> *%p, i1 %uniform) #0 {
+define void @foo(ptr %p, i1 %uniform) #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:         [[TMP5:%.*]] = bitcast <2 x i1> [[TMP1:%.*]] to i2
 ; CHECK-NEXT:    [[CTTZ:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP5]], i1 false)
@@ -58,7 +58,7 @@ uni.end:
 
 latch:
   %st = phi <2 x i64> [ <i64 -1, i64 -1>, %header ], [ %val, %uni.end]
-  store <2 x i64> %st, <2 x i64> *%p
+  store <2 x i64> %st, ptr %p
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 4
   br i1 %exitcond, label %exit, label %header

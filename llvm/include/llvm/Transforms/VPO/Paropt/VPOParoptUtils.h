@@ -797,6 +797,8 @@ public:
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_critical` is inserted.
   /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
+  /// \param GenerateLoop indicates whether a subgroup loop must be generated
+  /// within the critical section
   ///
   /// Note: Other Instructions, aside from the `__kmpc_critical`,
   /// `__kmpc_critical_with_hint` and
@@ -814,7 +816,8 @@ public:
                                      Instruction *EndInst, DominatorTree *DT,
                                      LoopInfo *LI, bool IsTargetSPIRV,
                                      const Twine &LockNameSuffix = "",
-                                     uint32_t Hint = 0);
+                                     uint32_t Hint = 0,
+                                     bool GenerateLoop = true);
 
   /// Generate tree reduce block and atomic reduce block. The tree reduce block
   /// is around Instructions \p BeginInst and \p EndInst. The function emits
@@ -1152,7 +1155,7 @@ public:
 
   /// Emit and return a call to `data_size =_f90_dope_vector_size(DV)`, which
   /// returns the size of the array (in bytes) described by the dope vector.
-  static CallInst *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
+  static Value *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
 
   /// Emit and return a call to `data_size = _f90_dope_vector_init(OrigDV,
   /// NewDV)`, which initializes NewDV using OrigDV, and returns the size of the
@@ -1339,6 +1342,7 @@ public:
   /// Generate a call to `__kmpc_omp_task_alloc` without a callback
   static CallInst *genKmpcTaskAllocWithoutCallback(WRegionNode *W,
                                                    StructType *IdentTy,
+                                                   Value *TidPtr,
                                                    Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
@@ -2015,6 +2019,15 @@ public:
   ///   call spir_func i64 @_Z12get_group_idj
   static CallInst *genGroupIdCall(int Dim, Instruction *InsertPt);
 
+  /// Generate a call to get global id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_xv
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_yv
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z13get_global_idj
+  static CallInst *genGlobalIdCall(int Dim, Instruction *InsertPt);
+
   /// Generate a call to get local (group) size for the dimension provided.
   /// For OpenMP SIMD path pick something of:
   ///   call spir_func i64 _Z23__spirv_WorkgroupSize_xv
@@ -2023,6 +2036,16 @@ public:
   /// Otherwise generate general OCL builtin:
   ///   call spir_func i64 @_Z14get_local_sizej
   static CallInst *genLocalSizeCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get global (local*group) size for the dimension
+  /// provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_xv
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_yv
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z15get_global_sizej
+  static CallInst *genGlobalSizeCall(int Dim, Instruction *InsertPt);
 
   /// Generate a call to get number of groups for the dimension provided.
   /// For OpenMP SIMD path pick something of:
@@ -2201,6 +2224,12 @@ public:
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
+  /// Splits the single Succesor of the Exit block of W and returns the front
+  /// instruction of the new block.
+  static Instruction *getInsertionPtForImplicitBarrier(WRegionNode *W,
+                                                       DominatorTree *DT,
+                                                       LoopInfo *LI);
+
   /// Returns the Instruction which can be used as an insertion point for
   /// any alloca which needs to be inserted before the entry directive of \p W.
   /// If \p OutsideRegion is true, then the utility looks at parent
@@ -2309,15 +2338,11 @@ private:
   /// \returns `true` if the calls to `__kmpc_critical` or
   /// `__kmpc_critical_with_hint`and `__kmpc_end_critical` are successfully
   /// inserted, `false` otherwise.
-  static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
-                                         Constant *TidPtr,
-                                         Instruction *BeginInst,
-                                         Instruction *EndInst,
-                                         GlobalVariable *LockVar,
-                                         DominatorTree *DT,
-                                         LoopInfo *LI,
-                                         bool IsTargetSPIRV,
-                                         uint32_t Hint);
+  static bool genKmpcCriticalSectionImpl(
+      WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+      Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
+      DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV, uint32_t Hint,
+      bool GenerateLoop = true);
 
   /// Handles generation of tree reduce block around \p BeginInst and \p
   /// EndInst, atomic reduce block around \p AtomicBeginInst and \p
@@ -2406,11 +2431,9 @@ private:
   /// __kmpc_critical lock setup will dead-lock on such devices, unless
   /// we explicitly execute the lock-unlock sequence of blocks for each
   /// fused sub-group separately.
-  static bool genCriticalLoopForSPIR(WRegionNode *W,
-                                     CallInst *BeginCritical,
-                                     CallInst *EndCritical,
-                                     DominatorTree *DT,
-                                     LoopInfo *LI);
+  static bool genCriticalLoopForSPIR(WRegionNode *W, Instruction *BeginCritical,
+                                     Instruction *EndCritical,
+                                     DominatorTree *DT, LoopInfo *LI);
 
   /// Generate a call to `__kmpc_[end_]taskgroup`.
   /// \code

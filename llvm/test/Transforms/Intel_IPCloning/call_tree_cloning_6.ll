@@ -6,7 +6,6 @@
 ; Checks the multi-version (MV) function on mc_chroma() has proper code generation
 
 
-;*** IR Dump After IP Cloning ***; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -18,39 +17,39 @@ target triple = "x86_64-unknown-linux-gnu"
 @Height = internal global i32 8, align 4
 
 ; Function Attrs: noinline norecurse nounwind uwtable
-define internal fastcc void @mc_chroma(i32, i32) unnamed_addr #0 {
+define internal fastcc void @mc_chroma(i32 %0, i32 %1) unnamed_addr #0 {
   %3 = icmp sgt i32 %1, 0
   br i1 %3, label %4, label %12
 
-; <label>:4:                                      ; preds = %2
+4:                                                ; preds = %2
   %5 = icmp sgt i32 %0, 0
   %6 = sext i32 %0 to i64
   br label %7
 
-; <label>:7:                                      ; preds = %13, %4
-  %8 = phi i8* [ getelementptr (i8, i8* getelementptr inbounds ([1000 x i8], [1000 x i8]* @src1, i64 0, i64 0), i64 sext (i32 ashr (i32 ptrtoint ([1000 x i8]* @src2 to i32), i32 3) to i64)), %4 ], [ %11, %13 ]
+7:                                                ; preds = %13, %4
+  %8 = phi ptr [ getelementptr (i8, ptr getelementptr inbounds ([1000 x i8], ptr @src1, i64 0, i64 0), i64 sext (i32 ashr (i32 ptrtoint (ptr @src2 to i32), i32 3) to i64)), %4 ], [ %11, %13 ]
   %9 = phi i32 [ 0, %4 ], [ %15, %13 ]
-  %10 = phi i8* [ getelementptr inbounds ([1000 x i8], [1000 x i8]* @dst, i64 0, i64 0), %4 ], [ %14, %13 ]
-  %11 = getelementptr inbounds i8, i8* %8, i64 2
+  %10 = phi ptr [ getelementptr inbounds ([1000 x i8], ptr @dst, i64 0, i64 0), %4 ], [ %14, %13 ]
+  %11 = getelementptr inbounds i8, ptr %8, i64 2
   br i1 %5, label %17, label %13
 
-; <label>:12:                                     ; preds = %13, %2
+12:                                               ; preds = %13, %2
   ret void
 
-; <label>:13:                                     ; preds = %17, %7
-  %14 = getelementptr inbounds i8, i8* %10, i64 4
+13:                                               ; preds = %17, %7
+  %14 = getelementptr inbounds i8, ptr %10, i64 4
   %15 = add nuw nsw i32 %9, 1
   %16 = icmp eq i32 %15, %1
   br i1 %16, label %12, label %7
 
-; <label>:17:                                     ; preds = %17, %7
+17:                                               ; preds = %17, %7
   %18 = phi i64 [ %22, %17 ], [ 0, %7 ]
-  %19 = getelementptr inbounds i8, i8* %8, i64 %18
-  %20 = load i8, i8* %19, align 1, !tbaa !3
+  %19 = getelementptr inbounds i8, ptr %8, i64 %18
+  %20 = load i8, ptr %19, align 1, !tbaa !3
   %21 = zext i8 %20 to i32
   %22 = add nuw nsw i64 %18, 1
-  %23 = getelementptr inbounds i8, i8* %11, i64 %18
-  %24 = load i8, i8* %23, align 1, !tbaa !3
+  %23 = getelementptr inbounds i8, ptr %11, i64 %18
+  %24 = load i8, ptr %23, align 1, !tbaa !3
   %25 = zext i8 %24 to i32
   %26 = shl nuw nsw i32 %25, 5
   %27 = shl nuw nsw i32 %21, 5
@@ -58,8 +57,8 @@ define internal fastcc void @mc_chroma(i32, i32) unnamed_addr #0 {
   %29 = add nuw nsw i32 %28, %26
   %30 = lshr i32 %29, 6
   %31 = trunc i32 %30 to i8
-  %32 = getelementptr inbounds i8, i8* %10, i64 %18
-  store i8 %31, i8* %32, align 1, !tbaa !3
+  %32 = getelementptr inbounds i8, ptr %10, i64 %18
+  store i8 %31, ptr %32, align 1, !tbaa !3
   %33 = icmp eq i64 %22, %6
   br i1 %33, label %13, label %17
 }
@@ -98,13 +97,13 @@ define dso_local i32 @main() local_unnamed_addr #1 {
   tail call fastcc void @mc_chroma(i32 16, i32 16)
   br label %2
 
-; <label>:1:                                      ; preds = %2
+1:                                                ; preds = %2
   ret i32 0
 
-; <label>:2:                                      ; preds = %2, %0
+2:                                                ; preds = %2, %0
   %3 = phi i32 [ 0, %0 ], [ %6, %2 ]
-  %4 = load volatile i32, i32* @Width, align 4, !tbaa !6
-  %5 = load volatile i32, i32* @Height, align 4, !tbaa !6
+  %4 = load volatile i32, ptr @Width, align 4, !tbaa !6
+  %5 = load volatile i32, ptr @Height, align 4, !tbaa !6
   tail call fastcc void @mc_chroma(i32 %4, i32 %5)
   %6 = add nuw nsw i32 %3, 1
   %7 = icmp eq i32 %6, 100

@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
-//   Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -14,13 +14,42 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-verifier"
 
+// This is a helper macro to provide more info than just an assert when
+// the verifier detects a failure. This is a macro rather than a function
+// to allow us to print the expression that caused the assertion to fail,
+// since a function argument would print only the name.
+// Note: The do {} while(0) is to prevent issues when ifs are used without
+// enclosing curly braces.
+#ifndef NDEBUG
+#define ASSERT_VPVALUE(Check, V, Msg)                                          \
+  do {                                                                         \
+    if (!(Check)) {                                                            \
+      dbgs() << "VPlan verifier check failed for value:\n";                    \
+      if (V)                                                                   \
+        (V)->dump();                                                           \
+      assert((Check) && (Msg));                                                \
+    }                                                                          \
+  } while (0)
+#define ASSERT_VPBB(Check, BB, Msg)                                            \
+  do {                                                                         \
+    if (!(Check)) {                                                            \
+      dbgs() << "VPlan verifier check failed for VPBasicBlock:\n";             \
+      if (BB)                                                                  \
+        dbgs() << (BB)->getName();                                             \
+      assert((Check) && (Msg));                                                \
+    }                                                                          \
+  } while (0)
+#else
+#define ASSERT_VPVALUE(Check, V, Msg) ((void)nullptr)
+#define ASSERT_VPBB(Check, BB, Msg) ((void)nullptr)
+#endif // ifndef NDEBUG
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -38,6 +67,36 @@ template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
     NumLoops += countLoopsInLoop(SL);
 
   return NumLoops;
+}
+
+// Check the block's instructions to make sure that all phis and blends are at
+// the beginning of the block, and not mixed in with regular instructions
+void VPlanVerifier::verifyPhiBlendPlacement(const VPBasicBlock *Block) const {
+  auto It = Block->begin();
+  while (It != Block->end() && (isa<VPPHINode>(It) || isa<VPBlendInst>(It)))
+    It++;
+
+  while (It != Block->end()) {
+    ASSERT_VPVALUE(!isa<VPPHINode>(It) && !isa<VPBlendInst>(It), &(*It),
+                   "Phi/Blend instruction not at the beginning of the block");
+    It++;
+  }
+}
+
+// Verify that an instruction dominates all of its uses
+void VPlanVerifier::verifySSA(const VPInstruction *VPI,
+                              const VPDominatorTree *DT) const {
+  if (!DT)
+    return;
+
+  for (VPUser *User : VPI->users()) {
+    if (const VPInstruction *VPU = dyn_cast<VPInstruction>(User)) {
+      if (!isa<VPPHINode>(VPU) && !isa<VPPHINode>(VPI) && VPI != VPU) {
+        ASSERT_VPVALUE(DT->dominates(VPI, VPU), VPI,
+                       "Instruction does not dominate all uses");
+      }
+    }
+  }
 }
 
 // Verify that Plan contains the same number of loops (VPLoopRegion) as
@@ -60,19 +119,56 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPMetadataAsValues();
 }
 
-// Public interface to verify the loop and its loop info.
-void VPlanVerifier::verifyLoops(const VPlanVector *Plan,
-                                const VPDominatorTree &VPDomTree,
-                                VPLoopInfo *VPLI) {
+// Static interface to verify a VPlan
+// Calls into verifyVPlan after constructing a verifier object
+void VPlanVerifier::verify(const VPlanVector *Plan, const Loop *Lp,
+                           unsigned int CheckFlags) {
+  assert(Plan && "Plan must be defined");
+  assert(Plan->getDataLayout() && "Plan data layout must be defined");
+  VPlanVerifier Verifier(Lp, *Plan->getDataLayout());
+  Verifier.verifyVPlan(Plan, CheckFlags);
+}
 
-  VPLInfo = VPLI;
+void VPlanVerifier::verifyDA(const VPlan *Plan) const {
+  if (auto *DABase = Plan->getVPlanDA()) {
+    if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(DABase)) {
+      DA->verifyVectorShapes();
+    }
+  }
+}
+
+void VPlanVerifier::verifyDAShape(const VPInstruction *Inst) const {
+  auto *Block = Inst->getParent();
+  if (Block->getParent()) {
+    if (auto *DAB = Block->getParent()->getVPlanDA()) {
+      if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(DAB)) {
+        if (Inst->getOpcode() <= Instruction::OtherOpsEnd) {
+          auto OldShape = DA->getVectorShape(*Inst);
+          auto NewShape = DA->computeVectorShape(Inst);
+          ASSERT_VPVALUE(!DA->shapesAreDifferent(NewShape, OldShape), Inst,
+                         "Recalculated shape for DA is different");
+          (void)NewShape;
+          (void)OldShape;
+        }
+      }
+    }
+  }
+}
+
+// Public interface to verify the loop and its loop info.
+void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
+                                unsigned int CheckFlags) {
+
+  VPLInfo = Plan->getVPLoopInfo();
+  Flags = CheckFlags;
 
   if (DisableVerification)
     return;
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-  verifyCFGExternals(Plan);
+  if (!shouldSkipExternals())
+    verifyCFGExternals(Plan);
 
   unsigned BBNum = 0;
   (void)BBNum;
@@ -82,21 +178,46 @@ void VPlanVerifier::verifyLoops(const VPlanVector *Plan,
   }
 
   assert(Plan->size() == BBNum && "Plan has wrong size!");
+#ifndef NDEBUG
+  // Verify dom/postdom tree
+  if (Plan->getDT())
+    assert(Plan->getDT()->verify() && "VPlan Dominator Tree failed to verify");
+  if (Plan->getPDT())
+    assert(Plan->getPDT()->verify() &&
+           "VPlan Post-Dominator Tree failed to verify");
+#endif
 
-  if (!VPLInfo)
+  if (!shouldSkipDA()) {
+    verifyDA(Plan);
+  }
+
+  // Skipped in cases where the loop info isn't updated to reflect
+  // transformations that have been performed
+  if (!VPLInfo || shouldSkipLoopInfo())
     return;
 
-  // TODO: Verify domination and postdomination trees.
-  VPLInfo->verify(VPDomTree);
   VPLoop *TopLoop = *VPLInfo->begin();
   for (auto *CurVPLoop : post_order(TopLoop)) {
     CurVPLoop->verifyLoop();
   }
 
-  if (TheLoop)
+  // The number of subloops can change in the VPLoop as a result of VPEntity
+  // insertions, so we may not always want to check the number of loops
+  if (TheLoop && !shouldSkipNumLoops()) {
     verifyNumLoops();
-}
+  }
 
+  // Check that every inner loop has only one exit block
+  // Not guaranteed until loop exit merging is done
+  if (!shouldSkipInnerMultiExit()) {
+    for (const VPLoop *SL : TopLoop->getSubLoops()) {
+      // getExitingBlock is null if there are multiple exit blocks
+      ASSERT_VPVALUE(SL->getExitingBlock(), SL,
+                     "Inner loop has multiple exits");
+      (void)SL;
+    }
+  }
+}
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
   assert(TheLoop && "TheLoop can't be null.");
   return countLoopsInLoop<Loop>(TheLoop);
@@ -107,16 +228,16 @@ void VPlanVerifier::verifyICmpInst(const VPInstruction *IC) const {
   // Check that the operands are the same type
   Type *Op1Ty = IC->getOperand(0)->getType();
   Type *Op2Ty = IC->getOperand(1)->getType();
-  assert(Op1Ty && Op2Ty &&
-         "The operands of ICmp operation should have a valid type.");
-  assert(Op1Ty == Op2Ty &&
-         "Both operands to ICmp instruction are not of the same type!");
+  ASSERT_VPVALUE(Op1Ty && Op2Ty, IC,
+                 "The operands of ICmp operation should have a valid type.");
+  ASSERT_VPVALUE(Op1Ty == Op2Ty, IC,
+                 "Both operands to ICmp instruction are not of the same type!");
   // Check that the operands are the right type
-  assert((Op1Ty->isIntOrIntVectorTy() || Op1Ty->isPtrOrPtrVectorTy()) &&
-         "Invalid operand types for ICmp instruction");
+  ASSERT_VPVALUE((Op1Ty->isIntOrIntVectorTy() || Op1Ty->isPtrOrPtrVectorTy()),
+                 IC, "Invalid operand types for ICmp instruction");
   // Check that the predicate is valid.
-  assert(CmpInst::isIntPredicate(cast<VPCmpInst>(IC)->getPredicate()) &&
-         "Invalid predicate in ICmp instruction!");
+  ASSERT_VPVALUE(CmpInst::isIntPredicate(cast<VPCmpInst>(IC)->getPredicate()),
+                 IC, "Invalid predicate in ICmp instruction!");
   (void)Op1Ty;
   (void)Op2Ty;
 }
@@ -126,16 +247,16 @@ void VPlanVerifier::verifyFCmpInst(const VPInstruction *FC) const {
   // Check that the operands are the same type
   Type *Op1Ty = FC->getOperand(0)->getType();
   Type *Op2Ty = FC->getOperand(1)->getType();
-  assert(Op1Ty && Op2Ty &&
-         "The operands of FCmp operation should have a valid type.");
-  assert(Op1Ty == Op2Ty &&
-         "Both operands to FCmp instruction are not of the same type!");
+  ASSERT_VPVALUE(Op1Ty && Op2Ty, FC,
+                 "The operands of FCmp operation should have a valid type.");
+  ASSERT_VPVALUE(Op1Ty == Op2Ty, FC,
+                 "Both operands to FCmp instruction are not of the same type!");
   // Check that the operands are the right type
-  assert(Op1Ty->isFPOrFPVectorTy() &&
-         "Invalid operand types for FCmp instruction");
+  ASSERT_VPVALUE(Op1Ty->isFPOrFPVectorTy(), FC,
+                 "Invalid operand types for FCmp instruction");
   // Check that the predicate is valid.
-  assert(CmpInst::isFPPredicate(cast<VPCmpInst>(FC)->getPredicate()) &&
-         "Invalid predicate in FCmp instruction!");
+  ASSERT_VPVALUE(CmpInst::isFPPredicate(cast<VPCmpInst>(FC)->getPredicate()),
+                 FC, "Invalid predicate in FCmp instruction!");
   (void)Op1Ty;
   (void)Op2Ty;
 }
@@ -146,12 +267,19 @@ void VPlanVerifier::verifyTruncInst(const VPInstruction *I) const {
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert(SrcTy->isIntOrIntVectorTy() && "Trunc only operates on integer");
-  assert(DstTy->isIntOrIntVectorTy() && "Trunc only produces integer");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "trunc source and destination must both be a vector or neither");
-  assert(SrcTy->getScalarSizeInBits() > DstTy->getScalarSizeInBits() &&
-         "DstTy too big for Trunc");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "Trunc only operates on integer");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "Trunc only produces an integer");
+  ASSERT_VPVALUE(SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+                 "trunc source and destination must both be vector or scalar");
+  if (SrcTy->isVectorTy()) {
+    ASSERT_VPVALUE(cast<VectorType>(SrcTy)->getElementCount() ==
+                       cast<VectorType>(DstTy)->getElementCount(),
+                   I, "Trunc source and dest vector length mismatch");
+  }
+  ASSERT_VPVALUE(SrcTy->getScalarSizeInBits() > DstTy->getScalarSizeInBits(), I,
+                 "DstTy too big for Trunc");
 
   (void)SrcTy;
   (void)DstTy;
@@ -163,13 +291,20 @@ void VPlanVerifier::verifyZExtInst(const VPInstruction *I) const {
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert(SrcTy->isIntOrIntVectorTy() && "ZExt only operates on integer");
-  assert(DstTy->isIntOrIntVectorTy() && "ZExt only produces an integer");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "zext source and destination must both be a vector or neither");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "ZExt only operates on integer");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "ZExt only produces an integer");
+  ASSERT_VPVALUE(SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+                 "zext source and destination must both be vector or scalar");
+  if (SrcTy->isVectorTy()) {
+    ASSERT_VPVALUE(cast<VectorType>(SrcTy)->getElementCount() ==
+                       cast<VectorType>(DstTy)->getElementCount(),
+                   I, "ZExt source and dest vector length mismatch");
+  }
 
-  assert(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits() &&
-         "Type too small for ZExt");
+  ASSERT_VPVALUE(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits(), I,
+                 "Type too small for ZExt");
 
   (void)SrcTy;
   (void)DstTy;
@@ -181,12 +316,19 @@ void VPlanVerifier::verifySExtInst(const VPInstruction *I) const {
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert(SrcTy->isIntOrIntVectorTy() && "SExt only operates on integer");
-  assert(DstTy->isIntOrIntVectorTy() && "SExt only produces an integer");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "sext source and destination must both be a vector or neither");
-  assert(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits() &&
-         "Type too small for SExt");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "SExt only operates on integer");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "SExt only produces an integer");
+  ASSERT_VPVALUE(SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+                 "sext source and destination must both be vector or scalar");
+  if (SrcTy->isVectorTy()) {
+    ASSERT_VPVALUE(cast<VectorType>(SrcTy)->getElementCount() ==
+                       cast<VectorType>(DstTy)->getElementCount(),
+                   I, "SExt source and dest vector length mismatch");
+  }
+  ASSERT_VPVALUE(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits(), I,
+                 "Type too small for SExt");
 
   (void)SrcTy;
   (void)DstTy;
@@ -197,28 +339,40 @@ void VPlanVerifier::verifyFPTruncInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isFPOrFPVectorTy() && "FPTrunc only operates on FP");
-  assert(DstTy->isFPOrFPVectorTy() && "FPTrunc only produces an FP");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "fptrunc source and destination must both be a vector or neither");
-  assert(SrcTy->getScalarSizeInBits() > DstTy->getScalarSizeInBits() &&
-         "DstTy too big for FPTrunc");
+  ASSERT_VPVALUE(SrcTy->isFPOrFPVectorTy(), I, "FPTrunc only operates on FP");
+  ASSERT_VPVALUE(DstTy->isFPOrFPVectorTy(), I, "FPTrunc only produces an FP");
+  ASSERT_VPVALUE(
+      SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+      "fptrunc source and destination must both be vector or scalar");
+  if (SrcTy->isVectorTy()) {
+    ASSERT_VPVALUE(cast<VectorType>(SrcTy)->getElementCount() ==
+                       cast<VectorType>(DstTy)->getElementCount(),
+                   I, "FPTrunc source and dest vector length mismatch");
+  }
+  ASSERT_VPVALUE(SrcTy->getScalarSizeInBits() > DstTy->getScalarSizeInBits(), I,
+                 "DstTy too big for FPTrunc");
 
   (void)SrcTy;
   (void)DstTy;
 }
 
 void VPlanVerifier::verifyFPExtInst(const VPInstruction *I) const {
+  assert(I->getOpcode() == Instruction::FPExt);
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert(SrcTy->isFPOrFPVectorTy() && "FPExt only operates on FP");
-  assert(DstTy->isFPOrFPVectorTy() && "FPExt only produces an FP");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "fpext source and destination must both be a vector or neither");
-  assert(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits() &&
-         "DstTy too small for FPExt");
+  ASSERT_VPVALUE(SrcTy->isFPOrFPVectorTy(), I, "FPExt only operates on FP");
+  ASSERT_VPVALUE(DstTy->isFPOrFPVectorTy(), I, "FPExt only produces an FP");
+  ASSERT_VPVALUE(SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+                 "fpext source and destination must both be vector or scalar");
+  if (SrcTy->isVectorTy()) {
+    ASSERT_VPVALUE(cast<VectorType>(SrcTy)->getElementCount() ==
+                       cast<VectorType>(DstTy)->getElementCount(),
+                   I, "FPExt source and dest vector length mismatch");
+  }
+  ASSERT_VPVALUE(SrcTy->getScalarSizeInBits() < DstTy->getScalarSizeInBits(), I,
+                 "DstTy too small for FPExt");
 
   (void)SrcTy;
   (void)DstTy;
@@ -230,18 +384,19 @@ void VPlanVerifier::verifyFPToUIInst(const VPInstruction *I) const {
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert(SrcTy->isFPOrFPVectorTy() && "FPToUI source must be FP or FP vector");
-  assert(DstTy->isIntOrIntVectorTy() &&
-         "FPToUI result must be integer or integer vector");
+  ASSERT_VPVALUE(SrcTy->isFPOrFPVectorTy(), I,
+                 "FPToUI source must be FP or FP vector");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "FPToUI result must be integer or integer vector");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "FPToUI source and dest vector length mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "FPToUI source and dest vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "FPToUI source and dest must both be vector or scalar");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "FPToUI source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyFPToSIInst(const VPInstruction *I) const {
@@ -249,54 +404,57 @@ void VPlanVerifier::verifyFPToSIInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isFPOrFPVectorTy() && "FPToSI source must be FP or FP vector");
-  assert(DstTy->isIntOrIntVectorTy() &&
-         "FPToSI result must be integer or integer vector");
+  ASSERT_VPVALUE(SrcTy->isFPOrFPVectorTy(), I,
+                 "FPToSI source must be FP or FP vector");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "FPToSI result must be integer or integer vector");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "FPToSI source and dest vector length mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "FPToSI source and dest vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "FPToSI source and dest must both be vector or scalar");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "FPToSI source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyUIToFPInst(const VPInstruction *I) const {
   assert(I->getOpcode() == Instruction::UIToFP);
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isIntOrIntVectorTy() &&
-         "UIToFP source must be integer or integer vector");
-  assert(DstTy->isFPOrFPVectorTy() && "UIToFP result must be FP or FP vector");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "UIToFP source must be integer or integer vector");
+  ASSERT_VPVALUE(DstTy->isFPOrFPVectorTy(), I,
+                 "UIToFP result must be FP or FP vector");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "UIToFP source and dest vector length mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "UIToFP source and dest vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "UIToFP source and dest must both be vector or scalar");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "UIToFP source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifySIToFPInst(const VPInstruction *I) const {
   assert(I->getOpcode() == Instruction::SIToFP);
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isIntOrIntVectorTy() &&
-         "SIToFP source must be integer or integer vector");
-  assert(DstTy->isFPOrFPVectorTy() && "SIToFP result must be FP or FP vector");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "SIToFP source must be integer or integer vector");
+  ASSERT_VPVALUE(DstTy->isFPOrFPVectorTy(), I,
+                 "SIToFP result must be FP or FP vector");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "SIToFP source and dest vector length mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "SIToFP source and dest vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "SIToFP source and dest must both be vector or scalar");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "SIToFP source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyIntToPtrInst(const VPInstruction *I) const {
@@ -304,21 +462,23 @@ void VPlanVerifier::verifyIntToPtrInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isIntOrIntVectorTy() && "IntToPtr source must be an integral");
-  assert(DstTy->isPtrOrPtrVectorTy() && "IntToPtr result must be a pointer");
+  ASSERT_VPVALUE(SrcTy->isIntOrIntVectorTy(), I,
+                 "IntToPtr source must be integral");
+  ASSERT_VPVALUE(DstTy->isPtrOrPtrVectorTy(), I,
+                 "IntToPtr result must be pointer");
 
   if (auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType()))
-    assert(!DL.isNonIntegralPointerType(Ptr) &&
-           "inttoptr not supported for non-integral pointers");
+    ASSERT_VPVALUE(!DL.isNonIntegralPointerType(Ptr), I,
+                   "inttoptr not supported for non-integral pointers");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "IntToPtr Vector width mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "IntToPtr vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "IntToPtr type mismatch");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "IntToPtr type mismatch");
 }
 
 void VPlanVerifier::verifyPtrToIntInst(const VPInstruction *I) const {
@@ -326,23 +486,25 @@ void VPlanVerifier::verifyPtrToIntInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  assert(SrcTy->isPtrOrPtrVectorTy() && "PtrToInt source must be pointer");
-  assert(DstTy->isIntOrIntVectorTy() && "PtrToInt result must be integral");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "PtrToInt type mismatch");
+  ASSERT_VPVALUE(SrcTy->isPtrOrPtrVectorTy(), I,
+                 "PtrToInt source must be pointer");
+  ASSERT_VPVALUE(DstTy->isIntOrIntVectorTy(), I,
+                 "PtrToInt result must be integral");
+  ASSERT_VPVALUE(SrcTy->isVectorTy() == DstTy->isVectorTy(), I,
+                 "PtrToInt type mismatch");
 
   if (auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType()))
-    assert(!DL.isNonIntegralPointerType(Ptr) &&
-           "PtrToInt not supported for non-integral pointers");
+    ASSERT_VPVALUE(!DL.isNonIntegralPointerType(Ptr), I,
+                   "PtrToInt not supported for non-integral pointers");
 
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
   if (SrcVecTy && DstVecTy)
-    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-           "PtrToInt Vector width mismatch");
+    ASSERT_VPVALUE(SrcVecTy->getNumElements() == DstVecTy->getNumElements(), I,
+                   "PtrToInt vector length mismatch");
   else
-    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
-           "PtrToInt type mismatch");
+    ASSERT_VPVALUE(!SrcTy->isVectorTy() && !DstTy->isVectorTy(), I,
+                   "PtrToInt type mismatch");
 }
 
 void VPlanVerifier::verifyBitCastInst(const VPInstruction *I) const {
@@ -350,34 +512,36 @@ void VPlanVerifier::verifyBitCastInst(const VPInstruction *I) const {
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
 
-  assert((SrcTy && DstTy) && "Invalid Src or Dst type");
+  ASSERT_VPVALUE((SrcTy && DstTy), I, "Invalid Src or Dst type");
   auto *SrcPtrTy = dyn_cast<PointerType>(SrcTy->getScalarType());
   auto *DstPtrTy = dyn_cast<PointerType>(DstTy->getScalarType());
 
-  assert(!SrcPtrTy == !DstPtrTy &&
-         "BitCast implies a no-op cast of type only. No bits change");
+  ASSERT_VPVALUE(!SrcPtrTy == !DstPtrTy, I,
+                 "BitCast implies a no-op cast of type only. No bits change");
 
   if (SrcPtrTy)
-    assert(SrcPtrTy->getAddressSpace() == DstPtrTy->getAddressSpace() &&
-           "Bitcast: pointer address spaces must match");
+    ASSERT_VPVALUE(SrcPtrTy->getAddressSpace() == DstPtrTy->getAddressSpace(),
+                   I, "Bitcast: pointer address spaces must match");
   else
-    assert(SrcTy->getPrimitiveSizeInBits() == DstTy->getPrimitiveSizeInBits() &&
-           "Source and Dstination bit widths should be identical.");
+    ASSERT_VPVALUE(SrcTy->getPrimitiveSizeInBits() ==
+                       DstTy->getPrimitiveSizeInBits(),
+                   I, "Source and Dstination bit widths should be identical.");
   (void)DstPtrTy;
 
   // A vector of pointers must have the same number of elements.
   auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
   auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
-
   if (SrcVecTy && DstVecTy)
-    assert(
-        SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
-        "BitCast: A vector of pointers must have the same number of elements.");
+    ASSERT_VPVALUE(
+        SrcVecTy->getNumElements() * SrcVecTy->getScalarSizeInBits() ==
+            DstVecTy->getNumElements() * DstVecTy->getScalarSizeInBits(),
+        I, "BitCast: A vector of pointers must have the same total size.");
 }
 
 void VPlanVerifier::verifyBinaryOperator(const VPInstruction *BI) const {
-  assert(BI->getOperand(0)->getType() == BI->getOperand(1)->getType() &&
-         "Both operands to a binary operator are not of the same type!");
+  ASSERT_VPVALUE(
+      BI->getOperand(0)->getType() == BI->getOperand(1)->getType(), BI,
+      "Both operands to a binary operator are not of the same type!");
   switch (BI->getOpcode()) {
   case Instruction::Add:
   case Instruction::Sub:
@@ -386,11 +550,12 @@ void VPlanVerifier::verifyBinaryOperator(const VPInstruction *BI) const {
   case Instruction::UDiv:
   case Instruction::SRem:
   case Instruction::URem:
-    assert(BI->getType()->isIntOrIntVectorTy() &&
-           "Integer arithmetic operators only work with integral types!");
-    assert(BI->getType() == BI->getOperand(0)->getType() &&
-           "Integer arithmetic operators must have same type "
-           "for operands and result!");
+    ASSERT_VPVALUE(
+        BI->getType()->isIntOrIntVectorTy(), BI,
+        "Integer arithmetic operators only work with integral types!");
+    ASSERT_VPVALUE(BI->getType() == BI->getOperand(0)->getType(), BI,
+                   "Integer arithmetic operators must have same type "
+                   "for operands and result!");
     break;
   // Check that floating-point arithmetic operators are only used with
   // floating-point operands.
@@ -399,29 +564,30 @@ void VPlanVerifier::verifyBinaryOperator(const VPInstruction *BI) const {
   case Instruction::FMul:
   case Instruction::FDiv:
   case Instruction::FRem:
-    assert(BI->getType()->isFPOrFPVectorTy() &&
-           "Floating-point arithmetic operators only work with "
-           "floating-point types!");
-    assert(BI->getType() == BI->getOperand(0)->getType() &&
-           "Floating-point arithmetic operators must have same type "
-           "for operands and result!");
+    ASSERT_VPVALUE(BI->getType()->isFPOrFPVectorTy(), BI,
+                   "Floating-point arithmetic operators only work with "
+                   "floating-point types!");
+    ASSERT_VPVALUE(BI->getType() == BI->getOperand(0)->getType(), BI,
+                   "Floating-point arithmetic operators must have same type "
+                   "for operands and result!");
     break;
   // Check that logical operators are only used with integral operands.
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor:
-    assert(BI->getType()->isIntOrIntVectorTy() &&
-           "Logical operators only work with integral types!");
-    assert(BI->getType() == BI->getOperand(0)->getType() &&
-           "Logical operators must have same type for operands and result!");
+    ASSERT_VPVALUE(BI->getType()->isIntOrIntVectorTy(), BI,
+                   "Logical operators only work with integral types!");
+    ASSERT_VPVALUE(
+        BI->getType() == BI->getOperand(0)->getType(), BI,
+        "Logical operators must have same type for operands and result!");
     break;
   case Instruction::Shl:
   case Instruction::LShr:
   case Instruction::AShr:
-    assert(BI->getType()->isIntOrIntVectorTy() &&
-           "Shifts only work with integral types!");
-    assert(BI->getType() == BI->getOperand(0)->getType() &&
-           "Shift return type must be same as operands!");
+    ASSERT_VPVALUE(BI->getType()->isIntOrIntVectorTy(), BI,
+                   "Shifts only work with integral types!");
+    ASSERT_VPVALUE(BI->getType() == BI->getOperand(0)->getType(), BI,
+                   "Shift return type must be same as operands!");
     break;
   default:
     llvm_unreachable("Unknown BinaryOperator opcode!");
@@ -445,7 +611,8 @@ void VPlanVerifier::verifySpecificInstruction(
   case Instruction::Store:
   case VPInstruction::CompressStore:
   case VPInstruction::CompressStoreNonu:
-    assert(1 && "The type of the operands of Load/Store are not correct");
+    ASSERT_VPVALUE(1, VPInst,
+                   "The type of the operands of Load/Store are not correct");
     break;
   case Instruction::GetElementPtr:
     verifyGEPInstruction(cast<VPGEPInstruction>(VPInst));
@@ -513,10 +680,10 @@ void VPlanVerifier::verifySpecificInstruction(
 void VPlanVerifier::verifyOperands(const VPUser *U) {
   for (const VPValue *Op : U->operands()) {
     (void)Op;
-    assert(Op && "Null operand found!");
+    ASSERT_VPVALUE(Op, Op, "Null operand found!");
     // We expect that for each Op->U edge there is a matching U->Op edge.
-    assert(Op->getNumUsersTo(U) == U->getNumOperandsFrom(Op) &&
-           "Op->U and U->Op do not match!");
+    ASSERT_VPVALUE(Op->getNumUsersTo(U) == U->getNumOperandsFrom(Op), Op,
+                   "Op->U and U->Op do not match!");
   }
 }
 
@@ -524,8 +691,8 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
   for (const VPUser *U : Def->users()) {
     (void)U;
     // We expect that for each Def->U edge there is a matching U->Def edge.
-    assert(Def->getNumUsersTo(U) == U->getNumOperandsFrom(Def) &&
-           "Def->U and U->Def do not match!");
+    ASSERT_VPVALUE(Def->getNumUsersTo(U) == U->getNumOperandsFrom(Def), U,
+                   "Def->U and U->Def do not match!");
     // TODO: Add more exhaustive checks for call instruction, with Function as
     // one of the arguments
   }
@@ -536,14 +703,14 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
 // is found in the predecessor list of \p Phi node's parent VPBB.
 void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
   assert(Phi->getOpcode() == Instruction::PHI);
-  assert(Phi->getNumIncomingValues() ==
-             Phi->getParent()->getNumPredecessors() &&
-         "Number of incoming values doesn't match with number of preds");
+  ASSERT_VPVALUE(
+      Phi->getNumIncomingValues() == Phi->getParent()->getNumPredecessors(),
+      Phi, "Number of incoming values doesn't match with number of preds");
 
   const auto &PBlocks = Phi->blocks();
   for (auto *Block : Phi->getParent()->getPredecessors()) {
-    assert(llvm::find(PBlocks, Block) != PBlocks.end() &&
-           "A predecessor is not incoming VPBB for VPPHINode");
+    ASSERT_VPVALUE(llvm::find(PBlocks, Block) != PBlocks.end(), Phi,
+                   "A predecessor is not incoming VPBB for VPPHINode");
     (void)Block;
   }
   (void)PBlocks;
@@ -554,14 +721,14 @@ void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
   // Check base pointer VPValue type. The first operand of the GEP will be the
   // base pointer.
   Type *TargetTy = GEP->getOperand(0)->getType();
-  assert(isa<PointerType>(TargetTy) &&
-         "GEP base pointer is not a vector or a vector of pointers.");
+  ASSERT_VPVALUE(isa<PointerType>(TargetTy) || isa<VectorType>(TargetTy), GEP,
+                 "GEP base pointer is not a vector or a vector of pointers.");
   (void)TargetTy;
 
   // Check that each index of GEP is integer or vector of integer type
   for (auto OpIt = GEP->op_begin() + 1; OpIt != GEP->op_end(); ++OpIt) {
-    assert((*OpIt)->getType()->isIntOrIntVectorTy() &&
-           "GEP indexes must be integers.");
+    ASSERT_VPVALUE((*OpIt)->getType()->isIntOrIntVectorTy(), GEP,
+                   "GEP indexes must be integers.");
     (void)OpIt;
   }
 }
@@ -577,12 +744,12 @@ void VPlanVerifier::verifySubscriptInst(
   unsigned NumDims = Subscript->getNumDimensions();
 
   Type *PtrTy = Ptr->getType();
-  assert(PtrTy->isPtrOrPtrVectorTy() &&
-         "SubscriptInst base ptr is not pointer type.");
+  ASSERT_VPVALUE(PtrTy->isPtrOrPtrVectorTy(), Subscript,
+                 "SubscriptInst base ptr is not pointer type.");
   (void)PtrTy;
 
-  assert(Subscript->getNumOperands() == 3 * NumDims + 1 &&
-         "SubscriptInst has invalid number of operands.");
+  ASSERT_VPVALUE(Subscript->getNumOperands() == 3 * NumDims + 1, Subscript,
+                 "SubscriptInst has invalid number of operands.");
 
   for (int Dim = NumDims - 1; Dim >= 0; --Dim) {
     auto DimInfo = Subscript->dim(Dim);
@@ -591,15 +758,15 @@ void VPlanVerifier::verifySubscriptInst(
     VPValue *Stride = DimInfo.StrideInBytes;
     VPValue *Index = DimInfo.Index;
 
-    assert(
-        Rank <= 32 &&
+    ASSERT_VPVALUE(
+        Rank <= 32, Subscript,
         "Rank cannot be greater than 32, max possible number of dimensions.");
 
     VPValue *IntArgs[] = {Lower, Stride, Index};
-    assert(
+    ASSERT_VPVALUE(
         all_of(IntArgs,
-               [](VPValue *V) { return V->getType()->isIntOrIntVectorTy(); }) &&
-        "SubscriptInst lower/stride/index must be integers.");
+               [](VPValue *V) { return V->getType()->isIntOrIntVectorTy(); }),
+        Subscript, "SubscriptInst lower/stride/index must be integers.");
     (void)IntArgs;
     (void)Rank;
   }
@@ -609,14 +776,16 @@ void VPlanVerifier::verifyAbsInst(const VPInstruction *I) const {
   assert(I->getOpcode() == VPInstruction::Abs);
 
   // Abs instruction has one operand.
-  assert(I->getNumOperands() == 1 && "Abs instruction should have 1 operand");
+  ASSERT_VPVALUE(I->getNumOperands() == 1, I,
+                 "Abs instruction should have 1 operand");
 
   // Operand and instruction types should match.
   Type *OpTy = I->getOperand(0)->getType();
   Type *InstTy = I->getType();
-  assert(OpTy == InstTy && "Unexpected operand/inst type mismatch");
+  ASSERT_VPVALUE(OpTy == InstTy, I, "Unexpected operand/inst type mismatch");
 
-  assert(OpTy->isIntOrIntVectorTy() && "Abs only operates on integers");
+  ASSERT_VPVALUE(OpTy->isIntOrIntVectorTy(), I,
+                 "Abs only operates on integers");
 
   (void)OpTy;
   (void)InstTy;
@@ -626,20 +795,28 @@ void VPlanVerifier::verifyAbsInst(const VPInstruction *I) const {
 void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
                                       const VPBasicBlock *Block) const {
   // Generic checks of instructions
-  assert(Inst->getType() != nullptr &&
-         "VPInstruction cannot have a nullptr base-type");
-  assert(Inst->getParent() == Block &&
-         "Incorrect VPBB parent for a VPInstruction");
-  assert((Inst->getOpcode() != Instruction::PHI || isa<VPPHINode>(Inst)) &&
-         "Phi VPInstructions should be represented with VPHINode!");
+  ASSERT_VPVALUE(Inst->getType() != nullptr, Inst,
+                 "VPInstruction cannot have a nullptr base-type");
+  ASSERT_VPVALUE(Inst->getParent() == Block, Inst,
+                 "Incorrect VPBB parent for a VPInstruction");
+  ASSERT_VPVALUE(
+      (Inst->getOpcode() != Instruction::PHI || isa<VPPHINode>(Inst)), Inst,
+      "Phi VPInstructions should be represented with VPHINode!");
 
   // Check that the return value of the instruction is either void or a legal
   // value type.
-  assert((Inst->getType()->isVoidTy() || Inst->getType()->isFirstClassType()) &&
-         "Instruction returns a non-scalar type!");
+  ASSERT_VPVALUE(
+      (Inst->getType()->isVoidTy() || Inst->getType()->isFirstClassType()),
+      Inst, "Instruction returns a non-scalar type!");
   verifyOperands(Inst);
   verifyUsers(Inst);
   verifySpecificInstruction(Inst);
+  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent()))
+    verifySSA(Inst, Plan->getDT());
+
+  if (!shouldSkipDAShapes() && !shouldSkipDA()) {
+    verifyDAShape(Inst);
+  }
 }
 
 // Verify if the block is correctly connected with other basic blocks in the
@@ -649,50 +826,57 @@ void VPlanVerifier::verifyBlock(const VPBasicBlock *VPBB) const {
   for (const auto &Inst : *VPBB)
     verifyInstruction(&Inst, VPBB);
 
+  // Check that all phis/blends are at the beginning of the block
+  verifyPhiBlendPlacement(VPBB);
+
   // Check block's ConditionBit
   if (VPBB->getNumSuccessors() > 1)
-    assert(VPBB->getCondBit() && VPBB->getNumSuccessors() == 2 &&
-           "Missing condition bit.");
+    ASSERT_VPBB(VPBB->getCondBit() && VPBB->getNumSuccessors() == 2, VPBB,
+                "Missing condition bit.");
   else
-    assert(!VPBB->getCondBit() && VPBB->getNumSuccessors() < 2 &&
-           "Unexpected condition bit.");
+    ASSERT_VPBB(!VPBB->getCondBit() && VPBB->getNumSuccessors() < 2, VPBB,
+                "Unexpected condition bit.");
 
   // Check if there is a bidirectional link between block and its successors.
-  assert(all_of(VPBB->getSuccessors(),
-                [VPBB](VPBasicBlock *Succ) {
-                  return any_of(
-                      Succ->getPredecessors(),
-                      [VPBB](VPBasicBlock *Pred) { return Pred == VPBB; });
-                }) &&
-         "There is not a bidirectional link between the current block and "
-         "its successors.");
+  ASSERT_VPBB(all_of(VPBB->getSuccessors(),
+                     [VPBB](VPBasicBlock *Succ) {
+                       return any_of(
+                           Succ->getPredecessors(),
+                           [VPBB](VPBasicBlock *Pred) { return Pred == VPBB; });
+                     }),
+              VPBB,
+              "There is not a bidirectional link between the current block and "
+              "its successors.");
 
   // There must be only one instance of the successors in block's
   // successor list.
-  assert(all_of(VPBB->getSuccessors(),
-                 [VPBB](VPBasicBlock *Succ) {
-                   return std::count(VPBB->getSuccessors().begin(),
-                                     VPBB->getSuccessors().end(), Succ) == 1;
-                 }) &&
-         "Multiple instances of the same successor.");
+  ASSERT_VPBB(all_of(VPBB->getSuccessors(),
+                     [VPBB](VPBasicBlock *Succ) {
+                       return std::count(VPBB->getSuccessors().begin(),
+                                         VPBB->getSuccessors().end(),
+                                         Succ) == 1;
+                     }),
+              VPBB, "Multiple instances of the same successor.");
 
   // Check if there is a bidirectional link between block and its
   // predecessors.
-  assert(all_of(VPBB->getPredecessors(),
-                [VPBB](VPBasicBlock *Pred) {
-                  return any_of(
-                      Pred->getSuccessors(),
-                      [VPBB](VPBasicBlock *Succ) { return Succ == VPBB; });
-                }) &&
-         "There is not a bidirectional link between the current block and "
-         "its predecessors.");
+  ASSERT_VPBB(all_of(VPBB->getPredecessors(),
+                     [VPBB](VPBasicBlock *Pred) {
+                       return any_of(
+                           Pred->getSuccessors(),
+                           [VPBB](VPBasicBlock *Succ) { return Succ == VPBB; });
+                     }),
+              VPBB,
+              "There is not a bidirectional link between the current block and "
+              "its predecessors.");
 
   // There must be only one instance of the predecessors in block's
   // predecessor list.
-  assert(all_of(VPBB->getPredecessors(),
-                [VPBB](VPBasicBlock *Pred) {
-                  return std::count(VPBB->getPredecessors().begin(),
-                                    VPBB->getPredecessors().end(), Pred) == 1;
-                }) &&
-         "Multiple instances of the same predecessor.");
+  ASSERT_VPBB(all_of(VPBB->getPredecessors(),
+                     [VPBB](VPBasicBlock *Pred) {
+                       return std::count(VPBB->getPredecessors().begin(),
+                                         VPBB->getPredecessors().end(),
+                                         Pred) == 1;
+                     }),
+              VPBB, "Multiple instances of the same predecessor.");
 }

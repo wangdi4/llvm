@@ -55,7 +55,7 @@ attributes #1 = { convergent }
 !5 = !{i32 2, i32 0}
 !6 = !{!"-cl-std=CL2.0", !"-g", !"-cl-fast-relaxed-math"}
 !7 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!8 = !{void ()* @test}
+!8 = !{ptr @test}
 !9 = distinct !DISubprogram(name: "test", scope: !10, file: !10, line: 1, type: !11, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !10 = !DIFile(filename: "empty.cl", directory: ".")
 !11 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !12)

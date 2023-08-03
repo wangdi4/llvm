@@ -11,7 +11,7 @@ define i1 @sink_test_0(<16 x i64> %.splat1613, <16 x i64> %mul, <16 x i64> %cmp)
 ; AVX2:     entry
 ; AVX2-NOT: VPACKSSDWYrr
 ; AVX2:     VPORYrr
-; AVX2:     VMOVMSKPDYrr
+; AVX2:     VTESTPDYrr
 entry:
   %mul.res = add <16 x i64> %.splat1613, %mul
   %hir.cmp.1050 = icmp ugt <16 x i64> %mul.res, %cmp
@@ -31,7 +31,7 @@ define i1 @sink_test_1(<16 x double> %gepload7562) "prefer-vector-width"="256" {
 ; AVX2:     entry
 ; AVX2-NOT: VPACKSSDWYrr
 ; AVX2:     VPORYrr
-; AVX2:     VMOVMSKPDYrr
+; AVX2:     VTESTPDYrr
 entry:
   %fcmp.0 = fcmp olt <16 x double> %gepload7562, <double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15, double 1.000000e-15>
   %bc = bitcast <16 x i1> %fcmp.0 to i16
@@ -98,7 +98,7 @@ then.284:                                          ; preds = %then.88
 ; AVX2:     bb.1.loop.286
 ; AVX2-NOT: VPACKSSDWYrr
 ; AVX2:     VPORYrr
-; AVX2:     VMOVMSKPDYrr
+; AVX2:     VTESTPDYrr
 loop.286:                                         ; preds = %then.284, %ifmerge.291
   %i1.i64507.1 = phi i64 [ %nextivloop.286, %ifmerge.291 ], [ 0, %then.284 ]
   %addr45 = add i64 %c, %i1.i64507.1
@@ -144,7 +144,7 @@ then.91:                                          ; preds = %then.88
 ; AVX2:      loop
 ; AVX2-NOT:  VPACKSSDWYrr
 ; AVX2:  VPORYrr
-; AVX2:      VMOVMSKPDYrr
+; AVX2:      VTESTPDYrr
 loop:                                          ; preds = %ifmerge.95, %then.91  ltl
   %i1.i64.1 = phi i64 [ 0, %then.91 ], [ %nextivloop.90, %ifmerge.95 ]
   %addr42 = add i64 %c, %i1.i64.1

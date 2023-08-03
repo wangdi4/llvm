@@ -12,7 +12,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(float* nocapture %A, float* nocapture readonly %B, i32 %n) {
+define void @foo(ptr nocapture %A, ptr nocapture readonly %B, i32 %n) {
 entry:
   %cmp.7 = icmp sgt i32 %n, 0
   br i1 %cmp.7, label %for.body.preheader, label %for.end
@@ -22,12 +22,12 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %0 = bitcast float* %arrayidx to i32*
-  %1 = load i32, i32* %0, align 4
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = bitcast float* %arrayidx2 to i32*
-  store i32 %1, i32* %2, align 4
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %0 = bitcast ptr %arrayidx to ptr
+  %1 = load i32, ptr %0, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = bitcast ptr %arrayidx2 to ptr
+  store i32 %1, ptr %2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

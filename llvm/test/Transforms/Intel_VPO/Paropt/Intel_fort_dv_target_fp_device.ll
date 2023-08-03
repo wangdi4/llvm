@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -lower-subscript -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(lower-subscript,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -lower-subscript -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(lower-subscript,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test that we emit calls to f90_dv_init/firstprivate_copy inside the target
 ; region to handle the firstprivate clause on target.This is temporary until
@@ -22,40 +22,39 @@
 ;   end program
 
 ; Check for the deflaration of f90_dv_init/firstprivate_copy functions
-; CHECK: declare spir_func i64 @_f90_dope_vector_init(i8 addrspace(4)*, i8 addrspace(4)*)
-; CHECK: declare spir_func void @_f90_firstprivate_copy(i8 addrspace(4)*, i8 addrspace(4)*)
+; CHECK: declare spir_func i64 @_f90_dope_vector_init2(ptr addrspace(4), ptr addrspace(4))
+; CHECK: declare spir_func void @_f90_firstprivate_copy(ptr addrspace(4), ptr addrspace(4))
 
 ; Check for allocation and initialization of local DV inside outlined function
-; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.+}}MAIN__{{.+}}(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* {{.+}})
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.+}}MAIN__{{.+}}(ptr addrspace(1) {{.+}})
 ; CHECK: [[MAIN_A_PRIV:%[^ ]+]] = alloca %"QNCA_a0$i32 addrspace(4)*$rank1$"
-; CHECK: [[DV_SIZE:%[^ ]+]] = call spir_func i64 @_f90_dope_vector_init(i8 addrspace(4)* {{[^ ,]+}}, i8 addrspace(4)* %{{[^ ,]+}})
+; CHECK: [[DV_SIZE:%[^ ]+]] = call spir_func i64 @_f90_dope_vector_init2(ptr addrspace(4) {{[^ ,]+}}, ptr addrspace(4) %{{[^ ,]+}})
 ; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[DV_SIZE]], 4
-; CHECK: [[MAIN_A_PRIV_ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$"* {{[^ ]+}}, i32 0, i32 0
+; CHECK: [[MAIN_A_PRIV_ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", ptr {{[^ ]+}}, i32 0, i32 0
 ; CHECK: [[MAIN_A_PRIV_DATA:%[^ ]+]] = alloca i32, i64 [[NUM_ELEMENTS]]
-; CHECK: [[MAIN_A_PRIV_DATA_CAST:%[^ ]+]] = addrspacecast i32* [[MAIN_A_PRIV_DATA]] to i32 addrspace(4)*
-; CHECK: store i32 addrspace(4)* [[MAIN_A_PRIV_DATA_CAST]], i32 addrspace(4)** [[MAIN_A_PRIV_ADDR0]]
+; CHECK: [[MAIN_A_PRIV_DATA_CAST:%[^ ]+]] = addrspacecast ptr [[MAIN_A_PRIV_DATA]] to ptr addrspace(4)
+; CHECK: store ptr addrspace(4) [[MAIN_A_PRIV_DATA_CAST]], ptr [[MAIN_A_PRIV_ADDR0]]
 
 ; Check for call to f90_firstprivate_copy
-; CHECK: call spir_func void @_f90_firstprivate_copy(i8 addrspace(4)* {{[^ ]+}}, i8 addrspace(4)* {{[^ ]+}})
+; CHECK: call spir_func void @_f90_firstprivate_copy(ptr addrspace(4) {{[^ ]+}}, ptr addrspace(4) {{[^ ]+}})
 
-source_filename = "target_map_dv_allocatable.f90"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
 target device_triples = "spir64"
 
-%"QNCA_a0$i32 addrspace(4)*$rank1$" = type { i32 addrspace(4)*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$i32 addrspace(4)*$rank1$" = type { ptr addrspace(4), i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
-@"main_$A" = internal addrspace(1) global %"QNCA_a0$i32 addrspace(4)*$rank1$" { i32 addrspace(4)* null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
+@"main_$A" = internal addrspace(1) global %"QNCA_a0$i32 addrspace(4)*$rank1$" { ptr addrspace(4) null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
 @0 = internal unnamed_addr addrspace(1) constant [6 x i8] c"%lld\0A\00"
 
-define void @MAIN__() #0 {
+define void @MAIN__() {
 alloca:
   %"var$2" = alloca [8 x i64], align 8
-  %addressof = alloca [4 x i8]
-  %ARGBLOCK_0 = alloca { i32 }
-  %addressof118 = alloca [4 x i8]
-  %ARGBLOCK_1 = alloca { i32 }
-  %_fetch40 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  %addressof = alloca [4 x i8], align 1
+  %ARGBLOCK_0 = alloca { i32 }, align 8
+  %addressof118 = alloca [4 x i8], align 1
+  %ARGBLOCK_1 = alloca { i32 }, align 8
+  %_fetch40 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and41 = and i64 %_fetch40, 256
   %lshr42 = lshr i64 %and41, 8
   %shl43 = shl i64 %lshr42, 8
@@ -65,21 +64,21 @@ alloca:
   %and47 = and i64 %or44, -1030792151041
   %shl48 = shl i64 %lshr46, 36
   %or49 = or i64 %and47, %shl48
-  store i64 %or49, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
-  store i64 4, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 1)
-  store i64 1, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 4)
-  store i64 0, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 2)
-  %"[]" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  store i64 1, i64 addrspace(1)* %"[]"
-  %"[]1" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 0), i32 0)
-  store i64 3, i64 addrspace(1)* %"[]1"
-  %"[]2" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 1), i32 0)
-  store i64 4, i64 addrspace(1)* %"[]2"
-  %_fetch = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
-  %_fetch4 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  store i64 %or49, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
+  store i64 4, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 1), align 8
+  store i64 1, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 4), align 8
+  store i64 0, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 2), align 8
+  %"[]" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  store i64 1, ptr addrspace(1) %"[]", align 8
+  %"[]1" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 0), i32 0)
+  store i64 3, ptr addrspace(1) %"[]1", align 8
+  %"[]2" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 1), i32 0)
+  store i64 4, ptr addrspace(1) %"[]2", align 8
+  %_fetch = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
+  %_fetch4 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and = and i64 %_fetch4, -68451041281
   %or = or i64 %and, 1073741824
-  store i64 %or, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  store i64 %or, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and6 = and i64 %_fetch, 1
   %shl = shl i64 %and6, 1
   %int_zext = trunc i64 %shl to i32
@@ -99,65 +98,66 @@ alloca:
   %or32 = or i32 %and26, %int_zext30
   %and34 = and i32 %or32, -2031617
   %or36 = or i32 %and34, 262144
-  %func_result = call i32 @for_alloc_allocatable(i64 12, i8** addrspacecast (i8* addrspace(1)* bitcast (%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A" to i8* addrspace(1)*) to i8**), i32 %or36)
-  %_fetch60 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %"[]52" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  %"[]52_fetch" = load i64, i64 addrspace(1)* %"[]52"
-  %"_fetch[]" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 %"[]52_fetch", i64 4, i32 addrspace(4)* elementtype(i32) %_fetch60, i64 1)
-  store i32 10, i32 addrspace(4)* %"_fetch[]"
-  %_fetch78 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %"[]63" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  %"[]63_fetch" = load i64, i64 addrspace(1)* %"[]63"
-  %"_fetch[]71" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 %"[]63_fetch", i64 4, i32 addrspace(4)* elementtype(i32) %_fetch78, i64 1)
-  %"_fetch[]71_fetch" = load i32, i32 addrspace(4)* %"_fetch[]71"
-  store [4 x i8] c"\09\01\01\00", [4 x i8]* %addressof
-  %BLKFIELD_ = getelementptr inbounds { i32 }, { i32 }* %ARGBLOCK_0, i32 0, i32 0
-  store i32 %"_fetch[]71_fetch", i32* %BLKFIELD_
-  %ptr_cast = bitcast [8 x i64]* %"var$2" to i8*
-  %ptr_cast73 = bitcast [4 x i8]* %addressof to i8*
-  %ptr_cast75 = bitcast { i32 }* %ARGBLOCK_0 to i8*
-  %func_result77 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* %ptr_cast, i32 -1, i64 1239157112576, i8* %ptr_cast73, i8* %ptr_cast75)
+  %func_result = call i32 @for_alloc_allocatable(i64 12, ptr addrspacecast (ptr addrspace(1) @"main_$A" to ptr), i32 %or36)
+  %_fetch60 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %"[]52" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"[]52_fetch" = load i64, ptr addrspace(1) %"[]52", align 8
+  %"_fetch[]" = call ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8 0, i64 %"[]52_fetch", i64 4, ptr addrspace(4) elementtype(i32) %_fetch60, i64 1)
+  store i32 10, ptr addrspace(4) %"_fetch[]", align 4
+  %_fetch78 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %"[]63" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"[]63_fetch" = load i64, ptr addrspace(1) %"[]63", align 8
+  %"_fetch[]71" = call ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8 0, i64 %"[]63_fetch", i64 4, ptr addrspace(4) elementtype(i32) %_fetch78, i64 1)
+  %"_fetch[]71_fetch" = load i32, ptr addrspace(4) %"_fetch[]71", align 4
+  store [4 x i8] c"\09\01\01\00", ptr %addressof, align 1
+  %BLKFIELD_ = getelementptr inbounds { i32 }, ptr %ARGBLOCK_0, i32 0, i32 0
+  store i32 %"_fetch[]71_fetch", ptr %BLKFIELD_, align 4
+  %ptr_cast = bitcast ptr %"var$2" to ptr
+  %ptr_cast73 = bitcast ptr %addressof to ptr
+  %ptr_cast75 = bitcast ptr %ARGBLOCK_0 to ptr
+  %func_result77 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr %ptr_cast, i32 -1, i64 1239157112576, ptr %ptr_cast73, ptr %ptr_cast75)
   br label %bb21
 
 bb21:                                             ; preds = %alloca
-  %A.cast = addrspacecast %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A" to %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(4)*
-  %addr0 = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(4)* %A.cast, i32 0, i32 0
-  %addr0.val = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %addr0, align 8
-  %next = getelementptr i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %addr0, i64 1
+  %A.cast = addrspacecast ptr addrspace(1) @"main_$A" to ptr addrspace(4)
+  %addr0 = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(4) %A.cast, i32 0, i32 0
+  %addr0.val = load ptr addrspace(4), ptr addrspace(4) %addr0, align 8
+  %next = getelementptr ptr addrspace(4), ptr addrspace(4) %addr0, i64 1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TO"(ptr addrspace(1) @"main_$A", ptr addrspace(1) @"main_$A", i64 72, i64 32), ; MAP type: 32 = 0x20 = TARGET_PARAM (0x20)
+    "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(1) @"main_$A", ptr addrspace(4) %next, i64 64, i64 281474976710657), ; MAP type: 281474976710657 = 0x1000000000001 = MEMBER_OF_1 (0x1000000000000) | TO (0x1)
+    "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(1) @"main_$A", ptr addrspace(4) %addr0.val, i64 12, i64 281474976710673), ; MAP type: 281474976710673 = 0x1000000000011 = MEMBER_OF_1 (0x1000000000000) | PTR_AND_OBJ (0x10) | TO (0x1)
+    "QUAL.OMP.FIRSTPRIVATE:F90_DV.TYPED"(ptr addrspace(1) @"main_$A", %"QNCA_a0$i32 addrspace(4)*$rank1$" zeroinitializer, i32 0) ]
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i64 72, i64 32), "QUAL.OMP.MAP.TO:CHAIN"(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 addrspace(4)* addrspace(4)* %next, i64 64, i64 281474976710657), "QUAL.OMP.MAP.TO:CHAIN"(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 addrspace(4)* %addr0.val, i64 12, i64 281474976710673), "QUAL.OMP.FIRSTPRIVATE:F90_DV"(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A") ]
-
-
-  %_fetch94 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %"[]81" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  %"[]81_fetch" = load i64, i64 addrspace(1)* %"[]81"
-  %"_fetch[]89" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 %"[]81_fetch", i64 4, i32 addrspace(4)* elementtype(i32) %_fetch94, i64 1)
-  %"_fetch[]89_fetch" = load i32, i32 addrspace(4)* %"_fetch[]89"
+  %_fetch94 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %"[]81" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"[]81_fetch" = load i64, ptr addrspace(1) %"[]81", align 8
+  %"_fetch[]89" = call ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8 0, i64 %"[]81_fetch", i64 4, ptr addrspace(4) elementtype(i32) %_fetch94, i64 1)
+  %"_fetch[]89_fetch" = load i32, ptr addrspace(4) %"_fetch[]89", align 4
   %int_sext = sext i32 %"_fetch[]89_fetch" to i64
-  %func_result93 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* addrspacecast (i8 addrspace(1)* getelementptr inbounds ([6 x i8], [6 x i8] addrspace(1)* @0, i32 0, i32 0) to i8 addrspace(4)*), i64 %int_sext)
-  %_fetch106 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %"[]97" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  %"[]97_fetch" = load i64, i64 addrspace(1)* %"[]97"
-  %"_fetch[]105" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 %"[]97_fetch", i64 4, i32 addrspace(4)* elementtype(i32) %_fetch106, i64 1)
-  store i32 20, i32 addrspace(4)* %"_fetch[]105"
-
+  %func_result93 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @0 to ptr addrspace(4)), i64 %int_sext)
+  %_fetch106 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %"[]97" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"[]97_fetch" = load i64, ptr addrspace(1) %"[]97", align 8
+  %"_fetch[]105" = call ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8 0, i64 %"[]97_fetch", i64 4, ptr addrspace(4) elementtype(i32) %_fetch106, i64 1)
+  store i32 20, ptr addrspace(4) %"_fetch[]105", align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
 
-
-  %_fetch129 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %"[]109" = call i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8 0, i64 0, i32 24, i64 addrspace(1)* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
-  %"[]109_fetch" = load i64, i64 addrspace(1)* %"[]109"
-  %"_fetch[]117" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 %"[]109_fetch", i64 4, i32 addrspace(4)* elementtype(i32) %_fetch129, i64 1)
-  %"_fetch[]117_fetch" = load i32, i32 addrspace(4)* %"_fetch[]117"
-  store [4 x i8] c"\09\01\01\00", [4 x i8]* %addressof118
-  %BLKFIELD_120 = getelementptr inbounds { i32 }, { i32 }* %ARGBLOCK_1, i32 0, i32 0
-  store i32 %"_fetch[]117_fetch", i32* %BLKFIELD_120
-  %ptr_cast122 = bitcast [8 x i64]* %"var$2" to i8*
-  %ptr_cast124 = bitcast [4 x i8]* %addressof118 to i8*
-  %ptr_cast126 = bitcast { i32 }* %ARGBLOCK_1 to i8*
-  %func_result128 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* %ptr_cast122, i32 -1, i64 1239157112576, i8* %ptr_cast124, i8* %ptr_cast126)
-  %_fetch133 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %_fetch135 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  %_fetch129 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %"[]109" = call ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8 0, i64 0, i32 24, ptr addrspace(1) elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"[]109_fetch" = load i64, ptr addrspace(1) %"[]109", align 8
+  %"_fetch[]117" = call ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8 0, i64 %"[]109_fetch", i64 4, ptr addrspace(4) elementtype(i32) %_fetch129, i64 1)
+  %"_fetch[]117_fetch" = load i32, ptr addrspace(4) %"_fetch[]117", align 4
+  store [4 x i8] c"\09\01\01\00", ptr %addressof118, align 1
+  %BLKFIELD_120 = getelementptr inbounds { i32 }, ptr %ARGBLOCK_1, i32 0, i32 0
+  store i32 %"_fetch[]117_fetch", ptr %BLKFIELD_120, align 4
+  %ptr_cast122 = bitcast ptr %"var$2" to ptr
+  %ptr_cast124 = bitcast ptr %addressof118 to ptr
+  %ptr_cast126 = bitcast ptr %ARGBLOCK_1 to ptr
+  %func_result128 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr %ptr_cast122, i32 -1, i64 1239157112576, ptr %ptr_cast124, ptr %ptr_cast126)
+  %_fetch133 = load ptr addrspace(4), ptr addrspace(1) @"main_$A", align 8
+  %_fetch135 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and137 = and i64 %_fetch135, 2
   %lshr139 = lshr i64 %and137, 1
   %shl141 = shl i64 %lshr139, 2
@@ -188,45 +188,30 @@ bb21:                                             ; preds = %alloca
   %or191 = or i32 %and185, %int_zext189
   %and193 = and i32 %or191, -2031617
   %or195 = or i32 %and193, 262144
-  %1 = addrspacecast i32 addrspace(4)* %_fetch133 to i32*
-  %ptr_cast197 = bitcast i32* %1 to i8*
-  %func_result199 = call i32 @for_dealloc_allocatable(i8* %ptr_cast197, i32 %or195)
-  store i32 addrspace(4)* null, i32 addrspace(4)* addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 0)
-  %_fetch201 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  %1 = addrspacecast ptr addrspace(4) %_fetch133 to ptr
+  %ptr_cast197 = bitcast ptr %1 to ptr
+  %func_result199 = call i32 @for_dealloc_allocatable(ptr %ptr_cast197, i32 %or195)
+  store ptr addrspace(4) null, ptr addrspace(1) @"main_$A", align 8
+  %_fetch201 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and203 = and i64 %_fetch201, -2
-  store i64 %and203, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
-  %_fetch205 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  store i64 %and203, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
+  %_fetch205 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and207 = and i64 %_fetch205, -2049
-  store i64 %and207, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
-  %_fetch209 = load i64, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  store i64 %and207, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
+  %_fetch209 = load i64, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   %and211 = and i64 %_fetch209, -1030792151041
-  store i64 %and211, i64 addrspace(1)* getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* @"main_$A", i32 0, i32 3)
+  store i64 %and211, ptr addrspace(1) getelementptr inbounds (%"QNCA_a0$i32 addrspace(4)*$rank1$", ptr addrspace(1) @"main_$A", i32 0, i32 3), align 8
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
-declare i64 addrspace(1)* @llvm.intel.subscript.p1i64.i64.i32.p1i64.i32(i8, i64, i32, i64 addrspace(1)*, i32) #1
-
-declare i32 @for_alloc_allocatable(i64, i8**, i32)
-
-; Function Attrs: nounwind readnone speculatable
-declare i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8, i64, i64, i32 addrspace(4)*, i64) #1
-
-declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...)
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-declare spir_func i32 @printf(i8 addrspace(4)*, ...)
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-declare i32 @for_dealloc_allocatable(i8*, i32)
-
-attributes #0 = { "contains-openmp-target"="true" "min-legal-vector-width"="0" }
-attributes #1 = { nounwind readnone speculatable }
-attributes #2 = { nounwind }
+declare i32 @for_alloc_allocatable(i64, ptr, i32)
+declare i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...)
+declare token @llvm.directive.region.entry()
+declare spir_func i32 @printf(ptr addrspace(4), ...)
+declare void @llvm.directive.region.exit(token)
+declare i32 @for_dealloc_allocatable(ptr, i32)
+declare ptr addrspace(1) @llvm.intel.subscript.p1.i64.i32.p1.i32(i8, i64, i32, ptr addrspace(1), i32)
+declare ptr addrspace(4) @llvm.intel.subscript.p4.i64.i64.p4.i64(i8, i64, i64, ptr addrspace(4), i64)
 
 !omp_offload.info = !{!0}
 !0 = !{i32 0, i32 2055, i32 152712445, !"MAIN__", i32 6, i32 0, i32 0}

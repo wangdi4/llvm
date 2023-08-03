@@ -66,9 +66,15 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG 304eaa0769d7170e4a3e9d8c30f98ac77258dabb)
+set(OPENCL_CLANG_TAG 53843eee13cfb2357919ee02714a43bef1af0f86)
 # PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
 set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
+# INTEL_CUSTOMIZATION
+if(WIN32)
+  # Don't link LLVMSupport_dyn which will propogate /MD flag to opencl-clang.
+  set(EXCLUDE_LIBS_FROM_ALL "LLVMSupport_dyn" CACHE STRING "")
+endif()
+# end INTEL_CUSTOMIZATION
 
 message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
 FetchContent_Declare(
@@ -432,6 +438,12 @@ llvm_map_components_to_libnames(
   )
 
 # Prepare common_clang dynamic library
+if(UNIX)
+  set_target_properties(${COMMON_CLANG}
+    PROPERTIES
+    SOVERSION ${VERSIONSTRING}
+    VERSION ${VERSIONSTRING})
+endif()
 if(OPENCL_INTREE_BUILD)
   set(COMMON_CLANG_LIB ${COMMON_CLANG})
 else()
@@ -439,7 +451,7 @@ else()
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
   else(WIN32)
     set(COMMON_CLANG_LIB
-        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${CCLANG_LIBRARY_VERSION})
+        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${VERSIONSTRING})
     set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
   endif(WIN32)
 endif()
@@ -484,43 +496,39 @@ set(TBB_ROOT_DIR $ENV{TBBROOT}/$ENV{TBBVER})
 message(STATUS "Environment TBBROOT: $ENV{TBBROOT}")
 message(STATUS "Environment TBBVER: $ENV{TBBVER}")
 
-if(BUILD_X64)
-  set(TBB_ARCH "intel64")
-else()
-  set(TBB_ARCH "ia32")
+# The new version of TBBConfig.cmake file has a bug when determining
+# whether it's a 32bit environment. This is a W/A to fix this issue.
+if(NOT BUILD_X64)
+  set(_tbb_arch_suffix 32)
 endif()
 
 # TBB_LIBRARY_DIR - Used for LIT environment
+set(TBB_DIR "${TBB_ROOT_DIR}/lib/cmake/tbb")
+find_package(TBB REQUIRED tbb)
+get_target_property(TBB_LOC TBB::tbb LOCATION_RELEASE)
+get_target_property(TBB_INC_DIR TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+get_filename_component(TBB_LIBRARY_DIR ${TBB_LOC} DIRECTORY)
+
+# INTEL_CUSTOMIZATION
+# On windows, we are building xmain in the u4win environment. And msvc utils
+# just like link.exe cannot recognize rdrive path. So we need to copy tbb imp
+# libs to local directory.
 if(WIN32)
-  set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14)
-  set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14)
-else(WIN32)
-  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib)
-  else(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
-  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
-  # Import tbb/tbbmalloc library
-  add_library(tbb SHARED IMPORTED)
-  set_target_properties(tbb PROPERTIES
-    IMPORTED_LOCATION_RELEASE
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
-    IMPORTED_LOCATION_DEBUG
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
-  add_library(tbbmalloc SHARED IMPORTED)
-  set_target_properties(tbbmalloc PROPERTIES
-    IMPORTED_LOCATION_RELEASE
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX}
-    IMPORTED_LOCATION_DEBUG
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
+  get_target_property(TBB_IMPLIB_RELEASE TBB::tbb IMPORTED_IMPLIB_RELEASE)
+  get_target_property(TBB_IMPLIB_DEBUG TBB::tbb IMPORTED_IMPLIB_DEBUG)
+  execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory
+                    ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+  execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${TBB_IMPLIB_RELEASE} ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}
+                  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${TBB_IMPLIB_DEBUG} ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+  link_directories(${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
 endif(WIN32)
+# end INTEL_CUSTOMIZATION
 
-if((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
-  message(FATAL_ERROR "TBB library path is not found: ${TBB_LIB_DIR}")
+if((NOT TBB_LIBRARY_DIR) OR (NOT EXISTS ${TBB_LIBRARY_DIR}))
+  message(FATAL_ERROR "TBB library path is not found: ${TBB_LIBRARY_DIR}")
 endif()
-
-set(TBB_INC_DIR ${TBB_ROOT_DIR}/include)
 
 if((NOT TBB_INC_DIR) OR (NOT EXISTS ${TBB_INC_DIR}))
   message(FATAL_ERROR "TBB include path is not found: ${TBB_INC_DIR}")

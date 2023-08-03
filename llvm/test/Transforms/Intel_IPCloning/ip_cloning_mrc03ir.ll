@@ -4,8 +4,8 @@
 
 ; Check that foo is not selected for cloning as a "many recursive calls"
 ; cloning candidate, because it is varargs.
-; This is the same test as ip_cloning_mrc03.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_mrc03.ll, but checks for IR
+; without requiring asserts.
 
 ; CHECK: define internal i32 @foo
 ; Check that no recursive clone of foo is made.
@@ -13,12 +13,13 @@
 ; Check that no call is made to a recursive clone of foo.
 ; CHECK-NOT: {{.*}}call @foo.1
 
-declare i32 @llvm.va_arg_pack()
+%struct.MYSTRUCT = type { i32, i32 }
 
 @myglobal = dso_local global i32 45, align 4
-
-%struct.MYSTRUCT = type { i32, i32 }
 @cache = dso_local global %struct.MYSTRUCT zeroinitializer, align 4
+
+; Function Attrs: nounwind
+declare i32 @llvm.va_arg_pack() #0
 
 define internal i32 @foo(i32 %arg0, i32 %arg1, i32 %arg2, ...) {
 entry:
@@ -53,21 +54,21 @@ return:                                           ; preds = %sw.bb, %sw.default,
   ret i32 %call4
 }
 
-define dso_local i32 @goo(%struct.MYSTRUCT* %cacheptr) {
+define dso_local i32 @goo(ptr %cacheptr) {
 entry:
-  %0 = load i32, i32* @myglobal, align 4
-  %tobool = icmp ne i32 %0, 0
+  %i = load i32, ptr @myglobal, align 4
+  %tobool = icmp ne i32 %i, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-  %1 = load i32, i32* %field2, align 4
-  %call = tail call i32 (i32, i32, i32, ...) @foo(i32 1, i32 1, i32 %1, i32 7)
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+  %i1 = load i32, ptr %field2, align 4
+  %call = tail call i32 (i32, i32, i32, ...) @foo(i32 1, i32 1, i32 %i1, i32 7)
   br label %return
 
 if.end:                                           ; preds = %entry
-  %2 = load i32, i32* @myglobal, align 4
-  %call1 = tail call i32 (i32, i32, i32, ...) @foo(i32 0, i32 %2, i32 0, i32 8)
+  %i2 = load i32, ptr @myglobal, align 4
+  %call1 = tail call i32 (i32, i32, i32, ...) @foo(i32 0, i32 %i2, i32 0, i32 8)
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
@@ -75,10 +76,11 @@ return:                                           ; preds = %if.end, %if.then
   ret i32 %retval.0
 }
 
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
-  %call = call i32 @goo(%struct.MYSTRUCT* @cache)
+  %call = call i32 @goo(ptr @cache)
   ret i32 %call
 }
 
+attributes #0 = { nounwind }
 ; end INTEL_FEATURE_SW_ADVANCED

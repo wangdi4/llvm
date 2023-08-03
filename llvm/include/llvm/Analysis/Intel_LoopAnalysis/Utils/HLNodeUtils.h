@@ -414,14 +414,6 @@ private:
   // numbers.
   static bool isLexicalLastChildOfParent(const HLNode *Node);
 
-  /// Returns true if the lexical link have structured flow between Parent's
-  /// first/last child and Node. The direction is dictated by UpwardTraversal
-  /// flag. TargetNode is used for early termination of the traversal.
-  /// Structured flow checks are different for domination and post-domination.
-  static bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
-                                const HLNode *TargetNode, bool PostDomination,
-                                bool UpwardTraversal, HIRLoopStatistics *HLS);
-
   /// Returns the outermost parent of Node1 which is safe to be used for
   /// checking domination. We move up through constant trip count loops. Last
   /// parent indicates the path used to reach to the parent.
@@ -918,6 +910,9 @@ public:
   /// Creates a new stackrestore intrinsic call.
   HLInst *createStackrestore(RegDDRef *AddrArg);
 
+  /// Creates a new llvm.experimental.noalias.scope.decl() intrinsic call.
+  HLInst *createNoAliasScopeDeclInst(RegDDRef *ScopeList);
+
   /// Creates a 'puts' debug call.
   HLInst *createDbgPuts(const TargetLibraryInfo &TLI, HLRegion *Region,
                         StringRef Message);
@@ -1369,18 +1364,26 @@ public:
 
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool dominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to dominates() except the case where Node1 == Node2, in
   /// which case it return false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Node1 can be proven to post-dominate Node2, otherwise
   /// conservatively returns false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool postDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to postDominates() except the case where Node1 == Node2,
   /// in which case it return false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG: namely
@@ -1675,6 +1678,20 @@ public:
   // Returns true if the conditions are equal for the input Select and If
   // instructions
   static bool areEqualConditions(const HLInst *Select, const HLIf *If);
+
+  // Return true if the conditions of the input IFs match at the specified
+  // predicate position. For example, assume the following two If conditions:
+  //
+  //   IfA -> if (i1 != 0 & %t > 1)
+  //   IfB -> if (%t > 1 & i2 != 2)
+  //
+  // Also, assume that PosPredA is 1 and PosPredB is 0. This function will
+  // collect predicate 1 from IfA (%t > 1), predicate 0 from IfB (%t > 1),
+  // and compares them. If they are the same, then return true.
+  //
+  // The predicate's position starts at 0.
+  static bool areEqualConditionsAtPos(const HLIf *IfA, unsigned PosPredA,
+                                      const HLIf *IfB, unsigned PosPredB);
 
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination

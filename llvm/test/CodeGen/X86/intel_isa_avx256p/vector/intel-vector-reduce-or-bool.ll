@@ -21,11 +21,12 @@ define i1 @trunc_v2i64_v2i1(<2 x i64>) {
 ;
 ; AVX512-LABEL: trunc_v2i64_v2i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllq $63, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovq2m %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [1,1]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <2 x i64> %0 to <2 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v2i1(<2 x i1> %a)
   ret i1 %b
@@ -50,11 +51,12 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 ;
 ; AVX512-LABEL: trunc_v4i32_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovd2m %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [4294967297,4294967297]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <4 x i32> %0 to <4 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v4i1(<4 x i1> %a)
   ret i1 %b
@@ -86,13 +88,18 @@ define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ;
 ; AVX512-LABEL: trunc_v6i32_v6i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovd2m %ymm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb $63, %al
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x72,0xf0,0x1f]
+; AVX512-NEXT:    vpmovd2m %ymm0, %k0 # encoding: [0x62,0xf2,0x7e,0x28,0x39,0xc0]
+; AVX512-NEXT:    kshiftrb $4, %k0, %k1 # encoding: [0xc4,0xe3,0x79,0x30,0xc8,0x04]
+; AVX512-NEXT:    korw %k1, %k0, %k1 # encoding: [0xc5,0xfc,0x45,0xc9]
+; AVX512-NEXT:    kshiftrb $2, %k0, %k0 # encoding: [0xc4,0xe3,0x79,0x30,0xc0,0x02]
+; AVX512-NEXT:    korw %k0, %k1, %k0 # encoding: [0xc5,0xf4,0x45,0xc0]
+; AVX512-NEXT:    kshiftrb $1, %k0, %k1 # encoding: [0xc4,0xe3,0x79,0x30,0xc8,0x01]
+; AVX512-NEXT:    korw %k1, %k0, %k0 # encoding: [0xc5,0xfc,0x45,0xc1]
+; AVX512-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
+; AVX512-NEXT:    # kill: def $al killed $al killed $eax
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <6 x i32> %0 to <6 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v6i1(<6 x i1> %a)
   ret i1 %b
@@ -119,11 +126,12 @@ define i1 @trunc_v8i16_v8i1(<8 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v8i16_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovb2m %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0 # encoding: [0x62,0xf1,0x7d,0x18,0xdb,0x05,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vmovq %xmm0, %rax # EVEX TO VEX Compression encoding: [0xc4,0xe1,0xf9,0x7e,0xc0]
+; AVX512-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <8 x i8> %0 to <8 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v8i1(<8 x i1> %a)
   ret i1 %b
@@ -148,11 +156,12 @@ define i1 @trunc_v16i8_v16i1(<16 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v16i8_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [72340172838076673,72340172838076673]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <16 x i8> %0 to <16 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v16i1(<16 x i1> %a)
   ret i1 %b
@@ -179,12 +188,13 @@ define i1 @trunc_v4i64_v4i1(<4 x i64>) {
 ;
 ; AVX512-LABEL: trunc_v4i64_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllq $63, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovq2m %ymm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [1,1,1,1]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <4 x i64> %0 to <4 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v4i1(<4 x i1> %a)
   ret i1 %b
@@ -214,12 +224,13 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ;
 ; AVX512-LABEL: trunc_v8i32_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovd2m %ymm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [4294967297,4294967297,4294967297,4294967297]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <8 x i32> %0 to <8 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v8i1(<8 x i1> %a)
   ret i1 %b
@@ -252,12 +263,13 @@ define i1 @trunc_v16i16_v16i1(<16 x i16>) {
 ;
 ; AVX512-LABEL: trunc_v16i16_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $15, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovw2m %ymm0, %k0
-; AVX512-NEXT:    kortestw %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [281479271743489,281479271743489,281479271743489,281479271743489]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <16 x i16> %0 to <16 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v16i1(<16 x i1> %a)
   ret i1 %b
@@ -284,12 +296,13 @@ define i1 @trunc_v32i8_v32i1(<32 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v32i8_v32i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [72340172838076673,72340172838076673,72340172838076673,72340172838076673]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <32 x i8> %0 to <32 x i1>
   %b = call i1 @llvm.experimental.vector.reduce.or.v32i1(<32 x i1> %a)
   ret i1 %b
@@ -316,10 +329,10 @@ define i1 @icmp_v2i64_v2i1(<2 x i64>) {
 ;
 ; AVX512-LABEL: icmp_v2i64_v2i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmq %xmm0, %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmq %xmm0, %xmm0, %k0 # encoding: [0x62,0xf2,0xfe,0x08,0x27,0xc0]
+; AVX512-NEXT:    kortestb %k0, %k0 # encoding: [0xc5,0xf9,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <2 x i64> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v2i1(<2 x i1> %a)
   ret i1 %b
@@ -346,10 +359,10 @@ define i1 @icmp_v4i32_v4i1(<4 x i32>) {
 ;
 ; AVX512-LABEL: icmp_v4i32_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmd %xmm0, %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmd %xmm0, %xmm0, %k0 # encoding: [0x62,0xf2,0x7e,0x08,0x27,0xc0]
+; AVX512-NEXT:    kortestb %k0, %k0 # encoding: [0xc5,0xf9,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <4 x i32> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v4i1(<4 x i1> %a)
   ret i1 %b
@@ -376,10 +389,10 @@ define i1 @icmp_v8i16_v8i1(<8 x i8>) {
 ;
 ; AVX512-LABEL: icmp_v8i16_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmb %xmm0, %xmm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmb %xmm0, %xmm0, %k0 # encoding: [0x62,0xf2,0x7e,0x08,0x26,0xc0]
+; AVX512-NEXT:    kortestb %k0, %k0 # encoding: [0xc5,0xf9,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <8 x i8> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v8i1(<8 x i1> %a)
   ret i1 %b
@@ -406,12 +419,12 @@ define i1 @icmp_v16i8_v16i1(<16 x i8>) {
 ;
 ; AVX512-LABEL: icmp_v16i8_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; AVX512-NEXT:    vpcmpeqb %xmm1, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xef,0xc9]
+; AVX512-NEXT:    vpcmpeqb %xmm1, %xmm0, %xmm0 # encoding: [0xc5,0xf9,0x74,0xc1]
+; AVX512-NEXT:    vpmovmskb %xmm0, %eax # encoding: [0xc5,0xf9,0xd7,0xc0]
+; AVX512-NEXT:    testl %eax, %eax # encoding: [0x85,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <16 x i8> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v16i1(<16 x i1> %a)
   ret i1 %b
@@ -441,11 +454,11 @@ define i1 @icmp_v4i64_v4i1(<4 x i64>) {
 ;
 ; AVX512-LABEL: icmp_v4i64_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmq %ymm0, %ymm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmq %ymm0, %ymm0, %k0 # encoding: [0x62,0xf2,0xfe,0x28,0x27,0xc0]
+; AVX512-NEXT:    kortestb %k0, %k0 # encoding: [0xc5,0xf9,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <4 x i64> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v4i1(<4 x i1> %a)
   ret i1 %b
@@ -475,11 +488,11 @@ define i1 @icmp_v8i32_v8i1(<8 x i32>) {
 ;
 ; AVX512-LABEL: icmp_v8i32_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmd %ymm0, %ymm0, %k0
-; AVX512-NEXT:    kortestb %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmd %ymm0, %ymm0, %k0 # encoding: [0x62,0xf2,0x7e,0x28,0x27,0xc0]
+; AVX512-NEXT:    kortestb %k0, %k0 # encoding: [0xc5,0xf9,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <8 x i32> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v8i1(<8 x i1> %a)
   ret i1 %b
@@ -509,11 +522,11 @@ define i1 @icmp_v16i16_v16i1(<16 x i16>) {
 ;
 ; AVX512-LABEL: icmp_v16i16_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestnmw %ymm0, %ymm0, %k0
-; AVX512-NEXT:    kortestw %k0, %k0
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vptestnmw %ymm0, %ymm0, %k0 # encoding: [0x62,0xf2,0xfe,0x28,0x26,0xc0]
+; AVX512-NEXT:    kortestw %k0, %k0 # encoding: [0xc5,0xf8,0x98,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <16 x i16> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v16i1(<16 x i1> %a)
   ret i1 %b
@@ -543,13 +556,13 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>) {
 ;
 ; AVX512-LABEL: icmp_v32i8_v32i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xef,0xc9]
+; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0 # encoding: [0xc5,0xfd,0x74,0xc1]
+; AVX512-NEXT:    vpmovmskb %ymm0, %eax # encoding: [0xc5,0xfd,0xd7,0xc0]
+; AVX512-NEXT:    testl %eax, %eax # encoding: [0x85,0xc0]
+; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = icmp eq <32 x i8> %0, zeroinitializer
   %b = call i1 @llvm.experimental.vector.reduce.or.v32i1(<32 x i1> %a)
   ret i1 %b

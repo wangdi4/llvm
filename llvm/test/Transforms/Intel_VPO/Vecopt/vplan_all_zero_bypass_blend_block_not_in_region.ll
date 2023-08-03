@@ -53,7 +53,7 @@ define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: all.zero.bypass.end15
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB5:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
-; CHECK-NEXT:       [DA: Div] br [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BLEND_BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_PHI_BLEND_BB5]], [[BLEND_BB0]] ]

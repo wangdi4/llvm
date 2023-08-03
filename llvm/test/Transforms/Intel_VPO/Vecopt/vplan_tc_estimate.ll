@@ -4,7 +4,7 @@
 
 ; CHECK: Scalar Cost = 303 x
 ;
-define void @foo(i32* %lp, i32 %N) {
+define void @foo(ptr %lp, i32 %N) {
 entry:
   %N2 = udiv i32 %N, 4
   br label %prehead
@@ -15,8 +15,8 @@ prehead:
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.05 = phi i32 [ 0, %prehead], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %lp, i32 %l1.05
-  store i32 %l1.05, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %lp, i32 %l1.05
+  store i32 %l1.05, ptr %arrayidx, align 8
   %inc = add nuw nsw i32 %l1.05, 1
   %exitcond.not = icmp ult i32 %inc, %N2
   br i1 %exitcond.not, label %for.body, label %for.end

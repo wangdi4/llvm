@@ -6,7 +6,7 @@
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     | FileCheck %s
 
-define void @test(i8 *%p) local_unnamed_addr {
+define void @test(ptr %p) local_unnamed_addr {
 ; CHECK-LABEL:  Cost Model for VPlan test:HIR.#{{[0-9]+}} with VF = 8:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
@@ -22,20 +22,20 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 12 for i64 [[VP2:%.*]] = mul i64 4 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 8 for i8 [[VP3:%.*]] = trunc i64 [[VP2]] to i8
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript i8* [[P0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:    Cost 26 for store i8 [[VP3]] i8* [[VP_SUBSCRIPT]] *OVLS*(-26) AdjCost: 0
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT:%.*]] = subscript ptr [[P0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:    Cost 26 for store i8 [[VP3]] ptr [[VP_SUBSCRIPT]] *OVLS*(-26) AdjCost: 0
 ; CHECK-NEXT:    Cost 2 for i64 [[VP4:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:    Cost 8 for i8 [[VP5:%.*]] = trunc i64 [[VP4]] to i8
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript i8* [[P0]] i64 [[VP4]]
-; CHECK-NEXT:    Cost 26 for store i8 [[VP5]] i8* [[VP_SUBSCRIPT_1]] *OVLS*(-26) AdjCost: 0
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript ptr [[P0]] i64 [[VP4]]
+; CHECK-NEXT:    Cost 26 for store i8 [[VP5]] ptr [[VP_SUBSCRIPT_1]] *OVLS*(-26) AdjCost: 0
 ; CHECK-NEXT:    Cost 2 for i64 [[VP6:%.*]] = add i64 [[VP2]] i64 2
 ; CHECK-NEXT:    Cost 8 for i8 [[VP7:%.*]] = trunc i64 [[VP6]] to i8
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_2:%.*]] = subscript i8* [[P0]] i64 [[VP6]]
-; CHECK-NEXT:    Cost 26 for store i8 [[VP7]] i8* [[VP_SUBSCRIPT_2]] *OVLS*(-26) AdjCost: 0
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_2:%.*]] = subscript ptr [[P0]] i64 [[VP6]]
+; CHECK-NEXT:    Cost 26 for store i8 [[VP7]] ptr [[VP_SUBSCRIPT_2]] *OVLS*(-26) AdjCost: 0
 ; CHECK-NEXT:    Cost 2 for i64 [[VP8:%.*]] = add i64 [[VP2]] i64 3
 ; CHECK-NEXT:    Cost 8 for i8 [[VP9:%.*]] = trunc i64 [[VP8]] to i8
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript i8* [[P0]] i64 [[VP8]]
-; CHECK-NEXT:    Cost 26 for store i8 [[VP9]] i8* [[VP_SUBSCRIPT_3]] *OVLS*(-21) AdjCost: 5
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_3:%.*]] = subscript ptr [[P0]] i64 [[VP8]]
+; CHECK-NEXT:    Cost 26 for store i8 [[VP9]] ptr [[VP_SUBSCRIPT_3]] *OVLS*(-21) AdjCost: 5
 ; CHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 8 for i1 [[VP10:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -62,10 +62,10 @@ header:
   %idx2 = add i64 %idx0, 2
   %idx3 = add i64 %idx0, 3
 
-  %gep0 = getelementptr i8, i8 *%p, i64 %idx0
-  %gep1 = getelementptr i8, i8 *%p, i64 %idx1
-  %gep2 = getelementptr i8, i8 *%p, i64 %idx2
-  %gep3 = getelementptr i8, i8 *%p, i64 %idx3
+  %gep0 = getelementptr i8, ptr %p, i64 %idx0
+  %gep1 = getelementptr i8, ptr %p, i64 %idx1
+  %gep2 = getelementptr i8, ptr %p, i64 %idx2
+  %gep3 = getelementptr i8, ptr %p, i64 %idx3
 
   %v0 = trunc i64 %idx0 to i8
   %v1 = trunc i64 %idx1 to i8
@@ -74,10 +74,10 @@ header:
 
   ; Byte scatter isn't legal, so Spill/Fill heuristic used to assume those will
   ; be scalarized when VLS wasn't accounted for.
-  store i8 %v0, i8* %gep0
-  store i8 %v1, i8* %gep1
-  store i8 %v2, i8* %gep2
-  store i8 %v3, i8* %gep3
+  store i8 %v0, ptr %gep0
+  store i8 %v1, ptr %gep1
+  store i8 %v2, ptr %gep2
+  store i8 %v3, ptr %gep3
 
 
 

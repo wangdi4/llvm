@@ -152,7 +152,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   // Add current directory
   optionsEx << " -I" << GetCurrentDir();
   optionsEx << " -mstackrealign";
-  optionsEx << " -D__ENDIAN_LITTLE__=1";
   optionsEx << getCPUSignatureMacro();
 
   // Triple spir assumes that all extensions should be supported.
@@ -198,9 +197,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_fp16";
   }
 
-  if (m_sDeviceInfo.bImageSupport)
-    optionsEx << " -D__IMAGE_SUPPORT__=1";
-
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;
   if (Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE") &&
@@ -228,7 +224,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
   }
 
+#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
   optionsEx << " -no-opaque-pointers";
+#endif
 
   IOCLFEBinaryResultPtr spBinaryResult;
 

@@ -1,14 +1,8 @@
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// Sub-groups are not suported on Host
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
 //
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -DUSE_DEPRECATED_LOCAL_ACC  %s -o %t.out
-// Sub-groups are not suported on Host
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -DUSE_DEPRECATED_LOCAL_ACC -o %t.out
+// RUN: %{run} %t.out
 //
 // Missing  __spirv_GenericCastToPtrExplicit_ToLocal,
 // __spirv_SubgroupLocalInvocationId, __spirv_GenericCastToPtrExplicit_ToGlobal,
@@ -53,7 +47,7 @@ int main(int argc, char *argv[]) {
 #endif
       cgh.parallel_for<class test>(
           sycl::nd_range<1>(N, 32), [=](sycl::nd_item<1> it) {
-            sycl::ext::oneapi::sub_group sg = it.get_sub_group();
+            sycl::sub_group sg = it.get_sub_group();
             if (!it.get_local_id(0)) {
               int end = it.get_global_id(0) + it.get_local_range()[0];
               for (int i = it.get_global_id(0); i < end; i++) {

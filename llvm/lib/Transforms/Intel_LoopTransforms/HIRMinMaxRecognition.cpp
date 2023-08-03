@@ -317,6 +317,7 @@ bool HIRMinMaxRecognition::run() {
     return false;
   }
 
+  bool Modified = false;
   for (auto *Loop : InnermostLoops) {
     LLVM_DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
@@ -325,11 +326,13 @@ bool HIRMinMaxRecognition::run() {
       LLVM_DEBUG(
           dbgs()
           << "Skipping - non-DO-Loop / non-Normalized /non-Vec pragma loop\n");
+      // TODO: should be 'continue' instead?
       return false;
     }
 
     if (isSmallCountLoop(Loop)) {
       LLVM_DEBUG(dbgs() << "Skipping small trip count loops\n");
+      // TODO: should be 'continue' instead?
       return false;
     }
 
@@ -344,15 +347,16 @@ bool HIRMinMaxRecognition::run() {
 
       // Loop body should be invalidated.
       HIRInvalidationUtils::invalidateBody(Loop);
+      Modified = true;
     }
   }
 
-  return true;
+  return Modified;
 }
 
 PreservedAnalyses HIRMinMaxRecognitionPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRMinMaxRecognition(HIRF).run();
+  ModifiedHIR = HIRMinMaxRecognition(HIRF).run();
 
   return PreservedAnalyses::all();
 }

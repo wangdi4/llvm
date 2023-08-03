@@ -3,8 +3,8 @@
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -S 2>&1 | FileCheck %s
 
 ; Test that foo is selected for generic cloning of a recursive routine.
-; This is the same test as ip_cloning_genrec01.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_genrec01.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define internal i32 @foo
 ; CHECK: call i32 @foo
@@ -16,7 +16,7 @@
 ; CHECK: define internal i32 @foo.1
 ; CHECK: call i32 @foo
 
-define internal i32 @foo(i32 %count1, i32 %count2) #0 {
+define internal i32 @foo(i32 %count1, i32 %count2) {
 entry:
   %cmp = icmp eq i32 %count1, 0
   br i1 %cmp, label %if.then, label %if.end
@@ -55,6 +55,4 @@ entry:
   %add5 = add nsw i32 %add3, %call4
   ret i32 %add5
 }
-
-
 ; end INTEL_FEATURE_SW_ADVANCED

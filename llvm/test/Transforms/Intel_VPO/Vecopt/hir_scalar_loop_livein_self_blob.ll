@@ -31,7 +31,7 @@
 ; CHECK:              |   }
 ; CHECK:              + END LOOP
 ;
-define dso_local i64 @foo(i64* nocapture noundef readonly %lp, i64 noundef %N) local_unnamed_addr #0 {
+define dso_local i64 @foo(ptr nocapture noundef readonly %lp, i64 noundef %N) local_unnamed_addr #0 {
 entry:
   %lpriv.lpriv = alloca i64, align 8
   %l1.linear.iv = alloca i64, align 8
@@ -40,12 +40,12 @@ entry:
   br i1 %cmp, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i64* %lpriv.lpriv, i64 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %lpriv.lpriv, i64 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.126
 
 DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1
-  %lpriv.lpriv.promoted = load i64, i64* %lpriv.lpriv, align 8
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %sub1
+  %lpriv.lpriv.promoted = load i64, ptr %lpriv.lpriv, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %sub1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.126, %omp.inner.for.inc
@@ -55,7 +55,7 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.126, %
   br i1 %cmp6, label %if.then, label %omp.inner.for.inc
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %2 = load i64, i64* %arrayidx, align 8
+  %2 = load i64, ptr %arrayidx, align 8
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body
@@ -66,8 +66,8 @@ omp.inner.for.inc:                                ; preds = %if.then, %omp.inner
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
   %.lcssa = phi i64 [ %3, %omp.inner.for.inc ]
-  store i64 %N, i64* %l1.linear.iv, align 8
-  store i64 %.lcssa, i64* %lpriv.lpriv, align 8
+  store i64 %N, ptr %l1.linear.iv, align 8
+  store i64 %.lcssa, ptr %lpriv.lpriv, align 8
   br label %DIR.OMP.END.SIMD.227
 
 DIR.OMP.END.SIMD.227:                             ; preds = %DIR.OMP.END.SIMD.2

@@ -11,7 +11,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %A, i64 %n) {
+define void @foo(ptr nocapture %A, i64 %n) {
 entry:
   %sub = add i64 %n, 4294967295
   %conv = trunc i64 %sub to i32
@@ -48,8 +48,8 @@ for.body.10:                                      ; preds = %for.body.10, %for.b
   %k.039 = phi i64 [ %add, %for.body.10.lr.ph ], [ %inc15, %for.body.10 ]
   %add13 = add i64 %add12, %k.039
   %conv14 = trunc i64 %add13 to i32
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %k.039
-  store i32 %conv14, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %k.039
+  store i32 %conv14, ptr %arrayidx, align 4
   %inc15 = add nsw i64 %k.039, 1
   %exitcond = icmp eq i64 %inc15, %n
   br i1 %exitcond, label %for.inc.16.loopexit, label %for.body.10

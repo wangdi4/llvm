@@ -18,9 +18,9 @@
 
 # INTEL_CUSTOMIZATION
 set(imf_fp32_omp_lib_funcs_list imf/intel/cos_s_la.cpp
-                                imf/intel/cospi_s_ha.cpp
+                                imf/intel/cospi_s_la.cpp
                                 imf/intel/sin_s_la.cpp
-                                imf/intel/sinpi_s_ha.cpp
+                                imf/intel/sinpi_s_la.cpp
                                 imf/intel/exp_s_la.cpp
                                 imf/intel/exp2_s_la.cpp
                                 imf/intel/exp10_s_la.cpp
@@ -101,12 +101,15 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/scalbn_s_xa.cpp
                                imf/intel/signbit_s_xa.cpp
                                imf/intel/i0_s_ep.cpp
+                               imf/intel/i1_s_ep.cpp
                                imf/intel/j0_s_ep.cpp
                                imf/intel/j1_s_ep.cpp
                                imf/intel/y0_s_ep.cpp
                                imf/intel/y1_s_ep.cpp
+                               imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
-                               imf/imf_inline_fp32.cpp)
+                               imf/imf_inline_fp32.cpp
+                               imf/imf_fp32_dl.cpp)
 
 # INTEL_CUSTOMIZATION
 set(imf_fp64_omp_lib_funcs_list imf/intel/cos_d_ha.cpp
@@ -182,13 +185,27 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/tgamma_d_ep.cpp
                                imf/intel/lgamma_d_ep.cpp
                                imf/intel/i0_d_ep.cpp
+                               imf/intel/i1_d_ep.cpp
+                               imf/intel/j0_d_ep.cpp
+                               imf/intel/j1_d_ep.cpp
+                               imf/intel/y0_d_ep.cpp
+                               imf/intel/y1_d_ep.cpp
+                               imf/intel/pown_d_la.cpp
                                # end INTEL_CUSTOMIZATION
-                               imf/imf_inline_fp64.cpp)
+                               imf/imf_inline_fp64.cpp
+                               imf/imf_fp64_dl.cpp)
 
 set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
                                imf/imf_inline_bf16.cpp)
 
 # INTEL_CUSTOMIZATION
+set (imf_fp32_dl_src_list imf/imf_fp32_dl.cpp
+	                  imf/intel/pown_s_ep.cpp
+                          imf/intel/lgamma_s_ep.cpp)
+set (imf_fp64_dl_src_list imf/imf_fp64_dl.cpp
+	                  imf/intel/pown_d_la.cpp
+                          imf/intel/lgamma_d_ep.cpp)
+
 if(OMP_LIBDEVICE STREQUAL 1)
   set(imf_fallback_src_list)
   list (APPEND imf_fallback_src_list ${imf_fp32_omp_lib_funcs_list})
@@ -205,6 +222,14 @@ elseif (IMF_TARGET STREQUAL "FP64")
 elseif (IMF_TARGET STREQUAL "BF16")
   set(imf_fallback_src_list ${imf_bf16_fallback_src_list})
   set(imf_fallback_dest ${DEST_DIR}/imf_bf16_fallback.cpp)
+# INTEL_CUSTOMIZATION
+elseif (IMF_TARGET STREQUAL "FP32_DL")
+  set(imf_fallback_src_list ${imf_fp32_dl_src_list})
+  set(imf_fallback_dest ${DEST_DIR}/imf_fp32_dl.cpp)
+elseif (IMF_TARGET STREQUAL "FP64_DL")
+  set(imf_fallback_src_list ${imf_fp64_dl_src_list})
+  set(imf_fallback_dest ${DEST_DIR}/imf_fp64_dl.cpp)
+#end INTEL_CUSTOMIZATION
 endif()
 
 set(flag 0)

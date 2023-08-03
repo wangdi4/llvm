@@ -75,13 +75,13 @@ for.cond.cleanup11:                               ; preds = %for.body12
 
 for.body12:                                       ; preds = %for.body12, %for.cond9.preheader
   %indvars.iv = phi i64 [ 0, %for.cond9.preheader ], [ %indvars.iv.next, %for.body12 ]
-  %arrayidx16 = getelementptr inbounds [1024 x [8 x i64]], [1024 x [8 x i64]]* @x, i64 0, i64 %4, i64 %indvars.iv
-  %6 = load i64, i64* %arrayidx16, align 8
-  %arrayidx22 = getelementptr inbounds [1024 x [8 x i64]], [1024 x [8 x i64]]* @x, i64 0, i64 %5, i64 %indvars.iv
-  %7 = load i64, i64* %arrayidx22, align 8
+  %arrayidx16 = getelementptr inbounds [1024 x [8 x i64]], ptr @x, i64 0, i64 %4, i64 %indvars.iv
+  %6 = load i64, ptr %arrayidx16, align 8
+  %arrayidx22 = getelementptr inbounds [1024 x [8 x i64]], ptr @x, i64 0, i64 %5, i64 %indvars.iv
+  %7 = load i64, ptr %arrayidx22, align 8
   %and = and i64 %7, %6
-  %arrayidx30 = getelementptr inbounds [1024 x [8 x i64]], [1024 x [8 x i64]]* @y, i64 0, i64 %4, i64 %indvars.iv
-  store i64 %and, i64* %arrayidx30, align 8
+  %arrayidx30 = getelementptr inbounds [1024 x [8 x i64]], ptr @y, i64 0, i64 %4, i64 %indvars.iv
+  store i64 %and, ptr %arrayidx30, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond, label %for.cond.cleanup11, label %for.body12

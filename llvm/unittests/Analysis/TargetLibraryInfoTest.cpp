@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -93,7 +93,7 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
 TEST_F(TargetLibraryInfoTest, ValidProto) {
 #if INTEL_CUSTOMIZATION
   // The string containing test asm, was split in 2 parts since the length
-  // of the string constant exceeded C++ limitation [See Line ~750].
+  // of the string constant exceeded C++ limitation.
   // TODO: It looks reasonable to move all INTEL_CUSTOMIZATION related functions
   // to a single chunk, which would improve the maintainability. 
   std::string TestAsm = ""
@@ -183,7 +183,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @cabs([2 x double])\n"
       "declare float @cabsf([2 x float])\n"
       "declare x86_fp80 @cabsl([2 x x86_fp80])\n"
-      "declare [2 x double] @cexp(double, double)\n"
+      "declare {double, double} @cexp(double, double)\n" // INTEL
+      "declare <2 x float> @cexpf(<2 x float>)\n" // INTEL
       "declare double @cos(double)\n"
 #if INTEL_CUSTOMIZATION
       "declare double @cosd(double)\n"
@@ -549,17 +550,27 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @_ZnajSt11align_val_t(i32, i32)\n"
       "declare i8* @_ZnajSt11align_val_tRKSt9nothrow_t(i32, i32, %struct*)\n"
       "declare i8* @_Znam(i64)\n"
+      "declare i8* @_Znam12__hot_cold_t(i64, i8)\n"
       "declare i8* @_ZnamRKSt9nothrow_t(i64, %struct*)\n"
+      "declare i8* @_ZnamRKSt9nothrow_t12__hot_cold_t(i64, %struct*, i8)\n"
       "declare i8* @_ZnamSt11align_val_t(i64, i64)\n"
+      "declare i8* @_ZnamSt11align_val_t12__hot_cold_t(i64, i64, i8)\n"
       "declare i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64, i64, %struct*)\n"
+      "declare i8* @_ZnamSt11align_val_tRKSt9nothrow_t12__hot_cold_t(i64, i64, "
+      "%struct*, i8)\n"
       "declare i8* @_Znwj(i32)\n"
       "declare i8* @_ZnwjRKSt9nothrow_t(i32, %struct*)\n"
       "declare i8* @_ZnwjSt11align_val_t(i32, i32)\n"
       "declare i8* @_ZnwjSt11align_val_tRKSt9nothrow_t(i32, i32, %struct*)\n"
       "declare i8* @_Znwm(i64)\n"
+      "declare i8* @_Znwm12__hot_cold_t(i64, i8)\n"
       "declare i8* @_ZnwmRKSt9nothrow_t(i64, %struct*)\n"
+      "declare i8* @_ZnwmRKSt9nothrow_t12__hot_cold_t(i64, %struct*, i8)\n"
       "declare i8* @_ZnwmSt11align_val_t(i64, i64)\n"
+      "declare i8* @_ZnwmSt11align_val_t12__hot_cold_t(i64, i64, i8)\n"
       "declare i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64, i64, %struct*)\n"
+      "declare i8* @_ZnwmSt11align_val_tRKSt9nothrow_t12__hot_cold_t(i64, i64, "
+      "%struct*, i8)\n"
 
       "declare void @\"??3@YAXPEAX@Z\"(i8*)\n"
       "declare void @\"??3@YAXPEAXAEBUnothrow_t@std@@@Z\"(i8*, %struct*)\n"
@@ -577,6 +588,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @\"??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
+      "declare i1 @\"??$?8DU?$char_traits@D@std@@@std@@YA_NAEBV?$istreambuf_iterator@DU?$char_traits@D@std@@@0@0@Z\"(%struct*, %struct*)\n"
       "declare i32 @\"??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z\"(i8*, i8*, i8*)\n"
       "declare i8* @\"??_G?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
@@ -944,6 +956,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__kmpc_dispatch_next_4u(i8*, i32, i8*, i8*, i8*, i8*)\n"
       "declare i32 @__kmpc_dispatch_next_8(i8*, i32, i8*, i8*, i8*, i8*)\n"
       "declare i32 @__kmpc_dispatch_next_8u(i8*, i32, i8*, i8*, i8*, i8*)\n"
+      "declare void @__kmpc_dist_for_static_init_4(i8*, i32, i32, i32*, i32*, i32*, i32*, i32*, i32, i32)\n"
       "declare void @__kmpc_end_critical(i8*, i32, i8*)\n"
       "declare void @__kmpc_end_reduce(i8*, i32, i8*)\n"
       "declare void @__kmpc_end_reduce_nowait(i8*, i32, i8*)\n"
@@ -955,6 +968,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_for_static_init_8(%struct*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)\n"
       "declare void @__kmpc_for_static_init_8u(%struct*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)\n"
       "declare void @__kmpc_fork_call(i8*, i32, i8*)\n"
+      "declare void @__kmpc_fork_teams(i8*, i32, i8*)\n"
       "declare i32 @__kmpc_global_thread_num(i8*)\n"
       "declare i32 @__kmpc_ok_to_fork(i8*)\n"
       "declare i32 @__kmpc_omp_task(i8*, i32, i8*)\n"
@@ -1230,6 +1244,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @bsearch(i8*, i8*, i32, i32, i8*)\n"
       "declare i32 @chdir(i8*)\n"
       "declare i32 @clock()\n"
+#if INTEL_CUSTOMIZATION
+      "declare {double, double} @clog(double, double)\n"
+      "declare <2 x float> @clogf(<2 x float>)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @close(i32)\n"
       "declare i8* @ctime(i8*)\n"
       "declare i32 @CloseHandle(i8*)\n"
@@ -1287,7 +1305,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_inquire(i8*, i32, i64, i8*, i8*, ...)\n"
       "declare i64 @for_len_trim(i8*, i64)\n"
       "declare i32 @for_open(i8*, i32, i64, i8*, i8*, ...)\n"
-      "declare i64 @for_random_number()\n"
+      "declare double @for_random_number()\n"
+      "declare float @for_random_number_single()\n"
       "declare i64 @for_random_seed_bit_size()\n"
       "declare i64 @for_random_seed_put(i32*)\n"
       "declare i32 @for_read_int_fmt(i8*, i64, i8*, i8*, i8*, ...)\n"
@@ -1300,6 +1319,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_realloc_lhs(i8*, i8*, i32)\n"
       "declare i32 @for_rewind(i8*, i32, i64, ...)\n"
       "declare double @for_scale8_v(double, i32)\n"
+      "declare i32 @for_set_fpe_(i32)\n"
       "declare i32 @for_set_reentrancy(i32*)\n"
       "declare double @for_setexp8_v(double, i32)\n"
       "declare i32 @for_stop_core_quiet(i8*, i32, i32, i64, i32, i32, ...)\n"

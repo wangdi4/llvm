@@ -514,6 +514,18 @@ DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_lgamma (double x);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_i0(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_i1(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_j0(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_j1(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_y0(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_y1(double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_pown(double x, int y);
 
 // float64 imf wrappers
 DEVICE_EXTERN_C_INLINE
@@ -595,9 +607,9 @@ double __imf_log2 (double x) { return __devicelib_imf_log2 (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_logb (double x) { return __devicelib_imf_logb (x); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lrint (double x) { return __devicelib_imf_lrint (x); }
+long int __imf_lrint (double x) { return static_cast<long int>(__devicelib_imf_lrint (x)); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lround (double x) { return __devicelib_imf_lround (x); }
+long int __imf_lround (double x) { return static_cast<long int>(__devicelib_imf_lround (x)); }
 DEVICE_EXTERN_C_INLINE
 double __imf_modf (double x, double* z) { return __devicelib_imf_modf (x, z); }
 DEVICE_EXTERN_C_INLINE
@@ -650,6 +662,18 @@ DEVICE_EXTERN_C_INLINE
 double __imf_lgamma (double x) { return __devicelib_imf_lgamma (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_i0(double x) { return __devicelib_imf_i0(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_i1(double x) { return __devicelib_imf_i1(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_j0(double x) { return __devicelib_imf_j0(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_j1(double x) { return __devicelib_imf_j1(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_y0(double x) { return __devicelib_imf_y0(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_y1(double x) { return __devicelib_imf_y1(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_pown(double x, int y) { return __devicelib_imf_pown(x, y); }
 
 #endif
 

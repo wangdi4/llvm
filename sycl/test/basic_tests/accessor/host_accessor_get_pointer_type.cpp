@@ -1,7 +1,4 @@
 // RUN: %clangxx -fsycl -fsyntax-only -sycl-std=2020 %s
-// INTEL_CUSTOMIZATION
-// RUN: %clangxx -fsycl -fsyntax-only -sycl-std=2020 %s -DSYCL2020_CONFORMANT_APIS
-// end INTEL_CUSTOMIZATION
 
 // Tests the type of the get_pointer method of host_accessor.
 
@@ -14,15 +11,9 @@ void CheckHostAccessor() {
   using HostAccessorT = sycl::host_accessor<DataT, Dims, Mode>;
   using HostAccessorGetPointerT =
       decltype(std::declval<HostAccessorT>().get_pointer());
-  /* INTEL_CUSTOMIZATION */
-#ifdef SYCL2020_CONFORMANT_APIS
   static_assert(
       std::is_same_v<HostAccessorGetPointerT,
                      std::add_pointer_t<typename HostAccessorT::value_type>>);
-#else
-  static_assert(std::is_same_v<HostAccessorGetPointerT, DataT *>);
-#endif // SYCL2020_CONFORMANT_APIS
-  /* end INTEL_CUSTOMIZATION */
 }
 
 template <typename DataT, int Dims> void CheckHostAccessorForModes() {

@@ -106,9 +106,25 @@ void llvm::detachDeadBlocks(
       // value with.  Note that since this block is unreachable, and all values
       // contained within it must dominate their uses, that all uses will
       // eventually be removed (they are themselves dead).
+#if INTEL_COLLAB
+      // If the dead instruction is an OMP end directive, the corresponding
+      // begin must be deleted also.
+      Instruction *BeginDir = nullptr;
+      if (vpo::VPOAnalysisUtils::isEndDirective(&I))
+        BeginDir = dyn_cast<Instruction>(I.getOperand(0));
+#endif // INTEL_COLLAB
       if (!I.use_empty())
         I.replaceAllUsesWith(PoisonValue::get(I.getType()));
       BB->back().eraseFromParent();
+#if INTEL_COLLAB
+      if (BeginDir) {
+        // Delete the begin directive after the end-directive has been
+        // removed.
+        assert(vpo::VPOAnalysisUtils::isBeginDirective(BeginDir) &&
+               "Unexpected operand of end directive!");
+        BeginDir->eraseFromParent();
+      }
+#endif // INTEL_COLLAB
     }
     new UnreachableInst(BB->getContext(), BB);
     assert(BB->size() == 1 &&
@@ -630,8 +646,8 @@ bool llvm::IsBlockFollowedByDeoptOrUnreachable(const BasicBlock *BB) {
   unsigned Depth = 0;
   while (BB && Depth++ < MaxDeoptOrUnreachableSuccessorCheckDepth &&
          VisitedBlocks.insert(BB).second) {
-    if (BB->getTerminatingDeoptimizeCall() ||
-        isa<UnreachableInst>(BB->getTerminator()))
+    if (isa<UnreachableInst>(BB->getTerminator()) ||
+        BB->getTerminatingDeoptimizeCall())
       return true;
     BB = BB->getUniqueSuccessor();
   }
@@ -1789,11 +1805,12 @@ ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
   return cast<ReturnInst>(NewRet);
 }
 
-static Instruction *
-SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
-                              bool Unreachable, MDNode *BranchWeights,
-                              DomTreeUpdater *DTU, DominatorTree *DT,
-                              LoopInfo *LI, BasicBlock *ThenBlock) {
+Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
+                                             Instruction *SplitBefore,
+                                             bool Unreachable,
+                                             MDNode *BranchWeights,
+                                             DomTreeUpdater *DTU, LoopInfo *LI,
+                                             BasicBlock *ThenBlock) {
   SmallVector<DominatorTree::UpdateType, 8> Updates;
   BasicBlock *Head = SplitBefore->getParent();
   BasicBlock *Tail = Head->splitBasicBlock(SplitBefore->getIterator());
@@ -1832,58 +1849,24 @@ SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
 
   if (DTU)
     DTU->applyUpdates(Updates);
-  else if (DT) {
-    if (DomTreeNode *OldNode = DT->getNode(Head)) {
-      std::vector<DomTreeNode *> Children(OldNode->begin(), OldNode->end());
-
-      DomTreeNode *NewNode = DT->addNewBlock(Tail, Head);
-      for (DomTreeNode *Child : Children)
-        DT->changeImmediateDominator(Child, NewNode);
-
-      // Head dominates ThenBlock.
-      if (CreateThenBlock)
-        DT->addNewBlock(ThenBlock, Head);
-      else
-        DT->changeImmediateDominator(ThenBlock, Head);
-    }
-  }
 
   if (LI) {
     if (Loop *L = LI->getLoopFor(Head)) {
+      // unreachable-terminated blocks cannot belong to any loop.
+      if (!Unreachable)
 #if INTEL_COLLAB
-      // we get an assertion when ThenBlock was already created
-      // with SplitBlock* methods and was already added to the loop there
-      if (!LI->getLoopFor(ThenBlock))
+        // we get an assertion when ThenBlock was already created
+        // with SplitBlock* methods and was already added to the loop there
+        if (!LI->getLoopFor(ThenBlock))
+          L->addBasicBlockToLoop(ThenBlock, *LI);
+#else    // INTEL_COLLAB
         L->addBasicBlockToLoop(ThenBlock, *LI);
-#else  // INTEL_COLLAB
-      L->addBasicBlockToLoop(ThenBlock, *LI);
 #endif // INTEL_COLLAB
       L->addBasicBlockToLoop(Tail, *LI);
     }
   }
 
   return CheckTerm;
-}
-
-Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
-                                             Instruction *SplitBefore,
-                                             bool Unreachable,
-                                             MDNode *BranchWeights,
-                                             DominatorTree *DT, LoopInfo *LI,
-                                             BasicBlock *ThenBlock) {
-  return SplitBlockAndInsertIfThenImpl(Cond, SplitBefore, Unreachable,
-                                       BranchWeights,
-                                       /*DTU=*/nullptr, DT, LI, ThenBlock);
-}
-Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
-                                             Instruction *SplitBefore,
-                                             bool Unreachable,
-                                             MDNode *BranchWeights,
-                                             DomTreeUpdater *DTU, LoopInfo *LI,
-                                             BasicBlock *ThenBlock) {
-  return SplitBlockAndInsertIfThenImpl(Cond, SplitBefore, Unreachable,
-                                       BranchWeights, DTU, /*DT=*/nullptr, LI,
-                                       ThenBlock);
 }
 
 void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
@@ -1973,6 +1956,27 @@ void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
   for (unsigned Idx = 0; Idx < Num; ++Idx) {
     IRB.SetInsertPoint(InsertBefore);
     Func(IRB, ConstantInt::get(IndexTy, Idx));
+  }
+}
+
+void llvm::SplitBlockAndInsertForEachLane(
+    Value *EVL, Instruction *InsertBefore,
+    std::function<void(IRBuilderBase &, Value *)> Func) {
+
+  IRBuilder<> IRB(InsertBefore);
+  Type *Ty = EVL->getType();
+
+  if (!isa<ConstantInt>(EVL)) {
+    auto [BodyIP, Index] = SplitBlockAndInsertSimpleForLoop(EVL, InsertBefore);
+    IRB.SetInsertPoint(BodyIP);
+    Func(IRB, Index);
+    return;
+  }
+
+  unsigned Num = cast<ConstantInt>(EVL)->getZExtValue();
+  for (unsigned Idx = 0; Idx < Num; ++Idx) {
+    IRB.SetInsertPoint(InsertBefore);
+    Func(IRB, ConstantInt::get(Ty, Idx));
   }
 }
 
@@ -2404,4 +2408,21 @@ BasicBlock *llvm::CreateControlFlowHub(
   }
 
   return FirstGuardBlock;
+}
+
+void llvm::InvertBranch(BranchInst *PBI, IRBuilderBase &Builder) {
+  Value *NewCond = PBI->getCondition();
+#if INTEL_CUSTOMIZATION
+  // If this instruction is a compare with a single use, it is also legal to
+  // just invert the condition here instead of adding a not. However, in some
+  // important benchmarks this has resulted in missed CSE opportunities that
+  // cascaded into non-structured control flow and ultimately disabled some
+  // important optimizations later in the pipeline. Therefore, it's better to
+  // add a not in every case here and let it get folded later if it is
+  // profitable to do so.
+  NewCond = Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
+#endif
+
+  PBI->setCondition(NewCond);
+  PBI->swapSuccessors();
 }

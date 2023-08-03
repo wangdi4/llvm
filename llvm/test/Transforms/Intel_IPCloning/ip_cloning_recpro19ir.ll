@@ -6,8 +6,8 @@
 ; and eight clones of it are created. Also test that the recursive progression
 ; is not cyclic.
 
-; This test is similar to ip_cloning_recpro19.ll, but checks for IR without
-;  requiring asserts.
+; This test is similar to ip_cloning_recpro19.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define dso_local void @MAIN__
 ; CHECK: define internal void @foo
@@ -34,25 +34,25 @@
 define dso_local void @MAIN__() {
 bb:
   %i = alloca i32, align 4
-  store i32 1, i32* %i, align 4
-  call void @foo(i32* nonnull %i)
+  store i32 1, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   ret void
 }
 
-define internal void @foo(i32* noalias nocapture readonly %arg) {
+define internal void @foo(ptr noalias nocapture readonly %arg) {
 bb:
   %i = alloca i32, align 4
-  %i1 = load i32, i32* @count, align 8
+  %i1 = load i32, ptr @count, align 8
   %frz = freeze i32 %i1
   %i2 = add nsw i32 %frz, 1
-  store i32 %i2, i32* @count, align 8
-  %i3 = load i32, i32* %arg, align 4
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
   %i4 = icmp eq i32 %i3, 8
   br i1 %i4, label %bb5, label %bb7
 
 bb5:                                              ; preds = %bb
   %i6 = add nsw i32 %frz, 2
-  store i32 %i6, i32* @count, align 8
+  store i32 %i6, ptr @count, align 8
   br label %bb11
 
 bb7:                                              ; preds = %bb
@@ -61,8 +61,8 @@ bb7:                                              ; preds = %bb
 
 bb9:                                              ; preds = %bb7
   %i10 = add nsw i32 %i3, 1
-  store i32 %i10, i32* %i, align 4
-  call void @foo(i32* nonnull %i)
+  store i32 %i10, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   br label %bb11
 
 bb11:                                             ; preds = %bb9, %bb7, %bb5

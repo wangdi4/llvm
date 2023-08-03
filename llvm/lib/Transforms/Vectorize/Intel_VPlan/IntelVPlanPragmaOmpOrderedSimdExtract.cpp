@@ -159,7 +159,8 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
                                   of the new function */,
           true /* allow safety check for llvm.eh.typeid.for intrinsic */,
           false /* don't allow unreachable blocks in the extracted function */,
-          nullptr);
+          nullptr, /* TgtClauseArgs */
+          true /* SimdPrivatization */);
 
       CodeExtractorAnalysisCache CEAC(*F);
       Function *NewFunc =

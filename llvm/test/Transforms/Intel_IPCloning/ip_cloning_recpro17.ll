@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers=0 < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function main_IP_digits_2_ is recognized as a recursive
 ; progression clone and eight clones of it are created. Also test that the
@@ -12,42 +12,42 @@
 ; CHECK: Selected RecProgression cloning
 ; CHECK: Function: main_IP_digits_2_.1
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 1
 ; CHECK: Function: main_IP_digits_2_.2
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 2
 ; CHECK: Function: main_IP_digits_2_.3
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 3
 ; CHECK: Function: main_IP_digits_2_.4
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 4
 ; CHECK: Function: main_IP_digits_2_.5
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 5
 ; CHECK: Function: main_IP_digits_2_.6
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 6
 ; CHECK: Function: main_IP_digits_2_.7
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 7
 ; CHECK: Function: main_IP_digits_2_.8
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 8
 
@@ -75,299 +75,299 @@
 @brute_force_mp_count_ = internal global i32 0, align 8
 @anon.2e0c92f0a1367b9abe0b93b08f29c950.0 = internal unnamed_addr constant [9 x i8] c" block = "
 
-define dso_local void @MAIN__() #0 {
-  %1 = alloca { i32 }, align 8
-  %2 = alloca [4 x i8], align 1
-  %3 = alloca { i64, i8* }, align 8
-  %4 = alloca [4 x i8], align 1
-  %5 = alloca i32, align 4
-  %6 = alloca i32, align 4
-  %7 = alloca [8 x i64], align 16
-  store i32 2, i32* %6, align 4
-  %8 = call i32 @for_set_reentrancy(i32* nonnull %6)
-  br label %9
+define dso_local void @MAIN__() {
+bb:
+  %i = alloca { i32 }, align 8
+  %i1 = alloca [4 x i8], align 1
+  %i2 = alloca { i64, ptr }, align 8
+  %i3 = alloca [4 x i8], align 1
+  %i4 = alloca i32, align 4
+  %i5 = alloca i32, align 4
+  %i6 = alloca [8 x i64], align 16
+  store i32 2, ptr %i5, align 4
+  %i7 = call i32 @for_set_reentrancy(ptr nonnull %i5)
+  br label %bb8
 
-; <label>:9:                                      ; preds = %23, %0
-  %10 = phi i64 [ 1, %0 ], [ %24, %23 ]
-  %11 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %10)
-  br label %12
+bb8:                                              ; preds = %bb22, %bb
+  %i9 = phi i64 [ 1, %bb ], [ %i23, %bb22 ]
+  %i10 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i9)
+  br label %bb11
 
-; <label>:12:                                     ; preds = %20, %9
-  %13 = phi i64 [ 1, %9 ], [ %21, %20 ]
-  %14 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %11, i64 %13)
-  br label %15
+bb11:                                             ; preds = %bb19, %bb8
+  %i12 = phi i64 [ 1, %bb8 ], [ %i20, %bb19 ]
+  %i13 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i10, i64 %i12)
+  br label %bb14
 
-; <label>:15:                                     ; preds = %15, %12
-  %16 = phi i64 [ 1, %12 ], [ %18, %15 ]
-  %17 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %14, i64 %16)
-  store i32 2, i32* %17, align 4
-  %18 = add nuw nsw i64 %16, 1
-  %19 = icmp eq i64 %18, 10
-  br i1 %19, label %20, label %15
+bb14:                                             ; preds = %bb14, %bb11
+  %i15 = phi i64 [ 1, %bb11 ], [ %i17, %bb14 ]
+  %i16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i13, i64 %i15)
+  store i32 2, ptr %i16, align 4
+  %i17 = add nuw nsw i64 %i15, 1
+  %i18 = icmp eq i64 %i17, 10
+  br i1 %i18, label %bb19, label %bb14
 
-; <label>:20:                                     ; preds = %15
-  %21 = add nuw nsw i64 %13, 1
-  %22 = icmp eq i64 %21, 10
-  br i1 %22, label %23, label %12
+bb19:                                             ; preds = %bb14
+  %i20 = add nuw nsw i64 %i12, 1
+  %i21 = icmp eq i64 %i20, 10
+  br i1 %i21, label %bb22, label %bb11
 
-; <label>:23:                                     ; preds = %20
-  %24 = add nuw nsw i64 %10, 1
-  %25 = icmp eq i64 %24, 10
-  br i1 %25, label %26, label %9
+bb22:                                             ; preds = %bb19
+  %i23 = add nuw nsw i64 %i9, 1
+  %i24 = icmp eq i64 %i23, 10
+  br i1 %i24, label %bb25, label %bb8
 
-; <label>:26:                                     ; preds = %23
-  store i32 1, i32* @brute_force_mp_count_, align 8
-  store i32 1, i32* %5, align 4
-  call void @main_IP_digits_2_(i32* nonnull %5)
-  %27 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 0
-  store i8 56, i8* %27, align 1
-  %28 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 1
-  store i8 4, i8* %28, align 1
-  %29 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 2
-  store i8 2, i8* %29, align 1
-  %30 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 3
-  store i8 0, i8* %30, align 1
-  %31 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %3, i64 0, i32 0
-  store i64 9, i64* %31, align 8
-  %32 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %3, i64 0, i32 1
-  store i8* getelementptr inbounds ([9 x i8], [9 x i8]* @anon.2e0c92f0a1367b9abe0b93b08f29c950.0, i64 0, i64 0), i8** %32, align 8
-  %33 = bitcast [8 x i64]* %7 to i8*
-  %34 = bitcast { i64, i8* }* %3 to i8*
-  %35 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %33, i32 -1, i64 1239157112576, i8* nonnull %27, i8* nonnull %34)
-  br label %36
+bb25:                                             ; preds = %bb22
+  store i32 1, ptr @brute_force_mp_count_, align 8
+  store i32 1, ptr %i4, align 4
+  call void @main_IP_digits_2_(ptr nonnull %i4)
+  %i26 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 0
+  store i8 56, ptr %i26, align 1
+  %i27 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 1
+  store i8 4, ptr %i27, align 1
+  %i28 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 2
+  store i8 2, ptr %i28, align 1
+  %i29 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 3
+  store i8 0, ptr %i29, align 1
+  %i30 = getelementptr inbounds { i64, ptr }, ptr %i2, i64 0, i32 0
+  store i64 9, ptr %i30, align 8
+  %i31 = getelementptr inbounds { i64, ptr }, ptr %i2, i64 0, i32 1
+  store ptr getelementptr inbounds ([9 x i8], ptr @anon.2e0c92f0a1367b9abe0b93b08f29c950.0, i64 0, i64 0), ptr %i31, align 8
+  %i34 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i6, i32 -1, i64 1239157112576, ptr nonnull %i26, ptr nonnull %i2)
+  br label %bb35
 
-; <label>:36:                                     ; preds = %55, %26
-  %37 = phi i64 [ 1, %26 ], [ %56, %55 ]
-  %38 = phi i32 [ 0, %26 ], [ %49, %55 ]
-  %39 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %37)
-  br label %40
+bb35:                                             ; preds = %bb54, %bb25
+  %i36 = phi i64 [ 1, %bb25 ], [ %i55, %bb54 ]
+  %i37 = phi i32 [ 0, %bb25 ], [ %i48, %bb54 ]
+  %i38 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
+  br label %bb39
 
-; <label>:40:                                     ; preds = %52, %36
-  %41 = phi i64 [ 1, %36 ], [ %53, %52 ]
-  %42 = phi i32 [ %38, %36 ], [ %49, %52 ]
-  %43 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %39, i64 %41)
-  br label %44
+bb39:                                             ; preds = %bb51, %bb35
+  %i40 = phi i64 [ 1, %bb35 ], [ %i52, %bb51 ]
+  %i41 = phi i32 [ %i37, %bb35 ], [ %i48, %bb51 ]
+  %i42 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i38, i64 %i40)
+  br label %bb43
 
-; <label>:44:                                     ; preds = %44, %40
-  %45 = phi i64 [ 1, %40 ], [ %50, %44 ]
-  %46 = phi i32 [ %42, %40 ], [ %49, %44 ]
-  %47 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %43, i64 %45)
-  %48 = load i32, i32* %47, align 4
-  %49 = add nsw i32 %48, %46
-  %50 = add nuw nsw i64 %45, 1
-  %51 = icmp eq i64 %50, 10
-  br i1 %51, label %52, label %44
+bb43:                                             ; preds = %bb43, %bb39
+  %i44 = phi i64 [ 1, %bb39 ], [ %i49, %bb43 ]
+  %i45 = phi i32 [ %i41, %bb39 ], [ %i48, %bb43 ]
+  %i46 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i42, i64 %i44)
+  %i47 = load i32, ptr %i46, align 4
+  %i48 = add nsw i32 %i47, %i45
+  %i49 = add nuw nsw i64 %i44, 1
+  %i50 = icmp eq i64 %i49, 10
+  br i1 %i50, label %bb51, label %bb43
 
-; <label>:52:                                     ; preds = %44
-  %53 = add nuw nsw i64 %41, 1
-  %54 = icmp eq i64 %53, 10
-  br i1 %54, label %55, label %40
+bb51:                                             ; preds = %bb43
+  %i52 = add nuw nsw i64 %i40, 1
+  %i53 = icmp eq i64 %i52, 10
+  br i1 %i53, label %bb54, label %bb39
 
-; <label>:55:                                     ; preds = %52
-  %56 = add nuw nsw i64 %37, 1
-  %57 = icmp eq i64 %56, 10
-  br i1 %57, label %58, label %36
+bb54:                                             ; preds = %bb51
+  %i55 = add nuw nsw i64 %i36, 1
+  %i56 = icmp eq i64 %i55, 10
+  br i1 %i56, label %bb57, label %bb35
 
-; <label>:58:                                     ; preds = %55
-  %59 = getelementptr inbounds [4 x i8], [4 x i8]* %2, i64 0, i64 0
-  store i8 9, i8* %59, align 1
-  %60 = getelementptr inbounds [4 x i8], [4 x i8]* %2, i64 0, i64 1
-  store i8 1, i8* %60, align 1
-  %61 = getelementptr inbounds [4 x i8], [4 x i8]* %2, i64 0, i64 2
-  store i8 1, i8* %61, align 1
-  %62 = getelementptr inbounds [4 x i8], [4 x i8]* %2, i64 0, i64 3
-  store i8 0, i8* %62, align 1
-  %63 = getelementptr inbounds { i32 }, { i32 }* %1, i64 0, i32 0
-  store i32 %49, i32* %63, align 8
-  %64 = bitcast { i32 }* %1 to i8*
-  %65 = call i32 @for_write_seq_lis_xmit(i8* nonnull %33, i8* nonnull %59, i8* nonnull %64)
+bb57:                                             ; preds = %bb54
+  %i58 = getelementptr inbounds [4 x i8], ptr %i1, i64 0, i64 0
+  store i8 9, ptr %i58, align 1
+  %i59 = getelementptr inbounds [4 x i8], ptr %i1, i64 0, i64 1
+  store i8 1, ptr %i59, align 1
+  %i60 = getelementptr inbounds [4 x i8], ptr %i1, i64 0, i64 2
+  store i8 1, ptr %i60, align 1
+  %i61 = getelementptr inbounds [4 x i8], ptr %i1, i64 0, i64 3
+  store i8 0, ptr %i61, align 1
+  %i62 = getelementptr inbounds { i32 }, ptr %i, i64 0, i32 0
+  store i32 %i48, ptr %i62, align 8
+  %i64 = call i32 @for_write_seq_lis_xmit(ptr nonnull %i6, ptr nonnull %i58, ptr nonnull %i)
   ret void
 }
 
-declare dso_local i32 @for_set_reentrancy(i32*) local_unnamed_addr
+declare dso_local i32 @for_set_reentrancy(ptr) local_unnamed_addr
+
+define internal void @main_IP_digits_2_(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr %arg, align 4
+  %i2 = sext i32 %i1 to i64
+  %i3 = icmp eq i32 %i1, 8
+  %i4 = add nsw i32 %i1, 1
+  br label %bb5
+
+bb5:                                              ; preds = %bb106, %bb
+  %i6 = phi i64 [ %i107, %bb106 ], [ 1, %bb ]
+  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i6)
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i7, i64 1)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i8, i64 %i2)
+  %i10 = load i32, ptr %i9, align 4
+  %i11 = icmp slt i32 %i10, 1
+  br i1 %i11, label %bb106, label %bb12
+
+bb12:                                             ; preds = %bb5
+  %i13 = trunc i64 %i6 to i32
+  store i32 %i13, ptr %i9, align 4
+  br label %bb14
+
+bb14:                                             ; preds = %bb103, %bb12
+  %i15 = phi i64 [ %i104, %bb103 ], [ 1, %bb12 ]
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i15)
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i16, i64 2)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i17, i64 %i2)
+  %i19 = load i32, ptr %i18, align 4
+  %i20 = icmp slt i32 %i19, 1
+  br i1 %i20, label %bb103, label %bb21
+
+bb21:                                             ; preds = %bb100, %bb14
+  %i22 = phi i64 [ %i101, %bb100 ], [ 1, %bb14 ]
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i22)
+  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i23, i64 3)
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i24, i64 %i2)
+  %i26 = load i32, ptr %i25, align 4
+  %i27 = icmp slt i32 %i26, 0
+  br i1 %i27, label %bb100, label %bb28
+
+bb28:                                             ; preds = %bb97, %bb21
+  %i29 = phi i64 [ %i98, %bb97 ], [ 1, %bb21 ]
+  %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i29)
+  %i31 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i30, i64 4)
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i31, i64 %i2)
+  %i33 = load i32, ptr %i32, align 4
+  %i34 = icmp slt i32 %i33, 0
+  br i1 %i34, label %bb97, label %bb35
+
+bb35:                                             ; preds = %bb94, %bb28
+  %i36 = phi i64 [ %i95, %bb94 ], [ 1, %bb28 ]
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i37, i64 5)
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i38, i64 %i2)
+  %i40 = load i32, ptr %i39, align 4
+  %i41 = icmp slt i32 %i40, 0
+  br i1 %i41, label %bb94, label %bb42
+
+bb42:                                             ; preds = %bb91, %bb35
+  %i43 = phi i64 [ %i92, %bb91 ], [ 1, %bb35 ]
+  %i44 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i43)
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i44, i64 6)
+  %i46 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i45, i64 %i2)
+  %i47 = load i32, ptr %i46, align 4
+  %i48 = icmp slt i32 %i47, 1
+  br i1 %i48, label %bb91, label %bb49
+
+bb49:                                             ; preds = %bb42
+  %i50 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i44, i64 7)
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i50, i64 %i2)
+  %i52 = trunc i64 %i43 to i32
+  store i32 %i52, ptr %i51, align 4
+  br label %bb53
+
+bb53:                                             ; preds = %bb88, %bb49
+  %i54 = phi i64 [ %i89, %bb88 ], [ 1, %bb49 ]
+  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i54)
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i55, i64 7)
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i56, i64 %i2)
+  %i58 = load i32, ptr %i57, align 4
+  %i59 = icmp slt i32 %i58, 1
+  br i1 %i59, label %bb88, label %bb60
+
+bb60:                                             ; preds = %bb53
+  %i61 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i55, i64 1)
+  %i62 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i61, i64 %i2)
+  %i63 = trunc i64 %i54 to i32
+  store i32 %i63, ptr %i62, align 4
+  br label %bb64
+
+bb64:                                             ; preds = %bb85, %bb60
+  %i65 = phi i64 [ %i86, %bb85 ], [ 1, %bb60 ]
+  %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i65)
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i66, i64 8)
+  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i67, i64 %i2)
+  %i69 = load i32, ptr %i68, align 4
+  %i70 = icmp slt i32 %i69, 1
+  br i1 %i70, label %bb85, label %bb71
+
+bb71:                                             ; preds = %bb64
+  %i72 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i66, i64 9)
+  %i73 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i72, i64 %i2)
+  %i74 = trunc i64 %i65 to i32
+  store i32 %i74, ptr %i73, align 4
+  %i75 = load i32, ptr @brute_force_mp_count_, align 8
+  %i76 = add nsw i32 %i75, 1
+  store i32 %i76, ptr @brute_force_mp_count_, align 8
+  br i1 %i3, label %bb77, label %bb78
+
+bb77:                                             ; preds = %bb71
+  %t80 = add nsw i32 %i75, 2
+  store i32 %t80, ptr @brute_force_mp_count_, align 8
+  br label %bb82
+
+bb78:                                             ; preds = %bb71
+  %t82 = icmp slt i32 %i76, 500000
+  br i1 %t82, label %bb81, label %bb79
+
+bb79:                                             ; preds = %bb78
+  %i80 = icmp slt i32 %i76, 500000
+  br i1 %i80, label %bb81, label %bb82
+
+bb81:                                             ; preds = %bb79, %bb78
+  store i32 %i4, ptr %i, align 4
+  call void @main_IP_digits_2_(ptr nonnull %i)
+  br label %bb82
+
+bb82:                                             ; preds = %bb81, %bb79, %bb77
+  %i83 = load i32, ptr %i73, align 4
+  %i84 = add nsw i32 %i83, 10
+  store i32 %i84, ptr %i73, align 4
+  br label %bb85
+
+bb85:                                             ; preds = %bb82, %bb64
+  %i86 = add nuw nsw i64 %i65, 1
+  %i87 = icmp eq i64 %i86, 3
+  br i1 %i87, label %bb88, label %bb64
+
+bb88:                                             ; preds = %bb85, %bb53
+  %i89 = add nuw nsw i64 %i54, 1
+  %i90 = icmp eq i64 %i89, 4
+  br i1 %i90, label %bb91, label %bb53
+
+bb91:                                             ; preds = %bb88, %bb42
+  %i92 = add nuw nsw i64 %i43, 1
+  %i93 = icmp eq i64 %i92, 5
+  br i1 %i93, label %bb94, label %bb42
+
+bb94:                                             ; preds = %bb91, %bb35
+  %i95 = add nuw nsw i64 %i36, 1
+  %i96 = icmp eq i64 %i95, 4
+  br i1 %i96, label %bb97, label %bb35
+
+bb97:                                             ; preds = %bb94, %bb28
+  %i98 = add nuw nsw i64 %i29, 1
+  %i99 = icmp eq i64 %i98, 3
+  br i1 %i99, label %bb100, label %bb28
+
+bb100:                                            ; preds = %bb97, %bb21
+  %i101 = add nuw nsw i64 %i22, 1
+  %i102 = icmp eq i64 %i101, 7
+  br i1 %i102, label %bb103, label %bb21
+
+bb103:                                            ; preds = %bb100, %bb14
+  %i104 = add nuw nsw i64 %i15, 1
+  %i105 = icmp eq i64 %i104, 3
+  br i1 %i105, label %bb106, label %bb14
+
+bb106:                                            ; preds = %bb103, %bb5
+  %i107 = add nuw nsw i64 %i6, 1
+  %i108 = icmp eq i64 %i107, 4
+  br i1 %i108, label %bb109, label %bb5
+
+bb109:                                            ; preds = %bb106
+  ret void
+}
+
+declare dso_local i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr
+
+declare dso_local i32 @for_write_seq_lis_xmit(ptr, ptr, ptr) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-; Function Attrs: nounwind
-define internal void @main_IP_digits_2_(i32* noalias nocapture readonly) #2 {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* %0, align 4
-  %4 = sext i32 %3 to i64
-  %5 = icmp eq i32 %3, 8
-  %6 = add nsw i32 %3, 1
-  br label %7
-
-; <label>:7:                                      ; preds = %108, %1
-  %8 = phi i64 [ %109, %108 ], [ 1, %1 ]
-  %9 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %8)
-  %10 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %9, i64 1)
-  %11 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %10, i64 %4)
-  %12 = load i32, i32* %11, align 4
-  %13 = icmp slt i32 %12, 1
-  br i1 %13, label %108, label %14
-
-; <label>:14:                                     ; preds = %7
-  %15 = trunc i64 %8 to i32
-  store i32 %15, i32* %11, align 4
-  br label %16
-
-; <label>:16:                                     ; preds = %105, %14
-  %17 = phi i64 [ %106, %105 ], [ 1, %14 ]
-  %18 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %17)
-  %19 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %18, i64 2)
-  %20 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %19, i64 %4)
-  %21 = load i32, i32* %20, align 4
-  %22 = icmp slt i32 %21, 1
-  br i1 %22, label %105, label %23
-
-; <label>:23:                                     ; preds = %102, %16
-  %24 = phi i64 [ %103, %102 ], [ 1, %16 ]
-  %25 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %24)
-  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %25, i64 3)
-  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %26, i64 %4)
-  %28 = load i32, i32* %27, align 4
-  %29 = icmp slt i32 %28, 0
-  br i1 %29, label %102, label %30
-
-; <label>:30:                                     ; preds = %99, %23
-  %31 = phi i64 [ %100, %99 ], [ 1, %23 ]
-  %32 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %31)
-  %33 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %32, i64 4)
-  %34 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %33, i64 %4)
-  %35 = load i32, i32* %34, align 4
-  %36 = icmp slt i32 %35, 0
-  br i1 %36, label %99, label %37
-
-; <label>:37:                                     ; preds = %96, %30
-  %38 = phi i64 [ %97, %96 ], [ 1, %30 ]
-  %39 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %38)
-  %40 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %39, i64 5)
-  %41 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %40, i64 %4)
-  %42 = load i32, i32* %41, align 4
-  %43 = icmp slt i32 %42, 0
-  br i1 %43, label %96, label %44
-
-; <label>:44:                                     ; preds = %93, %37
-  %45 = phi i64 [ %94, %93 ], [ 1, %37 ]
-  %46 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %45)
-  %47 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %46, i64 6)
-  %48 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %47, i64 %4)
-  %49 = load i32, i32* %48, align 4
-  %50 = icmp slt i32 %49, 1
-  br i1 %50, label %93, label %51
-
-; <label>:51:                                     ; preds = %44
-  %52 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %46, i64 7)
-  %53 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %52, i64 %4)
-  %54 = trunc i64 %45 to i32
-  store i32 %54, i32* %53, align 4
-  br label %55
-
-; <label>:55:                                     ; preds = %90, %51
-  %56 = phi i64 [ %91, %90 ], [ 1, %51 ]
-  %57 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %56)
-  %58 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %57, i64 7)
-  %59 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %58, i64 %4)
-  %60 = load i32, i32* %59, align 4
-  %61 = icmp slt i32 %60, 1
-  br i1 %61, label %90, label %62
-
-; <label>:62:                                     ; preds = %55
-  %63 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %57, i64 1)
-  %64 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %63, i64 %4)
-  %65 = trunc i64 %56 to i32
-  store i32 %65, i32* %64, align 4
-  br label %66
-
-; <label>:66:                                     ; preds = %87, %62
-  %67 = phi i64 [ %88, %87 ], [ 1, %62 ]
-  %68 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %67)
-  %69 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %68, i64 8)
-  %70 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %69, i64 %4)
-  %71 = load i32, i32* %70, align 4
-  %72 = icmp slt i32 %71, 1
-  br i1 %72, label %87, label %73
-
-; <label>:73:                                     ; preds = %66
-  %74 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %68, i64 9)
-  %75 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %74, i64 %4)
-  %76 = trunc i64 %67 to i32
-  store i32 %76, i32* %75, align 4
-  %77 = load i32, i32* @brute_force_mp_count_, align 8
-  %78 = add nsw i32 %77, 1
-  store i32 %78, i32* @brute_force_mp_count_, align 8
-  br i1 %5, label %79, label %80
-
-; <label>:79:                                     ; preds = %73
-  %t80 = add nsw i32 %77, 2
-  store i32 %t80, i32* @brute_force_mp_count_, align 8
-  br label %84
-
-; <label>:80:					  ; preds = %73
-  %t82 = icmp slt i32 %78, 500000
-  br i1 %t82, label %83, label %81
-
-; <label>:81:                                     ; preds = %80
-  %82 = icmp slt i32 %78, 500000
-  br i1 %82, label %83, label %84
-
-; <label>:83:                                     ; preds = %80, %81
-  store i32 %6, i32* %2, align 4
-  call void @main_IP_digits_2_(i32* nonnull %2)
-  br label %84
-
-; <label>:84:                                     ; preds = %83, %81, %79
-  %85 = load i32, i32* %75, align 4
-  %86 = add nsw i32 %85, 10
-  store i32 %86, i32* %75, align 4
-  br label %87
-
-; <label>:87:                                     ; preds = %84, %66
-  %88 = add nuw nsw i64 %67, 1
-  %89 = icmp eq i64 %88, 3
-  br i1 %89, label %90, label %66
-
-; <label>:90:                                     ; preds = %87, %55
-  %91 = add nuw nsw i64 %56, 1
-  %92 = icmp eq i64 %91, 4
-  br i1 %92, label %93, label %55
-
-; <label>:93:                                     ; preds = %90, %44
-  %94 = add nuw nsw i64 %45, 1
-  %95 = icmp eq i64 %94, 5
-  br i1 %95, label %96, label %44
-
-; <label>:96:                                     ; preds = %93, %37
-  %97 = add nuw nsw i64 %38, 1
-  %98 = icmp eq i64 %97, 4
-  br i1 %98, label %99, label %37
-
-; <label>:99:                                     ; preds = %96, %30
-  %100 = add nuw nsw i64 %31, 1
-  %101 = icmp eq i64 %100, 3
-  br i1 %101, label %102, label %30
-
-; <label>:102:                                    ; preds = %99, %23
-  %103 = add nuw nsw i64 %24, 1
-  %104 = icmp eq i64 %103, 7
-  br i1 %104, label %105, label %23
-
-; <label>:105:                                    ; preds = %102, %16
-  %106 = add nuw nsw i64 %17, 1
-  %107 = icmp eq i64 %106, 3
-  br i1 %107, label %108, label %16
-
-; <label>:108:                                    ; preds = %105, %7
-  %109 = add nuw nsw i64 %8, 1
-  %110 = icmp eq i64 %109, 4
-  br i1 %110, label %111, label %7
-
-; <label>:111:                                    ; preds = %108
-  ret void
-}
-
-declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr
-
-declare dso_local i32 @for_write_seq_lis_xmit(i8*, i8*, i8*) local_unnamed_addr
+attributes #0 = { nounwind readnone speculatable }
 ; end INTEL_FEATURE_SW_ADVANCED

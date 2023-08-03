@@ -59,7 +59,7 @@ public:
   static const char *getName();
 
   void setupMF(MachineFunction &MF, GISelKnownBits *KB,
-               CodeGenCoverage &CoverageInfo, ProfileSummaryInfo *PSI,
+               CodeGenCoverage *CoverageInfo, ProfileSummaryInfo *PSI,
                BlockFrequencyInfo *BFI) override;
 
 private:
@@ -112,6 +112,7 @@ private:
   bool selectDivScale(MachineInstr &MI) const;
   bool selectIntrinsicCmp(MachineInstr &MI) const;
   bool selectBallot(MachineInstr &I) const;
+  bool selectInverseBallot(MachineInstr &I) const;
   bool selectRelocConstant(MachineInstr &I) const;
   bool selectGroupStaticSize(MachineInstr &I) const;
   bool selectReturnAddress(MachineInstr &I) const;
@@ -287,12 +288,6 @@ private:
 
   InstructionSelector::ComplexRendererFns
   selectMUBUFOffset(MachineOperand &Root) const;
-
-  InstructionSelector::ComplexRendererFns
-  selectMUBUFOffsetAtomic(MachineOperand &Root) const;
-
-  InstructionSelector::ComplexRendererFns
-  selectMUBUFAddr64Atomic(MachineOperand &Root) const;
 
   ComplexRendererFns selectSMRDBufferImm(MachineOperand &Root) const;
   ComplexRendererFns selectSMRDBufferImm32(MachineOperand &Root) const;

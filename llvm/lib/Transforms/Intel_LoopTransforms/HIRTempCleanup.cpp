@@ -845,14 +845,18 @@ void TempSubstituter::visit(HLDDNode *Node) {
         // 5) The use is inside a different loop, OR
         // 6) Use is the function pointer operand of indirect call.
         // 7) Temp is liveout and use is not in a copy inst under the same
-        // parent.
+        // parent. Or, the copy's lval temp does not have a blob index. The
+        // invalidation logic does not work correctly for such cases. Absence of
+        // blob index means that the temp is liveout of the region with no uses
+        // inside it. This is unlikely to be a valid candidate.
         if (Temp.getUseRef() || !Temp.isSubstitutable() ||
             !(IsSelfBlob || IsSelfPointer) || isa<HLLoop>(Node) ||
             (Node->getLexicalParentLoop() != Temp.getDefLoop()) ||
             UseIsIndirectCallPtr ||
             (Temp.isLiveoutLoadTemp() &&
              (!IsSelfBlob || !Inst || !Inst->isCopyInst() ||
-              (Inst->getParent() != Temp.getDefInst()->getParent())))) {
+              (Inst->getParent() != Temp.getDefInst()->getParent()) ||
+              (Inst->getLvalBlobIndex() == InvalidBlobIndex)))) {
 
           LLVM_DEBUG(dbgs() << "Marking load temp candidate: ";
                      Temp.getDefInst()->dump();

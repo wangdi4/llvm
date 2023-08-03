@@ -46,6 +46,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Frontend/OpenMP/OMPGridValues.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/DataTypes.h"
@@ -219,7 +220,7 @@ enum OpenCLTypeKind : uint8_t {
 
 /// Exposes information about the current target.
 ///
-class TargetInfo : public virtual TransferrableTargetInfo,
+class TargetInfo : public TransferrableTargetInfo,
                    public RefCountedBase<TargetInfo> {
   std::shared_ptr<TargetOptions> TargetOpts;
   llvm::Triple Triple;
@@ -228,9 +229,6 @@ protected:
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
   bool TLSSupported;
-#if INTEL_CUSTOMIZATION
-  bool IsFloat128Enabled;
-#endif // INTEL_CUSTOMIZATION
   bool VLASupported;
   bool NoAsmVariants;  // True if {|} are normal characters.
   bool HasLegalHalfType; // True if the backend supports operations on the half
@@ -239,6 +237,9 @@ protected:
   bool HasFloat128;
   bool HasFloat16;
   bool HasBFloat16;
+  bool HasFullBFloat16; // True if the backend supports native bfloat16
+                        // arithmetic. Used to determine excess precision
+                        // support in the frontend.
   bool HasIbm128;
   bool HasLongDouble;
   bool HasFPReturn;
@@ -283,6 +284,12 @@ protected:
   // UserLabelPrefix must match DL's getGlobalPrefix() when interpreted
   // as a DataLayout object.
   void resetDataLayout(StringRef DL, const char *UserLabelPrefix = "");
+
+  // Target features that are read-only and should not be disabled/enabled
+  // by command line options. Such features are for emitting predefined
+  // macros or checking availability of builtin functions and can be omitted
+  // in function attributes in IR.
+  llvm::StringSet<> ReadOnlyFeatures;
 
 public:
   /// Construct a target for the given options.
@@ -668,7 +675,13 @@ public:
   virtual bool hasFloat16Type() const { return HasFloat16; }
 
   /// Determine whether the _BFloat16 type is supported on this target.
-  virtual bool hasBFloat16Type() const { return HasBFloat16; }
+  virtual bool hasBFloat16Type() const {
+    return HasBFloat16 || HasFullBFloat16;
+  }
+
+  /// Determine whether the BFloat type is fully supported on this target, i.e
+  /// arithemtic operations.
+  virtual bool hasFullBFloat16Type() const { return HasFullBFloat16; }
 
   /// Determine whether the __ibm128 type is supported on this target.
   virtual bool hasIbm128Type() const { return HasIbm128; }
@@ -776,9 +789,7 @@ public:
   }
 
   /// Return the mangled code of bfloat.
-  virtual const char *getBFloat16Mangling() const {
-    llvm_unreachable("bfloat not implemented on this target");
-  }
+  virtual const char *getBFloat16Mangling() const { return "DF16b"; }
 
   /// Return the value for the C99 FLT_EVAL_METHOD macro.
   virtual LangOptions::FPEvalMethodKind getFPEvalMethod() const {
@@ -1198,7 +1209,7 @@ public:
   }
 
   /// Returns a string of target-specific clobbers, in LLVM format.
-  virtual const char *getClobbers() const = 0;
+  virtual std::string_view getClobbers() const = 0;
 
   /// Returns true if NaN encoding is IEEE 754-2008.
   /// Only MIPS allows a different encoding.
@@ -1405,6 +1416,11 @@ public:
   /// Determine whether the given target has the given feature.
   virtual bool hasFeature(StringRef Feature) const {
     return false;
+  }
+
+  /// Determine whether the given target feature is read only.
+  bool isReadOnlyFeature(StringRef Feature) const {
+    return ReadOnlyFeatures.count(Feature);
   }
 
   /// Identify whether this target supports multiversioning of functions,
@@ -1731,6 +1747,9 @@ public:
                ? getTargetOpts().DarwinTargetVariantSDKVersion
                : std::optional<VersionTuple>();
   }
+
+  /// Whether to support HIP image/texture API's.
+  virtual bool hasHIPImageSupport() const { return true; }
 
 protected:
   /// Copy type and layout related info.

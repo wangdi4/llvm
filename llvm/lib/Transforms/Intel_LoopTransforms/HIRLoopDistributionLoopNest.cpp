@@ -35,13 +35,14 @@ PreservedAnalyses HIRLoopDistributionForLoopNestPass::runImpl(
     return PreservedAnalyses::all();
   }
 
-  HIRLoopDistribution(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                      AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
-                      AM.getResult<HIRLoopResourceAnalysis>(F),
-                      AM.getResult<HIRLoopLocalityAnalysis>(F),
-                      DistHeuristics::NestFormation)
-      .run();
+  ModifiedHIR =
+      HIRLoopDistribution(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                          AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                          AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
+                          AM.getResult<HIRLoopResourceAnalysis>(F),
+                          AM.getResult<HIRLoopLocalityAnalysis>(F),
+                          DistHeuristics::NestFormation)
+          .run();
 
   return PreservedAnalyses::all();
 }

@@ -21,12 +21,12 @@ movbe  (%rax), %rcx
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  3      12    0.50           *            movbew	%cx, (%rax)
-# CHECK-NEXT:  3      7     0.50    *                   movbew	(%rax), %cx
-# CHECK-NEXT:  3      12    1.00           *            movbel	%ecx, (%rax)
-# CHECK-NEXT:  2      6     1.00    *                   movbel	(%rax), %ecx
-# CHECK-NEXT:  4      12    1.00           *            movbeq	%rcx, (%rax)
-# CHECK-NEXT:  3      7     1.00    *                   movbeq	(%rax), %rcx
+# CHECK-NEXT:  3      3     0.33           *            movbew	%cx, (%rax)
+# CHECK-NEXT:  2      2     0.25    *                   movbew	(%rax), %cx
+# CHECK-NEXT:  3      3     0.33           *            movbel	%ecx, (%rax)
+# CHECK-NEXT:  2      2     0.25    *                   movbel	(%rax), %ecx
+# CHECK-NEXT:  3      3     0.33           *            movbeq	%rcx, (%rax)
+# CHECK-NEXT:  2      2     0.25    *                   movbeq	(%rax), %rcx
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -41,18 +41,31 @@ movbe  (%rax), %rcx
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 2.20   4.20   1.00   1.00   1.50   0.20   2.20   1.50   1.50   1.50   0.20   1.00    -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT: 1.00   1.00   1.00   1.00   1.00   1.00   0.75   1.00   0.75   1.00   0.75   1.00   0.75   1.00   1.00   1.00    -      -      -      -      -      -      -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 0.50    -      -      -     0.50    -     0.50   0.50   0.50   0.50    -      -      -     movbew	%cx, (%rax)
-# CHECK-NEXT: 0.70   0.20   0.33   0.33    -     0.20   0.70    -      -      -     0.20   0.33    -     movbew	(%rax), %cx
-# CHECK-NEXT:  -     1.00    -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     movbel	%ecx, (%rax)
-# CHECK-NEXT:  -     1.00   0.33   0.33    -      -      -      -      -      -      -     0.33    -     movbel	(%rax), %ecx
-# CHECK-NEXT: 0.50   1.00    -      -     0.50    -     0.50   0.50   0.50   0.50    -      -      -     movbeq	%rcx, (%rax)
-# CHECK-NEXT: 0.50   1.00   0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     movbeq	(%rax), %rcx
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17    -     0.33    -     0.33    -     0.33    -     0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -     movbew	%cx, (%rax)
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     movbew	(%rax), %cx
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17    -     0.33    -     0.33    -     0.33    -     0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -     movbel	%ecx, (%rax)
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     movbel	(%rax), %ecx
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17    -     0.33    -     0.33    -     0.33    -     0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -     movbeq	%rcx, (%rax)
+# CHECK-NEXT: 0.17   0.17   0.17   0.17   0.17   0.17   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     movbeq	(%rax), %rcx
 # end INTEL_FEATURE_CPU_RYL

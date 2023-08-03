@@ -66,7 +66,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32* noalias nocapture %C) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture %B, ptr noalias nocapture %C) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -75,9 +75,9 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup21
 
 for.body:                                         ; preds = %for.cond.cleanup21, %entry
   %indvars.iv28 = phi i64 [ 0, %entry ], [ %indvars.iv.next29, %for.cond.cleanup21 ], !in.de.ssa !2
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv28
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv28
   %0 = trunc i64 %indvars.iv28 to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !3
   %indvars.iv22.in = bitcast i64 0 to i64, !in.de.ssa !7
   br label %for.body5
 
@@ -87,9 +87,9 @@ for.cond.cleanup4:                                ; preds = %for.cond.cleanup11
 
 for.body5:                                        ; preds = %for.cond.cleanup11, %for.body
   %indvars.iv22 = phi i64 [ 0, %for.body ], [ %indvars.iv.next23, %for.cond.cleanup11 ], !in.de.ssa !7
-  %arrayidx7 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv22
+  %arrayidx7 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv22
   %1 = trunc i64 %indvars.iv22 to i32
-  store i32 %1, i32* %arrayidx7, align 4, !tbaa !3
+  store i32 %1, ptr %arrayidx7, align 4, !tbaa !3
   %indvars.iv.in = bitcast i64 0 to i64, !in.de.ssa !9
   br label %for.body12
 
@@ -101,9 +101,9 @@ for.cond.cleanup11:                               ; preds = %for.body12
 
 for.body12:                                       ; preds = %for.body12, %for.body5
   %indvars.iv = phi i64 [ 0, %for.body5 ], [ %indvars.iv.next, %for.body12 ], !in.de.ssa !9
-  %arrayidx14 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %arrayidx14 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
   %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx14, align 4, !tbaa !3
+  store i32 %2, ptr %arrayidx14, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 2
   %indvars.iv.in32 = bitcast i64 %indvars.iv.next to i64, !in.de.ssa !9
@@ -117,9 +117,9 @@ for.cond.cleanup21:                               ; preds = %for.body22
 
 for.body22:                                       ; preds = %for.body22, %for.cond.cleanup4
   %indvars.iv25 = phi i64 [ 0, %for.cond.cleanup4 ], [ %indvars.iv.next26, %for.body22 ], !in.de.ssa !8
-  %arrayidx24 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv25
+  %arrayidx24 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv25
   %3 = trunc i64 %indvars.iv25 to i32
-  store i32 %3, i32* %arrayidx24, align 4, !tbaa !3
+  store i32 %3, ptr %arrayidx24, align 4, !tbaa !3
   %indvars.iv.next26 = add nuw nsw i64 %indvars.iv25, 1
   %exitcond27 = icmp eq i64 %indvars.iv.next26, 3
   %indvars.iv25.in33 = bitcast i64 %indvars.iv.next26 to i64, !in.de.ssa !8

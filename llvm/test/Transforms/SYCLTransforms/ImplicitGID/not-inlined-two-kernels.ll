@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -implicit-gid-handle-barrier=false -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -implicit-gid-handle-barrier=false -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks that implicit gids are only added to non-inlined function
 ; that is used in kernel without barrier path.
@@ -7,34 +7,34 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(i32 addrspace(1)* noalias noundef %dst, i64 noundef %gid) #0 !dbg !6 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i64 noundef %gid) #0 !dbg !6 !kernel_arg_base_type !68 !arg_type_null_val !69 {
 entry:
 ; CHECK-LABEL: @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata [[fooDbgMD0:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[fooDbgMD0:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata [[fooDbgMD1:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata [[fooDbgMD1:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata [[fooDbgMD2:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata [[fooDbgMD2:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
 ; CHECK-NEXT: %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
 
   %retval = alloca i32, align 4
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
   %gid.addr = alloca i64, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !17, metadata !DIExpression()), !dbg !18
-  store i64 %gid, i64* %gid.addr, align 8
-  call void @llvm.dbg.declare(metadata i64* %gid.addr, metadata !19, metadata !DIExpression()), !dbg !20
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !21
-  %1 = load i64, i64* %gid.addr, align 8, !dbg !22
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %1, !dbg !21
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4, !dbg !23
-  %2 = load i32, i32* %retval, align 4, !dbg !24
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !17, metadata !DIExpression()), !dbg !18
+  store i64 %gid, ptr %gid.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %gid.addr, metadata !19, metadata !DIExpression()), !dbg !20
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg !21
+  %1 = load i64, ptr %gid.addr, align 8, !dbg !22
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %1, !dbg !21
+  store i32 0, ptr addrspace(1) %arrayidx, align 4, !dbg !23
+  %2 = load i32, ptr %retval, align 4, !dbg !24
   ret i32 %2, !dbg !24
 }
 
@@ -42,53 +42,53 @@ entry:
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @bar(i32 addrspace(1)* noalias noundef %dst, i64 noundef %gid) #0 !dbg !25 {
+define dso_local i32 @bar(ptr addrspace(1) noalias noundef %dst, i64 noundef %gid) #0 !dbg !25 !kernel_arg_base_type !68 !arg_type_null_val !69 {
 entry:
 ; CHECK-LABEL: @bar
 ; CHECK-NOT: %__ocl_dbg_gid{{[0-9]}} = alloca i64
 
   %retval = alloca i32, align 4
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
   %gid.addr = alloca i64, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !26, metadata !DIExpression()), !dbg !27
-  store i64 %gid, i64* %gid.addr, align 8
-  call void @llvm.dbg.declare(metadata i64* %gid.addr, metadata !28, metadata !DIExpression()), !dbg !29
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !30
-  %1 = load i64, i64* %gid.addr, align 8, !dbg !31
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %1, !dbg !30
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4, !dbg !32
-  %2 = load i32, i32* %retval, align 4, !dbg !33
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !26, metadata !DIExpression()), !dbg !27
+  store i64 %gid, ptr %gid.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %gid.addr, metadata !28, metadata !DIExpression()), !dbg !29
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg !30
+  %1 = load i64, ptr %gid.addr, align 8, !dbg !31
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %1, !dbg !30
+  store i32 0, ptr addrspace(1) %arrayidx, align 4, !dbg !32
+  %2 = load i32, ptr %retval, align 4, !dbg !33
   ret i32 %2, !dbg !33
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %dst) #2 !dbg !34 !kernel_arg_addr_space !37 !kernel_arg_access_qual !38 !kernel_arg_type !39 !kernel_arg_base_type !39 !kernel_arg_type_qual !40 !kernel_arg_name !41 !kernel_arg_host_accessible !42 !kernel_arg_pipe_depth !43 !kernel_arg_pipe_io !44 !kernel_arg_buffer_location !44 !no_barrier_path !45 !kernel_has_sub_groups !42 !kernel_execution_length !46 !kernel_has_global_sync !42 !recommended_vector_length !37 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #2 !dbg !34 !kernel_arg_addr_space !37 !kernel_arg_access_qual !38 !kernel_arg_type !39 !kernel_arg_base_type !39 !kernel_arg_type_qual !40 !kernel_arg_name !41 !kernel_arg_host_accessible !42 !kernel_arg_pipe_depth !43 !kernel_arg_pipe_io !44 !kernel_arg_buffer_location !44 !no_barrier_path !45 !kernel_has_sub_groups !42 !kernel_execution_length !46 !kernel_has_global_sync !42 !recommended_vector_length !37 !arg_type_null_val !70 {
 entry:
 ; CHECK-LABEL: @test(
 ; CHECK: %__ocl_dbg_gid0 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata [[DbgMD0:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[DbgMD0:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata [[DbgMD1:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata [[DbgMD1:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata [[DbgMD2:![0-9]+]], metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata [[DbgMD2:![0-9]+]], metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
 ; CHECK-NEXT: %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+; CHECK-NEXT: store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
 
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
   %gid = alloca i64, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !47, metadata !DIExpression()), !dbg !48
-  call void @llvm.dbg.declare(metadata i64* %gid, metadata !49, metadata !DIExpression()), !dbg !50
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !47, metadata !DIExpression()), !dbg !48
+  call void @llvm.dbg.declare(metadata ptr %gid, metadata !49, metadata !DIExpression()), !dbg !50
   %call = call i64 @_Z13get_global_idj(i32 noundef 0) #6, !dbg !51
-  store i64 %call, i64* %gid, align 8, !dbg !50
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !52
-  %1 = load i64, i64* %gid, align 8, !dbg !53
-  %call1 = call i32 @foo(i32 addrspace(1)* noundef %0, i64 noundef %1) #7, !dbg !54
+  store i64 %call, ptr %gid, align 8, !dbg !50
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg !52
+  %1 = load i64, ptr %gid, align 8, !dbg !53
+  %call1 = call i32 @foo(ptr addrspace(1) noundef %0, i64 noundef %1) #7, !dbg !54
   ret void, !dbg !55
 }
 
@@ -96,22 +96,22 @@ entry:
 declare i64 @_Z13get_global_idj(i32 noundef) #3
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test_barrier(i32 addrspace(1)* noalias noundef align 4 %dst) #4 !dbg !56 !kernel_arg_addr_space !37 !kernel_arg_access_qual !38 !kernel_arg_type !39 !kernel_arg_base_type !39 !kernel_arg_type_qual !40 !kernel_arg_name !41 !kernel_arg_host_accessible !42 !kernel_arg_pipe_depth !43 !kernel_arg_pipe_io !44 !kernel_arg_buffer_location !44 !no_barrier_path !42 !kernel_has_sub_groups !42 !kernel_execution_length !57 !kernel_has_global_sync !42 !recommended_vector_length !37 {
+define dso_local void @test_barrier(ptr addrspace(1) noalias noundef align 4 %dst) #4 !dbg !56 !kernel_arg_addr_space !37 !kernel_arg_access_qual !38 !kernel_arg_type !39 !kernel_arg_base_type !39 !kernel_arg_type_qual !40 !kernel_arg_name !41 !kernel_arg_host_accessible !42 !kernel_arg_pipe_depth !43 !kernel_arg_pipe_io !44 !kernel_arg_buffer_location !44 !no_barrier_path !42 !kernel_has_sub_groups !42 !kernel_execution_length !57 !kernel_has_global_sync !42 !recommended_vector_length !37 !arg_type_null_val !70 {
 entry:
 ; CHECK-LABEL: @test_barrier
 ; CHECK-NOT: %__ocl_dbg_gid{{[0-9]}} = alloca i64
 
-  %dst.addr = alloca i32 addrspace(1)*, align 8
+  %dst.addr = alloca ptr addrspace(1), align 8
   %gid = alloca i64, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !58, metadata !DIExpression()), !dbg !59
-  call void @llvm.dbg.declare(metadata i64* %gid, metadata !60, metadata !DIExpression()), !dbg !61
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !58, metadata !DIExpression()), !dbg !59
+  call void @llvm.dbg.declare(metadata ptr %gid, metadata !60, metadata !DIExpression()), !dbg !61
   %call = call i64 @_Z13get_global_idj(i32 noundef 0) #6, !dbg !62
-  store i64 %call, i64* %gid, align 8, !dbg !61
+  store i64 %call, ptr %gid, align 8, !dbg !61
   call void @_Z7barrierj(i32 noundef 1) #8, !dbg !63
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !64
-  %1 = load i64, i64* %gid, align 8, !dbg !65
-  %call1 = call i32 @bar(i32 addrspace(1)* noundef %0, i64 noundef %1) #7, !dbg !66
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg !64
+  %1 = load i64, ptr %gid, align 8, !dbg !65
+  %call1 = call i32 @bar(ptr addrspace(1) noundef %0, i64 noundef %1) #7, !dbg !66
   ret void, !dbg !67
 }
 
@@ -146,7 +146,7 @@ attributes #8 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !2 = !{i32 7, !"Dwarf Version", i32 4}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
 !4 = !{!"-cl-std=CL2.0", !"-cl-opt-disable", !"-g"}
-!5 = !{void (i32 addrspace(1)*)* @test, void (i32 addrspace(1)*)* @test_barrier}
+!5 = !{ptr @test, ptr @test_barrier}
 !6 = distinct !DISubprogram(name: "foo", scope: !7, file: !7, line: 1, type: !8, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !16)
 !7 = !DIFile(filename: "test.cl", directory: "")
 !8 = !DISubroutineType(cc: DW_CC_LLVM_SpirFunction, types: !9)
@@ -209,3 +209,6 @@ attributes #8 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !65 = !DILocation(line: 17, column: 12, scope: !56)
 !66 = !DILocation(line: 17, column: 3, scope: !56)
 !67 = !DILocation(line: 18, column: 1, scope: !56)
+!68 = !{!"int*", !"long"}
+!69 = !{i32 addrspace(1)* null, i64 0}
+!70 = !{i32 addrspace(1)* null}

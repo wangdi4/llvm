@@ -153,7 +153,9 @@ unsigned int base_command_list::InternalFlush(bool blocking) {
 }
 
 bool base_command_list::Flush() {
-  InternalFlush(false);
+  if (!Intel::OpenCL::Utils::IsShuttingDown() &&
+      !GetExecutingContainer()->IsEmpty())
+    InternalFlush(false);
   return true;
 }
 

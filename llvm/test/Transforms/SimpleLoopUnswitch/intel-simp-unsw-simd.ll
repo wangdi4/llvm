@@ -18,7 +18,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
 @.kmpc_loc.0.0 = external hidden unnamed_addr global %struct.ident_t
 @.kmpc_loc.0.0.2 = external hidden unnamed_addr global %struct.ident_t
@@ -29,12 +29,12 @@ declare token @llvm.directive.region.entry() #0
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #0
 
-declare void @__kmpc_for_static_init_8(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)
+declare void @__kmpc_for_static_init_8(ptr, i32, i32, ptr, ptr, ptr, ptr, i64, i64)
 
-declare void @__kmpc_for_static_fini(%struct.ident_t*, i32)
+declare void @__kmpc_for_static_fini(ptr, i32)
 
 ; Function Attrs: nounwind uwtable
-define hidden void @MAIN__.DIR.OMP.PARALLEL.LOOP.2.split78(i32* %tid, i32* %bid, float* %"_unnamed_main$$_$G", float* %"_unnamed_main$$_$D", float* %"_unnamed_main$$_$A", float* %do.step17, float* %do.start15, float* %do.step11, float* %do.start9, float* %do.step5, float* %do.start3, float* %do.step, float* %do.start, float* %omp.pdo.step, float* %omp.pdo.start, i64 %do.norm.ub.val86, i64 %omp.pdo.norm.ub.val, i64 %omp.collapsed.lb.val, i64 %omp.pdo.norm.lb.val, i64 %do.norm.lb.val, i64 %do.norm.lb6.val, i64 %do.norm.lb12.val, i64 %do.norm.lb18.val, i64* %omp.collapsed.ub, i64 %"(i64)div.4$", float* %"_unnamed_main$$_$E") #1 {
+define hidden void @MAIN__.DIR.OMP.PARALLEL.LOOP.2.split78(ptr %tid, ptr %bid, ptr %"_unnamed_main$$_$G", ptr %"_unnamed_main$$_$D", ptr %"_unnamed_main$$_$A", ptr %do.step17, ptr %do.start15, ptr %do.step11, ptr %do.start9, ptr %do.step5, ptr %do.start3, ptr %do.step, ptr %do.start, ptr %omp.pdo.step, ptr %omp.pdo.start, i64 %do.norm.ub.val86, i64 %omp.pdo.norm.ub.val, i64 %omp.collapsed.lb.val, i64 %omp.pdo.norm.lb.val, i64 %do.norm.lb.val, i64 %do.norm.lb6.val, i64 %do.norm.lb12.val, i64 %do.norm.lb18.val, ptr %omp.collapsed.ub, i64 %"(i64)div.4$", ptr %"_unnamed_main$$_$E") #1 {
 ; Just check that vectorization occurred -- O3 testing is too fragile.
 ; CHECK-LABEL: @MAIN__.DIR.OMP.PARALLEL.LOOP.2.split78(
 ; CHECK:    [[TMP8:%.*]] = icmp sgt <4 x i64> {{.*}}, <i64 2, i64 2, i64 2, i64 2>
@@ -76,106 +76,106 @@ newFuncRoot:
   br label %DIR.OMP.PARALLEL.LOOP.2.split78
 
 DIR.OMP.PARALLEL.LOOP.2.split78:                  ; preds = %newFuncRoot
-  store i32 0, i32* %is.last, align 4
+  store i32 0, ptr %is.last, align 4
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split85
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split85:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78
-  store i64 %do.norm.ub.val86, i64* %do.norm.ub.fpriv, align 8
+  store i64 %do.norm.ub.val86, ptr %do.norm.ub.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split84
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split84:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split85
-  store i64 %omp.pdo.norm.ub.val, i64* %omp.pdo.norm.ub.fpriv, align 8
+  store i64 %omp.pdo.norm.ub.val, ptr %omp.pdo.norm.ub.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split83
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split83:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split84
-  store i64 %omp.collapsed.lb.val, i64* %omp.collapsed.lb.fpriv, align 8
+  store i64 %omp.collapsed.lb.val, ptr %omp.collapsed.lb.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split82
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split82:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split83
-  store i64 %omp.pdo.norm.lb.val, i64* %omp.pdo.norm.lb.fpriv, align 8
+  store i64 %omp.pdo.norm.lb.val, ptr %omp.pdo.norm.lb.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split81
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split81:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split82
-  store i64 %do.norm.lb.val, i64* %do.norm.lb.fpriv, align 8
+  store i64 %do.norm.lb.val, ptr %do.norm.lb.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split80
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split80:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split81
-  store i64 %do.norm.lb6.val, i64* %do.norm.lb6.fpriv, align 8
+  store i64 %do.norm.lb6.val, ptr %do.norm.lb6.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split79
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split79:          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split80
-  store i64 %do.norm.lb12.val, i64* %do.norm.lb12.fpriv, align 8
+  store i64 %do.norm.lb12.val, ptr %do.norm.lb12.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split78.split
 
 DIR.OMP.PARALLEL.LOOP.2.split78.split:            ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split79
-  store i64 %do.norm.lb18.val, i64* %do.norm.lb18.fpriv, align 8
+  store i64 %do.norm.lb18.val, ptr %do.norm.lb18.fpriv, align 8
   br label %DIR.OMP.PARALLEL.LOOP.2.split75
 
 DIR.OMP.PARALLEL.LOOP.2.split75:                  ; preds = %DIR.OMP.PARALLEL.LOOP.2.split78.split
-  %0 = load i64, i64* %omp.collapsed.ub, align 8, !alias.scope !3, !noalias !6
+  %0 = load i64, ptr %omp.collapsed.ub, align 8, !alias.scope !3, !noalias !6
   br label %DIR.OMP.PARALLEL.LOOP.2.split
 
 DIR.OMP.PARALLEL.LOOP.2.split:                    ; preds = %DIR.OMP.PARALLEL.LOOP.2.split75
-  %"_unnamed_main$$_$G.v" = load float, float* %"_unnamed_main$$_$G", align 4, !alias.scope !32, !noalias !6
-  store float %"_unnamed_main$$_$G.v", float* %"_unnamed_main$$_$G.fp", align 4, !alias.scope !34, !noalias !35
-  %"_unnamed_main$$_$A.v" = load float, float* %"_unnamed_main$$_$A", align 4, !alias.scope !51, !noalias !6
-  store float %"_unnamed_main$$_$A.v", float* %"_unnamed_main$$_$A.fp", align 4, !alias.scope !52, !noalias !53
-  %do.step17.v = load float, float* %do.step17, align 4, !alias.scope !54, !noalias !6
-  store float %do.step17.v, float* %do.step17.fp, align 4, !alias.scope !55, !noalias !56
-  %do.start15.v = load float, float* %do.start15, align 4, !alias.scope !57, !noalias !6
-  store float %do.start15.v, float* %do.start15.fp, align 4, !alias.scope !58, !noalias !59
-  %do.step11.v = load float, float* %do.step11, align 4, !alias.scope !60, !noalias !6
-  store float %do.step11.v, float* %do.step11.fp, align 4, !alias.scope !61, !noalias !62
-  %do.start9.v = load float, float* %do.start9, align 4, !alias.scope !63, !noalias !6
-  store float %do.start9.v, float* %do.start9.fp, align 4, !alias.scope !64, !noalias !65
-  %do.step5.v = load float, float* %do.step5, align 4, !alias.scope !66, !noalias !6
-  store float %do.step5.v, float* %do.step5.fp, align 4, !alias.scope !67, !noalias !68
-  %do.start3.v = load float, float* %do.start3, align 4, !alias.scope !69, !noalias !6
-  store float %do.start3.v, float* %do.start3.fp, align 4, !alias.scope !70, !noalias !71
-  %do.step.v = load float, float* %do.step, align 4, !alias.scope !72, !noalias !6
-  store float %do.step.v, float* %do.step.fp, align 4, !alias.scope !73, !noalias !74
-  %do.start.v = load float, float* %do.start, align 4, !alias.scope !75, !noalias !6
-  store float %do.start.v, float* %do.start.fp, align 4, !alias.scope !76, !noalias !77
-  %omp.pdo.step.v = load float, float* %omp.pdo.step, align 4, !alias.scope !78, !noalias !6
-  store float %omp.pdo.step.v, float* %omp.pdo.step.fp, align 4, !alias.scope !79, !noalias !80
-  %omp.pdo.start.v = load float, float* %omp.pdo.start, align 4, !alias.scope !81, !noalias !6
-  store float %omp.pdo.start.v, float* %omp.pdo.start.fp, align 4, !alias.scope !82, !noalias !83
+  %"_unnamed_main$$_$G.v" = load float, ptr %"_unnamed_main$$_$G", align 4, !alias.scope !32, !noalias !6
+  store float %"_unnamed_main$$_$G.v", ptr %"_unnamed_main$$_$G.fp", align 4, !alias.scope !34, !noalias !35
+  %"_unnamed_main$$_$A.v" = load float, ptr %"_unnamed_main$$_$A", align 4, !alias.scope !51, !noalias !6
+  store float %"_unnamed_main$$_$A.v", ptr %"_unnamed_main$$_$A.fp", align 4, !alias.scope !52, !noalias !53
+  %do.step17.v = load float, ptr %do.step17, align 4, !alias.scope !54, !noalias !6
+  store float %do.step17.v, ptr %do.step17.fp, align 4, !alias.scope !55, !noalias !56
+  %do.start15.v = load float, ptr %do.start15, align 4, !alias.scope !57, !noalias !6
+  store float %do.start15.v, ptr %do.start15.fp, align 4, !alias.scope !58, !noalias !59
+  %do.step11.v = load float, ptr %do.step11, align 4, !alias.scope !60, !noalias !6
+  store float %do.step11.v, ptr %do.step11.fp, align 4, !alias.scope !61, !noalias !62
+  %do.start9.v = load float, ptr %do.start9, align 4, !alias.scope !63, !noalias !6
+  store float %do.start9.v, ptr %do.start9.fp, align 4, !alias.scope !64, !noalias !65
+  %do.step5.v = load float, ptr %do.step5, align 4, !alias.scope !66, !noalias !6
+  store float %do.step5.v, ptr %do.step5.fp, align 4, !alias.scope !67, !noalias !68
+  %do.start3.v = load float, ptr %do.start3, align 4, !alias.scope !69, !noalias !6
+  store float %do.start3.v, ptr %do.start3.fp, align 4, !alias.scope !70, !noalias !71
+  %do.step.v = load float, ptr %do.step, align 4, !alias.scope !72, !noalias !6
+  store float %do.step.v, ptr %do.step.fp, align 4, !alias.scope !73, !noalias !74
+  %do.start.v = load float, ptr %do.start, align 4, !alias.scope !75, !noalias !6
+  store float %do.start.v, ptr %do.start.fp, align 4, !alias.scope !76, !noalias !77
+  %omp.pdo.step.v = load float, ptr %omp.pdo.step, align 4, !alias.scope !78, !noalias !6
+  store float %omp.pdo.step.v, ptr %omp.pdo.step.fp, align 4, !alias.scope !79, !noalias !80
+  %omp.pdo.start.v = load float, ptr %omp.pdo.start, align 4, !alias.scope !81, !noalias !6
+  store float %omp.pdo.start.v, ptr %omp.pdo.start.fp, align 4, !alias.scope !82, !noalias !83
   br label %DIR.OMP.PARALLEL.LOOP.3
 
 DIR.OMP.PARALLEL.LOOP.3:                          ; preds = %DIR.OMP.PARALLEL.LOOP.2.split
   br label %DIR.OMP.PARALLEL.LOOP.1.split
 
 omp.pdo.cond7:                                    ; preds = %omp.collapsed.loop.body, %do.epilog16
-  %omp.pdo.norm.iv_fetch.5 = load i64, i64* %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !87, !noalias !88, !llvm.access.group !89
-  %omp.pdo.norm.ub_fetch.6 = load i64, i64* %omp.pdo.norm.ub.fpriv, align 1, !tbaa !84, !alias.scope !90, !noalias !91, !llvm.access.group !89
+  %omp.pdo.norm.iv_fetch.5 = load i64, ptr %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !87, !noalias !88, !llvm.access.group !89
+  %omp.pdo.norm.ub_fetch.6 = load i64, ptr %omp.pdo.norm.ub.fpriv, align 1, !tbaa !84, !alias.scope !90, !noalias !91, !llvm.access.group !89
   %rel.1.not = icmp sgt i64 %omp.pdo.norm.iv_fetch.5, %omp.pdo.norm.ub_fetch.6
   br i1 %rel.1.not, label %omp.collapsed.loop.inc, label %omp.pdo.body8
 
 omp.pdo.body8:                                    ; preds = %omp.pdo.cond7
   %"(float)omp.pdo.norm.iv_fetch.7$" = sitofp i64 %omp.pdo.norm.iv_fetch.5 to float
-  %omp.pdo.step_fetch.8 = load float, float* %omp.pdo.step.fp, align 1, !tbaa !84, !alias.scope !79, !noalias !92, !llvm.access.group !89
+  %omp.pdo.step_fetch.8 = load float, ptr %omp.pdo.step.fp, align 1, !tbaa !84, !alias.scope !79, !noalias !92, !llvm.access.group !89
   %mul.1 = fmul reassoc ninf nsz arcp contract afn float %omp.pdo.step_fetch.8, %"(float)omp.pdo.norm.iv_fetch.7$"
-  %omp.pdo.start_fetch.9 = load float, float* %omp.pdo.start.fp, align 1, !tbaa !84, !alias.scope !82, !noalias !93, !llvm.access.group !89
+  %omp.pdo.start_fetch.9 = load float, ptr %omp.pdo.start.fp, align 1, !tbaa !84, !alias.scope !82, !noalias !93, !llvm.access.group !89
   %add.1 = fadd reassoc ninf nsz arcp contract afn float %mul.1, %omp.pdo.start_fetch.9
-  store float %add.1, float* %"_unnamed_main$$_$E.lpriv", align 8, !tbaa !94, !alias.scope !96, !noalias !97, !llvm.access.group !89
-  %do.norm.lb_fetch.13 = load i64, i64* %do.norm.lb.fpriv, align 1, !tbaa !84, !alias.scope !98, !noalias !99, !llvm.access.group !89
+  store float %add.1, ptr %"_unnamed_main$$_$E.lpriv", align 8, !tbaa !94, !alias.scope !96, !noalias !97, !llvm.access.group !89
+  %do.norm.lb_fetch.13 = load i64, ptr %do.norm.lb.fpriv, align 1, !tbaa !84, !alias.scope !98, !noalias !99, !llvm.access.group !89
   br label %do.cond14
 
 do.cond14:                                        ; preds = %do.epilog20, %omp.pdo.body8
   %storemerge = phi i64 [ %do.norm.lb_fetch.13, %omp.pdo.body8 ], [ %add.9, %do.epilog20 ]
-  store i64 %storemerge, i64* %do.norm.iv.priv, align 1, !tbaa !84, !alias.scope !100, !noalias !101, !llvm.access.group !89
-  %do.norm.ub_fetch.15 = load i64, i64* %do.norm.ub.fpriv, align 1, !tbaa !84, !alias.scope !102, !noalias !103, !llvm.access.group !89
+  store i64 %storemerge, ptr %do.norm.iv.priv, align 1, !tbaa !84, !alias.scope !100, !noalias !101, !llvm.access.group !89
+  %do.norm.ub_fetch.15 = load i64, ptr %do.norm.ub.fpriv, align 1, !tbaa !84, !alias.scope !102, !noalias !103, !llvm.access.group !89
   %rel.2.not = icmp sgt i64 %storemerge, %do.norm.ub_fetch.15
   br i1 %rel.2.not, label %do.epilog16, label %do.body15
 
 do.body15:                                        ; preds = %do.cond14
   %"(float)do.norm.iv_fetch.16$" = sitofp i64 %storemerge to float
-  %do.step_fetch.17 = load float, float* %do.step.fp, align 1, !tbaa !84, !alias.scope !73, !noalias !104, !llvm.access.group !89
+  %do.step_fetch.17 = load float, ptr %do.step.fp, align 1, !tbaa !84, !alias.scope !73, !noalias !104, !llvm.access.group !89
   %mul.2 = fmul reassoc ninf nsz arcp contract afn float %do.step_fetch.17, %"(float)do.norm.iv_fetch.16$"
-  %do.start_fetch.18 = load float, float* %do.start.fp, align 1, !tbaa !84, !alias.scope !76, !noalias !105, !llvm.access.group !89
+  %do.start_fetch.18 = load float, ptr %do.start.fp, align 1, !tbaa !84, !alias.scope !76, !noalias !105, !llvm.access.group !89
   %add.2 = fadd reassoc ninf nsz arcp contract afn float %mul.2, %do.start_fetch.18
-  store float %add.2, float* %"_unnamed_main$$_$B.priv", align 8, !tbaa !106, !alias.scope !108, !noalias !109, !llvm.access.group !89
-  %do.norm.lb6_fetch.22 = load i64, i64* %do.norm.lb6.fpriv, align 1, !tbaa !84, !alias.scope !110, !noalias !6, !llvm.access.group !89
+  store float %add.2, ptr %"_unnamed_main$$_$B.priv", align 8, !tbaa !106, !alias.scope !108, !noalias !109, !llvm.access.group !89
+  %do.norm.lb6_fetch.22 = load i64, ptr %do.norm.lb6.fpriv, align 1, !tbaa !84, !alias.scope !110, !noalias !6, !llvm.access.group !89
   br label %do.cond18
 
 do.cond18:                                        ; preds = %do.epilog29, %do.body15
@@ -185,12 +185,12 @@ do.cond18:                                        ; preds = %do.epilog29, %do.bo
 
 do.body19:                                        ; preds = %do.cond18
   %"(float)do.norm.iv8_fetch.25$" = sitofp i64 %do.norm.iv8.0 to float
-  %do.step5_fetch.26 = load float, float* %do.step5.fp, align 1, !tbaa !84, !alias.scope !67, !noalias !111, !llvm.access.group !89
+  %do.step5_fetch.26 = load float, ptr %do.step5.fp, align 1, !tbaa !84, !alias.scope !67, !noalias !111, !llvm.access.group !89
   %mul.3 = fmul reassoc ninf nsz arcp contract afn float %do.step5_fetch.26, %"(float)do.norm.iv8_fetch.25$"
-  %do.start3_fetch.27 = load float, float* %do.start3.fp, align 1, !tbaa !84, !alias.scope !70, !noalias !112, !llvm.access.group !89
+  %do.start3_fetch.27 = load float, ptr %do.start3.fp, align 1, !tbaa !84, !alias.scope !70, !noalias !112, !llvm.access.group !89
   %add.3 = fadd reassoc ninf nsz arcp contract afn float %mul.3, %do.start3_fetch.27
-  store float %add.3, float* %"_unnamed_main$$_$C.priv", align 8, !tbaa !113, !alias.scope !115, !noalias !116, !llvm.access.group !89
-  %do.norm.lb12_fetch.32 = load i64, i64* %do.norm.lb12.fpriv, align 1, !tbaa !84, !alias.scope !117, !noalias !6, !llvm.access.group !89
+  store float %add.3, ptr %"_unnamed_main$$_$C.priv", align 8, !tbaa !113, !alias.scope !115, !noalias !116, !llvm.access.group !89
+  %do.norm.lb12_fetch.32 = load i64, ptr %do.norm.lb12.fpriv, align 1, !tbaa !84, !alias.scope !117, !noalias !6, !llvm.access.group !89
   br label %do.cond22
 
 do.cond22:                                        ; preds = %do.body23, %do.body19
@@ -200,18 +200,18 @@ do.cond22:                                        ; preds = %do.body23, %do.body
 
 do.body23:                                        ; preds = %do.cond22
   %"(float)do.norm.iv14_fetch.35$" = sitofp i64 %do.norm.iv14.0 to float
-  %do.step11_fetch.36 = load float, float* %do.step11.fp, align 1, !tbaa !84, !alias.scope !61, !noalias !118, !llvm.access.group !89
+  %do.step11_fetch.36 = load float, ptr %do.step11.fp, align 1, !tbaa !84, !alias.scope !61, !noalias !118, !llvm.access.group !89
   %mul.4 = fmul reassoc ninf nsz arcp contract afn float %do.step11_fetch.36, %"(float)do.norm.iv14_fetch.35$"
-  %do.start9_fetch.37 = load float, float* %do.start9.fp, align 1, !tbaa !84, !alias.scope !64, !noalias !119, !llvm.access.group !89
+  %do.start9_fetch.37 = load float, ptr %do.start9.fp, align 1, !tbaa !84, !alias.scope !64, !noalias !119, !llvm.access.group !89
   %add.4 = fadd reassoc ninf nsz arcp contract afn float %mul.4, %do.start9_fetch.37
-  store float %add.4, float* %"_unnamed_main$$_$F.priv", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !89
-  %"_unnamed_main$$_$G_fetch.38" = load float, float* %"_unnamed_main$$_$G.fp", align 8, !tbaa !124, !alias.scope !34, !noalias !126, !llvm.access.group !89
-  store float %"_unnamed_main$$_$G_fetch.38", float* %"_unnamed_main$$_$D", align 8, !tbaa !127, !alias.scope !129, !noalias !130, !llvm.access.group !89
+  store float %add.4, ptr %"_unnamed_main$$_$F.priv", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !89
+  %"_unnamed_main$$_$G_fetch.38" = load float, ptr %"_unnamed_main$$_$G.fp", align 8, !tbaa !124, !alias.scope !34, !noalias !126, !llvm.access.group !89
+  store float %"_unnamed_main$$_$G_fetch.38", ptr %"_unnamed_main$$_$D", align 8, !tbaa !127, !alias.scope !129, !noalias !130, !llvm.access.group !89
   %add.5 = add nsw i64 %do.norm.iv14.0, 1
   br label %do.cond22
 
 do.epilog24:                                      ; preds = %do.cond22
-  %do.norm.lb18_fetch.43 = load i64, i64* %do.norm.lb18.fpriv, align 1, !tbaa !84, !alias.scope !131, !noalias !6, !llvm.access.group !89
+  %do.norm.lb18_fetch.43 = load i64, ptr %do.norm.lb18.fpriv, align 1, !tbaa !84, !alias.scope !131, !noalias !6, !llvm.access.group !89
   br label %do.cond27
 
 do.cond27:                                        ; preds = %do.body28, %do.epilog24
@@ -221,11 +221,11 @@ do.cond27:                                        ; preds = %do.body28, %do.epil
 
 do.body28:                                        ; preds = %do.cond27
   %"(float)do.norm.iv20_fetch.46$" = sitofp i64 %do.norm.iv20.0 to float
-  %do.step17_fetch.47 = load float, float* %do.step17.fp, align 1, !tbaa !84, !alias.scope !55, !noalias !132, !llvm.access.group !89
+  %do.step17_fetch.47 = load float, ptr %do.step17.fp, align 1, !tbaa !84, !alias.scope !55, !noalias !132, !llvm.access.group !89
   %mul.5 = fmul reassoc ninf nsz arcp contract afn float %do.step17_fetch.47, %"(float)do.norm.iv20_fetch.46$"
-  %do.start15_fetch.48 = load float, float* %do.start15.fp, align 1, !tbaa !84, !alias.scope !58, !noalias !133, !llvm.access.group !89
+  %do.start15_fetch.48 = load float, ptr %do.start15.fp, align 1, !tbaa !84, !alias.scope !58, !noalias !133, !llvm.access.group !89
   %add.6 = fadd reassoc ninf nsz arcp contract afn float %mul.5, %do.start15_fetch.48
-  store float %add.6, float* %"_unnamed_main$$_$F.priv", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !89
+  store float %add.6, ptr %"_unnamed_main$$_$F.priv", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !89
   %add.7 = add nsw i64 %do.norm.iv20.0, 1
   br label %do.cond27
 
@@ -234,18 +234,18 @@ do.epilog29:                                      ; preds = %do.cond27
   br label %do.cond18
 
 do.epilog20:                                      ; preds = %do.cond18
-  %do.norm.iv_fetch.51 = load i64, i64* %do.norm.iv.priv, align 1, !tbaa !84, !alias.scope !100, !noalias !134, !llvm.access.group !89
+  %do.norm.iv_fetch.51 = load i64, ptr %do.norm.iv.priv, align 1, !tbaa !84, !alias.scope !100, !noalias !134, !llvm.access.group !89
   %add.9 = add nsw i64 %do.norm.iv_fetch.51, 1
   br label %do.cond14
 
 do.epilog16:                                      ; preds = %do.cond14
-  %omp.pdo.norm.iv_fetch.52 = load i64, i64* %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !135, !noalias !88, !llvm.access.group !89
+  %omp.pdo.norm.iv_fetch.52 = load i64, ptr %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !135, !noalias !88, !llvm.access.group !89
   %add.10 = add nsw i64 %omp.pdo.norm.iv_fetch.52, 1
-  store i64 %add.10, i64* %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !136, !noalias !137, !llvm.access.group !89
+  store i64 %add.10, ptr %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !136, !noalias !137, !llvm.access.group !89
   br label %omp.pdo.cond7
 
 DIR.OMP.PARALLEL.LOOP.1.split:                    ; preds = %DIR.OMP.PARALLEL.LOOP.3
-  %do.norm.ub.val21 = load i64, i64* %do.norm.ub.fpriv, align 8, !alias.scope !138, !noalias !103
+  %do.norm.ub.val21 = load i64, ptr %do.norm.ub.fpriv, align 8, !alias.scope !138, !noalias !103
   %1 = add nuw nsw i64 %do.norm.ub.val21, 1
   br label %DIR.OMP.SIMD.4
 
@@ -256,38 +256,38 @@ DIR.OMP.SIMD.5:                                   ; preds = %DIR.OMP.SIMD.4
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.5
-  %omp.pdo.norm.lb_fetch.4 = load i64, i64* %omp.pdo.norm.lb.fpriv, align 1, !tbaa !84, !alias.scope !139, !noalias !140
-  store i64 %omp.pdo.norm.lb_fetch.4, i64* %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !136, !noalias !137
-  %2 = load i64, i64* %omp.collapsed.lb.fpriv, align 8, !alias.scope !141, !noalias !6
+  %omp.pdo.norm.lb_fetch.4 = load i64, ptr %omp.pdo.norm.lb.fpriv, align 1, !tbaa !84, !alias.scope !139, !noalias !140
+  store i64 %omp.pdo.norm.lb_fetch.4, ptr %omp.pdo.norm.iv.priv, align 1, !tbaa !84, !alias.scope !136, !noalias !137
+  %2 = load i64, ptr %omp.collapsed.lb.fpriv, align 8, !alias.scope !141, !noalias !6
   %.not76 = icmp sgt i64 %2, %0
   br i1 %.not76, label %omp.collapsed.loop.postexit.split.loopexit, label %omp.collapsed.loop.body.lr.ph, !prof !142
 
 omp.collapsed.loop.body.lr.ph:                    ; preds = %DIR.OMP.SIMD.2
-  %my.tid = load i32, i32* %tid, align 4
-  store i64 %2, i64* %lower.bnd, align 4
-  %.norm.ub.for.scheduling = load i64, i64* %omp.collapsed.ub, align 8
-  store i64 %.norm.ub.for.scheduling, i64* %upper.bnd, align 4
-  store i64 1, i64* %stride, align 4
-  store i64 %.norm.ub.for.scheduling, i64* %upperD, align 4
-  call void @__kmpc_for_static_init_8(%struct.ident_t* @.kmpc_loc.0.0, i32 %my.tid, i32 34, i32* %is.last, i64* %lower.bnd, i64* %upper.bnd, i64* %stride, i64 1, i64 1)
-  %lb.new = load i64, i64* %lower.bnd, align 4, !range !143
-  %ub.new = load i64, i64* %upper.bnd, align 4, !range !143
+  %my.tid = load i32, ptr %tid, align 4
+  store i64 %2, ptr %lower.bnd, align 4
+  %.norm.ub.for.scheduling = load i64, ptr %omp.collapsed.ub, align 8
+  store i64 %.norm.ub.for.scheduling, ptr %upper.bnd, align 4
+  store i64 1, ptr %stride, align 4
+  store i64 %.norm.ub.for.scheduling, ptr %upperD, align 4
+  call void @__kmpc_for_static_init_8(ptr @.kmpc_loc.0.0, i32 %my.tid, i32 34, ptr %is.last, ptr %lower.bnd, ptr %upper.bnd, ptr %stride, i64 1, i64 1)
+  %lb.new = load i64, ptr %lower.bnd, align 4, !range !143
+  %ub.new = load i64, ptr %upper.bnd, align 4, !range !143
   %omp.ztt = icmp sle i64 %lb.new, %ub.new
   br i1 %omp.ztt, label %omp.collapsed.loop.body.preheader, label %loop.region.exit
 
 omp.collapsed.loop.body.preheader:                ; preds = %omp.collapsed.loop.body.lr.ph
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.PRIVATE"(float* %"_unnamed_main$$_$F.priv"), "QUAL.OMP.PRIVATE"(float* %"_unnamed_main$$_$C.priv"), "QUAL.OMP.LASTPRIVATE"(float* null), "QUAL.OMP.LASTPRIVATE"(float* null), "QUAL.OMP.LIVEIN"(float* %"_unnamed_main$$_$D"), "QUAL.OMP.LIVEIN"(float* %"_unnamed_main$$_$G.fp"), "QUAL.OMP.LIVEIN"(float* %"_unnamed_main$$_$A.fp"), "QUAL.OMP.PRIVATE"(float* %"_unnamed_main$$_$B.priv"), "QUAL.OMP.PRIVATE"(float* %"_unnamed_main$$_$E.lpriv") ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.PRIVATE"(ptr %"_unnamed_main$$_$F.priv"), "QUAL.OMP.PRIVATE"(ptr %"_unnamed_main$$_$C.priv"), "QUAL.OMP.LASTPRIVATE"(ptr null), "QUAL.OMP.LASTPRIVATE"(ptr null), "QUAL.OMP.LIVEIN"(ptr %"_unnamed_main$$_$D"), "QUAL.OMP.LIVEIN"(ptr %"_unnamed_main$$_$G.fp"), "QUAL.OMP.LIVEIN"(ptr %"_unnamed_main$$_$A.fp"), "QUAL.OMP.PRIVATE"(ptr %"_unnamed_main$$_$B.priv"), "QUAL.OMP.PRIVATE"(ptr %"_unnamed_main$$_$E.lpriv") ]
   br label %omp.collapsed.loop.body
 
 omp.collapsed.loop.body:                          ; preds = %omp.collapsed.loop.inc, %omp.collapsed.loop.body.preheader
   %omp.collapsed.iv.local.077 = phi i64 [ %6, %omp.collapsed.loop.inc ], [ %lb.new, %omp.collapsed.loop.body.preheader ]
   %4 = sdiv i64 %omp.collapsed.iv.local.077, %1
-  store i64 %4, i64* %omp.pdo.norm.lb.fpriv, align 8, !alias.scope !139, !noalias !144, !llvm.access.group !89
-  store i64 %4, i64* %omp.pdo.norm.ub.fpriv, align 8, !alias.scope !90, !noalias !145, !llvm.access.group !89
+  store i64 %4, ptr %omp.pdo.norm.lb.fpriv, align 8, !alias.scope !139, !noalias !144, !llvm.access.group !89
+  store i64 %4, ptr %omp.pdo.norm.ub.fpriv, align 8, !alias.scope !90, !noalias !145, !llvm.access.group !89
   %5 = srem i64 %omp.collapsed.iv.local.077, %1
-  store i64 %4, i64* %omp.pdo.norm.iv.priv, align 8, !alias.scope !136, !noalias !137, !llvm.access.group !89
-  store i64 %5, i64* %do.norm.lb.fpriv, align 8, !alias.scope !98, !noalias !146, !llvm.access.group !89
-  store i64 %5, i64* %do.norm.ub.fpriv, align 8, !alias.scope !147, !noalias !148, !llvm.access.group !89
+  store i64 %4, ptr %omp.pdo.norm.iv.priv, align 8, !alias.scope !136, !noalias !137, !llvm.access.group !89
+  store i64 %5, ptr %do.norm.lb.fpriv, align 8, !alias.scope !98, !noalias !146, !llvm.access.group !89
+  store i64 %5, ptr %do.norm.ub.fpriv, align 8, !alias.scope !147, !noalias !148, !llvm.access.group !89
   br label %omp.pdo.cond7
 
 omp.collapsed.loop.inc:                           ; preds = %omp.pdo.cond7
@@ -300,17 +300,17 @@ omp.collapsed.loop.cond.omp.collapsed.loop.postexit.split.loopexit_crit_edge: ; 
   br label %loop.region.exit
 
 loop.region.exit:                                 ; preds = %omp.collapsed.loop.cond.omp.collapsed.loop.postexit.split.loopexit_crit_edge, %omp.collapsed.loop.body.lr.ph
-  call void @__kmpc_for_static_fini(%struct.ident_t* @.kmpc_loc.0.0.2, i32 %my.tid)
+  call void @__kmpc_for_static_fini(ptr @.kmpc_loc.0.0.2, i32 %my.tid)
   br label %loop.region.exit.split
 
 loop.region.exit.split:                           ; preds = %loop.region.exit
-  %7 = load i32, i32* %is.last, align 4
+  %7 = load i32, ptr %is.last, align 4
   %8 = icmp ne i32 %7, 0
   br i1 %8, label %last.then, label %last.done
 
 last.then:                                        ; preds = %loop.region.exit.split
-  %9 = load float, float* %"_unnamed_main$$_$E.lpriv", align 4
-  store float %9, float* %"_unnamed_main$$_$E", align 4
+  %9 = load float, ptr %"_unnamed_main$$_$E.lpriv", align 4
+  store float %9, ptr %"_unnamed_main$$_$E", align 4
   br label %last.done
 
 last.done:                                        ; preds = %last.then, %loop.region.exit.split

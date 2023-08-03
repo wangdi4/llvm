@@ -1,11 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -vplan-vec -vplan-force-vf=2 -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>),vplan-vec' -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
 
 ; This code tests TYPED clause
 ; The test is passed if UNIFORM:TYPED clause is parsed correctly
 
-; CHECK: UNIFORM clause (size=1): ({{.*}}, TYPED (TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
+; CHECK: UNIFORM clause (size=1): (TYPED({{.*}}, TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

@@ -59,6 +59,8 @@ def color_diagnostics_eq: Joined<["--"], "color-diagnostics=">,
 def defaultlib : P<"defaultlib", "Add the library to the list of input files">;
 def delayload : P<"delayload", "Delay loaded DLL name">;
 def diasdkdir : P<"diasdkdir", "Set the location of the DIA SDK">;
+def dwodir : P<"dwodir",
+    "Directory to store .dwo files when LTO and debug fission are used">;
 def entry   : P<"entry", "Name of entry point symbol">;
 def errorlimit : P<"errorlimit",
     "Maximum number of errors to emit before stopping (0 = no limit)">;
@@ -164,6 +166,11 @@ def nodefaultlib_all : F<"nodefaultlib">,
 def noentry : F<"noentry">,
     HelpText<"Don't add reference to DllMainCRTStartup; only valid with /dll">;
 def profile : F<"profile">;
+#if INTEL_CUSTOMIZATION
+def profile_sample_generate : F<"profile-sample-generate">,
+    HelpText<"Enable generating information for Sample-based Profile Guided "
+             "Optimizations (SPGO). (experimental)">;
+#endif // INTEL_CUSTOMIZATION
 def repro : F<"Brepro">,
     HelpText<"Use a hash of the executable as the PE header timestamp">;
 def reproduce : Joined<["/", "-", "/?", "-?"], "reproduce:">,
@@ -211,6 +218,9 @@ defm highentropyva : B<"highentropyva",
 defm incremental : B<"incremental",
                      "Keep original import library if contents are unchanged",
                      "Overwrite import library even if contents are unchanged">;
+defm inferasanlibs : B<"inferasanlibs",
+                       "Unused, generates a warning",
+                       "No effect (default)">;
 defm integritycheck : B<"integritycheck",
                         "Set FORCE_INTEGRITY bit in PE header",
                         "No effect (default)">;
@@ -307,6 +317,7 @@ def lldmap_file : P_priv<"lldmap">;
 def map : F<"map">;
 def map_file : P_priv<"map">;
 def map_info : P<"mapinfo", "Include the specified information in a map file">;
+def print_search_paths : F<"print-search-paths">;
 def show_timing : F<"time">;
 def summary : F<"summary">;
 

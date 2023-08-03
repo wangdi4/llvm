@@ -2,7 +2,7 @@
 
 ; CHECK: BEGIN REGION
 
-define void @foo(i8* nocapture %p, i32 %n) "loopopt-pipeline"="full" {
+define void @foo(ptr nocapture %p, i32 %n) "loopopt-pipeline"="full" {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.preheader, label %for.cond.cleanup
@@ -20,8 +20,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %conv = trunc i64 %indvars.iv to i8
-  %arrayidx = getelementptr inbounds i8, i8* %p, i64 %indvars.iv
-  store i8 %conv, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %p, i64 %indvars.iv
+  store i8 %conv, ptr %arrayidx, align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

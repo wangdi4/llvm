@@ -12,8 +12,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define i64 @foo(i64 %i) #0 {
 entry:
   %i.addr = alloca i64, align 4
-  store i64 %i, i64* %i.addr, align 4
-  %0 = load i64, i64* %i.addr, align 4
+  store i64 %i, ptr %i.addr, align 4
+  %0 = load i64, ptr %i.addr, align 4
   %add = add nsw i64 %0, 3
   ret i64 %add
 }
@@ -29,21 +29,19 @@ entry:
 vector.body:                                      ; preds = %vector.body, %entry
   %lsr.iv = phi i64 [ %lsr.iv.next, %vector.body ], [ 0, %entry ]
   %vec.ind = phi <2 x i64> [ <i64 0, i64 1>, %entry ], [ %vec.ind.next, %vector.body ]
-  %0 = bitcast <2 x i64>* %vec.retval to i8*
-  %1 = add <2 x i64> %broadcast.splat, %vec.ind
-  %2 = add nsw <2 x i64> %1, <i64 3, i64 3>
-  %3 = shl i64 %lsr.iv, 2
-  %uglygep = getelementptr i8, i8* %0, i64 %3
-  %uglygep3 = bitcast i8* %uglygep to <2 x i64>*
-  store <2 x i64> %2, <2 x i64>* %uglygep3, align 16
+  %0 = add <2 x i64> %broadcast.splat, %vec.ind
+  %1 = add nsw <2 x i64> %0, <i64 3, i64 3>
+  %2 = shl i64 %lsr.iv, 2
+  %uglygep = getelementptr i8, ptr %vec.retval, i64 %2
+  store <2 x i64> %1, ptr %uglygep, align 16
   %vec.ind.next = add <2 x i64> %vec.ind, <i64 4, i64 4>
   %lsr.iv.next = add nuw nsw i64 %lsr.iv, 2
   %tmp = trunc i64 %lsr.iv.next to i32
-  %4 = icmp eq i32 %tmp, 2
-  br i1 %4, label %return, label %vector.body
+  %3 = icmp eq i32 %tmp, 2
+  br i1 %3, label %return, label %vector.body
 
 return:                                           ; preds = %vector.body
-  %vec.ret = load <2 x i64>, <2 x i64>* %vec.retval, align 16
+  %vec.ret = load <2 x i64>, ptr %vec.retval, align 16
   ret <2 x i64> %vec.ret
 }
 
@@ -51,8 +49,7 @@ return:                                           ; preds = %vector.body
 define i32 @main() local_unnamed_addr #1 {
 entry:
   %a = alloca [1000 x i64], align 16
-  %0 = bitcast [1000 x i64]* %a to i8*
-  call void @llvm.lifetime.start(i64 4000, i8* nonnull %0) #5
+  call void @llvm.lifetime.start(i64 4000, ptr nonnull %a) #5
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
@@ -62,8 +59,8 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %call = tail call i64 @foo(i64 %indvars.iv)
-  %arrayidx = getelementptr inbounds [1000 x i64], [1000 x i64]* %a, i64 0, i64 %indvars.iv
-  store i64 %call, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i64], ptr %a, i64 0, i64 %indvars.iv
+  store i64 %call, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -73,18 +70,17 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
-  %arrayidx2 = getelementptr inbounds [1000 x i64], [1000 x i64]* %a, i64 0, i64 0
-  %1 = load i64, i64* %arrayidx2, align 16
-  %call3 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i64 %1)
-  call void @llvm.lifetime.end(i64 4000, i8* nonnull %0) #5
+  %0 = load i64, ptr %a, align 16
+  %call3 = tail call i32 (ptr, ...) @printf(ptr @.str, i64 %0)
+  call void @llvm.lifetime.end(i64 4000, ptr nonnull %a) #5
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #2
+declare void @llvm.lifetime.start(i64, ptr nocapture) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #2
+declare void @llvm.lifetime.end(i64, ptr nocapture) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -92,7 +88,7 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-declare i32 @printf(i8*, ...) #4
+declare i32 @printf(ptr, ...) #4
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbN2l_foo" }
 attributes #1 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

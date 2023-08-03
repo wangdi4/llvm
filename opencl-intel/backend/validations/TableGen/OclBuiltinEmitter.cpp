@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -941,6 +941,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R) {
     // Prolog & Epilog
     {
       m_Prolog = std::string(Rec->getValueAsString("Prolog"));
+      m_EpilogInit = std::string(Rec->getValueAsString("EpilogInit"));
       m_Epilog = std::string(Rec->getValueAsString("Epilog"));
     }
   }

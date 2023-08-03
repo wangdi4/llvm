@@ -13,7 +13,7 @@
 ;  }
 ;}
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-num-memory-streams-threshold=2 -hir-prefetching-skip-AVX2-check=true 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-num-memory-streams-threshold=2 -hir-prefetching-skip-AVX2-check=true 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;Function: foo
@@ -34,7 +34,7 @@
 ; CHECK:           |   %rem = i1  %u  5;
 ; CHECK:           |   (@A)[0][%rem] = i1;
 ; CHECK:           |   (@B)[0][i1] = i1;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 60]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@B)[0][i1 + 60]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
@@ -56,10 +56,10 @@ for.body:                                         ; preds = %for.body, %entry
   %0 = trunc i64 %indvars.iv to i32
   %rem = urem i32 %0, 5
   %idxprom = zext i32 %rem to i64
-  %arrayidx = getelementptr inbounds [1000000 x i32], [1000000 x i32]* @A, i64 0, i64 %idxprom, !intel-tbaa !2
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [1000000 x i32], [1000000 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %0, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000000 x i32], ptr @A, i64 0, i64 %idxprom, !intel-tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1000000 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %0, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100000
   br i1 %exitcond, label %for.end, label %for.body

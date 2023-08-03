@@ -1,8 +1,10 @@
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -fsycl-device-code-split=per_kernel %s -o %t.out
+// RUN: %{build} -fsycl-device-code-split=per_kernel -o %t.out
+
 // REQUIRES: gpu
-// UNSUPPORTED: hip
+
 // GroupNonUniformBallot capability is supported on Intel GPU only
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{run} %t.out
+
 // UNSUPPORTED: ze_debug
 
 //==- GroupSize.cpp - sub-group mask dependency on group size --*- C++ -*---==//

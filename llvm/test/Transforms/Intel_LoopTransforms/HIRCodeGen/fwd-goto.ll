@@ -4,33 +4,33 @@
 
 ;Inside the conditional for b == 47 we have a goto alter bblock
 ;          BEGIN REGION { }
-; + DO i1 = 0, 63, 1   <DO_LOOP>
-; |   %b.addr.015.out = %b.addr.015;
-; |   %out.016 = %out.016  +  1;
-; |   if (%b.addr.015 == i1)
-; |   {
-; |      %b.addr.015 = %b.addr.015  +  -1;
-; |   }
-; |   else
-; |   {
-; |      if (%b.addr.015.out == 47)
-; |      {
-; |         %b.addr.015 = 47;
-; |         goto alter;
-; |      }
-; |      %1 = (%a)[i1];
-; |      %out.016 = %1;
-; |   }
-; |   %out.016 = %out.016  +  1;
-; |   alter:
-; |   %out.016 = %out.016  +  -1;
-; |   %out.016.out = %out.016;
-; + END LOOP
-; + END LOOP
+;                + DO i1 = 0, 63, 1   <DO_LOOP>
+;                |   %b.addr.015.out = %b.addr.015;
+;                |   if (%b.addr.015 == i1)
+;                |   {
+;                |      %b.addr.015 = %b.addr.015  +  -1;
+;                |      %out.1 = %out.016 + 1;
+;                |   }
+;                |   else
+;                |   {
+;                |      if (%b.addr.015.out == 47)
+;                |      {
+;                |         %b.addr.015 = 47;
+;                |         %out.2 = %out.016 + 1;
+;                |         goto alter;
+;                |      }
+;                |      %1 = (%a)[i1];
+;                |      %out.1 = %1;
+;                |   }
+;                |   %out.2 = %out.1 + 1;
+;                |   alter:
+;                |   %dec = %out.2  +  -1;
+;                |   %out.016 = %out.2 + -1;
+;                + END LOOP
 ;          END REGION
 
 ;CHECK: region.0:
-;Look for <25>, comparision against 47
+;Look for ; , comparision against 47
 ;CHECK: icmp eq i32 {{.*}} 47
 ;Goto is in true block
 ;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label
@@ -38,10 +38,10 @@
 ;Block contains only a jump to hir version of alter bblock
 ; CHECK: [[T_BLOCK]]:
 ; CHECK-NEXT: store i32 47
-; CHECK-NEXT: br label %hir.L.{{[0-9]+}}
+; CHECK: br label %hir.L.{{[0-9]+}}
 
 ;Alter bblock will contain decrement of out
-;CHECK: add{{.*}}, -1
+;CHECK: add nsw {{.*}}, -1
 ; and IV update+loop br
 ;CHECK: br i1 %condloop
 ; ModuleID = 'loop_cont.c'
@@ -49,7 +49,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %a, i32 %b) #0 {
+define i32 @foo(ptr nocapture readonly %a, i32 %b) #0 {
 entry:
   br label %for.body
 
@@ -75,8 +75,8 @@ if.else:                                          ; preds = %for.body
   br i1 %cmp2, label %alter, label %if.end.4
 
 if.end.4:                                         ; preds = %if.else
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   br label %skip
 
 skip:                                             ; preds = %if.end.4, %if.then

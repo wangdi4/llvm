@@ -16,7 +16,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test(i64 *%q) {
+define void @test(ptr %q) {
 ; CHECK-LABEL:  Function: test
 ; CHECK:              + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:         |   %.vec = (<4 x i64>*)(%q)[i1];
@@ -37,14 +37,14 @@ header:
 
   %cmp = icmp eq i64 %iv, 42
 
-  %p = getelementptr i64, i64 *%q, i64 %iv
-  %ld = load i64, i64 *%p
+  %p = getelementptr i64, ptr %q, i64 %iv
+  %ld = load i64, ptr %p
 
   %ld.cast = bitcast i64 %ld to <2 x i32>
   %sel = select i1 %cmp, <2 x i32> %ld.cast, <2 x i32><i32 7, i32 9>
   %sel.cast = bitcast <2 x i32> %sel to i64
 
-  store i64 %sel.cast, i64 *%p
+  store i64 %sel.cast, ptr %p
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128

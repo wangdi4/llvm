@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -182,24 +182,21 @@ static std::string getRefFunction(const llvm::OclBuiltin *bi,
 // MangledNameEmmiter: emits an entry in the mangled names array
 //
 struct MangledNameEmmiter {
-  MangledNameEmmiter(CodeFormatter &s) : m_formatter(s) {
-    m_formatter.indent();
-    m_formatter.endl();
-  }
+  MangledNameEmmiter(CodeFormatter &s) : m_formatter(s) {}
+
+  virtual ~MangledNameEmmiter() {}
 
   typedef std::pair<const OclBuiltin *, std::string> TypedBi;
   typedef std::list<TypedBi> TypedBiList;
   typedef TypedBiList::const_iterator TypedBiIter;
 
-  virtual ~MangledNameEmmiter() {
+  void generateModule() {
     std::string err;
     llvm::SmallString<128> fileName;
     llvm::sys::fs::createUniqueFile("builtins-%%%%%%%.ll", fileName);
     llvm::SMDiagnostic errDiagnostic;
-    llvm::LLVMContext context;
     std::list<const OclBuiltin *>::const_iterator biit = m_builtins.begin(),
                                                   bie = m_builtins.end();
-    TypedBiList typedbiList;
     for (; biit != bie; ++biit) {
       OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
       for (typeIter = (*biit)->type_begin(); typeIter != typeEnd; ++typeIter) {
@@ -215,28 +212,32 @@ struct MangledNameEmmiter {
     for (typeit = typedbiList.begin(); typeit != typee; ++typeit)
       code += generateBuiltinOverload(typeit->first, typeit->second);
     build(code, std::string(fileName));
-    std::unique_ptr<llvm::Module> pModule =
-        llvm::parseIRFile(fileName.str(), errDiagnostic, context);
-    if (!pModule) {
+    module =
+        std::move(llvm::parseIRFile(fileName.str(), errDiagnostic, context));
+    if (!module) {
       llvm::errs() << "Failed to parse " << fileName << ": "
                    << errDiagnostic.getMessage() << "\n";
       exit(1);
     }
     // deleting the temporary output file
     remove(fileName.c_str());
-    llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
-    assert(pModule && "null llvm module");
-    // assert(it != e && "module contains no functions!" );
+  }
 
-    typeit = typedbiList.begin();
-    assert(pModule->size() == typedbiList.size() &&
+  void emitFunctionDecl() {
+    auto it = module->begin(), e = module->end();
+    assert(module && "null llvm module");
+
+    auto typeit = typedbiList.begin();
+    auto typee = typedbiList.end();
+    assert(module->size() == typedbiList.size() &&
            "number of builded functions does not match builtin list");
     int biCounter = 0;
+    m_formatter.indent();
     while (it != e && typeit != typee) {
-      m_formatter << "BUILTINS_API llvm::GenericValue lle_X_"
+      m_formatter << "BUILTINS_API GenericValue lle_X_"
                   << deleteSuffix(std::string(it->getName()))
-                  << "( llvm::FunctionType *FT, "
-                     "llvm::ArrayRef<llvm::GenericValue> Args) { return "
+                  << "(FunctionType *FT, "
+                     "ArrayRef<llvm::GenericValue> Args) { return "
                   << getRefFunction(typeit->first, typeit->second)
                   << "(FT,Args);}//" << biCounter++;
       m_formatter.endl();
@@ -245,6 +246,17 @@ struct MangledNameEmmiter {
     }
     m_formatter.unindent();
     m_formatter.endl();
+  }
+
+  void emitAddSymolName() {
+    m_formatter.indent();
+    for (Function &f : *module) {
+      StringRef funcName = f.getName();
+      m_formatter << "sys::DynamicLibrary::AddSymbol(\"lle_X_" << funcName
+                  << "\", (void *)(intptr_t)lle_X_" << funcName << ");";
+      m_formatter.endl();
+    }
+    m_formatter.unindent();
   }
 
   virtual void
@@ -313,106 +325,24 @@ protected:
 
   // stream to which code should be generated
   CodeFormatter &m_formatter;
+
+  // a list of OclBuiltin/type pairs.
+  TypedBiList typedbiList;
+
+  llvm::LLVMContext context;
+
+  // llvm module built from list of OclBuiltin.
+  std::unique_ptr<llvm::Module> module;
 };
-
-static std::string ConvertCRLF2LF(const std::string &text) {
-  std::string ret;
-
-  size_t cpos = 0, npos;
-  do {
-    npos = text.find("\r\n", cpos);
-
-    if (npos != std::string::npos) {
-      ret += text.substr(cpos, npos - cpos);
-      ret += "\n"; // replace with LF
-      npos += 2;   // skip CRLF
-    } else
-      ret += text.substr(cpos);
-
-    if (std::string::npos == npos)
-      npos = text.size();
-    cpos = npos;
-  } while (cpos < text.size());
-
-  return ret;
-}
-
-static std::string RemoveCommonLeadingSpaces(const std::string &t) {
-  std::string text = ConvertCRLF2LF(t);
-
-  // How the common leading space is calculated:
-  // - if a line has only space and ends with a new line, it's not considered
-  //   during leading space calculation.
-  // - otherwise, its leading space is counted as the consecutive spaces (only
-  //   ' ') from the beginning and the common leading space is the minimal one.
-
-  size_t common_leading_spaces = 0;
-  int lines_with_leading_spaces = 0;
-  size_t cpos = 0, npos;
-  do {
-    npos = text.find("\n", cpos);
-
-    size_t newline = 1;
-    if (std::string::npos == npos) {
-      npos = text.size();
-      newline = 0;
-    }
-
-    size_t lws = 0;
-    while (cpos < npos && ' ' == text[cpos]) {
-      ++lws;
-      ++cpos;
-    }
-
-    if (cpos < npos || !newline) {
-      // Only consider line with non-space characters.
-      if (lines_with_leading_spaces)
-        common_leading_spaces = std::min(common_leading_spaces, lws);
-      else
-        common_leading_spaces = lws;
-      lines_with_leading_spaces++;
-    }
-
-    cpos = npos + newline; // Try next line.
-  } while (cpos < text.size());
-
-  // Only eligible line is found or the common leading space is 0.
-  if (0 == common_leading_spaces)
-    return text;
-
-  std::string ret;
-  cpos = 0;
-  do {
-    npos = text.find("\n", cpos);
-
-    size_t newline = 1;
-    if (std::string::npos == npos) {
-      npos = text.size();
-      newline = 0;
-    }
-
-    if ((npos - cpos) > common_leading_spaces)
-      ret += text.substr(cpos + common_leading_spaces,
-                         npos - cpos - common_leading_spaces);
-
-    if (newline)
-      ret += "\n";
-
-    cpos = npos + newline;
-  } while (cpos < text.size());
-
-  return ret;
-}
 
 void OclBuiltinsHeaderGen::run(raw_ostream &stream) {
   OclBuiltinDB bidb(m_recordKeeper);
   emitSourceFileHeader("Reference OpenCL Builtins", stream);
   CodeFormatter formatter(stream);
 
-  formatter << RemoveCommonLeadingSpaces(bidb.getProlog());
+  formatter << StringRef(bidb.getProlog()).trim();
   formatter.endl();
 
-  {
     MangledNameEmmiter mangleEmmiter(formatter);
     OclBuiltinDB::const_proto_iterator i = bidb.proto_begin(),
                                        e = bidb.proto_end();
@@ -420,10 +350,18 @@ void OclBuiltinsHeaderGen::run(raw_ostream &stream) {
       mangleEmmiter(*i);
       ++i;
     }
-  }
 
-  formatter << RemoveCommonLeadingSpaces(bidb.getEpilog());
-  formatter.endl();
+    mangleEmmiter.generateModule();
+    mangleEmmiter.emitFunctionDecl();
+
+    formatter.indent();
+    formatter << StringRef(bidb.getEpilogInit()).trim();
+    formatter.endl();
+
+    mangleEmmiter.emitAddSymolName();
+
+    formatter << StringRef(bidb.getEpilog()).trim();
+    formatter.unindent();
 }
 
 } // namespace llvm

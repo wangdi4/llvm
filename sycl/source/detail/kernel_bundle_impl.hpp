@@ -25,7 +25,7 @@
 #include <vector>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 static bool checkAllDevicesAreInContext(const std::vector<device> &Devices,
@@ -365,14 +365,16 @@ public:
     const std::shared_ptr<detail::device_image_impl> &DeviceImageImpl =
         detail::getSyclObjImpl(*It);
 
-    RT::PiKernel Kernel = nullptr;
-    std::tie(Kernel, std::ignore) =
+    sycl::detail::pi::PiKernel Kernel = nullptr;
+    const KernelArgMask *ArgMask = nullptr;
+    std::tie(Kernel, std::ignore, ArgMask) =
         detail::ProgramManager::getInstance().getOrCreateKernel(
             MContext, KernelID.get_name(), /*PropList=*/{},
             DeviceImageImpl->get_program_ref());
 
-    std::shared_ptr<kernel_impl> KernelImpl = std::make_shared<kernel_impl>(
-        Kernel, detail::getSyclObjImpl(MContext), DeviceImageImpl, Self);
+    std::shared_ptr<kernel_impl> KernelImpl =
+        std::make_shared<kernel_impl>(Kernel, detail::getSyclObjImpl(MContext),
+                                      DeviceImageImpl, Self, ArgMask);
 
     return detail::createSyclObjFromImpl<kernel>(KernelImpl);
   }
@@ -519,5 +521,5 @@ private:
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

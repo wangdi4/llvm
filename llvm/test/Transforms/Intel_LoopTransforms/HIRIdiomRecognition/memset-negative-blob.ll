@@ -1,6 +1,6 @@
 ; HIR Idiom Rec: memset with negative IV where UB can be represented as a blob only.
 
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-idiom,print<hir>,hir-cg" -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-idiom,print<hir>,hir-cg" -disable-output 2>&1 < %s | FileCheck %s
 
 ; HIR:
 ;       BEGIN REGION { }
@@ -10,7 +10,7 @@
 ;       END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: llvm.memset.p0i8.i32(&((i8*)(%p)[-1 * (%n /u 3)]),  85,  2 * ((3 + %n) /u 3),  0)
+; CHECK: llvm.memset.p0.i32(&((i8*)(%p)[-1 * (%n /u 3)]),  85,  2 * ((3 + %n) /u 3),  0)
 
 ; ModuleID = 'memset-negative-blob.bc'
 source_filename = "memset-negative-blob.c"
@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i16* %p, i32 %n) #0 {
+define void @foo(ptr %p, i32 %n) #0 {
 entry:
   %div = udiv i32 %n, 3
   %add = add i32 %div, 1
@@ -28,8 +28,8 @@ for.body:                                         ; preds = %entry, %for.inc
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %sub = sub nsw i32 0, %i.01
   %idxprom = sext i32 %sub to i64
-  %arrayidx = getelementptr inbounds i16, i16* %p, i64 %idxprom
-  store i16 21845, i16* %arrayidx, align 2
+  %arrayidx = getelementptr inbounds i16, ptr %p, i64 %idxprom
+  store i16 21845, ptr %arrayidx, align 2
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

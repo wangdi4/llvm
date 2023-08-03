@@ -104,9 +104,9 @@ public:
   }
 };
 
-/// A type for keeping track of merged sets of loads/stores that should be
-/// hoisted/sunk from both branches of an if.
-class HoistSinkSet {
+/// A type for keeping track of merged sets of loads or stores that should be
+/// hoisted or sunk from both branches of an if.
+class HoistOrSinkSet {
 
   /// Refs from the then side of the if that should be hoisted/sunk. These
   /// should all be equivalent and in control flow order (/reverse control flow
@@ -129,26 +129,26 @@ class HoistSinkSet {
 
 public:
   /// A default constructor creating an empty set.
-  HoistSinkSet() = default;
+  HoistOrSinkSet() = default;
 
   /// A constructor for creating a set containing only \p InitialRef, the first
   /// ref on the then side.
-  HoistSinkSet(RegDDRef *InitialRef, bool IsThen)
+  HoistOrSinkSet(RegDDRef *InitialRef, bool IsThen)
       : ThenRefs{InitialRef}, HasUnconditionalRefsThenBranch(IsThen),
         HasUnconditionalRefsElseBranch(!IsThen) {}
 
   /// Constructor that will copy the refs from SrcSet, which represents a new
   /// ref found in an inner If, into the Then or Else refs vector depending
   /// on the IsThen parameter.
-  HoistSinkSet(HoistSinkSet &SrcSet, bool IsThen) {
+  HoistOrSinkSet(HoistOrSinkSet &SrcSet, bool IsThen) {
     CommonTemp = SrcSet.CommonTemp;
     appendDataFromSet(SrcSet, IsThen);
   }
 
-  /// Prints a HoistSinkSet.
+  /// Prints a HoistOrSinkSet.
   void print(formatted_raw_ostream &) const;
 
-  /// Dumps a HoistSinkSet.
+  /// Dumps a HoistOrSinkSet.
   void dump() const { print(fdbgs()); }
 
   /// Return true if the current set is unconditional.
@@ -185,12 +185,12 @@ public:
   /// Checks whether \p HoistSet (a set of loads to hoist) and \p SinkSet (a set
   /// of stores to sink) should use a common temp. If so, this sets \ref
   /// CommonTemp for both sets and returns true.
-  static bool checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
-                                       HoistSinkSet &SinkSet);
+  static bool checkAndAssignCommonTemp(HoistOrSinkSet &HoistSet,
+                                       HoistOrSinkSet &SinkSet);
 
   /// Hoists/sinks loads/stores from \p If.
   ///
-  /// This HoistSinkSet is required to be non-empty.
+  /// This HoistOrSinkSet is required to be non-empty.
   void hoistOrSinkFrom(HLIf *If);
 
   /// Copy all the Refs in the Then and Else branches from the input Set into
@@ -198,7 +198,7 @@ public:
   /// collects the result of analyzing an inner If and copies it into the
   /// branch needed for the outer if. Return true if the merge was possible,
   /// else return false.
-  bool mergeInformationFromInnerSet(HoistSinkSet &Set, bool IsThen);
+  bool mergeInformationFromInnerSet(HoistOrSinkSet &Set, bool IsThen);
 
   /// Return the first memref stored in the ThenRefs or ElseRefs.
   RegDDRef *getFirstMemRef() const {
@@ -207,16 +207,18 @@ public:
     return ThenRefs.front();
   }
 
+  unsigned getNumMemRefs() const { return ThenRefs.size() + ElseRefs.size(); }
+
 private:
   /// Return true if the refs in the input Set access the same memory space
   /// as the current set
-  bool hasEquivalentAccess(HoistSinkSet &Set);
+  bool hasEquivalentAccess(HoistOrSinkSet &Set);
 
   /// Append into the ThenRefs or ElseRefs the ThenRefs and ElseRefs of SrcSet,
   /// depending on the value of IsThen,. The value of
   /// HasUnconditionalRefsThenBranch or HasUnconditionalRefsElseBranch will be
   /// updated if SrcSet is unconditional.
-  void appendDataFromSet(HoistSinkSet &SrcSet, bool IsThen) {
+  void appendDataFromSet(HoistOrSinkSet &SrcSet, bool IsThen) {
     auto &DestVect = IsThen ? ThenRefs : ElseRefs;
     DestVect.append(SrcSet.ThenRefs);
     DestVect.append(SrcSet.ElseRefs);
@@ -236,7 +238,7 @@ class HoistSinkSetBuilder : public HLNodeVisitorBase {
 private:
   /// SmallVector that contains all the refs that will be hoisted or sinked for
   /// a particular If
-  typedef SmallVector<HoistSinkSet, 8> HoistSinkRefsVector;
+  typedef SmallVector<HoistOrSinkSet, 8> HoistSinkRefsVector;
 
   /// Pair all the load with all the store for particular one If
   struct HoistRefsAndSinkRefsVec {
@@ -254,7 +256,7 @@ private:
         return;
 
       std::sort(Stores.begin(), Stores.end(),
-                [](HoistSinkSet &LHS, HoistSinkSet &RHS) {
+                [](HoistOrSinkSet &LHS, HoistOrSinkSet &RHS) {
                   auto *LHSRef = LHS.getFirstMemRef();
                   auto *RHSRef = RHS.getFirstMemRef();
                   return DDRefUtils::compareMemRefAddress(LHSRef, RHSRef);
@@ -321,7 +323,7 @@ public:
 
       // Add it to the appropriate load/store set if it is equivalent.
       bool Unique = true;
-      for (HoistSinkSet &LoadStoreSet : LoadStoreSets) {
+      for (HoistOrSinkSet &LoadStoreSet : LoadStoreSets) {
         if (LoadStoreSet.addRefIfEquivalent(Ref, IsThen)) {
           Unique = false;
           break;
@@ -417,14 +419,14 @@ private:
 
   /// Update the destination sets with the references collected in the source
   /// set.
-  void updateHoistSinkSetsRefs(HoistSinkSet &SrcSet,
-                               SmallVectorImpl<HoistSinkSet> &DstSets,
+  void updateHoistSinkSetsRefs(HoistOrSinkSet &SrcSet,
+                               SmallVectorImpl<HoistOrSinkSet> &DstSets,
                                bool IsThen);
 
   /// Removes the conditional sets from \p Sets.
-  void removeConditionalSets(SmallVectorImpl<HoistSinkSet> &Sets) {
+  void removeConditionalSets(SmallVectorImpl<HoistOrSinkSet> &Sets) {
     Sets.erase(remove_if(Sets,
-                         [](const HoistSinkSet &Set) {
+                         [](const HoistOrSinkSet &Set) {
                            bool RemoveSet = !Set.isUnconditional();
                            LLVM_DEBUG({
                              if (RemoveSet) {
@@ -465,7 +467,7 @@ static void printWithNodeNumbers(const SmallVectorImpl<RegDDRef *> &Refs,
   }
 }
 
-void HoistSinkSet::print(formatted_raw_ostream &Out) const {
+void HoistOrSinkSet::print(formatted_raw_ostream &Out) const {
   Out << "(";
   printWithNodeNumbers(ThenRefs, Out);
   Out << " | ";
@@ -473,7 +475,7 @@ void HoistSinkSet::print(formatted_raw_ostream &Out) const {
   Out << ")";
 }
 
-void HoistSinkSet::reverse() {
+void HoistOrSinkSet::reverse() {
   std::reverse(std::begin(ThenRefs), std::end(ThenRefs));
   std::reverse(std::begin(ElseRefs), std::end(ElseRefs));
 }
@@ -489,7 +491,7 @@ static bool areEquivalentAccesses(const RegDDRef *A, const RegDDRef *B) {
          CastInst::isBitCastable(A->getDestType(), B->getDestType());
 }
 
-bool HoistSinkSet::hasEquivalentAccess(HoistSinkSet &Set) {
+bool HoistOrSinkSet::hasEquivalentAccess(HoistOrSinkSet &Set) {
   // We only compare with the Then branch because the Else branch will be
   // collected only if there are refs in the Then branch.
   if (ThenRefs.empty() || Set.ThenRefs.empty())
@@ -498,8 +500,8 @@ bool HoistSinkSet::hasEquivalentAccess(HoistSinkSet &Set) {
   return areEquivalentAccesses(ThenRefs.front(), Set.ThenRefs.front());
 }
 
-bool HoistSinkSet::mergeInformationFromInnerSet(HoistSinkSet &Set,
-                                                bool IsThen) {
+bool HoistOrSinkSet::mergeInformationFromInnerSet(HoistOrSinkSet &Set,
+                                                  bool IsThen) {
 
   if (!hasEquivalentAccess(Set))
     return false;
@@ -508,7 +510,7 @@ bool HoistSinkSet::mergeInformationFromInnerSet(HoistSinkSet &Set,
   return true;
 }
 
-bool HoistSinkSet::addRefIfEquivalent(RegDDRef *NewRef, bool IsThen) {
+bool HoistOrSinkSet::addRefIfEquivalent(RegDDRef *NewRef, bool IsThen) {
   assert(!ThenRefs.empty() &&
          "No existing refs; construct a new set for this ref instead!");
   assert(NewRef->isLval() == ThenRefs.front()->isLval());
@@ -529,7 +531,7 @@ bool HoistSinkSet::addRefIfEquivalent(RegDDRef *NewRef, bool IsThen) {
   return true;
 }
 
-/// Find the HoistSinkSet in DstSets that have the same memory reference as
+/// Find the HoistOrSinkSet in DstSets that have the same memory reference as
 /// SrcSet, and copy the Refs from SrcSet into the set found. Else, if
 /// destination set not found and IsThen is true, insert SrcSet into DstSets.
 /// Basically, we are copying the memory refs found by analyzing a conditional
@@ -554,8 +556,9 @@ bool HoistSinkSet::addRefIfEquivalent(RegDDRef *NewRef, bool IsThen) {
 /// a reference to ref1. This means that we can add ref1 from the inner If as
 /// part of the Else branch for the outer If.
 void HoistSinkSetBuilder::updateHoistSinkSetsRefs(
-    HoistSinkSet &SrcSet, SmallVectorImpl<HoistSinkSet> &DstSets, bool IsThen) {
-  // Find the HoistSinkSet in DstSets that the refs could be merged
+    HoistOrSinkSet &SrcSet, SmallVectorImpl<HoistOrSinkSet> &DstSets,
+    bool IsThen) {
+  // Find the HoistOrSinkSet in DstSets that the refs could be merged
   for (auto &DstSet : DstSets) {
     if (DstSet.mergeInformationFromInnerSet(SrcSet, IsThen))
       return;
@@ -618,7 +621,7 @@ static const HLIf *getCommonParentIf(const DDEdge *Edge) {
 /// Determines whether \p Edge should prevent \p Ref from \p RefSet from being
 /// hoisted/sunk from \p If according to \p DDG.
 static bool edgeBlocksMotion(const DDEdge *Edge, const RegDDRef *Ref,
-                             const HoistSinkSet &RefSet, const DDGraph &DDG) {
+                             const HoistOrSinkSet &RefSet, const DDGraph &DDG) {
 
   // This function will check what is the relationship between the input edge
   // and the input ref with respect to the lowest common parent if.
@@ -673,7 +676,7 @@ static bool edgeBlocksMotion(const DDEdge *Edge, const RegDDRef *Ref,
 /// \p RefSet out of \p If according to \p DDG using \p Out.
 static void printEdgeTests(formatted_raw_ostream &Out,
                            const SmallVectorImpl<RegDDRef *> &Refs,
-                           const HoistSinkSet &RefSet, const DDGraph &DDG) {
+                           const HoistOrSinkSet &RefSet, const DDGraph &DDG) {
   for (const RegDDRef *const Ref : Refs) {
     const bool Incoming = Ref->isRval();
     if (Incoming)
@@ -696,8 +699,8 @@ static void printEdgeTests(formatted_raw_ostream &Out,
   }
 }
 
-void HoistSinkSet::printEdgeTests(formatted_raw_ostream &Out,
-                                  const DDGraph &DDG) const {
+void HoistOrSinkSet::printEdgeTests(formatted_raw_ostream &Out,
+                                    const DDGraph &DDG) const {
   ::printEdgeTests(Out, ThenRefs, *this, DDG);
   ::printEdgeTests(Out, ElseRefs, *this, DDG);
 }
@@ -706,7 +709,7 @@ void HoistSinkSet::printEdgeTests(formatted_raw_ostream &Out,
 
 /// Determines whether \p Ref can be hoisted/sunk from \p If according to \p
 /// DDG.
-static bool canHoistOrSink(const RegDDRef *Ref, const HoistSinkSet &RefSet,
+static bool canHoistOrSink(const RegDDRef *Ref, const HoistOrSinkSet &RefSet,
                            const DDGraph &DDG) {
 
   const bool Incoming = Ref->isRval();
@@ -725,7 +728,7 @@ static bool canHoistOrSink(const RegDDRef *Ref, const HoistSinkSet &RefSet,
 // return false. This is used for checking nested Ifs. We can hoist or sink
 // a reference if all the inner references can be hoisted or sinked.
 static bool allRefsCanBeHoistedSinked(SmallVectorImpl<RegDDRef *> &Refs,
-                                      HoistSinkSet &RefSet,
+                                      HoistOrSinkSet &RefSet,
                                       const DDGraph &DDG) {
   for (auto *Ref : Refs) {
     if (!canHoistOrSink(Ref, RefSet, DDG))
@@ -734,7 +737,7 @@ static bool allRefsCanBeHoistedSinked(SmallVectorImpl<RegDDRef *> &Refs,
   return true;
 }
 
-bool HoistSinkSet::isLegallyHoistableOrSinkable(const DDGraph &DDG) {
+bool HoistOrSinkSet::isLegallyHoistableOrSinkable(const DDGraph &DDG) {
   // If all the refs can't be hoisted or sinked, then the set will be
   // considered as conditional
   if (!allRefsCanBeHoistedSinked(ThenRefs, *this, DDG) ||
@@ -744,8 +747,8 @@ bool HoistSinkSet::isLegallyHoistableOrSinkable(const DDGraph &DDG) {
   return true;
 }
 
-bool HoistSinkSet::checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
-                                            HoistSinkSet &SinkSet) {
+bool HoistOrSinkSet::checkAndAssignCommonTemp(HoistOrSinkSet &HoistSet,
+                                              HoistOrSinkSet &SinkSet) {
   assert(HoistSet.isUnconditional());
   const RegDDRef *const HoistRef = HoistSet.ThenRefs.front();
   assert(HoistRef->isRval());
@@ -838,7 +841,7 @@ static RegDDRef *insertBitcastIfNeeded(RegDDRef *Ref, Type *HSType) {
   }
 }
 
-void HoistSinkSet::hoistOrSinkFrom(HLIf *If) {
+void HoistOrSinkSet::hoistOrSinkFrom(HLIf *If) {
   assert(isUnconditional());
   const bool IsHoist = ThenRefs.front()->isRval();
   HLNodeUtils &HNU   = If->getHLNodeUtils();
@@ -898,10 +901,10 @@ void HoistSinkSet::hoistOrSinkFrom(HLIf *If) {
   }
 }
 
-static void removeIllegalSets(SmallVectorImpl<HoistSinkSet> &Sets,
+static void removeIllegalSets(SmallVectorImpl<HoistOrSinkSet> &Sets,
                               const DDGraph &DDG) {
   Sets.erase(remove_if(Sets,
-                       [DDG](HoistSinkSet &Set) {
+                       [DDG](HoistOrSinkSet &Set) {
                          bool RemoveSet =
                              !Set.isLegallyHoistableOrSinkable(DDG);
                          LLVM_DEBUG({
@@ -916,13 +919,45 @@ static void removeIllegalSets(SmallVectorImpl<HoistSinkSet> &Sets,
              std::end(Sets));
 }
 
+// Add the optimization report remarks if the transformation will be applied
+// to the input HoistSinkSets. RemarkID used:
+//
+//   25589u = remark for load hoisted
+//   25590u = remark for store sunk
+static void addOptReportRemark(HLIf *If, HLLoop *ParentLoop,
+                               SmallVectorImpl<HoistOrSinkSet> &HoistSinkSets,
+                               OptRemarkID RemarkID) {
+
+  if (HoistSinkSets.empty())
+    return;
+
+  OptReportBuilder &ORBuilder =
+      If->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+  if (!ORBuilder.isOptReportOn())
+    return;
+
+  unsigned NumLoadsOrStores = 0;
+  for (auto &Set : HoistSinkSets) {
+    unsigned NumRefs = Set.getNumMemRefs();
+    assert(NumRefs != 0 && "Found a HoistOrSinkSet with empty refs");
+    NumLoadsOrStores += NumRefs;
+  }
+
+  auto &DebugLoc = If->getDebugLoc();
+  unsigned LineNumber = DebugLoc ? DebugLoc.getLine() : 0;
+  ORBuilder(*ParentLoop)
+      .addRemark(OptReportVerbosity::Low, RemarkID, NumLoadsOrStores,
+                 LineNumber);
+}
+
 /// Performs conditional load/store motion on \p If using \p HDDA.
 ///
 /// This will return true if any memory operations were hoisted/sunk. \p If must
 /// be inside of a loop and \p ParentLoop must be its immediate parent loop.
-static bool runOnIf(HLIf *If, SmallVectorImpl<HoistSinkSet> &HoistLoads,
-                    SmallVectorImpl<HoistSinkSet> &SinkStores,
-                    HIRDDAnalysis &HDDA, const HLLoop *ParentLoop) {
+static bool runOnIf(HLIf *If, SmallVectorImpl<HoistOrSinkSet> &HoistLoads,
+                    SmallVectorImpl<HoistOrSinkSet> &SinkStores,
+                    HIRDDAnalysis &HDDA, HLLoop *ParentLoop) {
   assert(ParentLoop);
   assert(If->getParentLoop() == ParentLoop);
   assert(!(HoistLoads.empty() && SinkStores.empty()) &&
@@ -934,13 +969,13 @@ static bool runOnIf(HLIf *If, SmallVectorImpl<HoistSinkSet> &HoistLoads,
 
   LLVM_DEBUG({
     dbgs() << "\nCandidate load sets:\n";
-    for (const HoistSinkSet &Loads : HoistLoads) {
+    for (const HoistOrSinkSet &Loads : HoistLoads) {
       dbgs() << "  ";
       Loads.print(fdbgs());
       dbgs() << "\n";
     }
     dbgs() << "\nCandidate store sets:\n";
-    for (const HoistSinkSet &Stores : SinkStores) {
+    for (const HoistOrSinkSet &Stores : SinkStores) {
       dbgs() << "  ";
       Stores.print(fdbgs());
       dbgs() << "\n";
@@ -952,9 +987,9 @@ static bool runOnIf(HLIf *If, SmallVectorImpl<HoistSinkSet> &HoistLoads,
   LLVM_DEBUG({
     if (PrintEdgeTests) {
       dbgs() << "\nChecking edges:\n";
-      for (HoistSinkSet &Loads : HoistLoads)
+      for (HoistOrSinkSet &Loads : HoistLoads)
         Loads.printEdgeTests(fdbgs(), DDG);
-      for (HoistSinkSet &Stores : SinkStores)
+      for (HoistOrSinkSet &Stores : SinkStores)
         Stores.printEdgeTests(fdbgs(), DDG);
     }
   });
@@ -971,13 +1006,13 @@ static bool runOnIf(HLIf *If, SmallVectorImpl<HoistSinkSet> &HoistLoads,
 
   LLVM_DEBUG({
     dbgs() << "\nWill hoist loads:\n";
-    for (const HoistSinkSet &Loads : HoistLoads) {
+    for (const HoistOrSinkSet &Loads : HoistLoads) {
       dbgs() << "  ";
       Loads.print(fdbgs());
       dbgs() << "\n";
     }
     dbgs() << "\nWill sink stores:\n";
-    for (const HoistSinkSet &Stores : SinkStores) {
+    for (const HoistOrSinkSet &Stores : SinkStores) {
       dbgs() << "  ";
       Stores.print(fdbgs());
       dbgs() << "\n";
@@ -986,16 +1021,22 @@ static bool runOnIf(HLIf *If, SmallVectorImpl<HoistSinkSet> &HoistLoads,
   });
 
   // Match up any equivalent hoist/sink sets and assign common temps.
-  for (HoistSinkSet &Stores : SinkStores) {
-    for (HoistSinkSet &Loads : HoistLoads)
-      if (HoistSinkSet::checkAndAssignCommonTemp(Loads, Stores))
+  for (HoistOrSinkSet &Stores : SinkStores) {
+    for (HoistOrSinkSet &Loads : HoistLoads)
+      if (HoistOrSinkSet::checkAndAssignCommonTemp(Loads, Stores))
         break;
   }
 
+  // Add the opt-report remarks
+  addOptReportRemark(If, ParentLoop, HoistLoads,
+                     OptRemarkID::HoistedConditionalLoads);
+  addOptReportRemark(If, ParentLoop, SinkStores,
+                     OptRemarkID::SunkConditionalStores);
+
   // Do the hoisting/sinking for eligible refs.
-  for (HoistSinkSet &Loads : HoistLoads)
+  for (HoistOrSinkSet &Loads : HoistLoads)
     Loads.hoistOrSinkFrom(If);
-  for (HoistSinkSet &Stores : SinkStores)
+  for (HoistOrSinkSet &Stores : SinkStores)
     Stores.hoistOrSinkFrom(If);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
@@ -1075,7 +1116,7 @@ static bool runConditionalLoadStoreMotion(HIRFramework &HIRF,
   HIRF.getHLNodeUtils().gatherInnermostLoops(InnerLoops);
   bool Changed = false;
   for (HLLoop *const InnerLoop : InnerLoops) {
-    const LoopStatistics &LoopStats = HLS.getSelfLoopStatistics(InnerLoop);
+    const LoopStatistics &LoopStats = HLS.getSelfStatistics(InnerLoop);
     if (!LoopStats.hasIfs())
       continue;
     HoistSinkSetBuilder HoistSinkCandidates(InnerLoop);
@@ -1125,7 +1166,8 @@ bool HIRConditionalLoadStoreMotionLegacyPass::runOnFunction(Function &F) {
 
 PreservedAnalyses HIRConditionalLoadStoreMotionPass::runImpl(
     Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  runConditionalLoadStoreMotion(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                                AM.getResult<HIRLoopStatisticsAnalysis>(F));
+  ModifiedHIR =
+      runConditionalLoadStoreMotion(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                                    AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }

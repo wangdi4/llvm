@@ -1,11 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -vplan-vec -vplan-force-vf=2 -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>),vplan-vec' -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
 
 ; This code tests TYPED clause
 ; The test is passed if UNIFORM:TYPED clause is parsed correctly
 
-; CHECK: UNIFORM clause (size=1): ({{.*}}, TYPED (TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
+; CHECK: UNIFORM clause (size=1): (TYPED({{.*}}, TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -28,42 +28,42 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @_Z3fooPiii(i32* %ptr, i32 %step, i32 %n, i8 %inc18) {
+define dso_local i32 @_Z3fooPiii(ptr %ptr, i32 %step, i32 %n, i8 %inc18) {
 entry:
-  %ptr.addr = alloca i32*, align 8
+  %ptr.addr = alloca ptr, align 8
   %s = alloca i32, align 4
-  store i32* %ptr, i32** %ptr.addr, align 8
-  %0 = bitcast i32* %s to i8*
-  store i32 0, i32* %s, align 4
+  store ptr %ptr, ptr %ptr.addr, align 8
+  %0 = bitcast ptr %s to ptr
+  store i32 0, ptr %s, align 4
   %conv = trunc i32 %step to i8
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i32** %ptr.addr, i32 1), "QUAL.OMP.REDUCTION.ADD"(i32* %s) ]
-  %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8
-  %.pre = load i32, i32* %s, align 4
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(ptr %ptr.addr, i32 1), "QUAL.OMP.REDUCTION.ADD"(ptr %s) ]
+  %ptr.addr.promoted = load ptr, ptr %ptr.addr, align 8
+  %.pre = load i32, ptr %s, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.114
   %2 = phi i32 [ %add8, %omp.inner.for.body ], [ %.pre, %DIR.OMP.SIMD.114 ]
-  %incdec.ptr17 = phi i32* [ %incdec.ptr, %omp.inner.for.body ], [ %ptr.addr.promoted, %DIR.OMP.SIMD.114 ]
+  %incdec.ptr17 = phi ptr [ %incdec.ptr, %omp.inner.for.body ], [ %ptr.addr.promoted, %DIR.OMP.SIMD.114 ]
   %.omp.iv.0 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.114 ]
-  %3 = load i32, i32* %incdec.ptr17, align 4
+  %3 = load i32, ptr %incdec.ptr17, align 4
   %conv6 = sext i8 %inc18 to i32
   %mul7 = mul nsw i32 %3, %conv6
   %add8 = add nsw i32 %mul7, %2
-  store i32 %add8, i32* %s, align 4
-  %incdec.ptr = getelementptr inbounds i32, i32* %incdec.ptr17, i64 1
+  store i32 %add8, ptr %s, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %incdec.ptr17, i64 1
   %add9 = add nuw nsw i32 %.omp.iv.0, 1
   %exitcond = icmp eq i32 %add9, %n
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  %incdec.ptr.lcssa = phi i32* [ %incdec.ptr, %omp.inner.for.body ]
-  store i32* %incdec.ptr.lcssa, i32** %ptr.addr, align 8
+  %incdec.ptr.lcssa = phi ptr [ %incdec.ptr, %omp.inner.for.body ]
+  store ptr %incdec.ptr.lcssa, ptr %ptr.addr, align 8
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-  %.pre19 = load i32, i32* %s, align 4
+  %.pre19 = load i32, ptr %s, align 4
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry

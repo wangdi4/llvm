@@ -38,15 +38,7 @@ namespace llvm {
 
 class Function;
 class FunctionPass;
-class ModulePass;
 class Pass;
-
-//===----------------------------------------------------------------------===//
-//
-// AlignmentFromAssumptions - Use assume intrinsics to set load/store
-// alignments.
-//
-FunctionPass *createAlignmentFromAssumptionsPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -64,15 +56,17 @@ Pass *createRedundantDbgInstEliminationPass();
 //
 FunctionPass *createDeadCodeEliminationPass();
 
+#if INTEL_CUSTOMIZATION
+FunctionPass *createUnskippableAggressiveDCEPass();
 
 //===----------------------------------------------------------------------===//
 //
 // CallSiteSplitting - This pass split call-site based on its known argument
 // values.
 FunctionPass *createCallSiteSplittingPass();
-
-FunctionPass *createUnskippableAggressiveDCEPass(); // INTEL
-
+#endif // INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
 // GuardWidening - An optimization over the @llvm.experimental.guard intrinsic
 // that (optimistically) combines multiple guards into one to have fewer checks
 // at runtime.
@@ -92,13 +86,6 @@ Pass *createLoopGuardWideningPass();
 
 //===----------------------------------------------------------------------===//
 //
-// BitTrackingDCE - This pass uses a bit-tracking DCE algorithm in order to
-// remove computations of dead bits.
-//
-FunctionPass *createBitTrackingDCEPass();
-
-//===----------------------------------------------------------------------===//
-//
 // SROA - Replace aggregates or pieces of aggregates with scalar SSA values.
 //
 FunctionPass *createSROAPass(bool PreserveCFG = true);
@@ -110,19 +97,15 @@ Pass *createSROALegacyCGSCCAdaptorPass();
 
 //===----------------------------------------------------------------------===//
 //
-// InductiveRangeCheckElimination - Transform loops to elide range checks on
-// linear functions of the induction variable.
-//
-Pass *createInductiveRangeCheckEliminationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LICM - This pass is a loop invariant code motion and memory promotion pass.
 //
 Pass *createLICMPass();
-Pass *createLICMPass(unsigned LicmMssaOptCap,
-                     unsigned LicmMssaNoAccForPromotionCap,
-                     bool AllowSpeculation);
+#if INTEL_CUSTOMIZATION
+// Create an unrolling pass for full unrolling that uses exact trip count only
+// and also does peeling.
+Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
+                                 bool ForgetAllSCEV = false);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //
@@ -167,10 +150,6 @@ Pass *createLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
                            int Count = -1, int AllowPartial = -1,
                            int Runtime = -1, int UpperBound = -1,
                            int AllowPeeling = -1);
-// Create an unrolling pass for full unrolling that uses exact trip count only
-// and also does peeling.
-Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
-                                 bool ForgetAllSCEV = false);
 
 //===----------------------------------------------------------------------===//
 //
@@ -197,16 +176,6 @@ extern char &DemoteRegisterToMemoryID;
 FunctionPass *createReassociatePass();
 
 #if INTEL_CUSTOMIZATION
-//===----------------------------------------------------------------------===//
-//
-// SmartReassociate - Targeted reassociation that increases reuse across
-// statements containing Adds and Subs.
-//
-// For example:  X = A - B - C  -> X = A - (B + C)
-//               Y = A + B + C     X = A + (B + C)
-//
-FunctionPass *createAddSubReassociatePass();
-
 //===----------------------------------------------------------------------===//
 //
 // ForcedCMOVGeneration - CMOV generation for special cases
@@ -345,19 +314,6 @@ Pass *createLowerGuardIntrinsicPass();
 
 //===----------------------------------------------------------------------===//
 //
-// LowerMatrixIntrinsics - Lower matrix intrinsics to vector operations.
-//
-Pass *createLowerMatrixIntrinsicsPass();
-
-//===----------------------------------------------------------------------===//
-//
-// LowerMatrixIntrinsicsMinimal - Lower matrix intrinsics to vector operations
-//                               (lightweight, does not require extra analysis)
-//
-Pass *createLowerMatrixIntrinsicsMinimalPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LowerWidenableCondition - Lower widenable condition to i1 true.
 //
 Pass *createLowerWidenableConditionPass();
@@ -440,23 +396,6 @@ FunctionPass *createSpeculativeExecutionIfHasBranchDivergencePass();
 // instruction patterns in straight-line code.
 //
 FunctionPass *createStraightLineStrengthReducePass();
-
-//===----------------------------------------------------------------------===//
-//
-// PlaceSafepoints - Rewrite any IR calls to gc.statepoints and insert any
-// safepoint polls (method entry, backedge) that might be required.  This pass
-// does not generate explicit relocation sequences - that's handled by
-// RewriteStatepointsForGC which can be run at an arbitrary point in the pass
-// order following this pass.
-//
-FunctionPass *createPlaceSafepointsPass();
-
-//===----------------------------------------------------------------------===//
-//
-// RewriteStatepointsForGC - Rewrite any gc.statepoints which do not yet have
-// explicit relocations to include explicit relocations.
-//
-ModulePass *createRewriteStatepointsForGCLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //

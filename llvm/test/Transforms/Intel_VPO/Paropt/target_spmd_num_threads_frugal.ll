@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
-; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
 
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
-; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
 
 ; Test src:
 
@@ -134,53 +134,70 @@ entry:
   %retval = alloca i32, align 4
   %val.casted = alloca i64, align 8
   %val.casted1 = alloca i64, align 8
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
-  %val.casted.ascast = addrspacecast i64* %val.casted to i64 addrspace(4)*
-  %val.casted1.ascast = addrspacecast i64* %val.casted1 to i64 addrspace(4)*
-  store i32 0, i32 addrspace(4)* %retval.ascast, align 4
-  %0 = load i32, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), align 4
-  %conv = bitcast i64 addrspace(4)* %val.casted.ascast to i32 addrspace(4)*
-  store i32 %0, i32 addrspace(4)* %conv, align 4
-  %1 = load i64, i64 addrspace(4)* %val.casted.ascast, align 8
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %val.casted.ascast = addrspacecast ptr %val.casted to ptr addrspace(4)
+  %val.casted1.ascast = addrspacecast ptr %val.casted1 to ptr addrspace(4)
+  store i32 0, ptr addrspace(4) %retval.ascast, align 4
+  %0 = load i32, ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), align 4
+  %conv = bitcast ptr addrspace(4) %val.casted.ascast to ptr addrspace(4)
+  store i32 %0, ptr addrspace(4) %conv, align 4
+  %1 = load i64, ptr addrspace(4) %val.casted.ascast, align 8
 
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), i64 4, i64 547, i8* null, i8* null) ]
-  store i32 222, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), align 4
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1),
+    "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), i64 4, i64 547, ptr null, ptr null) ] ; MAP type: 547 = 0x223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+
+  store i32 222, ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), align 4
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
 
-  %3 = load i32, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), align 4
-  %conv2 = bitcast i64 addrspace(4)* %val.casted1.ascast to i32 addrspace(4)*
-  store i32 %3, i32 addrspace(4)* %conv2, align 4
-  %4 = load i64, i64 addrspace(4)* %val.casted1.ascast, align 8
+  %3 = load i32, ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), align 4
+  %conv2 = bitcast ptr addrspace(4) %val.casted1.ascast to ptr addrspace(4)
+  store i32 %3, ptr addrspace(4) %conv2, align 4
+  %4 = load i64, ptr addrspace(4) %val.casted1.ascast, align 8
 
-  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), i64 4, i64 547, i8* null, i8* null) ]
-  %6 = load i32, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @val to i32 addrspace(4)*), align 4
-  %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %6) #5
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2),
+    "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), i64 4, i64 547, ptr null, ptr null) ] ; MAP type: 547 = 0x223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+
+  %6 = load i32, ptr addrspace(4) addrspacecast (ptr addrspace(1) @val to ptr addrspace(4)), align 4
+  %call = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %6) #5
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.TARGET"() ]
 
-  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3) ]
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3) ]
+
   %call3 = call spir_func i32 @f1() #5
-  %call4 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %call3) #5
+  %call4 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %call3) #5
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.TARGET"() ]
 
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4) ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4) ]
+
   %call5 = call spir_func i32 @omp_get_num_threads() #5
-  %call6 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %call5) #5
+  %call6 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %call5) #5
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.TARGET"() ]
 
-  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5) ]
+  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5) ]
+
   %call7 = call spir_func i32 @f2() #5
-  %call8 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %call7) #5
+  %call8 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %call7) #5
   call void @llvm.directive.region.exit(token %9) [ "DIR.OMP.END.TARGET"() ]
 
-  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6) ]
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6) ]
+
   %call9 = call spir_func i32 @f3() #5
-  %call10 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %call9) #5
+  %call10 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %call9) #5
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.TARGET"() ]
 
-  %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7) ]
+  %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7) ]
+
   %call11 = call spir_func i32 @f4() #5
-  %call12 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 noundef %call11) #5
+  %call12 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) noundef addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 noundef %call11) #5
   call void @llvm.directive.region.exit(token %11) [ "DIR.OMP.END.TARGET"() ]
+
   ret i32 0
 }
 
@@ -188,7 +205,7 @@ entry:
 define hidden spir_func i32 @f1() #0 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
   ret i32 111
 }
 
@@ -196,7 +213,7 @@ entry:
 define hidden spir_func i32 @f2() #0 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
   %call = call spir_func i32 @omp_get_num_threads() #5
   ret i32 %call
 }
@@ -205,7 +222,7 @@ entry:
 define available_externally spir_func i32 @f4() #6 {
 entry:
   %retval = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
   ret i32 333
 }
 
@@ -219,7 +236,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: convergent
-declare spir_func i32 @printf(i8 addrspace(4)*, ...) #4
+declare spir_func i32 @printf(ptr addrspace(4), ...) #4
 
 ; Function Attrs: convergent
 declare spir_func i32 @f3() #4
@@ -245,7 +262,7 @@ attributes #6 = { alwaysinline convergent nounwind "frame-pointer"="all" "min-le
 !4 = !{i32 0, i32 66313, i32 47064353, !"_Z4main", i32 20, i32 3, i32 0}
 !5 = !{i32 0, i32 66313, i32 47064353, !"_Z4main", i32 29, i32 6, i32 0}
 !6 = !{i32 0, i32 66313, i32 47064353, !"_Z4main", i32 17, i32 2, i32 0}
-!7 = !{i32 1, !"_Z3val", i32 0, i32 0, i32 addrspace(1)* @val}
+!7 = !{i32 1, !"_Z3val", i32 0, i32 0, ptr addrspace(1) @val}
 !8 = !{i32 1, !"wchar_size", i32 4}
 !9 = !{i32 7, !"openmp", i32 50}
 !10 = !{i32 7, !"openmp-device", i32 50}

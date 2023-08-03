@@ -76,24 +76,9 @@ CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
 CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
                     IRBuilder<> &Builder, const Twine &CallName = "");
 
-/// Fills call vector with all calls to function named func name in
-///       funcToSearch
-/// FuncName - name of functions to obtain its calls.
-/// FuncToSearch - Function to look call instructions in.
-/// Calls - vector to fill.
-void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
-                      SmallVectorImpl<CallInst *> &Calls);
-
 /// Returns size_t type.
 /// M - current module.
 Type *getIndTy(Module *M);
-
-/// Collect the get_***_id() in F.
-/// TIDName - name of the tid generator get_global_id\ get_local_id.
-/// TidCalls - array of get_***_id call to fill.
-/// F - kernel to collect information for.
-void collectTIDCallInst(StringRef TIDName,
-                        CompilationUtils::InstVecVec &TidCalls, Function *F);
 
 /// Fill atomic builtin user functions.
 void fillAtomicBuiltinUsers(Module &M, RuntimeService &RTS,

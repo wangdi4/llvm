@@ -2549,10 +2549,27 @@ public:
         const llvm::dtrans::SafetyData SD =
             IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
         bool SkipBadCastingForParent = IsOkayToSkipBadCastingOnParentStruct(I);
-        if (!SkipBadCastingForParent)
-          setBaseTypeInfoSafetyData(
-              ParentTy, SD, "Incompatible pointer type for field load/store",
-              &I);
+        if (!SkipBadCastingForParent) {
+          // Don't propagate BadCasting to other pointer fields in a
+          // parent structure when only a pointer field of the struct is
+          // involved in BadCasting.
+          if (IndexedType->isPointerTy() && ValOp->getType()->isPointerTy()) {
+            // Set BadCasting to parent struct and propagate it only for
+            // non-pointer fields.
+            setOnlyNestedBaseTypeInfoSafetyData(
+                ParentTy, SD, "Incompatible pointer type for field load/store",
+                &I);
+            // Set and propagate BadCasting for pointer field type that
+            // involves in BadCasting.
+            setBaseTypeInfoSafetyData(
+                IndexedType, SD,
+                "Incompatible pointer type for field load/store", &I);
+          } else {
+            setBaseTypeInfoSafetyData(
+                ParentTy, SD, "Incompatible pointer type for field load/store",
+                &I);
+          }
+        }
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
@@ -2568,9 +2585,24 @@ public:
         LoadStoreUseRelatedTypes = false;
       } else if (LoadStoreUseRelatedTypes) {
         const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
-        setBaseTypeInfoSafetyData(
-            ParentTy, SD,
-            "Pointer type for field load/store contains related types", &I);
+        // Don't propagate SD to other pointer fields in a parent structure
+        // when only a pointer field of the struct is involved in BadCasting.
+        if (IndexedType->isPointerTy() && ValOp->getType()->isPointerTy()) {
+          // Set SD to parent struct and propagate it only for non-pointer
+          // fields.
+          setOnlyNestedBaseTypeInfoSafetyData(
+              ParentTy, SD,
+              "Pointer type for field load/store contains related types", &I);
+          // Set and propagate SD for pointer field type that involves in
+          // BadCasting.
+          setBaseTypeInfoSafetyData(
+              IndexedType, SD,
+              "Pointer type for field load/store contains related types", &I);
+        } else {
+          setBaseTypeInfoSafetyData(
+              ParentTy, SD,
+              "Pointer type for field load/store contains related types", &I);
+        }
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
@@ -7357,6 +7389,20 @@ private:
                                   /*ForPtrCarried=*/false);
   }
 
+  // This is similar to setBaseTypeInfoSafetyData, except that there is only
+  // propagation to nested but not to referenced types of 'Ty'.
+  void
+  setOnlyNestedBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
+                                      StringRef Reason, Value *V,
+                                      SafetyInfoReportCB Callback = nullptr) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setBaseTypeInfoSafetyDataImpl(
+        Ty, Data, /*DoCascade=*/true, /*DoPtrCarried=*/false, V,
+        /*ForCascade=*/false, /*ForPtrCarried=*/false);
+  }
+
   // This is similar to setBaseTypeInfoSafetyData, except that there is no
   // propagation to nested or referenced types of 'Ty'.
   void setOnlyBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
@@ -7367,7 +7413,7 @@ private:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(
         Ty, Data, /*DoCascade=*/false, /*DoPtrCarried=*/false, V,
-        /*ForCascade=*/false, +/*ForPtrCarried=*/false);
+        /*ForCascade=*/false, /*ForPtrCarried=*/false);
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
@@ -7940,9 +7986,8 @@ private:
 DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
     : TM(std::move(Other.TM)), MDReader(std::move(Other.MDReader)),
       PtrAnalyzer(std::move(Other.PtrAnalyzer)),
-      TypeInfoMap(std::move(Other.TypeInfoMap)),
-      TypeInfoAllocs(std::move(Other.TypeInfoAllocs)),
-      CIM(std::move(Other.CIM)), MaxTotalFrequency(Other.MaxTotalFrequency),
+      TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
+      MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
       DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan),
       RelatedTypesUtils(std::move(Other.RelatedTypesUtils)) {
@@ -7961,28 +8006,7 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
   SawFortran = Other.SawFortran;
 }
 
-DTransSafetyInfo::~DTransSafetyInfo() {
-  reset();
-  // clean up any lingering allocated type info no longer stored
-  // in the TypeInfoMap
-  for (auto *Ptr : TypeInfoAllocs) {
-    switch (Ptr->getTypeInfoKind()) {
-    case dtrans::TypeInfo::NonAggregateInfo:
-      delete dyn_cast<dtrans::NonAggregateTypeInfo>(Ptr);
-      break;
-    case dtrans::TypeInfo::PtrInfo:
-      delete dyn_cast<dtrans::PointerInfo>(Ptr);
-      break;
-    case dtrans::TypeInfo::StructInfo:
-      delete dyn_cast<dtrans::StructInfo>(Ptr);
-      break;
-    case dtrans::TypeInfo::ArrayInfo:
-      delete dyn_cast<dtrans::ArrayInfo>(Ptr);
-      break;
-    }
-  }
-  TypeInfoAllocs.clear();
-}
+DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
 
 DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   if (this == &Other)
@@ -7993,7 +8017,6 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
   TypeInfoMap = std::move(Other.TypeInfoMap);
-  TypeInfoAllocs = std::move(Other.TypeInfoAllocs);
   RelatedTypesUtils = std::move(Other.RelatedTypesUtils);
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -8157,10 +8180,6 @@ void DTransSafetyInfo::reset() {
   // The DTransType pointers are owned by the DTransTypeManager, and
   // will be cleaned up when that object is reset.
   for (const auto &Entry : TypeInfoMap) {
-    auto It =
-        std::find(TypeInfoAllocs.begin(), TypeInfoAllocs.end(), Entry.second);
-    if (It != TypeInfoAllocs.end())
-      TypeInfoAllocs.erase(It);
     switch (Entry.second->getTypeInfoKind()) {
     case dtrans::TypeInfo::NonAggregateInfo:
       delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
@@ -8284,14 +8303,20 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
     // map early to avoid infinite recursion.
     DTransTI = new dtrans::PointerInfo(Ty);
     TypeInfoMap[Ty] = DTransTI;
-    TypeInfoAllocs.push_back(DTransTI);
     getOrCreateTypeInfo(cast<DTransPointerType>(Ty)->getPointerElementType());
     return DTransTI;
   } else if (Ty->isArrayTy()) {
     dtrans::TypeInfo *ElementInfo =
         getOrCreateTypeInfo(Ty->getArrayElementType());
-    DTransTI = new dtrans::ArrayInfo(
-        Ty, ElementInfo, cast<DTransArrayType>(Ty)->getNumElements());
+    // The creation of the element type may have led to the creation of this
+    // type, check first before creating to prevent creation of another TypeInfo
+    // object for the type.
+    DTransTI = getTypeInfo(Ty);
+    if (!DTransTI) {
+      assert(!TypeInfoMap.lookup(Ty) && "Type already exists in map");
+      DTransTI = new dtrans::ArrayInfo(
+          Ty, ElementInfo, cast<DTransArrayType>(Ty)->getNumElements());
+    }
   } else if (Ty->isStructTy()) {
     DTransStructType *STy = cast<DTransStructType>(Ty);
     SmallVector<dtrans::AbstractType, 16> FieldTypes;
@@ -8302,16 +8327,27 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
       getOrCreateTypeInfo(FieldTy);
       FieldTypes.push_back(FieldTy);
     }
-    DTransTI = new dtrans::StructInfo(Ty, FieldTypes);
+    // The type may have been created while the fields were being processed, if
+    // there was a self-reference, such as from:
+    //   %struct.foo = type { i32, %struct.foo*, i32 }
+    // Check for an existing type to avoid creating another instance of the same
+    // type, which could cause some pointers' handles to be to one TypeInfo and
+    // others to refer to a different TypeInfo object that represents the same
+    // structure.
+    DTransTI = getTypeInfo(Ty);
+    if (!DTransTI) {
+      assert(!TypeInfoMap.lookup(Ty) && "Type already exists in map");
+      DTransTI = new dtrans::StructInfo(Ty, FieldTypes);
+    }
   } else {
     // TODO: TypeInfo does not support vector types, so they will be stored
     // within NonAggregateTypeInfo objects currently.
     assert(!Ty->isAggregateType() &&
            "DTransAnalysisInfo::createTypeInfo unexpected aggregate type");
+    assert(!TypeInfoMap.lookup(Ty) && "Type already exists in map");
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
-  TypeInfoAllocs.push_back(DTransTI);
   TypeInfoMap[Ty] = DTransTI;
   return DTransTI;
 }

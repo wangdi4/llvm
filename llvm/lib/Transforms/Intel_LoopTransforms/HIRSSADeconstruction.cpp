@@ -63,6 +63,75 @@ using namespace llvm::loopopt;
 
 namespace {
 
+// HIRSSADeconstruction creates these three kinds of copies-
+//
+// 1) Livein - This is created to deconstruct phi. It is created for each
+// operand of phi and inserted in the predecessor bblock of phi. In some cases
+// the incoming edge is split to insert the copy if adding the copy in the
+// predecessor block may cause live-range issues. This copy is also created for
+// incoming copy of the SCC root node. Here's an example-
+//
+// Incoming IR-
+// p1:
+//  br label %bb
+//
+// p2:
+//  br label %bb
+//
+// bb:
+//  %phi = phi [ 0, %p1 ], [ 1, %p2 ]
+//
+// After copy insertion-
+//
+// p1:
+//  %phi.in = @llvm.ssa.copy(0), !in.de.ssa !0
+//  br label %bb
+//
+// p2:
+//  %phi.in1 = @llvm.ssa.copy(1), !in.de.ssa !0
+//  br label %bb
+//
+// bb:
+//  %phi = phi [ 0, %p1 ], [ 1, %p2 ], !in.de.ssa !0
+//
+// Note that we attach the same metadata to both the phi and the copies. This is
+// used to assign the same symbase to the copies so they appear as %phi in HIR.
+//
+// 2) Liveout - This copies the phi instructions and replaces some of the uses
+// of phi with the copy to avoid live-range issues. For example-
+//
+// Incoming IR-
+//
+// loop:
+//  %phi = phi [ 0, %pre ], [ %phi.inc, %loop ]
+//       = %phi            ; use of phi
+//
+// After copy insertion-
+//
+// loop:
+//  %phi = phi [ 0, %pre ], [ %phi.inc, %loop ]
+//  %phi.out = @llvm.ssa.copy(%phi), !out.de.ssa !0
+//       = %phi.out        ; replaced use of phi with copy
+//
+// Note the metadata attached to the liveout copy. This prevents ScalarEvolution
+// from forming the SCEV of %phi.out in terms of %phi as that will defeat the
+// purpose of the copy. ScalarEvolution will conservatively parse it as a
+// %phi.out itself.
+//
+// 3) SCCRoot - This copy is the substitutable root of the SCC and represents
+// the SCC in HIR instead of the original root. It is needed when using original
+// root may cause stability issues. It is inserted in the fuction entry block
+// like this-
+//
+// void @foo() {
+// entry:
+//  %phi.root = @llvm.ssa.copy(undef), !out.de.ssa !0
+//
+// Note that we attach the liveout metadata to this copy as well to force
+// ScalarEvolution to conservatively parse it as a %phi.root itself.
+//
+enum CopyType { Livein, Liveout, SCCRoot };
+
 class HIRSSADeconstruction {
 public:
   HIRSSADeconstruction()
@@ -73,7 +142,7 @@ public:
            HIRRegionIdentification &RI, HIRSCCFormation &SCCF);
 
 private:
-  /// \brief Attaches a string metadata node to instruction. This will be used
+  /// Attaches a string metadata node to instruction. This will be used
   /// by ScalarSymbaseAssignment to assign symbases. The metadata kind used for
   /// livein/liveout values is different because livein copies need to be
   /// assigned the same aymbase as other values in SCC whereas liveout copies
@@ -82,40 +151,48 @@ private:
   void attachMetadata(Instruction *Inst, StringRef Name,
                       ScalarEvolution::HIRLiveKind Kind) const;
 
-  /// \brief Returns a copy of Val.
-  Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein,
+  /// Returns a copy of Val.
+  Instruction *createCopy(Value *Val, StringRef Name, CopyType CType,
                           Module *M) const;
 
   /// Returns true if Inst is a livein copy for IV update: i = i + 1.
-  bool isIVUpdateLiveInCopy(Instruction *Inst) const;
+  /// \p PhiUnderAnalysis is the phi for which we are adding the livein phi and
+  /// checking whether \p Inst can be considered an IV update inst and the
+  /// livein copy of phi can be added before this inst.
+  bool isIVUpdateLiveInCopy(Instruction *Inst, PHINode *PhiUnderAnalysis) const;
 
-  /// \brief Inserts livein copy of Val at the end of BB.
-  void insertLiveInCopy(Value *Val, BasicBlock *BB, StringRef Name);
+  /// Inserts livein copy of \p Val which is operand of \p Phi at the end of BB.
+  void insertLiveInCopy(PHINode *Phi, Value *Val, BasicBlock *BB,
+                        StringRef Name);
 
-  /// \brief Inserts liveout copy of Inst at the first insertion point of BB if
+  /// Inserts liveout copy of Inst at the first insertion point of BB if
   /// Inst is a phi or immediately after Inst.
   Instruction *insertLiveOutCopy(Instruction *Inst, BasicBlock *BB,
                                  StringRef Name);
 
-  /// \brief Constructs name to be used for Val.
+  /// Inserts a copy of the same type as \p SCCRootInst at the end of the
+  /// function entry block which will act as the SubstitutableRoot of SCC.
+  Instruction *insertSCCRootCopy(Instruction *SCCRootInst);
+
+  /// Constructs name to be used for Val.
   StringRef constructName(const Value *Val, SmallString<32> &Name);
 
-  /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
+  /// Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
   const HIRSCCFormation::SCC *getPhiSCC(PHINode *Phi) const;
 
-  /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
+  /// Returns true if OrigPredBB has an alternate reaching path to Phi
   /// other than the immediate successor. This means that adding a livein copy
   /// in PredBB may kill an SCC operand so we need to perform edge splitting.
   bool hasAlternatePathToPhi(const PHINode *Phi, const BasicBlock *OrigPredBB,
                              const BasicBlock *CurBB = nullptr) const;
 
-  /// \brief Returns true if we need to split edge to insert a livein copy for
+  /// Returns true if we need to split edge to insert a livein copy for
   /// this phi operand.
   bool edgeSplittingRequired(const PHINode *Phi,
                              const BasicBlock *PredBB) const;
 
-  /// \brief Inserts copies of Phi operands livein to the SCC. If SCC is
+  /// Inserts copies of Phi operands livein to the SCC. If SCC is
   /// null, Phi is treated as a standalone phi and all operands are considered
   /// livein. Returns true if a livein copy was inserted.
   bool processPhiLiveins(PHINode *Phi, const HIRSCCFormation::SCC *ParSCC,
@@ -136,7 +213,7 @@ private:
   /// use in \p Inst.
   bool hasNonSCEVableUses(Instruction **Inst, BasicBlock *ParentBB) const;
 
-  /// \brief Inserts copies of Inst if it has uses live outside the SCC and
+  /// Inserts copies of Inst if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCC is null, Inst is
   /// treated as a standalone phi and this is needed to handle a special case
   /// described in the function definition.
@@ -147,7 +224,7 @@ private:
   bool isSingleNonHeaderPhiSCC(Instruction *NonPhiInst,
                                const HIRSCCFormation::SCC &CurSCC) const;
 
-  /// \brief Deconstructs phi by inserting copies.
+  /// Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
 
   /// Processes liveouts instructions in the current region which are not part
@@ -166,7 +243,10 @@ private:
   /// blocks.
   void processNonLoopRegionBlocks();
 
-  /// \brief Performs SSA deconstruction on the regions.
+  /// Creates and assigns substitutable root for SCCs which don't have it.
+  void createSubstitutableSCCRoot();
+
+  /// Performs SSA deconstruction on the regions.
   void deconstructSSAForRegions();
 
 private:
@@ -286,24 +366,32 @@ void HIRSSADeconstruction::attachMetadata(
 }
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
-                                              bool IsLivein, Module *M) const {
+                                              CopyType CType, Module *M) const {
   Type *Ty = Val->getType();
+  bool IsLivein = (CType == CopyType::Livein);
+
   Function *SSACopyFunc = Intrinsic::getDeclaration(M, Intrinsic::ssa_copy, Ty);
-  auto CInst = CallInst::Create(FunctionCallee(SSACopyFunc), {Val},
-                                Name + (IsLivein ? ".in" : ".out"));
+  auto CInst =
+      CallInst::Create(FunctionCallee(SSACopyFunc), {Val},
+                       Name + (IsLivein                       ? ".in"
+                               : (CType == CopyType::Liveout) ? ".out"
+                                                              : ".root"));
 
   // Copy available DebugLoc metadata
   if (const auto *Inst = dyn_cast<Instruction>(Val)) {
     CInst->setDebugLoc(Inst->getDebugLoc());
   }
 
+  // Attach liveout metadata to SCCRoot copy as well so ScalarEvolution creates
+  // a SCEVUknown instead of parsing temp as undef.
   attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);
   return CInst;
 }
 
-bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
+bool HIRSSADeconstruction::isIVUpdateLiveInCopy(
+    Instruction *Inst, PHINode *PhiUnderAnalysis) const {
 
   if (!isa<CallInst>(Inst) || !ScopedSE->isSCEVable(Inst->getType())) {
     return false;
@@ -329,29 +417,47 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
     return false;
   }
 
-  return SCCF->isConsideredLinear(Inst);
+  if (!SCCF->isConsideredLinear(Inst)) {
+    return false;
+  }
+
+  const SCEV *PhiSCEV = ScopedSE->getUnknown(PhiUnderAnalysis);
+
+  auto SC = ScopedSE->getSCEV(Inst);
+
+  // If Inst uses Phi in its SCEV form, reordering the livein copies is
+  // incorrect.
+  if (ScopedSE->hasOperand(SC, PhiSCEV)) {
+    return false;
+  }
+
+  return true;
 }
 
-void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
-                                            StringRef Name) {
+void HIRSSADeconstruction::insertLiveInCopy(PHINode *Phi, Value *Val,
+                                            BasicBlock *BB, StringRef Name) {
   auto TermInst = BB->getTerminator();
-  auto CopyInst = createCopy(Val, Name, true, TermInst->getModule());
+  auto CopyInst =
+      createCopy(Val, Name, CopyType::Livein, TermInst->getModule());
 
   auto InsertionPoint = TermInst->getIterator();
 
   // We need to keep IV update copies last in the bblock or we may encounter a
   // live-range issue when IV is parsed as a blob in one of the non-linear
   // values.
-  // The following loop moves the insertion point to point to first IV update
-  // copy.
-  for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
-    auto PrevInst = std::prev(InsertionPoint);
+  // If Phi is not a SCEVAble type, it cannot cause live-range issues with IV.
+  if (ScopedSE->isSCEVable(Phi->getType())) {
+    // The following loop moves the insertion point to point to first IV update
+    // copy.
+    for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
+      auto PrevInst = std::prev(InsertionPoint);
 
-    if (!isIVUpdateLiveInCopy(&*PrevInst)) {
-      break;
+      if (!isIVUpdateLiveInCopy(&*PrevInst, Phi)) {
+        break;
+      }
+
+      InsertionPoint = PrevInst;
     }
-
-    InsertionPoint = PrevInst;
   }
 
   CopyInst->insertBefore(&*InsertionPoint);
@@ -362,13 +468,29 @@ void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
 Instruction *HIRSSADeconstruction::insertLiveOutCopy(Instruction *Inst,
                                                      BasicBlock *BB,
                                                      StringRef Name) {
-  auto CopyInst = createCopy(Inst, Name, false, Inst->getModule());
+  auto CopyInst = createCopy(Inst, Name, CopyType::Liveout, Inst->getModule());
 
   if (isa<PHINode>(Inst)) {
     CopyInst->insertBefore(&*(BB->getFirstInsertionPt()));
   } else {
     CopyInst->insertAfter(Inst);
   }
+
+  ModifiedIR = true;
+
+  return CopyInst;
+}
+
+Instruction *HIRSSADeconstruction::insertSCCRootCopy(Instruction *SCCRootInst) {
+  SmallString<32> Name;
+
+  constructName(SCCRootInst, Name);
+
+  auto CopyInst = createCopy(UndefValue::get(SCCRootInst->getType()), Name,
+                             CopyType::SCCRoot, SCCRootInst->getModule());
+
+  CopyInst->insertBefore(&*(
+      SCCRootInst->getParent()->getParent()->getEntryBlock().getTerminator()));
 
   ModifiedIR = true;
 
@@ -921,7 +1043,7 @@ bool HIRSSADeconstruction::processPhiLiveins(PHINode *Phi,
     }
 
     // Insert copy.
-    insertLiveInCopy(PhiOp, PredBB, Name);
+    insertLiveInCopy(Phi, PhiOp, PredBB, Name);
     Ret = true;
   }
 
@@ -985,7 +1107,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     bool ProcessNonPhiLiveouts = false;
     bool IsSCEVable = ScopedSE->isSCEVable(Phi->getType());
 
-    constructName(PhiSCC->getRoot(), Name);
+    constructName(PhiSCC->getOrigRoot(), Name);
 
     for (auto SCCInst : *PhiSCC) {
 
@@ -1032,7 +1154,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     if (LiveinCopyInserted) {
       // Attach metadata to the root node to connect the SCC to its livein
       // copies.
-      attachMetadata(PhiSCC->getRoot(), Name.str(),
+      attachMetadata(PhiSCC->getOrigRoot(), Name.str(),
                      ScalarEvolution::HIRLiveKind::LiveIn);
     }
 
@@ -1314,6 +1436,23 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
   processNonLoopRegionLiveouts();
 }
 
+void HIRSSADeconstruction::createSubstitutableSCCRoot() {
+
+  for (auto SCCIt = SCCF->begin(CurRegIt), E = SCCF->end(CurRegIt); SCCIt != E;
+       ++SCCIt) {
+
+    // SCC already has a substitutable root.
+    if (SCCIt->getSubstitutableRoot()) {
+      continue;
+    }
+
+    auto *OrigRoot = SCCIt->getOrigRoot();
+    auto *SubstitutableRoot = insertSCCRootCopy(OrigRoot);
+
+    const_cast<HIRSCCFormation::SCC *>(&*SCCIt)->setSubstitutableRoot(
+        SubstitutableRoot);
+  }
+}
 void HIRSSADeconstruction::deconstructSSAForRegions() {
 
   // Traverse regions.
@@ -1324,6 +1463,7 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
 
     ScopedSE->setScope(RegIt->getOutermostLoops());
 
+    createSubstitutableSCCRoot();
     processNonLoopRegionBlocks();
 
     // Traverse region basic blocks.

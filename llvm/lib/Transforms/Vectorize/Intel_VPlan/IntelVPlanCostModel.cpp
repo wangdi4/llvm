@@ -952,10 +952,12 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
   }
   case VPInstruction::GeneralMemOptConflict: {
     // General memory conflict is not handled in VPlan CG thus it is not
-    // supported in CM for VF > 1. We still can see in VF = 1 Plan if
+    // supported in CM nor for VF > 1. We still can see in VF = 1 Plan if
     // cost modelling is performed before general conflict optimization
     // into vectorizable forms of conflict.
-    assert(VF == 1 && "GeneralMemOptConflict supported for VF = 1 CM only.");
+    if (VF != 1)
+      return VPInstructionCost::getInvalid();
+
     // The cost of GeneralMemOptConflict is determined as the sum of costs
     // of all instructions within the Region of general conflict instruction.
     //
@@ -1336,7 +1338,7 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
       Intrin = Intrinsic::vector_reduce_or;
     }
     else
-      Intrin = VPRedFinal->getVectorReduceIntrinsic();
+      Intrin = getVectorReduceIntrinsic(VPRedFinal->getBinOpcode());
 
     bool IsFAddMul = (Intrin == Intrinsic::vector_reduce_fadd ||
                       Intrin == Intrinsic::vector_reduce_fmul);
@@ -1373,6 +1375,16 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
           VPRedFinal->getBinOpcode(), VPInst->getType(),
           TargetTransformInfo::TCK_RecipThroughput);
     }
+#if INTEL_FEATURE_SW_ADVANCED
+    // For partial sum candidate reductions, we add an additional
+    // cost for the UF-1 reduction operations required to combine
+    // the parallel accumulators before this reduction-final.
+    if (UF > 1 && getOrCreatePartialSumAnalysis().isCandidate(VPRedFinal)) {
+      Cost += (UF - 1) * TTI.getArithmeticInstrCost(
+                             VPRedFinal->getBinOpcode(), IDVecTy,
+                             TargetTransformInfo::TCK_RecipThroughput);
+    }
+#endif // INTEL_FEATURE_SW_ADVANCED
     return Cost;
   }
 
@@ -1383,28 +1395,54 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     return 0;
 
   case VPInstruction::CompressExpandIndexInit:
-    return TTI.getVectorInstrCost(Instruction::InsertElement,
-                                  getWidenedType(VPInst->getType(), VF),
-                                  TTI::TCK_RecipThroughput, 0);
+    return 0;
 
   case VPInstruction::CompressExpandIndexInc: {
-    Type *ElType = VPInst->getType();
-    VectorType *VecType = getWidenedType(ElType, VF);
     VPInstructionCost Cost = 0;
-    Cost += TTI.getIntrinsicInstrCost(
-        IntrinsicCostAttributes(Intrinsic::vector_reduce_add, ElType,
-                                {VecType}),
-        TTI::TCK_RecipThroughput);
-    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType,
-                                   TTI::TCK_RecipThroughput, 0);
+    auto *CEIndexInc = cast<VPCompressExpandIndexInc>(VPInst);
+    Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
+    int64_t Stride = CEIndexInc->getTotalStride();
+    if (Stride == 1) {
+      // For non-unit strided compress/expand we already have CompressExpandMask
+      // instruction generated with the same llvm.ctpop intrinsic call.
+      Type *MaskTy = FixedVectorType::get(
+          IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
+      Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
+                                   TTI::CastContextHint::None,
+                                   TTI::TCK_RecipThroughput);
+      Cost += TTI.getIntrinsicInstrCost(
+          IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
+          TTI::TCK_RecipThroughput);
+    }
+    Type *TargetTy = CEIndexInc->isPtrInc()
+                         ? IntegerType::get(*Plan->getLLVMContext(), 64)
+                         : CEIndexInc->getType();
+    Cost += TTI.getCastInstrCost(Instruction::ZExt, IntTy, TargetTy,
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
+    if (Stride != 1)
+      Cost += TTI.getArithmeticInstrCost(
+          Instruction::Mul, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_UniformConstantValue,
+           isPowerOf2_32(Stride) ? TargetTransformInfo::OP_PowerOf2
+                                 : TargetTransformInfo::OP_None});
+    if (!CEIndexInc->isPtrInc())
+      Cost += TTI.getArithmeticInstrCost(
+          Instruction::Add, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     return Cost;
   }
 
   case VPInstruction::CompressExpandIndex: {
-    VectorType *VecType = getWidenedType(VPInst->getType(), VF);
     VPInstructionCost Cost = 0;
-    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
-    Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    auto *CEIndex = cast<VPCompressExpandIndex>(VPInst);
+    if (!CEIndex->isPtrInc()) {
+      VectorType *VecType = getWidenedType(CEIndex->getType(), VF);
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
+      Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    }
     return Cost;
   }
 
@@ -1557,10 +1595,7 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
         isa<VPRunningExclusiveReduction>(VPInst)
             ? cast<VPRunningExclusiveReduction>(VPInst)->getBinOpcode()
             : cast<VPRunningInclusiveReduction>(VPInst)->getBinOpcode();
-    // TODO: refactor this.
-    auto isMinMax = isa<VPRunningExclusiveReduction>(VPInst)
-                        ? cast<VPRunningExclusiveReduction>(VPInst)->isMinMax()
-                        : cast<VPRunningInclusiveReduction>(VPInst)->isMinMax();
+    auto isMinMax = isMinMaxOpcode(BinOpcode);
     auto *VecTy = getWidenedType(VPInst->getType(), VF);
     VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
 
@@ -1593,7 +1628,9 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     return Cost;
   }
   case VPInstruction::FMax:
-  case VPInstruction::FMin: {
+  case VPInstruction::FMin:
+  case VPInstruction::FMaximum:
+  case VPInstruction::FMinimum: {
     Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(VPInst->getOpcode());
     auto *VecTy = getWidenedType(VPInst->getType(), VF);
 

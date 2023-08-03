@@ -15,11 +15,6 @@ config.llvm_library_dir = "@LLVM_LIBRARY_DIR@"
 config.target_triple = "@LLVM_TARGET_TRIPLE@"
 config.target_arch = "@LIBFUZZER_TEST_TARGET_ARCH@"
 
-# INTEL_CUSTOMIZATION
-if "@CMAKE_BUILD_TYPE@".lower() == 'debug':
-  config.available_features.add("intel-debug-build")
-# end INTEL_CUSTOMIZATION
-
 # Load common config for all compiler-rt lit tests.
 lit_config.load_config(config,
     "@COMPILER_RT_BINARY_DIR@/test/lit.common.configured")

@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers=0 < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false -ip-manyreccalls-predicateopt=false -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that foo is selected for cloning as a "many recursive calls" cloning
 ; candidate.
@@ -11,35 +11,35 @@
 ; CHECK: MRC Cloning: IF ARG #0
 ; CHECK: MRC Cloning: IF ARG #1
 ; CHECK: MRC Cloning: SWITCH ARG #2
-; CHECK: MRC Cloning: GOOD IF CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
-; CHECK: MRC Cloning: GOOD SWITCH CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
-; CHECK: MRC Cloning: BEST CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
+; CHECK: MRC Cloning: GOOD IF CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %i1)
+; CHECK: MRC Cloning: GOOD SWITCH CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %i1)
+; CHECK: MRC Cloning: BEST CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %i1)
 ; CHECK: MRC Cloning: OK: foo
 ; CHECK: Selected many recursive calls cloning
 ; CHECK: MRC Cloning: foo TO foo.1
 
 ; Check changes to the IR
 
-@myglobal = dso_local global i32 45, align 4
-
 %struct.MYSTRUCT = type { i32, i32 }
+
+@myglobal = dso_local global i32 45, align 4
 @cache = dso_local global %struct.MYSTRUCT zeroinitializer, align 4
 
-define dso_local i32 @goo(%struct.MYSTRUCT* %cacheptr) {
+define dso_local i32 @goo(ptr %cacheptr) {
 entry:
-  %0 = load i32, i32* @myglobal, align 4
-  %tobool = icmp ne i32 %0, 0
+  %i = load i32, ptr @myglobal, align 4
+  %tobool = icmp ne i32 %i, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-  %1 = load i32, i32* %field2, align 4
-  %call = call i32 @foo(i32 1, i32 1, i32 %1)
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+  %i1 = load i32, ptr %field2, align 4
+  %call = call i32 @foo(i32 1, i32 1, i32 %i1)
   br label %return
 
 if.end:                                           ; preds = %entry
-  %2 = load i32, i32* @myglobal, align 4
-  %call1 = call i32 @foo(i32 0, i32 %2, i32 0)
+  %i2 = load i32, ptr @myglobal, align 4
+  %call1 = call i32 @foo(i32 0, i32 %i2, i32 0)
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
@@ -47,16 +47,13 @@ return:                                           ; preds = %if.end, %if.then
   ret i32 %retval.0
 }
 
-; Check that a test is inserted for the switch variable, which results in
-; either a call to foo or the clone foo.1.
-
 ; CHECK: define dso_local i32 @goo{{.*}}
-; CHECK: [[V1:%[A-Za-z0-9.]+]] = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-; CHECK: [[V2:%[A-Za-z0-9.]+]] = load i32, i32* [[V1]], align 4
+; CHECK: [[V1:%[A-Za-z0-9.]+]] = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+; CHECK: [[V2:%[A-Za-z0-9.]+]] = load i32, ptr [[V1]], align 4
 ; CHECK: [[V3:%[A-Za-z0-9.]+]] = icmp eq i32 [[V2]], 0
 ; CHECK: br i1 [[V3]], label %[[V4:[A-Za-z0-9.]+]], label %[[V5:[A-Za-z0-9.]+]]
 ; CHECK: [[V5]]:
-; CHECK: {{.*}}call i32 @foo(i32 1, i32 1, i32 %1)
+; CHECK: {{.*}}call i32 @foo(i32 1, i32 1, i32 %i1)
 ; CHECK: br label %[[V6:[A-Za-z0-9.]+]]
 ; CHECK: [[V4]]:
 ; CHECK: {{.*}}call i32 @foo.1(i32 1, i32 1, i32 0)
@@ -147,10 +144,9 @@ return:                                           ; preds = %sw.bb, %sw.default,
 ; CHECK: br label %[[V6]]
 ; CHECK: [[V6]]:
 
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
-  %call = call i32 @goo(%struct.MYSTRUCT* @cache)
+  %call = call i32 @goo(ptr @cache)
   ret i32 %call
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

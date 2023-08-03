@@ -76,8 +76,8 @@ for.body6:                                        ; preds = %for.body6, %for.con
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %sum.232 = phi i32 [ %sum.135, %for.cond4.preheader ], [ %add9, %for.body6 ]
   %1 = add nuw nsw i64 %indvars.iv, %0
-  %arrayidx8 = getelementptr inbounds [10 x [100 x i32]], [10 x [100 x i32]]* @A, i64 0, i64 %indvars.iv45, i64 %1
-  %2 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [10 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv45, i64 %1
+  %2 = load i32, ptr %arrayidx8, align 4
   %add9 = add nsw i32 %2, %sum.232
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 20
@@ -103,7 +103,7 @@ for.end12:                                        ; preds = %for.end12.loopexit,
 
 for.end17:                                        ; preds = %for.end12
   %sum.1.lcssa.lcssa = phi i32 [ %sum.1.lcssa, %for.end12 ]
-  %3 = load i32, i32* getelementptr inbounds ([10 x [100 x i32]], [10 x [100 x i32]]* @A, i64 0, i64 0, i64 0), align 16
+  %3 = load i32, ptr @A, align 16
   %add18 = add nsw i32 %3, %sum.1.lcssa.lcssa
   ret i32 %add18
 }

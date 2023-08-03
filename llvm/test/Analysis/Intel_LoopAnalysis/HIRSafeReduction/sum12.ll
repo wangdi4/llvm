@@ -11,22 +11,22 @@ target triple = "x86_64-unknown-linux-gnu"
 @c = common global [1000 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i32* nocapture %sum, i32 %n) #0 {
+define i32 @sub(ptr nocapture %sum, i32 %n) #0 {
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body, label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
   %s.0.lcssa = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  store i32 %s.0.lcssa, i32* %sum, align 4, !tbaa !1
+  store i32 %s.0.lcssa, ptr %sum, align 4, !tbaa !1
   ret i32 0
 
 for.body:                                         ; preds = %entry, %for.body
   %i.08 = phi i32 [ %inc, %for.body ], [ 0, %entry ]
   %s.07 = phi i32 [ %add, %for.body ], [ 0, %entry ]
   %idxprom = sext i32 %s.07 to i64
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @c, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @c, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add = add nsw i32 %0, %n
   %inc = add nuw nsw i32 %i.08, 1
   %exitcond = icmp eq i32 %inc, %n

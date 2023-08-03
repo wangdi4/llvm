@@ -7,14 +7,14 @@
 
 @Glob = internal global i32 0
 
-define void @test(i32* %p) {
+define void @test(ptr %p) {
 entry:
   br label %bb
 
 bb:
-  %phi = phi i32* [ @Glob , %entry ]
-  %ld.Glob = load i32, i32* @Glob, align 8
-  store i32 0, i32* %p
+  %phi = phi ptr [ @Glob , %entry ]
+  %ld.Glob = load i32, ptr @Glob, align 8
+  store i32 0, ptr %p
   ret void
 }
 

@@ -30,6 +30,7 @@ class Value;
 namespace clang {
 class Decl;
 class FunctionDecl;
+class TargetOptions;
 class VarDecl;
 
 namespace CodeGen {
@@ -107,10 +108,12 @@ public:
             SpecialKind(reinterpret_cast<uintptr_t>(functionPtr))) {
     AbstractInfo = abstractInfo;
     assert(functionPtr && "configuring callee without function pointer");
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     assert(functionPtr->getType()->isPointerTy());
     assert(functionPtr->getType()->isOpaquePointerTy() ||
            functionPtr->getType()->getNonOpaquePointerElementType()
                ->isFunctionTy());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   static CGCallee forBuiltin(unsigned builtinID,
@@ -376,6 +379,14 @@ public:
   bool isUnused() const { return IsUnused; }
   bool isExternallyDestructed() const { return IsExternallyDestructed; }
 };
+
+/// Helper to add attributes to \p F according to the CodeGenOptions and
+/// LangOptions without requiring a CodeGenModule to be constructed.
+void mergeDefaultFunctionDefinitionAttributes(llvm::Function &F,
+                                              const CodeGenOptions CodeGenOpts,
+                                              const LangOptions &LangOpts,
+                                              const TargetOptions &TargetOpts,
+                                              bool WillInternalize);
 
 } // end namespace CodeGen
 } // end namespace clang

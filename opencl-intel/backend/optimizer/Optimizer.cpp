@@ -137,16 +137,14 @@ private:
 Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
                      const intel::OptimizerConfig &OptConfig)
     : m_M(M), m_RtlModules(RtlModules.begin(), RtlModules.end()),
-      Config(OptConfig), m_IsSPIRV(CompilationUtils::generatedFromSPIRV(M)),
-      m_IsSYCL(CompilationUtils::isGeneratedFromOCLCPP(M)),
+      Config(OptConfig), m_IsSYCL(CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(CompilationUtils::isGeneratedFromOMP(M)),
       m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   SYCLForceOptnone = Config.GetDisableOpt();
-  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
-              CompilationUtils::OclVersion::CL_VER_2_0;
+  m_HasOcl20 = CompilationUtils::hasOcl20Support(M);
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native);

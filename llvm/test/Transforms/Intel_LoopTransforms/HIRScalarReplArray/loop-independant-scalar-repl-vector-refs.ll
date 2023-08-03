@@ -8,11 +8,10 @@
 ; |   + DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; |   |   %.vec = (<4 x i32>*)(%A)[i2];
 ; |   |   %.vec2 = (<4 x i32>*)(%A)[i2 + 1];
-; |   |   %.vec3 = %phi.temp  +  %.vec + %.vec2;
-; |   |   %.vec4 = (<4 x i32>*)(%A)[i2];
-; |   |   %.vec5 = (<4 x i32>*)(%A)[i2 + 1];
-; |   |   %.vec6 = %.vec3  +  %.vec4 + %.vec5;
-; |   |   %phi.temp = %.vec6;
+; |   |   %.vec3 = (<4 x i32>*)(%A)[i2];
+; |   |   %.vec4 = (<4 x i32>*)(%A)[i2 + 1];
+; |   |   %.vec5 = %phi.temp + %.vec + %.vec2  +  %.vec3 + %.vec4;
+; |   |   %phi.temp = %.vec5;
 ; |   + END LOOP
 ; + END LOOP
 
@@ -21,13 +20,12 @@
 ; CHECK: |   + DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK: |   |   %scalarepl.vec = (<4 x i32>*)(%A)[i2];
 ; CHECK: |   |   %.vec = %scalarepl.vec;
-; CHECK: |   |   %scalarepl.vec9 = (<4 x i32>*)(%A)[i2 + 1];
-; CHECK: |   |   %.vec2 = %scalarepl.vec9;
-; CHECK: |   |   %.vec3 = %phi.temp  +  %.vec + %.vec2;
-; CHECK: |   |   %.vec4 = %scalarepl.vec;
-; CHECK: |   |   %.vec5 = %scalarepl.vec9;
-; CHECK: |   |   %.vec6 = %.vec3  +  %.vec4 + %.vec5;
-; CHECK: |   |   %phi.temp = %.vec6;
+; CHECK: |   |   %scalarepl.vec8 = (<4 x i32>*)(%A)[i2 + 1];
+; CHECK: |   |   %.vec2 = %scalarepl.vec8;
+; CHECK: |   |   %.vec3 = %scalarepl.vec;
+; CHECK: |   |   %.vec4 = %scalarepl.vec8;
+; CHECK: |   |   %.vec5 = %phi.temp + %.vec + %.vec2  +  %.vec3 + %.vec4;
+; CHECK: |   |   %phi.temp = %.vec5;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
@@ -35,7 +33,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind readonly uwtable
-define dso_local i32 @foo(i32* nocapture noundef readonly %A) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture noundef readonly %A) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -47,11 +45,11 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc8
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
   %t.121 = phi i32 [ %t.023, %for.cond1.preheader ], [ %add7, %for.body3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  %1 = load i32, i32* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  %1 = load i32, ptr %arrayidx5, align 4, !tbaa !3
   %add6 = add nsw i32 %0, %1
   %add7 = add nsw i32 %t.121, %add6
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100

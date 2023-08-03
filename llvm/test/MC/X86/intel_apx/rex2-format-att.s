@@ -111,33 +111,37 @@
 
 ## MRMDestMem
 
-# CHECK: movl	(%r16,%rax), %ebx
-# CHECK: encoding: [0xd5,0x10,0x8b,0x1c,0x00]
-         movl	(%r16,%rax), %ebx
+# CHECK: movl	%ebx, (%r16,%rax)
+# CHECK: encoding: [0xd5,0x10,0x89,0x1c,0x00]
+         movl	%ebx, (%r16,%rax)
 
-# CHECK: movl	(%rax,%r16), %ebx
-# CHECK: encoding: [0xd5,0x20,0x8b,0x1c,0x00]
-         movl	(%rax,%r16), %ebx
+# CHECK: movl	%ebx, (%rax,%r16)
+# CHECK: encoding: [0xd5,0x20,0x89,0x1c,0x00]
+         movl	%ebx, (%rax,%r16)
 
-# CHECK: movl	(%rax,%rbx), %r16d
-# CHECK: encoding: [0xd5,0x40,0x8b,0x04,0x18]
-         movl	(%rax,%rbx), %r16d
+# CHECK: movl	%r16d, (%rax,%rbx)
+# CHECK: encoding: [0xd5,0x40,0x89,0x04,0x18]
+         movl	%r16d, (%rax,%rbx)
 
-# CHECK: movl	(%r16,%r17), %eax
-# CHECK: encoding: [0xd5,0x30,0x8b,0x04,0x08]
-         movl	(%r16,%r17), %eax
+# CHECK: movl	%eax, (%r16,%r17)
+# CHECK: encoding: [0xd5,0x30,0x89,0x04,0x08]
+         movl	%eax, (%r16,%r17)
 
-# CHECK: movl	(%rax,%r16), %r17d
-# CHECK: encoding: [0xd5,0x60,0x8b,0x0c,0x00]
-         movl	(%rax,%r16), %r17d
+# CHECK: movl	%r17d, (%rax,%r16)
+# CHECK: encoding: [0xd5,0x60,0x89,0x0c,0x00]
+         movl	%r17d, (%rax,%r16)
 
-# CHECK: movl	(%r16,%rax), %r17d
-# CHECK: encoding: [0xd5,0x50,0x8b,0x0c,0x00]
-         movl	(%r16,%rax), %r17d
+# CHECK: movl	%r17d, (%r16,%rax)
+# CHECK: encoding: [0xd5,0x50,0x89,0x0c,0x00]
+         movl	%r17d, (%r16,%rax)
 
-# CHECK: movl	(%r16,%r17), %r18d
-# CHECK: encoding: [0xd5,0x70,0x8b,0x14,0x08]
-         movl	(%r16,%r17), %r18d
+# CHECK: movl	%r18d, (%r16,%r17)
+# CHECK: encoding: [0xd5,0x70,0x89,0x14,0x08]
+         movl	%r18d, (%r16,%r17)
+
+# CHECK: movb    %bpl, (%r16,%r14)
+# CHECK: encoding: [0xd5,0x12,0x88,0x2c,0x30]
+         movb    %bpl, (%r16,%r14)
 
 ## MRMXmCC
 

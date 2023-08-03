@@ -76,6 +76,7 @@ public:
     Induction,
     Private,
     PrivateNonPOD,
+    PrivateF90DV,
     CompressExpand,
   };
   unsigned char getID() const { return SubclassID; }
@@ -457,6 +458,10 @@ private:
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
   bool IsLinearIV = false;
+
+  /// Replace InductionBinOp with a new instruction.  Required for
+  /// inductions that need a new closed form created.
+  void replaceBinOp(VPInstruction *NewBinOp);
 };
 
 /// Private descriptor. Privates can be declared explicitly or detected
@@ -480,6 +485,7 @@ public:
     PTArray,        // Private of an array type.
     PTInMemory,     // In-memory allocated private.
     PTNonPod,       // Non-POD private.
+    PTF90DV,        // F90 Dope Vector private.
   };
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
@@ -519,7 +525,8 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private || V->getID() == PrivateNonPOD;
+    return V->getID() == Private || V->getID() == PrivateNonPOD ||
+           V->getID() == PrivateF90DV;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
@@ -558,6 +565,8 @@ private:
   bool IsF90;
 };
 
+/// Specialized class for non-POD privates explicitly declared using OMP SIMD
+/// clause.
 class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
@@ -586,12 +595,40 @@ private:
   Function *CopyAssign;
 };
 
+/// Specialized class for Fortran Dope Vector private descriptor. Private Dope
+/// Vectors can be declared explicitly using OMP SIMD clause. Class stores dope
+/// vector element type in F90DVElementType variable which is required for
+/// further lowering and generating required code during VPEntities instruction
+/// lowering.
+class VPPrivateF90DV : public VPPrivate {
+public:
+  VPPrivateF90DV(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
+                 Type *AllocatedTy, bool IsMemOnly, Type *ElType)
+      : VPPrivate(PrivateTag::PTF90DV, std::move(InAliases), K, IsExplicit,
+                  AllocatedTy, IsMemOnly, true /*IsF90*/, PrivateF90DV),
+        F90DVElementType(ElType) {}
+
+  Type *getF90DVElementType() const { return F90DVElementType; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == PrivateF90DV;
+  }
+
+  static inline bool classof(const VPPrivate *V) {
+    return V->getID() == PrivateF90DV;
+  }
+
+private:
+  Type *F90DVElementType;
+};
+
 class VPCompressExpandIdiom : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
   VPCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                        VPInstruction *LiveOut, int64_t TotalStride,
+                        VPPHINode *LiveOut, int64_t TotalStride,
                         const SmallVectorImpl<VPInstruction *> &Increments,
                         const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                         const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -610,7 +647,7 @@ public:
 
   VPPHINode *getRecurrentPhi() const { return RecurrentPhi; }
   VPValue *getLiveIn() const { return LiveIn; }
-  VPInstruction *getLiveOut() const { return LiveOut; }
+  VPPHINode *getLiveOut() const { return LiveOut; }
   int64_t getTotalStride() const { return TotalStride; }
 
   VPCompressExpandInit *getInit() const { return Init; }
@@ -635,7 +672,7 @@ public:
 private:
   VPPHINode *RecurrentPhi;
   VPValue *LiveIn;
-  VPInstruction *LiveOut;
+  VPPHINode *LiveOut;
   int64_t TotalStride;
 
   VPCompressExpandInit *Init = nullptr;
@@ -706,21 +743,7 @@ public:
     CompressExpand,
   };
 
-  static const std::string getImportErrorStr(const ImportError IE) {
-    switch (IE) {
-    case ImportError::None:
-      return "Internal error: no import error!";
-    case ImportError::Reduction:
-      return "Reduction has different symbases for live-in and live-out "
-             "values.";
-    case ImportError::Induction:
-      return "Importing induction failed for this loop.";
-    case ImportError::Private:
-      return "Importing private failed for this loop.";
-    case ImportError::CompressExpand:
-      return "Incomplete compress-expand idiom.";
-    }
-  };
+  const std::string getImportErrorStr(const ImportError IE);
 
   /// Add reduction described by \p K, \p MK, and \p Signed,
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
@@ -758,11 +781,12 @@ public:
   /// \p InductionOp, starting instruction \pStart, incoming value
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
-                            InductionKind K, VPValue *Step, int StepMultiplier,
-                            Type *StepTy, const SCEV *StepSCEV,
-                            VPValue *StartVal, VPValue *EndVal,
-                            VPInstruction *InductionOp, unsigned int Opc,
-                            VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            Type *IndTy, InductionKind K, VPValue *Step,
+                            int StepMultiplier, Type *StepTy,
+                            const SCEV *StepSCEV, VPValue *StartVal,
+                            VPValue *EndVal, VPInstruction *InductionOp,
+                            unsigned int Opc, VPValue *AI = nullptr,
+                            bool ValidMemOnly = false);
 
   /// Add private corresponding to \p Alloca along with the final store
   /// instruction which writes to the private memory witin the for-loop. Also
@@ -770,27 +794,30 @@ public:
   /// and explicit.
   VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
                         VPPrivate::PrivateKind K, bool Explicit,
-                        Type *AllocatedTy, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false, bool IsF90 = false);
+                        Type *AllocatedTy, VPValue *AI, bool ValidMemOnly);
 
   /// Add private corresponding to \p Alloca along with the specified private
   /// tag. Also store other relavant attributes of the private like the
   /// conditional, last and explicit.
   VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
                         VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
-                        bool Explicit, Type *AllocatedTy, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false, bool IsF90 = false);
+                        bool Explicit, Type *AllocatedTy, VPValue *AI,
+                        bool ValidMemOnly);
 
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
                                     Function *CopyAssign, bool IsF90,
-                                    Type *AllocatedTy = nullptr,
-                                    VPValue *AI = nullptr);
+                                    Type *AllocatedTy, VPValue *AI);
+
+  VPPrivateF90DV *addF90DVPrivate(VPEntityAliasesTy &PtrAliases,
+                                  VPPrivate::PrivateKind K, bool Explicit,
+                                  Type *AllocatedTy, VPValue *AI,
+                                  bool ValidMemOnly, Type *F90DVElementType);
 
   VPCompressExpandIdiom *
   addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                         VPInstruction *LiveOut, int64_t TotalStride,
+                         VPPHINode *LiveOut, int64_t TotalStride,
                          const SmallVectorImpl<VPInstruction *> &Increments,
                          const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                          const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -1050,6 +1077,8 @@ private:
   // original PHI.
   SmallVector<std::pair<VPPHINode *, VPPHINode *>, 4> DuplicateInductionPHIs;
 
+  bool GeneratedSSForDV = false;
+
   // Find an item in the map defined as T<K,item>
   template <typename T, class K>
   typename T::mapped_type find(T &Map, K Key) const {
@@ -1193,6 +1222,10 @@ private:
   // instruction and apply its debug location to the PHI nodes for
   // the associated reduction and to the reduction-final itself.
   void assignDebugLocToReductionInstrs(VPReductionFinal *Final, bool IsMemOnly);
+
+  // Given an induction, apply the debug location of the induction bin-op
+  // to the PHI nodes for the associated induction.
+  void assignDebugLocToInductionPhis(const VPInduction *Induction);
 
   // Insert VPInstructions (init/final) for the reduction \p Reduction,
   // keeping its final and exit instructions in a special map \p RedFinalMap,
@@ -1341,7 +1374,7 @@ public:
   }
 
 protected:
-  VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
+  bool findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
   virtual void clear() {
     AllocaInst = nullptr;
@@ -1515,6 +1548,7 @@ public:
   VPInstruction *getStartPhi() const { return StartPhi; }
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
+  Type *getIndType() const { return IndTy; }
   VPValue *getStep() const { return Step; }
   int getStepMultiplier() const { return StepMultiplier; }
   Type *getStepType() const { return StepTy; }
@@ -1528,6 +1562,7 @@ public:
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
+  void setIndType(Type *Ty) { IndTy = Ty; }
   void setStep(VPValue *V) { Step = V; }
   void setStepMultiplier(int multiplier) { StepMultiplier = multiplier; }
   void setStepType(Type *Ty) { StepTy = Ty; }
@@ -1572,6 +1607,7 @@ public:
     StartPhi = nullptr;
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
+    IndTy = nullptr;
     Step = nullptr;
     StepMultiplier = 1;
     StepSCEV = nullptr;
@@ -1612,6 +1648,7 @@ private:
   VPInstruction *StartPhi = nullptr;
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
+  Type *IndTy = nullptr;
   VPValue *Step = nullptr;
   int StepMultiplier = 1;
   Type *StepTy = nullptr;
@@ -1640,6 +1677,7 @@ public:
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
   Function *getCopyAssign() const { return CopyAssign; }
+  Type *getF90DVElementType() const { return F90DVElementType; }
 
   /// Clear the content.
   void clear() override {
@@ -1674,6 +1712,7 @@ public:
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
   void setIsF90(bool F90) { IsF90 = F90; }
+  void setF90DVElementType(Type *ElType) { F90DVElementType = ElType; }
 
 private:
   /// Set fields to define PrivateKind for the imported private.
@@ -1693,6 +1732,7 @@ private:
   bool IsLast = false;
   bool IsExplicit = false;
   bool IsF90 = false;
+  Type *F90DVElementType = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;
@@ -1709,7 +1749,7 @@ class CompressExpandIdiomDescr : public VPEntityImportDescr {
   int64_t TotalStride = 0;
   VPPHINode *RecurrentPhi = nullptr;
   VPValue *LiveIn = nullptr;
-  VPInstruction *LiveOut = nullptr;
+  VPPHINode *LiveOut = nullptr;
 
   bool IsIncomplete = true;
 

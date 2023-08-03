@@ -35,11 +35,11 @@ define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[VP3]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP_LOAD]] i64 [[VP2]]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i64]* @arr2 i64 0 i64 [[VP5]]
-; CHECK-NEXT:     store i64 [[VP5]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @arr2 i64 0 i64 [[VP5]]
+; CHECK-NEXT:     store i64 [[VP5]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP4]] i64 100
 ; CHECK-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -56,11 +56,11 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i1.011 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @arr, i64 0, i64 %i1.011
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @arr, i64 0, i64 %i1.011
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add nsw i64 %0, %mul
-  %arrayidx4 = getelementptr inbounds [100 x i64], [100 x i64]* @arr2, i64 0, i64 %add
-  store i64 %add, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x i64], ptr @arr2, i64 0, i64 %add
+  store i64 %add, ptr %arrayidx4, align 8
   %inc = add nuw nsw i64 %i1.011, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

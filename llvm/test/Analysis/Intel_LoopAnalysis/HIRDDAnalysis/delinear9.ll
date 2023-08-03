@@ -41,7 +41,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @matrix_mul_matrix(i32 %N, i16* noalias nocapture %C, i16* noalias nocapture readonly %A, i16* noalias nocapture readonly %B) local_unnamed_addr {
+define dso_local void @matrix_mul_matrix(i32 %N, ptr noalias nocapture %C, ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B) local_unnamed_addr {
 entry:
   %cmp551.not = icmp eq i32 %N, 0
   br i1 %cmp551.not, label %for.end29, label %for.cond1.preheader.preheader
@@ -60,7 +60,7 @@ for.body6.preheader:                              ; preds = %for.inc24, %for.bod
   %0 = trunc i64 %indvars.iv58 to i32
   %add = add i32 %mul, %0
   %idxprom = zext i32 %add to i64
-  %arrayidx = getelementptr inbounds i16, i16* %C, i64 %idxprom
+  %arrayidx = getelementptr inbounds i16, ptr %C, i64 %idxprom
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
@@ -69,13 +69,13 @@ for.body6:                                        ; preds = %for.body6.preheader
   %2 = trunc i64 %indvars.iv to i32
   %add8 = add i32 %mul, %2
   %idxprom9 = zext i32 %add8 to i64
-  %arrayidx10 = getelementptr inbounds i16, i16* %A, i64 %idxprom9
-  %3 = load i16, i16* %arrayidx10, align 2
+  %arrayidx10 = getelementptr inbounds i16, ptr %A, i64 %idxprom9
+  %3 = load i16, ptr %arrayidx10, align 2
   %mul11 = mul i32 %2, %N
   %add12 = add i32 %mul11, %0
   %idxprom13 = zext i32 %add12 to i64
-  %arrayidx14 = getelementptr inbounds i16, i16* %B, i64 %idxprom13
-  %4 = load i16, i16* %arrayidx14, align 2
+  %arrayidx14 = getelementptr inbounds i16, ptr %B, i64 %idxprom13
+  %4 = load i16, ptr %arrayidx14, align 2
   %mul16 = mul i16 %4, %3
   %add22 = add i16 %mul16, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -84,7 +84,7 @@ for.body6:                                        ; preds = %for.body6.preheader
 
 for.inc24:                                        ; preds = %for.body6
   %add22.lcssa = phi i16 [ %add22, %for.body6 ]
-  store i16 %add22.lcssa, i16* %arrayidx, align 2
+  store i16 %add22.lcssa, ptr %arrayidx, align 2
   %indvars.iv.next59 = add nuw nsw i64 %indvars.iv58, 1
   %exitcond61.not = icmp eq i64 %indvars.iv.next59, %wide.trip.count60
   br i1 %exitcond61.not, label %for.inc27, label %for.body6.preheader

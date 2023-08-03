@@ -269,7 +269,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
   // Perform scalar/vector division of stride by sizeof(element).
   if (ElTy) {
-    unsigned ElementSize = DL.getTypeStoreSize(ElTy);
+    auto ElementSize = DL.getTypeStoreSize(ElTy);
     assert(ElementSize != 0 && "Element size should never be zero.");
 
     // Stride is known to be divisible by ElementSize exactly.

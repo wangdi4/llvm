@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -106,7 +106,8 @@ public:
   /// Checks if the intrinsic is an annotation.
   bool isAssumeLikeIntrinsic() const {
     switch (getIntrinsicID()) {
-    default: break;
+    default:
+      break;
     case Intrinsic::assume:
     case Intrinsic::sideeffect:
     case Intrinsic::pseudoprobe:
@@ -214,29 +215,29 @@ public:
   }
   bool operator==(const location_op_iterator &RHS) const { return I == RHS.I; }
   const Value *operator*() const {
-    ValueAsMetadata *VAM = I.is<ValueAsMetadata *>()
-                               ? I.get<ValueAsMetadata *>()
-                               : *I.get<ValueAsMetadata **>();
+    ValueAsMetadata *VAM = isa<ValueAsMetadata *>(I)
+                               ? cast<ValueAsMetadata *>(I)
+                               : *cast<ValueAsMetadata **>(I);
     return VAM->getValue();
   };
   Value *operator*() {
-    ValueAsMetadata *VAM = I.is<ValueAsMetadata *>()
-                               ? I.get<ValueAsMetadata *>()
-                               : *I.get<ValueAsMetadata **>();
+    ValueAsMetadata *VAM = isa<ValueAsMetadata *>(I)
+                               ? cast<ValueAsMetadata *>(I)
+                               : *cast<ValueAsMetadata **>(I);
     return VAM->getValue();
   }
   location_op_iterator &operator++() {
-    if (I.is<ValueAsMetadata *>())
-      I = I.get<ValueAsMetadata *>() + 1;
+    if (isa<ValueAsMetadata *>(I))
+      I = cast<ValueAsMetadata *>(I) + 1;
     else
-      I = I.get<ValueAsMetadata **>() + 1;
+      I = cast<ValueAsMetadata **>(I) + 1;
     return *this;
   }
   location_op_iterator &operator--() {
-    if (I.is<ValueAsMetadata *>())
-      I = I.get<ValueAsMetadata *>() - 1;
+    if (isa<ValueAsMetadata *>(I))
+      I = cast<ValueAsMetadata *>(I) - 1;
     else
-      I = I.get<ValueAsMetadata **>() - 1;
+      I = cast<ValueAsMetadata **>(I) - 1;
     return *this;
   }
 };
@@ -270,8 +271,16 @@ public:
   }
   bool hasArgList() const { return isa<DIArgList>(getRawLocation()); }
   bool isKillLocation(const DIExpression *Expression) const {
-    return (getNumVariableLocationOps() == 0 && !Expression->isComplex()) ||
-           any_of(location_ops(), [](Value *V) { return isa<UndefValue>(V); });
+    // Check for "kill" sentinel values.
+    // Non-variadic: empty metadata.
+    if (!hasArgList() && isa<MDNode>(getRawLocation()))
+      return true;
+    // Variadic: empty DIArgList with empty expression.
+    if (getNumVariableLocationOps() == 0 && !Expression->isComplex())
+      return true;
+    // Variadic and non-variadic: Interpret expressions using undef or poison
+    // values as kills.
+    return any_of(location_ops(), [](Value *V) { return isa<UndefValue>(V); });
   }
 
   friend bool operator==(const RawLocationWrapper &A,
@@ -393,6 +402,19 @@ public:
   /// Get the FragmentInfo for the variable.
   std::optional<DIExpression::FragmentInfo> getFragment() const {
     return getExpression()->getFragmentInfo();
+  }
+
+  /// Get the FragmentInfo for the variable if it exists, otherwise return a
+  /// FragmentInfo that covers the entire variable if the variable size is
+  /// known, otherwise return a zero-sized fragment.
+  DIExpression::FragmentInfo getFragmentOrEntireVariable() const {
+    DIExpression::FragmentInfo VariableSlice(0, 0);
+    // Get the fragment or variable size, or zero.
+    if (auto Sz = getFragmentSizeInBits())
+      VariableSlice.SizeInBits = *Sz;
+    if (auto Frag = getExpression()->getFragmentInfo())
+      VariableSlice.OffsetInBits = Frag->OffsetInBits;
+    return VariableSlice;
   }
 
   /// \name Casting methods
@@ -544,8 +566,8 @@ public:
                                            ArrayRef<Value *> Params);
 
   static std::optional<unsigned> getMaskParamPos(Intrinsic::ID IntrinsicID);
-  static std::optional<unsigned> getVectorLengthParamPos(
-      Intrinsic::ID IntrinsicID);
+  static std::optional<unsigned>
+  getVectorLengthParamPos(Intrinsic::ID IntrinsicID);
 
   /// The llvm.vp.* intrinsics for this instruction Opcode
   static Intrinsic::ID getForOpcode(unsigned OC);
@@ -594,8 +616,17 @@ public:
     return getFunctionalOpcodeForVP(getIntrinsicID());
   }
 
+  // Equivalent non-predicated constrained ID
+  std::optional<unsigned> getConstrainedIntrinsicID() const {
+    return getConstrainedIntrinsicIDForVP(getIntrinsicID());
+  }
+
   // Equivalent non-predicated opcode
   static std::optional<unsigned> getFunctionalOpcodeForVP(Intrinsic::ID ID);
+
+  // Equivalent non-predicated constrained ID
+  static std::optional<unsigned>
+  getConstrainedIntrinsicIDForVP(Intrinsic::ID ID);
 };
 
 /// This represents vector predication reduction intrinsics.
@@ -1383,204 +1414,212 @@ public:
 };
 
 #if INTEL_CUSTOMIZATION
-  class AddressInst : public IntrinsicInst {
-  public:
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::intel_fakeload ||
-             I->getIntrinsicID() == Intrinsic::intel_subscript ||
-             I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
+class AddressInst : public IntrinsicInst {
+public:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::intel_fakeload ||
+           I->getIntrinsicID() == Intrinsic::intel_subscript ||
+           I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
 
-    Value *getPointerOperand() const {
-      return getArgOperand(getPointerOperandIndex());
-    }
+  Value *getPointerOperand() const {
+    return getArgOperand(getPointerOperandIndex());
+  }
 
-    Type *getPointerOperandType() const {
-      return getPointerOperand()->getType();
-    }
+  Type *getPointerOperandType() const { return getPointerOperand()->getType(); }
 
-    unsigned getPointerAddressSpace() const {
-      return getPointerOperandType()->getPointerAddressSpace();
-    }
-  private:
-    int getPointerOperandIndex() const {
-      return getIntrinsicID() == Intrinsic::intel_fakeload ? 0 : 3;
-    }
-  };
+  unsigned getPointerAddressSpace() const {
+    return getPointerOperandType()->getPointerAddressSpace();
+  }
 
-  class SubscriptInst : public AddressInst {
-  public:
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::intel_subscript ||
-             I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
+private:
+  int getPointerOperandIndex() const {
+    return getIntrinsicID() == Intrinsic::intel_fakeload ? 0 : 3;
+  }
+};
 
-    bool isExact() const {
-      return getIntrinsicID() != Intrinsic::intel_subscript_nonexact;
-    }
+class SubscriptInst : public AddressInst {
+public:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::intel_subscript ||
+           I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
 
-    // Returns the rank in the subscript call arguments plus a rank of the
-    // indexed type.
-    //
-    // For ex.:
-    //   call subscript(<rank> 1, ..., [10 x [5 x float]]* %p, ...)
-    //   This method will return 3, where indexed type rank is 2.
-    unsigned getTypeRank() const {
-      Type *MemoryType = getElementType();
+  bool isExact() const {
+    return getIntrinsicID() != Intrinsic::intel_subscript_nonexact;
+  }
 
-      unsigned TypeRank = 0;
-      while (MemoryType->isArrayTy()) {
-        ++TypeRank;
-        MemoryType = MemoryType->getArrayElementType();
-      }
+  // Returns the rank in the subscript call arguments plus a rank of the
+  // indexed type.
+  //
+  // For ex.:
+  //   call subscript(<rank> 1, ..., [10 x [5 x float]]* %p, ...)
+  //   This method will return 3, where indexed type rank is 2.
+  unsigned getTypeRank() const {
+    Type *MemoryType = getElementType();
 
-      return getRank() + TypeRank;
+    unsigned TypeRank = 0;
+    while (MemoryType->isArrayTy()) {
+      ++TypeRank;
+      MemoryType = MemoryType->getArrayElementType();
     }
 
-    unsigned getRank() const {
-      return static_cast<unsigned>(
-          cast<ConstantInt>(const_cast<Value *>(getArgOperand(0)))
-              ->getValue()
-              .getZExtValue());
-    }
+    return getRank() + TypeRank;
+  }
 
-    Value *getLowerBound() const {
-      return cast<Value>(const_cast<Value *>(getArgOperand(1)));
-    }
+  unsigned getRank() const {
+    return static_cast<unsigned>(
+        cast<ConstantInt>(const_cast<Value *>(getArgOperand(0)))
+            ->getValue()
+            .getZExtValue());
+  }
 
-    Value *getStride() const {
-      return cast<Value>(const_cast<Value *>(getArgOperand(2)));
-    }
+  Value *getLowerBound() const {
+    return cast<Value>(const_cast<Value *>(getArgOperand(1)));
+  }
 
-    // Fortran only. Expected to be called for Subcsript intrinsic.
-    // Returns true if subscript has a non-constant stride that may be zero
-    // as a result of PRODUCT or SUM functions.
-    bool canVarDimStrideBeZero() const {
-      if (isa<ConstantInt>(getStride()))
-        return false;
+  Value *getStride() const {
+    return cast<Value>(const_cast<Value *>(getArgOperand(2)));
+  }
 
-      const AttributeList &CallAttrs = getAttributes();
-      return CallAttrs.hasFnAttr("stride-may-be-zero");
-    }
+  // Fortran only. Expected to be called for Subcsript intrinsic.
+  // Returns true if subscript has a non-constant stride that may be zero
+  // as a result of PRODUCT or SUM functions.
 
-    Type *getElementType() const {
-      return const_cast<Type *>(getAttributes().getParamElementType(3));
-    }
+  bool canVarDimStrideBeZero() const {
+    if (isa<ConstantInt>(getStride()))
+      return false;
 
-    Value *getIndex() const {
-      return cast<Value>(const_cast<Value *>(getArgOperand(4)));
-    }
+    const AttributeList &CallAttrs = getAttributes();
+    return CallAttrs.hasFnAttr("stride-may-be-zero");
+  }
 
-    /// Get extent from metadata attached to the subscript.
-    /// If not available, returns 0.
-    uint64_t getExtent() const {
-      if (const MDNode *Extent = getMetadata("ifx.array_extent"))
-        if (Extent->getNumOperands())
-          if (const auto *CI =
+  // Fortran only. Stride generated from FE are reversed purposely
+  // Used for SPREAD function
+
+  bool isDimStrideReversed() const {
+
+    const AttributeList &CallAttrs = getAttributes();
+    return CallAttrs.hasFnAttr("stride-reversed");
+  }
+
+  Type *getElementType() const {
+    return const_cast<Type *>(getAttributes().getParamElementType(3));
+  }
+
+  Value *getIndex() const {
+    return cast<Value>(const_cast<Value *>(getArgOperand(4)));
+  }
+
+  /// Get extent from metadata attached to the subscript.
+  /// If not available, returns 0.
+  uint64_t getExtent() const {
+    if (const MDNode *Extent = getMetadata("ifx.array_extent"))
+      if (Extent->getNumOperands())
+        if (const auto *CI =
                 mdconst::dyn_extract<ConstantInt>(Extent->getOperand(0)))
-            return CI->getZExtValue();
+          return CI->getZExtValue();
 
-      return 0;
-    }
+    return 0;
+  }
 
-    bool hasAllConstantIndices() const {
-      return isa<ConstantInt>(getLowerBound()) &&
-             isa<ConstantInt>(getStride()) && isa<ConstantInt>(getIndex());
-    }
+  bool hasAllConstantIndices() const {
+    return isa<ConstantInt>(getLowerBound()) && isa<ConstantInt>(getStride()) &&
+           isa<ConstantInt>(getIndex());
+  }
 
-    /// Computes number of elements in returned pointer.
-    /// For scalar pointer returns 0.
-    static unsigned getResultVectorNumElements(ArrayRef<Value*> Args);
+  /// Computes number of elements in returned pointer.
+  /// For scalar pointer returns 0.
+  static unsigned getResultVectorNumElements(ArrayRef<Value *> Args);
 
-    /// Computes number of elements in returned pointer
-    /// For scalar pointer returns 0.
-    static unsigned getResultVectorNumElements(ArrayRef<Type*> ArgTys);
+  /// Computes number of elements in returned pointer
+  /// For scalar pointer returns 0.
+  static unsigned getResultVectorNumElements(ArrayRef<Type *> ArgTys);
+};
+
+class FakeloadInst : public AddressInst {
+public:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::intel_fakeload;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
+
+/// This is the common base class for var.annotation intrinsic.
+class VarAnnotIntrinsic : public IntrinsicInst {
+public:
+  /// \brief Return true if the register attribute is set for var.annotation.
+  ///
+  /// When the HLS feature is on, var.annotation intrinsic is annotated with
+  /// a string which indicates whether the register attribute is set or not.
+  bool hasRegisterAttributeSet() const;
+
+  /// \name Casting methods
+  /// @{
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::var_annotation;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+  /// @}
+};
+
+class ForCpyStrInst : public IntrinsicInst {
+private:
+  enum {
+    ARG_DEST = 0,
+    ARG_DESTLEN,
+    ARG_SRC,
+    ARG_SRCLEN,
+    ARG_PADDING,
+    ARG_VOLATILE
   };
 
-  class FakeloadInst : public AddressInst {
-  public:
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::intel_fakeload;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-  };
+public:
+  Value *getDest() const {
+    return const_cast<Value *>(getArgOperand(ARG_DEST));
+  }
+  Value *getDestLength() const {
+    return const_cast<Value *>(getArgOperand(ARG_DESTLEN));
+  }
+  MaybeAlign getDestAlign() const { return getParamAlign(ARG_DEST); }
 
-  /// This is the common base class for var.annotation intrinsic.
-  class VarAnnotIntrinsic : public IntrinsicInst {
-  public:
-    /// \brief Return true if the register attribute is set for var.annotation.
-    ///
-    /// When the HLS feature is on, var.annotation intrinsic is annotated with
-    /// a string which indicates whether the register attribute is set or not.
-    bool hasRegisterAttributeSet() const;
+  Value *getSource() const {
+    return const_cast<Value *>(getArgOperand(ARG_SRC));
+  }
+  Value *getSourceLength() const {
+    return const_cast<Value *>(getArgOperand(ARG_SRCLEN));
+  }
+  MaybeAlign getSourceAlign() const { return getParamAlign(ARG_SRC); }
 
-    /// \name Casting methods
-    /// @{
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::var_annotation;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-    /// @}
-  };
+  Value *getPadding() const {
+    return const_cast<Value *>(getArgOperand(ARG_PADDING));
+  }
 
-  class ForCpyStrInst : public IntrinsicInst {
-  private:
-    enum {
-      ARG_DEST = 0,
-      ARG_DESTLEN,
-      ARG_SRC,
-      ARG_SRCLEN,
-      ARG_PADDING,
-      ARG_VOLATILE
-    };
+  ConstantInt *getVolatileCst() const {
+    return cast<ConstantInt>(const_cast<Value *>(getArgOperand(ARG_VOLATILE)));
+  }
 
-  public:
-    Value *getDest() const {
-      return const_cast<Value *>(getArgOperand(ARG_DEST));
-    }
-    Value *getDestLength() const {
-      return const_cast<Value *>(getArgOperand(ARG_DESTLEN));
-    }
-    MaybeAlign getDestAlign() const { return getParamAlign(ARG_DEST); }
+  bool isVolatile() const { return !getVolatileCst()->isZero(); }
 
-    Value *getSource() const {
-      return const_cast<Value *>(getArgOperand(ARG_SRC));
-    }
-    Value *getSourceLength() const {
-      return const_cast<Value *>(getArgOperand(ARG_SRCLEN));
-    }
-    MaybeAlign getSourceAlign() const { return getParamAlign(ARG_SRC); }
+  void setVolatile(Constant *V) { setArgOperand(ARG_VOLATILE, V); }
 
-    Value *getPadding() const {
-      return const_cast<Value *>(getArgOperand(ARG_PADDING));
-    }
-
-    ConstantInt *getVolatileCst() const {
-      return cast<ConstantInt>(
-          const_cast<Value *>(getArgOperand(ARG_VOLATILE)));
-    }
-
-    bool isVolatile() const { return !getVolatileCst()->isZero(); }
-
-    void setVolatile(Constant *V) { setArgOperand(ARG_VOLATILE, V); }
-
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::for_cpystr;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-  };
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::for_cpystr;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1677,6 +1716,17 @@ public:
   }
 };
 
+/// This represents the llvm.instrprof.timestamp intrinsic.
+class InstrProfTimestampInst : public InstrProfInstBase {
+public:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::instrprof_timestamp;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
+
 /// This represents the llvm.instrprof.value.profile intrinsic.
 class InstrProfValueProfileInst : public InstrProfInstBase {
 public:
@@ -1756,7 +1806,7 @@ class GCProjectionInst : public IntrinsicInst {
 public:
   static bool classof(const IntrinsicInst *I) {
     return I->getIntrinsicID() == Intrinsic::experimental_gc_relocate ||
-      I->getIntrinsicID() == Intrinsic::experimental_gc_result;
+           I->getIntrinsicID() == Intrinsic::experimental_gc_result;
   }
 
   static bool classof(const Value *V) {
@@ -1814,7 +1864,6 @@ public:
     return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
   }
 };
-
 
 /// This represents the llvm.assume intrinsic.
 class AssumeInst : public IntrinsicInst {

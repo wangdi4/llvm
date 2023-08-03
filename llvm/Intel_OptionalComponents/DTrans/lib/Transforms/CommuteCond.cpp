@@ -79,6 +79,7 @@
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
@@ -314,44 +315,6 @@ template <class InfoClass> bool CommuteCondImpl<InfoClass>::transform() {
 } // end anonymous namespace
 
 namespace llvm {
-namespace dtrans {
-PreservedAnalyses CommuteCondPass::run(Module &M, ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-
-  runImpl(M, DTransInfo, WPInfo);
-
-  // Swapping operands of AND should not invalidate any analysis.
-  return PreservedAnalyses::all();
-}
-
-bool CommuteCondPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                              WholeProgramInfo &WPInfo) {
-
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
-    return false;
-
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-
-  LLVM_DEBUG(dbgs() << "DTRANS CommuteCond: Started\n");
-  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  CommuteCondImpl<DTransAnalysisInfoAdapter> RCImpl(AIAdaptor);
-  for (auto &F : M) {
-    if (F.isDeclaration())
-      continue;
-    RCImpl.visit(F);
-  }
-  bool Changed = RCImpl.transform();
-  if (!Changed)
-    LLVM_DEBUG(dbgs() << "DTRANS CommuteCond: No transformations\n");
-
-  return Changed;
-}
-
-} // end namespace dtrans
-
 namespace dtransOP {
 
 PreservedAnalyses CommuteCondOPPass::run(Module &M, ModuleAnalysisManager &AM) {

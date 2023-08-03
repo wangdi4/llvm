@@ -14,7 +14,7 @@ simd.begin.region:
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-; CHECK:          [DA: Div, SVA: (FV )] i32* [[VP_PRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK:          [DA: Div, SVA: (FV )] i32* [[VP_PRIV:%.*]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP0:%.*]] = bitcast i32* [[VP_PRIV]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 addrspace(4)* [[VP_PRIV_ADDRCAST:%.*]] = addrspacecast i32* [[VP_PRIV]] (SVAOpBits 0->V )

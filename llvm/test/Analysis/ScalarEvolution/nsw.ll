@@ -277,13 +277,13 @@ define void @test4(i32 %arg) {
 ; CHECK-LABEL: 'test4'
 ; CHECK-NEXT:  Classifying expressions for: @test4
 ; CHECK-NEXT:    %array = alloca [10 x i32], align 4
-; CHECK-NEXT:    --> %array U: [0,-3) S: [-9223372036854775808,9223372036854775805)
+; CHECK-NEXT:    --> %array U: [4,-43) S: [-9223372036854775808,9223372036854775805)
 ; CHECK-NEXT:    %index = phi i32 [ %inc5, %for.body ], [ %arg, %entry ]
 ; CHECK-NEXT:    --> {%arg,+,1}<nsw><%for.body> U: full-set S: full-set Exits: (-1 + (10 smax (1 + %arg)<nsw>))<nsw> LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %sub = add nsw i32 %index, -2
 ; CHECK-NEXT:    --> {(-2 + %arg)<nsw>,+,1}<nsw><%for.body> U: full-set S: full-set Exits: (-3 + (10 smax (1 + %arg)<nsw>))<nsw> LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %idxprom = sext i32 %sub to i64
-; CHECK-NEXT:    --> {(-2 + (sext i32 %arg to i64))<nsw>,+,1}<nsw><%for.body> U: [-2147483650,4294967303) S: [-2147483650,4294967303) Exits: (-2 + (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64) + (sext i32 %arg to i64))<nsw> LoopDispositions: { %for.body: Computable } ;INTEL
+; CHECK-NEXT:    --> {(-2 + (sext i32 %arg to i64))<nsw>,+,1}<nsw><%for.body> U: [-2147483650,4294967303) S: [-2147483650,4294967303) Exits: (-2 + (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64) + (sext i32 %arg to i64)) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %arrayidx = getelementptr inbounds [10 x i32], ptr %array, i64 0, i64 %idxprom
 ; CHECK-NEXT:    --> {(-8 + (4 * (sext i32 %arg to i64))<nsw> + %array),+,4}<nw><%for.body> U: [0,-3) S: [-9223372036854775808,9223372036854775805) Exits: (-8 + (4 * (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64))<nuw><nsw> + (4 * (sext i32 %arg to i64))<nsw> + %array) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %data = load i32, ptr %arrayidx, align 4
@@ -321,14 +321,14 @@ define void @bad_postinc_nsw_a(i32 %n) {
 ; CHECK-LABEL: 'bad_postinc_nsw_a'
 ; CHECK-NEXT:  Classifying expressions for: @bad_postinc_nsw_a
 ; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
-; CHECK-NEXT:    --> {0,+,7}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>) LoopDispositions: { %loop: Computable } ;INTEL
+; CHECK-NEXT:    --> {0,+,7}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.inc = add nsw i32 %iv, 7
-; CHECK-NEXT:    --> {7,+,7}<nuw><%loop> U: [7,0) S: [7,0) Exits: (7 + (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw>)) LoopDispositions: { %loop: Computable } ;INTEL
+; CHECK-NEXT:    --> {7,+,7}<nuw><%loop> U: [7,-3) S: [7,0) Exits: (7 + (7 * ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n)))) LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @bad_postinc_nsw_a
-; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw> ;INTEL
+; CHECK-NEXT:  Loop %loop: backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 613566756
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw> ;INTEL
-; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))<nuw><nsw> ;INTEL
+; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
+; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((((-1 * (1 umin %n))<nuw><nsw> + %n) /u 7) + (1 umin %n))
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
 ;
@@ -414,7 +414,6 @@ define void @select_cond_poison_propagation(ptr %p, i32 %x) nounwind {
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add nsw i32 %iv, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
-; INTEL: xmain computes improved ranges on this select
 ; CHECK-NEXT:    %sel = select i1 %cmp, i32 10, i32 20
 ; CHECK-NEXT:    --> %sel U: [10,21) S: [10,21) Exits: <<Unknown>> LoopDispositions: { %loop: Variant } ;INTEL
 ; CHECK-NEXT:    %cond = call i1 @cond()

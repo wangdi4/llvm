@@ -7,18 +7,18 @@
 //===----------------------------------------------------------------------===//
 // REQUIRES: matrix
 
-// RUN: %clangxx -fsycl %s -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-// XFAIL:*
+// INTEL_CUSTOMIZATION
+// get_coord() is implemented in xmain OCL CPU
+// TODO: enable the upstream test when OCL CPU 2024.0 is uplifted
+// RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
+// RUN: %{run} %t.out
+// end INTEL_CUSTOMIZATION
 
 #include <iostream>
 #include <random>
 #include <sycl/sycl.hpp>
 
 using namespace sycl;
-using namespace sycl::ext::intel;
-using namespace sycl::ext::oneapi;
 using namespace sycl::ext::oneapi::experimental::matrix;
 using bfloat16 = sycl::ext::oneapi::bfloat16;
 

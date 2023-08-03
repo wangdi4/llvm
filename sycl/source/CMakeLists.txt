@@ -212,6 +212,7 @@ set(SYCL_SOURCES
     "detail/fusion/fusion_wrapper.cpp"
     "detail/fusion/fusion_wrapper_impl.cpp"
     "detail/global_handler.cpp"
+    "detail/graph_impl.cpp"
     "detail/helpers.cpp"
     "detail/handler_proxy.cpp"
     "detail/image_accessor_util.cpp"
@@ -255,12 +256,10 @@ set(SYCL_SOURCES
     "handler.cpp"
     "image.cpp"
     "interop_handle.cpp"
-    "interop_handler.cpp"
     "kernel.cpp"
     "kernel_bundle.cpp"
     "platform.cpp"
     "queue.cpp"
-    "queue_v3.cpp"
     "sampler.cpp"
     "stream.cpp"
     "spirv_ops.cpp"
@@ -298,6 +297,8 @@ else()
 intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
+
+intel_remove_intel_lib_deps() # INTEL
 
 check_cxx_compiler_flag(-fsemantic-interposition HAS_SEMANTIC_INTERPOSITION_FLAG)
 if (HAS_SEMANTIC_INTERPOSITION_FLAG)

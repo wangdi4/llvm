@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-win32-msvc-elf"
 
-define void @__test_if_separated_args() #0 !kernel_wrapper !{void()* @test_if} {
+define void @__test_if_separated_args() #0 !kernel_wrapper !{ptr @test_if} {
   ret void
 }
 
@@ -19,7 +19,7 @@ attributes #0 = { alwaysinline "kernel_wrapper"="test_if" }
 attributes #1 = { noinline }
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @__test_if_separated_args}
+!0 = !{ptr @__test_if_separated_args}
 
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing variable 1

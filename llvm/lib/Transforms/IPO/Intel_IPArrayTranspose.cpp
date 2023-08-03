@@ -88,7 +88,7 @@ public:
   bool run();
 
 private:
-  using MemRefSet = SmallPtrSet<Instruction *, 32>;
+  using MemRefSet = SmallSetVector<Instruction *, 32>;
 
   // Heuristics for the transpose transformation:
 
@@ -144,6 +144,9 @@ private:
   // List of free calls
   SmallPtrSet<CallInst *, 2> FreeCalls;
 
+  // Keep track of "new" unoptimized SCEVExprs
+  SmallPtrSet<const SCEV *, 4> NewUnOptSCEVExprs;
+
   // Collection of all aliases of return pointers of malloc calls after
   // incrementing by some value. Map of alias pointer and the displacement
   // from the original return pointer of malloc.
@@ -151,13 +154,13 @@ private:
   //     ptr = malloc();  // Displacement of ptr is 0
   //     ptr1 += 128;     // Displacement of ptr1 is 128
   //
-  DenseMap<Value *, int64_t> MallocPtrIncrAliases;
+  MapVector<Value *, int64_t> MallocPtrIncrAliases;
 
   // Processed instructions during the collection of memory references.
   SmallPtrSet<Instruction *, 16> ProcessedInsts;
 
   // All memory references of candidate arrays for each function.
-  DenseMap<Function *, MemRefSet> FunctionMemRefs;
+  MapVector<Function *, MemRefSet> FunctionMemRefs;
 
   // Set of pointer increment and decrement instructions.
   SmallPtrSet<GetElementPtrInst *, 4> PtrIncDecGEPInsts;
@@ -193,11 +196,21 @@ private:
                       SmallVectorImpl<const Loop *> &, SmallSet<int64_t, 4> &,
                       SmallSet<int64_t, 2> &, SmallSet<int64_t, 1> &,
                       const SCEV *, ScalarEvolution &);
+  bool parseAllConstSCEVAddRecExpr(const SCEV *, int64_t, ScalarEvolution &,
+                                   SmallVectorImpl<int64_t> &,
+                                   SmallSet<int64_t, 2> &,
+                                   SmallVectorImpl<const Loop *> &);
   bool parseUnoptimizedSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
                                  SmallVectorImpl<const Loop *> &,
                                  SmallSet<int64_t, 4> &, SmallSet<int64_t, 2> &,
                                  SmallSet<int64_t, 1> &, const SCEV *,
                                  ScalarEvolution &);
+  bool parseNewUnoptimizedSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
+                                    SmallVectorImpl<const Loop *> &,
+                                    SmallSet<int64_t, 4> &,
+                                    SmallSet<int64_t, 2> &,
+                                    SmallSet<int64_t, 1> &, const SCEV *,
+                                    ScalarEvolution &);
   bool parseAddRecSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
                             SmallVectorImpl<const Loop *> &,
                             SmallSet<int64_t, 4> &, SmallSet<int64_t, 2> &,
@@ -212,6 +225,10 @@ private:
   const SCEV *fixSCEVExpr(const SCEV *, const SCEV *, ScalarEvolution &);
   const SCEV *fixUnoptimizedSCEVExpr(const SCEV *, const SCEV *,
                                      ScalarEvolution &);
+  const SCEV *fixAllConstAddRecExpr(const SCEV *, const SCEV *, int64_t,
+                                    ScalarEvolution &);
+  const SCEV *fixNewUnoptimizedSCEVExpr(const SCEV *, const SCEV *,
+                                        ScalarEvolution &);
 };
 
 // Returns true if F is "LibF" library function.
@@ -396,7 +413,8 @@ bool ArrayTransposeImpl::computePointerAliases() {
     // be mapped to %A5 and %P5 will be mapped to %A6.
     //   foo(i32* %0, i32* %1, double** %P3, i64 %P4, i64 %P5)
     //
-    if (isKmpcLibCall(CalledF, &TLI, LibFunc_kmpc_fork_call)) {
+    if (isKmpcLibCall(CalledF, &TLI, LibFunc_kmpc_fork_call) ||
+        isKmpcLibCall(CalledF, &TLI, LibFunc_kmpc_fork_teams)) {
       CalledF = dyn_cast<Function>(CI->getArgOperand(2)->stripPointerCasts());
       assert(CalledF && "Expected function argument");
       I += 3;
@@ -489,7 +507,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
           }
           for (auto CB : Calls) {
             SmallPtrSet<Argument *, 16> Args;
-	    if (CB->isLifetimeStartOrEnd())
+            if (CB->isLifetimeStartOrEnd())
               continue;
             if (!CollectAliasArguments(CB, PtrOp, Args))
               return false;
@@ -1034,6 +1052,87 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   return true;
 }
 
+// Parse a SCEV expression of type SCEVAddRecExpr with all constant values.
+// Return 'true' if it is recognized.
+bool ArrayTransposeImpl::parseAllConstSCEVAddRecExpr(
+    const SCEV *S, int64_t ScaledV, ScalarEvolution &SE,
+    SmallVectorImpl<int64_t> &Strides,
+    SmallSet<int64_t, 2> &AllUnscaledMultipliers,
+    SmallVectorImpl<const Loop *> &Loops) {
+  auto AR = dyn_cast<SCEVAddRecExpr>(S);
+  if (!AR || !AR->isAffine())
+    return false;
+  auto Step = dyn_cast<SCEVConstant>(AR->getStepRecurrence(SE));
+  if (!Step)
+    return false;
+  AllUnscaledMultipliers.insert(Step->getAPInt().getSExtValue());
+  // Scaled stride value is collected.
+  Strides.push_back(Step->getAPInt().getSExtValue() * ScaledV);
+  auto L = AR->getLoop();
+  if (!L)
+    return false;
+  Loops.push_back(L);
+  const SCEV *StartS = AR->getStart();
+  if (auto ARS = dyn_cast<SCEVAddRecExpr>(StartS))
+    return parseAllConstSCEVAddRecExpr(ARS, ScaledV, SE, Strides,
+                                       AllUnscaledMultipliers, Loops);
+  if (isa<SCEVConstant>(StartS))
+    return true;
+  return false;
+}
+
+// Parse a SCEV expression of the form:
+//   S = AConstant + MaxElemSize * SignZeroExt(SCEVAddRecExpr) + BasePtr
+// where 'BasePtr has a displacement of 0 from the malloced memory and
+// 'SCEVAddRecExpr' is a SCEV of type SCEVAddRecExpr with all constant values.
+// Return 'true' if it is recognized.
+bool ArrayTransposeImpl::parseNewUnoptimizedSCEVExprs(
+    const SCEV *S, SmallVectorImpl<int64_t> &Strides,
+    SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
+    SmallSet<int64_t, 2> &AllUnscaledMultipliers,
+    SmallSet<int64_t, 1> &SignZeroExtMultipliers, const SCEV *Base,
+    ScalarEvolution &SE) {
+
+  auto A = dyn_cast<SCEVAddExpr>(S);
+  if (!A)
+    return false;
+  auto Pair = MallocPtrIncrAliases.find(cast<SCEVUnknown>(Base)->getValue());
+  assert(Pair != MallocPtrIncrAliases.end() && "Expecting Base as MallocPtr");
+  if (Pair->second)
+    return false;
+  const SCEV *SawBase = nullptr;
+  const SCEV *SawConst = nullptr;
+  const SCEV *SawMul = nullptr;
+  for (const SCEV *S0 : A->operands()) {
+    if (S0 == Base) {
+      if (SawBase)
+        return false;
+      SawBase = S0;
+    } else if (auto SC = dyn_cast<SCEVConstant>(S0)) {
+      if (SawConst)
+        return false;
+      SawConst = S0;
+    } else if (auto SM = dyn_cast<SCEVMulExpr>(S0)) {
+      if (SawMul)
+        return false;
+      SawMul = SM;
+    } else {
+      return false;
+    }
+  }
+  if (!SawBase || !SawConst || !SawMul)
+    return false;
+  int64_t CVal = 0;
+  const SCEV *SignZeroExtOp = nullptr;
+  if (!parseSCEVSignZeroExtExpr(SawMul, CVal, SignZeroExtOp))
+    return false;
+  SignZeroExtMultipliers.insert(CVal);
+  if (!parseAllConstSCEVAddRecExpr(SignZeroExtOp, CVal, SE, Strides,
+                                   AllUnscaledMultipliers, Loops))
+    return false;
+  return true;
+}
+
 bool ArrayTransposeImpl::parseSCEVExprs(
     const SCEV *S, SmallVectorImpl<int64_t> &Strides,
     SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
@@ -1044,7 +1143,12 @@ bool ArrayTransposeImpl::parseSCEVExprs(
     return parseAddRecSCEVExprs(S, Strides, Loops, AllConstExprs,
                                 AllUnscaledMultipliers, SignZeroExtMultipliers,
                                 Base, SE);
-
+  if (parseNewUnoptimizedSCEVExprs(S, Strides, Loops, AllConstExprs,
+                                   AllUnscaledMultipliers,
+                                   SignZeroExtMultipliers, Base, SE)) {
+    NewUnOptSCEVExprs.insert(S);
+    return true;
+  }
   return parseUnoptimizedSCEVExprs(S, Strides, Loops, AllConstExprs,
                                    AllUnscaledMultipliers,
                                    SignZeroExtMultipliers, Base, SE);
@@ -1479,6 +1583,12 @@ const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
     int64_t TransposedTotalOffset = computeTransposedOffset(TotalOffset);
     int64_t TransposedOffset =
         TransposedTotalOffset - computeTransposedOffset(Disp / MaxElemSize);
+    LLVM_DEBUG({
+      dbgs() << "TotalOffset: " << TotalOffset << " ";
+      dbgs() << "TransposedTotalOffset: " << TransposedTotalOffset << " ";
+      dbgs() << "TransposedOffset: " << TransposedOffset << " ";
+      dbgs() << "Result: " << TransposedOffset * MaxElemSize / ScaledV << "\n";
+    });
     // Fix scaling if there is any.
     return SE.getConstant(StartC->getType(),
                           TransposedOffset * MaxElemSize / ScaledV);
@@ -1554,12 +1664,90 @@ const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
   return SE.getAddExpr(Ops);
 }
 
+// Transpose a SCEV expression of the form:
+// For example, transform:
+//   {{{19,+,1310720}<%248>,+,5120}<%256>,+,20}<%265>
+// into:
+//   {{{(642514944 + %75),+,65536}<nw><%248>,+,256}<nw><%256>,+,1}<nw><%265>
+// where TransposedNumRows = 33816576 and TransposedNumCols = 20.
+//
+// Do this by dividing each of the strides by 'TransposedNumCols' and
+// replacing the constant in the ultimate start value StartConstant by
+//   computeTransposedOffset(StartConstant + ScaledOffset)
+//
+const SCEV *ArrayTransposeImpl::fixAllConstAddRecExpr(const SCEV *SZExtOp,
+                                                      const SCEV *BasePtr,
+                                                      int64_t ScaledOffset,
+                                                      ScalarEvolution &SE) {
+  auto AR = cast<SCEVAddRecExpr>(SZExtOp);
+  auto L = AR->getLoop();
+  auto StepC = cast<SCEVConstant>(AR->getStepRecurrence(SE));
+  const SCEV *St = SE.getConstant(StepC->getType(), TransposedNumCols);
+  const SCEV *Step = SE.getConstant(
+      StepC->getAPInt().sdiv(cast<SCEVConstant>(St)->getAPInt()));
+  auto OldStart = AR->getStart();
+  if (isa<SCEVAddRecExpr>(OldStart)) {
+    const SCEV *Start =
+        fixAllConstAddRecExpr(OldStart, BasePtr, ScaledOffset, SE);
+    return SE.getAddRecExpr(Start, Step, L, AR->getNoWrapFlags(SCEV::FlagNW));
+  }
+  auto OldStartC = cast<const SCEVConstant>(OldStart);
+  int64_t StartC = OldStartC->getAPInt().getSExtValue() + ScaledOffset;
+  int64_t TransposedOffset = computeTransposedOffset(StartC);
+  const SCEV *Start = SE.getConstant(OldStartC->getType(), TransposedOffset);
+  return SE.getAddRecExpr(Start, Step, L, AR->getNoWrapFlags(SCEV::FlagNW));
+}
+
+// Transpose a SCEV expression of the form:
+//   S = AConstant + MaxElemSize * SignZeroExt(SCEVAddRecExpr) + BasePtr
+// where 'BasePtr has a displacement of 0 from the malloced memory and
+// 'SCEVAddRecExpr' is a SCEV of type SCEVAddRecExpr with all constant values.
+//
+// For example, transform:
+//   (20971520 + (8 * (zext i32 (EXP) to i64))<nuw><nsw> + %75)
+//     where {{{-2621421,+,1310720}<%248>,+,5120}<%256>,+,20}<%265>
+//     and Displacement(%75) = 0
+// into:
+//   {{{(5140119552 + %75),+,524288}<nw><%248>,+,2048}<nw><%256>,+,8}<nw><%265>
+//
+// Do this by scaling 'AConstant' by 'MaxElemSize' and adding it to the
+// ultimate start value of 'SCEVAddRecExpr'.
+const SCEV *ArrayTransposeImpl::fixNewUnoptimizedSCEVExpr(const SCEV *S,
+                                                          const SCEV *BasePtr,
+                                                          ScalarEvolution &SE) {
+  auto A = cast<SCEVAddExpr>(S);
+  const SCEVConstant *SawConst = nullptr;
+  const SCEVMulExpr *SawMul = nullptr;
+  for (const SCEV *S0 : A->operands()) {
+    if (S0 == BasePtr)
+      continue;
+    if (auto SC = dyn_cast<SCEVConstant>(S0)) {
+      SawConst = SC;
+      continue;
+    }
+    SawMul = cast<SCEVMulExpr>(S0);
+  }
+  int64_t MulVal = 0;
+  const SCEV *SZExtOp = nullptr;
+  (void)parseSCEVSignZeroExtExpr(SawMul, MulVal, SZExtOp);
+  assert(MulVal == MaxElemSize && "Expecting MulVal == MaxElemSize");
+  int64_t Offset = SawConst->getAPInt().getSExtValue();
+  int64_t ScaledOffset = Offset / MaxElemSize;
+  auto SCEVARE0 = fixAllConstAddRecExpr(SZExtOp, BasePtr, ScaledOffset, SE);
+  SmallVector<const SCEV *, 4> Ops;
+  Ops.push_back(BasePtr);
+  Ops.push_back(fixSCEVMulSignZeroExpr(SawMul, SCEVARE0, SE));
+  return SE.getAddExpr(Ops);
+}
+
 const SCEV *ArrayTransposeImpl::fixSCEVExpr(const SCEV *S, const SCEV *BasePtr,
                                             ScalarEvolution &SE) {
   if (isa<SCEVAddRecExpr>(S))
     return fixSCEVAddRecExpr(S, BasePtr, SE);
 
   // Fix unoptimized SCEV expression.
+  if (NewUnOptSCEVExprs.count(S))
+    return fixNewUnoptimizedSCEVExpr(S, BasePtr, SE);
   return fixUnoptimizedSCEVExpr(S, BasePtr, SE);
 }
 
@@ -1688,7 +1876,6 @@ PreservedAnalyses IPArrayTransposePass::run(Module &M,
   auto GetSE = [&FAM](Function &F) -> ScalarEvolution & {
     return FAM.getResult<ScalarEvolutionAnalysis>(F);
   };
-
   ArrayTransposeImpl Impl(M, WPInfo, GetTLI, GetLI, GetSE, M.getDataLayout());
   bool Changed = Impl.run();
   if (!Changed)

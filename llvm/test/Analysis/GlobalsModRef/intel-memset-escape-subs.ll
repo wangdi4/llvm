@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes="default<O1>,convert-to-subscript" -S | FileCheck %s
+; RUN: opt < %s -passes="default<O1>,convert-to-subscript" -S | FileCheck %s
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.10.0"
@@ -11,10 +11,10 @@ target triple = "x86_64-apple-macosx10.10.0"
 
 ; Derived from memset-escape-subs.ll
 ; CHECK-LABEL: @main
-; CHECK: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64{{.*}} @a
-; CHECK: call void @llvm.memset.p0i8.i64{{.*}} @a
+; CHECK: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64{{.*}} @a
+; CHECK: call void @llvm.memset.p0.i64{{.*}} @a
 ; CHECK: store i32 3
-; CHECK: load i32, i32* {{.*}}
+; CHECK: load i32, ptr {{.*}}
 ; CHECK: icmp eq i32
 ; CHECK: br i1
 
@@ -22,35 +22,35 @@ define i32 @main() {
 entry:
   %retval = alloca i32, align 4
   %c = alloca [1 x i32], align 4
-  store i32 0, i32* %retval, align 4
-  %0 = bitcast [1 x i32]* %c to i8*
-  call void @llvm.memset.p0i8.i64(i8* %0, i8 0, i64 4, i32 4, i1 false)
-  store i32 1, i32* getelementptr inbounds ([3 x i32], [3 x i32]* @a, i64 0, i64 2), align 4
-  store i32 0, i32* @b, align 4
+  store i32 0, ptr %retval, align 4
+  %0 = bitcast ptr %c to ptr
+  call void @llvm.memset.p0i8.i64(ptr %0, i8 0, i64 4, i32 4, i1 false)
+  store i32 1, ptr getelementptr inbounds ([3 x i32], ptr @a, i64 0, i64 2), align 4
+  store i32 0, ptr @b, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32, i32* @b, align 4
+  %1 = load i32, ptr @b, align 4
   %cmp = icmp slt i32 %1, 3
-  %p = bitcast i32* getelementptr inbounds ([3 x i32], [3 x i32]* @a, i64 0, i64 0) to i8*
-  call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 12, i32 4, i1 false)
+  %p = bitcast ptr getelementptr inbounds ([3 x i32], ptr @a, i64 0, i64 0) to ptr
+  call void @llvm.memset.p0i8.i64(ptr %p, i8 0, i64 12, i32 4, i1 false)
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = load i32, i32* @b, align 4
+  %2 = load i32, ptr @b, align 4
   %idxprom = sext i32 %2 to i64
-  %arrayidx = getelementptr inbounds [3 x i32], [3 x i32]* @a, i64 0, i64 %idxprom
-  store i32 0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [3 x i32], ptr @a, i64 0, i64 %idxprom
+  store i32 0, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %3 = load i32, i32* @b, align 4
+  %3 = load i32, ptr @b, align 4
   %inc = add nsw i32 %3, 1
-  store i32 %inc, i32* @b, align 4
+  store i32 %inc, ptr @b, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %4 = load i32, i32* getelementptr inbounds ([3 x i32], [3 x i32]* @a, i64 0, i64 2), align 4
+  %4 = load i32, ptr getelementptr inbounds ([3 x i32], ptr @a, i64 0, i64 2), align 4
   %cmp1 = icmp ne i32 %4, 0
   br i1 %cmp1, label %if.then, label %if.end
 
@@ -63,7 +63,7 @@ if.end:                                           ; preds = %for.end
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind argmemonly
+declare void @llvm.memset.p0i8.i64(ptr nocapture, i8, i64, i32, i1) nounwind argmemonly
 
 ; Function Attrs: noreturn nounwind
 declare void @abort() noreturn nounwind

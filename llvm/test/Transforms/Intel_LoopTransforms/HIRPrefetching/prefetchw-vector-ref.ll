@@ -1,6 +1,6 @@
 ; Check that prefetchw is working for vector refs
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;
@@ -24,10 +24,10 @@
 ; the two checks when this happens.
 ; MERGED-CFG:        + DO i1 = 0, %loop.ub, 4   <DO_LOOP>  <MAX_TC_EST = 25000>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; MERGED-CFG:        |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  1,  3,  1);
-; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  1,  3,  1);
-; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 258][0]),  1,  3,  1);
-; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 259][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 256][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 257][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 258][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 259][0]),  1,  3,  1);
 ; MERGED-CFG:        + END LOOP
 
 ; MERGED-CFG:        + DO i1 = %lb.tmp, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>
@@ -53,9 +53,9 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx1 = getelementptr inbounds [100000 x [100000 x i32]], [100000 x [100000 x i32]]* @A, i64 0, i64 %indvars.iv, i64 0, !intel-tbaa !2
+  %arrayidx1 = getelementptr inbounds [100000 x [100000 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 0, !intel-tbaa !2
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx1, align 16, !tbaa !2
+  store i32 %0, ptr %arrayidx1, align 16, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count8
   br i1 %exitcond, label %for.end.loopexit, label %for.body

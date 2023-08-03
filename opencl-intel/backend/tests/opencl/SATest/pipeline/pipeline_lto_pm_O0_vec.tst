@@ -23,11 +23,3 @@
 ; CHECK: Running pass: VPODirectiveCleanupPass on test (7 instructions)
 
 ; CHECK: Running pass: SYCLKernelPostVecPass on [module]
-
-; CHECK-NOT: Running pass: SGBuiltinPass on [module]
-; CHECK-NOT: Running analysis: SGSizeAnalysisPass on [module]
-; CHECK-NOT: Running pass: SGBarrierPropagatePass on [module]
-; CHECK-NOT: Running pass: SGBarrierSimplifyPass on [module]
-; CHECK-NOT: Running pass: SGValueWidenPass on [module]
-; CHECK-NOT: Running pass: SGLoopConstructPass on [module]
-; CHECK-NOT: Invalidating analysis: SGSizeAnalysisPass on [module]

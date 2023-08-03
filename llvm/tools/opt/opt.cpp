@@ -28,7 +28,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
@@ -56,7 +55,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
@@ -72,9 +70,9 @@
 #include "llvm/Target/TargetMachine.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -149,6 +147,12 @@ static cl::opt<bool>
 static cl::opt<bool>
     SplitLTOUnit("thinlto-split-lto-unit",
                  cl::desc("Enable splitting of a ThinLTO LTOUnit"));
+
+static cl::opt<bool>
+    UnifiedLTO("unified-lto",
+               cl::desc("Use unified LTO piplines. Ignored unless -thinlto-bc "
+                        "is also specified."),
+               cl::Hidden, cl::init(false));
 
 static cl::opt<std::string> ThinLinkBitcodeFile(
     "thin-link-bitcode-file", cl::value_desc("filename"),
@@ -257,10 +261,6 @@ static cl::opt<bool> VerifyDebugInfoPreserve(
     cl::desc("Start the pipeline with collecting and end it with checking of "
              "debug info preservation."));
 
-static cl::opt<bool>
-PrintBreakpoints("print-breakpoints-for-testing",
-                 cl::desc("Print select breakpoints location for testing"));
-
 static cl::opt<std::string> ClDataLayout("data-layout",
                                          cl::desc("data layout string to use"),
                                          cl::value_desc("layout-string"),
@@ -333,6 +333,7 @@ static cl::list<std::string>
     PassPlugins("load-pass-plugin",
                 cl::desc("Load passes from plugin library"));
 
+#ifdef INTEL_CUSTOMIZATION
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -341,36 +342,6 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   if (VerifyEach)
     PM.add(createVerifierPass());
 }
-
-#ifdef INTEL_CUSTOMIZATION
-/// This routine adds optimization passes based on selected optimization level,
-/// OptLevel.
-///
-/// OptLevel - Optimization Level
-static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
-                                  legacy::FunctionPassManager &FPM,
-                                  TargetMachine *TM, unsigned OptLevel,
-                                  unsigned SizeLevel) {
-  if (!NoVerify || VerifyEach)
-    FPM.add(createVerifierPass()); // Verify that input is correct
-
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = SizeLevel;
-
-  if (OptLevel <= 1) {
-    Builder.Inliner = createAlwaysInlinerLegacyPass();
-  }
-  Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
-
-  Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
-
-  Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
-
-  Builder.populateFunctionPassManager(FPM);
-  Builder.populateModulePassManager(MPM);
-}
-
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
@@ -519,9 +490,6 @@ int main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
-#if INTEL_CUSTOMIZATION
-  initializeObjCARCOpts(Registry);
-#endif // INTEL_CUSTOMIZATION
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
@@ -538,7 +506,6 @@ int main(int argc, char **argv) {
   initializeCallBrPreparePass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
-  initializeRewriteSymbolsLegacyPassPass(Registry);
   initializeWinEHPreparePass(Registry);
   initializeDwarfEHPrepareLegacyPassPass(Registry);
   initializeSafeStackLegacyPassPass(Registry);
@@ -758,8 +725,11 @@ int main(int argc, char **argv) {
     if (CheckBitcodeOutputToConsole(Out->os()))
       NoOutput = true;
 
-  if (OutputThinLTOBC)
+  if (OutputThinLTOBC) {
     M->addModuleFlag(Module::Error, "EnableSplitLTOUnit", SplitLTOUnit);
+    if (UnifiedLTO)
+      M->addModuleFlag(Module::Error, "UnifiedLTO", 1);
+  }
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
   TargetLibraryInfoImpl TLII(ModuleTriple);
@@ -792,9 +762,8 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
     if (legacy::debugPassSpecified()) {
-      errs()
-          << "-debug-pass does not work with the new PM, either use "
-             "-debug-pass-manager, or use the legacy PM (-enable-new-pm=0)\n";
+      errs() << "-debug-pass does not work with the new PM, either use "
+                "-debug-pass-manager, or use the legacy PM\n";
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -867,7 +836,7 @@ int main(int argc, char **argv) {
                            Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder, // INTEL
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify,
-                           VerifyDebugInfoPreserve)
+                           VerifyDebugInfoPreserve, UnifiedLTO)
                ? 0
                : 1;
   }
@@ -930,8 +899,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::unique_ptr<legacy::FunctionPassManager> FPasses;
 #ifdef INTEL_CUSTOMIZATION
+  std::unique_ptr<legacy::FunctionPassManager> FPasses;
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
       OptLevelO3) {
     FPasses.reset(new legacy::FunctionPassManager(M.get()));
@@ -939,24 +908,6 @@ int main(int argc, char **argv) {
         TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis()));
   }
 #endif // INTEL_CUSTOMIZATION
-
-  if (PrintBreakpoints) {
-    // Default to standard output.
-    if (!Out) {
-      if (OutputFilename.empty())
-        OutputFilename = "-";
-
-      std::error_code EC;
-      Out = std::make_unique<ToolOutputFile>(OutputFilename, EC,
-                                              sys::fs::OF_None);
-      if (EC) {
-        errs() << EC.message() << '\n';
-        return 1;
-      }
-    }
-    Passes.add(createBreakpointPrinter(Out->os()));
-    NoOutput = true;
-  }
 
   if (TM) {
     // FIXME: We should dyn_cast this when supported.
@@ -967,38 +918,6 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
-#ifdef INTEL_CUSTOMIZATION
-    if (OptLevelO0 && OptLevelO0.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
-      OptLevelO0 = false;
-    }
-
-    if (OptLevelO1 && OptLevelO1.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 1, 0);
-      OptLevelO1 = false;
-    }
-
-    if (OptLevelO2 && OptLevelO2.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 0);
-      OptLevelO2 = false;
-    }
-
-    if (OptLevelOs && OptLevelOs.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 1);
-      OptLevelOs = false;
-    }
-
-    if (OptLevelOz && OptLevelOz.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 2);
-      OptLevelOz = false;
-    }
-
-    if (OptLevelO3 && OptLevelO3.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
-      OptLevelO3 = false;
-    }
-
-#endif
     const PassInfo *PassInf = PassList[i];
     Pass *P = nullptr;
     if (PassInf->getNormalCtor())
@@ -1006,8 +925,9 @@ int main(int argc, char **argv) {
     else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
-#if INTEL_CUSTOMIZATION
-   if (P) {
+
+#ifdef INTEL_CUSTOMIZATION
+    if (P) {
       PassKind Kind = P->getPassKind();
       addPass(Passes, P);
 
@@ -1031,34 +951,14 @@ int main(int argc, char **argv) {
         }
       }
     }
-#endif // INTEL_CUSTOMIZATION
   }
 
-#ifdef INTEL_CUSTOMIZATION
-  if (OptLevelO0)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
-
-  if (OptLevelO1)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 1, 0);
-
-  if (OptLevelO2)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 0);
-
-  if (OptLevelOs)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 1);
-
-  if (OptLevelOz)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 2);
-
-  if (OptLevelO3)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
-
-#endif // INTEL_CUSTOMIZATION
   if (FPasses) {
     FPasses->doInitialization();
     for (Function &F : *M)
       FPasses->run(F);
     FPasses->doFinalization();
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Check that the module is well formed on completion of optimization
@@ -1147,7 +1047,7 @@ int main(int argc, char **argv) {
     exportDebugifyStats(DebugifyExport, Passes.getDebugifyStatsMap());
 
   // Declare success.
-  if (!NoOutput || PrintBreakpoints)
+  if (!NoOutput)
     Out->keep();
 
   if (RemarksFile)

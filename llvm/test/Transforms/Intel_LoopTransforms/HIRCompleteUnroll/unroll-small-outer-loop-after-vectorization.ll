@@ -29,57 +29,57 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.x264_weight_t = type { [8 x i16], [8 x i16], i32, i32, i32, void (i8*, i32, i8*, i32, %struct.x264_weight_t*, i32)**, [8 x i8] }
+%struct.x264_weight_t = type { [8 x i16], [8 x i16], i32, i32, i32, ptr, [8 x i8] }
 
 ; Function Attrs: inlinehint norecurse nounwind uwtable
-define hidden fastcc void @"mc_weight|_._._._._.16.16"(i8* nocapture %t0, i32 %t1, i8* nocapture readonly %t2, i32 %t3, %struct.x264_weight_t* nocapture readonly %t4) unnamed_addr #0 {
-  %t6 = getelementptr inbounds %struct.x264_weight_t, %struct.x264_weight_t* %t4, i64 0, i32 2
+define hidden fastcc void @"mc_weight|_._._._._.16.16"(ptr nocapture %t0, i32 %t1, ptr nocapture readonly %t2, i32 %t3, ptr nocapture readonly %t4) unnamed_addr #0 {
+  %t6 = getelementptr inbounds %struct.x264_weight_t, ptr %t4, i64 0, i32 2
   br label %t40
 
 t40:                                     ; preds = %t5
   %t41 = sext i32 %t1 to i64
   %t42 = sext i32 %t3 to i64
-  %t43 = getelementptr inbounds %struct.x264_weight_t, %struct.x264_weight_t* %t4, i64 0, i32 3
-  %t44 = getelementptr inbounds %struct.x264_weight_t, %struct.x264_weight_t* %t4, i64 0, i32 4
+  %t43 = getelementptr inbounds %struct.x264_weight_t, ptr %t4, i64 0, i32 3
+  %t44 = getelementptr inbounds %struct.x264_weight_t, ptr %t4, i64 0, i32 4
   br label %t45
 
 t45:                                     ; preds = %t73, %t40
   %t46 = phi i32 [ %t74, %t73 ], [ 0, %t40 ]
-  %t47 = phi i8* [ %t75, %t73 ], [ %t0, %t40 ]
-  %t48 = phi i8* [ %t76, %t73 ], [ %t2, %t40 ]
+  %t47 = phi ptr [ %t75, %t73 ], [ %t0, %t40 ]
+  %t48 = phi ptr [ %t76, %t73 ], [ %t2, %t40 ]
   br label %t49
 
 t49:                                     ; preds = %t49, %t45
   %t50 = phi i64 [ 0, %t45 ], [ %t71, %t49 ]
-  %t51 = getelementptr inbounds i8, i8* %t48, i64 %t50
-  %t52 = load i8, i8* %t51, align 1, !tbaa !11
+  %t51 = getelementptr inbounds i8, ptr %t48, i64 %t50
+  %t52 = load i8, ptr %t51, align 1, !tbaa !11
   %t53 = zext i8 %t52 to i32
-  %t54 = load i32, i32* %t43, align 4, !tbaa !12
+  %t54 = load i32, ptr %t43, align 4, !tbaa !12
   %t55 = mul nsw i32 %t54, %t53
-  %t56 = load i32, i32* %t6, align 16, !tbaa !3
+  %t56 = load i32, ptr %t6, align 16, !tbaa !3
   %t57 = add i32 %t56, 31
   %t58 = and i32 %t57, 31
   %t59 = shl i32 1, %t58
   %t60 = add nsw i32 %t59, %t55
   %t61 = and i32 %t56, 31
   %t62 = ashr i32 %t60, %t61
-  %t63 = load i32, i32* %t44, align 8, !tbaa !13
+  %t63 = load i32, ptr %t44, align 8, !tbaa !13
   %t64 = add nsw i32 %t62, %t63
   %t65 = icmp sgt i32 %t64, 0
   %t66 = select i1 %t65, i32 %t64, i32 0
   %t67 = icmp slt i32 %t66, 255
   %t68 = select i1 %t67, i32 %t66, i32 255
   %t69 = trunc i32 %t68 to i8
-  %t70 = getelementptr inbounds i8, i8* %t47, i64 %t50
-  store i8 %t69, i8* %t70, align 1, !tbaa !11
+  %t70 = getelementptr inbounds i8, ptr %t47, i64 %t50
+  store i8 %t69, ptr %t70, align 1, !tbaa !11
   %t71 = add nuw nsw i64 %t50, 1
   %t72 = icmp eq i64 %t71, 16
   br i1 %t72, label %t73, label %t49
 
 t73:                                     ; preds = %t49
   %t74 = add nuw nsw i32 %t46, 1
-  %t75 = getelementptr inbounds i8, i8* %t47, i64 %t41
-  %t76 = getelementptr inbounds i8, i8* %t48, i64 %t42
+  %t75 = getelementptr inbounds i8, ptr %t47, i64 %t41
+  %t76 = getelementptr inbounds i8, ptr %t48, i64 %t42
   %t77 = icmp eq i32 %t74, 16
   br i1 %t77, label %t78, label %t45
 

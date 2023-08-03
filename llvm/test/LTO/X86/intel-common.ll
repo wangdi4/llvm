@@ -1,5 +1,4 @@
 ; RUN: llvm-as < %s > %t1.o
-; RUN: llvm-lto2 run -use-new-pm=false -print-after-all -o %t2 %t1.o -save-temps -r %t1.o,MAIN__,px -r %t1.o,for_set_reentrancy,x -r %t1.o,__BLNK__,px 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 ; RUN: llvm-lto2 run -use-new-pm=true -print-after-all -o %t2 %t1.o -save-temps -r %t1.o,MAIN__,px -r %t1.o,for_set_reentrancy,x -r %t1.o,__BLNK__,px 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 
 ; Check that the definition of the blank common is the right size

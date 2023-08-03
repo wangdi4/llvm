@@ -28,23 +28,23 @@ for.cond.4.preheader.preheader:                   ; preds = %entry, %for.inc.23
 
 for.body.6.lr.ph:                                 ; preds = %for.cond.4.for.inc.20_crit_edge, %for.cond.4.preheader.preheader
   %j.049 = phi i64 [ %inc21, %for.cond.4.for.inc.20_crit_edge ], [ 0, %for.cond.4.preheader.preheader ]
-  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %i.052, i64 %j.049
-  %arrayidx15 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %i.052, i64 %j.049
-  %0 = load double, double* %arrayidx15, align 8, !tbaa !1
-  %arrayidx7.promoted = load double, double* %arrayidx7, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %i.052, i64 %j.049
+  %arrayidx15 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %i.052, i64 %j.049
+  %0 = load double, ptr %arrayidx15, align 8, !tbaa !1
+  %arrayidx7.promoted = load double, ptr %arrayidx7, align 8, !tbaa !1
   br label %for.body.6
 
 for.body.6:                                       ; preds = %for.body.6, %for.body.6.lr.ph
   %1 = phi double [ %arrayidx7.promoted, %for.body.6.lr.ph ], [ %add17, %for.body.6 ]
   %k.047 = phi i64 [ 0, %for.body.6.lr.ph ], [ %inc, %for.body.6 ]
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %i.052, i64 %k.047
-  %2 = load double, double* %arrayidx9, align 8, !tbaa !1
-  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %k.047, i64 %j.049
-  %3 = load double, double* %arrayidx11, align 8, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %i.052, i64 %k.047
+  %2 = load double, ptr %arrayidx9, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %k.047, i64 %j.049
+  %3 = load double, ptr %arrayidx11, align 8, !tbaa !1
   %mul = fmul double %2, %3
   %add = fadd double %1, %mul
-  %arrayidx13 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c2, i64 0, i64 %i.052, i64 %k.047
-  %4 = load double, double* %arrayidx13, align 8, !tbaa !1
+  %arrayidx13 = getelementptr inbounds [1024 x [1024 x double]], ptr @c2, i64 0, i64 %i.052, i64 %k.047
+  %4 = load double, ptr %arrayidx13, align 8, !tbaa !1
   %mul16 = fmul double %4, %0
   %add17 = fadd double %add, %mul16
   %inc = add nuw nsw i64 %k.047, 1
@@ -52,7 +52,7 @@ for.body.6:                                       ; preds = %for.body.6, %for.bo
   br i1 %exitcond, label %for.cond.4.for.inc.20_crit_edge, label %for.body.6
 
 for.cond.4.for.inc.20_crit_edge:                  ; preds = %for.body.6
-  store double %add17, double* %arrayidx7, align 8, !tbaa !1
+  store double %add17, ptr %arrayidx7, align 8, !tbaa !1
   %inc21 = add nuw nsw i64 %j.049, 1
   %exitcond54 = icmp eq i64 %inc21, %N
   br i1 %exitcond54, label %for.inc.23, label %for.body.6.lr.ph

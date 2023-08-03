@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.b = type { %struct.a, %struct.a }
 %struct.a = type { i64, i64 }
 
-define void @foo(%struct.b* nocapture %x) {
+define void @foo(ptr nocapture %x) {
 entry:
   br label %for.body
 
@@ -23,9 +23,9 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %x0 = getelementptr inbounds %struct.b, %struct.b* %x, i64 %indvars.iv, i32 1
-  %x1 = getelementptr inbounds %struct.a, %struct.a* %x0, i64 0, i32 0
-  store i64 %indvars.iv, i64* %x1, align 4
+  %x0 = getelementptr inbounds %struct.b, ptr %x, i64 %indvars.iv, i32 1
+  %x1 = getelementptr inbounds %struct.a, ptr %x0, i64 0, i32 0
+  store i64 %indvars.iv, ptr %x1, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

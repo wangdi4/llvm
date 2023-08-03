@@ -9,13 +9,13 @@ target triple = "x86_64-pc-linux"
 
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #0
 
-define void @test_dim0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_dim0(ptr addrspace(1) nocapture %out, ptr addrspace(1) nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 !kernel_arg_base_type !4 !arg_type_null_val !5 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
-  %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %gid.0
-  %load = load i32, i32 addrspace(1)* %load.addr, align 4 ; good for both dim 0 (consecutive) and 1 (uniform)
-  %store.addr = getelementptr i32, i32 addrspace(1)* %out, i64 %gid.1
-  store i32 %load, i32 addrspace(1)* %store.addr, align 4 ; good for both dim 0 (uniform) and 1 (consecutive)
+  %load.addr = getelementptr i32, ptr addrspace(1) %in, i64 %gid.0
+  %load = load i32, ptr addrspace(1) %load.addr, align 4 ; good for both dim 0 (consecutive) and 1 (uniform)
+  %store.addr = getelementptr i32, ptr addrspace(1) %out, i64 %gid.1
+  store i32 %load, ptr addrspace(1) %store.addr, align 4 ; good for both dim 0 (uniform) and 1 (consecutive)
   ret void
 }
 
@@ -23,16 +23,16 @@ define void @test_dim0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocap
 ; CHECK-SAME: !vectorization_dimension [[VD0:![0-9]+]]
 ; CHECK-SAME: !can_unite_workgroups [[CUW:![0-9]+]]
 
-define void @test_dim1(i32 addrspace(1)* nocapture %out0, i32 addrspace(1)* nocapture %out1, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_dim1(ptr addrspace(1) nocapture %out0, ptr addrspace(1) nocapture %out1, ptr addrspace(1) nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 !kernel_arg_base_type !6 !arg_type_null_val !7 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %mul = mul i64 %gid.0, 2
-  %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %mul
-  %load = load i32, i32 addrspace(1)* %load.addr, align 4 ; good for dim 1 (uniform), bad for dim 0 (strided)
-  %store.addr = getelementptr i32, i32 addrspace(1)* %out0, i64 %gid.0
-  store i32 %load, i32 addrspace(1)* %store.addr, align 4 ; good for dim 1 (uniform), good for dim 0 (consecutive)
-  %store.addr.1 = getelementptr i32, i32 addrspace(1)* %out1, i64 %gid.1
-  store i32 0, i32 addrspace(1)* %store.addr.1, align 4 ; good for dim 1 (consecutive), good for dim 0 (uniform)
+  %load.addr = getelementptr i32, ptr addrspace(1) %in, i64 %mul
+  %load = load i32, ptr addrspace(1) %load.addr, align 4 ; good for dim 1 (uniform), bad for dim 0 (strided)
+  %store.addr = getelementptr i32, ptr addrspace(1) %out0, i64 %gid.0
+  store i32 %load, ptr addrspace(1) %store.addr, align 4 ; good for dim 1 (uniform), good for dim 0 (consecutive)
+  %store.addr.1 = getelementptr i32, ptr addrspace(1) %out1, i64 %gid.1
+  store i32 0, ptr addrspace(1) %store.addr.1, align 4 ; good for dim 1 (consecutive), good for dim 0 (uniform)
   ret void
 }
 
@@ -41,25 +41,25 @@ define void @test_dim1(i32 addrspace(1)* nocapture %out0, i32 addrspace(1)* noca
 ; WithoutVecDimAnalysis-SAME: !vectorization_dimension [[VD0:![0-9]+]]
 ; CHECK-SAME: !can_unite_workgroups [[CUW:![0-9]+]]
 
-define void @test_dim2(i32 addrspace(1)* nocapture %out1, i32 addrspace(1)* nocapture %out2, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_dim2(ptr addrspace(1) nocapture %out1, ptr addrspace(1) nocapture %out2, ptr addrspace(1) nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 !kernel_arg_base_type !6 !arg_type_null_val !7 {
 entry:
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
-  %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %gid.0
-  %load = load i32, i32 addrspace(1)* %load.addr, align 4 ; good for both dim 0 (consecutive) and 1, 2 (uniform)
+  %load.addr = getelementptr i32, ptr addrspace(1) %in, i64 %gid.0
+  %load = load i32, ptr addrspace(1) %load.addr, align 4 ; good for both dim 0 (consecutive) and 1, 2 (uniform)
   %cond = icmp ne i64 %gid.0, %gid.1
   br i1 %cond, label %t, label %return
 
 t:                                                ; preds = %entry ; divergent block for dim 0 and dim 1, thus choose dim 2
-  %store.addr = getelementptr i32, i32 addrspace(1)* %out1, i64 %gid.1
-  store i32 %load, i32 addrspace(1)* %store.addr, align 4 ; good for both dim 0, 2 (uniform) and 1 (consecutive)
+  %store.addr = getelementptr i32, ptr addrspace(1) %out1, i64 %gid.1
+  store i32 %load, ptr addrspace(1) %store.addr, align 4 ; good for both dim 0, 2 (uniform) and 1 (consecutive)
   br label %return
 
 return:                                           ; preds = %t, %entry
   %add = add i64 %gid.2, 2
-  %store.addr.2 = getelementptr i32, i32 addrspace(1)* %out2, i64 %add
-  store i32 0, i32 addrspace(1)* %store.addr.2, align 4 ; good for both dim0, 1 (uniform) and 2 (consecutive)
+  %store.addr.2 = getelementptr i32, ptr addrspace(1) %out2, i64 %add
+  store i32 0, ptr addrspace(1) %store.addr.2, align 4 ; good for both dim0, 1 (uniform) and 2 (consecutive)
   ret void
 }
 
@@ -72,10 +72,14 @@ attributes #0 = { nounwind readnone }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_dim0, void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @test_dim1, void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @test_dim2}
+!0 = !{ptr @test_dim0, ptr @test_dim1, ptr @test_dim2}
 !1 = !{i1 true}
 !2 = !{i1 false}
 !3 = !{i32 16}
+!4 = !{!"int*", !"int*"}
+!5 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!6 = !{!"int*", !"int*", !"int*"}
+!7 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i32 addrspace(1)* null}
 
 ; CHECK-DAG: [[VD0]] = !{i32 0}
 
@@ -85,7 +89,7 @@ attributes #0 = { nounwind readnone }
 
 ; WithoutVecDimAnalysis-DAG: [[CUW]] = !{i1 false}
 
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test_dim0
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim1
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim2
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test_dim0
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim1
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim2
 ; DEBUGIFY-NOT: WARNING

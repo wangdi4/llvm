@@ -10,13 +10,13 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK-LABEL-NOT: @_ZGVbN4Lu_foo
-; CHECK-NOT: "vector-variants"="_ZGVbN4Lu_foo"
+; CHECK-LABEL-NOT: @_ZGVbN4L_foo
+; CHECK-NOT: "vector-variants"="_ZGVbN4L_foo"
 
 ; OPT-REPORT:        Global optimization report for : foo
 ; OPT-REPORT-EMPTY:
 ; OPT-REPORT-NEXT:   FUNCTION REPORT BEGIN
-; OPT-REPORT-NEXT:       remark: 'omp declare' vector variants were skipped due to presence of unsupported variable-length array allocations.
+; OPT-REPORT-NEXT:       remark #15580: 'omp declare' vector variants were skipped due to presence of unsupported variable-length array allocations.
 ; OPT-REPORT-NEXT:   FUNCTION REPORT END
 ; OPT-REPORT-NEXT:   =================================================================
 
@@ -33,17 +33,17 @@ entry:
 
 declare i8* @llvm.stacksave()
 
-attributes #0 = { "vector-variants"="_ZGVbN4Lu_foo" }
+attributes #0 = { "vector-variants"="_ZGVbN4L_foo" }
 
 
 ; Verify that we handle fixed-length arrays normally.
 
-; CHECK-LABEL: @_ZGVbN4Lu_bar
+; CHECK-LABEL: @_ZGVbN4L_bar
 ; CHECK-LABEL: entry
 ; CHECK: %arr = alloca i32, i64 1024, align 16
 ; CHECK-LABEL: simd.loop.header
 ; CHECK: %0 = call i8* @llvm.stacksave()
-; CHECK: "vector-variants"="_ZGVbN4Lu_bar"
+; CHECK: "vector-variants"="_ZGVbN4L_bar"
 
 define void @bar(i32 %k) #1 {
 entry:
@@ -54,4 +54,4 @@ entry:
   ret void
 }
 
-attributes #1 = { "vector-variants"="_ZGVbN4Lu_bar" }
+attributes #1 = { "vector-variants"="_ZGVbN4L_bar" }

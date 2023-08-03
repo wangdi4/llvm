@@ -10,20 +10,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture readonly %iarr)  {
+define void @foo(ptr nocapture readonly %iarr)  {
 ; CHECK:       entry:
 ; CHECK:         [[A2_VEC:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[A2_VEC_BC:%.*]] = bitcast <4 x i32>* [[A2_VEC]] to i32*
-; CHECK-NEXT:    [[A2_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[A2_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[A2_VEC_BASE_ADDR:%.*]] = getelementptr i32, ptr [[A2_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:       vector.body:
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[UNI_PHI:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[IARR:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 3
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_2_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 2
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 0
-; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD]], <4 x i32>* [[A2_VEC]], align 4
+; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD]], ptr [[A2_VEC]], align 4
 ; CHECK-NEXT:    call void @baz(i32 [[WIDE_LOAD_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @baz(i32 [[WIDE_LOAD_EXTRACT_1_]])
 ; CHECK-NEXT:    call void @baz(i32 [[WIDE_LOAD_EXTRACT_2_]])
@@ -33,7 +31,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %a2, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %a2, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -41,9 +39,9 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.2
   %.omp.iv.05 = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %iarr, i64 %.omp.iv.05
-  %0 = load i32, i32* %arrayidx, align 4
-  store i32 %0, i32* %a2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %iarr, i64 %.omp.iv.05
+  %0 = load i32, ptr %arrayidx, align 4
+  store i32 %0, ptr %a2, align 4
   call void @baz(i32 %0)
   %add1 = add nuw nsw i64 %.omp.iv.05, 1
   %exitcond = icmp eq i64 %add1, 100
@@ -58,12 +56,12 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 declare void @baz(i32)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 ; Function Attrs: argmemonly nounwind
 declare token @llvm.directive.region.entry()

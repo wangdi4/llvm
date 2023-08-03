@@ -33,6 +33,10 @@
 namespace llvm {
 class TargetLibraryInfo;
 
+namespace vpo {
+extern bool VPlanEnableEarlyExitLoops;
+} // namespace vpo
+
 namespace loopopt {
 
 class HIRFramework;
@@ -78,7 +82,8 @@ public:
     UNROLL_PRAGMA_LOOP = 15538,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
     EH,
-    NON_NORMALIZED_LOOP
+    NON_NORMALIZED_LOOP,
+    UNSAFE_MULTI_EXIT_LOOP = 15579
   };
 
 private:

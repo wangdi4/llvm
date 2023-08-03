@@ -83,22 +83,24 @@
 ; This produces a partial inlining of foo into bar rather than fully inlining.
 ;
 ; This test case will check that the outlined function was created correctly.
+; It is the same test case intel_simple_partial_inline_outline_ir.ll, but it
+; checks for opaque pointers.
 ;
-; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1
-; CHECK: define i1 @bar(%struct.Node* %List) #0
-; CHECK:  %call = call zeroext i1 @foo.1(%struct.Node* %tmp)
+; CHECK: define i1 @bar(ptr %List) #0
+; CHECK:  %call = call zeroext i1 @foo.1(ptr %tmp)
 
 ; Check that foo was cloned correctly (foo.1)
 ;
-; CHECK: define i1 @foo.1(%struct.Node* %List) #1
-; CHECK:  %a = getelementptr i32, i32* @glob, i64 0
-; CHECK:  %v = load i32, i32* %a
+; CHECK: define i1 @foo.1(ptr %List) #1
+; CHECK:  %a = getelementptr i32, ptr @glob, i64 0
+; CHECK:  %v = load i32, ptr %a
 ; CHECK:  %v1 = add i32 1, %v
-; CHECK:  store i32 %v1, i32* %a
+; CHECK:  store i32 %v1, ptr %a
 ; CHECK: codeRepl:
-; CHECK: call void @foo.1.for.body(%struct.Node* %List, i1* %phitmp.loc)
+; CHECK: call void @foo.1.for.body(ptr %List, ptr %phitmp.loc)
 ; CHECK: %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp.reload, %for.body.for.end_crit_edge ]
 ; CHECK: call void @baz()
 ; CHECK: ret i1 %Num.0.lcssa
@@ -106,15 +108,15 @@
 
 ; Check that the outlined function is correct (foo.1.for.body)
 ;
-; CHECK: define internal void @foo.1.for.body(%struct.Node* %List, i1* %phitmp.out) #2
+; CHECK: define internal void @foo.1.for.body(ptr %List, ptr %phitmp.out) #2
 ; CHECK:newFuncRoot:
 ; CHECK:  br label %for.body
 ; CHECK: for.body.for.end_crit_edge.exitStub:              ; preds = %for.body
 ; CHECK:  ret void
-; CHECK-NOT:  %a = getelementptr i32, i32* @glob, i64 0
-; CHECK-NOT:  %v = load i32, i32* %a
+; CHECK-NOT:  %a = getelementptr i32, ptr @glob, i64 0
+; CHECK-NOT:  %v = load i32, ptr %a
 ; CHECK-NOT:  %v1 = add i32 1, %v
-; CHECK-NOT:  store i32 %v1, i32* %a
+; CHECK-NOT:  store i32 %v1, ptr %a
 ; CHECK-NOT: call void @baz()
 
 ; Check the attributes were created
@@ -122,7 +124,10 @@
 ; CHECK: attributes #1 = { "prefer-partial-inline-inlined-clone"
 ; CHECK: attributes #2 = { "prefer-partial-inline-outlined-func"
 
-%struct.Node = type { i32, %struct.Node* }
+; ModuleID = 'intel_simple_partial_inline_outline_ir.ll'
+source_filename = "intel_simple_partial_inline_outline_ir.ll"
+
+%struct.Node = type { i32, ptr }
 
 @glob = global i32 0
 
@@ -130,25 +135,25 @@ define void @baz() {
   ret void
 }
 
-define i1 @foo(%struct.Node* %List) {
+define i1 @foo(ptr %List) {
 entry:
-  %a = getelementptr i32, i32* @glob, i64 0
-  %v = load i32, i32* %a
+  %a = getelementptr i32, ptr @glob, i64 0
+  %v = load i32, ptr %a, align 4
   %v1 = add i32 1, %v
-  store i32 %v1, i32* %a
-  %cmp8 = icmp eq %struct.Node* %List, null
+  store i32 %v1, ptr %a, align 4
+  %cmp8 = icmp eq ptr %List, null
   br i1 %cmp8, label %for.end, label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %Num.010 = phi i32 [ %add, %for.body ], [ 0, %entry ]
-  %Head.09 = phi %struct.Node* [ %tmp1, %for.body ], [ %List, %entry ]
-  %Num1 = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 0
-  %tmp = load i32, i32* %Num1
+  %Head.09 = phi ptr [ %tmp1, %for.body ], [ %List, %entry ]
+  %Num1 = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 0
+  %tmp = load i32, ptr %Num1, align 4
   %add = add nsw i32 %tmp, %Num.010
   %phitmp = icmp eq i32 %add, 0
-  %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
-  %tmp1 = load %struct.Node*, %struct.Node** %Next
-  %cmp = icmp eq %struct.Node* %tmp1, null
+  %Next = getelementptr inbounds %struct.Node, ptr %Head.09, i64 0, i32 1
+  %tmp1 = load ptr, ptr %Next, align 8
+  %cmp = icmp eq ptr %tmp1, null
   br i1 %cmp, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body, %entry
@@ -157,14 +162,13 @@ for.end:                                          ; preds = %for.body, %entry
   ret i1 %Num.0.lcssa
 }
 
-; Function Attrs: noinline
-define i1 @bar(%struct.Node* %List) #0 {
+define i1 @bar(ptr %List) {
 entry:
-  %List.addr = alloca %struct.Node*
-  store %struct.Node* %List, %struct.Node** %List.addr
-  %tmp = load %struct.Node*, %struct.Node** %List.addr
-  %call = call zeroext i1 @foo(%struct.Node* %tmp)
+  %List.addr = alloca ptr, align 8
+  store ptr %List, ptr %List.addr, align 8
+  %tmp = load ptr, ptr %List.addr, align 8
+  %call = call zeroext i1 @foo(ptr %tmp)
   ret i1 %call
 }
 
-; end INTEL_FEATURE_SW_ADVANCED
+;end INTEL_FEATURE_SW_ADVANCED

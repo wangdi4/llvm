@@ -103,6 +103,7 @@ typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
   M(clDeviceMemAllocINTEL)                                                     \
   M(clSharedMemAllocINTEL)                                                     \
   M(clMemFreeINTEL)                                                            \
+  M(clMemBlockingFreeINTEL)                                                    \
   M(clSetKernelArgMemPointerINTEL)                                             \
   M(clEnqueueMemcpyINTEL)                                                      \
   M(clSetProgramSpecializationConstant)                                        \
@@ -256,22 +257,6 @@ cl_int TRACE_FN(clBuildProgram)(
                         user_data);
 }
 
-cl_mem TRACE_FN(clCreateBuffer)(
-    cl_context context,
-    cl_mem_flags flags,
-    size_t size,
-    void *host_ptr,
-    cl_int *errcode_ret) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(context);
-  TRACE_FN_ARG_ULONG(flags);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_PTR(host_ptr);
-  TRACE_FN_ARG_PTR(errcode_ret);
-  TRACE_FN_ARG_END();
-  return clCreateBuffer(context, flags, size, host_ptr, errcode_ret);
-}
-
 cl_command_queue TRACE_FN(clCreateCommandQueueWithProperties)(
     cl_context context,
     cl_device_id device,
@@ -332,6 +317,23 @@ cl_program TRACE_FN(clCreateProgramWithIL)(
   return clCreateProgramWithIL(context, il, length, errcode_ret);
 }
 
+cl_int TRACE_FN(clGetDeviceGlobalVariablePointerINTEL)(
+    clGetDeviceGlobalVariablePointerINTEL_fn funcptr,
+    cl_device_id device,
+    cl_program program,
+    const char *name,
+    size_t *size,
+    void **ptr) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_PTR(program);
+  TRACE_FN_ARG_PTR(name);
+  TRACE_FN_ARG_PTR(size);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_END();
+  return funcptr(device, program, name, size, ptr);
+}
+
 cl_int TRACE_FN(clEnqueueBarrierWithWaitList)(
     cl_command_queue command_queue,
     cl_uint num_events_in_wait_list,
@@ -374,79 +376,6 @@ cl_int TRACE_FN(clEnqueueNDRangeKernel)(
                                 event_wait_list, event);
 }
 
-cl_int TRACE_FN(clEnqueueReadBuffer)(
-    cl_command_queue command_queue,
-    cl_mem buffer,
-    cl_bool blocking_read,
-    size_t offset,
-    size_t size,
-    void *ptr,
-    cl_uint num_events_in_wait_list,
-    const cl_event *event_wait_list,
-    cl_event *event) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(command_queue);
-  TRACE_FN_ARG_PTR(buffer);
-  TRACE_FN_ARG_UINT(blocking_read);
-  TRACE_FN_ARG_SIZE(offset);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_PTR(ptr);
-  TRACE_FN_ARG_UINT(num_events_in_wait_list);
-  TRACE_FN_ARG_PTR(event_wait_list);
-  TRACE_FN_ARG_PTR(event);
-  TRACE_FN_ARG_END();
-  return clEnqueueReadBuffer(command_queue, buffer, blocking_read, offset, size,
-                             ptr, num_events_in_wait_list, event_wait_list,
-                             event);
-}
-
-cl_int TRACE_FN(clEnqueueSVMMap)(
-    cl_command_queue command_queue,
-    cl_bool blocking_map,
-    cl_map_flags flags,
-    void *svm_ptr,
-    size_t size,
-    cl_uint num_events_in_wait_list,
-    const cl_event *event_wait_list,
-    cl_event *event) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(command_queue);
-  TRACE_FN_ARG_UINT(blocking_map);
-  TRACE_FN_ARG_ULONG(flags);
-  TRACE_FN_ARG_PTR(svm_ptr);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_UINT(num_events_in_wait_list);
-  TRACE_FN_ARG_PTR(event_wait_list);
-  TRACE_FN_ARG_PTR(event);
-  TRACE_FN_ARG_END();
-  return clEnqueueSVMMap(command_queue, blocking_map, flags, svm_ptr, size,
-                         num_events_in_wait_list, event_wait_list, event);
-}
-
-cl_int TRACE_FN(clEnqueueSVMMemcpy)(
-    cl_command_queue command_queue,
-    cl_bool blocking_copy,
-    void *dst_ptr,
-    const void *src_ptr,
-    size_t size,
-    cl_uint num_events_in_wait_list,
-    const cl_event *event_wait_list,
-    cl_event *event) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(command_queue);
-  TRACE_FN_ARG_UINT(blocking_copy);
-  TRACE_FN_ARG_PTR(dst_ptr);
-  TRACE_FN_ARG_PTR(src_ptr);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_UINT(num_events_in_wait_list);
-  TRACE_FN_ARG_PTR(event_wait_list);
-  TRACE_FN_ARG_PTR(event);
-  TRACE_FN_ARG_END();
-  return clEnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr,
-                            size, num_events_in_wait_list, event_wait_list,
-                            event);
-}
-
 cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
     clEnqueueMemcpyINTEL_fn funcptr,
     cl_command_queue command_queue,
@@ -469,49 +398,6 @@ cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
   TRACE_FN_ARG_END();
   return funcptr(command_queue, blocking, dst_ptr, src_ptr, size,
                  num_events_in_wait_list, event_wait_list, event);
-}
-
-cl_int TRACE_FN(clEnqueueSVMUnmap)(
-    cl_command_queue command_queue,
-    void *svm_ptr,
-    cl_uint num_events_in_wait_list,
-    const cl_event *event_wait_list,
-    cl_event *event) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(command_queue);
-  TRACE_FN_ARG_PTR(svm_ptr);
-  TRACE_FN_ARG_UINT(num_events_in_wait_list);
-  TRACE_FN_ARG_PTR(event_wait_list);
-  TRACE_FN_ARG_PTR(event);
-  TRACE_FN_ARG_END();
-  return clEnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list,
-                           event_wait_list, event);
-}
-
-cl_int TRACE_FN(clEnqueueWriteBuffer)(
-    cl_command_queue command_queue,
-    cl_mem buffer,
-    cl_bool blocking_write,
-    size_t offset,
-    size_t size,
-    const void *ptr,
-    cl_uint num_events_in_wait_list,
-    const cl_event *event_wait_list,
-    cl_event *event) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(command_queue);
-  TRACE_FN_ARG_PTR(buffer);
-  TRACE_FN_ARG_UINT(blocking_write);
-  TRACE_FN_ARG_SIZE(offset);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_PTR(ptr);
-  TRACE_FN_ARG_UINT(num_events_in_wait_list);
-  TRACE_FN_ARG_PTR(event_wait_list);
-  TRACE_FN_ARG_PTR(event);
-  TRACE_FN_ARG_END();
-  return clEnqueueWriteBuffer(command_queue, buffer, blocking_write, offset,
-                              size, ptr, num_events_in_wait_list,
-                              event_wait_list, event);
 }
 
 cl_int TRACE_FN(clFinish)(
@@ -851,6 +737,17 @@ cl_int TRACE_FN(clMemFreeINTEL)(
   return funcptr(context, ptr);
 }
 
+cl_int TRACE_FN(clMemBlockingFreeINTEL)(
+    clMemBlockingFreeINTEL_fn funcptr,
+    cl_context context,
+    void *ptr) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_END();
+  return funcptr(context, ptr);
+}
+
 cl_int TRACE_FN(clReleaseCommandQueue)(
     cl_command_queue command_queue) {
   TRACE_FN_ARG_BEGIN();
@@ -920,18 +817,6 @@ cl_int TRACE_FN(clSetKernelArg)(
   return clSetKernelArg(kernel, arg_index, arg_size, arg_value);
 }
 
-cl_int TRACE_FN(clSetKernelArgSVMPointer)(
-    cl_kernel kernel,
-    cl_uint arg_index,
-    const void *arg_value) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(kernel);
-  TRACE_FN_ARG_UINT(arg_index);
-  TRACE_FN_ARG_PTR(arg_value);
-  TRACE_FN_ARG_END();
-  return clSetKernelArgSVMPointer(kernel, arg_index, arg_value);
-}
-
 cl_int TRACE_FN(clSetKernelArgMemPointerINTEL)(
     clSetKernelArgMemPointerINTEL_fn funcptr,
     cl_kernel kernel,
@@ -976,30 +861,6 @@ void *TRACE_FN(clSharedMemAllocINTEL)(
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
   return funcptr(context, device, properties, size, alignment, errcode_ret);
-}
-
-void *TRACE_FN(clSVMAlloc)(
-    cl_context context,
-    cl_svm_mem_flags flags,
-    size_t size,
-    cl_uint alignment) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(context);
-  TRACE_FN_ARG_ULONG(flags);
-  TRACE_FN_ARG_SIZE(size);
-  TRACE_FN_ARG_UINT(alignment);
-  TRACE_FN_ARG_END();
-  return clSVMAlloc(context, flags, size, alignment);
-}
-
-void TRACE_FN(clSVMFree)(
-    cl_context context,
-    void *svm_pointer) {
-  TRACE_FN_ARG_BEGIN();
-  TRACE_FN_ARG_PTR(context);
-  TRACE_FN_ARG_PTR(svm_pointer);
-  TRACE_FN_ARG_END();
-  clSVMFree(context, svm_pointer);
 }
 
 cl_int TRACE_FN(clWaitForEvents)(

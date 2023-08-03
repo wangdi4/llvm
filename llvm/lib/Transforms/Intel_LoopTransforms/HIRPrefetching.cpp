@@ -862,8 +862,9 @@ void HIRPrefetching::processIndirectPrefetching(
 
       // Using directive-based hint=%d, distance=%d for indirect memory
       // reference
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25150u, PragmaHint,
-                               PragmaDist);
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::DirectivePrefetchIndirectMemRef,
+                               PragmaHint, PragmaDist);
     }
   }
 }
@@ -884,16 +885,19 @@ bool HIRPrefetching::doPrefetching(
 
   if (ORBuilder.isOptReportOn()) {
     // Total number of lines prefetched=%d
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25018u,
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::TotalLinesPrefetched,
                              NumSpatialPrefetches + NumIndirectPrefetches);
 
     // Number of spatial prefetches=%d, default dist=%d
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25019u,
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::NumSpatialPrefetches,
                              NumSpatialPrefetches, DefaultPrefetchDist);
 
     if (NumIndirectPrefetches) {
       // Number of indirect prefetches=%d, default dist=%d
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25033u,
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::NumIndirectPrefetches,
                                NumIndirectPrefetches, DefaultPrefetchDist);
     }
   }
@@ -931,8 +935,9 @@ bool HIRPrefetching::doPrefetching(
       int PragmaDist = PrefetchDist / Stride;
       // Using directive-based hint=%d, distance=%d for prefetching spatial
       // memory reference
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25147u, PragmaHint,
-                               PragmaDist);
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::DirectivePrefetchSpatialMemRef,
+                               PragmaHint, PragmaDist);
     }
   }
 
@@ -993,11 +998,11 @@ bool HIRPrefetching::run() {
 PreservedAnalyses HIRPrefetchingPass::runImpl(llvm::Function &F,
                                               llvm::FunctionAnalysisManager &AM,
                                               HIRFramework &HIRF) {
-  HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
-                 AM.getResult<HIRDDAnalysisPass>(F),
-                 AM.getResult<HIRLoopResourceAnalysis>(F),
-                 AM.getResult<TargetIRAnalysis>(F))
-      .run();
+  ModifiedHIR = HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
+                               AM.getResult<HIRDDAnalysisPass>(F),
+                               AM.getResult<HIRLoopResourceAnalysis>(F),
+                               AM.getResult<TargetIRAnalysis>(F))
+                    .run();
   return PreservedAnalyses::all();
 }
 

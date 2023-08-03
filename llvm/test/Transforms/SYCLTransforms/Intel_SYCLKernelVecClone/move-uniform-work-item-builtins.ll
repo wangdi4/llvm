@@ -6,16 +6,17 @@
 ; Checks that we do not hit a label from the WRN region.
 ; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
 ; Checks tha the work-item built-ins are moved at the entry block.
-; CHECK: [[call_gid1:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: [[call_gid0:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 0)
+; CHECK: [[call_gid0:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 0)
+; CHECK-NEXT: trunc i64 [[call_gid0]] to i32
+; CHECK-NEXT: [[call_gid1:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 1)
 ; CHECK-NEXT: [[call_lid0:%call[0-9]+]] = tail call i64 @_Z12get_local_idj(i32 0)
 ; CHECK-NEXT: [[lid0_trunc:%.*]] = trunc i64 [[call_lid0]] to i32
-; CHECK-NEXT: [[call_lid1:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 1)
-; CHECK-NEXT: [[call_global_size:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 0)
-; CHECK-NEXT: [[call_group_id1:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 1)
+; CHECK-NEXT: [[call_global_size0:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 0)
+; CHECK-NEXT: [[call_global_size1:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 1)
 ; CHECK-NEXT: [[call_group_id0:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 0)
-; CHECK-NEXT: [[call_local_size1:%call[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 1)
+; CHECK-NEXT: [[call_group_id1:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 1)
 ; CHECK-NEXT: [[call_local_size0:%call]] = tail call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT: [[call_local_size1:%call[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 1)
 
 ; CHECK-LABEL: simd.loop.header:
 
@@ -29,7 +30,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @f([16384 x i32] addrspace(1)* %A, [16384 x i32] addrspace(1)* %B, [16384 x i32] addrspace(1)* %C) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !no_barrier_path !14 !recommended_vector_length !15 {
+define void @f(ptr addrspace(1) %A, ptr addrspace(1) %B, ptr addrspace(1) %C) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !no_barrier_path !14 !recommended_vector_length !15 !arg_type_null_val !20 {
 entry:
   %call = tail call i64 @_Z14get_local_sizej(i32 0) #2
   %call1 = tail call i64 @_Z12get_group_idj(i32 0) #2
@@ -41,12 +42,12 @@ entry:
 if.then:                                          ; preds = %entry
   %call3 = tail call i64 @_Z13get_global_idj(i32 0) #2
   %call4 = tail call i64 @_Z13get_global_idj(i32 1) #2
-  %arrayidx5 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %A, i64 %call3, i64 %call4
-  %0 = load i32, i32 addrspace(1)* %arrayidx5, align 4, !tbaa !16
-  %arrayidx7 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %B, i64 %call3, i64 %call4
-  %1 = load i32, i32 addrspace(1)* %arrayidx7, align 4, !tbaa !16
+  %arrayidx5 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %A, i64 %call3, i64 %call4
+  %0 = load i32, ptr addrspace(1) %arrayidx5, align 4, !tbaa !16
+  %arrayidx7 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %B, i64 %call3, i64 %call4
+  %1 = load i32, ptr addrspace(1) %arrayidx7, align 4, !tbaa !16
   %add = add nsw i32 %1, %0
-  %arrayidx9 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %C, i64 %call3, i64 %call4
+  %arrayidx9 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %C, i64 %call3, i64 %call4
   %lsize = tail call i64 @_Z14get_local_sizej(i32 %0) #2
   %gid = tail call i64 @_Z12get_group_idj(i32 %1) #2
   br label %if.end24.sink.split
@@ -61,18 +62,18 @@ if.else:                                          ; preds = %entry
 
 if.then15:                                        ; preds = %if.else
   %call16 = tail call i64 @_Z12get_local_idj(i32 0) #2
-  %arrayidx19 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %A, i64 %call16, i64 %call16
-  %2 = load i32, i32 addrspace(1)* %arrayidx19, align 4, !tbaa !16
-  %arrayidx21 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %B, i64 %call16, i64 %call16
-  %3 = load i32, i32 addrspace(1)* %arrayidx21, align 4, !tbaa !16
+  %arrayidx19 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %A, i64 %call16, i64 %call16
+  %2 = load i32, ptr addrspace(1) %arrayidx19, align 4, !tbaa !16
+  %arrayidx21 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %B, i64 %call16, i64 %call16
+  %3 = load i32, ptr addrspace(1) %arrayidx21, align 4, !tbaa !16
   %sub = sub nsw i32 %2, %3
-  %arrayidx23 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %C, i64 %call16, i64 %call16
+  %arrayidx23 = getelementptr inbounds [16384 x i32], ptr addrspace(1) %C, i64 %call16, i64 %call16
   br label %if.end24.sink.split
 
 if.end24.sink.split:                              ; preds = %if.then, %if.then15
-  %arrayidx23.sink = phi i32 addrspace(1)* [ %arrayidx23, %if.then15 ], [ %arrayidx9, %if.then ]
+  %arrayidx23.sink = phi ptr addrspace(1) [ %arrayidx23, %if.then15 ], [ %arrayidx9, %if.then ]
   %sub.sink = phi i32 [ %sub, %if.then15 ], [ %add, %if.then ]
-  store i32 %sub.sink, i32 addrspace(1)* %arrayidx23.sink, align 4, !tbaa !16
+  store i32 %sub.sink, ptr addrspace(1) %arrayidx23.sink, align 4, !tbaa !16
   br label %if.end24
 
 if.end24:                                         ; preds = %if.end24.sink.split, %if.else
@@ -94,7 +95,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.f([16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*) !recommended_vector_length !15 {
+define [7 x i64] @WG.boundaries.f(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) !recommended_vector_length !15 !kernel_arg_base_type !9 !arg_type_null_val !20 {
 entry:
   %3 = call i64 @_Z14get_local_sizej(i32 0)
   %4 = call i64 @get_base_global_id.(i32 0)
@@ -133,7 +134,7 @@ attributes #2 = { convergent nounwind readnone }
 !2 = !{}
 !3 = !{!"-cl-denorms-are-zero"}
 !4 = !{!"icx (ICX) dev.8.x.0"}
-!5 = !{void ([16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*)* @f}
+!5 = !{ptr @f}
 !6 = !{i32 1, i32 1, i32 1}
 !7 = !{!"none", !"none", !"none"}
 !8 = !{!"__global int [16384]*", !"__global int [16384]*", !"__global int [16384]*"}
@@ -148,10 +149,10 @@ attributes #2 = { convergent nounwind readnone }
 !17 = !{!"int", !18, i64 0}
 !18 = !{!"omnipotent char", !19, i64 0}
 !19 = !{!"Simple C/C++ TBAA"}
+!20 = !{[16384 x i32] addrspace(1)* null, [16384 x i32] addrspace(1)* null, [16384 x i32] addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br

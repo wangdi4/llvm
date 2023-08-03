@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,8 +13,7 @@
 // License.
 
 template <class HandleType, class ParentHandleType>
-Intel::OpenCL::Utils::AtomicCounter
-    OCLObjectsMap<HandleType, ParentHandleType>::m_iNextGenKey(1);
+std::atomic<long> OCLObjectsMap<HandleType, ParentHandleType>::m_iNextGenKey(1);
 
 template <class HandleType, class ParentHandleType>
 OCLObjectsMap<HandleType, ParentHandleType>::~OCLObjectsMap() {
@@ -162,30 +161,15 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(
 }
 
 template <class HandleType, class ParentHandleType>
-cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetObjects(
-    cl_uint uiObjectCount,
-    SharedPtr<OCLObject<HandleType, ParentHandleType>> *ppObjects,
-    cl_uint *puiObjectCountRet) {
+void OCLObjectsMap<HandleType, ParentHandleType>::GetObjects(
+    std::vector<SharedPtr<OCLObject<HandleType, ParentHandleType>>> &Objects) {
   std::lock_guard<std::mutex> mu(m_muMapMutex);
-  if (NULL == ppObjects && NULL == puiObjectCountRet) {
-    return CL_INVALID_VALUE;
+  if (m_mapObjects.size() == 0)
+    return;
+  Objects.reserve(m_mapObjects.size());
+  for (const auto &it : m_mapObjects) {
+    Objects.push_back(it.second);
   }
-  if (NULL != ppObjects && uiObjectCount < m_mapObjects.size()) {
-    return CL_INVALID_VALUE;
-  }
-  if (NULL != puiObjectCountRet) {
-    assert(m_mapObjects.size() <= CL_MAX_UINT32);
-    *puiObjectCountRet = (cl_uint)m_mapObjects.size();
-  }
-  if (NULL != ppObjects) {
-    HandleTypeMapConstIterator it = m_mapObjects.begin();
-    for (cl_int i = 0;
-         ((i < (int)m_mapObjects.size()) && (it != m_mapObjects.end()));
-         ++i, it++) {
-      ppObjects[i] = it->second;
-    }
-  }
-  return CL_SUCCESS;
 }
 
 template <class HandleType, class ParentHandleType>

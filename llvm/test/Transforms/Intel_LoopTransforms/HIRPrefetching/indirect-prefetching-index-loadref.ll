@@ -1,7 +1,7 @@
 ; This test has indirect prefetching for @C. We have pragma prefetch for %M here, we can still
 ; prefetch %1, because %1 is the lval of load %M inst in the preheader.
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;#pragma  prefetch A:1:40
@@ -40,11 +40,11 @@
 ;CHECK-NEXT:            |   if (i1 + 32 <=u zext.i32.i64(%N) + -1)
 ;CHECK-NEXT:            |   {
 ;CHECK-NEXT:            |      %Load = (%1)[i1 + 32];
-;CHECK-NEXT:            |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  3,  1);
+;CHECK-NEXT:            |      @llvm.prefetch.p0(&((i8*)(@C)[0][%Load]),  0,  3,  1);
 ;CHECK-NEXT:            |   }
-;CHECK-NEXT:            |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40]),  0,  2,  1);
-;CHECK-NEXT:            |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 32]),  0,  3,  1);
-;CHECK-NEXT:            |   @llvm.prefetch.p0i8(&((i8*)(%1)[i1 + 32]),  0,  3,  1);
+;CHECK-NEXT:            |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 40]),  0,  2,  1);
+;CHECK-NEXT:            |   @llvm.prefetch.p0(&((i8*)(@B)[0][i1 + 32]),  0,  3,  1);
+;CHECK-NEXT:            |   @llvm.prefetch.p0(&((i8*)(%1)[i1 + 32]),  0,  3,  1);
 ;CHECK-NEXT:            + END LOOP
 ;
 ;CHECK:                 ret &((undef)[0]);
@@ -61,31 +61,31 @@ target triple = "x86_64-unknown-linux-gnu"
 @C = dso_local global [10000 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local noalias i8* @sub(i32* %M, i32 %N) local_unnamed_addr #0 {
+define dso_local noalias ptr @sub(ptr %M, i32 %N) local_unnamed_addr #0 {
 entry:
-  %M.addr = alloca i32*, align 8
-  store i32* %M, i32** %M.addr, align 8, !tbaa !2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([10000 x i32]* @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([10000 x i32]* @B), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([10000 x i32]* @C), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(i32** %M.addr), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %M.addr = alloca ptr, align 8
+  store ptr %M, ptr %M.addr, align 8, !tbaa !2
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @B), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @C), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr %M.addr), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   %cmp11 = icmp sgt i32 %N, 0
   br i1 %cmp11, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %1 = load i32*, i32** %M.addr, align 8, !tbaa !2
+  %1 = load ptr, ptr %M.addr, align 8, !tbaa !2
   %wide.trip.count13 = zext i32 %N to i64
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [10000 x i32], [10000 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !6
-  %ptridx = getelementptr inbounds i32, i32* %1, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx, align 4, !tbaa !9
+  %arrayidx = getelementptr inbounds [10000 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !6
+  %ptridx = getelementptr inbounds i32, ptr %1, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx, align 4, !tbaa !9
   %idxprom2 = sext i32 %3 to i64
-  %arrayidx3 = getelementptr inbounds [10000 x i32], [10000 x i32]* @C, i64 0, i64 %idxprom2, !intel-tbaa !6
-  %4 = load i32, i32* %arrayidx3, align 4, !tbaa !6
+  %arrayidx3 = getelementptr inbounds [10000 x i32], ptr @C, i64 0, i64 %idxprom2, !intel-tbaa !6
+  %4 = load i32, ptr %arrayidx3, align 4, !tbaa !6
   %add = add nsw i32 %4, %2
-  %arrayidx5 = getelementptr inbounds [10000 x i32], [10000 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %add, i32* %arrayidx5, align 4, !tbaa !6
+  %arrayidx5 = getelementptr inbounds [10000 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  store i32 %add, ptr %arrayidx5, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count13
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !10
@@ -95,7 +95,7 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
-  ret i8* undef
+  ret ptr undef
 }
 
 ; Function Attrs: nounwind

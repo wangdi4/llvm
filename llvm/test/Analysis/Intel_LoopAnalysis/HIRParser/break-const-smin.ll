@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @main() local_unnamed_addr {
 entry:
-  %0 = load i32, i32* @n, align 4
+  %0 = load i32, ptr @n, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry

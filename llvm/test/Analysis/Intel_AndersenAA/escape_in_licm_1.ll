@@ -6,41 +6,41 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @foo.init = internal unnamed_addr global i1 false
-@foo.fooBuf = internal unnamed_addr global [2 x [1024 x i32]]* null, align 8
+@foo.fooBuf = internal unnamed_addr global ptr null, align 8
 @foo.local_fooBuf = internal global [2048 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* %fooPtr, i32 %aconst, i32 %n) #0 {
+define i32 @foo(ptr %fooPtr, i32 %aconst, i32 %n) #0 {
 entry:
-  %.b = load i1, i1* @foo.init, align 1
+  %.b = load i1, ptr @foo.init, align 1
   br i1 %.b, label %entry.if.end_crit_edge, label %if.then
 
 entry.if.end_crit_edge:                           ; preds = %entry
-  %.pre = load [2 x [1024 x i32]]*, [2 x [1024 x i32]]** @foo.fooBuf, align 8
+  %.pre = load ptr, ptr @foo.fooBuf, align 8
   br label %if.end
 
 if.then:                                          ; preds = %entry
-  store [2 x [1024 x i32]]* bitcast ([2048 x i32]* @foo.local_fooBuf to [2 x [1024 x i32]]*), [2 x [1024 x i32]]** @foo.fooBuf, align 8
-  store i1 true, i1* @foo.init, align 1
+  store ptr @foo.local_fooBuf, ptr @foo.fooBuf, align 8
+  store i1 true, ptr @foo.init, align 1
   br label %if.end
 
-if.end:                                           ; preds = %entry.if.end_crit_edge, %if.then
-  %0 = phi [2 x [1024 x i32]]* [ %.pre, %entry.if.end_crit_edge ], [ bitcast ([2048 x i32]* @foo.local_fooBuf to [2 x [1024 x i32]]*), %if.then ]
+if.end:                                           ; preds = %if.then, %entry.if.end_crit_edge
+  %i = phi ptr [ %.pre, %entry.if.end_crit_edge ], [ @foo.local_fooBuf, %if.then ]
   %div = sdiv i32 %aconst, 2
   %idxprom = sext i32 %div to i64
   %idxprom1 = sext i32 %n to i64
-  %arrayidx2 = getelementptr inbounds [2 x [1024 x i32]], [2 x [1024 x i32]]* %0, i64 0, i64 %idxprom1, i64 %idxprom
+  %arrayidx2 = getelementptr inbounds [2 x [1024 x i32]], ptr %i, i64 0, i64 %idxprom1, i64 %idxprom
   %cmp3.4 = icmp sgt i32 %aconst, 0
   br i1 %cmp3.4, label %for.inc, label %for.end
 
-for.inc:                                          ; preds = %if.end, %for.inc
+for.inc:                                          ; preds = %for.inc, %if.end
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %if.end ]
   %sum.05 = phi i32 [ %add, %for.inc ], [ 0, %if.end ]
-  %arrayidx5 = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv
-  %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx5, align 4
-  %2 = load i32, i32* %arrayidx2, align 4
-  %add = add nsw i32 %2, %sum.05
+  %arrayidx5 = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv
+  %i1 = trunc i64 %indvars.iv to i32
+  store i32 %i1, ptr %arrayidx5, align 4
+  %i2 = load i32, ptr %arrayidx2, align 4
+  %add = add nsw i32 %i2, %sum.05
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %aconst

@@ -38,6 +38,11 @@ uint64_t lprofGetLoadModuleSignature(void) {
          __llvm_profile_get_magic();
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+
 /* Returns 1 if profile is not structurally compatible.  */
 COMPILER_RT_VISIBILITY
 int __llvm_profile_check_compatibility(const char *ProfileData,
@@ -183,3 +188,7 @@ int __llvm_profile_merge_from_buffer(const char *ProfileData,
 
   return 0;
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

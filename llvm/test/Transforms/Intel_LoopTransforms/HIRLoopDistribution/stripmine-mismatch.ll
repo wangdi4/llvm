@@ -118,17 +118,17 @@ if.then:                                          ; preds = %for.body
   %trunc = trunc i32 %i.021 to i4
   %add4 = add nsw i4 %trunc, %s
   %ext = sext i4 %add4 to i64
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %ext, !intel-tbaa !3
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %ext, !intel-tbaa !3
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %idxprom4 = sext i32 %add3 to i64
-  %arrayidx5 = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %idxprom4, !intel-tbaa !3
-  %1 = load i32, i32* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %idxprom4, !intel-tbaa !3
+  %1 = load i32, ptr %arrayidx5, align 4, !tbaa !3
   %mul = mul nsw i32 %1, %0
-  %arrayidx7 = getelementptr inbounds [10 x i32], [10 x i32]* @A1, i64 0, i64 %idxprom, !intel-tbaa !3
-  %2 = load i32, i32* %arrayidx7, align 4, !tbaa !3
+  %arrayidx7 = getelementptr inbounds [10 x i32], ptr @A1, i64 0, i64 %idxprom, !intel-tbaa !3
+  %2 = load i32, ptr %arrayidx7, align 4, !tbaa !3
   %add8 = add nsw i32 %mul, %2
-  %arrayidx10 = getelementptr inbounds [10 x i32], [10 x i32]* @B1, i64 0, i64 %idxprom, !intel-tbaa !3
-  store i32 %add8, i32* %arrayidx10, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds [10 x i32], ptr @B1, i64 0, i64 %idxprom, !intel-tbaa !3
+  store i32 %add8, ptr %arrayidx10, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

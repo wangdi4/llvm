@@ -34,6 +34,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
@@ -379,6 +380,8 @@ bool MathLibrariesDeclImpl::run() {
   bool Changed = false;
 
   LLVM_DEBUG(dbgs() << "Math function declarations added:\n");
+  Triple T(M.getTargetTriple());
+  bool IsIntelLibMAllowed = false;
 
   for (Function &F : M) {
     // NOTE: This function handles the cases where the arguments and return
@@ -386,10 +389,16 @@ bool MathLibrariesDeclImpl::run() {
     Changed |= isSimpleTypesMathIntrinsic(F);
     // Check if the compiler might need to add __intel_new_feature_proc_init.
     Changed |= generateIntelNewFeatureProcInit(F);
+
+    TargetTransformInfo *FTTI = &GetTTI(F);
+    IsIntelLibMAllowed |= FTTI->isIntelLibMAllowed();
   }
 
-  // Check if there is a chance that the compiler might add sincos
-  Changed |= generateSinCos();
+  // Windows default library doesn't have sincos function.
+  if (IsIntelLibMAllowed || !T.isOSWindows()) {
+    // Check if there is a chance that the compiler might add sincos
+    Changed |= generateSinCos();
+  }
 
   LLVM_DEBUG(dbgs() << "  Total functions added: "
                     << NumOfNewPrototypesGenerated << "\n");

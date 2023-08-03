@@ -1,5 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
-; RUN:     -vplan-enable-hir-private-arrays -vplan-dump-plan-da -disable-output < %s 2>&1 | FileCheck %s
+; RUN:     -vplan-enable-hir-private-arrays -vplan-dump-plan-da --vplan-enable-masked-variant=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we no longer crash in DA shape analysis in the presence
 ; of opaque pointers.  Test reduced from radialblur as reported in

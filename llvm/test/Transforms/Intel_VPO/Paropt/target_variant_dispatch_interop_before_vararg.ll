@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; Check that target variant dispatch with interop works with vararg functions.
 ; This test is for the (default) "-vpo-paropt-put-interop-after-vararg=false" behavior.
@@ -27,6 +27,11 @@
 ;
 ;   return 0;
 ; }
+;
+; base call
+; CHECK-DAG: call void (i32, i32, ...) @_Z3fooiiz(i32 noundef 111, i32 noundef 222, i32 noundef 333)
+; variant call: interop obj is right before the vararg list (333)
+; CHECK-DAG: call void (i32, i32, ptr, ...) @_Z7foo_gpuiiPvz(i32 111, i32 222, ptr %interop.obj{{.*}}, i32 333)
 
 ; ModuleID = 'target_variant_dispatch_interop_before_vararg.cpp'
 source_filename = "target_variant_dispatch_interop_before_vararg.cpp"
@@ -37,61 +42,47 @@ target device_triples = "spir64"
 @.str = private unnamed_addr constant [18 x i8] c"VARIANT FUNCTION\0A\00", align 1
 @.str.1 = private unnamed_addr constant [15 x i8] c"BASE FUNCTION\0A\00", align 1
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z7foo_gpuiiPvz(i32 noundef %a, i32 noundef %b, i8* noundef %interop, ...) #0 {
+define dso_local void @_Z7foo_gpuiiPvz(i32 noundef %a, i32 noundef %b, ptr noundef %interop, ...) {
 entry:
   %a.addr = alloca i32, align 4
   %b.addr = alloca i32, align 4
-  %interop.addr = alloca i8*, align 8
-  store i32 %a, i32* %a.addr, align 4
-  store i32 %b, i32* %b.addr, align 4
-  store i8* %interop, i8** %interop.addr, align 8
-  %call = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([18 x i8], [18 x i8]* @.str, i64 0, i64 0))
+  %interop.addr = alloca ptr, align 8
+  store i32 %a, ptr %a.addr, align 4
+  store i32 %b, ptr %b.addr, align 4
+  store ptr %interop, ptr %interop.addr, align 8
+  %call = call i32 (ptr, ...) @printf(ptr noundef @.str)
   ret void
 }
 
-declare dso_local i32 @printf(i8* noundef, ...) #1
+declare dso_local i32 @printf(ptr noundef, ...)
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local void @_Z3fooiiz(i32 noundef %a, i32 noundef %b, ...) #2 {
 entry:
   %a.addr = alloca i32, align 4
   %b.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  store i32 %b, i32* %b.addr, align 4
-  %call = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([15 x i8], [15 x i8]* @.str.1, i64 0, i64 0))
+  store i32 %a, ptr %a.addr, align 4
+  store i32 %b, ptr %b.addr, align 4
+  %call = call i32 (ptr, ...) @printf(ptr noundef @.str.1)
   ret void
 }
 
-; Function Attrs: mustprogress noinline norecurse nounwind optnone uwtable
-define dso_local noundef i32 @main() #3 {
+define dso_local noundef i32 @main()  {
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"() ]
-  call void (i32, i32, ...) @_Z3fooiiz(i32 noundef 111, i32 noundef 222, i32 noundef 333) #4
 
-; base call
-; CHECK-DAG: call void (i32, i32, ...) @_Z3fooiiz(i32 noundef 111, i32 noundef 222, i32 noundef 333)
-
-; variant call: interop obj is right before the vararg list (333)
-; CHECK-DAG: call void (i32, i32, i8*, ...) @_Z7foo_gpuiiPvz(i32 111, i32 222, i8* %interop.obj{{.*}}, i32 333)
-
+  call void (i32, i32, ...) @_Z3fooiiz(i32 noundef 111, i32 noundef 222, i32 noundef 333) [ "QUAL.OMP.DISPATCH.CALL"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"() ]
+
   ret i32 0
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #4
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #4
+declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #2 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:_Z7foo_gpuiiPvz;construct:target_variant_dispatch;arch:gen" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { mustprogress noinline norecurse nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #4 = { nounwind }
+attributes #2 = { "openmp-variant"="name:_Z7foo_gpuiiPvz;construct:target_variant_dispatch;arch:gen" }
 
 !llvm.module.flags = !{!0, !1, !2, !3}
 

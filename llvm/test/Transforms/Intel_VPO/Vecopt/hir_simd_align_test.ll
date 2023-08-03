@@ -31,26 +31,26 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i64* %lp1, i64* %lp2) {
+define dso_local void @foo(ptr %lp1, ptr %lp2) {
 entry:
   br label %for.ph
 
 for.ph:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i64** null, i32 16), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i64** null, i32 32) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, i32 16), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, i32 32) ]
   br label %for.assume
 
 for.assume:
-  call void @llvm.assume(i1 true) [ "align"(i64* %lp2, i64 32) ]
-  call void @llvm.assume(i1 true) [ "align"(i64* %lp1, i64 16) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %lp2, i64 32) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %lp1, i64 16) ]
   br label %for.body
 
 for.body:
   %l1.06 = phi i64 [ 0, %for.assume ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp2, i64 %l1.06
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp2, i64 %l1.06
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add nsw i64 %0, 1
-  %arrayidx1 = getelementptr inbounds i64, i64* %lp1, i64 %l1.06
-  store i64 %add, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %lp1, i64 %l1.06
+  store i64 %add, ptr %arrayidx1, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

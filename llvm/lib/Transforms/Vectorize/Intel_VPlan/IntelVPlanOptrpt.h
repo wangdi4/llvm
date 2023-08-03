@@ -29,16 +29,25 @@ class VPLoopInfo;
 
 struct OptReportStatsTracker {
   struct RemarkRecord {
-    unsigned RemarkID;
     OptReportVerbosity::Level MessageVerbosity;
-    std::string Arg;
+    OptRemark Remark;
 
+    template <typename... Args>
+    RemarkRecord(LLVMContext &C, OptRemarkID ID,
+                 OptReportVerbosity::Level Verbosity, Args &&...RemarkArgs)
+        : MessageVerbosity(Verbosity) {
+      Remark = OptRemark::get(C, static_cast<unsigned>(ID),
+                              OptReportDiag::getMsg(ID),
+                              std::forward<Args>(RemarkArgs)...);
+    };
     // High verbosity is assumed
-    RemarkRecord(unsigned ID, std::string Arg = "")
-        : RemarkID(ID), MessageVerbosity(OptReportVerbosity::High), Arg(Arg){};
-    RemarkRecord(unsigned ID, OptReportVerbosity::Level Verbosity,
-                 std::string Arg = "")
-        : RemarkID(ID), MessageVerbosity(Verbosity), Arg(Arg){};
+    template <typename... Args>
+    RemarkRecord(LLVMContext &C, OptRemarkID ID, Args &&...RemarkArgs)
+        : MessageVerbosity(OptReportVerbosity::High) {
+      Remark = OptRemark::get(C, static_cast<unsigned>(ID),
+                              OptReportDiag::getMsg(ID),
+                              std::forward<Args>(RemarkArgs)...);
+    };
   };
 
   // Fields.

@@ -8,7 +8,6 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 ; INTEL additional IV removed in expandOuterRecurrence
 ; INTEL sext instead of zext
-; INTEL more nuw/nsw flags deduced
 
 ; Perform LFTR using the original pointer-type IV.
 
@@ -155,7 +154,7 @@ define void @guardedloop(ptr %matrix, ptr %vector,
 ; CHECK-NEXT:    [[VECTORP:%.*]] = getelementptr inbounds [0 x double], ptr [[VECTOR:%.*]], i32 0, i64 [[INDVARS_IV2]]
 ; CHECK-NEXT:    [[V2:%.*]] = load double, ptr [[VECTORP]], align 8
 ; CHECK-NEXT:    call void @use(double [[V2]])
-; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i64 [[INDVARS_IV]], [[TMP0]] ;INTEL
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], [[TMP0]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT3]] = add nuw nsw i64 [[INDVARS_IV2]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT3]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[LOOP]], label [[RETURN_LOOPEXIT:%.*]]

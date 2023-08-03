@@ -15,16 +15,16 @@
 #include <sycl/detail/export.hpp>
 #include <sycl/detail/info_desc_helpers.hpp>
 #include <sycl/detail/owner_less_base.hpp>
+#include <sycl/ext/oneapi/experimental/device_architecture.hpp>
 #include <sycl/ext/oneapi/weak_object_base.hpp>
 #include <sycl/info/info_desc.hpp>
 #include <sycl/platform.hpp>
-#include <sycl/stl.hpp>
 
 #include <memory>
 #include <utility>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 // Forward declarations
 class device_selector;
 template <backend BackendName, class SyclObjectT>
@@ -40,6 +40,12 @@ enum class aspect;
 namespace ext::oneapi {
 // Forward declaration
 class filter_selector;
+
+enum class peer_access {
+  access_supported = 0x0,
+  atomics_supported = 0x1,
+};
+
 } // namespace ext::oneapi
 
 /// The SYCL device class encapsulates a single SYCL device on which kernels
@@ -88,6 +94,13 @@ public:
   device &operator=(const device &rhs) = default;
 
   device &operator=(device &&rhs) = default;
+
+  void ext_oneapi_enable_peer_access(const device &peer);
+  void ext_oneapi_disable_peer_access(const device &peer);
+  bool
+  ext_oneapi_can_access_peer(const device &peer,
+                             ext::oneapi::peer_access value =
+                                 ext::oneapi::peer_access::access_supported);
 
   /// Get instance of device
   ///
@@ -223,13 +236,37 @@ public:
   /// \return the backend associated with this device.
   backend get_backend() const noexcept;
 
+// Clang may warn about the use of diagnose_if in __SYCL_WARN_IMAGE_ASPECT, so
+// we disable that warning as we make appropriate checks to ensure its
+// existence.
+// TODO: Remove this diagnostics when __SYCL_WARN_IMAGE_ASPECT is removed.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgcc-compat"
+#endif // defined(__clang__)
+
   /// Indicates if the SYCL device has the given feature.
   ///
   /// \param Aspect is one of the values in Table 4.20 of the SYCL 2020
   /// Provisional Spec.
   ///
   /// \return true if the SYCL device has the given feature.
-  bool has(aspect Aspect) const;
+  bool has(aspect Aspect) const __SYCL_WARN_IMAGE_ASPECT(Aspect);
+
+  /// Indicates if the SYCL device architecture equals to the one passed to
+  /// the function.
+  ///
+  /// \param arch is one of the architectures from architecture enum described
+  /// in sycl_ext_oneapi_device_architecture specification.
+  ///
+  /// \return true if the SYCL device architecture equals to the one passed to
+  /// the function.
+  bool ext_oneapi_architecture_is(ext::oneapi::experimental::architecture arch);
+
+// TODO: Remove this diagnostics when __SYCL_WARN_IMAGE_ASPECT is removed.
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif // defined(__clang__)
 
 private:
   std::shared_ptr<detail::device_impl> impl;
@@ -241,9 +278,8 @@ private:
   friend decltype(Obj::impl) detail::getSyclObjImpl(const Obj &SyclObject);
 
   template <class T>
-  friend
-      typename detail::add_pointer_t<typename decltype(T::impl)::element_type>
-      detail::getRawSyclObjImpl(const T &SyclObject);
+  friend typename std::add_pointer_t<typename decltype(T::impl)::element_type>
+  detail::getRawSyclObjImpl(const T &SyclObject);
 
   template <class T>
   friend T detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
@@ -253,7 +289,7 @@ private:
       -> backend_return_t<BackendName, SyclObjectT>;
 };
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 namespace std {

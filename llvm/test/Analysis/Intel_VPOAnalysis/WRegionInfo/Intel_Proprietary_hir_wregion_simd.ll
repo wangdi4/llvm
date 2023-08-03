@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ;
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -hir-framework -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" %s 2>&1 | FileCheck %s
 
 ; WARNING!!!
@@ -23,10 +22,10 @@
 ; opt -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -S
 
 ; Check for wregion-collection's prints to ensure clauses from HIR were parsed.
-; CHECK:      LASTPRIVATE clause (size=1): (&((LINEAR ptr %x.lpriv)[i64 0])
-; CHECK:      LINEAR clause (size=3): (&((LINEAR ptr %n.linear)[i64 0]){{.*}}, LINEAR i32 %step{{[^)]*}})
+; CHECK:      LASTPRIVATE clause (size=1): TYPED(&((LINEAR ptr %x.lpriv)[i64 0])
+; CHECK:      LINEAR clause (size=3): (TYPED(&((LINEAR ptr %n.linear)[i64 0]){{.*}}, LINEAR i32 %step{{[^)]*}})
 ; CHECK-SAME:                         (&((LINEAR ptr %p.addr.linear)[i64 0]){{.*}}, i32 2{{[^)]*}})
-; CHECK-SAME:                         IV(&((LINEAR ptr %i.linear.iv)[i64 0]){{.*}}, i32 1{{[^)]*}})
+; CHECK-SAME:                         IV(TYPED(&((LINEAR ptr %i.linear.iv)[i64 0]){{.*}}, i32 1{{[^)]*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

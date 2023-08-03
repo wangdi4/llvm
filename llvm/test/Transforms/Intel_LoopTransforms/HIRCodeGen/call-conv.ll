@@ -17,7 +17,7 @@ entry:
 }
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* %A, i32 %n) #0 {
+define void @foo(ptr %A, i32 %n) #0 {
 entry:
   %cmp.1 = icmp sgt i32 %n, 0
   br i1 %cmp.1, label %for.body.lr.ph, label %for.end
@@ -29,8 +29,8 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
   %call = tail call fastcc i32 @bar(i32 %i.02)
   %idxprom = sext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %call, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 %call, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

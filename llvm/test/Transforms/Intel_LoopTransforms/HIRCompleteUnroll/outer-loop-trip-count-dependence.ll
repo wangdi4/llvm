@@ -18,11 +18,8 @@ define i32 @main() local_unnamed_addr #0 {
 entry:
   %jf = alloca [100 x [100 x i32]], align 16
   %m = alloca [100 x i32], align 16
-  %0 = bitcast [100 x [100 x i32]]* %jf to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull %0, i8 0, i64 40000, i32 16, i1 false)
-  %1 = bitcast [100 x i32]* %m to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull %1, i8 0, i64 400, i32 16, i1 false)
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* %m, i64 0, i64 0
+  call void @llvm.memset.p0.i64(ptr nonnull %jf, i8 0, i64 40000, i32 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr nonnull %m, i8 0, i64 400, i32 16, i1 false)
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc16, %entry
@@ -38,14 +35,14 @@ for.body3:                                        ; preds = %for.cond1.preheader
   %indvars.iv55 = phi i32 [ %indvars.iv53, %for.cond1.preheader ], [ %indvars.iv.next56, %for.end ]
   %yz.sroa.0.145 = phi i32 [ %yz.sroa.0.048, %for.cond1.preheader ], [ %sub8, %for.end ]
   %o.144 = phi i32 [ %o.047, %for.cond1.preheader ], [ %add, %for.end ]
-  %2 = zext i32 %indvars.iv55 to i64
-  %3 = add i64 %indvars.iv51, %2
-  %arrayidx5 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %jf, i64 0, i64 %indvars.iv59, i64 0
-  %4 = load i32, i32* %arrayidx5, align 16
-  %sub = sub i32 %4, %yz.sroa.0.145
-  store i32 %sub, i32* %arrayidx5, align 16
-  %5 = load i32, i32* %arrayidx6, align 16
-  %sub8 = sub i32 %yz.sroa.0.145, %5
+  %0 = zext i32 %indvars.iv55 to i64
+  %1 = add i64 %indvars.iv51, %0
+  %arrayidx5 = getelementptr inbounds [100 x [100 x i32]], ptr %jf, i64 0, i64 %indvars.iv59, i64 0
+  %2 = load i32, ptr %arrayidx5, align 16
+  %sub = sub i32 %2, %yz.sroa.0.145
+  store i32 %sub, ptr %arrayidx5, align 16
+  %3 = load i32, ptr %m, align 16
+  %sub8 = sub i32 %yz.sroa.0.145, %3
   %cmp1041 = icmp ult i64 %indvars.iv61, %indvars.iv59
   br i1 %cmp1041, label %for.body11.preheader, label %for.end
 
@@ -54,8 +51,8 @@ for.body11.preheader:                             ; preds = %for.body3
 
 for.body11:                                       ; preds = %for.body11.preheader, %for.body11
   %indvars.iv49 = phi i64 [ %indvars.iv.next50, %for.body11 ], [ %indvars.iv61, %for.body11.preheader ]
-  %arrayidx13 = getelementptr inbounds [100 x i32], [100 x i32]* %m, i64 0, i64 %indvars.iv49
-  store i32 6, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x i32], ptr %m, i64 0, i64 %indvars.iv49
+  store i32 6, ptr %arrayidx13, align 4
   %indvars.iv.next50 = add nuw nsw i64 %indvars.iv49, 1
   %exitcond = icmp eq i64 %indvars.iv.next50, %indvars.iv59
   br i1 %exitcond, label %for.end.loopexit, label %for.body11
@@ -64,7 +61,7 @@ for.end.loopexit:                                 ; preds = %for.body11
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %for.body3
-  %jd.0.lcssa.in = phi i64 [ %indvars.iv61, %for.body3 ], [ %3, %for.end.loopexit ]
+  %jd.0.lcssa.in = phi i64 [ %indvars.iv61, %for.body3 ], [ %1, %for.end.loopexit ]
   %jd.0.lcssa = trunc i64 %jd.0.lcssa.in to i32
   %add = add i32 %o.144, %jd.0.lcssa
   %indvars.iv.next60 = add nsw i64 %indvars.iv59, -1
@@ -83,13 +80,13 @@ for.inc16:                                        ; preds = %for.end
 
 for.end18:                                        ; preds = %for.inc16
   %add.lcssa.lcssa = phi i32 [ %add.lcssa, %for.inc16 ]
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 %add.lcssa.lcssa)
+  %call = tail call i32 (ptr, ...) @printf(ptr @.str, i32 %add.lcssa.lcssa)
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #1
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i32, i1) #1
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #2
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2
 

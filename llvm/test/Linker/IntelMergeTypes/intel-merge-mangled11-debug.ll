@@ -32,7 +32,7 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled11-a.ll
-; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { [5 x i32*] }
+; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { [5 x ptr] }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
 ; CHECK: Destination module passed verification
@@ -44,8 +44,8 @@
 ; CHECK:     Fields that will be repaired:
 ; CHECK: Destination module passed verification
 
+; CHECK: %struct._ZTS10TestStruct.TestStruct = type { [5 x ptr] }
 ; CHECK: %struct._ZTS10TestStruct.TestStruct.0 = type { [5 x i32] }
-; CHECK: %struct._ZTS10TestStruct.TestStruct = type { [5 x i32*] }
 
 ; CHECK: !intel.dtrans.types = !{!1, !4}
 

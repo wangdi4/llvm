@@ -23,8 +23,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass implements IR lowering for the llvm.load.relative and llvm.objc.*
-// intrinsics.
+// This pass implements IR lowering for the llvm.memcpy, llvm.memmove,
+// llvm.memset, llvm.load.relative and llvm.objc.* intrinsics.
 // Also llvm.intel.subscript is lowered here. // INTEL
 //
 //===----------------------------------------------------------------------===//
@@ -32,6 +32,8 @@
 #include "llvm/CodeGen/PreISelIntrinsicLowering.h"
 #include "llvm/Analysis/ObjCARCInstKind.h"
 #include "llvm/Analysis/ObjCARCUtil.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -42,12 +44,47 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/LowerMemIntrinsics.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Local.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
+
+/// Threshold to leave statically sized memory intrinsic calls. Calls of known
+/// size larger than this will be expanded by the pass. Calls of unknown or
+/// lower size will be left for expansion in codegen.
+static cl::opt<int64_t> MemIntrinsicExpandSizeThresholdOpt(
+    "mem-intrinsic-expand-size",
+    cl::desc("Set minimum mem intrinsic size to expand in IR"), cl::init(-1),
+    cl::Hidden);
+
+namespace {
+
+struct PreISelIntrinsicLowering {
+  const function_ref<TargetTransformInfo &(Function &)> LookupTTI;
+  const function_ref<TargetLibraryInfo &(Function &)> LookupLibInfo;
+
+  /// If this is true, assume it's preferably to leave memory intrinsic calls
+  /// for replacement with a library call later. Otherwise this depends on
+  /// TargetLibraryInfo availability of the corresponding function.
+  const bool UseMemIntrinsicLibFunc;
+
+  explicit PreISelIntrinsicLowering(
+      function_ref<TargetTransformInfo &(Function &)> LookupTTI_,
+      function_ref<TargetLibraryInfo &(Function &)> LookupLibInfo_,
+      bool UseMemIntrinsicLibFunc_ = true)
+      : LookupTTI(LookupTTI_), LookupLibInfo(LookupLibInfo_),
+        UseMemIntrinsicLibFunc(UseMemIntrinsicLibFunc_) {}
+
+  static bool shouldExpandMemIntrinsicWithSize(Value *Size,
+                                               const TargetTransformInfo &TTI);
+  bool expandMemIntrinsicUses(Function &F) const;
+  bool lowerIntrinsics(Module &M) const;
+};
+
+} // namespace
 
 static bool lowerLoadRelative(Function &F) {
   if (F.use_empty())
@@ -153,6 +190,90 @@ static bool lowerObjCCall(Function &F, const char *NewFn,
   }
 
   return true;
+}
+
+// TODO: Should refine based on estimated number of accesses (e.g. does it
+// require splitting based on alignment)
+bool PreISelIntrinsicLowering::shouldExpandMemIntrinsicWithSize(
+    Value *Size, const TargetTransformInfo &TTI) {
+  ConstantInt *CI = dyn_cast<ConstantInt>(Size);
+  if (!CI)
+    return true;
+  uint64_t Threshold = MemIntrinsicExpandSizeThresholdOpt.getNumOccurrences()
+                           ? MemIntrinsicExpandSizeThresholdOpt
+                           : TTI.getMaxMemIntrinsicInlineSizeThreshold();
+  uint64_t SizeVal = CI->getZExtValue();
+
+  // Treat a threshold of 0 as a special case to force expansion of all
+  // intrinsics, including size 0.
+  return SizeVal > Threshold || Threshold == 0;
+}
+
+// TODO: Handle atomic memcpy and memcpy.inline
+// TODO: Pass ScalarEvolution
+bool PreISelIntrinsicLowering::expandMemIntrinsicUses(Function &F) const {
+  Intrinsic::ID ID = F.getIntrinsicID();
+  bool Changed = false;
+
+  for (User *U : llvm::make_early_inc_range(F.users())) {
+    Instruction *Inst = cast<Instruction>(U);
+
+    switch (ID) {
+    case Intrinsic::memcpy: {
+      auto *Memcpy = cast<MemCpyInst>(Inst);
+      Function *ParentFunc = Memcpy->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memcpy->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*ParentFunc).has(LibFunc_memcpy))
+          break;
+
+        expandMemCpyAsLoop(Memcpy, TTI);
+        Changed = true;
+        Memcpy->eraseFromParent();
+      }
+
+      break;
+    }
+    case Intrinsic::memmove: {
+      auto *Memmove = cast<MemMoveInst>(Inst);
+      Function *ParentFunc = Memmove->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memmove->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*ParentFunc).has(LibFunc_memmove))
+          break;
+
+        if (expandMemMoveAsLoop(Memmove, TTI)) {
+          Changed = true;
+          Memmove->eraseFromParent();
+        }
+      }
+
+      break;
+    }
+    case Intrinsic::memset: {
+      auto *Memset = cast<MemSetInst>(Inst);
+      Function *ParentFunc = Memset->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memset->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*Memset->getFunction()).has(LibFunc_memset))
+          break;
+
+        expandMemSetAsLoop(Memset);
+        Changed = true;
+        Memset->eraseFromParent();
+      }
+
+      break;
+    }
+    default:
+      llvm_unreachable("unhandled intrinsic");
+    }
+  }
+
+  return Changed;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -311,7 +432,6 @@ static bool lowerDirectiveRegionEntryExit(Function &F) {
       Changed = true;
     }
   }
-
   return Changed;
 }
 
@@ -334,13 +454,9 @@ static bool lowerIntelDirectiveElementsize(Function &F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool lowerIntrinsics(Module &M) {
+bool PreISelIntrinsicLowering::lowerIntrinsics(Module &M) const {
   bool Changed = false;
   for (Function &F : M) {
-    if (F.getName().startswith("llvm.load.relative.")) {
-      Changed |= lowerLoadRelative(F);
-      continue;
-    }
 
 #if INTEL_CUSTOMIZATION
     // TODO: These checks could be placed under the switch case once they are
@@ -373,6 +489,14 @@ static bool lowerIntrinsics(Module &M) {
 
     switch (F.getIntrinsicID()) {
     default:
+      break;
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
+    case Intrinsic::memset:
+      Changed |= expandMemIntrinsicUses(F);
+      break;
+    case Intrinsic::load_relative:
+      Changed |= lowerLoadRelative(F);
       break;
     case Intrinsic::objc_autorelease:
       Changed |= lowerObjCCall(F, "objc_autorelease");
@@ -462,7 +586,23 @@ public:
 
   PreISelIntrinsicLoweringLegacyPass() : ModulePass(ID) {}
 
-  bool runOnModule(Module &M) override { return lowerIntrinsics(M); }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+  }
+
+  bool runOnModule(Module &M) override {
+    auto LookupTTI = [this](Function &F) -> TargetTransformInfo & {
+      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+    };
+
+    auto LookupTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
+    PreISelIntrinsicLowering Lowering(LookupTTI, LookupTLI);
+    return Lowering.lowerIntrinsics(M);
+  }
 };
 
 } // end anonymous namespace
@@ -479,7 +619,18 @@ ModulePass *llvm::createPreISelIntrinsicLoweringPass() {
 
 PreservedAnalyses PreISelIntrinsicLoweringPass::run(Module &M,
                                                     ModuleAnalysisManager &AM) {
-  if (!lowerIntrinsics(M))
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  auto LookupTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  auto LookupTTI = [&FAM](Function &F) -> TargetTransformInfo & {
+    return FAM.getResult<TargetIRAnalysis>(F);
+  };
+
+  PreISelIntrinsicLowering Lowering(LookupTTI, LookupTLI);
+  if (!Lowering.lowerIntrinsics(M))
     return PreservedAnalyses::all();
   else
     return PreservedAnalyses::none();

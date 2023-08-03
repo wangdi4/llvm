@@ -63,78 +63,78 @@ for.body3:                                        ; preds = %for.inc, %entry
 
 if.then:                                          ; preds = %for.body3
   %conv = trunc i64 %indvars.iv to i16
-  %arrayidx8 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 %conv, i16* %arrayidx8, align 2
+  %arrayidx8 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 %conv, ptr %arrayidx8, align 2
   %sub = add nuw nsw i32 %i.0695, 32768
   %conv9 = trunc i32 %sub to i16
-  %arrayidx11 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv9, i16* %arrayidx11, align 2
+  %arrayidx11 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv9, ptr %arrayidx11, align 2
   br label %for.inc
 
 if.then14:                                        ; preds = %for.body3
   %conv15 = trunc i64 %indvars.iv to i16
-  %arrayidx17 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 %conv15, i16* %arrayidx17, align 2
+  %arrayidx17 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 %conv15, ptr %arrayidx17, align 2
   %sub18 = sub nsw i32 32767, %i.0695
   %conv19 = trunc i32 %sub18 to i16
-  %arrayidx21 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv19, i16* %arrayidx21, align 2
+  %arrayidx21 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv19, ptr %arrayidx21, align 2
   br label %for.inc
 
 if.then25:                                        ; preds = %for.body3
   %tmp = sub nuw nsw i64 65535, %indvars.iv
   %conv27 = trunc i64 %tmp to i16
-  %arrayidx29 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 %conv27, i16* %arrayidx29, align 2
+  %arrayidx29 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 %conv27, ptr %arrayidx29, align 2
   %sub30 = add nuw nsw i32 %i.0695, 32768
   %conv31 = trunc i32 %sub30 to i16
-  %arrayidx33 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv31, i16* %arrayidx33, align 2
+  %arrayidx33 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv31, ptr %arrayidx33, align 2
   br label %for.inc
 
 if.then37:                                        ; preds = %for.body3
   %tmp1 = sub nuw nsw i64 65535, %indvars.iv
   %conv39 = trunc i64 %tmp1 to i16
-  %arrayidx41 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 %conv39, i16* %arrayidx41, align 2
+  %arrayidx41 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 %conv39, ptr %arrayidx41, align 2
   %sub42 = sub nsw i32 32767, %i.0695
   %conv43 = trunc i32 %sub42 to i16
-  %arrayidx45 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv43, i16* %arrayidx45, align 2
+  %arrayidx45 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv43, ptr %arrayidx45, align 2
   br label %for.inc
 
 if.then49:                                        ; preds = %for.body3
-  %arrayidx51 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 -1, i16* %arrayidx51, align 2
+  %arrayidx51 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 -1, ptr %arrayidx51, align 2
   %sub52 = add nuw nsw i32 %i.0695, 32768
   %conv53 = trunc i32 %sub52 to i16
-  %arrayidx55 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv53, i16* %arrayidx55, align 2
+  %arrayidx55 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv53, ptr %arrayidx55, align 2
   br label %for.inc
 
 if.then59:                                        ; preds = %for.body3
-  %arrayidx61 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
-  store i16 -1, i16* %arrayidx61, align 2
+  %arrayidx61 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
+  store i16 -1, ptr %arrayidx61, align 2
   %sub62 = sub nsw i32 32767, %i.0695
   %conv63 = trunc i32 %sub62 to i16
-  %arrayidx65 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 %conv63, i16* %arrayidx65, align 2
+  %arrayidx65 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 %conv63, ptr %arrayidx65, align 2
   br label %for.inc
 
 if.else66:                                        ; preds = %for.body3
-  %arrayidx71 = getelementptr inbounds [65536 x i16], [65536 x i16]* @ua, i64 0, i64 %indvars.iv
+  %arrayidx71 = getelementptr inbounds [65536 x i16], ptr @ua, i64 0, i64 %indvars.iv
   br i1 %cmp67, label %if.then69, label %if.else74
 
 if.then69:                                        ; preds = %if.else66
-  store i16 -32768, i16* %arrayidx71, align 2
-  %arrayidx73 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 -32768, i16* %arrayidx73, align 2
+  store i16 -32768, ptr %arrayidx71, align 2
+  %arrayidx73 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 -32768, ptr %arrayidx73, align 2
   br label %for.inc
 
 if.else74:                                        ; preds = %if.else66
-  store i16 0, i16* %arrayidx71, align 2
-  %arrayidx81 = getelementptr inbounds [65536 x i16], [65536 x i16]* @sa, i64 0, i64 %indvars.iv
-  store i16 0, i16* %arrayidx81, align 2
+  store i16 0, ptr %arrayidx71, align 2
+  %arrayidx81 = getelementptr inbounds [65536 x i16], ptr @sa, i64 0, i64 %indvars.iv
+  store i16 0, ptr %arrayidx81, align 2
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.then25, %if.then49, %if.then69, %if.else74, %if.then59, %if.then37, %if.then14

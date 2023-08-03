@@ -10,14 +10,16 @@
 
 #include "llvm/Transforms/SYCLTransforms/BarrierPass.h"
 #include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/BarrierRegionInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
@@ -191,7 +193,7 @@ bool KernelBarrier::runOnFunction(Function &F) {
   fixAllocaAndDbg(F);
 
   // Fix cross barrier uniform values.
-  fixCrossBarrierValues(&*F.begin()->begin());
+  fixCrossBarrierValues(F);
 
   // Replace sync instructions with internal loop over WI ID.
   replaceSyncInstructions();
@@ -247,239 +249,6 @@ bool KernelBarrier::fixSynclessTIDUsers(Module &M,
   return true;
 }
 
-void KernelBarrier::findSyncBBSuccessors() {
-  BasicBlockToBasicBlockSetTy SyncBBSuccs;
-  for (Instruction *SyncI : *SyncInstructions) {
-    BasicBlock *BB = SyncI->getParent();
-    SyncPerBB[BB] = SyncI;
-
-    InstSet &SyncPreds = DPB->getBarrierPredecessors(SyncI).RelatedBarriers;
-    for (Instruction *Pred : SyncPreds) {
-      // Note Pred->getParent() may be different from Pred->getParent()
-      // in DataPerBarrierPass, because barrier basic block may change when
-      // splitting basic block, see FirstBB and CallBB in this pass.
-      BasicBlock *PredBB = Pred->getParent();
-      SyncBBSuccs[PredBB].insert(BB);
-    }
-  }
-
-  // Run DFS to find successors recursively.
-  for (auto &S : SyncBBSuccs) {
-    BasicBlock *BB = S.first;
-    SmallVector<BasicBlock *, 8> BBsToHandle;
-    for (BasicBlock *Succ : S.second) {
-      BBsToHandle.push_back(Succ);
-      SyncBBSuccessors[BB].insert(Succ);
-    }
-    while (!BBsToHandle.empty()) {
-      BasicBlock *V = BBsToHandle.pop_back_val();
-      if (!SyncBBSuccs.count(V))
-        continue;
-      for (BasicBlock *Succ : SyncBBSuccs[V]) {
-        if (SyncBBSuccessors[BB].count(Succ))
-          continue;
-        SyncBBSuccessors[BB].insert(Succ);
-        BBsToHandle.push_back(Succ);
-      }
-    }
-  }
-}
-
-BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
-                                                      BasicBlock *BB) {
-  BasicBlock *Dominator = nullptr;
-  for (BasicBlock *SyncBB : BBToPredSyncBB[BB]) {
-    if (BB == SyncBB || !DT.dominates(SyncBB, BB))
-      continue;
-    if (Dominator) {
-      // Skip if Dominator is SyncBB's successor.
-      if (SyncBBSuccessors[SyncBB].count(Dominator))
-        continue;
-      Dominator = SyncBB;
-      continue;
-    }
-    // Check that there isn't another barrier in any path from SyncBB to BB.
-    auto NoBarrierFromTo = [this](BasicBlock *SyncBB, BasicBlock *BB) -> bool {
-      for (BasicBlock *Succ : SyncBBSuccessors[SyncBB]) {
-        if (isPotentiallyReachable(Succ, BB))
-          return false;
-      }
-      return true;
-    };
-    if (NoBarrierFromTo(SyncBB, BB))
-      Dominator = SyncBB;
-  }
-  return Dominator;
-}
-
-// This function binds a value's user instruction to a basic block.
-// It also does optimization based on dominance information so that we load
-// address from new alloca only if necessary. For example, if both basick
-// block A and B contain value's users, A dominates B and there is no barrier
-// between A and B, we can bind users in B to A. Then we only need to load
-// address in A.
-// For the following IR, there is a barrier in for loop. There is no barrier
-// between while.cond and while.body, we only need to load from %i.addr in
-// while.cond and reuse it in while.body.
-//
-// for.body:
-// "Barrier BB":
-// while.cond:
-//   %1 = load i32, i32* %i, align 4, !dbg !46
-//   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
-// while.body:
-//   store i32 1, i32* %i, align 4, !dbg !48
-// while.end:
-// for.inc:
-//
-// Output is:
-//
-// for.body:
-// "Barrier BB":
-// while.cond:
-//   %SBIndex22 = load i64, i64* %pCurrSBIndex, align 8, !dbg !46
-//   %SB_LocalId_Offset23 = add nuw i64 %SBIndex22, 40, !dbg !46
-//   %11 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset23,
-//       !dbg !46
-//   %pSB_LocalId24 = bitcast i8* %11 to i32*, !dbg !46
-//   store i32* %pSB_LocalId24, i32** %i.addr, align 8, !dbg !46
-//   %12 = load i32*, i32** %i.addr, align 8, !dbg !46
-//   call void @llvm.dbg.value(metadata i32* %12, metadata !43,
-//       metadata !DIExpression(DW_OP_deref)), !dbg !41
-//   %13 = load i32, i32* %12, align 4, !dbg !46
-//   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
-// while.body:
-//   store i32 1, i32* %12, align 4, !dbg !48
-// while.end:
-// for.inc:
-void KernelBarrier::bindUsersToBasicBlock(
-    Function &F, Value *V, DbgVariableIntrinsic *DI,
-    BasicBlockToInstructionMapVectorTy &BBUsers) {
-  DominatorTree DT;
-  DT.recalculate(F);
-
-  SmallVector<Instruction *, 8> UIs;
-  for (User *U : V->users()) {
-    Instruction *UI = dyn_cast<Instruction>(U);
-    assert(UI && "uses of value is not an instruction!");
-    UIs.push_back(UI);
-  }
-
-  BasicBlock *DIBB = nullptr;
-  if (DI) {
-    UIs.push_back(DI);
-    DIBB = DI->getParent();
-  }
-
-  DenseMap<Instruction *, BasicBlock *> UIToInsertPointBB;
-  CompilationUtils::BBSet BBs;
-  for (Instruction *UI : UIs) {
-    auto *VI = dyn_cast<Instruction>(V);
-    Instruction *InsertBefore =
-        VI ? getInstructionToInsertBefore(VI, UI, false) : UI;
-    // If UI is PHINode, BB is PHINode's previous basic block, otherwise
-    // BB is UI's parent basic block.
-    BasicBlock *BB = InsertBefore->getParent();
-    UIToInsertPointBB[UI] = BB;
-    BBs.insert(BB);
-
-    if (SyncPerBB.count(BB))
-      continue;
-
-    // Collect BB's predecessors that are SyncBB.
-    if (!BBToPredSyncBB.count(BB) && DPB->hasPredecessors(BB)) {
-      CompilationUtils::BBSet &Preds = DPB->getPredecessors(BB);
-      for (BasicBlock *Pred : Preds) {
-        if (SyncPerBB.count(Pred))
-          BBToPredSyncBB[BB].push_back(Pred);
-      }
-      for (auto &OldToNewSync : OldToNewSyncBBMap[&F]) {
-        BasicBlock *Pred = OldToNewSync.second;
-        if (Preds.count(OldToNewSync.first) && SyncPerBB.count(Pred))
-          BBToPredSyncBB[BB].push_back(Pred);
-      }
-    }
-
-    // Find the nearest SyncBB that dominates BB.
-    if (!BBToNearestDominatorSyncBB.count(BB))
-      BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
-  }
-
-  // Map from user BB to its bound dominator that value loaded from AddrAI in
-  // the dominator will be reused in the user BB.
-  BasicBlockToBasicBlockTy BBBindToDominator;
-  // Basic blocks that are bound to their nearest dominator SyncBB.
-  SmallSet<BasicBlock *, 8> BBBindToNearestSyncDominator;
-
-  for (BasicBlock *BB : BBs)
-    BBBindToDominator[BB] = BB;
-
-  // Bind user basic blocks to SyncBB.
-  for (auto &BBToDominator : BBToNearestDominatorSyncBB) {
-    BasicBlock *BB = BBToDominator.first;
-    BasicBlock *Dominator = BBToDominator.second;
-    if (!Dominator)
-      continue;
-    // If Dominator is DIBB's predecessor, we shouldn't bind BB to Dominator
-    // so that AI's debug scope is within DIBB.
-    if (DIBB && isPotentiallyReachable(Dominator, DIBB))
-      continue;
-
-    BBBindToDominator[BB] = Dominator;
-    BBBindToNearestSyncDominator.insert(BB);
-  }
-
-  for (BasicBlock *BB : BBs) {
-    DenseMap<BasicBlock *, bool> &HasBarrierTo = HasBarrierFromTo[BB];
-
-    if (!BBToDominatedBBs.count(BB))
-      DT.getDescendants(BB, BBToDominatedBBs[BB]);
-
-    for (auto *DominatedBB : BBToDominatedBBs[BB]) {
-      // Skip if DominatedBB is a SyncBB because binding to SyncBB is already
-      // handled above.
-      if (BB == DominatedBB || !BBs.count(DominatedBB) ||
-          SyncPerBB.count(DominatedBB))
-        continue;
-      // Skip if binding is already done.
-      if (BBBindToNearestSyncDominator.count(DominatedBB))
-        continue;
-      // Skip if DominatedBB is already bound to either the basic block
-      // containing DbgVariableIntrinsic or a basic block that BB doesn't
-      // dominate.
-      if ((BB != DIBB) && (!DT.dominates(BB, BBBindToDominator[DominatedBB]) ||
-                           BBBindToDominator[DominatedBB] == DIBB))
-        continue;
-
-      if (!HasBarrierTo.count(DominatedBB))
-        HasBarrierTo[DominatedBB] =
-            Utils.isCrossedByBarrier(*SyncInstructions, DominatedBB, BB);
-      if (!HasBarrierTo[DominatedBB])
-        BBBindToDominator[DominatedBB] = BB;
-    }
-  }
-  for (Instruction *UI : UIs) {
-    BasicBlock *BB = UIToInsertPointBB[UI];
-    BBUsers[BBBindToDominator[BB]].push_back(UI);
-  }
-}
-
-static TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
-  TinyPtrVector<DbgDeclareInst *> DIs = FindDbgDeclareUses(V);
-  if (!DIs.empty())
-    return DIs;
-
-  // Try debug info of addrspacecast user.
-  for (auto *U : V->users()) {
-    if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
-      DIs = FindDbgDeclareUses(ASC);
-      if (!DIs.empty())
-        break;
-    }
-  }
-  return DIs;
-}
-
 void KernelBarrier::fixAllocaAndDbg(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
@@ -491,23 +260,40 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     auto Scope = DIB.createLexicalBlockFile(SP, File, 0);
     DB = DILocation::get(SP->getContext(), 0, 0, Scope);
   }
-  // Reset containers for the current function.
-  SyncPerBB.clear();
-  SyncBBSuccessors.clear();
-  BBToDominatedBBs.clear();
-  BBToPredSyncBB.clear();
-  BBToNearestDominatorSyncBB.clear();
-  HasBarrierFromTo.clear();
 
-  // For the current function, find all successors of each basic block which
-  // contains a synchronization instruction.
-  findSyncBBSuccessors();
+  // This holds a map from basic block to its containing sync instruction.
+  DenseMap<BasicBlock *, Instruction *> SyncPerBB;
+  for (auto *I : *SyncInstructions)
+    if (I->getFunction() == &F)
+      SyncPerBB[I->getParent()] = I;
 
   ValueVec WorkList(*AllocaValues);
   // Fix kernel argument which has debug info.
   for (auto &Arg : F.args())
     if (!Arg.use_empty() && DPV->hasOffset(&Arg))
       WorkList.push_back(&Arg);
+
+  // Compute barrier region info. If a cross-barrier value is used in multiple
+  // basic blocks within a barrier region, it is only necessary to load the
+  // value from special buffer once in region header. The uses in the region
+  // will be replaced by the loaded value.
+  DominatorTree DT;
+  DominanceFrontier DF;
+  PostDominatorTree PDT;
+  RegionInfo RI;
+  std::unique_ptr<BarrierRegionInfo> BRI;
+  // BarrierRegionInfo isn't able to handle a rare case that a basic block is
+  // unreachable from entry block. For this case, we need to load from special
+  // buffer for every use of a cross-barrier value.
+  if (!WorkList.empty()) {
+    DT.recalculate(F);
+    if (llvm::none_of(F, [&](BasicBlock &BB) { return !DT.getNode(&BB); })) {
+      DF.analyze(DT);
+      BRI.reset(new BarrierRegionInfo(&F, &DF, &DT));
+      PDT.recalculate(F);
+      RI.recalculate(F, &DT, &PDT, &DF);
+    }
+  }
 
   for (Value *V : WorkList) {
     auto *AI = dyn_cast<AllocaInst>(V);
@@ -522,7 +308,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     // Collect debug intrinsic.
     TinyPtrVector<DbgDeclareInst *> DIs;
     if (IsNativeDBG)
-      DIs = findDbgUses(V);
+      DIs = CompilationUtils::findDbgUses(V);
 
     // Only use the first DbgVariableIntrinsic.
     // TODO: there might be multiple llvm.dbg.addr calls when llvm.dbg.declare
@@ -557,35 +343,85 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       if (auto A = dyn_cast<Argument>(V); A && A->hasByValAttr())
         Expr = DIExpression::prepend(Expr, DIExpression::DerefBefore);
       DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
-                        DI->getDebugLoc().get(), AddrAI->getNextNode());
+                        DI->getDebugLoc().get(), DI);
     }
 
     // Get offset of alloca value in special buffer.
     unsigned int Offset = DPV->getOffset(V);
 
-    // Bind V's users to basic blocks that update AddrAI.
-    // MapVector is used so that access order is deterministic.
-    BasicBlockToInstructionMapVectorTy BBUsers;
-    bindUsersToBasicBlock(F, V, DI, BBUsers);
+    // Insert instruction to load V's address in special buffer to AddrAI.
+    // Barrier region header is a coarse estimate of insert point. Within the
+    // barrier region, RegionInfo is used to find the insert point basic block
+    // that dominators the parent basic blocks of V's users.
+    // E.g.
+    //   for.cond:
+    //     br i1 %cmp3, label %for.body, label %for.end
+    //   for.body:
+    //     br %master.thread.fallthru
+    //   master.thread.fallthru:
+    //     call void @_Z18work_group_barrierj12memory_scope(i32 3, i32 1)
+    //     br label %for.inc
+    //   for.inc:
+    //     br label %for.cond
+    //   for.end:
+    //     store i32 0, i32* %j, align 4
+    // for.end and for.cond are in the same barrier region, and %j has single
+    // user in for.end which is outside the loop. If we load %j's address in
+    // special buffer in region header, %j's debug info will change in the loop,
+    // which isn't desired.
+    MapVector<BasicBlock *, SmallVector<Instruction *, 8>> BBUsers;
+    for (auto *U : V->users()) {
+      BasicBlock *BB = cast<Instruction>(U)->getParent();
+      if (BRI)
+        BB = BRI->getRegionHeaderFor(BB);
+      BBUsers[BB].push_back(cast<Instruction>(U));
+    }
+    for (auto &Pair : BBUsers) {
+      BasicBlock *BB = Pair.first;
+      Instruction *InsertBefore = nullptr;
+      if (BB->isEntryBlock()) {
+        InsertBefore = BB->getTerminator();
+      } else if (AI && AI->getParent() == BB) {
+        // The inserted instructions will get debug loc of current alloca.
+        InsertBefore = AI;
+      } else if (BRI) {
+        // Get top level region.
+        Region *R = nullptr;
+        for (auto *UI : Pair.second) {
+          auto *R1 = RI.getRegionFor(UI->getParent());
+          R = R ? RI.getCommonRegion(R, R1) : R1;
+        }
 
-    // Now each user is bound to a basic block, in which we insert instruction
-    // to load V's address in special buffer to AddrAI, and replace the user
-    // with result of the load instruction.
+        // Find dominator basic block.
+        BasicBlock *Dom = nullptr;
+        SmallPtrSet<Region *, 4> Visited;
+        for (auto *UI : Pair.second) {
+          auto *BB1 = UI->getParent();
+          auto *R1 = RI.getRegionFor(BB1);
+          if (R1 == R) {
+            Dom = Dom ? DT.findNearestCommonDominator(Dom, BB1) : BB1;
+          } else if (Visited.insert(R1).second) {
+            auto *Entry = R1->getEntry();
+            Dom = Dom ? DT.findNearestCommonDominator(Dom, Entry) : Entry;
+          }
+        }
 
-    bool AllocaDebugLocFixed = false;
-    for (auto &BBUser : BBUsers) {
-      BasicBlock *BB = BBUser.first;
-      Instruction *InsertBefore;
-      if (SyncPerBB.count(BB)) {
-        InsertBefore = SyncPerBB[BB]->getNextNode();
-        assert(
-            InsertBefore->getParent() == BB &&
-            "sync instruction must not be the last instruction in the block");
-      } else {
-        if (AI && AI->getParent() == BB) {
-          // The inserted instructions will get debug loc of current alloca.
-          InsertBefore = AI;
-          AllocaDebugLocFixed = true;
+        bool NonPHI = llvm::none_of(Pair.second, [&](auto *I) {
+          return I->getParent() == Dom && isa<PHINode>(I);
+        });
+        if (NonPHI && BRI->getRegionHeaderFor(Dom) == BB) {
+          if (auto It = SyncPerBB.find(Dom); It != SyncPerBB.end())
+            InsertBefore = It->second->getNextNode();
+          else
+            InsertBefore = Dom->getFirstNonPHI();
+        }
+      }
+      if (!InsertBefore) {
+        if (auto It = SyncPerBB.find(BB); It != SyncPerBB.end()) {
+          InsertBefore = It->second->getNextNode();
+          assert(
+              InsertBefore->getParent() == BB &&
+              "sync instruction must not be the last instruction in the block");
         } else {
           InsertBefore = BB->getFirstNonPHI();
         }
@@ -601,20 +437,12 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       if (isa<Argument>(V))
         LI =
             Builder.CreateLoad(cast<Argument>(V)->getType(), LI, "loadedValue");
-      for (Instruction *UI : BBUser.second) {
-        if (!isa<DbgVariableIntrinsic>(UI))
-          UI->replaceUsesOfWith(V, LI);
-      }
+
+      for (auto *I : Pair.second)
+        if (!isa<DbgVariableIntrinsic>(I))
+          I->replaceUsesOfWith(V, LI);
     }
 
-    if (IsNativeDBG && AI && !AllocaDebugLocFixed) {
-      // Store the new addr in special buffer into AddrAI to preserve debug
-      // info.
-      Value *AddrInSpecialBuffer =
-          getAddressInSpecialBuffer(Offset, AllocatedTy, AI, &DB);
-      auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
-      SI->setDebugLoc(DB);
-    }
     if (AI)
       InstructionsToRemove.push_back(AI);
 
@@ -711,17 +539,9 @@ void KernelBarrier::fixSpecialValues() {
       }
       UserInsts.insert(UserInst);
     }
-    // Run over all saved user instructions and handle by adding
-    // load instruction before each value use.
-    for (Instruction *UserInst : UserInsts) {
-      Instruction *InsertBefore =
-          getInstructionToInsertBefore(Inst, UserInst, true);
-      if (!InsertBefore) {
-        // As no barrier in the middle, no need to load & replace the origin
-        // value.
-        continue;
-      }
-      const DebugLoc &DB = UserInst->getDebugLoc();
+
+    auto InsertLoadedValue = [&](Instruction *InsertBefore,
+                                 const DebugLoc &DB) {
       // Calculate the pointer of the current special in the special buffer.
       Value *AddrInSpecialBuffer =
           getAddressInSpecialBuffer(Offset, Ty, InsertBefore, &DB);
@@ -734,15 +554,101 @@ void KernelBarrier::fixSpecialValues() {
                                                "Trunc-i1Toi32", InsertBefore);
       LoadedValue->setDebugLoc(DB);
       RealValue->setDebugLoc(DB);
-      // Replace the use of old value with the new loaded value from special
-      // buffer.
-      UserInst->replaceUsesOfWith(Inst, RealValue);
+      return RealValue;
+    };
+
+    // Run over all saved user instructions and handle by adding
+    // load instruction before each value use.
+    for (Instruction *UserInst : UserInsts) {
+      const DebugLoc &DB = UserInst->getDebugLoc();
+
+      if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+        auto InsertBefores = getInstructionsToInsertBefore(Inst, PhiNode);
+        for (auto *InsertBefore : InsertBefores) {
+          auto *RealValue = InsertLoadedValue(InsertBefore, DB);
+          PhiNode->setIncomingValueForBlock(InsertBefore->getParent(),
+                                            RealValue);
+        }
+      } else {
+        auto *RealValue = InsertLoadedValue(UserInst, DB);
+        UserInst->replaceUsesOfWith(Inst, RealValue);
+
+        // If UserInst is a sync instruction, then it will not be the first
+        // instruction of basic block, which will break the assumption of
+        // BarrierUtils::isCrossedByBarrier, thus we split it to satisfy the
+        // assumption
+        if (SyncInstructions->contains(UserInst)) {
+          const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+          UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+                                                 Name);
+        }
+      }
     }
   }
 }
 
-void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
-  for (Value *V : *CrossBarrierValues) {
+/// Hoist an uniform cross-barrier instruction and its depedent instructions to
+/// entry basic block, which donimates the instruction's users. Return true if
+/// the instruction either is already in the entry block or is hoisted. Return
+/// false if the instruction can't be hoisted.
+static bool
+hoistUniformCrossBarrierInstToEntryBlock(Instruction *I,
+                                         Instruction *InsertBefore) {
+  BasicBlock *InsertBeforeBB = InsertBefore->getParent();
+  if (I->getParent() == InsertBeforeBB)
+    return true;
+  if (isa<CallInst>(I) || I->use_empty())
+    return false;
+
+  // Collect dependent instructions to move.
+  SmallSetVector<Instruction *, 16> ToMove;
+  Use *TheUse = &*I->use_begin();
+  for (Use *U : make_range(po_begin(TheUse), po_end(TheUse))) {
+    Value *V = U->get();
+    // Skip constant value that may consist of global variable.
+    if (isa<GlobalVariable>(V) || isa<ConstantExpr>(V) ||
+        isa<ConstantAggregate>(V))
+      return false;
+    if (auto *Inst = dyn_cast<Instruction>(V)) {
+      if (auto *CI = dyn_cast<CallInst>(Inst)) {
+        Function *Callee = CI->getCalledFunction();
+        if (!Callee)
+          return false;
+        StringRef Name = Callee->getName();
+        using namespace CompilationUtils;
+        if (!isGetGlobalSize(Name) && !isGetGroupId(Name) &&
+            !isGetLocalSize(Name) && !isGetNumGroups(Name) &&
+            !isGetWorkDim(Name))
+          return false;
+      }
+      if (Inst->getParent() != InsertBeforeBB)
+        ToMove.insert(Inst);
+    }
+  }
+
+  for (Instruction *Inst : ToMove) {
+    Inst->moveBefore(InsertBefore);
+    Inst->dropLocation();
+  }
+
+  return true;
+}
+
+void KernelBarrier::fixCrossBarrierValues(Function &F) {
+  ValueVec WorkList;
+  if (!F.hasOptNone()) {
+    Instruction *InsertBefore = &*F.begin()->getFirstNonPHIOrDbgOrAlloca();
+    for (Value *V : llvm::reverse(*CrossBarrierValues))
+      if (!hoistUniformCrossBarrierInstToEntryBlock(cast<Instruction>(V),
+                                                    InsertBefore))
+        WorkList.push_back(V);
+  } else {
+    WorkList = *CrossBarrierValues;
+  }
+
+  Instruction *InsertBefore = &*F.begin()->begin();
+
+  for (Value *V : WorkList) {
     Instruction *Inst = dyn_cast<Instruction>(V);
     assert(Inst && "container of special values has non Instruction value!");
     // Find next instruction so we can create new instruction before it.
@@ -776,20 +682,38 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
     // Run over all saved user instructions and handle by adding
     // load instruction before each value use.
     for (Instruction *UserInst : UserInsts) {
-      Instruction *InsertBefore =
-          getInstructionToInsertBefore(Inst, UserInst, true);
-      if (!InsertBefore) {
-        // As no barrier in the middle, no need to load & replace the origin
-        // value.
-        continue;
+      const DebugLoc &DB = UserInst->getDebugLoc();
+      if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+        auto InsertBefores = getInstructionsToInsertBefore(Inst, PhiNode);
+        for (auto *InsertBefore : InsertBefores) {
+          // Calculate the pointer of the current special in the special buffer.
+          Instruction *LoadedValue = new LoadInst(AI->getAllocatedType(), AI,
+                                                  "loadedValue", InsertBefore);
+          LoadedValue->setDebugLoc(DB);
+          PhiNode->setIncomingValueForBlock(InsertBefore->getParent(),
+                                            LoadedValue);
+        }
+      } else {
+        // Calculate the pointer of the current special in the special buffer.
+        Instruction *LoadedValue =
+            new LoadInst(AI->getAllocatedType(), AI, "loadedValue", UserInst);
+        LoadedValue->setDebugLoc(DB);
+        UserInst->replaceUsesOfWith(Inst, LoadedValue);
+        // FIXME: For the same reason as the end of fixSpecialValues, this also
+        // need to be done here. But:
+        //   1. Currently, BarrierUtils::isCrossedByBarrier is not called after
+        //      this function
+        //   2. It's complex to update the containers in fixAllocaAndDbg
+        // So, it's unnecessary and a little risky to do this fix now.
+        //
+        // if (SyncInstructions->contains(UserInst)) {
+        //   assert(UserInst == InsertBefore &&
+        //          "UserInst should be the insertion point");
+        //   const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+        //   UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+        //                                          Name);
+        // }
       }
-      // Calculate the pointer of the current special in the special buffer.
-      Instruction *LoadedValue =
-          new LoadInst(AI->getAllocatedType(), AI, "loadedValue", InsertBefore);
-      LoadedValue->setDebugLoc(UserInst->getDebugLoc());
-      // Replace the use of old value with the new loaded value from special
-      // buffer.
-      UserInst->replaceUsesOfWith(Inst, LoadedValue);
     }
   }
 }
@@ -1003,22 +927,17 @@ void KernelBarrier::getBarrierKeyValues(Function *Func) {
   CurrentBarrierKeyValues = &BarrierKeyValuesPerFunction[Func];
 }
 
-Instruction *KernelBarrier::getInstructionToInsertBefore(Instruction *Inst,
-                                                         Instruction *UserInst,
-                                                         bool ExpectNULL) {
-  if (!isa<PHINode>(UserInst)) {
-    // UserInst is not a PHINode, we can insert instruction before it.
-    return UserInst;
+SmallVector<Instruction *>
+KernelBarrier::getInstructionsToInsertBefore(Instruction *Inst,
+                                             PHINode *PhiNode) {
+  auto PrevBBs = BarrierUtils::findBasicBlocksOfPhiNode(Inst, PhiNode);
+  SmallVector<Instruction *, 1> InsertBefores;
+  for (auto *BB : PrevBBs) {
+    if (BB != Inst->getParent()) {
+      InsertBefores.push_back(BB->getTerminator());
+    }
   }
-  // UserInst is a PHINode, find previous basic block.
-  BasicBlock *PrevBB = BarrierUtils::findBasicBlockOfUsageInst(Inst, UserInst);
-
-  if (ExpectNULL && PrevBB == Inst->getParent()) {
-    // In such case no need to load & replace the origin value
-    // as no barrier in the middle, return NULL to indecate that.
-    return nullptr;
-  }
-  return PrevBB->getTerminator();
+  return InsertBefores;
 }
 
 Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
@@ -1037,13 +956,14 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
   Value *CurrSB = createGetCurrSBIndex(B);
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
   Value *Idxs[1] = {CurrSB};
-  Value *AddrInSBinBytes = B.CreateInBoundsGEP(
-      Utils.getSpecialBufferValueTy(),
-      CurrentBarrierKeyValues->SpecialBufferValue, ArrayRef<Value *>(Idxs));
-  // Bitcast pointer according to alloca type!
-  Value *AddrInSpecialBuffer =
-      B.CreatePointerCast(AddrInSBinBytes, Ty, "pSB_LocalId");
-  return AddrInSpecialBuffer;
+  Value *AddrInSBinBytes =
+      B.CreateInBoundsGEP(Utils.getSpecialBufferValueTy(),
+                          CurrentBarrierKeyValues->SpecialBufferValue,
+                          ArrayRef<Value *>(Idxs), "pSB_LocalId");
+  // Bitcast pointer according to alloca type for typed pointer!
+  return Ty->isOpaquePointerTy()
+             ? AddrInSBinBytes
+             : B.CreatePointerCast(AddrInSBinBytes, Ty, "pSB_LocalId");
 }
 
 // TODO: Since ResolveVariableTIDCall ran before this pass, we won't encounter
@@ -1286,7 +1206,7 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
          "OriginalArg with base type i1!");
 
   // function argument with debug info will be handled in fixAllocaAndDbg.
-  if (IsNativeDBG && !findDbgUses(OriginalArg).empty())
+  if (IsNativeDBG && !CompilationUtils::findDbgUses(OriginalArg).empty())
     return;
 
   // offset in special buffer to load the argument value from.
@@ -1297,25 +1217,36 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
     Instruction *UserInst = dyn_cast<Instruction>(U);
     UserInsts.insert(UserInst);
   }
-  for (Instruction *UserInst : UserInsts) {
-    assert(UserInst &&
-           "Something other than Instruction is using function argument!");
-    Instruction *InsertBefore = UserInst;
-    if (isa<PHINode>(UserInst)) {
-      BasicBlock *PrevBB =
-          BarrierUtils::findBasicBlockOfUsageInst(OriginalArg, UserInst);
-      InsertBefore = PrevBB->getTerminator();
-    }
+
+  auto InsertLoadedValue = [&](Instruction *InsertBefore, const DebugLoc &DB) {
     // In this case we will always get a valid offset and need to load the
     // argument from the special buffer using the offset corresponding argument.
     PointerType *Ty =
         OriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *AddrInSpecialBuffer =
-        getAddressInSpecialBuffer(OffsetArg, Ty, InsertBefore, nullptr);
-    Value *LoadedValue =
+        getAddressInSpecialBuffer(OffsetArg, Ty, InsertBefore, &DB);
+    auto *LoadedValue =
         new LoadInst(OriginalArg->getType(), AddrInSpecialBuffer, "loadedValue",
                      InsertBefore);
-    UserInst->replaceUsesOfWith(OriginalArg, LoadedValue);
+    LoadedValue->setDebugLoc(DB);
+    return LoadedValue;
+  };
+
+  for (Instruction *UserInst : UserInsts) {
+    assert(UserInst &&
+           "Something other than Instruction is using function argument!");
+    const DebugLoc &DB = UserInst->getDebugLoc();
+    if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+      auto PrevBBs =
+          BarrierUtils::findBasicBlocksOfPhiNode(OriginalArg, PhiNode);
+      for (auto *PrevBB : PrevBBs) {
+        auto *LoadedValue = InsertLoadedValue(PrevBB->getTerminator(), DB);
+        PhiNode->setIncomingValueForBlock(PrevBB, LoadedValue);
+      }
+    } else {
+      auto *LoadedValue = InsertLoadedValue(UserInst, DB);
+      UserInst->replaceUsesOfWith(OriginalArg, LoadedValue);
+    }
   }
 }
 
@@ -1357,7 +1288,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
       // Split sync instruction basic-block that contains the call instruction.
       BasicBlock *PreBB = CallToFix->getParent();
       BasicBlock::iterator FirstInst = PreBB->begin();
-      assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
+      assert(DPB->getSyncInstructions(Func).contains(&*FirstInst) &&
              "assume first instruction to be sync instruction");
       BasicBlock *CallBB = PreBB->splitBasicBlock(FirstInst, "CallBB");
       InsertBefore = PreBB->getTerminator();
@@ -1390,7 +1321,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
   assert(BrInst && BrInst->getNumSuccessors() == 1 &&
          "callInst BB has more than one successor");
   BasicBlock::iterator FirstInst = BrInst->getSuccessor(0)->begin();
-  assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
+  assert(DPB->getSyncInstructions(Func).contains(&*FirstInst) &&
          "assume first instruction to be sync instruction");
   // Find next instruction so we can create new instruction before it.
   Instruction *NextInst = &*(++FirstInst);
@@ -1445,7 +1376,7 @@ getCalculatedPrivateSize(Function *Func,
   // External function or function pointer.
   if (!Func || Func->isDeclaration())
     return 0;
-  if (!FnPrivSize.count(Func)) {
+  if (!FnPrivSize.contains(Func)) {
     LLVM_DEBUG(dbgs() << "No private size calculated for function "
                       << Func->getName() << "\n");
     return 0;
@@ -1465,8 +1396,8 @@ void KernelBarrier::calculateDirectPrivateSize(
       continue;
 
     DirectPrivateSizeMap[&F] =
-        (AddrAllocaSize.count(&F) ? (size_t)AddrAllocaSize[&F] : 0) +
-        (FnsWithSync.count(&F) ? 0 : (size_t)DPV->getStrideSize(&F));
+        (AddrAllocaSize.contains(&F) ? (size_t)AddrAllocaSize[&F] : 0) +
+        (FnsWithSync.contains(&F) ? 0 : (size_t)DPV->getStrideSize(&F));
   }
 }
 

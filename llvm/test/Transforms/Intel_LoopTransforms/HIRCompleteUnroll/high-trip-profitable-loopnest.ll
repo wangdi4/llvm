@@ -40,7 +40,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 
 @main_mp3.hybridIn = internal global [32 x [18 x i32]] zeroinitializer, align 4
 
-define void @foo(i32 %index1, i32 %index2, [36 x i32]* %ptr) {
+define void @foo(i32 %index1, i32 %index2, ptr %ptr) {
 entry:
  br label %for.loop
 
@@ -54,14 +54,14 @@ for.loop:                                   ; preds = %entry, %backedge
 for.inner.loop:                                   ; preds = %for.inner.loop, %for.loop
   %4 = phi i32 [ 0, %for.loop ], [ %16, %for.inner.loop ]
   %5 = phi i32 [ 0, %for.loop ], [ %17, %for.inner.loop ]
-  %6 = getelementptr inbounds [32 x [18 x i32]], [32 x [18 x i32]]* @main_mp3.hybridIn, i32 0, i32 %index1, i32 %5
-  %7 = load i32, i32* %6, align 4
+  %6 = getelementptr inbounds [32 x [18 x i32]], ptr @main_mp3.hybridIn, i32 0, i32 %index1, i32 %5
+  %7 = load i32, ptr %6, align 4
   %8 = shl nsw i32 %5, 1
   %9 = or i32 %8, 1
   %10 = mul nuw nsw i32 %9, %3
   %11 = srem i32 %10, 144
-  %12 = getelementptr inbounds [144 x i32], [144 x i32]* @COS_int, i32 0, i32 %11
-  %13 = load i32, i32* %12, align 4
+  %12 = getelementptr inbounds [144 x i32], ptr @COS_int, i32 0, i32 %11
+  %13 = load i32, ptr %12, align 4
   %14 = mul nsw i32 %13, %7
   %15 = sdiv i32 %14, 32768
   %16 = add nsw i32 %15, %4
@@ -71,12 +71,12 @@ for.inner.loop:                                   ; preds = %for.inner.loop, %fo
 
 backedge:                                   ; preds = %for.inner.loop
   %19 = phi i32 [ %16, %for.inner.loop ]
-  %20 = getelementptr inbounds [4 x [36 x i32]], [4 x [36 x i32]]* @imdct_win_int, i32 0, i32 %index2, i32 %0
-  %21 = load i32, i32* %20, align 4
+  %20 = getelementptr inbounds [4 x [36 x i32]], ptr @imdct_win_int, i32 0, i32 %index2, i32 %0
+  %21 = load i32, ptr %20, align 4
   %22 = mul nsw i32 %21, %19
   %23 = sdiv i32 %22, 32768
-  %24 = getelementptr inbounds [36 x i32], [36 x i32]* %ptr, i32 0, i32 %0
-  store i32 %23, i32* %24, align 4
+  %24 = getelementptr inbounds [36 x i32], ptr %ptr, i32 0, i32 %0
+  store i32 %23, ptr %24, align 4
   %25 = add nuw nsw i32 %0, 1
   %26 = icmp eq i32 %25, 36
   br i1 %26, label %for.exit, label %for.loop

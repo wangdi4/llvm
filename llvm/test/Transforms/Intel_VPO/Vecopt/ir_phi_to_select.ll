@@ -14,47 +14,47 @@
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
-; CHECK: %wide.load = load <4 x i32>, <4 x i32>*
+; CHECK: %wide.load = load <4 x i32>, ptr
 ; CHECK: %[[MASK:.*]] = icmp eq <4 x i32> %wide.load, zeroinitializer
 ; CHECK: %[[MASK_NOT:.*]] = xor <4 x i1> %[[MASK]], <i1 true, i1 true, i1 true, i1 true>
-; CHECK-OLD-PM: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
-; CHECK-NEW-PM: %[[WIDE_MASK_LOAD1:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
-; CHECK-OLD-PM: %[[WIDE_MASK_LOAD2:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
-; CHECK-NEW-PM: %[[WIDE_MASK_LOAD2:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
+; CHECK-OLD-PM: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0{{.*}}, <4 x i1> %[[MASK_NOT]]
+; CHECK-NEW-PM: %[[WIDE_MASK_LOAD1:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0{{.*}}, <4 x i1> %[[MASK_NOT]]
+; CHECK-OLD-PM: %[[WIDE_MASK_LOAD2:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0{{.*}}, <4 x i1> %[[MASK]]
+; CHECK-NEW-PM: %[[WIDE_MASK_LOAD2:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0{{.*}}, <4 x i1> %[[MASK]]
 ; CHECK: %[[PRED_PFI:.*]] = select <4 x i1> %[[MASK]], <4 x i32>
-; CHECK: store <4 x i32> %[[PRED_PFI]], <4 x i32>*
+; CHECK: store <4 x i32> %[[PRED_PFI]], ptr
 
-define void @foo(i32* nocapture %arr1, i32* noalias nocapture %arr2, i32* noalias nocapture %arr3) {
+define void @foo(ptr nocapture %arr1, ptr noalias nocapture %arr2, ptr noalias nocapture %arr3) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %arr1, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %arr1, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %0, 0
   br i1 %tobool, label %if.else, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds i32, i32* %arr2, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %arr2, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4
   %2 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %1, %2
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
-  %arrayidx4 = getelementptr inbounds i32, i32* %arr3, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %arr3, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx4, align 4
   %4 = trunc i64 %indvars.iv to i32
   %sub = sub nsw i32 %3, %4
-  store i32 %sub, i32* %arrayidx4, align 4
+  store i32 %sub, ptr %arrayidx4, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   %j.0 = phi i32 [ %add, %if.then ], [ %sub, %if.else ]
-  store i32 %j.0, i32* %arrayidx, align 4
+  store i32 %j.0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

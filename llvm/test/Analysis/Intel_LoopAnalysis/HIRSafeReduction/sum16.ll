@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i64 %n, i64 %n2, i64 %n3, double* nocapture %s) local_unnamed_addr #0 {
+define i32 @sub(i64 %n, i64 %n2, i64 %n3, ptr nocapture %s) local_unnamed_addr #0 {
 entry:
   %cmp13 = icmp sgt i64 %n, 0
   br i1 %cmp13, label %for.body, label %for.end
@@ -33,7 +33,7 @@ for.end:                                          ; preds = %for.body, %entry
   %s1.0.lcssa = phi i64 [ 0, %entry ], [ %add, %for.body ]
   %add3 = add nsw i64 %s2.0.lcssa, %s1.0.lcssa
   %conv = sitofp i64 %add3 to double
-  store double %conv, double* %s, align 8, !tbaa !1
+  store double %conv, ptr %s, align 8, !tbaa !1
   ret i32 0
 }
 

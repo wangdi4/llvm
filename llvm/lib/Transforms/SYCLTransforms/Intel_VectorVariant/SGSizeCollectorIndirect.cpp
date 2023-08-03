@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/SGSizeCollectorIndirect.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
@@ -63,6 +64,10 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       continue;
     VecLengths.insert(VecLength);
   }
+
+  // Return early if there is no vector length info.
+  if (VecLengths.empty())
+    return false;
 
   auto GenerateVectorVariants = [&VecLengths, this](const std::string &FuncName,
                                                     int NumParams) {
@@ -122,7 +127,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       if (PtrsModified) {
         Fn.removeFnAttr(Attribute::VectorFunctionPtrsStrAttr);
         Fn.addFnAttr(Attribute::VectorFunctionPtrsStrAttr, join(Strs, ","));
-        Fn.addFnAttr("vector-variants", join(VectorVariants, ","));
+        Fn.addFnAttr(VectorUtils::VectorVariantsAttrName,
+                     join(VectorVariants, ","));
         Modified = true;
       }
     }
@@ -139,24 +145,16 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
         continue;
 
       AttributeList Attrs = Call.getAttributes();
-      if (Attrs.hasFnAttr("vector-variants"))
+      if (Attrs.hasFnAttr(VectorUtils::VectorVariantsAttrName))
         continue;
 
       // Add vector-variants attribute.
-      FunctionType *FuncTy = Call.getFunctionType();
-      assert(FuncTy->getNumParams() > 0 &&
-             "Expected at least one function argument");
-
-      Type *ParamTy = FuncTy->getParamType(0);
-      PointerType *Pointer = cast<PointerType>(ParamTy);
-      Pointer = cast<PointerType>(Pointer->getNonOpaquePointerElementType());
-      FuncTy = cast<FunctionType>(Pointer->getNonOpaquePointerElementType());
-
+      unsigned ArgSize = Call.arg_size();
+      assert(ArgSize > 0 && "Expected at least one function argument");
       // Update attributes.
       Attrs = Attrs.addFnAttribute(
-          M.getContext(), "vector-variants",
-          GenerateVectorVariants("__intel_indirect_call_XXX",
-                                 FuncTy->getNumParams()));
+          M.getContext(), VectorUtils::VectorVariantsAttrName,
+          GenerateVectorVariants("__intel_indirect_call_XXX", ArgSize - 1));
       Call.setAttributes(Attrs);
 
       Modified = true;

@@ -1,6 +1,6 @@
 //===----------- SOAToAOSOPClassInfo.h - SOAToAOSOP Class Info Analysis ---===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -112,6 +112,9 @@ public:
 
   // Returns index of "flag" field.
   int32_t getFlagField() { return FlagField; }
+
+  // Returns index of "size" field.
+  int32_t getSizeField() { return SizeField; }
 
   // Returns index of "array" field.
   int32_t getArrayField() { return ArrayField; }

@@ -42,17 +42,17 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP3]] i64 [[VP5]]
-; CHECK-NEXT:     store i64 111 i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[VP3]] i64 [[VP5]]
+; CHECK-NEXT:     store i64 111 ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP3]] i64 [[VP5]]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x float]* @farr2 i64 0 i64 [[VP7]]
-; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @farr2 i64 0 i64 [[VP7]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP0]] i64 [[VP5]]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP8]]
-; CHECK-NEXT:     float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @farr i64 0 i64 [[VP8]]
+; CHECK-NEXT:     float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     float [[VP9:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP8]]
-; CHECK-NEXT:     store float [[VP9]] float* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr @farr i64 0 i64 [[VP8]]
+; CHECK-NEXT:     store float [[VP9]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP6]] i64 100
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -70,16 +70,16 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i1.024 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx1 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr, i64 0, i64 %mul, i64 %i1.024
-  store i64 111, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds [100 x [100 x i64]], ptr @arr, i64 0, i64 %mul, i64 %i1.024
+  store i64 111, ptr %arrayidx1, align 8
   %add5 = add nsw i64 %i1.024, %mul
-  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @farr2, i64 0, i64 %add5
-  %0 = load float, float* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x float], ptr @farr2, i64 0, i64 %add5
+  %0 = load float, ptr %arrayidx6, align 4
   %add9 = add nsw i64 %add, %i1.024
-  %arrayidx10 = getelementptr inbounds [100 x float], [100 x float]* @farr, i64 0, i64 %add9
-  %1 = load float, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x float], ptr @farr, i64 0, i64 %add9
+  %1 = load float, ptr %arrayidx10, align 4
   %add11 = fadd float %0, %1
-  store float %add11, float* %arrayidx10, align 4
+  store float %add11, ptr %arrayidx10, align 4
   %inc = add nuw nsw i64 %i1.024, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

@@ -7,29 +7,29 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @init = global i32 1, align 4
 @local_fooBuf = global [2048 x i32] zeroinitializer, align 16
-@fooBuf = common global i32* null, align 8
+@fooBuf = common global ptr null, align 8
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %fooPtr, i32 %aconst) #0 {
+define i32 @foo(ptr nocapture %fooPtr, i32 %aconst) #0 {
 entry:
-  %0 = load i32, i32* @init, align 4, !tbaa !1
+  %0 = load i32, ptr @init, align 4, !tbaa !1
   %cmp = icmp eq i32 %0, 1
   br i1 %cmp, label %if.then, label %entry.if.end_crit_edge
 
 entry.if.end_crit_edge:                           ; preds = %entry
-  %.pre = load i32*, i32** @fooBuf, align 8, !tbaa !5
+  %.pre = load ptr, ptr @fooBuf, align 8, !tbaa !5
   br label %if.end
 
 if.then:                                          ; preds = %entry
-  store i32* getelementptr inbounds ([2048 x i32], [2048 x i32]* @local_fooBuf, i64 0, i64 0), i32** @fooBuf, align 8, !tbaa !5
-  store i32 0, i32* @init, align 4, !tbaa !1
+  store ptr getelementptr inbounds ([2048 x i32], ptr @local_fooBuf, i64 0, i64 0), ptr @fooBuf, align 8, !tbaa !5
+  store i32 0, ptr @init, align 4, !tbaa !1
   br label %if.end
 
 if.end:                                           ; preds = %entry.if.end_crit_edge, %if.then
-  %1 = phi i32* [ %.pre, %entry.if.end_crit_edge ], [ getelementptr inbounds ([2048 x i32], [2048 x i32]* @local_fooBuf, i64 0, i64 0), %if.then ]
+  %1 = phi ptr [ %.pre, %entry.if.end_crit_edge ], [ getelementptr inbounds ([2048 x i32], ptr @local_fooBuf, i64 0, i64 0), %if.then ]
   %div = sdiv i32 %aconst, 2
   %idxprom = sext i32 %div to i64
-  %arrayidx = getelementptr inbounds i32, i32* %1, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, ptr %1, i64 %idxprom
   %cmp1.13 = icmp sgt i32 %aconst, 0
   br i1 %cmp1.13, label %for.body.preheader, label %for.end
 
@@ -49,10 +49,10 @@ for.body.prol:                                    ; preds = %for.body.prol.prehe
   %indvars.iv.prol = phi i64 [ %indvars.iv.next.prol, %for.body.prol ], [ 0, %for.body.prol.preheader ]
   %sum.014.prol = phi i32 [ %add.prol, %for.body.prol ], [ 0, %for.body.prol.preheader ]
   %prol.iter = phi i32 [ %prol.iter.sub, %for.body.prol ], [ %xtraiter, %for.body.prol.preheader ]
-  %arrayidx3.prol = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv.prol
+  %arrayidx3.prol = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv.prol
   %6 = trunc i64 %indvars.iv.prol to i32
-  store i32 %6, i32* %arrayidx3.prol, align 4, !tbaa !1
-  %7 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %6, ptr %arrayidx3.prol, align 4, !tbaa !1
+  %7 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add.prol = add nsw i32 %7, %sum.014.prol
   %indvars.iv.next.prol = add nuw nsw i64 %indvars.iv.prol, 1
   %prol.iter.sub = add i32 %prol.iter, -1
@@ -73,28 +73,28 @@ for.body.preheader.split:                         ; preds = %for.body.preheader.
 for.body:                                         ; preds = %for.body.preheader.split, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next.3, %for.body ], [ %indvars.iv.unr, %for.body.preheader.split ]
   %sum.014 = phi i32 [ %add.3, %for.body ], [ %sum.014.unr, %for.body.preheader.split ]
-  %arrayidx3 = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv
+  %arrayidx3 = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv
   %10 = trunc i64 %indvars.iv to i32
-  store i32 %10, i32* %arrayidx3, align 4, !tbaa !1
-  %11 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %10, ptr %arrayidx3, align 4, !tbaa !1
+  %11 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add = add nsw i32 %11, %sum.014
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx3.1 = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv.next
+  %arrayidx3.1 = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv.next
   %12 = trunc i64 %indvars.iv.next to i32
-  store i32 %12, i32* %arrayidx3.1, align 4, !tbaa !1
-  %13 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %12, ptr %arrayidx3.1, align 4, !tbaa !1
+  %13 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add.1 = add nsw i32 %add, %13
   %indvars.iv.next.1 = add nsw i64 %indvars.iv, 2
-  %arrayidx3.2 = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv.next.1
+  %arrayidx3.2 = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv.next.1
   %14 = trunc i64 %indvars.iv.next.1 to i32
-  store i32 %14, i32* %arrayidx3.2, align 4, !tbaa !1
-  %15 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %14, ptr %arrayidx3.2, align 4, !tbaa !1
+  %15 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add.2 = add nsw i32 %add.1, %15
   %indvars.iv.next.2 = add nsw i64 %indvars.iv, 3
-  %arrayidx3.3 = getelementptr inbounds i32, i32* %fooPtr, i64 %indvars.iv.next.2
+  %arrayidx3.3 = getelementptr inbounds i32, ptr %fooPtr, i64 %indvars.iv.next.2
   %16 = trunc i64 %indvars.iv.next.2 to i32
-  store i32 %16, i32* %arrayidx3.3, align 4, !tbaa !1
-  %17 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %16, ptr %arrayidx3.3, align 4, !tbaa !1
+  %17 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add.3 = add nsw i32 %add.2, %17
   %indvars.iv.next.3 = add nsw i64 %indvars.iv, 4
   %lftr.wideiv.3 = trunc i64 %indvars.iv.next.3 to i32

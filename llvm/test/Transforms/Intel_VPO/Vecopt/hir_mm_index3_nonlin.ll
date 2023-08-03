@@ -18,7 +18,7 @@
 ; CHECK-NEXT:  IsLinearIndex: 0 Parent exit: i32 [[VP3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP7:%.*]] = add i32 [[VP8:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 2147483647 BinOp: i32 [[VP7:%.*]] = add i32 [[VP8:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP8]], i32 [[VP7]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_INIT_STEP]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
@@ -34,8 +34,8 @@
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP__RED_INIT]], [[BB2]] ],  [ i32 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP7]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP10:%.*]] = sext i32 [[VP8]] to i64
-; CHECK-NEXT:     i32* [[VP11:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP10]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[VP11]]
+; CHECK-NEXT:     ptr [[VP11:%.*]] = subscript inbounds ptr [[ORDERING0:%.*]] i64 [[VP10]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = load ptr [[VP11]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sge i32 [[VP12]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP3]] = select i1 [[VP13]] i32 [[VP8]] i32 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP14:%.*]] = add i32 [[VP12]] i32 2
@@ -89,7 +89,7 @@
 ;}
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
+define dso_local i32 @maxloc(i32 %m, ptr nocapture readonly %ordering) local_unnamed_addr #0 {
 ;
 entry:
   %cmp22 = icmp sgt i32 %m, 0
@@ -104,8 +104,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %val.025 = phi i32 [ 0, %for.body.preheader ], [ %spec.select21, %for.body ]
   %tmp.024 = phi i32 [ 0, %for.body.preheader ], [ %spec.select20, %for.body ]
   %best.023 = phi i32 [ -111111111, %for.body.preheader ], [ %spec.select, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ordering, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ordering, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sge i32 %0, %best.023
   %add = add nsw i32 %0, 2
   %spec.select = select i1 %cmp1, i32 %0, i32 %best.023

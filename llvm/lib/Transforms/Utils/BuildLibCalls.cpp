@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -1299,6 +1299,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
   case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
   case LibFunc_msvc_std_ios_base_scalar_deleting_dtor:
+  case LibFunc_msvc_std_istreambuf_iterator_operator_equals:
   case LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus:
   case LibFunc_msvc_std_locale_facet_decref:
   case LibFunc_msvc_std_locale_facet_incref:
@@ -1510,12 +1511,18 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_kmpc_dispatch_init_8u:
     Changed |= setDoesNotThrow(F);
     break;
+
   case LibFunc_kmpc_dispatch_next_4:
   case LibFunc_kmpc_dispatch_next_4u:
   case LibFunc_kmpc_dispatch_next_8:
   case LibFunc_kmpc_dispatch_next_8u:
     Changed |= setDoesNotThrow(F);
     break;
+
+  case LibFunc_kmpc_dist_for_static_init_4:
+    Changed |= setDoesNotThrow(F);
+    break;
+
   case LibFunc_kmpc_end_critical:
     break;
   case LibFunc_kmpc_end_reduce_nowait:
@@ -1534,6 +1541,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_kmpc_for_static_init_8u:
     break;
   case LibFunc_kmpc_fork_call:
+  case LibFunc_kmpc_fork_teams:
     break;
   case LibFunc_kmpc_global_thread_num:
     break;
@@ -2231,6 +2239,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_for_realloc_lhs:
   case LibFunc_for_rewind:
   case LibFunc_for_scale8_v:
+  case LibFunc_for_set_fpe_:
   case LibFunc_for_set_reentrancy:
   case LibFunc_for_setexp8_v:
   case LibFunc_for_stop_core_quiet:
@@ -2294,7 +2303,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     break;
   case LibFunc_getrusage:
-    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyWritesMemory(F, 1);
     Changed |= setDoesNotThrow(F);
     break;
   case LibFunc_FindClose:
@@ -3702,6 +3711,90 @@ Value *llvm::emitCalloc(Value *Num, Value *Size, IRBuilderBase &B,
 
   if (const auto *F =
           dyn_cast<Function>(Calloc.getCallee()->stripPointerCasts()))
+    CI->setCallingConv(F->getCallingConv());
+
+  return CI;
+}
+
+Value *llvm::emitHotColdNew(Value *Num, IRBuilderBase &B,
+                            const TargetLibraryInfo *TLI, LibFunc NewFunc,
+                            uint8_t HotCold) {
+  Module *M = B.GetInsertBlock()->getModule();
+  if (!isLibFuncEmittable(M, TLI, NewFunc))
+    return nullptr;
+
+  StringRef Name = TLI->getName(NewFunc);
+  FunctionCallee Func = M->getOrInsertFunction(Name, B.getInt8PtrTy(),
+                                               Num->getType(), B.getInt8Ty());
+  inferNonMandatoryLibFuncAttrs(M, Name, *TLI);
+  CallInst *CI = B.CreateCall(Func, {Num, B.getInt8(HotCold)}, Name);
+
+  if (const Function *F =
+          dyn_cast<Function>(Func.getCallee()->stripPointerCasts()))
+    CI->setCallingConv(F->getCallingConv());
+
+  return CI;
+}
+
+Value *llvm::emitHotColdNewNoThrow(Value *Num, Value *NoThrow, IRBuilderBase &B,
+                                   const TargetLibraryInfo *TLI,
+                                   LibFunc NewFunc, uint8_t HotCold) {
+  Module *M = B.GetInsertBlock()->getModule();
+  if (!isLibFuncEmittable(M, TLI, NewFunc))
+    return nullptr;
+
+  StringRef Name = TLI->getName(NewFunc);
+  FunctionCallee Func =
+      M->getOrInsertFunction(Name, B.getInt8PtrTy(), Num->getType(),
+                             NoThrow->getType(), B.getInt8Ty());
+  inferNonMandatoryLibFuncAttrs(M, Name, *TLI);
+  CallInst *CI = B.CreateCall(Func, {Num, NoThrow, B.getInt8(HotCold)}, Name);
+
+  if (const Function *F =
+          dyn_cast<Function>(Func.getCallee()->stripPointerCasts()))
+    CI->setCallingConv(F->getCallingConv());
+
+  return CI;
+}
+
+Value *llvm::emitHotColdNewAligned(Value *Num, Value *Align, IRBuilderBase &B,
+                                   const TargetLibraryInfo *TLI,
+                                   LibFunc NewFunc, uint8_t HotCold) {
+  Module *M = B.GetInsertBlock()->getModule();
+  if (!isLibFuncEmittable(M, TLI, NewFunc))
+    return nullptr;
+
+  StringRef Name = TLI->getName(NewFunc);
+  FunctionCallee Func = M->getOrInsertFunction(
+      Name, B.getInt8PtrTy(), Num->getType(), Align->getType(), B.getInt8Ty());
+  inferNonMandatoryLibFuncAttrs(M, Name, *TLI);
+  CallInst *CI = B.CreateCall(Func, {Num, Align, B.getInt8(HotCold)}, Name);
+
+  if (const Function *F =
+          dyn_cast<Function>(Func.getCallee()->stripPointerCasts()))
+    CI->setCallingConv(F->getCallingConv());
+
+  return CI;
+}
+
+Value *llvm::emitHotColdNewAlignedNoThrow(Value *Num, Value *Align,
+                                          Value *NoThrow, IRBuilderBase &B,
+                                          const TargetLibraryInfo *TLI,
+                                          LibFunc NewFunc, uint8_t HotCold) {
+  Module *M = B.GetInsertBlock()->getModule();
+  if (!isLibFuncEmittable(M, TLI, NewFunc))
+    return nullptr;
+
+  StringRef Name = TLI->getName(NewFunc);
+  FunctionCallee Func = M->getOrInsertFunction(
+      Name, B.getInt8PtrTy(), Num->getType(), Align->getType(),
+      NoThrow->getType(), B.getInt8Ty());
+  inferNonMandatoryLibFuncAttrs(M, Name, *TLI);
+  CallInst *CI =
+      B.CreateCall(Func, {Num, Align, NoThrow, B.getInt8(HotCold)}, Name);
+
+  if (const Function *F =
+          dyn_cast<Function>(Func.getCallee()->stripPointerCasts()))
     CI->setCallingConv(F->getCallingConv());
 
   return CI;

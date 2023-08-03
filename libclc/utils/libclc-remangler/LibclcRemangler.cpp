@@ -117,7 +117,7 @@ static cl::opt<bool> TestRun("t", cl::desc("Enable test run"), cl::init(false),
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 
 namespace {
-inline StringRef asRef(StringView S) { return {S.begin(), S.size()}; }
+inline StringRef asRef(std::string_view S) { return {&*S.begin(), S.size()}; }
 class BumpPointerAllocator {
 public:
   BumpPointerAllocator()
@@ -470,8 +470,7 @@ private:
     auto *FTD = FunctionTemplateDecl::Create(*AST, FD->getDeclContext(),
                                              SourceLocation(),
                                              DeclarationName(), TPL, FD);
-    auto TAArr =
-        ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
+    auto TAArr = ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
     auto *TAL = TemplateArgumentList::CreateCopy(*AST, TAArr);
     FDSpecialization->setTemplateParameterListsInfo(*AST, TPL);
     FDSpecialization->setFunctionTemplateSpecialization(
@@ -577,7 +576,7 @@ private:
   // Handle undecorated type that can be matched against `QualType`, also
   // returning if variadic.
   std::pair<clang::QualType, bool>
-  handleLeafTypeNode(StringView Name,
+  handleLeafTypeNode(std::string_view Name,
                      SmallVector<NodeKindInfo> &PossibleKinds) {
     return handleLeafTypeNode(asRef(Name), PossibleKinds);
   }
@@ -803,7 +802,7 @@ public:
   void Initialize(ASTContext &C) override {
     ASTCtx = &C;
     SMDiagnostic Err;
-#if SPIRV_ENABLE_OPAQUE_POINTERS
+#if SPIRV_ENABLE_OPAQUE_POINTERS || !defined(__SPIR__)
     LLVMCtx.setOpaquePointers(true);
 #else
     LLVMCtx.setOpaquePointers(false);
@@ -986,9 +985,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  CommonOptionsParser &OptionsParser = ExpectedParser.get();
-  ClangTool Tool(OptionsParser.getCompilations(),
-                 OptionsParser.getSourcePathList());
+  // Use a default Compilation DB instead of the build one, as it might contain
+  // toolchain specific options, not compatible with clang.
+  FixedCompilationDatabase Compilations("/", std::vector<std::string>());
+  ClangTool Tool(Compilations, ExpectedParser->getSourcePathList());
 
   LibCLCRemanglerActionFactory LRAF{};
   std::unique_ptr<FrontendActionFactory> FrontendFactory;

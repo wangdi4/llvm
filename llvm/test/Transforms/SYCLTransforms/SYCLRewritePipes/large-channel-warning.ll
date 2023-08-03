@@ -1,5 +1,5 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
 
 ; CHECK: warning: Large channel may lead to memory allocation failure:
 ; CHECK-NEXT: Channel name: _ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE
@@ -136,7 +136,6 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
-%opencl.pipe_ro_t.6 = type opaque
 
 @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 256, i32 256, i32 1024 }, align 4
 
@@ -144,25 +143,22 @@ target triple = "x86_64-pc-linux"
 define internal i32 @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE4readEv() #0 {
 entry:
   %TempData = alloca i32, align 4
-  %call = call %opencl.pipe_ro_t.6 addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* addrspacecast (%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE to %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)*)) #0
-  %0 = bitcast i32* %TempData to i8*
-  %1 = bitcast i32* %TempData to i8*
-  %2 = addrspacecast i8* %1 to i8 addrspace(4)*
-  %3 = call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t.6 addrspace(1)* %call, i8 addrspace(4)* %2, i32 4, i32 4) #0
-  %4 = load i32, i32* %TempData, align 4
-  %5 = bitcast i32* %TempData to i8*
-  ret i32 %4
+  %call = call ptr addrspace(1) @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE to ptr addrspace(4))) #0
+  %0 = addrspacecast ptr %TempData to ptr addrspace(4)
+  %1 = call i32 @__read_pipe_2_bl(ptr addrspace(1) %call, ptr addrspace(4) %0, i32 4, i32 4) #0
+  %2 = load i32, ptr %TempData, align 4
+  ret i32 %2
 }
 
 ; Function Attrs: nounwind
-declare %opencl.pipe_ro_t.6 addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* %0) #0
+declare ptr addrspace(1) @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(ptr addrspace(4) %TempData) #0
 
 
 ; Function Attrs: convergent nounwind
-declare i32 @__read_pipe_2_bl(%opencl.pipe_ro_t.6 addrspace(1)* %0, i8 addrspace(4)* nocapture %1, i32 %2, i32 %3) #1
+declare i32 @__read_pipe_2_bl(ptr addrspace(1) %0, ptr addrspace(4) nocapture %1, i32 %2, i32 %3) #1
 
 ; Function Attrs: convergent nounwind
-declare i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t.6 addrspace(1)* %0, i8 addrspace(4)* nocapture %1, i32 %2, i32 %3) #1
+declare i32 @__read_pipe_2_fpga(ptr addrspace(1) %0, ptr addrspace(4) nocapture %1, i32 %2, i32 %3) #1
 
 
 attributes #0 = { nounwind }

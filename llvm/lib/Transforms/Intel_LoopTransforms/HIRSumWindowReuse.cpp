@@ -1181,9 +1181,9 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   LoopSums.OuterLoop->getParentRegion()->setGenCode();
 
 #if INTEL_INTERNAL_BUILD
-  ORBuilder(*FirstIterLoop)
-      .addOrigin("Window sum initialization loop for sum window reuse");
-  ORBuilder(*LoopSums.OuterLoop).addRemark(OptReportVerbosity::Low, 25584u);
+  ORBuilder(*FirstIterLoop).addOrigin(OptRemarkID::WindowSumInitialization);
+  ORBuilder(*LoopSums.OuterLoop)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::SumWindowReuseCount);
 #endif // INTEL_INTERNAL_BUILD
 }
 
@@ -1278,7 +1278,8 @@ bool HIRSumWindowReuseLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses
 HIRSumWindowReusePass::runImpl(Function &F, llvm::FunctionAnalysisManager &AM,
                                HIRFramework &HIRF) {
-  runHIRSumWindowReuse(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                       AM.getResult<HIRSafeReductionAnalysisPass>(F));
+  ModifiedHIR =
+      runHIRSumWindowReuse(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                           AM.getResult<HIRSafeReductionAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

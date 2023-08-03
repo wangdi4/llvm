@@ -36,7 +36,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:%.*]] Step: i32 1 StartVal: ? EndVal: ? need close form
+; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:undef]] Step: i32 1 StartVal: ? EndVal: ? need close form
 ; CHECK-NEXT:    Linked values: ptr [[VP_I_LINEAR_IV:%.*]], i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]], i32 [[VP_I_LINEAR_IV_IND_INIT_STEP:%.*]], void [[VP_STORE_1:%.*]], i32 [[VP_I_LINEAR_IV_IND_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: ptr [[I_LINEAR_IV0:%.*]]
 ; CHECK-EMPTY:
@@ -48,9 +48,9 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0
-; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv float, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_X_RED]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[X_RED0]]
 ; CHECK-NEXT:     float [[VP_X_REDINSCAN_RED_INIT]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]]
@@ -76,8 +76,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP0]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:     store i32 [[VP0]] ptr [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     i32 [[VP0_1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:     store i32 [[VP0_1]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     br [[BB55:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB55]]: # preds: [[BB4]]

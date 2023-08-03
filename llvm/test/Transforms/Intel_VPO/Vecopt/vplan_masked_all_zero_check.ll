@@ -10,7 +10,7 @@ declare void @llvm.directive.region.exit(token)
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
+define dso_local void @foo(i64 %N, ptr nocapture readonly %lb, ptr nocapture readonly %ub) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i64 %N, 0
   br i1 %cmp21, label %for.body.preheader, label %for.end9
@@ -21,14 +21,14 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc7
   %i.022 = phi i64 [ %inc8, %for.inc7 ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %i.022
-  %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022
-  %1 = load i64, i64* %arrayidx2, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lb, i64 %i.022
+  %0 = load i64, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %ub, i64 %i.022
+  %1 = load i64, ptr %arrayidx2, align 8
   %cmp319 = icmp slt i64 %0, %1
 ; CHECK:       vector.body:
-; CHECK:         [[WIDE_LOAD0:%.*]] = load <8 x i64>, <8 x i64>* [[TMP1:%.*]], align 8
-; CHECK:         [[WIDE_LOAD50:%.*]] = load <8 x i64>, <8 x i64>* [[TMP2:%.*]], align 8
+; CHECK:         [[WIDE_LOAD0:%.*]] = load <8 x i64>, ptr [[TMP1:%.*]], align 8
+; CHECK:         [[WIDE_LOAD50:%.*]] = load <8 x i64>, ptr [[TMP2:%.*]], align 8
 ; CHECK:         [[TMP3:%.*]] = icmp slt <8 x i64> [[WIDE_LOAD0]], [[WIDE_LOAD50]]
   br i1 %cmp319, label %for.body4.preheader, label %for.inc7
 
@@ -45,10 +45,10 @@ for.body4:                                        ; preds = %for.body4.preheader
 ; CHECK-NEXT:    [[TMP4:%.*]] = select <8 x i1> [[TMP3]], <8 x i1> [[VEC_PHI90]], <8 x i1> zeroinitializer
   %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ]
   %shl = shl i64 %j.020, 3
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022
-  store i64 %shl, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], ptr @A, i64 0, i64 %j.020, i64 %i.022
+  store i64 %shl, ptr %arrayidx6, align 8
   %inc = add nsw i64 %j.020, 1
-  %2 = load i64, i64* %arrayidx2, align 8
+  %2 = load i64, ptr %arrayidx2, align 8
   %cmp3 = icmp slt i64 %inc, %2
 ; Verify that lanes masked out by [[TMP4]] don't take part in allzerocheck
 ; CHECK:         [[TMP10:%.*]] = and <8 x i1> [[TMP9]], [[TMP3]]

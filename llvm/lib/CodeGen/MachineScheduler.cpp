@@ -49,6 +49,7 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachinePassRegistry.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/CodeGen/RegisterPressure.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
@@ -73,7 +74,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -119,9 +119,13 @@ cl::opt<bool> PrintDAGs("misched-print-dags", cl::Hidden,
 cl::opt<bool> MISchedDumpReservedCycles(
     "misched-dump-reserved-cycles", cl::Hidden, cl::init(false),
     cl::desc("Dump resource usage at schedule boundary."));
+cl::opt<bool> MischedDetailResourceBooking(
+    "misched-detail-resource-booking", cl::Hidden, cl::init(false),
+    cl::desc("Show details of invoking getNextResoufceCycle."));
 #else
 const bool ViewMISchedDAGs = false;
 const bool PrintDAGs = false;
+const bool MischedDetailResourceBooking = false;
 #ifdef LLVM_ENABLE_DUMP
 const bool MISchedDumpReservedCycles = false;
 #endif // LLVM_ENABLE_DUMP
@@ -192,7 +196,14 @@ static cl::opt<unsigned>
     ColWidth("misched-dump-schedule-trace-col-width", cl::Hidden,
              cl::desc("Set width of the columns showing resource booking."),
              cl::init(5));
+static cl::opt<bool> MISchedSortResourcesInTrace(
+    "misched-sort-resources-in-trace", cl::Hidden, cl::init(true),
+    cl::desc("Sort the resources printed in the dump trace"));
 #endif
+
+static cl::opt<unsigned>
+    MIResourceCutOff("misched-resource-cutoff", cl::Hidden,
+                     cl::desc("Number of intervals to track"), cl::init(10));
 
 // DAG subtrees must have at least this many nodes.
 static const unsigned MinSubtreeSize = 8;
@@ -835,7 +846,7 @@ void ScheduleDAGMI::schedule() {
   // Build the DAG.
   buildSchedGraph(AA);
 
-  postprocessDAG();
+  postProcessDAG();
 
   SmallVector<SUnit*, 8> TopRoots, BotRoots;
   findRootsAndBiasEdges(TopRoots, BotRoots);
@@ -904,7 +915,7 @@ void ScheduleDAGMI::schedule() {
 }
 
 /// Apply each ScheduleDAGMutation step in order.
-void ScheduleDAGMI::postprocessDAG() {
+void ScheduleDAGMI::postProcessDAG() {
   for (auto &m : Mutations)
     m->apply(this);
 }
@@ -994,6 +1005,10 @@ void ScheduleDAGMI::placeDebugValues() {
 static const char *scheduleTableLegend = "  i: issue\n  x: resource booked";
 
 LLVM_DUMP_METHOD void ScheduleDAGMI::dumpScheduleTraceTopDown() const {
+  // Bail off when there is no schedule model to query.
+  if (!SchedModel.hasInstrSchedModel())
+    return;
+
   //  Nothing to show if there is no or just one instruction.
   if (BB->size() < 2)
     return;
@@ -1038,17 +1053,28 @@ LLVM_DUMP_METHOD void ScheduleDAGMI::dumpScheduleTraceTopDown() const {
     }
     dbgs() << "|\n";
     const MCSchedClassDesc *SC = getSchedClass(SU);
-    for (TargetSchedModel::ProcResIter PI = SchedModel.getWriteProcResBegin(SC),
-                                       PE = SchedModel.getWriteProcResEnd(SC);
-         PI != PE; ++PI) {
+
+    SmallVector<MCWriteProcResEntry, 4> ResourcesIt(
+        make_range(SchedModel.getWriteProcResBegin(SC),
+                   SchedModel.getWriteProcResEnd(SC)));
+
+    if (MISchedSortResourcesInTrace)
+      llvm::stable_sort(ResourcesIt,
+                        [](const MCWriteProcResEntry &LHS,
+                           const MCWriteProcResEntry &RHS) -> bool {
+                          return LHS.StartAtCycle < RHS.StartAtCycle ||
+                                 (LHS.StartAtCycle == RHS.StartAtCycle &&
+                                  LHS.Cycles < RHS.Cycles);
+                        });
+    for (const MCWriteProcResEntry &PI : ResourcesIt) {
       C = FirstCycle;
       const std::string ResName =
-          SchedModel.getResourceName(PI->ProcResourceIdx);
-      dbgs() << llvm::left_justify(ResName, HeaderColWidth);
-      for (; C < SU->TopReadyCycle; ++C) {
+          SchedModel.getResourceName(PI.ProcResourceIdx);
+      dbgs() << llvm::right_justify(ResName + " ", HeaderColWidth);
+      for (; C < SU->TopReadyCycle + PI.StartAtCycle; ++C) {
         dbgs() << llvm::left_justify("|", ColWidth);
       }
-      for (unsigned i = 0; i < PI->Cycles; ++i, ++C)
+      for (unsigned I = 0, E = PI.Cycles - PI.StartAtCycle; I != E; ++I, ++C)
         dbgs() << llvm::left_justify("| x", ColWidth);
       while (C++ <= LastCycle)
         dbgs() << llvm::left_justify("|", ColWidth);
@@ -1059,6 +1085,10 @@ LLVM_DUMP_METHOD void ScheduleDAGMI::dumpScheduleTraceTopDown() const {
 }
 
 LLVM_DUMP_METHOD void ScheduleDAGMI::dumpScheduleTraceBottomUp() const {
+  // Bail off when there is no schedule model to query.
+  if (!SchedModel.hasInstrSchedModel())
+    return;
+
   //  Nothing to show if there is no or just one instruction.
   if (BB->size() < 2)
     return;
@@ -1104,17 +1134,27 @@ LLVM_DUMP_METHOD void ScheduleDAGMI::dumpScheduleTraceBottomUp() const {
     }
     dbgs() << "|\n";
     const MCSchedClassDesc *SC = getSchedClass(SU);
-    for (TargetSchedModel::ProcResIter PI = SchedModel.getWriteProcResBegin(SC),
-                                       PE = SchedModel.getWriteProcResEnd(SC);
-         PI != PE; ++PI) {
+    SmallVector<MCWriteProcResEntry, 4> ResourcesIt(
+        make_range(SchedModel.getWriteProcResBegin(SC),
+                   SchedModel.getWriteProcResEnd(SC)));
+
+    if (MISchedSortResourcesInTrace)
+      llvm::stable_sort(ResourcesIt,
+                        [](const MCWriteProcResEntry &LHS,
+                           const MCWriteProcResEntry &RHS) -> bool {
+                          return LHS.StartAtCycle < RHS.StartAtCycle ||
+                                 (LHS.StartAtCycle == RHS.StartAtCycle &&
+                                  LHS.Cycles < RHS.Cycles);
+                        });
+    for (const MCWriteProcResEntry &PI : ResourcesIt) {
       C = FirstCycle;
       const std::string ResName =
-          SchedModel.getResourceName(PI->ProcResourceIdx);
-      dbgs() << llvm::left_justify(ResName, HeaderColWidth);
-      for (; C > (int)SU->BotReadyCycle; --C) {
+          SchedModel.getResourceName(PI.ProcResourceIdx);
+      dbgs() << llvm::right_justify(ResName + " ", HeaderColWidth);
+      for (; C > ((int)SU->BotReadyCycle - (int)PI.StartAtCycle); --C) {
         dbgs() << llvm::left_justify("|", ColWidth);
       }
-      for (unsigned i = 0; i < PI->Cycles; ++i, --C)
+      for (unsigned I = 0, E = PI.Cycles - PI.StartAtCycle; I != E; ++I, --C)
         dbgs() << llvm::left_justify("| x", ColWidth);
       while (C-- >= LastCycle)
         dbgs() << llvm::left_justify("|", ColWidth);
@@ -1172,8 +1212,8 @@ void ScheduleDAGMILive::collectVRegUses(SUnit &SU) {
     // Ignore re-defs.
     if (TrackLaneMasks) {
       bool FoundDef = false;
-      for (const MachineOperand &MO2 : MI.operands()) {
-        if (MO2.isReg() && MO2.isDef() && MO2.getReg() == Reg && !MO2.isDead()) {
+      for (const MachineOperand &MO2 : MI.all_defs()) {
+        if (MO2.getReg() == Reg && !MO2.isDead()) {
           FoundDef = true;
           break;
         }
@@ -1455,7 +1495,7 @@ void ScheduleDAGMILive::schedule() {
   LLVM_DEBUG(SchedImpl->dumpPolicy());
   buildDAGWithRegPressure();
 
-  postprocessDAG();
+  postProcessDAG();
 
   SmallVector<SUnit*, 8> TopRoots, BotRoots;
   findRootsAndBiasEdges(TopRoots, BotRoots);
@@ -2242,6 +2282,7 @@ void SchedBoundary::reset() {
   ZoneCritResIdx = 0;
   IsResourceLimited = false;
   ReservedCycles.clear();
+  ReservedResourceSegments.clear();
   ReservedCyclesIndex.clear();
   ResourceGroupSubUnitMasks.clear();
 #if LLVM_ENABLE_ABI_BREAKING_CHECKS
@@ -2270,7 +2311,8 @@ init(ScheduleDAGMI *DAG, const TargetSchedModel *SchedModel) {
            PE = SchedModel->getWriteProcResEnd(SC); PI != PE; ++PI) {
       unsigned PIdx = PI->ProcResourceIdx;
       unsigned Factor = SchedModel->getResourceFactor(PIdx);
-      RemainingCounts[PIdx] += (Factor * PI->Cycles);
+      assert(PI->Cycles >= PI->StartAtCycle);
+      RemainingCounts[PIdx] += (Factor * (PI->Cycles - PI->StartAtCycle));
     }
   }
 }
@@ -2323,14 +2365,24 @@ unsigned SchedBoundary::getLatencyStallCycles(SUnit *SU) {
 /// Compute the next cycle at which the given processor resource unit
 /// can be scheduled.
 unsigned SchedBoundary::getNextResourceCycleByInstance(unsigned InstanceIdx,
-                                                       unsigned Cycles) {
+                                                       unsigned Cycles,
+                                                       unsigned StartAtCycle) {
+  if (SchedModel && SchedModel->enableIntervals()) {
+    if (isTop())
+      return ReservedResourceSegments[InstanceIdx].getFirstAvailableAtFromTop(
+          CurrCycle, StartAtCycle, Cycles);
+
+    return ReservedResourceSegments[InstanceIdx].getFirstAvailableAtFromBottom(
+        CurrCycle, StartAtCycle, Cycles);
+  }
+
   unsigned NextUnreserved = ReservedCycles[InstanceIdx];
   // If this resource has never been used, always return cycle zero.
   if (NextUnreserved == InvalidCycle)
-    return 0;
+    return CurrCycle;
   // For bottom-up scheduling add the cycles needed for the current operation.
   if (!isTop())
-    NextUnreserved += Cycles;
+    NextUnreserved = std::max(CurrCycle, NextUnreserved + Cycles);
   return NextUnreserved;
 }
 
@@ -2339,8 +2391,12 @@ unsigned SchedBoundary::getNextResourceCycleByInstance(unsigned InstanceIdx,
 /// instance in the reserved cycles vector.
 std::pair<unsigned, unsigned>
 SchedBoundary::getNextResourceCycle(const MCSchedClassDesc *SC, unsigned PIdx,
-                                    unsigned Cycles) {
-
+                                    unsigned Cycles, unsigned StartAtCycle) {
+  if (MischedDetailResourceBooking) {
+    LLVM_DEBUG(dbgs() << "  Resource booking (@" << CurrCycle << "c): \n");
+    LLVM_DEBUG(dumpReservedCycles());
+    LLVM_DEBUG(dbgs() << "  getNextResourceCycle (@" << CurrCycle << "c): \n");
+  }
   unsigned MinNextUnreserved = InvalidCycle;
   unsigned InstanceIdx = 0;
   unsigned StartIndex = ReservedCyclesIndex[PIdx];
@@ -2368,7 +2424,7 @@ SchedBoundary::getNextResourceCycle(const MCSchedClassDesc *SC, unsigned PIdx,
     for (unsigned I = 0, End = NumberOfInstances; I < End; ++I) {
       unsigned NextUnreserved, NextInstanceIdx;
       std::tie(NextUnreserved, NextInstanceIdx) =
-          getNextResourceCycle(SC, SubUnits[I], Cycles);
+          getNextResourceCycle(SC, SubUnits[I], Cycles, StartAtCycle);
       if (MinNextUnreserved > NextUnreserved) {
         InstanceIdx = NextInstanceIdx;
         MinNextUnreserved = NextUnreserved;
@@ -2379,12 +2435,21 @@ SchedBoundary::getNextResourceCycle(const MCSchedClassDesc *SC, unsigned PIdx,
 
   for (unsigned I = StartIndex, End = StartIndex + NumberOfInstances; I < End;
        ++I) {
-    unsigned NextUnreserved = getNextResourceCycleByInstance(I, Cycles);
+    unsigned NextUnreserved =
+        getNextResourceCycleByInstance(I, Cycles, StartAtCycle);
+    if (MischedDetailResourceBooking)
+      LLVM_DEBUG(dbgs() << "    Instance " << I - StartIndex << " available @"
+                        << NextUnreserved << "c\n");
     if (MinNextUnreserved > NextUnreserved) {
       InstanceIdx = I;
       MinNextUnreserved = NextUnreserved;
     }
   }
+  if (MischedDetailResourceBooking)
+    LLVM_DEBUG(dbgs() << "    selecting " << SchedModel->getResourceName(PIdx)
+                      << "[" << InstanceIdx - StartIndex << "]"
+                      << " available @" << MinNextUnreserved << "c"
+                      << "\n");
   return std::make_pair(MinNextUnreserved, InstanceIdx);
 }
 
@@ -2429,8 +2494,10 @@ bool SchedBoundary::checkHazard(SUnit *SU) {
                      SchedModel->getWriteProcResEnd(SC))) {
       unsigned ResIdx = PE.ProcResourceIdx;
       unsigned Cycles = PE.Cycles;
+      unsigned StartAtCycle = PE.StartAtCycle;
       unsigned NRCycle, InstanceIdx;
-      std::tie(NRCycle, InstanceIdx) = getNextResourceCycle(SC, ResIdx, Cycles);
+      std::tie(NRCycle, InstanceIdx) =
+          getNextResourceCycle(SC, ResIdx, Cycles, StartAtCycle);
       if (NRCycle > CurrCycle) {
 #if LLVM_ENABLE_ABI_BREAKING_CHECKS
         MaxObservedStall = std::max(Cycles, MaxObservedStall);
@@ -2581,9 +2648,10 @@ void SchedBoundary::incExecutedResources(unsigned PIdx, unsigned Count) {
 /// \return the next cycle at which the instruction may execute without
 /// oversubscribing resources.
 unsigned SchedBoundary::countResource(const MCSchedClassDesc *SC, unsigned PIdx,
-                                      unsigned Cycles, unsigned NextCycle) {
+                                      unsigned Cycles, unsigned NextCycle,
+                                      unsigned StartAtCycle) {
   unsigned Factor = SchedModel->getResourceFactor(PIdx);
-  unsigned Count = Factor * Cycles;
+  unsigned Count = Factor * (Cycles - StartAtCycle);
   LLVM_DEBUG(dbgs() << "  " << SchedModel->getResourceName(PIdx) << " +"
                     << Cycles << "x" << Factor << "u\n");
 
@@ -2603,7 +2671,8 @@ unsigned SchedBoundary::countResource(const MCSchedClassDesc *SC, unsigned PIdx,
   }
   // For reserved resources, record the highest cycle using the resource.
   unsigned NextAvailable, InstanceIdx;
-  std::tie(NextAvailable, InstanceIdx) = getNextResourceCycle(SC, PIdx, Cycles);
+  std::tie(NextAvailable, InstanceIdx) =
+      getNextResourceCycle(SC, PIdx, Cycles, StartAtCycle);
   if (NextAvailable > CurrCycle) {
     LLVM_DEBUG(dbgs() << "  Resource conflict: "
                       << SchedModel->getResourceName(PIdx)
@@ -2682,8 +2751,8 @@ void SchedBoundary::bumpNode(SUnit *SU) {
     for (TargetSchedModel::ProcResIter
            PI = SchedModel->getWriteProcResBegin(SC),
            PE = SchedModel->getWriteProcResEnd(SC); PI != PE; ++PI) {
-      unsigned RCycle =
-        countResource(SC, PI->ProcResourceIdx, PI->Cycles, NextCycle);
+      unsigned RCycle = countResource(SC, PI->ProcResourceIdx, PI->Cycles,
+                                      NextCycle, PI->StartAtCycle);
       if (RCycle > NextCycle)
         NextCycle = RCycle;
     }
@@ -2697,14 +2766,33 @@ void SchedBoundary::bumpNode(SUnit *SU) {
              PE = SchedModel->getWriteProcResEnd(SC); PI != PE; ++PI) {
         unsigned PIdx = PI->ProcResourceIdx;
         if (SchedModel->getProcResource(PIdx)->BufferSize == 0) {
-          unsigned ReservedUntil, InstanceIdx;
-          std::tie(ReservedUntil, InstanceIdx) =
-              getNextResourceCycle(SC, PIdx, 0);
-          if (isTop()) {
-            ReservedCycles[InstanceIdx] =
-                std::max(ReservedUntil, NextCycle + PI->Cycles);
-          } else
-            ReservedCycles[InstanceIdx] = NextCycle;
+
+          if (SchedModel && SchedModel->enableIntervals()) {
+            unsigned ReservedUntil, InstanceIdx;
+            std::tie(ReservedUntil, InstanceIdx) =
+                getNextResourceCycle(SC, PIdx, PI->Cycles, PI->StartAtCycle);
+            if (isTop()) {
+              ReservedResourceSegments[InstanceIdx].add(
+                  ResourceSegments::getResourceIntervalTop(
+                      NextCycle, PI->StartAtCycle, PI->Cycles),
+                  MIResourceCutOff);
+            } else {
+              ReservedResourceSegments[InstanceIdx].add(
+                  ResourceSegments::getResourceIntervalBottom(
+                      NextCycle, PI->StartAtCycle, PI->Cycles),
+                  MIResourceCutOff);
+            }
+          } else {
+
+            unsigned ReservedUntil, InstanceIdx;
+            std::tie(ReservedUntil, InstanceIdx) =
+                getNextResourceCycle(SC, PIdx, PI->Cycles, PI->StartAtCycle);
+            if (isTop()) {
+              ReservedCycles[InstanceIdx] =
+                  std::max(ReservedUntil, NextCycle + PI->Cycles);
+            } else
+              ReservedCycles[InstanceIdx] = NextCycle;
+          }
         }
       }
     }
@@ -2844,8 +2932,14 @@ LLVM_DUMP_METHOD void SchedBoundary::dumpReservedCycles() const {
     const unsigned NumUnits = SchedModel->getProcResource(ResIdx)->NumUnits;
     std::string ResName = SchedModel->getResourceName(ResIdx);
     for (unsigned UnitIdx = 0; UnitIdx < NumUnits; ++UnitIdx) {
-      dbgs() << ResName << "(" << UnitIdx
-             << ") = " << ReservedCycles[StartIdx + UnitIdx] << "\n";
+      dbgs() << ResName << "(" << UnitIdx << ") = ";
+      if (SchedModel && SchedModel->enableIntervals()) {
+        if (ReservedResourceSegments.count(StartIdx + UnitIdx))
+          dbgs() << ReservedResourceSegments.at(StartIdx + UnitIdx);
+        else
+          dbgs() << "{ }\n";
+      } else
+        dbgs() << ReservedCycles[StartIdx + UnitIdx] << "\n";
     }
     StartIdx += NumUnits;
   }
@@ -4402,4 +4496,102 @@ void ScheduleDAGMI::viewGraph(const Twine &Name, const Twine &Title) {
 /// Out-of-line implementation with no arguments is handy for gdb.
 void ScheduleDAGMI::viewGraph() {
   viewGraph(getDAGName(), "Scheduling-Units Graph for " + getDAGName());
+}
+
+/// Sort predicate for the intervals stored in an instance of
+/// ResourceSegments. Intervals are always disjoint (no intersection
+/// for any pairs of intervals), therefore we can sort the totality of
+/// the intervals by looking only at the left boundary.
+static bool sortIntervals(const ResourceSegments::IntervalTy &A,
+                          const ResourceSegments::IntervalTy &B) {
+  return A.first < B.first;
+}
+
+unsigned ResourceSegments::getFirstAvailableAt(
+    unsigned CurrCycle, unsigned StartAtCycle, unsigned Cycle,
+    std::function<ResourceSegments::IntervalTy(unsigned, unsigned, unsigned)>
+        IntervalBuilder) const {
+  assert(std::is_sorted(std::begin(_Intervals), std::end(_Intervals),
+                        sortIntervals) &&
+         "Cannot execute on an un-sorted set of intervals.");
+  unsigned RetCycle = CurrCycle;
+  ResourceSegments::IntervalTy NewInterval =
+      IntervalBuilder(RetCycle, StartAtCycle, Cycle);
+  for (auto &Interval : _Intervals) {
+    if (!intersects(NewInterval, Interval))
+      continue;
+
+    // Move the interval right next to the top of the one it
+    // intersects.
+    assert(Interval.second > NewInterval.first &&
+           "Invalid intervals configuration.");
+    RetCycle += (unsigned)Interval.second - (unsigned)NewInterval.first;
+    NewInterval = IntervalBuilder(RetCycle, StartAtCycle, Cycle);
+  }
+  return RetCycle;
+}
+
+void ResourceSegments::add(ResourceSegments::IntervalTy A,
+                           const unsigned CutOff) {
+  assert(A.first < A.second && "Cannot add empty resource usage");
+  assert(CutOff > 0 && "0-size interval history has no use.");
+  assert(all_of(_Intervals,
+                [&A](const ResourceSegments::IntervalTy &Interval) -> bool {
+                  return !intersects(A, Interval);
+                }) &&
+         "A resource is being overwritten");
+  _Intervals.push_back(A);
+
+  sortAndMerge();
+
+  // Do not keep the full history of the intervals, just the
+  // latest #CutOff.
+  while (_Intervals.size() > CutOff)
+    _Intervals.pop_front();
+}
+
+bool ResourceSegments::intersects(ResourceSegments::IntervalTy A,
+                                  ResourceSegments::IntervalTy B) {
+  assert(A.first <= A.second && "Invalid interval");
+  assert(B.first <= B.second && "Invalid interval");
+
+  // Share one boundary.
+  if ((A.first == B.first) || (A.second == B.second))
+    return true;
+
+  // full intersersect: [    ***     )  B
+  //                        [***)       A
+  if ((A.first > B.first) && (A.second < B.second))
+    return true;
+
+  // right intersect: [     ***)        B
+  //                       [***      )  A
+  if ((A.first > B.first) && (A.first < B.second) && (A.second > B.second))
+    return true;
+
+  // left intersect:      [***      )  B
+  //                 [     ***)        A
+  if ((A.first < B.first) && (B.first < A.second) && (B.second > B.first))
+    return true;
+
+  return false;
+}
+
+void ResourceSegments::sortAndMerge() {
+  if (_Intervals.size() <= 1)
+    return;
+
+  // First sort the collection.
+  _Intervals.sort(sortIntervals);
+
+  // can use next because I have at least 2 elements in the list
+  auto next = std::next(std::begin(_Intervals));
+  auto E = std::end(_Intervals);
+  for (; next != E; ++next) {
+    if (std::prev(next)->second >= next->first) {
+      next->first = std::prev(next)->first;
+      _Intervals.erase(std::prev(next));
+      continue;
+    }
+  }
 }

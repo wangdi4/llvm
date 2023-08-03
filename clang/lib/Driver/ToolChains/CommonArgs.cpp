@@ -148,15 +148,33 @@ static void renderRemarksHotnessOptions(const ArgList &Args,
                            "opt-remarks-hotness-threshold=" + A->getValue()));
 }
 
+static bool shouldIgnoreUnsupportedTargetFeature(const Arg &TargetFeatureArg,
+                                                 llvm::Triple T,
+                                                 StringRef Processor) {
+  // Warn no-cumode for AMDGCN processors not supporing WGP mode.
+  if (!T.isAMDGPU())
+    return false;
+  auto GPUKind = T.isAMDGCN() ? llvm::AMDGPU::parseArchAMDGCN(Processor)
+                              : llvm::AMDGPU::parseArchR600(Processor);
+  auto GPUFeatures = T.isAMDGCN() ? llvm::AMDGPU::getArchAttrAMDGCN(GPUKind)
+                                  : llvm::AMDGPU::getArchAttrR600(GPUKind);
+  if (GPUFeatures & llvm::AMDGPU::FEATURE_WGP)
+    return false;
+  return TargetFeatureArg.getOption().matches(options::OPT_mno_cumode);
+}
+
 void tools::addPathIfExists(const Driver &D, const Twine &Path,
                             ToolChain::path_list &Paths) {
   if (D.getVFS().exists(Path))
     Paths.push_back(Path.str());
 }
 
-void tools::handleTargetFeaturesGroup(const ArgList &Args,
+void tools::handleTargetFeaturesGroup(const Driver &D,
+                                      const llvm::Triple &Triple,
+                                      const ArgList &Args,
                                       std::vector<StringRef> &Features,
                                       OptSpecifier Group) {
+  std::set<StringRef> Warned;
   for (const Arg *A : Args.filtered(Group)) {
     StringRef Name = A->getOption().getName();
     A->claim();
@@ -165,9 +183,21 @@ void tools::handleTargetFeaturesGroup(const ArgList &Args,
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
 
+    auto Proc = getCPUName(D, Args, Triple);
+    if (shouldIgnoreUnsupportedTargetFeature(*A, Triple, Proc)) {
+      if (Warned.count(Name) == 0) {
+        D.getDiags().Report(
+            clang::diag::warn_drv_unsupported_option_for_processor)
+            << A->getAsString(Args) << Proc;
+        Warned.insert(Name);
+      }
+      continue;
+    }
+
     bool IsNegative = Name.startswith("no-");
     if (IsNegative)
       Name = Name.substr(3);
+
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
   }
 }
@@ -297,23 +327,9 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       if (!TC.CheckAddIntelLib("libimf", Args))
         continue;
       TC.AddIntelLibimfLibArgs(Args, CmdArgs);
-    } else if (A.getOption().matches(options::OPT_z)) {
+    } else
 #endif // INTEL_CUSTOMIZATION
-      // Pass -z prefix for gcc linker compatibility.
-      A.claim();
-      A.render(Args, CmdArgs);
-    } else if (A.getOption().matches(options::OPT_b)) {
-      const llvm::Triple &T = TC.getTriple();
-      if (!T.isOSAIX()) {
-        TC.getDriver().Diag(diag::err_drv_unsupported_opt_for_target)
-            << A.getSpelling() << T.str();
-      }
-      // Pass -b prefix for AIX linker.
-      A.claim();
-      A.render(Args, CmdArgs);
-    } else {
       A.renderAsInput(Args, CmdArgs);
-    }
   }
 }
 
@@ -350,6 +366,7 @@ void tools::AddTargetFeature(const ArgList &Args,
 /// Get the (LLVM) name of the AMDGPU gpu we are targeting.
 static std::string getAMDGPUTargetGPU(const llvm::Triple &T,
                                       const ArgList &Args) {
+  Arg *MArch = Args.getLastArg(options::OPT_march_EQ);
   if (Arg *A = Args.getLastArg(options::OPT_mcpu_EQ)) {
     auto GPUName = getProcessorFromTargetID(T, A->getValue());
     return llvm::StringSwitch<std::string>(GPUName)
@@ -362,6 +379,8 @@ static std::string getAMDGPUTargetGPU(const llvm::Triple &T,
         .Case("aruba", "cayman")
         .Default(GPUName.str());
   }
+  if (MArch)
+    return getProcessorFromTargetID(T, MArch->getValue()).str();
   return "";
 }
 
@@ -505,9 +524,12 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   }
 }
 
-static void getWebAssemblyTargetFeatures(const ArgList &Args,
+static void getWebAssemblyTargetFeatures(const Driver &D,
+                                         const llvm::Triple &Triple,
+                                         const ArgList &Args,
                                          std::vector<StringRef> &Features) {
-  handleTargetFeaturesGroup(Args, Features, options::OPT_m_wasm_Features_Group);
+  handleTargetFeaturesGroup(D, Triple, Args, Features,
+                            options::OPT_m_wasm_Features_Group);
 }
 
 void tools::getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
@@ -557,11 +579,11 @@ void tools::getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
     x86::getX86TargetFeatures(D, Triple, Args, Features);
     break;
   case llvm::Triple::hexagon:
-    hexagon::getHexagonTargetFeatures(D, Args, Features);
+    hexagon::getHexagonTargetFeatures(D, Triple, Args, Features);
     break;
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
-    getWebAssemblyTargetFeatures(Args, Features);
+    getWebAssemblyTargetFeatures(D, Triple, Args, Features);
     break;
   case llvm::Triple::sparc:
   case llvm::Triple::sparcel:
@@ -622,6 +644,64 @@ bool tools::isUseSeparateSections(const Driver &D,
 }
 
 #if INTEL_CUSTOMIZATION
+static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs) {
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+  if (IsLink) {
+    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+  } else {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Opt);
+  }
+}
+
+#if INTEL_FEATURE_MARKERCOUNT
+void tools::addMarkerCountArgs(const ToolChain &TC,
+                               const llvm::opt::ArgList &Args,
+                               llvm::opt::ArgStringList &CmdArgs, bool IsLTO) {
+  const Driver &D = TC.getDriver();
+  if (Arg *A = Args.getLastArg(options::OPT_ffunction_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef FM = A->getValue();
+    if (FM == "never" || FM == "me" || FM == "be")
+      if (IsLTO)
+        AddllvmOption(TC,
+                      Args.MakeArgString("-function-marker-count=" + Twine(FM)),
+                      IsLTO, Args, CmdArgs);
+      else
+        CmdArgs.push_back(
+            Args.MakeArgString("-ffunction-marker-count=" + Twine(FM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << FM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_floop_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef LM = A->getValue();
+    if (LM == "never" || LM == "me" || LM == "be")
+      if (IsLTO)
+        AddllvmOption(TC, Args.MakeArgString("-loop-marker-count=" + Twine(LM)),
+                      IsLTO, Args, CmdArgs);
+      else
+        CmdArgs.push_back(
+            Args.MakeArgString("-floop-marker-count=" + Twine(LM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << LM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_foverride_marker_count_file_EQ))
+    if (IsLTO)
+      AddllvmOption(TC,
+                    Args.MakeArgString("-override-marker-count-file=" +
+                                       Twine(A->getValue())),
+                    IsLTO, Args, CmdArgs);
+    else
+      A->render(Args, CmdArgs);
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           ArgStringList &CmdArgs, const InputInfo &Output,
                           const InputInfo &Input, bool IsThinLTO,
@@ -657,7 +737,11 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     SmallString<1024> Plugin(ToolChain.getDriver().Dir);
     llvm::sys::path::append(Plugin, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(Plugin, "..");
+    SmallString<1024> PluginCheck(Plugin);
+    llvm::sys::path::append(PluginCheck, CLANG_INSTALL_LIBDIR_BASENAME,
+                            Twine(PluginName) + Twine(Suffix));
+    if (!llvm::sys::fs::exists(PluginCheck))
+      llvm::sys::path::append(Plugin, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
     llvm::sys::path::append(Plugin, CLANG_INSTALL_LIBDIR_BASENAME,
                             Twine(PluginName) + Twine(Suffix));
@@ -669,6 +753,11 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                             Plugin);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginPrefix) + Plugin));
+  } else {
+    // Tell LLD to find and use .llvm.lto section in regular relocatable object
+    // files
+    if (Args.hasArg(options::OPT_ffat_lto_objects))
+      CmdArgs.push_back("--fat-lto-objects");
   }
 
   const char *PluginOptPrefix = IsOSAIX ? "-bplugin_opt:" : "-plugin-opt=";
@@ -714,9 +803,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     }
   }
 
-  if (Args.hasArg(options::OPT_gsplit_dwarf))
-    CmdArgs.push_back(Args.MakeArgString(
-        Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_gsplit_dwarf)) {
+    if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+      CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
+                                           "dwo_dir=" + A->getValue()));
+    else
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+  }
+#endif
 
   if (IsThinLTO)
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + "thinlto"));
@@ -747,6 +843,10 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   if (IsOSAIX) {
+    if (!ToolChain.useIntegratedAs())
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine(PluginOptPrefix) + "-no-integrated-as=1"));
+
     // On AIX, clang assumes strict-dwarf is true if any debug option is
     // specified, unless it is told explicitly not to assume so.
     Arg *A = Args.getLastArg(options::OPT_g_Group);
@@ -757,9 +857,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back(
           Args.MakeArgString(Twine(PluginOptPrefix) + "-strict-dwarf=true"));
 
-    if (Args.getLastArg(options::OPT_mabi_EQ_vec_extabi))
-      CmdArgs.push_back(
-          Args.MakeArgString(Twine(PluginOptPrefix) + "-vec-extabi"));
+    for (const Arg *A : Args.filtered_reverse(options::OPT_mabi_EQ)) {
+      StringRef V = A->getValue();
+      if (V == "vec-default")
+        break;
+      if (V == "vec-extabi") {
+        CmdArgs.push_back(
+            Args.MakeArgString(Twine(PluginOptPrefix) + "-vec-extabi"));
+        break;
+      }
+    }
   }
 
   bool UseSeparateSections =
@@ -773,13 +880,38 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     CmdArgs.push_back(
         Args.MakeArgString(Twine(PluginOptPrefix) + "-function-sections=0"));
 
+  bool DataSectionsTurnedOff = false;
   if (Args.hasFlag(options::OPT_fdata_sections, options::OPT_fno_data_sections,
-                   UseSeparateSections))
+                   UseSeparateSections)) {
     CmdArgs.push_back(
         Args.MakeArgString(Twine(PluginOptPrefix) + "-data-sections=1"));
-  else if (Args.hasArg(options::OPT_fno_data_sections))
+  } else if (Args.hasArg(options::OPT_fno_data_sections)) {
+    DataSectionsTurnedOff = true;
     CmdArgs.push_back(
         Args.MakeArgString(Twine(PluginOptPrefix) + "-data-sections=0"));
+  }
+
+  if (Args.hasArg(options::OPT_mxcoff_roptr) ||
+      Args.hasArg(options::OPT_mno_xcoff_roptr)) {
+    bool HasRoptr = Args.hasFlag(options::OPT_mxcoff_roptr,
+                                 options::OPT_mno_xcoff_roptr, false);
+    StringRef OptStr = HasRoptr ? "-mxcoff-roptr" : "-mno-xcoff-roptr";
+
+    if (!IsOSAIX)
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << OptStr << ToolChain.getTriple().str();
+
+    if (HasRoptr) {
+      // The data sections option is on by default on AIX. We only need to error
+      // out when -fno-data-sections is specified explicitly to turn off data
+      // sections.
+      if (DataSectionsTurnedOff)
+        D.Diag(diag::err_roptr_requires_data_sections);
+
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine(PluginOptPrefix) + "-mxcoff-roptr"));
+    }
+  }
 
   // Pass an option to enable split machine functions.
   if (auto *A = Args.getLastArg(options::OPT_fsplit_machine_functions,
@@ -798,16 +930,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                            "sample-profile=" + FName));
   }
 
-  auto *CSPGOGenerateArg = Args.getLastArg(options::OPT_fcs_profile_generate,
-                                           options::OPT_fcs_profile_generate_EQ,
-                                           options::OPT_fno_profile_generate);
-  if (CSPGOGenerateArg &&
-      CSPGOGenerateArg->getOption().matches(options::OPT_fno_profile_generate))
-    CSPGOGenerateArg = nullptr;
-
-  auto *ProfileUseArg = getLastProfileUseArg(Args);
-
-  if (CSPGOGenerateArg) {
+  if (auto *CSPGOGenerateArg = getLastCSProfileGenerateArg(Args)) {
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
                                          "cs-profile-generate"));
     if (CSPGOGenerateArg->getOption().matches(
@@ -820,7 +943,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back(
           Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
                              "cs-profile-path=default_%m.profraw"));
-  } else if (ProfileUseArg) {
+  } else if (auto *ProfileUseArg = getLastProfileUseArg(Args)) {
     SmallString<128> Path(
         ProfileUseArg->getNumValues() == 0 ? "" : ProfileUseArg->getValue());
     if (Path.empty() || llvm::sys::fs::is_directory(Path))
@@ -846,6 +969,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                            "-enable-jmc-instrument"));
     else
       D.Diag(clang::diag::warn_drv_fjmc_for_elf_only);
+  }
+
+  if (Args.hasFlag(options::OPT_femulated_tls, options::OPT_fno_emulated_tls,
+                   ToolChain.getTriple().hasDefaultEmulatedTLS())) {
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + "-emulated-tls"));
   }
 
   if (Args.hasFlag(options::OPT_fstack_size_section,
@@ -896,9 +1025,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, Input, true, JA);
-  // All -mllvm flags as provided by the user will be passed through.
-  for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-    CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
   addX86UnalignedVectorMoveArgs(ToolChain, Args, CmdArgs, /*IsLTO=*/true,
                                 /*IsIntelMode=*/D.IsIntelMode());
 #endif // INTEL_CUSTOMIZATION
@@ -920,19 +1046,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
-static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
-                          const llvm::opt::ArgList &Args,
-                          llvm::opt::ArgStringList &CmdArgs) {
-  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
-  if (IsLink) {
-    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
-    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
-  } else {
-    CmdArgs.push_back("-mllvm");
-    CmdArgs.push_back(Opt);
-  }
-}
-
 static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
                                    llvm::opt::ArgStringList &CmdArgs,
@@ -1010,6 +1123,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
            Args.hasArg(options::OPT_fopenmp_target_simd) &&
            TC.getTriple().isSPIR();
   };
+#if INTEL_FEATURE_MARKERCOUNT
+  addMarkerCountArgs(TC, Args, CmdArgs, IsLink);
+#endif // INTEL_FEATURE_MARKERCOUNT
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     MLTVal = A->getValue();
@@ -1143,7 +1259,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (IsLink && OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
-      addllvmOption("-enable-multiversioning");
+      addllvmOption("-enable-npm-multiversioning");
   };
   // Given -x, turn on multi-versioning
   // FIXME: These checks for Intel -x and -Qx are used in many places, we
@@ -1196,6 +1312,25 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     else if (Val != "auto")
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
           << A->getOption().getName();
+  }
+
+  // -qopt-prefetch
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_prefetch_EQ)) {
+    StringRef Val = A->getValue();
+    if (Val == "0")
+      addllvmOption("-disable-hir-prefetching");
+    else if (Val == "1" || Val == "2")
+      ; // Default behavior
+    else if (Val == "3" || Val == "4" || Val == "5") {
+      addllvmOption("-hir-prefetching-num-cachelines-threshold=0");
+      addllvmOption("-hir-prefetching-skip-num-memory-streams-check");
+      addllvmOption("-hir-prefetching-trip-count-threshold=0");
+      addllvmOption("-hir-prefetching-skip-non-modified-regions");
+      if (Val == "5")
+        addllvmOption("-hir-prefetching-enable-indirect-prefetching");
+    } else
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << Val << A->getOption().getName();
   }
 
   // Add designator that we are doing host compilation for SYCL offload.
@@ -1299,6 +1434,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
        Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false))) {
     addllvmOption("-vecopt=true");
     addllvmOption("-enable-vec-clone=true");
+    addllvmOption("-enable-o0-vectorization=true");
   }
 
   // -fno-vectorize
@@ -1316,6 +1452,27 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (Args.hasFlag(options::OPT_no_global_hoist,
                    options::OPT_global_hoist, false))
     addllvmOption("-global-loads-unsafe");
+
+  // -fprofile-sample-generate=2
+  if (Args.getLastArgValue(options::OPT_fprofile_sample_generate_EQ) ==
+      "med-fidelity") {
+    // Disable vectorizer converting conditional branches to masking operations
+    // (for both main loop and remainder loop).
+    addllvmOption("-vplan-enable-divergent-branches=false");
+    addllvmOption("-vplan-enable-masked-variant=false");
+
+    // Disable LoopOpt loop collapsing.
+    addllvmOption("-disable-hir-loop-collapse=true");
+
+    // Disable SimplifyCFG converting conditional branches to selects.
+    addllvmOption("-phi-node-folding-threshold=0");
+    addllvmOption("-two-entry-phi-node-folding-threshold=0");
+    addllvmOption("-speculate-one-expensive-inst=false");
+
+    // Disable EarlyIfConversion converting conditional branches into predicated
+    // instructions.
+    addllvmOption("-x86-early-ifcvt=false");
+  }
 
   // Enable the compatible intel ABI as default.
   if (TC.getDriver().IsIntelMode())
@@ -1343,10 +1500,11 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                     options::OPT_fno_rtlib_add_rpath, DefaultValue))
     return;
 
-  std::string CandidateRPath = TC.getArchSpecificLibPath();
-  if (TC.getVFS().exists(CandidateRPath)) {
-    CmdArgs.push_back("-rpath");
-    CmdArgs.push_back(Args.MakeArgString(CandidateRPath));
+  for (const auto &CandidateRPath : TC.getArchSpecificLibPaths()) {
+    if (TC.getVFS().exists(CandidateRPath)) {
+      CmdArgs.push_back("-rpath");
+      CmdArgs.push_back(Args.MakeArgString(CandidateRPath));
+    }
   }
 }
 
@@ -1444,12 +1602,6 @@ void tools::addFortranRuntimeLibs(const ToolChain &TC,
 void tools::addFortranRuntimeLibraryPath(const ToolChain &TC,
                                          const llvm::opt::ArgList &Args,
                                          ArgStringList &CmdArgs) {
-  // NOTE: Generating executables by Flang is considered an "experimental"
-  // feature and hence this is guarded with a command line option.
-  // TODO: Make this work unconditionally once Flang is mature enough.
-  if (!Args.hasArg(options::OPT_flang_experimental_exec))
-    return;
-
   // Default to the <driver-path>/../lib directory. This works fine on the
   // platforms that we have tested so far. We will probably have to re-fine
   // this in the future. In particular, on some platforms, we may need to use
@@ -1745,11 +1897,11 @@ bool tools::addXRayRuntime(const ToolChain&TC, const ArgList &Args, ArgStringLis
     return false;
 
   if (TC.getXRayArgs().needsXRayRt()) {
-    CmdArgs.push_back("-whole-archive");
+    CmdArgs.push_back("--whole-archive");
     CmdArgs.push_back(TC.getCompilerRTArgString(Args, "xray"));
     for (const auto &Mode : TC.getXRayArgs().modeList())
       CmdArgs.push_back(TC.getCompilerRTArgString(Args, Mode));
-    CmdArgs.push_back("-no-whole-archive");
+    CmdArgs.push_back("--no-whole-archive");
     return true;
   }
 
@@ -1795,26 +1947,27 @@ const char *tools::SplitDebugName(const JobAction &JA, const ArgList &Args,
     F += ".dwo";
   };
   if (Arg *A = Args.getLastArg(options::OPT_gsplit_dwarf_EQ))
-    if (StringRef(A->getValue()) == "single")
+    if (StringRef(A->getValue()) == "single" && Output.isFilename())
       return Args.MakeArgString(Output.getFilename());
 
-  Arg *FinalOutput = Args.getLastArg(options::OPT_o);
-  if (FinalOutput && Args.hasArg(options::OPT_c)) {
-    SmallString<128> T(FinalOutput->getValue());
-    llvm::sys::path::remove_filename(T);
-    llvm::sys::path::append(T, llvm::sys::path::stem(FinalOutput->getValue()));
-    AddPostfix(T);
-    return Args.MakeArgString(T);
+  SmallString<128> T;
+  if (const Arg *A = Args.getLastArg(options::OPT_dumpdir)) {
+    T = A->getValue();
   } else {
-    // Use the compilation dir.
-    Arg *A = Args.getLastArg(options::OPT_ffile_compilation_dir_EQ,
-                             options::OPT_fdebug_compilation_dir_EQ);
-    SmallString<128> T(A ? A->getValue() : "");
-    SmallString<128> F(llvm::sys::path::stem(Input.getBaseInput()));
-    AddPostfix(F);
-    T += F;
-    return Args.MakeArgString(T);
+    Arg *FinalOutput = Args.getLastArg(options::OPT_o, options::OPT__SLASH_o);
+    if (FinalOutput && Args.hasArg(options::OPT_c)) {
+      T = FinalOutput->getValue();
+      llvm::sys::path::remove_filename(T);
+      llvm::sys::path::append(T,
+                              llvm::sys::path::stem(FinalOutput->getValue()));
+      AddPostfix(T);
+      return Args.MakeArgString(T);
+    }
   }
+
+  T += llvm::sys::path::stem(Input.getBaseInput());
+  AddPostfix(T);
+  return Args.MakeArgString(T);
 }
 
 void tools::SplitDebugInfo(const ToolChain &TC, Compilation &C, const Tool &T,
@@ -1854,6 +2007,17 @@ void tools::claimNoWarnArgs(const ArgList &Args) {
   Args.ClaimAllArgs(options::OPT_flto_EQ);
   Args.ClaimAllArgs(options::OPT_flto);
   Args.ClaimAllArgs(options::OPT_fno_lto);
+}
+
+Arg *tools::getLastCSProfileGenerateArg(const ArgList &Args) {
+  auto *CSPGOGenerateArg = Args.getLastArg(options::OPT_fcs_profile_generate,
+                                           options::OPT_fcs_profile_generate_EQ,
+                                           options::OPT_fno_profile_generate);
+  if (CSPGOGenerateArg &&
+      CSPGOGenerateArg->getOption().matches(options::OPT_fno_profile_generate))
+    CSPGOGenerateArg = nullptr;
+
+  return CSPGOGenerateArg;
 }
 
 Arg *tools::getLastProfileUseArg(const ArgList &Args) {
@@ -2148,6 +2312,48 @@ unsigned tools::ParseFunctionAlignment(const ToolChain &TC,
   return Value ? llvm::Log2_32_Ceil(std::min(Value, 65536u)) : Value;
 }
 
+void tools::addDebugInfoKind(
+    ArgStringList &CmdArgs, llvm::codegenoptions::DebugInfoKind DebugInfoKind) {
+  switch (DebugInfoKind) {
+  case llvm::codegenoptions::DebugDirectivesOnly:
+    CmdArgs.push_back("-debug-info-kind=line-directives-only");
+    break;
+  case llvm::codegenoptions::DebugLineTablesOnly:
+    CmdArgs.push_back("-debug-info-kind=line-tables-only");
+    break;
+  case llvm::codegenoptions::DebugInfoConstructor:
+    CmdArgs.push_back("-debug-info-kind=constructor");
+    break;
+  case llvm::codegenoptions::LimitedDebugInfo:
+    CmdArgs.push_back("-debug-info-kind=limited");
+    break;
+  case llvm::codegenoptions::FullDebugInfo:
+    CmdArgs.push_back("-debug-info-kind=standalone");
+    break;
+  case llvm::codegenoptions::UnusedTypeInfo:
+    CmdArgs.push_back("-debug-info-kind=unused-types");
+    break;
+  default:
+    break;
+  }
+}
+
+// Convert an arg of the form "-gN" or "-ggdbN" or one of their aliases
+// to the corresponding DebugInfoKind.
+llvm::codegenoptions::DebugInfoKind tools::debugLevelToInfoKind(const Arg &A) {
+  assert(A.getOption().matches(options::OPT_gN_Group) &&
+         "Not a -g option that specifies a debug-info level");
+  if (A.getOption().matches(options::OPT_g0) ||
+      A.getOption().matches(options::OPT_ggdb0))
+    return llvm::codegenoptions::NoDebugInfo;
+  if (A.getOption().matches(options::OPT_gline_tables_only) ||
+      A.getOption().matches(options::OPT_ggdb1))
+    return llvm::codegenoptions::DebugLineTablesOnly;
+  if (A.getOption().matches(options::OPT_gline_directives_only))
+    return llvm::codegenoptions::DebugDirectivesOnly;
+  return llvm::codegenoptions::DebugInfoConstructor;
+}
+
 static unsigned ParseDebugDefaultVersion(const ToolChain &TC,
                                          const ArgList &Args) {
   const Arg *A = Args.getLastArg(options::OPT_fdebug_default_version);
@@ -2372,9 +2578,14 @@ SmallString<128> tools::getStatsFileName(const llvm::opt::ArgList &Args,
   return StatsFile;
 }
 
-void tools::addMultilibFlag(bool Enabled, const char *const Flag,
+void tools::addMultilibFlag(bool Enabled, const StringRef Flag,
                             Multilib::flags_list &Flags) {
-  Flags.push_back(std::string(Enabled ? "+" : "-") + Flag);
+  assert(Flag.front() == '-');
+  if (Enabled) {
+    Flags.push_back(Flag.str());
+  } else {
+    Flags.push_back(("!" + Flag.substr(1)).str());
+  }
 }
 
 void tools::addX86AlignBranchArgs(const Driver &D, const ArgList &Args,

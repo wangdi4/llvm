@@ -13,22 +13,22 @@ define void @foo(i64 %a, i32 %b, i64* %p) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 ({{.*}}), KnownBits: {Zero=0, One=0}
+; CHECK-NEXT:     i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 ({{.*}}), KnownBits: 0000000000000000000000000000000000000000000000000000000000000000
+; CHECK-NEXT:     i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 ({{.*}}), KnownBits: 0000000000000000000000000000000000000000000000000000000000000001
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 ({{.*}}), KnownBits: ????????????????????????????????????????????????????????????????
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_ADD1:%.*]], [[BB2]] ] ({{.*}}), KnownBits: {Zero=-1024, One=0}
-; CHECK-NEXT:     i64 [[VP_A_MUL:%.*]] = mul i64 [[A0:%.*]] i64 4 ({{.*}}), KnownBits: {Zero=3, One=0}
-; CHECK-NEXT:     i64 [[VP_A_ADD:%.*]] = add i64 [[VP_A_MUL]] i64 7 ({{.*}}), KnownBits: {Zero=0, One=3}
-; CHECK-NEXT:     i64 [[VP_A_AND:%.*]] = and i64 [[VP_A_ADD]] i64 127 ({{.*}}), KnownBits: {Zero=-128, One=3}
-; CHECK-NEXT:     i32 [[VP_B_SHL:%.*]] = shl i32 [[B0:%.*]] i32 3 ({{.*}}), KnownBits: {Zero=7, One=0}
-; CHECK-NEXT:     i32 [[VP_B_OR:%.*]] = or i32 [[VP_B_SHL]] i32 63 ({{.*}}), KnownBits: {Zero=0, One=63}
-; CHECK-NEXT:     i32 [[VP_B_SUB:%.*]] = sub i32 [[VP_B_OR]] i32 1 ({{.*}}), KnownBits: {Zero=1, One=62}
-; CHECK-NEXT:     i64* [[VP_P_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i32 0 ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i64 [[VP_ADD1]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]] ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_ADD1]] i64 [[VP_VECTOR_TRIP_COUNT]] ({{.*}}), KnownBits: {Zero=0, One=0}
+; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_ADD1:%.*]], [[BB2]] ] ({{.*}}), KnownBits: 000000000000000000000000000000000000000000000000000000??????????
+; CHECK-NEXT:     i64 [[VP_A_MUL:%.*]] = mul i64 [[A0:%.*]] i64 4 ({{.*}}), KnownBits: ??????????????????????????????????????????????????????????????00
+; CHECK-NEXT:     i64 [[VP_A_ADD:%.*]] = add i64 [[VP_A_MUL]] i64 7 ({{.*}}), KnownBits: ??????????????????????????????????????????????????????????????11
+; CHECK-NEXT:     i64 [[VP_A_AND:%.*]] = and i64 [[VP_A_ADD]] i64 127 ({{.*}}), KnownBits: 000000000000000000000000000000000000000000000000000000000?????11
+; CHECK-NEXT:     i32 [[VP_B_SHL:%.*]] = shl i32 [[B0:%.*]] i32 3 ({{.*}}), KnownBits: ?????????????????????????????000
+; CHECK-NEXT:     i32 [[VP_B_OR:%.*]] = or i32 [[VP_B_SHL]] i32 63 ({{.*}}), KnownBits: ??????????????????????????111111
+; CHECK-NEXT:     i32 [[VP_B_SUB:%.*]] = sub i32 [[VP_B_OR]] i32 1 ({{.*}}), KnownBits: ??????????????????????????111110
+; CHECK-NEXT:     i64* [[VP_P_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i32 0 ({{.*}}), KnownBits: ????????????????????????????????????????????????????????????????
+; CHECK-NEXT:     i64 [[VP_ADD1]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]] ({{.*}}), KnownBits: 00000000000000000000000000000000000000000000000000000???????????
+; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_ADD1]] i64 [[VP_VECTOR_TRIP_COUNT]] ({{.*}}), KnownBits: ?
 ; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ;
 entry:
@@ -53,6 +53,35 @@ for.body:
 
   %add1 = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %add1, 1024
+  br i1 %exitcond.not, label %omp.simd.end, label %for.body
+
+omp.simd.end:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %ret
+
+ret:
+  ret void
+}
+
+define void @bar(i8 %N) {
+; CHECK-LABEL:  VPlan IR for: bar:for.body.#{{[0-9]+}}
+; CHECK:     i8 [[VP_SUB:%.*]] = add i8 [[VP_IV:%.*]] i8 -1 ({{.*}}), KnownBits: 0???????
+;
+; Check that known bits are computed for %sub, which involves a known bits computation in sub mode
+; since %iv is non-negative. We should be able to determine that %sub has range [0, 127].
+;
+entry:
+  br label %for.ph
+
+for.ph:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+for.body:
+  %iv = phi i8 [ 1, %for.ph ], [ %add, %for.body ]
+  %sub = add nsw i8 %iv, -1
+  %add = add nuw nsw i8 %iv, 1
+  %exitcond.not = icmp sgt i8 %add, %N
   br i1 %exitcond.not, label %omp.simd.end, label %for.body
 
 omp.simd.end:

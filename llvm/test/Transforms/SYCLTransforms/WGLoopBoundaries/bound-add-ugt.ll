@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test is used to check the cmp instruction emitted for comparing right
 ; boundary against left boundary is ICMP_SLT.
@@ -10,7 +10,7 @@ target triple = "x86_64-pc-linux"
 declare void @foo(i64)
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
-define void @constant_kernel(i32 addrspace(1)* noalias %out, i32 %lb, i32 %ub) local_unnamed_addr !no_barrier_path !1 {
+define void @constant_kernel(ptr addrspace(1) noalias %out, i32 %lb, i32 %ub) local_unnamed_addr !no_barrier_path !1 {
 entry:
   %gid  = tail call i64 @_Z13get_global_idj(i32 0)
   %conv = trunc i64 %gid to i32
@@ -26,7 +26,7 @@ if.then:
 ; CHECK-LABEL: entry
 ; CHECK: %new_lb = add i32 %lb, %conv
 ; CHECK: %right_lt_left = icmp slt i32 %ub, %lb
-; CHECK: define [7 x i64] @WG.boundaries.constant_kernel(i32 addrspace(1)* noalias %{{.*}}, i32 %{{.*}}, i32 %{{.*}})
+; CHECK: define [7 x i64] @WG.boundaries.constant_kernel(ptr addrspace(1) noalias %{{.*}}, i32 %{{.*}}, i32 %{{.*}})
 
 if.end:
   ret void
@@ -34,7 +34,7 @@ if.end:
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*,i32,i32)* @constant_kernel}
+!0 = !{ptr @constant_kernel}
 !1 = !{i1 true}
 
 ; DEBUGIFY-COUNT-10: Instruction with empty DebugLoc in function constant_kernel

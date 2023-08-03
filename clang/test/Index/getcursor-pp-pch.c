@@ -28,7 +28,7 @@ void OBSCURE(func)(int x) {
 // RUN:              -cursor-at=%s:5:7 \
 // RUN:              -cursor-at=%s:6:6 \
 // RUN:              -cursor-at=%s:6:19 \
-// RUN:     -include %t.h %s | FileCheck %s
+// INTEL RUN:     -include-pch %t.h.pch %s | FileCheck %s
 
 // From header
 // CHECK: macro definition=OBSCURE

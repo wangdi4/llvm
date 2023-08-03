@@ -1,4 +1,8 @@
+// TODO - create/modify this test for use within the unified directory
+// structure.
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+// UNSUPPORTED: intel_unified_layout
+
 /// Covers the Intel performance library options for IPP, MKL, TBB, DAAL
 
 // IPP tests
@@ -8,6 +12,9 @@
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
+// RUN: env IPPROOT=/dummy/ipp \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp -qipp=dynamic -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN-DYNAMIC,CHECK-IPP-LIN-COMMON %s
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -qipp=common -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
@@ -24,12 +31,16 @@
 // RUN: %clang_cl -Qipp -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-WIN %s
 // RUN: env IPPROOT=/dummy/ipp \
+// RUN: %clang_cl -Qipp -Qipp-link:static -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-WIN-STATIC %s
+// RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clang_cl -Qipp:common -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-WIN %s
 // RUN: env IPPCRYPTOROOT=/dummy/ippcp \
 // RUN: %clang_cl -Qipp:crypto -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP-CRYPTO,CHECK-IPP-WIN-CRYPTO %s
 // CHECK-IPP-WIN: clang{{.*}} "--dependent-lib=ippcv" "--dependent-lib=ippch" "--dependent-lib=ippcc" "--dependent-lib=ippdc" "--dependent-lib=ippe" "--dependent-lib=ippi" "--dependent-lib=ipps" "--dependent-lib=ippvm" "--dependent-lib=ippcore"
+// CHECK-IPP-WIN-STATIC: clang{{.*}} "--dependent-lib=ippcvmt" "--dependent-lib=ippchmt" "--dependent-lib=ippccmt" "--dependent-lib=ippdcmt" "--dependent-lib=ippemt" "--dependent-lib=ippimt" "--dependent-lib=ippsmt" "--dependent-lib=ippvmmt" "--dependent-lib=ippcoremt"
 // CHECK-IPP-WIN-CRYPTO: clang{{.*}} "--dependent-lib=ippcp"
 // CHECK-IPP: "-internal-isystem" "{{.*}}ipp{{/|\\\\}}include"
 // CHECK-IPP-CRYPTO: "-internal-isystem" "{{.*}}ippcp{{/|\\\\}}include"
@@ -37,6 +48,7 @@
 // CHECK-IPP-LIN-CRYPTO: ld{{.*}} "-L{{.*}}/ippcp{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-IPP-LIN-NONPIC: ld{{.*}} "-L{{.*}}/ipp{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}nonpic"
 // CHECK-IPP-LIN-NONPIC-CRYPTO: ld{{.*}} "-L{{.*}}/ippcp{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}nonpic"
+// CHECK-IPP-LIN-DYNAMIC: "-lippcv" "-lippch" "-lippcc" "-lippdc" "-lippe" "-lippi" "-lipps" "-lippvm" "-lippcore"
 // CHECK-IPP-LIN: "-Bstatic" "-lippcv" "-lippch" "-lippcc" "-lippdc" "-lippe" "-lippi" "-lipps" "-lippvm" "-lippcore" "-Bdynamic"
 // CHECK-IPP-LIN-CRYPTO: "-Bstatic" "-lippcp" "-Bdynamic"
 // CHECK-IPP-LIN-NONPIC-CRYPTO: "-Bstatic" "-lippcp" "-Bdynamic"
@@ -321,3 +333,21 @@
 // CHECK-MKL-WIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTWINTXT]]"
 // CHECK-MKL-LIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTTXT]]"
 // CHECK-MKL-LIN-OMP-OFFLOAD-DEFAULT: "--start-group" "-lmkl_sycl" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
+
+/// -qmkl -static-intel just verifies that the MKL libs are statically linked
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-MKL-LIN-STATIC %s
+// CHECK-MKL-LIN-STATIC: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group" "-Bdynamic"
+
+// -qdaal -static-intel test
+// RUN: env DAALROOT=%t_dir/dal \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-DAAL-LIN-STATIC %s
+// CHECK-DAAL-LIN-STATIC: "-Bstatic" "--start-group" "-lonedal_core" "-lonedal_thread" "--end-group" "-Bdynamic" "-ltbb"
+
+// -qactypes -static-intel test
+// RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qactypes -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-ACTYPES-LIN-STATIC %s
+// CHECK-ACTYPES-LIN-STATIC: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-Bstatic" "-ldspba_mpir" "-ldspba_mpfr" "-lac_types_fixed_point_math_x86" "-lac_types_vpfp_library" "-Bdynamic"

@@ -30,18 +30,18 @@ aeskeygenassist $22, (%rax), %xmm2
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  1      5     0.50                        aesdec	%xmm0, %xmm2
-# CHECK-NEXT:  2      12    0.50    *                   aesdec	(%rax), %xmm2
-# CHECK-NEXT:  1      5     0.50                        aesdeclast	%xmm0, %xmm2
-# CHECK-NEXT:  2      12    0.50    *                   aesdeclast	(%rax), %xmm2
-# CHECK-NEXT:  1      5     0.50                        aesenc	%xmm0, %xmm2
-# CHECK-NEXT:  2      12    0.50    *                   aesenc	(%rax), %xmm2
-# CHECK-NEXT:  1      5     0.50                        aesenclast	%xmm0, %xmm2
-# CHECK-NEXT:  2      12    0.50    *                   aesenclast	(%rax), %xmm2
-# CHECK-NEXT:  2      8     1.00                        aesimc	%xmm0, %xmm2
-# CHECK-NEXT:  3      15    1.00    *                   aesimc	(%rax), %xmm2
-# CHECK-NEXT:  14     7     4.00                        aeskeygenassist	$22, %xmm0, %xmm2
-# CHECK-NEXT:  14     12    4.00    *                   aeskeygenassist	$22, (%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aesdec	%xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aesdec	(%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aesdeclast	%xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aesdeclast	(%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aesenc	%xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aesenc	(%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aesenclast	%xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aesenclast	(%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aesimc	%xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aesimc	(%rax), %xmm2
+# CHECK-NEXT:  3      3     1.50                        aeskeygenassist	$22, %xmm0, %xmm2
+# CHECK-NEXT:  4      4     1.50    *                   aeskeygenassist	$22, (%rax), %xmm2
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -56,24 +56,37 @@ aeskeygenassist $22, (%rax), %xmm2
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 17.33  10.33  2.00   2.00    -     9.33   2.00    -      -      -      -     2.00    -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT:  -      -      -      -      -      -     1.50    -     1.50    -     1.50    -     1.50    -      -      -      -      -      -      -     18.00  18.00   -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     aesdec	%xmm0, %xmm2
-# CHECK-NEXT: 0.50   0.50   0.33   0.33    -      -      -      -      -      -      -     0.33    -     aesdec	(%rax), %xmm2
-# CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     aesdeclast	%xmm0, %xmm2
-# CHECK-NEXT: 0.50   0.50   0.33   0.33    -      -      -      -      -      -      -     0.33    -     aesdeclast	(%rax), %xmm2
-# CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     aesenc	%xmm0, %xmm2
-# CHECK-NEXT: 0.50   0.50   0.33   0.33    -      -      -      -      -      -      -     0.33    -     aesenc	(%rax), %xmm2
-# CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     aesenclast	%xmm0, %xmm2
-# CHECK-NEXT: 0.50   0.50   0.33   0.33    -      -      -      -      -      -      -     0.33    -     aesenclast	(%rax), %xmm2
-# CHECK-NEXT: 1.00   1.00    -      -      -      -      -      -      -      -      -      -      -     aesimc	%xmm0, %xmm2
-# CHECK-NEXT: 1.00   1.00   0.33   0.33    -      -      -      -      -      -      -     0.33    -     aesimc	(%rax), %xmm2
-# CHECK-NEXT: 5.83   2.33    -      -      -     4.83   1.00    -      -      -      -      -      -     aeskeygenassist	$22, %xmm0, %xmm2
-# CHECK-NEXT: 5.50   2.00   0.33   0.33    -     4.50   1.00    -      -      -      -     0.33    -     aeskeygenassist	$22, (%rax), %xmm2
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesdec	%xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesdec	(%rax), %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesdeclast	%xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesdeclast	(%rax), %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesenc	%xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesenc	(%rax), %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesenclast	%xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesenclast	(%rax), %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesimc	%xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aesimc	(%rax), %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aeskeygenassist	$22, %xmm0, %xmm2
+# CHECK-NEXT:  -      -      -      -      -      -     0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -     1.50   1.50    -      -      -      -     aeskeygenassist	$22, (%rax), %xmm2
 # end INTEL_FEATURE_CPU_RYL

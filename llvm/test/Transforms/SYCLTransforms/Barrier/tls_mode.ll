@@ -19,8 +19,8 @@
 ;   out[bar()] = sum;
 ; }
 
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S | FileCheck %s
 
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -33,8 +33,8 @@ target triple = "x86_64-pc-linux"
 define internal i64 @foo(i32 %dim) #0 {
 entry:
 ; CHECK: get.wi.properties:
-; CHECK: %pLocalId_var = getelementptr inbounds [3 x i64], [3 x i64]* @LocalIds, i64 0, i32 %dim
-; CHECK: %LocalId_var = load i64, i64* %pLocalId_var
+; CHECK: %pLocalId_var = getelementptr inbounds [3 x i64], ptr @LocalIds, i64 0, i32 %dim
+; CHECK: %LocalId_var = load i64, ptr %pLocalId_var
   %call = call i64 @_Z12get_local_idj(i32 %dim) #4
   ret i64 %call
 }
@@ -47,7 +47,7 @@ declare i64 @_Z12get_local_idj(i32) #1
 define internal i64 @bar() #0 {
 entry:
 ; CHECK: %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
-; CHECK: %LocalId_0 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
+; CHECK: %LocalId_0 = load i64, ptr @LocalIds
 ; CHECK: %GlobalID_0 = add i64 %LocalId_0, %BaseGlobalId_0
 
   %call = call i64 @_Z13get_global_idj(i32 0) #4
@@ -58,20 +58,20 @@ entry:
 declare i64 @_Z13get_global_idj(i32) #1
 
 ; Function Attrs: convergent noinline nounwind
-define void @test(i64 addrspace(1)* noalias %out) #2 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !13 !no_barrier_path !12 !kernel_execution_length !14 !kernel_has_barrier !12 !kernel_has_global_sync !12 {
+define void @test(ptr addrspace(1) noalias %out) #2 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !13 !no_barrier_path !12 !kernel_execution_length !14 !kernel_has_barrier !12 !kernel_has_global_sync !12 {
 entry:
   call void @dummy_barrier.()
-  %bar.addr = alloca i8 addrspace(4)*, align 8
-  store i8 addrspace(4)* addrspacecast (i8* bitcast (i64 ()* @bar to i8*) to i8 addrspace(4)*), i8 addrspace(4)** %bar.addr, align 8
+  %bar.addr = alloca ptr addrspace(4), align 8
+  store ptr addrspace(4) addrspacecast (ptr @bar to ptr addrspace(4)), ptr %bar.addr, align 8
   br label %for.cond
 
 ; CHECK: FirstBB:
-; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
-; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
-; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+; CHECK: store i64 0, ptr @LocalIds
+; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
+; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
 
 ; CHECK: SyncBB1:
-; CHECK: store i8 addrspace(4)* addrspacecast (i8* bitcast (i64 ()* @bar to i8*) to i8 addrspace(4)*)
+; CHECK: store ptr addrspace(4) addrspacecast (ptr @bar to ptr addrspace(4))
 
 for.cond:                                         ; preds = %for.body, %entry
   %0 = phi i64 [ 0, %entry ], [ %add, %for.body ]
@@ -88,8 +88,8 @@ for.body:                                         ; preds = %for.cond
 
 for.end:                                          ; preds = %for.cond
   %call1 = call i64 @bar() #3
-  %arrayidx = getelementptr inbounds i64, i64 addrspace(1)* %out, i64 %call1
-  store i64 %0, i64 addrspace(1)* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr addrspace(1) %out, i64 %call1
+  store i64 %0, ptr addrspace(1) %arrayidx, align 8
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %for.end
@@ -97,25 +97,25 @@ for.end:                                          ; preds = %for.cond
   ret void
 
 ; CHECK: "Barrier BB":
-; CHECK: %LocalId_0 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
+; CHECK: %LocalId_0 = load i64, ptr @LocalIds
 ; CHECK: %{{.*}} = add nuw i64 %LocalId_0, 1
-; CHECK: store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
+; CHECK: store i64 %{{.*}}, ptr @LocalIds
 
 
 ; CHECK: LoopEnd_0:
-; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
-; CHECK:   %LocalId_1 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
+; CHECK:   store i64 0, ptr @LocalIds
+; CHECK:   %LocalId_1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
 ; CHECK:   %{{.*}} = add nuw i64 %LocalId_1, 1
-; CHECK:   store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
+; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
 
 ; CHECK: LoopEnd_1:
-; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
-; CHECK:   %LocalId_2 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
+; CHECK:   %LocalId_2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
 ; CHECK:   %{{.*}} = add nuw i64 %LocalId_2, 1
-; CHECK:   store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
 
 ; CHECK: LoopEnd_2:
-; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
 
 }
 
@@ -147,7 +147,7 @@ attributes #4 = { convergent nounwind readnone }
 !2 = !{}
 !3 = !{!"-cl-opt-disable"}
 !4 = !{!"icx (ICX) dev.8.x.0"}
-!5 = !{void (i64 addrspace(1)*)* @test}
+!5 = !{ptr @test}
 !6 = !{i32 0}
 !7 = !{i32 1}
 !8 = !{!"none"}
@@ -163,7 +163,7 @@ attributes #4 = { convergent nounwind readnone }
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)

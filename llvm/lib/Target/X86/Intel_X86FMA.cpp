@@ -45,6 +45,14 @@ static cl::opt<unsigned> FMAControl("x86-global-fma-control",
                                     cl::desc("FMA heuristics control."),
                                     cl::init(0), cl::Hidden);
 
+#if INTEL_FEATURE_CPU_RYL
+// Force or disable the experimental pass to crack FMAs in cycles.
+static cl::opt<bool> EnableCrackCyclicFMAs(
+    "x86-crack-cyclic-fmas",
+    cl::desc("Enable cyclic latency optimization in global-fma"),
+    cl::init(false), cl::Hidden);
+#endif // INTEL_FEATURE_CPU_RYL
+
 #define MAX_NUM_FOR_BUILD_TIME 4000
 
 namespace {
@@ -772,6 +780,9 @@ private:
     HaswellFMAs = 0x1,
     BroadwellFMAs = 0x2,
     SkylakeFMAs = 0x4,
+#if INTEL_FEATURE_CPU_RYL
+    RoyalFMAs = 0x8,
+#endif // INTEL_FEATURE_CPU_RYL
     TargetFMAsMask = 0xFF,
     ForceFMAs = 0x100,
     TuneForLatency = 0x200,
@@ -909,6 +920,28 @@ private:
   unsigned selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
                                   const TargetRegisterClass **RC,
                                   FloatKind FK) const;
+
+#if INTEL_FEATURE_CPU_RYL
+  /// Experimental post-pass to crack (un-fuse) FMA instructions
+  /// on cyclic paths in self-loop blocks. 
+  /// This transformation will transform fmas in a dependence cycle 
+  /// into adds, with the multiplication computed separately by a
+  /// mul/fma as required.a
+  /// Assuming add latency is less than the fma/mul latencies, this
+  /// reduces the cyclic critical path length which improves
+  /// performance on royal and possibly other uarch with
+  /// similar latencies.
+  ///
+  /// This is an experimental extension added for Royal which
+  /// assumes the transformation is always profitable. It is added
+  /// here for reuse of the FMAOpcodesInfo, and to avoid the
+  /// transformation being undone by global-fma. A full solution
+  /// will add support for cyclic dependencies to existing FMA
+  /// optimizations (e.g. MachineCombiner).
+  bool crackCyclicFMAs(MachineFunction &MF);
+  bool crackCyclicFMAs(MachineBasicBlock &MB);
+  bool crackFMAInstr(MachineInstr *MI, int OpNum);
+#endif // INTEL_FEATURE_CPU_RYL
 };
 
 /// X86 specific variant of the immediate term.
@@ -1223,13 +1256,23 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
+#if INTEL_FEATURE_CPU_RYL
+  // Royal (and perhaps more future AVX3) have faster adds.
+  if ((ST->getCPU() == "royal" &&
+       !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
+      checkAllFMAFeatures(FMAControls::RoyalFMAs)) {
+    AddSubLatency = 2;
+    MulLatency = 4;
+    FMALatency = 4;
+  } else
+#endif // INTEL_FEATURE_CPU_RYL
 #if INTEL_FEATURE_ISA_AVX256P
-  if ((ST->hasAVX3() &&
+      if ((ST->hasAVX3() &&
 #else // INTEL_FEATURE_ISA_AVX256P
   if ((ST->hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256P
-       !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
-      checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
+           !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
+          checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
     AddSubLatency = 4;
     MulLatency = 4;
     FMALatency = 4;
@@ -1250,8 +1293,288 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
       checkAllFMAFeatures(FMAControls::TuneForThroughput);
 
   // And finally do the transformation.
-  return GlobalFMA::runOnMachineFunction(*MF);
+  bool Changed = GlobalFMA::runOnMachineFunction(*MF);
+
+#if INTEL_FEATURE_CPU_RYL
+  // Run the experimental post-pass for cyclic FMAs.
+  // This is only enabled by default for -xroyal
+  bool DoCrackCyclicFMAs = EnableCrackCyclicFMAs.getNumOccurrences()
+                               ? (bool)EnableCrackCyclicFMAs
+                               : (ST->getCPU() == "royal");
+  if (DoCrackCyclicFMAs)
+    Changed |= crackCyclicFMAs(*MF);
+#endif // INTEL_FEATURE_CPU_RYL
+  return Changed;
 }
+
+#if INTEL_FEATURE_CPU_RYL
+// Run the cyclic FMA pass on any blocks which are self-loops.
+bool X86GlobalFMA::crackCyclicFMAs(MachineFunction &MF) {
+  bool Changed = false;
+  for (auto &MB : MF)
+    if (llvm::any_of(MB.predecessors(), [&MB](MachineBasicBlock *PredBB) {
+          return PredBB == &MB;
+        }))
+      Changed |= crackCyclicFMAs(MB);
+  return Changed;
+}
+
+// Identify and crack (un-fuse) FMAs in recurrences.
+bool X86GlobalFMA::crackCyclicFMAs(MachineBasicBlock &MB) {
+  // We will search for cyclic paths starting from PHIs. This
+  // function prunes PHIs for integer register classes. We can assume
+  // MB is a self-loop so we do not check the PHI MBB operands.
+  auto isCandidatePHI = [this](MachineInstr &Phi) {
+    LLVM_DEBUG(dbgs() << "isCandidatePhi " << Phi);
+    assert(Phi.isPHI() && "expected PHI instruction");
+    switch (MRI->getRegClass(Phi.getOperand(0).getReg())->getID()) {
+    case X86::VR64RegClassID:
+    case X86::VR128RegClassID:
+    case X86::VR256RegClassID:
+    case X86::VR128XRegClassID:
+    case X86::VR256XRegClassID:
+    case X86::FR32RegClassID:
+    case X86::FR64RegClassID:
+    case X86::FR32XRegClassID:
+    case X86::FR64XRegClassID:
+      return true;
+    default:
+      return false;
+    }
+  };
+
+  // Returns 0 if MI is not an FMA-type instruction.
+  // Returns -1 if MI is add/sub, i.e. all use operands are addends.
+  // Otherwise, the returned value is the use operand index of
+  // the addend part of (the FMA instruction) MI.
+  auto getCandidate = [&MB](MachineInstr *MI) {
+    LLVM_DEBUG(FMADbg::dbgs() << "getCandidate: " << *MI);
+    if (MI->getParent() != &MB) {
+      LLVM_DEBUG(FMADbg::dbgs() << "\tnot in block\n");
+      return 0;
+    }
+    MVT VT;
+    FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
+    bool IsMem;
+    if (!FMAOpcodesInfo::recognizeInstr(*MI, VT, OpcodeKind, IsMem)) {
+      LLVM_DEBUG(FMADbg::dbgs() << "\tnot recognized\n");
+      return 0;
+    }
+    if (IsMem) {
+      LLVM_DEBUG(FMADbg::dbgs() << "\toperand is mem\n");
+      return 0;
+    }
+    switch (OpcodeKind) {
+    case FMAOpcodesInfo::FMA132Opc:
+    case FMAOpcodesInfo::FMS132Opc:
+    case FMAOpcodesInfo::FNMA132Opc:
+    case FMAOpcodesInfo::FNMS132Opc:
+      return 2;
+    case FMAOpcodesInfo::FMA213Opc:
+    case FMAOpcodesInfo::FMS213Opc:
+    case FMAOpcodesInfo::FNMA213Opc:
+    case FMAOpcodesInfo::FNMS213Opc:
+      return 3;
+    case FMAOpcodesInfo::FMA231Opc:
+    case FMAOpcodesInfo::FMS231Opc:
+    case FMAOpcodesInfo::FNMA231Opc:
+    case FMAOpcodesInfo::FNMS231Opc:
+      return 1;
+    case FMAOpcodesInfo::ADDOpc:
+    case FMAOpcodesInfo::SUBOpc:
+      return -1;
+    default:
+      break;
+    }
+    LLVM_DEBUG(FMADbg::dbgs() << "\tunhandled FMAOpcodeKind\n");
+    return 0;
+  };
+
+  // Stack entry type for DFT of use-chains to identify cycles.
+  struct Cand {
+    // Candidate instruction.
+    MachineInstr *Instr = nullptr;
+    // The operand index of the use through which this
+    // instruction was visited; 0 if the instruction is a PHI.
+    int OpNum = 0;
+    // Iterator pointing to the current use being visited.
+    MachineRegisterInfo::use_nodbg_iterator Cur;
+
+    // Create a stack entry for the given instr and opnum,
+    // initializing the use iterator to the start.
+    Cand(MachineInstr *MI, int Op, MachineRegisterInfo *MRI)
+        : Instr(MI), OpNum(Op),
+          Cur(MRI->use_nodbg_begin(MI->getOperand(0).getReg())) {}
+  };
+
+  // Collect all PHIs which may be part of a candidate chain.
+  // We do this in advance as insertion can invalidate the
+  // MB.phis() iterator.
+  SmallVector<MachineInstr *, 8u> CandidatePHIs;
+  for (auto &Phi : MB.phis())
+    if (isCandidatePHI(Phi))
+      CandidatePHIs.emplace_back(&Phi);
+
+  bool Changed = false;
+  SmallVector<Cand, 8u> Stack;
+  for (auto *Phi : CandidatePHIs) {
+    assert(Stack.empty() && "garbage left on stack");
+    Stack.emplace_back(Phi, 0, MRI);
+    LLVM_DEBUG(FMADbg::dbgs() << "crack: visiting phi " << *Phi << "\n");
+    while (!Stack.empty()) {
+      auto &C = Stack.back();
+      if (C.Cur != MRI->use_nodbg_end()) {
+        auto &UseMO = *C.Cur++;
+        auto *UseMI = UseMO.getParent();
+        int AddOp = getCandidate(UseMI);
+        LLVM_DEBUG(FMADbg::dbgs() << "\tcandidate: op(" << AddOp << ", "
+                                  << UseMO.getOperandNo() << ") in " << *UseMI);
+        if (AddOp && (AddOp < 0 || (int)UseMO.getOperandNo() == AddOp)) {
+          Stack.emplace_back(UseMI, UseMO.getOperandNo(), MRI);
+          continue;
+        } else if (UseMI->isPHI() && UseMI == Stack.front().Instr) {
+          // We've identified a cycle; crack any FMAs in the path and end the
+          // search. This may miss non-simple cycles, but avoids issues
+          // with replacing instructions pointed to by stack entries.
+          LLVM_DEBUG(FMADbg::dbgs() << "\tfound cycle for " << *UseMI);
+          // Process all nodes in the cycle up to the initial PHI.
+          while (Stack.size() > 1) {
+            Changed |= crackFMAInstr(Stack.back().Instr, Stack.back().OpNum);
+            Stack.pop_back();
+          }
+          // Pop the PHI node and move to the next PHI in MB.
+          Stack.pop_back();
+          break;
+        }
+      } else
+        Stack.pop_back();
+    }
+  }
+  return Changed;
+}
+
+// Given an instruction and the opnum of the use connecting
+// this instruction to a cycle, identify if the instruction
+// is a crackable FMA, and replace with an add + mul/fma.
+bool X86GlobalFMA::crackFMAInstr(MachineInstr *MI, int OpNum) {
+  assert(OpNum > 0 && "Expected a valid use operand index");
+  // TODO: avoid re-recognizing the instruction; the VT and kind
+  // can be saved during the caller's traversal.
+  MVT VT;
+  FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
+  bool IsMem;
+  if (!FMAOpcodesInfo::recognizeInstr(*MI, VT, OpcodeKind, IsMem))
+    llvm_unreachable("not an FMA instruction");
+
+  auto *MBB = MI->getParent();
+  // Determine the actions to take: if GenMul is set, we
+  // need to generate an instruction with kind MulOp.
+  // If ReverseOpnds is true, we need to swap the operands
+  // of the add/sub.
+  // TODO: we may run into issues cracking FMAs with multiple uses,
+  // as we are extending the latency on the other paths.
+  FMAOpcodesInfo::FMAOpcodeKind CrackedOp = OpcodeKind;
+  FMAOpcodesInfo::FMAOpcodeKind MulOp = FMAOpcodesInfo::MULOpc;
+  bool GenMul = true;
+  bool ReverseOpnds = false;
+  switch (OpcodeKind) {
+  case FMAOpcodesInfo::FMA132Opc:
+  case FMAOpcodesInfo::FMA213Opc:
+  case FMAOpcodesInfo::FMA231Opc:
+    CrackedOp = FMAOpcodesInfo::ADDOpc;
+    break;
+  case FMAOpcodesInfo::FMS132Opc:
+  case FMAOpcodesInfo::FMS213Opc:
+  case FMAOpcodesInfo::FMS231Opc:
+    CrackedOp = FMAOpcodesInfo::SUBOpc;
+    ReverseOpnds = true;
+    break;
+  case FMAOpcodesInfo::FNMA132Opc:
+  case FMAOpcodesInfo::FNMA213Opc:
+  case FMAOpcodesInfo::FNMA231Opc:
+    CrackedOp = FMAOpcodesInfo::SUBOpc;
+    break;
+  case FMAOpcodesInfo::FNMS213Opc:
+  case FMAOpcodesInfo::FNMS132Opc:
+  case FMAOpcodesInfo::FNMS231Opc:
+    // We have to generate these as -(x*y) - z. We'll use
+    // the same FNMSub with a 0 subtrahend to get the
+    // negated result.
+    CrackedOp = FMAOpcodesInfo::SUBOpc;
+    MulOp = OpcodeKind;
+    ReverseOpnds = true;
+    break;
+  case FMAOpcodesInfo::ADDOpc:
+  case FMAOpcodesInfo::SUBOpc:
+    GenMul = false;
+    ReverseOpnds = (OpNum == 2);
+    break;
+  default:
+    llvm_unreachable("unhandled opcode kind");
+  }
+
+  LLVM_DEBUG(FMADbg::dbgs()
+             << "cracking instruction (op = " << OpNum << "): " << *MI);
+
+  // Holds the result of the generated multiply, or other add/sub operand
+  // if this isn't being cracked.
+  Register MulResult = 0;
+
+  // If we are cracking, generate the multiply part into a new VReg.
+  if (GenMul) {
+    const TargetRegisterClass *RC =
+        MRI->getRegClass(MI->getOperand(0).getReg());
+    // Collect the operands for indices != OpNum to
+    // generate the multiply into a new temp -> MULResult
+    unsigned MulOpcode = FMAOpcodesInfo::getOpcodeOfKind(ST, MulOp, VT);
+    SmallVector<MachineOperand, 4u> MulOpnds;
+    for (unsigned I = 1, E = MI->getNumExplicitOperands(); I < E; ++I) {
+      if (I != (unsigned)OpNum)
+        MulOpnds.push_back(MI->getOperand(I));
+      else if (MulOp != FMAOpcodesInfo::MULOpc) {
+        // We emulate a negated multiply with an FNMS. Supply the zero operand.
+        unsigned ZeroOpcode =
+            FMAOpcodesInfo::getOpcodeOfKind(ST, FMAOpcodesInfo::ZEROOpc, VT);
+        SmallVector<MachineOperand, 0> MOs;
+        unsigned ZeroReg = MRI->createVirtualRegister(RC);
+
+        auto *NewMI = genInstruction(ZeroOpcode, ZeroReg, MOs,
+                                     MI->getDebugLoc(), *MBB, MI);
+        MBB->insert(MI, NewMI);
+        MulOpnds.push_back(
+            MachineOperand::CreateReg(NewMI->getOperand(0).getReg(), false));
+      }
+    }
+    MulResult = MRI->createVirtualRegister(RC);
+    auto *NewMI = genInstruction(MulOpcode, MulResult, MulOpnds,
+                                 MI->getDebugLoc(), *MBB, MI);
+    MBB->insert(MI, NewMI);
+    LLVM_DEBUG(FMADbg::dbgs() << "generated Mul: " << *NewMI);
+  } else
+    MulResult =
+        OpNum == 1 ? MI->getOperand(2).getReg() : MI->getOperand(1).getReg();
+
+  // Exit early if we would just be generating the same instruction.
+  if (CrackedOp == OpcodeKind && (ReverseOpnds ? OpNum == 2 : OpNum == 1))
+    return false;
+
+  SmallVector<MachineOperand, 4u> AddOpnds;
+  if (ReverseOpnds) {
+    AddOpnds.push_back(MachineOperand::CreateReg(MulResult, false));
+    AddOpnds.push_back(MI->getOperand(OpNum));
+  } else {
+    AddOpnds.push_back(MI->getOperand(OpNum));
+    AddOpnds.push_back(MachineOperand::CreateReg(MulResult, false));
+  }
+  unsigned AddOpcode = FMAOpcodesInfo::getOpcodeOfKind(ST, CrackedOp, VT);
+  auto *AddMI = genInstruction(AddOpcode, MI->getOperand(0).getReg(), AddOpnds,
+                               MI->getDebugLoc(), *MBB, MI);
+  MBB->insert(MI, AddMI);
+  MBB->erase(MI);
+  LLVM_DEBUG(FMADbg::dbgs() << "generated Add: " << *AddMI);
+  return true;
+}
+#endif // INTEL_FEATURE_CPU_RYL
 
 std::unique_ptr<FMABasicBlock>
 X86GlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {

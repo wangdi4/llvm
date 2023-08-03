@@ -144,3 +144,7 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 declare dso_local void @_Z3barii(i32 noundef, i32 noundef)
+
+!omp_offload.info = !{!0}
+
+!0 = !{i32 0, i32 2050, i32 49102707, !"_Z3foo", i32 3, i32 0, i32 0, i32 0}

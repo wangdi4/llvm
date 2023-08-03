@@ -27,7 +27,7 @@ entry:
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @thisIsKernel}
+!0 = !{ptr @thisIsKernel}
 
 ; CHECK-NOT:    define{{.*}}void @thisIsNotKernel()
 ; CHECK-NOT:    define{{.*}}void @anotherNotKernel()

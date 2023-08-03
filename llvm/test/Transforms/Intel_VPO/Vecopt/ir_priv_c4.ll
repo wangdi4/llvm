@@ -20,7 +20,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
 ; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
 ; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_INIT]] = induction-init{add} i64 0 i64 1

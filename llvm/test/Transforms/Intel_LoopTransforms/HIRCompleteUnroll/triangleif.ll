@@ -38,7 +38,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @_Z3fooPPiS0_(i32** %A, i32** %B) #0 {
+define i32 @_Z3fooPPiS0_(ptr %A, ptr %B) #0 {
 entry:
   br label %for.body
 
@@ -57,23 +57,23 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %f
   br i1 %cmp4, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %j.02
-  %0 = load i32*, i32** %arrayidx, align 8
-  %arrayidx5 = getelementptr inbounds i32, i32* %0, i64 %i.03
-  %1 = load i32, i32* %arrayidx5, align 4
-  %arrayidx6 = getelementptr inbounds i32*, i32** %A, i64 %i.03
-  %2 = load i32*, i32** %arrayidx6, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %2, i64 %j.02
-  store i32 %1, i32* %arrayidx7, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %j.02
+  %0 = load ptr, ptr %arrayidx, align 8
+  %arrayidx5 = getelementptr inbounds i32, ptr %0, i64 %i.03
+  %1 = load i32, ptr %arrayidx5, align 4
+  %arrayidx6 = getelementptr inbounds ptr, ptr %A, i64 %i.03
+  %2 = load ptr, ptr %arrayidx6, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %2, i64 %j.02
+  store i32 %1, ptr %arrayidx7, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body3
   %add8 = add nsw i64 %i.03, %j.02
   %conv = trunc i64 %add8 to i32
-  %arrayidx9 = getelementptr inbounds i32*, i32** %A, i64 %i.03
-  %3 = load i32*, i32** %arrayidx9, align 8
-  %arrayidx10 = getelementptr inbounds i32, i32* %3, i64 %j.02
-  store i32 %conv, i32* %arrayidx10, align 4
+  %arrayidx9 = getelementptr inbounds ptr, ptr %A, i64 %i.03
+  %3 = load ptr, ptr %arrayidx9, align 8
+  %arrayidx10 = getelementptr inbounds i32, ptr %3, i64 %j.02
+  store i32 %conv, ptr %arrayidx10, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -96,10 +96,10 @@ for.inc11:                                        ; preds = %for.end
   br i1 %cmp, label %for.body, label %for.end13
 
 for.end13:                                        ; preds = %for.inc11
-  %arrayidx14 = getelementptr inbounds i32*, i32** %A, i64 2
-  %4 = load i32*, i32** %arrayidx14, align 8
-  %arrayidx15 = getelementptr inbounds i32, i32* %4, i64 3
-  %5 = load i32, i32* %arrayidx15, align 4
+  %arrayidx14 = getelementptr inbounds ptr, ptr %A, i64 2
+  %4 = load ptr, ptr %arrayidx14, align 8
+  %arrayidx15 = getelementptr inbounds i32, ptr %4, i64 3
+  %5 = load i32, ptr %arrayidx15, align 4
   ret i32 %5
 }
 

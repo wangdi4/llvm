@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -25,7 +25,6 @@
 #include "cl_sys_defines.h"
 #include "debuggingservicetype.h"
 
-#include "SPIRV/libSPIRV/spirv_internal.hpp"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -79,14 +78,28 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache *pCache,
 
   // Checking maximum supported instruction
   CLElfLib::E_EH_FLAGS maxSupportedVectorISA = CLElfLib::EH_FLAG_SSE4;
-  if (m_compiler.GetCpuId()->HasAVX512ICL())
+  if (m_compiler.GetCpuId()->HasGNR())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_GNR;
+  else if (m_compiler.GetCpuId()->HasSPR())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_SPR;
+  else if (m_compiler.GetCpuId()->HasAVX512ICX())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_ICX;
+  else if (m_compiler.GetCpuId()->HasAVX512ICL())
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_ICL;
+  else if (m_compiler.GetCpuId()->HasAVX512CLX())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_CLX;
   else if (m_compiler.GetCpuId()->HasAVX512SKX())
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_SKX;
   else if (m_compiler.GetCpuId()->HasAVX2())
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
   else if (m_compiler.GetCpuId()->HasAVX1())
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  if (m_compiler.GetCpuId()->HasDMR())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_DMR;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
   std::unique_ptr<CacheBinaryWriter> pWriter(
       new CacheBinaryWriter(bitOS, maxSupportedVectorISA));
@@ -394,28 +407,32 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
 
       // Try to get decorations for device globals.
       StringRef DecoName = "";
+      bool DeviceImageScope = false;
       unsigned int HostAccessMode = HOST_ACCESS_READ_WRITE;
-      if (MDNode *DecoMD = GV.getMetadata("spirv.Decorations")) {
-        for (const MDOperand &MDOp : DecoMD->operands()) {
-          MDNode *Node = dyn_cast<MDNode>(MDOp);
-          if (Node && Node->getNumOperands() == 3 &&
-              mdconst::extract<ConstantInt>(Node->getOperand(0))
-                      ->getZExtValue() ==
-                  spv::internal::DecorationHostAccessINTEL) {
-            // Get the host access mode
-            HostAccessMode = mdconst::extract<ConstantInt>(Node->getOperand(1))
-                                 ->getZExtValue();
-            assert(HostAccessMode <= HOST_ACCESS_NONE &&
-                   "HostAccess mode is invalid");
-            // Get the decoration name
-            DecoName = cast<MDString>(Node->getOperand(2))->getString();
-          }
+      if (MDNode *Node = GV.getMetadata("spirv.Decorations.HostAccess")) {
+        // Get the host access mode
+        HostAccessMode =
+            mdconst::extract<ConstantInt>(Node->getOperand(1))->getZExtValue();
+        assert(HostAccessMode <= HOST_ACCESS_NONE &&
+               "HostAccess mode is invalid");
+        // Get the decoration name
+        DecoName = cast<MDString>(Node->getOperand(2))->getString();
+
+        // If a device global has property device_image_scope, its member
+        // variable should be the base type. Otherwise, the member variable
+        // should be a USM pointer.
+        Type *DeviceGlobalTy =
+            cast<StructType>(GV.getValueType())->getElementType(0);
+        if (!DeviceGlobalTy->isPointerTy() ||
+            cast<PointerType>(DeviceGlobalTy)->getAddressSpace() ==
+                CompilationUtils::ADDRESS_SPACE_GENERIC) {
+          DeviceImageScope = true;
         }
       }
 
       GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
                                  STRDUP(DecoName.str().c_str()), HostAccessMode,
-                                 Size, nullptr});
+                                 DeviceImageScope, Size, nullptr});
     }
     pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
     pProgram->SetGlobalVariables(std::move(GlobalVariables));

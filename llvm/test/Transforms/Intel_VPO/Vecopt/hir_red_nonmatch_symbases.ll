@@ -36,36 +36,35 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_ZN11OrderedTest10run_vectorEv(i32* nocapture readonly %c_size, i8** nocapture readonly %m_in, i8** nocapture readonly %m_out_vec) local_unnamed_addr #5 align 2 {
+define dso_local void @_ZN11OrderedTest10run_vectorEv(ptr nocapture readonly %c_size, ptr nocapture readonly %m_in, ptr nocapture readonly %m_out_vec) local_unnamed_addr #5 align 2 {
 entry:
   %add7.loc = alloca i8, align 1
   %red.red = alloca i8, align 1
-  %0 = load i32, i32* %c_size, align 8
+  %0 = load i32, ptr %c_size, align 8
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store i8 0, i8* %red.red, align 1
+  store i8 0, ptr %red.red, align 1
   br label %DIR.OMP.SIMD.139
 
 DIR.OMP.SIMD.139:                                 ; preds = %DIR.OMP.SIMD.1
-%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i8* %red.red, i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i8* %add7.loc, i8 0, i32 1) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %red.red, i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %add7.loc, i8 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.139
-  %2 = bitcast i32* %c_size to i8*
-  %red.red.promoted = load i8, i8* %red.red, align 1
+  %red.red.promoted = load i8, ptr %red.red, align 1
   %wide.trip.count38 = zext i32 %0 to i64
   br label %DIR.OMP.END.ORDERED.337
 
 DIR.OMP.END.ORDERED.337:                          ; preds = %DIR.OMP.SIMD.2, %DIR.OMP.END.ORDERED.6
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %DIR.OMP.END.ORDERED.6 ]
-  %3 = phi i8 [ %red.red.promoted, %DIR.OMP.SIMD.2 ], [ %add7.reload, %DIR.OMP.END.ORDERED.6 ]
+  %2 = phi i8 [ %red.red.promoted, %DIR.OMP.SIMD.2 ], [ %add7.reload, %DIR.OMP.END.ORDERED.6 ]
   br label %codeRepl
 
 codeRepl:                                         ; preds = %DIR.OMP.END.ORDERED.337
-  call void @foo(i64 %indvars.iv, i8 %3, i8* %add7.loc) #0
-  %add7.reload = load i8, i8* %add7.loc, align 1
+  call void @foo(i64 %indvars.iv, i8 %2, ptr %add7.loc) #0
+  %add7.reload = load i8, ptr %add7.loc, align 1
   br label %DIR.OMP.END.ORDERED.6
 
 DIR.OMP.END.ORDERED.6:                            ; preds = %codeRepl
@@ -75,7 +74,7 @@ DIR.OMP.END.ORDERED.6:                            ; preds = %codeRepl
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.ORDERED.6
   %add7.lcssa = phi i8 [ %add7.reload, %DIR.OMP.END.ORDERED.6 ]
-  store i8 %add7.lcssa, i8* %red.red, align 1
+  store i8 %add7.lcssa, ptr %red.red, align 1
   br label %DIR.OMP.END.SIMD.7
 
 DIR.OMP.END.SIMD.7:                               ; preds = %DIR.OMP.END.SIMD.4
@@ -84,8 +83,8 @@ DIR.OMP.END.SIMD.7:                               ; preds = %DIR.OMP.END.SIMD.4
 
 omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.7, %entry
   %red.1 = phi i8 [ 0, %entry ], [ %add7.lcssa, %DIR.OMP.END.SIMD.7 ]
-  %4 = load i8*, i8** %m_out_vec, align 8
-  store i8 %red.1, i8* %4, align 1
+  %3 = load ptr, ptr %m_out_vec, align 8
+  store i8 %red.1, ptr %3, align 1
   ret void
 }
 
@@ -95,6 +94,6 @@ declare token @llvm.directive.region.entry() #6
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #6
 
-declare dso_local void @foo(i64, i8, i8*)
+declare dso_local void @foo(i64, i8, ptr)
 
 attributes #0 = { nounwind }

@@ -79,7 +79,7 @@ add_llvm_component_library(LLVMIntelJITEvents
   LINK_LIBS ${LLVM_INTEL_JIT_LIBS}
 
   LINK_COMPONENTS
-  CodeGen
+  CodeGenTypes
   Core
   DebugInfoDWARF
   Support

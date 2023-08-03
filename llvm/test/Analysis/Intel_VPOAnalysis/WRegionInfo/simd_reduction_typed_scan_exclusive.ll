@@ -22,8 +22,8 @@
 ; CHECK: BEGIN SIMD ID=1 {
 ; ...
 ; CHECK:   REDUCTION-INSCAN maps: (1: EXCLUSIVE)
-; CHECK:   REDUCTION clause (size=1): (ADD: ptr @x, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1) INSCAN<1>)
-; CHECK:   LINEAR clause (size=1): IV(ptr %i, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
+; CHECK:   REDUCTION clause (size=1): (INSCAN<1>, ADD: TYPED(ptr @x, TYPE: i32, NUM_ELEMENTS: i32 1))
+; CHECK:   LINEAR clause (size=1): IV(TYPED(ptr %i, TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
 ; ...
 ; CHECK:   BEGIN SCAN ID=2 {
 ; ...

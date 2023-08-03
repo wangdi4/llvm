@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -63,6 +63,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -111,7 +112,7 @@ static cl::opt<unsigned> MaxUnrolledLoopNestCost(
 
 // This ensures that most of the code is in the innermost loop.
 static cl::opt<unsigned> MaxOuterLoopCost(
-    "hir-unroll-and-jam-max-outer-loop-cost", cl::init(30), cl::Hidden,
+    "hir-unroll-and-jam-max-outer-loop-cost", cl::init(36), cl::Hidden,
     cl::desc("Max allowed cost of an outer loop in the loopnest"));
 
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
@@ -693,7 +694,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  auto &LS = HUAJ.HLS.getSelfLoopStatistics(Lp);
+  auto &LS = HUAJ.HLS.getSelfStatistics(Lp);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -865,7 +866,11 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     return 1;
   }
 
-  if ((IsConstTC || (TC = Lp->getMaxTripCountEstimate())) &&
+  unsigned AvgTripCount = 0;
+  if ((IsConstTC ||
+       (Lp->getPragmaBasedAverageTripCount(AvgTripCount) &&
+        (TC = AvgTripCount)) ||
+       (TC = Lp->getMaxTripCountEstimate())) &&
       (TC < MinTripCountThreshold)) {
     if (HasEnablingPragma) {
       return 2;
@@ -889,8 +894,9 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
       return 2;
     } else {
       LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam of loop as the loop body cost "
-                    "exceeds threshold!\n");
+          dbgs() << "Skipping unroll & jam of loop as the outer loop body cost "
+                    "exceeds threshold, cost = "
+                 << LoopCost << ", threshold = " << MaxOuterLoopCost << "\n");
       return 0;
     }
   }
@@ -903,7 +909,9 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     } else {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam of loop as the unrolled loop body "
-                    "cost exceeds threshold!\n");
+                    "cost exceeds threshold, cost = "
+                 << (2 * LoopNestCost)
+                 << ", threshold = " << MaxUnrolledLoopNestCost << "\n");
       return 0;
     }
   }
@@ -1262,13 +1270,18 @@ bool HIRUnrollAndJam::run() {
 
   Analyzer AY(*this);
 
+  bool Modified = false;
+
   for (auto Loop : OutermostLoops) {
     AY.analyze(Loop);
     unrollCandidates(Loop);
+
+    Modified = Modified || HaveUnrollCandidates;
+
     clearCandidates();
   }
 
-  return false;
+  return Modified;
 }
 
 namespace {
@@ -1296,6 +1309,8 @@ class UnrollHelper {
 
   TempRenamingMapTy TempRenamingMap;
 
+  NoAliasScopeMapTy NoAliasScopeMap;
+
   bool isLastUnrollIteration() const {
     return UnrollIteration == (UnrollFactor - 1);
   }
@@ -1316,6 +1331,8 @@ public:
         UnrollFactor(UnrollFactor), UnrollIteration(-1),
         NeedRemainderLoop(NeedRemainderLoop) {}
 
+  HLLoop *getOrigTopLevelLoop() { return OrigTopLevelLoop; }
+
   void setUnrollIteration(unsigned Count) { UnrollIteration = Count; }
   unsigned getUnrollFactor() const { return UnrollFactor; }
 
@@ -1326,6 +1343,11 @@ public:
 
   bool isUnrollJamMode() const { return LoopMap != nullptr; }
   bool isUnknownLoopUnroll() const { return UnknownLoopExitLabel != nullptr; }
+
+  // Map of original noalias scopes to the corresponding cloned scopes for the
+  // current unroll iteration at all loop levels involved in unroll/unroll &
+  // jam.
+  NoAliasScopeMapTy &getNoAliasScopeMap() { return NoAliasScopeMap; }
 
   void patchIntermediateBottomTestForUnknownLoop(HLNode *BottomTest) const;
 
@@ -1560,6 +1582,8 @@ void UnrollHelper::CanonExprUpdater::processRegDDRef(RegDDRef *Ref) {
        ++Iter) {
     processCanonExpr(*Iter);
   }
+
+  Ref->replaceNoAliasScopeInfo(UHelper.getNoAliasScopeMap());
 }
 
 /// Processes CanonExpr to modify IV to:
@@ -1574,13 +1598,66 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   // CExpr->simplify(true);
 }
 
+// Populates the scopes for all loop levels involved in unroll & jam. Since we
+// are effectively unrolling the TopLevelLoop, the scopes at all inner levels
+// have to be updated.
+static void populateNoAliasScopeListsForLoopnest(
+    HLLoop *OrigParentLoop, HLLoop *OrigTopLevelLoop,
+    SmallVectorImpl<MDNode *> &NoAliasScopeLists) {
+
+  for (auto Lp = OrigParentLoop, EndLp = OrigTopLevelLoop->getParentLoop();
+       Lp != EndLp; Lp = Lp->getParentLoop()) {
+    auto OrigNoAliasScopeLists = Lp->getNoAliasScopeLists();
+    NoAliasScopeLists.append(OrigNoAliasScopeLists.begin(),
+                             OrigNoAliasScopeLists.end());
+  }
+}
+
+// Add cloned scopes for each orig parent loop to the corresponding new loop.
+static void addClonedScopes(HLLoop *OrigParentLoop, HLLoop *NewParentLoop,
+                            HLLoop *OrigTopLevelLoop,
+                            NoAliasScopeMapTy &NoAliasScopeMap) {
+
+  // Special casing for unknown loop unrolling. We need to copy the scope list
+  // into a temporary vector to pass to addMappedNoAliasScopes() as both orig
+  // and new loops are the same.
+  if (OrigParentLoop == NewParentLoop) {
+    auto OrigNoAliasScopeLists = OrigParentLoop->getNoAliasScopeLists();
+    SmallVector<MDNode *, 4> OrigNoAliasScopeListsVec(
+        OrigNoAliasScopeLists.begin(), OrigNoAliasScopeLists.end());
+
+    NewParentLoop->addMappedNoAliasScopes(OrigNoAliasScopeListsVec,
+                                          NoAliasScopeMap);
+    return;
+  }
+
+  for (auto *EndLp = OrigTopLevelLoop->getParentLoop(); OrigParentLoop != EndLp;
+       OrigParentLoop = OrigParentLoop->getParentLoop(),
+            NewParentLoop = NewParentLoop->getParentLoop()) {
+    NewParentLoop->addMappedNoAliasScopes(
+        OrigParentLoop->getNoAliasScopeLists(), NoAliasScopeMap);
+  }
+}
+
+// \p OrigParentLoop and \p NewParentLoop are the lexical parent loops of the
+// node range used to update NoAlias scope info.
 static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
                                     HLContainerTy &NodeRange,
-                                    UnrollHelper &UHelper) {
+                                    UnrollHelper &UHelper,
+                                    HLLoop *OrigParentLoop,
+                                    HLLoop *NewParentLoop) {
   assert(NodeRange.empty() && "Empty node range expected!");
 
   HLNode *CurFirstChild = nullptr;
   HLNode *CurLastChild = nullptr;
+  SmallVector<MDNode *, 8> NoAliasScopeLists;
+
+  auto &Context = OrigParentLoop->getHLNodeUtils().getContext();
+  auto &NoAliasScopeMap = UHelper.getNoAliasScopeMap();
+  auto *OrigTopLevelLoop = UHelper.getOrigTopLevelLoop();
+
+  populateNoAliasScopeListsForLoopnest(OrigParentLoop, OrigTopLevelLoop,
+                                       NoAliasScopeLists);
 
   unsigned UnrollFactor = UHelper.getUnrollFactor();
   unsigned UnrollTrip =
@@ -1590,6 +1667,12 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
   // like t = 0.
 
   for (unsigned UnrollIter = 0; UnrollIter < UnrollTrip; ++UnrollIter) {
+    cloneNoAliasScopes(NoAliasScopeLists, NoAliasScopeMap,
+                       UHelper.isUnrollJamMode() ? "uj" : "gu", Context);
+
+    addClonedScopes(OrigParentLoop, NewParentLoop, OrigTopLevelLoop,
+                    NoAliasScopeMap);
+
     HLNodeUtils::cloneSequence(&NodeRange, FirstNode, LastNode);
 
     CurFirstChild = (UnrollIter == 0)
@@ -1601,10 +1684,23 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
     UHelper.updateNodeRange(CurFirstChild, CurLastChild);
 
     UHelper.patchIntermediateBottomTestForUnknownLoop(CurLastChild);
+
+    // We clear scope mapping for the next iteration. This is currently a little
+    // conservative as we do not preserve outer level scopes across inner
+    // sibling loops. To update the information more precisely we will have to
+    // store the mapping: {unroll iteration -> scopes} which is much more
+    // complicated.
+    NoAliasScopeMap.clear();
   }
 
   // Reuse original nodes for the last unrolled iteration.
   if (!UHelper.needRemainderLoop()) {
+    cloneNoAliasScopes(NoAliasScopeLists, NoAliasScopeMap,
+                       UHelper.isUnrollJamMode() ? "uj" : "gu", Context);
+
+    addClonedScopes(OrigParentLoop, NewParentLoop, OrigTopLevelLoop,
+                    NoAliasScopeMap);
+
     UHelper.setUnrollIteration(UnrollTrip);
     UHelper.updateNodeRange(FirstNode, LastNode);
 
@@ -1688,7 +1784,17 @@ static void createAndInsertUnrolledLoopChildren(HLLoop *OrigLoop,
         NodeRange.push_front(*CurFirstNode->clone());
 
       } else {
-        createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
+        // Pass lexical orig and new parent loops to createUnrolledNodeRange()
+        // so it can process NoAlias scopes.
+        auto *OrigParentLoop = (ChildrenTy == LoopChildrenType::Body)
+                                   ? OrigLoop
+                                   : OrigLoop->getParentLoop();
+        auto *NewParentLoop = (ChildrenTy == LoopChildrenType::Body)
+                                  ? NewLoop
+                                  : NewLoop->getParentLoop();
+
+        createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper,
+                                OrigParentLoop, NewParentLoop);
       }
 
       switch (ChildrenTy) {
@@ -1712,6 +1818,15 @@ static void createAndInsertUnrolledLoopChildren(HLLoop *OrigLoop,
 
 static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                                 UnrollHelper &UHelper, bool IsTopLoop) {
+  // Clear NewLoop's NoAlias scope lists which were obtained from cloning
+  // OrigLoop. New scope lists will be added when doing the actual unrolling
+  // below. If we are unrolling unknown loop, both OrigLoop and NewLoop are the
+  // same. We cannot erase the scope lists in this case as the original ones are
+  // needs for cloning. It is okay to have extra scope lists in the NewLoop even
+  // if they don't have uses.
+  if (OrigLoop != NewLoop) {
+    NewLoop->clearNoAliasScopeLists();
+  }
 
   if (!IsTopLoop) {
     UHelper.setCurOrigLoop(OrigLoop->getParentLoop());
@@ -1780,59 +1895,6 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   HLNodeUtils::replace(MarkerNode, MainLoop);
 }
 
-// This function should be called only after
-// ProfileData of Loops itself has updated through
-// setupPeelMainAndRemainderLoops.
-static void updateProfDataInLoopBody(HLLoop *UnrolledLoop,
-                                     HLLoop *RemainderLoop,
-                                     unsigned UnrollFactor,
-                                     uint64_t LoopBackedgeWeightBeforeUnroll) {
-
-  // Its children do not have ProfData either.
-  if (!UnrolledLoop->getProfileData())
-    return;
-
-  HIRTransformUtils::divideProfileDataBy(
-      UnrolledLoop->child_begin(), UnrolledLoop->child_end(), UnrollFactor);
-  if (!RemainderLoop)
-    return;
-
-  // Now update remainder loop's body
-  // We need to derived a denominator D, where
-  // (T_new, F_new) of a HLNode in remainder loop body
-  //    := (T_orig / D, F_orig / D).
-  // Suppose L is the original loop, where UnrolledLoop and RemainderLoop are
-  // derived.
-  // We use following D for RemainderLoop:
-  //  D := (T_orig of L) / { (T_orig of L) % (UnrollFacotr of L) }
-  //
-  // Rationale:
-  // For the main unrolled loop,
-  // (T_new, F_new) = (T_orig / U, F_orig / U)
-  // where T/F_orig and U are branch_weights and Unroll factor of "L".
-  //  Denominator for main loop = U = T_orig / T_new
-  //
-  // Similarly,
-  //  Denominator for rem loop = T_orig /
-  //    (new portion of branch_weights asssigned to rem loop).
-  //  (new portion of branch_weights asssigned to rem loop) = T_orig % U
-  //  Thus, Denominator for rem loop = T_orig / (T_orig % U).
-
-  uint64_t RemainderLoopTrueWeight, FalseWeight;
-  RemainderLoop->extractProfileData(RemainderLoopTrueWeight, FalseWeight);
-  if (RemainderLoopTrueWeight == 0) {
-    RemainderLoopTrueWeight = 1;
-  }
-  uint64_t Denominator =
-      LoopBackedgeWeightBeforeUnroll / RemainderLoopTrueWeight;
-
-  if (Denominator == 0)
-    return;
-
-  HIRTransformUtils::divideProfileDataBy(
-      RemainderLoop->child_begin(), RemainderLoop->child_end(), Denominator);
-}
-
 void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
                     HLLoop **UnrolledLoop, HLLoop **RemainderLoop) {
   assert(Loop && "Loop is null!");
@@ -1845,17 +1907,16 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   OptReportBuilder &ORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  uint64_t LoopBackedgeWeightBeforeUnroll = 0;
-  uint64_t FalseWeight = 0;
-  Loop->extractProfileData(LoopBackedgeWeightBeforeUnroll, FalseWeight);
   if (IsUnknownLoop) {
     MainLoop = Loop;
     MainLoop->getParentRegion()->setGenCode();
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
+    MainLoop->getBottomTest()->divideProfileData(UnrollFactor);
 
     // While loop unrolled by %d
-    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
+    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low,
+                                   OptRemarkID::WhileLoopUnrollFactor,
                                    UnrollFactor);
 
   } else {
@@ -1865,15 +1926,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 
-  if (!NeedRemainderLoop && !IsUnknownLoop) {
+  if (!NeedRemainderLoop) {
     // Invalidate analysis for original loopnest if remainder loop is not needed
-    // since we reuse the instructions inside them.
+    // since we reuse the instructions inside them. For unknown loops we reuse
+    // the entire loop, that's why we need to invalidate the loop body.
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
   }
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
-
-  updateProfDataInLoopBody(MainLoop, NeedRemainderLoop ? Loop : nullptr,
-                           UnrollFactor, LoopBackedgeWeightBeforeUnroll);
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
@@ -1891,12 +1950,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
 
 PreservedAnalyses HIRUnrollAndJamPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<HIRLoopResourceAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                  PragmaOnlyUnroll)
-      .run();
+  ModifiedHIR =
+      HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                      AM.getResult<HIRLoopResourceAnalysis>(F),
+                      AM.getResult<HIRDDAnalysisPass>(F),
+                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                      PragmaOnlyUnroll)
+          .run();
 
   return PreservedAnalyses::all();
 }

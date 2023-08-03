@@ -12,6 +12,12 @@ define dso_local noundef i64 @_Z3fooRl(i64* nocapture noundef nonnull readonly a
 ; CHECK-NEXT:    store i64* [[X0]], i64** [[ALLOCA_X0]], align 8
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <8 x i64>, align 64
 ; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <8 x i64>* [[VEC_RETVAL0]] to i64*
+; CHECK-NEXT:    [[ALLOCA_FAKE_X0:%.*]] = alloca <8 x i64>, align 64
+; CHECK-NEXT:    %load.x1 = load i64*, i64** %alloca.x, align 8
+; CHECK-NEXT:    %load.elem.x = load i64, i64* %load.x1, align 4
+; CHECK-NEXT:    %.splatinsert = insertelement <8 x i64> poison, i64 %load.elem.x, i64 0
+; CHECK-NEXT:    %.splat = shufflevector <8 x i64> %.splatinsert, <8 x i64> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    store <8 x i64> %.splat, <8 x i64>* [[ALLOCA_FAKE_X0]], align 64
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -24,17 +30,19 @@ define dso_local noundef i64 @_Z3fooRl(i64* nocapture noundef nonnull readonly a
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = load i64, i64* [[LOAD_X0]], align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x i64>* [[ALLOCA_FAKE_X0]] to i64*
+; CHECK-NEXT:    [[ALLOCA_FAKE_X0_GEP:%.*]] = getelementptr i64, i64* [[TMP0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* [[ALLOCA_FAKE_X0_GEP]], align 8
 ; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 2, [[PHI_CAST0]]
-; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[TMP0]], [[STRIDE_MUL0]]
+; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[TMP1]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[STRIDE_ADD0]], 1
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i64, i64* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i64 [[ADD0]], i64* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[INDVAR0]] = add nuw nsw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 8
 ; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
@@ -43,8 +51,7 @@ define dso_local noundef i64 @_Z3fooRl(i64* nocapture noundef nonnull readonly a
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i64* [[RET_CAST0]] to <8 x i64>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RETVAL0]], align 64
 ; CHECK-NEXT:    ret <8 x i64> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

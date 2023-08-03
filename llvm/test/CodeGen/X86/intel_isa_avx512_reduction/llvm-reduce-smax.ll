@@ -132,8 +132,8 @@ define i64 @reduce_smaxq_4xi64(<4 x i64> %vec) {
 define i64 @reduce_smaxq_3xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smaxq_3xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vbroadcastsd {{.*#+}} ymm0 = [9223372036854775808,9223372036854775808,9223372036854775808,9223372036854775808]
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
+; AVX512REDUCTION-NEXT:    vpbroadcastq {{.*#+}} ymm0 = [9223372036854775808,9223372036854775808,9223372036854775808,9223372036854775808]
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
 ; AVX512REDUCTION-NEXT:    vphrmaxsq %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -193,9 +193,9 @@ declare i64 @llvm.vector.reduce.smax.v1i64(<1 x i64>)
 define i32 @reduce_smaxd_17xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smaxd_17xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [2147483648,2147483648,2147483648,2147483648]
 ; AVX512REDUCTION-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648]
 ; AVX512REDUCTION-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512REDUCTION-NEXT:    vpmaxsd (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphrmaxsd %zmm0, %xmm0
@@ -205,9 +205,9 @@ define i32 @reduce_smaxd_17xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_smaxd_17xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [2147483648,2147483648,2147483648,2147483648]
 ; AVX512F-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648]
 ; AVX512F-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512F-NEXT:    vpmaxsd (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
@@ -335,8 +335,8 @@ define i32 @reduce_smaxd_8xi32(<8 x i32> %vec) {
 define i32 @reduce_smaxd_7xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smaxd_7xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vbroadcastss {{.*#+}} ymm0 = [2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648]
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} ymm0 = [2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648]
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
 ; AVX512REDUCTION-NEXT:    vphrmaxsd %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -454,7 +454,7 @@ declare i32 @llvm.vector.reduce.smax.v1i32(<1 x i32>)
 define i16 @reduce_smaxw_33xi16(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smaxw_33xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [32768,32768,32768,32768,32768,32768,32768,32768]
 ; AVX512REDUCTION-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpmaxsw (%rdi), %ymm0, %ymm0
@@ -469,7 +469,7 @@ define i16 @reduce_smaxw_33xi16(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_smaxw_33xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768,32768>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [32768,32768,32768,32768,32768,32768,32768,32768]
 ; AVX512F-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpmaxsw (%rdi), %ymm0, %ymm0
@@ -523,7 +523,7 @@ define i16 @reduce_smaxw_32xi16(<32 x i16> %vec) {
 ; AVX512F-NEXT:    vpmaxsw %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -602,7 +602,7 @@ define i16 @reduce_smaxw_16xi16(<16 x i16> %vec) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -671,7 +671,7 @@ define i16 @reduce_smaxw_8xi16(<8 x i16> %vec) {
 ;
 ; AVX512F-LABEL: reduce_smaxw_8xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -769,10 +769,9 @@ define i16 @reduce_smaxw_3xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_smaxw_3xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzwl %ax, %edx
-; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $16, %edx
+; AVX512F-NEXT:    cmpw %dx, %cx
 ; AVX512F-NEXT:    cmovgl %ecx, %edx
 ; AVX512F-NEXT:    shrq $32, %rcx
 ; AVX512F-NEXT:    movzwl %cx, %eax
@@ -852,7 +851,7 @@ declare i16 @llvm.vector.reduce.smax.v1i16(<1 x i16>)
 define i8 @reduce_smaxb_65xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smaxb_65xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128]
 ; AVX512REDUCTION-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpmaxsb (%rdi), %ymm0, %ymm0
@@ -867,7 +866,7 @@ define i8 @reduce_smaxb_65xi8(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_smaxb_65xi8:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128]
 ; AVX512F-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpmaxsb (%rdi), %ymm0, %ymm0
@@ -945,7 +944,7 @@ define i8 @reduce_smaxb_64xi8(<64 x i8> %vec) {
 ; AVX512F-NEXT:    vpmaxsb %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsb %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
@@ -1114,7 +1113,7 @@ define i8 @reduce_smaxb_32xi8(<32 x i8> %vec) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsb %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
@@ -1238,7 +1237,7 @@ define i8 @reduce_smaxb_16xi8(<16 x i8> %vec) {
 ;
 ; AVX512F-LABEL: reduce_smaxb_16xi8:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
@@ -1371,21 +1370,20 @@ define i8 @reduce_smaxb_7xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_smaxb_7xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $8, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    movl %ecx, %eax
+; AVX512F-NEXT:    shrl $8, %eax
+; AVX512F-NEXT:    movzbl %al, %eax
 ; AVX512F-NEXT:    cmpb %al, %cl
-; AVX512F-NEXT:    cmovgl %ecx, %edx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzbl %al, %esi
-; AVX512F-NEXT:    cmpb %al, %dl
-; AVX512F-NEXT:    cmovgl %edx, %esi
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $24, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
-; AVX512F-NEXT:    cmpb %al, %sil
-; AVX512F-NEXT:    cmovgl %esi, %edx
+; AVX512F-NEXT:    cmovgl %ecx, %eax
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $16, %edx
+; AVX512F-NEXT:    movzbl %dl, %edx
+; AVX512F-NEXT:    cmpb %dl, %al
+; AVX512F-NEXT:    cmovlel %edx, %eax
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $24, %edx
+; AVX512F-NEXT:    cmpb %dl, %al
+; AVX512F-NEXT:    cmovgl %eax, %edx
 ; AVX512F-NEXT:    movq %rcx, %rax
 ; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    movzbl %al, %esi

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -29,9 +29,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Vectorize.h"
-#include "llvm-c/Initialization.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 
@@ -45,38 +43,6 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
   initializeVPlanPragmaOmpOrderedSimdExtractPass(Registry);
   initializeVPlanPragmaOmpSimdIfPass(Registry);
-  initializeVPlanDriverPass(Registry);
-  initializeVPlanDriverHIRPass(Registry);
   initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
 }
-
-void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
-  initializeVectorization(*unwrap(R));
-}
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddLoadCoalescingPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoadCoalescingPass());
-}
-
-void LLVMAddMathLibraryFunctionReplacementPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createMathLibraryFunctionsReplacementPass());
-}
-
-void LLVMAddVPlanPragmaOmpOrderedSimdExtractPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanPragmaOmpOrderedSimdExtractPass());
-}
-
-void LLVMAddVPlanPragmaOmpSimdIfPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanPragmaOmpSimdIfPass());
-}
-
-void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanDriverPass());
-}
-
-void LLVMAddVPlanDriverHIRPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanDriverHIRPass(false));
-}
-#endif

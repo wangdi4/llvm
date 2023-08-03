@@ -5,14 +5,14 @@
 
 ; CHECK: Switch instruction with multiple successors outside the loop currently not supported.
 
-define void @foo(i8* %call) {
+define void @foo(ptr %call) {
 entry:
   br label %land.lhs.true
 
 land.lhs.true:                                    ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i8, i8* %call, i64 %indvars.iv
-  %t3 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %call, i64 %indvars.iv
+  %t3 = load i8, ptr %arrayidx, align 1
   switch i8 %t3, label %for.body [
     i8 0, label %for.end
     i8 32, label %for.end

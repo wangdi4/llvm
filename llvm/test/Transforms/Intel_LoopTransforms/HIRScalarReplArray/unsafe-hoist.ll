@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @foo(i32* nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp13 = icmp sgt i32 %n, 0
   br i1 %cmp13, label %for.body.preheader, label %for.end
@@ -30,14 +30,14 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp eq i64 %indvars.iv, 0
   br i1 %cmp1, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx3, align 4, !tbaa !2
   %add4 = add nsw i32 %1, %0
   br label %for.inc
 

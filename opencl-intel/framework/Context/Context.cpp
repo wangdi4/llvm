@@ -61,9 +61,8 @@ Context::Context(const cl_context_properties *clProperties,
                  ContextModule &contextModule)
     : OCLObject<_cl_context_int>(
           nullptr, "Context"), // Context doesn't have conext to belong
-      m_bTEActivated(false), m_ppExplicitRootDevices(nullptr),
-      m_ppAllDevices(nullptr), m_pDeviceIds(nullptr),
-      m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
+      m_ppExplicitRootDevices(nullptr), m_ppAllDevices(nullptr),
+      m_pDeviceIds(nullptr), m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
       m_pclContextProperties(nullptr), m_fpgaEmulator(false),
       m_useAutoMemory(false), m_pfnNotify(nullptr), m_pUserData(nullptr),
       m_ulMaxMemAllocSize(0), m_MemObjectsHeap(nullptr),
@@ -74,8 +73,7 @@ Context::Context(const cl_context_properties *clProperties,
 
   m_programService.SetContext(this);
   LOG_INFO(TEXT("%s"), "TaskExecutor->Activate()");
-  m_bTEActivated = FrameworkProxy::Instance()->ActivateTaskExecutor();
-  if (!m_bTEActivated) {
+  if (!FrameworkProxy::Instance()->ActivateTaskExecutor()) {
     *pclErr = CL_OUT_OF_HOST_MEMORY;
     return;
   }
@@ -312,11 +310,6 @@ void Context::Cleanup(bool bTerminate) {
     if (m_ppAllDevices[ui]->IsRootLevelDevice()) {
       m_ppAllDevices[ui]->GetRootDevice()->CloseDeviceInstance();
     }
-  }
-  if (m_bTEActivated) {
-    LOG_INFO(TEXT("%s"), TEXT("GetTaskExecutor()->Deactivate();"));
-    FrameworkProxy::Instance()->DeactivateTaskExecutor();
-    m_bTEActivated = false;
   }
   delete this;
 }

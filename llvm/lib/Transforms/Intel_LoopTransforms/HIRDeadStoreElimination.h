@@ -46,6 +46,16 @@ struct LifeTimeEndInfo {
 typedef DenseMap<unsigned, SmallVector<LifeTimeEndInfo, 4>>
     BasePtrToLifetimeEndInfoMapTy;
 
+// Describes whether a base ptr has a single definition in a loop
+// which dominates all the uses.
+struct NonLinearTempInfo {
+  const HLLoop *DefLoop;
+  bool HasSingleDominatingDef;
+
+  NonLinearTempInfo(const HLLoop *DefLoop, bool HasSingleDominatingDef)
+      : DefLoop(DefLoop), HasSingleDominatingDef(HasSingleDominatingDef) {}
+};
+
 namespace dse {
 
 class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
@@ -82,9 +92,21 @@ class HIRDeadStoreElimination {
   // based on the base ptr blob index as the key.
   BasePtrToLifetimeEndInfoMapTy FakeLifetimeEndRefs;
 
+  // Map of non-linear temp symbases to the loops they are defined in.
+  DenseMap<unsigned, SmallVector<NonLinearTempInfo, 2>> NonLinearTempInfoMap;
+
   // Map of base ptr value to the region where all the loads of the base ptr
   // exist in the function.
   DenseMap<Value *, HLRegion *> AllLoadsInSingleRegion;
+
+  /// Checks the common parent loops of \p PostDominatingLoop and \p PrevLoop to
+  /// make sure they have valid bounds for perfoming DSE. Returns a new node
+  /// range via \p OutermostPostDominatingNode and \p OutermostPrevNode where
+  /// unsafe calls need to be checked to prove safety of DSE.
+  bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
+                                const HLLoop *PrevLoop, const RegDDRef *Ref,
+                                const HLNode *&OutermostPostDominatingNode,
+                                const HLNode *&OutermostPrevNode);
 
   bool isValidParentChain(const HLNode *PostDomNode, const HLNode *PrevNode,
                           const RegDDRef *PostDomRef);
@@ -111,6 +133,11 @@ class HIRDeadStoreElimination {
   /// Inserts applicable fake lifetime intrinsics to this ref group while
   /// maintaining the lexical order.
   void insertFakeLifetimeRefs(RefGroupTy &RefGroup);
+
+  /// Returns true if \p Ref has a single non-linear blob at \p Level which has
+  /// a single definition which dominates all the uses.
+  bool hasSingleDominatingNonLinearTempAtLevel(const RegDDRef *Ref,
+                                               unsigned Level);
 
 public:
   HIRDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,

@@ -30,14 +30,6 @@ else()
 endif()
 set(install_dest_lib lib${LLVM_LIBDIR_SUFFIX})
 
-if (INTEL_CUSTOMIZATION)
-  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    # If building the new unified layout, deploy in the component-private area.
-    string(PREPEND install_dest_lib "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
-    string(PREPEND install_dest_spv "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
-  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-endif(INTEL_CUSTOMIZATION)
-
 set(clang $<TARGET_FILE:clang>)
 set(llvm-ar $<TARGET_FILE:llvm-ar>)
 
@@ -202,7 +194,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/acos_s_ha.cpp
                            imf/intel/acosh_s_la.cpp
                            imf/intel/erf_s_ha.cpp
-                           imf/intel/cospi_s_ha.cpp
+                           imf/intel/cospi_s_la.cpp
                            imf/intel/cosh_s_la.cpp
                            imf/intel/frexp_s_xa.cpp
                            imf/intel/fmod_s_xa.cpp
@@ -228,7 +220,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/ilogb_s_xa.cpp
                            imf/intel/tan_s_la.cpp
                            imf/intel/sin_s_la.cpp
-                           imf/intel/sinpi_s_ha.cpp
+                           imf/intel/sinpi_s_la.cpp
                            imf/intel/sinh_s_la.cpp
                            imf/intel/sincos_s_la.cpp
                            imf/intel/sincospi_s_la.cpp
@@ -258,12 +250,15 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/scalbn_s_xa.cpp
                            imf/intel/signbit_s_xa.cpp
                            imf/intel/i0_s_ep.cpp
+                           imf/intel/i1_s_ep.cpp
                            imf/intel/j0_s_ep.cpp
                            imf/intel/j1_s_ep.cpp
                            imf/intel/y0_s_ep.cpp
                            imf/intel/y1_s_ep.cpp
+                           imf/intel/pown_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
-                           imf/imf_inline_fp32.cpp)
+                           imf/imf_inline_fp32.cpp
+                           imf/imf_fp32_dl.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
                            # INTEL_CUSTOMIZATION
@@ -335,8 +330,15 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/tgamma_d_ep.cpp
                            imf/intel/lgamma_d_ep.cpp
                            imf/intel/i0_d_ep.cpp
+                           imf/intel/i1_d_ep.cpp
+                           imf/intel/j0_d_ep.cpp
+                           imf/intel/j1_d_ep.cpp
+                           imf/intel/y0_d_ep.cpp
+                           imf/intel/y1_d_ep.cpp
+                           imf/intel/pown_d_la.cpp
                            # end INTEL_CUSTOMIZATION
-                           imf/imf_inline_fp64.cpp)
+                           imf/imf_inline_fp64.cpp
+                           imf/imf_fp64_dl.cpp)
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
                            imf_utils/bfloat16_convert.cpp
                            imf/imf_inline_bf16.cpp)
@@ -344,6 +346,19 @@ set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
 set(imf_fp32_fallback_src ${imf_fallback_src_dir}/imf_fp32_fallback.cpp)
 set(imf_fp64_fallback_src ${imf_fallback_src_dir}/imf_fp64_fallback.cpp)
 set(imf_bf16_fallback_src ${imf_fallback_src_dir}/imf_bf16_fallback.cpp)
+
+# INTEL_CUSTOMIZATION
+set(imf_fp32_dl_deps device.h device_imf.hpp
+                              imf/imf_fp32_dl.cpp
+                              imf/intel/pown_s_ep.cpp
+                              imf/intel/lgamma_s_ep.cpp)
+set(imf_fp64_dl_deps device.h device_imf.hpp
+	                      imf/imf_fp64_dl.cpp
+                              imf/intel/pown_d_la.cpp
+                              imf/intel/lgamma_d_ep.cpp)
+set(imf_fp32_dl_src ${imf_fallback_src_dir}/imf_fp32_dl.cpp)
+set(imf_fp64_dl_src ${imf_fallback_src_dir}/imf_fp64_dl.cpp)
+# end INTEL_CUSTOMIZATION
 
 set(imf_host_cxx_flags -c
   # INTEL_CUSTOMIZATION
@@ -380,6 +395,43 @@ add_custom_command(OUTPUT ${imf_bf16_fallback_src}
                                              # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_bf16_deps})
+
+# INTEL_CUSTOMIZATION
+add_custom_command(OUTPUT ${imf_fp32_dl_src}
+                   COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
+                                            -D DEST_DIR=${imf_fallback_src_dir}
+					    -D IMF_TARGET=FP32_DL
+                                            -D OMP_LIBDEVICE=0
+                                            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
+                   DEPENDS ${imf_fp32_dl_deps})
+
+add_custom_command(OUTPUT ${imf_fp64_dl_src}
+                   COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
+                                            -D DEST_DIR=${imf_fallback_src_dir}
+					    -D IMF_TARGET=FP64_DL
+                                            -D OMP_LIBDEVICE=0
+                                            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
+                   DEPENDS ${imf_fp64_dl_deps})
+
+add_custom_target(get_imf_fp32_dl  DEPENDS ${imf_fp32_dl_src})
+add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-imf-dl.spv
+                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                           ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
+                           ${imf_fp32_dl_src}
+                           -o ${spv_binary_dir}/libsycl-imf-dl.spv
+                   DEPENDS ${imf_fp32_dl_deps} get_imf_fp32_dl sycl-compiler
+                   VERBATIM)
+
+add_custom_target(get_imf_fp64_dl  DEPENDS ${imf_fp64_dl_src})
+add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-imf-dl-fp64.spv
+                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                           ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
+                           ${imf_fp64_dl_src}
+                           -o ${spv_binary_dir}/libsycl-imf-dl-fp64.spv
+                   DEPENDS ${imf_fp64_dl_deps} get_imf_fp64_dl sycl-compiler
+                   VERBATIM)
+
+# end INTEL_CUSTOMIZATION
 
 add_custom_target(get_imf_fallback_fp32  DEPENDS ${imf_fp32_fallback_src})
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf.spv
@@ -474,6 +526,13 @@ add_custom_target(imf_fallback_bf16_host_obj DEPENDS ${obj_binary_dir}/fallback-
 add_dependencies(libsycldevice-spv imf_fallback_bf16_spv)
 add_dependencies(libsycldevice-obj imf_fallback_bf16_obj)
 
+# INTEL_CUSTOMIZATION
+add_custom_target(imf_dl_fp32_spv DEPENDS ${spv_binary_dir}/libsycl-imf-dl.spv)
+add_custom_target(imf_dl_fp64_spv DEPENDS ${spv_binary_dir}/libsycl-imf-dl-fp64.spv)
+add_dependencies(libsycldevice-spv imf_dl_fp32_spv)
+add_dependencies(libsycldevice-spv imf_dl_fp64_spv)
+# end INTEL_CUSTOMIZATION
+
 add_custom_command(OUTPUT ${obj_binary_dir}/imf-fp32-host.${lib-suffix}
                    COMMAND ${clang} ${imf_host_cxx_flags}
                            ${CMAKE_CURRENT_SOURCE_DIR}/imf_wrapper.cpp
@@ -520,6 +579,10 @@ add_dependencies(libsycldevice-obj imf_host_obj)
 install(FILES ${spv_binary_dir}/libsycl-fallback-imf.spv
               ${spv_binary_dir}/libsycl-fallback-imf-fp64.spv
               ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv
+# INTEL_CUSTOMIZATION
+              ${spv_binary_dir}/libsycl-imf-dl.spv
+              ${spv_binary_dir}/libsycl-imf-dl-fp64.spv
+# end INTEL_CUSTOMIZATION
         DESTINATION ${install_dest_spv}
         COMPONENT libsycldevice)
 

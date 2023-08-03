@@ -25,24 +25,24 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.inc5, %entry
-  %p.019 = phi i32* [ getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 1, i64 0), %entry ], [ %incdec.ptr, %for.inc5 ]
+  %p.019 = phi ptr [ getelementptr inbounds ([10 x i32], ptr @A, i64 1, i64 0), %entry ], [ %incdec.ptr, %for.inc5 ]
   %i.018 = phi i32 [ 0, %entry ], [ %inc6, %for.inc5 ]
-  %incdec.ptr = getelementptr inbounds i32, i32* %p.019, i64 %t
-  %0 = load i32, i32* %incdec.ptr, align 4, !tbaa !2
+  %incdec.ptr = getelementptr inbounds i32, ptr %p.019, i64 %t
+  %0 = load i32, ptr %incdec.ptr, align 4, !tbaa !2
   %add = add nsw i32 %0, %i.018
   br i1 %cmp216, label %for.body3.preheader, label %for.inc5
 
 for.body3.preheader:                              ; preds = %for.body
-  store i32 %add, i32* %incdec.ptr, align 4, !tbaa !2
+  store i32 %add, ptr %incdec.ptr, align 4, !tbaa !2
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %2 = trunc i64 %indvars.iv to i32
   %add4 = add nsw i32 %1, %2
-  store i32 %add4, i32* %arrayidx, align 4, !tbaa !6
+  store i32 %add4, ptr %arrayidx, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.inc5.loopexit, label %for.body3

@@ -272,29 +272,29 @@ define void @load_i8_stride6_vf4(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr 
 ; AVX512-LABEL: load_i8_stride6_vf4:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    movq {{[0-9]+}}(%rsp), %rax # encoding: [0x48,0x8b,0x44,0x24,0x08]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 # EVEX TO VEX Compression xmm0 = [302777856,302777856,302777856,302777856]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 # EVEX TO VEX Compression xmm0 = [0,6,12,18,0,6,12,18,0,6,12,18,0,6,12,18]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x05,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vmovdqa (%rdi), %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6f,0x0f]
 ; AVX512-NEXT:    vmovdqa 16(%rdi), %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6f,0x57,0x10]
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm0 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xc2]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [319620865,319620865,319620865,319620865]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [1,7,13,19,1,7,13,19,1,7,13,19,1,7,13,19]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x1d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm3 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xda]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm4 # EVEX TO VEX Compression xmm4 = [336463874,336463874,336463874,336463874]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm4 # EVEX TO VEX Compression xmm4 = [2,8,14,20,2,8,14,20,2,8,14,20,2,8,14,20]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x25,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm4 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xe2]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm5 # EVEX TO VEX Compression xmm5 = [353306883,353306883,353306883,353306883]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm5 # EVEX TO VEX Compression xmm5 = [3,9,15,21,3,9,15,21,3,9,15,21,3,9,15,21]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x2d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm5 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xea]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm6 # EVEX TO VEX Compression xmm6 = [370149892,370149892,370149892,370149892]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm6 # EVEX TO VEX Compression xmm6 = [4,10,16,22,4,10,16,22,4,10,16,22,4,10,16,22]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x35,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm6 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xf2]
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm7 # EVEX TO VEX Compression xmm7 = [386992901,386992901,386992901,386992901]
+; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm7 # EVEX TO VEX Compression xmm7 = [5,11,17,23,5,11,17,23,5,11,17,23,5,11,17,23]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x3d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm2, %xmm1, %xmm7 # encoding: [0x62,0xf2,0x75,0x08,0x75,0xfa]
@@ -567,29 +567,29 @@ define void @load_i8_stride6_vf8(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr 
 ; AVX512-NEXT:    movq {{[0-9]+}}(%rsp), %rax # encoding: [0x48,0x8b,0x44,0x24,0x08]
 ; AVX512-NEXT:    vmovdqa (%rdi), %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6f,0x07]
 ; AVX512-NEXT:    vmovdqa 32(%rdi), %ymm1 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6f,0x4f,0x20]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = <0,6,12,18,24,30,36,42,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x15,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,6,12,18,24,30,36,42,0,6,12,18,24,30,36,42]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm2 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xd1]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = <1,7,13,19,25,31,37,43,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x1d,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm3 # EVEX TO VEX Compression xmm3 = [1,7,13,19,25,31,37,43,1,7,13,19,25,31,37,43]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x1d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm3 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xd9]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm4 # EVEX TO VEX Compression xmm4 = <2,8,14,20,26,32,38,44,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x25,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm4 # EVEX TO VEX Compression xmm4 = [2,8,14,20,26,32,38,44,2,8,14,20,26,32,38,44]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x25,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm4 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xe1]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm5 # EVEX TO VEX Compression xmm5 = <3,9,15,21,27,33,39,45,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x2d,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm5 # EVEX TO VEX Compression xmm5 = [3,9,15,21,27,33,39,45,3,9,15,21,27,33,39,45]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x2d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm5 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xe9]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm6 # EVEX TO VEX Compression xmm6 = <4,10,16,22,28,34,40,46,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x35,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm6 # EVEX TO VEX Compression xmm6 = [4,10,16,22,28,34,40,46,4,10,16,22,28,34,40,46]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x35,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm6 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xf1]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm7 # EVEX TO VEX Compression xmm7 = <5,11,17,23,29,35,41,47,u,u,u,u,u,u,u,u>
-; AVX512-NEXT:    # encoding: [0xc5,0xf9,0x6f,0x3d,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm7 # EVEX TO VEX Compression xmm7 = [5,11,17,23,29,35,41,47,5,11,17,23,29,35,41,47]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x3d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm7 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xf9]
 ; AVX512-NEXT:    vmovq %xmm2, (%rsi) # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xd6,0x16]
 ; AVX512-NEXT:    vmovq %xmm3, (%rdx) # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xd6,0x1a]
@@ -1079,7 +1079,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    movq {{[0-9]+}}(%rsp), %rax # encoding: [0x48,0x8b,0x44,0x24,0x08]
 ; AVX512-NEXT:    vmovdqa (%rdi), %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6f,0x07]
 ; AVX512-NEXT:    vmovdqa 32(%rdi), %ymm1 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6f,0x4f,0x20]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [1879142372076421120,1879142372076421120]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,0,0,2,8,14,20,26,0,0,0,2,8,14,20,26]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vmovdqa 80(%rdi), %xmm3 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6f,0x5f,0x50]
@@ -1093,7 +1093,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    # imm = 0xF800
 ; AVX512-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; AVX512-NEXT:    vmovdqu8 %xmm2, %xmm5 {%k1} # encoding: [0x62,0xf1,0x7f,0x09,0x6f,0xea]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [1951482544914432000,1951482544914432000]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,0,0,3,9,15,21,27,0,0,0,3,9,15,21,27]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm3, %xmm4, %xmm2 # encoding: [0x62,0xf2,0x5d,0x08,0x75,0xd3]
@@ -1102,7 +1102,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm6 # encoding: [0x62,0xf2,0x7d,0x28,0x75,0xf1]
 ; AVX512-NEXT:    vmovdqu8 %xmm2, %xmm6 {%k1} # encoding: [0x62,0xf1,0x7f,0x09,0x6f,0xf2]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [866380090320093184,866380090320093184]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,0,0,20,26,0,6,12,0,0,0,20,26,0,6,12]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm4, %xmm3, %xmm2 # encoding: [0x62,0xf2,0x65,0x08,0x75,0xd4]
@@ -1111,7 +1111,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm0, %ymm1, %ymm7 # encoding: [0x62,0xf2,0x75,0x28,0x75,0xf8]
 ; AVX512-NEXT:    vmovdqu8 %xmm2, %xmm7 {%k1} # encoding: [0x62,0xf1,0x7f,0x09,0x6f,0xfa]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [938720263158104064,938720263158104064]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,0,0,21,27,1,7,13,0,0,0,21,27,1,7,13]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm4, %xmm3, %xmm2 # encoding: [0x62,0xf2,0x65,0x08,0x75,0xd4]
@@ -1120,7 +1120,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %ymm0, %ymm1, %ymm8 # encoding: [0x62,0x72,0x75,0x28,0x75,0xc0]
 ; AVX512-NEXT:    vmovdqu8 %xmm2, %xmm8 {%k1} # encoding: [0x62,0x71,0x7f,0x09,0x6f,0xc2]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [2168503063428464640,2168503063428464640]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [0,0,0,6,12,18,24,30,0,0,0,6,12,18,24,30]
 ; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x15,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm3, %xmm4, %xmm2 # encoding: [0x62,0xf2,0x5d,0x08,0x75,0xd3]
@@ -1130,7 +1130,7 @@ define void @load_i8_stride6_vf16(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    vpermi2b %ymm1, %ymm0, %ymm9 # encoding: [0x62,0x72,0x7d,0x28,0x75,0xc9]
 ; AVX512-NEXT:    vpblendw $224, %xmm2, %xmm9, %xmm2 # encoding: [0xc4,0xe3,0x31,0x0e,0xd2,0xe0]
 ; AVX512-NEXT:    # xmm2 = xmm9[0,1,2,3,4],xmm2[5,6,7]
-; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm9 # EVEX TO VEX Compression xmm9 = [2240843236266541056,2240843236266541056]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm9 # EVEX TO VEX Compression xmm9 = [0,0,1,7,13,19,25,31,0,0,1,7,13,19,25,31]
 ; AVX512-NEXT:    # encoding: [0xc4,0x62,0x79,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vpermi2b %xmm3, %xmm4, %xmm9 # encoding: [0x62,0x72,0x5d,0x08,0x75,0xcb]

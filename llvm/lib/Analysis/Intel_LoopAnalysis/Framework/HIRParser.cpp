@@ -34,6 +34,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -1673,6 +1674,13 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
+  auto *OrigBaseInst = BaseInst;
+
+  if (Inst != BaseInst) {
+    BaseInst = ScalarSA.getOutermostLoopHeaderSCCPhi(BaseInst,
+                                                     CurRegion->getIRRegion());
+  }
+
   // Handle the easier region livein case.
   // Use BaseInst to correctly handle case 3) above.
   if (!CurRegion->containsBBlock(BaseInst->getParent())) {
@@ -1706,8 +1714,8 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   const Loop *SCCDefLoop = nullptr;
   HLLoop *ReachingDefLoop = nullptr;
   if (BaseIsLoopHeaderPhi && UseLoop &&
-      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(BaseInst, UseLoop->getLLVMLoop(),
-                                               CurRegion->getIRRegion()))) {
+      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(
+           OrigBaseInst, UseLoop->getLLVMLoop(), CurRegion->getIRRegion()))) {
     ReachingDefLoop = LF.findHLLoop(SCCDefLoop);
   } else if (BaseIsDeconstructedPhi) {
     ReachingDefLoop = OrigDefLoop;
@@ -3155,6 +3163,7 @@ class DimInfo {
   Value *Stride = nullptr;
   bool IsExactMultiple = true;
   bool CanVarDimStrideBeZero = false;
+  bool IsDimStrideReversed = false;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
@@ -3179,6 +3188,8 @@ public:
   void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
   bool canVarDimStrideBeZero() const { return CanVarDimStrideBeZero; }
   void setVarDimStrideCanBeZero(bool Flag) { CanVarDimStrideBeZero = Flag; }
+  bool isDimStrideReversed() const { return IsDimStrideReversed; }
+  void setDimStrideReversed(bool Flag) { IsDimStrideReversed = Flag; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3300,6 +3311,8 @@ public:
     return Dimensions[Idx];
   }
 
+  void eraseDim(unsigned Idx) { Dimensions.erase(Dimensions.begin() + Idx); }
+
   const DimInfo &getHighestDim() const { return Dimensions[getMaxRank()]; }
   const DimInfo &getLowestDim() const { return Dimensions[getMinRank()]; }
 
@@ -3419,8 +3432,12 @@ class HIRParser::GEPChain {
   bool isCompatible(const ArrayInfo &NextAI,
                     const GEPOrSubsOperator *NextGEPOp) const;
 
+  // Removes dims with zero index and same stride as the next dim.
+  void removeDummyDims();
+
 public:
-  using iterator = decltype(Arrays)::const_iterator;
+  using iterator = decltype(Arrays)::iterator;
+  using const_iterator = decltype(Arrays)::const_iterator;
 
   IntegerType *getOffsetTy() const { return OffsetTy; }
 
@@ -3433,8 +3450,11 @@ public:
 
   const GEPOrSubsOperator *getBase() const { return Base; }
 
-  iterator begin() const { return Arrays.begin(); }
-  iterator end() const { return Arrays.end(); }
+  const_iterator begin() const { return Arrays.begin(); }
+  const_iterator end() const { return Arrays.end(); }
+
+  iterator begin() { return Arrays.begin(); }
+  iterator end() { return Arrays.end(); }
 
   const ArrayInfo &front() const { return Arrays.front(); }
   const ArrayInfo &back() const { return Arrays.back(); }
@@ -3478,6 +3498,35 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
     GEPOp = NextGEPOp;
     setBase(GEPOp);
   }
+
+  removeDummyDims();
+}
+
+void HIRParser::GEPChain::removeDummyDims() {
+  // This helps eliminate 0 index dims from references like A[i1][0][i2] so they
+  // get converted into A[i1][i2]. This can help trigger optimizations such as
+  // collapsing. The dimension can be eliminated when the strides and element
+  // types of the 2nd and 3rd dimension are the same.
+  for (auto &Arr : *this) {
+
+    if (Arr.isEmpty()) {
+      continue;
+    }
+
+    for (unsigned I = Arr.getMinRank(); I < Arr.getMaxRank();) {
+      auto &CurDim = Arr.getDim(I);
+      auto &NextDim = Arr.getDim(I + 1);
+
+      if (CurDim.isDefined() && CurDim.isZero() &&
+          (CurDim.getStride() == NextDim.getStride()) &&
+          (CurDim.getElementType() == NextDim.getElementType())) {
+        Arr.eraseDim(I);
+        continue;
+      }
+
+      ++I;
+    }
+  }
 }
 
 std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
@@ -3490,6 +3539,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
   Dim.setStrideIsExactMultiple(Sub->isExact());
   Dim.setVarDimStrideCanBeZero(Sub->canVarDimStrideBeZero());
+  Dim.setDimStrideReversed(Sub->isDimStrideReversed());
   Dim.setExtent(Sub->getExtent());
 
   return {Arr};
@@ -3893,6 +3943,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
   GEPChain Chain(*this, GEPOp);
   auto *OffsetTy = Chain.getOffsetTy();
   bool AnyVarDimStrideMayBeZero = false;
+  bool AnyDimStrideReversed = false;
 
   // If Ref has existing dimensions we may have to start from merging in the
   // highest dimension, but only if the first dimension we just parsed does not
@@ -3959,6 +4010,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                                Dim.isStrideExactMultiple());
       AnyVarDimStrideMayBeZero =
           AnyVarDimStrideMayBeZero || Dim.canVarDimStrideBeZero();
+      AnyDimStrideReversed =
+          AnyDimStrideReversed || Dim.isDimStrideReversed();
     }
   }
 
@@ -3970,6 +4023,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
   Ref->setAnyVarDimStrideMayBeZero(AnyVarDimStrideMayBeZero);
+  Ref->setAnyDimStrideReversed(AnyDimStrideReversed);
 }
 
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
@@ -4655,6 +4709,21 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
     return true;
   }
 
+  if (auto *NoAliasScopeInst = dyn_cast<NoAliasScopeDeclInst>(Intrin)) {
+    auto *ParLoop = HInst->getParentLoop();
+
+    // We should keep these intrinsics in HIR if they are outside any loops as
+    // they are unlikely to affect loop optimizations.
+    if (!ParLoop) {
+      return false;
+    }
+
+    ParLoop->addNoAliasScopeList(NoAliasScopeInst->getScopeList());
+
+    HLNodeUtils::erase(HInst);
+    return true;
+  }
+
   bool IsBegin = false;
 
   if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
@@ -4803,8 +4872,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory() &&
                              !Call->onlyAccessesInaccessibleMemory());
-  bool IsReadOnly =
-      (FakeDDRefsRequired && Call->onlyReadsMemory());
+  bool IsReadOnly = (FakeDDRefsRequired && Call->onlyReadsMemory());
 
   unsigned NumArgOperands = Call ? Call->arg_size() : 0;
 
@@ -5236,8 +5304,17 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
 
     auto *BasePtrElemTy = Ref->getBasePtrElementType();
 
-    if (!BasePtrElemTy || BasePtrElemTy->isAggregateType() ||
-        Ref->getDimensionConstLower(1) != 0 ||
+    // No longer bailout when BasePtrElemTy->isAggregateType().
+    // This helps passing ddtests with more memrefs
+    // specifically with refs from unroll and jam.
+    // Example:
+    //  A[2 * N * i1 + i2].1 and A[2 * N * i1 + i2 + N].1
+    //  With delinearization, A[2*i1][i2].1, A[2*i1 + 1][i2].1
+    //  Condition (N > 0) from delinearization will help later to resolve
+    //  dependences between A[2 * N * i1 + i2].1 and A[2 * N * i1 + i2 + N].1
+    // Notice the delinearization results are only used in runtime DD tests,
+    // and actual refs are not converted to the delinearized forms.
+    if (!BasePtrElemTy || Ref->getDimensionConstLower(1) != 0 ||
         Ref->getDimensionConstStride(1) == 0) {
       return false;
     }

@@ -10,23 +10,30 @@
 ; CHECK-NEXT:    [[TMP0:%.*]] = udiv i16 [[COL1:%.*]], 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 [[ROW:%.*]], i16 [[COL0:%.*]], i16 [[COL1]], i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64 0, i64 0), i64 32) #[[ATTR3:[0-9]+]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP1]], 0
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <256 x i32>* [[M:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP3]], i64 64, x86_amx [[TMP2]])
-; CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP1]], 1
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP5]], i64 64, x86_amx [[TMP4]])
-; CHECK-NEXT:    [[TMP6:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 [[ROW]], i16 [[COL0]]) #[[ATTR3]]
+; CHECK-NEXT:    [[TMP3:%.*]] = sext i16 [[COL0]] to i64
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <256 x i32>* [[M:%.*]] to i8*
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP4]], i64 [[TMP3]], x86_amx [[TMP2]])
+; CHECK-NEXT:    [[TMP5:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP1]], 1
+; CHECK-NEXT:    [[TMP6:%.*]] = sext i16 [[COL1]] to i64
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP7]], i64 64, x86_amx [[TMP6]])
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP9:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP8]], i64 64)
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP7]], i64 [[TMP6]], x86_amx [[TMP5]])
+; CHECK-NEXT:    [[TMP8:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 [[ROW]], i16 [[COL0]]) #[[ATTR3]]
+; CHECK-NEXT:    [[TMP9:%.*]] = sext i16 [[COL0]] to i64
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP11:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP10]], i64 64)
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP10]], i64 [[TMP9]], x86_amx [[TMP8]])
+; CHECK-NEXT:    [[TMP11:%.*]] = sext i16 [[COL0]] to i64
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[TMP0]], i16 [[COL0]], i8* [[TMP12]], i64 64)
-; CHECK-NEXT:    [[TMP14:%.*]] = call x86_amx @llvm.x86.tdpbssd.internal(i16 [[ROW]], i16 [[COL0]], i16 [[COL1]], x86_amx [[TMP9]], x86_amx [[TMP11]], x86_amx [[TMP13]]) #[[ATTR3]]
+; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP12]], i64 [[TMP11]])
+; CHECK-NEXT:    [[TMP14:%.*]] = sext i16 [[COL1]] to i64
 ; CHECK-NEXT:    [[TMP15:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP15]], i64 64, x86_amx [[TMP14]])
+; CHECK-NEXT:    [[TMP16:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP15]], i64 [[TMP14]])
+; CHECK-NEXT:    [[TMP17:%.*]] = sext i16 [[COL0]] to i64
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <256 x i32>* [[M]] to i8*
+; CHECK-NEXT:    [[TMP19:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[TMP0]], i16 [[COL0]], i8* [[TMP18]], i64 [[TMP17]])
+; CHECK-NEXT:    [[TMP20:%.*]] = call x86_amx @llvm.x86.tdpbssd.internal(i16 [[ROW]], i16 [[COL0]], i16 [[COL1]], x86_amx [[TMP13]], x86_amx [[TMP16]], x86_amx [[TMP19]]) #[[ATTR3]]
+; CHECK-NEXT:    [[TMP21:%.*]] = sext i16 [[COL0]] to i64
+; CHECK-NEXT:    [[TMP22:%.*]] = bitcast <256 x i32>* [[M]] to i8*
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP22]], i64 [[TMP21]], x86_amx [[TMP20]])
 ; CHECK-NEXT:    ret void
 ;
   entry:

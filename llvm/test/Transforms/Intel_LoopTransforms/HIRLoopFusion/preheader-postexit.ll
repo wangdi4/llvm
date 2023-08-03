@@ -57,7 +57,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local float @foo(float* nocapture readonly %p, i64 %n) local_unnamed_addr #0 {
+define dso_local float @foo(ptr nocapture readonly %p, i64 %n) local_unnamed_addr #0 {
 entry:
   %sub = add nsw i64 %n, 0
   %cmp239 = icmp sgt i64 %sub, 0
@@ -90,8 +90,8 @@ for.body9.preheader:                              ; preds = %for.cond6.preheader
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
   %j.041 = phi i64 [ %inc, %for.body4 ], [ 0, %for.body4.preheader ]
   %y.040 = phi float [ %add, %for.body4 ], [ 0.000000e+00, %for.body4.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %p, i64 %j.041
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %p, i64 %j.041
+  %0 = load float, ptr %arrayidx, align 4
   %add = fadd float %y.040, %0
   %inc = add nuw nsw i64 %j.041, 1
   %exitcond = icmp eq i64 %inc, %sub
@@ -114,8 +114,8 @@ for.cond.cleanup8:                                ; preds = %for.cond.cleanup8.l
 for.body9:                                        ; preds = %for.body9.preheader, %for.body9
   %j5.044 = phi i64 [ %inc14, %for.body9 ], [ 0, %for.body9.preheader ]
   %x.043 = phi float [ %add12, %for.body9 ], [ 1.000000e+00, %for.body9.preheader ]
-  %arrayidx10 = getelementptr inbounds float, float* %p, i64 %j5.044
-  %1 = load float, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds float, ptr %p, i64 %j5.044
+  %1 = load float, ptr %arrayidx10, align 4
   %add11 = fadd float %1, 1.000000e+00
   %add12 = fadd float %x.043, %add11
   %inc14 = add nuw nsw i64 %j5.044, 1

@@ -283,9 +283,6 @@ EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 
-// Allocate a managed memory object.
-EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
-
 // Check if the specified pointer and size requires mapping.
 EXTERN int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr, int64_t Size);
 
@@ -370,13 +367,6 @@ EXTERN int32_t __tgt_rtl_command_batch_end(int32_t ID, int32_t BatchLevel);
 
 EXTERN void __tgt_rtl_kernel_batch_begin(int32_t ID, uint32_t MaxKernels);
 EXTERN void __tgt_rtl_kernel_batch_end(int32_t ID);
-
-// Allocate per-hw-thread reduction scratch
-EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
-    int32_t ID, size_t ObjSize, int32_t AllocKind);
-
-// Free per-hw-thread reduction scratch
-EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
 
 // Access device information
 EXTERN int __tgt_rtl_get_device_info(

@@ -8,14 +8,14 @@
 ; CHECK: Region 1
 
 
-define void @foo([10 x <4 x float>*]* %vec.ptr.arr, <4 x float>*** %vec.ptr.ptr) {
+define void @foo(ptr %vec.ptr.arr, ptr %vec.ptr.ptr) {
 entry:
   br label %for.body
 
 for.body:                                      ; preds = %for.body, %entry
   %i = phi i64 [ 0, %entry ], [ %i.next, %for.body ]
-  %vec.elem = getelementptr inbounds [10 x <4 x float>*], [10 x <4 x float>*]* %vec.ptr.arr, i64 0, i64 %i
-  store <4 x float>** %vec.elem, <4 x float>*** %vec.ptr.ptr
+  %vec.elem = getelementptr inbounds [10 x ptr], ptr %vec.ptr.arr, i64 0, i64 %i
+  store ptr %vec.elem, ptr %vec.ptr.ptr
   %i.next = add nsw i64 %i, 1
   %cmp = icmp eq i64 %i.next, 10
   br i1 %cmp, label %exit, label %for.body

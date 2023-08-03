@@ -32,8 +32,6 @@ set(TARGET_LIBS
 include_directories(${OCL_SOURCE_DIR}/tests/framework_test_type
                     ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins)
 
-link_directories(${TBB_LIB_DIR})
-
 # TODO: remove from runtime unittests
 add_ocl_unittest(
   ${TARGET} SOURCE_FILES ${TARGET_SOURCES}

@@ -2,6 +2,8 @@
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s --check-prefix=NOLIBIRC
 
 
+; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-temp-cleanup,require<hir-loop-statistics>,hir-cross-loop-array-contraction" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
@@ -74,7 +76,7 @@
 ;              |   }
 ;              + END LOOP
 ;
-;              @llvm.lifetime.end.p0i8(400000000,  &((i8*)(%A)[0]));
+;              @llvm.lifetime.end.p0(400000000,  &((i8*)(%A)[0]));
 ;              ret ;
 ;        END REGION
 
@@ -97,8 +99,8 @@
 ;                  |   |   |   |
 ; CHECK:           |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   |   %4 = (%ContractedArray)[0][i6][i5];
-; CHECK:           |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %4 + 1;
+; CHECK:           |   |   |   |   |   |   [[VAR:.*]] = (%ContractedArray)[0][i6][i5];
+; CHECK:           |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = [[VAR]] + 1;
 ; CHECK:           |   |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
@@ -107,13 +109,18 @@
 ;
 ; CHECK:           + END LOOP
 ;
-;                  @llvm.lifetime.end.p0i8(400000000,  &((i8*)(%A)[0]));
+;                  @llvm.lifetime.end.p0(400000000,  &((i8*)(%A)[0]));
 ;                  ret ;
 ; CHECK:     END REGION
 
 ; Verify that transformation is not triggered without libIRC.
 
 ; NOLIBIRC-NOT: modified
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRCrossLoopArrayContraction
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -122,11 +129,10 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = dso_local local_unnamed_addr global [100 x [100 x [100 x [10 x [10 x i32]]]]] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @shell(i32* nocapture readonly %b) local_unnamed_addr #0 {
+define dso_local void @shell(ptr nocapture readonly %b) local_unnamed_addr #0 {
 entry:
   %A = alloca [100 x [100 x [100 x [10 x [10 x i32]]]]], align 16
-  %0 = bitcast [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400000000, i8* nonnull %0) #2
+  call void @llvm.lifetime.start.p0(i64 400000000, ptr nonnull %A) #2
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
@@ -170,10 +176,10 @@ for.cond.cleanup15:                               ; preds = %for.body16
 
 for.body16:                                       ; preds = %for.cond13.preheader, %for.body16
   %indvars.iv157 = phi i64 [ 0, %for.cond13.preheader ], [ %indvars.iv.next158, %for.body16 ]
-  %1 = add nuw nsw i64 %indvars.iv157, %indvars.iv161
-  %arrayidx24 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A, i64 0, i64 %indvars.iv170, i64 %indvars.iv167, i64 %indvars.iv164, i64 %indvars.iv161, i64 %indvars.iv157, !intel-tbaa !2
-  %2 = trunc i64 %1 to i32
-  store i32 %2, i32* %arrayidx24, align 4, !tbaa !2
+  %0 = add nuw nsw i64 %indvars.iv157, %indvars.iv161
+  %arrayidx24 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr %A, i64 0, i64 %indvars.iv170, i64 %indvars.iv167, i64 %indvars.iv164, i64 %indvars.iv161, i64 %indvars.iv157, !intel-tbaa !2
+  %1 = trunc i64 %0 to i32
+  store i32 %1, ptr %arrayidx24, align 4, !tbaa !2
   %indvars.iv.next158 = add nuw nsw i64 %indvars.iv157, 1
   %exitcond160 = icmp eq i64 %indvars.iv.next158, 10
   br i1 %exitcond160, label %for.cond.cleanup15, label %for.body16
@@ -186,8 +192,8 @@ for.cond43.preheader:                             ; preds = %do.body, %for.cond.
   br label %for.cond48.preheader
 
 for.cond.cleanup40:                               ; preds = %for.cond.cleanup45
-  %3 = load i32, i32* %b, align 4, !tbaa !11
-  %tobool = icmp eq i32 %3, 0
+  %2 = load i32, ptr %b, align 4, !tbaa !11
+  %tobool = icmp eq i32 %2, 0
   br i1 %tobool, label %do.end, label %do.body
 
 for.cond48.preheader:                             ; preds = %for.cond43.preheader, %for.cond.cleanup50
@@ -224,25 +230,25 @@ for.cond.cleanup60:                               ; preds = %for.body61
 
 for.body61:                                       ; preds = %for.cond58.preheader, %for.body61
   %indvars.iv = phi i64 [ 0, %for.cond58.preheader ], [ %indvars.iv.next, %for.body61 ]
-  %arrayidx71 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* %A, i64 0, i64 %indvars.iv154, i64 %indvars.iv151, i64 %indvars.iv148, i64 %indvars.iv, i64 %indvars.iv145, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx71, align 4, !tbaa !2
-  %add72 = add nsw i32 %4, 1
-  %arrayidx82 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], [100 x [100 x [100 x [10 x [10 x i32]]]]]* @B, i64 0, i64 %indvars.iv154, i64 %indvars.iv151, i64 %indvars.iv148, i64 %indvars.iv145, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add72, i32* %arrayidx82, align 4, !tbaa !2
+  %arrayidx71 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr %A, i64 0, i64 %indvars.iv154, i64 %indvars.iv151, i64 %indvars.iv148, i64 %indvars.iv, i64 %indvars.iv145, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx71, align 4, !tbaa !2
+  %add72 = add nsw i32 %3, 1
+  %arrayidx82 = getelementptr inbounds [100 x [100 x [100 x [10 x [10 x i32]]]]], ptr @B, i64 0, i64 %indvars.iv154, i64 %indvars.iv151, i64 %indvars.iv148, i64 %indvars.iv145, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add72, ptr %arrayidx82, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup60, label %for.body61
 
 do.end:                                           ; preds = %for.cond.cleanup40
-  call void @llvm.lifetime.end.p0i8(i64 400000000, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 400000000, ptr nonnull %A) #2
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }

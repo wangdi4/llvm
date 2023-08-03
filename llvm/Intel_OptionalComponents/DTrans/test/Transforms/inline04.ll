@@ -34,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-RPT: -> INLINE: bar ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
 ; CHECK-RPT: -> INLINE: baz ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
 
-%struct.MYSTRUCT = type { i32 ()*, i32 ()*, i32 ()* }
+%struct.MYSTRUCT = type { ptr, ptr, ptr }
 
 @myglobal = common dso_local global %struct.MYSTRUCT zeroinitializer, align 8
 
@@ -115,19 +115,19 @@ define dso_local i32 @baz() {
   ret i32 %sub
 }
 
-define internal void @myinit(%struct.MYSTRUCT* %myglobalptr) {
-  %field1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 0
-  store i32 ()* @foo, i32 ()** %field1, align 8
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 1
-  store i32 ()* @bar, i32 ()** %field2, align 8
-  %field3 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 2
-  store i32 ()* @baz, i32 ()** %field3, align 8
+define internal void @myinit(ptr %myglobalptr) {
+  %field1 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 0
+  store ptr @foo, ptr %field1, align 8
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 1
+  store ptr @bar, ptr %field2, align 8
+  %field3 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 2
+  store ptr @baz, ptr %field3, align 8
   ret void
 }
 
 define dso_local i32 @main() local_unnamed_addr {
 entry:
-  call fastcc void @myinit(%struct.MYSTRUCT* @myglobal)
+  call fastcc void @myinit(ptr @myglobal)
   %call = call i32 @foo()
   %call1 = call i32 @bar()
   %add = add nsw i32 %call, %call1

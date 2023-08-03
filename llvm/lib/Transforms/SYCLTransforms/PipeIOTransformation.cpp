@@ -18,12 +18,11 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/RuntimeService.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -43,20 +42,14 @@ using PipesBuiltinsMap = MapVector<CallInst *, unsigned>;
 using PipesCallToArgNos =
     MapVector<CallInst *, std::set<std::pair<unsigned, unsigned>>>;
 
-static bool isPipeGV(const GlobalValue &GV, const PipeTypesHelper &PipeTypes) {
-  auto *VTy = GV.getValueType();
-  return PipeTypes.isPipeType(VTy) || PipeTypes.isPipeArrayType(VTy);
-}
-
-static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
-                                 PipesWithIdVector &PipesWithIdVec,
+static bool processGlobalIOPipes(Module &M, PipesWithIdVector &PipesWithIdVec,
                                  RuntimeService &RTS, unsigned &PipeId,
                                  PipeNameIdMap &PipeNameIds) {
   bool Changed = false;
   Function *GlobalDtor = nullptr;
 
   for (auto &PipeGV : M.globals()) {
-    if (!isPipeGV(PipeGV, PipeTypes))
+    if (!isGlobalPipe(&PipeGV))
       continue;
 
     // If IO pipe MD string is empty or GV has no IO pipe MD at all - skip it
@@ -313,8 +306,7 @@ bool PipeIOTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   PipeNameIdMap PipeNameIds;
   assert(BLI && "Invalid builtin lib info!");
   auto &RTS = BLI->getRuntimeService();
-  Changed |=
-      processGlobalIOPipes(M, PipeTypes, GlobalPipes, RTS, PipeId, PipeNameIds);
+  Changed |= processGlobalIOPipes(M, GlobalPipes, RTS, PipeId, PipeNameIds);
 
   FuncToPipeArgVec FuncPipeArg;
   Changed |= processIOPipesFromKernelArg(M, FuncPipeArg, PipeId, PipeNameIds);

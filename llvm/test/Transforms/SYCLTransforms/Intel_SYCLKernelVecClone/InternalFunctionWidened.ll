@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ;; Widened inner functions must have "widened-size" attribute so Barrier inserts
 ;; correct loop increments.
@@ -20,15 +20,15 @@ declare i64 @_Z12get_local_idj(i32)
 
 declare i32 @_Z22get_sub_group_local_idv()
 
-define void @basic(i64 addrspace(1)* %local_id, i64 addrspace(1)* %sg_local_id) #4 !recommended_vector_length !1 {
+define void @basic(ptr addrspace(1) %local_id, ptr addrspace(1) %sg_local_id) #4 !recommended_vector_length !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
   %call = tail call fastcc i64 @foo()
-  %arrayidx = getelementptr inbounds i64, i64 addrspace(1)* %local_id, i64 %call
-  store i64 %call, i64 addrspace(1)* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr addrspace(1) %local_id, i64 %call
+  store i64 %call, ptr addrspace(1) %arrayidx, align 8
   %call.i = tail call i32 @_Z22get_sub_group_local_idv()
   %conv.i = zext i32 %call.i to i64
-  %arrayidx2 = getelementptr inbounds i64, i64 addrspace(1)* %sg_local_id, i64 %call
-  store i64 %conv.i, i64 addrspace(1)* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr addrspace(1) %sg_local_id, i64 %call
+  store i64 %conv.i, ptr addrspace(1) %arrayidx2, align 8
   ret void
 }
 
@@ -39,13 +39,13 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i64 addrspace(1)*, i64 addrspace(1)*)* @basic}
+!0 = !{ptr @basic}
 !1 = !{i32 4}
+!2 = !{!"long*", !"long*"}
+!3 = !{i64 addrspace(1)* null, i64 addrspace(1)* null}
 
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
@@ -62,11 +62,9 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} load
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} ret
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} alloca
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} add
@@ -74,7 +72,6 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} load
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} ret
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4uu_basic {{.*}} br

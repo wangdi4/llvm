@@ -83,6 +83,7 @@ public:
 
   const Metadata *getOperand(unsigned Idx) const;
   unsigned getNumOperands() const;
+  unsigned getRemarkID() const;
 
   explicit operator bool() const { return Remark; }
   MDTuple *get() const { return Remark; }

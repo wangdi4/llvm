@@ -61,6 +61,13 @@ using namespace llvm;
 static cl::opt<bool>
 EnableBasePointer("x86-use-base-pointer", cl::Hidden, cl::init(true),
           cl::desc("Enable use of a base pointer for complex stack frames"));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static cl::opt<bool> AggressiveEGPR(
+    "x86-aggressive-egpr", cl::Hidden, cl::init(false),
+    cl::desc("Prefer EGPR than legacy GPR (for stress testing)"));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 X86RegisterInfo::X86RegisterInfo(const Triple &TT)
     : X86GenRegisterInfo((TT.isArch64Bit() ? X86::RIP : X86::EIP),
@@ -794,7 +801,10 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   // Reserve the extended general purpose registers.
-  if (!MF.getSubtarget<X86Subtarget>().hasEGPR()) {
+  // NOTE: `Is64Bit` is added here to allow passsing EGPR flags to 32-bit tests
+  // (for convenience)
+  // TODO: Remove it when upstreaming
+  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR()) {
     for (unsigned n = 0; n != 16; ++n) {
       for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
         Reserved.set(*AI);
@@ -946,6 +956,13 @@ bool X86RegisterInfo::canRealignStack(const MachineFunction &MF) const {
   return true;
 }
 
+bool X86RegisterInfo::shouldRealignStack(const MachineFunction &MF) const {
+  if (TargetRegisterInfo::shouldRealignStack(MF))
+    return true;
+
+  return !Is64Bit && MF.getFunction().getCallingConv() == CallingConv::X86_INTR;
+}
+
 // tryOptimizeLEAtoMOV - helper function that tries to replace a LEA instruction
 // of the form 'lea (%esp), %ebx' --> 'mov %esp, %ebx'.
 // TODO: In this case we should be really trying first to entirely eliminate
@@ -1015,7 +1032,7 @@ void X86RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     int Offset = FIOffset + Imm;
     assert((!Is64Bit || isInt<32>((long long)FIOffset + Imm)) &&
            "Requesting 64-bit offset in 32-bit immediate!");
-    if (Offset != 0 || !tryOptimizeLEAtoMOV(II))
+    if (Offset != 0)
       MI.getOperand(FIOperandNum + 3).ChangeToImmediate(Offset);
   } else {
     // Offset is symbolic. This is extremely rare.
@@ -1135,8 +1152,7 @@ unsigned X86RegisterInfo::findDeadCallerSavedReg(
   case X86::EH_RETURN:
   case X86::EH_RETURN64: {
     SmallSet<uint16_t, 8> Uses;
-    for (unsigned I = 0, E = MBBI->getNumOperands(); I != E; ++I) {
-      MachineOperand &MO = MBBI->getOperand(I);
+    for (MachineOperand &MO : MBBI->operands()) {
       if (!MO.isReg() || MO.isDef())
         continue;
       Register Reg = MO.getReg();
@@ -1297,6 +1313,28 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   const TargetRegisterClass &RC = *MRI->getRegClass(VirtReg);
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  auto ID = RC.getID();
+  if (AggressiveEGPR &&
+      (ID == X86::GR8RegClassID || ID == X86::GR16RegClassID ||
+       ID == X86::GR32RegClassID || ID == X86::GR64RegClassID)) {
+    for (auto Reg : Order)
+      if (X86II::isApxExtendedReg(Reg))
+        Hints.push_back(Reg);
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
+  if ((ID == X86::VK64RegClassID || ID == X86::VK64WMRegClassID) &&
+      !Subtarget.hasAVX512F())
+    report_fatal_error("64-bit mask registers are not supported under AVX-256");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (RC.getID() != X86::TILERegClassID

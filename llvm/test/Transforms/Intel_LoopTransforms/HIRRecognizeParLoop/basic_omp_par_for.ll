@@ -72,28 +72,28 @@
 
 
 ; Function Attrs: norecurse nounwind
-define weak void @__omp_offloading_546836e2_9c9fe__Z5loop1Pii_l20(i64 %n, i32* %ip) #0 {
+define weak void @__omp_offloading_546836e2_9c9fe__Z5loop1Pii_l20(i64 %n, ptr %ip) #0 {
 entry:
-  %ip.addr = alloca i32*, align 8
+  %ip.addr = alloca ptr, align 8
   %.omp.lb = alloca i32, align 4
   %i = alloca i32, align 4
   %n.addr.sroa.0.0.extract.trunc = trunc i64 %n to i32
-  store i32* %ip, i32** %ip.addr, align 8, !tbaa !3
+  store ptr %ip, ptr %ip.addr, align 8, !tbaa !3
   %cmp = icmp sgt i32 %n.addr.sroa.0.0.extract.trunc, 0
-  %0 = bitcast i32* %.omp.lb to i8*
+  %0 = bitcast ptr %.omp.lb to ptr
   br i1 %cmp, label %DIR.OMP.PARALLEL.LOOP.112, label %omp.precond.end
 
 DIR.OMP.PARALLEL.LOOP.112:                        ; preds = %entry
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  store i32 0, i32* %.omp.lb, align 4, !tbaa !7
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 3), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(i32** %ip.addr) ]
-  %2 = load i32, i32* %.omp.lb, align 4, !tbaa !7, !alias.scope !909, !noalias !911
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0) #2
+  store i32 0, ptr %.omp.lb, align 4, !tbaa !7
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 3), "QUAL.OMP.FIRSTPRIVATE"(ptr %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.PRIVATE"(ptr %i), "QUAL.OMP.SHARED"(ptr %ip.addr) ]
+  %2 = load i32, ptr %.omp.lb, align 4, !tbaa !7, !alias.scope !909, !noalias !911
   %cmp413 = icmp slt i32 %2, %n.addr.sroa.0.0.extract.trunc
   br i1 %cmp413, label %omp.inner.for.body.preheader, label %omp.loop.exit
 
 omp.inner.for.body.preheader:                     ; preds = %DIR.OMP.PARALLEL.LOOP.112
-  %3 = bitcast i32* %i to i8*
-  %4 = load i32*, i32** %ip.addr, align 8, !tbaa !3, !alias.scope !912, !noalias !911
+  %3 = bitcast ptr %i to ptr
+  %4 = load ptr, ptr %ip.addr, align 8, !tbaa !3, !alias.scope !912, !noalias !911
   %5 = sext i32 %2 to i64
   %sub2 = shl i64 %n, 32
   %sext = add i64 %sub2, -4294967296
@@ -102,11 +102,11 @@ omp.inner.for.body.preheader:                     ; preds = %DIR.OMP.PARALLEL.LO
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.preheader, %omp.inner.for.body
   %indvars.iv = phi i64 [ %5, %omp.inner.for.body.preheader ], [ %indvars.iv.next, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %3) #2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %3) #2
   %7 = trunc i64 %indvars.iv to i32
-  %arrayidx = getelementptr inbounds i32, i32* %4, i64 %indvars.iv
-  store i32 %7, i32* %arrayidx, align 4, !tbaa !7, !alias.scope !13
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %3) #2
+  %arrayidx = getelementptr inbounds i32, ptr %4, i64 %indvars.iv
+  store i32 %7, ptr %arrayidx, align 4, !tbaa !7, !alias.scope !13
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %3) #2
   %indvars.iv.next = add nsw i64 %indvars.iv, 1
   %cmp4 = icmp slt i64 %indvars.iv, %6
   br i1 %cmp4, label %omp.inner.for.body, label %omp.loop.exit.loopexit
@@ -119,12 +119,12 @@ omp.loop.exit:                                    ; preds = %omp.loop.exit.loope
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %entry, %omp.loop.exit
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %0) #2
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -133,7 +133,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }

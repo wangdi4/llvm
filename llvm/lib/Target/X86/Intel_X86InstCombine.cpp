@@ -15,10 +15,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "X86.h"
-#include "X86TargetMachine.h"
 #include "X86Subtarget.h"
+#include "X86TargetMachine.h"
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -30,14 +31,18 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "x86-inst-combine"
+
+static cl::opt<bool> LinkMSVCCPPRuntimeLib(
+    "link-msvc-cpp-runtime-lib",
+    llvm::cl::desc("Indicate if you'll link with MSVC's C++ runtime library."),
+    cl::init(false), cl::Hidden);
 
 namespace {
 
@@ -69,7 +74,12 @@ public:
 
 private:
   bool replaceOrToAdd(Instruction &I);
+  bool replaceFRem(Instruction &I);
   bool replaceX86IntrinsicToIR(Instruction &I);
+  bool replaceLibmToSVML(Instruction &I);
+  bool replaceCall(Instruction &I);
+  bool replaceICmp(Instruction &I);
+  bool replaceFDTest(Instruction &I);
 
   X86TargetMachine *TM = nullptr;
   const X86Subtarget *ST = nullptr;
@@ -135,6 +145,51 @@ bool X86InstCombine::replaceOrToAdd(Instruction &I) {
   auto Add = Builder.CreateAdd(LHS, RHS);
   replaceValue(I, *Add);
 
+  return true;
+}
+
+// Transform frem to "a - trunc(a / b) * b",
+// This transformation may have different results when a or b is INF,
+// but it's OK when we use fast math flags with O3 optimization level.
+bool X86InstCombine::replaceFRem(Instruction &I) {
+  if (!I.isFast())
+    return false;
+
+  Value *LHS = I.getOperand(0);
+  Value *RHS = I.getOperand(1);
+
+  bool IsVectorTy = LHS->getType()->isVectorTy();
+  Type *Ty = LHS->getType();
+  Type *ScalarTy = LHS->getType()->getScalarType();
+
+  if (!ScalarTy->isFloatTy() && !ScalarTy->isDoubleTy())
+    return false;
+
+  // Extend to double type?
+  bool NeedExtTy = ScalarTy->isFloatTy() ? true : false;
+
+  IRBuilder<> Builder(&I);
+  if (NeedExtTy) {
+    Type *ExtTy = Type::getDoubleTy(I.getContext());
+
+    if (IsVectorTy)
+      ExtTy = VectorType::get(
+          ExtTy, cast<VectorType>(LHS->getType())->getElementCount());
+
+    LHS = Builder.CreateFPExt(LHS, ExtTy);
+    RHS = Builder.CreateFPExt(RHS, ExtTy);
+  }
+
+  Value *ADivB = Builder.CreateFDiv(LHS, RHS);
+  Value *Trunc = Builder.CreateUnaryIntrinsic(Intrinsic::trunc, ADivB, &I);
+  Value *FMul = Builder.CreateFMul(Trunc, RHS);
+  Value *Result = Builder.CreateFSub(LHS, FMul);
+
+  // Back to float type.
+  if (NeedExtTy)
+    Result = Builder.CreateFPCast(Result, Ty);
+
+  replaceValue(I, *Result);
   return true;
 }
 
@@ -278,6 +333,36 @@ static Value* replaceX86GatherToGather(IntrinsicInst* II) {
   return NewGather;
 }
 
+bool X86InstCombine::replaceCall(Instruction &I) {
+  bool Changed = false;
+  Changed |= replaceLibmToSVML(I);
+  Changed |= replaceX86IntrinsicToIR(I);
+  return Changed;
+}
+
+// SVML's performance is better than libm for some math functions.
+// Try to use SVML version if possible.
+bool X86InstCombine::replaceLibmToSVML(Instruction &I) {
+  auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II)
+    return false;
+
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::log2:
+  case Intrinsic::log10:
+    break;
+  default:
+    return false;
+  }
+
+  if (!II->isFast())
+    return false;
+
+  II->addFnAttr(Attribute::get(I.getContext(), "imf-use-svml", "true"));
+
+  return true;
+}
+
 bool X86InstCombine::replaceX86IntrinsicToIR(Instruction &I) {
   auto II = dyn_cast<IntrinsicInst>(&I);
   if (!II)
@@ -294,6 +379,134 @@ bool X86InstCombine::replaceX86IntrinsicToIR(Instruction &I) {
   }
 
   return false;
+}
+
+static bool isFDTest(const CallInst *C) {
+  auto M = C->getModule();
+  Triple T(M->getTargetTriple());
+
+  // Make sure we are using MSVC's C++ runtime library.
+  // Otherwise the fdtest may not be the MSVC internal API.
+  if (!LinkMSVCCPPRuntimeLib)
+    return false;
+
+  if (!T.isWindowsMSVCEnvironment())
+    return false;
+
+  Value *CalledOp = C->getCalledOperand();
+  if (!CalledOp)
+    return false;
+
+  if (CalledOp->getName() != "_fdtest")
+    return false;
+
+  if (C->getNumOperands() != 2)
+    return false;
+
+  if (!C->getArgOperand(0)->getType()->isPointerTy())
+    return false;
+
+  if (C->getType() != Type::getInt16Ty(C->getContext()))
+    return false;
+
+  return true;
+}
+
+// _fdtest is a MSVC internal API which returns a float-point number's type,
+// such as FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO. When we want
+// to check if a number is NAN, ZERO or some other type, we don't need to know
+// what type it is but just check if it is that type. So we can optimize such
+// call with bitwise operation. Reference:
+// https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/floating-point-primitives?view=msvc-170#_dtest-_ldtest-_fdtest
+bool X86InstCombine::replaceFDTest(Instruction &I) {
+  Instruction *C = nullptr;
+  uint64_t CmpInt;
+  ICmpInst::Predicate Pred;
+
+  // Try to match such pattern:
+  // %fdtest = call i16 @_fdtest(ptr %X)
+  // %res = icmp P i16 %fdtest, CmpInt
+  if (!match(&I,
+             m_ICmp(Pred, m_OneUse(m_Instruction(C)), m_ConstantInt(CmpInt))))
+    return false;
+
+  if (!isa<CallInst>(C))
+    return false;
+
+  if (!isFDTest(cast<CallInst>(C)))
+    return false;
+
+  Value *FloatPtr = C->getOperand(0);
+  Value *Res = nullptr;
+
+  IRBuilder<> Builder(&I);
+  if (Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE) {
+
+    if (CmpInt == 1) {
+      // isinf:
+      // (i & 0x7fffffff) == 0x7f800000
+      auto *IntF =
+          Builder.CreateLoad(Type::getInt32Ty(I.getContext()), FloatPtr);
+      auto *And = Builder.CreateAnd(IntF, 0x7fffffff);
+      Res = Builder.CreateICmp(CmpInst::ICMP_EQ, And,
+                               ConstantInt::get(IntF->getType(), 0x7f800000));
+    } else if (CmpInt == 2) {
+      // isnan:
+      // ((i & 0x7f800000) == 0x7f800000) && ((i & 0x7fffff) != 0)
+      auto *IntF =
+          Builder.CreateLoad(Type::getInt32Ty(I.getContext()), FloatPtr);
+      auto *And0 = Builder.CreateAnd(IntF, 0x7f800000);
+      auto *Cmp0 =
+          Builder.CreateICmp(CmpInst::ICMP_EQ, And0,
+                             ConstantInt::get(IntF->getType(), 0x7f800000));
+      auto *And1 = Builder.CreateAnd(IntF, 0x7fffff);
+      auto *Cmp1 = Builder.CreateICmp(CmpInst::ICMP_NE, And1,
+                                      ConstantInt::get(IntF->getType(), 0));
+      Res = Builder.CreateAnd(Cmp0, Cmp1);
+    } else if (CmpInt == (uint16_t)-1) {
+      // isnormal:
+      // ((i & 0x7f800000) != 0) && ((i & 0x7f800000) != 0x7f800000)
+      auto *IntF =
+          Builder.CreateLoad(Type::getInt32Ty(I.getContext()), FloatPtr);
+      auto *And = Builder.CreateAnd(IntF, 0x7f800000);
+      auto *Cmp0 = Builder.CreateICmp(
+          CmpInst::ICMP_NE, And, ConstantInt::get(IntF->getType(), 0x7f800000));
+      auto *Cmp1 = Builder.CreateICmp(CmpInst::ICMP_NE, And,
+                                      ConstantInt::get(IntF->getType(), 0));
+      Res = Builder.CreateAnd(Cmp0, Cmp1);
+    }
+
+    if (Pred == CmpInst::ICMP_NE && Res)
+      Res = Builder.CreateNot(Res);
+
+  } else if (Pred == CmpInst::ICMP_SLT || Pred == CmpInst::ICMP_SGE) {
+    if (CmpInt == 1) {
+      // isfinite:
+      // (i & 0x7f800000) != 0x7f800000
+      auto *IntF =
+          Builder.CreateLoad(Type::getInt32Ty(I.getContext()), FloatPtr);
+      auto *And = Builder.CreateAnd(IntF, 0x7f800000);
+      Res = Builder.CreateICmp(CmpInst::ICMP_NE, And,
+                               ConstantInt::get(IntF->getType(), 0x7f800000));
+    }
+
+    if (Pred == CmpInst::ICMP_SGE && Res)
+      Res = Builder.CreateNot(Res);
+  }
+
+  if (!Res)
+    return false;
+
+  replaceValue(I, *Res);
+  replaceValue(*C, *UndefValue::get(C->getType()));
+  C->eraseFromParent();
+  return true;
+}
+
+bool X86InstCombine::replaceICmp(Instruction &I) {
+  bool Changed = false;
+  Changed |= replaceFDTest(I);
+  return Changed;
 }
 
 bool X86InstCombine::runOnFunction(Function &F) {
@@ -313,8 +526,14 @@ bool X86InstCombine::runOnFunction(Function &F) {
       case Instruction::Or:
         MadeChange |= replaceOrToAdd(I);
         break;
+      case Instruction::FRem:
+        MadeChange |= replaceFRem(I);
+        break;
       case Instruction::Call:
-        MadeChange |= replaceX86IntrinsicToIR(I);
+        MadeChange |= replaceCall(I);
+        break;
+      case Instruction::ICmp:
+        MadeChange |= replaceICmp(I);
         break;
     }
   }

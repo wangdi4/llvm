@@ -30,7 +30,7 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
-define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
+define void @foo(ptr noalias nocapture %arr1, ptr noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -50,15 +50,15 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP5:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[ARR20:%.*]] i64 [[VP3]]
-; CHECK-NEXT:       [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARR20:%.*]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Div] float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = hir-copy float [[VP_LOAD]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = hir-copy float [[VP6]] , OriginPhiId: 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[ARR10:%.*]] i64 [[VP3]]
-; CHECK-NEXT:       [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[ARR10:%.*]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Div] float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP_LOAD_1]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP8]] , OriginPhiId: 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
@@ -113,13 +113,13 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds float, float* %arr1, i64 %indvars.iv
-  %ld.true = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %arr1, i64 %indvars.iv
+  %ld.true = load float, ptr %arrayidx, align 4
   br label %for.inc
 
 if.else:
-  %arrayidx2 = getelementptr inbounds float, float* %arr2, i64 %indvars.iv
-  %ld.false = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %arr2, i64 %indvars.iv
+  %ld.false = load float, ptr %arrayidx2, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

@@ -559,6 +559,16 @@ namespace {
       OS << "    assert(!is" << getLowerName() << "Expr);\n";
       OS << "    return " << getLowerName() << "Type;\n";
       OS << "  }";
+
+      OS << "  std::optional<unsigned> getCached" << getUpperName()
+         << "Value() const {\n";
+      OS << "    return " << getLowerName() << "Cache;\n";
+      OS << "  }";
+
+      OS << "  void setCached" << getUpperName()
+         << "Value(unsigned AlignVal) {\n";
+      OS << "    " << getLowerName() << "Cache = AlignVal;\n";
+      OS << "  }";
     }
 
     void writeAccessorDefinitions(raw_ostream &OS) const override {
@@ -580,21 +590,6 @@ namespace {
          << "Expr->containsErrors();\n";
       OS << "  return " << getLowerName()
          << "Type->getType()->containsErrors();\n";
-      OS << "}\n";
-
-      // FIXME: Do not do the calculation here
-      // FIXME: Handle types correctly
-      // A null pointer means maximum alignment
-      OS << "unsigned " << getAttrName() << "Attr::get" << getUpperName()
-         << "(ASTContext &Ctx) const {\n";
-      OS << "  assert(!is" << getUpperName() << "Dependent());\n";
-      OS << "  if (is" << getLowerName() << "Expr)\n";
-      OS << "    return " << getLowerName() << "Expr ? " << getLowerName()
-         << "Expr->EvaluateKnownConstInt(Ctx).getZExtValue()"
-         << " * Ctx.getCharWidth() : "
-         << "Ctx.getTargetDefaultAlignForAttributeAligned();\n";
-      OS << "  else\n";
-      OS << "    return 0; // FIXME\n";
       OS << "}\n";
     }
 
@@ -652,7 +647,8 @@ namespace {
       OS << "union {\n";
       OS << "Expr *" << getLowerName() << "Expr;\n";
       OS << "TypeSourceInfo *" << getLowerName() << "Type;\n";
-      OS << "};";
+      OS << "};\n";
+      OS << "std::optional<unsigned> " << getLowerName() << "Cache;\n";
     }
 
     void writePCHReadArgs(raw_ostream &OS) const override {
@@ -679,14 +675,21 @@ namespace {
     }
 
     std::string getIsOmitted() const override {
-      return "!is" + getLowerName().str() + "Expr || !" + getLowerName().str()
-             + "Expr";
+      return "!((is" + getLowerName().str() + "Expr && " +
+             getLowerName().str() + "Expr) || (!is" + getLowerName().str() +
+             "Expr && " + getLowerName().str() + "Type))";
     }
 
     void writeValue(raw_ostream &OS) const override {
       OS << "\";\n";
-      OS << "    " << getLowerName()
+      OS << "    if (is" << getLowerName() << "Expr && " << getLowerName()
+         << "Expr)";
+      OS << "      " << getLowerName()
          << "Expr->printPretty(OS, nullptr, Policy);\n";
+      OS << "    if (!is" << getLowerName() << "Expr && " << getLowerName()
+         << "Type)";
+      OS << "      " << getLowerName()
+         << "Type->getType().print(OS, Policy);\n";
       OS << "    OS << \"";
     }
 
@@ -2586,6 +2589,23 @@ static void emitClangAttrAcceptsExprPack(RecordKeeper &Records,
   OS << "#endif // CLANG_ATTR_ACCEPTS_EXPR_PACK\n\n";
 }
 
+static bool isRegularKeywordAttribute(const FlattenedSpelling &S) {
+  return (S.variety() == "Keyword" &&
+          !S.getSpellingRecord().getValueAsBit("HasOwnParseRules"));
+}
+
+static void emitFormInitializer(raw_ostream &OS,
+                                const FlattenedSpelling &Spelling,
+                                StringRef SpellingIndex) {
+  bool IsAlignas =
+      (Spelling.variety() == "Keyword" && Spelling.name() == "alignas");
+  OS << "{AttributeCommonInfo::AS_" << Spelling.variety() << ", "
+     << SpellingIndex << ", " << (IsAlignas ? "true" : "false")
+     << " /*IsAlignas*/, "
+     << (isRegularKeywordAttribute(Spelling) ? "true" : "false")
+     << " /*IsRegularKeywordAttribute*/}";
+}
+
 static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
                            bool Header) {
   std::vector<Record*> Attrs = Records.getAllDerivedDefinitions("Attr");
@@ -2745,8 +2765,6 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
         DelayedArgs->writeCtorParameters(OS);
       }
       OS << ", const AttributeCommonInfo &CommonInfo";
-      if (Header && Implicit)
-        OS << " = {SourceRange{}}";
       OS << ")";
       if (Header) {
         OS << ";\n";
@@ -2756,6 +2774,7 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
       OS << " {\n";
       OS << "  auto *A = new (Ctx) " << R.getName();
       OS << "Attr(Ctx, CommonInfo";
+
       if (!DelayedArgsOnly) {
         for (auto const &ai : Args) {
           if (ai->isFake() && !emitFake)
@@ -2806,11 +2825,13 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
         OS << ", ";
         DelayedArgs->writeCtorParameters(OS);
       }
-      OS << ", SourceRange Range, AttributeCommonInfo::Syntax Syntax";
-      if (!ElideSpelling) {
-        OS << ", " << R.getName() << "Attr::Spelling S";
+      OS << ", SourceRange Range";
+      if (Header)
+        OS << " = {}";
+      if (Spellings.size() > 1) {
+        OS << ", Spelling S";
         if (Header)
-          OS << " = static_cast<Spelling>(SpellingNotCalculated)";
+          OS << " = " << SemanticToSyntacticMap[0];
       }
       OS << ")";
       if (Header) {
@@ -2826,9 +2847,31 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
       else
         OS << "NoSemaHandlerAttribute";
 
-      OS << ", Syntax";
-      if (!ElideSpelling)
-        OS << ", S";
+      if (Spellings.size() == 0) {
+        OS << ", AttributeCommonInfo::Form::Implicit()";
+      } else if (Spellings.size() == 1) {
+        OS << ", ";
+        emitFormInitializer(OS, Spellings[0], "0");
+      } else {
+        OS << ", (\n";
+        std::set<std::string> Uniques;
+        unsigned Idx = 0;
+        for (auto I = Spellings.begin(), E = Spellings.end(); I != E;
+             ++I, ++Idx) {
+          const FlattenedSpelling &S = *I;
+          const auto &Name = SemanticToSyntacticMap[Idx];
+          if (Uniques.insert(Name).second) {
+            OS << "    S == " << Name << " ? AttributeCommonInfo::Form";
+            emitFormInitializer(OS, S, Name);
+            OS << " :\n";
+          }
+        }
+        OS << "    (llvm_unreachable(\"Unknown attribute spelling!\"), "
+           << " AttributeCommonInfo::Form";
+        emitFormInitializer(OS, Spellings[0], "0");
+        OS << "))";
+      }
+
       OS << ");\n";
       OS << "  return Create";
       if (Implicit)
@@ -3600,6 +3643,26 @@ static void GenerateHasAttrSpellingStringSwitch(
   OS << "    .Default(0);\n";
 }
 
+// Emits the list of tokens for regular keyword attributes.
+void EmitClangAttrTokenKinds(RecordKeeper &Records, raw_ostream &OS) {
+  emitSourceFileHeader("A list of tokens generated from the attribute"
+                       " definitions",
+                       OS);
+  // Assume for now that the same token is not used in multiple regular
+  // keyword attributes.
+  for (auto *R : Records.getAllDerivedDefinitions("Attr"))
+    for (const auto &S : GetFlattenedSpellings(*R))
+      if (isRegularKeywordAttribute(S)) {
+        if (!R->getValueAsListOfDefs("Args").empty())
+          PrintError(R->getLoc(),
+                     "RegularKeyword attributes with arguments are not "
+                     "yet supported");
+        OS << "KEYWORD_ATTRIBUTE("
+           << S.getSpellingRecord().getValueAsString("Name") << ")\n";
+      }
+  OS << "#undef KEYWORD_ATTRIBUTE\n";
+}
+
 // Emits the list of spellings for attributes.
 void EmitClangAttrHasAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   emitSourceFileHeader("Code to implement the __has_attribute logic", OS);
@@ -3676,6 +3739,10 @@ void EmitClangAttrHasAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   OS << "case AttributeCommonInfo::Syntax::AS_Keyword:\n";
   OS << "case AttributeCommonInfo::Syntax::AS_ContextSensitiveKeyword:\n";
   OS << "  llvm_unreachable(\"hasAttribute not supported for keyword\");\n";
+  OS << "  return 0;\n";
+  OS << "case AttributeCommonInfo::Syntax::AS_Implicit:\n";
+  OS << "  llvm_unreachable (\"hasAttribute not supported for "
+        "AS_Implicit\");\n";
   OS << "  return 0;\n";
 
   OS << "}\n";
@@ -4075,7 +4142,8 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "bool diagAppertainsToDecl(Sema &S, const ParsedAttr &AL, ";
       OS << "const Decl *D) const override {\n";
       OS << "  S.Diag(AL.getLoc(), diag::err_attribute_invalid_on_decl)\n";
-      OS << "    << AL << D->getLocation();\n";
+      OS << "    << AL << AL.isRegularKeywordAttribute() << "
+            "D->getLocation();\n";
       OS << "  return false;\n";
       OS << "}\n\n";
     }
@@ -4105,7 +4173,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "    if (S.getLangOpts().IntelCompat)\n";
       OS << "      S.Diag(Attr.getLoc(), "
             "diag::warn_attribute_wrong_decl_type_str)\n";
-      OS << "        << Attr << ";
+      OS << "          << Attr << Attr.isRegularKeywordAttribute() << ";
       OS << CalculateDiagnostic(*SubjectObj) << ";\n";
       OS << "    else\n";
     }
@@ -4114,7 +4182,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     OS << (Warn ? "warn_attribute_wrong_decl_type_str"
                 : "err_attribute_wrong_decl_type_str");
     OS << ")\n";
-    OS << "      << Attr << ";
+    OS << "      << Attr << Attr.isRegularKeywordAttribute() << ";
     OS << CalculateDiagnostic(*SubjectObj) << ";\n";
     OS << "    return false;\n";
     OS << "  }\n";
@@ -4129,7 +4197,8 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "bool diagAppertainsToStmt(Sema &S, const ParsedAttr &AL, ";
       OS << "const Stmt *St) const override {\n";
       OS << "  S.Diag(AL.getLoc(), diag::err_decl_attribute_invalid_on_stmt)\n";
-      OS << "    << AL << St->getBeginLoc();\n";
+      OS << "    << AL << AL.isRegularKeywordAttribute() << "
+            "St->getBeginLoc();\n";
       OS << "  return false;\n";
       OS << "}\n\n";
     }
@@ -4149,7 +4218,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "    if (S.getLangOpts().IntelCompat)\n";
       OS << "      S.Diag(Attr.getLoc(), "
             "diag::warn_attribute_wrong_decl_type_str)\n";
-      OS << "        << Attr << ";
+      OS << "          << Attr << Attr.isRegularKeywordAttribute() << ";
       OS << CalculateDiagnostic(*SubjectObj) << ";\n";
       OS << "    else\n";
     }
@@ -4158,7 +4227,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     OS << (Warn ? "warn_attribute_wrong_decl_type_str"
                 : "err_attribute_wrong_decl_type_str");
     OS << ")\n";
-    OS << "      << Attr << ";
+    OS << "      << Attr << Attr.isRegularKeywordAttribute() << ";
     OS << CalculateDiagnostic(*SubjectObj) << ";\n";
     OS << "    return false;\n";
     OS << "  }\n";
@@ -4229,7 +4298,8 @@ static void GenerateMutualExclusionsChecks(const Record &Attr,
     for (const std::string &A : DeclAttrs) {
       OS << "    if (const auto *A = D->getAttr<" << A << ">()) {\n";
       OS << "      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible)"
-         << " << AL << A;\n";
+         << " << AL << A << (AL.isRegularKeywordAttribute() ||"
+         << " A->isRegularKeywordAttribute());\n";
       OS << "      S.Diag(A->getLocation(), diag::note_conflicting_attribute);";
       OS << "      \nreturn false;\n";
       OS << "    }\n";
@@ -4250,7 +4320,8 @@ static void GenerateMutualExclusionsChecks(const Record &Attr,
                     << ">()) {\n";
         MergeDeclOS << "      S.Diag(First->getLocation(), "
                     << "diag::err_attributes_are_not_compatible) << First << "
-                    << "Second;\n";
+                    << "Second << (First->isRegularKeywordAttribute() || "
+                    << "Second->isRegularKeywordAttribute());\n";
         MergeDeclOS << "      S.Diag(Second->getLocation(), "
                     << "diag::note_conflicting_attribute);\n";
         MergeDeclOS << "      return false;\n";
@@ -4290,7 +4361,8 @@ static void GenerateMutualExclusionsChecks(const Record &Attr,
     MergeStmtOS << "      if (Iter != C.end()) {\n";
     MergeStmtOS << "        S.Diag((*Iter)->getLocation(), "
                 << "diag::err_attributes_are_not_compatible) << *Iter << "
-                << "Second;\n";
+                << "Second << ((*Iter)->isRegularKeywordAttribute() || "
+                << "Second->isRegularKeywordAttribute());\n";
     MergeStmtOS << "        S.Diag(Second->getLocation(), "
                 << "diag::note_conflicting_attribute);\n";
     MergeStmtOS << "        return false;\n";
@@ -4529,7 +4601,7 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
 
   // Generate all of the custom appertainsTo functions that the attributes
   // will be using.
-  for (auto I : Attrs) {
+  for (const auto &I : Attrs) {
     const Record &Attr = *I.second;
     if (Attr.isValueUnset("Subjects"))
       continue;

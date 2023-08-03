@@ -17,7 +17,7 @@
 
 ; CHECK: %add7 = %add4  +  1.000000e+00; <fast>
 
-; CHECK: if (%x.041 > 1.000000e+01 && %x.041 < 2.000000e+01) <fast> <fast>
+; CHECK: if (%x.041 > 1.000000e+01 & %x.041 < 2.000000e+01) <fast> <fast>
 ; CHECK: END REGION
 
 ; Verify HIR Code Generation
@@ -51,7 +51,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define double @foo(double* nocapture %p, double* nocapture %q, i32 %n) local_unnamed_addr #0 {
+define double @foo(ptr nocapture %p, ptr nocapture %q, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp39 = icmp sgt i32 %n, 0
   br i1 %cmp39, label %for.body.preheader, label %for.end
@@ -63,11 +63,11 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %if.end18
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end18 ], [ 0, %for.body.preheader ]
   %x.041 = phi double [ %add7.add4, %if.end18 ], [ 0.000000e+00, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %p, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %p, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %add = fadd fast double %0, %x.041
-  %arrayidx2 = getelementptr inbounds double, double* %q, i64 %indvars.iv
-  %1 = load double, double* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds double, ptr %q, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx2, align 8
   %mul = fmul fast double %add, %1
   %cmp3 = fcmp fast ogt double %mul, 0.000000e+00
   %cond = select i1 %cmp3, double -1.000000e+00, double 1.000000e+00
@@ -83,12 +83,12 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %or.cond19, label %if.then11, label %if.end18
 
 if.then11:                                        ; preds = %for.body
-  store double 0.000000e+00, double* %arrayidx, align 8
+  store double 0.000000e+00, ptr %arrayidx, align 8
   br label %if.end18
 
 if.end18:                                         ; preds = %for.body, %if.then11
   %.sink = phi double [ 1.000000e+00, %if.then11 ], [ 0.000000e+00, %for.body ]
-  store double %.sink, double* %arrayidx2, align 8
+  store double %.sink, ptr %arrayidx2, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body
@@ -103,10 +103,10 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+aes,+avx,+avx2,+bmi,+bmi2,+cx16,+f16c,+fma,+fsgsbase,+fxsr,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+rtm,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

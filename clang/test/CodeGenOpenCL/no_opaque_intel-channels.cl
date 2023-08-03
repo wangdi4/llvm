@@ -20,7 +20,7 @@ channel int ich2 __attribute__((io("testChannel")));
 // CHECK-DAG: @arr = {{.*}}local_unnamed_addr addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
 // CHECK-DAG: @multiarr = {{.*}}local_unnamed_addr addrspace(1) global [2 x [7 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size ![[MD0:[0-9]+]], !packet_align ![[MD0]], !depth ![[MD3:[0-9]+]]
 // CHECK-DAG: @ich = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-// CHECK-DAG: @lch = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8, !packet_size ![[MD1:[0-9]+]], !packet_align ![[MD1]], !depth ![[MD2:[0-9]+]]
+// CHECK-DAG: @lch = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size ![[MD1:[0-9]+]], !packet_align ![[MD1]], !depth ![[MD2:[0-9]+]]
 // CHECK-DAG: @sch = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size ![[MD1]], !packet_align ![[MD0]], !depth ![[MD3]]
 // CHECK-DAG: @ich1 = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size ![[MD0]], !packet_align ![[MD0]], !io ![[MD4:[0-9]+]]
 // CHECK-DAG: @ich2 = {{.*}}local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size ![[MD0]], !packet_align ![[MD0]], !io ![[MD5:[0-9]+]]

@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -S -aa-pipeline="basic-aa" -disable-output -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-loopnest" -print-changed -disable-output -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that loop will distribute into two chunks by hir-loop-distribute-loopnest.
 
@@ -34,6 +35,12 @@
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopDistributionForLoopNest
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -61,14 +68,14 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @p, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @p, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %conv5 = fadd float %0, 1.000000e+01
-  store float %conv5, float* %arrayidx, align 4
-  %arrayidx9 = getelementptr inbounds [100 x float], [100 x float]* @q, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx9, align 4
+  store float %conv5, ptr %arrayidx, align 4
+  %arrayidx9 = getelementptr inbounds [100 x float], ptr @q, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx9, align 4
   %conv12 = fadd float %1, 1.000000e+00
-  store float %conv12, float* %arrayidx9, align 4
+  store float %conv12, ptr %arrayidx9, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4, !llvm.loop !1

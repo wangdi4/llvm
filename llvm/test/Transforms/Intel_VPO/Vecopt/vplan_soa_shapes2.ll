@@ -14,10 +14,10 @@ define void @test_vplan_da_phis_soa() {
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] [1024 x i32]* [[VP_BRR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] [1024 x i32]* [[VP_BRR_PRIV:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
 ; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] i8* [[VP0:%.*]] = bitcast [1024 x i32]* [[VP_BRR_PRIV]]
 ; CHECK-NEXT:     [DA: [Shape: Random]] call i64 4096 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] [1024 x i32]* [[VP_ARR_PRIV32:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] [1024 x i32]* [[VP_ARR_PRIV32:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
 ; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] i8* [[VP1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV32]]
 ; CHECK-NEXT:     [DA: [Shape: Random]] call i64 4096 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: [Shape: Unit Stride, Stride: i64 1]] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1

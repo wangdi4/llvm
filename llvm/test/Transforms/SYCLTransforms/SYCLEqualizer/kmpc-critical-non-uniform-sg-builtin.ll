@@ -14,9 +14,9 @@ target triple = "spir64-unknown-unknown"
 
 declare spir_func double @_Z20sub_group_reduce_addd(double)
 
-define spir_kernel void @__omp_offloading_811_2373a41__ZL5test4iPdS_S__l19([1 x double] addrspace(1)* noalias %sum.ascast, i64 %k.ascast.val.zext, i64 %.omp.lb.ascast.val93.zext, i64 %.omp.ub.ascast.val.zext, i64 %.capture_expr.0.ascast.val.zext) {
+define spir_kernel void @__omp_offloading_811_2373a41__ZL5test4iPdS_S__l19(ptr addrspace(1) noalias %sum.ascast, i64 %k.ascast.val.zext, i64 %.omp.lb.ascast.val93.zext, i64 %.omp.ub.ascast.val.zext, i64 %.capture_expr.0.ascast.val.zext) {
 DIR.OMP.TEAMS.6:
-  %0 = addrspacecast [8 x i32] addrspace(1)* null to [8 x i32] addrspace(4)*
+  %0 = addrspacecast ptr addrspace(1) null to ptr addrspace(4)
   br label %DIR.OMP.END.PARALLEL.LOOP.10.loopexit
 
 omp.inner.for.body.preheader:                     ; No predecessors!
@@ -24,14 +24,14 @@ omp.inner.for.body.preheader:                     ; No predecessors!
 
 DIR.OMP.END.PARALLEL.LOOP.10.loopexit:            ; preds = %omp.inner.for.body.preheader, %DIR.OMP.TEAMS.6
   %sum.ascast.red.0 = phi double [ 0.000000e+00, %DIR.OMP.TEAMS.6 ], [ 0.000000e+00, %omp.inner.for.body.preheader ]
-  call spir_func void @__kmpc_critical([8 x i32] addrspace(4)* %0)
+  call spir_func void @__kmpc_critical(ptr addrspace(4) %0)
   %1 = call spir_func double @_Z20sub_group_reduce_addd(double %sum.ascast.red.0)
-  call spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)* %0)
+  call spir_func void @__kmpc_end_critical(ptr addrspace(4) %0)
   ret void
 }
 
-declare spir_func void @__kmpc_critical([8 x i32] addrspace(4)*)
+declare spir_func void @__kmpc_critical(ptr addrspace(4))
 
-declare spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)*)
+declare spir_func void @__kmpc_end_critical(ptr addrspace(4))
 
 ; DEBUGIFY-NOT: WARNING

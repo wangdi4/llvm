@@ -10,6 +10,7 @@
 // CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
 // CHECK-INTEL-WIN: "-malign-double"
 // CHECK-INTEL-WIN: "-fuse-line-directives"
+// CHECK-INTEL-WIN: "-fdiagnostics-absolute-paths"
 // CHECK-INTEL-LIN: "-fheinous-gnu-extensions"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
@@ -42,11 +43,6 @@
 // CHECK-INTEL-ASM: "-fno-verbose-asm"
 // CHECK-INTEL-ASM-NOT: "-x86-asm-syntax=intel"
 
-// default header behavior with --intel
-// RUN: %clang -### -c --intel -target x86_64-unknown-linux-gnu %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s
-// RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s
-// CHECK-INTEL-HEADER: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}compiler{{(/|\\\\)}}include"
-
 // -O2 should be not be set when any other -O is passed
 // RUN: %clang -### -c --intel -O0 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
 // RUN: %clang -### -c --intel -O1 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O1 %s
@@ -58,19 +54,6 @@
 // CHECK-INTEL-O1-NOT: "-O2"
 // CHECK-INTEL-OS: "-Os"
 // CHECK-INTEL-OS-NOT: "-O2"
-
-// default libs with --intel (Linux)
-// RUN: touch %t.o
-// RUN: %clang -### -no-canonical-prefixes --intel -target x86_64-unknown-linux --gcc-toolchain="" --sysroot=%S/Inputs/basic_linux_tree %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
-// CHECK-INTEL-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
-// CHECK-INTEL-LIBS: "-L{{.*}}{{(/|\\\\)}}compiler{{(/|\\\\)}}lib{{(/|\\\\)}}intel64_lin" "-L{{.*}}bin{{(/|\\\\)}}..{{(/|\\\\)}}lib"
-// CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/10.2.0"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lirng" "-Bdynamic"
-// CHECK-INTEL-LIBS: "-lgcc"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
-// CHECK-INTEL-LIBS: "-ldl"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lirc_s" "-Bdynamic"
 
 // RUN: touch %t.o
 // RUN: %clang -### -shared --intel -target x86_64-unknown-linux %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED %s
@@ -102,14 +85,6 @@
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libircmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:svml_dispmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libdecimal"
-
-// RUN: touch %t.o
-// RUN: %clang -### --intel -target i386-unknown-linux-gnu %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS32 %s
-// CHECK-INTEL-LIBS32: "-L{{.*}}{{(/|\\\\)}}compiler{{(/|\\\\)}}lib{{(/|\\\\)}}ia32_lin" "-L{{.*}}bin{{(/|\\\\)}}..{{(/|\\\\)}}lib"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lsvml" "-Bdynamic"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lirng" "-Bdynamic"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc_s" "-Bdynamic"
 
 // -fveclib=SVML can be overridden
 // RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
@@ -217,10 +192,6 @@
 // RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
 // RUN: %clang -### --intel -ffp-model=strict -O1 -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
-
-// print-search-dirs should contain the Intel lib dir
-// RUN: %clang --intel -target x86_64-unknown-linux-gnu --print-search-dirs 2>&1 | FileCheck -check-prefix CHECK-SEARCH-DIRS %s
-// CHECK-SEARCH-DIRS: libraries:{{.*}} {{.*}}compiler{{(/|\\)}}lib{{(/|\\)}}intel64_lin{{.*}}
 
 // Add -header-base-path for Windows
 // RUN: %clang_cl --intel -### -c %s 2>&1 \

@@ -35,7 +35,7 @@ struct DeviceAuto {
 
 static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
                          bool bOutOfOrder, bool bIsFullDevice,
-                         AtomicCounter *pUncompletedTasks) {
+                         std::atomic<long> *pUncompletedTasks) {
   SharedPtr<ITaskList> pTaskList = pSubdevData->CreateTaskList(
       bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER);
   if (NULL == pTaskList.GetPtr()) {
@@ -94,7 +94,7 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize,
     std::cerr << "CreateSubdevice returned NULL" << std::endl;
     return false;
   }
-  AtomicCounter uncompletedTasks;
+  std::atomic<long> uncompletedTasks{0};
   const bool bResult =
       RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
 

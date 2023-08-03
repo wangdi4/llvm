@@ -16,7 +16,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
@@ -77,6 +76,32 @@ static Value *resolveSliceInsertElement(CallInst *CI) {
       RowSliceId, MatrixType, CI, "mat.update");
 }
 
+static Value *resolveWIElementCoordinate(CallInst *CI) {
+  assert(CompilationUtils::isValidMatrixType(
+             cast<FixedVectorType>(CI->getArgOperand(0)->getType())) &&
+         "Unsupported matrix type");
+  auto *Cols = cast<ConstantInt>(CI->getArgOperand(2));
+  auto *Index = CI->getArgOperand(3);
+  auto *SGSize = CompilationUtils::createGetMaxSubGroupSizeCall(CI, "sg.size");
+  auto *SGLID = CompilationUtils::createGetSubGroupLocalIdCall(CI, "sg.lid");
+  IRBuilder<> Builder(CI);
+  auto *LinearMatCoord = Builder.CreateNUWAdd(
+      SGLID,
+      Builder.CreateNUWMul(
+          SGSize, Builder.CreateTruncOrBitCast(Index, SGSize->getType())),
+      "linear.mat.coord");
+  auto *RowIndex = Builder.CreateUDiv(LinearMatCoord, Cols);
+  auto *ColIndex = Builder.CreateURem(LinearMatCoord, Cols);
+  auto *CoordVec = Builder.CreateInsertElement(PoisonValue::get(CI->getType()),
+                                               RowIndex, Builder.getInt32(0));
+  CoordVec =
+      Builder.CreateInsertElement(CoordVec, ColIndex, Builder.getInt32(1));
+  LLVM_DEBUG(CompilationUtils::insertPrintf(
+      "WI.COORD", CI, {RowIndex, ColIndex, SGLID, Index},
+      {"ROWIDX", "COLIDX", "SGLID", "SLICEIDX"}));
+  return CoordVec;
+}
+
 bool ResolveMatrixWISlicePass::runImpl(Module &M) {
   bool Changed = false;
   function_ref<Value *(CallInst *)> GetReplacementOf;
@@ -90,6 +115,9 @@ bool ResolveMatrixWISlicePass::runImpl(Module &M) {
       break;
     case Intrinsic::experimental_matrix_wi_slice_insertelement:
       GetReplacementOf = resolveSliceInsertElement;
+      break;
+    case Intrinsic::experimental_matrix_wi_element_coordinate:
+      GetReplacementOf = resolveWIElementCoordinate;
       break;
     default:
       continue;

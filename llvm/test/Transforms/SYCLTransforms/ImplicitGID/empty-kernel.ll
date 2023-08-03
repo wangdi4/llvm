@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks that we are able to insert a gid_alloca at an
 ; empty kernel (very degenerative case), i.e. fourth_kernel, the
@@ -50,11 +50,11 @@ target triple = "x86_64-pc-linux"
 define void @fourth_kernel() #0 !dbg !23 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !27 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @fourth_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2{{.*}}
 entry:
   call void @dummybarrier.()
   br label %"Barrier BB"
@@ -68,11 +68,11 @@ entry:
 define void @third_kernel() #0 !dbg !29 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @third_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2{{.*}}
 entry:
   call void @dummybarrier.()
   call void @__internal.fourth_kernel() #3, !dbg !31
@@ -87,11 +87,11 @@ entry:
 define void @second_kernel() #0 !dbg !33 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !4 !use_fpga_pipes !26 !kernel_execution_length !30 !no_barrier_path !26 !kernel_has_global_sync !26 {
 ; CHECK-LABEL: @second_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2{{.*}}
 entry:
   call void @dummybarrier.()
   call void @__internal.third_kernel() #3, !dbg !34
@@ -103,22 +103,22 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind
-define void @main_kernel(i8 addrspace(1)* %buf_in, i8 addrspace(1)* %buf_out) #0 !dbg !36 !kernel_arg_addr_space !40 !kernel_arg_access_qual !41 !kernel_arg_type !42 !kernel_arg_base_type !42 !kernel_arg_type_qual !43 !kernel_arg_host_accessible !44 !kernel_arg_pipe_depth !45 !kernel_arg_pipe_io !43 !kernel_arg_buffer_location !43 !kernel_arg_name !46 !use_fpga_pipes !26 !kernel_execution_length !47 !no_barrier_path !26 !kernel_has_global_sync !26 {
+define void @main_kernel(ptr addrspace(1) %buf_in, ptr addrspace(1) %buf_out) #0 !dbg !36 !kernel_arg_addr_space !40 !kernel_arg_access_qual !41 !kernel_arg_type !42 !kernel_arg_base_type !42 !kernel_arg_type_qual !43 !kernel_arg_host_accessible !44 !kernel_arg_pipe_depth !45 !kernel_arg_pipe_io !43 !kernel_arg_buffer_location !43 !kernel_arg_name !46 !use_fpga_pipes !26 !kernel_execution_length !47 !no_barrier_path !26 !kernel_has_global_sync !26 !arg_type_null_val !62 {
 ; CHECK-LABEL: @main_kernel
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1{{.*}}
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2{{.*}}
 entry:
   call void @dummybarrier.()
-  %buf_in.addr = alloca i8 addrspace(1)*, align 8
-  %buf_out.addr = alloca i8 addrspace(1)*, align 8
-  store i8 addrspace(1)* %buf_in, i8 addrspace(1)** %buf_in.addr, align 8
-  call void @llvm.dbg.declare(metadata i8 addrspace(1)** %buf_in.addr, metadata !48, metadata !DIExpression()), !dbg !49
-  store i8 addrspace(1)* %buf_out, i8 addrspace(1)** %buf_out.addr, align 8
-  call void @llvm.dbg.declare(metadata i8 addrspace(1)** %buf_out.addr, metadata !50, metadata !DIExpression()), !dbg !51
+  %buf_in.addr = alloca ptr addrspace(1), align 8
+  %buf_out.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %buf_in, ptr %buf_in.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %buf_in.addr, metadata !48, metadata !DIExpression()), !dbg !49
+  store ptr addrspace(1) %buf_out, ptr %buf_out.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %buf_out.addr, metadata !50, metadata !DIExpression()), !dbg !51
   call void @__internal.second_kernel() #3, !dbg !52
   br label %"Barrier BB"
 
@@ -195,7 +195,7 @@ attributes #3 = { convergent "uniform-work-group-size"="true" }
 !18 = !{i32 1, i32 2}
 !19 = !{!"-g", !"-cl-opt-disable"}
 !20 = !{!"clang version 8.0.0 "}
-!21 = !{void ()* @fourth_kernel, void ()* @third_kernel, void ()* @second_kernel, void (i8 addrspace(1)*, i8 addrspace(1)*)* @main_kernel}
+!21 = !{ptr @fourth_kernel, ptr @third_kernel, ptr @second_kernel, ptr @main_kernel}
 !22 = !{i32 0}
 !23 = distinct !DISubprogram(name: "fourth_kernel", scope: !8, file: !8, line: 4, type: !24, isLocal: false, isDefinition: true, scopeLine: 5, flags: DIFlagPrototyped, isOptimized: false, unit: !2, retainedNodes: !4)
 !24 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !25)
@@ -236,6 +236,6 @@ attributes #3 = { convergent "uniform-work-group-size"="true" }
 !59 = distinct !DISubprogram(name: "second_kernel", scope: !8, file: !8, line: 15, type: !24, isLocal: false, isDefinition: true, scopeLine: 16, flags: DIFlagPrototyped, isOptimized: false, unit: !2, retainedNodes: !4)
 !60 = !DILocation(line: 17, column: 2, scope: !59)
 !61 = !DILocation(line: 18, column: 2, scope: !59)
-
+!62 = !{i8 addrspace(1)* null, i8 addrspace(1)* null}
 
 ; DEBUGIFY-NOT: WARNING

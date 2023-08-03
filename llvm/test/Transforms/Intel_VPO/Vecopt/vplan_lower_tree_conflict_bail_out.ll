@@ -19,7 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo1(float* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, float* noalias nocapture readnone %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo1(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture readnone %C, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.preheader, label %for.cond.cleanup
@@ -36,15 +36,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %1 to float
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %2 = load float, ptr %arrayidx2, align 4
   %sub = fsub fast float %conv, %2
-  store float %sub, float* %arrayidx2, align 4
+  store float %sub, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count14
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
@@ -54,7 +54,7 @@ for.body:                                         ; preds = %for.body.preheader,
 ; not supported because fast flag is not present
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo2(float* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, float* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo2(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 ;
 ; float A[N], C[N];
 ; int B[N]; // conflict idx
@@ -78,15 +78,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 8
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  %2 = load float, float* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx4, align 4
   %add = fadd float %2, %1
-  store float %add, float* %arrayidx2, align 4
+  store float %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
@@ -96,7 +96,7 @@ for.body:                                         ; preds = %for.body.preheader,
 ; short types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo3(i16* noalias nocapture noundef %A, i16* nocapture noundef readonly %B, i16* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo3(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 ;
 ; short A[N], C[N];
 ; short B[N]; // conflict idx
@@ -120,15 +120,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i16, i16* %B, i64 %indvars.iv
-  %0 = load i16, i16* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i16, ptr %B, i64 %indvars.iv
+  %0 = load i16, ptr %arrayidx, align 8
   %idxprom1 = sext i16 %0 to i64
-  %arrayidx2 = getelementptr inbounds i16, i16* %A, i64 %idxprom1
-  %1 = load i16, i16* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i16, i16* %C, i64 %indvars.iv
-  %2 = load i16, i16* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i16, ptr %A, i64 %idxprom1
+  %1 = load i16, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i16, ptr %C, i64 %indvars.iv
+  %2 = load i16, ptr %arrayidx4, align 4
   %add = add i16 %2, %1
-  store i16 %add, i16* %arrayidx2, align 4
+  store i16 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
@@ -138,7 +138,7 @@ for.body:                                         ; preds = %for.body.preheader,
 ; char types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo4(i8* noalias nocapture noundef %A, i8* nocapture noundef readonly %B, i8* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo4(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 ;
 ; char A[N], C[N];
 ; char B[N]; // conflict idx
@@ -162,15 +162,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i8, i8* %B, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i8, ptr %B, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx, align 8
   %idxprom1 = sext i8 %0 to i64
-  %arrayidx2 = getelementptr inbounds i8, i8* %A, i64 %idxprom1
-  %1 = load i8, i8* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i8, i8* %C, i64 %indvars.iv
-  %2 = load i8, i8* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i8, ptr %A, i64 %idxprom1
+  %1 = load i8, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i8, ptr %C, i64 %indvars.iv
+  %2 = load i8, ptr %arrayidx4, align 4
   %add = add i8 %2, %1
-  store i8 %add, i8* %arrayidx2, align 4
+  store i8 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

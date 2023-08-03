@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -28,8 +28,7 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
     cl_command_queue_properties clProperties, EventsManager *pEventManager)
     : IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties,
                            pEventManager),
-      m_depOnAll(nullptr), m_commandsInExecution(0), m_lastBarrier(nullptr),
-      m_unflushedCommands(0) {}
+      m_depOnAll(nullptr), m_lastBarrier(nullptr) {}
 
 OutOfOrderCommandQueue::~OutOfOrderCommandQueue() {}
 
@@ -154,7 +153,7 @@ cl_err_code
 OutOfOrderCommandQueue::NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
                                           OclEventState /*prevColor*/,
                                           OclEventState newColor) {
-  if ((EVENT_STATE_READY_TO_EXECUTE == newColor) || m_bCancelAll) {
+  if ((EVENT_STATE_READY_TO_EXECUTE == newColor)) {
     Command *cmd = pEvent->GetCommand();
     if (cmd->isControlCommand()) {
       bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());

@@ -51,13 +51,16 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/MatrixBuilder.h"
+#include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include "llvm/Support/xxhash.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
 
 #include <optional>
@@ -74,6 +77,7 @@ using namespace CodeGen;
 //                        Miscellaneous Helper Methods
 //===--------------------------------------------------------------------===//
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 llvm::Value *CodeGenFunction::EmitCastToVoidPtr(llvm::Value *value) {
   unsigned addressSpace =
       cast<llvm::PointerType>(value->getType())->getAddressSpace();
@@ -85,6 +89,7 @@ llvm::Value *CodeGenFunction::EmitCastToVoidPtr(llvm::Value *value) {
   if (value->getType() == destType) return value;
   return Builder.CreateBitCast(value, destType);
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 /// CreateTempAlloca - This creates a alloca and inserts it into the entry
 /// block.
@@ -216,7 +221,7 @@ Address CodeGenFunction::CreateMemTempPossiblyCasted(QualType Ty,
                                                      const Twine &Name) {
   llvm::Type *LTy = ConvertTypeForMem(Ty);
   // Casted address may be needed for OpenMP clauses.
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice)
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice)
     return CreateTempAlloca(LTy, Align, Name, /*ArraySize=*/nullptr,
                             /*AllocaAddr=*/nullptr);
   else
@@ -1155,7 +1160,11 @@ static Address EmitPointerWithAlignment(const Expr *E, LValueBaseInfo *BaseInfo,
 
         llvm::Type *ElemTy =
             CGF.ConvertTypeForMem(E->getType()->getPointeeType());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        Addr = Addr.withElementType(ElemTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
         Addr = CGF.Builder.CreateElementBitCast(Addr, ElemTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
         if (CE->getCastKind() == CK_AddressSpaceConversion)
           Addr = CGF.Builder.CreateAddrSpaceCast(Addr,
                                                  CGF.ConvertType(E->getType()));
@@ -1808,10 +1817,14 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
 
     if (!CGM.getCodeGenOpts().PreserveVec3Type && VTy->getNumElements() == 3) {
 
-      // Bitcast to vec4 type.
       llvm::VectorType *vec4Ty =
           llvm::FixedVectorType::get(VTy->getElementType(), 4);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Address Cast = Addr.withElementType(vec4Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      // Bitcast to vec4 type.
       Address Cast = Builder.CreateElementBitCast(Addr, vec4Ty, "castToVec4");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       // Now load value.
       llvm::Value *V = Builder.CreateLoad(Cast, Volatile, "loadVec4");
 
@@ -1832,7 +1845,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
   if (isNontemporal) {
     llvm::MDNode *Node = llvm::MDNode::get(
         Load->getContext(), llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
-    Load->setMetadata(CGM.getModule().getMDKindID("nontemporal"), Node);
+    Load->setMetadata(llvm::LLVMContext::MD_nontemporal, Node);
   }
 
   CGM.DecorateInstructionWithTBAA(Load, TBAAInfo);
@@ -1912,7 +1925,11 @@ static Address MaybeConvertMatrixAddress(Address Addr, CodeGenFunction &CGF,
     auto *VectorTy = llvm::FixedVectorType::get(ArrayTy->getElementType(),
                                                 ArrayTy->getNumElements());
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return Addr.withElementType(VectorTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     return Address(CGF.Builder.CreateElementBitCast(Addr, VectorTy));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
   auto *VectorTy = dyn_cast<llvm::VectorType>(Addr.getElementType());
   if (VectorTy && !IsVector) {
@@ -1920,7 +1937,11 @@ static Address MaybeConvertMatrixAddress(Address Addr, CodeGenFunction &CGF,
         VectorTy->getElementType(),
         cast<llvm::FixedVectorType>(VectorTy)->getNumElements());
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return Addr.withElementType(ArrayTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     return Address(CGF.Builder.CreateElementBitCast(Addr, ArrayTy));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   return Addr;
@@ -1968,7 +1989,11 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
         SrcTy = llvm::FixedVectorType::get(VecTy->getElementType(), 4);
       }
       if (Addr.getElementType() != SrcTy) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        Addr = Addr.withElementType(SrcTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
         Addr = Builder.CreateElementBitCast(Addr, SrcTy, "storetmp");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
     }
   }
@@ -1988,7 +2013,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     llvm::MDNode *Node =
         llvm::MDNode::get(Store->getContext(),
                           llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
-    Store->setMetadata(CGM.getModule().getMDKindID("nontemporal"), Node);
+    Store->setMetadata(llvm::LLVMContext::MD_nontemporal, Node);
   }
 
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
@@ -2163,8 +2188,12 @@ Address CodeGenFunction::EmitExtVectorElementLValue(LValue LV) {
   QualType EQT = LV.getType()->castAs<VectorType>()->getElementType();
   llvm::Type *VectorElementTy = CGM.getTypes().ConvertType(EQT);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address CastToPointerElement = VectorAddress.withElementType(VectorElementTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Address CastToPointerElement =
     Builder.CreateElementBitCast(VectorAddress, VectorElementTy,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                  "conv.ptr.element");
 
   const llvm::Constant *Elts = LV.getExtVectorElts();
@@ -2617,7 +2646,11 @@ static LValue EmitThreadPrivateVarDeclLValue(
     Addr =
         CGF.CGM.getOpenMPRuntime().getAddrOfThreadPrivate(CGF, VD, Addr, Loc);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Addr = Addr.withElementType(RealVarTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Addr = CGF.Builder.CreateElementBitCast(Addr, RealVarTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return CGF.MakeAddrLValue(Addr, T, AlignmentSource::Decl);
 }
 
@@ -2699,7 +2732,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     return CGF.CGM.getCXXABI().EmitThreadLocalVarDeclLValue(CGF, VD, T);
   // Check if the variable is marked as declare target with link clause in
   // device codegen.
-  if (CGF.getLangOpts().OpenMPIsDevice) {
+  if (CGF.getLangOpts().OpenMPIsTargetDevice) {
     Address Addr = emitDeclTargetVarDeclLValue(CGF, VD, T);
     if (Addr.isValid())
       return CGF.MakeAddrLValue(Addr, T, AlignmentSource::Decl);
@@ -2710,12 +2743,12 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
 #if INTEL_COLLAB
   // Diagnose uses of globals that are not marked for target. This typically
   // causes an offload failure at runtime.
-  if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsDevice &&
+  if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsTargetDevice &&
       CGF.CGM.inTargetRegion() && E->getExprLoc().isValid()) {
-    llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+    std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res) {
-      if (!VD->isConstexpr() &&
+      if (!VD->isConstexpr() && !VD->hasAttr<OMPGroupPrivateDeclAttr>() &&
           !(CGF.CapturedStmtInfo &&
             CGF.CapturedStmtInfo->inNestedTargetConstruct())) {
         CGF.CGM.getDiags().Report(E->getExprLoc(),
@@ -2941,7 +2974,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 #if INTEL_COLLAB
       // Temporarily set target_declare attribute for global constexpr
       // variable which used in the target region.
-      if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
           CGM.inTargetRegion() && VD->isConstexpr())
         if (auto *GV = dyn_cast<llvm::GlobalValue>(
                 Addr.getPointer()->stripPointerCasts()))
@@ -3444,7 +3477,7 @@ enum class CheckRecoverableKind {
 
 static CheckRecoverableKind getRecoverableKind(SanitizerMask Kind) {
   assert(Kind.countPopulation() == 1);
-  if (Kind == SanitizerKind::Function || Kind == SanitizerKind::Vptr)
+  if (Kind == SanitizerKind::Vptr)
     return CheckRecoverableKind::AlwaysRecoverable;
   else if (Kind == SanitizerKind::Return || Kind == SanitizerKind::Unreachable)
     return CheckRecoverableKind::Unrecoverable;
@@ -3589,7 +3622,11 @@ void CodeGenFunction::EmitCheck(
           CGM.getDataLayout().getDefaultGlobalsAddressSpace());
       InfoPtr->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
       CGM.getSanitizerMetadata()->disableSanitizerForGlobal(InfoPtr);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Args.push_back(InfoPtr);
+#else
       Args.push_back(EmitCastToVoidPtr(InfoPtr));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes.push_back(Args.back()->getType());
     }
 
@@ -3862,7 +3899,11 @@ Address CodeGenFunction::EmitArrayToPointerDecay(const Expr *E,
   // If the array type was an incomplete type, we need to make sure
   // the decay ends up being the right type.
   llvm::Type *NewTy = ConvertType(E->getType());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Addr = Addr.withElementType(NewTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Addr = Builder.CreateElementBitCast(Addr, NewTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Note that VLA pointers are always decayed, so we don't need to do
   // anything here.
@@ -3881,7 +3922,11 @@ Address CodeGenFunction::EmitArrayToPointerDecay(const Expr *E,
   if (BaseInfo) *BaseInfo = LV.getBaseInfo();
   if (TBAAInfo) *TBAAInfo = CGM.getTBAAAccessInfo(EltType);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return Addr.withElementType(ConvertTypeForMem(EltType));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   return Builder.CreateElementBitCast(Addr, ConvertTypeForMem(EltType));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 /// isSimpleArrayDecayOperand - If the specified expr is a simple decay from an
@@ -4152,6 +4197,16 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     // correctly, so we need to cast to i8*.  FIXME: is this actually
     // true?  A lot of other things in the fragile ABI would break...
     llvm::Type *OrigBaseElemTy = Addr.getElementType();
+
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    // Do the GEP.
+    CharUnits EltAlign =
+      getArrayElementAlign(Addr.getAlignment(), Idx, InterfaceSize);
+    llvm::Value *EltPtr =
+        emitArraySubscriptGEP(*this, Int8Ty, Addr.getPointer(), ScaledIdx,
+                              false, SignedIndices, E->getExprLoc());
+    Addr = Address(EltPtr, OrigBaseElemTy, EltAlign);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Addr = Builder.CreateElementBitCast(Addr, Int8Ty);
 
     // Do the GEP.
@@ -4164,6 +4219,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
 
     // Cast back.
     Addr = Builder.CreateElementBitCast(Addr, OrigBaseElemTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else if (const Expr *Array = isSimpleArrayDecayOperand(E->getBase())) {
     // If this is A[i] where A is an array, the frontend will have decayed the
     // base to be a ArrayToPointerDecay implicit cast.  While correct, it is
@@ -4281,7 +4337,11 @@ static Address emitOMPArraySectionBase(CodeGenFunction &CGF, const Expr *Base,
       // If the array type was an incomplete type, we need to make sure
       // the decay ends up being the right type.
       llvm::Type *NewTy = CGF.ConvertType(BaseTy);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Addr = Addr.withElementType(NewTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       Addr = CGF.Builder.CreateElementBitCast(Addr, NewTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Note that VLA pointers are always decayed, so we don't need to do
       // anything here.
@@ -4291,8 +4351,12 @@ static Address emitOMPArraySectionBase(CodeGenFunction &CGF, const Expr *Base,
         Addr = CGF.Builder.CreateConstArrayGEP(Addr, 0, "arraydecay");
       }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      return Addr.withElementType(CGF.ConvertTypeForMem(ElTy));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       return CGF.Builder.CreateElementBitCast(Addr,
                                               CGF.ConvertTypeForMem(ElTy));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     }
     LValueBaseInfo TypeBaseInfo;
     TBAAAccessInfo TypeTBAAInfo;
@@ -4388,6 +4452,7 @@ LValue CodeGenFunction::EmitOMPArraySectionExpr(const OMPArraySectionExpr *E,
         }
       } else {
         auto *CAT = C.getAsConstantArrayType(ArrayTy);
+        assert(CAT && "unexpected type for array initializer");
         ConstLength = CAT->getSize();
       }
       if (Length) {
@@ -4608,7 +4673,11 @@ static Address emitAddrOfZeroSizeField(CodeGenFunction &CGF, Address Base,
       CGF.getContext().getFieldOffset(Field));
   if (Offset.isZero())
     return Base;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Base = Base.withElementType(CGF.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Base = CGF.Builder.CreateElementBitCast(Base, CGF.Int8Ty);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return CGF.Builder.CreateConstInBoundsByteGEP(Base, Offset);
 }
 
@@ -4710,8 +4779,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
         UseVolatile ? Info.VolatileStorageSize : Info.StorageSize;
     // Get the access type.
     llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Addr = Addr.withElementType(FieldIntTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     if (Addr.getElementType() != FieldIntTy)
       Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     if (UseVolatile) {
       const unsigned VolatileOffset = Info.VolatileStorageOffset.getQuantity();
       if (VolatileOffset)
@@ -4863,8 +4936,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
 
     if (FieldType->isReferenceType())
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      addr = addr.withElementType(CGM.getTypes().ConvertTypeForMem(FieldType));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       addr = Builder.CreateElementBitCast(
           addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else {
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
@@ -4923,11 +5000,16 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   }
 
   // Make sure that the address is pointing to the right type.  This is critical
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  // for both unions and structs.
+  addr = addr.withElementType(CGM.getTypes().ConvertTypeForMem(FieldType));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // for both unions and structs.  A union needs a bitcast, a struct element
   // will need a bitcast if the LLVM type laid out doesn't match the desired
   // type.
   addr = Builder.CreateElementBitCast(
       addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
@@ -4977,7 +5059,11 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
 
   // Make sure that the address is pointing to the right type.
   llvm::Type *llvmType = ConvertTypeForMem(FieldType);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  V = V.withElementType(llvmType);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   V = Builder.CreateElementBitCast(V, llvmType, Field->getName());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // TODO: Generate TBAA information that describes this access as a structure
   // member access and not just an access to an object of the field's type. This
@@ -5290,7 +5376,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
       if (V.isValid()) {
         llvm::Type *T = ConvertTypeForMem(E->getType());
         if (V.getElementType() != T)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          LV.setAddress(V.withElementType(T));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
           LV.setAddress(Builder.CreateElementBitCast(V, T));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
     }
     return LV;
@@ -5349,9 +5439,14 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
     CGM.EmitExplicitCastExprType(CE, this);
     LValue LV = EmitLValue(E->getSubExpr());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address V = LV.getAddress(*this).withElementType(
+        ConvertTypeForMem(CE->getTypeAsWritten()->getPointeeType()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Address V = Builder.CreateElementBitCast(
         LV.getAddress(*this),
         ConvertTypeForMem(CE->getTypeAsWritten()->getPointeeType()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     if (SanOpts.has(SanitizerKind::CFIUnrelatedCast))
       EmitVTablePtrCheckForCast(E->getType(), V,
@@ -5374,8 +5469,12 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address V = LV.getAddress(*this).withElementType(ConvertType(E->getType()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Address V = Builder.CreateElementBitCast(LV.getAddress(*this),
                                              ConvertType(E->getType()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return MakeAddrLValue(V, E->getType(), LV.getBaseInfo(),
                           CGM.getTBAAInfoForSubobject(LV, E->getType()));
   }
@@ -5539,7 +5638,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
   }
 
 #if INTEL_COLLAB
-  if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inDispatchRegion()) {
     for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called
@@ -5696,8 +5795,13 @@ CodeGenFunction::EmitCXXTypeidLValue(const CXXTypeidExpr *E) {
 }
 
 Address CodeGenFunction::EmitCXXUuidofExpr(const CXXUuidofExpr *E) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return CGM.GetAddrOfMSGuidDecl(E->getGuidDecl())
+      .withElementType(ConvertType(E->getType()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   return Builder.CreateElementBitCast(CGM.GetAddrOfMSGuidDecl(E->getGuidDecl()),
                                       ConvertType(E->getType()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 LValue CodeGenFunction::EmitCXXUuidofLValue(const CXXUuidofExpr *E) {
@@ -5804,27 +5908,46 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
 
   CGCallee Callee = OrigCallee;
 
-  if (getLangOpts().CPlusPlus && SanOpts.has(SanitizerKind::Function) &&
-      (!TargetDecl || !isa<FunctionDecl>(TargetDecl))) {
+  if (SanOpts.has(SanitizerKind::Function) &&
+      (!TargetDecl || !isa<FunctionDecl>(TargetDecl)) &&
+      !isa<FunctionNoProtoType>(PointeeType)) {
     if (llvm::Constant *PrefixSig =
             CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
       SanitizerScope SanScope(this);
-      // Remove any (C++17) exception specifications, to allow calling e.g. a
-      // noexcept function through a non-noexcept pointer.
-      auto ProtoTy =
-        getContext().getFunctionTypeWithExceptionSpec(PointeeType, EST_None);
-      llvm::Constant *FTRTTIConst =
-          CGM.GetAddrOfRTTIDescriptor(ProtoTy, /*ForEH=*/true);
+      auto *TypeHash = getUBSanFunctionTypeHash(PointeeType);
+
       llvm::Type *PrefixSigType = PrefixSig->getType();
       llvm::StructType *PrefixStructTy = llvm::StructType::get(
           CGM.getLLVMContext(), {PrefixSigType, Int32Ty}, /*isPacked=*/true);
 
       llvm::Value *CalleePtr = Callee.getFunctionPointer();
 
+      // On 32-bit Arm, the low bit of a function pointer indicates whether
+      // it's using the Arm or Thumb instruction set. The actual first
+      // instruction lives at the same address either way, so we must clear
+      // that low bit before using the function address to find the prefix
+      // structure.
+      //
+      // This applies to both Arm and Thumb target triples, because
+      // either one could be used in an interworking context where it
+      // might be passed function pointers of both types.
+      llvm::Value *AlignedCalleePtr;
+      if (CGM.getTriple().isARM() || CGM.getTriple().isThumb()) {
+        llvm::Value *CalleeAddress =
+            Builder.CreatePtrToInt(CalleePtr, IntPtrTy);
+        llvm::Value *Mask = llvm::ConstantInt::get(IntPtrTy, ~1);
+        llvm::Value *AlignedCalleeAddress =
+            Builder.CreateAnd(CalleeAddress, Mask);
+        AlignedCalleePtr =
+            Builder.CreateIntToPtr(AlignedCalleeAddress, CalleePtr->getType());
+      } else {
+        AlignedCalleePtr = CalleePtr;
+      }
+
       llvm::Value *CalleePrefixStruct = Builder.CreateBitCast(
-          CalleePtr, llvm::PointerType::getUnqual(PrefixStructTy));
+          AlignedCalleePtr, llvm::PointerType::getUnqual(PrefixStructTy));
       llvm::Value *CalleeSigPtr =
-          Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, 0, 0);
+          Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, -1, 0);
       llvm::Value *CalleeSig =
           Builder.CreateAlignedLoad(PrefixSigType, CalleeSigPtr, getIntAlign());
       llvm::Value *CalleeSigMatch = Builder.CreateICmpEQ(CalleeSig, PrefixSig);
@@ -5834,19 +5957,17 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
       Builder.CreateCondBr(CalleeSigMatch, TypeCheck, Cont);
 
       EmitBlock(TypeCheck);
-      llvm::Value *CalleeRTTIPtr =
-          Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, 0, 1);
-      llvm::Value *CalleeRTTIEncoded =
-          Builder.CreateAlignedLoad(Int32Ty, CalleeRTTIPtr, getPointerAlign());
-      llvm::Value *CalleeRTTI =
-          DecodeAddrUsedInPrologue(CalleePtr, CalleeRTTIEncoded);
-      llvm::Value *CalleeRTTIMatch =
-          Builder.CreateICmpEQ(CalleeRTTI, FTRTTIConst);
+      llvm::Value *CalleeTypeHash = Builder.CreateAlignedLoad(
+          Int32Ty,
+          Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, -1, 1),
+          getPointerAlign());
+      llvm::Value *CalleeTypeHashMatch =
+          Builder.CreateICmpEQ(CalleeTypeHash, TypeHash);
       llvm::Constant *StaticData[] = {EmitCheckSourceLocation(E->getBeginLoc()),
                                       EmitCheckTypeDescriptor(CalleeType)};
-      EmitCheck(std::make_pair(CalleeRTTIMatch, SanitizerKind::Function),
+      EmitCheck(std::make_pair(CalleeTypeHashMatch, SanitizerKind::Function),
                 SanitizerHandler::FunctionTypeMismatch, StaticData,
-                {CalleePtr, CalleeRTTI, FTRTTIConst});
+                {CalleePtr});
 
       Builder.CreateBr(Cont);
       EmitBlock(Cont);
@@ -6049,6 +6170,48 @@ void CodeGenFunction::SetFPAccuracy(llvm::Value *Val, float Accuracy) {
   llvm::MDNode *Node = MDHelper.createFPMath(Accuracy);
 
   cast<llvm::Instruction>(Val)->setMetadata(llvm::LLVMContext::MD_fpmath, Node);
+}
+
+void CodeGenFunction::SetSqrtFPAccuracy(llvm::Value *Val) {
+  llvm::Type *EltTy = Val->getType()->getScalarType();
+  if (!EltTy->isFloatTy())
+    return;
+
+  if ((getLangOpts().OpenCL &&
+       !CGM.getCodeGenOpts().OpenCLCorrectlyRoundedDivSqrt) ||
+      (getLangOpts().HIP && getLangOpts().CUDAIsDevice &&
+       !CGM.getCodeGenOpts().HIPCorrectlyRoundedDivSqrt)) {
+    // OpenCL v1.1 s7.4: minimum accuracy of single precision / is 3ulp
+    //
+    // OpenCL v1.2 s5.6.4.2: The -cl-fp32-correctly-rounded-divide-sqrt
+    // build option allows an application to specify that single precision
+    // floating-point divide (x/y and 1/x) and sqrt used in the program
+    // source are correctly rounded.
+    //
+    // TODO: CUDA has a prec-sqrt flag
+    SetFPAccuracy(Val, 3.0f);
+  }
+}
+
+void CodeGenFunction::SetDivFPAccuracy(llvm::Value *Val) {
+  llvm::Type *EltTy = Val->getType()->getScalarType();
+  if (!EltTy->isFloatTy())
+    return;
+
+  if ((getLangOpts().OpenCL &&
+       !CGM.getCodeGenOpts().OpenCLCorrectlyRoundedDivSqrt) ||
+      (getLangOpts().HIP && getLangOpts().CUDAIsDevice &&
+       !CGM.getCodeGenOpts().HIPCorrectlyRoundedDivSqrt)) {
+    // OpenCL v1.1 s7.4: minimum accuracy of single precision / is 2.5ulp
+    //
+    // OpenCL v1.2 s5.6.4.2: The -cl-fp32-correctly-rounded-divide-sqrt
+    // build option allows an application to specify that single precision
+    // floating-point divide (x/y and 1/x) and sqrt used in the program
+    // source are correctly rounded.
+    //
+    // TODO: CUDA has a prec-div flag
+    SetFPAccuracy(Val, 2.5f);
+  }
 }
 
 namespace {

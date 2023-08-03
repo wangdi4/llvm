@@ -23,12 +23,12 @@
 #include "test_utils.h"
 #include <iostream>
 
-#define GLOBAL_WORK_SIZE 10
-#define LOCAL_WORK_SIZE 4
-
 using namespace std;
 
 extern cl_device_type gDeviceType;
+
+static constexpr unsigned GLOBAL_WORK_SIZE = 10;
+static constexpr unsigned LOCAL_WORK_SIZE = 4;
 
 static const char *sProg =
     "kernel void FlexibleNdrange(global const int* pSrc, global int* pDst)\n"

@@ -135,8 +135,8 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   AAResults *AA = nullptr;
   std::unique_ptr<DomTreeUpdater> DTU;
   PostDominatorTree *PDT; // INTEL
-  std::optional<BlockFrequencyInfo *> BFI = std::nullopt;
-  std::optional<BranchProbabilityInfo *> BPI = std::nullopt;
+  std::optional<BlockFrequencyInfo *> BFI;
+  std::optional<BranchProbabilityInfo *> BPI;
   bool ChangedSinceLastAnalysisUpdate = false;
   bool HasGuards = false;
 #ifndef LLVM_ENABLE_ABI_BREAKING_CHECKS

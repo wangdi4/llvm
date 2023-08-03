@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; void foo(int N) {
@@ -17,45 +17,45 @@ target device_triples = "spir64"
 define hidden spir_func void @foo(i32 %N) #0 {
 entry:
   %N.addr = alloca i32, align 4
-  %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
+  %N.addr.ascast = addrspacecast ptr %N.addr to ptr addrspace(4)
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
+  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
   %cleanup.dest.slot = alloca i32, align 4
-  store i32 %N, i32 addrspace(4)* %N.addr.ascast, align 4, !tbaa !5
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %N.addr.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast) ]
-  %1 = addrspacecast i32 addrspace(4)* %i.ascast to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #1
-  store i32 0, i32 addrspace(4)* %i.ascast, align 4, !tbaa !5
+  store i32 %N, ptr addrspace(4) %N.addr.ascast, align 4, !tbaa !5
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %N.addr.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1) ]
+
+  %1 = addrspacecast ptr addrspace(4) %i.ascast to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr %1) #1
+  store i32 0, ptr addrspace(4) %i.ascast, align 4, !tbaa !5
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %2 = load i32, i32 addrspace(4)* %i.ascast, align 4, !tbaa !5
-  %3 = load i32, i32 addrspace(4)* %N.addr.ascast, align 4, !tbaa !5
+  %2 = load i32, ptr addrspace(4) %i.ascast, align 4, !tbaa !5
+  %3 = load i32, ptr addrspace(4) %N.addr.ascast, align 4, !tbaa !5
   %cmp = icmp slt i32 %2, %3
   br i1 %cmp, label %for.body, label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond
-  %4 = addrspacecast i32 addrspace(4)* %i.ascast to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #1
+  %4 = addrspacecast ptr addrspace(4) %i.ascast to ptr
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr %4) #1
   br label %for.end
 
 for.body:                                         ; preds = %for.cond
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %5 = load i32, i32 addrspace(4)* %i.ascast, align 4, !tbaa !5
+  %5 = load i32, ptr addrspace(4) %i.ascast, align 4, !tbaa !5
   %inc = add nsw i32 %5, 1
-  store i32 %inc, i32 addrspace(4)* %i.ascast, align 4, !tbaa !5
+  store i32 %inc, ptr addrspace(4) %i.ascast, align 4, !tbaa !5
   br label %for.cond, !llvm.loop !9
 
 for.end:                                          ; preds = %for.cond.cleanup
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  ret void
 
-; uselistorder directives
-  uselistorder i32 addrspace(4)* %i.ascast, { 2, 3, 1, 4, 5, 6, 0 }
-  uselistorder i32 addrspace(4)* %N.addr.ascast, { 1, 0, 2 }
-  uselistorder i32 0, { 1, 0 }
+  ret void
 }
 
 ; Function Attrs: nounwind
@@ -65,10 +65,10 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0i8(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0i8(i64 immarg, ptr nocapture) #2
 
 attributes #0 = { noinline nounwind "contains-openmp-target"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind }

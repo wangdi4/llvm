@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   |   %0 = (%lp)[0];
 ;   |   (<2 x i32>*)(%darr)[i1] = %0;
 ;   + END LOOP
-define void @scalarized_load(<2 x i32>* nocapture readonly %lp, i64* nocapture %darr) {
+define void @scalarized_load(ptr nocapture readonly %lp, ptr nocapture %darr) {
 ; CHECK-LABEL: Function: scalarized_load
 ; CHECK:         + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    |   %.unifload = (%lp)[0];
@@ -25,10 +25,9 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %l1.09 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %0 = load <2 x i32>, <2 x i32>* %lp, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %darr, i64 %l1.09
-  %bc = bitcast i64* %arrayidx2 to <2 x i32>*
-  store <2 x i32> %0, <2 x i32>* %bc, align 8
+  %0 = load <2 x i32>, ptr %lp, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %darr, i64 %l1.09
+  store <2 x i32> %0, ptr %arrayidx2, align 8
   %inc = add nuw nsw i64 %l1.09, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body
@@ -48,7 +47,7 @@ for.end:                                          ; preds = %for.inc
 ;   |   %shuffle.uni = shufflevector %vec.uni,  %vec.uni,  <i32 3, i32 0>;
 ;   |   (<2 x i32>*)(%p)[i1] = %shuffle.uni;
 ;   + END LOOP
-define void @scalarized_shuffle(i64 *%a, i64 *%b, i64 *%p) {
+define void @scalarized_shuffle(ptr %a, ptr %b, ptr %p) {
 ; CHECK-LABEL: Function: scalarized_shuffle
 ; CHECK:         + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    |   %.vec = (<4 x i64>*)(%a)[i1];
@@ -70,18 +69,17 @@ define void @scalarized_shuffle(i64 *%a, i64 *%b, i64 *%p) {
  header:
    %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-   %ptr = getelementptr i64, i64 *%a, i64 %iv
-   %ld = load i64, i64 *%ptr
+   %ptr = getelementptr i64, ptr %a, i64 %iv
+   %ld = load i64, ptr %ptr
    %vec = bitcast i64 %ld to <2 x i32>
    %shuffle = shufflevector <2 x i32> %vec, <2 x i32> %vec, <2 x i32><i32 3, i32 0>
 
-   %ld.uni = load i64, i64 *%b
+   %ld.uni = load i64, ptr %b
    %vec.uni = bitcast i64 %ld.uni to <2 x i32>
    %shuffle.uni = shufflevector <2 x i32> %vec.uni, <2 x i32> %vec.uni, <2 x i32><i32 3, i32 0>
 
-  %gep = getelementptr i64, i64 *%p, i64 %iv
-  %gep.cast = bitcast i64 *%gep to <2 x i32> *
-  store <2 x i32> %shuffle.uni, <2 x i32> *%gep.cast
+  %gep = getelementptr i64, ptr %p, i64 %iv
+  store <2 x i32> %shuffle.uni, ptr %gep
 
    %iv.next = add nuw nsw i64 %iv, 1
    %exitcond = icmp eq i64 %iv.next, 128

@@ -75,7 +75,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local void @spam.bb859(i64 %tmp702, i64 %tmp632, i32 %tmp630, i64 %tmp857, double* noalias nocapture %tmp240, i64 %tmp852, double* noalias nocapture %tmp269, [2 x double]* noalias nocapture %tmp2) #0 !dbg !10 {
+define dso_local void @spam.bb859(i64 %tmp702, i64 %tmp632, i32 %tmp630, i64 %tmp857, ptr noalias nocapture %tmp240, i64 %tmp852, ptr noalias nocapture %tmp269, ptr noalias nocapture %tmp2) #0 !dbg !10 {
 newFuncRoot:
   br label %bb859, !dbg !14
 
@@ -94,8 +94,8 @@ bb864:                                            ; preds = %bb860
   %tmp867 = shl nsw i32 %tmp866, 4, !dbg !24
   %tmp868 = sext i32 %tmp867 to i64, !dbg !28
   %tmp869 = add nuw nsw i64 %tmp857, %tmp868, !dbg !28
-  %tmp870 = getelementptr inbounds double, double* %tmp240, i64 %tmp869, !dbg !29
-  %tmp871 = load double, double* %tmp870, align 8, !dbg !29, !tbaa !30, !alias.scope !34, !noalias !45
+  %tmp870 = getelementptr inbounds double, ptr %tmp240, i64 %tmp869, !dbg !29
+  %tmp871 = load double, ptr %tmp870, align 8, !dbg !29, !tbaa !30, !alias.scope !34, !noalias !45
   br label %bb872, !dbg !23
 
 bb872:                                            ; preds = %bb864, %bb860
@@ -111,17 +111,17 @@ bb877:                                            ; preds = %bb874
   %tmp878 = shl nuw nsw i64 %tmp876, 6, !dbg !350
   %tmp879 = or i64 %tmp878, %tmp852, !dbg !350
   %tmp880 = add nuw nsw i64 %tmp879, %tmp861, !dbg !353
-  %tmp881 = getelementptr inbounds double, double* %tmp269, i64 %tmp880, !dbg !354
-  %tmp882 = load double, double* %tmp881, align 8, !dbg !355, !tbaa !30, !alias.scope !356, !noalias !357
+  %tmp881 = getelementptr inbounds double, ptr %tmp269, i64 %tmp880, !dbg !354
+  %tmp882 = load double, ptr %tmp881, align 8, !dbg !355, !tbaa !30, !alias.scope !356, !noalias !357
   %tmp883 = fmul fast double %tmp882, %tmp873, !dbg !358
   br label %bb884, !dbg !349
 
 bb884:                                            ; preds = %bb877, %bb874
   %tmp885 = phi double [ %tmp883, %bb877 ], [ 0.000000e+00, %bb874 ], !dbg !349
-  %tmp886 = getelementptr inbounds [2 x double], [2 x double]* %tmp2, i64 0, i64 %tmp876, !dbg !359, !intel-tbaa !360
-  %tmp887 = load double, double* %tmp886, align 8, !dbg !362, !tbaa !360, !alias.scope !363, !noalias !364
+  %tmp886 = getelementptr inbounds [2 x double], ptr %tmp2, i64 0, i64 %tmp876, !dbg !359, !intel-tbaa !360
+  %tmp887 = load double, ptr %tmp886, align 8, !dbg !362, !tbaa !360, !alias.scope !363, !noalias !364
   %tmp888 = fadd fast double %tmp887, %tmp885, !dbg !362
-  store double %tmp888, double* %tmp886, align 8, !dbg !362, !tbaa !360, !alias.scope !365, !noalias !366
+  store double %tmp888, ptr %tmp886, align 8, !dbg !362, !tbaa !360, !alias.scope !365, !noalias !366
   br i1 %tmp875, label %bb874, label %bb889, !dbg !348, !llvm.loop !652
 
 bb889:                                            ; preds = %bb884

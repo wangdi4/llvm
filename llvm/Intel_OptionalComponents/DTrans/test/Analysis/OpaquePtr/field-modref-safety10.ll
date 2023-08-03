@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-fieldmodrefop-analysis>' -debug-only=dtrans-fmr -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-fieldmodrefop-analysis>' -debug-only=dtrans-fmr -disable-output 2>&1 | FileCheck %s
 
 ; Verify that literal structure type that is a member of
 ; a structure that gets analyzed by the field mod/ref analysis
@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; In this case, the safety analyzer set safety bits that
 ; indicate the structure is invalid for field mod/ref. This
 ; should cause all the structure to not be a candidate.
-%struct.test01 = type { i32, double*, { i32, i64, i32 } }
+%struct.test01 = type { i32, ptr, { i32, i64, i32 } }
 @gAr02 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !6
 define internal void @test01() {
   %st_mem = call ptr @malloc(i64 16)

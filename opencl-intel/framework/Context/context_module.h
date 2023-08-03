@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -93,6 +93,15 @@ public:
    * Return value: Returns the kernel object if valid, else returns NULL.
    ****************************************************************************/
   SharedPtr<Kernel> GetKernel(cl_kernel clKernel);
+
+  /*****************************************************************************
+   * Function:     GetProgram
+   * Description: Gets a pointer to a program object accourding to its
+   *              cl_program value
+   * Arguments: clProgram [in] - a valid program handle
+   * Return value: Returns the program object if valid, else returns NULL.
+   ****************************************************************************/
+  SharedPtr<Program> GetProgram(const cl_program clProgram);
 
   /*****************************************************************************
    * Function:     GetMemoryObject
@@ -542,8 +551,6 @@ private:
   // Mutex to guard access to backend library.
   std::mutex m_backendLibraryMutex;
 
-  Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue>
-      m_setQueues; // set of all queues including invisible to user
   Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>
       m_setMappedMemObjects; // set of all memory objects that were mapped at
                              // least once in a history

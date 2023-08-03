@@ -85,7 +85,8 @@ struct HostDataToTargetTy {
   const uintptr_t HstPtrEnd;       // non-inclusive.
   const map_var_info_t HstPtrName; // Optional source name of mapped variable.
 
-  const uintptr_t TgtPtrBegin; // target info.
+  const uintptr_t TgtAllocBegin; // allocated target memory
+  const uintptr_t TgtPtrBegin; // mapped target memory = TgtAllocBegin + padding
 
 private:
   static const uint64_t INFRefCount = ~(uint64_t)0;
@@ -137,16 +138,18 @@ private:
   const std::unique_ptr<StatesTy> States;
 
 public:
-  HostDataToTargetTy(uintptr_t BP, uintptr_t B, uintptr_t E, uintptr_t TB,
+  HostDataToTargetTy(uintptr_t BP, uintptr_t B, uintptr_t E,
+                     uintptr_t TgtAllocBegin, uintptr_t TgtPtrBegin,
                      bool UseHoldRefCount, map_var_info_t Name = nullptr,
                      bool IsINF = false)
       : HstPtrBase(BP), HstPtrBegin(B), HstPtrEnd(E), HstPtrName(Name),
-        TgtPtrBegin(TB), States(std::make_unique<StatesTy>(UseHoldRefCount ? 0
-                                                           : IsINF ? INFRefCount
-                                                                   : 1,
-                                                           !UseHoldRefCount ? 0
-                                                           : IsINF ? INFRefCount
-                                                                   : 1)) {}
+        TgtAllocBegin(TgtAllocBegin), TgtPtrBegin(TgtPtrBegin),
+        States(std::make_unique<StatesTy>(UseHoldRefCount ? 0
+                                          : IsINF         ? INFRefCount
+                                                          : 1,
+                                          !UseHoldRefCount ? 0
+                                          : IsINF          ? INFRefCount
+                                                           : 1)) {}
 
   /// Get the total reference count.  This is smarter than just getDynRefCount()
   /// + getHoldRefCount() because it handles the case where at least one is
@@ -360,7 +363,9 @@ struct TargetPointerResultTy {
     /// Flag indicating that this was the last user of the entry and the ref
     /// count is now 0.
     unsigned IsLast : 1;
-  } Flags = {0, 0, 0, 0};
+    /// If the pointer is contained.
+    unsigned IsContained : 1;
+  } Flags = {0, 0, 0, 0, 0};
 
   TargetPointerResultTy(const TargetPointerResultTy &) = delete;
   TargetPointerResultTy &operator=(const TargetPointerResultTy &TPR) = delete;
@@ -395,6 +400,8 @@ struct TargetPointerResultTy {
   bool isPresent() const { return Flags.IsPresent; }
 
   bool isHostPointer() const { return Flags.IsHostPointer; }
+
+  bool isContained() const { return Flags.IsContained; }
 
   /// The corresponding target pointer
   void *TargetPointer = nullptr;
@@ -500,8 +507,8 @@ struct DeviceTy {
   /// - Data transfer issue fails.
   TargetPointerResultTy getTargetPointer(
       HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin, void *HstPtrBase,
-      int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
-      bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
+      int64_t TgtPadding, int64_t Size, map_var_info_t HstPtrName,
+      bool HasFlagTo, bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
       bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
       AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR = nullptr,
 #if INTEL_COLLAB
@@ -605,9 +612,7 @@ struct DeviceTy {
                           int32_t NumTeams, int32_t ThreadLimit,
                           void *TgtNDLoopDesc, AsyncInfoTy &AsyncInfo);
   void *getContextHandle();
-  void *dataAllocManaged(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
-  int32_t managedMemorySupported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
   bool registerHostPointer(void *ptr, size_t Size);
@@ -644,12 +649,6 @@ struct DeviceTy {
   void kernelBatchBegin(uint32_t MaxKernels);
   void kernelBatchEnd(void);
   int32_t setFunctionPtrMap(void);
-  // Check if reduction scratch is supported
-  int32_t supportsPerHWThreadScratch(void);
-  // Allocate per-hw-thread reduction scratch
-  void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
-  // Free per-hw-thread reduction scratch
-  void freePerHWThreadScratch(void *Ptr);
   /// Get device information
   int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
                         size_t *InfoSizeRet);

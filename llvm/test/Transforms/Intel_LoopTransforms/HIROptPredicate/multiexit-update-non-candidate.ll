@@ -47,7 +47,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture readonly %a, ptr nocapture %b, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp24 = icmp sgt i32 %n, 0
   br i1 %cmp24, label %for.body.lr.ph, label %for.cond.cleanup
@@ -65,13 +65,13 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.inc10, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc10 ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %0, 0
   br i1 %tobool, label %for.inc10, label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.body
-  %arrayidx6 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
+  %arrayidx6 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
   br label %for.body4
 
 for.cond1:                                        ; preds = %for.body4
@@ -87,7 +87,7 @@ for.inc10.loopexit:                               ; preds = %for.body4, %for.con
   %j.023.lcssa = phi i32 [ %j.023, %for.body4 ], [ %j.023, %for.cond1 ]
   %1 = trunc i64 %indvars.iv to i32
   %add.le = add nuw nsw i32 %j.023.lcssa, %1
-  store i32 %add.le, i32* %arrayidx6, align 4
+  store i32 %add.le, ptr %arrayidx6, align 4
   br label %for.inc10
 
 for.inc10:                                        ; preds = %for.inc10.loopexit, %for.body

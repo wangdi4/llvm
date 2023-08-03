@@ -356,12 +356,11 @@ Sema::BuildSYCLIntelIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
   }
 
   // Try to put Safelen in the 1st one so codegen can count on the ordering.
-  Expr *SafeLenExpr;
-  Expr *ArrayExpr;
-  if (E1 == IVDepExprResult::SafeLen) {
-    SafeLenExpr = Expr1;
-    ArrayExpr = Expr2;
-  } else {
+  Expr *SafeLenExpr = Expr1;
+  Expr *ArrayExpr = Expr2;
+
+  // Both can be null or dependent, so swap if we're really sure.
+  if (E2 == IVDepExprResult::SafeLen || E1 == IVDepExprResult::Array) {
     SafeLenExpr = Expr2;
     ArrayExpr = Expr1;
   }
@@ -556,6 +555,11 @@ static Attr * handleSYCLIntelMaxReinvocationDelayAttr(Sema &S, Stmt *St,
 
   Expr *E = A.getArgAsExpr(0);
   return S.BuildSYCLIntelMaxReinvocationDelayAttr(A, E);
+}
+
+static Attr *handleSYCLIntelEnableLoopPipeliningAttr(Sema &S, Stmt *,
+                                                     const ParsedAttr &A) {
+  return new (S.Context) SYCLIntelEnableLoopPipeliningAttr(S.Context, A);
 }
 
 static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
@@ -910,14 +914,15 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
         FE = A.getArgAsExpr(++AI);
         AI++;
       }
-      if (A.isArgIdent(AI) &&
-          A.getArgAsIdent(AI)->Ident->isStr("level")) {
+      if (A.isArgIdent(AI) && A.getArgAsIdent(AI)->Ident->isStr("level")) {
         SourceLoc = A.getArgAsIdent(AI)->Loc; //beginning of Level clause
-        int64_t LevelFrom = getConstInt(S, ++AI, A);
-        int64_t LevelTo = getConstInt(S, ++AI, A);
+        do {
+          int64_t LevelFrom = getConstInt(S, ++AI, A);
+          int64_t LevelTo = getConstInt(S, ++AI, A);
+          if (checkOverlapingLevels(S, FE, LevelFrom, LevelTo, SourceLoc, Map))
+            return nullptr;
+        } while (AI + 1 < A.getNumArgs() && !A.isArgIdent(AI + 1));
         AI++;
-        if (checkOverlapingLevels(S, FE, LevelFrom, LevelTo, SourceLoc, Map))
-          return nullptr;
       } else {
         if (!Map.empty()) {
           // No user specified level for current pragma, but other block_loop
@@ -1203,7 +1208,7 @@ static bool CheckStmtInlineAttr(Sema &SemaRef, const Stmt *OrigSt,
            << A;
   }
 
-  for (auto Tup :
+  for (const auto &Tup :
        llvm::zip_longest(OrigCEF.getCallExprs(), CEF.getCallExprs())) {
     // If the original call expression already had a callee, we already
     // diagnosed this, so skip it here. We can't skip if there isn't a 1:1
@@ -1643,6 +1648,8 @@ static void CheckForIncompatibleSYCLLoopAttributes(
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelNofusionAttr>(S, Attrs);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelMaxReinvocationDelayAttr>(
       S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelEnableLoopPipeliningAttr>(
+      S, Attrs);
 }
 
 void CheckForIncompatibleUnrollHintAttributes(
@@ -1799,7 +1806,9 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
       !(A.existsInTarget(S.Context.getTargetInfo()) ||
         (S.Context.getLangOpts().SYCLIsDevice && Aux &&
          A.existsInTarget(*Aux)))) {
-    S.Diag(A.getLoc(), A.isDeclspecAttribute()
+    S.Diag(A.getLoc(), A.isRegularKeywordAttribute()
+                           ? (unsigned)diag::err_keyword_not_supported_on_target
+                       : A.isDeclspecAttribute()
                            ? (unsigned)diag::warn_unhandled_ms_attribute_ignored
                            : (unsigned)diag::warn_unknown_attribute_ignored)
         << A << A.getRange();
@@ -1861,12 +1870,14 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelNofusionAttr(S, St, A);
   case ParsedAttr::AT_SYCLIntelMaxReinvocationDelay:
     return handleSYCLIntelMaxReinvocationDelayAttr(S, St, A);
+  case ParsedAttr::AT_SYCLIntelEnableLoopPipelining:
+    return handleSYCLIntelEnableLoopPipeliningAttr(S, St, A);
   default:
     // N.B., ClangAttrEmitter.cpp emits a diagnostic helper that ensures a
     // declaration attribute is not written on a statement, but this code is
     // needed for attributes in Attr.td that do not list any subjects.
     S.Diag(A.getRange().getBegin(), diag::err_decl_attribute_invalid_on_stmt)
-        << A << St->getBeginLoc();
+        << A << A.isRegularKeywordAttribute() << St->getBeginLoc();
     return nullptr;
   }
 }

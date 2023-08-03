@@ -2,20 +2,20 @@
 ; Test to check that we allow using a recurrency in a load instruction that is in
 ; operands chain of unconditional last private.
 ;
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -S %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooPiS_(ptr %b) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPiS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     ptr [[VP_V_LPRIV:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_V_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_V_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     ptr [[VP__IND_INIT:%.*]] = induction-init{getelementptr} ptr live-in2 i64 12
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 12
@@ -137,31 +137,31 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ;
 DIR.OMP.SIMD.118:
   %v.lpriv = alloca i32, align 4
-  %b.addr.linear = alloca i32*, align 8
-  %c.addr.linear = alloca i16**, align 8
+  %b.addr.linear = alloca ptr, align 8
+  %c.addr.linear = alloca ptr, align 8
   %i.linear.iv = alloca i32, align 4
-  store i32* %b, i32** %b.addr.linear, align 8
-  store i16** inttoptr (i64 100 to i16**), i16*** %c.addr.linear, align 8
+  store ptr %b, ptr %b.addr.linear, align 8
+  store ptr inttoptr (i64 100 to ptr), ptr %c.addr.linear, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.118
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %v.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i32** %b.addr.linear, i32 0, i32 1, i32 3), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i16*** %c.addr.linear, i16* null, i32 1, i32 4), "QUAL.OMP.NORMALIZED.IV:TYPED"(i8* null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i8* null, i8 0), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %v.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %b.addr.linear, i32 0, i32 1, i32 3), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %c.addr.linear, ptr null, i32 1, i32 4), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %b.addr.linear.promoted = load i32*, i32** %b.addr.linear, align 8
-  %c.addr.linear.promoted = load i16**, i16*** %c.addr.linear, align 8
+  %b.addr.linear.promoted = load ptr, ptr %b.addr.linear, align 8
+  %c.addr.linear.promoted = load ptr, ptr %c.addr.linear, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
-  %1 = phi i32* [ %b.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec.ptr, %omp.inner.for.body ]
-  %2 = phi i16** [ %c.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec1.ptr, %omp.inner.for.body ]
+  %1 = phi ptr [ %b.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec.ptr, %omp.inner.for.body ]
+  %2 = phi ptr [ %c.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec1.ptr, %omp.inner.for.body ]
   %.omp.iv.local.011 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add2, %omp.inner.for.body ]
-  %incdec.ptr = getelementptr inbounds i32, i32* %1, i64 3
-  %incdec1.ptr = getelementptr inbounds i16*, i16** %2, i64 4
-  %3 = load i32, i32* %1, align 4
-  %4 = load i16*, i16** %2, align 4
-  %5 = load i16, i16* %4, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %1, i64 3
+  %incdec1.ptr = getelementptr inbounds ptr, ptr %2, i64 4
+  %3 = load i32, ptr %1, align 4
+  %4 = load ptr, ptr %2, align 4
+  %5 = load i16, ptr %4, align 4
   %add2 = add nuw nsw i32 %.omp.iv.local.011, 1
   %exitcond.not = icmp eq i32 %add2, 103
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.219, label %omp.inner.for.body
@@ -171,7 +171,7 @@ DIR.OMP.END.SIMD.219:                             ; preds = %omp.inner.for.body
   %.lcssa1 = phi i16 [ %5, %omp.inner.for.body ]
   %.lcssa1ext = zext i16 %.lcssa1 to i32
   %.lcssaadd = add nsw i32 %.lcssa, %.lcssa1ext
-  store i32 %.lcssaadd, i32* %v.lpriv
+  store i32 %.lcssaadd, ptr %v.lpriv
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.219

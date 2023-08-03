@@ -17,16 +17,16 @@
 
 @a = local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
-define void @foo(i64* %Nptr) {
+define void @foo(ptr %Nptr) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %if.end18, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next.pre-phi, %if.end18 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = sext i32 %0 to i64
-  %N = load i64, i64* %Nptr, align 8
+  %N = load i64, ptr %Nptr, align 8
   %cmp1 = icmp sle i64 %N, 0
   br i1 %cmp1, label %if.then, label %if.else14
 
@@ -40,8 +40,8 @@ if.else14:                                        ; preds = %for.body
 for.inner:
   %iv = phi i64 [ 0, %if.else14 ], [ %iv.inc, %for.inner ]
   %iv.inc = add nuw nsw i64 %iv, 1
-  %arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %iv
-  store i32 5, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %iv
+  store i32 5, ptr %arrayidx1, align 4
   %exit.inner = icmp ne i64 %iv.inc, %N
   br i1 %exit.inner, label %for.inner, label %inner.exit
 

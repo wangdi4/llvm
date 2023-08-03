@@ -57,17 +57,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @h() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @e, align 4
+  %.pr = load i32, ptr @e, align 4
   %tobool22 = icmp eq i32 %.pr, 0
   br i1 %tobool22, label %for.end15, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load i32, i32* @a, align 4
-  %f.promoted23 = load i32, i32* @f, align 4
+  %0 = load i32, ptr @a, align 4
+  %f.promoted23 = load i32, ptr @f, align 4
   %1 = sub i32 -2, %.pr
   %2 = and i32 %1, -2
   %3 = add i32 %.pr, %2
-  %.pre.pre = load i32, i32* @c, align 4
+  %.pre.pre = load i32, ptr @c, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.end12
@@ -89,12 +89,12 @@ for.body3:                                        ; preds = %for.body, %for.end
   br i1 %tobool618, label %for.end, label %for.body7.lr.ph
 
 for.body7.lr.ph:                                  ; preds = %for.body3
-  store i32 %conv921, i32* @b, align 4
+  store i32 %conv921, ptr @b, align 4
   %5 = sub i32 -2, %c.promoted
   %6 = and i32 %5, -2
   %7 = add i32 %c.promoted, 2
   %8 = add i32 %7, %6
-  store i32 %8, i32* @c, align 4
+  store i32 %8, ptr @c, align 4
   br label %for.end
 
 for.end:                                          ; preds = %for.body7.lr.ph, %for.body3
@@ -119,10 +119,10 @@ for.cond.for.end15_crit_edge:                     ; preds = %for.end12
   %conv9.lcssa.lcssa = phi i32 [ %conv9.lcssa, %for.end12 ]
   %sub.lcssa.lcssa = phi i64 [ %sub.lcssa, %for.end12 ]
   %11 = add i32 %3, 2
-  store i32 %conv9.lcssa.lcssa, i32* @f, align 4
-  store i64 %sub.lcssa.lcssa, i64* @g, align 8
-  store i32 15, i32* @d, align 4
-  store i32 %11, i32* @e, align 4
+  store i32 %conv9.lcssa.lcssa, ptr @f, align 4
+  store i64 %sub.lcssa.lcssa, ptr @g, align 8
+  store i32 15, ptr @d, align 4
+  store i32 %11, ptr @e, align 4
   br label %for.end15
 
 for.end15:                                        ; preds = %for.cond.for.end15_crit_edge, %entry

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -S -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -S -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; When the parallel region is code extracted, make sure the privatized
 ; variables "a" and "b" retain the debug information.
@@ -8,10 +8,10 @@
 ;
 ; CHECK: define{{.*}} void @__omp_offloading_{{.*}} !dbg [[WREGION:![0-9]+]] {
 ; CHECK:   %b.ascast.priv = alloca i64
-; CHECK:   call void @llvm.dbg.declare(metadata i64* %b.ascast.priv, metadata [[B:![0-9]+]], metadata !DIExpression())
+; CHECK:   call void @llvm.dbg.declare(metadata ptr %b.ascast.priv, metadata [[B:![0-9]+]], metadata !DIExpression())
 ; CHECK-NOT: call void @llvm.dbg.declare({{.*}}@a.ascast.priv.__global
-; CHECK:   store i32 42, i32 addrspace(1)* @a.ascast.priv.__global, align 4
-; CHECK:   store i64 42, i64* %b.ascast.priv, align 4
+; CHECK:   store i32 42, ptr addrspace(1) @a.ascast.priv.__global, align 4
+; CHECK:   store i64 42, ptr %b.ascast.priv, align 4
 ; CHECK: }
 ;
 ; CHECK: [[WREGION]] = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET{{.*}}",
@@ -27,14 +27,19 @@ target device_triples = "spir64"
 define dso_local spir_func void @foo() #0 !dbg !11 {
 entry:
   %a = alloca i32, align 8
-  %a.ascast = addrspacecast i32* %a to i32 addrspace(4)*
+  %a.ascast = addrspacecast ptr %a to ptr addrspace(4)
   %b = alloca i64, align 8
-  %b.ascast = addrspacecast i64* %b to i64 addrspace(4)*
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %a.ascast), "QUAL.OMP.PRIVATE:WILOCAL"(i64 addrspace(4)* %b.ascast) ], !dbg !16
-  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %a.ascast, metadata !13, metadata !DIExpression()), !dbg !15
-  call void @llvm.dbg.declare(metadata i64 addrspace(4)* %b.ascast, metadata !14, metadata !DIExpression()), !dbg !15
-  store i32 42, i32 addrspace(4)* %a.ascast, align 4
-  store i64 42, i64 addrspace(4)* %b.ascast, align 4
+  %b.ascast = addrspacecast ptr %b to ptr addrspace(4)
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %a.ascast, i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:WILOCAL.TYPED"(ptr addrspace(4) %b.ascast, i64 0, i64 1) ], !dbg !16
+
+  call void @llvm.dbg.declare(metadata ptr addrspace(4) %a.ascast, metadata !13, metadata !DIExpression()), !dbg !15
+  call void @llvm.dbg.declare(metadata ptr addrspace(4) %b.ascast, metadata !14, metadata !DIExpression()), !dbg !15
+  store i32 42, ptr addrspace(4) %a.ascast, align 4
+  store i64 42, ptr addrspace(4) %b.ascast, align 4
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }

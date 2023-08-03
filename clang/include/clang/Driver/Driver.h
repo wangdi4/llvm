@@ -766,6 +766,25 @@ public:
     return IsOffload ? OffloadLTOMode : LTOMode;
   }
 
+  // FPGA Offload Modes.
+  enum DeviceMode {
+    UnsetDeviceMode,
+    FPGAHWMode,
+    FPGAEmulationMode
+  } OffloadCompileMode = UnsetDeviceMode;
+
+  bool IsFPGAHWMode() const { return OffloadCompileMode == FPGAHWMode; }
+
+  bool IsFPGAEmulationMode() const {
+    return OffloadCompileMode == FPGAEmulationMode;
+  }
+
+  void setOffloadCompileMode(DeviceMode ModeValue) {
+    OffloadCompileMode = ModeValue;
+  }
+
+  DeviceMode getOffloadCompileMode() { return OffloadCompileMode; }
+
 private:
 
   /// Tries to load options from configuration files.
@@ -863,13 +882,6 @@ private:
   bool UseNewOffloadingDriver = false;
   void setUseNewOffloadingDriver() { UseNewOffloadingDriver = true; }
 
-  /// FPGA Emulation Mode.  By default, this is true due to the fact that
-  /// an external option setting is required to target hardware.
-  bool FPGAEmulationMode = true;
-  void setFPGAEmulationMode(bool IsEmulation) {
-    FPGAEmulationMode = IsEmulation;
-  }
-
   /// The inclusion of the default SYCL device triple is dependent on either
   /// the discovery of an existing object/archive that contains the device code
   /// or if a user explicitly turns this on with -fsycl-add-spirv.
@@ -911,6 +923,11 @@ private:
   /// SYCL based offloading scenario.  These macros are gathered during
   /// construction of the device compilations.
   mutable std::vector<std::string> SYCLTargetMacroArgs;
+
+  /// Vector of Macros related to Device Traits that need to be added to the
+  /// device compilation in a SYCL based offloading scenario.  These macros are
+  /// gathered during creation of offloading device toolchains.
+  mutable llvm::opt::ArgStringList SYCLDeviceTraitsMacrosArgs;
 
   /// Return the typical executable name for the specified driver \p Mode.
   static const char *getExecutableForDriverMode(DriverMode Mode);
@@ -955,10 +972,6 @@ public:
     return FPGATempDepFiles[FileName];
   }
 
-  /// isFPGAEmulationMode - Compilation mode is determined to be used for
-  /// FPGA Emulation.  This is only used for SYCL offloading to FPGA device.
-  bool isFPGAEmulationMode() const { return FPGAEmulationMode; };
-
   /// isSYCLDefaultTripleImplied - The default SYCL triple (spir64) has been
   /// added or should be added given proper criteria.
   bool isSYCLDefaultTripleImplied() const { return SYCLDefaultTripleImplied; };
@@ -1001,6 +1014,16 @@ public:
   /// getSYCLUniqueID - Get the Unique ID associated with the file.
   StringRef getSYCLUniqueID(StringRef FileName) const {
     return SYCLUniqueIDList[FileName];
+  }
+
+  /// Reads device config file to find information about the SYCL targets in
+  /// UniqueSYCLTriplesVec, and defines device traits macros accordingly.
+  void populateSYCLDeviceTraitsMacrosArgs(
+      const llvm::opt::ArgList &Args,
+      const llvm::SmallVector<llvm::Triple, 4> &UniqueSYCLTriplesVec);
+
+  llvm::opt::ArgStringList getDeviceTraitsMacrosArgs() const {
+    return SYCLDeviceTraitsMacrosArgs;
   }
 };
 

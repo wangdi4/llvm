@@ -1,3 +1,2 @@
-RUN: python %s.py -c %s.cfg
-XFAIL: *
-
+; RUN: python %s.py -c %s.cfg
+; XFAIL: *

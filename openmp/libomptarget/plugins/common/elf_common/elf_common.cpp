@@ -1,3 +1,19 @@
+#if INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- elf_common.cpp - Common ELF functionality -------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -74,9 +90,17 @@ static void printELFNotes(const ELFObjectFile<ELFT> *Object) {
       case NT_LLVM_OPENMP_OFFLOAD_VERSION:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION: {
-        StringRef Desc = Note.getDescAsStringRef();
+#if 0
+        StringRef Desc = Note.getDescAsStringRef(SB->sh_addralign);
         DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
            getOffloadNoteTypeName(Type), Desc.str().c_str());
+#else
+        // FIXME: For some reason, the returned descriptor array is off by one
+        // while the base address (Desc[0]) has '\0'.
+        auto Desc = Note.getDesc(SB->sh_addralign);
+        DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
+           getOffloadNoteTypeName(Type), &Desc[1]);
+#endif
         break;
       }
       }
@@ -162,3 +186,4 @@ int32_t elf_is_dynamic(__tgt_device_image *Image) {
                         reinterpret_cast<char *>(Image->ImageEnd),
                         CheckDynType);
 }
+#endif // INTEL_CUSTOMIZATION

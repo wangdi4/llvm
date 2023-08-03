@@ -63,8 +63,8 @@ for.body4:                                        ; preds = %for.cond1.preheader
   %j.051 = phi i32 [ 0, %for.cond1.preheader ], [ %inc, %for.body4 ]
   %add = add nuw nsw i32 %j.051, %i.052
   %idxprom5 = zext i32 %j.051 to i64
-  %arrayidx6 = getelementptr inbounds [100 x [9 x i32]], [100 x [9 x i32]]* %A, i64 0, i64 %idxprom, i64 %idxprom5
-  store i32 %add, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x [9 x i32]], ptr %A, i64 0, i64 %idxprom, i64 %idxprom5
+  store i32 %add, ptr %arrayidx6, align 4
   %inc = add nuw nsw i32 %j.051, 1
   %exitcond54 = icmp eq i32 %inc, 9
   br i1 %exitcond54, label %for.cond.cleanup3, label %for.body4
@@ -78,13 +78,13 @@ for.body19:                                       ; preds = %for.cond16.preheade
   %j15.049 = phi i32 [ 0, %for.cond16.preheader ], [ %add22, %for.body19 ]
   %add22 = add nuw nsw i32 %j15.049, 1
   %idxprom23 = zext i32 %add22 to i64
-  %arrayidx24 = getelementptr inbounds [100 x [9 x i32]], [100 x [9 x i32]]* %A, i64 0, i64 %idxprom20, i64 %idxprom23
-  %t1 = load i32, i32* %arrayidx24, align 4
+  %arrayidx24 = getelementptr inbounds [100 x [9 x i32]], ptr %A, i64 0, i64 %idxprom20, i64 %idxprom23
+  %t1 = load i32, ptr %arrayidx24, align 4
   %idxprom25 = zext i32 %j15.049 to i64
-  %arrayidx26 = getelementptr inbounds [8 x i32], [8 x i32]* @D, i64 0, i64 %idxprom25
-  %t2 = load i32, i32* %arrayidx26, align 4
+  %arrayidx26 = getelementptr inbounds [8 x i32], ptr @D, i64 0, i64 %idxprom25
+  %t2 = load i32, ptr %arrayidx26, align 4
   %add27 = add nsw i32 %t2, %t1
-  store i32 %add27, i32* %arrayidx26, align 4
+  store i32 %add27, ptr %arrayidx26, align 4
   %exitcond = icmp eq i32 %add22, 8
   br i1 %exitcond, label %for.cond.cleanup18, label %for.body19
 

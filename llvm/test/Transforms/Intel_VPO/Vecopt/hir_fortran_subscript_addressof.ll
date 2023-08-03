@@ -25,37 +25,37 @@ target triple = "x86_64-unknown-linux-gnu"
 @mod1_mp_weight_ = external dso_local local_unnamed_addr global [1 x [257 x [2 x double]]], align 8
 
 ; Function Attrs: nofree nounwind
-define double* @foo_(i32* noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
+define ptr @foo_(ptr noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 %"foo_$NG_fetch" to i64
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     double* [[VP6:%.*]] = subscript inbounds [1 x [257 x [2 x double]]]* @mod1_mp_weight_ i64 0 i64 [[VP4]] i64 [[VP5]] i64 0
+; CHECK-NEXT:     ptr [[VP6:%.*]] = subscript inbounds ptr @mod1_mp_weight_ i64 [[VP4]] i64 [[VP5]] i64 0
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ;
 ; CHECK-LABEL:  BEGIN REGION { modified }
-; CHECK-NEXT:         %liveoutcopy = &((<2 x double*>)(@mod1_mp_weight_)[0][%"foo_$NG_fetch"][<i64 0, i64 1> + 1][0]);
-; CHECK-NEXT:         %liveoutcopy = &((<2 x double*>)(@mod1_mp_weight_)[0][%"foo_$NG_fetch"][<i64 0, i64 1> + 3][0]);
+; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[%"foo_$NG_fetch"][<i64 0, i64 1> + 1][0]);
+; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[%"foo_$NG_fetch"][<i64 0, i64 1> + 3][0]);
 ; CHECK-NEXT:         %"mod1_mp_weight_[][][]" = extractelement %liveoutcopy,  1;
 ; CHECK:        END REGION
 ;
 alloca:
-  %"foo_$NG_fetch" = load i32, i32* %"foo_$NG", align 4
+  %"foo_$NG_fetch" = load i32, ptr %"foo_$NG", align 4
   %int_sext1 = sext i32 %"foo_$NG_fetch" to i64
-  %"mod1_mp_weight_[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4112, double* elementtype(double) getelementptr inbounds ([1 x [257 x [2 x double]]], [1 x [257 x [2 x double]]]* @mod1_mp_weight_, i64 0, i64 0, i64 0, i64 0), i64 %int_sext1)
+  %"mod1_mp_weight_[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 4112, ptr elementtype(double) @mod1_mp_weight_, i64 %int_sext1)
   br label %bb3
 
 bb3:                                              ; preds = %bb3, %alloca
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb3 ], [ 1, %alloca ]
-  %"mod1_mp_weight_[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 16, double* elementtype(double) %"mod1_mp_weight_[]", i64 %indvars.iv)
-  %"mod1_mp_weight_[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"mod1_mp_weight_[][]", i64 1)
+  %"mod1_mp_weight_[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 16, ptr elementtype(double) %"mod1_mp_weight_[]", i64 %indvars.iv)
+  %"mod1_mp_weight_[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"mod1_mp_weight_[][]", i64 1)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %bb1, label %bb3
 
 bb1:                                              ; preds = %bb3
-  ret double* %"mod1_mp_weight_[][][]"
+  ret ptr %"mod1_mp_weight_[][][]"
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1

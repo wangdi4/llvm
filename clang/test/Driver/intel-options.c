@@ -34,20 +34,65 @@
 
 // RUN: %clang -### -axbroadwell  %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang -### -axCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+// RUN: %clang -### -axCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+//
 // RUN: %clang -### -ax=broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
 // RUN: %clang -### -ax=CORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
-// RUN: %clang -### -axCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN: %clang -### -ax=CORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
-// RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
 // RUN: %clang_cl -### /QaxCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+// RUN: %clang_cl -### /QaxCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // CHECK-AX-BROADWELL: "-ax=broadwell"
 // CHECK-AX-BOTH: "-ax=core-avx2,broadwell"
+
+// RUN: %clang -### -mauto-archbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang -### -mauto-archCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang -### -mauto-archCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang -### -mauto-arch=broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang -### -mauto-arch=CORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang -### -mauto-arch=CORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang_cl -### /Qauto-archbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang_cl -### /Qauto-archCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang_cl -### /Qauto-archCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang_cl -### /Qauto-arch:broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang_cl -### /Qauto-arch:CORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang_cl -### /Qauto-arch:CORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang_cl -### /Qauto-arch=broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang_cl -### /Qauto-arch=CORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang_cl -### /Qauto-arch=CORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// CHECK-MAA-BROADWELL: "-mauto-arch=broadwell"
+// CHECK-MAA-BOTH: "-mauto-arch=core-avx2,broadwell"
 
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
@@ -410,7 +455,7 @@
 // Behavior with Qtemplate-depth option
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
-// CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
+// CHECK-TEMPLATE-DEPTH: "-ftemplate-depth=5"
 
 // Behavior with Qzero-initialized-in-bss and Qzero-initialized-in-bss- option
 // RUN: %clang_cl -### -c /Qzero-initialized-in-bss %s 2>&1 | FileCheck -check-prefix CHECK-ZERO %s
@@ -690,7 +735,7 @@
 /// /constexpr:steps alias
 // RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
 // RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
-// CONSTEXPR_STEPS: "-fconstexpr-steps" "4"
+// CONSTEXPR_STEPS: "-fconstexpr-steps=4"
 
 /// -fmax-errors alias
 // RUN: %clang -### -fmax-errors=256 -c %s 2>&1 | FileCheck -check-prefix=CHECK-MAX-ERRORS %s
@@ -984,3 +1029,16 @@
 // RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
 // CHECK-NO-OCLOC-NOT: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
 
+//RUN: %clang_cl -### /Qfp-eval-method=extended %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-EXTENDED %s
+// CHECK-QFP-EVAL-METHOD-EXTENDED: "-ffp-eval-method=extended"
+//RUN: %clang_cl -### /Qfp-eval-method=source %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-SOURCE %s
+// CHECK-QFP-EVAL-METHOD-SOURCE: "-ffp-eval-method=source"
+//RUN: %clang_cl -### /Qfp-eval-method=double %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-DOUBLE %s
+// CHECK-QFP-EVAL-METHOD-DOUBLE: "-ffp-eval-method=double"
+
+/// Tests -fprofile-ml-use
+// RUN: %clang -c -fprofile-ml-use -### %s 2>&1 \
+// RUN: | FileCheck --check-prefix=FPROFILE_ML_USE %s
+// RUN: %clang_cl -c /fprofile-ml-use -### %s 2>&1 \
+// RUN: | FileCheck --check-prefix=FPROFILE_ML_USE %s
+// FPROFILE_ML_USE:  "-fprofile-ml-use"

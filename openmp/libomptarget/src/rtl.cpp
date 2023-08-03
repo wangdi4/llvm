@@ -29,6 +29,7 @@
 
 #include "llvm/Object/OffloadBinary.h"
 
+#include "OmptCallback.h"
 #include "device.h"
 #include "private.h"
 #if INTEL_CUSTOMIZATION
@@ -91,9 +92,7 @@ static const char *RTLNames[] = {
     /* x86_64 target        */ "libomptarget.rtl.x86_64",
     /* CUDA target          */ "libomptarget.rtl.cuda",
     /* AArch64 target       */ "libomptarget.rtl.aarch64",
-    /* SX-Aurora VE target  */ "libomptarget.rtl.ve",
     /* AMDGPU target        */ "libomptarget.rtl.amdgpu",
-    /* Remote target        */ "libomptarget.rtl.rpc",
 #endif  // INTEL_COLLAB
 };
 
@@ -113,6 +112,10 @@ OmptGlobalTy *OmptGlobal;
 
 #if OMPTARGET_PROFILE_ENABLED
 static char *ProfileTraceFile = nullptr;
+#endif
+
+#ifdef OMPT_SUPPORT
+extern void ompt::connectLibrary();
 #endif
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
@@ -142,6 +145,11 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   // TODO: add a configuration option for time granularity
   if (ProfileTraceFile)
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
+#endif
+
+#ifdef OMPT_SUPPORT
+  // Initialize OMPT first
+  ompt::connectLibrary();
 #endif
 
 #if !INTEL_CUSTOMIZATION
@@ -203,6 +211,119 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+std::vector<std::string_view> tokenize(const std::string_view &Filter,
+                                       const std::string &Delim) {
+  std::vector<std::string_view> Tokens;
+  size_t Pos = 0;
+  size_t LastPos = 0;
+
+  while ((Pos = Filter.find(Delim, LastPos)) != std::string::npos) {
+    std::string_view Tok(Filter.data() + LastPos, (Pos - LastPos));
+
+    if (!Tok.empty()) {
+      Tokens.push_back(Tok);
+    }
+    // move the search starting index
+    LastPos = Pos + 1;
+  }
+
+  // Add remainder if any
+  if (LastPos < Filter.size()) {
+    std::string_view Tok(Filter.data() + LastPos, Filter.size() - LastPos);
+    Tokens.push_back(Tok);
+  }
+  return Tokens;
+}
+
+void getPlugInNameFromEnv(std::vector<const char *> &RTLChecked) {
+#if _WIN32
+#define GET_RTL_NAME(Name) "omptarget.rtl." #Name ".dll"
+#else
+#define GET_RTL_NAME(Name) "libomptarget.rtl." #Name ".so"
+#endif
+
+  //  Process ONEAPI_DEVICE_SELECTOR first and then LIBOMPTARGET_PLUGIN
+  //  which will  be obsoleted
+  if (char *Env = getenv("ONEAPI_DEVICE_SELECTOR")) {
+    // Empty string select level0
+    if (Env[0] == '\0') {
+      RTLChecked.push_back(GET_RTL_NAME(level0));
+      return;
+    }
+
+    bool done_l0 = false;
+    bool done_opencl = false;
+    bool done_x86_64 = false;
+    bool done_ur = false;
+    std::string EnvStr(Env);
+    std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
+                   [](unsigned char C) { return std::tolower(C); });
+    std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
+    for (const auto Filter : OdsStr) {
+      std::vector<std::string_view> Backend = tokenize(Filter, ":");
+      if (Backend.empty() || (Backend.size() == 1)) {
+        continue;
+      }
+      auto Plugin = Backend.front();
+      if (!strncmp(Plugin.data(), "*", Plugin.length())) {
+        RTLChecked.insert(RTLChecked.begin(), RTLNames,
+                          RTLNames + sizeof(RTLNames) / sizeof(const char *));
+        return;
+      } else if (!strncmp(Plugin.data(), "level_zero", Plugin.length()) &&
+                 !done_l0) {
+        RTLChecked.push_back(GET_RTL_NAME(level0));
+        done_l0 = true;
+      } else if (!strncmp(Plugin.data(), "opencl", Plugin.length()) &&
+                 !done_opencl) {
+        RTLChecked.push_back(GET_RTL_NAME(opencl));
+        done_opencl = true;
+      } else if (!strncmp(Plugin.data(), "unified_runtime", Plugin.length()) &&
+                 !done_ur) {
+        RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
+        done_ur = true;
+      } else if (!strncmp(Plugin.data(), "x86_64", Plugin.length()) &&
+                 !done_x86_64) {
+        RTLChecked.push_back(GET_RTL_NAME(x86_64));
+        done_x86_64 = true;
+      } else if (Plugin[0] == '!') {
+        DP("Negative filter ignored currently not supported '%.*s'\n",
+           static_cast<int>(Plugin.length()), Plugin.data());
+      } else {
+        DP("Unknown  plugin specified with ONEAPI_DEVICE_SELECTOR '%.*s'\n",
+           static_cast<int>(Plugin.length()), Plugin.data());
+      }
+    }
+    if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN"))
+      DP("Ignoring LIBOMPTARGET_PLUGIN  since ONEAPI_DEVICE_SELECTOR is  "
+         "set\n");
+    return;
+  }
+
+  if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN")) {
+    std::string PlugInName(EnvStr);
+    if (PlugInName == "OPENCL" || PlugInName == "opencl") {
+      RTLChecked.push_back(GET_RTL_NAME(opencl));
+#if INTEL_CUSTOMIZATION
+    } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
+               PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
+      RTLChecked.push_back(GET_RTL_NAME(level0));
+#if OMPTARGET_UNIFIED_RUNTIME_BUILD
+    } else if (PlugInName == "UNIFIED_RUNTIME" ||
+               PlugInName == "unified_runtime") {
+      RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
+#endif // OMPTARGET_UNIFIED_RUNTIME_BUILD
+#endif // INTEL_CUSTOMIZATION
+    } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
+      RTLChecked.push_back(GET_RTL_NAME(x86_64));
+    } else {
+      DP("Unknown plugin name '%s'\n", EnvStr);
+    }
+  }
+  return;
+}
+#endif // INTEL_COLLAB
+
 void RTLsTy::loadRTLs() {
 
 #if INTEL_CUSTOMIZATION
@@ -227,40 +348,11 @@ void RTLsTy::loadRTLs() {
   DP("Loading RTLs...\n");
 
 #if INTEL_COLLAB
+
   // Only check a single plugin if specified by user
   std::vector<const char *> RTLChecked;
-  if (char *envStr = getenv("LIBOMPTARGET_PLUGIN")) {
-    std::string PlugInName(envStr);
-    if (PlugInName == "OPENCL" || PlugInName == "opencl") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.opencl.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.opencl.so");
-#endif
-#if INTEL_CUSTOMIZATION
-    } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
-               PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.level0.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.level0.so");
-#endif
-#endif // INTEL_CUSTOMIZATION
-    } else if (PlugInName == "CUDA" || PlugInName == "cuda") {
-      RTLChecked.push_back("libomptarget.rtl.cuda.so");
-    } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.x86_64.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.x86_64.so");
-#endif
-    } else if (PlugInName == "NIOS2" || PlugInName == "nios2") {
-      RTLChecked.push_back("libomptarget.rtl.nios2.so");
-    // TODO: any other plugins to be listed here?
-    } else {
-      DP("Unknown plugin name '%s'\n", envStr);
-    }
-  }
+  getPlugInNameFromEnv(RTLChecked);
+
   // Use the whole list by default
   if (RTLChecked.empty()) {
     RTLChecked.insert(RTLChecked.begin(), RTLNames,
@@ -278,25 +370,19 @@ void RTLsTy::loadRTLs() {
     DP("Checking user-specified plugin '%s'...\n", RTLChecked[0]);
   }
 
+#undef GET_RTL_NAME
+
   for (auto *Name : RTLChecked) {
     AllRTLs.emplace_back();
-
     RTLInfoTy &RTL = AllRTLs.back();
-
     const std::string BaseRTLName(Name);
-
 #ifdef OMPTARGET_DEBUG
-  RTL.RTLName = Name;
+    RTL.RTLName = Name;
 #endif
-#if INTEL_COLLAB
     RTL.RTLConstName = Name;
-#endif  // INTEL_COLLAB
 
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB
-
-  BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", true);
-
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
   for (const char *Name : RTLNames) {
@@ -305,13 +391,6 @@ void RTLsTy::loadRTLs() {
     RTLInfoTy &RTL = AllRTLs.back();
 
     const std::string BaseRTLName(Name);
-    if (NextGenPlugins) {
-      if (attemptLoadRTL(BaseRTLName + ".nextgen.so", RTL))
-        continue;
-
-      DP("Falling back to original plugin...\n");
-    }
-
     if (!attemptLoadRTL(BaseRTLName + ".so", RTL))
 #endif // INTEL_COLLAB
       AllRTLs.pop_back();
@@ -393,6 +472,10 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   }
 
 
+#ifdef OMPTARGET_DEBUG
+  RTL.RTLName = Name;
+#endif
+
   DP("Registering RTL %s supporting %d devices!\n", Name, RTL.NumberOfDevices);
 
   // Optional functions
@@ -444,72 +527,70 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_async_info");
   *((void **)&RTL.init_device_info) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_device_info");
+
 #if INTEL_COLLAB
-    #define SET_OPTIONAL_INTERFACE(entry, name)                                \
-      do {                                                                     \
-        if ((*((void **)&RTL.entry) =                                            \
-            DynLibrary->getAddressOfSymbol("__tgt_rtl_" #name)))               \
-          DP("Optional interface: __tgt_rtl_" #name "\n");                     \
-      } while (0)
-    #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
-    SET_OPTIONAL_INTERFACE_FN(data_realloc);
-    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
-    SET_OPTIONAL_INTERFACE_FN(register_host_pointer);
-    SET_OPTIONAL_INTERFACE_FN(unregister_host_pointer);
-    SET_OPTIONAL_INTERFACE_FN(get_device_name);
-    SET_OPTIONAL_INTERFACE_FN(get_context_handle);
-    SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
+#define SET_OPTIONAL_INTERFACE(Entry, Name)                                    \
+  do {                                                                         \
+    if ((*((void **)&RTL.Entry) =                                              \
+             DynLibrary->getAddressOfSymbol("__tgt_rtl_" #Name)))              \
+      DP("Optional interface: __tgt_rtl_" #Name "\n");                         \
+  } while (0)
+#define SET_OPTIONAL_INTERFACE_FN(Name) SET_OPTIONAL_INTERFACE(Name, Name)
+  SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
+  SET_OPTIONAL_INTERFACE_FN(data_realloc);
+  SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
+  SET_OPTIONAL_INTERFACE_FN(register_host_pointer);
+  SET_OPTIONAL_INTERFACE_FN(unregister_host_pointer);
+  SET_OPTIONAL_INTERFACE_FN(get_device_name);
+  SET_OPTIONAL_INTERFACE_FN(get_context_handle);
+  SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(init_ompt);
+  SET_OPTIONAL_INTERFACE_FN(init_ompt);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(requires_mapping);
-    SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
-    SET_OPTIONAL_INTERFACE_FN(push_subdevice);
-    SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
-    SET_OPTIONAL_INTERFACE_FN(add_build_options);
-    SET_OPTIONAL_INTERFACE_FN(is_supported_device);
+  SET_OPTIONAL_INTERFACE_FN(requires_mapping);
+  SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
+  SET_OPTIONAL_INTERFACE_FN(push_subdevice);
+  SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
+  SET_OPTIONAL_INTERFACE_FN(add_build_options);
+  SET_OPTIONAL_INTERFACE_FN(is_supported_device);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(create_interop);
-    SET_OPTIONAL_INTERFACE_FN(release_interop);
-    SET_OPTIONAL_INTERFACE_FN(use_interop);
-    SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
+  SET_OPTIONAL_INTERFACE_FN(create_interop);
+  SET_OPTIONAL_INTERFACE_FN(release_interop);
+  SET_OPTIONAL_INTERFACE_FN(use_interop);
+  SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
-    SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
+  SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
+  SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
+  SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
-    SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
-    SET_OPTIONAL_INTERFACE_FN(command_batch_end);
-    SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
-    SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
-    SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
-    SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
-    SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
-    SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
-    SET_OPTIONAL_INTERFACE_FN(get_device_info);
-    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
-    SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
-    SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
+  SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
+  SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
+  SET_OPTIONAL_INTERFACE_FN(command_batch_end);
+  SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
+  SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
+  SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
+  SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
+  SET_OPTIONAL_INTERFACE_FN(get_device_info);
+  SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
+  SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
+  SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(flush_queue);
-    SET_OPTIONAL_INTERFACE_FN(sync_barrier);
-    SET_OPTIONAL_INTERFACE_FN(async_barrier);
-    SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
-#endif
-    #undef SET_OPTIONAL_INTERFACE
-    #undef SET_OPTIONAL_INTERFACE_FN
+  SET_OPTIONAL_INTERFACE_FN(flush_queue);
+  SET_OPTIONAL_INTERFACE_FN(sync_barrier);
+  SET_OPTIONAL_INTERFACE_FN(async_barrier);
+  SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
+#endif // INTEL_CUSTOMIZATION
+#undef SET_OPTIONAL_INTERFACE
+#undef SET_OPTIONAL_INTERFACE_FN
 
 #if INTEL_CUSTOMIZATION
-    // Initialize RTL's OMPT data
-    if (RTL.init_ompt)
-      RTL.init_ompt(OmptGlobal);
+  // Initialize RTL's OMPT data
+  if (RTL.init_ompt)
+    RTL.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
   *((void **)&RTL.data_lock) =

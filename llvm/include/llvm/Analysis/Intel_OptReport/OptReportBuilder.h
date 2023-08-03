@@ -172,26 +172,27 @@ public:
   // TODO: Remove this interface after all opt-report clients are updated to use
   // new interface using remark IDs.
   template <typename... Args> OptReportThunk<T> &addOrigin(Args &&...args) {
-    return addOrigin(OptReportDiag::InvalidRemarkID,
-                     std::forward<Args>(args)...);
+    return addOrigin(OptRemarkID::InvalidRemarkID, std::forward<Args>(args)...);
   }
+
   // Interface to add origin remarks using given remark ID.
   template <typename... Args>
-  OptReportThunk<T> &addOrigin(unsigned RemarkID, Args &&...args) {
+  OptReportThunk<T> &addOrigin(OptRemarkID RemarkID, Args &&...args) {
     if (!Builder.getVerbosity())
       return *this;
 
     OptRemark Remark;
-    if (RemarkID == OptReportDiag::InvalidRemarkID) {
-      Remark = OptRemark::get(Builder.getContext(), RemarkID,
-                              std::forward<Args>(args)...);
+    if (RemarkID == OptRemarkID::InvalidRemarkID) {
+      Remark =
+          OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
+                         std::forward<Args>(args)...);
     } else {
       // TODO: Remark message should not be added to metadata when remark ID is
       // available. It will be directly obtained from catalogue when the remark
       // is being printed. Update when legacy interface is retired.
-      Remark = OptRemark::get(Builder.getContext(), RemarkID,
-                              OptReportDiag::getMsg(RemarkID),
-                              std::forward<Args>(args)...);
+      Remark = OptRemark::get(
+          Builder.getContext(), static_cast<unsigned>(RemarkID),
+          OptReportDiag::getMsg(RemarkID), std::forward<Args>(args)...);
     }
     getOrCreateOptReport().addOrigin(Remark);
     return *this;
@@ -203,28 +204,40 @@ public:
   template <typename... Args>
   OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
                                Args &&...args) {
-    return addRemark(MessageVerbosity, OptReportDiag::InvalidRemarkID,
+    return addRemark(MessageVerbosity, OptRemarkID::InvalidRemarkID,
                      std::forward<Args>(args)...);
   }
+
   // Interface to add opt-report remarks using given remark ID.
   template <typename... Args>
   OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
-                               unsigned RemarkID, Args &&...args) {
+                               OptRemarkID RemarkID, Args &&...args) {
     if (Builder.getVerbosity() < MessageVerbosity)
       return *this;
 
     OptRemark Remark;
-    if (RemarkID == OptReportDiag::InvalidRemarkID) {
-      Remark = OptRemark::get(Builder.getContext(), RemarkID,
-                              std::forward<Args>(args)...);
+    if (RemarkID == OptRemarkID::InvalidRemarkID) {
+      Remark =
+          OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
+                         std::forward<Args>(args)...);
     } else {
       // TODO: Remark message should not be added to metadata when remark ID is
       // available. It will be directly obtained from catalogue when the remark
       // is being printed. Update when legacy interface is retired.
-      Remark = OptRemark::get(Builder.getContext(), RemarkID,
-                              OptReportDiag::getMsg(RemarkID),
-                              std::forward<Args>(args)...);
+      Remark = OptRemark::get(
+          Builder.getContext(), static_cast<unsigned>(RemarkID),
+          OptReportDiag::getMsg(RemarkID), std::forward<Args>(args)...);
     }
+    getOrCreateOptReport().addRemark(Remark);
+    return *this;
+  }
+
+  // Interface to add pre-built opt-report remark.
+  OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
+                               OptRemark Remark) {
+    if (Builder.getVerbosity() < MessageVerbosity)
+      return *this;
+
     getOrCreateOptReport().addRemark(Remark);
     return *this;
   }

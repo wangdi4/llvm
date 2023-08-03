@@ -52,10 +52,6 @@ add_opencl_executable(
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)
-  # ocl-tblgen executes clang, so clang has to be available before we can launch
-  # ocl-tblgen. Instead of adding the clang dependece to all target invoking
-  # ocl-tblgen, add clang dependency here.
-  add_dependencies(${TARGET_NAME} ${CLANG})
 endif()
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})

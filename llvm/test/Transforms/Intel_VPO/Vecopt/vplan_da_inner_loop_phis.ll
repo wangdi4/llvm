@@ -53,19 +53,19 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
   %alloca.7 = alloca i64
-  store i64 %ptr1, i64* %alloca.7
+  store i64 %ptr1, ptr %alloca.7
   %alloca.8 = alloca i64
-  store i64 %ptr2, i64* %alloca.8
+  store i64 %ptr2, ptr %alloca.8
   %global_idj0 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %0
-%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.8, i64 0, i32 1) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.8, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.15 = load i64, i64* %alloca.7
-  %load.16 = load i64, i64* %alloca.8
+  %load.15 = load i64, ptr %alloca.7
+  %load.16 = load i64, ptr %alloca.8
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
@@ -156,19 +156,19 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
   %alloca.7 = alloca i64
-  store i64 %ptr1, i64* %alloca.7
+  store i64 %ptr1, ptr %alloca.7
   %alloca.8 = alloca i64
-  store i64 %ptr2, i64* %alloca.8
+  store i64 %ptr2, ptr %alloca.8
   %global_idj0 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %0
-%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.8, i64 0, i32 1) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.8, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.15 = load i64, i64* %alloca.7
-  %load.16 = load i64, i64* %alloca.8
+  %load.15 = load i64, ptr %alloca.7
+  %load.16 = load i64, ptr %alloca.8
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader

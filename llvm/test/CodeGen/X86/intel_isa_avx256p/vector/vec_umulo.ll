@@ -190,7 +190,7 @@ define <2 x i32> @umulo_v2i64(<2 x i64> %a0, <2 x i64> %a1, ptr %p2) nounwind {
 define <4 x i32> @umulo_v4i24(<4 x i24> %a0, <4 x i24> %a1, ptr %p2) nounwind {
 ; CHECK-LABEL: umulo_v4i24:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [16777215,16777215,16777215,16777215]
+; CHECK-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm2 # EVEX TO VEX Compression xmm2 = [255,255,255,0,255,255,255,0,255,255,255,0,255,255,255,0]
 ; CHECK-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x15,A,A,A,A]
 ; CHECK-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpand %xmm2, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xdb,0xca]

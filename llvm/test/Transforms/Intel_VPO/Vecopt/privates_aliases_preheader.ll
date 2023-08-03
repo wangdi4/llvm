@@ -12,7 +12,7 @@ define dso_local double @test_preheader_aliases() local_unnamed_addr #3 {
 ; CHECK-NEXT:    UpdateInstructions:
 ; CHECK-NEXT:    none
 ; CHECK-EMPTY:
-; CHECK-NEXT:    AliasRef:   [[D_LPRIV_PROMOTED0:%.*]] = load double, double* [[D_LPRIV0]], align 8
+; CHECK-NEXT:    AliasRef:   [[D_LPRIV_PROMOTED0:%.*]] = load double, ptr [[D_LPRIV0]], align 8
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      UpdateInstructions:
 ; CHECK-NEXT:      none
@@ -26,15 +26,15 @@ define dso_local double @test_preheader_aliases() local_unnamed_addr #3 {
 ;
 entry:
   %d.lpriv = alloca double, align 8
-  store double 0.000000e+00, double* %d.lpriv, align 8
+  store double 0.000000e+00, ptr %d.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(double* %d.lpriv, double zeroinitializer, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %d.lpriv, double zeroinitializer, i32 1) ]
   br label %DIR.OMP.SIMD.237
 
 DIR.OMP.SIMD.237:                                 ; preds = %DIR.OMP.SIMD.1
-  %d.lpriv.promoted = load double, double* %d.lpriv, align 8
+  %d.lpriv.promoted = load double, ptr %d.lpriv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end, %DIR.OMP.SIMD.237
@@ -55,7 +55,7 @@ if.end:                                           ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit.split_crit_edge: ; preds = %if.end
   %conv735.lcssa = phi double [ %conv735, %if.end ]
-  store double %conv735.lcssa, double* %d.lpriv, align 8
+  store double %conv735.lcssa, ptr %d.lpriv, align 8
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.cond.omp.loop.exit.split_crit_edge

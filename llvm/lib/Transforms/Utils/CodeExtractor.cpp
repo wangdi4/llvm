@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -316,8 +316,9 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
                              BasicBlock *AllocationBlock, std::string Suffix,
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
-                             const OrderedArgs *TgtClauseArgs)
-#else // INTEL_COLLAB
+                             const OrderedArgs *TgtClauseArgs,
+                             bool SimdPrivatization)
+#else  // INTEL_COLLAB
                              BasicBlock *AllocationBlock, std::string Suffix)
 #endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
@@ -326,8 +327,9 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
-      TgtClauseArgs(TgtClauseArgs), DeclLoc(),
-#else // INTEL_COLLAB
+      TgtClauseArgs(TgtClauseArgs), SimdPrivatization(SimdPrivatization),
+      DeclLoc(),
+#else  // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}
@@ -1234,8 +1236,13 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       AggParamTy.push_back(output->getType());
       StructValues.insert(output);
     } else
+#if INTEL_COLLAB
+      ParamTy.push_back(PointerType::get(getOutputType(output->getType()),
+                                         DL.getAllocaAddrSpace()));
+#else
       ParamTy.push_back(
           PointerType::get(output->getType(), DL.getAllocaAddrSpace()));
+#endif //INTEL_COLLAB
   }
 
   assert(
@@ -1604,10 +1611,18 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
     if (AggregateArgs && !ExcludeArgsFromAggregate.contains(output)) {
       StructValues.insert(output);
     } else {
+#if INTEL_COLLAB
+      Type *OutTy = getOutputType(output->getType());
+      AllocaInst *alloca =
+        new AllocaInst(OutTy, DL.getAllocaAddrSpace(),
+                       nullptr, output->getName() + ".loc",
+                       &codeReplacer->getParent()->front().front());
+#else
       AllocaInst *alloca =
         new AllocaInst(output->getType(), DL.getAllocaAddrSpace(),
                        nullptr, output->getName() + ".loc",
                        &codeReplacer->getParent()->front().front());
+#endif // INTEL_COLLAB
       ReloadOutputs.push_back(alloca);
       params.push_back(alloca);
 #if INTEL_COLLAB
@@ -1686,10 +1701,20 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       Output = ReloadOutputs[scalarIdx];
       ++scalarIdx;
     }
+#if INTEL_COLLAB
+    Type *OutTy = getOutputType(outputs[i]->getType());
+    Instruction *load = new LoadInst(
+        OutTy, Output, outputs[i]->getName() + ".reload", codeReplacer);
+#else
     LoadInst *load = new LoadInst(outputs[i]->getType(), Output,
                                   outputs[i]->getName() + ".reload",
                                   codeReplacer);
+#endif // INTEL_COLLAB
     Reloads.push_back(load);
+#if INTEL_COLLAB
+    if (OutTy != outputs[i]->getType())
+      load = new TruncInst(load, outputs[i]->getType(), "", codeReplacer);
+#endif // INTEL_COLLAB
     std::vector<User *> Users(outputs[i]->user_begin(), outputs[i]->user_end());
     for (User *U : Users) {
       Instruction *inst = cast<Instruction>(U);
@@ -1811,7 +1836,18 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       assert(ScalarOutputArgBegin != newFunction->arg_end() &&
              "Number of scalar output arguments should match "
              "the number of defined values");
+#if INTEL_COLLAB
+      Type *OutTy = outputs[i]->getType();
+      if (getOutputType(OutTy) == OutTy) {
+#endif // INTEL_COLLAB
       new StoreInst(outputs[i], &*ScalarOutputArgBegin, InsertBefore);
+#if INTEL_COLLAB
+      } else {
+        auto CastI =
+            new ZExtInst(outputs[i], getOutputType(OutTy), "", InsertBefore);
+        new StoreInst(CastI, &*ScalarOutputArgBegin, InsertBefore);
+      }
+#endif // INTEL_COLLAB
       ++ScalarOutputArgBegin;
     }
   }

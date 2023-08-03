@@ -11,21 +11,23 @@
 #include <sycl/accessor.hpp>
 #include <sycl/atomic.hpp>
 #include <sycl/atomic_ref.hpp>
+#include <sycl/detail/reduction_forward.hpp>
 #include <sycl/detail/tuple.hpp>
+#include <sycl/exception.hpp>
 #include <sycl/ext/oneapi/accessor_property_list.hpp>
 #include <sycl/group_algorithm.hpp>
 #include <sycl/handler.hpp>
 #include <sycl/kernel.hpp>
 #include <sycl/known_identity.hpp>
 #include <sycl/properties/reduction_properties.hpp>
-#include <sycl/reduction_forward.hpp>
+#include <sycl/sycl_span.hpp>
 #include <sycl/usm.hpp>
 
 #include <optional>
 #include <tuple>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 /// Base non-template class which is a base class for all reduction
@@ -35,7 +37,7 @@ class reduction_impl_base {};
 /// Predicate returning true if a type is a reduction.
 template <typename T> struct IsReduction {
   static constexpr bool value =
-      std::is_base_of<reduction_impl_base, std::remove_reference_t<T>>::value;
+      std::is_base_of_v<reduction_impl_base, std::remove_reference_t<T>>;
 };
 
 /// Predicate returning true if all template type parameters except the last one
@@ -81,17 +83,17 @@ namespace detail {
 template <typename T, class BinaryOperation>
 using IsReduOptForFastAtomicFetch =
 #ifdef SYCL_REDUCTION_DETERMINISTIC
-    bool_constant<false>;
+    std::bool_constant<false>;
 #else
-    bool_constant<((is_sgenfloat<T>::value && sizeof(T) == 4) ||
-                   is_sgeninteger<T>::value) &&
-                  IsValidAtomicType<T>::value &&
-                  (IsPlus<T, BinaryOperation>::value ||
-                   IsMinimum<T, BinaryOperation>::value ||
-                   IsMaximum<T, BinaryOperation>::value ||
-                   IsBitOR<T, BinaryOperation>::value ||
-                   IsBitXOR<T, BinaryOperation>::value ||
-                   IsBitAND<T, BinaryOperation>::value)>;
+    std::bool_constant<((is_sgenfloat<T>::value && sizeof(T) == 4) ||
+                        is_sgeninteger<T>::value) &&
+                       IsValidAtomicType<T>::value &&
+                       (IsPlus<T, BinaryOperation>::value ||
+                        IsMinimum<T, BinaryOperation>::value ||
+                        IsMaximum<T, BinaryOperation>::value ||
+                        IsBitOR<T, BinaryOperation>::value ||
+                        IsBitXOR<T, BinaryOperation>::value ||
+                        IsBitAND<T, BinaryOperation>::value)>;
 #endif
 
 // This type trait is used to detect if the atomic operation BinaryOperation
@@ -105,12 +107,12 @@ using IsReduOptForFastAtomicFetch =
 template <typename T, class BinaryOperation>
 using IsReduOptForAtomic64Op =
 #ifdef SYCL_REDUCTION_DETERMINISTIC
-    bool_constant<false>;
+    std::bool_constant<false>;
 #else
-    bool_constant<(IsPlus<T, BinaryOperation>::value ||
-                   IsMinimum<T, BinaryOperation>::value ||
-                   IsMaximum<T, BinaryOperation>::value) &&
-                  is_sgenfloat<T>::value && sizeof(T) == 8>;
+    std::bool_constant<(IsPlus<T, BinaryOperation>::value ||
+                        IsMinimum<T, BinaryOperation>::value ||
+                        IsMaximum<T, BinaryOperation>::value) &&
+                       is_sgenfloat<T>::value && sizeof(T) == 8>;
 #endif
 
 // This type trait is used to detect if the group algorithm reduce() used with
@@ -121,14 +123,14 @@ using IsReduOptForAtomic64Op =
 template <typename T, class BinaryOperation>
 using IsReduOptForFastReduce =
 #ifdef SYCL_REDUCTION_DETERMINISTIC
-    bool_constant<false>;
+    std::bool_constant<false>;
 #else
-    bool_constant<((is_sgeninteger<T>::value &&
-                    (sizeof(T) == 4 || sizeof(T) == 8)) ||
-                   is_sgenfloat<T>::value) &&
-                  (IsPlus<T, BinaryOperation>::value ||
-                   IsMinimum<T, BinaryOperation>::value ||
-                   IsMaximum<T, BinaryOperation>::value)>;
+    std::bool_constant<((is_sgeninteger<T>::value &&
+                         (sizeof(T) == 4 || sizeof(T) == 8)) ||
+                        is_sgenfloat<T>::value) &&
+                       (IsPlus<T, BinaryOperation>::value ||
+                        IsMinimum<T, BinaryOperation>::value ||
+                        IsMaximum<T, BinaryOperation>::value)>;
 #endif
 
 // std::tuple seems to be a) too heavy and b) not copyable to device now
@@ -222,47 +224,47 @@ template <class Reducer> class combiner {
 
 public:
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value &&
-                  is_geninteger<_T>::value,
-              Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value &&
+                       is_geninteger<_T>::value,
+                   Reducer &>
   operator++() {
     return static_cast<Reducer *>(this)->combine(static_cast<_T>(1));
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value &&
-                  is_geninteger<_T>::value,
-              Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value &&
+                       is_geninteger<_T>::value,
+                   Reducer &>
   operator++(int) {
     return static_cast<Reducer *>(this)->combine(static_cast<_T>(1));
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value, Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsPlus<_T, BinaryOp>::value, Reducer &>
   operator+=(const _T &Partial) {
     return static_cast<Reducer *>(this)->combine(Partial);
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsMultiplies<_T, BinaryOp>::value, Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsMultiplies<_T, BinaryOp>::value, Reducer &>
   operator*=(const _T &Partial) {
     return static_cast<Reducer *>(this)->combine(Partial);
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsBitOR<_T, BinaryOp>::value, Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsBitOR<_T, BinaryOp>::value, Reducer &>
   operator|=(const _T &Partial) {
     return static_cast<Reducer *>(this)->combine(Partial);
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsBitXOR<_T, BinaryOp>::value, Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsBitXOR<_T, BinaryOp>::value, Reducer &>
   operator^=(const _T &Partial) {
     return static_cast<Reducer *>(this)->combine(Partial);
   }
 
   template <typename _T = Ty, int _Dims = Dims>
-  enable_if_t<(_Dims == 0) && IsBitAND<_T, BinaryOp>::value, Reducer &>
+  std::enable_if_t<(_Dims == 0) && IsBitAND<_T, BinaryOp>::value, Reducer &>
   operator&=(const _T &Partial) {
     return static_cast<Reducer *>(this)->combine(Partial);
   }
@@ -294,7 +296,7 @@ private:
 
   template <class _T, access::address_space Space, class BinaryOp>
   static constexpr bool BasicCheck =
-      std::is_same<remove_decoration_t<_T>, Ty>::value &&
+      std::is_same_v<remove_decoration_t<_T>, Ty> &&
       (Space == access::address_space::global_space ||
        Space == access::address_space::local_space);
 
@@ -302,10 +304,10 @@ public:
   /// Atomic ADD operation: *ReduVarPtr += MValue;
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
-              (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
-               IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
-              IsPlus<_T, _BinaryOperation>::value>
+  std::enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
+                   (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
+                    IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
+                   IsPlus<_T, _BinaryOperation>::value>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_add(Val); });
@@ -314,9 +316,9 @@ public:
   /// Atomic BITWISE OR operation: *ReduVarPtr |= MValue;
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
-              IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
-              IsBitOR<_T, _BinaryOperation>::value>
+  std::enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
+                   IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
+                   IsBitOR<_T, _BinaryOperation>::value>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_or(Val); });
@@ -325,9 +327,9 @@ public:
   /// Atomic BITWISE XOR operation: *ReduVarPtr ^= MValue;
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
-              IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
-              IsBitXOR<_T, _BinaryOperation>::value>
+  std::enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
+                   IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
+                   IsBitXOR<_T, _BinaryOperation>::value>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_xor(Val); });
@@ -336,11 +338,11 @@ public:
   /// Atomic BITWISE AND operation: *ReduVarPtr &= MValue;
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<std::is_same<remove_decoration_t<_T>, _T>::value &&
-              IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
-              IsBitAND<_T, _BinaryOperation>::value &&
-              (Space == access::address_space::global_space ||
-               Space == access::address_space::local_space)>
+  std::enable_if_t<std::is_same_v<remove_decoration_t<_T>, _T> &&
+                   IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value &&
+                   IsBitAND<_T, _BinaryOperation>::value &&
+                   (Space == access::address_space::global_space ||
+                    Space == access::address_space::local_space)>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_and(Val); });
@@ -349,10 +351,10 @@ public:
   /// Atomic MIN operation: *ReduVarPtr = sycl::minimum(*ReduVarPtr, MValue);
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
-              (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
-               IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
-              IsMinimum<_T, _BinaryOperation>::value>
+  std::enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
+                   (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
+                    IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
+                   IsMinimum<_T, _BinaryOperation>::value>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_min(Val); });
@@ -361,10 +363,10 @@ public:
   /// Atomic MAX operation: *ReduVarPtr = sycl::maximum(*ReduVarPtr, MValue);
   template <access::address_space Space = access::address_space::global_space,
             typename _T = Ty, class _BinaryOperation = BinaryOp>
-  enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
-              (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
-               IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
-              IsMaximum<_T, _BinaryOperation>::value>
+  std::enable_if_t<BasicCheck<_T, Space, _BinaryOperation> &&
+                   (IsReduOptForFastAtomicFetch<_T, _BinaryOperation>::value ||
+                    IsReduOptForAtomic64Op<_T, _BinaryOperation>::value) &&
+                   IsMaximum<_T, _BinaryOperation>::value>
   atomic_combine(_T *ReduVarPtr) const {
     atomic_combine_impl<Space>(
         ReduVarPtr, [](auto &&Ref, auto Val) { return Ref.fetch_max(Val); });
@@ -805,7 +807,7 @@ template <typename KernelName> struct InitMemKrn;
 /// must do that to avoid name collisions.
 template <class KernelName>
 using __sycl_init_mem_for =
-    std::conditional_t<std::is_same<KernelName, auto_name>::value, auto_name,
+    std::conditional_t<std::is_same_v<KernelName, auto_name>, auto_name,
                        reduction::InitMemKrn<KernelName>>;
 
 template <typename T, class BinaryOperation, int Dims, size_t Extent,
@@ -959,11 +961,9 @@ public:
       for (int i = 0; i < num_elements; ++i) {
         (*RWReduVal)[i] = decltype(MIdentityContainer)::getIdentity();
       }
-      CGH.addReduction(RWReduVal);
       auto Buf = std::make_shared<buffer<T, 1>>(RWReduVal.get()->data(),
                                                 range<1>(num_elements));
       Buf->set_final_data();
-      CGH.addReduction(Buf);
       accessor Mem{*Buf, CGH};
       Func(Mem);
 
@@ -974,6 +974,10 @@ public:
         // so use the old-style API.
         auto Mem =
             Buf->template get_access<access::mode::read_write>(CopyHandler);
+        // Since this CG is dependent on the one associated with CGH,
+        // registering the auxiliary resources here is enough.
+        CopyHandler.addReduction(RWReduVal);
+        CopyHandler.addReduction(Buf);
         if constexpr (is_usm) {
           // Can't capture whole reduction, copy into distinct variables.
           bool IsUpdateOfUserVar = !initializeToIdentity();
@@ -1109,15 +1113,13 @@ public:
       : algo(BOp, InitializeToIdentity, Var) {
     if constexpr (!is_usm)
       if (Var.size() != 1)
-        throw sycl::runtime_error(errc::invalid,
-                                  "Reduction variable must be a scalar.",
-                                  PI_ERROR_INVALID_VALUE);
+        throw sycl::exception(make_error_code(errc::invalid),
+                              "Reduction variable must be a scalar.");
     if constexpr (!is_known_identity)
       if (InitializeToIdentity)
-        throw sycl::runtime_error(errc::invalid,
-                                  "initialize_to_identity property cannot be "
-                                  "used with identityless reductions.",
-                                  PI_ERROR_INVALID_VALUE);
+        throw sycl::exception(make_error_code(errc::invalid),
+                              "initialize_to_identity property cannot be "
+                              "used with identityless reductions.");
   }
 
   /// Constructs reduction_impl with an explicit identity value. This is only
@@ -1129,9 +1131,8 @@ public:
       : algo(Identity, BOp, InitializeToIdentity, Var) {
     if constexpr (!is_usm)
       if (Var.size() != 1)
-        throw sycl::runtime_error(errc::invalid,
-                                  "Reduction variable must be a scalar.",
-                                  PI_ERROR_INVALID_VALUE);
+        throw sycl::exception(make_error_code(errc::invalid),
+                              "Reduction variable must be a scalar.");
   }
 };
 
@@ -1196,7 +1197,7 @@ struct KernelMultipleWGTag {};
 template <template <typename, reduction::strategy, typename...> class MainOrAux,
           class KernelName, reduction::strategy Strategy, class... Ts>
 using __sycl_reduction_kernel =
-    std::conditional_t<std::is_same<KernelName, auto_name>::value, auto_name,
+    std::conditional_t<std::is_same_v<KernelName, auto_name>, auto_name,
                        MainOrAux<KernelName, Strategy, Ts...>>;
 
 // Implementations.
@@ -1358,7 +1359,7 @@ struct NDRangeReduction<
 };
 
 /// Computes the greatest power-of-two less than or equal to N.
-static inline size_t GreatestPowerOfTwo(size_t N) {
+inline size_t GreatestPowerOfTwo(size_t N) {
   if (N == 0)
     return 0;
 
@@ -1680,11 +1681,11 @@ struct NDRangeReduction<
     // for the device.
     size_t MaxWGSize = reduGetMaxWGSize(Queue, OneElemSize);
     if (NDRange.get_local_range().size() > MaxWGSize)
-      throw sycl::runtime_error("The implementation handling parallel_for with"
-                                " reduction requires work group size not bigger"
-                                " than " +
-                                    std::to_string(MaxWGSize),
-                                PI_ERROR_INVALID_WORK_GROUP_SIZE);
+      throw sycl::exception(make_error_code(errc::nd_range),
+                            "The implementation handling parallel_for with"
+                            " reduction requires work group size not bigger"
+                            " than " +
+                                std::to_string(MaxWGSize));
 
     size_t NElements = Reduction::num_elements;
     size_t NWorkGroups = NDRange.get_group_range().size();
@@ -1725,13 +1726,13 @@ struct NDRangeReduction<
     // TODO: Create a special slow/sequential version of the kernel that would
     // handle the reduction instead of reporting an assert below.
     if (MaxWGSize <= 1)
-      throw sycl::runtime_error("The implementation handling parallel_for with "
-                                "reduction requires the maximal work group "
-                                "size to be greater than 1 to converge. "
-                                "The maximal work group size depends on the "
-                                "device and the size of the objects passed to "
-                                "the reduction.",
-                                PI_ERROR_INVALID_WORK_GROUP_SIZE);
+      throw sycl::exception(make_error_code(errc::nd_range),
+                            "The implementation handling parallel_for with "
+                            "reduction requires the maximal work group "
+                            "size to be greater than 1 to converge. "
+                            "The maximal work group size depends on the "
+                            "device and the size of the objects passed to "
+                            "the reduction.");
     size_t NWorkItems = NDRange.get_group_range().size();
     while (NWorkItems > 1) {
       reduction::withAuxHandler(CGH, [&](handler &AuxHandler) {
@@ -1808,11 +1809,11 @@ template <> struct NDRangeReduction<reduction::strategy::basic> {
     // compiled for the device.
     size_t MaxWGSize = reduGetMaxWGSize(Queue, OneElemSize);
     if (NDRange.get_local_range().size() > MaxWGSize)
-      throw sycl::runtime_error("The implementation handling parallel_for with"
-                                " reduction requires work group size not bigger"
-                                " than " +
-                                    std::to_string(MaxWGSize),
-                                PI_ERROR_INVALID_WORK_GROUP_SIZE);
+      throw sycl::exception(make_error_code(errc::nd_range),
+                            "The implementation handling parallel_for with"
+                            " reduction requires work group size not bigger"
+                            " than " +
+                                std::to_string(MaxWGSize));
 
     size_t NWorkGroups = NDRange.get_group_range().size();
 
@@ -1904,13 +1905,13 @@ template <> struct NDRangeReduction<reduction::strategy::basic> {
     // TODO: Create a special slow/sequential version of the kernel that would
     // handle the reduction instead of reporting an assert below.
     if (MaxWGSize <= 1)
-      throw sycl::runtime_error("The implementation handling parallel_for with "
-                                "reduction requires the maximal work group "
-                                "size to be greater than 1 to converge. "
-                                "The maximal work group size depends on the "
-                                "device and the size of the objects passed to "
-                                "the reduction.",
-                                PI_ERROR_INVALID_WORK_GROUP_SIZE);
+      throw sycl::exception(make_error_code(errc::nd_range),
+                            "The implementation handling parallel_for with "
+                            "reduction requires the maximal work group "
+                            "size to be greater than 1 to converge. "
+                            "The maximal work group size depends on the "
+                            "device and the size of the objects passed to "
+                            "the reduction.");
     size_t NWorkItems = NDRange.get_group_range().size();
     while (NWorkItems > 1) {
       size_t NWorkGroups;
@@ -2586,11 +2587,11 @@ template <> struct NDRangeReduction<reduction::strategy::multi> {
     // for the device.
     size_t MaxWGSize = reduGetMaxWGSize(Queue, LocalMemPerWorkItem);
     if (NDRange.get_local_range().size() > MaxWGSize)
-      throw sycl::runtime_error("The implementation handling parallel_for with"
-                                " reduction requires work group size not bigger"
-                                " than " +
-                                    std::to_string(MaxWGSize),
-                                PI_ERROR_INVALID_WORK_GROUP_SIZE);
+      throw sycl::exception(make_error_code(errc::nd_range),
+                            "The implementation handling parallel_for with"
+                            " reduction requires work group size not bigger"
+                            " than " +
+                                std::to_string(MaxWGSize));
 
     reduCGFuncMulti<KernelName>(CGH, KernelFunc, NDRange, Properties, ReduTuple,
                                 ReduIndices);
@@ -2884,5 +2885,5 @@ auto reduction(span<T, Extent> Span, const T &Identity,
   return detail::make_reduction<BinaryOperation, 1, Extent, true>(
       Span.data(), Identity, Combiner, InitializeToIdentity);
 }
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

@@ -25,18 +25,17 @@
 ; CHECK:            + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   [[COPY:%.*]] = [[PHI_TEMP]];
 ; CHECK-NEXT:       |   [[VEC:%.*]] = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:       |   [[VEC2:%.*]] = [[COPY]]  +  i1 + <i32 0, i32 1, i32 2, i32 3>;
-; CHECK-NEXT:       |   [[VEC3:%.*]] = [[VEC2]]  +  [[VEC]];
-; CHECK-NEXT:       |   [[PHI_TEMP]] = [[VEC3]];
+; CHECK-NEXT:       |   [[VEC2:%.*]] = i1 + [[COPY]] + <i32 0, i32 1, i32 2, i32 3> + [[VEC]];
+; CHECK-NEXT:       |   [[PHI_TEMP]] = [[VEC2]];
 ; CHECK-NEXT:       + END LOOP
 
-; CHECK:            %a.010 = @llvm.vector.reduce.add.v4i32([[VEC3]]);
+; CHECK:            %a.010 = @llvm.vector.reduce.add.v4i32([[VEC2]]);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @foo(i32 %n, i32* nocapture readonly %A) local_unnamed_addr {
+define dso_local i32 @foo(i32 %n, ptr nocapture readonly %A) local_unnamed_addr {
 entry:
   %cmp8 = icmp sgt i32 %n, 0
   br i1 %cmp8, label %for.body.preheader, label %for.end
@@ -48,8 +47,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %a.010 = phi i32 [ 0, %for.body.preheader ], [ %add1, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add i32 %a.010, %1
   %add1 = add i32 %add, %0

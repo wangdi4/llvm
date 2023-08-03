@@ -16,7 +16,7 @@
 
 #include "gtest_wrapper.h"
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -28,7 +28,7 @@ struct parallel_functor {
   void operator()(const tbb::blocked_range<long> &r) const {
     my_counter--;
     while (my_counter > 0) {
-#ifdef WIN32
+#ifdef _WIN32
       _mm_pause();
 #else
       usleep(0);

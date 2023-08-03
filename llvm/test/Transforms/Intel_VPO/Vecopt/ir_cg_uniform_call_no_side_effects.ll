@@ -5,7 +5,7 @@
 ; RUN: opt -passes=vplan-vec -vplan-print-scalvec-results -S -vplan-force-vf=2 %s | FileCheck %s
 
 ; Check results from VPCallVecDecisions.
-; CHECK: [DA: Uni, SVA: (F  )] i64 [[VPCALL:%vp.*]] = call i32 0 i64 (i32)* @uniform_call (SVAOpBits 0->F 1->F )
+; CHECK: [DA: Uni, SVA: (F  )] i64 [[VPCALL:%vp.*]] = call i32 0 ptr @uniform_call (SVAOpBits 0->F 1->F )
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -13,7 +13,7 @@ target triple = "x86_64-pc-linux"
 ; attributes #1 guarantees this function to be uniform with no side effects.
 declare i64 @uniform_call(i32) local_unnamed_addr #1
 
-define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnamed_addr {
+define void @_ZGVeN2u_testKernel(ptr addrspace(1) noalias %results) local_unnamed_addr {
 ; CHECK-LABEL: @_ZGVeN2u_testKernel(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP13:%.*]], [[VPLANNEDBB11:%.*]] ]
@@ -39,7 +39,7 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_STORE_IF:%.*]], label [[TMP9:%.*]]
 ; CHECK:       pred.store.if:
-; CHECK-NEXT:    store volatile i64 [[TMP6]], i64 addrspace(1)* [[RESULTS:%.*]], align 8
+; CHECK-NEXT:    store volatile i64 [[TMP6]], ptr addrspace(1) [[RESULTS:%.*]], align 8
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK:       9:
 ; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE:%.*]]
@@ -48,12 +48,12 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE6]], true
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_STORE_IF15:%.*]], label [[TMP11:%.*]]
 ; CHECK:       pred.store.if15:
-; CHECK-NEXT:    store volatile i64 [[TMP6]], i64 addrspace(1)* [[RESULTS]], align 8
+; CHECK-NEXT:    store volatile i64 [[TMP6]], ptr addrspace(1) [[RESULTS]], align 8
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK:       11:
 ; CHECK-NEXT:    br label [[PRED_STORE_CONTINUE16:%.*]]
 ; CHECK:       pred.store.continue16:
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT8]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT10:%.*]], i32 8, <2 x i1> [[TMP1]])
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1(<2 x i64> [[BROADCAST_SPLAT8]], <2 x ptr addrspace(1)> [[BROADCAST_SPLAT10:%.*]], i32 8, <2 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB11]]
 ; CHECK:       VPlannedBB11:
 ; CHECK-NEXT:    [[TMP12]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
@@ -62,18 +62,18 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 entry:
-  %alloca.results = alloca i64 addrspace(1)*
-  store i64 addrspace(1)* %results, i64 addrspace(1)** %alloca.results
+  %alloca.results = alloca ptr addrspace(1)
+  store ptr addrspace(1) %results, ptr %alloca.results
   %gid = tail call i64 @_Z13get_global_idj(i32 0)
   %bound = tail call i64 @foo(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i64 addrspace(1)** %alloca.results, i64 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca.results, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-  %load.results = load i64 addrspace(1)*, i64 addrspace(1)** %alloca.results
+  %load.results = load ptr addrspace(1), ptr %alloca.results
   br label %simd.loop
 
 simd.loop:
@@ -85,8 +85,8 @@ simd.loop:
 if.end:
   %result = tail call i64 @uniform_call(i32 0)
   %scal.user = add i64 %result, %gid
-  store volatile i64 %result, i64 addrspace(1)* %results, align 8
-  store i64 %result, i64 addrspace(1)* %load.results, align 8
+  store volatile i64 %result, ptr addrspace(1) %results, align 8
+  store i64 %result, ptr addrspace(1) %load.results, align 8
   br label %simd.loop.exit
 
 simd.loop.exit:

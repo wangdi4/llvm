@@ -52,8 +52,6 @@ public:
   void dump() const;
 #endif
 
-  static const HLInst *findSIMDExit(const HLLoop *Loop);
-
 private:
   // Entry point function
   bool parseSIMDEntry();

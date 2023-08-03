@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-CL %s
 ; Inline report via metadata
 ; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 

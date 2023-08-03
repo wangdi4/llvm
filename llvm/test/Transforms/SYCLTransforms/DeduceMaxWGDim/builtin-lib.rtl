@@ -1,6 +1,7 @@
-define i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* nocapture %p, i32 %val) local_unnamed_addr #0 {
+; Function Attrs: nofree norecurse nounwind
+define i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) nocapture %p, i32 %val) local_unnamed_addr #0 {
 entry:
-  %0 = atomicrmw add i32 addrspace(1)* %p, i32 %val seq_cst
+  %0 = atomicrmw add ptr addrspace(1) %p, i32 %val seq_cst, align 4
   ret i32 %0
 }
 

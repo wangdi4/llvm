@@ -28,7 +28,7 @@
 ;<40>               |   |   + DO i3 = 0, 59, 1   <DO_LOOP>
 ;<12>               |   |   |   %0 = (@a)[0][i1][i3];
 ;<14>               |   |   |   %1 = (@b)[0][i3][i2];
-;<16>               |   |   |   %add44 = %add44  +  (%0 * %1);
+;<16>               |   |   |   %add44 = %add44  +  (%1 * %0);
 ;<40>               |   |   + END LOOP
 ;<40>               |   |
 ;<24>               |   |   (@c)[0][i1][i2] = %add44;
@@ -47,7 +47,7 @@
 ; CHECK:           |   |   |   %add44 = (@c)[0][i1][i2];
 ; CHECK:           |   |   |   %0 = (@a)[0][i1][i3];
 ; CHECK:           |   |   |   %1 = (@b)[0][i3][i2];
-; CHECK:           |   |   |   %add44 = %add44  +  (%0 * %1);
+; CHECK:           |   |   |   %add44 = %add44  +  (%1 * %0);
 ; CHECK:           |   |   |   (@c)[0][i1][i2] = %add44;
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
@@ -83,13 +83,13 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup9
 
 for.body4:                                        ; preds = %for.cond.cleanup9, %for.cond1.preheader
   %indvars.iv47 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next48, %for.cond.cleanup9 ]
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @c, i64 0, i64 %indvar, i64 %indvars.iv47, !intel-tbaa !2
-  store i32 0, i32* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], ptr @c, i64 0, i64 %indvar, i64 %indvars.iv47, !intel-tbaa !2
+  store i32 0, ptr %arrayidx6, align 4, !tbaa !2
   br label %for.body10
 
 for.cond.cleanup9:                                ; preds = %for.body10
   %add.lcssa = phi i32 [ %add, %for.body10 ]
-  store i32 %add.lcssa, i32* %arrayidx6, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx6, align 4, !tbaa !2
   %indvars.iv.next48 = add nuw nsw i64 %indvars.iv47, 1
   %exitcond49 = icmp eq i64 %indvars.iv.next48, 80
   br i1 %exitcond49, label %for.cond.cleanup3, label %for.body4
@@ -97,10 +97,10 @@ for.cond.cleanup9:                                ; preds = %for.body10
 for.body10:                                       ; preds = %for.body10, %for.body4
   %indvars.iv = phi i64 [ 0, %for.body4 ], [ %indvars.iv.next, %for.body10 ]
   %add44 = phi i32 [ 0, %for.body4 ], [ %add, %for.body10 ]
-  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @a, i64 0, i64 %indvar, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx14, align 4, !tbaa !2
-  %arrayidx18 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %indvars.iv, i64 %indvars.iv47, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx18, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], ptr @a, i64 0, i64 %indvar, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx14, align 4, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv47, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx18, align 4, !tbaa !2
   %mul = mul nsw i32 %1, %0
   %add = add nsw i32 %add44, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

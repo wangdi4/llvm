@@ -17,7 +17,7 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR:         [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
 ; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]
 ; HIR-NEXT:     i32 [[VP_SUMRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
@@ -69,7 +69,7 @@ define i32 @foo(float* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_SUM_BCAST:%.*]] = bitcast i32* [[VP_SUM]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_SUM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]

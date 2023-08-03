@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 @x = dso_local global [10 x i32] zeroinitializer, align 16
 define void @foo2(i64 %N) local_unnamed_addr #0 {
@@ -12,14 +12,14 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP0:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP0]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K_IV_B0:%.*]] Step: i64 16 StartVal: ? EndVal: ? BinOp: ptr [[VP_K_IV_NEXT:%.*]] = phi  [ ptr [[VP_K_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ ptr [[VP_K_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_K_IV:%.*]], ptr [[VP_K_IV_NEXT]], ptr [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP:%.*]], ptr [[VP1:%.*]], ptr [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K_IV_B0:%.*]] Step: i64 16 StartVal: ? EndVal: ? BinOp: ptr [[VP1:%.*]] = getelementptr inbounds i8, ptr [[VP_K_IV:%.*]] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: ptr [[VP_K_IV]], ptr [[VP_K_IV_NEXT:%.*]], ptr [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP]], ptr [[VP1]], ptr [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K1_IV_B0:%.*]] Step: i64 4 StartVal: ? EndVal: ? BinOp: ptr [[VP_K1_IV_NEXT:%.*]] = phi  [ ptr [[VP_K1_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ ptr [[VP_K1_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_K1_IV:%.*]], ptr [[VP_K1_IV_NEXT]], ptr [[VP_K1_IV_IND_INIT:%.*]], i64 [[VP_K1_IV_IND_INIT_STEP:%.*]], ptr [[VP2:%.*]], ptr [[VP_K1_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K1_IV_B0:%.*]] Step: i64 4 StartVal: ? EndVal: ? BinOp: ptr [[VP2:%.*]] = getelementptr inbounds i8, ptr [[VP_K1_IV:%.*]] i64 [[VP_K1_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: ptr [[VP_K1_IV]], ptr [[VP_K1_IV_NEXT:%.*]], ptr [[VP_K1_IV_IND_INIT:%.*]], i64 [[VP_K1_IV_IND_INIT_STEP]], ptr [[VP2]], ptr [[VP_K1_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: ptr [[VP_K2_LOAD0:%.*]] Step: i64 4 StartVal: ? EndVal: ? need close form
 ; CHECK-NEXT:    Linked values: ptr [[VP_K2_ALLOC_PRIV:%.*]], ptr [[VP_K2_IV_IND_INIT:%.*]], i64 [[VP_K2_IV_IND_INIT_STEP:%.*]], void [[VP_LV0:%.*]], ptr [[VP_K2_IV_IND_FINAL:%.*]],
@@ -48,23 +48,23 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     ptr [[VP_K1_IV]] = phi  [ ptr [[VP_K1_IV_IND_INIT]], [[BB4]] ],  [ ptr [[VP2]], [[BB5]] ]
 ; CHECK-NEXT:     ptr [[VP_K2_IV:%.*]] = phi  [ ptr [[VP_K2_IV_IND_INIT]], [[BB4]] ],  [ ptr [[VP3:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     store ptr [[VP_K2_IV]] ptr [[VP_K2_ALLOC_PRIV]]
-; CHECK-NEXT:     ptr [[VP_K2_LOAD0]] = load ptr [[VP_K2_ALLOC_PRIV]]
-; CHECK-NEXT:     i32 [[VP_K2_LOAD1:%.*]] = load ptr [[VP_K2_LOAD0]]
+; CHECK-NEXT:     ptr [[VP_K2_LOAD0_1:%.*]] = load ptr [[VP_K2_ALLOC_PRIV]]
+; CHECK-NEXT:     i32 [[VP_K2_LOAD1:%.*]] = load ptr [[VP_K2_LOAD0_1]]
 ; CHECK-NEXT:     ptr [[VP_K2_GEP0:%.*]] = getelementptr inbounds [10 x i32], ptr @x i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     store i32 [[VP_K2_LOAD1]] ptr [[VP_K2_GEP0]]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 43
-; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1]], [[BB2]]
+; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
-; CHECK-NEXT:       ptr [[VP_K_IV_N2]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 2
-; CHECK-NEXT:       ptr [[VP_K1_IV_N2]] = getelementptr inbounds i32, ptr [[VP_K1_IV]] i64 1
+; CHECK-NEXT:       ptr [[VP_K_IV_N2:%.*]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 2
+; CHECK-NEXT:       ptr [[VP_K1_IV_N2:%.*]] = getelementptr inbounds i32, ptr [[VP_K1_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:       ptr [[VP_K_IV_N1]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 2
-; CHECK-NEXT:       ptr [[VP_K1_IV_N1]] = getelementptr inbounds i32, ptr [[VP_K1_IV]] i64 1
+; CHECK-NEXT:       ptr [[VP_K_IV_N1:%.*]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 2
+; CHECK-NEXT:       ptr [[VP_K1_IV_N1:%.*]] = getelementptr inbounds i32, ptr [[VP_K1_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB1]]
@@ -227,9 +227,9 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[WIDE_LOAD_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD]], i32 0
 ; CHECK-NEXT:   [[WIDE_LOAD_13:%.*]] = load <2 x i32>, ptr [[WIDE_LOAD_EXTRACT_0]], align 4
 ; CHECK-NEXT:   [[SCALAR_GEP:%.*]] = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 [[VP_UNI_PHI6]]
-; CHECK-NEXT:   store <2 x i32> [[WIDE_LOAD_13]], ptr [[SCALAR_GEP]], align 8
-; CHECK-NEXT:   %6 = add <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:   %7 = add i64 [[VP_UNI_PHI6]], 2
+; CHECK-NEXT:   store <2 x i32> [[WIDE_LOAD_13]], ptr [[SCALAR_GEP]], align 4
+; CHECK-NEXT:   %6 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:   %7 = add nuw nsw i64 [[VP_UNI_PHI6]], 2
 ; CHECK-NEXT:   %8 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 1, i64 1>
 ; CHECK-NEXT:   %9 = icmp eq <2 x i64> %8, <i64 43, i64 43>
 ; CHECK-NEXT:   %10 = xor <2 x i1> %9, <i1 true, i1 true>
@@ -294,10 +294,10 @@ for.body:
   %indvars.iv = phi i64 [ 1, %for.body.lr.ph ], [ %indvars.iv.next, %latch ]
   %k.iv = phi ptr [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
   %k1.iv = phi ptr [ %k1.iv.b, %for.body.lr.ph ], [ %k1.iv.next, %latch ]
-  %k2load = load i32*, i32** %k2, align 4
-  %k2val = load i32, i32* %k2load, align 4
-  %x.ptr = getelementptr inbounds [10 x i32], [10 x i32]* @x, i64 0, i64 %indvars.iv
-  store i32 %k2val, i32* %x.ptr, align 4
+  %k2load = load ptr, ptr %k2, align 4
+  %k2val = load i32, ptr %k2load, align 4
+  %x.ptr = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 %indvars.iv
+  store i32 %k2val, ptr %x.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %ee = icmp eq i64 %indvars.iv.next, 43
   br i1 %ee, label %then, label %else

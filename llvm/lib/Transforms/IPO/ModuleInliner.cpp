@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -57,6 +57,10 @@
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <cassert>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -161,11 +165,6 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
   // Populate the initial list of calls in this module.
   for (Function &F : M) {
     auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
-    // We want to generally process call sites top-down in order for
-    // simplifications stemming from replacing the call with the returned value
-    // after inlining to be visible to subsequent inlining decisions.
-    // FIXME: Using instructions sequence is a really bad way to do this.
-    // Instead we should do an actual RPO walk of the function body.
     for (Instruction &I : instructions(F))
       if (auto *CB = dyn_cast<CallBase>(&I))
         if (Function *Callee = CB->getCalledFunction()) {
@@ -221,17 +220,28 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
     }
 
 #if INTEL_CUSTOMIZATION
+    getInlineReport()->beginUpdate(CB);
+    getMDInlineReport()->beginUpdate(CB);
     auto Advice = Advisor.getAdvice(*CB, nullptr, nullptr,
                                     /*OnlyMandatory*/ false);
-#else
-    auto Advice = Advisor.getAdvice(*CB, /*OnlyMandatory*/ false);
+    InlineCost *IC = Advice->getInlineCost();
 #endif // INTEL_CUSTOMIZATION
     // Check whether we want to inline this callsite.
     if (!Advice->isInliningRecommended()) {
       Advice->recordUnattemptedInlining();
+#if INTEL_CUSTOMIZATION
+      getInlineReport()->setReasonNotInlined(CB, *IC);
+      getInlineReport()->endUpdate();
+      llvm::setMDReasonNotInlined(CB, *IC);
+      getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
       continue;
     }
 
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->setReasonIsInlined(CB, *IC);
+    llvm::setMDReasonIsInlined(CB, *IC);
+#endif // INTEL_CUSTOMIZATION
     // Setup the data structure used to plumb customization into the
     // `InlineFunction` routine.
     InlineFunctionInfo IFI(
@@ -246,12 +256,25 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
 #endif // INTEL_CUSTOMIZATION
     if (!IR.isSuccess()) {
       Advice->recordUnsuccessfulInlining(IR);
+#if INTEL_CUSTOMIZATION
+      InlineReason Reason = IR.getIntelInlReason();
+      getInlineReport()->setReasonNotInlined(CB, Reason);
+      getInlineReport()->endUpdate();
+      llvm::setMDReasonNotInlined(CB, Reason);
+      getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
       continue;
     }
 
     Changed = true;
     ++NumInlined;
 
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->inlineCallSite();
+    getInlineReport()->endUpdate();
+    getMDInlineReport()->inlineCallSite();
+    getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "    Size after inlining: " << F.getInstructionCount()
                       << "\n");
 
@@ -294,6 +317,9 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         // finish inlining.
         // Note that after this point, it is an error to do anything other
         // than use the callee's address or delete it.
+#if INTEL_CUSTOMIZATION
+        getMDInlineReport()->setDead(&Callee);
+#endif // INTEL_CUSTOMIZATION
         Callee.dropAllReferences();
         assert(!is_contained(DeadFunctions, &Callee) &&
                "Cannot put cause a function to become dead twice!");

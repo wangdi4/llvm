@@ -12,33 +12,34 @@
 ; CHECK-LABEL: Cloning Analysis for:  foofail1
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail1(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail1(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail1(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail1(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
-  %14 = load i32, i32* %0, align 4
-  store i32 %14, i32* @count, align 8
+bb11:                                             ; preds = %bb9, %bb7, %bb5
+  %i12 = load i32, ptr %arg, align 4
+  store i32 %i12, ptr @count, align 8
   ret void
 }
 
@@ -47,31 +48,32 @@ define internal void @foofail1(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail2
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail2(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 5, i32* %0, align 8
-  %5 = load i32, i32* @count, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail2(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 5, ptr %arg, align 8
+  %i3 = load i32, ptr @count, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail2(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail2(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -80,31 +82,32 @@ define internal void @foofail2(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail3
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail3(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = mul nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail3(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = mul nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = mul nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = mul nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = mul nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail3(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = mul nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail3(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -113,32 +116,32 @@ define internal void @foofail3(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail4
 ; CHECK-NOT: Selected RecProgression cloning
 
-; Function Attrs: nounwind
-define internal void @foofail4(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail4(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, %3
-  store i32 %12, i32* %2, align 4
-  call void @foofail4(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, %i1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail4(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -147,33 +150,34 @@ define internal void @foofail4(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail5
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail5(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail5(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %14
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb12
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %14
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb12
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  %13 = alloca i32, align 4
-  store i32 %12, i32* %13, align 4
-  call void @foofail5(i32* nonnull %2)
-  br label %14
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  %i11 = alloca i32, align 4
+  store i32 %i10, ptr %i11, align 4
+  call void @foofail5(ptr nonnull %i)
+  br label %bb12
 
-; <label>:14:                                     ; preds = %11, %9, %7
+bb12:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -182,32 +186,33 @@ define internal void @foofail5(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail6
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail6(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail6(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %14
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb12
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %14
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb12
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  %13 = add nsw i32 %12, 150
-  store i32 %13, i32* %2, align 4
-  call void @foofail6(i32* nonnull %2)
-  br label %14
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  %i11 = add nsw i32 %i10, 150
+  store i32 %i11, ptr %i, align 4
+  call void @foofail6(ptr nonnull %i)
+  br label %bb12
 
-; <label>:14:                                     ; preds = %11, %9, %7
+bb12:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -217,32 +222,33 @@ define internal void @foofail6(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail7
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail7(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail7(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %14
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb12
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %14
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb12
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  %13 = alloca i32, align 4
-  store i32 %12, i32* %13, align 4
-  call void @foofail7(i32* nonnull %2)
-  br label %14
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  %i11 = alloca i32, align 4
+  store i32 %i10, ptr %i11, align 4
+  call void @foofail7(ptr nonnull %i)
+  br label %bb12
 
-; <label>:14:                                     ; preds = %11, %9, %7
+bb12:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -251,32 +257,33 @@ define internal void @foofail7(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail8
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail8(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail8(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail8(i32* nonnull %2)
-  call void @foofail8(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail8(ptr nonnull %i)
+  call void @foofail8(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -286,32 +293,33 @@ define internal void @foofail8(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail9
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail9(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail9(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail9(i32* nonnull %2)
-  store i32 %12, i32* %2, align 4
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail9(ptr nonnull %i)
+  store i32 %i10, ptr %i, align 4
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -320,31 +328,32 @@ define internal void @foofail9(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail10
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail10(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail10(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail8(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail8(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -354,31 +363,32 @@ define internal void @foofail10(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail11
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail11(i32* noalias nocapture readonly, i32* noalias nocapture readonly) {
-  %3 = alloca i32, align 4
-  %4 = load i32, i32* @count, align 8
-  %5 = add nsw i32 %4, 1
-  store i32 %5, i32* @count, align 8
-  %6 = load i32, i32* %0, align 4
-  %7 = icmp eq i32 %6, 8
-  br i1 %7, label %8, label %10
+define internal void @foofail11(ptr noalias nocapture readonly %arg, ptr noalias nocapture readonly %arg1) {
+bb:
+  %i = alloca i32, align 4
+  %i2 = load i32, ptr @count, align 8
+  %i3 = add nsw i32 %i2, 1
+  store i32 %i3, ptr @count, align 8
+  %i4 = load i32, ptr %arg, align 4
+  %i5 = icmp eq i32 %i4, 8
+  br i1 %i5, label %bb6, label %bb8
 
-; <label>:8:                                      ; preds =2
-  %9 = add nsw i32 %4, 2
-  store i32 %9, i32* @count, align 8
-  br label %14
+bb6:                                              ; preds = %bb
+  %i7 = add nsw i32 %i2, 2
+  store i32 %i7, ptr @count, align 8
+  br label %bb12
 
-; <label>:10:                                     ; preds =2
-  %11 = icmp slt i32 %5, 500000
-  br i1 %11, label %12, label %14
+bb8:                                              ; preds = %bb
+  %i9 = icmp slt i32 %i3, 500000
+  br i1 %i9, label %bb10, label %bb12
 
-; <label>:12:                                     ; preds = %10
-  %13 = add nsw i32 %6, 1
-  store i32 %13, i32* %3, align 4
-  call void @foofail11(i32* @count, i32* nonnull %3)
-  br label %14
+bb10:                                             ; preds = %bb8
+  %i11 = add nsw i32 %i4, 1
+  store i32 %i11, ptr %i, align 4
+  call void @foofail11(ptr @count, ptr nonnull %i)
+  br label %bb12
 
-; <label>:14:                                     ; preds = %12, %10, %8
+bb12:                                             ; preds = %bb10, %bb8, %bb6
   ret void
 }
 
@@ -387,31 +397,32 @@ define internal void @foofail11(i32* noalias nocapture readonly, i32* noalias no
 ; CHECK-LABEL: Cloning Analysis for:  foofail12
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail12(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail12(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail12(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail12(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -420,31 +431,32 @@ define internal void @foofail12(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail13
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail13(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail13(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail13(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail13(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -453,31 +465,32 @@ define internal void @foofail13(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail14
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail14(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail14(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail14(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail14(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -487,31 +500,32 @@ define internal void @foofail14(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail15
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail15(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail15(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail15(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail15(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -520,31 +534,32 @@ define internal void @foofail15(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail16
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail16(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail16(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail16(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail16(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -553,31 +568,32 @@ define internal void @foofail16(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail17
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail17(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, %3
-  br i1 %6, label %7, label %9
+define internal void @foofail17(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, %i1
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail17(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail17(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -587,31 +603,32 @@ define internal void @foofail17(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail18
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail18(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foofail18(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foofail18(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foofail18(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
@@ -621,95 +638,96 @@ define internal void @foofail18(i32* noalias nocapture readonly) {
 ; CHECK-LABEL: Cloning Analysis for:  foofail19
 ; CHECK-NOT: Selected RecProgression cloning
 
-define internal void @foofail19(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 7
-  br i1 %6, label %7, label %9
+define internal void @foofail19(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 7
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 2
-  store i32 %12, i32* %2, align 4
-  call void @foofail19(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 2
+  store i32 %i10, ptr %i, align 4
+  call void @foofail19(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
 
-define dso_local void @MAIN__() #0 {
-  %1 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  call void @foofail1(i32* nonnull %1)
-  %2 = alloca i32, align 4
-  store i32 1, i32* %2, align 4
-  call void @foofail2(i32* nonnull %2)
-  %3 = alloca i32, align 4
-  store i32 2, i32* %3, align 4
-  call void @foofail3(i32* nonnull %3)
-  %4 = alloca i32, align 4
-  store i32 2, i32* %4, align 4
-  call void @foofail4(i32* nonnull %4)
-  %5 = alloca i32, align 4
-  store i32 3, i32* %5, align 4
-  call void @foofail5(i32* nonnull %5)
-  %6 = alloca i32, align 4
-  store i32 3, i32* %6, align 4
-  call void @foofail6(i32* nonnull %6)
-  %7 = alloca i32, align 4
-  store i32 4, i32* %7, align 4
-  call void @foofail7(i32* nonnull %7)
-  %8 = alloca i32, align 4
-  store i32 4, i32* %8, align 4
-  call void @foofail8(i32* nonnull %8)
-  %9 = alloca i32, align 4
-  store i32 5, i32* %9, align 4
-  call void @foofail9(i32* nonnull %9)
-  %10 = alloca i32, align 4
-  store i32 5, i32* %10, align 4
-  call void @foofail10(i32* nonnull %10)
-  %11 = alloca i32, align 4
-  store i32 1, i32* %11, align 4
-  call void @foofail11(i32* nonnull %11, i32* nonnull %11)
-  %12 = alloca i32, align 4
-  store i32 1, i32* %12, align 4
-  call void @foofail12(i32* nonnull %12)
-  %13 = alloca i32, align 4
-  store i32 2, i32* %12, align 4
-  call void @foofail12(i32* nonnull %13)
-  %14 = alloca i32, align 4
-  call void @foofail13(i32* %14)
-  %15 = alloca i32, align 4
-  store i32 2, i32* %15, align 4
-  store i32 3, i32* %15, align 4
-  call void @foofail14(i32* %15)
-  %16 = alloca i32, align 4
-  %17 = load i32, i32* %16, align 8
-  store i32 1, i32* %16, align 4
-  call void @foofail15(i32* nonnull %16)
-  call void @foofail16(i32* @count)
-  %18 = alloca i32, align 4
-  store i32 4, i32* %18, align 4
-  call void @foofail7(i32* nonnull %18)
-  %19 = alloca i32, align 4
-  store i32 100, i32* %19, align 4
-  call void @foofail18(i32* nonnull %19)
-  %20 = alloca i32, align 4
-  store i32 0, i32* %20, align 4
-  call void @foofail9(i32* nonnull %1)
+define dso_local void @MAIN__() {
+bb:
+  %i = alloca i32, align 4
+  store i32 1, ptr %i, align 4
+  call void @foofail1(ptr nonnull %i)
+  %i1 = alloca i32, align 4
+  store i32 1, ptr %i1, align 4
+  call void @foofail2(ptr nonnull %i1)
+  %i2 = alloca i32, align 4
+  store i32 2, ptr %i2, align 4
+  call void @foofail3(ptr nonnull %i2)
+  %i3 = alloca i32, align 4
+  store i32 2, ptr %i3, align 4
+  call void @foofail4(ptr nonnull %i3)
+  %i4 = alloca i32, align 4
+  store i32 3, ptr %i4, align 4
+  call void @foofail5(ptr nonnull %i4)
+  %i5 = alloca i32, align 4
+  store i32 3, ptr %i5, align 4
+  call void @foofail6(ptr nonnull %i5)
+  %i6 = alloca i32, align 4
+  store i32 4, ptr %i6, align 4
+  call void @foofail7(ptr nonnull %i6)
+  %i7 = alloca i32, align 4
+  store i32 4, ptr %i7, align 4
+  call void @foofail8(ptr nonnull %i7)
+  %i8 = alloca i32, align 4
+  store i32 5, ptr %i8, align 4
+  call void @foofail9(ptr nonnull %i8)
+  %i9 = alloca i32, align 4
+  store i32 5, ptr %i9, align 4
+  call void @foofail10(ptr nonnull %i9)
+  %i10 = alloca i32, align 4
+  store i32 1, ptr %i10, align 4
+  call void @foofail11(ptr nonnull %i10, ptr nonnull %i10)
+  %i11 = alloca i32, align 4
+  store i32 1, ptr %i11, align 4
+  call void @foofail12(ptr nonnull %i11)
+  %i12 = alloca i32, align 4
+  store i32 2, ptr %i11, align 4
+  call void @foofail12(ptr nonnull %i12)
+  %i13 = alloca i32, align 4
+  call void @foofail13(ptr %i13)
+  %i14 = alloca i32, align 4
+  store i32 2, ptr %i14, align 4
+  store i32 3, ptr %i14, align 4
+  call void @foofail14(ptr %i14)
+  %i15 = alloca i32, align 4
+  %i16 = load i32, ptr %i15, align 8
+  store i32 1, ptr %i15, align 4
+  call void @foofail15(ptr nonnull %i15)
+  call void @foofail16(ptr @count)
+  %i17 = alloca i32, align 4
+  store i32 4, ptr %i17, align 4
+  call void @foofail7(ptr nonnull %i17)
+  %i18 = alloca i32, align 4
+  store i32 100, ptr %i18, align 4
+  call void @foofail18(ptr nonnull %i18)
+  %i19 = alloca i32, align 4
+  store i32 0, ptr %i19, align 4
+  call void @foofail9(ptr nonnull %i)
   ret void
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

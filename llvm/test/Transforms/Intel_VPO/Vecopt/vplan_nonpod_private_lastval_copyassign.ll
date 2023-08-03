@@ -18,7 +18,7 @@
 ; CHECK: VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT: VPlan IR for: _Z3foov:omp.inner.for.body
 ; CHECK:  BB1: # preds: BB4
-; CHECK-NEXT:   %struct.str* [[VP_LPRIV:%.*]] = allocate-priv %struct.str*, OrigAlign = 4
+; CHECK-NEXT:   %struct.str* [[VP_LPRIV:%.*]] = allocate-priv %struct.str = type { i32 }, OrigAlign = 4
 ; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
 ; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:   %struct.str* [[TMP0:%.*]] = call %struct.str* [[VP_LPRIV]] %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr

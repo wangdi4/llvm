@@ -98,36 +98,36 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B) #0 {
+define i32 @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = shl nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %2 = sub nuw nsw i64 100, %indvars.iv
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %2
-  store i32 %1, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %2
+  store i32 %1, ptr %arrayidx2, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 1
-  %3 = load i32, i32* %arrayidx3, align 4, !tbaa !1
-  %arrayidx4 = getelementptr inbounds i32, i32* %B, i64 1
-  %4 = load i32, i32* %arrayidx4, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 1
+  %3 = load i32, ptr %arrayidx3, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds i32, ptr %B, i64 1
+  %4 = load i32, ptr %arrayidx4, align 4, !tbaa !1
   %add = add nsw i32 %4, %3
   ret i32 %add
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

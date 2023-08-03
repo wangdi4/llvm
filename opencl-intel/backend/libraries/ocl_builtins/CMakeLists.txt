@@ -101,6 +101,11 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
     -Wall
     -Wno-psabi)
 
+set(CLANG_CL_BUILTIN_COMPILER_FLAGS
+    ${CLANG_CL_COMMON_COMPILER_FLAGS}
+    -fdenormal-fp-math=dynamic
+    )
+
 set(CLANG_C_COMPILER_PARAMS
     -cc1
     -triple
@@ -116,10 +121,13 @@ set(CLANG_C_COMPILER_PARAMS
     ${CL_BUILTIN_SOURCE_DIR}
     ${CLANG_LLVM_INCLUDE_DIRS}
     -mstackrealign
-    -no-opaque-pointers
     # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
     # bytecode for C/C++ files w/o LTO flag.
     -flto)
+
+if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+  set(CLANG_C_COMPILER_PARAMS ${CLANG_C_COMPILER_PARAMS} -no-opaque-pointers)
+endif()
 
 # options for clang to compile OpenCL 2.0 image callbacks
 
@@ -168,7 +176,7 @@ function(
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o
             ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${CLANG}
+    DEPENDS ${HEADER_FILES} ${CLANG} process-intrin-headers
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -395,7 +403,7 @@ function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
   add_custom_command(
     OUTPUT ${LL_FILE}
     COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
-            ${JSON_FILE} -o ${LL_FILE}
+            ${JSON_FILE} -o ${LL_FILE} --global-func-attr '"denormal-fp-math"="dynamic,dynamic"'
     DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
             ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
     COMMENT "Generating ${LL_FILE}")
@@ -446,7 +454,7 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library(
     OUTPUT_OCL_LIB
-    "${CLANG_CL_COMMON_COMPILER_FLAGS}"
+    "${CLANG_CL_BUILTIN_COMPILER_FLAGS}"
     ${TARGET_NAME}
     ${TARGET_DIR}
     ${ARCH}
@@ -540,8 +548,7 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     ${TARGET_NAME_SHARED}
     ${OPTIMIZED_LIB_TARGE_NAME}
     ${UNOPTIMIZED_LIB_TARGE_NAME}
-    ${OPT}
-    process-intrin-headers)
+    ${OPT})
 
   set_property(GLOBAL APPEND PROPERTY OCL_BUILTIN_LIBS ${TARGET_NAME})
 
@@ -678,5 +685,5 @@ add_custom_command(
 
 add_custom_target(
   VectorizationInfoGen ALL
-  DEPENDS ${VECTORIZATION_INFO_GEN} ${OCL_TBLGEN}
+  DEPENDS ${VECTORIZATION_INFO_GEN} ${CLANG} ${OCL_TBLGEN}
   VERBATIM)

@@ -42,7 +42,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo([100 x i32]* %A, i32* %B) #0 {
+define void @foo(ptr %A, ptr %B) #0 {
 entry:
   br label %for.body
 
@@ -54,13 +54,13 @@ for.body3:                                        ; preds = %for.body, %for.inc
   %j.01 = phi i32 [ 0, %for.body ], [ %inc, %for.inc ]
   %add = add nsw i32 %j.01, %i.02
   %idxprom = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom4 = sext i32 %i.02 to i64
   %idxprom5 = sext i32 %j.01 to i64
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %idxprom5
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %arrayidx6, i64 0, i64 %idxprom4
-  store i32 %0, i32* %arrayidx7, align 4
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr %A, i64 %idxprom5
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr %arrayidx6, i64 0, i64 %idxprom4
+  store i32 %0, ptr %arrayidx7, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3

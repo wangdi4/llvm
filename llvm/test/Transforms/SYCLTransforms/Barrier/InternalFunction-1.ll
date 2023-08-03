@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass
@@ -34,18 +34,15 @@ L3:
 ; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: xor
-;;;; TODO: add regular expression for the below values.
 ; CHECK: L2:
-; CHECK:   %SBIndex = load i32, i32* %pCurrSBIndex
+; CHECK:   %SBIndex = load i32, ptr %pCurrSBIndex
 ; CHECK:   %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
-; CHECK:   [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
-; CHECK:   %pSB_LocalId = bitcast i8* [[GEP0]] to i32*
-; CHECK:   [[SBIndex1:%SBIndex[a-zA-Z0-9]+]] = load i32, i32* %pCurrSBIndex
-; CHECK:   [[SB_LocalId_Offset1:%SB_LocalId_Offset[a-zA-Z0-9]+]] = add nuw i32 [[SBIndex1]], 0
-; CHECK:   [[GEP1:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i32 [[SB_LocalId_Offset1]]
-; CHECK:   [[pSB_LocalId1:%pSB_LocalId[a-zA-Z0-9]+]] = bitcast i8* [[GEP1]] to i32*
-; CHECK:   %loadedValue = load i32, i32* [[pSB_LocalId1]]
-; CHECK:   store i32 %loadedValue, i32* %pSB_LocalId
+; CHECK:   [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 %SB_LocalId_Offset
+; CHECK:   [[SBIndex1:%SBIndex[0-9]+]] = load i32, ptr %pCurrSBIndex
+; CHECK:   [[SB_LocalId_Offset1:%SB_LocalId_Offset[0-9]+]] = add nuw i32 [[SBIndex1]], 0
+; CHECK:   [[GEP1:%pSB_LocalId[0-9]+]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset1]]
+; CHECK:   %loadedValue = load i32, ptr [[GEP1]]
+; CHECK:   store i32 %loadedValue, ptr [[GEP0]]
 ; CHECK:   br label %CallBB
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: call void @foo
@@ -68,11 +65,10 @@ L2:
 ; CHECK-NOT: @_Z18work_group_barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: SyncBB1:
-; CHECK:   %SBIndex = load i32, i32* %pCurrSBIndex
+; CHECK:   %SBIndex = load i32, ptr %pCurrSBIndex
 ; CHECK:   %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
-; CHECK:   [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
-; CHECK:   %pSB_LocalId = bitcast i8* [[GEP0]] to i32*
-; CHECK:   %loadedValue = load i32, i32* %pSB_LocalId
+; CHECK:   [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 %SB_LocalId_Offset
+; CHECK:   %loadedValue = load i32, ptr [[GEP0]]
 ; CHECK:   %y = xor i32 %loadedValue, %loadedValue
 ; CHECK:   br label %L2
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -87,25 +83,23 @@ declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}
 !1 = !{i1 true}
 
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrSBIndex = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pLocalIds = alloca [3 x i32], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrSBIndex = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pLocalIds = alloca [3 x i32], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)
-;; argument
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %loadedValue = load i32, i32* %pSB_LocalId, align 4
 
 ; DEBUGIFY-NOT: WARNING

@@ -36,7 +36,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @foo(i32* nocapture %A, i32* nocapture readonly %B, i32 %t) {
+define dso_local i32 @foo(ptr nocapture %A, ptr nocapture readonly %B, i32 %t) {
 entry:
   %cmp1 = icmp sgt i32 %t, 5
   br label %for.body
@@ -47,13 +47,13 @@ for.body:                                         ; preds = %entry, %for.inc
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %val.012, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %val.012, ptr %ptridx, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %ptridx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx3, align 4
+  %ptridx3 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx3, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

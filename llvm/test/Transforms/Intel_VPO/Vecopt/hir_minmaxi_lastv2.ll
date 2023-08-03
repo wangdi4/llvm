@@ -18,12 +18,12 @@
 ;
 
 ; Function Attrs: nounwind readonly uwtable
-define dso_local i64 @_Z3fooPdi(i64* nocapture readonly %x, i32 %n) local_unnamed_addr #0 {
+define dso_local i64 @_Z3fooPdi(ptr nocapture readonly %x, i32 %n) local_unnamed_addr #0 {
 entry:
   br label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
-  %0 = load i64, i64* %x, align 8
+  %0 = load i64, ptr %x, align 8
   %wide.trip.count20 = zext i32 %n to i64
   br label %for.body
 
@@ -35,8 +35,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 1, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %max.018 = phi i64 [ %0, %for.body.preheader ], [ %3, %for.body ]
   %indmax.017 = phi i64 [ 0, %for.body.preheader ], [ %2, %for.body ]
-  %ptridx1 = getelementptr inbounds i64, i64* %x, i64 %indvars.iv
-  %1 = load i64, i64* %ptridx1, align 8
+  %ptridx1 = getelementptr inbounds i64, ptr %x, i64 %indvars.iv
+  %1 = load i64, ptr %ptridx1, align 8
   %cmp2 = icmp sgt i64 %1, %max.018
   %2 = select i1 %cmp2, i64 %indvars.iv, i64 %indmax.017
   %3 = select i1 %cmp2, i64 %1, i64 %max.018

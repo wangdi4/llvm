@@ -192,6 +192,10 @@ template HIRVectorizationLegality::PrivDescrNonPODTy *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::PrivDescrNonPODTy> List,
     const DDRef *Ref) const;
+template HIRVectorizationLegality::PrivDescrF90DVTy *
+HIRVectorizationLegality::findDescr(
+    ArrayRef<HIRVectorizationLegality::PrivDescrF90DVTy> List,
+    const DDRef *Ref) const;
 template HIRVectorizationLegality::LinearDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::LinearDescr> List,
@@ -232,6 +236,8 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
   if (!Descr)
     Descr = getPrivateDescrNonPOD(Ref);
+  if (!Descr)
+    Descr = getPrivateDescrF90DV(Ref);
   // If Ref is not private check if it is linear reduction
   if (!Descr)
     Descr = getLinearRednDescriptors(Ref);
@@ -253,21 +259,30 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
+template <typename... Args>
 bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
-                                       unsigned ID, std::string Message,
-                                       std::string Debug = "") {
-  if (Debug == "")
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
-  else
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
-  setBailoutData(Level, ID, Message);
+                                       OptRemarkID ID, std::string Message,
+                                       Args &&...BailoutArgs) {
+  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
+  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  return false;
+}
+
+template <typename... Args>
+bool HIRVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
+                                                OptRemarkID ID,
+                                                std::string Debug,
+                                                Args &&...BailoutArgs) {
+  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
+  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
 bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
+  clearBailoutRemark();
   // Send explicit data from WRLoop to the Legality.
   bool RetVal = EnterExplicitData(WRLp);
-  assert((RetVal || BD.BailoutID) &&
+  assert((RetVal || BR.BailoutRemark) &&
          "EnterExplicitData didn't set bailout data!");
   return RetVal;
 }
@@ -319,6 +334,8 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
     DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
     if (!Descr)
       Descr = getPrivateDescrNonPOD(Ref);
+    if (!Descr)
+      Descr = getPrivateDescrF90DV(Ref);
     if (!Descr)
       Descr = getLinearRednDescriptors(Ref);
     return Descr;
@@ -1178,7 +1195,8 @@ public:
 
 private:
   void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
-                          bool IsMax, HIRVectorIdioms::IdiomId IdKind) {
+                          bool IsMax, HIRVectorIdioms::IdiomId IdKind,
+                          bool IsIEEE = false) {
     RedType = DestType;
     IsSigned = false;
     IdiomKind = IdKind;
@@ -1208,7 +1226,7 @@ private:
       RKind = RecurKind::Xor;
       break;
     case Instruction::Select:
-      setMinMaxReductionKind(Pred, IsMax);
+      setMinMaxReductionKind(Pred, IsMax, IsIEEE);
       break;
     default:
       llvm_unreachable("Unexpected reduction opcode");
@@ -1216,7 +1234,7 @@ private:
     }
   }
 
-  void setMinMaxReductionKind(PredicateTy Pred, bool IsMax) {
+  void setMinMaxReductionKind(PredicateTy Pred, bool IsMax, bool IsIEEE) {
     switch (Pred) {
     case PredicateTy::ICMP_SGE:
     case PredicateTy::ICMP_SGT:
@@ -1233,7 +1251,8 @@ private:
       break;
     default:
       assert(CmpInst::isFPPredicate(Pred) && "expected FP predicate");
-      RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
+      RKind = IsIEEE ? (IsMax ? RecurKind::FMaximum : RecurKind::FMinimum)
+                     : (IsMax ? RecurKind::FMax : RecurKind::FMin);
       break;
     }
   }
@@ -1326,6 +1345,8 @@ private:
         // Predicate type is needed to determine reduction kind for min/max
         // reductions. For other reductions predicate is undefined.
         auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
+        // Distinguish between minnum/maxnum and minimum/maximum intrinsics.
+        bool IsIEEE = false;
         if (Opcode == Instruction::Select) {
           if (isa<SelectInst>((*RedCurrent)->getLLVMInstruction())) {
             Pred = (*RedCurrent)->getPredicate().Kind;
@@ -1333,11 +1354,15 @@ private:
             auto Id = IC->getIntrinsicID();
             switch (Id) {
             case Intrinsic::minnum:
-            case Intrinsic::minimum:
             case Intrinsic::maxnum:
+              // Set predicate as floating point
+              Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              break;
+            case Intrinsic::minimum:
             case Intrinsic::maximum:
               // Set predicate as floating point
               Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              IsIEEE = true;
               break;
             case Intrinsic::smin:
             case Intrinsic::smax:
@@ -1359,7 +1384,7 @@ private:
 
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
+            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom, IsIEEE);
         Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }
@@ -1522,6 +1547,7 @@ public:
   using UDRList = HIRVectorizationLegality::UDRListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
   using PrivatesNonPODListTy = HIRVectorizationLegality::PrivatesNonPODListTy;
+  using PrivatesF90DVListTy = HIRVectorizationLegality::PrivatesF90DVListTy;
   using InductionKind = VPInduction::InductionKind;
 
 
@@ -1542,6 +1568,7 @@ public:
     Descriptor.setInductionOp(ID->getUpdateInstr());
     Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     Type *IndTy = Descriptor.getInductionOp()->getType();
+    Descriptor.setIndType(IndTy);
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
     Descriptor.setKind(Kind);
@@ -1563,6 +1590,7 @@ public:
                   const LinearList::value_type &CurrValue) {
     const auto *Linear = cast<RegDDRef>(CurrValue.getRef());
     Type *IndTy = CurrValue.LinearTy;
+    Descriptor.setIndType(IndTy);
     // Save data type and find opcode for the induction.
     // Based on data type it is either Add, FAdd or GEP.
     Descriptor.setKindAndOpcodeFromTy(IndTy);
@@ -1699,7 +1727,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
     // Get pointee type of descriptor ref
-    Type *RType = cast<RegDDRef>(CurrValue.getRef())->getBasePtrElementType();
+    Type *RType = CurrValue.getType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
     for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
@@ -1790,7 +1818,7 @@ public:
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
-    Descriptor.setIsF90(CurValue.isF90());
+    Descriptor.setIsF90(false);
     if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurValue.getValidAlias()) {
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1819,6 +1847,21 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
     Descriptor.setIsF90(CurValue.isF90());
+  }
+
+  void operator()(PrivateDescr &Descriptor,
+                  const PrivatesF90DVListTy::value_type &CurValue) {
+    auto *DescrRef = cast<RegDDRef>(CurValue.getRef());
+    DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setAllocatedType(CurValue.getType());
+    Descriptor.setIsConditional(CurValue.isCond());
+    Descriptor.setIsLast(CurValue.isLast());
+    Descriptor.setF90DVElementType(CurValue.getF90DVElementType());
+    Descriptor.setIsExplicit(true);
+    Descriptor.setIsMemOnly(false);
+    Descriptor.setIsF90(true);
   }
 };
 
@@ -1914,6 +1957,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   auto IndCvt = std::make_unique<Converter<InductionDescr>>(Plan);
   auto PrivCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
   auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
+  auto PrivF90DVCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
   auto CEIdiomCvt = std::make_unique<Converter<CompressExpandIdiomDescr>>(Plan);
 
   HLLoop *HL = TheLoop;
@@ -1970,6 +2014,9 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
   PrivNonPODCvt->createDescrList(HL,
     Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
+
+  PrivF90DVCvt->createDescrList(HL,
+    Bind(Legal->getF90DVPrivates(), PrivatesListCvt{Decomposer}));
   // clang-format on
 
   const HIRVectorIdioms *VecIdioms = Legal->getVectorIdioms(HL);
@@ -1982,6 +2029,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   CvtVec.emplace_back(std::move(IndCvt));
   CvtVec.emplace_back(std::move(PrivCvt));
   CvtVec.emplace_back(std::move(PrivNonPODCvt));
+  CvtVec.emplace_back(std::move(PrivF90DVCvt));
   CvtVec.emplace_back(std::move(CEIdiomCvt));
 }
 

@@ -127,8 +127,8 @@ namespace X86Local {
     PrefixByte    = 10,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    MRM0rImmAAA = 13,
-    MRM6rImmAAA = 14,
+    MRMDestRegCC = 11,
+    MRMDestMemCC = 12,
 #endif // INTEL_FEATURE_ISA_APX_F
     MRMDestMemImm8      = 15,
     MRMDestReg4VOp3     = 16,
@@ -167,7 +167,8 @@ namespace X86Local {
     OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7,
 #if INTEL_CUSTOMIZATION
     T_MAP5 = 8, T_MAP6 = 9,
-    T_MAP8 = 10, T_MAP4 = 11
+    T_MAP8 = 10, T_MAP4 = 11,
+    T_MAP7 = 12
 #endif // INTEL_CUSTOMIZATION
   };
 
@@ -226,10 +227,8 @@ struct RecognizableInstrBase {
   bool HasREX_W;
   /// The hasVEX_4V field from the record
   bool HasVEX_4V;
-  /// The HasVEX_WPrefix field from the record
-  bool HasVEX_W;
-  /// The IgnoresVEX_W field from the record
-  bool IgnoresVEX_W;
+  /// The IgnoresW field from the record
+  bool IgnoresW;
   /// The hasVEX_L field from the record
   bool HasVEX_L;
   /// The ignoreVEX_L field from the record
@@ -264,6 +263,8 @@ struct RecognizableInstrBase {
 #if INTEL_FEATURE_ISA_APX_F
   /// The hasEVEX_NF field from the record
   bool HasEVEX_NF;
+  /// The hasTwoConditionalOps field from the record
+  bool HasTwoConditionalOps;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

@@ -3,10 +3,7 @@
 
 define ptr @gep_zero_indices(ptr %p) {
 ; CHECK-LABEL: @gep_zero_indices(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[P2:%.*]] = getelementptr { i64, i64 }, ptr [[P:%.*]], i64 0, i32 0
-; CHECK-NEXT:    ret ptr [[P2]]
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret ptr [[P:%.*]]
 ;
   %p2 = getelementptr { i64, i64 }, ptr %p, i64 0, i32 0
   ret ptr %p2
@@ -41,10 +38,7 @@ define <2 x ptr> @scalar_base_vector_index(ptr %p) {
 
 define <2 x ptr> @vector_base_vector_index(<2 x ptr> %p) {
 ; CHECK-LABEL: @vector_base_vector_index(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[G:%.*]] = getelementptr { i64, i64 }, <2 x ptr> [[P:%.*]], <2 x i64> zeroinitializer, i32 0
-; CHECK-NEXT:    ret <2 x ptr> [[G]]
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret <2 x ptr> [[P:%.*]]
 ;
   %g = getelementptr { i64, i64 }, <2 x ptr> %p, <2 x i64> zeroinitializer, i32 0
   ret <2 x ptr> %g
@@ -52,10 +46,7 @@ define <2 x ptr> @vector_base_vector_index(<2 x ptr> %p) {
 
 define <2 x ptr> @vector_base_scalar_index(<2 x ptr> %p) {
 ; CHECK-LABEL: @vector_base_scalar_index(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[G:%.*]] = getelementptr { i64, i64 }, <2 x ptr> [[P:%.*]], i64 0, i32 0
-; CHECK-NEXT:    ret <2 x ptr> [[G]]
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret <2 x ptr> [[P:%.*]]
 ;
   %g = getelementptr { i64, i64 }, <2 x ptr> %p, i64 0, i32 0
   ret <2 x ptr> %g

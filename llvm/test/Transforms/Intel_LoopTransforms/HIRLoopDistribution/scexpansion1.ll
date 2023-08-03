@@ -92,93 +92,93 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to float
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A1, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A1, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add = fadd float %1, %conv
-  store float %add, float* %arrayidx, align 4, !tbaa !2
-  %arrayidx3 = getelementptr inbounds [100 x float], [100 x float]* @A2, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx3, align 4, !tbaa !2
+  store float %add, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds [100 x float], ptr @A2, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx3, align 4, !tbaa !2
   %add4 = fadd float %2, %conv
-  store float %add4, float* %arrayidx3, align 4, !tbaa !2
-  %arrayidx7 = getelementptr inbounds [100 x float], [100 x float]* @A3, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx7, align 4, !tbaa !2
+  store float %add4, ptr %arrayidx3, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [100 x float], ptr @A3, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx7, align 4, !tbaa !2
   %add8 = fadd float %3, %conv
-  store float %add8, float* %arrayidx7, align 4, !tbaa !2
+  store float %add8, ptr %arrayidx7, align 4, !tbaa !2
   %conv9 = sitofp i32 %0 to double
-  %arrayidx11 = getelementptr inbounds [100 x double], [100 x double]* @A4, i64 0, i64 %indvars.iv
-  %4 = load double, double* %arrayidx11, align 8, !tbaa !7
+  %arrayidx11 = getelementptr inbounds [100 x double], ptr @A4, i64 0, i64 %indvars.iv
+  %4 = load double, ptr %arrayidx11, align 8, !tbaa !7
   %add12 = fadd double %4, %conv9
-  store double %add12, double* %arrayidx11, align 8, !tbaa !7
-  %arrayidx15 = getelementptr inbounds [100 x double], [100 x double]* @A5, i64 0, i64 %indvars.iv
-  %5 = load double, double* %arrayidx15, align 8, !tbaa !7
+  store double %add12, ptr %arrayidx11, align 8, !tbaa !7
+  %arrayidx15 = getelementptr inbounds [100 x double], ptr @A5, i64 0, i64 %indvars.iv
+  %5 = load double, ptr %arrayidx15, align 8, !tbaa !7
   %add16 = fadd double %5, %conv9
-  store double %add16, double* %arrayidx15, align 8, !tbaa !7
-  %arrayidx19 = getelementptr inbounds [100 x double], [100 x double]* @A6, i64 0, i64 %indvars.iv
-  %6 = load double, double* %arrayidx19, align 8, !tbaa !7
+  store double %add16, ptr %arrayidx15, align 8, !tbaa !7
+  %arrayidx19 = getelementptr inbounds [100 x double], ptr @A6, i64 0, i64 %indvars.iv
+  %6 = load double, ptr %arrayidx19, align 8, !tbaa !7
   %add20 = fadd double %6, %conv9
-  store double %add20, double* %arrayidx19, align 8, !tbaa !7
-  %arrayidx23 = getelementptr inbounds [100 x double], [100 x double]* @A7, i64 0, i64 %indvars.iv
-  %7 = load double, double* %arrayidx23, align 8, !tbaa !7
+  store double %add20, ptr %arrayidx19, align 8, !tbaa !7
+  %arrayidx23 = getelementptr inbounds [100 x double], ptr @A7, i64 0, i64 %indvars.iv
+  %7 = load double, ptr %arrayidx23, align 8, !tbaa !7
   %add24 = fadd double %7, %conv9
-  store double %add24, double* %arrayidx23, align 8, !tbaa !7
-  %arrayidx27 = getelementptr inbounds [100 x double], [100 x double]* @A8, i64 0, i64 %indvars.iv
-  %8 = load double, double* %arrayidx27, align 8, !tbaa !7
+  store double %add24, ptr %arrayidx23, align 8, !tbaa !7
+  %arrayidx27 = getelementptr inbounds [100 x double], ptr @A8, i64 0, i64 %indvars.iv
+  %8 = load double, ptr %arrayidx27, align 8, !tbaa !7
   %add28 = fadd double %8, %conv9
-  store double %add28, double* %arrayidx27, align 8, !tbaa !7
-  %arrayidx31 = getelementptr inbounds [100 x double], [100 x double]* @B1, i64 0, i64 %indvars.iv
-  %9 = load double, double* %arrayidx31, align 8, !tbaa !7
+  store double %add28, ptr %arrayidx27, align 8, !tbaa !7
+  %arrayidx31 = getelementptr inbounds [100 x double], ptr @B1, i64 0, i64 %indvars.iv
+  %9 = load double, ptr %arrayidx31, align 8, !tbaa !7
   %sub = fsub double %9, %conv9
-  store double %sub, double* %arrayidx31, align 8, !tbaa !7
-  %arrayidx34 = getelementptr inbounds [100 x double], [100 x double]* @B2, i64 0, i64 %indvars.iv
-  %10 = load double, double* %arrayidx34, align 8, !tbaa !7
+  store double %sub, ptr %arrayidx31, align 8, !tbaa !7
+  %arrayidx34 = getelementptr inbounds [100 x double], ptr @B2, i64 0, i64 %indvars.iv
+  %10 = load double, ptr %arrayidx34, align 8, !tbaa !7
   %sub35 = fsub double %10, %conv9
-  store double %sub35, double* %arrayidx34, align 8, !tbaa !7
-  %arrayidx38 = getelementptr inbounds [100 x double], [100 x double]* @B3, i64 0, i64 %indvars.iv
-  %11 = load double, double* %arrayidx38, align 8, !tbaa !7
+  store double %sub35, ptr %arrayidx34, align 8, !tbaa !7
+  %arrayidx38 = getelementptr inbounds [100 x double], ptr @B3, i64 0, i64 %indvars.iv
+  %11 = load double, ptr %arrayidx38, align 8, !tbaa !7
   %sub39 = fsub double %11, %conv9
-  store double %sub39, double* %arrayidx38, align 8, !tbaa !7
-  %arrayidx42 = getelementptr inbounds [100 x double], [100 x double]* @B4, i64 0, i64 %indvars.iv
-  %12 = load double, double* %arrayidx42, align 8, !tbaa !7
+  store double %sub39, ptr %arrayidx38, align 8, !tbaa !7
+  %arrayidx42 = getelementptr inbounds [100 x double], ptr @B4, i64 0, i64 %indvars.iv
+  %12 = load double, ptr %arrayidx42, align 8, !tbaa !7
   %sub43 = fsub double %12, %conv9
-  store double %sub43, double* %arrayidx42, align 8, !tbaa !7
-  %arrayidx46 = getelementptr inbounds [100 x double], [100 x double]* @B5, i64 0, i64 %indvars.iv
-  %13 = load double, double* %arrayidx46, align 8, !tbaa !7
+  store double %sub43, ptr %arrayidx42, align 8, !tbaa !7
+  %arrayidx46 = getelementptr inbounds [100 x double], ptr @B5, i64 0, i64 %indvars.iv
+  %13 = load double, ptr %arrayidx46, align 8, !tbaa !7
   %sub47 = fsub double %13, %conv9
-  store double %sub47, double* %arrayidx46, align 8, !tbaa !7
-  %arrayidx50 = getelementptr inbounds [100 x double], [100 x double]* @B6, i64 0, i64 %indvars.iv
-  %14 = load double, double* %arrayidx50, align 8, !tbaa !7
+  store double %sub47, ptr %arrayidx46, align 8, !tbaa !7
+  %arrayidx50 = getelementptr inbounds [100 x double], ptr @B6, i64 0, i64 %indvars.iv
+  %14 = load double, ptr %arrayidx50, align 8, !tbaa !7
   %sub51 = fsub double %14, %conv9
-  store double %sub51, double* %arrayidx50, align 8, !tbaa !7
-  %arrayidx54 = getelementptr inbounds [100 x double], [100 x double]* @B7, i64 0, i64 %indvars.iv
-  %15 = load double, double* %arrayidx54, align 8, !tbaa !7
+  store double %sub51, ptr %arrayidx50, align 8, !tbaa !7
+  %arrayidx54 = getelementptr inbounds [100 x double], ptr @B7, i64 0, i64 %indvars.iv
+  %15 = load double, ptr %arrayidx54, align 8, !tbaa !7
   %sub55 = fsub double %15, %conv9
-  store double %sub55, double* %arrayidx54, align 8, !tbaa !7
-  %arrayidx58 = getelementptr inbounds [100 x double], [100 x double]* @B8, i64 0, i64 %indvars.iv
-  %16 = load double, double* %arrayidx58, align 8, !tbaa !7
+  store double %sub55, ptr %arrayidx54, align 8, !tbaa !7
+  %arrayidx58 = getelementptr inbounds [100 x double], ptr @B8, i64 0, i64 %indvars.iv
+  %16 = load double, ptr %arrayidx58, align 8, !tbaa !7
   %sub59 = fsub double %16, %conv9
-  store double %sub59, double* %arrayidx58, align 8, !tbaa !7
-  %arrayidx62 = getelementptr inbounds [100 x double], [100 x double]* @B9, i64 0, i64 %indvars.iv
-  %17 = load double, double* %arrayidx62, align 8, !tbaa !7
+  store double %sub59, ptr %arrayidx58, align 8, !tbaa !7
+  %arrayidx62 = getelementptr inbounds [100 x double], ptr @B9, i64 0, i64 %indvars.iv
+  %17 = load double, ptr %arrayidx62, align 8, !tbaa !7
   %sub63 = fsub double %17, %conv9
-  store double %sub63, double* %arrayidx62, align 8, !tbaa !7
-  %arrayidx65 = getelementptr inbounds [100 x double], [100 x double]* @C1, i64 0, i64 %indvars.iv
-  store double 1.000000e+00, double* %arrayidx65, align 8, !tbaa !7
-  %arrayidx68 = getelementptr inbounds [100 x double], [100 x double]* @C2, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx68, align 8, !tbaa !7
-  %arrayidx71 = getelementptr inbounds [100 x double], [100 x double]* @C3, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx71, align 8, !tbaa !7
-  %arrayidx74 = getelementptr inbounds [100 x double], [100 x double]* @C4, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx74, align 8, !tbaa !7
-  %arrayidx77 = getelementptr inbounds [100 x double], [100 x double]* @C5, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx77, align 8, !tbaa !7
-  %arrayidx80 = getelementptr inbounds [100 x double], [100 x double]* @C6, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx80, align 8, !tbaa !7
-  %arrayidx83 = getelementptr inbounds [100 x double], [100 x double]* @C7, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx83, align 8, !tbaa !7
-  %arrayidx86 = getelementptr inbounds [100 x double], [100 x double]* @C8, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx86, align 8, !tbaa !7
-  %arrayidx89 = getelementptr inbounds [100 x double], [100 x double]* @C9, i64 0, i64 %indvars.iv
-  store double %conv9, double* %arrayidx89, align 8, !tbaa !7
+  store double %sub63, ptr %arrayidx62, align 8, !tbaa !7
+  %arrayidx65 = getelementptr inbounds [100 x double], ptr @C1, i64 0, i64 %indvars.iv
+  store double 1.000000e+00, ptr %arrayidx65, align 8, !tbaa !7
+  %arrayidx68 = getelementptr inbounds [100 x double], ptr @C2, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx68, align 8, !tbaa !7
+  %arrayidx71 = getelementptr inbounds [100 x double], ptr @C3, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx71, align 8, !tbaa !7
+  %arrayidx74 = getelementptr inbounds [100 x double], ptr @C4, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx74, align 8, !tbaa !7
+  %arrayidx77 = getelementptr inbounds [100 x double], ptr @C5, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx77, align 8, !tbaa !7
+  %arrayidx80 = getelementptr inbounds [100 x double], ptr @C6, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx80, align 8, !tbaa !7
+  %arrayidx83 = getelementptr inbounds [100 x double], ptr @C7, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx83, align 8, !tbaa !7
+  %arrayidx86 = getelementptr inbounds [100 x double], ptr @C8, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx86, align 8, !tbaa !7
+  %arrayidx89 = getelementptr inbounds [100 x double], ptr @C9, i64 0, i64 %indvars.iv
+  store double %conv9, ptr %arrayidx89, align 8, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 99
   br i1 %exitcond, label %for.end, label %for.body

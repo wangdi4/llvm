@@ -11,13 +11,13 @@ target triple = "x86_64-unknown-linux-gnu"
 declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nounwind uwtable
-define hidden void @z_solve_m_mp_z_solve_.DIR.OMP.DISTRIBUTE.PARLOOP.116.split6271.split(i32* nocapture readonly %tid, i64* noalias nocapture readonly %omp.pdo.norm.ub1633.fpriv, i64 %z0) #2 {
+define hidden void @z_solve_m_mp_z_solve_.DIR.OMP.DISTRIBUTE.PARLOOP.116.split6271.split(ptr nocapture readonly %tid, ptr noalias nocapture readonly %omp.pdo.norm.ub1633.fpriv, i64 %z0) #2 {
 ; CHECK-LABEL:  Function: z_solve_m_mp_z_solve_.DIR.OMP.DISTRIBUTE.PARLOOP.116.split6271.split
 ; CHECK:     DO i2 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <simd-vectorized> <nounroll> <novectorize>
 ;
@@ -28,7 +28,7 @@ DIR.OMP.DISTRIBUTE.PARLOOP.81:
   %upper.bnd = alloca i64, align 8
   %stride = alloca i64, align 8
   %upperD = alloca i64, align 8
-  %0 = load i64, i64* %omp.pdo.norm.ub1633.fpriv, align 8
+  %0 = load i64, ptr %omp.pdo.norm.ub1633.fpriv, align 8
   %rel.73.not6180 = icmp slt i64 %0, 0
   br i1 %rel.73.not6180, label %DIR.OMP.END.DISTRIBUTE.PARLOOP.109.loopexit, label %DIR.OMP.SIMD.106.lr.ph
 
@@ -37,49 +37,49 @@ omp.pdo.body227:
   %int_sext1389 = trunc i64 %omp.pdo.norm.iv1624.local.06269 to i32
   %add.151 = add nsw i32 %int_sext1389, 1
   %int_sext1390 = sext i32 %add.151 to i64
-  %"z_solve_m_mp_z_solve_$LHS22[][][][]1396" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) %"z_solve_m_mp_z_solve_$J.priv4521.priv2", i64 %int_sext1390)
-  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1501" = load double, double* %"z_solve_m_mp_z_solve_$LHS22[][][][]1396"
+  %"z_solve_m_mp_z_solve_$LHS22[][][][]1396" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(double) %"z_solve_m_mp_z_solve_$J.priv4521.priv2", i64 %int_sext1390)
+  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1501" = load double, ptr %"z_solve_m_mp_z_solve_$LHS22[][][][]1396"
   %mul.195 = fmul fast double %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1501", 0x27
-  store double %mul.195, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
+  store double %mul.195, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
   br label %bb13
 
 bb13:
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb13 ], [ 1, %omp.pdo.body227 ]
-  %"fetch.1510[][][][]_fetch.1529" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  %"fetch.1510[][][][]_fetch.1529" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %mul.200 = fmul fast double %"fetch.1510[][][][]_fetch.1529", 0x27
-  store double %mul.200, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  store double %mul.200, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond.not, label %bb16, label %bb13
 
 bb16:
-  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1605" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2"
+  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1605" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2"
   %mul.206 = fmul fast double %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1605", %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1605"
   %sub.57 = fsub fast double %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1605", %mul.206
-  store double %sub.57, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
-  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1640" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
+  store double %sub.57, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
+  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1640" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
   br label %bb17
 
 bb17:
   %indvars.iv26 = phi i64 [ %indvars.iv.next27, %bb17 ], [ 1, %bb16 ]
-  %"fetch.1641[][][][]_fetch.1660" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  %"fetch.1641[][][][]_fetch.1660" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %mul.215 = fmul fast double %"fetch.1641[][][][]_fetch.1660", %mul.206
   %sub.58 = fsub fast double %"fetch.1641[][][][]_fetch.1660", %mul.215
-  store double %sub.58, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  store double %sub.58, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %indvars.iv.next27 = add nuw nsw i64 %indvars.iv26, 1
   %exitcond28.not = icmp eq i64 %indvars.iv.next27, 4
   br i1 %exitcond28.not, label %bb20, label %bb17
 
 bb20:
-  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1689" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
+  %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1689" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 8
   %div.28 = fdiv fast double 1.000000e+00, %"z_solve_m_mp_z_solve_$LHS22[][][][]_fetch.1689"
   br label %bb21
 
 bb21:
   %indvars.iv29 = phi i64 [ %indvars.iv.next30, %bb21 ], [ 1, %bb20 ]
-  %"fetch.1691[][][][]_fetch.1710" = load double, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  %"fetch.1691[][][][]_fetch.1710" = load double, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %mul.224 = fmul fast double %"fetch.1691[][][][]_fetch.1710", %div.28
-  store double %mul.224, double* %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
+  store double %mul.224, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv2", align 1
   %indvars.iv.next30 = add nuw nsw i64 %indvars.iv29, 1
   %exitcond31.not = icmp eq i64 %indvars.iv.next30, 4
   br i1 %exitcond31.not, label %bb24, label %bb21
@@ -93,24 +93,24 @@ DIR.OMP.SIMD.75:
   %omp.pdo.norm.iv1631.priv.local.06181 = phi i64 [ %add.177, %DIR.OMP.END.SIMD.108.loopexit ], [ %lb.new, %DIR.OMP.SIMD.75.preheader ]
   %int_sext1387 = trunc i64 %omp.pdo.norm.iv1631.priv.local.06181 to i32
   %add.150 = add nsw i32 %int_sext1387, 1
-  store i32 %add.150, i32* %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
-  %share_mp_nx2__fetch.1459 = load i32, i32* %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
+  store i32 %add.150, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
+  %share_mp_nx2__fetch.1459 = load i32, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
   %rel.74.not6268 = icmp slt i32 %share_mp_nx2__fetch.1459, 1
   br i1 %rel.74.not6268, label %DIR.OMP.END.SIMD.108.loopexit, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %four4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LIVEIN"(i32* %"z_solve_m_mp_z_solve_$J.priv4521.priv") ]
+  %four4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.LIVEIN"(ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv") ]
   br label %DIR.OMP.SIMD.134
 
 DIR.OMP.SIMD.134:
-  %"z_solve_m_mp_z_solve_$J_fetch.1471" = load i32, i32* %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
+  %"z_solve_m_mp_z_solve_$J_fetch.1471" = load i32, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
   %int_sext1391 = sext i32 %"z_solve_m_mp_z_solve_$J_fetch.1471" to i64
 
   %five5 = zext i32 %share_mp_nx2__fetch.1459 to i64
   br label %omp.pdo.body227
 
 DIR.OMP.END.SIMD.2:
-  store i32 %share_mp_nx2__fetch.1459, i32* %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
+  store i32 %share_mp_nx2__fetch.1459, ptr %"z_solve_m_mp_z_solve_$J.priv4521.priv", align 8
   br label %DIR.OMP.END.SIMD.235
 
 DIR.OMP.END.SIMD.235:
@@ -130,13 +130,13 @@ DIR.OMP.END.DISTRIBUTE.PARLOOP.109.loopexit:
   ret void
 
 DIR.OMP.SIMD.106.lr.ph:
-  %my.tid = load i32, i32* %tid, align 4
-  store i64 0, i64* %lower.bnd, align 8
-  store i64 %z0, i64* %upper.bnd, align 8
-  store i64 1, i64* %stride, align 8
-  store i64 %z0, i64* %upperD, align 8
-  %lb.new = load i64, i64* %lower.bnd, align 8
-  %ub.new = load i64, i64* %upper.bnd, align 8
+  %my.tid = load i32, ptr %tid, align 4
+  store i64 0, ptr %lower.bnd, align 8
+  store i64 %z0, ptr %upper.bnd, align 8
+  store i64 1, ptr %stride, align 8
+  store i64 %z0, ptr %upperD, align 8
+  %lb.new = load i64, ptr %lower.bnd, align 8
+  %ub.new = load i64, ptr %upper.bnd, align 8
   %omp.ztt.not = icmp ugt i64 %lb.new, %ub.new
   br i1 %omp.ztt.not, label %loop.region.exit, label %DIR.OMP.SIMD.75.preheader
 

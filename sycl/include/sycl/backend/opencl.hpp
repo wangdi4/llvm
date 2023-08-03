@@ -14,7 +14,7 @@
 #include <string>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace opencl {
 // Implementation of various "make" functions resides in SYCL RT because
 // creating SYCL objects requires knowing details not accessible here.
@@ -33,37 +33,37 @@ __SYCL_EXPORT bool has_extension(const sycl::device &SyclDevice,
                                  const std::string &Extension);
 
 // Construction of SYCL platform.
-template <typename T, typename detail::enable_if_t<
-                          std::is_same<T, platform>::value> * = nullptr>
+template <typename T,
+          typename std::enable_if_t<std::is_same_v<T, platform>> * = nullptr>
 __SYCL_DEPRECATED("Use SYCL 2020 sycl::make_platform free function")
 T make(typename detail::interop<backend::opencl, T>::type Interop) {
   return make_platform(detail::pi::cast<pi_native_handle>(Interop));
 }
 
 // Construction of SYCL device.
-template <typename T, typename detail::enable_if_t<
-                          std::is_same<T, device>::value> * = nullptr>
+template <typename T,
+          typename std::enable_if_t<std::is_same_v<T, device>> * = nullptr>
 __SYCL_DEPRECATED("Use SYCL 2020 sycl::make_device free function")
 T make(typename detail::interop<backend::opencl, T>::type Interop) {
   return make_device(detail::pi::cast<pi_native_handle>(Interop));
 }
 
 // Construction of SYCL context.
-template <typename T, typename detail::enable_if_t<
-                          std::is_same<T, context>::value> * = nullptr>
+template <typename T,
+          typename std::enable_if_t<std::is_same_v<T, context>> * = nullptr>
 __SYCL_DEPRECATED("Use SYCL 2020 sycl::make_context free function")
 T make(typename detail::interop<backend::opencl, T>::type Interop) {
   return make_context(detail::pi::cast<pi_native_handle>(Interop));
 }
 
 // Construction of SYCL queue.
-template <typename T, typename detail::enable_if_t<
-                          std::is_same<T, queue>::value> * = nullptr>
+template <typename T,
+          typename std::enable_if_t<std::is_same_v<T, queue>> * = nullptr>
 __SYCL_DEPRECATED("Use SYCL 2020 sycl::make_queue free function")
 T make(const context &Context,
        typename detail::interop<backend::opencl, T>::type Interop) {
   return make_queue(Context, detail::pi::cast<pi_native_handle>(Interop));
 }
 } // namespace opencl
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

@@ -95,6 +95,7 @@ private:
 
 protected:
   bool HasInstructions;
+  bool LinkerRelaxable = false;
 
   MCFragment(FragmentType Kind, bool HasInstructions,
              MCSection *Parent = nullptr);
@@ -269,6 +270,9 @@ public:
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_Data;
   }
+
+  bool isLinkerRelaxable() const { return LinkerRelaxable; }
+  void setLinkerRelaxable() { LinkerRelaxable = true; }
 };
 
 /// This is a compact (memory-size-wise) fragment for holding an encoded
@@ -334,7 +338,7 @@ class MCAlignFragment : public MCFragment {
   unsigned MaxBytesToEmit;
 
   /// When emitting Nops some subtargets have specific nop encodings.
-  const MCSubtargetInfo *STI;
+  const MCSubtargetInfo *STI = nullptr;
 
 public:
   MCAlignFragment(Align Alignment, int64_t Value, unsigned ValueSize,
@@ -535,6 +539,7 @@ public:
         AddrDelta(&AddrDelta) {}
 
   const MCExpr &getAddrDelta() const { return *AddrDelta; }
+  void setAddrDelta(const MCExpr *E) { AddrDelta = E; }
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_DwarfFrame;

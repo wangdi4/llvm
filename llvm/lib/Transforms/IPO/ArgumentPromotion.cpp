@@ -94,6 +94,10 @@
 #include <vector>
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/AbstractCallSite.h"
@@ -136,6 +140,13 @@ using OffsetAndArgPart = std::pair<int64_t, ArgPart>;
 
 static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
                             Value *Ptr, Type *ResElemTy, int64_t Offset) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  if (Offset != 0) {
+    APInt APOffset(DL.getIndexTypeSizeInBits(Ptr->getType()), Offset);
+    Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(APOffset));
+  }
+    return Ptr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // For non-opaque pointers, try to create a "nice" GEP if possible, otherwise
   // fall back to an i8 GEP to a specific offset.
   unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
@@ -179,15 +190,27 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
     Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(OrigOffset));
   }
   return IRB.CreateBitCast(Ptr, ResElemTy->getPointerTo(AddrSpace));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 static Function *doPromotion(
     Function *F, FunctionAnalysisManager &FAM,
     const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
-    bool isCallback) { // INTEL
+    bool isCallback,
+    dtransOP::DTransTypeMDArgPromoPropagator *DTransMDPropagator) {
+#else // INTEL_FEATURE_SW_DTRANS
+static Function *doPromotion(
+    Function *F, FunctionAnalysisManager &FAM,
+    const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
+    bool isCallback) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -199,6 +222,14 @@ static Function *doPromotion(
   SmallVector<AttributeSet, 8> ArgAttrVec;
   AttributeList PAL = F->getAttributes();
   const DataLayout &DL = F->getParent()->getDataLayout(); // INTEL
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Set up an object that will handle the DTrans metadata and DTrans function
+  // attribute updating, if they are present on the function being converted.
+  DTransMDPropagator->initialize(F);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // First, determine the new argument list
   unsigned ArgNo = 0;
@@ -216,6 +247,14 @@ static Function *doPromotion(
       for (const auto &Pair : ArgParts) {
 #if INTEL_CUSTOMIZATION
         Type *ParamTy = Pair.second.Ty;
+#if INTEL_FEATURE_SW_DTRANS
+        // Collect information needed about the new parameter passed to the
+        // function to handle the case where DTrans attributes should be added
+        // for the case where the field being extracted from a structure is a
+        // pointer type.
+        DTransMDPropagator->addArg(ParamTy, ArgNo, Params.size(), Pair.first);
+#endif // INTEL_FEATURE_SW_DTRANS
+
         if (isCallback && !isa<PointerType>(ParamTy))
           ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
@@ -238,7 +277,6 @@ static Function *doPromotion(
   NF->copyMetadata(F, 0);
 
 #if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(F);
   getInlineReport()->replaceFunctionWithFunction(F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION
@@ -263,6 +301,13 @@ static Function *doPromotion(
                                        PAL.getRetAttrs(), ArgAttrVec));
   AttributeFuncs::updateMinLegalVectorWidthAttr(*NF, LargestVectorWidth);
   ArgAttrVec.clear();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Update the DTrans parameter attributes and metadata, if appropriate.
+  DTransMDPropagator->setMDAttributes(NF);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
@@ -354,11 +399,18 @@ static Function *doPromotion(
           if (Pair.second.MustExecInstr) {
             LI->setAAMetadata(Pair.second.MustExecInstr->getAAMetadata());
             LI->copyMetadata(*Pair.second.MustExecInstr,
-                             {LLVMContext::MD_range, LLVMContext::MD_nonnull,
-                              LLVMContext::MD_dereferenceable,
+                             {LLVMContext::MD_dereferenceable,
                               LLVMContext::MD_dereferenceable_or_null,
-                              LLVMContext::MD_align, LLVMContext::MD_noundef,
+                              LLVMContext::MD_noundef,
                               LLVMContext::MD_nontemporal});
+            // Only transfer poison-generating metadata if we also have
+            // !noundef.
+            // TODO: Without !noundef, we could merge this metadata across
+            // all promoted loads.
+            if (LI->hasMetadata(LLVMContext::MD_noundef))
+              LI->copyMetadata(*Pair.second.MustExecInstr,
+                               {LLVMContext::MD_range, LLVMContext::MD_nonnull,
+                                LLVMContext::MD_align});
           }
           Args.push_back(MaybeCastTo(LI, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
@@ -956,9 +1008,17 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// example, all callers are direct).  If safe to promote some arguments, it
 /// calls the DoPromotion method.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static Function *
+promoteArguments(Function *F, FunctionAnalysisManager &FAM,
+                 bool RemoveHomedArguments, unsigned MaxElements,
+                 bool &IsRecursive,
+                 dtransOP::DTransTypeMDArgPromoPropagator *DTransMDPropagator) {
+#else  // INTEL_FEATURE_SW_DTRANS
 static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
                                   bool RemoveHomedArguments,
                                   unsigned MaxElements, bool &IsRecursive) {
+#endif // INTEL_FEATURE_SW_DTRANS
   RemoveHomedArguments |= ForceRemoveHomedArguments;
 #endif // INTEL_CUSTOMIZATION
   // Don't perform argument promotion for naked functions; otherwise we can end
@@ -1016,6 +1076,10 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
             (CB->getFunctionType() != F->getFunctionType()))
       return nullptr;
 
+    // Skip promotion if any call is important for IPPredOpt.
+    if (CB && CB->hasFnAttr("ippredopt-callsite"))
+      return nullptr;
+
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
       if (CS.getInstruction()->isMustTailCall())
@@ -1045,6 +1109,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   // Check to see which arguments are promotable.  If an argument is promotable,
   // add it to ArgsToPromote.
   DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> ArgsToPromote;
+  unsigned NumArgsAfterPromote = F->getFunctionType()->getNumParams();
   for (Argument *PtrArg : PointerArgs) {
     // Replace sret attribute with noalias. This reduces register pressure by
     // avoiding a register copy.
@@ -1098,6 +1163,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
         Types.push_back(Pair.second.Ty);
 
       if (areTypesABICompatible(Types, *F, TTI)) {
+        NumArgsAfterPromote += ArgParts.size() - 1;
         ArgsToPromote.insert({PtrArg, std::move(ArgParts)});
       }
     }
@@ -1115,8 +1181,16 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
     return nullptr;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+  if (NumArgsAfterPromote > TTI.getMaxNumArgs())
+    return nullptr;
 
-  return doPromotion(F, FAM, ArgsToPromote, isCallback); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  return doPromotion(F, FAM, ArgsToPromote, isCallback, DTransMDPropagator);
+#else // INTEL_FEATURE_SW_DTRANS
+  return doPromotion(F, FAM, ArgsToPromote, isCallback);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1131,6 +1205,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     // the ability to do any argument promotion on pointer arguments in
     // recursive functions. We would like to restore that partially for xmain.
     SmallPtrSet<Function *, 4> RecursiveFunctions;
+
+#if INTEL_FEATURE_SW_DTRANS
+    // Set up an object that will handle the DTrans metadata and DTrans function
+    // attribute updating, if they are present on the function being converted.
+    dtransOP::DTransTypeMDArgPromoPropagator DTransMDPropagator;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Iterate until we stop promoting from this SCC.
@@ -1146,9 +1226,14 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #if INTEL_CUSTOMIZATION
       if (RecursiveFunctions.count(&OldF))
         continue;
-
+#if INTEL_FEATURE_SW_DTRANS
+      Function *NewF =
+          promoteArguments(&OldF, FAM, RemoveHomedArguments, MaxElements,
+                           IsRecursive, &DTransMDPropagator);
+#else // INTEL_FEATURE_SW_DTRANS
       Function *NewF = promoteArguments(&OldF, FAM, RemoveHomedArguments,
                                         MaxElements, IsRecursive);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
       if (!NewF)

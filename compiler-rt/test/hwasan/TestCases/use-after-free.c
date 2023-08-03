@@ -1,3 +1,9 @@
+// INTEL_CUSTOMIZATION
+// JIRA: CMPLRLLVM-42333
+// Only in debug build the sanitizers will have debug info for symbolizer to generate the result this test needs
+// REQUIRES: intel-debug-build
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clang_hwasan -O0 -DISREAD=1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefixes=CHECK
 // RUN: %clang_hwasan -O1 -DISREAD=1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefixes=CHECK
 // RUN: %clang_hwasan -O2 -DISREAD=1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefixes=CHECK
@@ -35,7 +41,7 @@ int main() {
   // CHECK: #0 {{.*}} in {{.*}}free{{.*}} {{.*}}hwasan_allocation_functions.cpp
   // CHECK: #1 {{.*}} in main {{.*}}use-after-free.c:[[@LINE-19]]
 
-  // CHECK: previously allocated here:
+  // CHECK: previously allocated by thread {{.*}} here:
   // CHECK: #0 {{.*}} in {{.*}}malloc{{.*}} {{.*}}hwasan_allocation_functions.cpp
   // CHECK: #1 {{.*}} in main {{.*}}use-after-free.c:[[@LINE-24]]
   // CHECK: Memory tags around the buggy address (one tag corresponds to 16 bytes):

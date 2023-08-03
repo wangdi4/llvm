@@ -184,8 +184,7 @@ define i32 @loop_shared_header(i8* %exe, i32 %exesz, i32 %headsize, i32 %min, i3
 ; CHECK-NEXT:    xorl %esi, %esi
 ; CHECK-NEXT:    jmp .LBB1_18
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB1_17: # %if.end287.i ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1 ;INTEL
+; CHECK-NEXT:  .LBB1_17: # in Loop: Header=BB1_9 Depth=1
 ; CHECK-NEXT:    movb %dl, %sil
 ; CHECK-NEXT:    addl $3, %esi
 ; CHECK-NEXT:  .LBB1_18: # %outer_loop_latch

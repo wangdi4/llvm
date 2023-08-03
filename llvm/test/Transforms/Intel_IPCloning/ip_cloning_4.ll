@@ -12,19 +12,16 @@
 ; CHECK: tail call fastcc void @bar.
 ; CHECK: tail call fastcc void @bar.
 
-
 @F_1 = external local_unnamed_addr global [100 x i32], align 16
 
-; Function Attrs: norecurse nounwind uwtable
-define void @foo() local_unnamed_addr  {
+define void @foo() local_unnamed_addr {
 entry:
   tail call fastcc void @bar(i32 10)
   tail call fastcc void @bar(i32 20)
   ret void
 }
 
-; Function Attrs: noinline norecurse nounwind uwtable
-define internal fastcc void @bar(i32 %ub) unnamed_addr  {
+define internal fastcc void @bar(i32 %ub) unnamed_addr {
 entry:
   %add = add i32 %ub, 20
   %cmp6 = icmp eq i32 %add, 0
@@ -34,13 +31,13 @@ for.body.preheader:                               ; preds = %entry
   %wide.trip.count = zext i32 %add to i64
   br label %for.body
 
-for.body:                                         ; preds = %for.body.preheader, %for.body
+for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @F_1, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %1 = trunc i64 %indvars.iv to i32
-  %add1 = add i32 %0, %1
-  store i32 %add1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @F_1, i64 0, i64 %indvars.iv
+  %i = load i32, ptr %arrayidx, align 4
+  %i1 = trunc i64 %indvars.iv to i32
+  %add1 = add i32 %i, %i1
+  store i32 %add1, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end, label %for.body

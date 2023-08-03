@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
 ; end INTEL_CUSTOMIZATION
 ;
 ; This test checks that paropt pass correctly adds parallel access metadata to
@@ -57,9 +57,9 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test1(float* %P, i32 %N) {
+define void @test1(ptr noundef %P, i32 noundef %N) {
 entry:
-  %P.addr = alloca float*, align 8
+  %P.addr = alloca ptr, align 8
   %N.addr = alloca i32, align 4
   %tmp = alloca i32, align 4
   %.capture_expr.0 = alloca i32, align 4
@@ -72,101 +72,116 @@ entry:
   %.omp.iv8 = alloca i32, align 4
   %.omp.ub9 = alloca i32, align 4
   %J = alloca i32, align 4
-  store float* %P, float** %P.addr, align 8
-  store i32 %N, i32* %N.addr, align 4
-  %0 = load i32, i32* %N.addr, align 4
-  store i32 %0, i32* %.capture_expr.0, align 4
-  %1 = load i32, i32* %.capture_expr.0, align 4
+  store ptr %P, ptr %P.addr, align 8
+  store i32 %N, ptr %N.addr, align 4
+  %0 = load i32, ptr %N.addr, align 4
+  store i32 %0, ptr %.capture_expr.0, align 4
+  %1 = load i32, ptr %.capture_expr.0, align 4
   %sub = sub i32 %1, 0
   %sub1 = sub i32 %sub, 1
   %add = add i32 %sub1, 1
   %div = udiv i32 %add, 1
   %sub2 = sub i32 %div, 1
-  store i32 %sub2, i32* %.capture_expr.1, align 4
-  %2 = load i32, i32* %.capture_expr.0, align 4
+  store i32 %sub2, ptr %.capture_expr.1, align 4
+  %2 = load i32, ptr %.capture_expr.0, align 4
   %cmp = icmp ult i32 0, %2
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  store i32 0, i32* %.omp.lb, align 4
-  %3 = load i32, i32* %.capture_expr.1, align 4
-  store i32 %3, i32* %.omp.ub, align 4
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.AUTO:NONMONOTONIC"(i32 0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.omp.iv8), "QUAL.OMP.PRIVATE"(i32* %.omp.ub9), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %tmp7) ]
-  %5 = load i32, i32* %.omp.lb, align 4
-  store i32 %5, i32* %.omp.iv, align 4
+  store i32 0, ptr %.omp.lb, align 4
+  %3 = load i32, ptr %.capture_expr.1, align 4
+  store i32 %3, ptr %.omp.ub, align 4
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+    "QUAL.OMP.SCHEDULE.AUTO:NONMONOTONIC"(i32 0),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %I, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv8, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub9, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp7, i32 0, i32 1) ]
+
+  %5 = load i32, ptr %.omp.lb, align 4
+  store i32 %5, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc22, %omp.precond.then
-  %6 = load i32, i32* %.omp.iv, align 4
-  %7 = load i32, i32* %.omp.ub, align 4
+  %6 = load i32, ptr %.omp.iv, align 4
+  %7 = load i32, ptr %.omp.ub, align 4
   %add3 = add i32 %7, 1
   %cmp4 = icmp ult i32 %6, %add3
   br i1 %cmp4, label %omp.inner.for.body, label %omp.inner.for.end24
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %8 = load i32, i32* %.omp.iv, align 4
+  %8 = load i32, ptr %.omp.iv, align 4
   %mul = mul i32 %8, 1
   %add5 = add i32 0, %mul
-  store i32 %add5, i32* %I, align 4
-  %9 = load float*, float** %P.addr, align 8
-  %10 = load i32, i32* %I, align 4
+  store i32 %add5, ptr %I, align 4
+  %9 = load ptr, ptr %P.addr, align 8
+  %10 = load i32, ptr %I, align 4
   %mul6 = mul nsw i32 %10, 100
   %idxprom = sext i32 %mul6 to i64
-  %ptridx = getelementptr inbounds float, float* %9, i64 %idxprom
-  store float 5.000000e+00, float* %ptridx, align 4
-  store i32 99, i32* %.omp.ub9, align 4
-  %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv8), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub9), "QUAL.OMP.LINEAR:IV"(i32* %J, i32 1) ]
-  store i32 0, i32* %.omp.iv8, align 4
+  %arrayidx = getelementptr inbounds float, ptr %9, i64 %idxprom
+  store float 5.000000e+00, ptr %arrayidx, align 4
+  store i32 99, ptr %.omp.ub9, align 4
+  %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv8, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub9, i32 0),
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %J, i32 0, i32 1, i32 1) ]
+
+  store i32 0, ptr %.omp.iv8, align 4
   br label %omp.inner.for.cond10
 
 omp.inner.for.cond10:                             ; preds = %omp.inner.for.inc, %omp.inner.for.body
-  %12 = load i32, i32* %.omp.iv8, align 4
-  %13 = load i32, i32* %.omp.ub9, align 4
+  %12 = load i32, ptr %.omp.iv8, align 4
+  %13 = load i32, ptr %.omp.ub9, align 4
   %cmp11 = icmp sle i32 %12, %13
   br i1 %cmp11, label %omp.inner.for.body12, label %omp.inner.for.end
 
 omp.inner.for.body12:                             ; preds = %omp.inner.for.cond10
-  %14 = load i32, i32* %.omp.iv8, align 4
+  %14 = load i32, ptr %.omp.iv8, align 4
   %mul13 = mul nsw i32 %14, 1
   %add14 = add nsw i32 0, %mul13
-  store i32 %add14, i32* %J, align 4
-  %15 = load i32, i32* %J, align 4
+  store i32 %add14, ptr %J, align 4
+  %15 = load i32, ptr %J, align 4
   %conv = sitofp i32 %15 to float
-  %16 = load float*, float** %P.addr, align 8
-  %17 = load i32, i32* %I, align 4
+  %16 = load ptr, ptr %P.addr, align 8
+  %17 = load i32, ptr %I, align 4
   %mul15 = mul nsw i32 %17, 100
-  %18 = load i32, i32* %J, align 4
+  %18 = load i32, ptr %J, align 4
   %add16 = add nsw i32 %mul15, %18
   %idxprom17 = sext i32 %add16 to i64
-  %ptridx18 = getelementptr inbounds float, float* %16, i64 %idxprom17
-  %19 = load float, float* %ptridx18, align 4
-  %add19 = fadd float %19, %conv
-  store float %add19, float* %ptridx18, align 4
+  %arrayidx18 = getelementptr inbounds float, ptr %16, i64 %idxprom17
+  %19 = load float, ptr %arrayidx18, align 4
+  %add19 = fadd fast float %19, %conv
+  store float %add19, ptr %arrayidx18, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body12
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %20 = load i32, i32* %.omp.iv8, align 4
+  %20 = load i32, ptr %.omp.iv8, align 4
   %add20 = add nsw i32 %20, 1
-  store i32 %add20, i32* %.omp.iv8, align 4
-  br label %omp.inner.for.cond10
+  store i32 %add20, ptr %.omp.iv8, align 4
+  br label %omp.inner.for.cond10, !llvm.loop !5
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond10
   br label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %11) [ "DIR.OMP.END.SIMD"() ]
+
   br label %omp.body.continue21
 
 omp.body.continue21:                              ; preds = %omp.loop.exit
   br label %omp.inner.for.inc22
 
 omp.inner.for.inc22:                              ; preds = %omp.body.continue21
-  %21 = load i32, i32* %.omp.iv, align 4
+  %21 = load i32, ptr %.omp.iv, align 4
   %add23 = add nuw i32 %21, 1
-  store i32 %add23, i32* %.omp.iv, align 4
+  store i32 %add23, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end24:                              ; preds = %omp.inner.for.cond
@@ -174,6 +189,7 @@ omp.inner.for.end24:                              ; preds = %omp.inner.for.cond
 
 omp.loop.exit25:                                  ; preds = %omp.inner.for.end24
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.LOOP"() ]
+
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit25, %entry
@@ -181,5 +197,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit25, %e
 }
 
 declare token @llvm.directive.region.entry()
-
 declare void @llvm.directive.region.exit(token)
+
+!5 = distinct !{!5, !6}
+!6 = !{!"llvm.loop.vectorize.enable", i1 true}

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -25,16 +25,16 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %arg) nounwind {
   %a = alloca [4 x float], align 4
-  %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
-  %x = load float, float* %p, align 4
+  %p = getelementptr [4 x float], ptr %a, i32 0, i32 1
+  %x = load float, ptr %p, align 4
   br label %L1
 L1:
   call void @_Z18work_group_barrierj(i32 1)
   %y = fadd float %x, 1.0
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
-; CHECK: %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
-; CHECK: %x = load float, float* %p, align 4
+; CHECK: %p = getelementptr [4 x float], ptr %a, i32 0, i32 1
+; CHECK: %x = load float, ptr %p, align 4
 ; CHECK: br label %L1
 ; CHECK: L1:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
@@ -80,4 +80,4 @@ declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

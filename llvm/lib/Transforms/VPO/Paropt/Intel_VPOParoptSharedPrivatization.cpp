@@ -448,7 +448,6 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     Value *V = I->getOrig();
     if (!V)
       continue;
-
     if (auto *AI = dyn_cast<AllocaInst>(V)) {
       // Do not do privatization for a shared item if it is captured by a nested
       // task.
@@ -574,19 +573,17 @@ static bool cleanupItem(
   // both host and device sides will be changed the same way.
   if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
     ORBuilder(*W, WRegionList)
-        .addRemark(OptReportVerbosity::Low,
-                   (Twine(ClauseName) + " clause for variable '" +
-                    V->getName() + "' is redundant")
-                       .str());
+        .addRemark(OptReportVerbosity::Low, OptRemarkID::OpenMPRedundantClause,
+                   ClauseName, V->getName());
+
     return Changed;
   }
 
   ORBuilder(*W, WRegionList)
       .addRemark(OptReportVerbosity::Low,
-                 (Twine(ClauseName) + " clause for variable '" + V->getName() +
-                  "' has been changed to " +
-                  VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
-                     .str());
+                 OptRemarkID::OpenMPClauseHasBeenChanged, ClauseName,
+                 V->getName(),
+                 VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE));
 
   // Add V to the list of items to be privatized.
   if (!ToPrivatize.count(V)) {
@@ -811,9 +808,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
 
         ORBuilder(*W, WRegionList)
             .addRemark(OptReportVerbosity::Low,
-                       (Twine(GetMapName(MI)) + " clause for variable '" +
-                        AI->getName() + "' is redundant")
-                           .str());
+                       OptRemarkID::OpenMPRedundantClause, GetMapName(MI),
+                       AI->getName());
         continue;
       }
 
@@ -846,13 +842,10 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
              "overhead");
 
       ORBuilder(*W, WRegionList)
-          .addRemark(
-              OptReportVerbosity::Low,
-              (Twine(GetMapName(MI)) + " clause for variable '" +
-               AI->getName() + "' can be changed to " +
-               VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE) +
-               " to reduce mapping overhead")
-                  .str());
+          .addRemark(OptReportVerbosity::Low,
+                     OptRemarkID::OpenMPClauseCanBeChanged, GetMapName(MI),
+                     AI->getName(),
+                     VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE));
     }
   }
 
@@ -862,7 +855,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
   bool Changed = false;
   MapVector<Value *, std::optional<ElementTypeAndNumElements>> ToPrivatize;
 
-  auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
+  auto CleanupItems = [this, W, &ToPrivatize](auto *Clause) {
     bool Changed = false;
     for (auto *Item : Clause->items()) {
       // Do not try to simplify nonPOD items.
@@ -879,6 +872,18 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (!V || hasWRNUses(W, V))
         continue;
 
+      // Skip shared items as candidates for privatization if NumElements is
+      // zero
+      if (isa<SharedItem>(Item) && Item->getIsTyped()) {
+        auto *Size = dyn_cast<ConstantInt>(Item->getNumElements());
+        if (Size && Size->isZero()) {
+          LLVM_DEBUG(dbgs()
+                         << __FUNCTION__
+                         << ": WARNING: skipping shared item with zero size '";
+                     V->printAsOperand(dbgs()); dbgs() << "'.\n");
+          continue;
+        }
+      }
       // Special handling for the schedule chunk that is loaded from a shared
       // pointer that has no uses inside the region
       //
@@ -927,11 +932,11 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
   };
 
   if (auto *Clause = W->getFprivIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
   if (auto *Clause = W->getSharedIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
   if (auto *Clause = W->getLprivIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
 
   Changed |= addPrivateClausesToRegion(W, ToPrivatize.takeVector());
 

@@ -242,4 +242,4 @@
 // STATIC_LIB_NOSRC: file-table-tform{{.*}} "-o" "[[TABLE1:.+\.table]]" "[[TABLE]]" "[[OBJLIST]]"
 // STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-o=[[BCFILE2:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=[[TARGET]]" "-kind=sycl" "-batch" "[[TABLE1]]"
 // STATIC_LIB_NOSRC: llc{{.*}} "-filetype=obj" "-o" "[[FINALOBJ:.+\.o]]" "[[BCFILE2]]"
-// STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "{{.*}}_lib.{{(a|lo)}}" "[[FINALOBJ]]"
+// STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir"{{.*}} "{{.*}}_lib.{{(a|lo)}}" "[[FINALOBJ]]"

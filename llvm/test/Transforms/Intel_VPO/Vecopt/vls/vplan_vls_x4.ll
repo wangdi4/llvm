@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ;  for (i = 0; i < 1024; i += 4) {
 ;    t0 = ary[i + 0] + 7;
 ;    t1 = ary[i + 1] + 11;
@@ -36,9 +36,8 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:   #8 <4 x 32> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* [[TMP0]], align 4
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <16 x i32> [[TMP1]], <16 x i32> [[TMP1]], <4 x i32> <i32 0, i32 4, i32 8, i32 12>
 ; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <16 x i32> [[TMP1]], <16 x i32> [[TMP1]], <4 x i32> <i32 1, i32 5, i32 9, i32 13>
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <16 x i32> [[TMP1]], <16 x i32> [[TMP1]], <4 x i32> <i32 2, i32 6, i32 10, i32 14>
@@ -47,16 +46,15 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[TMP3]], <i32 11, i32 11, i32 11, i32 11>
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nsw <4 x i32> [[TMP4]], <i32 12, i32 12, i32 12, i32 12>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nsw <4 x i32> [[TMP5]], <i32 61, i32 61, i32 61, i32 61>
-; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <16 x i32> undef, <16 x i32> [[TMP10]], <16 x i32> <i32 16, i32 1, i32 2, i32 3, i32 17, i32 5, i32 6, i32 7, i32 18, i32 9, i32 10, i32 11, i32 19, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <4 x i32> [[TMP7]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <4 x i32> [[TMP7]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <16 x i32> [[TMP11]], <16 x i32> [[TMP12]], <16 x i32> <i32 0, i32 16, i32 2, i32 3, i32 4, i32 17, i32 6, i32 7, i32 8, i32 18, i32 10, i32 11, i32 12, i32 19, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32> [[TMP8]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32> [[TMP8]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP15:%.*]] = shufflevector <16 x i32> [[TMP13]], <16 x i32> [[TMP14]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 5, i32 17, i32 7, i32 8, i32 9, i32 18, i32 11, i32 12, i32 13, i32 19, i32 15>
-; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP9]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP9]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <16 x i32> [[TMP15]], <16 x i32> [[TMP16]], <16 x i32> <i32 0, i32 1, i32 2, i32 16, i32 4, i32 5, i32 6, i32 17, i32 8, i32 9, i32 10, i32 18, i32 12, i32 13, i32 14, i32 19>
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP17]], <16 x i32>* [[TMP18]], align 4
+; CHECK-NEXT:    store <16 x i32> [[TMP17]], ptr [[SCALAR_GEP]], align 4
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -64,25 +62,25 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ary, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add7 = add nsw i32 %0, 7
   %1 = add nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds i32, i32* %ary, i64 %1
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %ary, i64 %1
+  %2 = load i32, ptr %arrayidx4, align 4
   %add11 = add nsw i32 %2, 11
   %3 = add nsw i64 %indvars.iv, 2
-  %arrayidx8 = getelementptr inbounds i32, i32* %ary, i64 %3
-  %4 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %ary, i64 %3
+  %4 = load i32, ptr %arrayidx8, align 4
   %add12 = add nsw i32 %4, 12
   %5 = add nsw i64 %indvars.iv, 3
-  %arrayidx12 = getelementptr inbounds i32, i32* %ary, i64 %5
-  %6 = load i32, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds i32, ptr %ary, i64 %5
+  %6 = load i32, ptr %arrayidx12, align 4
   %add61 = add nsw i32 %6, 61
-  store i32 %add7, i32* %arrayidx, align 4
-  store i32 %add11, i32* %arrayidx4, align 4
-  store i32 %add12, i32* %arrayidx8, align 4
-  store i32 %add61, i32* %arrayidx12, align 4
+  store i32 %add7, ptr %arrayidx, align 4
+  store i32 %add11, ptr %arrayidx4, align 4
+  store i32 %add12, ptr %arrayidx8, align 4
+  store i32 %add61, ptr %arrayidx12, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end

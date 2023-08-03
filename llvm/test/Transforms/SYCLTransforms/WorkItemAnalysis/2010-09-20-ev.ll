@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
 target triple = "i686-pc-win32"
@@ -7,7 +7,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: SEQ   %0 = call fastcc i32 @_Z13get_global_idj(i32 0) #0
 ; CHECK-NEXT: STR   %mul = shl i32 %0, 1
 ; CHECK-NEXT: RND   %add1 = or i32 %mul, 1
-; CHECK-NEXT: RND   %pLoad = call fastcc i32 @masked_load10(i1 true, i32 addrspace(1)* %numEigenIntervals) #0
+; CHECK-NEXT: RND   %pLoad = call fastcc i32 @masked_load10(i1 true, ptr addrspace(1) %numEigenIntervals) #0
 ; CHECK-NEXT: RND   %cmp33 = icmp ult i32 %0, %pLoad
 ; CHECK-NEXT: UNI   br label %BB048.preheader
 ; CHECK-NEXT: RND   %Mneg = xor i1 %cmp33, true
@@ -24,8 +24,8 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %out_sel = select i1 %BB048_Min, i32 %storemerge35, i32 %storemerge35_prev
 ; CHECK-NEXT: RND   %sub = sub i32 %currentIndex.034, %tmp13
 ; CHECK-NEXT: RND   %out_sel102 = select i1 %BB048_Min, i32 %sub, i32 %sub_prev
-; CHECK-NEXT: UNI   %arrayidx = getelementptr i32, i32 addrspace(1)* %numEigenIntervals, i32 %storemerge35
-; CHECK-NEXT: RND   %pLoad109 = call fastcc i32 @masked_load11(i1 %BB048_Min, i32 addrspace(1)* %arrayidx) #0
+; CHECK-NEXT: UNI   %arrayidx = getelementptr i32, ptr addrspace(1) %numEigenIntervals, i32 %storemerge35
+; CHECK-NEXT: RND   %pLoad109 = call fastcc i32 @masked_load11(i1 %BB048_Min, ptr addrspace(1) %arrayidx) #0
 ; CHECK-NEXT: RND   %out_sel104 = select i1 %BB048_Min, i32 %pLoad109, i32 %tmp9_prev
 ; CHECK-NEXT: RND   %cmp = icmp ult i32 %sub, %pLoad109
 ; CHECK-NEXT: RND   %who_left_tr = and i1 %BB048_Min, %cmp
@@ -46,17 +46,17 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %mul18 = select i1 %cmp33, i32 0, i32 %out_sel.op
 ; CHECK-NEXT: RND   %add212 = or i32 %mul18, 1
 ; CHECK-NEXT: RND   %cmp26 = icmp eq i32 %merge, 1
-; CHECK-NEXT: RND   %arrayidx30 = getelementptr inbounds float, float addrspace(1)* %eigenIntervals, i32 %add212
-; CHECK-NEXT: RND   %pLoad110 = call fastcc float @masked_load12(i1 %BB050_Min87, float addrspace(1)* %arrayidx30) #0
-; CHECK-NEXT: RND   %arrayidx34 = getelementptr inbounds float, float addrspace(1)* %eigenIntervals, i32 %mul18
-; CHECK-NEXT: RND   %pLoad111 = call fastcc float @masked_load13(i1 %BB050_Min87, float addrspace(1)* %arrayidx34) #0
+; CHECK-NEXT: RND   %arrayidx30 = getelementptr inbounds float, ptr addrspace(1) %eigenIntervals, i32 %add212
+; CHECK-NEXT: RND   %pLoad110 = call fastcc float @masked_load12(i1 %BB050_Min87, ptr addrspace(1) %arrayidx30) #0
+; CHECK-NEXT: RND   %arrayidx34 = getelementptr inbounds float, ptr addrspace(1) %eigenIntervals, i32 %mul18
+; CHECK-NEXT: RND   %pLoad111 = call fastcc float @masked_load13(i1 %BB050_Min87, ptr addrspace(1) %arrayidx34) #0
 ; CHECK-NEXT: RND   %Mneg68 = xor i1 %cmp26, true
 ; CHECK-NEXT: RND   %BB050_to_BB063 = and i1 %BB050_Min87, %Mneg68
 ; CHECK-NEXT: RND   %BB050_to_BB051 = and i1 %BB050_Min87, %cmp26
 ; CHECK-NEXT: UNI   br label %BB051
 ; CHECK-NEXT: RND   %add36 = fadd float %pLoad110, %pLoad111
 ; CHECK-NEXT: RND   %div = fdiv float %add36, 2.000000e+00
-; CHECK-NEXT: RND   %pLoad112 = call fastcc float @masked_load14(i1 %BB050_to_BB051, float addrspace(1)* %diagonal) #0
+; CHECK-NEXT: RND   %pLoad112 = call fastcc float @masked_load14(i1 %BB050_to_BB051, ptr addrspace(1) %diagonal) #0
 ; CHECK-NEXT: RND   %sub.i = fsub float %pLoad112, %div
 ; CHECK-NEXT: RND   %cmp.i = fcmp olt float %sub.i, 0.000000e+00
 ; CHECK-NEXT: RND   %cond.i = zext i1 %cmp.i to i32
@@ -81,11 +81,11 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %prev_diff.03.i = phi float [ %sub.i, %BB053 ], [ %sub28.i, %BB054 ]
 ; CHECK-NEXT: RND   %count.02.i = phi i32 [ %cond.i, %BB053 ], [ %add33.i, %BB054 ]
 ; CHECK-NEXT: UNI   %tmp38 = add i32 %indvar.i, 1
-; CHECK-NEXT: UNI   %arrayidx12.i = getelementptr float, float addrspace(1)* %diagonal, i32 %tmp38
-; CHECK-NEXT: UNI   %arrayidx24.i = getelementptr float, float addrspace(1)* %offDiagonal, i32 %indvar.i
-; CHECK-NEXT: RND   %pLoad113 = call fastcc float @masked_load15(i1 %BB054_Min, float addrspace(1)* %arrayidx12.i) #0
+; CHECK-NEXT: UNI   %arrayidx12.i = getelementptr float, ptr addrspace(1) %diagonal, i32 %tmp38
+; CHECK-NEXT: UNI   %arrayidx24.i = getelementptr float, ptr addrspace(1) %offDiagonal, i32 %indvar.i
+; CHECK-NEXT: RND   %pLoad113 = call fastcc float @masked_load15(i1 %BB054_Min, ptr addrspace(1) %arrayidx12.i) #0
 ; CHECK-NEXT: RND   %sub15.i = fsub float %pLoad113, %div
-; CHECK-NEXT: RND   %pLoad114 = call fastcc float @masked_load16(i1 %BB054_Min, float addrspace(1)* %arrayidx24.i) #0
+; CHECK-NEXT: RND   %pLoad114 = call fastcc float @masked_load16(i1 %BB054_Min, ptr addrspace(1) %arrayidx24.i) #0
 ; CHECK-NEXT: RND   %mul.i = fmul float %pLoad114, %pLoad114
 ; CHECK-NEXT: RND   %div.i = fdiv float %mul.i, %prev_diff.03.i
 ; CHECK-NEXT: RND   %sub28.i = fsub float %sub15.i, %div.i
@@ -120,11 +120,11 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %prev_diff.03.i11 = phi float [ %sub.i4, %BB056 ], [ %sub28.i21, %BB057 ]
 ; CHECK-NEXT: RND   %count.02.i12 = phi i32 [ %cond.i6, %BB056 ], [ %add33.i24, %BB057 ]
 ; CHECK-NEXT: UNI   %tmp = add i32 %indvar.i10, 1
-; CHECK-NEXT: UNI   %arrayidx12.i14 = getelementptr float, float addrspace(1)* %diagonal, i32 %tmp
-; CHECK-NEXT: UNI   %arrayidx24.i15 = getelementptr float, float addrspace(1)* %offDiagonal, i32 %indvar.i10
-; CHECK-NEXT: RND   %pLoad115 = call fastcc float @masked_load17(i1 %BB057_Min, float addrspace(1)* %arrayidx12.i14) #0
+; CHECK-NEXT: UNI   %arrayidx12.i14 = getelementptr float, ptr addrspace(1) %diagonal, i32 %tmp
+; CHECK-NEXT: UNI   %arrayidx24.i15 = getelementptr float, ptr addrspace(1) %offDiagonal, i32 %indvar.i10
+; CHECK-NEXT: RND   %pLoad115 = call fastcc float @masked_load17(i1 %BB057_Min, ptr addrspace(1) %arrayidx12.i14) #0
 ; CHECK-NEXT: RND   %sub15.i17 = fsub float %pLoad115, %pLoad111
-; CHECK-NEXT: RND   %pLoad116 = call fastcc float @masked_load18(i1 %BB057_Min, float addrspace(1)* %arrayidx24.i15) #0
+; CHECK-NEXT: RND   %pLoad116 = call fastcc float @masked_load18(i1 %BB057_Min, ptr addrspace(1) %arrayidx24.i15) #0
 ; CHECK-NEXT: RND   %mul.i19 = fmul float %pLoad116, %pLoad116
 ; CHECK-NEXT: RND   %div.i20 = fdiv float %mul.i19, %prev_diff.03.i11
 ; CHECK-NEXT: RND   %sub28.i21 = fsub float %sub15.i17, %div.i20
@@ -154,28 +154,28 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %BB058_to_BB060 = and i1 %BB058_Min91, %Mneg85
 ; CHECK-NEXT: RND   %BB058_to_BB059 = and i1 %BB058_Min91, %cmp62
 ; CHECK-NEXT: UNI   br label %BB059
-; CHECK-NEXT: RND   %arrayidx70 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul
-; CHECK-NEXT: RND   call fastcc void @masked_store1(i1 %BB058_to_BB059, float %pLoad111, float addrspace(1)* %arrayidx70) #0
-; CHECK-NEXT: RND   %pLoad117 = call fastcc float @masked_load19(i1 %BB058_to_BB059, float addrspace(1)* %arrayidx30) #0
-; CHECK-NEXT: RND   %arrayidx77 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1
-; CHECK-NEXT: RND   call fastcc void @masked_store2(i1 %BB058_to_BB059, float %pLoad117, float addrspace(1)* %arrayidx77) #0
+; CHECK-NEXT: RND   %arrayidx70 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul
+; CHECK-NEXT: RND   call fastcc void @masked_store1(i1 %BB058_to_BB059, float %pLoad111, ptr addrspace(1) %arrayidx70) #0
+; CHECK-NEXT: RND   %pLoad117 = call fastcc float @masked_load19(i1 %BB058_to_BB059, ptr addrspace(1) %arrayidx30) #0
+; CHECK-NEXT: RND   %arrayidx77 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1
+; CHECK-NEXT: RND   call fastcc void @masked_store2(i1 %BB058_to_BB059, float %pLoad117, ptr addrspace(1) %arrayidx77) #0
 ; CHECK-NEXT: UNI   br label %BB060
 ; CHECK-NEXT: RND   %conv.i28 = uitofp i32 %merge100 to float
 ; CHECK-NEXT: RND   %sub51 = fsub float %merge99, %conv.i28
 ; CHECK-NEXT: RND   %cmp79 = fcmp oeq float %sub51, 0.000000e+00
-; CHECK-NEXT: RND   %arrayidx84 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul
+; CHECK-NEXT: RND   %arrayidx84 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul
 ; CHECK-NEXT: RND   %Mneg86 = xor i1 %cmp79, true
 ; CHECK-NEXT: RND   %BB060_to_BB062 = and i1 %BB058_to_BB060, %Mneg86
 ; CHECK-NEXT: RND   %BB060_to_BB061 = and i1 %BB058_to_BB060, %cmp79
 ; CHECK-NEXT: UNI   br label %BB061
-; CHECK-NEXT: RND   call fastcc void @masked_store3(i1 %BB060_to_BB061, float %div, float addrspace(1)* %arrayidx84) #0
-; CHECK-NEXT: RND   %pLoad118 = call fastcc float @masked_load20(i1 %BB060_to_BB061, float addrspace(1)* %arrayidx30) #0
-; CHECK-NEXT: RND   %arrayidx91 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1
-; CHECK-NEXT: RND   call fastcc void @masked_store4(i1 %BB060_to_BB061, float %pLoad118, float addrspace(1)* %arrayidx91) #0
+; CHECK-NEXT: RND   call fastcc void @masked_store3(i1 %BB060_to_BB061, float %div, ptr addrspace(1) %arrayidx84) #0
+; CHECK-NEXT: RND   %pLoad118 = call fastcc float @masked_load20(i1 %BB060_to_BB061, ptr addrspace(1) %arrayidx30) #0
+; CHECK-NEXT: RND   %arrayidx91 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1
+; CHECK-NEXT: RND   call fastcc void @masked_store4(i1 %BB060_to_BB061, float %pLoad118, ptr addrspace(1) %arrayidx91) #0
 ; CHECK-NEXT: UNI   br label %BB062
-; CHECK-NEXT: RND   call fastcc void @masked_store5(i1 %BB060_to_BB062, float %pLoad111, float addrspace(1)* %arrayidx84) #0
-; CHECK-NEXT: RND   %arrayidx103 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1
-; CHECK-NEXT: RND   call fastcc void @masked_store6(i1 %BB060_to_BB062, float %div, float addrspace(1)* %arrayidx103) #0
+; CHECK-NEXT: RND   call fastcc void @masked_store5(i1 %BB060_to_BB062, float %pLoad111, ptr addrspace(1) %arrayidx84) #0
+; CHECK-NEXT: RND   %arrayidx103 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1
+; CHECK-NEXT: RND   call fastcc void @masked_store6(i1 %BB060_to_BB062, float %div, ptr addrspace(1) %arrayidx103) #0
 ; CHECK-NEXT: UNI   br label %phi-split-bb65
 ; CHECK-NEXT: RND   %sub115 = fsub float %pLoad110, %pLoad111
 ; CHECK-NEXT: RND   %conv = uitofp i32 %merge to float
@@ -183,22 +183,22 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %conv128 = uitofp i32 %merge96 to float
 ; CHECK-NEXT: RND   %mul129 = fmul float %div121, %conv128
 ; CHECK-NEXT: RND   %add130 = fadd float %pLoad111, %mul129
-; CHECK-NEXT: RND   %arrayidx133 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul
-; CHECK-NEXT: RND   call fastcc void @masked_store7(i1 %BB050_to_BB063, float %add130, float addrspace(1)* %arrayidx133) #0
+; CHECK-NEXT: RND   %arrayidx133 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul
+; CHECK-NEXT: RND   call fastcc void @masked_store7(i1 %BB050_to_BB063, float %add130, ptr addrspace(1) %arrayidx133) #0
 ; CHECK-NEXT: RND   %add139 = fadd float %add130, %div121
-; CHECK-NEXT: RND   %arrayidx142 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1
-; CHECK-NEXT: RND   call fastcc void @masked_store8(i1 %BB050_to_BB063, float %add139, float addrspace(1)* %arrayidx142) #0
+; CHECK-NEXT: RND   %arrayidx142 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1
+; CHECK-NEXT: RND   call fastcc void @masked_store8(i1 %BB050_to_BB063, float %add139, ptr addrspace(1) %arrayidx142) #0
 ; CHECK-NEXT: UNI   br label %BB056
 ; CHECK-NEXT: UNI   br label %phi-split-bb66
 ; CHECK-NEXT: UNI   br label %UnifiedReturnBlock
 ; CHECK-NEXT: UNI   ret void
 
-define void @recalculateEigenIntervals(float addrspace(1)* %newEigenIntervals, float addrspace(1)* %eigenIntervals, i32 addrspace(1)* %numEigenIntervals, float addrspace(1)* %diagonal, float addrspace(1)* %offDiagonal, i32 %width, float %tolerance) nounwind {
+define void @recalculateEigenIntervals(ptr addrspace(1) %newEigenIntervals, ptr addrspace(1) %eigenIntervals, ptr addrspace(1) %numEigenIntervals, ptr addrspace(1) %diagonal, ptr addrspace(1) %offDiagonal, i32 %width, float %tolerance) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 BB0:
   %0 = call fastcc i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=4]
   %mul = shl i32 %0, 1                            ; <i32> [#uses=4]
   %add1 = or i32 %mul, 1                          ; <i32> [#uses=4]
-  %pLoad = call fastcc i32 @masked_load10(i1 true, i32 addrspace(1)* %numEigenIntervals) nounwind ; <i32> [#uses=3]
+  %pLoad = call fastcc i32 @masked_load10(i1 true, ptr addrspace(1) %numEigenIntervals) nounwind ; <i32> [#uses=3]
   %cmp33 = icmp ult i32 %0, %pLoad                ; <i1> [#uses=6]
   br label %BB048.preheader
 
@@ -219,8 +219,8 @@ BB048:                                            ; preds = %BB049, %BB048.prehe
   %out_sel = select i1 %BB048_Min, i32 %storemerge35, i32 %storemerge35_prev ; <i32> [#uses=1]
   %sub = sub i32 %currentIndex.034, %tmp13        ; <i32> [#uses=4]
   %out_sel102 = select i1 %BB048_Min, i32 %sub, i32 %sub_prev ; <i32> [#uses=1]
-  %arrayidx = getelementptr i32, i32 addrspace(1)* %numEigenIntervals, i32 %storemerge35 ; <i32 addrspace(1)*> [#uses=1]
-  %pLoad109 = call fastcc i32 @masked_load11(i1 %BB048_Min, i32 addrspace(1)* %arrayidx) nounwind ; <i32> [#uses=4]
+  %arrayidx = getelementptr i32, ptr addrspace(1) %numEigenIntervals, i32 %storemerge35 ; <ptr addrspace(1)> [#uses=1]
+  %pLoad109 = call fastcc i32 @masked_load11(i1 %BB048_Min, ptr addrspace(1) %arrayidx) nounwind ; <i32> [#uses=4]
   %out_sel104 = select i1 %BB048_Min, i32 %pLoad109, i32 %tmp9_prev ; <i32> [#uses=1]
   %cmp = icmp ult i32 %sub, %pLoad109             ; <i1> [#uses=2]
   %who_left_tr = and i1 %BB048_Min, %cmp          ; <i1> [#uses=2]
@@ -247,10 +247,10 @@ BB050:                                            ; preds = %BB050.loopexit
   %mul18 = select i1 %cmp33, i32 0, i32 %out_sel.op ; <i32> [#uses=2]
   %add212 = or i32 %mul18, 1                      ; <i32> [#uses=1]
   %cmp26 = icmp eq i32 %merge, 1                  ; <i1> [#uses=2]
-  %arrayidx30 = getelementptr inbounds float, float addrspace(1)* %eigenIntervals, i32 %add212 ; <float addrspace(1)*> [#uses=3]
-  %pLoad110 = call fastcc float @masked_load12(i1 %BB050_Min87, float addrspace(1)* %arrayidx30) nounwind ; <float> [#uses=3]
-  %arrayidx34 = getelementptr inbounds float, float addrspace(1)* %eigenIntervals, i32 %mul18 ; <float addrspace(1)*> [#uses=1]
-  %pLoad111 = call fastcc float @masked_load13(i1 %BB050_Min87, float addrspace(1)* %arrayidx34) nounwind ; <float> [#uses=9]
+  %arrayidx30 = getelementptr inbounds float, ptr addrspace(1) %eigenIntervals, i32 %add212 ; <ptr addrspace(1)> [#uses=3]
+  %pLoad110 = call fastcc float @masked_load12(i1 %BB050_Min87, ptr addrspace(1) %arrayidx30) nounwind ; <float> [#uses=3]
+  %arrayidx34 = getelementptr inbounds float, ptr addrspace(1) %eigenIntervals, i32 %mul18 ; <ptr addrspace(1)> [#uses=1]
+  %pLoad111 = call fastcc float @masked_load13(i1 %BB050_Min87, ptr addrspace(1) %arrayidx34) nounwind ; <float> [#uses=9]
   %Mneg68 = xor i1 %cmp26, true                   ; <i1> [#uses=1]
   %BB050_to_BB063 = and i1 %BB050_Min87, %Mneg68  ; <i1> [#uses=2]
   %BB050_to_BB051 = and i1 %BB050_Min87, %cmp26   ; <i1> [#uses=3]
@@ -259,7 +259,7 @@ BB050:                                            ; preds = %BB050.loopexit
 BB051:                                            ; preds = %BB050
   %add36 = fadd float %pLoad110, %pLoad111        ; <float> [#uses=1]
   %div = fdiv float %add36, 2.000000e+00          ; <float> [#uses=4]
-  %pLoad112 = call fastcc float @masked_load14(i1 %BB050_to_BB051, float addrspace(1)* %diagonal) nounwind ; <float> [#uses=3]
+  %pLoad112 = call fastcc float @masked_load14(i1 %BB050_to_BB051, ptr addrspace(1) %diagonal) nounwind ; <float> [#uses=3]
   %sub.i = fsub float %pLoad112, %div             ; <float> [#uses=2]
   %cmp.i = fcmp olt float %sub.i, 0.000000e+00    ; <i1> [#uses=2]
   %cond.i = zext i1 %cmp.i to i32                 ; <i32> [#uses=1]
@@ -290,11 +290,11 @@ BB054:                                            ; preds = %BB053, %BB054
   %prev_diff.03.i = phi float [ %sub.i, %BB053 ], [ %sub28.i, %BB054 ] ; <float> [#uses=1]
   %count.02.i = phi i32 [ %cond.i, %BB053 ], [ %add33.i, %BB054 ] ; <i32> [#uses=1]
   %tmp38 = add i32 %indvar.i, 1                   ; <i32> [#uses=3]
-  %arrayidx12.i = getelementptr float, float addrspace(1)* %diagonal, i32 %tmp38 ; <float addrspace(1)*> [#uses=1]
-  %arrayidx24.i = getelementptr float, float addrspace(1)* %offDiagonal, i32 %indvar.i ; <float addrspace(1)*> [#uses=1]
-  %pLoad113 = call fastcc float @masked_load15(i1 %BB054_Min, float addrspace(1)* %arrayidx12.i) nounwind ; <float> [#uses=1]
+  %arrayidx12.i = getelementptr float, ptr addrspace(1) %diagonal, i32 %tmp38 ; <ptr addrspace(1)> [#uses=1]
+  %arrayidx24.i = getelementptr float, ptr addrspace(1) %offDiagonal, i32 %indvar.i ; <ptr addrspace(1)> [#uses=1]
+  %pLoad113 = call fastcc float @masked_load15(i1 %BB054_Min, ptr addrspace(1) %arrayidx12.i) nounwind ; <float> [#uses=1]
   %sub15.i = fsub float %pLoad113, %div           ; <float> [#uses=1]
-  %pLoad114 = call fastcc float @masked_load16(i1 %BB054_Min, float addrspace(1)* %arrayidx24.i) nounwind ; <float> [#uses=2]
+  %pLoad114 = call fastcc float @masked_load16(i1 %BB054_Min, ptr addrspace(1) %arrayidx24.i) nounwind ; <float> [#uses=2]
   %mul.i = fmul float %pLoad114, %pLoad114        ; <float> [#uses=1]
   %div.i = fdiv float %mul.i, %prev_diff.03.i     ; <float> [#uses=1]
   %sub28.i = fsub float %sub15.i, %div.i          ; <float> [#uses=2]
@@ -335,11 +335,11 @@ BB057:                                            ; preds = %BB056, %BB057
   %prev_diff.03.i11 = phi float [ %sub.i4, %BB056 ], [ %sub28.i21, %BB057 ] ; <float> [#uses=1]
   %count.02.i12 = phi i32 [ %cond.i6, %BB056 ], [ %add33.i24, %BB057 ] ; <i32> [#uses=1]
   %tmp = add i32 %indvar.i10, 1                   ; <i32> [#uses=3]
-  %arrayidx12.i14 = getelementptr float, float addrspace(1)* %diagonal, i32 %tmp ; <float addrspace(1)*> [#uses=1]
-  %arrayidx24.i15 = getelementptr float, float addrspace(1)* %offDiagonal, i32 %indvar.i10 ; <float addrspace(1)*> [#uses=1]
-  %pLoad115 = call fastcc float @masked_load17(i1 %BB057_Min, float addrspace(1)* %arrayidx12.i14) nounwind ; <float> [#uses=1]
+  %arrayidx12.i14 = getelementptr float, ptr addrspace(1) %diagonal, i32 %tmp ; <ptr addrspace(1)> [#uses=1]
+  %arrayidx24.i15 = getelementptr float, ptr addrspace(1) %offDiagonal, i32 %indvar.i10 ; <ptr addrspace(1)> [#uses=1]
+  %pLoad115 = call fastcc float @masked_load17(i1 %BB057_Min, ptr addrspace(1) %arrayidx12.i14) nounwind ; <float> [#uses=1]
   %sub15.i17 = fsub float %pLoad115, %pLoad111    ; <float> [#uses=1]
-  %pLoad116 = call fastcc float @masked_load18(i1 %BB057_Min, float addrspace(1)* %arrayidx24.i15) nounwind ; <float> [#uses=2]
+  %pLoad116 = call fastcc float @masked_load18(i1 %BB057_Min, ptr addrspace(1) %arrayidx24.i15) nounwind ; <float> [#uses=2]
   %mul.i19 = fmul float %pLoad116, %pLoad116      ; <float> [#uses=1]
   %div.i20 = fdiv float %mul.i19, %prev_diff.03.i11 ; <float> [#uses=1]
   %sub28.i21 = fsub float %sub15.i17, %div.i20    ; <float> [#uses=2]
@@ -377,34 +377,34 @@ BB058:                                            ; preds = %phi-split-bb
   br label %BB059
 
 BB059:                                            ; preds = %BB058
-  %arrayidx70 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store1(i1 %BB058_to_BB059, float %pLoad111, float addrspace(1)* %arrayidx70) nounwind
-  %pLoad117 = call fastcc float @masked_load19(i1 %BB058_to_BB059, float addrspace(1)* %arrayidx30) nounwind ; <float> [#uses=1]
-  %arrayidx77 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1 ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store2(i1 %BB058_to_BB059, float %pLoad117, float addrspace(1)* %arrayidx77) nounwind
+  %arrayidx70 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store1(i1 %BB058_to_BB059, float %pLoad111, ptr addrspace(1) %arrayidx70) nounwind
+  %pLoad117 = call fastcc float @masked_load19(i1 %BB058_to_BB059, ptr addrspace(1) %arrayidx30) nounwind ; <float> [#uses=1]
+  %arrayidx77 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1 ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store2(i1 %BB058_to_BB059, float %pLoad117, ptr addrspace(1) %arrayidx77) nounwind
   br label %BB060
 
 BB060:                                            ; preds = %BB059
   %conv.i28 = uitofp i32 %merge100 to float       ; <float> [#uses=1]
   %sub51 = fsub float %merge99, %conv.i28         ; <float> [#uses=1]
   %cmp79 = fcmp oeq float %sub51, 0.000000e+00    ; <i1> [#uses=2]
-  %arrayidx84 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul ; <float addrspace(1)*> [#uses=2]
+  %arrayidx84 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul ; <ptr addrspace(1)> [#uses=2]
   %Mneg86 = xor i1 %cmp79, true                   ; <i1> [#uses=1]
   %BB060_to_BB062 = and i1 %BB058_to_BB060, %Mneg86 ; <i1> [#uses=2]
   %BB060_to_BB061 = and i1 %BB058_to_BB060, %cmp79 ; <i1> [#uses=3]
   br label %BB061
 
 BB061:                                            ; preds = %BB060
-  call fastcc void @masked_store3(i1 %BB060_to_BB061, float %div, float addrspace(1)* %arrayidx84) nounwind
-  %pLoad118 = call fastcc float @masked_load20(i1 %BB060_to_BB061, float addrspace(1)* %arrayidx30) nounwind ; <float> [#uses=1]
-  %arrayidx91 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1 ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store4(i1 %BB060_to_BB061, float %pLoad118, float addrspace(1)* %arrayidx91) nounwind
+  call fastcc void @masked_store3(i1 %BB060_to_BB061, float %div, ptr addrspace(1) %arrayidx84) nounwind
+  %pLoad118 = call fastcc float @masked_load20(i1 %BB060_to_BB061, ptr addrspace(1) %arrayidx30) nounwind ; <float> [#uses=1]
+  %arrayidx91 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1 ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store4(i1 %BB060_to_BB061, float %pLoad118, ptr addrspace(1) %arrayidx91) nounwind
   br label %BB062
 
 BB062:                                            ; preds = %BB061
-  call fastcc void @masked_store5(i1 %BB060_to_BB062, float %pLoad111, float addrspace(1)* %arrayidx84) nounwind
-  %arrayidx103 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1 ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store6(i1 %BB060_to_BB062, float %div, float addrspace(1)* %arrayidx103) nounwind
+  call fastcc void @masked_store5(i1 %BB060_to_BB062, float %pLoad111, ptr addrspace(1) %arrayidx84) nounwind
+  %arrayidx103 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1 ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store6(i1 %BB060_to_BB062, float %div, ptr addrspace(1) %arrayidx103) nounwind
   br label %phi-split-bb65
 
 BB063:                                            ; preds = %BB055
@@ -414,11 +414,11 @@ BB063:                                            ; preds = %BB055
   %conv128 = uitofp i32 %merge96 to float         ; <float> [#uses=1]
   %mul129 = fmul float %div121, %conv128          ; <float> [#uses=1]
   %add130 = fadd float %pLoad111, %mul129         ; <float> [#uses=2]
-  %arrayidx133 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %mul ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store7(i1 %BB050_to_BB063, float %add130, float addrspace(1)* %arrayidx133) nounwind
+  %arrayidx133 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %mul ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store7(i1 %BB050_to_BB063, float %add130, ptr addrspace(1) %arrayidx133) nounwind
   %add139 = fadd float %add130, %div121           ; <float> [#uses=1]
-  %arrayidx142 = getelementptr inbounds float, float addrspace(1)* %newEigenIntervals, i32 %add1 ; <float addrspace(1)*> [#uses=1]
-  call fastcc void @masked_store8(i1 %BB050_to_BB063, float %add139, float addrspace(1)* %arrayidx142) nounwind
+  %arrayidx142 = getelementptr inbounds float, ptr addrspace(1) %newEigenIntervals, i32 %add1 ; <ptr addrspace(1)> [#uses=1]
+  call fastcc void @masked_store8(i1 %BB050_to_BB063, float %add139, ptr addrspace(1) %arrayidx142) nounwind
   br label %BB056
 
 phi-split-bb65:                                   ; preds = %BB062
@@ -435,11 +435,11 @@ declare fastcc i1 @allOne(i1)
 
 declare fastcc i1 @allZero(i1)
 
-declare fastcc float @masked_load0(i1, float addrspace(1)*)
+declare fastcc float @masked_load0(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load1(i1, float addrspace(1)*)
+declare fastcc float @masked_load1(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load2(i1, float addrspace(1)*)
+declare fastcc float @masked_load2(i1, ptr addrspace(1))
 
 declare fastcc i1 @allOne1(i1)
 
@@ -447,60 +447,63 @@ declare fastcc i1 @allZero2(i1)
 
 declare fastcc i32 @_Z13get_global_idj(i32)
 
-declare fastcc float @masked_load3(i1, float addrspace(1)*)
+declare fastcc float @masked_load3(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load4(i1, float addrspace(1)*)
+declare fastcc float @masked_load4(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load5(i1, float addrspace(1)*)
+declare fastcc float @masked_load5(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load6(i1, float addrspace(1)*)
+declare fastcc float @masked_load6(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load7(i1, float addrspace(1)*)
+declare fastcc float @masked_load7(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load8(i1, float addrspace(1)*)
+declare fastcc float @masked_load8(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load9(i1, float addrspace(1)*)
+declare fastcc float @masked_load9(i1, ptr addrspace(1))
 
-declare fastcc void @masked_store0(i1, i32, i32 addrspace(1)*)
+declare fastcc void @masked_store0(i1, i32, ptr addrspace(1))
 
 declare fastcc i1 @allOne3(i1)
 
 declare fastcc i1 @allZero4(i1)
 
-declare fastcc i32 @masked_load10(i1, i32 addrspace(1)*)
+declare fastcc i32 @masked_load10(i1, ptr addrspace(1))
 
-declare fastcc i32 @masked_load11(i1, i32 addrspace(1)*)
+declare fastcc i32 @masked_load11(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load12(i1, float addrspace(1)*)
+declare fastcc float @masked_load12(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load13(i1, float addrspace(1)*)
+declare fastcc float @masked_load13(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load14(i1, float addrspace(1)*)
+declare fastcc float @masked_load14(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load15(i1, float addrspace(1)*)
+declare fastcc float @masked_load15(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load16(i1, float addrspace(1)*)
+declare fastcc float @masked_load16(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load17(i1, float addrspace(1)*)
+declare fastcc float @masked_load17(i1, ptr addrspace(1))
 
-declare fastcc float @masked_load18(i1, float addrspace(1)*)
+declare fastcc float @masked_load18(i1, ptr addrspace(1))
 
-declare fastcc void @masked_store1(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store1(i1, float, ptr addrspace(1))
 
-declare fastcc float @masked_load19(i1, float addrspace(1)*)
+declare fastcc float @masked_load19(i1, ptr addrspace(1))
 
-declare fastcc void @masked_store2(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store2(i1, float, ptr addrspace(1))
 
-declare fastcc void @masked_store3(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store3(i1, float, ptr addrspace(1))
 
-declare fastcc float @masked_load20(i1, float addrspace(1)*)
+declare fastcc float @masked_load20(i1, ptr addrspace(1))
 
-declare fastcc void @masked_store4(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store4(i1, float, ptr addrspace(1))
 
-declare fastcc void @masked_store5(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store5(i1, float, ptr addrspace(1))
 
-declare fastcc void @masked_store6(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store6(i1, float, ptr addrspace(1))
 
-declare fastcc void @masked_store7(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store7(i1, float, ptr addrspace(1))
 
-declare fastcc void @masked_store8(i1, float, float addrspace(1)*)
+declare fastcc void @masked_store8(i1, float, ptr addrspace(1))
+
+!0 = !{!"float*", !"float*", !"int*", !"float*", !"float*", !"int", !"float"}
+!1 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, i32 0, float zeroinitializer}

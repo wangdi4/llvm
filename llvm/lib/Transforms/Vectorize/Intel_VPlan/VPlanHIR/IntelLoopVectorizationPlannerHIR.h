@@ -42,6 +42,7 @@ private:
 
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   HIRDDAnalysis *DDA;
+  mutable DDGraph DDG;
 
   HIRVectorizationLegality *HIRLegality;
 
@@ -80,9 +81,9 @@ public:
                               const DataLayout *DL, DominatorTree *DT,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
-                              bool LightWeightMode)
+                              bool LightWeightMode, LLVMContext *C)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
-                                 DL, DT, nullptr, VLSA, nullptr /* BFI */),
+                                 DL, DT, nullptr, VLSA, C, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
         HIRLegality(HIRLegal) {
     // Set the flag in scenario to indicate if we are dealing with a constant
@@ -157,6 +158,9 @@ public:
 
   /// Detects and returns the current type of planning.
   LoopVectorizationPlanner::PlannerType getPlannerType() const final;
+
+  /// Fetches/recomputes DDGraph from HIRDDAnalysis (DDA) in HIR pipeline.
+  const DDGraph *getDDGraph() const final;
 
   bool unroll(VPlanVector &Plan) override;
 

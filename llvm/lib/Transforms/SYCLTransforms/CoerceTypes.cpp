@@ -459,9 +459,6 @@ CoerceTypesPass::classifyStruct(StructType *T, unsigned Offset) const {
 }
 
 CoerceTypesPass::TypeClass CoerceTypesPass::classifyScalar(Type *T) const {
-  if (auto *TETy = dyn_cast<TargetExtType>(T))
-    T = TETy->getLayoutType();
-
   // Leave arbitrary-sized LLVM IR types as-is
   if (PDataLayout->getTypeAllocSize(T) > 8)
     return TypeClass::MEMORY;

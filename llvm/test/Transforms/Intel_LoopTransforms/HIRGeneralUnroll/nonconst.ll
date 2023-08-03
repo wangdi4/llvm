@@ -53,31 +53,31 @@ entry:
   br i1 %cmp.8, label %for.body.lr.ph, label %for.cond.cleanup
 
 for.body.lr.ph:                                   ; preds = %entry
-  %.pre = load i32, i32* getelementptr ([500 x i32], [500 x i32]* @A, i64 9223372036854775, i64 403), align 4, !tbaa !1
+  %.pre = load i32, ptr getelementptr ([500 x i32], ptr @A, i64 9223372036854775, i64 403), align 4, !tbaa !1
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  %0 = load i32, i32* getelementptr inbounds ([500 x i32], [500 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
+  %0 = load i32, ptr getelementptr inbounds ([500 x i32], ptr @A, i64 0, i64 2), align 8, !tbaa !1
   ret i32 %0
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %1 = phi i32 [ %.pre, %for.body.lr.ph ], [ %add, %for.body ]
   %i.09 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
-  %arrayidx1 = getelementptr inbounds [500 x i32], [500 x i32]* @B, i64 0, i64 %i.09
-  %2 = load i32, i32* %arrayidx1, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds [500 x i32], ptr @B, i64 0, i64 %i.09
+  %2 = load i32, ptr %arrayidx1, align 4, !tbaa !1
   %add = add nsw i32 %2, %1
-  %arrayidx2 = getelementptr inbounds [500 x i32], [500 x i32]* @A, i64 0, i64 %i.09
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [500 x i32], ptr @A, i64 0, i64 %i.09
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.09, 1
   %exitcond = icmp eq i64 %inc, %M
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

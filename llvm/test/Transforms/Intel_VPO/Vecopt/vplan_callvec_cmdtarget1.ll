@@ -1,4 +1,6 @@
 ; RUN: opt -mtriple=x86_64 -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-call-vec-decisions -disable-output < %s | FileCheck %s
+; RUN: opt -mtriple=x86_64 -passes=vplan-vec -vplan-force-vf=2 -S < %s | FileCheck %s -check-prefix=VPLANCG
+; RUN: opt -mtriple=x86_64 -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-cg' -vplan-force-vf=2 -S < %s | FileCheck %s -check-prefix=HIRCG
 
 @ARRAY_SIZE = external dso_local local_unnamed_addr constant i32, align 4
 
@@ -16,7 +18,15 @@ define dso_local void @run_test.P(ptr noundef %vals, ptr nocapture noundef reado
 ; CHECK-NEXT:  VPlan IR for: run_test.P:omp.inner.for.body.#1
 ; XMM (SSE2) vector variant call
 ; CHECK:       [DA: Div] double [[VP0:%.*]] = call double [[VP1:%.*]] ptr %vals _ZGVxN2vu_Interpolate [x 1]
-
+;
+; VPLANCG:  define dso_local void @run_test.P(ptr noundef [[VALS0:%.*]], ptr nocapture noundef readonly [[SRC0:%.*]], ptr nocapture noundef writeonly [[DST0:%.*]]) local_unnamed_addr #2 {
+; VPLANCG:  [[TMP4:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <2 x double> @_ZGVxN2vu_Interpolate(<2 x double> noundef nofpclass(nan inf) [[WIDE_LOAD0:%.*]], ptr noundef [[VALS0]]) #0
+; VPLANCG:  [[CALLRET0:%.*]] = call fast nofpclass(nan inf) double @Interpolate(double noundef nofpclass(nan inf) [[TMP11:%.*]], ptr noundef [[VALS0]]) #0
+;
+; HIRCG:    define dso_local void @run_test.P(ptr noundef [[VALS0:%.*]], ptr nocapture noundef readonly [[SRC0:%.*]], ptr nocapture noundef writeonly [[DST0:%.*]]) local_unnamed_addr #2 {
+; HIRCG:    [[CALLRET0:%.*]] = call fast nofpclass(nan inf) double @Interpolate(double noundef nofpclass(nan inf) [[TMP2:%.*]], ptr noundef [[VALS0]]) #0
+; HIRCG:    [[TMP14:%.*]] = call fast x86_regcallcc nofpclass(nan inf) <2 x double> @_ZGVxN2vu_Interpolate(<2 x double> noundef nofpclass(nan inf) [[T30_0:%.*]], ptr noundef [[VALS0]]) #0
+;
 entry:
   %i.linear.iv = alloca i32, align 4
   %0 = load i32, ptr @ARRAY_SIZE, align 4

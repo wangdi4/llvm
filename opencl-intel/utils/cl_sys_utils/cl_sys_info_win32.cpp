@@ -20,8 +20,6 @@
 #include <intrin.h>
 #endif
 
-using namespace Intel::OpenCL::Utils;
-
 #include <algorithm>
 #include <bitset>
 #include <vector>
@@ -36,6 +34,7 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace llvm;
 using namespace llvm::sys;
+using namespace Intel::OpenCL::Utils;
 
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
   static unsigned long long vsize = 0;
@@ -267,89 +266,6 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-// return the number of physical cpus (sockets) configured.
-////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets() {
-  static unsigned int numCpuSockets = 0;
-  if (0 == numCpuSockets) {
-    DWORD size;
-    std::vector<unsigned char> bytes;
-    BOOL status = GetProcessorInfo(RelationProcessorPackage, bytes, size);
-    if (!status)
-      return 1;
-
-    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
-    while (ptr < ptrEnd) {
-      PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
-          (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
-      numCpuSockets++;
-      ptr += lpi->Size;
-    }
-  }
-  assert(numCpuSockets != 0 && "Number of sockets should not be 0");
-  return numCpuSockets;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return whether cpu is using hyper-threading
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::IsHyperThreadingEnabled() {
-  static int hyperThreadingEnabled = -1;
-  if (-1 == hyperThreadingEnabled) {
-    DWORD size;
-    std::vector<unsigned char> bytes;
-    BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
-    if (!status)
-      return false;
-
-    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
-    while (ptr < ptrEnd) {
-      PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
-          (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
-      if (lpi->Processor.GroupCount >= 1) {
-        std::bitset<64> bits(lpi->Processor.GroupMask[0].Mask);
-        hyperThreadingEnabled = (bits.count() == 2) ? 1 : 0;
-        break;
-      }
-    }
-  }
-  return 1 == hyperThreadingEnabled;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return the number of NUMA nodes on the system
-////////////////////////////////////////////////////////////////////
-unsigned long Intel::OpenCL::Utils::GetMaxNumaNode() {
-  static unsigned int NumNodes = 0;
-  if (0 == NumNodes) {
-    DWORD Size;
-    std::vector<unsigned char> Bytes;
-    BOOL Status = GetProcessorInfo(RelationNumaNode, Bytes, Size);
-    if (!Status)
-      return 1;
-
-    unsigned char *PI = Bytes.data(), *PE = Bytes.data() + Size;
-    while (PI < PE) {
-      auto LPI = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)PI;
-      NumNodes++;
-      PI += LPI->Size;
-    }
-  }
-  assert(NumNodes > 0 && "Number of NUMA nodes should not be 0");
-  return NumNodes;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return an index representing the processors in a given NUMA node
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
-    unsigned long node, std::vector<cl_uint> &index) {
-  // TODO: This function need to be implemented after
-  // subdevice is supported on windows.
-  return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
@@ -371,10 +287,6 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
     *nodeSize = node_size;
   }
   return true;
-}
-
-std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
-  return std::map<int, int>{};
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

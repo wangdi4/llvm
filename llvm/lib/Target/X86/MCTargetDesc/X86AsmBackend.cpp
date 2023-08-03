@@ -25,7 +25,7 @@
 
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "MCTargetDesc/X86FixupKinds.h"
-#include "MCTargetDesc/X86InstrRelaxTables.h"
+#include "MCTargetDesc/X86EncodingOptimization.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/MachO.h"
@@ -144,7 +144,7 @@ class X86AsmBackend : public MCAsmBackend {
   MCInst PrevInst;
   MCBoundaryAlignFragment *PendingBA = nullptr;
   std::pair<MCFragment *, size_t> PrevInstPosition;
-  bool CanPadInst;
+  bool CanPadInst = false;
 
   uint8_t determinePaddingPrefix(const MCInst &Inst) const;
   bool isMacroFused(const MCInst &Cmp, const MCInst &Jcc) const;
@@ -161,7 +161,7 @@ public:
       // jumps, and (unfused) conditional jumps with nops.  Both the
       // instructions aligned and the alignment method (nop vs prefix) may
       // change in the future.
-      AlignBoundary = assumeAligned(32);;
+      AlignBoundary = assumeAligned(32);
       AlignBranchType.addKind(X86::AlignBranchFused);
       AlignBranchType.addKind(X86::AlignBranchJcc);
       AlignBranchType.addKind(X86::AlignBranchJmp);
@@ -226,11 +226,15 @@ public:
 };
 } // end anonymous namespace
 
-static unsigned getRelaxedOpcodeBranch(const MCInst &Inst, bool Is16BitMode) {
-  unsigned Op = Inst.getOpcode();
-  switch (Op) {
+static bool isRelaxableBranch(unsigned Opcode) {
+  return Opcode == X86::JCC_1 || Opcode == X86::JMP_1;
+}
+
+static unsigned getRelaxedOpcodeBranch(unsigned Opcode,
+                                       bool Is16BitMode = false) {
+  switch (Opcode) {
   default:
-    return Op;
+    llvm_unreachable("invalid opcode for branch");
   case X86::JCC_1:
     return (Is16BitMode) ? X86::JCC_2 : X86::JCC_4;
   case X86::JMP_1:
@@ -238,16 +242,10 @@ static unsigned getRelaxedOpcodeBranch(const MCInst &Inst, bool Is16BitMode) {
   }
 }
 
-static unsigned getRelaxedOpcodeArith(const MCInst &Inst) {
-  unsigned Op = Inst.getOpcode();
-  return X86::getRelaxedOpcodeArith(Op);
-}
-
-static unsigned getRelaxedOpcode(const MCInst &Inst, bool Is16BitMode) {
-  unsigned R = getRelaxedOpcodeArith(Inst);
-  if (R != Inst.getOpcode())
-    return R;
-  return getRelaxedOpcodeBranch(Inst, Is16BitMode);
+static unsigned getRelaxedOpcode(const MCInst &MI, bool Is16BitMode) {
+  unsigned Opcode = MI.getOpcode();
+  return isRelaxableBranch(Opcode) ? getRelaxedOpcodeBranch(Opcode, Is16BitMode)
+                                   : X86::getOpcodeForLongImmediateForm(Opcode);
 }
 
 static X86::CondCode getCondFromBranch(const MCInst &MI,
@@ -738,24 +736,21 @@ void X86AsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
     Data[Fixup.getOffset() + i] = uint8_t(Value >> (i * 8));
 }
 
-bool X86AsmBackend::mayNeedRelaxation(const MCInst &Inst,
+bool X86AsmBackend::mayNeedRelaxation(const MCInst &MI,
                                       const MCSubtargetInfo &STI) const {
-  // Branches can always be relaxed in either mode.
-  if (getRelaxedOpcodeBranch(Inst, false) != Inst.getOpcode())
-    return true;
-
-  // Check if this instruction is ever relaxable.
-  if (getRelaxedOpcodeArith(Inst) == Inst.getOpcode())
-    return false;
-
-
-  // Check if the relaxable operand has an expression. For the current set of
-  // relaxable instructions, the relaxable operand is always the last operand.
-  unsigned RelaxableOp = Inst.getNumOperands() - 1;
-  if (Inst.getOperand(RelaxableOp).isExpr())
-    return true;
-
-  return false;
+  unsigned Opcode = MI.getOpcode();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned SkipOperands = X86::isCCMPCC(Opcode) ? 2 : 0;
+  return isRelaxableBranch(Opcode) ||
+         (X86::getOpcodeForLongImmediateForm(Opcode) != Opcode &&
+          MI.getOperand(MI.getNumOperands() - 1 - SkipOperands).isExpr());
+#else  // INTEL_FEATURE_ISA_APX_F
+  return isRelaxableBranch(Opcode) ||
+         (X86::getOpcodeForLongImmediateForm(Opcode) != Opcode &&
+          MI.getOperand(MI.getNumOperands() - 1).isExpr());
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86AsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup,
@@ -785,15 +780,6 @@ void X86AsmBackend::relaxInstruction(MCInst &Inst,
   Inst.setOpcode(RelaxedOp);
 }
 
-/// Return true if this instruction has been fully relaxed into it's most
-/// general available form.
-static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
-  auto &Inst = RF.getInst();
-  auto &STI = *RF.getSubtargetInfo();
-  bool Is16BitMode = STI.hasFeature(X86::Is16Bit);
-  return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
-}
-
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
@@ -804,7 +790,7 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
   // larger value for one of the fixups then can be encoded.  The outer loop
   // will also catch this before moving to the next instruction, but we need to
   // prevent padding this single instruction as well.
-  if (!isFullyRelaxed(RF))
+  if (mayNeedRelaxation(RF.getInst(), *RF.getSubtargetInfo()))
     return false;
 
   const unsigned OldSize = RF.getContents().size();
@@ -814,8 +800,7 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
   const unsigned MaxPossiblePad = std::min(15 - OldSize, RemainingSize);
   const unsigned RemainingPrefixSize = [&]() -> unsigned {
     SmallString<15> Code;
-    raw_svector_ostream VecOS(Code);
-    Emitter.emitPrefix(RF.getInst(), VecOS, STI);
+    Emitter.emitPrefix(RF.getInst(), Code, STI);
     assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
 
     // TODO: It turns out we need a decent amount of plumbing for the target
@@ -852,7 +837,7 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
 bool X86AsmBackend::padInstructionViaRelaxation(MCRelaxableFragment &RF,
                                                 MCCodeEmitter &Emitter,
                                                 unsigned &RemainingSize) const {
-  if (isFullyRelaxed(RF))
+  if (!mayNeedRelaxation(RF.getInst(), *RF.getSubtargetInfo()))
     // TODO: There are lots of other tricks we could apply for increasing
     // encoding size without impacting performance.
     return false;
@@ -862,8 +847,7 @@ bool X86AsmBackend::padInstructionViaRelaxation(MCRelaxableFragment &RF,
 
   SmallVector<MCFixup, 4> Fixups;
   SmallString<15> Code;
-  raw_svector_ostream VecOS(Code);
-  Emitter.encodeInstruction(Relaxed, VecOS, Fixups, *RF.getSubtargetInfo());
+  Emitter.encodeInstruction(Relaxed, Code, Fixups, *RF.getSubtargetInfo());
   const unsigned OldSize = RF.getContents().size();
   const unsigned NewSize = Code.size();
   assert(NewSize >= OldSize && "size decrease during relaxation?");
@@ -969,7 +953,7 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
         // We don't need to worry about larger positive offsets as none of the
         // possible offsets between this and our align are visible, and the
         // ones afterwards aren't changing.
-        if (!isFullyRelaxed(RF))
+        if (mayNeedRelaxation(RF.getInst(), *RF.getSubtargetInfo()))
           break;
       }
       Relaxable.clear();
@@ -1370,9 +1354,13 @@ public:
 
   /// Implementation of algorithm to generate the compact unwind encoding
   /// for the CFI instructions.
-  uint32_t
-  generateCompactUnwindEncoding(ArrayRef<MCCFIInstruction> Instrs) const override {
+  uint32_t generateCompactUnwindEncoding(const MCDwarfFrameInfo *FI,
+                                         const MCContext *Ctxt) const override {
+    ArrayRef<MCCFIInstruction> Instrs = FI->Instructions;
     if (Instrs.empty()) return 0;
+    if (!isDarwinCanonicalPersonality(FI->Personality) &&
+        !Ctxt->emitCompactUnwindNonCanonical())
+      return CU::UNWIND_MODE_DWARF;
 
     // Reset the saved registers.
     unsigned SavedRegIdx = 0;
@@ -1558,6 +1546,12 @@ MCAsmBackend *llvm::createX86_64AsmBackend(const Target &T,
 
   if (TheTriple.isOSWindows() && TheTriple.isOSBinFormatCOFF())
     return new WindowsX86AsmBackend(T, true, STI);
+
+  if (TheTriple.isUEFI()) {
+    assert(TheTriple.isOSBinFormatCOFF() &&
+         "Only COFF format is supported in UEFI environment.");
+    return new WindowsX86AsmBackend(T, true, STI);
+  }
 
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TheTriple.getOS());
 

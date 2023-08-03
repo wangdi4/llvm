@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 set(LIBFUZZER_TEST_DEPS ${SANITIZER_COMMON_LIT_TEST_DEPS})
 if (NOT COMPILER_RT_STANDALONE_BUILD)
   list(APPEND LIBFUZZER_TEST_DEPS fuzzer asan ubsan)
@@ -52,13 +70,7 @@ macro(test_fuzzer stdlib)
     get_test_cc_for_arch(${arch} LIBFUZZER_TEST_COMPILER LIBFUZZER_TEST_FLAGS)
     
     # INTEL_CUSTOMIZATION
-    # We want clang to use the gcc toolchain on rdrive instead of the system
-    # default.
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-      get_filename_component(COMPILER_ROOT "gcc" PROGRAM)
-      string(REGEX REPLACE "/bin/[^/]*" "" COMPILER_ROOT "${COMPILER_ROOT}")
-      append("--gcc-toolchain=${COMPILER_ROOT}" LIBFUZZER_TEST_FLAGS)
-    endif()
+    append("${USE_RDRIVE_GCC_FLAG}" LIBFUZZER_TEST_FLAGS)
     # end INTEL_CUSTOMIZATION
 
     set(LIBFUZZER_TEST_TARGET_ARCH ${arch})

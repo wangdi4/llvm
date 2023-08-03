@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -58,6 +58,19 @@ if (DEFINED LLVM_HAVE_TF_AOT OR LLVM_HAVE_TFLITE)
     list(APPEND MLLinkDeps ${tensorflow_c_api} ${tensorflow_fx})
   endif()
 endif()
+
+# This provides the implementation of MVT and LLT.
+# Be careful to append deps on this, since Targets' tablegens depend on this.
+add_llvm_component_library(LLVMCodeGenTypes
+  LowLevelType.cpp
+  PARTIAL_SOURCES_INTENDED
+
+  DEPENDS
+  vt_gen
+
+  LINK_COMPONENTS
+  Support
+  )
 
 add_llvm_component_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
@@ -118,6 +131,7 @@ add_llvm_component_library(LLVMCodeGen
   InterleavedLoadCombinePass.cpp
   IntrinsicLowering.cpp
   JMCInstrumenter.cpp
+  KCFI.cpp
   LatencyPriorityQueue.cpp
   LazyMachineBlockFrequencyInfo.cpp
   LexicalScopes.cpp
@@ -137,7 +151,7 @@ add_llvm_component_library(LLVMCodeGen
   LLVMTargetMachine.cpp
   LocalStackSlotAllocation.cpp
   LoopTraversal.cpp
-  LowLevelType.cpp
+  LowLevelTypeUtils.cpp
   LowerEmuTLS.cpp
   MachineBasicBlock.cpp
   MachineBlockFrequencyInfo.cpp
@@ -291,6 +305,9 @@ add_llvm_component_library(LLVMCodeGen
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen/PBQP
+# INTEL_CUSTOMIZATION
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms # MLPGO
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS ${LLVM_PTHREAD_LIB} ${MLLinkDeps}
 
@@ -305,6 +322,7 @@ add_llvm_component_library(LLVMCodeGen
   Analysis
   BitReader
   BitWriter
+  CodeGenTypes
   Core
 # INTEL_CUSTOMIZATION
   Intel_MapIntrinToIml
@@ -319,6 +337,9 @@ add_llvm_component_library(LLVMCodeGen
   Target
   TargetParser
   TransformUtils
+# INTEL_CUSTOMIZATION
+  Instrumentation # MLPGO
+# end INTEL_CUSTOMIZATION
   )
 
 add_subdirectory(SelectionDAG)

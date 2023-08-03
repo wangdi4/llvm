@@ -6,10 +6,10 @@
 ; CHECK: foo:freezemallocptr  --> (0): <universal>
 
 define void  @foo() {
-  %call1 = tail call noalias i8* @malloc(i64 40)
-  %p1 = bitcast i8* %call1 to i32**
-  %freezemallocptr = freeze i32** %p1
+  %call1 = tail call noalias ptr @malloc(i64 40)
+  %p1 = bitcast ptr %call1 to ptr
+  %freezemallocptr = freeze ptr %p1
   ret void
 }
 
-declare dso_local i8* @malloc(i64)
+declare dso_local ptr @malloc(i64)

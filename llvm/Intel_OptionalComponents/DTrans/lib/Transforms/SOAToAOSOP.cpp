@@ -28,6 +28,7 @@
 #include "SOAToAOSOPInternal.h"
 #include "SOAToAOSOPStruct.h"
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
@@ -55,12 +56,12 @@ static cl::opt<bool> DTransSOAToAOSOPSizeHeuristic(
 class SOAToAOSOPTransformImpl : public DTransOPOptBase {
 public:
   SOAToAOSOPTransformImpl(
-      LLVMContext &Context, DTransSafetyInfo &DTInfo,
-      StringRef DepTypePrefix, const DataLayout &DL,
+      LLVMContext &Context, DTransSafetyInfo &DTInfo, StringRef DepTypePrefix,
+      const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       std::function<DominatorTree &(Function &)> GetDT)
-      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix),
-        DL(DL), GetTLI(GetTLI), GetDT(GetDT) {}
+      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix), DL(DL),
+        GetTLI(GetTLI), GetDT(GetDT) {}
 
   ~SOAToAOSOPTransformImpl() {
     for (auto *Cand : Candidates) {
@@ -286,7 +287,7 @@ private:
         // Create Metadata for new element type that is not mapped to any
         // existing types.
         NamedMDNode *DTMDTypes = TypeMetadataReader::getDTransTypesMetadata(M);
-	assert(DTMDTypes && "Expected non-null DTMDTypes");
+        assert(DTMDTypes && "Expected non-null DTMDTypes");
         DTMDTypes->addOperand(
             NewDTElement->createMetadataStructureDescriptor());
       }
@@ -544,11 +545,204 @@ private:
                                                          AppendFuncDTy);
     }
 
+    // Analyze Func, which is a StructMethod, and set attribute
+    // "dtrans-vector-size-filed=N" if functionality of Func is just accessing
+    // a field of the struct. "N" represents index of size field of the struct.
+    //
+    // Ex:
+    //  Let us assume @bar is ArrayMethod and function kind of bar is GetElem.
+    //
+    //   define ptr @foo(ptr %0, i32 %1) {
+    //     %3 = getelementptr %FieldValueMap, ptr %0, i64 0, i32 0
+    //     %4 = load ptr, ptr %3, align 8
+    //     %5 = icmp eq ptr %4, null
+    //     br i1 %5, label %9, label %6
+    //
+    //   6:
+    //     %7 = call ptr @bar(ptr %4, i32 %1)
+    //       %8 = load ptr, ptr %7, align 8
+    //       br label %9
+    //
+    //   9:
+    //     %10 = phi ptr [ %8, %6 ], [ null, %2 ]
+    //     ret ptr %10
+    //   }
+    //
+    void setDTransVectorSizeFieldAttr(SOAToAOSOPTransformImpl &Impl,
+                                      Function &Func) {
+      SmallPtrSet<const Instruction *, 16> Processed;
+
+      // Find single return statement in Func.
+      FunctionType *FTy = Func.getFunctionType();
+      Type *RetTy = FTy->getReturnType();
+      if (!RetTy || !RetTy->isPointerTy())
+        return;
+      ReturnInst *RI = nullptr;
+      for (BasicBlock &BB : Func)
+        if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
+          if (RI)
+            return;
+          else
+            RI = Ret;
+        }
+      if (!RI)
+        return;
+      Processed.insert(RI);
+
+      // Find possible return values: NullPtr and return value of a call.
+      auto *Phi = dyn_cast<PHINode>(RI->getReturnValue());
+      if (!Phi || Phi->getNumIncomingValues() != 2)
+        return;
+      BasicBlock *NullBB = nullptr;
+      const CallBase *VecCB = nullptr;
+      for (auto I = 0; I < 2; I++) {
+        const Value *Val = Phi->getIncomingValue(I);
+        if (isa<Constant>(Val) && cast<Constant>(Val)->isNullValue()) {
+          if (NullBB)
+            return;
+          NullBB = Phi->getIncomingBlock(I);
+        } else if (auto *CB = dyn_cast<CallBase>(Val)) {
+          if (VecCB)
+            return;
+          VecCB = CB;
+        } else if (auto *LI = dyn_cast<LoadInst>(Val)) {
+          auto *CB = dyn_cast<CallBase>(LI->getPointerOperand());
+          if (!CB || VecCB)
+            return;
+          VecCB = CB;
+          Processed.insert(LI);
+        } else {
+          return;
+        }
+      }
+      if (!VecCB || !NullBB)
+        return;
+      Processed.insert(VecCB);
+      Processed.insert(Phi);
+
+      // Makes sure the call is member function of ArrayClass.
+      auto *CalleeF = dtrans::getCalledFunction(*VecCB);
+      if (!CalleeF)
+        return;
+      ClassInfo *CI = nullptr;
+      for (auto *CInfo : ArraysClassInfo)
+        if (CInfo->isCandidateMemberFunction(CalleeF)) {
+          CI = CInfo;
+          break;
+        }
+      if (!CI)
+        return;
+
+      // Makes sure function kind of member function is GetElem.
+      if (CI->getFinalFuncKind(CalleeF) != GetElem)
+        return;
+
+      // Check proper arguments are passed to the call.
+      if (VecCB->arg_size() != Func.arg_size() || VecCB->arg_size() != 2)
+        return;
+      if (VecCB->getArgOperand(1) != Func.getArg(1))
+        return;
+      auto *LI = dyn_cast<LoadInst>(VecCB->getArgOperand(0));
+      if (!LI)
+        return;
+      auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+      if (!GEP)
+        return;
+      if (GEP->getPointerOperand() != Func.getArg(0) ||
+          GEP->getNumIndices() != 2)
+        return;
+      auto *ZeroIdx = dyn_cast<Constant>(GEP->getOperand(1));
+      if (!ZeroIdx || !ZeroIdx->isZeroValue())
+        return;
+      auto *GEPIdx = dyn_cast<Constant>(GEP->getOperand(2));
+      if (!GEPIdx)
+        return;
+
+      // NullPtr condition is checked here.
+      auto *BI = dyn_cast<BranchInst>(NullBB->getTerminator());
+      if (!BI || !BI->isConditional())
+        return;
+      ICmpInst *IC = dyn_cast<ICmpInst>(BI->getCondition());
+      if (!IC)
+        return;
+      if (IC->getPredicate() != ICmpInst::ICMP_EQ || IC->getOperand(0) != LI)
+        return;
+      Value *NullOp = IC->getOperand(1);
+      if (!isa<Constant>(NullOp) || !cast<Constant>(NullOp)->isNullValue())
+        return;
+
+      Processed.insert(LI);
+      Processed.insert(GEP);
+      Processed.insert(BI);
+      Processed.insert(IC);
+
+      // Makes sure all instructions are processed.
+      for (auto &I : instructions(Func)) {
+        if (Processed.count(&I))
+          continue;
+
+        if (isa<BranchInst>(&I) && cast<BranchInst>(&I)->isUnconditional())
+          continue;
+
+        if (isa<DbgInfoIntrinsic>(&I))
+          continue;
+
+        return;
+      }
+      if (CI->getSizeField() < 0)
+        return;
+
+      // Set "dtrans-vector-size-field=size_field_index" attribute.
+      Func.addFnAttr("dtrans-vector-size-field",
+                     llvm::itostr(CI->getSizeField()));
+
+      // Identify candidate callsites related to IPPredOpt transformation using
+      // some heuristics and mark them with "ippredopt-callsite" attribute.
+      // Later, this attribute is used to avoid inlining and Argument promotion.
+      SmallPtrSet<Function *, 4> IPPredOptFunctions;
+      Function *SingleCaller = nullptr;
+      for (auto *U : Func.users()) {
+        auto *CB = dyn_cast<CallBase>(U);
+        if (!CB)
+          continue;
+        Value *FirstArg = CB->getArgOperand(0);
+        auto *ArgCB = dyn_cast<CallBase>(FirstArg);
+        if (!isa<Argument>(FirstArg) && !ArgCB)
+          continue;
+        if (ArgCB) {
+          Function *ArgFunc = ArgCB->getCalledFunction();
+          if (!ArgFunc || ArgFunc->isDeclaration())
+            continue;
+          IPPredOptFunctions.insert(ArgFunc);
+        }
+        IPPredOptFunctions.insert(&Func);
+        if (!SingleCaller) {
+          SingleCaller = CB->getFunction();
+        } else if (SingleCaller != CB->getFunction()) {
+          SingleCaller = nullptr;
+          break;
+        }
+      }
+      if (!SingleCaller)
+        return;
+      for (auto &I : instructions(SingleCaller)) {
+        auto *CallI = dyn_cast<CallBase>(&I);
+        if (!CallI)
+          continue;
+        Function *CallF = CallI->getCalledFunction();
+        if (!CallF || CallF->isDeclaration())
+          continue;
+        if (IPPredOptFunctions.count(CallF))
+          CallI->addFnAttr("ippredopt-callsite");
+      }
+    }
+
     void postprocessFunction(SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,
                              bool isCloned) {
       auto SIt = StructTransInfo.find(&OrigFunc);
       if (SIt != StructTransInfo.end()) {
         postprocessStructMethod(Impl, OrigFunc, *SIt->second.get(), isCloned);
+        setDTransVectorSizeFieldAttr(Impl, OrigFunc);
         return;
       }
 

@@ -1,6 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ;*** IR Dump Before HIR Last Value Computation ***
 ;Function: foo
 ;
@@ -20,6 +22,13 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25530: Stmt at line 0 sinked after loop using last value computation
 ; OPTREPORT: LOOP END
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLastValueComputation
+
 define i32 @foo(i32 %uni1, i64 %n) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
   br label %omp.inner.for.body

@@ -49,11 +49,11 @@ include(SYCLUtils)
 #
 # See doc/developer/ABIPolicyGuide.md for the meaning when in the middle of
 # development cycle.
-set(SYCL_MAJOR_VERSION 6)
-set(SYCL_MINOR_VERSION 2)
+set(SYCL_MAJOR_VERSION 7)
+set(SYCL_MINOR_VERSION 0)
 set(SYCL_PATCH_VERSION 0)
 
-set(SYCL_DEV_ABI_VERSION 0)
+set(SYCL_DEV_ABI_VERSION 8)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -204,6 +204,9 @@ if ("opencl" IN_LIST SYCL_ENABLE_PLUGINS)
 endif()
 if ("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
   set(SYCL_BUILD_PI_LEVEL_ZERO ON)
+if ("native_cpu" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_NATIVE_CPU ON)
+endif()
 endif()
 
 # Configure SYCL version macro
@@ -340,7 +343,6 @@ add_custom_target(sycl-compiler
           llc
           llvm-ar
           llvm-foreach
-          llvm-no-spir-kernel
           llvm-spirv
           llvm-link
           llvm-objcopy
@@ -363,6 +365,8 @@ add_custom_target( sycl-toolchain
 
 if (WIN32)
   add_dependencies(sycl-toolchain pi_win_proxy_loader)
+elseif(SYCL_ENABLE_XPTI_TRACING)
+  add_dependencies(sycl-toolchain sycl-trace)
 endif()
 
 # Enable new IN_LIST operator.
@@ -436,7 +440,6 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      llc
      llvm-ar
      llvm-foreach
-     llvm-no-spir-kernel
      llvm-spirv
      llvm-link
      llvm-objcopy
@@ -467,12 +470,11 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # if (TARGET sycl-sanitize)
 #   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
 # endif()
-# if (TARGET sycl-trace)
-#   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
-# endif()
 # end INTEL_CUSTOMIZATION
 if (WIN32)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_win_proxy_loader)
+elseif(SYCL_ENABLE_XPTI_TRACING)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
 endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
@@ -586,3 +588,5 @@ add_custom_target(deploy-sycl-toolchain
 
 # SYCL Runtime documentation
 add_subdirectory(doc)
+# SYCL End-to-End tests
+add_subdirectory(test-e2e)

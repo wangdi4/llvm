@@ -58,13 +58,6 @@ private:
   using InstVec = CompilationUtils::InstVec;
   using ValueVec = CompilationUtils::ValueVec;
 
-  using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
-  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BBSet>;
-  using BasicBlockToBasicBlockVectorTy =
-      DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
-  using BasicBlockToInstructionMapVectorTy =
-      MapVector<BasicBlock *, SmallVector<Instruction *, 8>>;
-
   /// Execute pass on given function.
   /// F function to optimize.
   /// Returns True if function was modified.
@@ -88,8 +81,8 @@ private:
   void fixSpecialValues();
 
   /// Hanlde Values of Group-B.2 of processed function.
-  /// InsertBefore instruction to insert new alloca before.
-  void fixCrossBarrierValues(Instruction *InsertBefore);
+  /// \p F Function to fix.
+  void fixCrossBarrierValues(Function &F);
 
   /// Handle synchronize value of processed function.
   void replaceSyncInstructions();
@@ -116,17 +109,13 @@ private:
                                    Instruction *InsertBefore,
                                    const DebugLoc *DB);
 
-  /// Return instruction to insert new instruction before
-  /// if UserInst is not a PHINode then return UserInst. Otherwise,
-  /// return termenator of prevBB of UserInst with respect to Inst.
-  /// Inst value that UserInst is using,
-  /// UserInst instruction that is using Inst value,
-  /// ExpectNULL true if allow returning NULL when,
-  /// UserInst is a PHINode and BB(pInst) == PrevBB(pUserInst).
-  /// Returns best instruction to insert new instruction before.
-  Instruction *getInstructionToInsertBefore(Instruction *Inst,
-                                            Instruction *UserInst,
-                                            bool ExpectNULL);
+  /// Return instructions to insert new instruction before, which are
+  /// termenators of prevBBs of PhiNode with respect to Inst, and instructions
+  /// can be empty if prevBBs are equal to BB(Inst).
+  /// Inst - value that PhiNode is using,
+  /// PhiNode - instruction that is using Inst value
+  SmallVector<Instruction *> getInstructionsToInsertBefore(Instruction *Inst,
+                                                           PHINode *PhiNode);
 
   /// Fix get_local_id and get_global_id.
   /// M module to optimize.
@@ -263,25 +252,6 @@ private:
   Value *resolveGetLocalIDCall(CallInst *Call);
   unsigned getNumDims() const { return CurrentBarrierKeyValues->NumDims; }
 
-  /// For each sync intruction in current function, find its parent
-  /// basic and successors that also contains sync instruction.
-  void findSyncBBSuccessors();
-
-  /// Find the nearest SyncBB that dominates basic block BB.
-  /// DT Dominator tree of current function.
-  /// BB The basic block to process.
-  /// Return The nearest SyncBB.
-  BasicBlock *findNearestDominatorSyncBB(DominatorTree &DT, BasicBlock *BB);
-
-  /// Bind a value's users to basic blocks so that a user will be replaced
-  /// by value loaded from value's new address alloca in its bound basic block.
-  /// \param F Function to process.
-  /// \param V Value to process.
-  /// \param DI DbgVariableIntrinsic of AI.
-  /// \param BBUsers Output binding map.
-  void bindUsersToBasicBlock(Function &F, Value *V, DbgVariableIntrinsic *DI,
-                             BasicBlockToInstructionMapVectorTy &BBUsers);
-
 private:
   void calculateDirectPrivateSize(
       Module &M, FuncSet &FnsWithSync,
@@ -388,30 +358,6 @@ private:
   /// This holds per-function map from sync basic block to newly splitted sync
   /// basic block.
   DenseMap<Function *, DenseMap<BasicBlock *, BasicBlock *>> OldToNewSyncBBMap;
-
-  /// This holds a map from basic block to its containing sync instruction.
-  DenseMap<BasicBlock *, Instruction *> SyncPerBB;
-
-  /// This holds a map from a sync basic block to its successors that are also
-  /// sync basic blocks.
-  BasicBlockToBasicBlockSetTy SyncBBSuccessors;
-
-  /// This holds a map from a basic block to all nodes dominated by the basic
-  /// block.
-  BasicBlockToBasicBlockVectorTy BBToDominatedBBs;
-
-  /// This holds a map from a basic block to its predecessor basic blocks that
-  /// contain a sync instruction.
-  BasicBlockToBasicBlockVectorTy BBToPredSyncBB;
-
-  /// This holds a map from a basic block to its nearest dominator that
-  /// contains a sync instruction.
-  BasicBlockToBasicBlockTy BBToNearestDominatorSyncBB;
-
-  /// This holds a map from a basic block to another basic blocks and to
-  /// whether there is a barrier in any path from the basic block to another
-  /// basic block.
-  DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> HasBarrierFromTo;
 };
 
 } // namespace llvm

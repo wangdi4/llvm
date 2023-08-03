@@ -60,25 +60,25 @@ for.body:                                         ; preds = %for.end, %entry
 for.body3:                                        ; preds = %for.inc, %for.body
   %indvars.iv = phi i64 [ 1, %for.body ], [ %indvars.iv.next, %for.inc ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !25, metadata !DIExpression()), !dbg !30
-  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv64, i64 %indvars.iv, !dbg !36
-  %0 = load i32, i32* %arrayidx5, align 4, !dbg !36, !tbaa !39
-  %arrayidx9 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv64, !dbg !45
-  %1 = load i32, i32* %arrayidx9, align 4, !dbg !45, !tbaa !39
+  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv64, i64 %indvars.iv, !dbg !36
+  %0 = load i32, ptr %arrayidx5, align 4, !dbg !36, !tbaa !39
+  %arrayidx9 = getelementptr inbounds [1000 x [1000 x i32]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv64, !dbg !45
+  %1 = load i32, ptr %arrayidx9, align 4, !dbg !45, !tbaa !39
   %add = add nsw i32 %1, %0, !dbg !46
-  %arrayidx14 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv.next65, i64 %indvars.iv, !dbg !47
-  %2 = load i32, i32* %arrayidx14, align 4, !dbg !47, !tbaa !39
+  %arrayidx14 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv.next65, i64 %indvars.iv, !dbg !47
+  %2 = load i32, ptr %arrayidx14, align 4, !dbg !47, !tbaa !39
   %add15 = add nsw i32 %add, %2, !dbg !48
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !49
-  %arrayidx20 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv64, i64 %indvars.iv.next, !dbg !50
-  %3 = load i32, i32* %arrayidx20, align 4, !dbg !50, !tbaa !39
+  %arrayidx20 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv64, i64 %indvars.iv.next, !dbg !50
+  %3 = load i32, ptr %arrayidx20, align 4, !dbg !50, !tbaa !39
   %add21 = add nsw i32 %add15, %3, !dbg !51
-  %arrayidx25 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv64, !dbg !52
-  store i32 %add21, i32* %arrayidx25, align 4, !dbg !53, !tbaa !39
+  %arrayidx25 = getelementptr inbounds [1000 x [1000 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv64, !dbg !52
+  store i32 %add21, ptr %arrayidx25, align 4, !dbg !53, !tbaa !39
   br i1 %cmp26, label %if.then, label %for.inc, !dbg !54
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx36 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv.next65, i64 %indvars.iv.next, !dbg !55
-  store i32 %add21, i32* %arrayidx36, align 4, !dbg !58, !tbaa !39
+  %arrayidx36 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv.next65, i64 %indvars.iv.next, !dbg !55
+  store i32 %add21, ptr %arrayidx36, align 4, !dbg !58, !tbaa !39
   br label %for.inc, !dbg !59
 
 for.inc:                                          ; preds = %for.body3, %if.then
@@ -86,9 +86,9 @@ for.inc:                                          ; preds = %for.body3, %if.then
   br i1 %exitcond, label %for.end, label %for.body3, !dbg !33, !llvm.loop !61
 
 for.end:                                          ; preds = %for.inc
-  %arrayidx39 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @C, i64 0, i64 %indvars.iv64, i64 2, !dbg !63
+  %arrayidx39 = getelementptr inbounds [1000 x [1000 x i32]], ptr @C, i64 0, i64 %indvars.iv64, i64 2, !dbg !63
   %4 = trunc i64 %indvars.iv64 to i32, !dbg !64
-  store i32 %4, i32* %arrayidx39, align 8, !dbg !64, !tbaa !39
+  store i32 %4, ptr %arrayidx39, align 8, !dbg !64, !tbaa !39
   %exitcond66 = icmp eq i64 %indvars.iv.next65, 1000, !dbg !65
   br i1 %exitcond66, label %for.end42, label %for.body, !dbg !28, !llvm.loop !66
 

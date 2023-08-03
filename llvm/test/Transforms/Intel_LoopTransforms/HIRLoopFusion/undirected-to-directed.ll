@@ -127,13 +127,13 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup60
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %indvars.iv143, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx6, align 4
-  %arrayidx10 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %indvars.iv143, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx10, align 4
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv143, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx6, align 4
+  %arrayidx10 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %indvars.iv143, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx10, align 4
   %add = add nsw i32 %1, %0
-  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], ptr @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx14, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.body19.preheader, label %for.body4
@@ -143,13 +143,13 @@ for.body19.preheader:                             ; preds = %for.body4
 
 for.body19:                                       ; preds = %for.body19.preheader, %for.body19
   %indvars.iv134 = phi i64 [ %indvars.iv.next135, %for.body19 ], [ 0, %for.body19.preheader ]
-  %arrayidx23 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
-  %2 = load i32, i32* %arrayidx23, align 4
-  %arrayidx27 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @C, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
-  %3 = load i32, i32* %arrayidx27, align 4
+  %arrayidx23 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
+  %2 = load i32, ptr %arrayidx23, align 4
+  %arrayidx27 = getelementptr inbounds [100 x [100 x i32]], ptr @C, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
+  %3 = load i32, ptr %arrayidx27, align 4
   %add28 = add nsw i32 %3, %2
-  %arrayidx32 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @E, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
-  store i32 %add28, i32* %arrayidx32, align 4
+  %arrayidx32 = getelementptr inbounds [100 x [100 x i32]], ptr @E, i64 0, i64 %indvars.iv143, i64 %indvars.iv134
+  store i32 %add28, ptr %arrayidx32, align 4
   %indvars.iv.next135 = add nuw nsw i64 %indvars.iv134, 1
   %exitcond136 = icmp eq i64 %indvars.iv.next135, 100
   br i1 %exitcond136, label %for.body40.preheader, label %for.body19
@@ -159,13 +159,13 @@ for.body40.preheader:                             ; preds = %for.body19
 
 for.body40:                                       ; preds = %for.body40.preheader, %for.body40
   %indvars.iv137 = phi i64 [ %indvars.iv.next138, %for.body40 ], [ 0, %for.body40.preheader ]
-  %arrayidx44 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
-  %4 = load i32, i32* %arrayidx44, align 4
-  %arrayidx48 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @E, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
-  %5 = load i32, i32* %arrayidx48, align 4
+  %arrayidx44 = getelementptr inbounds [100 x [100 x i32]], ptr @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
+  %4 = load i32, ptr %arrayidx44, align 4
+  %arrayidx48 = getelementptr inbounds [100 x [100 x i32]], ptr @E, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
+  %5 = load i32, ptr %arrayidx48, align 4
   %add49 = add nsw i32 %5, %4
-  %arrayidx53 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @F, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
-  store i32 %add49, i32* %arrayidx53, align 4
+  %arrayidx53 = getelementptr inbounds [100 x [100 x i32]], ptr @F, i64 0, i64 %indvars.iv143, i64 %indvars.iv137
+  store i32 %add49, ptr %arrayidx53, align 4
   %indvars.iv.next138 = add nuw nsw i64 %indvars.iv137, 1
   %exitcond139 = icmp eq i64 %indvars.iv.next138, 100
   br i1 %exitcond139, label %for.body61.preheader, label %for.body40
@@ -180,19 +180,19 @@ for.cond.cleanup60:                               ; preds = %for.body61
 
 for.body61:                                       ; preds = %for.body61.preheader, %for.body61
   %indvars.iv140 = phi i64 [ %indvars.iv.next141, %for.body61 ], [ 0, %for.body61.preheader ]
-  %arrayidx65 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
-  %6 = load i32, i32* %arrayidx65, align 4
-  %arrayidx69 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @C, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
-  %7 = load i32, i32* %arrayidx69, align 4
+  %arrayidx65 = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
+  %6 = load i32, ptr %arrayidx65, align 4
+  %arrayidx69 = getelementptr inbounds [100 x [100 x i32]], ptr @C, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
+  %7 = load i32, ptr %arrayidx69, align 4
   %add70 = add nsw i32 %7, %6
-  %arrayidx74 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @F, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
-  %8 = load i32, i32* %arrayidx74, align 4
+  %arrayidx74 = getelementptr inbounds [100 x [100 x i32]], ptr @F, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
+  %8 = load i32, ptr %arrayidx74, align 4
   %add75 = add nsw i32 %add70, %8
-  %arrayidx79 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
-  %9 = load i32, i32* %arrayidx79, align 4
+  %arrayidx79 = getelementptr inbounds [100 x [100 x i32]], ptr @D, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
+  %9 = load i32, ptr %arrayidx79, align 4
   %add80 = add nsw i32 %add75, %9
-  %arrayidx84 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @J, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
-  store i32 %add80, i32* %arrayidx84, align 4
+  %arrayidx84 = getelementptr inbounds [100 x [100 x i32]], ptr @J, i64 0, i64 %indvars.iv143, i64 %indvars.iv140
+  store i32 %add80, ptr %arrayidx84, align 4
   %indvars.iv.next141 = add nuw nsw i64 %indvars.iv140, 1
   %exitcond142 = icmp eq i64 %indvars.iv.next141, 100
   br i1 %exitcond142, label %for.cond.cleanup60, label %for.body61

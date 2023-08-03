@@ -8,7 +8,7 @@
 ; CHECK: VFABI: adding mapping '_ZGV_LLVM_N8v_llvm.log.f64(__svml_log8)'
 
 ; CHECK-LABEL: @llvm.compiler.used = appending global
-; CHECK-SAME:        [6 x i8*] [
+; CHECK-SAME:        [12 x i8*] [
 ; CHECK-SAME:          i8* bitcast (<2 x double> (<2 x double>)* @__svml_log2 to i8*),
 ; CHECK-SAME:          i8* bitcast (<4 x double> (<4 x double>)* @__svml_log4 to i8*),
 ; CHECK-SAME:          i8* bitcast (<8 x double> (<8 x double>)* @__svml_log8 to i8*),

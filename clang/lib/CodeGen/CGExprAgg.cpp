@@ -107,8 +107,6 @@ public:
   void EmitCopy(QualType type, const AggValueSlot &dest,
                 const AggValueSlot &src);
 
-  void EmitMoveFromReturnSlot(const Expr *E, RValue Src);
-
   void EmitArrayInit(Address DestPtr, llvm::ArrayType *AType, QualType ArrayQTy,
                      Expr *ExprToVisit, ArrayRef<Expr *> Args,
                      Expr *ArrayFiller);
@@ -158,8 +156,12 @@ public:
       // destination but can have a different type. Just do a bitcast in this
       // case to avoid incorrect GEPs.
       if (Result->getType() != StoreDest.getType())
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        StoreDest = StoreDest.withElementType(Result->getType());
+#else
         StoreDest =
             CGF.Builder.CreateElementBitCast(StoreDest, Result->getType());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       CGF.EmitAggregateStore(Result, StoreDest,
                              E->getType().isVolatileQualified());
       return;
@@ -775,8 +777,12 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
 
     // GCC union extension
     QualType Ty = E->getSubExpr()->getType();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address CastPtr = Dest.getAddress().withElementType(CGF.ConvertType(Ty));
+#else
     Address CastPtr =
       Builder.CreateElementBitCast(Dest.getAddress(), CGF.ConvertType(Ty));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     EmitInitializationToLValue(E->getSubExpr(),
                                CGF.MakeAddrLValue(CastPtr, Ty));
     break;
@@ -790,10 +796,16 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
     }
 
     LValue SourceLV = CGF.EmitLValue(E->getSubExpr());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address SourceAddress =
+        SourceLV.getAddress(CGF).withElementType(CGF.Int8Ty);
+    Address DestAddress = Dest.getAddress().withElementType(CGF.Int8Ty);
+#else
     Address SourceAddress =
         Builder.CreateElementBitCast(SourceLV.getAddress(CGF), CGF.Int8Ty);
     Address DestAddress =
         Builder.CreateElementBitCast(Dest.getAddress(), CGF.Int8Ty);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *SizeVal = llvm::ConstantInt::get(
         CGF.SizeTy,
         CGF.getContext().getTypeSizeInChars(E->getType()).getQuantity());
@@ -1680,10 +1692,18 @@ void AggExprEmitter::VisitCXXParenListOrInitListExpr(
   LValue DestLV = CGF.MakeAddrLValue(Dest.getAddress(), ExprToVisit->getType());
 
   // Handle initialization of an array.
-  if (ExprToVisit->getType()->isArrayType()) {
+  if (ExprToVisit->getType()->isConstantArrayType()) {
     auto AType = cast<llvm::ArrayType>(Dest.getAddress().getElementType());
     EmitArrayInit(Dest.getAddress(), AType, ExprToVisit->getType(), ExprToVisit,
                   InitExprs, ArrayFiller);
+    return;
+  } else if (ExprToVisit->getType()->isVariableArrayType()) {
+    // A variable array type that has an initializer can only do empty
+    // initialization. And because this feature is not exposed as an extension
+    // in C++, we can safely memset the array memory to zero.
+    assert(InitExprs.size() == 0 &&
+           "you can only use an empty initializer with VLAs");
+    CGF.EmitNullInitialization(Dest.getAddress(), ExprToVisit->getType());
     return;
   }
 
@@ -2040,8 +2060,12 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
   // Okay, it seems like a good idea to use an initial memset, emit the call.
   llvm::Constant *SizeVal = CGF.Builder.getInt64(Size.getQuantity());
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address Loc = Slot.getAddress().withElementType(CGF.Int8Ty);
+#else
   Address Loc = Slot.getAddress();
   Loc = CGF.Builder.CreateElementBitCast(Loc, CGF.Int8Ty);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   CGF.Builder.CreateMemSet(Loc, CGF.Builder.getInt8(0), SizeVal, false);
 
   // Tell the AggExprEmitter that the slot is known zero.
@@ -2205,14 +2229,19 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   // we need to use a different call here.  We use isVolatile to indicate when
   // either the source or the destination is volatile.
 
-#if INTEL_CUSTOMIZATION
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  auto DestPtrI8 = DestPtr.withElementType(Int8Ty);
+  auto SrcPtrI8 = SrcPtr.withElementType(Int8Ty);
+#else
   auto DestPtrI8 = Builder.CreateElementBitCast(DestPtr, Int8Ty);
   auto SrcPtrI8 = Builder.CreateElementBitCast(SrcPtr, Int8Ty);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#if INTEL_CUSTOMIZATION
   recordNoAliasPtr(DestPtr.getPointer(), DestPtrI8.getPointer());
   recordNoAliasPtr(SrcPtr.getPointer(), SrcPtrI8.getPointer());
+#endif // INTEL_CUSTOMIZATION
   SrcPtr = SrcPtrI8;
   DestPtr = DestPtrI8;
-#endif // INTEL_CUSTOMIZATION
 
   // Don't do any of the memmove_collectable tests if GC isn't set.
   if (CGM.getLangOpts().getGC() == LangOptions::NonGC) {

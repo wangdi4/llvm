@@ -1,5 +1,5 @@
-; RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref > %t
-; RUN: FileCheck %s <%t
+; RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref 2>&1 | FileCheck %s
+
 ;CHECK: 11.000000
 ;CHECK: 22.000000
 ;CHECK: 33.000000

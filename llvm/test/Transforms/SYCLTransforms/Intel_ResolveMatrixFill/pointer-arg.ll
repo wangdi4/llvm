@@ -1,11 +1,8 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test() {
-; NONOPAQUE: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, i32 addrspace(4)* %load
-; OPAQUE: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, ptr addrspace(4) %load
+; CHECK: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, ptr addrspace(4) %load
 ; CHECK: [[MAT_INIT:%.*]] = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT: [[SLICE_LENGTH:%slice.length.*]] = call i64 @llvm.experimental.matrix.wi.slice.length.v144i32(<144 x i32> [[MAT_INIT]], i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT: br label %[[LOOP_HEADER:matrix.fill.slice.loop.header.*]]
@@ -26,19 +23,19 @@ define void @test() {
 ; CHECK: call void @foo(<144 x i32> [[MAT]])
 ; CHECK: ret void
 entry:
-  %v.addr.i = alloca i32 addrspace(4)*, align 8
+  %v.addr.i = alloca ptr addrspace(4), align 8
   %ref.tmp = alloca i32, align 4
-  %ref.tmp.ascast = addrspacecast i32* %ref.tmp to i32 addrspace(4)*
-  store i32 0, i32 addrspace(4)* %ref.tmp.ascast, align 4
-  %v.addr.ascast.i = addrspacecast i32 addrspace(4)** %v.addr.i to i32 addrspace(4)* addrspace(4)*
-  store i32 addrspace(4)* %ref.tmp.ascast, i32 addrspace(4)* addrspace(4)* %v.addr.ascast.i, align 8
-  %load = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %v.addr.ascast.i, align 8
-  %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.p4i32(i32 addrspace(4)* %load, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %ref.tmp.ascast = addrspacecast ptr %ref.tmp to ptr addrspace(4)
+  store i32 0, ptr addrspace(4) %ref.tmp.ascast, align 4
+  %v.addr.ascast.i = addrspacecast ptr %v.addr.i to ptr addrspace(4)
+  store ptr addrspace(4) %ref.tmp.ascast, ptr addrspace(4) %v.addr.ascast.i, align 8
+  %load = load ptr addrspace(4), ptr addrspace(4) %v.addr.ascast.i, align 8
+  %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.p4(ptr addrspace(4) %load, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   call void @foo(<144 x i32> %call.i)
   ret void
 }
 
-declare <144 x i32> @llvm.experimental.matrix.fill.v144i32.p4i32(i32 addrspace(4)*, i32, i32, metadata, metadata, metadata)
+declare <144 x i32> @llvm.experimental.matrix.fill.v144i32.p4(ptr addrspace(4), i32, i32, metadata, metadata, metadata)
 declare void @foo(<144 x i32>)
 
 ; DEBUGIFY-NOT: WARNING

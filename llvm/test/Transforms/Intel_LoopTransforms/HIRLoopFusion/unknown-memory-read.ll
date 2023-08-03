@@ -43,8 +43,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define dso_local i32 @bar() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @C, i64 0, i64 0), align 16
-  %1 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 0), align 16
+  %0 = load i32, ptr @C, align 16
+  %1 = load i32, ptr @B, align 16
   %add = add nsw i32 %1, %0
   ret i32 %add
 }
@@ -60,7 +60,7 @@ for.cond1.preheader:                              ; preds = %for.cond.cleanup10,
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup10
   %call.lcssa = phi i32 [ %call, %for.cond.cleanup10 ]
-  %call24 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %call.lcssa)
+  %call24 = tail call i32 (ptr, ...) @printf(ptr @.str, i32 %call.lcssa)
   ret i32 0
 
 for.cond.cleanup3:                                ; preds = %for.body4
@@ -69,12 +69,12 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
@@ -86,20 +86,20 @@ for.cond.cleanup10:                               ; preds = %for.body11
 
 for.body11:                                       ; preds = %for.body11, %for.cond.cleanup3
   %indvars.iv42 = phi i64 [ 0, %for.cond.cleanup3 ], [ %indvars.iv.next43, %for.body11 ]
-  %arrayidx13 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv42
-  %2 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv42
+  %2 = load i32, ptr %arrayidx13, align 4
   %3 = trunc i64 %indvars.iv42 to i32
   %add14 = add i32 %call, %3
   %add15 = add i32 %add14, %2
-  %arrayidx17 = getelementptr inbounds [100 x i32], [100 x i32]* @C, i64 0, i64 %indvars.iv42
-  store i32 %add15, i32* %arrayidx17, align 4
+  %arrayidx17 = getelementptr inbounds [100 x i32], ptr @C, i64 0, i64 %indvars.iv42
+  store i32 %add15, ptr %arrayidx17, align 4
   %indvars.iv.next43 = add nuw nsw i64 %indvars.iv42, 1
   %exitcond44 = icmp eq i64 %indvars.iv.next43, 100
   br i1 %exitcond44, label %for.cond.cleanup10, label %for.body11
 }
 
 ; Function Attrs: nounwind
-declare dso_local i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #2
+declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2
 
 attributes #0 = { noinline norecurse nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

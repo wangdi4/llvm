@@ -48,14 +48,30 @@ public:
   struct SCC {
   private:
     // Outermost loop's header phi is set as the root.
-    NodeTy *Root;
+    NodeTy *OrigRoot;
+    // This node will be used as the 'base' temp by substituting other nodes in
+    // HIR representation. In most cases this will be the same as OrigRoot but
+    // it may be unsafe if it has range information as substituting it in
+    // arbitrary SCEVs can result in incorrect simplification. In these cases,
+    // SubstitutableRoot will be set to null by this pass until a new
+    // instruction is created by HIRSSADeconstruction to act as the
+    // substitutible root.
+    NodeTy *SubstitutableRoot;
     SCCNodesTy Nodes;
 
   public:
-    SCC(NodeTy *R) : Root(R) {}
+    SCC(NodeTy *Root) { setRoot(Root); }
 
-    NodeTy *getRoot() const { return Root; }
-    void setRoot(NodeTy *NewRoot) { Root = NewRoot; }
+    void setRoot(NodeTy *Root) {
+      setOrigRoot(Root);
+      setSubstitutableRoot(Root);
+    }
+
+    NodeTy *getOrigRoot() const { return OrigRoot; }
+    void setOrigRoot(NodeTy *Root) { OrigRoot = Root; }
+
+    NodeTy *getSubstitutableRoot() const { return SubstitutableRoot; }
+    void setSubstitutableRoot(NodeTy *Root) { SubstitutableRoot = Root; }
 
     unsigned size() const { return Nodes.size(); }
 
@@ -154,6 +170,9 @@ private:
   /// Removes non-phi nodes which are not directly connected to phi nodes in the
   /// SCC.
   void removeIntermediateNodes(SCC &CurSCC) const;
+
+  /// Resets the SubstitutableRoot of CurSCC to null if it is deemed unsafe.
+  void resetUnsafeSubstitutableRoot(SCC &CurSCC) const;
 
   /// Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();

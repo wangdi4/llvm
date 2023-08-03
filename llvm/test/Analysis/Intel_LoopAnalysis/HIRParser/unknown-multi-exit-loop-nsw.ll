@@ -7,16 +7,16 @@
 ; ModuleID = 'red1.ll'
 source_filename = "red.ll"
 
-declare i32 @strcmp(i8* nocapture, i8* nocapture)
+declare i32 @strcmp(ptr nocapture, ptr nocapture)
 
-define void @func(i8* %t1, i8** %t6, i8* %t9) {
+define void @func(ptr %t1, ptr %t6, ptr %t9) {
 entry:
   br label %loop
 
 loop:                                             ; preds = %backedge, %entry
-  %t14 = phi i8* [ %t23, %backedge ], [ %t9, %entry ]
+  %t14 = phi ptr [ %t23, %backedge ], [ %t9, %entry ]
   %t15 = phi i32 [ %t21, %backedge ], [ 0, %entry ]
-  %t16 = tail call i32 @strcmp(i8* %t1, i8* %t14)
+  %t16 = tail call i32 @strcmp(ptr %t1, ptr %t14)
   %t17 = icmp eq i32 %t16, 0
   br i1 %t17, label %if, label %backedge
 
@@ -27,9 +27,9 @@ if:                                               ; preds = %loop
 
 backedge:                                         ; preds = %loop
   %t21 = add nuw nsw i32 %t15, 2
-  %t22 = getelementptr inbounds i8*, i8** %t6, i32 %t21
-  %t23 = load i8*, i8** %t22, align 4
-  %t24 = icmp eq i8* %t23, null
+  %t22 = getelementptr inbounds ptr, ptr %t6, i32 %t21
+  %t23 = load ptr, ptr %t22, align 4
+  %t24 = icmp eq ptr %t23, null
   br i1 %t24, label %exit.loopexit, label %loop
 
 exit.loopexit:                                    ; preds = %backedge

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -645,13 +645,6 @@ public:
   /// Determine if this is an integer-only cast.
   bool isIntegerCast() const;
 
-  /// A lossless cast is one that does not alter the basic value. It implies
-  /// a no-op cast but is more stringent, preventing things like int->float,
-  /// long->double, or int->ptr.
-  /// @returns true iff the cast is lossless.
-  /// Determine if this is a lossless cast.
-  bool isLosslessCast() const;
-
   /// A no-op cast is one that can be effected without changing any bits.
   /// It implies that the source and destination types are the same size. The
   /// DataLayout argument is to determine the pointer size when examining casts
@@ -859,6 +852,17 @@ public:
 
   Predicate getOrderedPredicate() const {
     return getOrderedPredicate(getPredicate());
+  }
+
+  /// Returns the unordered variant of a floating point compare.
+  ///
+  /// For example, OEQ -> UEQ, OLT -> ULT, OEQ -> UEQ
+  static Predicate getUnorderedPredicate(Predicate Pred) {
+    return static_cast<Predicate>(Pred | FCMP_UNO);
+  }
+
+  Predicate getUnorderedPredicate() const {
+    return getUnorderedPredicate(getPredicate());
   }
 
   /// For example, EQ -> NE, UGT -> ULE, SLT -> SGE,
@@ -1479,7 +1483,6 @@ public:
   /// type.
   void setCalledFunction(FunctionType *FTy, Value *Fn) {
     this->FTy = FTy;
-    assert(cast<PointerType>(Fn->getType())->isOpaqueOrPointeeTypeMatches(FTy));
     // This function doesn't mutate the return type, only the function
     // type. Seems broken, but I'm just gonna stick an assert in for now.
     assert(getType() == FTy->getReturnType());
@@ -1530,6 +1533,10 @@ public:
   Attribute getCallSiteOrFuncAttr(StringRef Kind) const {
     return getCallSiteOrFuncAttrImpl(Kind);
   }
+
+  /// Returns true if this copy instruction was created by HIR framework to
+  /// represent a temp in HIR. It has no uses in LLVM IR.
+  bool isDummyCopyCreatedbyHIR() const;
 #endif // INTEL_CUSTOMIZATION
 
   // TODO: remove non-AtIndex versions of these methods.
@@ -1994,7 +2001,7 @@ public:
     return Attrs.hasAttrSomewhere(Attribute::ByVal);
   }
 
-  ///@{
+  ///@}
   // End of attribute API.
 
   /// \name Operand Bundle API

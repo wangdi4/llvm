@@ -128,8 +128,10 @@ namespace Intrinsic {
       TruncArgument,
       HalfVecArgument,
       SameVecWidthArgument,
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       PtrToArgument,
       PtrToElt,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       VecOfAnyPtrsToElt,
       VecElementArgument,
       Subdivide2Argument,
@@ -137,7 +139,10 @@ namespace Intrinsic {
       VecOfBitcastsToInt,
       AMX,
       PPCQuad,
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       AnyPtrToElt,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      AArch64Svcount,
     } Kind;
 
     union {
@@ -149,42 +154,67 @@ namespace Intrinsic {
       ElementCount Vector_Width;
     };
 
+    // AK_% : Defined in Intrinsics.td
     enum ArgKind {
-      AK_Any,
-      AK_AnyInteger,
-      AK_AnyFloat,
-      AK_AnyVector,
-      AK_AnyPointer,
-      AK_MatchType = 7
+#define GET_INTRINSIC_ARGKIND
+#include "llvm/IR/IntrinsicEnums.inc"
+#undef GET_INTRINSIC_ARGKIND
     };
 
     unsigned getArgumentNumber() const {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       assert(Kind == Argument || Kind == ExtendArgument ||
              Kind == TruncArgument || Kind == HalfVecArgument ||
-             Kind == SameVecWidthArgument || Kind == PtrToArgument ||
+             Kind == SameVecWidthArgument ||
              Kind == PtrToElt || Kind == VecElementArgument ||
              Kind == Subdivide2Argument || Kind == Subdivide4Argument ||
              Kind == VecOfBitcastsToInt);
+#else
+      assert(Kind == Argument || Kind == ExtendArgument ||
+             Kind == TruncArgument || Kind == HalfVecArgument ||
+             Kind == SameVecWidthArgument ||
+             Kind == PtrToArgument ||
+             Kind == PtrToElt || Kind == VecElementArgument ||
+             Kind == Subdivide2Argument || Kind == Subdivide4Argument ||
+             Kind == VecOfBitcastsToInt);
+
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       return Argument_Info >> 3;
     }
     ArgKind getArgumentKind() const {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       assert(Kind == Argument || Kind == ExtendArgument ||
              Kind == TruncArgument || Kind == HalfVecArgument ||
-             Kind == SameVecWidthArgument || Kind == PtrToArgument ||
+             Kind == PtrToArgument ||
+             Kind == SameVecWidthArgument ||
              Kind == VecElementArgument || Kind == Subdivide2Argument ||
              Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      assert(Kind == Argument || Kind == ExtendArgument ||
+             Kind == TruncArgument || Kind == HalfVecArgument ||
+             Kind == SameVecWidthArgument ||
+             Kind == VecElementArgument || Kind == Subdivide2Argument ||
+             Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       return (ArgKind)(Argument_Info & 7);
     }
 
-    // VecOfAnyPtrsToElt and AnyPtrToElt uses both an overloaded argument (for
-    // address space) and a reference argument (for matching vector width and
-    // element types)
+    // VecOfAnyPtrsToElt uses both an overloaded argument (for address space)
+    // and a reference argument (for matching vector width and element types)
     unsigned getOverloadArgNumber() const {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      assert(Kind == VecOfAnyPtrsToElt);
+#else
       assert(Kind == VecOfAnyPtrsToElt || Kind == AnyPtrToElt);
+#endif
       return Argument_Info >> 16;
     }
     unsigned getRefArgNumber() const {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      assert(Kind == VecOfAnyPtrsToElt);
+#else
       assert(Kind == VecOfAnyPtrsToElt || Kind == AnyPtrToElt);
+#endif
       return Argument_Info & 0xFFFF;
     }
 

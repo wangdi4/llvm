@@ -1742,6 +1742,7 @@ bool ODRDiagsEmitter::diagnoseMismatch(
       return true;
     }
 
+    // Note, these calls can trigger deserialization.
     const Expr *FirstInit = FirstParam->getInit();
     const Expr *SecondInit = SecondParam->getInit();
     if ((FirstInit == nullptr) != (SecondInit == nullptr)) {
@@ -2095,7 +2096,8 @@ bool ODRDiagsEmitter::diagnoseMismatch(
       << FirstDecl->getSourceRange();
   Diag(SecondDecl->getLocation(),
        diag::note_module_odr_violation_mismatch_decl_unknown)
-      << SecondModule << FirstDiffType << SecondDecl->getSourceRange();
+      << SecondModule.empty() << SecondModule << FirstDiffType
+      << SecondDecl->getSourceRange();
   return true;
 }
 

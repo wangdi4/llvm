@@ -1077,7 +1077,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    pinsrd $3, c+12(%rip), %xmm0
 ; SSE-NEXT:    testb $16, %al
 ; SSE-NEXT:    jne .LBB4_11
-; SSE-NEXT:  .LBB4_10: # %else8 ;INTEL
+; SSE-NEXT:  .LBB4_10:
 ; SSE-NEXT:    # implicit-def: $xmm1
 ; SSE-NEXT:    testb $32, %al
 ; SSE-NEXT:    je .LBB4_14
@@ -1111,7 +1111,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    testb $-128, %al
 ; SSE-NEXT:    jne .LBB4_17
 ; SSE-NEXT:    jmp .LBB4_18
-; SSE-NEXT:  .LBB4_19: # %else20 ;INTEL
+; SSE-NEXT:  .LBB4_19:
 ; SSE-NEXT:    # implicit-def: $xmm4
 ; SSE-NEXT:    testb $2, %al
 ; SSE-NEXT:    je .LBB4_23
@@ -1139,7 +1139,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    pinsrd $3, c+28(%rip), %xmm4
 ; SSE-NEXT:    testb $16, %al
 ; SSE-NEXT:    jne .LBB4_29
-; SSE-NEXT:  .LBB4_28: # %else41 ;INTEL
+; SSE-NEXT:  .LBB4_28:
 ; SSE-NEXT:    # implicit-def: $xmm5
 ; SSE-NEXT:    testb $32, %al
 ; SSE-NEXT:    je .LBB4_32
@@ -1172,7 +1172,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    testb $-128, %al
 ; SSE-NEXT:    jne .LBB4_35
 ; SSE-NEXT:    jmp .LBB4_36
-; SSE-NEXT:  .LBB4_37: # %else61 ;INTEL
+; SSE-NEXT:  .LBB4_37:
 ; SSE-NEXT:    # implicit-def: $xmm2
 ; SSE-NEXT:    testb $2, %al
 ; SSE-NEXT:    je .LBB4_41
@@ -1200,7 +1200,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    pinsrd $3, c+28(%rip), %xmm2
 ; SSE-NEXT:    testb $16, %al
 ; SSE-NEXT:    jne .LBB4_47
-; SSE-NEXT:  .LBB4_46: # %else82 ;INTEL
+; SSE-NEXT:  .LBB4_46:
 ; SSE-NEXT:    # implicit-def: $xmm3
 ; SSE-NEXT:    testb $32, %al
 ; SSE-NEXT:    je .LBB4_50

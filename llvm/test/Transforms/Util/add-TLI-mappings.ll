@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; COMMON-LABEL: @llvm.compiler.used = appending global
 ; INTEL_CUSTOMIZATION
-; SVML-SAME:        [12 x ptr] [
+; SVML-SAME:        [24 x ptr] [
 ; end INTEL_CUSTOMIZATION
 ; SVML-SAME:          ptr @__svml_sin2,
 ; SVML-SAME:          ptr @__svml_sin4,

@@ -1,48 +1,48 @@
-; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
+; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
 
 ; Test where static global is address taken, but can be determined to not be modified by the routine
 ; doesnotmodX, even though that routine calls a routine which modifies memory.
 ; This test is to check set propagation across routines.
 
-@X = internal global i32 4		; <i32*>
+@X = internal global i32 4		; <ptr>
 
-define i32 @test(i32* %P) {
+define i32 @test(ptr %P) {
 ; CHECK:      @test
 ; CHECK-NEXT:  %V = alloca i32, align 4
-; CHECK-NEXT: store i32 12, i32* @X
-; CHECK-NEXT: call void @doesnotmodX(i32* %V)
+; CHECK-NEXT: store i32 12, ptr @X
+; CHECK-NEXT: call void @doesnotmodX(ptr %V)
 ; CHECK-NEXT: ret i32 12
     %V = alloca i32, align 4
-	store i32 12, i32* @X
-	call void @doesnotmodX(i32* %V)
-	%1 = load i32, i32* @X		; <i32>
+	store i32 12, ptr @X
+	call void @doesnotmodX(ptr %V)
+	%1 = load i32, ptr @X		; <i32>
 	ret i32 %1
 }
 
-define void @doesnotmodX(i32* %P) {
+define void @doesnotmodX(ptr %P) {
 entry:
-  call void @stilldoesnotmodX(i32* %P)
+  call void @stilldoesnotmodX(ptr %P)
   ret void
 }
 
-define void @stilldoesnotmodX(i32* %P) {
+define void @stilldoesnotmodX(ptr %P) {
 entry:
-  %P.addr = alloca i32*, align 8
-  store i32* %P, i32** %P.addr, align 8
-  store i32* null, i32** %P.addr, align 8
+  %P.addr = alloca ptr, align 8
+  store ptr %P, ptr %P.addr, align 8
+  store ptr null, ptr %P.addr, align 8
   ret void
 }
 
-define void @doesModX(i32* %anX) {
-  %anX.addr = alloca i32*, align 8
-  store i32* %anX, i32** %anX.addr, align 8
-  %1 = load i32*, i32** %anX.addr, align 8
-  store i32 1, i32* %1, align 4
+define void @doesModX(ptr %anX) {
+  %anX.addr = alloca ptr, align 8
+  store ptr %anX, ptr %anX.addr, align 8
+  %1 = load ptr, ptr %anX.addr, align 8
+  store i32 1, ptr %1, align 4
   ret void
 }
 
 define void @test_addr_of() {
 entry:
-  call void @doesModX(i32* @X)
+  call void @doesModX(ptr @X)
   ret void
 }

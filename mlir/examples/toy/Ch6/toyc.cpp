@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Func/Extensions/AllExtensions.h"
 #include "toy/Dialect.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
@@ -136,7 +137,8 @@ int loadAndProcessMLIR(mlir::MLIRContext &context,
 
   mlir::PassManager pm(module.get()->getName());
   // Apply any generic pass manager command line options and run the pipeline.
-  applyPassManagerCLOptions(pm);
+  if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
+    return 4;
 
   // Check to see what granularity of MLIR we are compiling to.
   bool isLoweringToAffine = emitAction >= Action::DumpMLIRAffine;
@@ -165,8 +167,8 @@ int loadAndProcessMLIR(mlir::MLIRContext &context,
 
     // Add optimizations if enabled.
     if (enableOpt) {
-      optPM.addPass(mlir::createLoopFusionPass());
-      optPM.addPass(mlir::createAffineScalarReplacementPass());
+      optPM.addPass(mlir::affine::createLoopFusionPass());
+      optPM.addPass(mlir::affine::createAffineScalarReplacementPass());
     }
   }
 
@@ -215,7 +217,21 @@ int dumpLLVMIR(mlir::ModuleOp module) {
   // Initialize LLVM targets.
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
-  mlir::ExecutionEngine::setupTargetTriple(llvmModule.get());
+
+  // Configure the LLVM Module
+  auto tmBuilderOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
+  if (!tmBuilderOrError) {
+    llvm::errs() << "Could not create JITTargetMachineBuilder\n";
+    return -1;
+  }
+
+  auto tmOrError = tmBuilderOrError->createTargetMachine();
+  if (!tmOrError) {
+    llvm::errs() << "Could not create TargetMachine\n";
+    return -1;
+  }
+  mlir::ExecutionEngine::setupTargetTripleAndDataLayout(llvmModule.get(),
+                                                        tmOrError.get().get());
 
   /// Optionally run an optimization pipeline over the llvm module.
   auto optPipeline = mlir::makeOptimizingTransformer(
@@ -274,8 +290,10 @@ int main(int argc, char **argv) {
     return dumpAST();
 
   // If we aren't dumping the AST, then we are compiling with/to MLIR.
+  mlir::DialectRegistry registry;
+  mlir::func::registerAllExtensions(registry);
 
-  mlir::MLIRContext context;
+  mlir::MLIRContext context(registry);
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::toy::ToyDialect>();
 

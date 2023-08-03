@@ -24,22 +24,22 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv36 = phi i64 [ 0, %entry ], [ %indvars.iv.next37, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv36
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv36
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv36
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %indvars.iv36
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd float %0, %1
-  %arrayidx4 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv36
-  store float %add, float* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv36
+  store float %add, ptr %arrayidx4, align 4
   %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %indvars.iv.next37 = add nuw nsw i64 %indvars.iv36, 1
-  %arrayidx7 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv.next37
-  %3 = load float, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv.next37
+  %3 = load float, ptr %arrayidx7, align 4
   %4 = trunc i64 %indvars.iv36 to i32
   %conv = sitofp i32 %4 to float
   %add8 = fadd float %3, %conv
-  %arrayidx10 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %indvars.iv36
-  store float %add8, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %indvars.iv36
+  store float %add8, ptr %arrayidx10, align 4
   call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %exitcond38 = icmp eq i64 %indvars.iv.next37, 100
   br i1 %exitcond38, label %for.body16.preheader, label %for.body
@@ -52,10 +52,10 @@ for.cond.cleanup15:                               ; preds = %for.body16
 
 for.body16:                                       ; preds = %for.body16.preheader, %for.body16
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body16 ], [ 0, %for.body16.preheader ]
-  %arrayidx18 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %indvars.iv
-  %5 = load float, float* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %indvars.iv
+  %5 = load float, ptr %arrayidx18, align 4
   %inc19 = fadd float %5, 1.000000e+00
-  store float %inc19, float* %arrayidx18, align 4
+  store float %inc19, ptr %arrayidx18, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.cond.cleanup15, label %for.body16

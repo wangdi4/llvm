@@ -31,16 +31,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = internal unnamed_addr constant [4 x i32] [i32 3, i32 2, i32 1, i32 0], align 16
 
-define void @foo(i32* nocapture %B, i32* nocapture %C) {
+define void @foo(ptr nocapture %B, ptr nocapture %C) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* @A, i64 0, i64 %indvars.iv
-  %t0 = load i32, i32* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  store i32 %t0, i32* %arrayidx3, align 4
+  %arrayidx = getelementptr inbounds [4 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %t0 = load i32, ptr %arrayidx, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  store i32 %t0, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.end, label %for.body
@@ -50,10 +50,10 @@ for.end:
 
 for.body1:                                         ; preds = %for.body1, %for.end
   %indvars.iv1 = phi i64 [ 0, %for.end ], [ %indvars.iv.next1, %for.body1 ]
-  %arrayidx1 = getelementptr inbounds [4 x i32], [4 x i32]* @A, i64 0, i64 %indvars.iv1
-  %t1 = load i32, i32* %arrayidx1, align 4
-  %arrayidx31 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv1
-  store i32 %t1, i32* %arrayidx31, align 4
+  %arrayidx1 = getelementptr inbounds [4 x i32], ptr @A, i64 0, i64 %indvars.iv1
+  %t1 = load i32, ptr %arrayidx1, align 4
+  %arrayidx31 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv1
+  store i32 %t1, ptr %arrayidx31, align 4
   %indvars.iv.next1 = add nuw nsw i64 %indvars.iv1, 1
   %exitcond1 = icmp eq i64 %indvars.iv.next1, 4
   br i1 %exitcond1, label %for.end1, label %for.body1

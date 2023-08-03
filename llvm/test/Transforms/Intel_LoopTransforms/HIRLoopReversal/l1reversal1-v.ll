@@ -89,31 +89,31 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common global [100 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %A) #0 {
+define i32 @foo(ptr nocapture %A) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = sub nuw nsw i64 100, %indvars.iv
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %0
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %0
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %1, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %arrayidx1 = getelementptr inbounds i32, i32* %A, i64 1
-  %2 = load i32, i32* %arrayidx1, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds i32, ptr %A, i64 1
+  %2 = load i32, ptr %arrayidx1, align 4, !tbaa !1
   ret i32 %2
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind argmemonly }

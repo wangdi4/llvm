@@ -162,7 +162,6 @@ bool VPlanHCFGBuilder::buildHierarchicalCFG() {
   auto &VPDomTree = *Plan->getDT();
 
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
-  LLVM_DEBUG(Verifier->verifyLoops(Plan, VPDomTree, Plan->getVPLoopInfo()));
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
@@ -191,6 +190,10 @@ bool VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
              Plan->getPDT()->print(dbgs()));
 
+#ifndef NDEBUG
+  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipInnerMultiExit |
+                                  VPlanVerifier::CheckNumLoops);
+#endif
   VPLAN_DUMP(PlainCFGDumpControl, Plan);
 
   return true;
@@ -240,6 +243,7 @@ public:
   using UDRList = VPOVectorizationLegality::UDRList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
   using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
+  using PrivDescrF90DVTy = VPOVectorizationLegality::PrivDescrF90DVTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -247,7 +251,8 @@ protected:
   PlainCFGBuilder &Builder;
 
   bool AliasesWithinLoopImpl(Instruction *Inst,
-                             SmallPtrSetImpl<Value *> &Visited) {
+                             SmallPtrSetImpl<Value *> &Visited,
+                             bool IsF90DV = false) {
     // Here we use \p Visited to avoid infinite loop on reference-cycles. E.g.,
     //    %0 = phi i1 [ %1, ... ], ...
     //    %1 = phi i1 [ %0, ... ], ...
@@ -256,22 +261,25 @@ protected:
 
     return llvm::any_of(Inst->users(), [&](Value *User) {
       Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) || (isTrivialPointerAliasingInst(Inst) &&
-                                        AliasesWithinLoopImpl(Inst, Visited));
+      return Builder.contains(Inst) ||
+             ((isTrivialPointerAliasingInst(Inst) ||
+               (IsF90DV && isa<LoadInst>(Inst))) &&
+              AliasesWithinLoopImpl(Inst, Visited, IsF90DV));
     });
   }
 
   // Helper to recursively evaluate if there is any user of an alias \p Inst or
   // any user of nested aliases *based on* this alias is inside the loop-region.
-  bool AliasesWithinLoop(Instruction *Inst) {
+  bool AliasesWithinLoop(Instruction *Inst, bool IsF90DV = false) {
     SmallPtrSet<Value *, 8> Visited;
-    return AliasesWithinLoopImpl(Inst, Visited);
+    return AliasesWithinLoopImpl(Inst, Visited, IsF90DV);
   }
 
   // This method collects aliases that lie outside the loop-region. We are not
   // concerned with aliases within the loop as they would be acquired
   // when required (e.g., escape analysis).
-  void collectMemoryAliases(VPEntityImportDescr &Descriptor, Value *Alloca) {
+  void collectMemoryAliases(VPEntityImportDescr &Descriptor, Value *Alloca,
+                            bool IsF90DV = false) {
     SetVector<Value *> WorkList;
     SmallPtrSet<const User *, 4> Visited;
 
@@ -296,8 +304,9 @@ protected:
         Visited.insert(Use);
         Instruction *Inst = cast<Instruction>(Use);
 
-        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
-            AliasesWithinLoop(Inst)) {
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst) ||
+             (IsF90DV && isa<LoadInst>(Inst))) &&
+            AliasesWithinLoop(Inst, IsF90DV)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||
                   isa<VPInstruction>(NewVPOperand)) &&
@@ -384,17 +393,16 @@ public:
     // section.
     if (auto *OrigVGEP = dyn_cast<GetElementPtrInst>(OrigV))
       OrigV = OrigVGEP->getPointerOperand();
-    assertIsSingleElementAlloca(OrigV);
     VPValue *OrigAlloca = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.Kind);
-    auto *AI = cast<AllocaInst>(OrigV);
     // Reductions can have memory alias.
-    collectMemoryAliases(Descriptor, AI);
-    Descriptor.setRecType(AI->getAllocatedType());
+    collectMemoryAliases(Descriptor, OrigV);
+    auto *AI = dyn_cast<AllocaInst>(OrigV);
+    Descriptor.setRecType(AI ? AI->getAllocatedType() : CurValue.second.Ty);
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
@@ -444,6 +452,7 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setKind(ID.getKind());
     Descriptor.setStart(Builder.getOrCreateVPOperand(ID.getStartValue()));
+    Descriptor.setIndType(Descriptor.getStart()->getType());
     const SCEV *Step = ID.getStep();
     Value *V = nullptr;
     if (auto UndefStep = dyn_cast<SCEVUnknown>(Step))
@@ -543,6 +552,7 @@ public:
     std::tie(IndTy, IndPointeeTy, Step, IsIV) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
+    Descriptor.setIndType(IndTy);
     Type *StepTy = IndTy;
     Descriptor.setStepType(StepTy);
     if (isa<ConstantInt>(Step)) {
@@ -597,7 +607,8 @@ public:
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectMemoryAliases(Descriptor, RefVal);
+    collectMemoryAliases(Descriptor, RefVal,
+                         !CurValue->isNonPOD() && CurValue->isF90());
 
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(CurValue->isCond());
@@ -614,6 +625,9 @@ public:
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+    } else if (CurValue->isF90()) {
+      auto *F90DVCurValue = cast<PrivDescrF90DVTy>(CurValue);
+      Descriptor.setF90DVElementType(F90DVCurValue->getF90DVElementType());
     }
     SmallVector<VPInstruction *, 4> AliasUpdates;
     for (auto *Alias : CurValue->aliases()) {

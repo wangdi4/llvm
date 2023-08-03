@@ -12,15 +12,15 @@
 ; CHECK-SAME: _Z4testv:%0
 ; CHECK-NOT: [0] _Z4testv:%1        -->
 
-@_ZTIPi = external constant i8*
-define void @_Z4testv() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+@_ZTIPi = external constant ptr
+define void @_Z4testv() personality ptr bitcast (ptr @__gxx_personality_v0 to ptr) {
 entry:
   invoke void @_Z3foov()
      to label %invoke.cont unwind label %lpad
  lpad:
-   %0 = landingpad {i8*, i32}
-        catch i8* bitcast (i8** @_ZTIPi to i8*)
-   %1 = extractvalue { i8*, i32 } %0, 0
+   %0 = landingpad {ptr, i32}
+        catch ptr bitcast (ptr @_ZTIPi to ptr)
+   %1 = extractvalue { ptr, i32 } %0, 0
    br label %invoke.cont
  invoke.cont:
   ret void

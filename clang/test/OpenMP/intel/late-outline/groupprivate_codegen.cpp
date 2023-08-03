@@ -35,15 +35,22 @@ int test2() {
 }
 #pragma omp end declare target
 
+int x_gp;
+#pragma omp groupprivate (x_gp)
+
 int main() {
 #pragma omp target
   test1();
 #pragma omp target
   test2();
+#pragma omp target teams num_teams(4)
+  x_gp++;
 }
 //HOST: @y = target_declare global i32 0, align 4
+//HOST: @x_gp = global i32 0, align 4
 //HOST: @_ZZL5test1vE1x = internal global i32 0, align 4
 //TARG: @y = target_declare addrspace(3) global i32 0, align 4
+//TARG: @x_gp = external addrspace(3) global i32, align 4
 //TARG: @_ZZL5test1vE1x = internal addrspace(3) global i32 undef, align 4
 //TARG-NOT: {i32 1, !"_Z1y", i32 0, i32 0, ptr addrspace(3) @y}
 

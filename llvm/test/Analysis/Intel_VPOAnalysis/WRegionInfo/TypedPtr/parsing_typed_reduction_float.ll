@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;    return 0;
 ; }
 
-; CHECK: REDUCTION clause (size=1): (AND: float* %v3, TYPED (TYPE: float, NUM_ELEMENTS: i32 1))
+; CHECK: REDUCTION clause (size=1): (AND: TYPED(float* %v3, TYPE: float, NUM_ELEMENTS: i32 1))
 
 @.str = private unnamed_addr constant [8 x i8] c"FAILED\0A\00", align 1
 @.str.1 = private unnamed_addr constant [8 x i8] c"PASSED\0A\00", align 1

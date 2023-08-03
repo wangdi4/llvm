@@ -3,27 +3,31 @@
 ;
 ; LIT test to check dynamic peeling in VPlan HIR path.
 ;
-define void @foo(i64* %lp, i64 %n1) {
+define void @foo(ptr %lp, i64 %n1) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%n1 + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%lp}
+; CHECK-DAG:     [[VP0:%.*]] = {%lp}
+; CHECK-DAG:     [[VP1:%.*]] = {%n1 + -1}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[PEEL_CHECKZ0:peel.checkz[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = add i64 [[VP0]] i64 1
+; CHECK-NEXT:    [[PEEL_CHECK_TC:peel.check.tc[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Uni] i64* [[VP_PEEL_BASE_PTR:%.*]] = inv-scev-wrapper{([[LP0:%.*]]),+,0}
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_BASEPTR_INT:%.*]] = ptrtoint i64* [[VP_PEEL_BASE_PTR]] to i64
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_QUOTIENT:%.*]] = udiv i64 [[VP_BASEPTR_INT]] i64 8
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_QMULTIPLIER:%.*]] = mul i64 [[VP_QUOTIENT]] i64 3
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_PEEL_COUNT:%.*]] = urem i64 [[VP_QMULTIPLIER]] i64 4
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_PEEL_ZERO_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_PEEL_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_PEEL_ZERO_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKV0:peel.checkv[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = icmp ult i64 [[VP2]] i64 72
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKZ0:peel.checkz[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[PEEL_CHECKZ0]]: # preds: [[PEEL_CHECK_TC]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_PEEL_BASE_PTR:%.*]] = inv-scev-wrapper{([[LP0:%.*]]),+,0}
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_BASEPTR_INT:%.*]] = ptrtoint ptr [[VP_PEEL_BASE_PTR]] to i64
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_QUOTIENT:%.*]] = udiv i64 [[VP_BASEPTR_INT]] i64 8
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_QMULTIPLIER:%.*]] = mul i64 [[VP_QUOTIENT]] i64 3
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_PEEL_COUNT:%.*]] = urem i64 [[VP_QMULTIPLIER]] i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_ZERO_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_PEEL_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_ZERO_CHECK]], [[MERGE_BLK0]], [[PEEL_CHECKV0:peel.checkv[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[PEEL_CHECKV0]]: # preds: [[PEEL_CHECKZ0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK:%.*]] = icmp ugt i64 [[VP3]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP4:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK:%.*]] = icmp ugt i64 [[VP4]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK]], [[MERGE_BLK1:merge.blk[0-9]+]], [[PEELBLK0:PeelBlk[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[PEELBLK0]]: # preds: [[PEEL_CHECKV0]]
@@ -37,13 +41,13 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] br [[MERGE_BLK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[PEEL_CHECKZ0]], [[BB0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP4:%.*]] = phi-merge  [ i64 0, [[PEEL_CHECKZ0]] ],  [ i64 [[VP_ORIG_LIVEOUT]], [[BB0]] ]
+; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[PEEL_CHECKZ0]], [[PEEL_CHECK_TC]], [[BB0]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP5:%.*]] = phi-merge  [ i64 0, [[PEEL_CHECKZ0]] ],  [ i64 0, [[PEEL_CHECK_TC]] ],  [ i64 [[VP_ORIG_LIVEOUT]], [[BB0]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP5:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP5]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP6:%.*]] = add i64 [[VP5]] i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP6]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
@@ -51,18 +55,18 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]] i64 [[VP_PEEL_COUNT]], UF = 1
-; CHECK-NEXT:       [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 [[VP4]] i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]] i64 [[VP5]], UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 [[VP5]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP6:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB3]] ],  [ i64 [[VP7:%.*]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP6]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP6]] i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP8]], [[BB4]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP7:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB3]] ],  [ i64 [[VP8:%.*]], [[BB4]] ]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP7]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP7]] ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP8]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP9]], [[BB4]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -77,13 +81,13 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB7]], [[PEEL_CHECKV0]], [[BB1]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP9:%.*]] = phi-merge  [ i64 live-out0, [[BB7]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP4]], [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP10:%.*]] = phi-merge  [ i64 live-out0, [[BB7]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP5]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[REMBLK0:RemBlk[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK1]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
 ; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
-; CHECK-NEXT:         { Initialize temp [[LB_TMP0:%.*]] with -> i64 [[VP9]] }
+; CHECK-NEXT:         { Initialize temp [[LB_TMP0:%.*]] with -> i64 [[VP10]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP_1]], liveout: [[N10:%.*]] + -1
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -92,83 +96,91 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB7]], [[BB8]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP10:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB8]] ],  [ i64 live-out0, [[BB7]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP11:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB8]] ],  [ i64 live-out0, [[BB7]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
-;
-; CHECK:       BEGIN REGION { modified }
-; CHECK:             [[DOTVEC0:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[LP0]])[0]))
-; CHECK:             [[DOTVEC10:%.*]] = [[DOTVEC0]]  /u  8
-; CHECK:             [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  3
-; CHECK:             [[DOTVEC30:%.*]] = [[DOTVEC20]]  [[U0:%.*]]  4
-; CHECK:             [[DOTVEC40:%.*]] = 0 == [[DOTVEC30]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Function: foo
+; CHECK-EMPTY:
+; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK:             [[DOTVEC0:%.*]] = [[N10]] <u 72
 ; CHECK:             [[PHI_TEMP0:%.*]] = 0
-; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK:             if ([[EXTRACT_0_0]] == 1)
 ; CHECK:             {
 ; CHECK:                goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK:             }
-; CHECK:             [[DOTVEC50:%.*]] = [[DOTVEC30]] + 4 >u [[N10]]
-; CHECK:             [[PHI_TEMP60:%.*]] = 0
-; CHECK:             [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC50]],  0
-; CHECK:             if ([[EXTRACT_0_80]] == 1)
+; CHECK:             [[DOTVEC10:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[LP0]])[0]))
+; CHECK:             [[DOTVEC20:%.*]] = [[DOTVEC10]]  /u  8
+; CHECK:             [[DOTVEC30:%.*]] = [[DOTVEC20]]  *  3
+; CHECK:             [[DOTVEC40:%.*]] = [[DOTVEC30]]  [[U0:%.*]]  4
+; CHECK:             [[DOTVEC50:%.*]] = 0 == [[DOTVEC40]]
+; CHECK:             [[PHI_TEMP0]] = 0
+; CHECK:             [[EXTRACT_0_70:%.*]] = extractelement [[DOTVEC50]],  0
+; CHECK:             if ([[EXTRACT_0_70]] == 1)
+; CHECK:             {
+; CHECK:                goto [[MERGE_AFTER_PEEL]]
+; CHECK:             }
+; CHECK:             [[DOTVEC80:%.*]] = [[DOTVEC40]] + 4 >u [[N10]]
+; CHECK:             [[PHI_TEMP90:%.*]] = 0
+; CHECK:             [[EXTRACT_0_110:%.*]] = extractelement [[DOTVEC80]],  0
+; CHECK:             if ([[EXTRACT_0_110]] == 1)
 ; CHECK:             {
 ; CHECK:                goto [[MERGE_AFTER_MAIN:.*]];
 ; CHECK:             }
-; CHECK:             [[EXTRACT_0_90:%.*]] = extractelement [[DOTVEC30]],  0
-
-; CHECK:             [[UB_TMP0]] = [[EXTRACT_0_90]]
+; CHECK:             [[EXTRACT_0_120:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK:             [[UB_TMP0]] = [[EXTRACT_0_120]]
 ; CHECK:             [[PEEL_UB0:%.*]] = [[UB_TMP0]]  -  1
+
 ; CHECK:             + DO i64 i1 = 0, [[PEEL_UB0]], 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-peel> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:             |   ([[LP0]])[i1] = i1
 ; CHECK:             + END LOOP
 
 ; CHECK:             [[PHI_TEMP0]] = [[UB_TMP0]]
 ; CHECK:             [[MERGE_AFTER_PEEL]]:
-; CHECK:             [[DOTVEC110:%.*]] = [[DOTVEC30]] + 4 >u [[N10]]
-; CHECK:             [[PHI_TEMP60]] = [[PHI_TEMP0]]
-; CHECK:             [[EXTRACT_0_130:%.*]] = extractelement [[DOTVEC110]],  0
-; CHECK:             if ([[EXTRACT_0_130]] == 1)
+; CHECK:             [[DOTVEC140:%.*]] = [[PHI_TEMP0]] + 4 >u [[N10]]
+; CHECK:             [[PHI_TEMP90]] = [[PHI_TEMP0]]
+; CHECK:             [[EXTRACT_0_160:%.*]] = extractelement [[DOTVEC140]],  0
+; CHECK:             if ([[EXTRACT_0_160]] == 1)
 ; CHECK:             {
 ; CHECK:                goto [[MERGE_AFTER_MAIN]]
 ; CHECK:             }
-; CHECK:             [[EXTRACT_0_140:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK:             [[ADJ_TC0:%.*]] = [[N10]]  -  [[EXTRACT_0_140]]
+; CHECK:             [[ADJ_TC0:%.*]] = [[N10]]  -  [[PHI_TEMP0]]
 ; CHECK:             [[TGU0:%.*]] = [[ADJ_TC0]]  /u  4
 ; CHECK:             [[VEC_TC0:%.*]] = [[TGU0]]  *  4
-; CHECK:             [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK:             [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
-; CHECK:             [[TMP0:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3>
-; CHECK:             [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
+; CHECK:             [[ADJ_TC170:%.*]] = [[VEC_TC0]]  +  [[PHI_TEMP0]]
+; CHECK:             [[TMP0:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3>
+
+; CHECK:             [[LOOP_UB0:%.*]] = [[ADJ_TC170]]  -  1
 
 ; CHECK:             + DO i64 i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:             |   (<4 x i64>*)([[LP0]])[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>
-; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
+; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR ptr [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
 ; CHECK:             + END LOOP
 
-; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[ADJ_TC160]]
-; CHECK:             [[DOTVEC170:%.*]] = [[N10]] == [[ADJ_TC160]]
-; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL0]]
-; CHECK:             [[PHI_TEMP190:%.*]] = [[IND_FINAL0]]
-; CHECK:             [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC170]],  0
-; CHECK:             if ([[EXTRACT_0_210]] == 1)
+; CHECK:             [[IND_FINAL0:%.*]] = 0  +  [[ADJ_TC170]]
+; CHECK:             [[DOTVEC180:%.*]] = [[N10]] == [[ADJ_TC170]]
+; CHECK:             [[PHI_TEMP90]] = [[IND_FINAL0]]
+; CHECK:             [[PHI_TEMP200:%.*]] = [[IND_FINAL0]]
+; CHECK:             [[EXTRACT_0_220:%.*]] = extractelement [[DOTVEC180]],  0
+; CHECK:             if ([[EXTRACT_0_220]] == 1)
 ; CHECK:             {
 ; CHECK:                goto [[FINAL_MERGE:.*]];
 ; CHECK:             }
 ; CHECK:             [[MERGE_AFTER_MAIN]]:
-; CHECK:             [[LB_TMP0]] = [[PHI_TEMP60]]
-; CHECK:             + DO i64 i1 = [[LB_TMP0]], [[N10]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             [[LB_TMP0]] = [[PHI_TEMP90]]
 
+; CHECK:             + DO i64 i1 = [[LB_TMP0]], [[N10]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:             |   ([[LP0]])[i1] = i1
 ; CHECK:             + END LOOP
 
-; CHECK:             [[PHI_TEMP190]] = [[N10]] + -1
+; CHECK:             [[PHI_TEMP200]] = [[N10]] + -1
 ; CHECK:             [[FINAL_MERGE]]:
 ; CHECK:       END REGION
-
+;
 entry:
   %cmp5 = icmp sgt i64 %n1, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -178,8 +190,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.06
-  store i64 %l1.06, i64* %arrayidx, align 8, !tbaa !3
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.06
+  store i64 %l1.06, ptr %arrayidx, align 8, !tbaa !3
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !7

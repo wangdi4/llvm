@@ -845,54 +845,73 @@ void DTransInfoGenerator::HandleDecomposedRecordDeclFields(
     llvm::SmallVectorImpl<llvm::Metadata *> &LitMD, const RecordDecl *RD,
     const Expr *InitExpr, llvm::StructType *ST, unsigned &LLVMIdx,
     unsigned &ClangIdx) {
-  for (const auto *FD : RD->fields()) {
-  const Expr *CurInit = nullptr;
-  if (const auto *ILE = dyn_cast_or_null<InitListExpr>(InitExpr))
-      CurInit = ILE->getInit(ClangIdx);
 
-  if (FD->isBitField()) {
-      // Bitfields for these seem to be broken down into the correct
-      // 'chars'.  I'm not sure what happens with various combinations,
-      // so I suspect we'll have to deal with this again.
-      unsigned Width = FD->getBitWidthValue(CGM.getContext());
+  RecordDecl::field_iterator FieldIter = RD->field_begin(),
+                             FieldEnd = RD->field_end();
 
-      // Bitfields can require padding when stored in a global array before
-      // them to get the alignment right, particularly on windows. We know
-      // at this point it is an i8 array, so just encode that if we've run
-      // across it.
-      if (ST->getElementType(LLVMIdx)->isArrayTy()) {
-        llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
-        assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
-               "Not bitfield leading padding?");
-        QualType ClangPadding = FixupPaddingType(LLVMPadding);
-        LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
-        ++LLVMIdx;
-      }
+  for (; FieldIter != FieldEnd; ++FieldIter) {
+    const FieldDecl *FD = *FieldIter;
+    const Expr *CurInit = nullptr;
 
-      for (unsigned Cur = 0; Cur < Width; Cur += 8) {
-        LitMD.push_back(CreateTypeMD(CGM.getContext().CharTy,
-                                     ST->getElementType(LLVMIdx), CurInit));
-        ++LLVMIdx;
-      }
-      ++ClangIdx;
+    if (const auto *ILE = dyn_cast_or_null<InitListExpr>(InitExpr))
+        CurInit = ILE->getInit(ClangIdx);
 
-      // If there is a remaining LLVM field, there is a possibility for it
-      // to be padding between this bitfield and the next field.
-      if (ST->getNumElements() > LLVMIdx) {
-        llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
-        if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, LLVMIdx, RD,
-                                   ClangIdx)) {
+    if (FD->isBitField()) {
+        // Bitfields for these seem to be broken down into the correct
+        // 'chars'.  I'm not sure what happens with various combinations,
+        // so I suspect we'll have to deal with this again.
+        unsigned Width = FD->getBitWidthValue(CGM.getContext());
+
+        // Bitfields can require padding when stored in a global array before
+        // them to get the alignment right, particularly on windows. We know
+        // at this point it is an i8 array, so just encode that if we've run
+        // across it.
+        if (ST->getElementType(LLVMIdx)->isArrayTy()) {
+          llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
+          assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
+                 "Not bitfield leading padding?");
           QualType ClangPadding = FixupPaddingType(LLVMPadding);
           LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
           ++LLVMIdx;
         }
-      }
-  } else {
-      LitMD.push_back(
-          CreateTypeMD(FD->getType(), ST->getElementType(LLVMIdx), CurInit));
-      ++ClangIdx;
-      ++LLVMIdx;
-  }
+
+        // Consecutive bitfields of the same type are allocated in the same
+        // block, so make sure we move the iterator along and collect the total
+        // size instead.
+        ++ClangIdx;
+        QualType CurType = FD->getType();
+        for (RecordDecl::field_iterator Next = std::next(FieldIter);
+             Next != FieldEnd && (*Next)->isBitField() &&
+             CGM.getContext().hasSameType((*Next)->getType(), CurType);
+             Next = std::next(Next)) {
+          Width += (*Next)->getBitWidthValue(CGM.getContext());
+          FieldIter = Next;
+          ++ClangIdx;
+        }
+
+        for (unsigned Cur = 0; Cur < Width; Cur += 8) {
+          LitMD.push_back(CreateTypeMD(CGM.getContext().CharTy,
+                                       ST->getElementType(LLVMIdx), CurInit));
+          ++LLVMIdx;
+        }
+
+        // If there is a remaining LLVM field, there is a possibility for it
+        // to be padding between this bitfield and the next field.
+        if (ST->getNumElements() > LLVMIdx) {
+          llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
+          if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, LLVMIdx, RD,
+                                     ClangIdx)) {
+            QualType ClangPadding = FixupPaddingType(LLVMPadding);
+            LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+            ++LLVMIdx;
+          }
+        }
+    } else {
+        LitMD.push_back(
+            CreateTypeMD(FD->getType(), ST->getElementType(LLVMIdx), CurInit));
+        ++ClangIdx;
+        ++LLVMIdx;
+    }
   }
 }
 
@@ -1087,6 +1106,11 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
     assert(VTy->getNumElements() == VT->getNumElements() &&
            "Mismatched vector type sizes");
     EltTy = VTy->getElementType();
+  } else if (const auto *ATy =
+                 CGM.getContext().getAsConstantArrayType(ClangType)) {
+    assert(ATy->getSize() == VT->getNumElements() &&
+           "Mismatched array-to-vector size");
+    EltTy = ATy->getElementType();
   } else {
     const auto *CplxTy = ClangType->castAs<ComplexType>();
     assert(VT->getNumElements() == 2 && "Mismatched complex type size");

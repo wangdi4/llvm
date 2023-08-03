@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; // C++ source:
 ; void __attribute__((nothrow,noinline))  foo_gpu(int aaa, int *bbb, void* interop) {
@@ -30,7 +30,7 @@
 ; ;CHECK: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load i32*, i32** [[CAST]], align 8
 ; ;
 ; ; ;;;; handle DEPEND
-; ; ;CHECK: call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+; ; ;CHECK: call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ; ; ;CHECK: call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2, i8* %{{.*}}, i32 0, i8* null)
 ; ; ;CHECK: call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i8* %{{.*}})
 ; ; ;

@@ -60,10 +60,10 @@ define dso_local i32 @main() {
 entry:
   %vq8 = alloca [100 x i32], align 16
   %a = alloca [100 x [100 x i32]], align 16
-  %t0 = bitcast [100 x i32]* %vq8 to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(400) %t0, i8 0, i64 400, i1 false)
-  %t1 = bitcast [100 x [100 x i32]]* %a to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) %t1, i8 0, i64 40000, i1 false)
+  %t0 = bitcast ptr %vq8 to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(400) %t0, i8 0, i64 400, i1 false)
+  %t1 = bitcast ptr %a to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) %t1, i8 0, i64 40000, i1 false)
   br label %for.cond1.preheader.preheader
 
 for.cond1.preheader.preheader:                    ; preds = %entry
@@ -80,15 +80,15 @@ for.cond4.preheader:                              ; preds = %for.inc14, %for.con
   br i1 %cmp539, label %for.body6.lr.ph, label %for.inc14
 
 for.body6.lr.ph:                                  ; preds = %for.cond4.preheader
-  %arrayidx13 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %a, i64 0, i64 %indvars.iv46, i64 0
+  %arrayidx13 = getelementptr inbounds [100 x [100 x i32]], ptr %a, i64 0, i64 %indvars.iv46, i64 0
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %indvars.iv44 = phi i64 [ %indvars.iv, %for.body6.lr.ph ], [ %indvars.iv.next45, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %a, i64 0, i64 %indvars.iv46, i64 %indvars.iv44
-  %t3 = load i32, i32* %arrayidx8, align 4
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %vq8, i64 0, i64 %indvars.iv44
-  %t4 = load i32, i32* %arrayidx10, align 4
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], ptr %a, i64 0, i64 %indvars.iv46, i64 %indvars.iv44
+  %t3 = load i32, ptr %arrayidx8, align 4
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %vq8, i64 0, i64 %indvars.iv44
+  %t4 = load i32, ptr %arrayidx10, align 4
   %div = sdiv i32 %t4, %t3
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond = icmp eq i64 %indvars.iv.next45, 17
@@ -96,7 +96,7 @@ for.body6:                                        ; preds = %for.body6, %for.bod
 
 for.inc14.loopexit:                               ; preds = %for.body6
   %div.lcssa = phi i32 [ %div, %for.body6 ]
-  store i32 %div.lcssa, i32* %arrayidx13, align 16
+  store i32 %div.lcssa, ptr %arrayidx13, align 16
   br label %for.inc14
 
 for.inc14:                                        ; preds = %for.inc14.loopexit, %for.cond4.preheader
@@ -115,6 +115,6 @@ for.exit:                           ; preds = %for.inc17
 }
 
 ; Function Attrs: argmemonly nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
 

@@ -502,7 +502,11 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
   if (Base->isEmpty())
     return;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  DestPtr = DestPtr.withElementType(CGF.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   DestPtr = CGF.Builder.CreateElementBitCast(DestPtr, CGF.Int8Ty);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   const ASTRecordLayout &Layout = CGF.getContext().getASTRecordLayout(Base);
   CharUnits NVSize = Layout.getNonVirtualSize();
@@ -555,8 +559,12 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
         std::max(Layout.getNonVirtualAlignment(), DestPtr.getAlignment());
     NullVariable->setAlignment(Align.getAsAlign());
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address SrcPtr(NullVariable, CGF.Int8Ty, Align);
+#else
     Address SrcPtr =
         Address(CGF.EmitCastToVoidPtr(NullVariable), CGF.Int8Ty, Align);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Get and call the appropriate llvm.memcpy overload.
     for (std::pair<CharUnits, CharUnits> Store : Stores) {
@@ -829,8 +837,8 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
     // going to have to do a comparison for (2), and this happens to
     // take care of (1), too.
     if (numElementsWidth > sizeWidth) {
-      llvm::APInt threshold(numElementsWidth, 1);
-      threshold <<= sizeWidth;
+      llvm::APInt threshold =
+          llvm::APInt::getOneBitSet(numElementsWidth, sizeWidth);
 
       llvm::Value *thresholdV
         = llvm::ConstantInt::get(numElementsType, threshold);
@@ -1077,7 +1085,11 @@ void CodeGenFunction::EmitNewArrayInitializer(
     if (const ConstantArrayType *CAT = dyn_cast_or_null<ConstantArrayType>(
             AllocType->getAsArrayTypeUnsafe())) {
       ElementTy = ConvertTypeForMem(AllocType);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      CurPtr = CurPtr.withElementType(ElementTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       CurPtr = Builder.CreateElementBitCast(CurPtr, ElementTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       InitListElements *= getContext().getConstantArrayElementCount(CAT);
     }
 
@@ -1134,7 +1146,11 @@ void CodeGenFunction::EmitNewArrayInitializer(
     }
 
     // Switch back to initializing one base element at a time.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    CurPtr = CurPtr.withElementType(BeginPtr.getElementType());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     CurPtr = Builder.CreateElementBitCast(CurPtr, BeginPtr.getElementType());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // If all elements have already been initialized, skip any further
@@ -1716,7 +1732,11 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
   }
 
   llvm::Type *elementTy = ConvertTypeForMem(allocType);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address result = allocation.withElementType(elementTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Address result = Builder.CreateElementBitCast(allocation, elementTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Passing pointer through launder.invariant.group to avoid propagation of
   // vptrs information which may be included in previous type.
@@ -2195,13 +2215,21 @@ static llvm::Value *EmitTypeidFromVTable(CodeGenFunction &CGF, const Expr *E,
 }
 
 llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *PtrTy = llvm::PointerType::getUnqual(getLLVMContext());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *StdTypeInfoPtrTy =
     ConvertType(E->getType())->getPointerTo();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (E->isTypeOperand()) {
     llvm::Constant *TypeInfo =
         CGM.GetAddrOfRTTIDescriptor(E->getTypeOperand(getContext()));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return TypeInfo;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateBitCast(TypeInfo, StdTypeInfoPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // C++ [expr.typeid]p2:
@@ -2211,12 +2239,20 @@ llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
   //   type) to which the glvalue refers.
   // If the operand is already most derived object, no need to look up vtable.
   if (E->isPotentiallyEvaluated() && !E->isMostDerived(getContext()))
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return EmitTypeidFromVTable(*this, E->getExprOperand(), PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     return EmitTypeidFromVTable(*this, E->getExprOperand(),
                                 StdTypeInfoPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   QualType OperandTy = E->getExprOperand()->getType();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return CGM.GetAddrOfRTTIDescriptor(OperandTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   return Builder.CreateBitCast(CGM.GetAddrOfRTTIDescriptor(OperandTy),
                                StdTypeInfoPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 static llvm::Value *EmitDynamicCastToNull(CodeGenFunction &CGF,
@@ -2295,6 +2331,15 @@ llvm::Value *CodeGenFunction::EmitDynamicCast(Address ThisAddr,
 
   llvm::Value *Value;
   if (isDynamicCastToVoid) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value = CGM.getCXXABI().emitDynamicCastToVoid(*this, ThisAddr, SrcRecordTy);
+  } else {
+    assert(DestRecordTy->isRecordType() &&
+           "destination type must be a record type!");
+    Value = CGM.getCXXABI().emitDynamicCastCall(*this, ThisAddr, SrcRecordTy,
+                                                DestTy, DestRecordTy, CastEnd);
+
+#else
     Value = CGM.getCXXABI().EmitDynamicCastToVoid(*this, ThisAddr, SrcRecordTy,
                                                   DestTy);
   } else {
@@ -2302,6 +2347,7 @@ llvm::Value *CodeGenFunction::EmitDynamicCast(Address ThisAddr,
            "destination type must be a record type!");
     Value = CGM.getCXXABI().EmitDynamicCastCall(*this, ThisAddr, SrcRecordTy,
                                                 DestTy, DestRecordTy, CastEnd);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CastNotNull = Builder.GetInsertBlock();
   }
 

@@ -16,6 +16,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 
+#include <map>
+
 namespace llvm {
 class AssumptionCache;
 
@@ -102,6 +104,9 @@ private:
 
   /// Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
+
+  /// OpenCL 2.0 enqueue_kernel and kernel query functions.
+  SmallVector<Function *, 8> EnqueueKernelAndQueryFuncs;
 };
 
 } // namespace llvm

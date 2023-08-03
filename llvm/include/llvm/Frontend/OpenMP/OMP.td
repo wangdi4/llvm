@@ -312,8 +312,7 @@ def OMPC_From : Clause<"from"> {
 }
 def OMPC_UseDevicePtr : Clause<"use_device_ptr"> {
   let clangClass = "OMPUseDevicePtrClause";
-  let flangClass = "Name";
-  let isValueList = true;
+  let flangClass = "OmpObjectList";
 }
 def OMPC_IsDevicePtr : Clause<"is_device_ptr"> {
   let clangClass = "OMPIsDevicePtrClause";
@@ -413,6 +412,7 @@ def OMPC_Affinity : Clause<"affinity"> {
 }
 def OMPC_UseDeviceAddr : Clause<"use_device_addr"> {
   let clangClass = "OMPUseDeviceAddrClause";
+  let flangClass = "OmpObjectList";
 }
 #if INTEL_COLLAB
 def OMPC_Interop : Clause<"interop"> {
@@ -502,6 +502,10 @@ def OMPC_Bind : Clause<"bind"> {
 def OMPC_OMPX_DynCGroupMem : Clause<"ompx_dyn_cgroup_mem"> {
   let clangClass = "OMPXDynCGroupMemClause";
   let flangClass = "ScalarIntExpr";
+}
+
+def OMPC_Doacross : Clause<"doacross"> {
+  let clangClass = "OMPDoacrossClause";
 }
 
 //===----------------------------------------------------------------------===//
@@ -686,7 +690,8 @@ def OMP_Flush : Directive<"flush"> {
 }
 def OMP_Ordered : Directive<"ordered"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Depend>
+    VersionedClause<OMPC_Depend>,
+    VersionedClause<OMPC_Doacross, 52>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_Threads>,
@@ -701,7 +706,11 @@ def OMP_Atomic : Directive<"atomic"> {
     VersionedClause<OMPC_Write>,
     VersionedClause<OMPC_Update>,
     VersionedClause<OMPC_Capture>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Compare>
+#else // INTEL_COLLAB
     VersionedClause<OMPC_Compare, 51>
+#endif // INTEL_COLLAB
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_SeqCst>,
@@ -2230,7 +2239,9 @@ def OMP_DeclareTargetFunction : Directive<"declare target function"> {
 def OMP_scope : Directive<"scope"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_Reduction>
+    VersionedClause<OMPC_FirstPrivate, 52>,
+    VersionedClause<OMPC_Reduction>,
+    VersionedClause<OMPC_Allocate, 52>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_NoWait>

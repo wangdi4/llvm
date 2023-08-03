@@ -1,6 +1,6 @@
 //===-------------------- Intel_OPAnalysisUtils.h -------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,9 +22,10 @@
 namespace llvm {
 //
 // If the type of 'V' is a pointer type, infer and return its pointer element
-// type, or return 'nullptr'.
+// type, or return 'nullptr'. If 'FunctionOnly', search only the Function
+// containing 'F', do not descend down the call tree through CallBases.
 //
-extern Type *inferPtrElementType(Value &V);
+extern Type *inferPtrElementType(Value &V, bool FunctionOnly = false);
 
 } // namespace llvm
 

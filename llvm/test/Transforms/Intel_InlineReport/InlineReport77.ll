@@ -1,11 +1,13 @@
-; RUN: opt -opaque-pointers < %s -passes='partial-inliner,print<inline-report>' -skip-partial-inlining-cost-analysis -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='partial-inliner,print<inline-report>' -skip-partial-inlining-cost-analysis -inline-report=0xe807 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt < %s -passes='inlinereportsetup,partial-inliner,inlinereportemitter' -skip-partial-inlining-cost-analysis -inline-report=0xe886 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-MD %s
 
-; Check that partial inlining is recorded in the classic inlining report.
+; Check that partial inlining is recorded in the inlining report.
 
-; CHECK: DEAD STATIC FUNC: inlinedFunc.1
+; CHECK-CL: DEAD STATIC FUNC: inlinedFunc.1
 ; CHECK: COMPILE FUNC: inlinedFunc
 ; CHECK: COMPILE FUNC: dummyCaller
 ; CHECK: INLINE: inlinedFunc.1{{.*}}Preferred for partial inlining
+; CHECK-MD: DEAD STATIC FUNC: inlinedFunc.1
 ; CHECK: COMPILE FUNC: inlinedFunc.1.if.then
 
 define internal i32 @inlinedFunc(i1 %cond, ptr align 4 %align.val) {

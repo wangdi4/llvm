@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -483,7 +483,6 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
 #if INTEL_CUSTOMIZATION
         if (auto CB = dyn_cast<CallBase>(Inst)) {
           InlineReason Reason = NinlrDeletedDeadCode;
-          getInlineReport()->initFunctionClosure(CB->getFunction());
           getInlineReport()->removeCallBaseReference(*CB, Reason);
           getMDInlineReport()->removeCallBaseReference(*CB, Reason);
         }
@@ -494,7 +493,6 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
 #if INTEL_CUSTOMIZATION
     if (auto CB = dyn_cast<CallBase>(I)) {
       InlineReason Reason = NinlrDeletedDeadCode;
-      getInlineReport()->initFunctionClosure(CB->getFunction());
       getInlineReport()->removeCallBaseReference(*CB, Reason);
       getMDInlineReport()->removeCallBaseReference(*CB, Reason);
     }
@@ -571,6 +569,13 @@ static bool rewriteSingleStoreAlloca(
   // Finally, after the scan, check to see if the store is all that is left.
   if (!Info.UsingBlocks.empty())
     return false; // If not, we'll have to fall back for the remainder.
+#if INTEL_CUSTOMIZATION
+  // Propagate predicate-opt-restrict metadata from AllocaInst to
+  // LoadInst when AllocaInst and single StoreInst are eliminated.
+  if (auto LI = dyn_cast<LoadInst>(Info.OnlyStore->getValueOperand()))
+    if (auto MDNode = AI->getMetadata("predicate-opt-restrict"))
+      LI->setMetadata("predicate-opt-restrict", MDNode);
+#endif // INTEL_CUSTOMIZATION
 
   DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
   // Update assignment tracking info for the store we're going to delete.
@@ -889,7 +894,7 @@ void PromoteMem2Reg::run() {
   // code.  Unfortunately, there may be unreachable blocks which the renamer
   // hasn't traversed.  If this is the case, the PHI nodes may not
   // have incoming values for all predecessors.  Loop over all PHI nodes we have
-  // created, inserting undef values if they are missing any incoming values.
+  // created, inserting poison values if they are missing any incoming values.
   for (DenseMap<std::pair<unsigned, unsigned>, PHINode *>::iterator
            I = NewPhiNodes.begin(),
            E = NewPhiNodes.end();
@@ -939,9 +944,9 @@ void PromoteMem2Reg::run() {
     BasicBlock::iterator BBI = BB->begin();
     while ((SomePHI = dyn_cast<PHINode>(BBI++)) &&
            SomePHI->getNumIncomingValues() == NumBadPreds) {
-      Value *UndefVal = UndefValue::get(SomePHI->getType());
+      Value *PoisonVal = PoisonValue::get(SomePHI->getType());
       for (BasicBlock *Pred : Preds)
-        SomePHI->addIncoming(UndefVal, Pred);
+        SomePHI->addIncoming(PoisonVal, Pred);
     }
   }
 

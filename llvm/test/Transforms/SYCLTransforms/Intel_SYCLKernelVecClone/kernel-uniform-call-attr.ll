@@ -1,17 +1,12 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-%opencl.reserve_id_t.5 = type opaque
-%opencl.pipe_wo_t.6 = type opaque
-%opencl.pipe_ro_t.7 = type opaque
-%opencl.event_t.5 = type opaque
-
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @_ZGVeN4uuuuuuuuuu_compute_sum
-define void @compute_sum(i32 addrspace(1)* %a, i32 %n, i32 addrspace(1)* %tmp_sum, i32 addrspace(1)* %sum, %opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %add.ptr, i64 %conv6, i64 %conv7) local_unnamed_addr #0 !recommended_vector_length !1 {
+define void @compute_sum(ptr addrspace(1) %a, i32 %n, ptr addrspace(1) %tmp_sum, ptr addrspace(1) %sum, ptr addrspace(1) %out_pipe, ptr addrspace(1) %in_pipe, ptr addrspace(3) %localBuffer, ptr addrspace(1) %add.ptr, i64 %conv6, i64 %conv7) local_unnamed_addr #0 !recommended_vector_length !1 !kernel_arg_base_type !3 !arg_type_null_val !4 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 0) #2
   %conv = trunc i64 %call to i32
@@ -19,8 +14,8 @@ entry:
   %conv2 = trunc i64 %call1 to i32
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %tmp_sum, i64 %idxprom
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %tmp_sum, i64 %idxprom
+  store i32 0, ptr addrspace(1) %arrayidx, align 4
   %cmp28 = icmp slt i32 %conv, %n
   br i1 %cmp28, label %for.body.lr.ph, label %for.end
 
@@ -33,10 +28,10 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %2 = phi i32 [ 0, %for.body.lr.ph ], [ %add, %for.body ]
   %indvars.iv = phi i64 [ %idxprom, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx5 = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %indvars.iv
-  %3 = load i32, i32 addrspace(1)* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %indvars.iv
+  %3 = load i32, ptr addrspace(1) %arrayidx5, align 4
   %add = add nsw i32 %2, %3
-  store i32 %add, i32 addrspace(1)* %arrayidx, align 4
+  store i32 %add, ptr addrspace(1) %arrayidx, align 4
   %indvars.iv.next = add i64 %indvars.iv, %0
   %cmp = icmp slt i64 %indvars.iv.next, %1
   br i1 %cmp, label %for.body, label %for.end
@@ -59,33 +54,33 @@ for.body13:                                       ; preds = %for.end, %if.end
 ; CHECK: call void @_Z17sub_group_barrierj(i32 2) #[[BARRIER_ATTR]]
   tail call void @_Z17sub_group_barrierj12memory_scope(i32 2, i32 4) #0
 ; CHECK: call void @_Z17sub_group_barrierj12memory_scope(i32 2, i32 4) #[[BARRIER_ATTR]]
-  tail call void @__builtin_IB_kmp_acquire_lock(i32 addrspace(1)* %a) #0
-; CHECK: call void @__builtin_IB_kmp_acquire_lock(i32 addrspace(1)* %load.a) #[[BARRIER_ATTR]]
-  tail call void @__builtin_IB_kmp_release_lock(i32 addrspace(1)* %a) #0
-; CHECK: call void @__builtin_IB_kmp_release_lock(i32 addrspace(1)* %load.a) #[[BARRIER_ATTR]]
-  %write_pipe = tail call %opencl.reserve_id_t.5* @__work_group_reserve_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, i32 0, i32 4, i32 4) #0
-; CHECK: call %opencl.reserve_id_t.5* @__work_group_reserve_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)* %load.out_pipe, i32 0, i32 4, i32 4) #[[BARRIER_ATTR]]
-  tail call void @__work_group_commit_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.reserve_id_t.5* %write_pipe, i32 4, i32 4) #0
-; CHECK: call void @__work_group_commit_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)* %load.out_pipe, %opencl.reserve_id_t.5* %write_pipe, i32 4, i32 4) #[[BARRIER_ATTR]]
-  %read_pipe = tail call %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, i32 0, i32 4, i32 4) #0
-; CHECK: call %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %load.in_pipe, i32 0, i32 4, i32 4) #[[BARRIER_ATTR]]
-  tail call void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, %opencl.reserve_id_t.5* %read_pipe, i32 4, i32 4) #0
-; CHECK: call void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %load.in_pipe, %opencl.reserve_id_t.5* %read_pipe, i32 4, i32 4) #[[BARRIER_ATTR]]
-  %call8 = tail call %opencl.event_t.5* @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %add.ptr, i64 %conv6, i64 %conv7, %opencl.event_t.5* null) #0
-; CHECK: tail call %opencl.event_t.5* @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(i8 addrspace(3)* %load.localBuffer, i8 addrspace(1)* %load.add.ptr, i64 %load.conv6, i64 %load.conv7, %opencl.event_t.5* null) #[[BARRIER_ATTR]]
-  %call6 = tail call %opencl.event_t.5* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %add.ptr, i64 %conv6, %opencl.event_t.5* null) #0
-; CHECK: call %opencl.event_t.5* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)* %load.localBuffer, i8 addrspace(1)* %load.add.ptr, i64 %load.conv6, %opencl.event_t.5* null) #[[BARRIER_ATTR]]
+  tail call void @__builtin_IB_kmp_acquire_lock(ptr addrspace(1) %a) #0
+; CHECK: call void @__builtin_IB_kmp_acquire_lock(ptr addrspace(1) %load.a) #[[BARRIER_ATTR]]
+  tail call void @__builtin_IB_kmp_release_lock(ptr addrspace(1) %a) #0
+; CHECK: call void @__builtin_IB_kmp_release_lock(ptr addrspace(1) %load.a) #[[BARRIER_ATTR]]
+  %write_pipe = tail call ptr @__work_group_reserve_write_pipe(ptr addrspace(1) %out_pipe, i32 0, i32 4, i32 4) #0
+; CHECK: call ptr @__work_group_reserve_write_pipe(ptr addrspace(1) %load.out_pipe, i32 0, i32 4, i32 4) #[[BARRIER_ATTR]]
+  tail call void @__work_group_commit_write_pipe(ptr addrspace(1) %out_pipe, ptr %write_pipe, i32 4, i32 4) #0
+; CHECK: call void @__work_group_commit_write_pipe(ptr addrspace(1) %load.out_pipe, ptr %write_pipe, i32 4, i32 4) #[[BARRIER_ATTR]]
+  %read_pipe = tail call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %in_pipe, i32 0, i32 4, i32 4) #0
+; CHECK: call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %load.in_pipe, i32 0, i32 4, i32 4) #[[BARRIER_ATTR]]
+  tail call void @__work_group_commit_read_pipe(ptr addrspace(1) %in_pipe, ptr %read_pipe, i32 4, i32 4) #0
+; CHECK: call void @__work_group_commit_read_pipe(ptr addrspace(1) %load.in_pipe, ptr %read_pipe, i32 4, i32 4) #[[BARRIER_ATTR]]
+  %call8 = tail call ptr @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(ptr addrspace(3) %localBuffer, ptr addrspace(1) %add.ptr, i64 %conv6, i64 %conv7, ptr null) #0
+; CHECK: tail call ptr @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(ptr addrspace(3) %load.localBuffer, ptr addrspace(1) %load.add.ptr, i64 %load.conv6, i64 %load.conv7, ptr null) #[[BARRIER_ATTR]]
+  %call6 = tail call ptr @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(ptr addrspace(3) %localBuffer, ptr addrspace(1) %add.ptr, i64 %conv6, ptr null) #0
+; CHECK: call ptr @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(ptr addrspace(3) %load.localBuffer, ptr addrspace(1) %load.add.ptr, i64 %load.conv6, ptr null) #[[BARRIER_ATTR]]
   %add14 = add nsw i32 %i.127, %conv
   %cmp15 = icmp slt i32 %add14, %lsize.026
   br i1 %cmp15, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body13
   %idxprom18 = sext i32 %add14 to i64
-  %arrayidx19 = getelementptr inbounds i32, i32 addrspace(1)* %tmp_sum, i64 %idxprom18
-  %4 = load i32, i32 addrspace(1)* %arrayidx19, align 4
-  %5 = load i32, i32 addrspace(1)* %arrayidx, align 4
+  %arrayidx19 = getelementptr inbounds i32, ptr addrspace(1) %tmp_sum, i64 %idxprom18
+  %4 = load i32, ptr addrspace(1) %arrayidx19, align 4
+  %5 = load i32, ptr addrspace(1) %arrayidx, align 4
   %add22 = add nsw i32 %5, %4
-  store i32 %add22, i32 addrspace(1)* %arrayidx, align 4
+  store i32 %add22, ptr addrspace(1) %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body13
@@ -98,8 +93,8 @@ for.end25:                                        ; preds = %if.end, %for.end
   br i1 %cmp26, label %if.then28, label %if.end30
 
 if.then28:                                        ; preds = %for.end25
-  %6 = load i32, i32 addrspace(1)* %tmp_sum, align 4
-  store i32 %6, i32 addrspace(1)* %sum, align 4
+  %6 = load i32, ptr addrspace(1) %tmp_sum, align 4
+  store i32 %6, ptr addrspace(1) %sum, align 4
   br label %if.end30
 
 if.end30:                                         ; preds = %if.then28, %for.end25
@@ -121,14 +116,14 @@ declare void @_Z17sub_group_barrierj12memory_scope(i32, i32) #2
 declare void @_Z17sub_group_barrierj(i32) #2
 declare void @_Z18work_group_barrierj12memory_scope(i32, i32) #2
 declare void @_Z18work_group_barrierj(i32) #2
-declare void @__builtin_IB_kmp_acquire_lock(i32 addrspace(1)*) #2
-declare void @__builtin_IB_kmp_release_lock(i32 addrspace(1)*) #2
-declare %opencl.reserve_id_t.5* @__work_group_reserve_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)*, i32, i32, i32) #2
-declare void @__work_group_commit_write_pipe(%opencl.pipe_wo_t.6 addrspace(1)*, %opencl.reserve_id_t.5*, i32, i32) #2
-declare %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)*, i32, i32, i32) #2
-declare void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)*, %opencl.reserve_id_t.5*, i32, i32) #2
-declare %opencl.event_t.5* @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(i8 addrspace(3)*, i8 addrspace(1)*, i64, i64, %opencl.event_t.5*) #2
-declare %opencl.event_t.5* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)*, i8 addrspace(1)*, i64, %opencl.event_t.5*) #2
+declare void @__builtin_IB_kmp_acquire_lock(ptr addrspace(1)) #2
+declare void @__builtin_IB_kmp_release_lock(ptr addrspace(1)) #2
+declare ptr @__work_group_reserve_write_pipe(ptr addrspace(1), i32, i32, i32) #2
+declare void @__work_group_commit_write_pipe(ptr addrspace(1), ptr, i32, i32) #2
+declare ptr @__work_group_reserve_read_pipe(ptr addrspace(1), i32, i32, i32) #2
+declare void @__work_group_commit_read_pipe(ptr addrspace(1), ptr, i32, i32) #2
+declare ptr @_Z29async_work_group_strided_copyPU3AS3cPU3AS1Kcmm9ocl_event(ptr addrspace(3), ptr addrspace(1), i64, i64, ptr) #2
+declare ptr @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(ptr addrspace(3), ptr addrspace(1), i64, ptr) #2
 
 attributes #0 = { convergent nounwind }
 attributes #1 = { convergent nounwind readnone }
@@ -140,9 +135,11 @@ attributes #3 = { nounwind }
 !sycl.kernels = !{!0}
 !opencl.ocl.version = !{!2}
 
-!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*, i32 addrspace(1)*, %opencl.pipe_wo_t.6 addrspace(1)*, %opencl.pipe_ro_t.7 addrspace(1)*, i8 addrspace(3)*, i8 addrspace(1)*, i64, i64)* @compute_sum}
+!0 = !{ptr @compute_sum}
 !1 = !{i32 4}
 !2 = !{i32 2, i32 0}
+!3 = !{!"int*", !"int", !"int*", !"int*", !"int", !"int", !"char*", !"char*", !"long", !"long"}
+!4 = !{i32 addrspace(1)* null, i32 0, i32 addrspace(1)* null, i32 addrspace(1)* null, target("spirv.Pipe", 1) zeroinitializer, target("spirv.Pipe", 0) zeroinitializer, i8 addrspace(3)* null, i8 addrspace(1)* null, i64 0, i64 0}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} call

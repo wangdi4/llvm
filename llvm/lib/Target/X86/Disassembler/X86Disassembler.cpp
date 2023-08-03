@@ -186,6 +186,9 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   case MAP4:
     dec = &MAP4_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+  case MAP7:
+    dec = &MAP7_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1209,6 +1212,9 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_MAP8:
       insn->opcodeType = MAP8;
       return consume(insn, insn->opcode);
+    case VEX_LOB_MAP7:
+      insn->opcodeType = MAP7;
+      return consume(insn, insn->opcode);
 #endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
@@ -1374,6 +1380,9 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   case MAP4:
     decision = &MAP4_SYM;
     break;
+  case MAP7:
+    decision = &MAP7_SYM;
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1395,7 +1404,18 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 #if INTEL_FEATURE_ISA_APX_F
 static bool isPush2Pop2(InternalInstruction *insn) {
   unsigned Opcode = insn->opcode;
-  return Opcode == 0xff || Opcode == 0x8f;
+  return !readModRM(insn) &&
+         ((Opcode == 0xff && regFromModRM(insn->modRM) == 6) ||
+          (Opcode == 0x8f && regFromModRM(insn->modRM) == 0));
+}
+static bool isCCMPOrCTEST(InternalInstruction *insn) {
+  return (insn->opcodeType == MAP4) &&
+         (((insn->opcode & 0xfe) == 0x38) || ((insn->opcode & 0xfe) == 0x3a) ||
+          (((insn->opcode & 0xfe) == 0x80 || insn->opcode == 0x83) &&
+           regFromModRM(insn->modRM) == 7) ||
+          (insn->opcode & 0xfe) == 0x84 ||
+          ((insn->opcode & 0xfe) == 0xf6 &&
+           regFromModRM(insn->modRM) == 0));
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -1445,7 +1465,8 @@ static int getInstructionID(struct InternalInstruction *insn,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
       if (nfFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
-          (insn->opcodeType == MAP4) && !isPush2Pop2(insn))
+          (insn->opcodeType == MAP4) && !isPush2Pop2(insn) &&
+          !isCCMPOrCTEST(insn))
         attrMask |= ATTR_EVEXNF;
 #endif // INTEL_FEATURE_ISA_APX_F
       // aaa is not used a opmask in MAP4
@@ -1977,18 +1998,6 @@ static int readOperands(struct InternalInstruction *insn) {
       if (Op.encoding != ENCODING_REG && insn->eaDisplacement == EA_DISP_8)
         insn->displacement *= 1 << (Op.encoding - ENCODING_RM);
       break;
-#if INTEL_CUSTOMIZATION
-    case ENCODING_I_EVEX_a:
-      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
-      insn->immediates[insn->numImmediatesConsumed++] =
-          (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) >> 2) & 0x1;
-      break;
-    case ENCODING_I_EVEX_aa:
-      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
-      insn->immediates[insn->numImmediatesConsumed++] =
-          aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) & 0x3;
-      break;
-#endif // INTEL_CUSTOMIZATION
     case ENCODING_IB:
       if (sawRegImm) {
         // Saw a register immediate so don't read again and instead split the
@@ -2047,8 +2056,23 @@ static int readOperands(struct InternalInstruction *insn) {
       if (readOpcodeRegister(insn, 0))
         return -1;
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case ENCODING_CF:
+      insn->immediates[1] = oszcFromEVEX3of4(insn->vectorExtensionPrefix[2]);
+      needVVVV = false; // oszc shares the same bits with VVVV
+      break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case ENCODING_CC:
-      insn->immediates[1] = insn->opcode & 0xf;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if (isCCMPOrCTEST(insn))
+        insn->immediates[2] = scFromEVEX4of4(insn->vectorExtensionPrefix[3]);
+      else
+#endif // INTEL_FEATURE_ISA_APX_F
+        insn->immediates[1] = insn->opcode & 0xf;
+#endif // INTEL_CUSTOMIZATION
       break;
     case ENCODING_FP:
       break;
@@ -2689,10 +2713,6 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
   CASE_ENCODING_RM:
   CASE_ENCODING_VSIB:
     return translateRM(mcInst, operand, insn, Dis);
-#if INTEL_CUSTOMIZATION
-  case ENCODING_I_EVEX_a:
-  case ENCODING_I_EVEX_aa:
-#endif // INTEL_CUSTOMIZATION
   case ENCODING_IB:
   case ENCODING_IW:
   case ENCODING_ID:
@@ -2719,8 +2739,22 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
   case ENCODING_Rv:
     translateRegister(mcInst, insn.opcodeRegister);
     return false;
-  case ENCODING_CC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case ENCODING_CF:
     mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
+    return false;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+  case ENCODING_CC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (isCCMPOrCTEST(&insn))
+      mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
+    else
+#endif // INTEL_FEATURE_ISA_APX_F
+      mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
+#endif // INTEL_CUSTOMIZATION
     return false;
   case ENCODING_FP:
     translateFPRegister(mcInst, insn.modRM & 7);

@@ -79,10 +79,10 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %indvars.iv34 = phi i64 [ 0, %entry ], [ %indvars.iv.next35, %for.cond.cleanup3 ]
-  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @a, i64 0, i64 %indvars.iv34, !intel-tbaa !2
-  %arrayidx12 = getelementptr inbounds [100 x float], [100 x float]* @c, i64 0, i64 %indvars.iv34, !intel-tbaa !2
-  %arrayidx6.promoted = load float, float* %arrayidx6, align 4, !tbaa !2
-  %arrayidx12.promoted = load float, float* %arrayidx12, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [100 x float], ptr @a, i64 0, i64 %indvars.iv34, !intel-tbaa !2
+  %arrayidx12 = getelementptr inbounds [100 x float], ptr @c, i64 0, i64 %indvars.iv34, !intel-tbaa !2
+  %arrayidx6.promoted = load float, ptr %arrayidx6, align 4, !tbaa !2
+  %arrayidx12.promoted = load float, ptr %arrayidx12, align 4, !tbaa !2
   br label %for.body4
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
@@ -91,8 +91,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 for.cond.cleanup3:                                ; preds = %for.body4
   %add7.lcssa = phi float [ %add7, %for.body4 ]
   %add13.lcssa = phi float [ %add13, %for.body4 ]
-  store float %add7.lcssa, float* %arrayidx6, align 4, !tbaa !2
-  store float %add13.lcssa, float* %arrayidx12, align 4, !tbaa !2
+  store float %add7.lcssa, ptr %arrayidx6, align 4, !tbaa !2
+  store float %add13.lcssa, ptr %arrayidx12, align 4, !tbaa !2
   %indvars.iv.next35 = add nuw nsw i64 %indvars.iv34, 1
   %exitcond36 = icmp eq i64 %indvars.iv.next35, 100
   br i1 %exitcond36, label %for.cond.cleanup, label %for.cond1.preheader
@@ -102,13 +102,13 @@ for.body4:                                        ; preds = %for.body4, %for.con
   %add1329 = phi float [ %arrayidx12.promoted, %for.cond1.preheader ], [ %add13, %for.body4 ]
   %add728 = phi float [ %arrayidx6.promoted, %for.cond1.preheader ], [ %add7, %for.body4 ]
   %0 = add nuw nsw i64 %indvars.iv, %indvars.iv34
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @b, i64 0, i64 %0, !intel-tbaa !2
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x float], ptr @b, i64 0, i64 %0, !intel-tbaa !2
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add7 = fadd float %1, %add728
   %2 = shl nuw nsw i64 %indvars.iv, 1
   %3 = add nuw nsw i64 %2, %indvars.iv34
-  %arrayidx10 = getelementptr inbounds [100 x float], [100 x float]* @b, i64 0, i64 %3, !intel-tbaa !2
-  %4 = load float, float* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [100 x float], ptr @b, i64 0, i64 %3, !intel-tbaa !2
+  %4 = load float, ptr %arrayidx10, align 4, !tbaa !2
   %add13 = fadd float %4, %add1329
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 80

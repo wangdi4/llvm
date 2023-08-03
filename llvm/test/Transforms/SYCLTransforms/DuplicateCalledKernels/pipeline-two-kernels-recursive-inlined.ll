@@ -15,53 +15,54 @@ target triple = "x86_64-pc-linux"
 
 define internal fastcc zeroext i1 @xxx() unnamed_addr !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* @test.k, align 4
+  %0 = load i32, ptr addrspace(3) @test.k, align 4
   %1 = tail call fastcc zeroext i1 @foo()
   ret i1 undef
 }
 
 define internal fastcc zeroext i1 @foo() unnamed_addr !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
+  %0 = load i32, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
   %1 = tail call fastcc zeroext i1 @xxx()
   ret i1 undef
 }
 
 define internal fastcc zeroext i1 @bar() unnamed_addr !recursive_call !1 {
 entry:
-  %0 = load i32, i32 addrspace(3)* @test.j, align 4
+  %0 = load i32, ptr addrspace(3) @test.j, align 4
   %1 = tail call fastcc zeroext i1 @foo()
   ret i1 undef
 }
 
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr !recursive_call !1 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr !recursive_call !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
-  store i32 1234, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
-  store i32 1234, i32 addrspace(3)* @test.j, align 4
-  store i32 1234, i32 addrspace(3)* @test.k, align 4
+  store i32 1234, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
+  store i32 1234, ptr addrspace(3) @test.j, align 4
+  store i32 1234, ptr addrspace(3) @test.k, align 4
   %0 = tail call fastcc zeroext i1 @bar()
   ret void
 }
 
-
 define internal fastcc zeroext i1 @zzz() unnamed_addr {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test2.i, i64 0, i64 0), align 4
-  %1 = load i32, i32 addrspace(3)* @test2.j, align 4
-  ret i1 0
+  %0 = load i32, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test2.i, i64 0, i64 1), align 4
+  %1 = load i32, ptr addrspace(3) @test2.j, align 4
+  ret i1 false
 }
 
-define dso_local void @test2(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr !recursive_call !1 {
+define dso_local void @test2(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr !recursive_call !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
   %call1 = tail call fastcc zeroext i1 @zzz()
-  store i32 1234, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4
-  store i32 1234, i32 addrspace(3)* @test.j, align 4
-  store i32 1234, i32 addrspace(3)* @test.k, align 4
+  store i32 1234, ptr addrspace(3) getelementptr inbounds ([100 x i32], ptr addrspace(3) @test.i, i64 0, i64 1), align 4
+  store i32 1234, ptr addrspace(3) @test.j, align 4
+  store i32 1234, ptr addrspace(3) @test.k, align 4
   %0 = tail call fastcc zeroext i1 @bar()
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test, void (i32 addrspace(1)*)* @test2}
+!0 = !{ptr @test, ptr @test2}
 !1 = !{i1 true}
+!2 = !{!"int*"}
+!3 = !{i32 addrspace(1)* null}

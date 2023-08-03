@@ -69,14 +69,14 @@ entry:
 for.cond1.preheader:                              ; preds = %entry, %for.inc15
   %indvars.iv36 = phi i64 [ 9, %entry ], [ %indvars.iv.next37, %for.inc15 ]
   %indvars.iv34 = phi i64 [ 10, %entry ], [ %indvars.iv.next35, %for.inc15 ]
-  %arrayidx13 = getelementptr inbounds [54 x [54 x [54 x i32]]], [54 x [54 x [54 x i32]]]* @abm, i64 0, i64 %indvars.iv36, i64 %indvars.iv36, i64 %indvars.iv36
+  %arrayidx13 = getelementptr inbounds [54 x [54 x [54 x i32]]], ptr @abm, i64 0, i64 %indvars.iv36, i64 %indvars.iv36, i64 %indvars.iv36
   br label %for.body3
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %ld = load i32, i32* %arrayidx13, align 4
+  %ld = load i32, ptr %arrayidx13, align 4
   %inc = add i32 %ld, 1
-  store i32 %inc, i32* %arrayidx13, align 4
+  store i32 %inc, ptr %arrayidx13, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %indvars.iv34
   br i1 %exitcond, label %for.inc15, label %for.body3

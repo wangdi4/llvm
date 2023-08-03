@@ -60,8 +60,7 @@ entry:
 
   // Construct simple function-based VPlan and run the minimal set of
   // analyses needed.
-  auto Externals =
-      std::make_unique<VPExternalValues>(&M.getContext(), &M.getDataLayout());
+  auto Externals = std::make_unique<VPExternalValues>(&M);
   auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
   auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
   VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get(),
@@ -99,14 +98,11 @@ entry:
       createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
     const TargetTransformInfo &TTI =
       (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
-    LoopVectorizationPlanner LVP(nullptr /* WRL */,
-                                 nullptr /* Loop */,
-                                 nullptr /* LoopInfo */,
-                                 nullptr /* LibraryInfo */,
-                                 &TTI, &M.getDataLayout(),
-                                 nullptr /* DominatorTree */,
-                                 nullptr /* legality */,
-                                 nullptr /* VLSA*/);
+    LoopVectorizationPlanner LVP(
+        nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
+        nullptr /* LibraryInfo */, &TTI, &M.getDataLayout(),
+        nullptr /* DominatorTree */, nullptr /* legality */, nullptr /* VLSA*/,
+        &F->getContext());
 
     SmallVector<unsigned> VFs = { 1, 2, 4, 8, 16, 32 };
     for (auto VF : VFs) {

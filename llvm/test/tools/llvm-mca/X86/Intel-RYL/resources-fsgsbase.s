@@ -24,14 +24,14 @@ wrgsbase %rdi
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  1      100   0.25    *      *      U     rdfsbasel	%eax
-# CHECK-NEXT:  1      100   0.25    *      *      U     rdfsbaseq	%rax
-# CHECK-NEXT:  1      100   0.25    *      *      U     rdgsbasel	%eax
-# CHECK-NEXT:  1      100   0.25    *      *      U     rdgsbaseq	%rax
-# CHECK-NEXT:  1      100   0.25    *      *      U     wrfsbasel	%edi
-# CHECK-NEXT:  1      100   0.25    *      *      U     wrfsbaseq	%rdi
-# CHECK-NEXT:  1      100   0.25    *      *      U     wrgsbasel	%edi
-# CHECK-NEXT:  1      100   0.25    *      *      U     wrgsbaseq	%rdi
+# CHECK-NEXT:  3      3     0.50    *      *      U     rdfsbasel	%eax
+# CHECK-NEXT:  3      3     0.50    *      *      U     rdfsbaseq	%rax
+# CHECK-NEXT:  3      3     0.50    *      *      U     rdgsbasel	%eax
+# CHECK-NEXT:  3      3     0.50    *      *      U     rdgsbaseq	%rax
+# CHECK-NEXT:  3      3     0.50    *      *      U     wrfsbasel	%edi
+# CHECK-NEXT:  3      3     0.50    *      *      U     wrfsbaseq	%rdi
+# CHECK-NEXT:  3      3     0.50    *      *      U     wrgsbasel	%edi
+# CHECK-NEXT:  3      3     0.50    *      *      U     wrgsbaseq	%rdi
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -46,20 +46,33 @@ wrgsbase %rdi
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 2.00   2.00    -      -      -     2.00   2.00    -      -      -      -      -      -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT: 5.33   5.33   5.33   2.67   2.67   2.67    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     rdfsbasel	%eax
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     rdfsbaseq	%rax
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     rdgsbasel	%eax
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     rdgsbaseq	%rax
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     wrfsbasel	%edi
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     wrfsbaseq	%rdi
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     wrgsbasel	%edi
-# CHECK-NEXT: 0.25   0.25    -      -      -     0.25   0.25    -      -      -      -      -      -     wrgsbaseq	%rdi
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     rdfsbasel	%eax
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     rdfsbaseq	%rax
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     rdgsbasel	%eax
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     rdgsbaseq	%rax
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     wrfsbasel	%edi
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     wrfsbaseq	%rdi
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     wrgsbasel	%edi
+# CHECK-NEXT: 0.67   0.67   0.67   0.33   0.33   0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     wrgsbaseq	%rdi
 # end INTEL_FEATURE_CPU_RYL

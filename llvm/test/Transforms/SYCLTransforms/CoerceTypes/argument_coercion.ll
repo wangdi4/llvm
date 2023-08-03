@@ -1,8 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-NONOPAQUE
-
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-OPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s
 
 ; This test checks function argument type coercion
 
@@ -34,132 +31,107 @@ entry:
   %TIM = alloca %struct.ThreeIntegerMember, align 4
   %NS = alloca %struct.NestedStruct, align 4
   %OEFA = alloca %struct.OneElementFloatArray, align 4
-  %0 = bitcast %struct.SingleInt* %SI to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
-  call void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4 %SI) #4
-  %1 = bitcast %struct.SingleFloat* %SF to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #3
-  call void @singleFloat(%struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF) #4
-  %2 = bitcast %struct.IntAndSSE* %IAS to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %2) #3
-  call void @intAndSSE(%struct.IntAndSSE* byval(%struct.IntAndSSE) align 4 %IAS) #4
-  %3 = bitcast %struct.TwoFloats* %TF to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %3) #3
-  call void @twoFloats(%struct.TwoFloats* byval(%struct.TwoFloats) align 4 %TF) #4
-  %4 = bitcast %struct.TwoDoubles* %TD to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* %4) #3
-  call void @twoDoubles(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD) #4
-  %5 = bitcast %struct.TwoInts* %TI to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %5) #3
-  call void @twoInts(%struct.TwoInts* byval(%struct.TwoInts) align 4 %TI) #4
-  %6 = bitcast %struct.TwoLongs* %TL to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* %6) #3
-  call void @twoLongs(%struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL) #4
-  %7 = bitcast %struct.TwoDifferentWords* %TDW to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* %7) #3
-  call void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDifferentWords) align 8 %TDW) #4
-  %8 = bitcast %struct.TwoWordWithArray* %TWA to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* %8) #3
-  call void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4 %TWA) #4
-  %bc.tim = bitcast %struct.ThreeIntegerMember* %TIM to i8*
-  call void @llvm.lifetime.start.p0i8(i64 12, i8* %bc.tim) #3
-  call void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4 %TIM) #4
-  %9 = bitcast %struct.NestedStruct* %NS to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* %9) #3
-  call void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4 %NS) #4
-  %10 = bitcast %struct.OneElementFloatArray* %OEFA to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %10) #3
-  call void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4 %OEFA) #4
-  call void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI, %struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI) #4
-  call void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF) #4
-  %11 = bitcast %struct.OneElementFloatArray* %OEFA to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %11) #3
-  %12 = bitcast %struct.NestedStruct* %NS to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %12) #3
-  %13 = bitcast %struct.TwoWordWithArray* %TWA to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %13) #3
-  %14 = bitcast %struct.TwoDifferentWords* %TDW to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %14) #3
-  %15 = bitcast %struct.TwoLongs* %TL to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %15) #3
-  %16 = bitcast %struct.TwoInts* %TI to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %16) #3
-  %17 = bitcast %struct.TwoDoubles* %TD to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %17) #3
-  %18 = bitcast %struct.TwoFloats* %TF to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %18) #3
-  %19 = bitcast %struct.IntAndSSE* %IAS to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %19) #3
-  %20 = bitcast %struct.SingleFloat* %SF to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %20) #3
-  %21 = bitcast %struct.SingleInt* %SI to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %21) #3
+  call void @llvm.lifetime.start.p0(i64 4, ptr %SI) #3
+  call void @singleInt(ptr byval(%struct.SingleInt) align 4 %SI) #4
+  call void @llvm.lifetime.start.p0(i64 4, ptr %SF) #3
+  call void @singleFloat(ptr byval(%struct.SingleFloat) align 4 %SF) #4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %IAS) #3
+  call void @intAndSSE(ptr byval(%struct.IntAndSSE) align 4 %IAS) #4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %TF) #3
+  call void @twoFloats(ptr byval(%struct.TwoFloats) align 4 %TF) #4
+  call void @llvm.lifetime.start.p0(i64 16, ptr %TD) #3
+  call void @twoDoubles(ptr byval(%struct.TwoDoubles) align 8 %TD) #4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %TI) #3
+  call void @twoInts(ptr byval(%struct.TwoInts) align 4 %TI) #4
+  call void @llvm.lifetime.start.p0(i64 16, ptr %TL) #3
+  call void @twoLongs(ptr byval(%struct.TwoLongs) align 8 %TL) #4
+  call void @llvm.lifetime.start.p0(i64 16, ptr %TDW) #3
+  call void @twoDifferentWords(ptr byval(%struct.TwoDifferentWords) align 8 %TDW) #4
+  call void @llvm.lifetime.start.p0(i64 16, ptr %TWA) #3
+  call void @twoWordWithArray(ptr byval(%struct.TwoWordWithArray) align 4 %TWA) #4
+  call void @llvm.lifetime.start.p0(i64 12, ptr %TIM) #3
+  call void @threeIntegerMember(ptr byval(%struct.ThreeIntegerMember) align 4 %TIM) #4
+  call void @llvm.lifetime.start.p0(i64 16, ptr %NS) #3
+  call void @nestedStruct(ptr byval(%struct.NestedStruct) align 4 %NS) #4
+  call void @llvm.lifetime.start.p0(i64 4, ptr %OEFA) #3
+  call void @oneElementFLoatArray(ptr byval(%struct.OneElementFloatArray) align 4 %OEFA) #4
+  call void @outOfIntRegisters(ptr byval(%struct.TwoLongs) align 8 %TL, ptr byval(%struct.TwoLongs) align 8 %TL, ptr byval(%struct.SingleInt) align 4 %SI, ptr byval(%struct.TwoLongs) align 8 %TL, ptr byval(%struct.SingleInt) align 4 %SI, ptr byval(%struct.SingleInt) align 4 %SI) #4
+  call void @outOfSSERegisters(ptr byval(%struct.TwoDoubles) align 8 %TD, ptr byval(%struct.TwoDoubles) align 8 %TD, ptr byval(%struct.TwoDoubles) align 8 %TD, ptr byval(%struct.SingleFloat) align 4 %SF, ptr byval(%struct.TwoDoubles) align 8 %TD, ptr byval(%struct.SingleFloat) align 4 %SF, ptr byval(%struct.SingleFloat) align 4 %SF) #4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %OEFA) #3
+  call void @llvm.lifetime.end.p0(i64 16, ptr %NS) #3
+  call void @llvm.lifetime.end.p0(i64 16, ptr %TWA) #3
+  call void @llvm.lifetime.end.p0(i64 16, ptr %TDW) #3
+  call void @llvm.lifetime.end.p0(i64 16, ptr %TL) #3
+  call void @llvm.lifetime.end.p0(i64 8, ptr %TI) #3
+  call void @llvm.lifetime.end.p0(i64 16, ptr %TD) #3
+  call void @llvm.lifetime.end.p0(i64 8, ptr %TF) #3
+  call void @llvm.lifetime.end.p0(i64 8, ptr %IAS) #3
+  call void @llvm.lifetime.end.p0(i64 4, ptr %SF) #3
+  call void @llvm.lifetime.end.p0(i64 4, ptr %SI) #3
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: convergent
-declare void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4) #2
+declare void @singleInt(ptr byval(%struct.SingleInt) align 4) #2
 ; CHECK: declare void @singleInt(i32)
 
 ; Function Attrs: convergent
-declare void @singleFloat(%struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
+declare void @singleFloat(ptr byval(%struct.SingleFloat) align 4) #2
 ; CHECK: declare void @singleFloat(float)
 
 ; Function Attrs: convergent
-declare void @intAndSSE(%struct.IntAndSSE* byval(%struct.IntAndSSE) align 4) #2
+declare void @intAndSSE(ptr byval(%struct.IntAndSSE) align 4) #2
 ; CHECK: declare void @intAndSSE(i64)
 
 ; Function Attrs: convergent
-declare void @twoFloats(%struct.TwoFloats* byval(%struct.TwoFloats) align 4) #2
+declare void @twoFloats(ptr byval(%struct.TwoFloats) align 4) #2
 ; CHECK: declare void @twoFloats(<2 x float>)
 
 ; Function Attrs: convergent
-declare void @twoDoubles(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8) #2
+declare void @twoDoubles(ptr byval(%struct.TwoDoubles) align 8) #2
 ; CHECK: declare void @twoDoubles(double, double)
 
 ; Function Attrs: convergent
-declare void @twoInts(%struct.TwoInts* byval(%struct.TwoInts) align 4) #2
+declare void @twoInts(ptr byval(%struct.TwoInts) align 4) #2
 ; CHECK: declare void @twoInts(i64)
 
 ; Function Attrs: convergent
-declare void @twoLongs(%struct.TwoLongs* byval(%struct.TwoLongs) align 8) #2
+declare void @twoLongs(ptr byval(%struct.TwoLongs) align 8) #2
 ; CHECK: declare void @twoLongs(i64, i64)
 
 ; Function Attrs: convergent
-declare void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDifferentWords) align 8) #2
+declare void @twoDifferentWords(ptr byval(%struct.TwoDifferentWords) align 8) #2
 ; CHECK: declare void @twoDifferentWords(double, i64)
 
 ; Function Attrs: convergent
-declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4) #2
+declare void @twoWordWithArray(ptr byval(%struct.TwoWordWithArray) align 4) #2
 ; CHECK: declare void @twoWordWithArray(i64, i64)
 
 ; Function Attrs: convergent
-declare void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4) #2
+declare void @threeIntegerMember(ptr byval(%struct.ThreeIntegerMember) align 4) #2
 ; CHECK: declare void @threeIntegerMember(i64, i32)
 
 ; Function Attrs: convergent
-declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
+declare void @nestedStruct(ptr byval(%struct.NestedStruct) align 4) #2
 ; CHECK: declare void @nestedStruct(i64, i64)
 
 ; Function Attrs: convergent
-declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4) #2
+declare void @oneElementFLoatArray(ptr byval(%struct.OneElementFloatArray) align 4) #2
 ; CHECK: declare void @oneElementFLoatArray(float)
 
 ; Function Attrs: convergent
-declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; CHECK-NONOPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs*, i32, %struct.SingleInt*)
-; CHECK-OPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, ptr, i32, ptr)
+declare void @outOfIntRegisters(ptr byval(%struct.TwoLongs) align 8, ptr byval(%struct.TwoLongs) align 8, ptr byval(%struct.SingleInt) align 4, ptr byval(%struct.TwoLongs) align 8, ptr byval(%struct.SingleInt) align 4, ptr byval(%struct.SingleInt) align 4) #2
+; CHECK: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, ptr, i32, ptr)
 
 ; Function Attrs: convergent
-declare void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; CHECK-NONOPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles*, float, %struct.SingleFloat*)
-; CHECK-OPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, ptr, float, ptr)
+declare void @outOfSSERegisters(ptr byval(%struct.TwoDoubles) align 8, ptr byval(%struct.TwoDoubles) align 8, ptr byval(%struct.TwoDoubles) align 8, ptr byval(%struct.SingleFloat) align 4, ptr byval(%struct.TwoDoubles) align 8, ptr byval(%struct.SingleFloat) align 4, ptr byval(%struct.SingleFloat) align 4) #2
+; CHECK: declare void @outOfSSERegisters(double, double, double, double, double, double, float, ptr, float, ptr)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
@@ -183,7 +155,7 @@ attributes #4 = { convergent }
 !2 = !{}
 !3 = !{!"cl_doubles"}
 !4 = !{!"icx (ICX) dev.8.x.0"}
-!5 = !{void ()* @test}
+!5 = !{ptr @test}
 
 
 ; DEBUGIFY-NOT: WARNING

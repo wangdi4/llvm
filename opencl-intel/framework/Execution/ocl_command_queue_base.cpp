@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2022 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -271,15 +271,6 @@ IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent> &pEvent) {
   return CL_DEV_SUCCEEDED(ret) ? CL_SUCCESS : CL_INVALID_OPERATION;
 }
 
-/******************************************************************
- * This object holds extra reference count as it is recorded in ContextModule
- ******************************************************************/
-void IOclCommandQueueBase::EnterZombieState(
-    EnterZombieStateLevel /*call_level*/) {
-  m_pContext->GetContextModule().CommandQueueRemoved(this);
-  OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
-}
-
 void IOclCommandQueueBase::NotifyCommandFailed(
     cl_err_code err, const CommandSharedPtr<> &command) const {
   if (NULL != command.GetPtr()) {
@@ -309,11 +300,4 @@ void IOclCommandQueueBase::NotifyCommandFailed(
     GetContext()->NotifyError(tmp.c_str(), handle,
                               handle ? sizeof(*handle) : 0);
   }
-}
-
-void IOclCommandQueueBase::BecomeVisible() {
-  // register itself in the context_codule.
-  // Note - this will increase RefCount - need to unregister when refcount drops
-  // to 1!
-  m_pContext->GetContextModule().CommandQueueCreated(this);
 }

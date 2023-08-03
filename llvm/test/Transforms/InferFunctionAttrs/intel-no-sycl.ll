@@ -10,14 +10,14 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: convergent nounwind
-declare dso_local spir_func void @__assert_fail(i8 addrspace(4)*, i8 addrspace(4)*, i32, i8 addrspace(4)*) #0
-declare dso_local spir_func void @error(i32, i32, i8 addrspace(4)*) #0
+declare dso_local spir_func void @__assert_fail(ptr addrspace(4), ptr addrspace(4), i32, ptr addrspace(4)) #0
+declare dso_local spir_func void @error(i32, i32, ptr addrspace(4)) #0
 declare dso_local spir_func void @abort() #0
 
 define weak_odr dso_local spir_func void @testattr() {
 entry:
-  call spir_func void @__assert_fail(i8 addrspace(4)* null, i8 addrspace(4)* null, i32 0, i8 addrspace(4)* null) #1
-  call spir_func void @error(i32 0, i32 0, i8 addrspace(4)* null) #1
+  call spir_func void @__assert_fail(ptr addrspace(4) null, ptr addrspace(4) null, i32 0, ptr addrspace(4) null) #1
+  call spir_func void @error(i32 0, i32 0, ptr addrspace(4) null) #1
   call spir_func void @abort() #1
   br label %cond.end
 

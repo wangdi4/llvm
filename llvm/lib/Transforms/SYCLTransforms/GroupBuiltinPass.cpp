@@ -178,7 +178,9 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
-  } else if(isWorkGroupReduceBitwiseAnd(FuncName)){
+  } else if (isWorkGroupReduceBitwiseAnd(FuncName) ||
+             isWorkGroupScanExclusiveBitwiseAnd(FuncName) ||
+             isWorkGroupScanInclusiveBitwiseAnd(FuncName)) {
     switch (DataEnum) {
     case reflection::PRIMITIVE_CHAR:
       InitVal = ConstantInt::get(Int8Type, -1);
@@ -207,8 +209,8 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
-  } else if(isWorkGroupReduceBitwiseOr(FuncName) ||
-            isWorkGroupReduceBitwiseXor(FuncName)){
+  } else if (isWorkGroupReduceBitwiseOr(FuncName) ||
+             isWorkGroupReduceBitwiseXor(FuncName)) {
     switch (DataEnum) {
     case reflection::PRIMITIVE_CHAR:
     case reflection::PRIMITIVE_UCHAR:
@@ -229,7 +231,7 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
-  } else if(isWorkGroupReduceLogicalAnd(FuncName)){
+  } else if (isWorkGroupReduceLogicalAnd(FuncName)) {
     switch (DataEnum) {
     case reflection::PRIMITIVE_INT:
       InitVal = ConstantInt::get(Int32Type, 1);
@@ -237,8 +239,8 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
-  } else if(isWorkGroupReduceLogicalOr(FuncName) ||
-            isWorkGroupReduceLogicalXor(FuncName)){
+  } else if (isWorkGroupReduceLogicalOr(FuncName) ||
+             isWorkGroupReduceLogicalXor(FuncName)) {
     switch (DataEnum) {
     case reflection::PRIMITIVE_INT:
       InitVal = ConstantInt::get(Int32Type, 0);
@@ -246,7 +248,7 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
     default:
       llvm_unreachable("Unsupported WG argument type");
     }
-  }else {
+  } else {
     // Initial value for the rest of WG functions: zero
     switch (DataEnum) {
     case reflection::PRIMITIVE_CHAR:
@@ -582,7 +584,9 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // Get the new function declaration out of built-in module list.
     Function *LibFunc = RTS.findFunctionInBuiltinModules(newFuncName);
     assert(LibFunc && "WG builtin is not supported in built-in module");
-    Function *NewFunc = importFunctionDecl(this->M, LibFunc);
+    auto FC = this->M->getOrInsertFunction(
+        newFuncName, LibFunc->getFunctionType(), LibFunc->getAttributes());
+    Function *NewFunc = cast<Function>(FC.getCallee());
     assert(NewFunc && "Non-function object with the same signature "
                       "identified in the module");
 
@@ -620,7 +624,10 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
       // Get the new function declaration out of built-in modules list.
       Function *LibFunc = RTS.findFunctionInBuiltinModules(FinalizeFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
-      Function *FinalizeFunc = importFunctionDecl(this->M, LibFunc);
+      auto FC = this->M->getOrInsertFunction(FinalizeFuncName,
+                                             LibFunc->getFunctionType(),
+                                             LibFunc->getAttributes());
+      Function *FinalizeFunc = cast<Function>(FC.getCallee());
       assert(FinalizeFunc && "Non-function object with the same signature "
                              "identified in the module");
 

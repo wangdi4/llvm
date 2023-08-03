@@ -1,4 +1,5 @@
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-concatenation" 2>&1 -print-changed -disable-output < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Look for 4 loops with trip count of 4 before the transformation.
 
@@ -35,6 +36,11 @@
 
 
 ; CHECK-NOT: DO i
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopConcatenation
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

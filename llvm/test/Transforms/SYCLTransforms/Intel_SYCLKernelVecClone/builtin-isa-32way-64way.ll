@@ -18,34 +18,34 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @test_v32_wg_builtin(i32 noundef %a, i32 addrspace(1)* noundef align 4 %b) !no_barrier_path !1 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
+define void @test_v32_wg_builtin(i32 noundef %a, ptr addrspace(1) noundef align 4 %b) !no_barrier_path !1 !kernel_has_sub_groups !1 !recommended_vector_length !2 !kernel_arg_base_type !13 !arg_type_null_val !14 {
 entry:
   %call = tail call i32 @_Z14work_group_alli(i32 noundef %a) #2
-  store i32 %call, i32 addrspace(1)* %b, align 4, !tbaa !3
+  store i32 %call, ptr addrspace(1) %b, align 4, !tbaa !3
   ret void
 }
 
-define void @test_v64_wg_builtin(i32 noundef %a, i32 addrspace(1)* noundef align 4 %b) !no_barrier_path !1 !kernel_has_sub_groups !1 !recommended_vector_length !7 {
+define void @test_v64_wg_builtin(i32 noundef %a, ptr addrspace(1) noundef align 4 %b) !no_barrier_path !1 !kernel_has_sub_groups !1 !recommended_vector_length !7 !kernel_arg_base_type !13 !arg_type_null_val !14 {
 entry:
   %call = tail call i32 @_Z14work_group_alli(i32 noundef %a) #1
-  store i32 %call, i32 addrspace(1)* %b, align 4, !tbaa !8
+  store i32 %call, ptr addrspace(1) %b, align 4, !tbaa !8
   ret void
 }
 
 ; Function Attrs: convergent
 declare i32 @_Z14work_group_alli(i32 noundef) local_unnamed_addr #0
 
-define void @test_v32(float addrspace(1)* noundef align 4 %a, float addrspace(1)* noundef align 4 %b) !no_barrier_path !10 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
+define void @test_v32(ptr addrspace(1) noundef align 4 %a, ptr addrspace(1) noundef align 4 %b) !no_barrier_path !10 !kernel_has_sub_groups !1 !recommended_vector_length !2 !kernel_arg_base_type !15 !arg_type_null_val !16 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #3
   %conv = trunc i64 %call to i32
   %idxprom = and i64 %call, 4294967295
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %idxprom
-  %0 = load float, float addrspace(1)* %arrayidx, align 4, !tbaa !11
-  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %b, i64 %idxprom
-  %1 = load float, float addrspace(1)* %arrayidx2, align 4, !tbaa !11
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %a, i64 %idxprom
+  %0 = load float, ptr addrspace(1) %arrayidx, align 4, !tbaa !11
+  %arrayidx2 = getelementptr inbounds float, ptr addrspace(1) %b, i64 %idxprom
+  %1 = load float, ptr addrspace(1) %arrayidx2, align 4, !tbaa !11
   %call3 = tail call float @_Z6selectffj(float noundef %0, float noundef %1, i32 noundef %conv) #3
-  store float %call3, float addrspace(1)* %arrayidx, align 4, !tbaa !11
+  store float %call3, ptr addrspace(1) %arrayidx, align 4, !tbaa !11
   ret void
 }
 
@@ -55,17 +55,17 @@ declare i64 @_Z13get_global_idj(i32 noundef) local_unnamed_addr #1
 ; Function Attrs: convergent mustprogress nofree nounwind readnone willreturn
 declare float @_Z6selectffj(float noundef, float noundef, i32 noundef) local_unnamed_addr #1
 
-define void @test_v64(float addrspace(1)* noundef align 4 %a, float addrspace(1)* noundef align 4 %b) !no_barrier_path !10 !kernel_has_sub_groups !1 !recommended_vector_length !7 {
+define void @test_v64(ptr addrspace(1) noundef align 4 %a, ptr addrspace(1) noundef align 4 %b) !no_barrier_path !10 !kernel_has_sub_groups !1 !recommended_vector_length !7 !kernel_arg_base_type !15 !arg_type_null_val !16 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #3
   %conv = trunc i64 %call to i32
   %idxprom = and i64 %call, 4294967295
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %idxprom
-  %0 = load float, float addrspace(1)* %arrayidx, align 4, !tbaa !11
-  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %b, i64 %idxprom
-  %1 = load float, float addrspace(1)* %arrayidx2, align 4, !tbaa !11
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %a, i64 %idxprom
+  %0 = load float, ptr addrspace(1) %arrayidx, align 4, !tbaa !11
+  %arrayidx2 = getelementptr inbounds float, ptr addrspace(1) %b, i64 %idxprom
+  %1 = load float, ptr addrspace(1) %arrayidx2, align 4, !tbaa !11
   %call3 = tail call float @_Z6selectffj(float noundef %0, float noundef %1, i32 noundef %conv) #3
-  store float %call3, float addrspace(1)* %arrayidx, align 4, !tbaa !11
+  store float %call3, ptr addrspace(1) %arrayidx, align 4, !tbaa !11
   ret void
 }
 
@@ -76,7 +76,7 @@ attributes #3 = { convergent nounwind readnone willreturn }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32, i32 addrspace(1)*)* @test_v32_wg_builtin, void (i32, i32 addrspace(1)*)* @test_v64_wg_builtin, void (float addrspace(1)*, float addrspace(1)*)* @test_v32, void (float addrspace(1)*, float addrspace(1)*)* @test_v64}
+!0 = !{ptr @test_v32_wg_builtin, ptr @test_v64_wg_builtin, ptr @test_v32, ptr @test_v64}
 !1 = !{i1 false}
 !2 = !{i32 32}
 !3 = !{!4, !4, i64 0}
@@ -89,10 +89,13 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !10 = !{i1 true}
 !11 = !{!12, !12, i64 0}
 !12 = !{!"float", !5, i64 0}
+!13 = !{!"int", !"int*"}
+!14 = !{i32 0, i32 addrspace(1)* null}
+!15 = !{!"float*", !"float*"}
+!16 = !{float addrspace(1)* null, float addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} call
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} icmp
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
@@ -100,7 +103,6 @@ attributes #3 = { convergent nounwind readnone willreturn }
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} call
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} icmp
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} br

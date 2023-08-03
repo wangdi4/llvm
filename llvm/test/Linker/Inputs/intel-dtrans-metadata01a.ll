@@ -1,18 +1,18 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-%struct._sublex_info = type { i8, i16, %struct.op*, %struct.sv* }
-%struct.sv = type { i8*, i32, i32, %union.anon }
-%struct.op = type { %struct.op*, %struct.op*, {}*, i64, i16, i8, i8 }
-%union.anon = type { i8* }
+%struct._sublex_info = type { i8, i16, ptr, ptr }
+%struct.sv = type { ptr, i32, i32, %union.anon }
+%struct.op = type { ptr, ptr, ptr, i64, i16, i8, i8 }
+%union.anon = type { ptr }
 
-define "intel_dtrans_func_index"="1" %struct._sublex_info* @test(%struct._sublex_info* "intel_dtrans_func_index"="2" returned %in) !intel.dtrans.func.type !12 {
-    %op.addr = getelementptr %struct._sublex_info, %struct._sublex_info* %in, i64 0, i32 2
-    %op = load %struct.op*, %struct.op** %op.addr
-    %r = call %struct.op* @test02(%struct.op* %op)
-    ret %struct._sublex_info* %in
+define "intel_dtrans_func_index"="1" ptr @test(ptr "intel_dtrans_func_index"="2" returned %in) !intel.dtrans.func.type !12 {
+    %op.addr = getelementptr %struct._sublex_info, ptr %in, i64 0, i32 2
+    %op = load ptr, ptr %op.addr
+    %r = call ptr @test02(ptr %op)
+    ret ptr %in
 }
 
-declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" %struct.op* @test02(%struct.op* "intel_dtrans_func_index"="2")
+declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" ptr @test02(ptr "intel_dtrans_func_index"="2")
 
 
 !1 = !{i8 0, i32 0}  ; i8

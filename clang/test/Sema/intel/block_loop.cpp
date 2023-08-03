@@ -113,6 +113,12 @@ void error_check(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+  // expected-note@+2 {{second block_loop level is specified here}}
+  // expected-error@+1 {{overlapping blockloop levels between level(2:2) and level(1:3)}}
+  #pragma block_loop level(1:3,2)
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
 }
 
 template <typename T>

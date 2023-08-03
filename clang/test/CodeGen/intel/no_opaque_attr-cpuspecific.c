@@ -54,8 +54,8 @@ void SingleVersion(void);
 // //
 // LINUX: [[REST]]
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 104428 
-// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 104428 
+// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 104430
+// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 104430
 // LINUX: br i1 %[[FEAT_CHECK]]
 // LINUX: ret void ()* @SingleVersion.S
 // LINUX: call void @llvm.trap
@@ -74,8 +74,8 @@ void SingleVersion(void);
 
 // WINDOWS: [[REST]]
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 104428 
-// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 104428 
+// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 104430
+// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 104430
 // WINDOWS: br i1 %[[FEAT_CHECK]]
 // WINDOWS: call void @SingleVersion.S()
 // WINDOWS-NEXT: ret void
@@ -106,8 +106,8 @@ void TwoVersions(void);
 
 // LINUX: [[REST]]
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
-// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
+// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754350
+// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754350
 // LINUX: br i1 %[[FEAT_CHECK]]
 // LINUX: ret void ()* @TwoVersions.Z
 // LINUX: ret void ()* @TwoVersions.S
@@ -127,8 +127,8 @@ void TwoVersions(void);
 
 // WINDOWS: [[REST]]
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
-// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
+// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754350
+// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754350
 // WINDOWS: br i1 %[[FEAT_CHECK]]
 // WINDOWS: call void @TwoVersions.Z()
 // WINDOWS-NEXT: ret void
@@ -338,7 +338,7 @@ int GenericAndPentium(int i, double d);
 // LINUX: define weak_odr i32 (i32, double)* @GenericAndPentium.resolver()
 // LINUX: ret i32 (i32, double)* @GenericAndPentium.O
 // LINUX: ret i32 (i32, double)* @GenericAndPentium.B
-// LINUX-NOT: ret i32 (i32, double)* @GenericAndPentium.A
+// LINUX: ret i32 (i32, double)* @GenericAndPentium.A
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local i32 @GenericAndPentium(i32 %0, double %1) comdat
@@ -346,7 +346,7 @@ int GenericAndPentium(int i, double d);
 // WINDOWS-NEXT: ret i32 %[[RET]]
 // WINDOWS: %[[RET:.+]] = musttail call i32 @GenericAndPentium.B(i32 %0, double %1)
 // WINDOWS-NEXT: ret i32 %[[RET]]
-// WINDOWS-NOT: call i32 @GenericAndPentium.A
+// WINDOWS: call i32 @GenericAndPentium.A
 // WINDOWS-NOT: call void @llvm.trap
 
 ATTR(cpu_dispatch(atom, pentium))
@@ -380,6 +380,6 @@ int DispatchFirst(void) {return 1;}
 ATTR(cpu_specific(knl))
 void OrderDispatchUsageSpecific(void) {}
 
-// CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+crc32,+cx8,+f16c,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
-// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+cmov,+crc32,+cx8,+f16c,+fma,+lzcnt,+mmx,+movbe,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
-// CHECK: attributes #[[O]] = {{.*}}"target-features"="+cmov,+cx8,+mmx,+movbe,+sse,+sse2,+sse3,+ssse3,+x87"
+// CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+crc32,+cx16,+cx8,+f16c,+fsgsbase,+fxsr,+mmx,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt"
+// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+aes,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prefetchwt1,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt"
+// CHECK: attributes #[[O]] = {{.*}}"target-features"="+cmov,+cx16,+cx8,+fxsr,+mmx,+movbe,+sahf,+sse,+sse2,+sse3,+ssse3,+x87"

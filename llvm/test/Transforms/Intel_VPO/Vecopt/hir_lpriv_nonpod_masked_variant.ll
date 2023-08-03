@@ -7,24 +7,24 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local noundef i32 @_Z3foov() local_unnamed_addr {
-; CHECK:               %1 = bitcast.<2 x i1>.i2(%.vec24);
-; CHECK-NEXT:          %cmp28 = %1 == 0;
-; CHECK-NEXT:          %all.zero.check29 = %cmp28;
-; CHECK-NEXT:          if (%cmp28 == 1)
+; CHECK:               %1 = bitcast.<2 x i1>.i2([[VEC:%.*]]);
+; CHECK-NEXT:          [[CMP:%.*]] = %1 == 0;
+; CHECK-NEXT:          [[ALL_ZERO_CHECK:%all.zero.*]] = [[CMP]];
+; CHECK-NEXT:          if ([[CMP]] == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto BB19.95;
+; CHECK-NEXT:             goto [[BB19:BB.*]];
 ; CHECK-NEXT:          }
-; CHECK-NEXT:          %bsfintmask = bitcast.<2 x i1>.i2(%.vec24);
+; CHECK-NEXT:          %bsfintmask = bitcast.<2 x i1>.i2([[VEC]]);
 ; CHECK-NEXT:          %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
 ; CHECK-NEXT:          %ext.lane = 1  -  %bsf;
-; CHECK-NEXT:          %priv.extract = extractelement &((<2 x %struct.str*>)(%priv.mem.bc14)[<i32 0, i32 1>]),  %ext.lane;
+; CHECK-NEXT:          %priv.extract = extractelement &((<2 x ptr>)([[PRIV_MEM1:%priv.mem.*]])[<i32 0, i32 1>]),  %ext.lane;
 ; CHECK-NEXT:          @_ZTS3str.omp.copy_assign(%x.lpriv,  %priv.extract);
-; CHECK-NEXT:          @_ZTS3str.omp.destr(&((%struct.str*)(%priv.mem13)[0]));
-; CHECK-NEXT:          %extract.1.30 = extractelement &((<2 x %struct.str*>)(%priv.mem.bc14)[<i32 0, i32 1>]),  1;
-; CHECK-NEXT:          @_ZTS3str.omp.destr(%extract.1.30);
-; CHECK-NEXT:          BB19.95:
-; CHECK-NEXT:          %phi.temp10 = 9999;
-; CHECK-NEXT:          final.merge.58:
+; CHECK-NEXT:          @_ZTS3str.omp.destr(&((%struct.str*)([[PRIV_MEM2:%priv.mem.*]])[0]));
+; CHECK-NEXT:          [[EXTRACT1:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM1]])[<i32 0, i32 1>]),  1;
+; CHECK-NEXT:          @_ZTS3str.omp.destr([[EXTRACT1]]);
+; CHECK-NEXT:          [[BB19]]:
+; CHECK-NEXT:          [[PHI:%phi.*]] = 9999;
+; CHECK-NEXT:          [[FINAL_MERGE:final.merge.*]]:
 ;
 DIR.OMP.SIMD.116:
   %x.lpriv = alloca %struct.str, align 4
@@ -32,18 +32,17 @@ DIR.OMP.SIMD.116:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(%struct.str* %x.lpriv, %struct.str zeroinitializer, i32 1, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr %x.lpriv, %struct.str zeroinitializer, i32 1, ptr @_ZTS3str.omp.def_constr, ptr @_ZTS3str.omp.copy_assign, ptr @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.010 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
   %add = add nuw nsw i32 %.omp.iv.local.010, 1
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %exitcond.not = icmp eq i32 %add, 9999
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.217, label %omp.inner.for.body
 
@@ -56,7 +55,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.21
 }
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -65,13 +64,13 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone willreturn uwtable
-declare %struct.str* @_ZTS3str.omp.def_constr(%struct.str* noundef readnone returned %0)
+declare ptr @_ZTS3str.omp.def_constr(ptr noundef readnone returned %0)
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind willreturn uwtable
-declare void @_ZTS3str.omp.copy_assign(%struct.str* nocapture noundef writeonly %0, %struct.str* nocapture noundef readonly %1)
+declare void @_ZTS3str.omp.copy_assign(ptr nocapture noundef writeonly %0, ptr nocapture noundef readonly %i.linear.iv)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone willreturn uwtable
-declare void @_ZTS3str.omp.destr(%struct.str* nocapture noundef readnone %0)
+declare void @_ZTS3str.omp.destr(ptr nocapture noundef readnone %0)
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

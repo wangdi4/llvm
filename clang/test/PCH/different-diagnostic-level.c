@@ -1,5 +1,5 @@
 // RUN: %clang -x c-header %s -Weverything -o %t.h.pch
-// RUN: %clang -x c %s -w -include %t.h -fsyntax-only -Xclang -verify
+// INTEL RUN: %clang -x c %s -w -include-pch %t.h.pch -fsyntax-only -Xclang -verify
 
 #ifndef HEADER
 #define HEADER

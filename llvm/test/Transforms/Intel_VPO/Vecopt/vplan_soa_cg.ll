@@ -10,7 +10,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
 ; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1

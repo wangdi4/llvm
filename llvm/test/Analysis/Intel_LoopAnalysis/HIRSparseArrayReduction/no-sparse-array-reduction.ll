@@ -20,28 +20,28 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i64 %I235886.0, i64 %I100604.0, i64* nocapture readonly %I01541, double* nocapture readonly %I13248, double* nocapture readonly %I137650, i64* nocapture readonly %I228867, double* nocapture %I07578, i64* nocapture readonly %I228868) {
+define void @foo(i64 %I235886.0, i64 %I100604.0, ptr nocapture readonly %I01541, ptr nocapture readonly %I13248, ptr nocapture readonly %I137650, ptr nocapture readonly %I228867, ptr nocapture %I07578, ptr nocapture readonly %I228868) {
 entry:
-  %incdec.ptr = getelementptr inbounds double, double* %I07578, i64 -1
-  %incdec.ptr1 = getelementptr inbounds double, double* %I137650, i64 -1
-  %t0 = load i64, i64* %I01541, align 8
+  %incdec.ptr = getelementptr inbounds double, ptr %I07578, i64 -1
+  %incdec.ptr1 = getelementptr inbounds double, ptr %I137650, i64 -1
+  %t0 = load i64, ptr %I01541, align 8
   br label %for.body;
 
 for.body:
   %I235886.111 = phi i64 [ %add25, %for.body ], [ %I235886.0, %entry ]
   %I100604.110 = phi i64 [ %add24, %for.body ], [ %I100604.0, %entry ]
   %I235885.09 = phi i64 [ %inc, %for.body ], [ 1, %entry ]
-  %t5 = load double, double* %I13248, align 8
-  %arrayidx = getelementptr inbounds double, double* %incdec.ptr1, i64 %I100604.110
-  %t6 = load double, double* %arrayidx, align 8
+  %t5 = load double, ptr %I13248, align 8
+  %arrayidx = getelementptr inbounds double, ptr %incdec.ptr1, i64 %I100604.110
+  %t6 = load double, ptr %arrayidx, align 8
   %mul21 = fmul double %t5, %t6
-  %arrayidx22 = getelementptr inbounds double, double* %incdec.ptr, i64 %I235886.111
-  %t7 = load double, double* %arrayidx22, align 8
+  %arrayidx22 = getelementptr inbounds double, ptr %incdec.ptr, i64 %I235886.111
+  %t7 = load double, ptr %arrayidx22, align 8
   %add23 = fadd double %t7, %mul21
-  store double %add23, double* %arrayidx22, align 8
-  %t8 = load i64, i64* %I228867, align 8
+  store double %add23, ptr %arrayidx22, align 8
+  %t8 = load i64, ptr %I228867, align 8
   %add24 = add nsw i64 %t8, %I100604.110
-  %t9 = load i64, i64* %I228868, align 8
+  %t9 = load i64, ptr %I228868, align 8
   %add25 = add nsw i64 %t9, %I235886.111
   %inc = add nuw nsw i64 %I235885.09, 1
   %exitcond13 = icmp eq i64 %I235885.09, %t0

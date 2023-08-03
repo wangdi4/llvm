@@ -1,5 +1,7 @@
 ; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+
 ;; Original source for reference:
 
 ;; void my_add(float &lhs, const float &rhs) { lhs += rhs; }
@@ -37,6 +39,9 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_ORIG]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]])
 ; CHECK-NEXT:    br label
+
+; OPTRPT: remark #25588: Loop has SIMD reduction
+; OPTRPT-NEXT: remark #15590: vectorization support: inscan user-defined reduction with value type float
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

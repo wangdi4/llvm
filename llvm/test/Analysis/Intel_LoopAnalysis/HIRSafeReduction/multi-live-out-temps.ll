@@ -37,13 +37,13 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree nosync nounwind uwtable
-define void @sub_(float* noalias nocapture readonly dereferenceable(4) %"sub_$A", float* noalias nocapture readonly dereferenceable(4) %"sub_$B", float* noalias nocapture dereferenceable(4) %"sub_$S", float* noalias nocapture writeonly dereferenceable(4) %"sub_$T", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N", float* noalias nocapture readonly dereferenceable(4) %"sub_$U", float* noalias nocapture readonly dereferenceable(4) %"sub_$V") local_unnamed_addr #0 !llfort.type_idx !0 {
+define void @sub_(ptr noalias nocapture readonly dereferenceable(4) %"sub_$A", ptr noalias nocapture readonly dereferenceable(4) %"sub_$B", ptr noalias nocapture dereferenceable(4) %"sub_$S", ptr noalias nocapture writeonly dereferenceable(4) %"sub_$T", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N", ptr noalias nocapture readonly dereferenceable(4) %"sub_$U", ptr noalias nocapture readonly dereferenceable(4) %"sub_$V") local_unnamed_addr #0 !llfort.type_idx !0 {
 alloca_0:
-  %"sub_$V_fetch.1" = load float, float* %"sub_$V"
-  store float %"sub_$V_fetch.1", float* %"sub_$S"
-  %"sub_$U_fetch.2" = load float, float* %"sub_$U"
-  store float %"sub_$U_fetch.2", float* %"sub_$T"
-  %"sub_$N_fetch.3" = load i32, i32* %"sub_$N"
+  %"sub_$V_fetch.1" = load float, ptr %"sub_$V"
+  store float %"sub_$V_fetch.1", ptr %"sub_$S"
+  %"sub_$U_fetch.2" = load float, ptr %"sub_$U"
+  store float %"sub_$U_fetch.2", ptr %"sub_$T"
+  %"sub_$N_fetch.3" = load i32, ptr %"sub_$N"
   %rel.1 = icmp slt i32 %"sub_$N_fetch.3", 1
   br i1 %rel.1, label %bb3, label %bb2.preheader
 
@@ -55,11 +55,11 @@ bb2.preheader:                                    ; preds = %alloca_0
 bb2:                                              ; preds = %bb2.preheader, %bb2
   %indvars.iv = phi i64 [ 1, %bb2.preheader ], [ %indvars.iv.next, %bb2 ]
   %div.26 = phi float [ %"sub_$V_fetch.1", %bb2.preheader ], [ %div.2, %bb2 ]
-  %"sub_$A_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A", i64 %indvars.iv), !llfort.type_idx !17
-  %"sub_$A_entry[]_fetch.7" = load float, float* %"sub_$A_entry[]"
+  %"sub_$A_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A", i64 %indvars.iv), !llfort.type_idx !17
+  %"sub_$A_entry[]_fetch.7" = load float, ptr %"sub_$A_entry[]"
   %div.1 = fdiv reassoc ninf nsz arcp contract afn float %div.26, %"sub_$A_entry[]_fetch.7"
-  %"sub_$B_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$B", i64 %indvars.iv), !llfort.type_idx !21
-  %"sub_$B_entry[]_fetch.10" = load float, float* %"sub_$B_entry[]"
+  %"sub_$B_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$B", i64 %indvars.iv), !llfort.type_idx !21
+  %"sub_$B_entry[]_fetch.10" = load float, ptr %"sub_$B_entry[]"
   %div.2 = fdiv reassoc ninf nsz arcp contract afn float %div.1, %"sub_$B_entry[]_fetch.10"
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -68,8 +68,8 @@ bb2:                                              ; preds = %bb2.preheader, %bb2
 bb3.loopexit:                                     ; preds = %bb2
   %div.1.lcssa = phi float [ %div.1, %bb2 ]
   %div.2.lcssa = phi float [ %div.2, %bb2 ]
-  store float %div.2.lcssa, float* %"sub_$S"
-  store float %div.1.lcssa, float* %"sub_$T"
+  store float %div.2.lcssa, ptr %"sub_$S"
+  store float %div.1.lcssa, ptr %"sub_$T"
   br label %bb3
 
 bb3:                                              ; preds = %bb3.loopexit, %alloca_0
@@ -77,7 +77,7 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { argmemonly nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

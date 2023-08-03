@@ -19,6 +19,8 @@
 #include <cl_shared_ptr.hpp>
 #include <task_executor.h>
 
+#include "llvm/Support/Threading.h"
+
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -48,7 +50,6 @@ FrameworkProxy::FrameworkProxy() {
   m_pTaskExecutor = nullptr;
   m_pTaskList = nullptr;
   m_pTaskList_immediate = nullptr;
-  m_uiTEActivationCount = 0;
 
   Initialize();
 }
@@ -572,17 +573,10 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
-#if 0
-  // Disable it to avoid conflict with atexit() callback, we will refine the
-  // shutdown process after we merged all dynamic libraries into one.
-  if (Instance()->NeedToDisableAPIsAtShutdown()) {
-    // If this function is being called during process shutdown AND we
-    // should just disable external APIs. Do not delete or release
-    // anything as it may cause a deadlock.
-    if (TERMINATED != gGlobalState)
-      Instance()->Release(true);
-  } else
-    Instance()->Release(true);
+#if !DISABLE_SHUTDOWN
+  // Only enter shutdown process if the instance has been created.
+  if (m_instance)
+    m_instance->Release(true);
 #endif
 }
 
@@ -590,10 +584,13 @@ void FrameworkProxy::Destroy() {
 // FrameworkProxy::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
+  // Intentionally disable this code on windows due to shutdown issue
+#if !_WIN32
   // Many modules assume that FrameWorkProxy singleton, execution_module,
   // context_module and platform_module exist all the time -> we must ensure
   // that everything is shut down before deleting them.
   Instance()->m_pContextModule->ShutDown(true);
+#endif
 
   if (nullptr != m_pExecutionModule) {
     m_pExecutionModule->Release(bTerminate);
@@ -606,20 +603,13 @@ void FrameworkProxy::Release(bool bTerminate) {
   }
 
   if (nullptr != m_pPlatformModule) {
+  // Intentionally disable this code on windows due to shutdown issue
+#if !_WIN32
     m_pPlatformModule->Release(bTerminate);
+#endif
     delete m_pPlatformModule;
   }
 
-  if (!bTerminate && (nullptr != m_pTaskList)) {
-    // looks like this is the normal deletion - force root device deletion
-    m_uiTEActivationCount = 1;
-    DeactivateTaskExecutor();
-  } else {
-    // TaskExecutor is managed inside it's own DLL and may be already deleted at
-    // this point we should avoid deletion of root device here - leave one extra
-    // counter
-    m_pTaskList = nullptr;
-  }
   m_pTaskExecutor = nullptr;
 
   if (nullptr != m_pFileLogHandler) {
@@ -632,15 +622,20 @@ void FrameworkProxy::Release(bool bTerminate) {
     delete m_pConfig;
     m_pConfig = nullptr;
   }
+  RELEASE_LOGGER_CLIENT;
   cl_monitor_summary;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+FrameworkProxy *FrameworkProxy::m_instance = nullptr;
 FrameworkProxy *FrameworkProxy::Instance() {
-  static FrameworkProxy S;
-  return &S;
+  static FrameworkProxy *S = [] {
+    m_instance = new FrameworkProxy();
+    return m_instance;
+  }();
+  return S;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -651,31 +646,28 @@ FrameworkProxy::GetTaskExecutor() const {
   // teInitialize > 0 means task executor is initialized successfully.
   // teInitialize == 0 means task executor is not initialized succcessfully.
   static int teInitialized = 1;
-  if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
-    // Initialize TaskExecutor
-    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-    if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
-      LOG_INFO(TEXT("%s"), "Initialize Executor");
-      m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
-      assert(m_pTaskExecutor);
-      auto deviceMode = m_pConfig->GetDeviceMode();
-      if (m_pConfig->UseAutoMemory()) {
-        teInitialized =
-            m_pTaskExecutor->Init(m_pConfig->GetNumTBBWorkers(), &m_GPAData,
-                                  m_pConfig->GetStackDefaultSize(), deviceMode);
-      } else {
-        // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
-        // CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env variables
-        // as required stack for executor threads because local/private
-        // variables are located on stack.
-        size_t stackSize = m_pConfig->GetForcedLocalMemSize() +
-                           m_pConfig->GetForcedPrivateMemSize() +
-                           CPU_DEV_BASE_STACK_SIZE;
-        teInitialized = m_pTaskExecutor->Init(
-            m_pConfig->GetNumTBBWorkers(), &m_GPAData, stackSize, deviceMode);
-      }
+  static llvm::once_flag OnceFlag;
+  llvm::call_once(OnceFlag, [&]() {
+    LOG_INFO(TEXT("%s"), "Initialize Executor");
+    m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
+    assert(m_pTaskExecutor);
+    auto deviceMode = m_pConfig->GetDeviceMode();
+    if (m_pConfig->UseAutoMemory()) {
+      teInitialized =
+          m_pTaskExecutor->Init(m_pConfig->GetNumTBBWorkers(), &m_GPAData,
+                                m_pConfig->GetStackDefaultSize(), deviceMode);
+    } else {
+      // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
+      // CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env variables
+      // as required stack for executor threads because local/private
+      // variables are located on stack.
+      size_t stackSize = m_pConfig->GetForcedLocalMemSize() +
+                         m_pConfig->GetForcedPrivateMemSize() +
+                         CPU_DEV_BASE_STACK_SIZE;
+      teInitialized = m_pTaskExecutor->Init(m_pConfig->GetNumTBBWorkers(),
+                                            &m_GPAData, stackSize, deviceMode);
     }
-  }
+  });
 
   if (0 == teInitialized)
     return nullptr;
@@ -686,82 +678,31 @@ FrameworkProxy::GetTaskExecutor() const {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::ActivateTaskExecutor()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-bool FrameworkProxy::ActivateTaskExecutor() const {
+bool FrameworkProxy::ActivateTaskExecutor() {
   ITaskExecutor *pTaskExecutor = GetTaskExecutor();
 
-  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
   // Quit as early as possible if task executor initialization fails.
   if (nullptr == pTaskExecutor)
     return false;
 
-  if (nullptr == m_pTaskList) {
-    // During shutdown task_executor dll may finish before current dll and
-    // destroy all internal objects We can discover this case but we cannot
-    // access any task_executor object at that time point because it may be
-    // already destroyed. As SharedPtr accesses the object itself to manage
-    // counters, we cannot use SharedPointers at all.
+  static llvm::once_flag OnceFlag;
 
+  llvm::call_once(OnceFlag, [&]() {
     // create root device in flat mode. Use all available HW threads
     // and allow non-worker threads to participate in execution but do not
     // assume they will join.
     SharedPtr<ITEDevice> pTERootDevice = pTaskExecutor->CreateRootDevice(
         RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1));
 
-    SharedPtr<ITaskList> pTaskList;
-    SharedPtr<ITaskList> pTaskList_Immediate;
-
     if (0 != pTERootDevice) {
-      pTaskList = pTERootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER);
-      pTaskList_Immediate =
+      m_pTaskList = pTERootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER);
+      m_pTaskList_immediate =
           pTERootDevice->CreateTaskList(TE_CMD_LIST_IMMEDIATE);
     }
+  });
 
-    if (0 != pTaskList && 0 != pTaskList_Immediate) {
-      m_pTaskList = pTaskList.GetPtr();
-      m_pTaskList->IncRefCnt();
-
-      m_pTaskList_immediate = pTaskList_Immediate.GetPtr();
-      m_pTaskList_immediate->IncRefCnt();
-    }
-  }
-
-  if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate) {
-    ++m_uiTEActivationCount;
-    return true;
-  }
-
-  return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// FrameworkProxy::ActivateTaskExecutor()
-///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::DeactivateTaskExecutor() const {
-  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-
-  if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate) {
-    --m_uiTEActivationCount;
-
-    if (0 == m_uiTEActivationCount) {
-// This is disabled due to shutdown issue and will be fixed
-#if 0
-            // this is the normal deletion - undo the counting here to delete the object
-            long ref = m_pTaskList->DecRefCnt();
-            if ( 0 == ref )
-            {
-                m_pTaskList->Cleanup();
-            }
-            m_pTaskList = nullptr;
-
-            ref = m_pTaskList_immediate->DecRefCnt();
-            if ( 0 == ref )
-            {
-                m_pTaskList_immediate->Cleanup();
-            }
-            m_pTaskList_immediate = nullptr;
-#endif
-    }
-  }
+  return nullptr != m_pTaskList.GetPtr() &&
+         nullptr != m_pTaskList_immediate.GetPtr();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -771,7 +712,7 @@ bool FrameworkProxy::ExecuteImmediate(
     const Intel::OpenCL::Utils::SharedPtr<
         Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const {
   assert(m_pTaskList_immediate);
-  if (nullptr == m_pTaskList_immediate) {
+  if (nullptr == m_pTaskList_immediate.GetPtr()) {
     return false;
   }
 
@@ -785,7 +726,7 @@ bool FrameworkProxy::ExecuteImmediate(
 bool FrameworkProxy::Execute(
     const Intel::OpenCL::Utils::SharedPtr<
         Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const {
-  if (nullptr == m_pTaskList) {
+  if (nullptr == m_pTaskList.GetPtr()) {
     return false;
   }
 
@@ -798,14 +739,10 @@ bool FrameworkProxy::Execute(
 // FrameworkProxy::Execute()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::CancelAllTasks(bool wait_for_finish) const {
-  m_initializationMutex.lock();
-  SharedPtr<ITaskList> tmpTaskList = m_pTaskList;
-  m_initializationMutex.unlock();
-
-  if (0 != tmpTaskList) {
-    tmpTaskList->Cancel();
+  if (nullptr != m_pTaskList.GetPtr()) {
+    m_pTaskList->Cancel();
     if (wait_for_finish) {
-      tmpTaskList->WaitForCompletion(nullptr);
+      m_pTaskList->WaitForCompletion(nullptr);
     }
   }
 }

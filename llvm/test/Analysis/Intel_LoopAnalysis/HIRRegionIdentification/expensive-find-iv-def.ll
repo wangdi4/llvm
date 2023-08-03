@@ -16,48 +16,45 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.r123array4x32 = type { [4 x i32] }
 %struct.r123array2x64 = type { [2 x i64] }
 
-define dso_local noundef i32 @main(i32 noundef %0, i8** nocapture noundef readnone %1) local_unnamed_addr {
+define dso_local noundef i32 @main(i32 noundef %0, ptr nocapture noundef readnone %1) local_unnamed_addr {
 entry:
   %e5 = alloca %"struct.r123::Engine", align 8
-  %2 = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 0, i32 0
-  call void @llvm.lifetime.start.p0i8(i64 56, i8* nonnull %2)
-  %c.i = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 2
-  %3 = bitcast %struct.r123array2x64* %c.i to i8*
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 8 dereferenceable(16) %3, i8 0, i64 16, i1 false)
-  %x.sroa.0.0..sroa_idx18.i = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 1, i32 0
-  %x.sroa.0.0..sroa_idx1819.i = bitcast [4 x i32]* %x.sroa.0.0..sroa_idx18.i to i8*
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 4 dereferenceable(16) %x.sroa.0.0..sroa_idx1819.i, i8 0, i64 16, i1 false)
-  %arrayidx.i.i = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 3, i32 0, i64 1
-  %4 = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 2, i32 0, i64 0
-  %5 = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 2, i32 0, i64 1
-  %ref.tmp10.sroa.0.0..sroa_idx.i.i.i = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 3, i32 0, i64 0
+  call void @llvm.lifetime.start.p0(i64 56, ptr nonnull %e5)
+  %c.i = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 2
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %c.i, i8 0, i64 16, i1 false)
+  %x.sroa.0.0..sroa_idx18.i = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 1, i32 0
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 4 dereferenceable(16) %x.sroa.0.0..sroa_idx18.i, i8 0, i64 16, i1 false)
+  %arrayidx.i.i = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 3, i32 0, i64 1
+  %2 = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 2, i32 0, i64 0
+  %3 = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 2, i32 0, i64 1
+  %ref.tmp10.sroa.0.0..sroa_idx.i.i.i = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 3, i32 0, i64 0
   br label %if.then.i.i
 
 for.cond.cleanup:                                 ; preds = %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit
-  call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull %2)
+  call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %e5)
   ret i32 0
 
 if.then.i.i:                                      ; preds = %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit, %entry
-  %6 = phi i64 [ 0, %entry ], [ %.lcssa, %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit ]
+  %4 = phi i64 [ 0, %entry ], [ %.lcssa, %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit ]
   %i.08 = phi i32 [ 0, %entry ], [ %inc, %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit ]
   br label %do.body.i.i
 
 do.body.i.i:                                      ; preds = %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i, %if.then.i.i
-  %7 = phi i64 [ %10, %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i ], [ %6, %if.then.i.i ]
-  %cmp8.i.i.i = icmp eq i64 %7, 0
+  %5 = phi i64 [ %8, %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i ], [ %4, %if.then.i.i ]
+  %cmp8.i.i.i = icmp eq i64 %5, 0
   br i1 %cmp8.i.i.i, label %if.then9.i.i.i, label %if.end24.i.i.i
 
 if.then9.i.i.i:                                   ; preds = %do.body.i.i
-  %8 = load i64, i64* %4, align 8
-  %inc.i39.i.i.i = add i64 %8, 1
-  store i64 %inc.i39.i.i.i, i64* %4, align 8
+  %6 = load i64, ptr %2, align 8
+  %inc.i39.i.i.i = add i64 %6, 1
+  store i64 %inc.i39.i.i.i, ptr %2, align 8
   %tobool.not.i40.i.i.i = icmp eq i64 %inc.i39.i.i.i, 0
-  %agg.tmp12.sroa.2.0.copyload.pre.i.i.i = load i64, i64* %5, align 8
+  %agg.tmp12.sroa.2.0.copyload.pre.i.i.i = load i64, ptr %3, align 8
   br i1 %tobool.not.i40.i.i.i, label %if.end17.i43.i.i.i, label %_ZN13r123array2x644incrEy.exit44.i.i.i
 
 if.end17.i43.i.i.i:                               ; preds = %if.then9.i.i.i
   %inc20.i42.i.i.i = add i64 %agg.tmp12.sroa.2.0.copyload.pre.i.i.i, 1
-  store i64 %inc20.i42.i.i.i, i64* %5, align 8
+  store i64 %inc20.i42.i.i.i, ptr %3, align 8
   br label %_ZN13r123array2x644incrEy.exit44.i.i.i
 
 _ZN13r123array2x644incrEy.exit44.i.i.i:           ; preds = %if.end17.i43.i.i.i, %if.then9.i.i.i
@@ -204,38 +201,38 @@ _ZN13r123array2x644incrEy.exit44.i.i.i:           ; preds = %if.end17.i43.i.i.i,
   %retval.sroa.5.8.insert.shift.i.i.i = shl nuw i64 %retval.sroa.5.8.insert.ext.i.i.i, 32
   %retval.sroa.3.8.insert.ext.i.i.i = zext i32 %add226.i.i.i to i64
   %retval.sroa.3.8.insert.insert.i.i.i = or i64 %retval.sroa.5.8.insert.shift.i.i.i, %retval.sroa.3.8.insert.ext.i.i.i
-  store i64 %retval.sroa.0.0.insert.insert.i.i.i, i64* %ref.tmp10.sroa.0.0..sroa_idx.i.i.i, align 8
-  store i64 1, i64* %arrayidx.i.i, align 8
+  store i64 %retval.sroa.0.0.insert.insert.i.i.i, ptr %ref.tmp10.sroa.0.0..sroa_idx.i.i.i, align 8
+  store i64 1, ptr %arrayidx.i.i, align 8
   br label %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i
 
 if.end24.i.i.i:                                   ; preds = %do.body.i.i
-  %dec.i.i.i = add i64 %7, -1
-  store i64 %dec.i.i.i, i64* %arrayidx.i.i, align 8
-  %arrayidx.i46.i.i.i = getelementptr inbounds %"struct.r123::Engine", %"struct.r123::Engine"* %e5, i64 0, i32 3, i32 0, i64 %dec.i.i.i
-  %9 = load i64, i64* %arrayidx.i46.i.i.i, align 8
+  %dec.i.i.i = add i64 %5, -1
+  store i64 %dec.i.i.i, ptr %arrayidx.i.i, align 8
+  %arrayidx.i46.i.i.i = getelementptr inbounds %"struct.r123::Engine", ptr %e5, i64 0, i32 3, i32 0, i64 %dec.i.i.i
+  %7 = load i64, ptr %arrayidx.i46.i.i.i, align 8
   br label %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i
 
 _ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i: ; preds = %if.end24.i.i.i, %_ZN13r123array2x644incrEy.exit44.i.i.i
-  %10 = phi i64 [ 1, %_ZN13r123array2x644incrEy.exit44.i.i.i ], [ %dec.i.i.i, %if.end24.i.i.i ]
-  %retval.1.i.i.i = phi i64 [ %retval.sroa.3.8.insert.insert.i.i.i, %_ZN13r123array2x644incrEy.exit44.i.i.i ], [ %9, %if.end24.i.i.i ]
+  %8 = phi i64 [ 1, %_ZN13r123array2x644incrEy.exit44.i.i.i ], [ %dec.i.i.i, %if.end24.i.i.i ]
+  %retval.1.i.i.i = phi i64 [ %retval.sroa.3.8.insert.insert.i.i.i, %_ZN13r123array2x644incrEy.exit44.i.i.i ], [ %7, %if.end24.i.i.i ]
   %cmp9.not.i.i = icmp ult i64 %retval.1.i.i.i, -4
   br i1 %cmp9.not.i.i, label %_ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit, label %do.body.i.i
 
 _ZNSt24uniform_int_distributionIiEclIN4r1236EngineINS2_14ReinterpretCtrI13r123array2x64NS2_14Threefry4x32_RILj20EEEEEEEEEiRT_.exit: ; preds = %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i
-  %.lcssa = phi i64 [ %10, %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i ]
+  %.lcssa = phi i64 [ %8, %_ZN4r1236EngineINS_14ReinterpretCtrI13r123array2x64NS_14Threefry4x32_RILj20EEEEEEclEv.exit.i.i ]
   %inc = add nuw nsw i32 %i.08, 1
   %exitcond.not = icmp eq i32 %inc, 10000
   br i1 %exitcond.not, label %for.cond.cleanup, label %if.then.i.i
 }
 
 ; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nocallback nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #1
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #1
 
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare i32 @llvm.fshl.i32(i32, i32, i32) #2

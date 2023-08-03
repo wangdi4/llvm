@@ -17,14 +17,7 @@
 # end INTEL_CUSTOMIZATION
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
-cmake_minimum_required(VERSION 3.13.4)
-if ("${CMAKE_VERSION}" VERSION_LESS "3.20.0")
-  message(WARNING
-    "Your CMake version is ${CMAKE_VERSION}. Starting with LLVM 17.0.0, the "
-    "minimum version of CMake required to build LLVM will become 3.20.0, and "
-    "using an older CMake will become an error. Please upgrade your CMake to "
-    "at least 3.20.0 now to avoid issues in the future!")
-endif()
+cmake_minimum_required(VERSION 3.20.0)
 
 set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
 include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
@@ -89,15 +82,14 @@ endif()
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 if (INTEL_CUSTOMIZATION)
-  if (INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(DPCPP_VERSION_QUALITY "Beta")
-    set(DPCPP_VERSION_MAJOR "2024")
-    set(DPCPP_VERSION_MINOR "0")
-  else()
-    set(DPCPP_VERSION_QUALITY " ")
-    set(DPCPP_VERSION_MAJOR "2023")
-    set(DPCPP_VERSION_MINOR "2")
-  endif()
+  # In the long-term, we should make the path where the 'INTEL_DEPLOY_UNIFIED_LAYOUT'
+  # is true the default choice and remove redundant code.
+  set(INTEL_DEPLOY_UNIFIED_LAYOUT ON CACHE BOOL
+      "Build with unified flat layout")
+
+  set(DPCPP_VERSION_QUALITY " ")
+  set(DPCPP_VERSION_MAJOR "2024")
+  set(DPCPP_VERSION_MINOR "0")
   set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
   set(DPCPP_PRODUCT_VERSION ${VERSION})
@@ -176,17 +168,6 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-if (INTEL_CUSTOMIZATION)
-  # FIXME: when build opencl cpurt, xtoolsup is always adding ocl-cclang to
-  # LLVM_EXTERNAL_PROJECTS. Now we will start to use github opencl-clang,
-  # this is workaround to remove ocl-cclang. Without the WA, both ocl-cclang and
-  # github opencl-clang will be build and there will be CMake error that same
-  # target name already exists. After the patch is landed, we need to update
-  # xtoolsup to remove ocl-cclang from LLVM_EXTERNAL_PROJECTS, and then the WA
-  # can be removed.
-  string(REPLACE "ocl-cclang;" "" WITHOUT_OCLCCLANG "${LLVM_EXTERNAL_PROJECTS}")
-  set(LLVM_EXTERNAL_PROJECTS "${WITHOUT_OCLCCLANG}")
-endif (INTEL_CUSTOMIZATION)
 set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
 set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 # The flang project is not yet part of "all" projects (see C++ requirements)
@@ -562,6 +543,15 @@ set(LLVM_ALL_TARGETS
   XCore
   )
 
+set(LLVM_ALL_EXPERIMENTAL_TARGETS
+  ARC
+  CSKY
+  DirectX
+  M68k
+  SPIRV
+  Xtensa
+)
+
 # List of targets with JIT support:
 set(LLVM_TARGETS_WITH_JIT X86 PowerPC AArch64 ARM Mips SystemZ)
 
@@ -569,7 +559,7 @@ set(LLVM_TARGETS_TO_BUILD "all"
     CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
 
 set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ""
-    CACHE STRING "Semicolon-separated list of experimental targets to build.")
+    CACHE STRING "Semicolon-separated list of experimental targets to build, or \"all\".")
 
 option(BUILD_SHARED_LIBS
   "Build all libraries as shared libraries instead of static" OFF)
@@ -658,6 +648,10 @@ if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )
   set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )
 endif()
 
+if(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD STREQUAL "all")
+  set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${LLVM_ALL_EXPERIMENTAL_TARGETS})
+endif()
+
 set(LLVM_TARGETS_TO_BUILD
    ${LLVM_TARGETS_TO_BUILD}
    ${LLVM_EXPERIMENTAL_TARGETS_TO_BUILD})
@@ -672,6 +666,7 @@ else()
 endif()
 option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with -fmodules-local-submodule-visibility." ON)
 option(LLVM_ENABLE_LIBCXX "Use libc++ if available." OFF)
+option(LLVM_ENABLE_LLVM_LIBC "Set to on to link all LLVM executables against LLVM libc, assuming it is accessible by the host compiler." OFF)
 option(LLVM_STATIC_LINK_CXX_STDLIB "Statically link the standard library." OFF)
 option(LLVM_ENABLE_LLD "Use lld as C and C++ linker." OFF)
 option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
@@ -783,7 +778,7 @@ if( WIN32 AND NOT CYGWIN )
 endif()
 set(LLVM_NATIVE_TOOL_DIR "" CACHE PATH "Path to a directory containing prebuilt matching native tools (such as llvm-tblgen)")
 
-set(LLVM_INTEGRATED_CRT_ALLOC "" CACHE PATH "Replace the Windows CRT allocator with any of {rpmalloc|mimalloc|snmalloc}. Only works with /MT enabled.")
+set(LLVM_INTEGRATED_CRT_ALLOC "" CACHE PATH "Replace the Windows CRT allocator with any of {rpmalloc|mimalloc|snmalloc}. Only works with CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded.")
 if(LLVM_INTEGRATED_CRT_ALLOC)
   if(NOT WIN32)
     message(FATAL_ERROR "LLVM_INTEGRATED_CRT_ALLOC is only supported on Windows.")
@@ -1216,6 +1211,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
 # end INTEL_FEATURE_CPU_RYL
+# INTEL_FEATURE_CPU_LNL
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_CPU_LNL)
+# end INTEL_FEATURE_CPU_LNL
 # INTEL_FEATURE_MARKERCOUNT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
@@ -1419,6 +1418,10 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_SM4)
 # end AUTO GENERATED BY TOOL
 # end INTEL_FEATURE_ISA_SM4
+# INTEL_FEATURE_ISA_SM4_EVEX
+list(APPEND features_enabled_by_default
+${LLVM_INTELFEATURE_PREFIX}_ISA_SM4_EVEX)
+# end INTEL_FEATURE_ISA_SM4_EVEX
 # INTEL_FEATURE_ISA_DSPV1
 # AUTO GENERATED BY TOOL
       list(APPEND features_enabled_by_default
@@ -1524,10 +1527,20 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM)
 # end INTEL_FEATURE_ISA_AVX512_VPMM
+# INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM_FUTURE)
+# end INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE
 # INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVRS_PREFETCHST2)
 # end INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
+# INTEL_FEATURE_ISA_UMSR
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_UMSR)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_UMSR
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1778,29 +1791,6 @@ if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "AIX")
           add_compile_definitions(_XOPEN_SOURCE=700)
           add_compile_definitions(_LARGE_FILE_API)
 
-  # CMake versions less than 3.16 set default linker flags to include -brtl, as
-  # well as setting -G when building libraries, so clear them out. Note we only
-  # try to clear the form that CMake will set as part of its initial
-  # configuration, it is still possible the user may force it as part of a
-  # compound option.
-  if(CMAKE_VERSION VERSION_LESS 3.16)
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-brtl([ \t]+|$)" " " CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-brtl([ \t]+|$)" " " CMAKE_SHARED_LINKER_FLAGS  "${CMAKE_SHARED_LINKER_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-brtl([ \t]+|$)" " " CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)(-Wl,)?-G([ \t]+|$)" " " CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)(-Wl,)?-G([ \t]+|$)" " " CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)(-Wl,)?-G([ \t]+|$)" " " CMAKE_SHARED_LIBRARY_CREATE_ASM_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_ASM_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-G," " -Wl," CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-G," " -Wl," CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS}")
-    string(REGEX REPLACE "(^|[ \t]+)-Wl,-G," " -Wl," CMAKE_SHARED_LIBRARY_CREATE_ASM_FLAGS
-      "${CMAKE_SHARED_LIBRARY_CREATE_ASM_FLAGS}")
-  endif()
-
   # Modules should be built with -shared -Wl,-G, so we can use runtime linking
   # with plugins.
   string(APPEND CMAKE_MODULE_LINKER_FLAGS " -shared -Wl,-G")
@@ -1844,11 +1834,6 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 # use export_executable_symbols(target).
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-set(LLVM_EXTRACT_SYMBOLS_FLAGS ""
-  CACHE STRING "Additional options to pass to llvm/utils/extract_symbols.py.
-  These cannot override the options set by cmake, but can add extra options
-  such as --tools.")
-
 include(AddLLVM)
 include(TableGen)
 
@@ -1871,7 +1856,7 @@ add_subdirectory(lib/TableGen)
 
 add_subdirectory(utils/TableGen)
 
-add_subdirectory(include/llvm)
+add_subdirectory(include)
 
 add_subdirectory(lib)
 
@@ -1989,14 +1974,14 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     )
 
   if (LLVM_INSTALL_MODULEMAPS)
-    install(DIRECTORY include/llvm include/llvm-c
+    install(DIRECTORY include
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
             COMPONENT llvm-headers
             FILES_MATCHING
             PATTERN "module.modulemap"
             )
-    install(FILES include/llvm/module.install.modulemap
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/llvm"
+    install(FILES include/module.install.modulemap
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
             COMPONENT llvm-headers
             RENAME "module.extern.modulemap"
             )
@@ -2095,6 +2080,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
       llvm-level0-ompplugin libompdevice sycl-post-link yaml2obj
+      archer
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_CSA
       llvm-csa-ompplugin
@@ -2193,6 +2179,7 @@ if (INTEL_CUSTOMIZATION)
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
       libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
+      libdev-include libdev-sdlt
 
       # IFX -check-uninit support
       libdev-frtl-msan libdev-libirc-msan libdev-svml-msan
@@ -2207,6 +2194,10 @@ if (INTEL_CUSTOMIZATION)
 
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
       ${INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST}
+    )
+
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      onnxruntime
     )
 
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST

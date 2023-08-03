@@ -34,13 +34,13 @@ source_filename = "outer-loop-unroll.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture readonly %p, i32* nocapture %q) {
+define void @foo(ptr nocapture readonly %p, ptr nocapture %q) {
 entry:
   br label %for.cond1.preheader
 
 for.cond1.preheader:
   %indvars.iv23 = phi i64 [ 0, %entry ], [ %indvars.iv.next24, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv23
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %indvars.iv23
   br label %for.body4
 
 for.cond.cleanup:
@@ -53,12 +53,12 @@ for.cond.cleanup3:
 
 for.body4:
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %0 = load i32, i32* %arrayidx, align 4
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
   %2 = add nuw nsw i64 %indvars.iv, %indvars.iv23
-  %arrayidx7 = getelementptr inbounds i32, i32* %q, i64 %2
-  store i32 %add, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %q, i64 %2
+  store i32 %add, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

@@ -7,23 +7,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Verify that the mumber of elements in the lower dimension of (%A)[i1][0] are computed as 10 based on stride information.
 
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK: |   (%A)[0:i1:40(i32*:0)][0:0:4(i32*:10)] = 5;
+; CHECK: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
 ; CHECK: + END LOOP
 
 ; CHECK-OPAQUE: + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK-OPAQUE: |   (%A)[0:i1:40(ptr:0)][0:0:4(ptr:10)] = 5;
+; CHECK-OPAQUE: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
 ; CHECK-OPAQUE: + END LOOP
 
 
-define void @MAIN__(i32* %A) {
+define void @MAIN__(ptr %A) {
 alloca:
   br label %bb17
 
 bb17:                                             ; preds = %alloca, %bb17
   %iv = phi i64 [ 1, %alloca ], [ %add11, %bb17 ]
-  %t1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 40, i32* elementtype(i32) %A, i64 %iv)
-  %t2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %t1, i64 1)
-  store i32 5, i32* %t2, align 4
+  %t1 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(i32) %A, i64 %iv)
+  %t2 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %t1, i64 1)
+  store i32 5, ptr %t2, align 4
   %add11 = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %add11, 4
   br i1 %exitcond, label %bb1, label %bb17
@@ -33,7 +33,7 @@ bb1:                                              ; preds = %bb17
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #1 = { nounwind readnone speculatable }
 

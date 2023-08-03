@@ -3,7 +3,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: convergent nounwind
-declare spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b)
+declare spir_kernel void @a(ptr addrspace(1) nocapture readonly %a, ptr addrspace(1) nocapture %b)
 
 ; Function Attrs: convergent
 declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #1
@@ -15,14 +15,14 @@ declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
 declare spir_func i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #3
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @_ZGVeN4uu_a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !vectorized_kernel !13 !vectorized_width !18 !scalarized_kernel !4 !ocl_recommended_vector_length !18 !vectorization_dimension !19 !can_unite_workgroups !20 {
+define spir_kernel void @_ZGVeN4uu_a(ptr addrspace(1) nocapture readonly %a, ptr addrspace(1) nocapture %b) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !vectorized_kernel !13 !vectorized_width !18 !scalarized_kernel !4 !ocl_recommended_vector_length !18 !vectorization_dimension !19 !can_unite_workgroups !20 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #5
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #5
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(i32 addrspace(1)* %a, i32 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i32 addrspace(1)* %b, i32 0, i32 1) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %a, i32 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %b, i32 0, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -30,13 +30,13 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add1 = add nuw i32 %index, %slid
   %0 = sext i32 %index to i64
   %add = add nuw i64 %0, %call
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %add
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %add
   br label %loop
 
 loop:                                             ; preds = %loop, %simd.loop
   %phi = phi i32 [ 0, %simd.loop ], [ %phi.next, %loop ]
   %phi.next = add i32 %phi, 1
-  %1 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !14
+  %1 = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !14
   ; Loop exit condition depends on this call. If we don't recognize it as
   ; uniform, LoopCFU will make the call masked which isn't correct (at least for
   ; now we don't have the masked versions with run-time all-zero bypass check
@@ -48,7 +48,7 @@ loop:                                             ; preds = %loop, %simd.loop
 
 exit:                                             ; preds = %loop
   %phi.next.lcssa = phi i32 [ %phi.next, %loop ]
-  store i32 %phi.next.lcssa, i32 addrspace(1)* %arrayidx, align 4, !tbaa !14
+  store i32 %phi.next.lcssa, ptr addrspace(1) %arrayidx, align 4, !tbaa !14
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %exit
@@ -93,14 +93,14 @@ attributes #7 = { convergent nounwind "vector-variants"="_ZGVbN4v_Z13sub_group_a
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !3 = !{!"icx (ICX) dev.8.x.0"}
-!4 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
+!4 = !{ptr @a}
 !5 = !{i32 1, i32 1}
 !6 = !{!"none", !"none"}
 !7 = !{!"int*", !"int*"}
 !8 = !{!"", !""}
 !9 = !{i1 false, i1 false}
 !10 = !{i32 0, i32 0}
-!11 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @_ZGVeN4uu_a}
+!11 = !{ptr @_ZGVeN4uu_a}
 !12 = !{i32 1}
 !13 = !{null}
 !14 = !{!15, !15, i64 0}

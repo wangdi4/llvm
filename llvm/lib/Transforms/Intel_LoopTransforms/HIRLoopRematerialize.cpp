@@ -1300,7 +1300,9 @@ bool HIRLoopRematerialize::materializeALoop(
   OptReportBuilder &ORBuilder =
       NewLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25397u, RerollFactor);
+  ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                OptRemarkID::MaterializedLoopTripCount,
+                                RerollFactor);
 
   return true;
 }
@@ -1427,7 +1429,8 @@ PreservedAnalyses HIRLoopRematerializePass::runImpl(
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopRematerialize(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR =
+      HIRLoopRematerialize(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
 
   return PreservedAnalyses::all();
 }

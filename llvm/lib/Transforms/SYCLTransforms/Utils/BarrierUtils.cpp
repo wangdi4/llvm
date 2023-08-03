@@ -54,24 +54,18 @@ void BarrierUtils::clean() {
   NonInlinedCallsInitialized = false;
 }
 
-BasicBlock *BarrierUtils::findBasicBlockOfUsageInst(Value *Val,
-                                                    Instruction *UserInst) {
-  if (!isa<PHINode>(UserInst))
-    return UserInst->getParent();
-
+SmallVector<BasicBlock *>
+BarrierUtils::findBasicBlocksOfPhiNode(Value *Val, PHINode *PhiNode) {
   // Usage is a PHINode, find previous basic block according to Val
-  PHINode *PhiNode = cast<PHINode>(UserInst);
-  BasicBlock *PrevBB = nullptr;
+  SmallVector<BasicBlock *, 1> PrevBBs;
   for (BasicBlock *BB : predecessors(PhiNode->getParent())) {
     Value *PHINodeVal = PhiNode->getIncomingValueForBlock(BB);
     if (PHINodeVal == Val) {
-      // BB is the previous basic block
-      assert(!PrevBB && "PHINode is using Val twice!");
-      PrevBB = BB;
+      PrevBBs.push_back(BB);
     }
   }
-  assert(PrevBB && "Failed to find previous basic block!");
-  return PrevBB;
+  assert(PrevBBs.size() && "Failed to find previous basic block!");
+  return PrevBBs;
 }
 
 SyncType BarrierUtils::getSyncType(Instruction *Inst) {
@@ -115,8 +109,8 @@ CompilationUtils::InstVec BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
       continue;
     }
     StringRef FName = F.getName();
-    if ((CALL_BI_TYPE_WG == Ty &&
-         CompilationUtils::isWorkGroupBuiltin(FName)) ||
+    if ((CALL_BI_TYPE_WG == Ty && CompilationUtils::isWorkGroupBuiltin(FName) &&
+         !CompilationUtils::isWorkGroupSort(FName)) ||
         (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == Ty &&
          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName, *M)) ||
         (CALL_BI_TYPE_WG_SORT == Ty &&
@@ -615,6 +609,23 @@ bool BarrierUtils::isCrossedByBarrier(const InstSet &SyncInstructions,
     }
   } while (!BasicBlocksToHandle.empty());
   return false;
+}
+
+bool BarrierUtils::isBarrierOrDummyBarrierCall(Value *Val) {
+  static std::string Barriers[] = {
+      CompilationUtils::mangledBarrier(),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::NoScope),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::WithScope),
+      DUMMY_BARRIER_FUNC_NAME,
+  };
+  CallInst *CI;
+  Function *F;
+  if (!(CI = dyn_cast<CallInst>(Val)) || !(F = CI->getCalledFunction()))
+    return false;
+  StringRef FName = F->getName();
+  return llvm::any_of(Barriers, [&](std::string &B) { return FName == B; });
 }
 
 inst_range BarrierUtils::findDummyRegion(Function &F) {

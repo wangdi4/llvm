@@ -6,15 +6,15 @@
 
 ; CHECK: MayAlias:	double* %alloc_site, double* %ret_ptr
 
-declare void @bar(double* %arg)
-declare noundef double* @baz()
+declare void @bar(ptr %arg)
+declare noundef ptr @baz()
 
 define void @foo() {
   %alloc_site = alloca double
-  call void @bar(double* %alloc_site)
-  %ret_ptr = call double* @baz()
+  call void @bar(ptr %alloc_site)
+  %ret_ptr = call ptr @baz()
 
-  store double 0.0, double* %alloc_site
-  store double 0.0, double* %ret_ptr
+  store double 0.0, ptr %alloc_site
+  store double 0.0, ptr %ret_ptr
   ret void
 }

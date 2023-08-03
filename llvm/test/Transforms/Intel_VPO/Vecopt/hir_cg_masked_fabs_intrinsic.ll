@@ -46,7 +46,7 @@
 
 declare double @llvm.fabs.f64(double %Val) nounwind readnone
 
-define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
+define void @powi_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -56,15 +56,15 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %call.continue ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %cmp = fcmp fast oeq double %0, %key
   br i1 %cmp, label %masked.call, label %call.continue
 
 masked.call:
   %call = tail call fast double @llvm.fabs.f64(double %0) #4
-  %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %call, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %call, ptr %arrayidx4, align 8
   br label %call.continue
 
 call.continue:

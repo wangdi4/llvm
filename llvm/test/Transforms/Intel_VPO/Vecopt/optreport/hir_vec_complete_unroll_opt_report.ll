@@ -26,7 +26,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind readonly uwtable
-define dso_local i32 @full_unroll_vec_report(i32* nocapture noundef readonly %points, i32* nocapture noundef readonly %stars) local_unnamed_addr #0 {
+define dso_local i32 @full_unroll_vec_report(ptr nocapture noundef readonly %points, ptr nocapture noundef readonly %stars) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -38,10 +38,10 @@ for.body:                                         ; preds = %entry, %for.body
   %cmp = phi i1 [ true, %entry ], [ false, %for.body ]
   %indvars.iv = phi i64 [ 0, %entry ], [ 1, %for.body ]
   %hits.010 = phi i32 [ 0, %entry ], [ %add3, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %points, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %stars, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %points, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %stars, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4
   %add = add nsw i32 %0, %1
   %add3 = add nsw i32 %hits.010, %add
   br i1 %cmp, label %for.body, label %for.cond.cleanup

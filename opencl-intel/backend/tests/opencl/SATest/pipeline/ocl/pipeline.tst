@@ -4,6 +4,7 @@
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK-NEXT: Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
@@ -109,6 +110,7 @@
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
@@ -213,7 +215,7 @@
 ; CHECK-NEXT: Running pass: vpo::VPlanDriverPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
-; CHECK-NEXT: Running pass: VPODirectiveCleanupPass
+; CHECK:      Running pass: VPODirectiveCleanupPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
@@ -282,16 +284,10 @@
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: RedundantPhiNode
-; CHECK-NEXT: Running pass: DCEPass
+; CHECK:      Running pass: DCEPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: RedundantPhiNode
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass

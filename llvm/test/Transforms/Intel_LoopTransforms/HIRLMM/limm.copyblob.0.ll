@@ -74,8 +74,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @foo() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @M, align 4
-  %1 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @M, align 4
+  %1 = load i32, ptr @N, align 4
   %2 = sext i32 %0 to i64
   %3 = sext i32 %1 to i64
   br label %for.cond1.preheader
@@ -84,21 +84,21 @@ for.cond1.preheader:                              ; preds = %for.inc14, %entry
   %indvars.iv27 = phi i64 [ 0, %entry ], [ %indvars.iv.next28, %for.inc14 ]
   %4 = add nsw i64 %2, %indvars.iv27
   %5 = add nsw i64 %4, %3
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %5
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %5
   %6 = add nuw nsw i64 %indvars.iv27, 2
   %7 = add nsw i64 %6, %2
-  %arrayidx13 = getelementptr inbounds [1000 x i32], [1000 x i32]* @C, i64 0, i64 %7
+  %arrayidx13 = getelementptr inbounds [1000 x i32], ptr @C, i64 0, i64 %7
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %8 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %8 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add5 = add nsw i32 %8, 1
   %9 = add nuw nsw i64 %indvars.iv, %indvars.iv27
-  %arrayidx8 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %9
-  %10 = load i32, i32* %arrayidx8, align 4, !tbaa !1
+  %arrayidx8 = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %9
+  %10 = load i32, ptr %arrayidx8, align 4, !tbaa !1
   %add9 = add nsw i32 %add5, %10
-  store i32 %add9, i32* %arrayidx13, align 4, !tbaa !1
+  store i32 %add9, ptr %arrayidx13, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.inc14, label %for.body3
@@ -113,10 +113,10 @@ for.end16:                                        ; preds = %for.inc14
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

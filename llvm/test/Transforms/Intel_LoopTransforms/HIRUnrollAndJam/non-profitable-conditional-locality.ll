@@ -43,9 +43,9 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %l
 
 if:
   %idxprom = sext i32 %j.02 to i64
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom
   %add = add nsw i32 %i.04, %j.02
-  store i32 %add, i32* %arrayidx5, align 4
+  store i32 %add, ptr %arrayidx5, align 4
   br label %latch
 
 latch:

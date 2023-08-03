@@ -1,6 +1,6 @@
 //===-------- Intel_VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,176 +35,168 @@ struct VFParameter;
 class ModulePass;
 
 class VecCloneImpl {
-
-  protected:
+  class Factory {
+  private:
+    class VecCloneImpl *Parent;
+    /// The clone being produced
+    Function *Clone = nullptr;
+    /// Pointers to blocks of the clone beeing produced
+    BasicBlock *EntryBlock = nullptr;
+    BasicBlock *LoopHeader = nullptr;
+    BasicBlock *LoopPreHeader = nullptr;
+    BasicBlock *LoopLatch = nullptr;
+    BasicBlock *ReturnBlock = nullptr;
+    /// Type for each logical argument of a clone
+    SmallVector<Type *, 4> LogicalArgTypes;
+    /// The clone return type
+    Type *LogicalRetType = nullptr;
+    /// Stores type legalization information for each logical argument of the
+    /// Clone and its return type. That is basically the number of parts
+    /// required to pass each logical argument and/or return value.
+    SmallVector<int, 4> ArgChunks;
+    int RetChunks = 1;
 
     /// Set of memory locations to mark as private for the SIMD loop
-    SetVector<Value*> PrivateMemory;
+    SetVector<Value *> PrivateMemory;
     /// Set of memory locations to mark as uniform for the SIMD loop. The map
     /// is from the arg of the function to a pair of values that represent the
     /// memory location on the stack and the load from that memory.
-    MapVector<Argument*, std::pair<Value*, Value*>>  UniformMemory;
+    MapVector<Argument *, std::pair<Value *, Value *>> UniformMemory;
     /// Set of memory locations to mark as linear for the SIMD loop
     /// The non-key value is the stride
-    MapVector<Value*, Value*> LinearMemory;
+    MapVector<Value *, Value *> LinearMemory;
 
     /// The map of linear pointer args to pointee type size.
-    DenseMap<Value *, Value *> PointeeTypeSize;
+    const DenseMap<Value *, Value *> &PointeeTypeSize;
 
-    /// \brief Make a copy of the function if it is marked as SIMD.
-    Function *CloneFunction(Function &F, const VFInfo &V,
-                            ValueToValueMapTy &VMap,
-                            ValueToValueMapTy &ReverseVMap);
+    /// Maps of values between the original function and a copy and vise versa.
+    ValueToValueMapTy VMap;
+    ValueToValueMapTy ReverseVMap;
 
-    /// \brief Return true iff we should bail out due to the presence of
-    /// variable-length array allocas.  Correctly handling a VLA alloca
-    /// and all of its operand and memory dependences is a complex
-    /// undertaking.
-    bool vlaAllocasExist(Function &F);
+    Module &M;
+    const DataLayout &DL;
+    Function &F;
+    const VFInfo &V;
 
-    /// \brief Take the entry basic block for the function as split off a second
+  public:
+    Factory(VecCloneImpl *Parent, Module &M, const DataLayout &DL, Function &Fn,
+            const VFInfo &Variant,
+            const DenseMap<Value *, Value *> &PointeeTypeSize)
+        : Parent(Parent), PointeeTypeSize(PointeeTypeSize), M(M), DL(DL), F(Fn),
+          V(Variant) {}
+
+    Function *run();
+
+  private:
+    void cloneFunction();
+    /// Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
-    BasicBlock *splitEntryIntoLoop(Function *Clone, const VFInfo &V,
-                                   BasicBlock *EntryBlock);
+    BasicBlock *splitEntryIntoLoop();
 
-    /// \brief Take the loop entry basic block and split off a second basic
+    /// Take the loop entry basic block and split off a second basic
     /// block into a new return basic block.
-    BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopHeader);
+    BasicBlock *splitLoopIntoReturn();
 
-    /// \brief Create the backedge from the loop latch basic block to the loop
+    /// Create the backedge from the loop latch basic block to the loop
     /// entry block.
-    PHINode* createPhiAndBackedgeForLoop(Function *Clone,
-                                         BasicBlock *EntryBlock,
-                                         BasicBlock *LoopHeader,
-                                         BasicBlock *LoopLatch,
-                                         BasicBlock *ReturnBlock,
-                                         int VL);
-
-    /// \brief Generate vector alloca instructions for vector arguments and
-    /// change the arguments types to vector types. Widen the return value of
-    /// the function to a vector type. This function returns the instruction
-    /// corresponding to the widened return and the instruction corresponding
-    /// to the mask.
-    Instruction *widenVectorArgumentsAndReturn(
-        Function *Clone, Function &F, const VFInfo &V, Instruction *&Mask,
-        BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
-        PHINode *Phi, ValueToValueMapTy &VMap);
+    PHINode *createPhiAndBackedgeForLoop();
 
     /// Updates users of vector arguments with gep/load of lane element.
-    void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
-                                  const DataLayout &DL, Argument *Arg,
+    void updateVectorArgumentUses(Argument *Arg, Argument *OrigArg,
                                   Type *ElemType, Instruction *VecArg,
-                                  MaybeAlign Align, BasicBlock *EntryBlock,
-                                  BasicBlock *LoopHeader, PHINode *Phi);
+                                  MaybeAlign Align, PHINode *Phi);
 
-    /// \brief Widen the function arguments to vector types. This function
-    /// returns the instruction corresponding to the mask. LastAlloca indicates
-    /// where the alloca of the function argument should be placed in
-    /// EntryBlock. We process the function arguments from left to right. The
-    /// alloca of the most left argument is placed at the top of the EntryBlock.
-    Instruction *widenVectorArguments(Function *Clone, Function &OrigFn,
-                                      const VFInfo &V, BasicBlock *EntryBlock,
-                                      BasicBlock *LoopHeader, PHINode *Phi,
-                                      ValueToValueMapTy &VMap,
-                                      AllocaInst *&LastAlloca);
+    /// Widen the function arguments and non-void return value of the function
+    /// to a vector type. We process the function arguments from left to right.
+    /// The alloca of the most left argument is placed at the top of the
+    /// EntryBlock. This function returns the instruction corresponding to the
+    /// widened return and the instruction corresponding to the mask.
+    Instruction *widenVectorArgumentsAndReturn(Instruction *&Mask,
+                                               PHINode *Phi);
 
-    /// \brief Widen the function's return value to a vector type. LastAlloca
-    /// indicates where the alloca of the return value should be placed in
-    /// EntryBlock.
-    Instruction *widenReturn(Function *Clone, Function &F,
-                             BasicBlock *EntryBlock, BasicBlock *LoopHeader,
-                             BasicBlock *ReturnBlock, PHINode *Phi,
-                             AllocaInst *&LastAlloca);
+    // Worker for widenVectorArgumentsAndReturn which generates unpacking
+    // instructions to convert mask packed as bits of an integer argument into
+    // vector of characteristic data type(i.e.logical mask type).
+    // Used to unpack mask for a vector variant of AVX512 ISA class.
+    // \p VecArgTy is the logical mask type,
+    // \p Arg is actual ("packed") mask argument.
+    Value *generateUnpackIntMask(FixedVectorType *VecArgTy, Value *Arg,
+                                 Instruction *InsertPt);
 
     /// Mark memory as uniform for SIMD directives.
-    void processUniformArgs(Function *Clone, const VFInfo &V,
-                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
+    void processUniformArgs();
 
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
-    void processLinearArgs(Function *Clone, const VFInfo &V, PHINode *Phi,
-                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader,
-                           ValueToValueMapTy &ReverseVMap);
+    void processLinearArgs(PHINode *Phi);
 
-    /// \brief Update the instructions in the return basic block to return a
+    /// Update the instructions in the return basic block to return a
     /// vector temp.
-    void updateReturnBlockInstructions(Function *Clone, BasicBlock *ReturnBlock,
-                                       Instruction *VecReturnAlloca);
+    void updateReturnBlockInstructions(Instruction *VecReturnAlloca);
 
-    /// \brief Create a separate basic block to mark the begin and end of the
+    /// Create a separate basic block to mark the begin and end of the
     /// SIMD loop formed from the vector function. Essentially, this function
     /// transfers the information from the SIMD function keywords and creates
     /// new loop pragmas so that argument information can be transferred to
     /// the loop.
-    void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
-                                   const VFInfo &V, BasicBlock *EntryBlock,
-                                   BasicBlock *LoopPreHeader,
-                                   BasicBlock *LoopLatch,
-                                   BasicBlock *ReturnBlock);
+    void insertDirectiveIntrinsics();
 
-    /// \brief Create the basic block indicating the begin of the SIMD loop.
-    CallInst *insertBeginRegion(Module &M, Function *Clone, Function &F,
-                                const VFInfo &V, BasicBlock *EntryBlock,
-                                BasicBlock *LoopPreHeader);
+    /// Create the basic block indicating the begin of the SIMD loop.
+    CallInst *insertBeginRegion();
 
-    /// \brief Create the basic block indicating the end of the SIMD loop.
-    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopLatch,
-                         BasicBlock *ReturnBlock, CallInst *EntryDirCall);
+    /// Create the basic block indicating the end of the SIMD loop.
+    void insertEndRegion(CallInst *EntryDirCall);
 
-    /// \brief Create a new vector alloca instruction for the return vector and
-    /// bitcast to the appropriate element type. LastAlloca indicates where the
-    /// alloca of the return value should be placed.
-    Instruction *createWidenedReturn(Function *F, BasicBlock *BB,
-                                     Type *OrigFuncReturnType,
-                                     AllocaInst *&LastAlloca);
-
-    /// \brief Check to see if the function is simple enough that a loop does
+    /// Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
-    bool isSimpleFunction(Function *Func);
+    bool isSimpleFunction();
 
-    /// \brief Inserts the if/else split and mask condition for masked SIMD
+    /// Inserts the if/else split and mask condition for masked SIMD
     /// functions.
-    void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopHeader,
-                                     BasicBlock *LoopLatch,
-                                     Instruction *Mask, PHINode *Phi);
+    void insertSplitForMaskedVariant(Instruction *Mask, PHINode *Phi);
 
-    /// \brief Utility function that generates instructions that calculate the
+    /// Utility function that generates instructions that calculate the
     /// stride for a linear argument.
-    Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
-                                     Instruction *ParmUser, Value *Stride,
-                                     PHINode *Phi, const VFParameter &Parm,
-                                     ValueToValueMapTy &ReverseVMap);
-
-    /// \brief Adds metadata to the conditional branch of the simd loop latch to
+    Value *generateStrideForArgument(Value *ArgVal, Instruction *ParmUser,
+                                     Value *Stride, PHINode *Phi,
+                                     const VFParameter &Parm);
+    /// Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.
-    void disableLoopUnrolling(BasicBlock *Latch);
+    void disableLoopUnrolling();
+  };
 
-    /// Languages like OpenCL override this method to perform some
-    /// pre-processing for enabling VecClone pass.
-    virtual void languageSpecificInitializations(Module &M);
+  /// Return true iff we should bail out due to the presence of
+  /// variable-length array allocas.  Correctly handling a VLA alloca
+  /// and all of its operand and memory dependences is a complex
+  /// undertaking.
+  bool vlaAllocasExist(Function &F);
 
-    /// Languages like OpenCL override this method. It is called after
-    /// the for-loop is created.
-    virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
-                                         Function *Clone,
-                                         BasicBlock *EntryBlock,
-                                         const VFInfo &Variant);
+protected:
+  /// Languages like OpenCL override this method. It is called after
+  /// the for-loop is created.
+  virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
+                                       Function *Clone, BasicBlock *EntryBlock,
+                                       const VFInfo &Variant,
+                                       const ValueToValueMapTy &VMap);
+  /// Languages like OpenCL override this method to perform some
+  /// pre-processing for enabling VecClone pass.
+  virtual void languageSpecificInitializations(Module &M);
 
-  public:
-    VecCloneImpl() {}
-    virtual ~VecCloneImpl() {}
-    bool runImpl(Module &M, OptReportBuilder *ORBuilder = nullptr,
-                 LoopOptLimiter Limiter = LoopOptLimiter::None);
+public:
+  VecCloneImpl() {}
+  virtual ~VecCloneImpl() {}
+  bool runImpl(Module &M, OptReportBuilder *ORBuilder = nullptr,
+               LoopOptLimiter Limiter = LoopOptLimiter::None);
 }; // end pass class
 
 class VecClonePass : public PassInfoMixin<VecClonePass> {
   VecCloneImpl Impl;
   OptReportBuilder ORBuilder;
 
-  public:
-    VecClonePass() {}
-    PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-    static bool isRequired() { return true; }
+public:
+  VecClonePass() {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 class VecClone : public ModulePass {

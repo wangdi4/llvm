@@ -58,6 +58,7 @@ TEST_F(TestInfo, Device) {
         "cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics "
         "cl_khr_3d_image_writes cl_khr_byte_addressable_store "
         "cl_khr_depth_images cl_khr_icd cl_khr_il_program "
+        "cl_intel_unified_shared_memory "
         "cl_intel_fpga_host_pipe cl_intel_program_scope_host_pipe "
         "cles_khr_int64 cl_intel_channels");
 

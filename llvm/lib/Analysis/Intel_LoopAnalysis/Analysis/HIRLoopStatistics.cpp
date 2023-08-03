@@ -1,6 +1,6 @@
 //===--------- HIRLoopStatistics.cpp - Computes loop statisticss ----------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -67,27 +67,37 @@ bool HIRLoopStatisticsWrapperPass::runOnFunction(Function &F) {
 
 void HIRLoopStatisticsWrapperPass::releaseMemory() { HLS.reset(); }
 
-struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
+struct LoopStatistics::LoopOrRegionStatisticsVisitor final
+    : public HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
-  const HLLoop *Lp;
+  const HLNode *Node;
   LoopStatistics *SelfStats;
   LoopStatistics *ChildrenStats;
 
-  LoopStatisticsVisitor(HIRLoopStatistics &HLS, const HLLoop *Lp,
-                        LoopStatistics *SelfStats,
-                        LoopStatistics *ChildrenStats)
-      : HLS(HLS), Lp(Lp), SelfStats(SelfStats), ChildrenStats(ChildrenStats) {
+  LoopOrRegionStatisticsVisitor(HIRLoopStatistics &HLS, const HLNode *Node,
+                                LoopStatistics *SelfStats,
+                                LoopStatistics *ChildrenStats)
+      : HLS(HLS), Node(Node), SelfStats(SelfStats),
+        ChildrenStats(ChildrenStats) {
     assert((SelfStats || ChildrenStats) &&
            "At least one of self/children stats should be present!");
   }
 
-  // Main function to compute loop statistics.
+  // Main function to compute loop/region statistics.
   void compute() {
     // Do not directly recurse inside children loops. Children statistics is
     // recursively computed for children loops by the visitor using
-    // getTotalLoopStatistics().
-    Lp->getHLNodeUtils().visitRange<true, false>(*this, Lp->child_begin(),
-                                                 Lp->child_end());
+    // getTotalStatistics().
+
+    if (auto *Region = dyn_cast<HLRegion>(Node)) {
+      HLNodeUtils::visitRange<true, false>(*this, Region->child_begin(),
+                                           Region->child_end());
+    } else {
+      auto *Lp = dyn_cast<HLLoop>(Node);
+      assert(Lp && "Expected Region or Loop!");
+      HLNodeUtils::visitRange<true, false>(*this, Lp->child_begin(),
+                                           Lp->child_end());
+    }
   }
 
   void visit(const HLIf *If) {
@@ -104,7 +114,7 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLGoto *Goto) {
     if (SelfStats && !Goto->isUnknownLoopBackEdge()) {
-      SelfStats->NumForwardGotos++;
+      SelfStats->ForwardGotos.push_back(Goto);
     }
   }
 
@@ -156,6 +166,7 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       SelfStats->HasCallsWithUnsafeSideEffects |= HasUnsafeSideEffects;
 
       SelfStats->HasCallsWithNoDuplicate |= Call->cannotDuplicate();
+      SelfStats->HasConvergentCalls |= Call->isConvergent();
 
       SelfStats->HasCallsWithUnknownAliasing |=
           HLInst::hasUnknownAliasing(Call);
@@ -164,68 +175,86 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLLoop *Lp) {
     if (ChildrenStats) {
-      *ChildrenStats += HLS.getTotalLoopStatistics(Lp);
+      *ChildrenStats += HLS.getTotalStatistics(Lp);
     }
   }
 
   void visit(const HLNode *Node) {
     llvm_unreachable("Unexpected HLNode type encountered!");
   }
+
   void postVisit(const HLNode *Node) {}
 };
 
-void LoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
+void LoopStatistics::print(formatted_raw_ostream &OS,
+                           const HLNode *Node) const {
 
+  unsigned Depth = 0;
   // Indent at one level more than the loop nesting level.
-  unsigned Depth = Lp->getNestingLevel() + 1;
+  if (auto *Lp = dyn_cast<HLLoop>(Node)) {
+    Depth += Lp->getNestingLevel() + 1;
+  }
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of ifs: " << NumIfs << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of switches: " << NumSwitches << "\n";
 
-  Lp->indent(OS, Depth);
-  OS << "Number of forward gotos: " << NumForwardGotos << "\n";
+  Node->indent(OS, Depth);
+  OS << "Number of forward gotos: " << getNumForwardGotos() << "\n";
 
-  Lp->indent(OS, Depth);
-  OS << "Number of forward goto target labels: " << NumLabels << "\n";
+  Node->indent(OS, Depth);
+  OS << "Number of forward goto target labels: " << getNumLabels() << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of user calls: " << NumUserCalls << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of indirect calls: " << NumIndirectCalls << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of intrinsics: " << NumIntrinsics << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Number of profitable vectorizable calls: "
      << NumProfitableVectorizableCalls << "\n";
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Has unsafe calls: "
      << (HasCallsWithUnsafeSideEffects ? "yes\n" : "no\n");
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Has non-SIMD unsafe calls: "
      << (HasNonSIMDCallsWithUnsafeSideEffects ? "yes\n" : "no\n");
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
   OS << "Has noduplicate calls: "
      << (HasCallsWithNoDuplicate ? "yes\n" : "no\n");
 
-  Lp->indent(OS, Depth);
+  Node->indent(OS, Depth);
+  OS << "Has convergent calls: " << (HasConvergentCalls ? "yes\n" : "no\n");
+
+  Node->indent(OS, Depth);
   OS << "Has unknown aliasing calls: "
      << (HasCallsWithUnknownAliasing ? "yes\n" : "no\n");
 }
 
-const LoopStatistics &
-HIRLoopStatistics::getSelfLoopStatistics(const HLLoop *Loop) {
-  assert(Loop && " Loop parameter is null.");
+void LoopStatistics::sortGotos() {
+  assert(getNumForwardGotos() > 1 && "More than 1 gotos expected!");
 
-  auto LSIt = SelfStatisticsMap.find(Loop);
+  std::sort(ForwardGotos.begin(), ForwardGotos.end(),
+            [](const HLGoto *A, const HLGoto *B) -> bool {
+              return A->getTopSortNum() < B->getTopSortNum();
+            });
+}
+
+const LoopStatistics &
+HIRLoopStatistics::getSelfStatisticsImpl(const HLNode *Node) {
+  assert(isa<HLLoop>(Node) ||
+         isa<HLRegion>(Node) && " Invalid Node for Statistics.");
+
+  auto LSIt = SelfStatisticsMap.find(Node);
 
   // Return cached statistics, if present.
   if (LSIt != SelfStatisticsMap.end()) {
@@ -233,25 +262,29 @@ HIRLoopStatistics::getSelfLoopStatistics(const HLLoop *Loop) {
   }
 
   LoopStatistics SelfStats;
-  LoopStatistics::LoopStatisticsVisitor LSV(*this, Loop, &SelfStats, nullptr);
+  LoopStatistics::LoopOrRegionStatisticsVisitor LSV(*this, Node, &SelfStats,
+                                                    nullptr);
 
   LSV.compute();
 
-  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Loop, SelfStats));
+  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Node, SelfStats));
 
   return SelfPair.first->second;
 }
 
 const LoopStatistics &
-HIRLoopStatistics::getTotalLoopStatistics(const HLLoop *Loop) {
-  assert(Loop && " Loop parameter is null.");
+HIRLoopStatistics::getTotalStatisticsImpl(const HLNode *Node) {
+  assert(isa<HLLoop>(Node) ||
+         isa<HLRegion>(Node) && " Invalid Node for Statistics.");
 
-  // Self and total loop statistics for innermost loops are the same.
-  if (Loop->isInnermost()) {
-    return getSelfLoopStatistics(Loop);
+  auto *Lp = dyn_cast<HLLoop>(Node);
+
+  // Self and total Node statistics for innermost loops are the same.
+  if (Lp && Lp->isInnermost()) {
+    return getSelfStatisticsImpl(Node);
   }
 
-  auto LSIt = TotalStatisticsMap.find(Loop);
+  auto LSIt = TotalStatisticsMap.find(Node);
 
   // Return cached statistics, if present.
   if (LSIt != TotalStatisticsMap.end()) {
@@ -259,43 +292,67 @@ HIRLoopStatistics::getTotalLoopStatistics(const HLLoop *Loop) {
   }
 
   // Check if self statistics also needs to be computed. If so, we compute both
-  // together to avoid traversing the loop body twice.
-  bool HasSelfStats = SelfStatisticsMap.count(Loop);
+  // together to avoid traversing the Node body twice.
+  bool HasSelfStats = SelfStatisticsMap.count(Node);
 
   LoopStatistics SelfStats, TotalStats;
-  LoopStatistics::LoopStatisticsVisitor LSV(
-      *this, Loop, HasSelfStats ? nullptr : &SelfStats, &TotalStats);
+  LoopStatistics::LoopOrRegionStatisticsVisitor LSV(
+      *this, Node, HasSelfStats ? nullptr : &SelfStats, &TotalStats);
 
   LSV.compute();
 
-  // We need to retrieve the self stats of the loop again as previous DenseMap
+  // We need to retrieve the self stats of the Node again as previous DenseMap
   // entry might have been invalidated by the traversal (by creating new entries
   // in the map). insert() doesn't override existing entry so it is okay to
   // invoke it using empty SelfStats.
-  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Loop, SelfStats));
+  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Node, SelfStats));
 
-  TotalStats += SelfPair.first->second;
+  auto &UpdatedSelfStats = SelfPair.first->second;
 
-  auto TotalPair = TotalStatisticsMap.insert(std::make_pair(Loop, TotalStats));
+  // If both self and children stats (currently in TotalStats) have gotos, they
+  // will not be arranged in lexical order so we need sorting.
+  bool SortGotos =
+      TotalStats.hasForwardGotos() && UpdatedSelfStats.hasForwardGotos();
+  TotalStats += UpdatedSelfStats;
+
+  if (SortGotos) {
+    TotalStats.sortGotos();
+  }
+
+  auto TotalPair = TotalStatisticsMap.insert(std::make_pair(Node, TotalStats));
 
   return TotalPair.first->second;
 }
 
-void HIRLoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) {
-  const LoopStatistics &LS = PrintTotalStatistics ? getTotalLoopStatistics(Lp)
-                                                  : getSelfLoopStatistics(Lp);
-  LS.print(OS, Lp);
+void HIRLoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Loop) {
+  const LoopStatistics &LS = PrintTotalStatistics ? getTotalStatisticsImpl(Loop)
+                                                  : getSelfStatisticsImpl(Loop);
+  LS.print(OS, Loop);
+}
+
+void HIRLoopStatistics::print(formatted_raw_ostream &OS,
+                              const HLRegion *Region) {
+  const LoopStatistics &LS = PrintTotalStatistics
+                                 ? getTotalStatisticsImpl(Region)
+                                 : getSelfStatisticsImpl(Region);
+  LS.print(OS, Region);
 }
 
 void HIRLoopStatistics::markLoopBodyModified(const HLLoop *Loop) {
-  assert(Loop && " Loop parameter is null.");
-
   // Remove current loop's self statistics from the cache.
   SelfStatisticsMap.erase(Loop);
 
-  // Remove current and parent loops total statistics from the cache.
+  // Remove current and parent loops/region total statistics from the cache.
+  HLRegion *Reg = Loop->getParentRegion();
+  TotalStatisticsMap.erase(Reg);
+
   while (Loop) {
     TotalStatisticsMap.erase(Loop);
     Loop = Loop->getParentLoop();
   }
+}
+
+void HIRLoopStatistics::markNonLoopRegionModified(const HLRegion *Region) {
+  assert(Region && "Node parameter is null.");
+  SelfStatisticsMap.erase(Region);
 }

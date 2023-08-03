@@ -30,7 +30,7 @@ declare dso_local void @__cxa_end_catch() local_unnamed_addr #1
 ; Function Attrs: nofree
 declare dso_local void @__cxa_rethrow() local_unnamed_addr #1
 
-define hidden fastcc void @_ZNSt5stackIP10NEDElementSt5dequeIS1_SaIS1_EEEaSERKS5_.7377() unnamed_addr #0 align 2 personality i32 (...)* @__gxx_personality_v0 {
+define hidden fastcc void @_ZNSt5stackIP10NEDElementSt5dequeIS1_SaIS1_EEEaSERKS5_.7377() unnamed_addr #0 align 2 personality ptr @__gxx_personality_v0 {
 bb:
   br label %bb1
 
@@ -63,8 +63,8 @@ bb22:                                             ; preds = %bb21
 
 bb24:                                             ; preds = %bb21
   %i25 = phi i64 [ %i, %bb21 ]
-  %i26 = landingpad { i8*, i32 }
-          catch i8* null
+  %i26 = landingpad { ptr, i32 }
+          catch ptr null
   br i1 undef, label %bb27, label %bb29
 
 bb27:                                             ; preds = %bb24
@@ -84,17 +84,17 @@ bb30:                                             ; preds = %bb30, %bb27
   br i1 %i33, label %bb28, label %bb30
 
 bb34:                                             ; preds = %bb29
-  %i35 = landingpad { i8*, i32 }
+  %i35 = landingpad { ptr, i32 }
           cleanup
   invoke void @__cxa_end_catch()
           to label %bb36 unwind label %bb37
 
 bb36:                                             ; preds = %bb69, %bb34
-  resume { i8*, i32 } undef
+  resume { ptr, i32 } undef
 
 bb37:                                             ; preds = %bb34
-  %i38 = landingpad { i8*, i32 }
-          catch i8* null
+  %i38 = landingpad { ptr, i32 }
+          catch ptr null
   unreachable
 
 bb39:                                             ; preds = %bb29
@@ -126,8 +126,8 @@ bb57:                                             ; preds = %bb55
 
 bb59:                                             ; preds = %bb55
   %i60 = phi i64 [ %i56, %bb55 ]
-  %i61 = landingpad { i8*, i32 }
-          catch i8* null
+  %i61 = landingpad { ptr, i32 }
+          catch ptr null
   br i1 undef, label %bb62, label %bb64
 
 bb62:                                             ; preds = %bb59
@@ -147,14 +147,14 @@ bb65:                                             ; preds = %bb65, %bb62
   br i1 %i68, label %bb63, label %bb65
 
 bb69:                                             ; preds = %bb64
-  %i70 = landingpad { i8*, i32 }
+  %i70 = landingpad { ptr, i32 }
           cleanup
   invoke void @__cxa_end_catch()
           to label %bb36 unwind label %bb71
 
 bb71:                                             ; preds = %bb69
-  %i72 = landingpad { i8*, i32 }
-          catch i8* null
+  %i72 = landingpad { ptr, i32 }
+          catch ptr null
   unreachable
 
 bb73:                                             ; preds = %bb64

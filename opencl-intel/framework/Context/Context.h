@@ -638,8 +638,6 @@ protected:
                  const cl_mem_properties_intel *properties, size_t size,
                  void *userPtr, unsigned int alignment, cl_int *errcode);
 
-  bool m_bTEActivated;
-
   // -------------- DEVICES --------------
 
   OCLObjectsMap<_cl_device_id_int, _cl_platform_id_int>

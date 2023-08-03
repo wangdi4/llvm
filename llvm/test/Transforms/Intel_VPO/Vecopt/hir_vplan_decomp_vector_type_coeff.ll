@@ -43,26 +43,21 @@ define dso_local void @do_add_pd(<8 x i1> %cond) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 2 i64 [[VP3]]
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x %union.V512]* @dsrc1 i64 0 i64 [[VP5]]
-; CHECK-NEXT:     <8 x double>* [[VP6:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     <8 x double> [[VP_LOAD:%.*]] = load <8 x double>* [[VP6]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @dsrc1 i64 0 i64 [[VP5]]
+; CHECK-NEXT:     <8 x double> [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     <8 x double> [[VP7:%.*]] = fadd <8 x double> [[VP_LOAD]] <8 x double> [[VP_LOAD]]
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP5]]
-; CHECK-NEXT:     <8 x double>* [[VP9:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     store <8 x double> [[VP7]] <8 x double>* [[VP9]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @ddest_zmm i64 0 i64 [[VP5]]
+; CHECK-NEXT:     store <8 x double> [[VP7]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP11]]
-; CHECK-NEXT:     <8 x double>* [[VP12:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     <8 x double> [[VP_LOAD_1:%.*]] = load <8 x double>* [[VP12]]
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x %union.V512]* @dsrc1 i64 0 i64 [[VP11]]
-; CHECK-NEXT:     <8 x double>* [[VP15:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     <8 x double> [[VP_LOAD_2:%.*]] = load <8 x double>* [[VP15]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @ddest_zmm i64 0 i64 [[VP11]]
+; CHECK-NEXT:     <8 x double> [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr @dsrc1 i64 0 i64 [[VP11]]
+; CHECK-NEXT:     <8 x double> [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     <8 x double> [[VP16:%.*]] = fadd <8 x double> [[VP_LOAD_2]] <8 x double> [[VP_LOAD_2]]
 ; CHECK-NEXT:     <8 x i1> [[VP17:%.*]] = icmp ne <8 x i1> [[COND0:%.*]] <8 x i1> zeroinitializer
 ; CHECK-NEXT:     <8 x double> [[VP18:%.*]] = select <8 x i1> [[VP17]] <8 x double> [[VP16]] <8 x double> [[VP_LOAD_1]]
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP11]]
-; CHECK-NEXT:     <8 x double>* [[VP21:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     store <8 x double> [[VP18]] <8 x double>* [[VP21]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr @ddest_zmm i64 0 i64 [[VP11]]
+; CHECK-NEXT:     store <8 x double> [[VP18]] ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP22:%.*]] = icmp slt i64 [[VP4]] i64 50
 ; CHECK-NEXT:     br i1 [[VP22]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -78,23 +73,19 @@ entry:
 
 for.body26:                                       ; preds = %entry, %for.body26
   %indvars.iv109 = phi i64 [ 0, %entry ], [ %indvars.iv.next110, %for.body26 ]
-  %arrayidx28 = getelementptr inbounds [100 x %union.V512], [100 x %union.V512]* @dsrc1, i64 0, i64 %indvars.iv109
-  %zmmd = bitcast %union.V512* %arrayidx28 to <8 x double>*
-  %src.ld = load <8 x double>, <8 x double>* %zmmd, align 64
+  %arrayidx28 = getelementptr inbounds [100 x %union.V512], ptr @dsrc1, i64 0, i64 %indvars.iv109
+  %src.ld = load <8 x double>, ptr %arrayidx28, align 64
   %add.i94 = fadd contract <8 x double> %src.ld, %src.ld
-  %arrayidx34 = getelementptr inbounds [100 x %union.V512], [100 x %union.V512]* @ddest_zmm, i64 0, i64 %indvars.iv109
-  %zmmd35 = bitcast %union.V512* %arrayidx34 to <8 x double>*
-  store <8 x double> %add.i94, <8 x double>* %zmmd35, align 64
+  %arrayidx34 = getelementptr inbounds [100 x %union.V512], ptr @ddest_zmm, i64 0, i64 %indvars.iv109
+  store <8 x double> %add.i94, ptr %arrayidx34, align 64
   %iv.or = or i64 %indvars.iv109, 1
-  %arrayidx37 = getelementptr inbounds [100 x %union.V512], [100 x %union.V512]* @ddest_zmm, i64 0, i64 %iv.or
-  %zmmd38 = bitcast %union.V512* %arrayidx37 to <8 x double>*
-  %dest.ld = load <8 x double>, <8 x double>* %zmmd38, align 64
-  %arrayidx41 = getelementptr inbounds [100 x %union.V512], [100 x %union.V512]* @dsrc1, i64 0, i64 %iv.or
-  %zmmd42 = bitcast %union.V512* %arrayidx41 to <8 x double>*
-  %src2.ld = load <8 x double>, <8 x double>* %zmmd42, align 64
+  %arrayidx37 = getelementptr inbounds [100 x %union.V512], ptr @ddest_zmm, i64 0, i64 %iv.or
+  %dest.ld = load <8 x double>, ptr %arrayidx37, align 64
+  %arrayidx41 = getelementptr inbounds [100 x %union.V512], ptr @dsrc1, i64 0, i64 %iv.or
+  %src2.ld = load <8 x double>, ptr %arrayidx41, align 64
   %add.i.i = fadd contract <8 x double> %src2.ld, %src2.ld
   %sel = select contract <8 x i1> %cond, <8 x double> %add.i.i, <8 x double> %dest.ld
-  store <8 x double> %sel, <8 x double>* %zmmd38, align 64
+  store <8 x double> %sel, ptr %arrayidx37, align 64
   %indvars.iv.next110 = add nuw nsw i64 %indvars.iv109, 2
   %cmp24 = icmp ult i64 %indvars.iv109, 98
   br i1 %cmp24, label %for.body26, label %for.end54

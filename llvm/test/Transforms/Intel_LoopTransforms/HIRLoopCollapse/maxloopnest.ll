@@ -45,14 +45,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind writeonly uwtable
-define void @sub_(float* noalias nocapture writeonly dereferenceable(4) %"sub_$A") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture writeonly dereferenceable(4) %"sub_$A") local_unnamed_addr #0 {
 alloca_0:
   br label %loop_test43.preheader
 
 loop_body4:                                       ; preds = %loop_test3.preheader, %loop_body4
   %"$loop_ctr.036" = phi i64 [ 1, %loop_test3.preheader ], [ %add.1, %loop_body4 ]
-  %"sub_$A_entry[][][][][][][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$A_entry[][][][][][][][][][][]", i64 %"$loop_ctr.036")
-  store float 1.000000e+00, float* %"sub_$A_entry[][][][][][][][][][][][]", align 1, !tbaa !0
+  %"sub_$A_entry[][][][][][][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %"sub_$A_entry[][][][][][][][][][][]", i64 %"$loop_ctr.036")
+  store float 1.000000e+00, ptr %"sub_$A_entry[][][][][][][][][][][][]", align 1, !tbaa !0
   %add.1 = add nuw nsw i64 %"$loop_ctr.036", 1
   %exitcond.not = icmp eq i64 %add.1, 3
   br i1 %exitcond.not, label %loop_exit5, label %loop_body4
@@ -64,7 +64,7 @@ loop_exit5:                                       ; preds = %loop_body4
 
 loop_test3.preheader:                             ; preds = %loop_test7.preheader, %loop_exit5
   %"$loop_ctr1.037" = phi i64 [ 1, %loop_test7.preheader ], [ 2, %loop_exit5 ]
-  %"sub_$A_entry[][][][][][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 8, float* elementtype(float) %"sub_$A_entry[][][][][][][][][][]", i64 %"$loop_ctr1.037")
+  %"sub_$A_entry[][][][][][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 8, ptr elementtype(float) %"sub_$A_entry[][][][][][][][][][]", i64 %"$loop_ctr1.037")
   br label %loop_body4
 
 loop_exit9:                                       ; preds = %loop_exit5
@@ -74,7 +74,7 @@ loop_exit9:                                       ; preds = %loop_exit5
 
 loop_test7.preheader:                             ; preds = %loop_test11.preheader, %loop_exit9
   %"$loop_ctr2.038" = phi i64 [ 1, %loop_test11.preheader ], [ 2, %loop_exit9 ]
-  %"sub_$A_entry[][][][][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 16, float* elementtype(float) %"sub_$A_entry[][][][][][][][][]", i64 %"$loop_ctr2.038")
+  %"sub_$A_entry[][][][][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 16, ptr elementtype(float) %"sub_$A_entry[][][][][][][][][]", i64 %"$loop_ctr2.038")
   br label %loop_test3.preheader
 
 loop_exit13:                                      ; preds = %loop_exit9
@@ -84,7 +84,7 @@ loop_exit13:                                      ; preds = %loop_exit9
 
 loop_test11.preheader:                            ; preds = %loop_test15.preheader, %loop_exit13
   %"$loop_ctr3.039" = phi i64 [ 1, %loop_test15.preheader ], [ 2, %loop_exit13 ]
-  %"sub_$A_entry[][][][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 3, i64 1, i64 32, float* elementtype(float) %"sub_$A_entry[][][][][][][][]", i64 %"$loop_ctr3.039")
+  %"sub_$A_entry[][][][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 32, ptr elementtype(float) %"sub_$A_entry[][][][][][][][]", i64 %"$loop_ctr3.039")
   br label %loop_test7.preheader
 
 loop_exit17:                                      ; preds = %loop_exit13
@@ -94,7 +94,7 @@ loop_exit17:                                      ; preds = %loop_exit13
 
 loop_test15.preheader:                            ; preds = %loop_test19.preheader, %loop_exit17
   %"$loop_ctr4.040" = phi i64 [ 1, %loop_test19.preheader ], [ 2, %loop_exit17 ]
-  %"sub_$A_entry[][][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 4, i64 1, i64 64, float* elementtype(float) %"sub_$A_entry[][][][][][][]", i64 %"$loop_ctr4.040")
+  %"sub_$A_entry[][][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 64, ptr elementtype(float) %"sub_$A_entry[][][][][][][]", i64 %"$loop_ctr4.040")
   br label %loop_test11.preheader
 
 loop_exit21:                                      ; preds = %loop_exit17
@@ -104,7 +104,7 @@ loop_exit21:                                      ; preds = %loop_exit17
 
 loop_test19.preheader:                            ; preds = %loop_test23.preheader, %loop_exit21
   %"$loop_ctr5.041" = phi i64 [ 1, %loop_test23.preheader ], [ 2, %loop_exit21 ]
-  %"sub_$A_entry[][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 5, i64 1, i64 128, float* elementtype(float) %"sub_$A_entry[][][][][][]", i64 %"$loop_ctr5.041")
+  %"sub_$A_entry[][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 5, i64 1, i64 128, ptr elementtype(float) %"sub_$A_entry[][][][][][]", i64 %"$loop_ctr5.041")
   br label %loop_test15.preheader
 
 loop_exit25:                                      ; preds = %loop_exit21
@@ -114,7 +114,7 @@ loop_exit25:                                      ; preds = %loop_exit21
 
 loop_test23.preheader:                            ; preds = %loop_test27.preheader, %loop_exit25
   %"$loop_ctr6.042" = phi i64 [ 1, %loop_test27.preheader ], [ 2, %loop_exit25 ]
-  %"sub_$A_entry[][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 6, i64 1, i64 256, float* nonnull elementtype(float) %"sub_$A_entry[][][][][]", i64 %"$loop_ctr6.042")
+  %"sub_$A_entry[][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 6, i64 1, i64 256, ptr nonnull elementtype(float) %"sub_$A_entry[][][][][]", i64 %"$loop_ctr6.042")
   br label %loop_test19.preheader
 
 loop_exit29:                                      ; preds = %loop_exit25
@@ -124,7 +124,7 @@ loop_exit29:                                      ; preds = %loop_exit25
 
 loop_test27.preheader:                            ; preds = %loop_test31.preheader, %loop_exit29
   %"$loop_ctr7.043" = phi i64 [ 1, %loop_test31.preheader ], [ 2, %loop_exit29 ]
-  %"sub_$A_entry[][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 7, i64 1, i64 512, float* nonnull elementtype(float) %"sub_$A_entry[][][][]", i64 %"$loop_ctr7.043")
+  %"sub_$A_entry[][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 7, i64 1, i64 512, ptr nonnull elementtype(float) %"sub_$A_entry[][][][]", i64 %"$loop_ctr7.043")
   br label %loop_test23.preheader
 
 loop_exit33:                                      ; preds = %loop_exit29
@@ -134,7 +134,7 @@ loop_exit33:                                      ; preds = %loop_exit29
 
 loop_test31.preheader:                            ; preds = %loop_test35.preheader, %loop_exit33
   %"$loop_ctr8.044" = phi i64 [ 1, %loop_test35.preheader ], [ 2, %loop_exit33 ]
-  %"sub_$A_entry[][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 8, i64 1, i64 1024, float* nonnull elementtype(float) %"sub_$A_entry[][][]", i64 %"$loop_ctr8.044")
+  %"sub_$A_entry[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 8, i64 1, i64 1024, ptr nonnull elementtype(float) %"sub_$A_entry[][][]", i64 %"$loop_ctr8.044")
   br label %loop_test27.preheader
 
 loop_exit37:                                      ; preds = %loop_exit33
@@ -144,7 +144,7 @@ loop_exit37:                                      ; preds = %loop_exit33
 
 loop_test35.preheader:                            ; preds = %loop_test39.preheader, %loop_exit37
   %"$loop_ctr9.045" = phi i64 [ 1, %loop_test39.preheader ], [ 2, %loop_exit37 ]
-  %"sub_$A_entry[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 9, i64 1, i64 2048, float* nonnull elementtype(float) %"sub_$A_entry[][]", i64 %"$loop_ctr9.045")
+  %"sub_$A_entry[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 9, i64 1, i64 2048, ptr nonnull elementtype(float) %"sub_$A_entry[][]", i64 %"$loop_ctr9.045")
   br label %loop_test31.preheader
 
 loop_exit41:                                      ; preds = %loop_exit37
@@ -154,7 +154,7 @@ loop_exit41:                                      ; preds = %loop_exit37
 
 loop_test39.preheader:                            ; preds = %loop_test43.preheader, %loop_exit41
   %"$loop_ctr10.046" = phi i64 [ 1, %loop_test43.preheader ], [ 2, %loop_exit41 ]
-  %"sub_$A_entry[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 10, i64 1, i64 4096, float* nonnull elementtype(float) %"sub_$A_entry[]", i64 %"$loop_ctr10.046")
+  %"sub_$A_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 10, i64 1, i64 4096, ptr nonnull elementtype(float) %"sub_$A_entry[]", i64 %"$loop_ctr10.046")
   br label %loop_test35.preheader
 
 loop_exit45:                                      ; preds = %loop_exit41
@@ -164,7 +164,7 @@ loop_exit45:                                      ; preds = %loop_exit41
 
 loop_test43.preheader:                            ; preds = %alloca_0, %loop_exit45
   %"$loop_ctr11.047" = phi i64 [ 1, %alloca_0 ], [ 2, %loop_exit45 ]
-  %"sub_$A_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 11, i64 1, i64 8192, float* nonnull elementtype(float) %"sub_$A", i64 %"$loop_ctr11.047")
+  %"sub_$A_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 11, i64 1, i64 8192, ptr nonnull elementtype(float) %"sub_$A", i64 %"$loop_ctr11.047")
   br label %loop_test39.preheader
 
 loop_exit49:                                      ; preds = %loop_exit45
@@ -172,7 +172,7 @@ loop_exit49:                                      ; preds = %loop_exit45
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind writeonly uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="nocona" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sse,+sse2,+sse3,+x87" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

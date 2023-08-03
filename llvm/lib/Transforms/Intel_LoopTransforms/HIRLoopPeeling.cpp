@@ -125,7 +125,7 @@ public:
                  HIRLoopStatistics &HLS, HIRSafeReductionAnalysis &HSRA)
       : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HSRA(HSRA) {}
 
-  void run();
+  bool run();
 
   bool isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo);
 
@@ -231,7 +231,7 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   // Vectorizer currently doesn't handle switch inst.
   // We disallow Ifs as well to make the node threshold check more precise but
@@ -510,11 +510,11 @@ void HIRLoopPeeling::peelLoop(HLLoop *Lp, PeelingInfo &PeelInfo) {
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
 }
 
-void HIRLoopPeeling::run() {
+bool HIRLoopPeeling::run() {
 
   if (DisableHIRLoopPeeling) {
     LLVM_DEBUG(dbgs() << "Peeling is disabled!\n");
-    return;
+    return false;
   }
 
   // Can be extended for outer loops to help optimizations like unroll & jam.
@@ -522,6 +522,8 @@ void HIRLoopPeeling::run() {
   HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
   OptReportBuilder &ORBuilder = HIRF.getORBuilder();
+
+  bool Modified = false;
 
   for (auto *Lp : CandidateLoops) {
     PeelingInfo PeelInfo;
@@ -534,16 +536,21 @@ void HIRLoopPeeling::run() {
 
     peelLoop(Lp, PeelInfo);
     // remark string: Loop peeled to eliminate data dependence
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25487u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoopPeeledForDataDependence);
+
+    Modified = true;
   }
+
+  return Modified;
 }
 
 PreservedAnalyses HIRLoopPeelingPass::runImpl(llvm::Function &F,
                                               llvm::FunctionAnalysisManager &AM,
                                               HIRFramework &HIRF) {
-  HIRLoopPeeling(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                 AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                 AM.getResult<HIRSafeReductionAnalysisPass>(F))
-      .run();
+  ModifiedHIR = HIRLoopPeeling(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                               AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                               AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                    .run();
   return PreservedAnalyses::all();
 }

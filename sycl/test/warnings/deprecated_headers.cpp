@@ -9,6 +9,3 @@
 
 // expected-warning@sycl/ext/intel/online_compiler.hpp:16 {{sycl/ext/intel/online_compiler.hpp usage is deprecated, include sycl/ext/intel/experimental/online_compiler.hpp instead}}
 #include <sycl/ext/intel/online_compiler.hpp>
-
-// expected-warning@CL/sycl/INTEL/dot_product.hpp:28 {{CL/sycl/INTEL/dot_product.hpp is deprecated, use sycl/ext/oneapi/dot_product.hpp instead.}}
-#include <CL/sycl/INTEL/dot_product.hpp>

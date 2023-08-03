@@ -37,8 +37,8 @@ define i32 @vec_sum(i32 %i, i32 %j) #0 {
 ; CHECK-NEXT:    [[VEC_J_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_J0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[J0]], <4 x i32>* [[VEC_J0]], align 16
 ; CHECK-NEXT:    [[MASK_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_MASK0]] to i32*
-; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[MASK0]], <4 x i32>* [[VEC_MASK0]], align 16
+; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -73,7 +73,7 @@ define i32 @vec_sum(i32 %i, i32 %j) #0 {
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[INDVAR0]] = add nuw nsw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 4
 ; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP_HEADER0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
@@ -82,8 +82,7 @@ define i32 @vec_sum(i32 %i, i32 %j) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RETVAL0]], align 16
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

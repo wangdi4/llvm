@@ -4,9 +4,8 @@
 ;   check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
-; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK:      Running pass: KernelTargetExtTypeLowerPass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
 
@@ -17,6 +16,7 @@
 
 ; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
@@ -52,6 +52,7 @@
 ; CHECK:      Running pass: DeduceMaxWGDimPass
 ; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 
 ; CHECK-NOT:  Running pass: VecClonePass
 
@@ -79,8 +80,6 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK:      Running pass: RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass
@@ -127,6 +126,7 @@
 ; CHECK:      Running pass: PatchCallbackArgsPass
 ; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
+; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK:      Running pass: LICMPass

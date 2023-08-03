@@ -36,7 +36,7 @@
 
 ; Debug trace
 
-; CHECK: Opportunity: <2>          if (%m == 5) --> Level 0, Candidate: 1
+; CHECK: Opportunity: <2>          if (%m == 5) --> Level 0, Candidate: Yes
 ; CHECK-NEXT:   - Code size will increase, thresholds needed
 
 ; HIR after transformation
@@ -66,7 +66,7 @@ source_filename = "simple.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z3fooPiS_ii(ptr nocapture noundef writeonly %a, ptr nocapture noundef writeonly %b, i32 noundef %n, i32 noundef %m) {
+define dso_local void @_Z3fooPiS_ii(ptr nocapture noundef writeonly %a, ptr nocapture noundef writeonly %b, i32 noundef %n, i32 noundef %m, i32 %t) {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.lr.ph, label %for.cond.cleanup
@@ -84,7 +84,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
-  %temp1.010 = phi i32 [ 0, %for.body.lr.ph ], [ %temp1.1, %for.inc ]
+  %temp1.010 = phi i32 [ %t, %for.body.lr.ph ], [ %temp1.1, %for.inc ]
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body

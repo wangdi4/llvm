@@ -40,7 +40,7 @@
 #include <tbb/task.h>
 #include <vector>
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -62,14 +62,13 @@ namespace TaskExecutor {
 
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
-AtomicCounter glTaskSchedCounter;
 
 bool execute_command(const SharedPtr<ITaskBase> &pCmd,
                      base_command_list &cmdList) {
   bool runNextCommand = true;
   bool cancel = cmdList.Is_canceled();
 
-  if (cancel) {
+  if (cancel || Intel::OpenCL::Utils::IsShuttingDown()) {
     pCmd->Cancel();
   } else if (pCmd->IsTaskSet()) {
     const SharedPtr<ITaskSet> &pTaskSet = pCmd.StaticCast<ITaskSet>();
@@ -448,7 +447,7 @@ unsigned int TBBTaskExecutor::GetMaxNumOfConcurrentThreads() const {
 ocl_gpa_data *TBBTaskExecutor::GetGPAData() const { return m_pGPAData; }
 
 bool TBBTaskExecutor::LoadTBBLibrary() {
-#ifdef WIN32
+#ifdef _WIN32
   // The loading on tbb.dll was delayed,
   // Need to load manually before default dll is loaded
 

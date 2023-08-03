@@ -1,4 +1,21 @@
 //===- llvm/Analysis/DemandedBits.h - Determine demanded bits ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,7 +42,9 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/PassManager.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/Pass.h"
+#endif // INTEL_CUSTOMIZATION
 #include <optional>
 
 namespace llvm {
@@ -99,6 +118,7 @@ private:
   SmallPtrSet<Use *, 16> DeadUses;
 };
 
+#if INTEL_CUSTOMIZATION
 class DemandedBitsWrapperPass : public FunctionPass {
 private:
   mutable std::optional<DemandedBits> DB;
@@ -118,6 +138,7 @@ public:
 
   void print(raw_ostream &OS, const Module *M) const override;
 };
+#endif // INTEL_CUSTOMIZATION
 
 /// An analysis that produces \c DemandedBits for a function.
 class DemandedBitsAnalysis : public AnalysisInfoMixin<DemandedBitsAnalysis> {
@@ -144,8 +165,10 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
+#if INTEL_CUSTOMIZATION
 /// Create a demanded bits analysis pass.
 FunctionPass *createDemandedBitsWrapperPass();
+#endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm
 

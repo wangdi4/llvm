@@ -6,7 +6,7 @@
 
 define void @merge_nonuniform_strided_soa_geps() {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
 ; CHECK:     [DA: [Shape: SOA Strided, Stride: VF x i64 8]] ptr [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1:%.*]]
 ; CHECK:     [DA: [Shape: SOA Random]] ptr [[VP_PHI_MIX_UNI:%.*]] = phi  [ ptr [[VP_UNI_ELSE]], [[BB5:BB[0-9]+]] ],  [ ptr [[VP_STR_IF]], [[BB4:BB[0-9]+]] ]
@@ -35,7 +35,7 @@ bb2:
   %ld.else = load i64, ptr %uni.else, align 4
   br label %simd.check.phi
 simd.check.phi:
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -49,7 +49,7 @@ simd.end:
 
 define void @merge_uniform_strided_soa_geps() {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0 i64 2
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_PHI_MIX_UNI:%.*]] = phi  [ ptr [[VP_UNI_ELSE]], [[BB5:BB[0-9]+]] ],  [ ptr [[VP_STR_IF]], [[BB4:BB[0-9]+]] ]
@@ -78,7 +78,7 @@ bb2:
   %ld.else = load i64, ptr %uni.else, align 4
   br label %simd.check.phi
 simd.check.phi:
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -92,8 +92,8 @@ simd.end:
 
 define void @merge_safe_2soa_geps() {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_BRR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
-; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_BRR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
+; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_BRR_SOA_PRIV64]] i64 0 i64 2
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64], ptr [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
 ; CHECK:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] ptr [[VP_PHI_MIX_UNI:%.*]] = phi  [ ptr [[VP_UNI_ELSE]], [[BB5:BB[0-9]+]] ],  [ ptr [[VP_STR_IF]], [[BB4:BB[0-9]+]] ]
@@ -123,7 +123,7 @@ bb2:
   %ld.else = load i64, ptr %uni.else, align 4
   br label %simd.check.phi
 simd.check.phi:
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -137,4 +137,4 @@ simd.end:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
-declare dso_local i64 @helper(i64*)
+declare dso_local i64 @helper(ptr)

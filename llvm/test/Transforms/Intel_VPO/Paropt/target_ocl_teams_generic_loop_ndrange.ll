@@ -1,7 +1,9 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
-; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-paropt-loop-collapse -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-paropt-loop-collapse)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
 
 ; Check that VPO Paropt Prepare pass does not remove
 ; the "QUAL.OMP.OFFLOAD.NDRANGE" qualifier from the TARGET construct or
@@ -14,9 +16,11 @@
 ;       A[j] = 1.23;
 ; }
 
+; SCHEME0 and SCHEME1
 ; NON-CONFM: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
 ; NON-CONFM: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 
+; SCHEME0 only
 ; CONFM: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
 ; CONFM: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 

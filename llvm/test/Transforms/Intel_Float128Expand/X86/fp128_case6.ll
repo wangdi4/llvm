@@ -2,9 +2,9 @@
 ; RUN: opt %s -opaque-pointers -bugpoint-enable-legacy-pm -S -mtriple=x86_64-unknown-unknown -float128-expand -intel-libirc-allowed | FileCheck %s
 
 %eh.ThrowInfo = type { i32, i32, i32, i32 }
-declare dso_local void @_CxxThrowException(i8*,  %eh.ThrowInfo*) local_unnamed_addr #1
+declare dso_local void @_CxxThrowException(ptr,  ptr) local_unnamed_addr #1
 
-define dso_local fp128 @foo(fp128 %x) local_unnamed_addr #2 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define dso_local fp128 @foo(fp128 %x) local_unnamed_addr #2 personality ptr @__CxxFrameHandler3 {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  bb1:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca fp128, align 16
@@ -16,69 +16,67 @@ define dso_local fp128 @foo(fp128 %x) local_unnamed_addr #2 personality i8* bitc
 ; CHECK-NEXT:    [[TMP6:%.*]] = alloca fp128, align 16
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP3]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], ptr [[TMP3]], align 16
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast ptr [[TMP4]] to ptr
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr nonnull [[TMP7]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr nonnull [[TMP4]])
 ; CHECK-NEXT:    store i32 1, ptr [[TMP4]], align 4
-; CHECK-NEXT:    invoke void @_CxxThrowException(ptr nonnull [[TMP7]], ptr null)
+; CHECK-NEXT:    invoke void @_CxxThrowException(ptr nonnull [[TMP4]], ptr null)
 ; CHECK-NEXT:    to label [[BB2:%.*]] unwind label [[BB3:%.*]]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb3:
-; CHECK-NEXT:    [[TMP8:%.*]] = catchswitch within none [label [[BB4:%.*]], label %bb6] unwind to caller
+; CHECK-NEXT:    [[TMP7:%.*]] = catchswitch within none [label [[BB4:%.*]], label %bb6] unwind to caller
 ; CHECK:       bb4:
-; CHECK-NEXT:    [[TMP9:%.*]] = catchpad within [[TMP8]] [i32 0, ptr %6]
+; CHECK-NEXT:    [[TMP8:%.*]] = catchpad within [[TMP7]] [i32 0, ptr %6]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP0]])
 ; CHECK-NEXT:    call void @__addq(ptr [[TMP0]], ptr [[TMP3]], ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP10:%.*]] = load fp128, ptr [[TMP0]], align 16
-; CHECK-NEXT:    catchret from [[TMP9]] to label [[BB5:%.*]]
+; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, ptr [[TMP0]], align 16
+; CHECK-NEXT:    catchret from [[TMP8]] to label [[BB5:%.*]]
 ; CHECK:       bb6:
-; CHECK-NEXT:    [[TMP11:%.*]] = catchpad within [[TMP8]] [i32 0, ptr %5]
+; CHECK-NEXT:    [[TMP10:%.*]] = catchpad within [[TMP7]] [i32 0, ptr %5]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP2]])
 ; CHECK-NEXT:    call void @__subq(ptr [[TMP2]], ptr [[TMP3]], ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP12:%.*]] = load fp128, ptr [[TMP2]], align 16
-; CHECK-NEXT:    catchret from [[TMP11]] to label [[BB5]]
+; CHECK-NEXT:    [[TMP11:%.*]] = load fp128, ptr [[TMP2]], align 16
+; CHECK-NEXT:    catchret from [[TMP10]] to label [[BB5]]
 ; CHECK:       bb5:
-; CHECK-NEXT:    [[TMP13:%.*]] = phi fp128 [ [[TMP12]], [[BB6:%.*]] ], [ [[TMP10]], [[BB4]] ]
-; CHECK-NEXT:    [[TMP14:%.*]] = phi ptr [ [[TMP2]], [[BB6]] ], [ [[TMP0]], [[BB4]] ]
+; CHECK-NEXT:    [[TMP12:%.*]] = phi fp128 [ [[TMP11]], [[BB6:%.*]] ], [ [[TMP9]], [[BB4]] ]
+; CHECK-NEXT:    [[TMP13:%.*]] = phi ptr [ [[TMP2]], [[BB6]] ], [ [[TMP0]], [[BB4]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP1]])
-; CHECK-NEXT:    call void @__addq(ptr [[TMP1]], ptr [[TMP14]], ptr [[TMP3]])
+; CHECK-NEXT:    call void @__addq(ptr [[TMP1]], ptr [[TMP13]], ptr [[TMP3]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP15:%.*]] = load fp128, ptr [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP14:%.*]] = load fp128, ptr [[TMP1]], align 16
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP1]])
-; CHECK-NEXT:    ret fp128 [[TMP15]]
+; CHECK-NEXT:    ret fp128 [[TMP14]]
 ;
 bb1:
   %0 = alloca i32, align 4
   %1 = alloca i32, align 4
   %2 = alloca fp128, align 16
-  %3 = bitcast i32* %0 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %3)
-  store i32 1, i32* %0, align 4
-  invoke void @_CxxThrowException(i8* nonnull %3,  %eh.ThrowInfo* null) #4
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0)
+  store i32 1, ptr %0, align 4
+  invoke void @_CxxThrowException(ptr nonnull %0,  ptr null) #4
   to label %bb2 unwind label %bb3
 
 bb2:                                                ; preds = %2
   unreachable
 
 bb3:                                                ; preds = %2
-  %4 = catchswitch within none [label %bb4, label %bb6] unwind to caller
+  %3 = catchswitch within none [label %bb4, label %bb6] unwind to caller
 
-bb4:                                               ; preds = %8
-  %5 = catchpad within %4 [i32 0, fp128* %2]
-  %6 = fadd fp128 %x, %x
-  catchret from %5 to label %bb5
+bb4:                                               ; preds = %7
+  %4 = catchpad within %3 [i32 0, ptr %2]
+  %5 = fadd fp128 %x, %x
+  catchret from %4 to label %bb5
 
-bb6:                                               ; preds = %8
-  %7 = catchpad within %4 [i32 0, i32* %1]
-  %8 = fsub fp128 %x, %x
-  catchret from %7 to label %bb5
+bb6:                                               ; preds = %7
+  %6 = catchpad within %3 [i32 0, ptr %1]
+  %7 = fsub fp128 %x, %x
+  catchret from %6 to label %bb5
 
-bb5:                                               ; preds = %15, %10
-  %9 = phi fp128 [ %8, %bb6 ], [ %6, %bb4 ]
-  %10 = fadd fp128 %9, %x
-  ret fp128 %10
+bb5:                                               ; preds = %14, %9
+  %8 = phi fp128 [ %7, %bb6 ], [ %5, %bb4 ]
+  %9 = fadd fp128 %8, %x
+  ret fp128 %9
 }
 
 declare dso_local i32 @__CxxFrameHandler3(...) #1
 
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #3
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #3

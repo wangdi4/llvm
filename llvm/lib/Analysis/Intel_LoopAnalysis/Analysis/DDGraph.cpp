@@ -62,80 +62,6 @@ bool DDEdge::isForwardDep(bool CheckIfPath) const {
   return (SrcTopSortNum < SinkTopSortNum);
 }
 
-static std::string getNameAndDbgLoc(DDRef *Ref) {
-
-  std::string NameAndDbgLoc = "";
-
-  auto getSourceName = [&](Value *Val) {
-    // First try for global, trace load if ptr
-    GlobalVariable *GV = nullptr;
-    if (isa<GlobalVariable>(Val)) {
-      GV = cast<GlobalVariable>(Val);
-    } else if (auto *Load = dyn_cast<LoadInst>(Val)) {
-      if (auto *LoadGV = dyn_cast<GlobalVariable>(Load->getPointerOperand())) {
-        GV = LoadGV;
-      }
-    }
-
-    // Get name from global debug info, or local debug metadata
-    if (GV) {
-      SmallVector<DIGlobalVariableExpression *, 1> GVEs;
-      GV->getDebugInfo(GVEs);
-      if (!GVEs.empty()) {
-        NameAndDbgLoc.append(GVEs.front()->getVariable()->getName().str() +
-                             " ");
-      }
-    } else if (Val->isUsedByMetadata()) {
-      if (auto *V = ValueAsMetadata::getIfExists(Val)) {
-        if (auto *MDV = MetadataAsValue::getIfExists(Val->getContext(), V)) {
-          for (User *U : MDV->users()) {
-            if (auto *DI = dyn_cast<DbgVariableIntrinsic>(U)) {
-              auto *DbgVar = DI->getVariable();
-              assert(DbgVar && "Variable is null!\n");
-              NameAndDbgLoc.append(DbgVar->getName().str() + " ");
-            }
-          }
-        }
-      }
-    }
-  };
-
-  if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Ref)) {
-    Value *Val = BRef->getBlobUtils().getTempBlobValue(BRef->getBlobIndex());
-    assert(Val && "Underlying BRef Value is null!\n");
-    getSourceName(Val);
-
-    // Add DebugLoc from parent RegDDRef
-    const DebugLoc &DbgLoc = BRef->getParentDDRef()->getDebugLoc();
-    if (DbgLoc.get())
-      NameAndDbgLoc.append("(" + std::to_string(DbgLoc.getLine()) + ":" +
-                           std::to_string(DbgLoc.getCol()) + ") ");
-  } else {
-    RegDDRef *RegRef = cast<RegDDRef>(Ref);
-    Value *Val = nullptr;
-    if (RegRef->hasGEPInfo()) {
-      // Note: We only output the BaseValue, as reconstructing the
-      // original ref is potentially expensive.
-      Val = RegRef->getBaseValue();
-    } else if (RegRef->isSelfBlob()) {
-      Val = RegRef->getBlobUtils().getTempBlobValue(RegRef->getSelfBlobIndex());
-    } else if (RegRef->isLval() && RegRef->isTerminalRef()) {
-      auto &BU = RegRef->getBlobUtils();
-      Val = BU.getTempBlobValue(BU.findTempBlobIndex(RegRef->getSymbase()));
-    }
-
-    assert(Val && "Underlying Value is null!\n");
-    getSourceName(Val);
-
-    // DbgLoc is embedded inside RegDDRef
-    const DebugLoc &DbgLoc = RegRef->getDebugLoc();
-    if (DbgLoc.get())
-      NameAndDbgLoc.append("(" + std::to_string(DbgLoc.getLine()) + ":" +
-                           std::to_string(DbgLoc.getCol()) + ") ");
-  }
-  return NameAndDbgLoc;
-}
-
 std::string DDEdge::getOptReportStr() const {
 
   std::string Str;
@@ -144,8 +70,8 @@ std::string DDEdge::getOptReportStr() const {
   OS << getEdgeType();
   OS << " dependence";
 
-  std::string SrcInfo = getNameAndDbgLoc(Src);
-  std::string SinkInfo = getNameAndDbgLoc(Sink);
+  std::string SrcInfo = Src->getNameAndDbgLocForOptRpt();
+  std::string SinkInfo = Sink->getNameAndDbgLocForOptRpt();
 
   if (!SrcInfo.empty() && !SinkInfo.empty())
     OS << " between " << SrcInfo << "and " << SinkInfo;
@@ -216,7 +142,7 @@ void DDGraph::print(raw_ostream &OS) const {
   DDARefGatherer::MapTy Refs;
   DDARefGatherer::gather(CurNode, Refs);
 
-  for (auto Pair : Refs) {
+  for (auto &Pair : Refs) {
     for (DDRef *Ref : Pair.second) {
       for (DDEdge *E : outgoing(Ref)) {
         E->print(OS);

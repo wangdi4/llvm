@@ -230,7 +230,8 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
       Opcode == VPInstruction::HIRCopy || Opcode == VPInstruction::ActiveLane ||
       Opcode == VPInstruction::ActiveLaneExtract ||
-      Opcode == VPInstruction::ConstStepVector)
+      Opcode == VPInstruction::ConstStepVector ||
+      Opcode == VPInstruction::EarlyExitCond)
     return false;
 
   return true;
@@ -261,6 +262,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "fmax";
   case VPInstruction::FMin:
     return "fmin";
+  case VPInstruction::FMaximum:
+    return "fmaximum";
+  case VPInstruction::FMinimum:
+    return "fminimum";
   case VPInstruction::InductionInit:
     return "induction-init";
   case VPInstruction::InductionInitStep:
@@ -401,6 +406,14 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "transform-lib-call";
   case VPInstruction::SOAExtractValue:
     return "soa-extract-value";
+  case VPInstruction::F90DVBufferInit:
+    return "f90-dv-buffer-init";
+  case VPInstruction::EarlyExitCond:
+    return "early-exit-cond";
+  case VPInstruction::EarlyExitExecMask:
+    return "early-exit-exec-mask";
+  case VPInstruction::EarlyExitLane:
+    return "early-exit-lane";
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -659,6 +672,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   if (auto *Adapter = dyn_cast<VPlanAdapter>(this))
     Adapter->printImpl(O);
 
+  if (isa<VPCompressExpandIndex>(this) || isa<VPCompressExpandIndexInc>(this)) {
+    O << " {";
+    auto *CEIndex = static_cast<const VPCompressExpandIndex *>(this);
+    if (CEIndex->isPtrInc()) {
+      CEIndex->getValueType()->print(O);
+      O << ", ";
+    }
+    O << "stride: " << CEIndex->getTotalStride() << "}";
+  }
+
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
@@ -719,10 +742,9 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
              isa<VPCallInstruction>(this)) {
     // Nothing to print, operands are already printed for these instructions.
   } else {
-    if (getOpcode() == VPInstruction::AllocateDVBuffer ||
-        getOpcode() == VPInstruction::AllocatePrivate) {
+     if (auto *AllocMem = dyn_cast<VPAllocateMemBase>(this)) {
       O << " ";
-      getType()->print(O);
+      AllocMem->getAllocatedType()->print(O);
     }
     for (const VPValue *Operand : operands()) {
       O << " ";
@@ -1592,10 +1614,12 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
 // Common functionality to do a deep-copy when cloning VPlans.
 void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
                            VPlanVector *TargetPlan) {
-  // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
-  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "", TargetPlan);
+
+  // Clone the basic blocks from the current VPlan to the new one
+  for (VPBasicBlock &OrigVPBB : *this)
+    VPCloneUtils::cloneBasicBlock(&OrigVPBB, "", OrigClonedValuesMap,
+                                  TargetPlan->end(), nullptr, TargetPlan);
 
   // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);

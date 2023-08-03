@@ -116,12 +116,35 @@ if ((OMPT_TARGET_DEFAULT) AND (LIBOMPTARGET_OMPT_SUPPORT))
   add_definitions(-DOMPT_SUPPORT=1)
   message(STATUS "OMPT target enabled")
 else()
+  set(LIBOMPTARGET_OMPT_SUPPORT FALSE)
   message(STATUS "OMPT target disabled")
 endif()
+
+if(INTEL_CUSTOMIZATION)
+  # UR build is only enabled explicitly until we decide to include in the build.
+  # TODO: clean up these variables if we start building UR plugin by default.
+  set(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD FALSE CACHE BOOL "Build Unified Runtime")
+  if(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD)
+    add_definitions(-DOMPTARGET_UNIFIED_RUNTIME_BUILD=1)
+    message(STATUS "Building Unified Runtime plugin")
+  else()
+    message(STATUS "Not building Unified Runtime plugin")
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 if (NOT INTEL_CUSTOMIZATION)
 pythonize_bool(LIBOMPTARGET_OMPT_SUPPORT)
 endif(NOT INTEL_CUSTOMIZATION)
+
+# Check if this build supports the GPU libc.
+set(LIBC_GPU_SUPPORT FALSE)
+if("libc" IN_LIST LLVM_ENABLE_RUNTIMES AND (LIBC_GPU_BUILD OR
+                                            LIBC_GPU_ARCHITECTURES))
+  set(LIBC_GPU_SUPPORT TRUE)
+endif()
+set(LIBOMPTARGET_GPU_LIBC_SUPPORT ${LIBC_GPU_SUPPORT} CACHE BOOL
+    "Libomptarget support for the GPU libc")
+pythonize_bool(LIBOMPTARGET_GPU_LIBC_SUPPORT)
 
 set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 message(STATUS "OpenMP tools dir in libomptarget: ${LIBOMP_OMP_TOOLS_INCLUDE_DIR}")
@@ -192,7 +215,11 @@ if (INTEL_CUSTOMIZATION)
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER "${LIBOMP_RTL_PATH}/include")
+      if(LIBOMP_USE_FLAT_IL0)
+        set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER "${LIBOMP_RTL_PATH}/opt/compiler/include")
+      else()
+        set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER "${LIBOMP_RTL_PATH}/include")
+      endif()
     endif()
 
     message(STATUS "Looking for omp.h in "
@@ -241,7 +268,9 @@ if (INTEL_CUSTOMIZATION)
       "Standalone OpenMP build is not supported in xmain yet.")
   endif()
   set(LIBOMP_INCLUDE_DIR ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
+  set(LIBOMP_INCLUDE_DIR ${LIBOMP_INCLUDE_DIR} PARENT_SCOPE)
   set(LIBOMP_LIBRARY_DIR ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
+  set(LIBOMP_LIBRARY_DIR ${LIBOMP_LIBRARY_DIR} PARENT_SCOPE)
 endif(INTEL_CUSTOMIZATION)
 set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${LIBOMP_INCLUDE_DIR}" CACHE STRING
   "Path to folder containing omp.h")
@@ -251,8 +280,8 @@ set(LIBOMPTARGET_LLVM_LIBRARY_DIR "${LLVM_LIBRARY_DIR}" CACHE STRING
   "Path to folder containing llvm library libomptarget.so")
 
 # Build offloading plugins and device RTLs if they are available.
-add_subdirectory(plugins)
 if(INTEL_CUSTOMIZATION)
+add_subdirectory(plugins)
 add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
 add_subdirectory(plugins-nextgen)

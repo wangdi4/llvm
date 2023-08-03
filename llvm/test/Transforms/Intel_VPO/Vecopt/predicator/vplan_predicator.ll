@@ -419,7 +419,7 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i1 *%uniform.ptr) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: bb3
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 2, i1 [[VP_VARYING_NOT]] ], [ i32 3, i1 [[VP_VARYING]] ]
-; CHECK-NEXT:       [DA: Div] br bb4
+; CHECK-NEXT:       [DA: Uni] br bb4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb4: # preds: bb0, [[BLEND_BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, bb0 ],  [ i32 [[VP_PHI_BLEND_BB3]], [[BLEND_BB0]] ]
@@ -481,7 +481,7 @@ define void @test_two_blend_bbs(i1 %u0, i1 %u4)  {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BLEND_BB0]]: # preds: bb6
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_PHI_BLEND_BB6:%.*]] = blend [ i32 5, i1 true ], [ i32 6, i1 [[VP_BB5_VARYING]] ]
-; CHECK-NEXT:         [DA: Div] br bb7
+; CHECK-NEXT:         [DA: Uni] br bb7
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      bb1: # preds: bb0
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
@@ -498,7 +498,7 @@ define void @test_two_blend_bbs(i1 %u0, i1 %u4)  {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB1]]: # preds: bb3
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
-; CHECK-NEXT:       [DA: Div] br bb7
+; CHECK-NEXT:       [DA: Uni] br bb7
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb7: # preds: bb4, [[BLEND_BB0]], [[BLEND_BB1]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 4, bb4 ],  [ i32 [[VP_PHI_BLEND_BB6]], [[BLEND_BB0]] ],  [ i32 [[VP_PHI_BLEND_BB3]], [[BLEND_BB1]] ]
@@ -1374,7 +1374,7 @@ define void @test_blend_splitting_for_early_path_join(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB0]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 2, i1 true ], [ i32 3, i1 [[VP_BB2_VARYING_NOT]] ]
-; CHECK-NEXT:       [DA: Div] br bb5
+; CHECK-NEXT:       [DA: Uni] br bb5
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      bb1: # preds: bb0
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
@@ -1393,7 +1393,7 @@ define void @test_blend_splitting_for_early_path_join(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB1]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB4:%.*]] = blend [ i32 1, i1 true ], [ i32 4, i1 [[VP_BB1_VARYING_NOT]] ]
-; CHECK-NEXT:       [DA: Div] br bb5
+; CHECK-NEXT:       [DA: Uni] br bb5
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb5: # preds: [[BLEND_BB0]], [[BLEND_BB1]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB5:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB3]], [[BLEND_BB0]] ],  [ i32 [[VP_PHI_BLEND_BB4]], [[BLEND_BB1]] ]

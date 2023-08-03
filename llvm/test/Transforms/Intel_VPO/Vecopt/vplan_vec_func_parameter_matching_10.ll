@@ -10,7 +10,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @foo(i64 %uni0, i64 %uni1, float addrspace(1)* %add.ptr.i, i64 %load._arg_, i1 %load._arg_6, float addrspace(1)* %load._arg_8, float addrspace(1)* %ptridx.i52) {
+define void @foo(i64 %uni0, i64 %uni1, ptr addrspace(1) %add.ptr.i, i64 %load._arg_, i1 %load._arg_6, ptr addrspace(1) %load._arg_8, ptr addrspace(1) %ptridx.i52) {
 simd.begin.region:
   br label %DIR.OMP.SIMD.1
 
@@ -29,8 +29,8 @@ simd.loop:                                        ; preds = %simd.loop.exit, %DI
   br i1 %cmp.i, label %cond.true.i, label %cond.end.i
 
 cond.true.i:                                      ; preds = %simd.loop
-  %ptridx.i.i = getelementptr inbounds float, float addrspace(1)* %add.ptr.i, i64 %sub.i.i.i.i
-  %ld.ptridx.i.i = load float, float addrspace(1)* %ptridx.i.i, align 4
+  %ptridx.i.i = getelementptr inbounds float, ptr addrspace(1) %add.ptr.i, i64 %sub.i.i.i.i
+  %ld.ptridx.i.i = load float, ptr addrspace(1) %ptridx.i.i, align 4
   br label %cond.end.i
 
 cond.end.i:                                       ; preds = %cond.true.i, %simd.loop
@@ -43,14 +43,14 @@ if.then.i:                                        ; preds = %cond.end.i
   br i1 %load._arg_6, label %if.then10.i, label %if.end.i
 
 if.then10.i:                                      ; preds = %if.then.i
-  %ld.load._arg_8 = load float, float addrspace(1)* %load._arg_8, align 4
+  %ld.load._arg_8 = load float, ptr addrspace(1) %load._arg_8, align 4
   %cmp.i.i.i = fcmp olt float %ld.load._arg_8, %call.i.i.i
   %cond.i.i = select i1 %cmp.i.i.i, float %ld.load._arg_8, float %call.i.i.i
   br label %if.end.i
 
 if.end.i:                                         ; preds = %if.then10.i, %if.then.i
   %PSum.0.i = phi float [ %cond.i.i, %if.then10.i ], [ %call.i.i.i, %if.then.i ]
-  store float %PSum.0.i, float addrspace(1)* %ptridx.i52, align 4
+  store float %PSum.0.i, ptr addrspace(1) %ptridx.i52, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %cond.end.i, %if.end.i

@@ -11,9 +11,9 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NOT: ret void
 
 ; Function Attrs: nofree norecurse nosync nounwind readnone
-define dso_local void @test(i32 addrspace(3)* %arg) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_name !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 !no_barrier_path !2  {
+define dso_local void @test(ptr addrspace(3) %arg) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_name !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 !no_barrier_path !2  {
 entry:
- %load = load i32, i32 addrspace(3)* %arg, align 8
+ %load = load i32, ptr addrspace(3) %arg, align 8
  %cmp = icmp sge i32 %load, 0
  br i1 %cmp, label %if.then, label %if.end
 
@@ -34,7 +34,7 @@ attributes #0 = { nofree norecurse nosync nounwind readnone }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(3)*)* @test}
+!0 = !{ptr @test}
 !1 = !{}
 !2 = !{i1 true}
 

@@ -46,7 +46,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([50 x i32], [50 x i32]* @B, i64 0, i64 2), align 8
+  %0 = load i32, ptr getelementptr inbounds ([50 x i32], ptr @B, i64 0, i64 2), align 8
   %1 = sub i32 0, %0
   %2 = xor i32 %0, -1
   br label %for.cond1.preheader
@@ -76,16 +76,16 @@ for.body6.lr.ph:                                  ; preds = %for.body3
   %9 = lshr i33 %8, 1
   %10 = trunc i33 %9 to i32
   %11 = mul i32 %indvars.iv, %4
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @B, i64 0, i64 %indvars.iv43
-  %12 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @B, i64 0, i64 %indvars.iv43
+  %12 = load i32, ptr %arrayidx, align 4
   %mul = mul nsw i32 %12, %b.037
   %idxprom9 = sext i32 %mul to i64
-  %arrayidx10 = getelementptr inbounds [50 x [50 x i32]], [50 x [50 x i32]]* @A, i64 0, i64 %indvars.iv45, i64 %idxprom9
-  %arrayidx10.promoted = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [50 x [50 x i32]], ptr @A, i64 0, i64 %indvars.iv45, i64 %idxprom9
+  %arrayidx10.promoted = load i32, ptr %arrayidx10, align 4
   %13 = add i32 %arrayidx10.promoted, %b.037
   %14 = add i32 %13, %11
   %15 = add i32 %14, %10
-  store i32 %15, i32* %arrayidx10, align 4
+  store i32 %15, ptr %arrayidx10, align 4
   br label %for.inc11
 
 for.inc11:                                        ; preds = %for.body6.lr.ph, %for.body3

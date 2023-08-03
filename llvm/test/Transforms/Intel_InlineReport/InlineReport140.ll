@@ -1,20 +1,20 @@
-; RUN: opt -opaque-pointers -passes='function(gvn),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(gvn),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(gvn),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,function(gvn),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
 
 ; Check that a call to __ctype_b_loc is deleted as dead code.
 
 ; CHECK-LABEL: COMPILE FUNC: wait_for_start_signal
-; CHECK: EXTERN: fgetc
-; CHECK: EXTERN: t_exit
-; CHECK: EXTERN: fputc
-; CHECK: llvm.lifetime.start.p0 {{.*}}Callee is intrinsic
-; CHECK: EXTERN: __ctype_b_loc
-; CHECK: EXTERN: report_info
-; CHECK: DELETE: __ctype_b_loc {{.*}}Dead code
-; CHECK: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
-; CHECK: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
-; CHECK: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
-; CHECK: EXTERN: report_info
+; CHECK-DAG: EXTERN: fgetc
+; CHECK-DAG: EXTERN: t_exit
+; CHECK-DAG: EXTERN: fputc
+; CHECK-DAG: llvm.lifetime.start.p0 {{.*}}Callee is intrinsic
+; CHECK-DAG: EXTERN: __ctype_b_loc
+; CHECK-DAG: EXTERN: report_info
+; CHECK-DAG: DELETE: __ctype_b_loc {{.*}}Dead code
+; CHECK-DAG: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
+; CHECK-DAG: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
+; CHECK-DAG: llvm.lifetime.end.p0 {{.*}}Callee is intrinsic
+; CHECK-DAG: EXTERN: report_info
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

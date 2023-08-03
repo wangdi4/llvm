@@ -70,7 +70,7 @@ define <8 x double> @test512(double* %x_ptr, <8 x double> %x2, <8 x double> %x3)
 ; AVX512X-NO-FORCE-LABEL: test512:
 ; AVX512X-NO-FORCE:       # %bb.0: # %entry
 ; AVX512X-NO-FORCE-NEXT:    vmovupd (%rdi), %zmm0
-; AVX512X-NO-FORCE-NEXT:    vpermilpd {{.*#+}} zmm1 = zmm0[1,1,3,3,5,5,7,7]
+; AVX512X-NO-FORCE-NEXT:    vshufpd {{.*#+}} zmm1 = zmm0[1,1,3,3,5,5,7,7]
 ; AVX512X-NO-FORCE-NEXT:    vmovddup {{.*#+}} zmm0 = zmm0[0,0,2,2,4,4,6,6]
 ; AVX512X-NO-FORCE-NEXT:    vaddpd %zmm0, %zmm1, %zmm0
 ; AVX512X-NO-FORCE-NEXT:    retq

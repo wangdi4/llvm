@@ -8,9 +8,10 @@
 
 #pragma once
 #include "matrix-intel.hpp"
+#include "utils.hpp"
 #include <sycl/ext/oneapi/matrix/matrix-tensorcores.hpp>
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -41,6 +42,23 @@ struct joint_matrix {
                         PI_ERROR_INVALID_DEVICE);
 #endif
   }
+#ifdef __SYCL_DEVICE_ONLY__
+#if defined(__SPIR__)
+  // Generate a non-trivial assignment operator and copy c'tor that prevents
+  // memcpy from being generated.
+  // TODO: to remove, when either IGC can handle alloca JointMatrix or
+  // combination of InstCombine + SROA + mem2reg can remove it
+  joint_matrix(const joint_matrix &other) {
+    spvm = other.spvm;
+    return *this;
+  }
+
+  joint_matrix &operator=(const joint_matrix &rhs) {
+    spvm = rhs.spvm;
+    return *this;
+  }
+#endif // defined(__SPIR__)
+#endif
 };
 
 #ifdef __SYCL_DEVICE_ONLY__
@@ -199,32 +217,38 @@ inline __SYCL_ALWAYS_INLINE void joint_matrix_load(
     multi_ptr<T, Space, IsDecorated> src, size_t stride,
     sycl::ext::oneapi::experimental::matrix::layout Layout) {
 #if defined(__SYCL_DEVICE_ONLY__)
+  static_assert(Space != access::address_space::private_space,
+                "Joint Matrix doesn't support load from private memory!");
 #if defined(__NVPTX__)
   std::ignore = sg;
   sycl::ext::oneapi::detail::load_accumulator_cuda(res.cuda_impl, src, stride,
                                                    Layout);
 #else
-  T *Ptr = src.get();
+  using DecorT = typename sycl::detail::DecoratedType<T, Space>::type;
+  DecorT *Ptr = sycl::detail::getDecorated<DecorT>(src);
   switch (Layout) {
   default:
     assert(false && "Invalid Memory Layout!");
   case layout::row_major:
     res.spvm = __spirv_JointMatrixLoadINTEL<
-        T, S, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, S, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, stride, __spv::MatrixLayout::RowMajor,
         spv_scope_traits<Group>::value);
     break;
   case layout::col_major:
     res.spvm = __spirv_JointMatrixLoadINTEL<
-        T, S, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, S, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, stride, __spv::MatrixLayout::ColumnMajor,
         spv_scope_traits<Group>::value);
     break;
   case sycl::ext::intel::experimental::matrix::layout::packed:
     res.spvm = __spirv_JointMatrixLoadINTEL<
-        T, S, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, S, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, stride, __spv::MatrixLayout::Packed,
         spv_scope_traits<Group>::value);
@@ -255,15 +279,18 @@ joint_matrix_load(Group sg,
                   joint_matrix<Group, S, Use, NumRows, NumCols, Layout> &res,
                   multi_ptr<T, Space, IsDecorated> src, size_t stride) {
 #if defined(__SYCL_DEVICE_ONLY__)
+  static_assert(Space != access::address_space::private_space,
+                "Joint Matrix doesn't support load from private memory!");
 #if defined(__NVPTX__)
   std::ignore = sg;
   sycl::ext::oneapi::detail::load_multiplicand_cuda<S, T, NumRows, NumCols, Use,
                                                     Layout, Space>(
       res.cuda_impl, src, stride);
 #else
-  T *Ptr = src.get();
+  using DecorT = typename sycl::detail::DecoratedType<T, Space>::type;
+  DecorT *Ptr = sycl::detail::getDecorated<DecorT>(src);
   res.spvm =
-      __spirv_JointMatrixLoadINTEL<T, S, NumRows, NumCols,
+      __spirv_JointMatrixLoadINTEL<DecorT, S, NumRows, NumCols,
                                    spv_matrix_use_traits<Use>::value,
                                    spv_matrix_layout_traits<Layout>::value>(
           Ptr, stride, spv_matrix_layout_traits<Layout>::value,
@@ -288,33 +315,39 @@ inline __SYCL_ALWAYS_INLINE void joint_matrix_store(
     multi_ptr<T, Space, IsDecorated> dst, size_t stride,
     sycl::ext::oneapi::experimental::matrix::layout Layout) {
 #if defined(__SYCL_DEVICE_ONLY__)
+  static_assert(Space != access::address_space::private_space,
+                "Joint Matrix doesn't support store to private memory!");
 #if defined(__NVPTX__)
   std::ignore = sg;
   sycl::ext::oneapi::detail::joint_matrix_store_cuda<T, NumRows, NumCols,
                                                      Space>(src.cuda_impl, dst,
                                                             stride, Layout);
 #else
-  T *Ptr = dst.get();
+  using DecorT = typename sycl::detail::DecoratedType<T, Space>::type;
+  DecorT *Ptr = sycl::detail::getDecorated<DecorT>(dst);
   switch (Layout) {
   default:
     assert(false && "Invalid Memory Layout!");
   case layout::row_major:
     __spirv_JointMatrixStoreINTEL<
-        T, T, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, T, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, src.spvm, stride, __spv::MatrixLayout::RowMajor,
         spv_scope_traits<Group>::value);
     break;
   case layout::col_major:
     __spirv_JointMatrixStoreINTEL<
-        T, T, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, T, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, src.spvm, stride, __spv::MatrixLayout::ColumnMajor,
         spv_scope_traits<Group>::value);
     break;
   case sycl::ext::intel::experimental::matrix::layout::packed:
     __spirv_JointMatrixStoreINTEL<
-        T, T, NumRows, NumCols, spv_matrix_use_traits<use::accumulator>::value,
+        DecorT, T, NumRows, NumCols,
+        spv_matrix_use_traits<use::accumulator>::value,
         spv_matrix_layout_traits<layout::dynamic>::value>(
         Ptr, src.spvm, stride, __spv::MatrixLayout::Packed,
         spv_scope_traits<Group>::value);
@@ -407,5 +440,5 @@ inline __SYCL_ALWAYS_INLINE float round_to_tf32(const float &a) {
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

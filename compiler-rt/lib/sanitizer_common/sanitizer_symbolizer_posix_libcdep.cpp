@@ -1,3 +1,21 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===-- sanitizer_symbolizer_posix_libcdep.cpp ----------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -13,25 +31,25 @@
 
 #include "sanitizer_platform.h"
 #if SANITIZER_POSIX
-#include "sanitizer_allocator_internal.h"
-#include "sanitizer_common.h"
-#include "sanitizer_file.h"
-#include "sanitizer_flags.h"
-#include "sanitizer_internal_defs.h"
-#include "sanitizer_linux.h"
-#include "sanitizer_placement_new.h"
-#include "sanitizer_posix.h"
-#include "sanitizer_procmaps.h"
-#include "sanitizer_symbolizer_internal.h"
-#include "sanitizer_symbolizer_libbacktrace.h"
-#include "sanitizer_symbolizer_mac.h"
+#  include <dlfcn.h>  // for dlsym()
+#  include <errno.h>
+#  include <stdint.h>
+#  include <stdlib.h>
+#  include <sys/wait.h>
+#  include <unistd.h>
 
-#include <dlfcn.h>   // for dlsym()
-#include <errno.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#  include "sanitizer_allocator_internal.h"
+#  include "sanitizer_common.h"
+#  include "sanitizer_file.h"
+#  include "sanitizer_flags.h"
+#  include "sanitizer_internal_defs.h"
+#  include "sanitizer_linux.h"
+#  include "sanitizer_placement_new.h"
+#  include "sanitizer_posix.h"
+#  include "sanitizer_procmaps.h"
+#  include "sanitizer_symbolizer_internal.h"
+#  include "sanitizer_symbolizer_libbacktrace.h"
+#  include "sanitizer_symbolizer_mac.h"
 
 // C++ demangling function, as required by Itanium C++ ABI. This is weak,
 // because we do not require a C++ ABI library to be linked to a program
@@ -461,6 +479,17 @@ static SymbolizerTool *ChooseExternalSymbolizer(LowLevelAllocator *allocator) {
       return new(*allocator) Addr2LinePool(found_path, allocator);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // JIRA: CMPLRLLVM-48308
+  // Tell user symbolizer is missing and this will lead to less debug info. And
+  // instruct user how to provide a symbolizer for the program
+  Report(
+      "WARNING: No symbolizer is found; this would lead to less symbolic "
+      "information in the stack trace. Please install llvm-symbolizer or add "
+      "\"${ONEAPI_ROOT}/bin/compiler\" to your PATH environment variable.\n");
+#endif  // INTEL_CUSTOMIZATION
+
   return nullptr;
 }
 

@@ -26,55 +26,55 @@ entry:
   %mvy = alloca i32, align 4
   %i_width = alloca i32, align 4
   %i_height = alloca i32, align 4
-  %0 = getelementptr inbounds [1000 x i8], [1000 x i8]* %dst, i64 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 1000, i8* nonnull %0) #3
-  %1 = getelementptr inbounds [1000 x i8], [1000 x i8]* %src, i64 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 1000, i8* nonnull %1) #3
-  %dst_stride.0.dst_stride.0..sroa_cast = bitcast i32* %dst_stride to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %dst_stride.0.dst_stride.0..sroa_cast)
-  store volatile i32 1, i32* %dst_stride, align 4, !tbaa !3
-  %i_dst_stride.0.i_dst_stride.0..sroa_cast = bitcast i32* %i_dst_stride to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %i_dst_stride.0.i_dst_stride.0..sroa_cast)
-  store volatile i32 1, i32* %i_dst_stride, align 4, !tbaa !3
-  %i_src_stride.0.i_src_stride.0..sroa_cast = bitcast i32* %i_src_stride to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %i_src_stride.0.i_src_stride.0..sroa_cast)
-  store volatile i32 1, i32* %i_src_stride, align 4, !tbaa !3
-  %mvx.0.mvx.0..sroa_cast = bitcast i32* %mvx to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %mvx.0.mvx.0..sroa_cast)
-  store volatile i32 1, i32* %mvx, align 4, !tbaa !3
-  %mvy.0.mvy.0..sroa_cast = bitcast i32* %mvy to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %mvy.0.mvy.0..sroa_cast)
-  store volatile i32 2, i32* %mvy, align 4, !tbaa !3
-  %i_width.0.i_width.0..sroa_cast = bitcast i32* %i_width to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %i_width.0.i_width.0..sroa_cast)
-  store volatile i32 16, i32* %i_width, align 4, !tbaa !3
-  %i_height.0.i_height.0..sroa_cast = bitcast i32* %i_height to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %i_height.0.i_height.0..sroa_cast)
-  store volatile i32 8, i32* %i_height, align 4, !tbaa !3
-  %i_dst_stride.0.i_dst_stride.0. = load volatile i32, i32* %i_dst_stride, align 4, !tbaa !3
-  %i_src_stride.0.i_src_stride.0. = load volatile i32, i32* %i_src_stride, align 4, !tbaa !3
-  %mvx.0.mvx.0. = load volatile i32, i32* %mvx, align 4, !tbaa !3
-  %mvy.0.mvy.0. = load volatile i32, i32* %mvy, align 4, !tbaa !3
-  %i_width.0.i_width.0. = load volatile i32, i32* %i_width, align 4, !tbaa !3
-  %i_height.0.i_height.0. = load volatile i32, i32* %i_height, align 4, !tbaa !3
-  call fastcc void @mc_chroma(i8* nonnull %0, i32 %i_dst_stride.0.i_dst_stride.0., i8* nonnull %1, i32 %i_src_stride.0.i_src_stride.0., i32 %mvx.0.mvx.0., i32 %mvy.0.mvy.0., i32 %i_width.0.i_width.0., i32 %i_height.0.i_height.0.)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %i_height.0.i_height.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %i_width.0.i_width.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %mvy.0.mvy.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %mvx.0.mvx.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %i_src_stride.0.i_src_stride.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %i_dst_stride.0.i_dst_stride.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %dst_stride.0.dst_stride.0..sroa_cast)
-  call void @llvm.lifetime.end.p0i8(i64 1000, i8* nonnull %1) #3
-  call void @llvm.lifetime.end.p0i8(i64 1000, i8* nonnull %0) #3
+  %0 = getelementptr inbounds [1000 x i8], ptr %dst, i64 0, i64 0
+  call void @llvm.lifetime.start.p0i8(i64 1000, ptr nonnull %0) #3
+  %1 = getelementptr inbounds [1000 x i8], ptr %src, i64 0, i64 0
+  call void @llvm.lifetime.start.p0i8(i64 1000, ptr nonnull %1) #3
+  %dst_stride.0.dst_stride.0..sroa_cast = bitcast ptr %dst_stride to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %dst_stride.0.dst_stride.0..sroa_cast)
+  store volatile i32 1, ptr %dst_stride, align 4, !tbaa !3
+  %i_dst_stride.0.i_dst_stride.0..sroa_cast = bitcast ptr %i_dst_stride to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %i_dst_stride.0.i_dst_stride.0..sroa_cast)
+  store volatile i32 1, ptr %i_dst_stride, align 4, !tbaa !3
+  %i_src_stride.0.i_src_stride.0..sroa_cast = bitcast ptr %i_src_stride to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %i_src_stride.0.i_src_stride.0..sroa_cast)
+  store volatile i32 1, ptr %i_src_stride, align 4, !tbaa !3
+  %mvx.0.mvx.0..sroa_cast = bitcast ptr %mvx to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %mvx.0.mvx.0..sroa_cast)
+  store volatile i32 1, ptr %mvx, align 4, !tbaa !3
+  %mvy.0.mvy.0..sroa_cast = bitcast ptr %mvy to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %mvy.0.mvy.0..sroa_cast)
+  store volatile i32 2, ptr %mvy, align 4, !tbaa !3
+  %i_width.0.i_width.0..sroa_cast = bitcast ptr %i_width to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %i_width.0.i_width.0..sroa_cast)
+  store volatile i32 16, ptr %i_width, align 4, !tbaa !3
+  %i_height.0.i_height.0..sroa_cast = bitcast ptr %i_height to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %i_height.0.i_height.0..sroa_cast)
+  store volatile i32 8, ptr %i_height, align 4, !tbaa !3
+  %i_dst_stride.0.i_dst_stride.0. = load volatile i32, ptr %i_dst_stride, align 4, !tbaa !3
+  %i_src_stride.0.i_src_stride.0. = load volatile i32, ptr %i_src_stride, align 4, !tbaa !3
+  %mvx.0.mvx.0. = load volatile i32, ptr %mvx, align 4, !tbaa !3
+  %mvy.0.mvy.0. = load volatile i32, ptr %mvy, align 4, !tbaa !3
+  %i_width.0.i_width.0. = load volatile i32, ptr %i_width, align 4, !tbaa !3
+  %i_height.0.i_height.0. = load volatile i32, ptr %i_height, align 4, !tbaa !3
+  call fastcc void @mc_chroma(ptr nonnull %0, i32 %i_dst_stride.0.i_dst_stride.0., ptr nonnull %1, i32 %i_src_stride.0.i_src_stride.0., i32 %mvx.0.mvx.0., i32 %mvy.0.mvy.0., i32 %i_width.0.i_width.0., i32 %i_height.0.i_height.0.)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %i_height.0.i_height.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %i_width.0.i_width.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %mvy.0.mvy.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %mvx.0.mvx.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %i_src_stride.0.i_src_stride.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %i_dst_stride.0.i_dst_stride.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %dst_stride.0.dst_stride.0..sroa_cast)
+  call void @llvm.lifetime.end.p0i8(i64 1000, ptr nonnull %1) #3
+  call void @llvm.lifetime.end.p0i8(i64 1000, ptr nonnull %0) #3
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0i8(i64, ptr nocapture) #1
 
 ; Function Attrs: norecurse nounwind uwtable
-define internal fastcc void @mc_chroma(i8* nocapture %dst, i32 %i_dst_stride, i8* nocapture readonly %src, i32 %i_src_stride, i32 %mvx, i32 %mvy, i32 %i_width, i32 %i_height) unnamed_addr #2 {
+define internal fastcc void @mc_chroma(ptr nocapture %dst, i32 %i_dst_stride, ptr nocapture readonly %src, i32 %i_src_stride, i32 %mvx, i32 %mvy, i32 %i_width, i32 %i_height) unnamed_addr #2 {
 entry:
   %and = and i32 %mvx, 7
   %and1 = and i32 %mvy, 7
@@ -85,7 +85,7 @@ entry:
   %shr9 = ashr i32 %mvx, 3
   %add = add nsw i32 %mul8, %shr9
   %idx.ext = sext i32 %add to i64
-  %add.ptr = getelementptr inbounds i8, i8* %src, i64 %idx.ext, !intel-tbaa !7
+  %add.ptr = getelementptr inbounds i8, ptr %src, i64 %idx.ext, !intel-tbaa !7
   %idxprom = sext i32 %i_src_stride to i64
   %cmp84 = icmp sgt i32 %i_height, 0
   br i1 %cmp84, label %for.cond10.preheader.lr.ph, label %for.cond.cleanup
@@ -100,29 +100,29 @@ for.cond10.preheader.us.preheader:                ; preds = %for.cond10.preheade
   br label %for.cond10.preheader.us
 
 for.cond10.preheader.us:                          ; preds = %for.cond10.for.cond.cleanup12_crit_edge.us, %for.cond10.preheader.us.preheader
-  %srcp.088.us.pn = phi i8* [ %srcp.088.us, %for.cond10.for.cond.cleanup12_crit_edge.us ], [ %add.ptr, %for.cond10.preheader.us.preheader ]
+  %srcp.088.us.pn = phi ptr [ %srcp.088.us, %for.cond10.for.cond.cleanup12_crit_edge.us ], [ %add.ptr, %for.cond10.preheader.us.preheader ]
   %y.087.us = phi i32 [ %inc44.us, %for.cond10.for.cond.cleanup12_crit_edge.us ], [ 0, %for.cond10.preheader.us.preheader ]
-  %dst.addr.086.us = phi i8* [ %add.ptr40.us, %for.cond10.for.cond.cleanup12_crit_edge.us ], [ %dst, %for.cond10.preheader.us.preheader ]
-  %srcp.088.us = getelementptr inbounds i8, i8* %srcp.088.us.pn, i64 %idxprom
+  %dst.addr.086.us = phi ptr [ %add.ptr40.us, %for.cond10.for.cond.cleanup12_crit_edge.us ], [ %dst, %for.cond10.preheader.us.preheader ]
+  %srcp.088.us = getelementptr inbounds i8, ptr %srcp.088.us.pn, i64 %idxprom
   br label %for.body13.us
 
 for.body13.us:                                    ; preds = %for.body13.us, %for.cond10.preheader.us
   %indvars.iv = phi i64 [ 0, %for.cond10.preheader.us ], [ %indvars.iv.next, %for.body13.us ]
-  %arrayidx15.us = getelementptr inbounds i8, i8* %srcp.088.us.pn, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx15.us, align 1, !tbaa !7
+  %arrayidx15.us = getelementptr inbounds i8, ptr %srcp.088.us.pn, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx15.us, align 1, !tbaa !7
   %conv.us = zext i8 %0 to i32
   %mul16.us = mul nuw nsw i32 %sub, %conv.us
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx19.us = getelementptr inbounds i8, i8* %srcp.088.us.pn, i64 %indvars.iv.next
-  %1 = load i8, i8* %arrayidx19.us, align 1, !tbaa !7
+  %arrayidx19.us = getelementptr inbounds i8, ptr %srcp.088.us.pn, i64 %indvars.iv.next
+  %1 = load i8, ptr %arrayidx19.us, align 1, !tbaa !7
   %conv20.us = zext i8 %1 to i32
   %mul21.us = mul nuw nsw i32 %and, %conv20.us
-  %arrayidx24.us = getelementptr inbounds i8, i8* %srcp.088.us, i64 %indvars.iv
-  %2 = load i8, i8* %arrayidx24.us, align 1, !tbaa !7
+  %arrayidx24.us = getelementptr inbounds i8, ptr %srcp.088.us, i64 %indvars.iv
+  %2 = load i8, ptr %arrayidx24.us, align 1, !tbaa !7
   %conv25.us = zext i8 %2 to i32
   %mul26.us = mul nuw nsw i32 %sub, %conv25.us
-  %arrayidx30.us = getelementptr inbounds i8, i8* %srcp.088.us, i64 %indvars.iv.next
-  %3 = load i8, i8* %arrayidx30.us, align 1, !tbaa !7
+  %arrayidx30.us = getelementptr inbounds i8, ptr %srcp.088.us, i64 %indvars.iv.next
+  %3 = load i8, ptr %arrayidx30.us, align 1, !tbaa !7
   %conv31.us = zext i8 %3 to i32
   %mul32.us = mul nuw nsw i32 %and, %conv31.us
   %reass.add.us = add nuw nsw i32 %mul32.us, %mul26.us
@@ -133,13 +133,13 @@ for.body13.us:                                    ; preds = %for.body13.us, %for
   %add34.us = add nuw nsw i32 %add33.us, %reass.mul.us
   %4 = lshr i32 %add34.us, 6
   %conv36.us = trunc i32 %4 to i8
-  %arrayidx38.us = getelementptr inbounds i8, i8* %dst.addr.086.us, i64 %indvars.iv
-  store i8 %conv36.us, i8* %arrayidx38.us, align 1, !tbaa !7
+  %arrayidx38.us = getelementptr inbounds i8, ptr %dst.addr.086.us, i64 %indvars.iv
+  store i8 %conv36.us, ptr %arrayidx38.us, align 1, !tbaa !7
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond10.for.cond.cleanup12_crit_edge.us, label %for.body13.us
 
 for.cond10.for.cond.cleanup12_crit_edge.us:       ; preds = %for.body13.us
-  %add.ptr40.us = getelementptr inbounds i8, i8* %dst.addr.086.us, i64 %idx.ext39, !intel-tbaa !7
+  %add.ptr40.us = getelementptr inbounds i8, ptr %dst.addr.086.us, i64 %idx.ext39, !intel-tbaa !7
   %inc44.us = add nuw nsw i32 %y.087.us, 1
   %exitcond90 = icmp eq i32 %inc44.us, %i_height
   br i1 %exitcond90, label %for.cond.cleanup, label %for.cond10.preheader.us
@@ -149,7 +149,7 @@ for.cond.cleanup:                                 ; preds = %for.cond10.for.cond
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0i8(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

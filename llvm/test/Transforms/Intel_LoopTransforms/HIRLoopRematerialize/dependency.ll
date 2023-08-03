@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize" -print-changed -disable-output < %s 2>&1 -disable-output | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ;void mul_transposed_m3_v3(float mat[3][3], float vec[3])
 ;{
@@ -29,38 +30,41 @@
 ; as the original code. However, currently, hoisting logic is not implemented and
 ; this loop should not be materialized for a correct result.
 
-; CHECK:Function: mul_transposed_m3_v3
 
-; CHECK:        BEGIN REGION { }
-; CHECK:              %0 = (%vec)[0];
-; CHECK:              %1 = (%vec)[1];
-; CHECK:              %mul = %0  *  (%mat)[0][0];
-; CHECK:              %mul6 = %1  *  (%mat)[0][1];
-; CHECK:              %add = %mul  +  %mul6;
-; CHECK:              %5 = (%vec)[2];
-; CHECK:              %mul10 = (%mat)[0][2]  *  %5;
-; CHECK:              %add11 = %add  +  %mul10;
-; CHECK:              (%vec)[0] = %add11;
-; CHECK:              %mul15 = %0  *  (%mat)[1][0];
-; CHECK:              %mul18 = %1  *  (%mat)[1][1];
-; CHECK:              %add19 = %mul15  +  %mul18;
-; CHECK:              %mul23 = %5  *  (%mat)[1][2];
-; CHECK:              %add24 = %add19  +  %mul23;
-; CHECK:              (%vec)[1] = %add24;
-; CHECK:              %mul28 = %0  *  (%mat)[2][0];
-; CHECK:              %mul31 = %1  *  (%mat)[2][1];
-; CHECK:              %add32 = %mul28  +  %mul31;
-; CHECK:              %mul36 = %5  *  (%mat)[2][2];
-; CHECK:              %add37 = %add32  +  %mul36;
-; CHECK:              (%vec)[2] = %add37;
-; CHECK:              ret ;
-; CHECK:        END REGION
 
-; CHECK:Function: mul_transposed_m3_v3
+; CHECK: Function: mul_transposed_m3_v3
+
+; CHECK:          BEGIN REGION { }
+; CHECK:                %0 = (%vec)[0];
+; CHECK:                %1 = (%vec)[1];
+; CHECK:                %mul = %0  *  (%mat)[0];
+; CHECK:                %mul6 = %1  *  (%mat)[0][1];
+; CHECK:                %add = %mul  +  %mul6;
+; CHECK:                %5 = (%vec)[2];
+; CHECK:                %mul10 = (%mat)[0][2]  *  %5;
+; CHECK:                %add11 = %add  +  %mul10;
+; CHECK:                (%vec)[0] = %add11;
+; CHECK:                %mul15 = %0  *  (%mat)[1][0];
+; CHECK:                %mul18 = %1  *  (%mat)[1][1];
+; CHECK:                %add19 = %mul15  +  %mul18;
+; CHECK:                %mul23 = %5  *  (%mat)[1][2];
+; CHECK:                %add24 = %add19  +  %mul23;
+; CHECK:                (%vec)[1] = %add24;
+; CHECK:                %mul28 = %0  *  (%mat)[2][0];
+; CHECK:                %mul31 = %1  *  (%mat)[2][1];
+; CHECK:                %add32 = %mul28  +  %mul31;
+; CHECK:                %mul36 = %5  *  (%mat)[2][2];
+; CHECK:                %add37 = %add32  +  %mul36;
+; CHECK:                (%vec)[2] = %add37;
+; CHECK:                ret ;
+; CHECK:          END REGION
+
+; CHECK: Function: mul_transposed_m3_v3
+
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               %0 = (%vec)[0];
 ; CHECK:               %1 = (%vec)[1];
-; CHECK:               %mul = %0  *  (%mat)[0][0];
+; CHECK:               %mul = %0  *  (%mat)[0];
 ; CHECK:               %mul6 = %1  *  (%mat)[0][1];
 ; CHECK:               %add = %mul  +  %mul6;
 ; CHECK:               %5 = (%vec)[2];
@@ -81,6 +85,7 @@
 ; CHECK:               (%vec)[2] = %add37;
 ; CHECK:               ret ;
 ; CHECK:         END REGION
+
 
 ; 2:7 %0 --> %0 FLOW (=) (0)
 ; 2:21 %0 --> %0 FLOW (=) (0)
@@ -122,6 +127,12 @@
 ; Rematerialization Inhibiting edge:
 ; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopRematerialize
+
 ;Module Before HIR
 ; ModuleID = 'dependency.c'
 source_filename = "dependency.c"
@@ -129,49 +140,48 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @mul_transposed_m3_v3([3 x float]* noalias nocapture readonly %mat, float* noalias nocapture %vec) local_unnamed_addr #0 {
+define dso_local void @mul_transposed_m3_v3(ptr noalias nocapture readonly %mat, ptr noalias nocapture %vec) local_unnamed_addr #0 {
 entry:
-  %0 = load float, float* %vec, align 4, !tbaa !2
-  %arrayidx1 = getelementptr inbounds float, float* %vec, i64 1
-  %1 = load float, float* %arrayidx1, align 4, !tbaa !2
-  %arrayidx3 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 0, i64 0, !intel-tbaa !6
-  %2 = load float, float* %arrayidx3, align 4, !tbaa !6
+  %0 = load float, ptr %vec, align 4, !tbaa !2
+  %arrayidx1 = getelementptr inbounds float, ptr %vec, i64 1
+  %1 = load float, ptr %arrayidx1, align 4, !tbaa !2
+  %2 = load float, ptr %mat, align 4, !tbaa !6
   %mul = fmul float %0, %2
-  %arrayidx5 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 0, i64 1, !intel-tbaa !6
-  %3 = load float, float* %arrayidx5, align 4, !tbaa !6
+  %arrayidx5 = getelementptr inbounds [3 x float], ptr %mat, i64 0, i64 1, !intel-tbaa !6
+  %3 = load float, ptr %arrayidx5, align 4, !tbaa !6
   %mul6 = fmul float %1, %3
   %add = fadd float %mul, %mul6
-  %arrayidx8 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 0, i64 2, !intel-tbaa !6
-  %4 = load float, float* %arrayidx8, align 4, !tbaa !6
-  %arrayidx9 = getelementptr inbounds float, float* %vec, i64 2
-  %5 = load float, float* %arrayidx9, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [3 x float], ptr %mat, i64 0, i64 2, !intel-tbaa !6
+  %4 = load float, ptr %arrayidx8, align 4, !tbaa !6
+  %arrayidx9 = getelementptr inbounds float, ptr %vec, i64 2
+  %5 = load float, ptr %arrayidx9, align 4, !tbaa !2
   %mul10 = fmul float %4, %5
   %add11 = fadd float %add, %mul10
-  store float %add11, float* %vec, align 4, !tbaa !2
-  %arrayidx14 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 1, i64 0
-  %6 = load float, float* %arrayidx14, align 4, !tbaa !6
+  store float %add11, ptr %vec, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [3 x float], ptr %mat, i64 1, i64 0
+  %6 = load float, ptr %arrayidx14, align 4, !tbaa !6
   %mul15 = fmul float %0, %6
-  %arrayidx17 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 1, i64 1
-  %7 = load float, float* %arrayidx17, align 4, !tbaa !6
+  %arrayidx17 = getelementptr inbounds [3 x float], ptr %mat, i64 1, i64 1
+  %7 = load float, ptr %arrayidx17, align 4, !tbaa !6
   %mul18 = fmul float %1, %7
   %add19 = fadd float %mul15, %mul18
-  %arrayidx21 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 1, i64 2
-  %8 = load float, float* %arrayidx21, align 4, !tbaa !6
+  %arrayidx21 = getelementptr inbounds [3 x float], ptr %mat, i64 1, i64 2
+  %8 = load float, ptr %arrayidx21, align 4, !tbaa !6
   %mul23 = fmul float %5, %8
   %add24 = fadd float %add19, %mul23
-  store float %add24, float* %arrayidx1, align 4, !tbaa !2
-  %arrayidx27 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 2, i64 0
-  %9 = load float, float* %arrayidx27, align 4, !tbaa !6
+  store float %add24, ptr %arrayidx1, align 4, !tbaa !2
+  %arrayidx27 = getelementptr inbounds [3 x float], ptr %mat, i64 2, i64 0
+  %9 = load float, ptr %arrayidx27, align 4, !tbaa !6
   %mul28 = fmul float %0, %9
-  %arrayidx30 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 2, i64 1
-  %10 = load float, float* %arrayidx30, align 4, !tbaa !6
+  %arrayidx30 = getelementptr inbounds [3 x float], ptr %mat, i64 2, i64 1
+  %10 = load float, ptr %arrayidx30, align 4, !tbaa !6
   %mul31 = fmul float %1, %10
   %add32 = fadd float %mul28, %mul31
-  %arrayidx34 = getelementptr inbounds [3 x float], [3 x float]* %mat, i64 2, i64 2
-  %11 = load float, float* %arrayidx34, align 4, !tbaa !6
+  %arrayidx34 = getelementptr inbounds [3 x float], ptr %mat, i64 2, i64 2
+  %11 = load float, ptr %arrayidx34, align 4, !tbaa !6
   %mul36 = fmul float %5, %11
   %add37 = fadd float %add32, %mul36
-  store float %add37, float* %arrayidx9, align 4, !tbaa !2
+  store float %add37, ptr %arrayidx9, align 4, !tbaa !2
   ret void
 }
 

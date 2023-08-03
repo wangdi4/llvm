@@ -1,6 +1,7 @@
-define dso_local i32 @_Z8atom_addPU3AS1Vii(i32 addrspace(1)* nocapture noundef %p, i32 noundef %val) local_unnamed_addr #0 {
+; Function Attrs: mustprogress nofree norecurse nounwind willreturn
+define dso_local i32 @_Z8atom_addPU3AS1Vii(ptr addrspace(1) nocapture noundef %p, i32 noundef %val) local_unnamed_addr #0 !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
-  %0 = atomicrmw add i32 addrspace(1)* %p, i32 %val seq_cst, align 4
+  %0 = atomicrmw add ptr addrspace(1) %p, i32 %val seq_cst, align 4
   ret i32 %0
 }
 
@@ -51,3 +52,6 @@ declare void @llvm.x86.sse2.mfence() #2
 attributes #0 = { mustprogress nofree norecurse nounwind willreturn }
 attributes #1 = { norecurse nounwind }
 attributes #2 = { nounwind }
+
+!0 = !{!"int*", !"int"}
+!1 = !{ptr addrspace(1) null, i32 0}

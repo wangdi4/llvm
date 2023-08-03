@@ -27,15 +27,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind readonly uwtable
-define i32 @foo([100 x i32]* %dst) local_unnamed_addr #0 {
+define i32 @foo(ptr %dst) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv30 = phi i64 [ 0, %entry ], [ %indvars.iv.next31, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv30
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv30
   %trunc = trunc i64 %indvars.iv30 to i32
-  store i32 %trunc, i32* %arrayidx, align 4
+  store i32 %trunc, ptr %arrayidx, align 4
   %indvars.iv.next31 = add nuw nsw i64 %indvars.iv30, 1
   %exitcond32 = icmp eq i64 %indvars.iv.next31, 10
   br i1 %exitcond32, label %for.end, label %for.body
@@ -45,10 +45,10 @@ for.end:                                          ; preds = %for.body
 
 for.body5:                                        ; preds = %for.body5, %for.end
   %indvars.iv = phi i64 [ 0, %for.end ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx1 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %ld = load i32, i32* %arrayidx1, align 4
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* %dst, i64 0, i64 %indvars.iv
-  store i32 %ld, i32* %arrayidx2, align 4
+  %arrayidx1 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %ld = load i32, ptr %arrayidx1, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr %dst, i64 0, i64 %indvars.iv
+  store i32 %ld, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.end15, label %for.body5

@@ -14,12 +14,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <list>
 
 #include "cl_framework.h"
 #include "event_observer.h"
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 
 namespace Intel {
 namespace OpenCL {
@@ -52,7 +52,7 @@ typedef enum {
 
 // #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
 // #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
-#ifdef WIN32
+#ifdef _WIN32
 #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 #else // For Linux, the CFS performs much better without active wait
 #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
@@ -219,7 +219,7 @@ protected:
   ObserversList_t m_SubmittedObserversList;
   std::mutex m_ObserversListGuard;
 
-  Intel::OpenCL::Utils::AtomicCounter m_numOfDependencies;
+  std::atomic<long> m_numOfDependencies{0};
 
   cl_int m_returnCode;
 

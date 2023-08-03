@@ -8,8 +8,10 @@
 ; we can at least model it as zext/trunc/self of an unknown,
 ; iff it it's argument would be modelled as unknown anyways.
 
-; INTEL has more nuw/nsw flags, uses signum expansion for ashr
+; INTEL_CUSTOMIZATION
+; INTEL has uses signum expansion for ashr
 
+; end INTEL_CUSTOMIZATION
 declare void @useptr(ptr)
 
 ; Simple ptrtoint of an argument, with casts to potentially different bit widths.
@@ -415,7 +417,7 @@ define void @pr46786_c26_char(ptr %arg, ptr %arg1, ptr %arg2) {
 ; X32-NEXT:    %i8 = load i8, ptr %i7, align 1
 ; X32-NEXT:    --> %i8 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i9 = ptrtoint ptr %i7 to i64
-; X32-NEXT:    --> {(zext i32 (ptrtoint ptr %arg to i32) to i64),+,1}<nuw><%bb6> U: [0,8589934591) S: [0,8589934591) Exits: ((zext i32 (-1 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) + (zext i32 (ptrtoint ptr %arg to i32) to i64))<nuw><nsw> LoopDispositions: { %bb6: Computable } ;INTEL
+; X32-NEXT:    --> {(zext i32 (ptrtoint ptr %arg to i32) to i64),+,1}<nuw><%bb6> U: [0,8589934591) S: [0,8589934591) Exits: ((zext i32 (-1 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) + (zext i32 (ptrtoint ptr %arg to i32) to i64)) LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i10 = sub i64 %i9, %i4
 ; X32-NEXT:    --> {0,+,1}<nuw><%bb6> U: [0,4294967296) S: [0,4294967296) Exits: (zext i32 (-1 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i11 = getelementptr inbounds i8, ptr %arg2, i64 %i10
@@ -504,13 +506,13 @@ define void @pr46786_c26_int(ptr %arg, ptr %arg1, ptr %arg2) {
 ; X32-NEXT:    %i8 = load i32, ptr %i7, align 4
 ; X32-NEXT:    --> %i8 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i9 = ptrtoint ptr %i7 to i64
-; X32-NEXT:    --> {(zext i32 (ptrtoint ptr %arg to i32) to i64),+,4}<nuw><%bb6> U: [0,8589934588) S: [0,8589934588) Exits: ((zext i32 (ptrtoint ptr %arg to i32) to i64) + (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw>)<nuw><nsw> LoopDispositions: { %bb6: Computable } ;INTEL
+; X32-NEXT:    --> {(zext i32 (ptrtoint ptr %arg to i32) to i64),+,4}<nuw><%bb6> U: [0,8589934588) S: [0,8589934588) Exits: ((zext i32 (ptrtoint ptr %arg to i32) to i64) + (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw>) LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i10 = sub i64 %i9, %i4
 ; X32-NEXT:    --> {0,+,4}<nuw><%bb6> U: [0,4294967293) S: [0,4294967293) Exits: (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw> LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i11 = ashr exact i64 %i10, 2
 ; X32-NEXT:    --> ({0,+,1}<nuw><%bb6> * (1 smin {0,+,4}<nuw><%bb6>))<nuw><nsw> U: [0,1073741824) S: [0,1073741824) Exits: (((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4) * (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw>))<nuw><nsw> LoopDispositions: { %bb6: Computable } ;INTEL
 ; X32-NEXT:    %i12 = getelementptr inbounds i32, ptr %arg2, i64 %i11
-; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2) U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) /u 4))<nuw> + %arg2) LoopDispositions: { %bb6: Computable } ;INTEL
+; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2) U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * (ptrtoint ptr %arg to i32)) + (ptrtoint ptr %arg1 to i32)) /u 4)) + %arg2) LoopDispositions: { %bb6: Computable } ;INTEL
 ; X32-NEXT:    %i13 = load i32, ptr %i12, align 4
 ; X32-NEXT:    --> %i13 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
 ; X32-NEXT:    %i14 = add nsw i32 %i13, %i8

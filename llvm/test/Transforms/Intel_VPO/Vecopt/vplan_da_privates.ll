@@ -52,10 +52,10 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
 ; CHECK: VPlan after predicator
-; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
+; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]
 ; CHECK-NEXT:  [DA: Div] i8* [[PRIV1_BCAST:%.*]] = bitcast [1024 x i32]* [[PRIV1]]
 ; CHECK-NEXT:  [DA: Div] call i64 4096 i8* [[PRIV1_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
-; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
+; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32
 ; CHECK-NEXT:  [DA: Div] i8* [[PRIV2_BCAST:%.*]] = bitcast i32* [[PRIV2]]
 ; CHECK-NEXT:  [DA: Div] call i64 4 i8* [[PRIV2_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
@@ -182,8 +182,8 @@ define i32 @scalPrivate(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD2:%.*]] = add i32 [[H2]] i32 [[H1]]
 
 ; CHECK: VPlan after predicator
-; CHECK:      [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32*
-; CHECK:      [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
+; CHECK:      [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32
+; CHECK:      [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32
 ;
 ; CHECK:      [DA: Div] i32 [[PHI5:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 [[ADD1:%.*]], {{.*}}]
 ; CHECK:      [DA: Div] store i32 [[PHI5]] i32* [[PRIV2]]

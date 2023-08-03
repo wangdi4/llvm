@@ -632,6 +632,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
 
+  case VPInstruction::EarlyExitLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -644,7 +651,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::Blend:
   case VPInstruction::HIRCopy:
   case VPInstruction::ConstStepVector:
-  case VPInstruction::Abs: {
+  case VPInstruction::Abs:
+  case VPInstruction::F90DVBufferInit:
+  case VPInstruction::EarlyExitCond:
+  case VPInstruction::EarlyExitExecMask: {
     // VPlan-specific instructions that don't need special processing in SVA.
     return false;
   }
@@ -802,7 +812,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
   case VPInstruction::CompressExpandIndexInit: {
-    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
   }
@@ -818,9 +828,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
   case VPInstruction::CompressExpandIndexInc: {
-    setSVAKindForInst(Inst, SVAKind::Vector);
-    setSVAKindForReturnValue(Inst, SVAKind::Vector);
-    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
     return true;
   }
   case VPInstruction::CompressExpandMask: {
@@ -1184,6 +1195,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::CompressExpandIndexInc:
   case VPInstruction::CompressExpandMask:
   case VPInstruction::SOAExtractValue:
+  case VPInstruction::EarlyExitLane:
     return true;
   default:
     return false;

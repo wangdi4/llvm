@@ -46,13 +46,13 @@ for.cond4.preheader:                              ; preds = %for.cond1.preheader
 
 for.body6:                                        ; preds = %for.cond4.preheader, %for.body6
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx10 = getelementptr inbounds [50 x [20 x [3 x float]]], [50 x [20 x [3 x float]]]* @A, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
-  %t1 = load float, float* %arrayidx10, align 4
-  %arrayidx16 = getelementptr inbounds [50 x [20 x [3 x float]]], [50 x [20 x [3 x float]]]* @B, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
-  %t2 = load float, float* %arrayidx16, align 4
+  %arrayidx10 = getelementptr inbounds [50 x [20 x [3 x float]]], ptr @A, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
+  %t1 = load float, ptr %arrayidx10, align 4
+  %arrayidx16 = getelementptr inbounds [50 x [20 x [3 x float]]], ptr @B, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
+  %t2 = load float, ptr %arrayidx16, align 4
   %mul = fmul fast float %t2, %t1
-  %arrayidx22 = getelementptr inbounds [50 x [20 x [3 x float]]], [50 x [20 x [3 x float]]]* %Tmp, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
-  store float %mul, float* %arrayidx22, align 4
+  %arrayidx22 = getelementptr inbounds [50 x [20 x [3 x float]]], ptr %Tmp, i64 0, i64 %indvars.iv53, i64 %indvars.iv50, i64 %indvars.iv
+  store float %mul, ptr %arrayidx22, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond.not, label %for.inc23, label %for.body6
@@ -68,8 +68,8 @@ for.inc26:                                        ; preds = %for.inc23
   br i1 %exitcond55.not, label %for.end28, label %for.cond1.preheader
 
 for.end28:                                        ; preds = %for.inc26
-  %arrayidx31 = getelementptr inbounds [50 x [20 x [3 x float]]], [50 x [20 x [3 x float]]]* %Tmp, i64 0, i64 2, i64 4, i64 1
-  %t3 = load float, float* %arrayidx31, align 4
+  %arrayidx31 = getelementptr inbounds [50 x [20 x [3 x float]]], ptr %Tmp, i64 0, i64 2, i64 4, i64 1
+  %t3 = load float, ptr %arrayidx31, align 4
   ret float %t3
 }
 

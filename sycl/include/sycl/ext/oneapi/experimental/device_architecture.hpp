@@ -1,9 +1,17 @@
+//===- device_architecture.hpp --------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include <sycl/detail/defines_elementary.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi::experimental {
 
 enum class architecture {
@@ -21,7 +29,7 @@ enum class architecture {
   intel_gpu_tgllp,
   intel_gpu_rkl,
   intel_gpu_adl_s,
-  intel_gpu_rpl_s,
+  intel_gpu_rpl_s = intel_gpu_adl_s,
   intel_gpu_adl_p,
   intel_gpu_adl_n,
   intel_gpu_dg1,
@@ -479,11 +487,10 @@ constexpr static bool device_architecture_is() {
 // user's function.
 template <bool MakeCall> class if_architecture_helper {
 public:
-  template <ext::oneapi::experimental::architecture... Archs, typename T,
-            typename... Args>
-  constexpr auto else_if_architecture_is(T fnTrue, Args... args) {
+  template <ext::oneapi::experimental::architecture... Archs, typename T>
+  constexpr auto else_if_architecture_is(T fnTrue) {
     if constexpr (MakeCall && device_architecture_is<Archs...>()) {
-      fnTrue(args...);
+      fnTrue();
       return if_architecture_helper<false>{};
     } else {
       (void)fnTrue;
@@ -491,10 +498,9 @@ public:
     }
   }
 
-  template <typename T, typename... Args>
-  constexpr void otherwise(T fn, Args... args) {
+  template <typename T> constexpr void otherwise(T fn) {
     if constexpr (MakeCall) {
-      fn(args...);
+      fn();
     }
   }
 };
@@ -502,14 +508,14 @@ public:
 
 namespace ext::oneapi::experimental {
 
-template <architecture... Archs, typename T, typename... Args>
-constexpr static auto if_architecture_is(T fnTrue, Args... args) {
+template <architecture... Archs, typename T>
+constexpr static auto if_architecture_is(T fnTrue) {
   static_assert(sycl::detail::allowable_aot_mode<Archs...>(),
                 "The if_architecture_is function may only be used when AOT "
                 "compiling with '-fsycl-targets=spir64_x86_64' or "
                 "'-fsycl-targets=*_gpu_*'");
   if constexpr (sycl::detail::device_architecture_is<Archs...>()) {
-    fnTrue(args...);
+    fnTrue();
     return sycl::detail::if_architecture_helper<false>{};
   } else {
     (void)fnTrue;
@@ -518,5 +524,5 @@ constexpr static auto if_architecture_is(T fnTrue, Args... args) {
 }
 
 } // namespace ext::oneapi::experimental
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

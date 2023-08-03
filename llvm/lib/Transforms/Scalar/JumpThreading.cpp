@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -75,15 +75,12 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -296,7 +293,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   // Jump Threading has no sense for the targets with divergent CF
-  if (TTI.hasBranchDivergence())
+  if (TTI.hasBranchDivergence(&F))
     return PreservedAnalyses::all();
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
@@ -1568,7 +1565,7 @@ bool JumpThreadingPass::processBranchOnOr(BasicBlock *BB) {
       return nullptr;
     if (!all_of(PN->operands(), [](Value *V) { return isa<ConstantInt>(V); }))
       return nullptr;
-   // Makes sure operands are not same.
+    // Makes sure operands are not same.
     if (PN->getOperand(0) == PN->getOperand(1))
       return nullptr;
     for (auto *Pred : predecessors(BB)) {
@@ -1661,8 +1658,9 @@ bool JumpThreadingPass::processBranchOnOr(BasicBlock *BB) {
         // No need to check Dominator information for constants and arguments.
         if (auto FI = dyn_cast<Instruction>(FVal)) {
           DominatorTree &DT = DTU->getDomTree();
-          BasicBlock *BB1 = FI->getParent();
-          if (!DT.dominates(BB1, FalseBB))
+          // We must use "FI" and not its block here. This handles the corner
+          // case where an invoke result doesn't dominate its unwind edge.
+          if (!DT.dominates(FI, FalseBB))
             return false;
         }
         PHIValuesWhenCondIsFalse[PN] = FVal;
@@ -2717,6 +2715,13 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
     Instruction *New = BI->clone();
     New->setName(BI->getName());
     New->insertInto(NewBB, NewBB->end());
+#if INTEL_CUSTOMIZATION
+    if (auto CB1 = dyn_cast<CallBase>(New)) {
+      auto CB0 = cast<CallBase>(&*BI);
+      getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+    }
+#endif // INTEL_CUSTOMIZATION
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
 
@@ -3290,6 +3295,13 @@ void JumpThreadingPass::threadEdge(
       New->setName(BI->getName());
       New->insertInto(NewBB, NewBB->end());
       ValueMapping[&*BI] = New;
+#if INTEL_CUSTOMIZATION
+      if (auto CB1 = dyn_cast<CallBase>(New)) {
+        auto CB0 = cast<CallBase>(&*BI);
+        getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+        getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      }
+#endif // INTEL_CUSTOMIZATION
       adaptNoAliasScopes(New, ClonedScopes, Context);
     }
 
@@ -3873,7 +3885,14 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
   // mapping and using it to remap operands in the cloned instructions.
   for (; BI != BB->end(); ++BI) {
     Instruction *New = BI->clone();
-
+    New->insertInto(PredBB, OldPredBranch->getIterator());
+#if INTEL_CUSTOMIZATION
+    if (auto CB1 = dyn_cast<CallBase>(New)) {
+      auto CB0 = cast<CallBase>(&*BI);
+      getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+    }
+#endif // INTEL_CUSTOMIZATION
     // Remap operands to patch up intra-block references.
     for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
       if (Instruction *Inst = dyn_cast<Instruction>(New->getOperand(i))) {
@@ -3890,7 +3909,7 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
             {BB->getModule()->getDataLayout(), TLI, nullptr, nullptr, New})) {
       ValueMapping[&*BI] = IV;
       if (!New->mayHaveSideEffects()) {
-        New->deleteValue();
+        New->eraseFromParent();
         New = nullptr;
       }
     } else {
@@ -3899,7 +3918,6 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
     if (New) {
       // Otherwise, insert the new instruction into the block.
       New->setName(BI->getName());
-      New->insertInto(PredBB, OldPredBranch->getIterator());
       // Update Dominance from simplified New instruction operands.
       for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
         if (BasicBlock *SuccBB = dyn_cast<BasicBlock>(New->getOperand(i)))

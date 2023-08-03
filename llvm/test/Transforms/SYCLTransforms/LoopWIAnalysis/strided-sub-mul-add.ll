@@ -10,7 +10,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-DAG: UNI  <8 x i64> <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 ; CHECK-DAG: STR    %8 = add <8 x i64> %7, <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 
-define dso_local void @test(i64 addrspace(1)* %kb) local_unnamed_addr #0 {
+define dso_local void @test(ptr addrspace(1) %kb) local_unnamed_addr #0 !kernel_arg_base_type !1 !arg_type_null_val !2 {
 vect_if:
   %0 = call i64 @get_base_global_id.(i32 0)
   %1 = call i64 @_Z14get_local_sizej(i32 0)
@@ -34,9 +34,8 @@ entryvector_func:                                 ; preds = %entryvector_func, %
   %6 = add <8 x i64> %5, <i64 2, i64 2, i64 2, i64 2, i64 2, i64 2, i64 2, i64 2>
   %7 = mul <8 x i64> %6, <i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3>
   %8 = add <8 x i64> %7, <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
-  %scalar.gepvector_func = getelementptr inbounds i64, i64 addrspace(1)* %kb, i64 %.extract.0.vector_func
-  %9 = bitcast i64 addrspace(1)* %scalar.gepvector_func to <8 x i64> addrspace(1)*
-  store <8 x i64> %8, <8 x i64> addrspace(1)* %9, align 4
+  %scalar.gepvector_func = getelementptr inbounds i64, ptr addrspace(1) %kb, i64 %.extract.0.vector_func
+  store <8 x i64> %8, ptr addrspace(1) %scalar.gepvector_func, align 4
   %dim_0_vector_inc_ind_var = add nuw nsw i64 %dim_0_vector_ind_var, 1
   %dim_0_vector_cmp.to.max = icmp eq i64 %dim_0_vector_inc_ind_var, %vector.size
   %dim0_inc_tid = add nuw nsw i64 %dim0__tid, 8
@@ -57,4 +56,6 @@ attributes #0 = { convergent norecurse nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i64 addrspace(1)*)* @test}
+!0 = !{ptr @test}
+!1 = !{!"float*"}
+!2 = !{ptr addrspace(1) null}

@@ -93,7 +93,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse uwtable mustprogress
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @c, align 4, !tbaa !3
+  %0 = load i32, ptr @c, align 4, !tbaa !3
   %sext = shl i32 %0, 24
   %conv1 = ashr exact i32 %sext, 24
   br label %for.body
@@ -106,34 +106,34 @@ for.body:                                         ; preds = %entry, %for.inc
   ]
 
 for.body.sw.bb2_crit_edge:                        ; preds = %for.body
-  %.pre = load i32, i32* @c, align 4, !tbaa !3
+  %.pre = load i32, ptr @c, align 4, !tbaa !3
   br label %sw.bb2
 
 sw.bb:                                            ; preds = %for.body
-  %1 = load i32, i32* @c, align 4, !tbaa !3
-  store i32 %1, i32* @g, align 4, !tbaa !3
+  %1 = load i32, ptr @c, align 4, !tbaa !3
+  store i32 %1, ptr @g, align 4, !tbaa !3
   br label %sw.bb2
 
 sw.bb2:                                           ; preds = %for.body.sw.bb2_crit_edge, %sw.bb
   %2 = phi i32 [ %.pre, %for.body.sw.bb2_crit_edge ], [ %1, %sw.bb ]
   %or = or i32 %2, 3
-  store i32 %or, i32* @c, align 4, !tbaa !3
+  store i32 %or, ptr @c, align 4, !tbaa !3
   %call = tail call i32 @_Z4copyj(i32 3)
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %3 = load i32, i32* @a, align 4, !tbaa !3
+  %3 = load i32, ptr @a, align 4, !tbaa !3
   switch i32 %3, label %for.inc [
     i32 0, label %sw.bb3
     i32 2, label %sw.bb4
   ]
 
 sw.bb3:                                           ; preds = %sw.default
-  store i32 7, i32* @b, align 4, !tbaa !3
+  store i32 7, ptr @b, align 4, !tbaa !3
   br label %for.inc
 
 sw.bb4:                                           ; preds = %sw.default
-  store i32 5, i32* @c, align 4, !tbaa !3
+  store i32 5, ptr @c, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb2, %sw.bb4, %sw.default, %sw.bb3

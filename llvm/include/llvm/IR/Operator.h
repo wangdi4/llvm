@@ -347,6 +347,14 @@ public:
       // values, such as llvm.sqrt*.
 #endif // INTEL_CUSTOMIZATION
       Type *Ty = V->getType();
+#if INTEL_CUSTOMIZATION
+      // Calls that return StructType that is possibly a complex FP type can be
+      // treated as FPMathOperator.
+      if (Opcode == Instruction::Call)
+        if (auto *StructTy = dyn_cast<StructType>(Ty))
+          if (StructTy->isPossibleComplexFPType())
+            return true;
+#endif // INTEL_CUSTOMIZATION
       while (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty))
         Ty = ArrTy->getElementType();
       return Ty->isFPOrFPVectorTy();

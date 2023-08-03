@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
 
 ; This test checks that new alloca and llvm.dbg.declare are created for kernel
 ; byval argument %group_pid.
@@ -20,38 +20,30 @@ entry:
 
 Split.Barrier.BB1:                                ; preds = %entry
   call void @_Z18work_group_barrierj()
-  call void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(%"class.cl::sycl::group"* byval(%"class.cl::sycl::group") align 8 %agg.tmp)
+  call void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(ptr byval(%"class.cl::sycl::group") align 8 %agg.tmp)
   ret void
 }
 
-define linkonce_odr void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(%"class.cl::sycl::group"* byval(%"class.cl::sycl::group") align 8 %group_pid) {
+define linkonce_odr void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(ptr byval(%"class.cl::sycl::group") align 8 %group_pid) {
 entry:
 ; CHECK-LABEL: @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_
-; CHECK: %group_pid.addr = alloca %"class.cl::sycl::group"**, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata %"class.cl::sycl::group"*** %group_pid.addr, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref, DW_OP_deref)), !dbg
+; CHECK: %group_pid.addr = alloca ptr, align 8
 
   call void @dummy_barrier.()
   br label %leader
 
 leader:                                           ; preds = %entry
-; CHECK-LABEL: leader:
-; CHECK: store %"class.cl::sycl::group"** %pSB_LocalId{{.*}}, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD1:%[0-9]+]] = load %"class.cl::sycl::group"**, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD2:%loadedValue[0-9]*]] = load %"class.cl::sycl::group"*, %"class.cl::sycl::group"** [[LOAD1]], align 8
-; CHECK-NEXT: bitcast %"class.cl::sycl::group"* [[LOAD2]] to i8*
-
-  %0 = bitcast %"class.cl::sycl::group"* %group_pid to i8*
   br label %wg_leader
 
 wg_leader:                                        ; preds = %leader
 ; CHECK-LABEL: wg_leader:
-; CHECK: store %"class.cl::sycl::group"** %pSB_LocalId{{.*}}, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD3:%[0-9]+]] = load %"class.cl::sycl::group"**, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD4:%loadedValue[0-9]*]] = load %"class.cl::sycl::group"*, %"class.cl::sycl::group"** [[LOAD3]], align 8
-; CHECK-NEXT: addrspacecast %"class.cl::sycl::group"* [[LOAD4]] to %"class.cl::sycl::group" addrspace(4)*
+; CHECK: [[LOAD:%.*]] = load ptr, ptr %group_pid.addr, align 8
+; CHECK-NEXT: [[LOAD1:%.*]] = load ptr, ptr [[LOAD]], align 8
+; CHECK-NEXT: addrspacecast ptr [[LOAD1]] to ptr addrspace(4)
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %group_pid.addr, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref, DW_OP_deref)), !dbg
 
-  %group_pid.ascast = addrspacecast %"class.cl::sycl::group"* %group_pid to %"class.cl::sycl::group" addrspace(4)*
-  call void @llvm.dbg.declare(metadata %"class.cl::sycl::group" addrspace(4)* %group_pid.ascast, metadata !13, metadata !DIExpression()), !dbg !21
+  %group_pid.ascast = addrspacecast ptr %group_pid to ptr addrspace(4)
+  call void @llvm.dbg.declare(metadata ptr addrspace(4) %group_pid.ascast, metadata !13, metadata !DIExpression()), !dbg !21
   ret void
 }
 

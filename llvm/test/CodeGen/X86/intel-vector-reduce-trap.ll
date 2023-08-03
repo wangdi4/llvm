@@ -9,7 +9,7 @@ define float @test_reduce_fadd_ps(<16 x float> %a) {
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; CHECK-NEXT:    vaddps %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; CHECK-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vaddss %xmm1, %xmm0, %xmm0
@@ -28,7 +28,7 @@ define float @test_reduce_fmul_ps(<16 x float> %a) {
 ; CHECK-NEXT:    vmulps %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; CHECK-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; CHECK-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vmulss %xmm1, %xmm0, %xmm0
@@ -47,7 +47,7 @@ define double @test_reduce_fmax_pd(<8 x double> %a) {
 ; CHECK-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; CHECK-NEXT:    vmaxpd %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; CHECK-NEXT:    vmaxsd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
@@ -64,7 +64,7 @@ define double @test_reduce_fmin_pd(<8 x double> %a) {
 ; CHECK-NEXT:    vminpd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; CHECK-NEXT:    vminpd %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; CHECK-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; CHECK-NEXT:    vminsd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq

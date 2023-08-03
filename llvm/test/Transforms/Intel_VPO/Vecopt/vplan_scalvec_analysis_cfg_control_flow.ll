@@ -25,7 +25,7 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
@@ -173,7 +173,7 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )

@@ -26,7 +26,7 @@
 #include <set>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 // Forward declaration
 class device;
 namespace detail {
@@ -69,8 +69,8 @@ public:
   /// \param AsyncHandler is an instance of async_handler.
   /// \param Plugin is the reference to the underlying Plugin that this
   /// context is associated with.
-  context_impl(RT::PiContext PiContext, async_handler AsyncHandler,
-               const plugin &Plugin);
+  context_impl(sycl::detail::pi::PiContext PiContext,
+               async_handler AsyncHandler, const PluginPtr &Plugin);
 
   ~context_impl();
 
@@ -107,7 +107,7 @@ public:
   const async_handler &get_async_handler() const;
 
   /// \return the Plugin associated with the platform of this context.
-  const plugin &getPlugin() const { return MPlatform->getPlugin(); }
+  const PluginPtr &getPlugin() const { return MPlatform->getPlugin(); }
 
   /// \return the PlatformImpl associated with this context.
   PlatformImplPtr getPlatformImpl() const { return MPlatform; }
@@ -125,7 +125,7 @@ public:
   /// reference will be invalid if context_impl was destroyed.
   ///
   /// \return an instance of raw plug-in context handle.
-  RT::PiContext &getHandleRef();
+  sycl::detail::pi::PiContext &getHandleRef();
 
   /// Gets the underlying context object (if any) without reference count
   /// modification.
@@ -135,14 +135,15 @@ public:
   /// reference will be invalid if context_impl was destroyed.
   ///
   /// \return an instance of raw plug-in context handle.
-  const RT::PiContext &getHandleRef() const;
+  const sycl::detail::pi::PiContext &getHandleRef() const;
 
   /// Unlike `get_info<info::context::devices>', this function returns a
   /// reference.
   const std::vector<device> &getDevices() const { return MDevices; }
 
   using CachedLibProgramsT =
-      std::map<std::pair<DeviceLibExt, RT::PiDevice>, RT::PiProgram>;
+      std::map<std::pair<DeviceLibExt, sycl::detail::pi::PiDevice>,
+               sycl::detail::pi::PiProgram>;
 
   /// In contrast to user programs, which are compiled from user code, library
   /// programs come from the SYCL runtime. They are identified by the
@@ -174,7 +175,7 @@ public:
     // OpenCL does not support using descendants of context members within that
     // context yet.
     // TODO remove once this limitation is lifted
-    if (!is_host() && getPlugin().getBackend() == backend::opencl)
+    if (!is_host() && Device->getBackend() == backend::opencl)
       return hasDevice(Device);
 
     while (!hasDevice(Device)) {
@@ -187,9 +188,13 @@ public:
     return true;
   }
 
+  // Returns the backend of this context
+  backend getBackend() const { return MPlatform->getBackend(); }
+
   /// Given a PiDevice, returns the matching shared_ptr<device_impl>
   /// within this context. May return nullptr if no match discovered.
-  DeviceImplPtr findMatchingDeviceImpl(RT::PiDevice &DevicePI) const;
+  DeviceImplPtr
+  findMatchingDeviceImpl(sycl::detail::pi::PiDevice &DevicePI) const;
 
   /// Gets the native handle of the SYCL context.
   ///
@@ -203,25 +208,36 @@ public:
   void addAssociatedDeviceGlobal(const void *DeviceGlobalPtr);
 
   /// Adds a device global initializer.
-  void addDeviceGlobalInitializer(RT::PiProgram Program,
+  void addDeviceGlobalInitializer(sycl::detail::pi::PiProgram Program,
                                   const std::vector<device> &Devs,
                                   const RTDeviceBinaryImage *BinImage);
 
   /// Initializes device globals for a program on the associated queue.
-  std::vector<RT::PiEvent>
+  std::vector<sycl::detail::pi::PiEvent>
   initializeDeviceGlobals(pi::PiProgram NativePrg,
                           const std::shared_ptr<queue_impl> &QueueImpl);
 
+  void memcpyToHostOnlyDeviceGlobal(
+      const std::shared_ptr<device_impl> &DeviceImpl,
+      const void *DeviceGlobalPtr, const void *Src, size_t DeviceGlobalTSize,
+      bool IsDeviceImageScoped, size_t NumBytes, size_t Offset);
+
+  void
+  memcpyFromHostOnlyDeviceGlobal(const std::shared_ptr<device_impl> &DeviceImpl,
+                                 void *Dest, const void *DeviceGlobalPtr,
+                                 bool IsDeviceImageScoped, size_t NumBytes,
+                                 size_t Offset);
+
   /// Gets a program associated with a device global from the cache.
-  std::optional<RT::PiProgram>
+  std::optional<sycl::detail::pi::PiProgram>
   getProgramForDeviceGlobal(const device &Device,
                             DeviceGlobalMapEntry *DeviceGlobalEntry);
   /// Gets a program associated with a HostPipe Entry from the cache.
-  std::optional<RT::PiProgram>
+  std::optional<sycl::detail::pi::PiProgram>
   getProgramForHostPipe(const device &Device, HostPipeMapEntry *HostPipeEntry);
 
   /// Gets a program associated with Dev / Images pairs.
-  std::optional<RT::PiProgram>
+  std::optional<sycl::detail::pi::PiProgram>
   getProgramForDevImgs(const device &Device,
                        const std::set<std::uintptr_t> &ImgIdentifiers,
                        const std::string &ObjectTypeName);
@@ -231,7 +247,7 @@ public:
 private:
   async_handler MAsyncHandler;
   std::vector<device> MDevices;
-  RT::PiContext MContext;
+  sycl::detail::pi::PiContext MContext;
   PlatformImplPtr MPlatform;
   property_list MPropList;
   bool MHostContext;
@@ -253,7 +269,7 @@ private:
     }
 
     /// Clears all events of the initializer. This will not acquire the lock.
-    void ClearEvents(const plugin &Plugin);
+    void ClearEvents(const PluginPtr &Plugin);
 
     /// The binary image of the program.
     const RTDeviceBinaryImage *MBinImage = nullptr;
@@ -272,12 +288,23 @@ private:
 
     /// A vector of events associated with the initialization of device globals.
     /// MDeviceGlobalInitMutex must be held when accessing this.
-    std::vector<RT::PiEvent> MDeviceGlobalInitEvents;
+    std::vector<sycl::detail::pi::PiEvent> MDeviceGlobalInitEvents;
   };
 
-  std::map<std::pair<RT::PiProgram, RT::PiDevice>, DeviceGlobalInitializer>
+  std::map<std::pair<sycl::detail::pi::PiProgram, sycl::detail::pi::PiDevice>,
+           DeviceGlobalInitializer>
       MDeviceGlobalInitializers;
   std::mutex MDeviceGlobalInitializersMutex;
+
+  // For device_global variables that are not used in any kernel code we still
+  // allow copy operations on them. MDeviceGlobalUnregisteredData stores the
+  // associated writes.
+  // The key to this map is a combination of a the pointer to the device_global
+  // and optionally a device if the device_global has device image scope.
+  std::map<std::pair<const void *, std::optional<sycl::detail::pi::PiDevice>>,
+           std::unique_ptr<std::byte[]>>
+      MDeviceGlobalUnregisteredData;
+  std::mutex MDeviceGlobalUnregisteredDataMutex;
 };
 
 template <typename T, typename Capabilities>
@@ -296,5 +323,5 @@ void GetCapabilitiesIntersectionSet(const std::vector<sycl::device> &Devices,
 }
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

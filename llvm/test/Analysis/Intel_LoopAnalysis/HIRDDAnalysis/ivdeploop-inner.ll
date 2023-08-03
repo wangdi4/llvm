@@ -17,7 +17,7 @@
 
 ; CHECK-DAG: (%A)[i1 + 100][i2 + 100] --> (%A)[i1][i2] OUTPUT (< 0) (100 ?)
 
-define void @foo([1024 x i32]* nocapture %A, [1024 x i32]* nocapture readnone %B, i32 %N, i32 %M) {
+define void @foo(ptr nocapture %A, ptr nocapture readnone %B, i32 %N, i32 %M) {
 entry:
   %cmp30 = icmp sgt i32 %N, 0
   %cmp228 = icmp sgt i32 %M, 0
@@ -38,14 +38,14 @@ for.cond1.preheader.us:                           ; preds = %for.cond1.preheader
 for.body4.us:                                     ; preds = %for.cond1.preheader.us, %for.body4.us
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader.us ], [ %indvars.iv.next, %for.body4.us ]
   %2 = add nuw nsw i64 %indvars.iv, %indvars.iv36
-  %arrayidx.us = getelementptr inbounds [1024 x i32], [1024 x i32]* %A, i64 %indvars.iv36, i64 %indvars.iv
+  %arrayidx.us = getelementptr inbounds [1024 x i32], ptr %A, i64 %indvars.iv36, i64 %indvars.iv
   %3 = trunc i64 %2 to i32
-  store i32 %3, i32* %arrayidx.us, align 4
+  store i32 %3, ptr %arrayidx.us, align 4
   %4 = trunc i64 %indvars.iv to i32
   %mul.us = mul nsw i32 %4, %1
   %5 = add nuw nsw i64 %indvars.iv, 100
-  %arrayidx11.us = getelementptr inbounds [1024 x i32], [1024 x i32]* %A, i64 %0, i64 %5
-  store i32 %mul.us, i32* %arrayidx11.us, align 4
+  %arrayidx11.us = getelementptr inbounds [1024 x i32], ptr %A, i64 %0, i64 %5
+  store i32 %mul.us, ptr %arrayidx11.us, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond1.for.cond.cleanup3_crit_edge.us, label %for.body4.us, !llvm.loop !7

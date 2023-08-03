@@ -48,15 +48,15 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL simd<float, 16> foo() {
   // fp32 (float) -> half
   // CHECK: call <16 x half> @llvm.genx.srnd.v16f16.v16f32.v16f32(<16 x float> {{[^,]+}}, <16 x float> {{[^)]+}})
   simd<_Float16, 16> F32_srnd_out1 =
-      srnd<__ESIMD_ENS::argument_type::FP16>(F_srnd1, F_srnd2);
+      srnd<sycl::ext::intel::esimd::xmx::dpas_argument_type::fp16>(F_srnd1, F_srnd2);
   // half -> bf8
   // CHECK: call <16 x i8> @llvm.genx.srnd.v16i8.v16f16.v16f16(<16 x half> {{[^,]+}}, <16 x half> {{[^,]+}})
   simd<uint8_t, 16> BF8_srnd_out2 =
-      srnd<__ESIMD_ENS::argument_type::BF8>(HF_srnd1, HF_srnd2);
+      srnd<sycl::ext::intel::esimd::xmx::dpas_argument_type::BF8>(HF_srnd1, HF_srnd2);
   // fp32 -> bf8 (emulated sequence, fp32 converted to half)
   // CHECK: call <16 x i8> @llvm.genx.srnd.v16i8.v16f16.v16f16(<16 x half> {{[^,]+}}, <16 x half> {{[^,]+}})
   simd<uint8_t, 16> BF8_srnd_out3 =
-      srnd<__ESIMD_ENS::argument_type::BF8>(F_srnd1, F_srnd2);
+      srnd<sycl::ext::intel::esimd::xmx::dpas_argument_type::BF8>(F_srnd1, F_srnd2);
 #endif
   return simd<float, 16>();
 }

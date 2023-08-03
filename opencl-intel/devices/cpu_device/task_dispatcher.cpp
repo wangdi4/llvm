@@ -27,13 +27,12 @@
 
 #include "task_dispatcher.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "cpu_config.h"
 #include "cpu_logger.h"
 #include "dispatcher_commands.h"
 #include "task_executor.h"
-#include <cl_synch_objects.h>
-#include <cl_sys_info.h>
-#include <cl_utils.h>
 #include <thread>
 #if defined(USE_ITT)
 #include <ocl_itt.h>
@@ -46,7 +45,7 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -338,7 +337,7 @@ bool TaskDispatcher::isDestributedAllocationRequired() {
 }
 
 bool TaskDispatcher::isThreadAffinityRequired() {
-#if (defined(WIN32)) // Not pinning threads for Windows
+#ifdef _WIN32 // Not pinning threads for Windows
   return false;
 #else
   return true;
@@ -675,12 +674,10 @@ bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
         m_failed = true;
         break;
       }
-      hw_pause();
       std::this_thread::sleep_for(1ms);
     }
   } else {
     while (m_barrier > 0) {
-      hw_pause();
       std::this_thread::sleep_for(1ms);
     }
   }

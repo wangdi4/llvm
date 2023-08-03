@@ -45,15 +45,22 @@ void HIRScalarSymbaseAssignment::updateBaseTemp(unsigned Symbase,
                                                 const Value *Temp,
                                                 const Value **OldTemp) {
 
-  // If a copy instruction was added as a base temp, we need to update it to
-  // copy's associated phi. Using copies as base temps messes up (value -> base
-  // value) mapping in parsing because ScalarEvolution can optimize away simple
-  // copies such as t = 0 during simplification.
+  // If a livein copy instruction was added as a base temp, we need to update it
+  // to copy's associated phi. Using copies as base temps messes up (value ->
+  // base value) mapping in parsing because ScalarEvolution can optimize away
+  // simple copies such as t = 0 during simplification.
 
   auto BaseTemp = BaseTemps[getIndex(Symbase)];
 
   // Base is already a phi.
   if (isa<PHINode>(BaseTemp)) {
+    return;
+  }
+
+  // Base is a liveout copy. This can happen if it is a substitutable root
+  // created for an SCC. It was intended to be used as the base temp.
+  if (SE.getHIRMetadata(cast<Instruction>(BaseTemp),
+                        ScalarEvolution::HIRLiveKind::LiveOut)) {
     return;
   }
 
@@ -310,8 +317,8 @@ void HIRScalarSymbaseAssignment::handleLoopExitLiveoutPhi(
 }
 #if INTEL_FEATURE_SHARED_SW_ADVANCED
 
-void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
-                                                      unsigned Symbase) const {
+void HIRScalarSymbaseAssignment::populateLoopLiveouts(
+    const Instruction *Inst, unsigned Symbase, const IRRegion &IRReg) const {
 
   Loop *Lp = LI.getLoopFor(Inst->getParent());
   HLLoop *DefLoop = Lp ? LF.findHLLoop(Lp) : nullptr;
@@ -319,10 +326,14 @@ void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
   auto BaseScalar = getBaseScalar(Symbase);
   auto BaseInst = cast<Instruction>(BaseScalar);
 
+  // Use OrigRoot of SCC for the logic below to get correct BaseDefLoop.
+  if (auto *SCC = getSCC(BaseInst, IRReg)) {
+    BaseInst = SCC->getOrigRoot();
+  }
+
   // BaseInst can be different from Inst if either Inst is part of SCC or Inst
-  // is a single operand phi. Former case is handled in
-  // populateLoopSCCPhiLiveouts(). This is for the latter case where BaseInst is
-  // defined at a deeper level than Inst making it live out of inner loops.
+  // is a single operand phi. For both cases this logic kicks in when BaseInst
+  // is defined at a deeper level than Inst making it live out of inner loops.
   if (BaseInst != Inst) {
 
     Loop *BaseLp = LI.getLoopFor(BaseInst->getParent());
@@ -364,7 +375,7 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
       if (SCCF.isRegionLiveOut(RegIt, Inst)) {
         auto Symbase = getOrAssignScalarSymbase(Inst, *RegIt);
         RegIt->addLiveOutTemp(Symbase, Inst);
-        populateLoopLiveouts(Inst, Symbase);
+        populateLoopLiveouts(Inst, Symbase, *RegIt);
 
         // If the single operand liveout phi's operand is an instruction from
         // outside the region, we need to mark it as region livein.
@@ -472,16 +483,41 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
        ++SCCIt) {
 
     bool SCCLiveInProcessed = false;
-    // This call sets SCC's root node as the base temp.
-    unsigned Symbase = getOrAssignScalarSymbase(SCCIt->getRoot(), *RegIt);
+
+    auto *SubstitutableRoot = SCCIt->getSubstitutableRoot();
+    auto *OrigRoot = SCCIt->getOrigRoot();
+
+    unsigned Symbase = InvalidSymbase;
+
+    // This section sets SCC's root node as the base temp.
+    if (SubstitutableRoot == OrigRoot) {
+      Symbase = getOrAssignScalarSymbase(SubstitutableRoot, *RegIt);
+
+    } else {
+      // If subtitutable root is different than the original root and there is a
+      // livein copy associated with original root, we need to assign it the
+      // same symbase. This is done by adding an entry for the metadata string
+      // attached to the root node. The livein copy is connected to the root
+      // node using the same metadata string. When subtitutable root is the same
+      // as original root, the call to getOrAssignScalarSymbase() takes care of
+      // adding this entry.
+      Symbase = assignTempSymbase(SubstitutableRoot);
+
+      if (auto *MDStr = getInstMDString(OrigRoot)) {
+        StrSymbaseMap.insert(std::make_pair(MDStr->getString(), Symbase));
+      }
+    }
 
     // Traverse SCC instructions
     for (auto SCCInstIt = SCCIt->begin(), EndIt = SCCIt->end();
          SCCInstIt != EndIt; ++SCCInstIt) {
 
-      if ((*SCCInstIt) != SCCIt->getRoot()) {
-        // Assign same symbase to all instructions in the SCC.
+      // Assign same symbase to all instructions in the SCC.
+      if ((*SCCInstIt) != SubstitutableRoot) {
         insertTempSymbase(*SCCInstIt, Symbase);
+      }
+
+      if ((*SCCInstIt) != OrigRoot) {
         populateLoopSCCPhiLiveouts(*SCCInstIt, Symbase, *RegIt);
       }
 
@@ -569,12 +605,9 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS) const {
   }
 }
 
-const Loop *
-HIRScalarSymbaseAssignment::getDeepestSCCLoop(const Instruction *BaseInst,
-                                              const Loop *UseLoop,
-                                              const IRRegion &IRReg) const {
-  assert(UseLoop && "UseLoop is null!");
-
+const HIRSCCFormation::SCC *
+HIRScalarSymbaseAssignment::getSCC(const Instruction *BaseInst,
+                                   const IRRegion &IRReg) const {
   auto CurRegIt = RI.begin();
   bool Found = false;
 
@@ -595,7 +628,7 @@ HIRScalarSymbaseAssignment::getDeepestSCCLoop(const Instruction *BaseInst,
   auto CurSCCIt = SCCF.begin(CurRegIt);
 
   for (auto EndIt = SCCF.end(CurRegIt); CurSCCIt != EndIt; ++CurSCCIt) {
-    if (CurSCCIt->getRoot() == BaseInst) {
+    if (CurSCCIt->getSubstitutableRoot() == BaseInst) {
       Found = true;
       break;
     }
@@ -605,10 +638,40 @@ HIRScalarSymbaseAssignment::getDeepestSCCLoop(const Instruction *BaseInst,
     return nullptr;
   }
 
+  return &*CurSCCIt;
+}
+
+const Instruction *HIRScalarSymbaseAssignment::getOutermostLoopHeaderSCCPhi(
+    const Instruction *BaseInst, const IRRegion &IRReg) const {
+
+  // Cheap check to see whether BaseInst could be a substitutable root.
+  if (!isa<IntrinsicInst>(BaseInst)) {
+    return BaseInst;
+  }
+
+  if (auto *SCC = getSCC(BaseInst, IRReg)) {
+    return SCC->getOrigRoot();
+  }
+
+  return BaseInst;
+}
+
+const Loop *
+HIRScalarSymbaseAssignment::getDeepestSCCLoop(const Instruction *BaseInst,
+                                              const Loop *UseLoop,
+                                              const IRRegion &IRReg) const {
+  assert(UseLoop && "UseLoop is null!");
+
+  auto *SCC = getSCC(BaseInst, IRReg);
+
+  if (!SCC) {
+    return nullptr;
+  }
+
   // Iterate through all SCC insts and set the deepest loop w.r.t UseLoop.
   Loop *DeepestLoop = nullptr;
-  for (auto SCCInstIt = CurSCCIt->begin(), EndIt = CurSCCIt->end();
-       SCCInstIt != EndIt; ++SCCInstIt) {
+  for (auto SCCInstIt = SCC->begin(), EndIt = SCC->end(); SCCInstIt != EndIt;
+       ++SCCInstIt) {
     auto *CurLoop = LI.getLoopFor((*SCCInstIt)->getParent());
     assert(CurLoop && "Cannot find loop of scc inst!");
 

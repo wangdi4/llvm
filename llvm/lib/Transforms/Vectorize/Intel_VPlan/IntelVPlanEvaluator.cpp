@@ -16,6 +16,7 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include <cmath>
 
 #define DEBUG_TYPE "VPlanEvaluator"
 
@@ -126,19 +127,36 @@ VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
       MainLoopVF, MaskedModePlan,
       PeelingVariant->getKind() == VPPK_DynamicPeeling, true /* ForPeel */);
 
-  unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
-  if (MaskedVectorIterCost.isValid() && MaskedVectorOverhead.isValid() &&
-      (ScalarIterCost * ScalarTC >
-       (MaskedVectorIterCost + MaskedVectorOverhead)) &&
-      EnableVectorizedPeelOpt) {
-    PeelKind = PeelLoopKind::MaskedVector;
-    PeelTC = ScalarTC;
-    LoopCost = MaskedVectorIterCost + MaskedVectorOverhead;
+  const unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
+  const auto ScalarLoopCost = ScalarIterCost * ScalarTC;
+  const auto MaskedLoopCost = MaskedVectorIterCost + MaskedVectorOverhead;
+  LLVM_DEBUG(dbgs() << "Peel evaluator for VF=" << MainLoopVF << ": "
+                    << "scalar cost=" << ScalarLoopCost << " "
+                    << "masked cost=" << MaskedLoopCost << " "
+                    << "masked gain=" << ScalarLoopCost - MaskedLoopCost
+                    << "\n");
+
+  if (EnableVectorizedPeel) {
+    if (MaskedLoopCost.isValid() && ScalarLoopCost > MaskedLoopCost) {
+      LLVM_DEBUG(
+          dbgs() << "Choosing masked peel (masked peel is more profitable)\n");
+      PeelKind = PeelLoopKind::MaskedVector;
+      LoopCost = MaskedLoopCost;
+      PeelTC = ScalarTC;
+    } else {
+      LLVM_DEBUG(
+          dbgs() << "Choosing scalar peel (scalar peel is more profitable)\n");
+      PeelKind = PeelLoopKind::Scalar;
+      LoopCost = ScalarLoopCost;
+      PeelTC = ScalarTC;
+    }
   } else {
+    LLVM_DEBUG(dbgs() << "Choosing scalar peel (masked peel disabled)\n");
     PeelKind = PeelLoopKind::Scalar;
+    LoopCost = ScalarLoopCost;
     PeelTC = ScalarTC;
-    LoopCost = ScalarIterCost * ScalarTC;
   }
+
   // TODO: calculate the cost of the runtime checks when the interface is
   // available.
   // Overhead of peel checks is identical for both variants.
@@ -309,6 +327,11 @@ VPlanRemainderEvaluator::calculateBestVariant() {
       calculatePlanCost(MainLoopVF, MaskedModePlan, false);
   VPInstructionCost MaskedVectorCost = MaskedOverhead +
     MaskedVectorIterCost * MainLoopUF;
+
+  if (MaskedVectorCost.isValid() && ScalarIterCost.isValid() &&
+      ScalarIterCost > 0)
+    MinProfitableMaskedRemTC =
+        std::ceil((MaskedVectorCost / ScalarIterCost).getFloatValue());
 
   MaskedVectorCost += calculatePumpingOverhead(MaskedModePlan) * MainLoopUF;
 

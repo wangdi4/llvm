@@ -2,13 +2,13 @@
 ;; Test loops created with LoopCreator in presence of both scalar and vector
 ;; kernels.
 
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{void(i32*, i32*, i32*)* @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(ptr nocapture %out, ptr nocapture readnone %dummy1, ptr nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{ptr @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} !kernel_arg_base_type !3 !arg_type_null_val !4 {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
@@ -44,9 +44,8 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[DIM_0_VECTOR_TID]] to i32
 ; CHECK-NEXT:    [[TMP3:%.*]] = add i32 0, [[TMP2]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_VECTOR_FUNC:%.*]] = sext i32 [[TMP3]] to i64
-; CHECK-NEXT:    [[SCALAR_GEPVECTOR_FUNC:%.*]] = getelementptr inbounds i32, i32* [[OUT:%.*]], i64 [[DOTEXTRACT_0_VECTOR_FUNC]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEPVECTOR_FUNC]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, <16 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    [[SCALAR_GEPVECTOR_FUNC:%.*]] = getelementptr inbounds i32, ptr [[OUT:%.*]], i64 [[DOTEXTRACT_0_VECTOR_FUNC]]
+; CHECK-NEXT:    store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, ptr [[SCALAR_GEPVECTOR_FUNC]], align 4
 ; CHECK-NEXT:    [[DIM_0_VECTOR_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_VECTOR_IND_VAR]], 16
 ; CHECK-NEXT:    [[DIM_0_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_VECTOR_INC_IND_VAR]], [[MAX_VECTOR_GID]]
 ; CHECK-NEXT:    [[DIM_0_VECTOR_INC_TID]] = add nuw nsw i64 [[DIM_0_VECTOR_TID]], 16
@@ -75,8 +74,8 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK:       scalar_kernel_entry:
 ; CHECK-NEXT:    [[DIM_0_IND_VAR:%.*]] = phi i64 [ [[MAX_VECTOR_GID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_IND_VAR:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
 ; CHECK-NEXT:    [[DIM_0_TID:%.*]] = phi i64 [ [[DIM_0_SUB_LID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_TID:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[OUT]], i64 [[DIM_0_TID]]
-; CHECK-NEXT:    store i32 12345, i32* [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[OUT]], i64 [[DIM_0_TID]]
+; CHECK-NEXT:    store i32 12345, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[DIM_0_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_IND_VAR]], 1
 ; CHECK-NEXT:    [[DIM_0_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_INC_IND_VAR]], [[MAX_GID_DIM0]]
 ; CHECK-NEXT:    [[DIM_0_INC_TID]] = add nuw nsw i64 [[DIM_0_TID]], 1
@@ -102,22 +101,21 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
-  %arrayidx = getelementptr inbounds i32, i32* %out, i64 %call
-  store i32 12345, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %out, i64 %call
+  store i32 12345, ptr %arrayidx, align 4
   ret void
 }
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
 
-define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #1 !scalar_kernel !{void(i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 16} !vectorization_dimension !1 !can_unite_workgroups !2 {
+define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(ptr nocapture %out, ptr nocapture readnone %dummy1, ptr nocapture readnone %dummy2) #1 !scalar_kernel !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 16} !vectorization_dimension !1 !can_unite_workgroups !2 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
   %0 = trunc i64 %call to i32
   %1 = add i32 0, %0
   %.extract.0. = sext i32 %1 to i64
-  %scalar.gep = getelementptr inbounds i32, i32* %out, i64 %.extract.0.
-  %2 = bitcast i32* %scalar.gep to <16 x i32>*
-  store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, <16 x i32>* %2, align 4
+  %scalar.gep = getelementptr inbounds i32, ptr %out, i64 %.extract.0.
+  store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, ptr %scalar.gep, align 4
   ret void
 }
 
@@ -127,11 +125,13 @@ attributes #1 = { noinline }
 ; CHECK: !{!"llvm.loop.unroll.disable"}
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}
+!0 = !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}
 !1 = !{i32 0}
 !2 = !{i1 true}
+!3 = !{!"int*", !"int*", !"int*"}
+!4 = !{ptr null, ptr null, ptr null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-46: WARNING: Instruction with empty DebugLoc in function _Z30ParallelForNDRangeImplKernel1DPiS_S_mmm
-; DEBUGIFY: WARNING: Missing line 12
+; DEBUGIFY: WARNING: Missing line 11
 ; DEBUGIFY-NOT: WARNING

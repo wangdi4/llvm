@@ -2,7 +2,6 @@
 ; RUN: llvm-as %p/Inputs/resolve-to-alias.ll -o %t2.o
 
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
-; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:    --plugin-opt=emit-llvm \
 ; RUN:    -shared %t.o %t2.o -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
@@ -10,7 +9,6 @@
 ; RUN: FileCheck --check-prefix=PASS2 %s < %t.ll
 
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
-; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:    --plugin-opt=emit-llvm \
 ; RUN:    -shared %t2.o %t.o -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll

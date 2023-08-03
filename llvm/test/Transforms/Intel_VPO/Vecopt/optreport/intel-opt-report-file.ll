@@ -16,7 +16,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #0 {
+define void @test_nonvls_mem(ptr %ptr, ptr %ptr2) #0 {
 ; LLVM-LABEL:  Global optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -44,25 +44,25 @@ header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %latch ]
   %non.linear = mul nsw nuw i64 %iv, %iv
   %neg = sub nsw nuw i64 0, %iv
-  %linear.gep = getelementptr i64, i64 *%ptr, i64 %iv
-  %reverse.linear.gep = getelementptr i64, i64 *%ptr, i64 %neg
-  %nonlinear.gep = getelementptr i64, i64 *%ptr2, i64 %non.linear
+  %linear.gep = getelementptr i64, ptr %ptr, i64 %iv
+  %reverse.linear.gep = getelementptr i64, ptr %ptr, i64 %neg
+  %nonlinear.gep = getelementptr i64, ptr %ptr2, i64 %non.linear
 
-  %unmasked.unit.load = load i64, i64 *%linear.gep
-  store i64 42, i64 *%linear.gep ; unmasked.unit.store
+  %unmasked.unit.load = load i64, ptr %linear.gep
+  store i64 42, ptr %linear.gep ; unmasked.unit.store
   %cond = icmp eq i64 %unmasked.unit.load, 76
 
-  %unmasked.gather = load i64, i64 *%nonlinear.gep
-  store i64 42, i64 *%nonlinear.gep ; unmasked.scatter
+  %unmasked.gather = load i64, ptr %nonlinear.gep
+  store i64 42, ptr %nonlinear.gep ; unmasked.scatter
 
   br i1 %cond, label %if, label %latch
 
 if:
-  %masked.reverse.unit.load = load i64, i64 *%reverse.linear.gep
-  store i64 42, i64 *%reverse.linear.gep ; masked.reverse.unit.store
+  %masked.reverse.unit.load = load i64, ptr %reverse.linear.gep
+  store i64 42, ptr %reverse.linear.gep ; masked.reverse.unit.store
 
-  %masked.gather = load i64, i64 *%nonlinear.gep
-  store i64 77, i64 *%nonlinear.gep ; masked.scatter
+  %masked.gather = load i64, ptr %nonlinear.gep
+  store i64 77, ptr %nonlinear.gep ; masked.scatter
   br label %latch
 
 latch:

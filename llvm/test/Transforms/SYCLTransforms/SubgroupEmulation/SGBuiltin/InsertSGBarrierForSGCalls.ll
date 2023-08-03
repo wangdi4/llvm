@@ -21,7 +21,7 @@ declare i32 @_Z13sub_group_alli(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

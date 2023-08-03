@@ -31,62 +31,62 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ; CHECK:       region.0:
-; CHECK-NEXT:    store i32 0, i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store i32 0, ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP_18:%.*]]
 ; CHECK:       loop.18:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> noundef <float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01>) #[[ATTR5:[0-9]+]]
-; CHECK-NEXT:    store { <4 x float>, <4 x float> } [[TMP0]], { <4 x float>, <4 x float> }* [[T12]], align 16
-; CHECK-NEXT:    [[T12_:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T12]], align 16
+; CHECK-NEXT:    store { <4 x float>, <4 x float> } [[TMP0]], ptr [[T12]], align 16
+; CHECK-NEXT:    [[T12_:%.*]] = load { <4 x float>, <4 x float> }, ptr [[T12]], align 16
 ; CHECK-NEXT:    [[SINCOS_SIN7:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T12_]], 0
-; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN7]], <4 x float>* [[T13]], align 16
-; CHECK-NEXT:    [[T12_8:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T12]], align 16
+; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN7]], ptr [[T13]], align 16
+; CHECK-NEXT:    [[T12_8:%.*]] = load { <4 x float>, <4 x float> }, ptr [[T12]], align 16
 ; CHECK-NEXT:    [[SINCOS_COS9:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T12_8]], 1
-; CHECK-NEXT:    store <4 x float> [[SINCOS_COS9]], <4 x float>* [[T14]], align 16
-; CHECK-NEXT:    [[T13_:%.*]] = load <4 x float>, <4 x float>* [[T13]], align 16
+; CHECK-NEXT:    store <4 x float> [[SINCOS_COS9]], ptr [[T14]], align 16
+; CHECK-NEXT:    [[T13_:%.*]] = load <4 x float>, ptr [[T13]], align 16
 ; CHECK-NEXT:    [[ELEM39:%.*]] = extractelement <4 x float> [[T13_]], i64 3
-; CHECK-NEXT:    store float [[ELEM39]], float* [[T16]], align 4
-; CHECK-NEXT:    [[T16_:%.*]] = load float, float* [[T16]], align 4
-; CHECK-NEXT:    store float [[T16_]], float* @a, align 4
-; CHECK-NEXT:    [[T14_:%.*]] = load <4 x float>, <4 x float>* [[T14]], align 16
+; CHECK-NEXT:    store float [[ELEM39]], ptr [[T16]], align 4
+; CHECK-NEXT:    [[T16_:%.*]] = load float, ptr [[T16]], align 4
+; CHECK-NEXT:    store float [[T16_]], ptr @a, align 4
+; CHECK-NEXT:    [[T14_:%.*]] = load <4 x float>, ptr [[T14]], align 16
 ; CHECK-NEXT:    [[ELEM310:%.*]] = extractelement <4 x float> [[T14_]], i64 3
-; CHECK-NEXT:    store float [[ELEM310]], float* [[T18]], align 4
-; CHECK-NEXT:    [[T18_:%.*]] = load float, float* [[T18]], align 4
-; CHECK-NEXT:    store float [[T18_]], float* @b, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store float [[ELEM310]], ptr [[T18]], align 4
+; CHECK-NEXT:    [[T18_:%.*]] = load float, ptr [[T18]], align 4
+; CHECK-NEXT:    store float [[T18_]], ptr @b, align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_18:%.*]] = add nuw nsw i32 [[TMP1]], 4
-; CHECK-NEXT:    store i32 [[NEXTIVLOOP_18]], i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store i32 [[NEXTIVLOOP_18]], ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    [[CONDLOOP_18:%.*]] = icmp sle i32 [[NEXTIVLOOP_18]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_18]], label [[LOOP_18]], label [[AFTERLOOP_18:%.*]], !llvm.loop [[LOOP6:![0-9]+]]
 ; CHECK:       afterloop.18:
-; CHECK-NEXT:    store i32 100, i32* [[T11]], align 4
-; CHECK-NEXT:    store i32 100, i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store i32 100, ptr [[T11]], align 4
+; CHECK-NEXT:    store i32 100, ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP_37:%.*]]
 ; CHECK:       loop.39:
-; CHECK-NEXT:    store float 5.000000e-01, float* [[T19]], align 4
-; CHECK-NEXT:    [[T19_:%.*]] = load float, float* [[T19]], align 4
+; CHECK-NEXT:    store float 5.000000e-01, ptr [[T19]], align 4
+; CHECK-NEXT:    [[T19_:%.*]] = load float, ptr [[T19]], align 4
 ; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <1 x float> poison, float [[T19_]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <1 x float> [[DOTSPLATINSERT]], <1 x float> poison, <1 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> noundef [[DOTSPLAT]]) #[[ATTR5]]
-; CHECK-NEXT:    store { <1 x float>, <1 x float> } [[TMP2]], { <1 x float>, <1 x float> }* [[T20]], align 4
-; CHECK-NEXT:    [[T20_:%.*]] = load { <1 x float>, <1 x float> }, { <1 x float>, <1 x float> }* [[T20]], align 4
+; CHECK-NEXT:    store { <1 x float>, <1 x float> } [[TMP2]], ptr [[T20]], align 4
+; CHECK-NEXT:    [[T20_:%.*]] = load { <1 x float>, <1 x float> }, ptr [[T20]], align 4
 ; CHECK-NEXT:    [[SINCOS_SIN410:%.*]] = extractvalue { <1 x float>, <1 x float> } [[T20_]], 0
-; CHECK-NEXT:    store <1 x float> [[SINCOS_SIN410]], <1 x float>* [[T21]], align 4
-; CHECK-NEXT:    [[T20_11:%.*]] = load { <1 x float>, <1 x float> }, { <1 x float>, <1 x float> }* [[T20]], align 4
+; CHECK-NEXT:    store <1 x float> [[SINCOS_SIN410]], ptr [[T21]], align 4
+; CHECK-NEXT:    [[T20_11:%.*]] = load { <1 x float>, <1 x float> }, ptr [[T20]], align 4
 ; CHECK-NEXT:    [[SINCOS_COS512:%.*]] = extractvalue { <1 x float>, <1 x float> } [[T20_11]], 1
-; CHECK-NEXT:    store <1 x float> [[SINCOS_COS512]], <1 x float>* [[T22]], align 4
-; CHECK-NEXT:    [[T21_:%.*]] = load <1 x float>, <1 x float>* [[T21]], align 4
+; CHECK-NEXT:    store <1 x float> [[SINCOS_COS512]], ptr [[T22]], align 4
+; CHECK-NEXT:    [[T21_:%.*]] = load <1 x float>, ptr [[T21]], align 4
 ; CHECK-NEXT:    [[ELEM13:%.*]] = extractelement <1 x float> [[T21_]], i64 0
-; CHECK-NEXT:    store float [[ELEM13]], float* [[T23]], align 4
-; CHECK-NEXT:    [[T23_:%.*]] = load float, float* [[T23]], align 4
-; CHECK-NEXT:    store float [[T23_]], float* @a, align 4
-; CHECK-NEXT:    [[T22_:%.*]] = load <1 x float>, <1 x float>* [[T22]], align 4
+; CHECK-NEXT:    store float [[ELEM13]], ptr [[T23]], align 4
+; CHECK-NEXT:    [[T23_:%.*]] = load float, ptr [[T23]], align 4
+; CHECK-NEXT:    store float [[T23_]], ptr @a, align 4
+; CHECK-NEXT:    [[T22_:%.*]] = load <1 x float>, ptr [[T22]], align 4
 ; CHECK-NEXT:    [[ELEM614:%.*]] = extractelement <1 x float> [[T22_]], i64 0
-; CHECK-NEXT:    store float [[ELEM614]], float* [[T24]], align 4
-; CHECK-NEXT:    [[T24_:%.*]] = load float, float* [[T24]], align 4
-; CHECK-NEXT:    store float [[T24_]], float* @b, align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store float [[ELEM614]], ptr [[T24]], align 4
+; CHECK-NEXT:    [[T24_:%.*]] = load float, ptr [[T24]], align 4
+; CHECK-NEXT:    store float [[T24_]], ptr @b, align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_37:%.*]] = add nuw nsw i32 [[TMP3]], 1
-; CHECK-NEXT:    store i32 [[NEXTIVLOOP_37]], i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store i32 [[NEXTIVLOOP_37]], ptr [[I1_I32]], align 4
 ; CHECK-NEXT:    [[CONDLOOP_37:%.*]] = icmp ne i32 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[CONDLOOP_37]], label [[LOOP_37]], label [[AFTERLOOP_37:%.*]], !llvm.loop [[LOOP11:![0-9]+]]
 ; CHECK:       afterloop.39:
@@ -101,7 +101,7 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %d.03 = phi i32 [ 0, %entry ], [ %inc, %for.body ], !in.de.ssa !3
-  tail call void @sincosf(float noundef 5.000000e-01, float* noundef nonnull @a, float* noundef nonnull @b) #3
+  tail call void @sincosf(float noundef 5.000000e-01, ptr noundef nonnull @a, ptr noundef nonnull @b) #3
   %inc = add nuw nsw i32 %d.03, 1
   %exitcond.not = icmp eq i32 %inc, 101
   %d.03.in = call i32 @llvm.ssa.copy.i32(i32 %inc), !in.de.ssa !3
@@ -116,7 +116,7 @@ exit:
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local void @sincosf(float noundef, float* noundef, float* noundef) local_unnamed_addr #1
+declare dso_local void @sincosf(float noundef, ptr noundef, ptr noundef) local_unnamed_addr #1
 
 ; Function Attrs: nocallback nofree nosync nounwind readnone willreturn
 declare i32 @llvm.ssa.copy.i32(i32 returned) #2

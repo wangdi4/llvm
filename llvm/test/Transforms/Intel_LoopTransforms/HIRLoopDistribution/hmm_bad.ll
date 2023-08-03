@@ -1,10 +1,19 @@
 
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-changed -disable-output -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; We cannot reason about calls without mod-ref/sideeffects analysis
 
 ;CHECK-NOT: BEGIN REGION {{.*}} modified
 ;CHECK: DO i1 =
 ;CHECK-NOT: DO i1 =
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopDistributionForMemRec
+
 ; ModuleID = 'hmm_bad.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -26,21 +35,21 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [128 x float], [128 x float]* @B, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [128 x float], [128 x float]* @C, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [128 x float], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [128 x float], ptr @C, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4
   %add = fadd float %1, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %indvars.iv.next
-  store float %add, float* %arrayidx5, align 4
-  %arrayidx7 = getelementptr inbounds [128 x float], [128 x float]* @DC, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx7, align 4
-  %arrayidx9 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %indvars.iv
-  %4 = load float, float* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %indvars.iv.next
+  store float %add, ptr %arrayidx5, align 4
+  %arrayidx7 = getelementptr inbounds [128 x float], ptr @DC, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx7, align 4
+  %arrayidx9 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %indvars.iv
+  %4 = load float, ptr %arrayidx9, align 4
   %add10 = fadd float %3, %4
-  %arrayidx13 = getelementptr inbounds [128 x float], [128 x float]* @DC, i64 0, i64 %indvars.iv.next
-  store float %add10, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [128 x float], ptr @DC, i64 0, i64 %indvars.iv.next
+  store float %add10, ptr %arrayidx13, align 4
   tail call void (...) @bar() #2
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %0
@@ -52,8 +61,8 @@ for.cond.for.end_crit_edge:                       ; preds = %for.body
 
 for.end:                                          ; preds = %entry, %for.cond.for.end_crit_edge
   %i.0.lcssa = phi i64 [ %phitmp, %for.cond.for.end_crit_edge ], [ -1, %entry ]
-  %arrayidx16 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %i.0.lcssa
-  %5 = load float, float* %arrayidx16, align 4
+  %arrayidx16 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %i.0.lcssa
+  %5 = load float, ptr %arrayidx16, align 4
   ret float %5
 }
 

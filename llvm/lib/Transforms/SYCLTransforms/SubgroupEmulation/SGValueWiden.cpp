@@ -15,7 +15,6 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
@@ -26,8 +25,6 @@
 using namespace llvm;
 using namespace CompilationUtils;
 using namespace LoopUtils;
-
-extern bool SYCLEnableSubGroupEmulation;
 
 #define DEBUG_TYPE "sycl-kernel-sg-emu-value-widen"
 
@@ -56,9 +53,6 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
   const SGSizeInfo &SSI = AM.getResult<SGSizeAnalysisPass>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  if (!SYCLEnableSubGroupEmulation)
-    return PreservedAnalyses::all();
-
   Helper.initialize(M);
   FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();
 
@@ -76,9 +70,9 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
     for (auto I = Sizes.begin(), E = Sizes.end(); I != E; I++) {
       Variants.push_back(encodeVectorVariant(Fn, *I));
     }
-    Fn->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
+    Fn->addFnAttr(VectorUtils::VectorVariantsAttrName, join(Variants, ","));
     LLVM_DEBUG(dbgs() << "  vector-variants: "
-                      << Fn->getFnAttribute(KernelAttribute::VectorVariants)
+                      << Fn->getFnAttribute(VectorUtils::VectorVariantsAttrName)
                              .getValueAsString()
                       << "\n");
   }
@@ -86,7 +80,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
   // Add sub-group functions to FunctionsToBeWidened.
   for (auto &Fn : M)
     if (Fn.isDeclaration() && Fn.getName().contains("sub_group") &&
-        Fn.hasFnAttribute(KernelAttribute::VectorVariants))
+        Fn.hasFnAttribute(VectorUtils::VectorVariantsAttrName))
       FunctionsToBeWidened.insert(&Fn);
 
   FunctionWidener FWImpl;
@@ -404,7 +398,7 @@ static void storeVectorByVecElement(Value *Addr, Value *Data, Type *OrigValType,
       Value *ElemVal =
           Builder.CreateExtractElement(Data, Idx * OrigNumElem + Id);
       Value *ElemPtr = Builder.CreateGEP(
-          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          cast<AllocaInst>(Addr)->getAllocatedType(), Addr,
           {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Builder.CreateStore(ElemVal, ElemPtr);
     }
@@ -422,7 +416,7 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   for (unsigned Idx = 0; Idx < VF; ++Idx) {
     for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
       Value *ElemPtr = Builder.CreateGEP(
-          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          cast<AllocaInst>(Addr)->getAllocatedType(), Addr,
           {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Value *ElemVal = Builder.CreateLoad(ScalarEleType, ElemPtr);
       Res = Builder.CreateInsertElement(Res, ElemVal, Idx * OrigNumElem + Id);
@@ -579,8 +573,12 @@ void SGValueWidenPass::setWIValue(Value *V) {
       VecValueMap.count(V) ? getWIOffset(IP, VecValueMap[V]) : UniValueMap[V];
   // Offset's pointee type might be the promoted widen type of V.
   // In such cases, we need to zext V to promoted type before store.
-  auto *Promoted = SGHelper::createZExtOrTruncProxy(
-      V, Offset->getType()->getPointerElementType(), Builder);
+  Type *EltTy;
+  if (auto *AI = dyn_cast<AllocaInst>(Offset))
+    EltTy = AI->getAllocatedType();
+  else
+    EltTy = cast<GetElementPtrInst>(Offset)->getResultElementType();
+  auto *Promoted = SGHelper::createZExtOrTruncProxy(V, EltTy, Builder);
   Builder.CreateStore(Promoted, Offset);
 }
 
@@ -596,9 +594,8 @@ Value *SGValueWidenPass::getWIValue(Instruction *U, Value *V,
   Value *Src = VecValueMap[V];
   Instruction *IP = getInsertPoint(U, V, DT);
   IRBuilder<> Builder(IP);
-  auto *Offset = getWIOffset(IP, Src);
-  auto *LI =
-      Builder.CreateLoad(Offset->getType()->getPointerElementType(), Offset);
+  auto *Offset = cast<GetElementPtrInst>(getWIOffset(IP, Src));
+  auto *LI = Builder.CreateLoad(Offset->getResultElementType(), Offset);
   // Src might be the promoted widen type of V.
   // In such cases, we need to trunc LI to V's original type.
   return SGHelper::createZExtOrTruncProxy(LI, V->getType(), Builder);
@@ -608,7 +605,7 @@ Value *SGValueWidenPass::getWIOffset(Instruction *IP, Value *Src) {
   assert(Src->getType()->isPointerTy() && "get offest for a non-pointer value");
   auto *Idx = Helper.createGetSubGroupLId(IP);
   IRBuilder<> Builder(IP);
-  return Builder.CreateGEP(Src->getType()->getPointerElementType(), Src,
+  return Builder.CreateGEP(cast<AllocaInst>(Src)->getAllocatedType(), Src,
                            {ConstZero, Idx});
 }
 
@@ -682,7 +679,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   Function *ParentF = CI->getFunction();
   LLVM_DEBUG(dbgs() << "  Parent function name: " << ParentF->getName()
                     << "\n");
-  assert(ParentF->hasFnAttribute(KernelAttribute::VectorVariants) &&
+  assert(ParentF->hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
          "Parent function doesn't have vector-variants attribute");
   unsigned EmuSize = 0;
 #if !INTEL_CUSTOMIZATION
@@ -695,7 +692,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
     EmuSize = VectorizerUtils::getVFLength(Variant.value());
   } else {
     StringRef ParentVariantStringValue =
-        ParentF->getFnAttribute(KernelAttribute::VectorVariants)
+        ParentF->getFnAttribute(VectorUtils::VectorVariantsAttrName)
             .getValueAsString();
     assert(ParentVariantStringValue.find(',') == StringRef::npos &&
            "Unexpected multiple vector variant string here!");
@@ -712,7 +709,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
 
   // Get vector-variants attribute
   StringRef VecVariantStringValue =
-      getCallSiteOrFuncAttrSG(CI, KernelAttribute::VectorVariants)
+      getCallSiteOrFuncAttrSG(CI, VectorUtils::VectorVariantsAttrName)
           .getValueAsString();
   LLVM_DEBUG(dbgs() << "  Call instruction vector variant string: "
                     << VecVariantStringValue << "\n");
@@ -745,7 +742,7 @@ void SGValueWidenPass::widenCalls() {
   for (auto *I : WideCalls) {
     auto *CI = cast<CallInst>(I);
     LLVM_DEBUG(dbgs() << "Widening Call: " << *CI << "\n");
-    assert(CI->hasFnAttr(KernelAttribute::VectorVariants) &&
+    assert(CI->hasFnAttr(VectorUtils::VectorVariantsAttrName) &&
            "wide call doesn't have vector-variants attribute");
 
     unsigned Size = 0;

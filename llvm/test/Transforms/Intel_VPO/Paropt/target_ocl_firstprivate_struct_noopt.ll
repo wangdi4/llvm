@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ;struct s1 {
@@ -35,55 +35,70 @@ target device_triples = "spir64"
 define hidden spir_func void @_Z3foov() #0 {
 entry:
   %a = alloca %struct.s1, align 8
-  %a.ascast = addrspacecast %struct.s1* %a to %struct.s1 addrspace(4)*
+  %a.ascast = addrspacecast ptr %a to ptr addrspace(4)
   %s = alloca double, align 8
-  %s.ascast = addrspacecast double* %s to double addrspace(4)*
+  %s.ascast = addrspacecast ptr %s to ptr addrspace(4)
   %tmp = alloca i32, align 4
-  %tmp.ascast = addrspacecast i32* %tmp to i32 addrspace(4)*
+  %tmp.ascast = addrspacecast ptr %tmp to ptr addrspace(4)
   %.omp.iv = alloca i32, align 4
-  %.omp.iv.ascast = addrspacecast i32* %.omp.iv to i32 addrspace(4)*
+  %.omp.iv.ascast = addrspacecast ptr %.omp.iv to ptr addrspace(4)
   %.omp.lb = alloca i32, align 4
-  %.omp.lb.ascast = addrspacecast i32* %.omp.lb to i32 addrspace(4)*
+  %.omp.lb.ascast = addrspacecast ptr %.omp.lb to ptr addrspace(4)
   %.omp.ub = alloca i32, align 4
-  %.omp.ub.ascast = addrspacecast i32* %.omp.ub to i32 addrspace(4)*
+  %.omp.ub.ascast = addrspacecast ptr %.omp.ub to ptr addrspace(4)
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  store double 0.000000e+00, double addrspace(4)* %s.ascast, align 8, !tbaa !9
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(%struct.s1 addrspace(4)* %a.ascast), "QUAL.OMP.MAP.TO"(%struct.s1 addrspace(4)* %a.ascast, %struct.s1 addrspace(4)* %a.ascast, i64 80, i64 161, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(double addrspace(4)* %s.ascast, double addrspace(4)* %s.ascast, i64 8, i64 35, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
-  store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4, !tbaa !13
-  store i32 9, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !13
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SHARED"(%struct.s1 addrspace(4)* %a.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast) ]
-  %2 = load i32, i32 addrspace(4)* %.omp.lb.ascast, align 4, !tbaa !13
-  store i32 %2, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !13
+  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  store double 0.000000e+00, ptr addrspace(4) %s.ascast, align 8, !tbaa !9
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %a.ascast, %struct.s1 zeroinitializer, i32 1),
+    "QUAL.OMP.MAP.TO"(ptr addrspace(4) %a.ascast, ptr addrspace(4) %a.ascast, i64 80, i64 161, ptr null, ptr null),
+    "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) %s.ascast, ptr addrspace(4) %s.ascast, i64 8, i64 35, ptr null, ptr null),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
+
+  store i32 0, ptr addrspace(4) %.omp.lb.ascast, align 4, !tbaa !13
+  store i32 9, ptr addrspace(4) %.omp.ub.ascast, align 4, !tbaa !13
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %a.ascast, %struct.s1 zeroinitializer, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1) ]
+
+  %2 = load i32, ptr addrspace(4) %.omp.lb.ascast, align 4, !tbaa !13
+  store i32 %2, ptr addrspace(4) %.omp.iv.ascast, align 4, !tbaa !13
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %3 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !13
-  %4 = load i32, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !13
+  %3 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !tbaa !13
+  %4 = load i32, ptr addrspace(4) %.omp.ub.ascast, align 4, !tbaa !13
   %cmp = icmp sle i32 %3, %4
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %5 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !13
+  %5 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !tbaa !13
   %mul = mul nsw i32 %5, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, i32 addrspace(4)* %i.ascast, align 4, !tbaa !13
-  %6 = load i32, i32 addrspace(4)* %i.ascast, align 4, !tbaa !13
+  store i32 %add, ptr addrspace(4) %i.ascast, align 4, !tbaa !13
+  %6 = load i32, ptr addrspace(4) %i.ascast, align 4, !tbaa !13
   %conv = sitofp i32 %6 to double
-  %d = getelementptr inbounds %struct.s1, %struct.s1 addrspace(4)* %a.ascast, i32 0, i32 0, !intel-tbaa !15
-  %7 = load i32, i32 addrspace(4)* %i.ascast, align 4, !tbaa !13
+  %7 = load i32, ptr addrspace(4) %i.ascast, align 4, !tbaa !13
   %idxprom = sext i32 %7 to i64
-  %arrayidx = getelementptr inbounds [10 x double], [10 x double] addrspace(4)* %d, i64 0, i64 %idxprom, !intel-tbaa !18
-  store double %conv, double addrspace(4)* %arrayidx, align 8, !tbaa !19
+  %arrayidx = getelementptr inbounds [10 x double], ptr addrspace(4) %a.ascast, i64 0, i64 %idxprom
+  store double %conv, ptr addrspace(4) %arrayidx, align 8, !tbaa !19
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %8 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !13
+  %8 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !tbaa !13
   %add1 = add nsw i32 %8, 1
-  store i32 %add1, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !13
+  store i32 %add1, ptr addrspace(4) %.omp.iv.ascast, align 4, !tbaa !13
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
@@ -91,16 +106,13 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
-  %d2 = getelementptr inbounds %struct.s1, %struct.s1 addrspace(4)* %a.ascast, i32 0, i32 0, !intel-tbaa !15
-  %arrayidx3 = getelementptr inbounds [10 x double], [10 x double] addrspace(4)* %d2, i64 0, i64 0, !intel-tbaa !18
-  %9 = load double, double addrspace(4)* %arrayidx3, align 8, !tbaa !19
-  %d4 = getelementptr inbounds %struct.s1, %struct.s1 addrspace(4)* %a.ascast, i32 0, i32 0, !intel-tbaa !15
-  %arrayidx5 = getelementptr inbounds [10 x double], [10 x double] addrspace(4)* %d4, i64 0, i64 9, !intel-tbaa !18
-  %10 = load double, double addrspace(4)* %arrayidx5, align 8, !tbaa !19
+  %9 = load double, ptr addrspace(4) %a.ascast, align 8, !tbaa !19
+  %arrayidx5 = getelementptr inbounds [10 x double], ptr addrspace(4) %a.ascast, i64 0, i64 9
+  %10 = load double, ptr addrspace(4) %arrayidx5, align 8, !tbaa !19
   %add6 = fadd fast double %9, %10
-  %11 = load double, double addrspace(4)* %s.ascast, align 8, !tbaa !9
+  %11 = load double, ptr addrspace(4) %s.ascast, align 8, !tbaa !9
   %add7 = fadd fast double %11, %add6
-  store double %add7, double addrspace(4)* %s.ascast, align 8, !tbaa !9
+  store double %add7, ptr addrspace(4) %s.ascast, align 8, !tbaa !9
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }

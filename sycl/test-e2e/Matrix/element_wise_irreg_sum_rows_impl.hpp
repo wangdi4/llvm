@@ -43,16 +43,17 @@ void matrix_sum_rows(queue q, big_matrix<T, M, N> &B, nd_range<2> &r) {
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           sycl::sub_group sg = spmd_item.get_sub_group();
 
            joint_matrix<sub_group, T, use::b, TK, TN,
                         ext::intel::experimental::matrix::layout::packed>
                sub_b;
 
-           joint_matrix_load(sg, sub_b,
-                             accB.get_pointer() + (global_idx * (TK / 4) * N) +
-                                 sg_starty / SG_SZ * TN * 4,
-                             N);
+           joint_matrix_load(
+               sg, sub_b,
+               accB.template get_multi_ptr<access::decorated::no>() +
+                   (global_idx * (TK / 4) * N) + sg_starty / SG_SZ * TN * 4,
+               N);
            // calculate sum of rows in sum_rows_v[8], there are 8 rows in sub_b
            // (tK/4)
            int32_t sum_local_rows[M] = {0}; // 8 local rows, M total

@@ -50,11 +50,11 @@ for.cond.cleanup7:                                ; preds = %for.body8
 
 for.body8:                                        ; preds = %for.cond5.preheader, %for.body8
   %k.027 = phi i64 [ %inc, %for.body8 ], [ 1, %for.cond5.preheader ]
-  %1 = load i32, i32* bitcast (float* getelementptr inbounds ([100 x float], [100 x float]* @A, i64 0, i64 1) to i32*), align 4, !tbaa !1
+  %1 = load i32, ptr getelementptr inbounds ([100 x float], ptr @A, i64 0, i64 1), align 4, !tbaa !1
   %add9 = add i64 %add, %k.027
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %add9
-  %2 = bitcast float* %arrayidx to i32*
-  store i32 %1, i32* %2, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %add9
+  %2 = bitcast ptr %arrayidx to ptr
+  store i32 %1, ptr %2, align 4, !tbaa !1
   %inc = add nuw nsw i64 %k.027, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.cond.cleanup7, label %for.body8

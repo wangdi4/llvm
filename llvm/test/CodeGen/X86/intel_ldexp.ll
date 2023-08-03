@@ -26,7 +26,7 @@ define float @f1(float %p, i32 %q)
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    retq
 {
-    %t = call float @llvm.ldexp.f32(float %p, i32 %q)
+    %t = call float @llvm.ldexp.f32.i32(float %p, i32 %q)
     ret float %t
 }
 
@@ -54,78 +54,89 @@ define double @f2(double %p, i32 %q)
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    retq
 {
-    %t = call double @llvm.ldexp.f64(double %p, i32 %q)
+    %t = call double @llvm.ldexp.f64.i32(double %p, i32 %q)
     ret double %t
 }
 
-define <4 x float> @f3(<4 x float> %p, i32 %q)
+define <4 x float> @f3(<4 x float> %p, <4 x i32> %q)
 ; X64-LABEL: f3:
 ; X64:       # %bb.0:
-; X64-NEXT:    pushq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    subq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 64
-; X64-NEXT:    .cfi_offset %rbx, -16
-; X64-NEXT:    movl %edi, %ebx
+; X64-NEXT:    subq $72, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 80
+; X64-NEXT:    movdqa %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    shufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; X64-NEXT:    pshufd {{.*#+}} xmm2 = xmm1[3,3,3,3]
+; X64-NEXT:    movd %xmm2, %edi
 ; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
-; X64-NEXT:    movl %ebx, %edi
+; X64-NEXT:    pshufd $238, {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Folded Reload
+; X64-NEXT:    # xmm1 = mem[2,3,2,3]
+; X64-NEXT:    movd %xmm1, %edi
 ; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    unpcklps (%rsp), %xmm0 # 16-byte Folded Reload
 ; X64-NEXT:    # xmm0 = xmm0[0],mem[0],xmm0[1],mem[1]
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
+; X64-NEXT:    movdqa {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
+; X64-NEXT:    movd %xmm0, %edi
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
-; X64-NEXT:    movl %ebx, %edi
 ; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    shufps {{.*#+}} xmm0 = xmm0[1,1,1,1]
-; X64-NEXT:    movl %ebx, %edi
+; X64-NEXT:    pshufd $85, {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Folded Reload
+; X64-NEXT:    # xmm1 = mem[1,1,1,1]
+; X64-NEXT:    movd %xmm1, %edi
 ; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
 ; X64-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
 ; X64-NEXT:    unpcklpd (%rsp), %xmm1 # 16-byte Folded Reload
 ; X64-NEXT:    # xmm1 = xmm1[0],mem[0]
 ; X64-NEXT:    movaps %xmm1, %xmm0
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
+; X64-NEXT:    addq $72, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: f3:
 ; X86:       # %bb.0:
-; X86-NEXT:    pushl %edi
+; X86-NEXT:    pushl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 8
-; X86-NEXT:    pushl %esi
+; X86-NEXT:    pushl %ebx
 ; X86-NEXT:    .cfi_def_cfa_offset 12
-; X86-NEXT:    subl $36, %esp
+; X86-NEXT:    pushl %edi
+; X86-NEXT:    .cfi_def_cfa_offset 16
+; X86-NEXT:    pushl %esi
+; X86-NEXT:    .cfi_def_cfa_offset 20
+; X86-NEXT:    subl $28, %esp
 ; X86-NEXT:    .cfi_def_cfa_offset 48
-; X86-NEXT:    .cfi_offset %esi, -12
-; X86-NEXT:    .cfi_offset %edi, -8
+; X86-NEXT:    .cfi_offset %esi, -20
+; X86-NEXT:    .cfi_offset %edi, -16
+; X86-NEXT:    .cfi_offset %ebx, -12
+; X86-NEXT:    .cfi_offset %ebp, -8
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; X86-NEXT:    flds {{[0-9]+}}(%esp)
 ; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
-; X86-NEXT:    flds {{[0-9]+}}(%esp)
-; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
-; X86-NEXT:    flds {{[0-9]+}}(%esp)
-; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
-; X86-NEXT:    flds {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    flds {{[0-9]+}}(%esp)
+; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %ebx
+; X86-NEXT:    flds {{[0-9]+}}(%esp)
+; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %ebp
+; X86-NEXT:    flds {{[0-9]+}}(%esp)
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, {{[0-9]+}}(%esp)
 ; X86-NEXT:    fstps (%esp)
 ; X86-NEXT:    calll ldexpf
 ; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ebp, {{[0-9]+}}(%esp)
 ; X86-NEXT:    flds {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Reload
 ; X86-NEXT:    fstps (%esp)
 ; X86-NEXT:    calll ldexpf
 ; X86-NEXT:    fstps {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Spill
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    flds {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Reload
 ; X86-NEXT:    fstps (%esp)
 ; X86-NEXT:    calll ldexpf
@@ -142,99 +153,131 @@ define <4 x float> @f3(<4 x float> %p, i32 %q)
 ; X86-NEXT:    flds {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Folded Reload
 ; X86-NEXT:    fstps (%esi)
 ; X86-NEXT:    movl %esi, %eax
-; X86-NEXT:    addl $36, %esp
-; X86-NEXT:    .cfi_def_cfa_offset 12
+; X86-NEXT:    addl $28, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 20
 ; X86-NEXT:    popl %esi
-; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    .cfi_def_cfa_offset 16
 ; X86-NEXT:    popl %edi
+; X86-NEXT:    .cfi_def_cfa_offset 12
+; X86-NEXT:    popl %ebx
+; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    popl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 4
 ; X86-NEXT:    retl $4
 ;
 ; X64_AVX512F-LABEL: f3:
 ; X64_AVX512F:       # %bb.0:
-; X64_AVX512F-NEXT:    vcvtsi2ss %edi, %xmm1, %xmm1
-; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm2
+; X64_AVX512F-NEXT:    vcvtdq2ps %xmm1, %xmm2
+; X64_AVX512F-NEXT:    vscalefss %xmm2, %xmm0, %xmm2
 ; X64_AVX512F-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm0[1,1,3,3]
-; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm4 = xmm1[1,1,1,1]
+; X64_AVX512F-NEXT:    vcvtdq2ps %xmm4, %xmm4
+; X64_AVX512F-NEXT:    vscalefss %xmm4, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[2,3]
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
-; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm3 = xmm0[1,0]
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm4 = xmm1[2,3,2,3]
+; X64_AVX512F-NEXT:    vcvtdq2ps %xmm4, %xmm4
+; X64_AVX512F-NEXT:    vscalefss %xmm4, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm3[0],xmm2[3]
 ; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[3,3,3,3]
+; X64_AVX512F-NEXT:    vcvtdq2ps %xmm1, %xmm1
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm2[0,1,2],xmm0[0]
 ; X64_AVX512F-NEXT:    retq
 {
-    %t = call <4 x float> @llvm.ldexp.v4f32(<4 x float> %p, i32 %q)
+    %t = call <4 x float> @llvm.ldexp.v4f32.v4i32(<4 x float> %p, <4 x i32> %q)
     ret <4 x float> %t
 }
 
-define <4 x double> @f4(<4 x double> %p, i32 %q)
+define <4 x double> @f4(<4 x double> %p, <4 x i32> %q)
 ; X64-LABEL: f4:
 ; X64:       # %bb.0:
-; X64-NEXT:    pushq %rbx
+; X64-NEXT:    pushq %rbp
 ; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    subq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 64
-; X64-NEXT:    .cfi_offset %rbx, -16
-; X64-NEXT:    movl %edi, %ebx
+; X64-NEXT:    pushq %rbx
+; X64-NEXT:    .cfi_def_cfa_offset 24
+; X64-NEXT:    subq $72, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 96
+; X64-NEXT:    .cfi_offset %rbx, -24
+; X64-NEXT:    .cfi_offset %rbp, -16
 ; X64-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
-; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
+; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
+; X64-NEXT:    movdqa %xmm2, (%rsp) # 16-byte Spill
+; X64-NEXT:    pshufd {{.*#+}} xmm1 = xmm2[2,3,2,3]
+; X64-NEXT:    movd %xmm1, %ebx
+; X64-NEXT:    pshufd {{.*#+}} xmm1 = xmm2[3,3,3,3]
+; X64-NEXT:    movd %xmm1, %ebp
+; X64-NEXT:    movd %xmm2, %edi
 ; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
-; X64-NEXT:    movaps (%rsp), %xmm0 # 16-byte Reload
+; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
-; X64-NEXT:    movl %ebx, %edi
+; X64-NEXT:    pshufd $85, (%rsp), %xmm1 # 16-byte Folded Reload
+; X64-NEXT:    # xmm1 = mem[1,1,1,1]
+; X64-NEXT:    movd %xmm1, %edi
 ; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
 ; X64-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm0[0]
 ; X64-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
-; X64-NEXT:    movl %ebx, %edi
+; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
+; X64-NEXT:    movl %ebp, %edi
 ; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
-; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X64-NEXT:    movl %ebx, %edi
 ; X64-NEXT:    callq ldexp@PLT
-; X64-NEXT:    movaps (%rsp), %xmm1 # 16-byte Reload
-; X64-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm0[0]
+; X64-NEXT:    movaps %xmm0, %xmm1
+; X64-NEXT:    unpcklpd (%rsp), %xmm1 # 16-byte Folded Reload
+; X64-NEXT:    # xmm1 = xmm1[0],mem[0]
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
-; X64-NEXT:    addq $48, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    addq $72, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 24
 ; X64-NEXT:    popq %rbx
+; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    popq %rbp
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: f4:
 ; X86:       # %bb.0:
-; X86-NEXT:    pushl %edi
+; X86-NEXT:    pushl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 8
-; X86-NEXT:    pushl %esi
+; X86-NEXT:    pushl %ebx
 ; X86-NEXT:    .cfi_def_cfa_offset 12
-; X86-NEXT:    subl $52, %esp
+; X86-NEXT:    pushl %edi
+; X86-NEXT:    .cfi_def_cfa_offset 16
+; X86-NEXT:    pushl %esi
+; X86-NEXT:    .cfi_def_cfa_offset 20
+; X86-NEXT:    subl $44, %esp
 ; X86-NEXT:    .cfi_def_cfa_offset 64
-; X86-NEXT:    .cfi_offset %esi, -12
-; X86-NEXT:    .cfi_offset %edi, -8
+; X86-NEXT:    .cfi_offset %esi, -20
+; X86-NEXT:    .cfi_offset %edi, -16
+; X86-NEXT:    .cfi_offset %ebx, -12
+; X86-NEXT:    .cfi_offset %ebp, -8
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; X86-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
-; X86-NEXT:    fldl {{[0-9]+}}(%esp)
-; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
-; X86-NEXT:    fldl {{[0-9]+}}(%esp)
-; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
-; X86-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    fldl {{[0-9]+}}(%esp)
+; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %ebx
+; X86-NEXT:    fldl {{[0-9]+}}(%esp)
+; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %ebp
+; X86-NEXT:    fldl {{[0-9]+}}(%esp)
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, {{[0-9]+}}(%esp)
 ; X86-NEXT:    fstpl (%esp)
 ; X86-NEXT:    calll ldexp
 ; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ebp, {{[0-9]+}}(%esp)
 ; X86-NEXT:    fldl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Reload
 ; X86-NEXT:    fstpl (%esp)
 ; X86-NEXT:    calll ldexp
 ; X86-NEXT:    fstpl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
-; X86-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    fldl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Reload
 ; X86-NEXT:    fstpl (%esp)
 ; X86-NEXT:    calll ldexp
@@ -251,34 +294,44 @@ define <4 x double> @f4(<4 x double> %p, i32 %q)
 ; X86-NEXT:    fldl {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Reload
 ; X86-NEXT:    fstpl (%esi)
 ; X86-NEXT:    movl %esi, %eax
-; X86-NEXT:    addl $52, %esp
-; X86-NEXT:    .cfi_def_cfa_offset 12
+; X86-NEXT:    addl $44, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 20
 ; X86-NEXT:    popl %esi
-; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    .cfi_def_cfa_offset 16
 ; X86-NEXT:    popl %edi
+; X86-NEXT:    .cfi_def_cfa_offset 12
+; X86-NEXT:    popl %ebx
+; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    popl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 4
 ; X86-NEXT:    retl $4
 ;
 ; X64_AVX512F-LABEL: f4:
 ; X64_AVX512F:       # %bb.0:
-; X64_AVX512F-NEXT:    vcvtsi2sd %edi, %xmm1, %xmm1
-; X64_AVX512F-NEXT:    vextractf128 $1, %ymm0, %xmm2
-; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm2, %xmm3
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm2[1,0]
-; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm2, %xmm2
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm2 = xmm1[3,3,3,3]
+; X64_AVX512F-NEXT:    vcvtdq2pd %xmm2, %xmm2
+; X64_AVX512F-NEXT:    vextractf128 $1, %ymm0, %xmm3
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm4 = xmm3[1,0]
+; X64_AVX512F-NEXT:    vscalefsd %xmm2, %xmm4, %xmm2
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm4 = xmm1[2,3,2,3]
+; X64_AVX512F-NEXT:    vcvtdq2pd %xmm4, %xmm4
+; X64_AVX512F-NEXT:    vscalefsd %xmm4, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vunpcklpd {{.*#+}} xmm2 = xmm3[0],xmm2[0]
-; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm0, %xmm3
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm0 = xmm0[1,0]
+; X64_AVX512F-NEXT:    vcvtdq2pd %xmm1, %xmm3
+; X64_AVX512F-NEXT:    vscalefsd %xmm3, %xmm0, %xmm3
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[1,1,1,1]
+; X64_AVX512F-NEXT:    vcvtdq2pd %xmm1, %xmm1
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    vunpcklpd {{.*#+}} xmm0 = xmm3[0],xmm0[0]
 ; X64_AVX512F-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
 ; X64_AVX512F-NEXT:    retq
 {
-    %t = call <4 x double> @llvm.ldexp.v4f64(<4 x double> %p, i32 %q)
+    %t = call <4 x double> @llvm.ldexp.v4f64.v4i32(<4 x double> %p, <4 x i32> %q)
     ret <4 x double> %t
 }
 
-declare float @llvm.ldexp.f32(float %p, i32 %q)
-declare double @llvm.ldexp.f64(double %p, i32 %q)
-declare <4 x float> @llvm.ldexp.v4f32(<4 x float> %p, i32)
-declare <4 x double> @llvm.ldexp.v4f64(<4 x double> %p, i32)
+declare float @llvm.ldexp.f32.i32(float %p, i32 %q)
+declare double @llvm.ldexp.f64.i32(double %p, i32 %q)
+declare <4 x float> @llvm.ldexp.v4f32.v4i32(<4 x float> %p, <4 x i32>)
+declare <4 x double> @llvm.ldexp.v4f64.v4i32(<4 x double> %p, <4 x i32>)

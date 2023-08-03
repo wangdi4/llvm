@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.h ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -34,6 +34,9 @@ private:
 
   // VPLoopInfo analysis information.
   const VPLoopInfo *VPLInfo = nullptr;
+
+  // Stored flags for checks to run or skip
+  unsigned int Flags = 0;
 
   // Verify VPPHINode instruction.
   void verifyPHINode(const VPPHINode *Phi) const;
@@ -92,7 +95,47 @@ private:
 
   /// Verify the CFG of the loop.
   static void verifyCFGExternals(const VPlan *Plan);
+
+  // Verify that all of the Phi and Blend statements are at the start
+  // of the block.
+  void verifyPhiBlendPlacement(const VPBasicBlock *Block) const;
+
+  // Verify that an instruction dominates all of its uses
+  void verifySSA(const VPInstruction *I, const VPDominatorTree *DT) const;
+
+  // Verify using the DA verify function
+  void verifyDA(const VPlan *Plan) const;
+
+  // Recalculate DA shapes of Inst and compare with the stored shape
+  // Only valid before predicator, after which the shapes can't reliably
+  // be recomputed.
+  void verifyDAShape(const VPInstruction *VPI) const;
+
+  // Helper functions to hide the underlying enum check
+  bool shouldSkipLoopInfo() const { return Flags & SkipLoopInfo; }
+
+  bool shouldSkipExternals() const { return Flags & SkipExternals; }
+
+  bool shouldSkipInnerMultiExit() const { return Flags & SkipInnerMultiExit; }
+
+  bool shouldSkipNumLoops() const { return !(Flags & CheckNumLoops); }
+
+  bool shouldSkipDA() const { return Flags & SkipDA; }
+
+  bool shouldSkipDAShapes() const { return !(Flags & CheckDAShapes); }
+
 public:
+  // Enum for holding the flags to be given to verifyVPlan to skip
+  // parts of the verification.
+  enum {
+    SkipLoopInfo = 1 << 0,
+    SkipExternals = 1 << 1,
+    SkipInnerMultiExit = 1 << 2,
+    CheckNumLoops = 1 << 3,
+    SkipDA = 1 << 4,
+    CheckDAShapes = 1 << 5
+  };
+
   VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
       : TheLoop(Lp), DL(DLObj) {}
 
@@ -105,8 +148,12 @@ public:
   void setVPLoopInfo(const VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   /// Verify CFG externals, VPLoopInfo, VPLoop and number of loops in loop nest
-  void verifyLoops(const VPlanVector *Plan, const VPDominatorTree &VPDomTree,
-                   VPLoopInfo *VPLInfo);
+  void verifyVPlan(const VPlanVector *Plan, unsigned int CheckFlags = 0);
+
+  // Interface for calling the verifier more easily
+  // Constructs a VPlanVerifier instance, then calls verifyVPlan on it
+  static void verify(const VPlanVector *Plan, const Loop *Lp = nullptr,
+                     unsigned int CheckFlags = 0);
 };
 } // namespace vpo
 } // namespace llvm

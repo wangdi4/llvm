@@ -28,14 +28,9 @@
 ; CHECK: br i1 [[PRED]], label %[[MASTERCODE1:[a-zA-Z._0-9]+]], label %[[FALLTHRU1:[a-zA-Z._0-9]+]]
 ; CHECK: [[MASTERCODE1]]:
 ; CHECK: call spir_func void @__kmpc_critical
+; CHECK: call spir_func void @__kmpc_end_critical
 ; CHECK: br label %[[FALLTHRU1]]
 ; CHECK: [[FALLTHRU1]]:
-; CHECK: br i1 [[PRED]], label
-; CHECK: br i1 [[PRED]], label %[[MASTERCODE2:[a-zA-Z._0-9]+]], label %[[FALLTHRU2:[a-zA-Z._0-9]+]]
-; CHECK: [[MASTERCODE2]]:
-; CHECK: call spir_func void @__kmpc_end_critical
-; CHECK: br label %[[FALLTHRU2]]
-; CHECK: [[FALLTHRU2]]:
 ; CHECK-NOT: call spir_func void @__kmpc_critical
 
 ; OPT: call spir_func void @__kmpc_critical

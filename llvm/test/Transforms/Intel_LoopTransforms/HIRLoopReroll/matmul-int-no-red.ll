@@ -80,8 +80,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond5.preheader:                              ; preds = %for.cond.cleanup7, %for.cond1.preheader
   %indvars.iv63 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next64, %for.cond.cleanup7 ]
-  %arrayidx18 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @C, i64 0, i64 %indvars.iv65, i64 %indvars.iv63
-  %.pre = load i32, i32* %arrayidx18, align 4, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [1000 x [1000 x i32]], ptr @C, i64 0, i64 %indvars.iv65, i64 %indvars.iv63
+  %.pre = load i32, ptr %arrayidx18, align 4, !tbaa !2
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -97,21 +97,21 @@ for.cond.cleanup7:                                ; preds = %for.body8
 for.body8:                                        ; preds = %for.cond5.preheader, %for.body8
   %0 = phi i32 [ %.pre, %for.cond5.preheader ], [ %add34, %for.body8 ]
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv65, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx10, align 8, !tbaa !2
-  %arrayidx14 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv63
-  %2 = load i32, i32* %arrayidx14, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv65, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx10, align 8, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [1000 x [1000 x i32]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv63
+  %2 = load i32, ptr %arrayidx14, align 4, !tbaa !2
   %mul = mul nsw i32 %2, %1
   %add = add nsw i32 %0, %mul
-  store i32 %add, i32* %arrayidx18, align 4, !tbaa !2
+  store i32 %add, ptr %arrayidx18, align 4, !tbaa !2
   %3 = or i64 %indvars.iv, 1
-  %arrayidx23 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv65, i64 %3
-  %4 = load i32, i32* %arrayidx23, align 4, !tbaa !2
-  %arrayidx28 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @C, i64 0, i64 %3, i64 %indvars.iv63
-  %5 = load i32, i32* %arrayidx28, align 4, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv65, i64 %3
+  %4 = load i32, ptr %arrayidx23, align 4, !tbaa !2
+  %arrayidx28 = getelementptr inbounds [1000 x [1000 x i32]], ptr @C, i64 0, i64 %3, i64 %indvars.iv63
+  %5 = load i32, ptr %arrayidx28, align 4, !tbaa !2
   %mul29 = mul nsw i32 %5, %4
   %add34 = add nsw i32 %mul29, %add
-  store i32 %add34, i32* %arrayidx18, align 4, !tbaa !2
+  store i32 %add34, ptr %arrayidx18, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp6 = icmp ult i64 %indvars.iv.next, 1000
   br i1 %cmp6, label %for.body8, label %for.cond.cleanup7

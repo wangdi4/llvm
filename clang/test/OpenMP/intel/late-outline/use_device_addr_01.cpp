@@ -5,11 +5,12 @@
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 int printf(const char*,...);
-// CHECK-LABEL: define {{[^@]+}}@_Z3noov(
+// CHECK-LABEL: @_Z3noov(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[B:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[BR:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[BR_MAP_PTR_TMP:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[BR_MAP_PTR_TMP2:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    store ptr [[B]], ptr [[BR]], align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[BR]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[TMP0]], align 8
@@ -26,15 +27,16 @@ int printf(const char*,...);
 // CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i16, ptr [[TMP7]], i64 1
 // CHECK-NEXT:    [[TMP8:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP5]], ptr [[ARRAYIDX1]], i64 2, i64 19, ptr null, ptr null) ]
 // CHECK-NEXT:    [[TMP9:%.*]] = load ptr, ptr [[BR]], align 8
-// CHECK-NEXT:    [[TMP10:%.*]] = load ptr, ptr [[BR]], align 8
-// CHECK-NEXT:    [[TMP11:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP9]], ptr [[TMP9]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR:BYREF"(ptr [[BR]]) ]
-// CHECK-NEXT:    [[TMP12:%.*]] = load ptr, ptr [[BR]], align 8
-// CHECK-NEXT:    [[TMP13:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP12]], ptr [[TMP12]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[BR_MAP_PTR_TMP]]) ]
-// CHECK-NEXT:    store ptr [[TMP12]], ptr [[BR_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP14:%.*]] = load ptr, ptr [[BR_MAP_PTR_TMP]], align 8
+// CHECK-NEXT:    [[TMP10:%.*]] = load ptr, ptr [[BR_MAP_PTR_TMP]], align 8
+// CHECK-NEXT:    [[TMP11:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP9]], ptr [[TMP9]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP9]]), "QUAL.OMP.LIVEIN"(ptr [[BR_MAP_PTR_TMP]]) ]
+// CHECK-NEXT:    store ptr [[TMP9]], ptr [[BR_MAP_PTR_TMP]], align 8
+// CHECK-NEXT:    [[TMP12:%.*]] = load ptr, ptr [[BR_MAP_PTR_TMP]], align 8
+// CHECK-NEXT:    [[TMP13:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP12]], ptr [[TMP12]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[BR_MAP_PTR_TMP2]]) ]
+// CHECK-NEXT:    store ptr [[TMP12]], ptr [[BR_MAP_PTR_TMP2]], align 8
+// CHECK-NEXT:    [[TMP14:%.*]] = load ptr, ptr [[BR_MAP_PTR_TMP2]], align 8
 // CHECK-NEXT:    [[TMP15:%.*]] = load ptr, ptr [[TMP14]], align 8
-// CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds i16, ptr [[TMP15]], i64 1
-// CHECK-NEXT:    store i16 222, ptr [[ARRAYIDX2]], align 2
+// CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds i16, ptr [[TMP15]], i64 1
+// CHECK-NEXT:    store i16 222, ptr [[ARRAYIDX3]], align 2
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP13]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP11]]) [ "DIR.OMP.END.TARGET.DATA"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP8]]) [ "DIR.OMP.END.TARGET.DATA"() ]
@@ -55,12 +57,12 @@ void noo() {
     }
   }
 }
-// CHECK-LABEL: define {{[^@]+}}@_Z3ooov(
+// CHECK-LABEL: @_Z3ooov(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A:%.*]] = alloca i16, align 2
 // CHECK-NEXT:    store i16 1, ptr [[A]], align 2
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 2, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[A]]) ]
-// CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TO"(ptr [[A]], ptr [[A]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    store i16 222, ptr [[A]], align 2
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP1]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.TARGET.DATA"() ]
@@ -75,7 +77,7 @@ void ooo() {
     a = 222;
   }
 }
-// CHECK-LABEL: define {{[^@]+}}@_Z5test1v(
+// CHECK-LABEL: @_Z5test1v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i32], align 16
 // CHECK-NEXT:    [[X_MAP_PTR_TMP:%.*]] = alloca ptr, align 8
@@ -85,7 +87,7 @@ void ooo() {
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[X]], ptr [[ARRAYIDX1]], i64 12, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[X]]), "QUAL.OMP.LIVEIN"(ptr [[X_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[X]], ptr [[X_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[X_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TO"(ptr [[TMP1]], ptr [[TMP1]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP1]], ptr [[TMP1]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x i32], ptr [[TMP1]], i64 0, i64 1
 // CHECK-NEXT:    store i32 222, ptr [[ARRAYIDX2]], align 4
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
@@ -103,7 +105,7 @@ void test1() {
   }
 }
 
-// CHECK-LABEL: define {{[^@]+}}@_Z5test2v(
+// CHECK-LABEL: @_Z5test2v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca ptr, align 8
@@ -117,7 +119,7 @@ void test1() {
 // CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[X]], ptr [[X]], i64 20, i64 3, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP0]], ptr [[TMP0]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP0]]), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP0]], ptr [[XP_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3), "QUAL.OMP.LIVEIN"(ptr %xp.map.ptr.tmp), "QUAL.OMP.MAP.TOFROM"(ptr %2, ptr %2, i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr %xp.map.ptr.tmp2)
+// CHECK-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP2]], ptr [[TMP2]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[XP_MAP_PTR_TMP2]]) ]
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[XP_MAP_PTR_TMP2]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP2]], align 8
 // CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds i16, ptr [[TMP4]], i64 1
@@ -139,7 +141,7 @@ void test2() {
   }
 }
 
-// CHECK-LABEL: define {{[^@]+}}@_Z5test3v(
+// CHECK-LABEL: @_Z5test3v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca ptr, align 8
@@ -155,7 +157,7 @@ void test2() {
 // CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP0]], ptr [[ARRAYIDX2]], i64 20, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP0]]), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP0]], ptr [[XP_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.LIVEIN"(ptr %xp.map.ptr.tmp), "QUAL.OMP.MAP.TOFROM"(ptr %3, ptr %3, i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr %xp.map.ptr.tmp3) ]
+// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP3]], ptr [[TMP3]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[XP_MAP_PTR_TMP3]]) ]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[XP_MAP_PTR_TMP3]], align 8
 // CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP3]], align 8
 // CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i16, ptr [[TMP5]], i64 1
@@ -177,7 +179,7 @@ void test3() {
   }
 }
 
-// CHECK-LABEL: define {{[^@]+}}@_Z5test4v(
+// CHECK-LABEL: @_Z5test4v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[P:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[X:%.*]] = alloca i16, align 2
@@ -230,7 +232,7 @@ void test4() {
   }
 }
 
-// CHECK-LABEL: define {{[^@]+}}@_Z5test6v(
+// CHECK-LABEL: @_Z5test6v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A:%.*]] = alloca [10 x i32], align 16
 // CHECK-NEXT:    [[P:%.*]] = alloca ptr, align 8
@@ -246,7 +248,7 @@ void test4() {
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[P]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP3]], ptr [[TMP3]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP3]]), "QUAL.OMP.LIVEIN"(ptr [[P_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[P_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7), "QUAL.OMP.MAP.TO"(ptr [[P_MAP_PTR_TMP]], ptr [[P_MAP_PTR_TMP]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7), "QUAL.OMP.MAP.TOFROM"(ptr [[P_MAP_PTR_TMP]], ptr [[P_MAP_PTR_TMP]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    [[TMP6:%.*]] = load ptr, ptr [[P_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds i32, ptr [[TMP6]], i64 1
 // CHECK-NEXT:    store i32 222, ptr [[ARRAYIDX3]], align 4
@@ -269,7 +271,7 @@ void test6() {
     }
   }
 }
-// CHECK-LABEL: define {{[^@]+}}@_Z5test5v(
+// CHECK-LABEL: @_Z5test5v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca [10 x ptr], align 16

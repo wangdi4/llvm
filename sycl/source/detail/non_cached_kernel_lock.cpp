@@ -1,12 +1,12 @@
 #include "non_cached_kernel_lock.hpp"
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 NonCachedKernelLock::~NonCachedKernelLock() {}
 
-Locked<RT::PiKernel> NonCachedKernelLock::lockKernel(RT::PiKernel &K) {
+Locked<sycl::detail::pi::PiKernel> NonCachedKernelLock::lockKernel(sycl::detail::pi::PiKernel &K) {
   std::unique_lock<std::mutex> MapLock{MapMtx};
   std::mutex &Mtx = Map[K];
   MapLock.unlock();
@@ -15,5 +15,5 @@ Locked<RT::PiKernel> NonCachedKernelLock::lockKernel(RT::PiKernel &K) {
 }
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

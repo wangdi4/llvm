@@ -299,6 +299,7 @@ class OpenMPLateOutliner {
   void addTypedArg(const Expr *E, bool IsRef = false,
                    bool NeedsTypedElements = true);
 
+  template <typename T> void emitDoacrossClause(const T *C, bool IsSource);
   void addFenceCalls(bool IsBegin);
   bool isAllowedClauseForDirectiveFull(OpenMPDirectiveKind DKind,
                                        OpenMPClauseKind CK,
@@ -325,6 +326,7 @@ class OpenMPLateOutliner {
                          const VarDecl *MapVar);
   void emitOMPAllMapClauses();
   void emitOMPAllDependClauses();
+  void emitOMPAllAffinityClauses();
   void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
@@ -399,6 +401,7 @@ class OpenMPLateOutliner {
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
   void emitOMPAffinityClause(const OMPAffinityClause *);
+  void emitOMPDoacrossClause(const OMPDoacrossClause *);
   void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
   void emitOMPHasDeviceAddrClause(const OMPHasDeviceAddrClause *);

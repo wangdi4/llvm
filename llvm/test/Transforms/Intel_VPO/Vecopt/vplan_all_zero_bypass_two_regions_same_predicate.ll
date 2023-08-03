@@ -23,7 +23,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_I_LPRIV_BCAST:%.*]] = bitcast i32* [[VP_I_LPRIV]]
 ; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1

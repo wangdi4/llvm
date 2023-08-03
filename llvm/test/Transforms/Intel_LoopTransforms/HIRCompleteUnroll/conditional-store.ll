@@ -20,7 +20,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp16 = icmp sgt i32 %n, 0
   br i1 %cmp16, label %for.body.lr.ph, label %for.end7
@@ -41,8 +41,8 @@ for.body3:                                        ; preds = %for.inc, %for.body
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then

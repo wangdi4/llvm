@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: %i_sum.027 = @llvm.vector.reduce.add
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @name(i8* nocapture readonly %pix1, i32 %i_stride_pix1, i8* nocapture readonly %pix2, i32 %i_stride_pix2) local_unnamed_addr #0 {
+define dso_local i32 @name(ptr nocapture readonly %pix1, i32 %i_stride_pix1, ptr nocapture readonly %pix2, i32 %i_stride_pix2) local_unnamed_addr #0 {
 entry:
   %idx.ext = sext i32 %i_stride_pix1 to i64
   %idx.ext8 = sext i32 %i_stride_pix2 to i64
@@ -38,8 +38,8 @@ entry:
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %y.028 = phi i32 [ 0, %entry ], [ %inc11, %for.cond.cleanup3 ]
   %i_sum.027 = phi i32 [ 0, %entry ], [ %add.lcssa, %for.cond.cleanup3 ]
-  %pix1.addr.026 = phi i8* [ %pix1, %entry ], [ %add.ptr, %for.cond.cleanup3 ]
-  %pix2.addr.025 = phi i8* [ %pix2, %entry ], [ %add.ptr9, %for.cond.cleanup3 ]
+  %pix1.addr.026 = phi ptr [ %pix1, %entry ], [ %add.ptr, %for.cond.cleanup3 ]
+  %pix2.addr.025 = phi ptr [ %pix2, %entry ], [ %add.ptr9, %for.cond.cleanup3 ]
   br label %for.body4
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
@@ -48,8 +48,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi i32 [ %add, %for.body4 ]
-  %add.ptr = getelementptr inbounds i8, i8* %pix1.addr.026, i64 %idx.ext
-  %add.ptr9 = getelementptr inbounds i8, i8* %pix2.addr.025, i64 %idx.ext8
+  %add.ptr = getelementptr inbounds i8, ptr %pix1.addr.026, i64 %idx.ext
+  %add.ptr9 = getelementptr inbounds i8, ptr %pix2.addr.025, i64 %idx.ext8
   %inc11 = add nuw nsw i32 %y.028, 1
   %exitcond29 = icmp eq i32 %inc11, 8
   br i1 %exitcond29, label %for.cond.cleanup, label %for.cond1.preheader
@@ -57,11 +57,11 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %i_sum.123 = phi i32 [ %i_sum.027, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx = getelementptr inbounds i8, i8* %pix1.addr.026, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %pix1.addr.026, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx, align 1
   %conv = zext i8 %0 to i32
-  %arrayidx6 = getelementptr inbounds i8, i8* %pix2.addr.025, i64 %indvars.iv
-  %1 = load i8, i8* %arrayidx6, align 1
+  %arrayidx6 = getelementptr inbounds i8, ptr %pix2.addr.025, i64 %indvars.iv
+  %1 = load i8, ptr %arrayidx6, align 1
   %conv7 = zext i8 %1 to i32
   %sub = sub nsw i32 %conv, %conv7
   %ispos = icmp sgt i32 %sub, -1

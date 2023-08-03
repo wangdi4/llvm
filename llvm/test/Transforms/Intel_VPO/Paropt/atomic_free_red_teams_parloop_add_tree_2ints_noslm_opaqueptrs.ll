@@ -41,19 +41,15 @@
 ; 2) Compute local reduction buffer pointers, i.e.:
 ;     ptr = red_local_buf + group_id*1024 + thread_id
 ; CHECK: %[[GROUP_ID1:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[GROUP_ID1_TRUNC:[^,]+]] = trunc i64 %[[GROUP_ID1]] to i32
-; CHECK: %[[OFF1_MUL:[^,]+]] = mul i32 %[[GROUP_ID1_TRUNC]], 1024
-; CHECK: %[[LOCAL_ID_TRUNC1:[^,]+]] = trunc i64 %[[LOCAL_ID]] to i32
-; CHECK: %[[BUF_OFF1:[^,]+]] = add i32 %[[OFF1_MUL]], %[[LOCAL_ID_TRUNC1]]
-; CHECK: %[[TEAM_LOCAL_BUF_PTR:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF]], i32 %[[BUF_OFF1]]
+; CHECK: %[[OFF1_MUL:[^,]+]] = mul i64 %[[GROUP_ID1]], 1024
+; CHECK: %[[BUF_OFF1:[^,]+]] = add i64 %[[OFF1_MUL]], %[[LOCAL_ID]]
+; CHECK: %[[TEAM_LOCAL_BUF_PTR:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF]], i64 %[[BUF_OFF1]]
 ; CHECK: load
 ; CHECK: store
 ; CHECK: %[[GROUP_ID2:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[GROUP_ID2_TRUNC:[^,]+]] = trunc i64 %[[GROUP_ID2]] to i32
-; CHECK: %[[OFF2_MUL:[^,]+]] = mul i32 %[[GROUP_ID2_TRUNC]], 1024
-; CHECK: %[[LOCAL_ID_TRUNC2:[^,]+]] = trunc i64 %[[LOCAL_ID]] to i32
-; CHECK: %[[BUF_OFF2:[^,]+]] = add i32 %[[OFF2_MUL]], %[[LOCAL_ID_TRUNC2]]
-; CHECK: %[[TEAM_LOCAL_BUF_PTR1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF1]], i32 %[[BUF_OFF2]]
+; CHECK: %[[OFF2_MUL:[^,]+]] = mul i64 %[[GROUP_ID2]], 1024
+; CHECK: %[[BUF_OFF2:[^,]+]] = add i64 %[[OFF2_MUL]], %[[LOCAL_ID]]
+; CHECK: %[[TEAM_LOCAL_BUF_PTR1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF1]], i64 %[[BUF_OFF2]]
 ; CHECK: load
 ; CHECK: store
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)

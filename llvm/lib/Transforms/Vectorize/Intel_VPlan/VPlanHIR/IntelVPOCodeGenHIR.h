@@ -170,6 +170,13 @@ public:
   void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
   bool getForceMixedCG() const { return ForceMixedCG; }
 
+  void setEmitAlignedLoadForPeeledMemref(bool V) {
+    EmitAlignedLoadForPeeledMemref = V;
+  }
+  bool getEmitAlignedLoadForPeeledMemref() const {
+    return EmitAlignedLoadForPeeledMemref;
+  }
+
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
 
@@ -258,9 +265,8 @@ public:
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
   // elements than the first, it is padded with undefs. This function mimics
-  // the interface in VectorUtils.cpp modified to work with HIR. Vector values
-  // V1 and V2 are concatenated and masked using Mask.
-  RegDDRef *concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2, RegDDRef *Mask);
+  // the interface in VectorUtils.cpp modified to work with HIR.
+  RegDDRef *concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2);
 
   // Concatenate a list of vectors. This function generates code that
   // concatenate the vectors in VecsArray into a single large vector. The number
@@ -268,8 +274,8 @@ public:
   // the same. The number of elements in the vectors should also be the same;
   // however, if the last vector has fewer elements, it will be padded with
   // undefs. This function mimics the interface in VectorUtils.cpp modified to
-  // work with HIR. Vector values are concatenated and masked using Mask.
-  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray, RegDDRef *Mask);
+  // work with HIR.
+  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray);
 
   /// Helper method to create a shuffle using \p Input and undef vectors based
   /// on given \p Mask vector. Shuffle's result is writen to \p WLvalRef if
@@ -303,13 +309,12 @@ public:
   /// defines the position of the part to extract i.e. starts from
   /// Part*(subvector size)-th element of the vector. Subvector size is
   /// determined by given vector size and number of parts to be divided into.
-  /// Generated instruction is also attached to outgoing IR and l-val is
-  /// returned. In case when \p LValRef is non-null, returned l-val is written
-  /// to \p LValRef.
-  RegDDRef *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
-                             RegDDRef *LValRef = nullptr);
+  /// Generated instruction is returned. In case when \p LValRef is non-null,
+  /// instruction's l-val is written to \p LValRef.
+  HLInst *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
+                           RegDDRef *LValRef = nullptr);
 
-  HLInst *createReverseVector(RegDDRef *ValRef);
+  HLInst *createReverseVector(RegDDRef *ValRef, unsigned OriginalVL = 1);
 
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask,
                                          bool MaskIsNonZero);
@@ -650,18 +655,38 @@ public:
   // permute tree reduction.
   bool getTreeConflictsLowered();
 
-  // Bailout data accessors.
-  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
-                      std::string Message) {
-    BD.BailoutLevel = Level;
-    BD.BailoutID = ID;
-    BD.BailoutMessage = Message;
-  }
-  VPlanBailoutData &getBailoutData() { return BD; }
+  // Non-template version when no arguments are required.
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID);
 
-  // Set the bailout reason for this loop and optionally print a debug msg.
-  void bailout(OptReportVerbosity::Level Level, unsigned ID,
-               std::string Message, std::string Debug = "");
+  // Reports a reason for vectorization bailout. Always returns false.
+  // \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               std::string Message, Args &&...BailoutArgs);
+
+  // Reports a reason for vectorization bailout. Always returns false.
+  // \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
+                        std::string Debug, Args &&...BailoutArgs);
+
+  // Initialize cached bailout remark data.
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  // Store a variadic remark indicating the reason for not vectorizing a loop.
+  // Clients should pass string constants as std::string to avoid extra
+  // instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark = OptRemark::get(Context, static_cast<unsigned>(BailoutID),
+                                      OptReportDiag::getMsg(BailoutID),
+                                      std::forward<Args>(BailoutArgs)...);
+  }
+
+  // Access reason for bailing out of vectorization.
+  VPlanBailoutRemark &getBailoutRemark() { return BR; }
 
 private:
   // Target Library Info is used to check for svml.
@@ -718,6 +743,11 @@ private:
   // Force mixed code generation - used when we see cases such as search loops,
   // live out privates, and Fortran subscript arrays
   bool ForceMixedCG = false;
+
+  // Whether to emit an aligned load/store for memrefs which were peeled.
+  // May be set to false if the peel loop may be skipped at run-time, as in this
+  // case, we cannot guarantee the loaded address is aligned.
+  bool EmitAlignedLoadForPeeledMemref = true;
 
   // Loop trip count if constant. Set to zero for non-constant trip count loops.
   uint64_t TripCount;
@@ -787,9 +817,13 @@ private:
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
-  // Set of VPInsts involved in a reduction - used to avoid folding of
+  // Track if loop has any reductions.
+  bool LoopHasReductions = false;
+
+  // Collection of VPInstructions that set incoming values from loop
+  // latches for loop recurrences like reductions - used to avoid folding of
   // operations.
-  SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
+  SmallPtrSet<const VPInstruction *, 8> LoopRecurrentLatchVal;
 
   // Collection of VPPHINodes that correspond to loop IV.
   SmallPtrSet<const VPPHINode *, 8> LoopIVPhis;
@@ -850,7 +884,7 @@ private:
   SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
 
   // Bail-out information when we can't vectorize the loop.
-  VPlanBailoutData BD;
+  VPlanBailoutRemark BR;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -888,8 +922,9 @@ private:
   }
 
   // Capture canonical IV(integer type IV with start value of 0 and stride of 1)
-  // for given VPLoop. This is expected to be called only for inner loops.
-  void captureCanonicalIV(VPLoop *VPLp);
+  // for given VPLoop. Also captures values that feed into non-IV recurrences.
+  // This is expected to be called only for inner loops.
+  void captureCanonicalIVAndRecValues(VPLoop *VPLp);
 
   // Return the upper bound of VPLp's IVPhi if this can be determined given the
   // canonical IVPhi of VPLp. If this can be determined, we can use this to
@@ -1105,12 +1140,17 @@ private:
   // Helper utility to combine pumped call results into a single vector for
   // current VF context. If pumping is not done then the single element of \p
   // CallResults is trivially returned.
-  HLInst *getCombinedCallResults(ArrayRef<HLInst *> CallResults,
-                                 RegDDRef *Mask);
+  HLInst *getCombinedCallResults(ArrayRef<HLInst *> CallResults);
 
   // Helper utility to combine pumped call results when return type of call is a
   // struct of vectors (for example, sincos function).
   HLInst *getCombinedCallResultsForStructTy(ArrayRef<HLInst *> CallResults);
+
+  // Helper utility for combining single call result when return type of
+  // the call is a struct of vectors.
+  // If, for example, call returns { <2 x float>, <2 x float> }, it combines
+  // the two parts into <4 x float> vector type.
+  HLInst *getCombinedCallResultForStructTy(HLInst *CallResult);
 
   // Helper utility to generate a scalar Call HLInst for given VPCall
   // instruction. Scalar values of the call arguments for given vector lane are
@@ -1193,11 +1233,8 @@ private:
   // VPInstruction.
   void getOverflowFlags(const VPInstruction *VPInst, bool &HasNUW,
                         bool &HasNSW) {
-    // Overflow flags should be preserved only for instructions that don't
-    // participate in reduction sequence.
-    bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
-    HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
-    HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
+    HasNUW = VPInst->hasNoUnsignedWrap();
+    HasNSW = VPInst->hasNoSignedWrap();
   }
 
   // Returns CurMaskValue if it exists or all-ones value otherwise.
@@ -1264,6 +1301,18 @@ private:
   /// IV. Note that the new loop is emitted at current InsertionPoint.
   std::pair<HLLoop *, RegDDRef *>
   emitHLLoopSkeletonAndLoopIVRef(unsigned LB, unsigned UB, unsigned Stride);
+
+  /// Helper utility to set GEP ref specifics - currently symbase and number of
+  /// collapsed levels. The symbase from VPInst is used unless a preferred
+  /// symbase is specified.
+  void setGepRefSpecifics(RegDDRef *Ref, const VPInstruction &VPInst,
+                          unsigned PreferredSymbase = loopopt::InvalidSymbase) {
+    unsigned Symbase = PreferredSymbase != loopopt::InvalidSymbase
+                           ? PreferredSymbase
+                           : VPInst.HIR().getSymbase();
+    Ref->setSymbase(Symbase);
+    Ref->setCollapsedLevels(VPInst.HIR().getNumCollapsedLevels());
+  }
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to

@@ -1,6 +1,6 @@
-; RUN: llvm-as -opaque-pointers=0 %S/builtin_lib.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes='sycl-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
+; RUN: llvm-as %S/builtin_lib.rtl -o %t.rtl.bc
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes='sycl-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -12,7 +12,7 @@ target triple = "x86_64-pc-linux"
 %"class._ZTSN2cl4sycl6detail5arrayILi2EEE.cl::sycl::detail::array" = type { [2 x i64] }
 %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec" = type { <4 x i8> }
 ; Function Attrs: nounwind
-define void @_ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !20 !vectorized_width !21 {
+define void @_ZTS17mandelbrot_kernelIdE(ptr addrspace(1) noalias, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !20 !vectorized_width !21 !arg_type_null_val !28 {
 entry:
   ret void
 }
@@ -25,7 +25,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 ; Function Attrs: nounwind readnone
 declare i64 @_Z12get_group_idj(i32) local_unnamed_addr #1
 ; CHECK-LABEL: @WG.boundaries._ZTS17mandelbrot_kernelIdE
-define [7 x i64] @WG.boundaries._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"*, i32, i32, i32, double, double, double, i32) {
+define [7 x i64] @WG.boundaries._ZTS17mandelbrot_kernelIdE(ptr addrspace(1), ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, double, double, double, i32) {
 entry:
   %14 = call i64 @_Z14get_local_sizej(i32 0)
   %15 = call i64 @get_base_global_id.(i32 0)
@@ -65,7 +65,7 @@ entry:
 declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 ; Function Attrs: nounwind
-define void @__Vectorized_._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !25 !vectorized_width !17 !vectorization_dimension !26 !can_unite_workgroups !27 {
+define void @__Vectorized_._ZTS17mandelbrot_kernelIdE(ptr addrspace(1) noalias, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), ptr byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !25 !vectorized_width !17 !vectorization_dimension !26 !can_unite_workgroups !27 {
 entry:
   ret void
 }
@@ -85,22 +85,24 @@ attributes #1 = { nounwind readnone }
 !3 = !{}
 !4 = !{!"cl_doubles"}
 !5 = !{i16 6, i16 14}
-!11 = !{void (%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"*, i32, i32, i32, double, double, double, i32)* @_ZTS17mandelbrot_kernelIdE}
+!11 = !{ptr @_ZTS17mandelbrot_kernelIdE}
 !12 = !{i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
 !13 = !{!"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
 !14 = !{!"pixel_block_t*", !"cl::sycl::range<1>", !"cl::sycl::range<1>", !"cl::sycl::id<1>", !"cl::sycl::range<2>", !"cl::sycl::range<2>", !"cl::sycl::uchar4", !"int", !"int", !"uint32_t", !"double", !"double", !"double", !"int"}
 !15 = !{!"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !""}
 !16 = !{!"struct _ZTS13pixel_block_t.pixel_block_t*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", !"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec", !"int", !"int", !"int", !"double", !"double", !"double", !"int"}
 !17 = !{i32 16}
-!18 = !{void (%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"*, i32, i32, i32, double, double, double, i32)* @__Vectorized_._ZTS17mandelbrot_kernelIdE}
+!18 = !{ptr @__Vectorized_._ZTS17mandelbrot_kernelIdE}
 !19 = !{i1 true}
 !20 = !{null}
 !21 = !{i32 1}
 !22 = !{!"pixel_block_t*", !"cl::sycl::range<1>", !"cl::sycl::range<1>", !"cl::sycl::id<1>", !"cl::sycl::range<2>", !"cl::sycl::range<2>", !"cl::sycl::uchar4", !"int", !"int", !"uint32_t", !"float", !"float", !"float", !"int"}
 !23 = !{!"struct _ZTS13pixel_block_t.pixel_block_t*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", !"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec", !"int", !"int", !"int", !"float", !"float", !"float", !"int"}
-!25 = !{void (%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"*, i32, i32, i32, double, double, double, i32)* @_ZTS17mandelbrot_kernelIdE}
+!25 = !{ptr @_ZTS17mandelbrot_kernelIdE}
 !26 = !{i32 0}
 !27 = !{i1 false}
+!28 = !{ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, i32 0, i32 0, i32 0, double zeroinitializer, double zeroinitializer, double zeroinitializer, i32 0}
+
 ; The get_max_sub_group_size is replaced with constant and related debug
 ; location will be lost as expected.
 ; DEBUGIFY: Missing line 9

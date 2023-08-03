@@ -85,6 +85,21 @@
 # RUN: lld-link -out:%t.dll -dll -opt:noref,noicf -profile %t.obj
 # RUN: ls -l %t.lib | FileCheck -check-prefix=NOKEEP %s
 
+# INTEL_CUSTOMIZATION
+# RUN: lld-link -out:%t.dll -dll -profile-sample-generate -incremental %t.obj \
+# RUN:   2>&1 | FileCheck -allow-empty -check-prefix=WARN-PROFILE-SAMPLE-GENERATE %s
+# RUN: touch -t 198002011200.00 %t.lib
+# RUN: lld-link -out:%t.dll -dll -profile-sample-generate -incremental %t.obj
+# RUN: ls -l %t.lib | FileCheck -check-prefix=NOKEEP %s
+# WARN-PROFILE-SAMPLE-GENERATE: ignoring '/incremental' due to '/profile-sample-generate' specification
+
+# RUN: lld-link -out:%t.dll -dll -profile-sample-generate %t.obj \
+# RUN:   2>&1 | FileCheck -allow-empty -check-prefix=NOWARN %s
+# RUN: touch -t 198002011200.00 %t.lib
+# RUN: lld-link -out:%t.dll -dll -profile-sample-generate %t.obj
+# RUN: ls -l %t.lib | FileCheck -check-prefix=NOKEEP %s
+# end INTEL_CUSTOMIZATION
+
 # RUN: lld-link -out:%t.dll -dll -debug -opt:ref %t.obj 2>&1 \
 # RUN:   | FileCheck -allow-empty -check-prefix=NOWARN %s
 # RUN: touch -t 198002011200.00 %t.lib

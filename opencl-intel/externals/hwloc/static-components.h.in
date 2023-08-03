@@ -1,0 +1,39 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2023 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_noos_component;
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_xml_component;
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_synthetic_component;
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_xml_nolibxml_component;
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_x86_component;
+// HWLOC_WIN_SYS will be define in private/autogen/config.h
+#ifdef HWLOC_WIN_SYS
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_windows_component;
+#else
+HWLOC_DECLSPEC extern const struct hwloc_component hwloc_linux_component;
+#endif
+
+static const struct hwloc_component * hwloc_static_components[] = {
+  &hwloc_noos_component,
+  &hwloc_xml_component,
+  &hwloc_synthetic_component,
+  &hwloc_xml_nolibxml_component,
+  &hwloc_x86_component,
+  #ifdef HWLOC_WIN_SYS
+  &hwloc_windows_component,
+  #else
+  &hwloc_linux_component,
+  #endif
+  NULL
+};

@@ -5,10 +5,10 @@
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body3:
-; CHECK: |   %j.013.out = %j.013;
+; CHECK: |   %j.013.out = %j.013.root;
 ; CHECK: |   %add14 = %add14  +  %j.013.out;
-; CHECK: |   %j.013 = 2 * %j.013.out;
-; CHECK: |   if (2 * %j.013.out < %n)
+; CHECK: |   %j.013.root = %j.013.root  <<  1;
+; CHECK: |   if (%j.013.root < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body3;
@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr {
 entry:
   %cmp212 = icmp sgt i32 %n, 1
   br label %for.cond1.preheader
@@ -29,8 +29,8 @@ for.cond1.preheader:                              ; preds = %for.inc4, %entry
   br i1 %cmp212, label %for.body3.lr.ph, label %for.inc4
 
 for.body3.lr.ph:                                  ; preds = %for.cond1.preheader
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %arrayidx.promoted = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %arrayidx.promoted = load i32, ptr %arrayidx, align 4
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.body3
@@ -43,7 +43,7 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %f
 
 for.cond1.for.inc4_crit_edge:                     ; preds = %for.body3
   %add.lcssa = phi i32 [ %add, %for.body3 ]
-  store i32 %add.lcssa, i32* %arrayidx, align 4
+  store i32 %add.lcssa, ptr %arrayidx, align 4
   br label %for.inc4
 
 for.inc4:                                         ; preds = %for.cond1.for.inc4_crit_edge, %for.cond1.preheader

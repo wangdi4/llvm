@@ -22,16 +22,18 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#include "llvm/Analysis/LoopInfoImpl.h"
+#include "llvm/Support/GenericLoopInfoImpl.h"
 
 namespace llvm {
 namespace vpo {
 class VPBasicBlock;
 class VPValue;
+class VPInductionInit;
 class VPInstruction;
 class VPCmpInst;
 class VPlanDivergenceAnalysis;
 class VPLoop;
+class VPPHINode;
 
 struct TripCountInfo {
   using TripCountTy = uint64_t;
@@ -134,6 +136,12 @@ public:
   /// Return the comparison used for loop latch condition.
   /// If not found, return nullptr.
   VPCmpInst *getLatchComparison() const;
+
+  /// Return the main induction init used in the loop latch condition.
+  VPInductionInit *getInductionInit() const;
+
+  /// Return the main induction PHI used in the loop latch condition.
+  VPPHINode *getInductionPHI() const;
 
   /// Return the loop id metadata node for this VPLoop if present. This is
   /// obtained by checking loop latch's terminator instruction.

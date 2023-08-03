@@ -6,21 +6,21 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree noreturn nosync nounwind uwtable
 define void @ocn_diagnostic_solve_() local_unnamed_addr #0 {
-; CHECK: <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: <DO_LOOP> <MAX_TC_EST = 536870911> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;
 alloca_0:
-  %"addr_a0$_fetch.32[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) null, i64 0)
+  %"addr_a0$_fetch.32[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 undef, ptr elementtype(float) null, i64 0)
   br label %bb1
 
 bb1:                                              ; preds = %bb6, %alloca_0
   %indvars.iv123 = phi i64 [ %indvars.iv.next124, %bb6 ], [ 1, %alloca_0 ]
-  %"addr_a0$2_fetch.4[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 undef, i64 undef, i32* elementtype(i32) null, i64 %indvars.iv123)
-  %"addr_a0$2_fetch.4[]_fetch.10" = load i32, i32* %"addr_a0$2_fetch.4[]", align 1
+  %"addr_a0$2_fetch.4[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 undef, i64 undef, ptr elementtype(i32) null, i64 %indvars.iv123)
+  %"addr_a0$2_fetch.4[]_fetch.10" = load i32, ptr %"addr_a0$2_fetch.4[]", align 1
   %rel.2 = icmp slt i32 %"addr_a0$2_fetch.4[]_fetch.10", 1
   br i1 %rel.2, label %bb6, label %bb5.preheader120
 
 bb5.preheader120:                                 ; preds = %bb1
-  %"addr_a0$_fetch.20[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) null, i64 %indvars.iv123)
+  %"addr_a0$_fetch.20[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 undef, ptr elementtype(float) null, i64 %indvars.iv123)
   %0 = add nuw nsw i32 %"addr_a0$2_fetch.4[]_fetch.10", 1
   %wide.trip.count = sext i32 %0 to i64
   br label %bb5
@@ -32,12 +32,12 @@ bb5:                                              ; preds = %bb5.preheader120, %
 
 bb9:                                              ; preds = %bb5, %bb9
   %indvars.iv = phi i64 [ 1, %bb5 ], [ %indvars.iv.next, %bb9 ]
-  %"addr_a0$_fetch.20[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 undef, float* elementtype(float) %"addr_a0$_fetch.20[]", i64 %indvars.iv)
-  %"addr_a0$_fetch.20[][]_fetch.31" = load float, float* %"addr_a0$_fetch.20[][]", align 1
-  %"addr_a0$_fetch.32[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 undef, float* elementtype(float) %"addr_a0$_fetch.32[]", i64 %indvars.iv)
-  %"addr_a0$_fetch.32[][]_fetch.43" = load float, float* %"addr_a0$_fetch.32[][]", align 1
+  %"addr_a0$_fetch.20[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 undef, i64 undef, ptr elementtype(float) %"addr_a0$_fetch.20[]", i64 %indvars.iv)
+  %"addr_a0$_fetch.20[][]_fetch.31" = load float, ptr %"addr_a0$_fetch.20[][]", align 1
+  %"addr_a0$_fetch.32[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 undef, i64 undef, ptr elementtype(float) %"addr_a0$_fetch.32[]", i64 %indvars.iv)
+  %"addr_a0$_fetch.32[][]_fetch.43" = load float, ptr %"addr_a0$_fetch.32[][]", align 1
   %add.3 = fadd reassoc ninf nsz arcp contract afn float %"addr_a0$_fetch.20[][]_fetch.31", %"addr_a0$_fetch.32[][]_fetch.43"
-  store float %add.3, float* %"addr_a0$_fetch.20[][]", align 1
+  store float %add.3, ptr %"addr_a0$_fetch.20[][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   %indvars.iv.in125 = call i64 @llvm.ssa.copy.i64(i64 %indvars.iv.next)
@@ -58,10 +58,9 @@ bb6:                                              ; preds = %bb6.loopexit, %bb1
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
 
 ; Function Attrs: nofree nosync nounwind readnone willreturn
 declare i32 @llvm.ssa.copy.i32(i32 returned) #2

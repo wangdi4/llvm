@@ -17,7 +17,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
 #define LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Instructions.h"

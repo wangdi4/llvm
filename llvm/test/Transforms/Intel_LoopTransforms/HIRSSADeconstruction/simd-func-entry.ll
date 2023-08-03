@@ -14,23 +14,23 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %a) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a) local_unnamed_addr #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %entry ]
   %1 = sub nuw nsw i64 32, %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4
+  %2 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp eq i32 %2, 20
   br i1 %cmp1, label %omp.inner.for.inc, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %1
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %1
   %3 = trunc i64 %1 to i32
-  store i32 %3, i32* %arrayidx2, align 4
+  store i32 %3, ptr %arrayidx2, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.inner.for.body, %if.then

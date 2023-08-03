@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,6 +23,7 @@
 #include "cl_sys_defines.h"
 #include "cl_types.h"
 #include "ocl_object_base.h"
+#include <atomic>
 #include <map>
 #include <mutex>
 
@@ -52,7 +53,7 @@ protected:
 
   // object's map
   HandleTypeMap m_mapObjects;
-  static Intel::OpenCL::Utils::AtomicCounter m_iNextGenKey;
+  static std::atomic<long> m_iNextGenKey;
   mutable std::mutex m_muMapMutex;
   bool m_bDisableAdding;
   bool m_bPreserveUserHandles;
@@ -135,15 +136,9 @@ public:
   /*****************************************************************************
    * Function:     GetObjects
    * Description:    returns an array with all objects
-   * Arguments:    uiObjectCount [in]
-   *                ppObjects [out]
-   *                puiObjectCountRet [out]
-   * Return value:    CL_SUCCESS -
    ****************************************************************************/
-  cl_err_code
-  GetObjects(cl_uint uiObjectCount,
-             SharedPtr<OCLObject<HandleType, ParentHandleType>> *ppObjects,
-             cl_uint *puiObjectCountRet);
+  void GetObjects(
+      std::vector<SharedPtr<OCLObject<HandleType, ParentHandleType>>> &Objects);
 
   /*****************************************************************************
    * Function:     GetIDs

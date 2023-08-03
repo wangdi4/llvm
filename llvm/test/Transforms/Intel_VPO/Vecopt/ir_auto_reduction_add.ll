@@ -12,12 +12,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return Sum;
 ;}
 
-define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
+define i32 @foo(ptr nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT0:%.*]], i64 0
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI40:%.*]] = phi <4 x i32> [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[RED_INIT_INSERT0]], [[VPLANNEDBB20:%.*]] ]
-; CHECK:         [[TMP4]] = add nsw <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI40]]
+; CHECK:         [[TMP4]] = add <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI40]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP4]])
 ; CHECK:       final.merge:
@@ -38,8 +38,8 @@ for.body.ph:                                 ; preds = %0
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.ph ]
   %Sum.07 = phi i32 [ %add, %for.body ], [ %Init, %for.body.ph ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %Sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

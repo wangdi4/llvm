@@ -70,7 +70,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @foo([1000 x i32]* noalias nocapture %p, [1000 x i32]* noalias nocapture %q, i32 %n, i32* nocapture readonly %a1) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr noalias nocapture %p, ptr noalias nocapture %q, i32 %n, ptr nocapture readonly %a1) local_unnamed_addr #0 {
 entry:
   %conv = sext i32 %n to i64
   %cmp134 = icmp eq i32 %n, 0
@@ -99,12 +99,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body7:                                        ; preds = %for.body7.preheader, %for.body7
   %j.0124 = phi i64 [ %inc, %for.body7 ], [ 0, %for.body7.preheader ]
   %add = add i64 %j.0124, %i.0137
-  %arrayidx = getelementptr inbounds i32, i32* %a1, i64 %j.0124
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a1, i64 %j.0124
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = trunc i64 %add to i32
   %conv10 = add i32 %0, %1
-  %arrayidx12 = getelementptr inbounds [1000 x i32], [1000 x i32]* %p, i64 %i.0137, i64 %j.0124
-  store i32 %conv10, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [1000 x i32], ptr %p, i64 %i.0137, i64 %j.0124
+  store i32 %conv10, ptr %arrayidx12, align 4
   %inc = add nuw i64 %j.0124, 1
   %cmp4 = icmp ult i64 %inc, %conv
   br i1 %cmp4, label %for.body7, label %for.body19.preheader
@@ -115,12 +115,12 @@ for.body19.preheader:                             ; preds = %for.body7
 for.body19:                                       ; preds = %for.body19.preheader, %for.body19
   %j13.0126 = phi i64 [ %inc28, %for.body19 ], [ 0, %for.body19.preheader ]
   %add20 = add i64 %j13.0126, %i.0137
-  %arrayidx21 = getelementptr inbounds i32, i32* %a1, i64 %j13.0126
-  %2 = load i32, i32* %arrayidx21, align 4
+  %arrayidx21 = getelementptr inbounds i32, ptr %a1, i64 %j13.0126
+  %2 = load i32, ptr %arrayidx21, align 4
   %3 = trunc i64 %add20 to i32
   %conv24 = add i32 %2, %3
-  %arrayidx26 = getelementptr inbounds [1000 x i32], [1000 x i32]* %q, i64 %i.0137, i64 %j13.0126
-  store i32 %conv24, i32* %arrayidx26, align 4
+  %arrayidx26 = getelementptr inbounds [1000 x i32], ptr %q, i64 %i.0137, i64 %j13.0126
+  store i32 %conv24, ptr %arrayidx26, align 4
   %inc28 = add nuw i64 %j13.0126, 1
   %cmp16 = icmp ult i64 %inc28, %conv
   br i1 %cmp16, label %for.body19, label %for.body36.preheader
@@ -136,8 +136,8 @@ for.body36:                                       ; preds = %for.body36.preheade
   %j30.0129 = phi i64 [ %inc46, %for.body36 ], [ 0, %for.body36.preheader ]
   %acc1.1128 = phi i32 [ %conv44, %for.body36 ], [ %acc1.0135, %for.body36.preheader ]
   %add37 = add i64 %j30.0129, %i.0137
-  %arrayidx39 = getelementptr inbounds [1000 x i32], [1000 x i32]* %p, i64 %i.0137, i64 %j30.0129
-  %4 = load i32, i32* %arrayidx39, align 4
+  %arrayidx39 = getelementptr inbounds [1000 x i32], ptr %p, i64 %i.0137, i64 %j30.0129
+  %4 = load i32, ptr %arrayidx39, align 4
   %5 = trunc i64 %add37 to i32
   %6 = add i32 %acc1.1128, %5
   %conv44 = add i32 %6, %4
@@ -155,10 +155,10 @@ for.body54:                                       ; preds = %for.body54.preheade
   %j48.0132 = phi i64 [ %inc68, %for.body54 ], [ 0, %for.body54.preheader ]
   %acc2.1131 = phi i32 [ %conv66, %for.body54 ], [ %acc2.0136, %for.body54.preheader ]
   %add55 = add i64 %j48.0132, %i.0137
-  %arrayidx57 = getelementptr inbounds [1000 x i32], [1000 x i32]* %q, i64 %i.0137, i64 %j48.0132
-  %7 = load i32, i32* %arrayidx57, align 4
-  %arrayidx61 = getelementptr inbounds [1000 x i32], [1000 x i32]* %p, i64 %i.0137, i64 %j48.0132
-  %8 = load i32, i32* %arrayidx61, align 4
+  %arrayidx57 = getelementptr inbounds [1000 x i32], ptr %q, i64 %i.0137, i64 %j48.0132
+  %7 = load i32, ptr %arrayidx57, align 4
+  %arrayidx61 = getelementptr inbounds [1000 x i32], ptr %p, i64 %i.0137, i64 %j48.0132
+  %8 = load i32, ptr %arrayidx61, align 4
   %9 = trunc i64 %add55 to i32
   %10 = add i32 %acc2.1131, %9
   %11 = add i32 %10, %7

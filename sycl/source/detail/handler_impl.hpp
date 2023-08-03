@@ -8,10 +8,12 @@
 
 #pragma once
 
+#include "sycl/handler.hpp"
 #include <detail/kernel_bundle_impl.hpp>
+#include <memory>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace detail {
 
 using KernelBundleImplPtr = std::shared_ptr<detail::kernel_bundle_impl>;
@@ -28,6 +30,8 @@ public:
                std::shared_ptr<queue_impl> SubmissionSecondaryQueue)
       : MSubmissionPrimaryQueue(std::move(SubmissionPrimaryQueue)),
         MSubmissionSecondaryQueue(std::move(SubmissionSecondaryQueue)){};
+
+  handler_impl() = default;
 
   void setStateExplicitKernelBundle() {
     if (MSubmissionState == HandlerSubmissionState::SPEC_CONST_SET_STATE)
@@ -98,10 +102,10 @@ public:
   // If the pipe operation is read or write, 1 for read 0 for write.
   bool HostPipeRead = true;
 
-  RT::PiKernelCacheConfig MKernelCacheConfig =
+  sycl::detail::pi::PiKernelCacheConfig MKernelCacheConfig =
       PI_EXT_KERNEL_EXEC_INFO_CACHE_DEFAULT;
 };
 
 } // namespace detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

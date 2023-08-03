@@ -52,6 +52,7 @@ define void @coupled_miv_type_mismatch(i32 %n) #0 {
 entry:
   br label %for.cond
 ; INTEL - SCEV improvements yield stronger DA results here
+
 ; DELIN: da analyze - none!
 ; DELIN: da analyze - consistent anti [1 -2]!
 ; DELIN: da analyze - none!

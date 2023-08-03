@@ -54,9 +54,9 @@
 
 ; Debug messages:
 
-; CHECK: Opportunity: <7>          if (%p1 != 0) --> Level 0, Candidate: 1
+; CHECK: Opportunity: <7>          if (%p1 != 0) --> Level 0, Candidate: Yes
 ; CHECK:   - Code size will NOT increase, thresholds NOT needed
-; CHECK: Opportunity: <11>         if (%p2 == 3) --> Level 0, Candidate: 1
+; CHECK: Opportunity: <11>         if (%p2 == 3) --> Level 0, Candidate: Yes
 ; CHECK:   - Code size will increase, thresholds needed
 
 ; HIR after transformation

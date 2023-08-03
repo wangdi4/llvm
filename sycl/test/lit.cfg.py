@@ -114,6 +114,7 @@ config.substitutions.append( ('%threads_lib', config.sycl_threads_lib) )
 config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%sycl_source_dir', config.sycl_source_dir) )
+config.substitutions.append( ('%llvm_main_include_dir', config.llvm_main_include_dir) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 config.substitutions.append( ('%level_zero_include_dir',  config.level_zero_include_dir) )
 config.substitutions.append( ('%opencl_include_dir',  config.opencl_include_dir) )
@@ -135,7 +136,7 @@ for include_dir in [config.sycl_include, config.level_zero_include_dir, config.o
         sycl_host_only_options += ' -isystem %s' % include_dir
 config.substitutions.append( ('%fsycl-host-only', sycl_host_only_options) )
 
-config.substitutions.append( ('%sycl_lib', ' -lsycl6' if platform.system() == "Windows" else '-lsycl') )
+config.substitutions.append( ('%sycl_lib', ' -lsycl7' if platform.system() == "Windows" else '-lsycl') )
 
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
@@ -163,6 +164,9 @@ if config.opencl_be == "ON":
 
 if config.level_zero_be == "ON":
     config.available_features.add('level_zero_be')
+
+if config.native_cpu_be == "ON":
+    config.available_features.add('native_cpu_be')
 
 if triple == 'nvptx64-nvidia-cuda':
     llvm_config.with_system_environment('CUDA_PATH')

@@ -61,18 +61,18 @@
 @k = dso_local global i32 0
 @i = dso_local global i32 0
 @_ZN1C1jE = dso_local global i32 0
-@llvm.global_ctors = appending global [2 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @calls_before_main, i8* null }, { i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_example.cpp, i8* null }]
-@llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @calls_after_main, i8* null }]
+@llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @calls_before_main, ptr null }, { i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_example.cpp, ptr null }]
+@llvm.global_dtors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @calls_after_main, ptr null }]
 
 define internal void @__cxx_global_var_init() section ".text.startup" {
   %1 = call i32 @init_k()
-  store i32 %1, i32* @k
+  store i32 %1, ptr @k
   ret void
 }
 
 define internal void @__cxx_global_var_init.1() section ".text.startup" {
   %1 = call i32 @init_i()
-  store i32 %1, i32* @i
+  store i32 %1, ptr @i
   ret void
 }
 

@@ -4,6 +4,7 @@ import lit.util
 # end INTEL_CUSTOMIZATION
 @AUTO_GEN_COMMENT@
 
+config.bin_llvm_tools_dir = "@CMAKE_BINARY_DIR@/bin"
 config.test_c_compiler = "@OPENMP_TEST_C_COMPILER@"
 config.test_cxx_compiler = "@OPENMP_TEST_CXX_COMPILER@"
 config.test_compiler_features = @OPENMP_TEST_COMPILER_FEATURES@
@@ -34,6 +35,13 @@ config.lit_tools_dir = path("@LLVM_LIT_TOOLS_DIR@")
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
 # end INTEL_CUSTOMIZATION
+config.llvm_enabled_projects = "@LLVM_ENABLE_PROJECTS@".split(";")
+# INTEL_CUSTOMIZATION
+config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
+# end INTEL_CUSTOMIZATION
+
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")

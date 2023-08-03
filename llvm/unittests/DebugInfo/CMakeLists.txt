@@ -1,4 +1,5 @@
 add_subdirectory(CodeView)
+add_subdirectory(BTF)
 add_subdirectory(DWARF)
 add_subdirectory(Intel_TraceBack)
 add_subdirectory(GSYM)

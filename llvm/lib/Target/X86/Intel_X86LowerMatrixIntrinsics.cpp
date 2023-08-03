@@ -156,6 +156,16 @@ static bool isMatARowmajor(Metadata *MatUse, Metadata *MemLayout,
           cast<MDString>(MatUse)->getString().equals("matrix.use.a"));
 }
 
+static bool isMatBRowmajor(Metadata *MatUse, Metadata *MemLayout,
+                           Metadata *MatLayout) {
+  return (cast<MDString>(MatUse)->getString().equals(
+              "matrix.use.unnecessary") &&
+          cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor")) ||
+         (cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatUse)->getString().equals("matrix.use.b"));
+}
+
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
   bool MadeChange = false;
   switch (II->getIntrinsicID()) {
@@ -217,17 +227,19 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   Type *MatrixElemType = MatrixType->getElementType();
   int64_t Factor = 1;
   int64_t SizeFactor = 1;
-  if (MatrixElemType->isIntegerTy(16))
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     SizeFactor = 2;
   else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
   else {
-    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
-           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
-              "float!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted MatrixElemType:" << MatrixElemType
+       << "AMX provides support for int8_t, uint8_t, int32_t, bf16, half, and "
+          "float!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(8))->getMetadata();
   Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
@@ -239,19 +251,23 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
   else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
-           isMatCRowmajor(MatUse, MemLayout, MatLayout))
+           isMatCRowmajor(MatUse, MemLayout, MatLayout) ||
+           (isMatBRowmajor(MatUse, MemLayout, MatLayout) &&
+            MatrixElemType->isFloatTy()))
     Factor = 1;
   else {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
-           << "!\n"
-           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
-           << "!\n"
-           << "We support layout&use: matrix.rowmajor(A,C) and "
-              "matrix.packed(B)!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
+       << "!\n"
+       << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+       << "!\n"
+       << "We support layout&use: matrix.rowmajor(A,C)(int8, int16) and "
+          "matrix.packed(B)(float) and matrix.rowmajor(B)(float)!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   // Handle cases where it is vxi8 and packedb.
   assert(MRows >= Factor && MRows % Factor == 0 &&
@@ -259,10 +275,12 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   int64_t ResRows = MRows / Factor;
   int64_t ResCols = MCols * Factor * SizeFactor;
   if (ResRows > 16 || ResCols > 64) {
-    errs() << "Unsupported Size for tileload! Rows = " << ResRows
-           << "Cols = " << ResCols << "!\n"
-           << "We support Size: Rows <= 16 and Cols <= 64!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsupported Size for tileload! Rows = " << ResRows
+       << "Cols = " << ResCols << "!\n"
+       << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Value *Rows = Builder.getInt16(ResRows);
   Value *Cols = Builder.getInt16(ResCols);
@@ -316,17 +334,19 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   int64_t Factor = 1;
   int64_t SizeFactor = 1;
   // FIXME: SizeFactor = MatrixElemType->getScalarSizeInBits()/8?
-  if (MatrixElemType->isIntegerTy(16))
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     SizeFactor = 2;
   else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
   else {
-    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
-           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
-              "float!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+       << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+          "float!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(9))->getMetadata();
   Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
@@ -337,29 +357,33 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
   else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
            isMatCRowmajor(MatUse, MemLayout, MatLayout))
     Factor = 1;
   else {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
-           << "!\n"
-           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
-           << "!\n"
-           << "We support layout&use: matrix.rowmajor(A,C) and "
-              "matrix.packed(B)!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
+       << "!\n"
+       << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+       << "!\n"
+       << "We support layout&use: matrix.rowmajor(A,C) and "
+          "matrix.packed(B)!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   assert(MRows >= Factor && MRows % Factor == 0 &&
          "Invalid Matrix Rows Value!");
   int64_t ResRows = MRows / Factor;
   int64_t ResCols = MCols * Factor * SizeFactor;
   if (ResRows > 16 || ResCols > 64) {
-    errs() << "Unsupported Size for tilestore! Rows = " << ResRows
-           << "Cols = " << ResCols << "!\n"
-           << "We support Size: Rows <= 16 and Cols <= 64!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsupported Size for tilestore! Rows = " << ResRows
+       << "Cols = " << ResCols << "!\n"
+       << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Value *Rows = Builder.getInt16(ResRows);
   Value *Cols = Builder.getInt16(ResCols);
@@ -399,15 +423,35 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   // A.cols = B.rows, C.rows = A.rows, C.cols in int8 = B.rows * 4.
   IRBuilder<> Builder(II);
   FixedVectorType *MatrixType = cast<FixedVectorType>(II->getType());
-  Type *MatrixElemType = MatrixType->getElementType();
+  Type *DstMatrixElemType = MatrixType->getElementType();
+  Type *SrcMatrixElemType =
+      cast<FixedVectorType>(II->getOperand(0)->getType())->getElementType();
   Intrinsic::ID IID;
   switch (II->getIntrinsicID()) {
   default:
     assert(false && "Invalid Intrinsic ID!");
     break;
   case Intrinsic::experimental_matrix_mad:
-    IID = MatrixElemType->isFloatTy() ? Intrinsic::x86_tdpbf16ps_internal
-                                      : Intrinsic::x86_tdpbssd_internal;
+    if (SrcMatrixElemType->isFloatTy() && DstMatrixElemType->isFloatTy()) {
+#if INTEL_FEATURE_ISA_AMX_TF32
+      IID = Intrinsic::x86_tmmultf32ps_internal;
+#else  // INTEL_FEATURE_ISA_AMX_TF32
+      report_fatal_error(
+          "unsupported Matrix type: A&B is tf32 and C is float!");
+#endif // INTEL_FEATURE_ISA_AMX_TF32
+    } else if (SrcMatrixElemType->isIntegerTy(16) &&
+               DstMatrixElemType->isFloatTy()) {
+      IID = Intrinsic::x86_tdpbf16ps_internal;
+    } else if (SrcMatrixElemType->isIntegerTy(8) &&
+               DstMatrixElemType->isIntegerTy(32)) {
+      IID = Intrinsic::x86_tdpbssd_internal;
+    } else if (SrcMatrixElemType->isHalfTy() &&
+               DstMatrixElemType->isFloatTy()) {
+      IID = Intrinsic::x86_tdpfp16ps_internal;
+      break;
+    } else {
+      report_fatal_error("unsupported Matrix type of matrix.mad!");
+    }
     break;
   case Intrinsic::experimental_matrix_sumad:
     IID = Intrinsic::x86_tdpbsud_internal;
@@ -422,9 +466,11 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
 
   Value *M =
       Builder.getInt16(cast<ConstantInt>(II->getOperand(6))->getSExtValue());
+  // K is measured by bytes
   Value *K =
       Builder.getInt16(cast<ConstantInt>(II->getOperand(7))->getSExtValue() *
-                       (MatrixElemType->isFloatTy() ? 2 : 1));
+                       (SrcMatrixElemType->getPrimitiveSizeInBits() / 8));
+  // N is measured by bytes
   Value *N = Builder.getInt16(
       cast<ConstantInt>(II->getOperand(8))->getSExtValue() * 4);
   // M=A.rows, N=C.cols*4, K=B.rows,C,A,B
@@ -481,10 +527,11 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
 
   Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
   if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
-           << "!\n"
-           << "We support layout for slicing: matrix.rowmajor!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString() << "!\n"
+       << "We support layout for slicing: matrix.rowmajor!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Value *AllocaAddr = createAllocaInstAtEntry(Builder, II->getParent(),
                                               II->getOperand(0)->getType());
@@ -523,10 +570,11 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixInsertRowSlice(
 
   Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
   if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
-           << "!\n"
-           << "We support layout for slicing: matrix.rowmajor!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString() << "!\n"
+       << "We support layout for slicing: matrix.rowmajor!\n";
+    report_fatal_error(Twine(OS.str()));
   }
 
   Value *AllocaAddr = createAllocaInstAtEntry(Builder, II->getParent(),
@@ -586,23 +634,27 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
     assert(cast<ConstantFP>(II->getOperand(0))->isZero() &&
            "MatrixFill's val is not zero!");
   else {
-    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
-           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
-              "float!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+       << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+          "float!\n";
+    report_fatal_error(Twine(OS.str()));
   }
 
-  if (MatrixElemType->isIntegerTy(16)) {
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy())) {
     SizeFactor = 2;
   } else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
   else {
-    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
-           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
-              "float!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+       << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+          "float!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
   Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
@@ -615,7 +667,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
     Factor = 4;
   else if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
             cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (cast<MDString>(MatUse)->getString().equals("matrix.use.a") ||
            cast<MDString>(MatUse)->getString().equals(
@@ -623,11 +675,13 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
            cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor"))
     Factor = 1;
   else {
-    errs() << "Unsuppoted matrix use:" << cast<MDString>(MatUse)->getString()
-           << "!\n"
-           << "We support matrix use: matrix.use.a, matrix.use.b and "
-              "matrix.use.accumulator!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsuppoted matrix use:" << cast<MDString>(MatUse)->getString()
+       << "!\n"
+       << "We support matrix use: matrix.use.a, matrix.use.b and "
+          "matrix.use.accumulator!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   // Handle cases where it is vxi8 and packedb.
   assert(MRows >= Factor && MRows % Factor == 0 &&
@@ -635,10 +689,12 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
   int64_t ResRows = MRows / Factor;
   int64_t ResCols = MCols * Factor * SizeFactor;
   if (ResRows > 16 || ResCols > 64) {
-    errs() << "Unsupported Size for tilezero! Rows = " << ResRows
-           << "Cols = " << ResCols << "!\n"
-           << "We support Size: Rows <= 16 and Cols <= 64!\n";
-    llvm_unreachable(nullptr);
+    std::string Str;
+    raw_string_ostream OS(Str);
+    OS << "Unsupported Size for tilezero! Rows = " << ResRows
+       << "Cols = " << ResCols << "!\n"
+       << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    report_fatal_error(Twine(OS.str()));
   }
   Value *Rows = Builder.getInt16(ResRows);
   Value *Cols = Builder.getInt16(ResCols);

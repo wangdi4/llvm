@@ -643,6 +643,7 @@ private:
   EXPR NumTeams = nullptr;
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default = WRNDefaultAbsent;
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -672,6 +673,13 @@ public:
   EXPR getNumTeams() const override  { return NumTeams; }
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
+  const SmallVectorImpl<Value *> &
+  getDirectlyUsedNonPointerValues() const override {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) override {
+    DirectlyUsedNonPointerValues.push_back(V);
+  }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 #endif // INTEL_CUSTOMIZATION
@@ -1308,11 +1316,12 @@ private:
   bool Untied = false;
   bool Mergeable = false;
   bool IsTargetTask = false; // Is an implicit task surrounding a target region
+  bool IsTargetNowaitTask = false; // Is an implicit task for a target nowait
   unsigned TaskFlag = WRNTaskFlag::Tied; // Bit vector used to invoke task RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
-  bool IsTargetNowaitTask = false; // set to true when parsing nowait on
-                                   // taskwait as task.
+  bool IsTaskwaitNowaitTask = false; // set to true when parsing nowait on
+                                     // taskwait as task.
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -1329,8 +1338,9 @@ protected:
   void setUntied(bool B) override { Untied = B; }
   void setMergeable(bool B) override { Mergeable = B; }
   void setIsTargetTask(bool B) override { IsTargetTask = B; }
+  void setIsTargetNowaitTask(bool B) override { IsTargetNowaitTask = B; }
   void setTaskFlag(unsigned F) override { TaskFlag = F; }
-  void setIsTaskwaitNowaitTask(bool B) override { IsTargetNowaitTask = B; }
+  void setIsTaskwaitNowaitTask(bool B) override { IsTaskwaitNowaitTask = B; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1353,12 +1363,15 @@ public:
   bool getUntied() const override { return Untied; }
   bool getMergeable() const override { return Mergeable; }
   bool getIsTargetTask() const override { return IsTargetTask; }
+  bool getIsTargetNowaitTask() const override { return IsTargetNowaitTask; }
   unsigned getTaskFlag() const override { return TaskFlag; }
-  bool getIsTaskwaitNowaitTask() const override { return IsTargetNowaitTask; }
+  bool getIsTaskwaitNowaitTask() const override { return IsTaskwaitNowaitTask; }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  void addCancellationPoint(Instruction *I) override {
+    CancellationPoints.push_back(I);
+  }
   const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const  override {
     return CancellationPointAllocas;
   }
@@ -1789,6 +1802,9 @@ private:
   int Collapse = 0;
   WRNLoopInfo WRNLI;
   WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used for Fortran DO Concurrent.
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
@@ -1796,6 +1812,9 @@ public:
 protected:
   void setCollapse(int N) override  { Collapse = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
@@ -1808,6 +1827,9 @@ public:
   int getCollapse() const override  { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1905,7 +1927,9 @@ public:
 class WRNScopeNode : public WRegionNode {
 private:
   PrivateClause Priv;
+  FirstprivateClause Fpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   bool Nowait = false;
 
 public:
@@ -1916,7 +1940,9 @@ protected:
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause, getAllocate, Alloc)
   bool getNowait() const override { return Nowait; }
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                   unsigned Verbosity=1) const override;
@@ -2333,7 +2359,9 @@ public:
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
-  bool mapLoopScheme();
+  void mapLoop(unsigned LoopMappingScheme = 1);
+  void mapLoopScheme0();
+  void mapLoopScheme1();
 
   int getMappedDir() const { return MappedDir; }
 

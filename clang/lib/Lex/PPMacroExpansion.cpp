@@ -1911,7 +1911,8 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
     if (!Tok.isAnnotation() && Tok.getIdentifierInfo())
       Tok.setKind(tok::identifier);
     else if (Tok.is(tok::string_literal) && !Tok.hasUDSuffix()) {
-      StringLiteralParser Literal(Tok, *this);
+      StringLiteralParser Literal(Tok, *this,
+                                  StringLiteralEvalMethod::Unevaluated);
       if (Literal.hadError)
         return;
 

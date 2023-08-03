@@ -39,20 +39,20 @@ for.cond191.preheader:                            ; preds = %for.inc214, %entry
 
 for.cond195.preheader:                            ; preds = %for.inc211, %for.cond191.preheader
   %0 = phi i64 [ 0, %for.cond191.preheader ], [ %inc212, %for.inc211 ]
-  %arrayidx200.phi.trans.insert = getelementptr inbounds [8 x [8 x i8]], [8 x [8 x i8]]* @t_run_test.f_1, i64 0, i64 %0, i64 %inc2151471
-  %.pre1593 = load i8, i8* %arrayidx200.phi.trans.insert, align 1
+  %arrayidx200.phi.trans.insert = getelementptr inbounds [8 x [8 x i8]], ptr @t_run_test.f_1, i64 0, i64 %0, i64 %inc2151471
+  %.pre1593 = load i8, ptr %arrayidx200.phi.trans.insert, align 1
   %conv201 = sext i8 %.pre1593 to i64
   br label %for.body198
 
 for.body198:                                      ; preds = %for.body198, %for.cond195.preheader
   %inc2091468 = phi i64 [ 0, %for.cond195.preheader ], [ %inc209, %for.body198 ]
-  %arrayidx203 = getelementptr inbounds [8 x [8 x i64]], [8 x [8 x i64]]* %cosMatrixA, i64 0, i64 %inc2151471, i64 %inc2091468
-  %1 = load i64, i64* %arrayidx203, align 8
+  %arrayidx203 = getelementptr inbounds [8 x [8 x i64]], ptr %cosMatrixA, i64 0, i64 %inc2151471, i64 %inc2091468
+  %1 = load i64, ptr %arrayidx203, align 8
   %mul204 = mul nsw i64 %conv201, %1
-  %arrayidx206 = getelementptr inbounds [8 x [8 x i64]], [8 x [8 x i64]]* @t_run_test.F_1, i64 0, i64 %0, i64 %inc2091468
-  %2 = load i64, i64* %arrayidx206, align 8
+  %arrayidx206 = getelementptr inbounds [8 x [8 x i64]], ptr @t_run_test.F_1, i64 0, i64 %0, i64 %inc2091468
+  %2 = load i64, ptr %arrayidx206, align 8
   %add207 = add nsw i64 %2, %mul204
-  store i64 %add207, i64* %arrayidx206, align 8
+  store i64 %add207, ptr %arrayidx206, align 8
   %inc209 = add nuw nsw i64 %inc2091468, 1
   %exitcond = icmp eq i64 %inc209, 8
   br i1 %exitcond, label %for.inc211, label %for.body198

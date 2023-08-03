@@ -44,7 +44,7 @@
   if (!(exp))                                                                  \
     return retVal;
 
-#ifdef WIN32
+#ifdef _WIN32
 typedef int threadid_t;
 #define INVALID_THREAD_HANDLE ((threadid_t)0)
 #else
@@ -309,7 +309,7 @@ std::string GetConfigFilePath();
 /**
  * @fetch a registry entry 'valueName' into 'retValue' buffer of size 'size'
  */
-#ifdef WIN32
+#ifdef _WIN32
 bool GetStringValueFromRegistryOrETC(HKEY top_hkey, const char *keyPath,
                                      const char *valueName, char *retValue,
                                      DWORD size);

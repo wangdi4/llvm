@@ -48,9 +48,6 @@ VERS1.0 {
     __tgt_create_interop;
     __tgt_release_interop;
     __tgt_use_interop;
-    __tgt_target_supports_per_hw_thread_scratch;
-    __tgt_target_alloc_per_hw_thread_scratch;
-    __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount_mapper;
@@ -63,6 +60,8 @@ VERS1.0 {
     omp_target_is_present;
     omp_target_memcpy;
     omp_target_memcpy_rect;
+    omp_target_memcpy_async;
+    omp_target_memcpy_rect_async;
     omp_target_associate_ptr;
     omp_target_disassociate_ptr;
 # INTEL_COLLAB
@@ -124,6 +123,7 @@ VERS1.0 {
     __tgt_task_completed;
     __tgt_interop_use_async;
 # end INTEL_CUSTOMIZATION
+    ompt_libomptarget_connect;
   local:
     *;
 };

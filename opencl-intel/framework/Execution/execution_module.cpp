@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2022 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -99,8 +99,9 @@ void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
  ******************************************************************/
 ExecutionModule::ExecutionModule(PlatformModule *pPlatformModule,
                                  ContextModule *pContextModule)
-    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(NULL),
-      m_pEventsManager(NULL), m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
+    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(nullptr),
+      m_pEventsManager(nullptr), m_pActiveProgram(nullptr),
+      m_pOclEntryPoints(nullptr), m_pGPAData(nullptr) {
   INIT_LOGGER_CLIENT(TEXT("ExecutionModel"), LL_DEBUG);
 
   LOG_DEBUG(TEXT("%s"), TEXT("ExecutionModule created"));
@@ -150,7 +151,7 @@ cl_err_code ExecutionModule::Release(bool bTerminate) {
 
   if (NULL != m_pOclCommandQueueMap) {
     delete m_pOclCommandQueueMap;
-    m_pEventsManager = NULL;
+    m_pOclCommandQueueMap = NULL;
   }
 
   RELEASE_LOGGER_CLIENT;
@@ -2132,6 +2133,22 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   }
 #endif
 
+  SharedPtr<Program> program = pKernel->GetProgram();
+
+  // SYCL extension device global requires that when a device global is
+  // decorated with property device_image_scope, the implementation need to
+  // re-initializes it whenever the device image is loaded onto the device. And
+  // for fpga deivce, it only allows a single device program at a time. This
+  // means we need to reset device globals with the property when user trying to
+  // launch a kernel from an inactive device program.
+  if (isFPGAEmulator && m_pActiveProgram != program.GetPtr()) {
+    m_pActiveProgram = program.GetPtr();
+    errVal = program->ResetDeviceImageScopeGlobalVariable();
+
+    if (CL_FAILED(errVal))
+      return errVal;
+  }
+
   // Kernel serialization.
   // If we have the same kernel being enqueued on FPGA emulator several
   // times - we don't want two or more instances of this kernel being
@@ -2152,14 +2169,13 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // patch must be reverted and actually I don't know if kernel
   // serialization is possible in this case.
   bool updatedEventList = false;
-  // Do nothing in case of multi-device program
-  // Process kernel serialization only for out-of-order queues, so the
-  // runtime won't change any user's custom logic in his/her program.
-  SharedPtr<Program> program = pKernel->GetProgram();
 
   // Set a tracker event to track kernel execution.
   cl_event trackerEvent = nullptr;
 
+  // Do nothing in case of multi-device program
+  // Process kernel serialization only for out-of-order queues, so the
+  // runtime won't change any user's custom logic in his/her program.
   if (isFPGAEmulator && (program->GetNumDevices() == 1) &&
       pKernel->GetDeviceKernel(pDevice.GetPtr())->NeedSerializeWGs() &&
       pCommandQueue->IsOutOfOrderExecModeEnabled()) {
@@ -4096,6 +4112,16 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
   if (CL_FAILED(err))
     return err;
 
+  SharedPtr<Program> pProgram = m_pContextModule->GetProgram(program);
+  if (queue->GetContext()->IsFPGAEmulator() &&
+      m_pActiveProgram != pProgram.GetPtr()) {
+    m_pActiveProgram = pProgram.GetPtr();
+    err = pProgram->ResetDeviceImageScopeGlobalVariable();
+
+    if (CL_FAILED(err))
+      return err;
+  }
+
   cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
       queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
@@ -4158,6 +4184,16 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
       CheckEventList(queue, num_events_in_wait_list, event_wait_list);
   if (CL_FAILED(err))
     return err;
+
+  SharedPtr<Program> pProgram = m_pContextModule->GetProgram(program);
+  if (queue->GetContext()->IsFPGAEmulator() &&
+      m_pActiveProgram != pProgram.GetPtr()) {
+    m_pActiveProgram = pProgram.GetPtr();
+    err = pProgram->ResetDeviceImageScopeGlobalVariable();
+
+    if (CL_FAILED(err))
+      return err;
+  }
 
   cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
@@ -4408,9 +4444,28 @@ ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext) {
 }
 
 void ExecutionModule::DeleteAllActiveQueues(bool preserve_user_handles) {
-  m_pOclCommandQueueMap->DisableAdding();
   if (preserve_user_handles) {
     m_pOclCommandQueueMap->SetPreserveUserHandles();
   }
   m_pOclCommandQueueMap->ReleaseAllObjects(false);
+}
+
+void ExecutionModule::CancelAllActiveQueues() {
+  m_pOclCommandQueueMap->DisableAdding();
+  std::vector<SharedPtr<OCLObject<_cl_command_queue_int>>> CommandQueues;
+  m_pOclCommandQueueMap->GetObjects(CommandQueues);
+  for (const auto &CommandQueue : CommandQueues) {
+    CommandQueue.DynamicCast<OclCommandQueue>()->CancelAll();
+  }
+}
+
+void ExecutionModule::FinishAllActiveQueues() {
+  std::vector<SharedPtr<OCLObject<_cl_command_queue_int>>> CommandQueues;
+  m_pOclCommandQueueMap->GetObjects(CommandQueues);
+  for (const auto &CommandQueue : CommandQueues) {
+    SharedPtr<IOclCommandQueueBase> pCommandQueue =
+        CommandQueue.DynamicCast<IOclCommandQueueBase>();
+    if (pCommandQueue.GetPtr())
+      Finish(pCommandQueue);
+  }
 }

@@ -164,7 +164,10 @@ llvm::Type *CGOpenCLRuntime::getSamplerType(const Type *T) {
 }
 
 #if INTEL_CUSTOMIZATION
-llvm::Type *CGOpenCLRuntime::getChannelType() {
+llvm::Type *CGOpenCLRuntime::getChannelType(const ChannelType *T) {
+  if (llvm::Type *ChanTy = CGM.getTargetCodeGenInfo().getOpenCLType(CGM, T))
+    return ChanTy;
+
   if (!ChannelTy){
     uint32_t ChannelAddrSpc =
       CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);

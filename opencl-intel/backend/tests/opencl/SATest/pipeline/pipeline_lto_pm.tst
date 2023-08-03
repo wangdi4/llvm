@@ -9,9 +9,10 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NOT:  Running pass: SYCLPreprocessSPIRVFriendlyIRPass
+; CHECK-NOT:  Running pass: SPIRV::SPIRVLowerConstExprPass
+; CHECK:      Running pass: KernelTargetExtTypeLowerPass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
 
@@ -22,6 +23,7 @@
 
 ; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
@@ -64,6 +66,7 @@
 ; CHECK:      Running pass: DeduceMaxWGDimPass
 ; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK:      Running analysis: VFAnalysis
@@ -90,7 +93,7 @@
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
-; CHECK-NEXT: Running pass: InstCombinePass
+; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: ADCEPass
@@ -118,8 +121,6 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK:      Running pass: RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass
@@ -166,6 +167,7 @@
 ; CHECK:      Running pass: PatchCallbackArgsPass
 ; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
+; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK:      Running pass: LICMPass
@@ -188,13 +190,12 @@
 
 
 ; need not to check all outputs
-; QUIET:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; QUIET-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; QUIET-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; QUIET:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; QUIET-NEXT: Running pass: NameAnonGlobalPass
 ; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
 ; QUIET-NEXT: Running pass: SYCLEqualizerPass
+; QUIET-NEXT: Running pass: ExternalizeGlobalVariablesPass
 ; QUIET-NEXT: Running pass: CoerceTypesPass
 ; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
@@ -210,11 +211,7 @@
 
 
 ; need not to check all outputs
-; VERIFY-EACH:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; VERIFY-EACH-NEXT: Verifying module main
-; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; VERIFY-EACH-NEXT: Verifying module main
-; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; VERIFY-EACH:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; VERIFY-EACH-NEXT: Verifying module main
 ; VERIFY-EACH-NEXT: Running pass: NameAnonGlobalPass
 ; VERIFY-EACH-NEXT: Verifying module main

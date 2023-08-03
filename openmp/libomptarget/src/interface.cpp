@@ -853,6 +853,9 @@ EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task,
 EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t interop, bool nowait, void *ptask ) {
    DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__, DPxPTR(interop), nowait);
 
+   if (isOffloadDisabled() || !interop)
+      return OFFLOAD_FAIL;
+
    __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
    if ( iop->TargetSync ) {
      if ( nowait )
@@ -953,44 +956,6 @@ EXTERN void __tgt_add_build_options(
   if (RTLInfo->add_build_options)
     RTLInfo->add_build_options(CompileOptions, LinkOptions);
 }
-
-EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t DeviceNum) {
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return 0;
-  }
-
-  return PM->Devices[DeviceNum]->supportsPerHWThreadScratch();
-}
-
-EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
-    int64_t DeviceNum, size_t ObjSize, int32_t AllocKind) {
-  if (ObjSize == 0)
-    return nullptr;
-
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return nullptr;
-  }
-
-  return PM->Devices[DeviceNum]->allocPerHWThreadScratch(ObjSize, AllocKind);
-}
-
-EXTERN void __tgt_target_free_per_hw_thread_scratch(
-    int64_t DeviceNum, void *Ptr) {
-  if (!Ptr)
-    return;
-
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return;
-  }
-
-  return PM->Devices[DeviceNum]->freePerHWThreadScratch(Ptr);
-}
 #endif // INTEL_COLLAB
 
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
@@ -1003,6 +968,12 @@ EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
 }
 
 EXTERN int __tgt_print_device_info(int64_t DeviceId) {
+  // Make sure the device is ready.
+  if (!deviceIsReady(DeviceId)) {
+    DP("Device %" PRId64 " is not ready\n", DeviceId);
+    return OMP_TGT_FAIL;
+  }
+
   return PM->Devices[DeviceId]->printDeviceInfo(
       PM->Devices[DeviceId]->RTLDeviceID);
 }

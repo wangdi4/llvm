@@ -83,20 +83,20 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.inc11, %entry
   %indvars.iv24 = phi i64 [ 0, %entry ], [ %indvars.iv.next25, %for.inc11 ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv24
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv24
   %0 = add nuw nsw i64 %indvars.iv24, 2
-  %arrayidx10 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %0
+  %arrayidx10 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %0
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %add = add nsw i32 %1, 1
   %2 = add nuw nsw i64 %indvars.iv, %indvars.iv24
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %2
-  %3 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %2
+  %3 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %add7 = add nsw i32 %add, %3
-  store i32 %add7, i32* %arrayidx10, align 4, !tbaa !1
+  store i32 %add7, ptr %arrayidx10, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.inc11, label %for.body3
@@ -111,10 +111,10 @@ for.end13:                                        ; preds = %for.inc11
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

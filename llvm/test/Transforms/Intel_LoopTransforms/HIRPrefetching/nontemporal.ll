@@ -1,7 +1,7 @@
 ; Test that nontemporal streams get excluded from prefetches. This is based on
 ; non-constant-trip-count, with one of the stores being marked !nontemporal.
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;int A[50000];
@@ -56,11 +56,11 @@
 ; CHECK:           |   %21 = (@B)[0][i1 + 12];
 ; CHECK:           |   %23 = (@B)[0][i1 + 16];
 ; CHECK:           |   (@B)[0][i1] = %13 + %15 + %17 + %19 + %21 + %23;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 7]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10007]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40007]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][2 * i1 + 16]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 18]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 7]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 10007]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 40007]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][2 * i1 + 16]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@B)[0][2 * i1 + 18]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
@@ -87,57 +87,57 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = shl nuw nsw i64 %indvars.iv, 1
   %2 = add nuw nsw i64 %1, 2
-  %arrayidx3 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %2, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx3, align 8, !tbaa !2
+  %arrayidx3 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %2, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx3, align 8, !tbaa !2
   %add4 = add nsw i32 %3, %0
   %4 = add nuw nsw i64 %indvars.iv, 10000
-  %arrayidx7 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %4, !intel-tbaa !2
-  %5 = load i32, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %4, !intel-tbaa !2
+  %5 = load i32, ptr %arrayidx7, align 4, !tbaa !2
   %add8 = add nsw i32 %add4, %5
   %6 = add nuw nsw i64 %indvars.iv, 40000
-  %arrayidx11 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %6, !intel-tbaa !2
-  %7 = load i32, i32* %arrayidx11, align 4, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %6, !intel-tbaa !2
+  %7 = load i32, ptr %arrayidx11, align 4, !tbaa !2
   %add12 = add nsw i32 %add8, %7
   %8 = add nuw nsw i64 %indvars.iv, 8000
-  %arrayidx15 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %8, !intel-tbaa !2
-  %9 = load i32, i32* %arrayidx15, align 4, !tbaa !2
+  %arrayidx15 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %8, !intel-tbaa !2
+  %9 = load i32, ptr %arrayidx15, align 4, !tbaa !2
   %add16 = add nsw i32 %add12, %9
   %10 = add nuw nsw i64 %indvars.iv, 24
-  %arrayidx19 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %10, !intel-tbaa !2
-  %11 = load i32, i32* %arrayidx19, align 4, !tbaa !2
+  %arrayidx19 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %10, !intel-tbaa !2
+  %11 = load i32, ptr %arrayidx19, align 4, !tbaa !2
   %add20 = add nsw i32 %add16, %11
-  %12 = load i32, i32* getelementptr inbounds ([50000 x i32], [50000 x i32]* @A, i64 0, i64 20), align 16, !tbaa !2
+  %12 = load i32, ptr getelementptr inbounds ([50000 x i32], ptr @A, i64 0, i64 20), align 16, !tbaa !2
   %add21 = add nsw i32 %add20, %12
-  %arrayidx23 = getelementptr inbounds [50000 x i32], [50000 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add21, i32* %arrayidx23, align 4, !tbaa !2
-  %arrayidx26 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
-  %13 = load i32, i32* %arrayidx26, align 4, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [50000 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add21, ptr %arrayidx23, align 4, !tbaa !2
+  %arrayidx26 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
+  %13 = load i32, ptr %arrayidx26, align 4, !tbaa !2
   %14 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx29 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %14, !intel-tbaa !2
-  %15 = load i32, i32* %arrayidx29, align 4, !tbaa !2
+  %arrayidx29 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %14, !intel-tbaa !2
+  %15 = load i32, ptr %arrayidx29, align 4, !tbaa !2
   %add30 = add nsw i32 %15, %13
   %16 = add nuw nsw i64 %1, 4
-  %arrayidx34 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %16, !intel-tbaa !2
-  %17 = load i32, i32* %arrayidx34, align 8, !tbaa !2
+  %arrayidx34 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %16, !intel-tbaa !2
+  %17 = load i32, ptr %arrayidx34, align 8, !tbaa !2
   %add35 = add nsw i32 %add30, %17
   %18 = add nuw nsw i64 %indvars.iv, 8
-  %arrayidx38 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %18, !intel-tbaa !2
-  %19 = load i32, i32* %arrayidx38, align 4, !tbaa !2
+  %arrayidx38 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %18, !intel-tbaa !2
+  %19 = load i32, ptr %arrayidx38, align 4, !tbaa !2
   %add39 = add nsw i32 %add35, %19
   %20 = add nuw nsw i64 %indvars.iv, 12
-  %arrayidx42 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %20, !intel-tbaa !2
-  %21 = load i32, i32* %arrayidx42, align 4, !tbaa !2
+  %arrayidx42 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %20, !intel-tbaa !2
+  %21 = load i32, ptr %arrayidx42, align 4, !tbaa !2
   %add43 = add nsw i32 %add39, %21
   %22 = add nuw nsw i64 %indvars.iv, 16
-  %arrayidx46 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %22, !intel-tbaa !2
-  %23 = load i32, i32* %arrayidx46, align 4, !tbaa !2
+  %arrayidx46 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %22, !intel-tbaa !2
+  %23 = load i32, ptr %arrayidx46, align 4, !tbaa !2
   %add47 = add nsw i32 %add43, %23
-  %arrayidx49 = getelementptr inbounds [50000 x i32], [50000 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add47, i32* %arrayidx49, align 4, !tbaa !2, !nontemporal !7
+  %arrayidx49 = getelementptr inbounds [50000 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add47, ptr %arrayidx49, align 4, !tbaa !2, !nontemporal !7
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body
 

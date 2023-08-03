@@ -16,18 +16,18 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 %indvars.iv
 
-  %ld = load i32, i32* %ld.idx
+  %ld = load i32, ptr %ld.idx
 
-  %ld2.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
-  %ld2 = load i32, i32* %ld2.idx
+  %ld2.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.3, i64 0, i64 %indvars.iv
+  %ld2 = load i32, ptr %ld2.idx
 
   %res = call {i32, i1} @llvm.uadd.with.overflow.i32(i32 %ld, i32 %ld2)
   %add = extractvalue {i32, i1} %res, 0
 
-  %st.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %st.idx
+  %st.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

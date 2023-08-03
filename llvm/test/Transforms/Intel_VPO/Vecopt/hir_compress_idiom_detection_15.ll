@@ -69,7 +69,7 @@
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       i64 [[VP10]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index i64 [[VP10]] i64 5
+; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index {stride: 5} i64 [[VP10]]
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1]] = subscript inbounds float* [[A0]] i64 [[VP16]]
 ; CHECK-NEXT:       float [[VP17:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP16]]
@@ -77,12 +77,11 @@
 ; CHECK-NEXT:       float [[VP9]] = fadd float [[VP17]] float [[VP19]]
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP16]]
 ; CHECK-NEXT:       compress-store-nonu float [[VP9]] float* [[VP_SUBSCRIPT]] i64 [[MASK]]
-; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 5
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP8]], [[BB4]] ],  [ i32 [[VP6]], [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc i32 [[VP7]]
+; CHECK-NEXT:     i1 [[VP7:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc {stride: 5} i32 [[VP6]] i1 [[VP7]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP4]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -96,8 +95,7 @@
 ; CHECK-NEXT:     br <External Block>
 
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[K_0130]],  0
-; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[K_0130]]
 ; CHECK:             + DO i1 = 0, 1023, 16   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
@@ -105,41 +103,43 @@
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i16([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
-; CHECK-NEXT:        |   [[CAST30:%.*]] = bitcast.i16.<16 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD20:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST30]],  undef)
-; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[GATHER120:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add3]),  0,  [[CAST30]],  undef)
-; CHECK-NEXT:        |   [[EXPAND130:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER120]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[DOTVEC140:%.*]] = [[EXPAND0]]  +  [[EXPAND130]]
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC140]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST30]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 5 : [[PHI_TEMP0]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v16i32([[SELECT0]])
-; CHECK-NEXT:        |   [[INSERT220:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
-; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[INSERT220]]
+; CHECK-NEXT:        |   [[CAST20:%.*]] = bitcast.i16.<16 x i1>([[XOR0]])
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  poison,  zeroinitializer
+; CHECK-NEXT:        |   [[ADD30:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  poison,  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[GATHER40:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[EXPAND50:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER40]],  poison,  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[DOTVEC60:%.*]] = [[EXPAND0]]  +  [[EXPAND50]]
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC60]],  poison,  [[DOTVEC10]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
+; CHECK-NEXT:        |   [[CAST70:%.*]] = bitcast.<16 x i1>.i16([[SELECT0]])
+; CHECK-NEXT:        |   [[POPCNT80:%.*]] = @llvm.ctpop.i16([[CAST70]])
+; CHECK-NEXT:        |   [[ZEXT0:%.*]] = zext.i16.i32([[POPCNT80]])
+; CHECK-NEXT:        |   [[MUL0:%.*]] = [[ZEXT0]]  *  5
+; CHECK-NEXT:        |   [[ADD90:%.*]] = [[PHI_TEMP0]]  +  [[MUL0]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[ADD90]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[INSERT220]],  0
-; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_0]]
+; CHECK:             [[K_0130]] = [[ADD90]]
 ; CHECK-NEXT:  END REGION
 
-; CM4: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
+; CM4: Cost 0 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 11 for i64 [[MASK:%.*]] = compress-expand-mask
-; CM4: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
+; CM4: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index {stride: 5} i64 [[VP6:%.*]]
 ; CM4: Cost 4 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
 ; CM4: Cost 4 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM4: Cost 5 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
-; CM4: Cost 4 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
+; CM4: Cost 3 for i32 [[VP15:%.*]] = compress-expand-index-inc {stride: 5} i32 [[VP1:%.*]]
 ; CM4: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
-; CM8: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
+; CM8: Cost 0 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 11 for i64 [[MASK:%.*]] = compress-expand-mask
-; CM8: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
+; CM8: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index {stride: 5} i64 [[VP6:%.*]]
 ; CM8: Cost 5 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
 ; CM8: Cost 5 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM8: Cost 9 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
-; CM8: Cost 6 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
+; CM8: Cost 3 for i32 [[VP15:%.*]] = compress-expand-index-inc {stride: 5} i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
 ; OPTREPORT: remark #15497: vector compress: 1

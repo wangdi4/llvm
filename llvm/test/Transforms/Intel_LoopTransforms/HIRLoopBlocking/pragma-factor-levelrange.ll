@@ -51,7 +51,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = external dso_local local_unnamed_addr global [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]], align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(double* noalias nocapture readonly %C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture readonly %C) local_unnamed_addr #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 256), "QUAL.PRAGMA.LEVEL"(i32 3), "QUAL.PRAGMA.FACTOR"(i32 256) ]
   br label %for.cond1.preheader
@@ -94,15 +94,15 @@ for.cond.cleanup15:                               ; preds = %for.body16
 
 for.body16:                                       ; preds = %for.cond13.preheader, %for.body16
   %indvars.iv = phi i64 [ 0, %for.cond13.preheader ], [ %indvars.iv.next, %for.body16 ]
-  %arrayidx24 = getelementptr inbounds [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]], [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]]* @B, i64 0, i64 %indvars.iv83, i64 %indvars.iv80, i64 %indvars.iv77, i64 %indvars.iv74, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load double, double* %arrayidx24, align 8, !tbaa !2
-  %ptridx = getelementptr inbounds double, double* %C, i64 %indvars.iv
-  %2 = load double, double* %ptridx, align 8, !tbaa !11
+  %arrayidx24 = getelementptr inbounds [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]], ptr @B, i64 0, i64 %indvars.iv83, i64 %indvars.iv80, i64 %indvars.iv77, i64 %indvars.iv74, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load double, ptr %arrayidx24, align 8, !tbaa !2
+  %ptridx = getelementptr inbounds double, ptr %C, i64 %indvars.iv
+  %2 = load double, ptr %ptridx, align 8, !tbaa !11
   %mul = fmul fast double %2, %1
-  %arrayidx35 = getelementptr inbounds [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]], [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]]* @A, i64 0, i64 %indvars.iv83, i64 %indvars.iv80, i64 %indvars.iv77, i64 %indvars.iv74, i64 %indvars.iv, !intel-tbaa !2
-  %3 = load double, double* %arrayidx35, align 8, !tbaa !2
+  %arrayidx35 = getelementptr inbounds [1000 x [1000 x [1000 x [1000 x [1000 x double]]]]], ptr @A, i64 0, i64 %indvars.iv83, i64 %indvars.iv80, i64 %indvars.iv77, i64 %indvars.iv74, i64 %indvars.iv, !intel-tbaa !2
+  %3 = load double, ptr %arrayidx35, align 8, !tbaa !2
   %add = fadd fast double %3, %mul
-  store double %add, double* %arrayidx35, align 8, !tbaa !2
+  store double %add, ptr %arrayidx35, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.cond.cleanup15, label %for.body16

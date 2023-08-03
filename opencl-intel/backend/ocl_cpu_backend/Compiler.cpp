@@ -246,6 +246,14 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 
   Optimizer::initOptimizerOptions();
 
+  // Disable unrolling with runtime trip count. It is harmful for
+  // sycl_benchmarks/dnnbench-pooling.
+  Args.push_back("-unroll-runtime=false");
+
+  // inline threshold is not exposed by standard new pass manager
+  // pipeline, so we have to set threshold globally here.
+  Args.push_back("-inline-threshold=16384");
+
   // Handle CL_CONFIG_LLVM_OPTIONS at the end so that it can pass an option to
   // overturn a previously added option.
   std::vector<std::string> LastOptions;
@@ -263,37 +271,6 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
     llvm::EnablePrettyStackTrace();
 
   s_globalStateInitialized = true;
-}
-
-/// Commandline setting should be eventually moved into
-/// Compiler::InitGlobalState once we switch to LTO pipeline.
-static void
-applyBuildProgramLLVMOptions(PassManagerType PMType,
-                             const Intel::OpenCL::Utils::CPUDetect *CPUId) {
-  SmallVector<const char *, 8> Args;
-  Args.push_back("Compiler");
-
-  // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
-  // obtain correct ISA.
-  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
-  ISA += CPUId->HasAVX512Core() ? "AVX512Core"
-         : CPUId->HasAVX2()     ? "AVX2"
-         : CPUId->HasAVX1()     ? "AVX1"
-                                : "SSE42";
-  Args.push_back(ISA.c_str());
-
-  if (PMType == PM_LTO) {
-    // Disable unrolling with runtime trip count. It is harmful for
-    // sycl_benchmarks/dnnbench-pooling.
-    Args.push_back("-unroll-runtime=false");
-
-    // inline threshold is not exposed by standard new pass manager
-    // pipeline, so we have to set threshold globally here.
-    Args.push_back("-inline-threshold=16384");
-  }
-
-  Args.push_back(nullptr);
-  cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 }
 
 Compiler::Compiler(const ICompilerConfig &config)
@@ -385,16 +362,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   m_disableOptimization = buildOptions.GetDisableOpt();
   m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
-  // Default to C++ new-pm pipeline if triple is spir64_x86_64 or input is
-  // OpenCL C++/SYCL.
-  llvm::Triple TT(pModule->getTargetTriple());
-  if (m_passManagerType == PM_NONE &&
-      (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 ||
-       CompilationUtils::isGeneratedFromOCLCPP(*pModule)))
-    m_passManagerType = PM_LTO;
-
-  applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
-
   materializeSpirTriple(pModule);
 
   targetMachine.reset(GetTargetMachine(pModule));
@@ -415,13 +382,13 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {
-  case PM_LTO:
+  case PM_OCL:
     optimizer =
-        std::make_unique<OptimizerLTO>(*pModule, BIModules, optimizerConfig);
+        std::make_unique<OptimizerOCL>(*pModule, BIModules, optimizerConfig);
     break;
   default:
     optimizer =
-        std::make_unique<OptimizerOCL>(*pModule, BIModules, optimizerConfig);
+        std::make_unique<OptimizerLTO>(*pModule, BIModules, optimizerConfig);
     break;
   };
 
@@ -617,8 +584,14 @@ llvm::LLVMContext &Compiler::getLLVMContext() {
   std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
   auto TID = std::this_thread::get_id();
   auto It = m_LLVMContexts.find(TID);
-  if (It == m_LLVMContexts.end())
+  if (It == m_LLVMContexts.end()) {
     It = m_LLVMContexts.emplace(TID, std::make_unique<LLVMContext>()).first;
+#ifdef SPIRV_ENABLE_OPAQUE_POINTERS
+    It->second->setOpaquePointers(true);
+#else
+    It->second->setOpaquePointers(false);
+#endif
+  }
   return *It->second;
 }
 

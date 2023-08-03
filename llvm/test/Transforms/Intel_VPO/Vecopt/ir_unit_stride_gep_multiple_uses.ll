@@ -6,18 +6,17 @@
 
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=4 < %s -S | FileCheck %s
 
-define i32 @multiple_uses(i32* %src, i32** %dest) {
+define i32 @multiple_uses(ptr %src, ptr %dest) {
 ; CHECK-LABEL: @multiple_uses(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI_EXTRACT_3_:%.*]] = extractelement <4 x i64> [[VEC_PHI]], i32 3
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[SCALAR_GEP1:%.*]] = getelementptr inbounds i32, i32* [[SRC]], i64 [[VEC_PHI_EXTRACT_3_]]
-; CHECK-NEXT:    [[MM_VECTOR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC]], <4 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    store i32* [[SCALAR_GEP1]], i32** [[DEST:%.*]], align 8
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[SRC:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[SCALAR_GEP1:%.*]] = getelementptr inbounds i32, ptr [[SRC]], i64 [[VEC_PHI_EXTRACT_3_]]
+; CHECK-NEXT:    [[MM_VECTOR_GEP:%.*]] = getelementptr inbounds i32, ptr [[SRC]], <4 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    store ptr [[SCALAR_GEP1]], ptr [[DEST:%.*]], align 8
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[WIDE_LOAD]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 4
@@ -30,11 +29,11 @@ entry:
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %src, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %src, i64 %indvars.iv
   ; Use unit-stride GEP as a value.
-  store i32* %arrayidx, i32** %dest, align 8
+  store ptr %arrayidx, ptr %dest, align 8
   ; Use unit-stride GEP as pointer operand for memory operation.
-  %unit.stride.load = load i32, i32* %arrayidx, align 8
+  %unit.stride.load = load i32, ptr %arrayidx, align 8
   %use = add i32 %unit.stride.load, 42
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024

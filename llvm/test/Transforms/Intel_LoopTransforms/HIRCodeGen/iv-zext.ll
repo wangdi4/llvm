@@ -1,5 +1,5 @@
 
-;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 ; In rhs of <7> we have a 64 bit CE but a i32 iv. Verify we load i32 bit iv
 ; then zext to 64 before doing the addition
 
@@ -31,7 +31,7 @@
 ; calculation for lhs
 ; CHECK: getelementptr
 
-; CHECK: [[IVLOAD1:%.*]] = load i32, i32* %i1.i32
+; CHECK: [[IVLOAD1:%.*]] = load i32, ptr %i1.i32
 ; CHECK: [[ZEXT_IV1:%.*]] = zext i32 [[IVLOAD1]] to i64
 ; CHECK: [[ADD_IV:%.*]] = add i64 [[ZEXT_IV1]], 8589934591
 ;
@@ -39,7 +39,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
-define i32 @_Z3fooPli(i64* nocapture %A, i32 %N) #0 {
+define i32 @_Z3fooPli(ptr nocapture %A, i32 %N) #0 {
 entry:
   %cmp.17 = icmp eq i32 %N, 0
   br i1 %cmp.17, label %for.cond.cleanup, label %for.body.lr.ph
@@ -52,8 +52,8 @@ for.cond.for.cond.cleanup_crit_edge:              ; preds = %for.body
 
 for.cond.cleanup:                                 ; preds = %entry, %for.cond.for.cond.cleanup_crit_edge
   %idxprom5 = sext i32 %N to i64
-  %arrayidx6 = getelementptr inbounds i64, i64* %A, i64 %idxprom5
-  %0 = load i64, i64* %arrayidx6, align 8, !tbaa !1
+  %arrayidx6 = getelementptr inbounds i64, ptr %A, i64 %idxprom5
+  %0 = load i64, ptr %arrayidx6, align 8, !tbaa !1
   %conv7 = trunc i64 %0 to i32
   ret i32 %conv7
 
@@ -63,13 +63,13 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %add = add nuw nsw i64 %conv, 8589934591
   %add1 = add i32 %i.018, 16
   %idxprom = zext i32 %add1 to i64
-  %arrayidx = getelementptr inbounds i64, i64* %A, i64 %idxprom
-  store i64 %add, i64* %arrayidx, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds i64, ptr %A, i64 %idxprom
+  store i64 %add, ptr %arrayidx, align 8, !tbaa !1
   %mul = mul i32 %i.018, 3
   %add2 = add i32 %mul, %N
   %idxprom3 = zext i32 %add2 to i64
-  %arrayidx4 = getelementptr inbounds i64, i64* %A, i64 %idxprom3
-  store i64 22, i64* %arrayidx4, align 8, !tbaa !1
+  %arrayidx4 = getelementptr inbounds i64, ptr %A, i64 %idxprom3
+  store i64 22, ptr %arrayidx4, align 8, !tbaa !1
   %inc = add i32 %i.018, 1
   %cmp = icmp ult i32 %inc, %N
   br i1 %cmp, label %for.body, label %for.cond.for.cond.cleanup_crit_edge

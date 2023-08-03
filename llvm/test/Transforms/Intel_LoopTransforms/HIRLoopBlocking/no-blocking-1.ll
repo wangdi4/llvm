@@ -1,4 +1,5 @@
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that blocking does not happen for the following code.
 ; Because of linearized subscripts, it passes the test MaxDimension < LoopDepth.
@@ -44,6 +45,11 @@
 ;             + END LOOP
 ;       END REGION
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopBlocking
 
 ;Module Before HIR
 ; ModuleID = 'matmul2.c'
@@ -74,15 +80,15 @@ for.body7.lr.ph:                                  ; preds = %for.cond5.preheader
 for.body7:                                        ; preds = %for.body7, %for.body7.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body7.lr.ph ], [ %indvars.iv.next, %for.body7 ]
   %3 = add nsw i64 %indvars.iv, %2
-  %arrayidx = getelementptr inbounds double, double* %vla4, i64 %3
-  %4 = load double, double* %arrayidx, align 8, !tbaa !2
-  %arrayidx12 = getelementptr inbounds double, double* %vla2, i64 %3
-  %5 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds double, ptr %vla4, i64 %3
+  %4 = load double, ptr %arrayidx, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds double, ptr %vla2, i64 %3
+  %5 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %mul13 = fmul double %4, %5
-  %arrayidx17 = getelementptr inbounds double, double* %vla, i64 %3
-  %6 = load double, double* %arrayidx17, align 8, !tbaa !2
+  %arrayidx17 = getelementptr inbounds double, ptr %vla, i64 %3
+  %6 = load double, ptr %arrayidx17, align 8, !tbaa !2
   %add18 = fadd double %6, %mul13
-  store double %add18, double* %arrayidx17, align 8, !tbaa !2
+  store double %add18, ptr %arrayidx17, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %1
   br i1 %exitcond, label %for.inc19, label %for.body7

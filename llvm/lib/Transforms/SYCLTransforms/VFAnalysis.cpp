@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"

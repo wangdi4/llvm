@@ -1,4 +1,21 @@
 //===-- IndirectCallPromotionAnalysis.cpp - Find promotion candidates ===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -49,12 +66,16 @@ ICallPromotionAnalysis::ICallPromotionAnalysis() {
   ValueDataArray = std::make_unique<InstrProfValueData[]>(MaxNumPromotions);
 }
 
+#if INTEL_CUSTOMIZATION
 bool ICallPromotionAnalysis::isPromotionProfitable(uint64_t Count,
                                                    uint64_t TotalCount,
-                                                   uint64_t RemainingCount) {
+                                                   uint64_t RemainingCount,
+                                                   bool IngoreTotalPercent) {
   return Count * 100 >= ICPRemainingPercentThreshold * RemainingCount &&
-         Count * 100 >= ICPTotalPercentThreshold * TotalCount;
+         (IngoreTotalPercent ||
+          Count * 100 >= ICPTotalPercentThreshold * TotalCount);
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Indirect-call promotion heuristic. The direct targets are sorted based on
 // the count. Stop at the first target that is not promoted. Returns the
@@ -71,10 +92,18 @@ uint32_t ICallPromotionAnalysis::getProfitablePromotionCandidates(
   for (; I < MaxNumPromotions && I < NumVals; I++) {
     uint64_t Count = ValueDataRef[I].Count;
     assert(Count <= RemainingCount);
+#if INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << " Candidate " << I << " Count=" << Count
+                      << " Total Count = " << TotalCount
+                      << " Remaining Count = " << RemainingCount
+                      << "  RemainPercent: "
+                      << format("%3.1f", 100.0f * Count / RemainingCount)
+                      << "  TotalPercent: "
+                      << format("%3.1f", 100.0f * Count / TotalCount)
                       << "  Target_func: " << ValueDataRef[I].Value << "\n");
-
-    if (!isPromotionProfitable(Count, TotalCount, RemainingCount)) {
+    if (!isPromotionProfitable(Count, TotalCount, RemainingCount,
+                               I == NumVals - 1)) {
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << " Not promote: Cold target.\n");
       return I;
     }

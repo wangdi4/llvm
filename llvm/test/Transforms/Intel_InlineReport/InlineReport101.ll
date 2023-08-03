@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)',argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),argpromotion,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
+; RUN: opt -passes='cgscc(inline)',argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),argpromotion,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 
 ; This test case checks that the result for the inline report is correct
 ; when argument promotion is applied after inlining. In this case we aren't
@@ -32,10 +32,10 @@
 ; CHECK-MD:      define internal float @bar(float %.0.val) #0 !intel.function.inlining.report !0 {
 ; CHECK-MD-NEXT:   ret float %.0.val
 
-; CHECK-MD:      define float @foo(i64 %0) #1 !intel.function.inlining.report !8 {
+; CHECK-MD:      define float @foo(i64 %0) #1 !intel.function.inlining.report !9 {
 ; CHECK-MD-NEXT:   %2 = alloca float, i64 %0, align 4
 ; CHECK-MD-NEXT:   %.val = load float, ptr %2, align 4
-; CHECK-MD-NEXT:   %3 = call float @bar(float %.val), !intel.callsite.inlining.report !11
+; CHECK-MD-NEXT:   %3 = call float @bar(float %.val), !intel.callsite.inlining.report !12
 
 
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"

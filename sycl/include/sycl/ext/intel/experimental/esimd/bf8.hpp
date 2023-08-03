@@ -24,7 +24,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Implementation of SIMD bf8 type. This type represents floating point with 
+// Implementation of SIMD bf8 type. This type represents floating point with
 // 1 bit sign, 5 bit exponent, 2 bits mantissa.
 //===----------------------------------------------------------------------===//
 
@@ -34,7 +34,7 @@
 #include <sycl/bit_cast.hpp>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
   namespace ext {
   namespace intel {
   namespace experimental {
@@ -50,26 +50,47 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
     ~bf8() = default;
 
     // Explicit conversion functions
+    // The function performs 2 consequent conversions:
+    // float->half->bf8
+    // Existing sycl implementation is used to convert
+    // from float to half. To convert from half to bf8
+    // cmc implementation is used.
     static storage_t from_float(const float &a) {
-      uint32_t tmp_uint = sycl::bit_cast<uint32_t>(a);
-      int32_t Exponent = (tmp_uint & 0x7f800000) >> 23;
-      if (Exponent != 0) {
-        Exponent -= 127;
-        // Normalize exponent for bf8
-        Exponent = Exponent < -15 || Exponent > 15 ? 31 : Exponent + 15;
+      uint16_t tmp = ::sycl::detail::float2Half(a);
+      constexpr uint16_t exponent_mask = 0x7c;
+      constexpr uint16_t mantissa_mask = 0x03;
+      constexpr uint16_t sign_mask = 0x80;
+      constexpr uint16_t remainder_mask = 0x00ff;
+      const uint8_t remainder = tmp & remainder_mask;
+      constexpr uint8_t highest_representable = 0x7b;
+      constexpr uint8_t bfloat8_max = 0xff;
+      tmp = tmp >> 8; // Fit into 8 bits
+
+      const bool is_nan_or_inf = (tmp & exponent_mask) == exponent_mask;
+
+      if (!is_nan_or_inf) {
+        constexpr int highest_remainder_bit = 0x80;
+        if ((remainder > highest_remainder_bit && tmp != bfloat8_max) ||
+            (remainder == highest_remainder_bit && tmp != bfloat8_max &&
+             tmp % 2 == 1)) { // Round to nearest or even
+          ++tmp;
+        }
+      } else {
+        if (remainder != 0) { // Make sure NaN is not lost by cropping
+          tmp |= mantissa_mask;
+        }
       }
-      storage_t Result = ((tmp_uint & 0x80000000) >> (31 - 7)) |
-                         ((Exponent & 0x1f) << 2) |
-                         ((tmp_uint & 0x600000) >> (23 - 2));
-      return Result;
+
+      return tmp;
     }
+
+    // The function performs 2 consequent conversions:
+    // bf8->half->float
+    // Existing sycl implementation is used to convert
+    // from half to float. To convert from bf8 to half
+    // cmc implementation is used.
     static float to_float(const storage_t &a) {
-      // Normalize the bf8 exponent for float
-      int32_t Exponent = ((a & 0x7c) >> 2);
-      Exponent = Exponent == 0 ? 0 : Exponent - 15 + 127;
-      uint32_t Result = ((a & 0x3) << (23 - 2)) | ((Exponent & 0xff) << 23) |
-                        ((a & 0x80) << (31 - 7));
-      return sycl::bit_cast<float>(Result);
+      return ::sycl::detail::half2Float(a << 8);
     }
 
     // Implicit conversion from float to bf8
@@ -87,10 +108,18 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
     storage_t raw() const { return value; }
 
     // Logical operators (!,||,&&) are covered if we can cast to bool
-    explicit operator bool() { return to_float(value) != 0.0f; }
+    explicit operator bool() {
+      constexpr storage_t sign_mask = 0x80;
+      return (value & ~sign_mask);
+    }
 
     // Unary minus operator overloading
-    friend bf8 operator-(bf8 &lhs) { return bf8(-to_float(lhs)); }
+    friend bf8 operator-(bf8 &lhs) {
+      constexpr storage_t sign_mask = 0x80;
+      bf8 Result(lhs);
+      Result.value ^= sign_mask;
+      return Result;
+    }
   };
 
   } // namespace esimd
@@ -98,7 +127,7 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
   } // namespace intel
   } // namespace ext
 
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */

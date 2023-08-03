@@ -4,8 +4,8 @@
 
 ; Check that callback cloning occurs from the clones of @foo to the callback
 ; functions referenced in the call to @__kmpc_fork_call.
-; This is the same test as ip_cloning_callback01.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_callback01.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define dso_local i32 @main()
 ; CHECK: tail call fastcc i32 @foo.1(i32 100)
@@ -17,43 +17,41 @@
 ; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0]]
 ; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1]]
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
 @a = internal global [200 x i32] zeroinitializer, align 16
-@.kmpc_loc.0.0.4 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.3, i32 0, i32 0) }
-@.kmpc_loc.0.0 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.3, i32 0, i32 0) }
-@.kmpc_loc.0.0.2 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.3, i32 0, i32 0) }
+@.kmpc_loc.0.0.4 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr getelementptr inbounds ([22 x i8], ptr @.source.0.0.3, i32 0, i32 0) }
+@.kmpc_loc.0.0 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr getelementptr inbounds ([22 x i8], ptr @.source.0.0.3, i32 0, i32 0) }
+@.kmpc_loc.0.0.2 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr getelementptr inbounds ([22 x i8], ptr @.source.0.0.3, i32 0, i32 0) }
 @.source.0.0.3 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
 
-; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr {
-  %1 = tail call fastcc i32 @foo(i32 100)
-  %2 = tail call fastcc i32 @foo(i32 200)
-  %3 = add nsw i32 %2, %1
-  ret i32 %3
+bb:
+  %i = tail call fastcc i32 @foo(i32 100)
+  %i1 = tail call fastcc i32 @foo(i32 200)
+  %i2 = add nsw i32 %i1, %i
+  ret i32 %i2
 }
 
-; Function Attrs: nofree noinline norecurse nounwind uwtable
-define internal fastcc i32 @foo(i32 %0) unnamed_addr {
-  %2 = alloca i32*, align 8
-  %3 = alloca i32, align 4
-  store i32* getelementptr inbounds ([200 x i32], [200 x i32]* @a, i64 0, i64 0), i32** %2, align 8, !tbaa !5
-  %4 = add nsw i32 %0, -1
-  %5 = bitcast i32* %3 to i8*
-  store i32 %4, i32* %3, align 4, !tbaa !9
-  %t0 = zext i32 %0 to i64
-  call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* nonnull @.kmpc_loc.0.0.4, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i32**, i64, i32*, i64)* @foo.DIR.OMP.PARALLEL.LOOP.2.split5 to void (i32*, i32*, ...)*), i32** nonnull %2, i64 0, i32* nonnull %3, i64 %t0)
-  %6 = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @a, i64 0, i64 0), align 16, !tbaa !9
-  ret i32 %6
+define internal fastcc i32 @foo(i32 %arg) unnamed_addr {
+bb:
+  %i = alloca ptr, align 8
+  %i1 = alloca i32, align 4
+  store ptr getelementptr inbounds ([200 x i32], ptr @a, i64 0, i64 0), ptr %i, align 8, !tbaa !5
+  %i2 = add nsw i32 %arg, -1
+  store i32 %i2, ptr %i1, align 4, !tbaa !9
+  %t0 = zext i32 %arg to i64
+  call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @.kmpc_loc.0.0.4, i32 3, ptr @foo.DIR.OMP.PARALLEL.LOOP.2.split5, ptr nonnull %i, i64 0, ptr nonnull %i1, i64 %t0)
+  %i4 = load i32, ptr getelementptr inbounds ([200 x i32], ptr @a, i64 0, i64 0), align 16, !tbaa !9
+  ret i32 %i4
 }
 
-; Function Attrs: nofree noinline nounwind uwtable
-define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5(i32* nocapture readonly %0, i32* nocapture readnone %1, i32** nocapture readonly %2, i64 %3, i32* nocapture readonly %4, i64 %t0) {
+define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5(ptr nocapture readonly %arg, ptr nocapture readnone %arg1, ptr nocapture readonly %arg2, i64 %arg3, ptr nocapture readonly %arg4, i64 %t0) {
+bb:
   ret void
 }
 
-; Function Attrs: nounwind
-declare !callback !28 void @__kmpc_fork_call(%struct.ident_t* %0, i32 %1, void (i32*, i32*, ...)* %2, ...) local_unnamed_addr
+declare !callback !11 void @__kmpc_fork_call(ptr, i32, ptr, ...) local_unnamed_addr
 
 !llvm.ident = !{!0}
 !nvvm.annotations = !{}
@@ -70,23 +68,6 @@ declare !callback !28 void @__kmpc_fork_call(%struct.ident_t* %0, i32 %1, void (
 !8 = !{!"Simple C/C++ TBAA"}
 !9 = !{!10, !10, i64 0}
 !10 = !{!"int", !7, i64 0}
-!11 = distinct !{!11, !12, !"OMPAliasScope"}
-!12 = distinct !{!12, !"OMPDomain"}
-!13 = !{!14, !15}
-!14 = distinct !{!14, !12, !"OMPAliasScope"}
-!15 = distinct !{!15, !12, !"OMPAliasScope"}
-!16 = !{i32 0, i32 2147483647}
-!17 = distinct !{!17, !12, !"OMPAliasScope"}
-!18 = distinct !{}
-!19 = !{!11, !20, !14, !17}
-!20 = distinct !{!20, !12, !"OMPAliasScope"}
-!21 = distinct !{!21, !22, !23}
-!22 = !{!"llvm.loop.parallel_accesses", !18}
-!23 = !{!"llvm.loop.isvectorized", i32 1}
-!24 = distinct !{!24, !25}
-!25 = !{!"llvm.loop.unroll.disable"}
-!26 = distinct !{!26, !22, !27, !23}
-!27 = !{!"llvm.loop.unroll.runtime.disable"}
-!28 = !{!29}
-!29 = !{i64 2, i64 -1, i64 -1, i1 true}
+!11 = !{!12}
+!12 = !{i64 2, i64 -1, i64 -1, i1 true}
 ; end INTEL_FEATURE_SW_ADVANCED

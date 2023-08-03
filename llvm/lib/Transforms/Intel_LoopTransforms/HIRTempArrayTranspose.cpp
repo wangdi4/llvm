@@ -632,7 +632,7 @@ struct UnsafeCallsVisitor : HLNodeVisitorBase {
       return;
     }
 
-    auto LS = HLS.getTotalLoopStatistics(Loop);
+    auto LS = HLS.getTotalStatistics(Loop);
     if (LS.hasCallsWithUnsafeSideEffects()) {
       HasUnsafeCall = true;
       LLVM_DEBUG(dbgs() << "[UNSAFE] "; Loop->dump(););
@@ -900,6 +900,7 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
   HLInst *Alloca;
   RegDDRef *ArraySize;
   auto &DDRU = UseCandidate.UseRef->getDDRefUtils();
+  SmallVector<const RegDDRef *, 2> UpperBoundRefs;
   // Known dimsizes means we can copy exact sizes
   if (Dim1Size && Dim2Size) {
     // ConstDDRefs must be integer type
@@ -912,11 +913,12 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
     ArraySize = UseCandidate.OrigInnerLoop->getTripCountDDRef();
     ArraySize->getSingleCanonExpr()->multiplyByConstant(Dim1Size *
                                                         ElemSizeinBytes);
+    UpperBoundRefs.push_back(UseCandidate.OrigInnerLoop->getUpperDDRef());
   } else if (Dim2Size) {
     ArraySize = UseCandidate.OrigOuterLoop->getTripCountDDRef();
     ArraySize->getSingleCanonExpr()->multiplyByConstant(Dim2Size *
                                                         ElemSizeinBytes);
-
+    UpperBoundRefs.push_back(UseCandidate.OrigOuterLoop->getUpperDDRef());
   } else {
     ArraySize = UseCandidate.OrigOuterLoop->getTripCountDDRef();
     assert(ArraySize->isSingleDimension() && "TCRef is not single CE!\n");
@@ -948,20 +950,16 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
     // Lastly multiply by the size of the element
     ArraySizeCE->multiplyByConstant(ElemSizeinBytes);
 
-    SmallVector<const RegDDRef *, 2> UpperBoundRefs;
     UpperBoundRefs.push_back(UseCandidate.OrigOuterLoop->getUpperDDRef());
     UpperBoundRefs.push_back(UseCandidate.OrigInnerLoop->getUpperDDRef());
-    ArraySize->makeConsistent(UpperBoundRefs, 0);
     // Note getTripCountCanonExpr() cloned the original CE, so we can cleanup.
     InnerTCCE->getCanonExprUtils().destroy(InnerTCCE);
   }
 
   Alloca = HNU.createAlloca(UseRef->getDestType(), ArraySize, "TranspTmpArr");
-
   HLNodeUtils::insertBefore(InsertionPoint, Alloca);
-
+  ArraySize->makeConsistent(UpperBoundRefs, 0);
   LLVM_DEBUG(dbgs() << "TempArrayAlloca:"; Alloca->dump(1););
-
   return Alloca;
 }
 
@@ -1339,8 +1337,9 @@ bool HIRTempArrayTranspose::runOnRegion(HLRegion &Reg) {
 PreservedAnalyses
 HIRTempArrayTransposePass::runImpl(Function &F, FunctionAnalysisManager &AM,
                                    HIRFramework &HIRF) {
-  HIRTempArrayTranspose(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                        AM.getResult<HIRLoopStatisticsAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRTempArrayTranspose(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                            AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }

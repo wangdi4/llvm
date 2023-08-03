@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -34,111 +34,28 @@
 #include <functional> // INTEL
 
 namespace llvm {
-class BasicBlock;
-class Function;
 class Pass;
+class Function; // INTEL
 
-//===----------------------------------------------------------------------===//
-/// Vectorize configuration.
-struct VectorizeConfig {
-  //===--------------------------------------------------------------------===//
-  // Target architecture related parameters
-
-  /// The size of the native vector registers.
-  unsigned VectorBits;
-
-  /// Vectorize boolean values.
-  bool VectorizeBools;
-
-  /// Vectorize integer values.
-  bool VectorizeInts;
-
-  /// Vectorize floating-point values.
-  bool VectorizeFloats;
-
-  /// Vectorize pointer values.
-  bool VectorizePointers;
-
-  /// Vectorize casting (conversion) operations.
-  bool VectorizeCasts;
-
-  /// Vectorize floating-point math intrinsics.
-  bool VectorizeMath;
-
-  /// Vectorize bit intrinsics.
-  bool VectorizeBitManipulations;
-
-  /// Vectorize the fused-multiply-add intrinsic.
-  bool VectorizeFMA;
-
-  /// Vectorize select instructions.
-  bool VectorizeSelect;
-
-  /// Vectorize comparison instructions.
-  bool VectorizeCmp;
-
-  /// Vectorize getelementptr instructions.
-  bool VectorizeGEP;
-
-  /// Vectorize loads and stores.
-  bool VectorizeMemOps;
-
-  /// Only generate aligned loads and stores.
-  bool AlignedOnly;
-
-  //===--------------------------------------------------------------------===//
-  // Misc parameters
-
-  /// The required chain depth for vectorization.
-  unsigned ReqChainDepth;
-
-  /// The maximum search distance for instruction pairs.
-  unsigned SearchLimit;
-
-  /// The maximum number of candidate pairs with which to use a full
-  ///        cycle check.
-  unsigned MaxCandPairsForCycleCheck;
-
-  /// Replicating one element to a pair breaks the chain.
-  bool SplatBreaksChain;
-
-  /// The maximum number of pairable instructions per group.
-  unsigned MaxInsts;
-
-  /// The maximum number of candidate instruction pairs per group.
-  unsigned MaxPairs;
-
-  /// The maximum number of pairing iterations.
-  unsigned MaxIter;
-
-  /// Don't try to form odd-length vectors.
-  bool Pow2LenOnly;
-
-  /// Don't boost the chain-depth contribution of loads and stores.
-  bool NoMemOpBoost;
-
-  /// Use a fast instruction dependency analysis.
-  bool FastDep;
-
-  /// Initialize the VectorizeConfig from command line options.
-  VectorizeConfig();
+namespace vpo {
+#if INTEL_CUSTOMIZATION
+// Enum indicating vectorization error kind.
+enum class VecErrorKind {
+  // Means that a loop in the function was not vectorized by any reason, the
+  // code was not modified by vectorizer. May be useful in some cases in OCL
+  // pipeline.
+  Bailout,
+  // Means that by some reason vectorizer generated a wrong code and compilation
+  // should be aborted. That can happen due to different reasons. E.g. an
+  // indirect call in SYCL that is made using user-defined vector function
+  // pointer does not have the needed vector variant.
+  Fatal,
 };
 
-using FatalErrorHandlerTy = std::function<void (llvm::Function *F)>;  // INTEL
-
-//===----------------------------------------------------------------------===//
-/// Vectorize the BasicBlock.
-///
-/// @param BB The BasicBlock to be vectorized
-/// @param P  The current running pass, should require AliasAnalysis and
-///           ScalarEvolution. After the vectorization, AliasAnalysis,
-///           ScalarEvolution and CFG are preserved.
-///
-/// @return True if the BB is changed, false otherwise.
-///
-bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
-                         const VectorizeConfig &C = VectorizeConfig());
-
+using VecErrorHandlerTy =
+    std::function<void(llvm::Function *F, VecErrorKind K)>;
+} // namespace vpo
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
 // LoadStoreVectorizer - Create vector loads and stores, but leave scalar
@@ -162,18 +79,6 @@ Pass *createLoadCoalescingPass();
 //
 Pass *createMathLibraryFunctionsReplacementPass(); // remove in OCL commit
 Pass *createMathLibraryFunctionsReplacementPass(bool isOCL);
-
-//===----------------------------------------------------------------------===//
-//
-// VPlan LLVM-IR Vectorizer - Create a VPlan Driver pass for LLVM-IR.
-//
-Pass *createVPlanDriverPass(FatalErrorHandlerTy FatalErrorHandler = nullptr);
-
-//===----------------------------------------------------------------------===//
-//
-// VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
-//
-Pass *createVPlanDriverHIRPass(bool LightWeightMode);
 
 Pass *createVPlanFunctionVectorizerPass();
 

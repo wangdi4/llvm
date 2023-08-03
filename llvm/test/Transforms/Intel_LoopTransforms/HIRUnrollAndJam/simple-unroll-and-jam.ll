@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that we unroll i1 loop by 8.
 
@@ -75,6 +76,11 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRUnrollAndJam
+
 ; ModuleID = 'simple-unroll-and-jam.ll'
 source_filename = "simple-unroll-and-jam.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -102,13 +108,13 @@ for.body3.lr.ph:                                  ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.body3
   %j.02 = phi i32 [ 0, %for.body3.lr.ph ], [ %inc, %for.body3 ]
   %idxprom = sext i32 %j.02 to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom4 = sext i32 %i.04 to i64
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom4
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom4
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %arrayidx5, align 4
+  store i32 %add, ptr %arrayidx5, align 4
   %inc = add nsw i32 %j.02, 1
   %cmp2 = icmp slt i32 %inc, %n
   br i1 %cmp2, label %for.body3, label %for.cond1.for.inc6_crit_edge

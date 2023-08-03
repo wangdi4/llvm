@@ -47,10 +47,10 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %i.07 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.07
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %i.07
-  store i32 %1, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.07
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %i.07
+  store i32 %1, ptr %arrayidx2, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.07, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.end.loopexit, label %for.body

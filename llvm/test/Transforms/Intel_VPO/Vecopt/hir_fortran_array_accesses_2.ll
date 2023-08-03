@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @a = common dso_local local_unnamed_addr global [10 x %struct.A] zeroinitializer, align 16
 
-define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
+define dso_local void @foo(i32 %n, ptr noalias nocapture readonly %arr) {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
 ; VPLAN-IR-NEXT:  VPlan IR for: foo:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
@@ -30,8 +30,8 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
 ; VPLAN-IR-NEXT:     i32 [[VP3:%.*]] = trunc i64 [[VP1]] to i32
 ; VPLAN-IR-NEXT:     i32 [[VP4:%.*]] = mul i32 10 i32 [[VP3]]
-; VPLAN-IR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds %struct.A* [[ARR0:%.*]] {i64 0 : i64 0 : i64 16 : %struct.A*(%struct.A)} {i64 0 : i64 [[VP1]] : i64 8 : %struct.A*(%struct.A) (1 )}
-; VPLAN-IR-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
+; VPLAN-IR-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARR0:%.*]] {i64 0 : i64 0 : i64 16 : ptr(%struct.A)} {i64 0 : i64 [[VP1]] : i64 8 : ptr(%struct.A) (1 )}
+; VPLAN-IR-NEXT:     store i32 [[VP4]] ptr [[VP_SUBSCRIPT]]
 ; VPLAN-IR-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 1
 ; VPLAN-IR-NEXT:     i1 [[VP5:%.*]] = icmp slt i64 [[VP2]] i64 1024
 ; VPLAN-IR-NEXT:     br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -58,18 +58,18 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %outer = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 1, i64 0, i64 16, %struct.A* elementtype(%struct.A) %arr, i64 0)
-  %inner = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 0, i64 0, i64 8, %struct.A* elementtype(%struct.A) %outer, i64 %indvars.iv)
-  %field.gep = getelementptr inbounds %struct.A, %struct.A* %inner, i64 0, i32 1
+  %outer = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 16, ptr elementtype(%struct.A) %arr, i64 0)
+  %inner = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(%struct.A) %outer, i64 %indvars.iv)
+  %field.gep = getelementptr inbounds %struct.A, ptr %inner, i64 0, i32 1
   %iv.trunc = trunc i64 %indvars.iv to i32
   %mul.iv = mul nuw nsw i32 %iv.trunc, 10
-  store i32 %mul.iv, i32* %field.gep, align 8
+  store i32 %mul.iv, ptr %field.gep, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8, i64, i64, %struct.A*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 attributes #0 = { nounwind readnone speculatable }

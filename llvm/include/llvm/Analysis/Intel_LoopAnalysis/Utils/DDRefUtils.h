@@ -191,6 +191,9 @@ public:
   /// Returns a RegDDRef representing an undef value with type \p Type.
   RegDDRef *createUndefDDRef(Type *Type);
 
+  /// Returns a RegDDRef representing a poison value with type \p Type.
+  RegDDRef *createPoisonDDRef(Type *Type);
+
   /// Returns a new BlobDDRef representing blob with Index. Level is the defined
   /// at level for the blob.
   BlobDDRef *createBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);
@@ -432,6 +435,12 @@ public:
 #else // INTEL_FEATURE_SW_DTRANS
   static RegDDRef *simplifyConstArray(const RegDDRef *Ref);
 #endif // INTEL_FEATURE_SW_DTRANS
+
+  /// Removes all the Noalias scopes mentioned in \p RemoveSet from
+  /// AANodes.Scope and AANodes.NoAlias. Helper function used by both symbase
+  /// assignment and HIRDDAnalysis.
+  static void removeNoAliasScopes(AAMDNodes &AANodes,
+                                  const SmallPtrSetImpl<MDNode *> &RemoveSet);
 };
 
 } // End namespace loopopt

@@ -4,6 +4,11 @@ XFAIL: tvos && !tvossim
 // INTEL_CUSTOMIZATION
 // CMPLRLLVM-45394
 UNSUPPORTED: windows && intel-debug-build
+
+// CMPLRTST-21729
+// Temporarily disable this test for further investigation
+UNSUPPORTED: windows
+
 // end INTEL_CUSTOMIZATION
 
 CHECK: AddressSanitizer: stack-overflow

@@ -3,16 +3,17 @@
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
 ; (x86-hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt -opaque-pointers=0 < %s -bugpoint-enable-legacy-pm -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
+; RUN: opt < %s -bugpoint-enable-legacy-pm -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
 
-%rtti.TypeDescriptor2 = type { i8**, i8*, [3 x i8] }
+%rtti.TypeDescriptor2 = type { ptr, ptr, [3 x i8] }
 
 $"??_R0H@8" = comdat any
 
-@"??_7type_info@@6B@" = external constant i8*
-@"??_R0H@8" = linkonce_odr global %rtti.TypeDescriptor2 { i8** @"??_7type_info@@6B@", i8* null, [3 x i8] c".H\00" }, comdat
+@"??_7type_info@@6B@" = external constant ptr
+@"??_R0H@8" = linkonce_odr global %rtti.TypeDescriptor2 { ptr @"??_7type_info@@6B@", ptr null, [3 x i8] c".H\00" }, comdat
 
-define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A, i32* nocapture noundef readonly %B, i32 noundef %N) local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+; Function Attrs: mustprogress uwtable
+define dso_local noundef float @cloneable(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, i32 noundef %N) local_unnamed_addr #0 personality ptr @__CxxFrameHandler3 {
 ; CHECK-LABEL: @cloneable(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
@@ -26,20 +27,20 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK-NEXT:    [[I_091:%.*]] = phi i32 [ [[ADD46:%.*]], [[FOR_INC:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[RESULT_090:%.*]] = phi float [ [[RESULT_1:%.*]], [[FOR_INC]] ], [ 0.000000e+00, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_091]] to i64
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i64 [[IDXPROM]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[ARRAYIDX]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <8 x i32>, <8 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[B:%.*]], i64 [[IDXPROM]]
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast ptr [[ARRAYIDX]] to ptr
+; CHECK-NEXT:    [[TMP3:%.*]] = load <8 x i32>, ptr [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = zext <8 x i32> [[TMP3]] to <8 x i64>
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr float, float* [[A:%.*]], <8 x i64> [[TMP4]]
-; CHECK-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr float, ptr [[A:%.*]], <8 x i64> [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
 ; CHECK-NEXT:    [[TMP7:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[RESULT_090]], <8 x float> [[TMP6]])
 ; CHECK-NEXT:    invoke void @"?may_throw@@YAXXZ"()
 ; CHECK-NEXT:    to label [[FOR_INC]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
 ; CHECK-NEXT:    [[TMP8:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH47:%.*]]
 ; CHECK:       catch:
-; CHECK-NEXT:    [[TMP9:%.*]] = catchpad within [[TMP8]] [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    [[TMP9:%.*]] = catchpad within [[TMP8]] [ptr @"??_R0H@8", i32 0, ptr %X]
+; CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[X]], align 4
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP10]] to float
 ; CHECK-NEXT:    [[ADD45:%.*]] = fadd float [[TMP7]], [[CONV]]
 ; CHECK-NEXT:    [[EQ100:%.*]] = fcmp oeq float [[ADD45]], 1.000000e+02
@@ -55,8 +56,8 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK:       continue.clone:
 ; CHECK-NEXT:    catchret from [[TMP11]] to label [[FOR_INC_CLONE:%.*]]
 ; CHECK:       catch.clone:
-; CHECK-NEXT:    [[TMP11]] = catchpad within [[TMP13:%.*]] [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    [[TMP11]] = catchpad within [[TMP13:%.*]] [ptr @"??_R0H@8", i32 0, ptr %X]
+; CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[X]], align 4
 ; CHECK-NEXT:    [[CONV_CLONE:%.*]] = sitofp i32 [[TMP12]] to float
 ; CHECK-NEXT:    [[ADD45_CLONE]] = fadd float [[TMP19]], [[CONV_CLONE]]
 ; CHECK-NEXT:    [[EQ100_CLONE:%.*]] = fcmp oeq float [[ADD45_CLONE]], 1.000000e+02
@@ -67,12 +68,12 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK-NEXT:    [[I_091_CLONE]] = phi i32 [ [[ADD46_CLONE]], [[FOR_INC_CLONE]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[RESULT_090_CLONE:%.*]] = phi float [ [[RESULT_1_CLONE]], [[FOR_INC_CLONE]] ], [ 0.000000e+00, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[IDXPROM_CLONE:%.*]] = zext i32 [[I_091_CLONE]] to i64
-; CHECK-NEXT:    [[ARRAYIDX_CLONE:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[IDXPROM_CLONE]]
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast i32* [[ARRAYIDX_CLONE]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP15:%.*]] = load <8 x i32>, <8 x i32>* [[TMP14]], align 4
+; CHECK-NEXT:    [[ARRAYIDX_CLONE:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[IDXPROM_CLONE]]
+; CHECK-NEXT:    [[TMP14:%.*]] = bitcast ptr [[ARRAYIDX_CLONE]] to ptr
+; CHECK-NEXT:    [[TMP15:%.*]] = load <8 x i32>, ptr [[TMP14]], align 4
 ; CHECK-NEXT:    [[TMP16:%.*]] = zext <8 x i32> [[TMP15]] to <8 x i64>
-; CHECK-NEXT:    [[TMP17:%.*]] = getelementptr float, float* [[A]], <8 x i64> [[TMP16]]
-; CHECK-NEXT:    [[TMP18:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !hetero.arch.opt.disable.gather !0
+; CHECK-NEXT:    [[TMP17:%.*]] = getelementptr float, ptr [[A]], <8 x i64> [[TMP16]]
+; CHECK-NEXT:    [[TMP18:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !hetero.arch.opt.disable.gather !0
 ; CHECK-NEXT:    [[TMP19]] = call float @llvm.vector.reduce.fadd.v8f32(float [[RESULT_090_CLONE]], <8 x float> [[TMP18]])
 ; CHECK-NEXT:    invoke void @"?may_throw@@YAXXZ"()
 ; CHECK-NEXT:    to label [[FOR_INC_CLONE]] unwind label [[CATCH_DISPATCH_CLONE:%.*]]
@@ -89,7 +90,7 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK:       catch.dispatch47:
 ; CHECK-NEXT:    [[TMP20:%.*]] = catchswitch within none [label %catch48] unwind to caller
 ; CHECK:       catch48:
-; CHECK-NEXT:    [[TMP21:%.*]] = catchpad within [[TMP20]] [i8* null, i32 64, i8* null]
+; CHECK-NEXT:    [[TMP21:%.*]] = catchpad within [[TMP20]] [ptr null, i32 64, ptr null]
 ; CHECK-NEXT:    catchret from [[TMP21]] to label [[TRY_CONT50]]
 ; CHECK:       try.cont50.loopexit:
 ; CHECK-NEXT:    [[RESULT_1_LCSSA:%.*]] = phi float [ [[RESULT_1]], [[FOR_INC]] ], [ [[RESULT_1_CLONE]], [[FOR_INC_CLONE]] ]
@@ -106,16 +107,16 @@ entry:
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
-for.body:                                         ; preds = %for.body.preheader, %for.inc
+for.body:                                         ; preds = %for.inc, %for.body.preheader
   %I.091 = phi i32 [ %add46, %for.inc ], [ 0, %for.body.preheader ]
   %Result.090 = phi float [ %Result.1, %for.inc ], [ 0.000000e+00, %for.body.preheader ]
   %idxprom = zext i32 %I.091 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %idxprom
-  %0 = bitcast i32* %arrayidx to <8 x i32>*
-  %1 = load <8 x i32>, <8 x i32>* %0, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %idxprom
+  %0 = bitcast ptr %arrayidx to ptr
+  %1 = load <8 x i32>, ptr %0, align 4
   %2 = zext <8 x i32> %1 to <8 x i64>
-  %3 = getelementptr float, float* %A, <8 x i64> %2
-  %4 = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> %3, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+  %3 = getelementptr float, ptr %A, <8 x i64> %2
+  %4 = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> %3, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
   %5 = call float @llvm.vector.reduce.fadd.v8f32(float %Result.090, <8 x float> %4)
   invoke void @"?may_throw@@YAXXZ"()
   to label %for.inc unwind label %catch.dispatch
@@ -124,21 +125,21 @@ catch.dispatch:                                   ; preds = %for.body
   %6 = catchswitch within none [label %catch] unwind label %catch.dispatch47
 
 catch:                                            ; preds = %catch.dispatch
-  %7 = catchpad within %6 [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-  %8 = load i32, i32* %X, align 4
+  %7 = catchpad within %6 [ptr @"??_R0H@8", i32 0, ptr %X]
+  %8 = load i32, ptr %X, align 4
   %conv = sitofp i32 %8 to float
   %add45 = fadd float %5, %conv
   %eq100 = fcmp oeq float %add45, 1.000000e+02
   br i1 %eq100, label %unreachable, label %continue
 
-unreachable:
+unreachable:                                      ; preds = %catch
   call void @terminate() [ "funclet"(token %7) ]
   unreachable
 
-continue:
+continue:                                         ; preds = %catch
   catchret from %7 to label %for.inc
 
-for.inc:                                          ; preds = %for.body, %catch
+for.inc:                                          ; preds = %continue, %for.body
   %Result.1 = phi float [ %5, %for.body ], [ %add45, %continue ]
   %add46 = add i32 %I.091, 8
   %cmp.not = icmp eq i32 %N, %add46
@@ -148,19 +149,20 @@ catch.dispatch47:                                 ; preds = %catch.dispatch
   %9 = catchswitch within none [label %catch48] unwind to caller
 
 catch48:                                          ; preds = %catch.dispatch47
-  %10 = catchpad within %9 [i8* null, i32 64, i8* null]
+  %10 = catchpad within %9 [ptr null, i32 64, ptr null]
   catchret from %10 to label %try.cont50
 
 try.cont50.loopexit:                              ; preds = %for.inc
   %Result.1.lcssa = phi float [ %Result.1, %for.inc ]
   br label %try.cont50
 
-try.cont50:                                       ; preds = %try.cont50.loopexit, %entry, %catch48
+try.cont50:                                       ; preds = %try.cont50.loopexit, %catch48, %entry
   %Result.2 = phi float [ -1.000000e+00, %catch48 ], [ 0.000000e+00, %entry ], [ %Result.1.lcssa, %try.cont50.loopexit ]
   ret float %Result.2
 }
 
-define dso_local noundef float @"noclone"(float* nocapture noundef readonly %A, i32* nocapture noundef readonly %B, i32 noundef %N) local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+; Function Attrs: mustprogress uwtable
+define dso_local noundef float @noclone(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, i32 noundef %N) local_unnamed_addr #0 personality ptr @__CxxFrameHandler3 {
 ; CHECK-LABEL: @noclone(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
@@ -172,20 +174,20 @@ define dso_local noundef float @"noclone"(float* nocapture noundef readonly %A, 
 ; CHECK-NEXT:    [[I_091:%.*]] = phi i32 [ [[ADD46:%.*]], [[FOR_INC:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[RESULT_090:%.*]] = phi float [ [[RESULT_1:%.*]], [[FOR_INC]] ], [ 0.000000e+00, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_091]] to i64
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i64 [[IDXPROM]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[ARRAYIDX]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[B:%.*]], i64 [[IDXPROM]]
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast ptr [[ARRAYIDX]] to ptr
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i32>, ptr [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext <8 x i32> [[TMP1]] to <8 x i64>
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr float, float* [[A:%.*]], <8 x i64> [[TMP2]]
-; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP3]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr float, ptr [[A:%.*]], <8 x i64> [[TMP2]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP3]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[RESULT_090]], <8 x float> [[TMP4]])
 ; CHECK-NEXT:    invoke void @"?may_throw@@YAXXZ"()
 ; CHECK-NEXT:    to label [[FOR_INC]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
 ; CHECK-NEXT:    [[TMP6:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH47:%.*]]
 ; CHECK:       catch:
-; CHECK-NEXT:    [[TMP7:%.*]] = catchpad within [[TMP6]] [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    [[TMP7:%.*]] = catchpad within [[TMP6]] [ptr @"??_R0H@8", i32 0, ptr %X]
+; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[X]], align 4
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP8]] to float
 ; CHECK-NEXT:    [[ADD45:%.*]] = fadd float [[TMP5]], [[CONV]]
 ; CHECK-NEXT:    [[EQ100:%.*]] = fcmp oeq float [[ADD45]], 1.000000e+02
@@ -205,7 +207,7 @@ define dso_local noundef float @"noclone"(float* nocapture noundef readonly %A, 
 ; CHECK:       catch.dispatch47:
 ; CHECK-NEXT:    [[TMP9:%.*]] = catchswitch within none [label %catch48] unwind to caller
 ; CHECK:       catch48:
-; CHECK-NEXT:    [[TMP10:%.*]] = catchpad within [[TMP9]] [i8* null, i32 64, i8* null]
+; CHECK-NEXT:    [[TMP10:%.*]] = catchpad within [[TMP9]] [ptr null, i32 64, ptr null]
 ; CHECK-NEXT:    catchret from [[TMP10]] to label [[TRY_CONT50]]
 ; CHECK:       try.cont50.loopexit:
 ; CHECK-NEXT:    [[RESULT_1_LCSSA:%.*]] = phi float [ [[RESULT_1]], [[FOR_INC]] ]
@@ -222,16 +224,16 @@ entry:
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
-for.body:                                         ; preds = %for.body.preheader, %for.inc
+for.body:                                         ; preds = %for.inc, %for.body.preheader
   %I.091 = phi i32 [ %add46, %for.inc ], [ 0, %for.body.preheader ]
   %Result.090 = phi float [ %Result.1, %for.inc ], [ 0.000000e+00, %for.body.preheader ]
   %idxprom = zext i32 %I.091 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %idxprom
-  %0 = bitcast i32* %arrayidx to <8 x i32>*
-  %1 = load <8 x i32>, <8 x i32>* %0, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %idxprom
+  %0 = bitcast ptr %arrayidx to ptr
+  %1 = load <8 x i32>, ptr %0, align 4
   %2 = zext <8 x i32> %1 to <8 x i64>
-  %3 = getelementptr float, float* %A, <8 x i64> %2
-  %4 = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> %3, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
+  %3 = getelementptr float, ptr %A, <8 x i64> %2
+  %4 = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> %3, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef)
   %5 = call float @llvm.vector.reduce.fadd.v8f32(float %Result.090, <8 x float> %4)
   invoke void @"?may_throw@@YAXXZ"()
   to label %for.inc unwind label %catch.dispatch
@@ -240,24 +242,24 @@ catch.dispatch:                                   ; preds = %for.body
   %6 = catchswitch within none [label %catch] unwind label %catch.dispatch47
 
 catch:                                            ; preds = %catch.dispatch
-  %7 = catchpad within %6 [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-  %8 = load i32, i32* %X, align 4
+  %7 = catchpad within %6 [ptr @"??_R0H@8", i32 0, ptr %X]
+  %8 = load i32, ptr %X, align 4
   %conv = sitofp i32 %8 to float
   %add45 = fadd float %5, %conv
   %eq100 = fcmp oeq float %add45, 1.000000e+02
   br i1 %eq100, label %bridge, label %continue
 
-bridge:
+bridge:                                           ; preds = %catch
   br label %unreachable
 
-unreachable:
+unreachable:                                      ; preds = %bridge
   call void @terminate() [ "funclet"(token %7) ]
   unreachable
 
-continue:
+continue:                                         ; preds = %catch
   catchret from %7 to label %for.inc
 
-for.inc:                                          ; preds = %for.body, %catch
+for.inc:                                          ; preds = %continue, %for.body
   %Result.1 = phi float [ %5, %for.body ], [ %add45, %continue ]
   %add46 = add i32 %I.091, 8
   %cmp.not = icmp eq i32 %N, %add46
@@ -267,14 +269,14 @@ catch.dispatch47:                                 ; preds = %catch.dispatch
   %9 = catchswitch within none [label %catch48] unwind to caller
 
 catch48:                                          ; preds = %catch.dispatch47
-  %10 = catchpad within %9 [i8* null, i32 64, i8* null]
+  %10 = catchpad within %9 [ptr null, i32 64, ptr null]
   catchret from %10 to label %try.cont50
 
 try.cont50.loopexit:                              ; preds = %for.inc
   %Result.1.lcssa = phi float [ %Result.1, %for.inc ]
   br label %try.cont50
 
-try.cont50:                                       ; preds = %try.cont50.loopexit, %entry, %catch48
+try.cont50:                                       ; preds = %try.cont50.loopexit, %catch48, %entry
   %Result.2 = phi float [ -1.000000e+00, %catch48 ], [ 0.000000e+00, %entry ], [ %Result.1.lcssa, %try.cont50.loopexit ]
   ret float %Result.2
 }
@@ -284,16 +286,16 @@ declare dso_local void @"?may_throw@@YAXXZ"() local_unnamed_addr #1
 ; Function Attrs: nofree
 declare dso_local i32 @__CxxFrameHandler3(...) #2
 
-; Function Attrs: nocallback nofree nosync nounwind readonly willreturn
-declare <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*>, i32 immarg, <8 x i1>, <8 x float>) #3
-
-; Function Attrs: nocallback nofree nosync nounwind readnone willreturn
-declare float @llvm.vector.reduce.fadd.v8f32(float, <8 x float>) #4
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare float @llvm.vector.reduce.fadd.v8f32(float, <8 x float>) #3
 
 declare void @terminate()
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
+declare <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr>, i32 immarg, <8 x i1>, <8 x float>) #4
 
 attributes #0 = { mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="alderlake" "target-features"="+adx,+aes,+avx,+avx2,+avxvnni,+bmi,+bmi2,+cldemote,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+gfni,+hreset,+invpcid,+kl,+lzcnt,+mmx,+movbe,+movdir64b,+movdiri,+pclmul,+pconfig,+pku,+popcnt,+prfchw,+ptwrite,+rdpid,+rdrnd,+rdseed,+sahf,+serialize,+sgx,+sha,+shstk,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+vaes,+vpclmulqdq,+waitpkg,+widekl,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="alderlake" "target-features"="+adx,+aes,+avx,+avx2,+avxvnni,+bmi,+bmi2,+cldemote,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+gfni,+hreset,+invpcid,+kl,+lzcnt,+mmx,+movbe,+movdir64b,+movdiri,+pclmul,+pconfig,+pku,+popcnt,+prfchw,+ptwrite,+rdpid,+rdrnd,+rdseed,+sahf,+serialize,+sgx,+sha,+shstk,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+vaes,+vpclmulqdq,+waitpkg,+widekl,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #2 = { nofree }
-attributes #3 = { nocallback nofree nosync nounwind readonly willreturn }
-attributes #4 = { nocallback nofree nosync nounwind readnone willreturn }
+attributes #3 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #4 = { nocallback nofree nosync nounwind willreturn memory(read) }

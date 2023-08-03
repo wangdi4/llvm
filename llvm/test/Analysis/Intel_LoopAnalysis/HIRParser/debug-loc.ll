@@ -71,7 +71,7 @@
 ; CHECK: :14>            |      (%a)[i1] = %add5;
 ;
 ; CHECK: :16>            |      %call6 = bitcast (i32 (...)* @c1 to i32 ()*)();
-; CHECK: :16>            |      if (i1 > 0 && %call6 != 0)
+; CHECK: :16>            |      if (i1 > 0 & %call6 != 0)
 ; CHECK: :16>            |      {
 ;
 ; CHECK: :17>            |         %1 = (%a)[i1];

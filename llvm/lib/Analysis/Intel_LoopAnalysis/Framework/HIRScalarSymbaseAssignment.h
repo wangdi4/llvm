@@ -33,6 +33,7 @@
 #include "llvm/ADT/StringMap.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 
 namespace llvm {
 
@@ -45,11 +46,10 @@ class ScalarEvolution;
 
 namespace loopopt {
 
-class HIRSCCFormation;
 class HIRLoopFormation;
 class HLNodeUtils;
 
-/// \brief This analysis populates livein/liveout values for regions.
+/// This analysis populates livein/liveout values for regions.
 ///
 /// It is also responsible for assigning symbases to temps.
 class HIRScalarSymbaseAssignment {
@@ -78,12 +78,13 @@ private:
 
 private:
   /// Populates region liveout instruction as loop liveout in its parent loops.
-  void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase) const;
+  void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase,
+                            const IRRegion &IRReg) const;
 
-  /// \brief Populates liveout Values for the region pointed to by RegIt.
+  /// Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(HIRRegionIdentification::iterator RegIt);
 
-  /// \brief Processes operands of Phi to determine if they are region liveout.
+  /// Processes operands of Phi to determine if they are region liveout.
   bool processRegionPhiLivein(HIRRegionIdentification::iterator RegIt,
                               const PHINode *Phi, unsigned Symbase);
 
@@ -91,43 +92,48 @@ private:
   void populateLoopSCCPhiLiveouts(const Instruction *SCCInst, unsigned Symbase,
                                   const IRRegion &IRReg);
 
-  /// \brief Populates livein Values from the phi nodes present in the region.
+  /// Populates livein Values from the phi nodes present in the region.
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);
 
-  /// \brief Returns index of Symbase in BaseTemps.
+  /// Returns index of Symbase in BaseTemps.
   unsigned getIndex(unsigned Symbase) const;
 
-  /// \brief Inserts Temp into set of base temps and returns its non-zero
+  /// Inserts Temp into set of base temps and returns its non-zero
   /// symbase.
   unsigned insertBaseTemp(const Value *Temp);
 
-  /// \brief Updates the base temp representing Symbase to the passed in Temp,
+  /// Updates the base temp representing Symbase to the passed in Temp,
   /// if applicable.
   void updateBaseTemp(unsigned Symbase, const Value *Temp,
                       const Value **OldTemp);
 
-  /// \brief Inserts temp-symbase pair into the map. Symbase cannot be
+  /// Inserts temp-symbase pair into the map. Symbase cannot be
   /// InvalidSymbase or ConstantSymbase.
   void insertTempSymbase(const Value *Temp, unsigned Symbase);
 
-  /// \brief Returns the MDString node attached to Inst, if any, else returns
+  /// Returns the MDString node attached to Inst, if any, else returns
   /// null.
   MDString *getInstMDString(const Instruction *Inst) const;
 
-  /// \brief Internal to getOrAssignScalarSymbase(). Returns Temp's symbase if
+  /// Internal to getOrAssignScalarSymbase(). Returns Temp's symbase if
   /// it exists, else assigns a new symbase.
   unsigned getOrAssignTempSymbase(const Value *Temp);
 
-  /// \brief Returns Temp's symbase if it exists, else returns InvalidSymbase.
+  /// Returns Temp's symbase if it exists, else returns InvalidSymbase.
   unsigned getTempSymbase(const Value *Temp) const;
 
-  /// \brief Assigns a symbase to Temp and returns it.
+  /// Assigns a symbase to Temp and returns it.
   unsigned assignTempSymbase(const Value *Temp);
 
-  /// \brief Implements getOrAssignScalarSymbase() functionality.
+  /// Implements getOrAssignScalarSymbase() functionality.
   unsigned getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                         const IRRegion &IRReg, bool Assign,
                                         const Value **OldBaseScalar);
+
+  /// Returns the SCC corresponding to \p BaseInst, if any, otherwise returns
+  /// nullptr.
+  const HIRSCCFormation::SCC *getSCC(const Instruction *BaseInst,
+                                     const IRRegion &IRReg) const;
 
 public:
   HIRScalarSymbaseAssignment(LoopInfo &LI, ScalarEvolution &SE,
@@ -139,25 +145,25 @@ public:
 
   void print(raw_ostream &OS) const;
 
-  /// \brief Returns the scalar associated with symbase.
+  /// Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
 
-  /// \brief Returns the max symbase assigned to any scalar.
+  /// Returns the max symbase assigned to any scalar.
   unsigned getMaxScalarSymbase() const;
 
-  /// \brief Returns true if this scalar is a constant.
+  /// Returns true if this scalar is a constant.
   static bool isConstant(const Value *Scalar);
 
-  /// \brief Returns scalar's symbase if it exists, else assigns a new symbase.
+  /// Returns scalar's symbase if it exists, else assigns a new symbase.
   /// If this scalar has replaced an existing base scalar, the existing scalar
   /// is returned via OldBaseScalar.
   unsigned getOrAssignScalarSymbase(const Value *Scalar, const IRRegion &IRReg,
                                     const Value **OldBaseScalar = nullptr);
 
-  /// \brief Returns scalar's symbase if it exists, else returns 0.
+  /// Returns scalar's symbase if it exists, else returns 0.
   unsigned getScalarSymbase(const Value *Scalar, const IRRegion &IRReg);
 
-  /// \brief Traces back single operand phis until something else is encountered
+  /// Traces back single operand phis until something else is encountered
   /// (or we leave the current region) and returns that.
   const Value *traceSingleOperandPhis(const Value *Scalar,
                                       const IRRegion &IRReg) const;
@@ -171,6 +177,12 @@ public:
   const Loop *getDeepestSCCLoop(const Instruction *BaseInst,
                                 const Loop *UseLoop,
                                 const IRRegion &IRReg) const;
+
+  /// Returns the OrigRoot of the SCC which is the also the outermost loop
+  /// header phi if \p BaseInst belongs to an SCC, otherwise returns incoming \p
+  /// BaseInst.
+  const Instruction *getOutermostLoopHeaderSCCPhi(const Instruction *BaseInst,
+                                                  const IRRegion &IRReg) const;
 };
 
 } // End namespace loopopt

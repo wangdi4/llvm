@@ -60,6 +60,12 @@
   name = "nested", scope = #toplevel_namespace, exportSymbols = false
 >
 
+// CHECK-DAG: #[[ANONYMOUS_NS:.*]] = #llvm.di_namespace<scope = #[[FILE]], exportSymbols = false>
+#anonymous_namespace = #llvm.di_namespace<
+  scope = #file,
+  exportSymbols = false
+>
+
 // CHECK-DAG: #[[COMP2:.*]] = #llvm.di_composite_type<tag = DW_TAG_class_type, name = "class_name", file = #[[FILE]], scope = #[[NESTED]], flags = "TypePassByReference|NonTrivial">
 #comp2 = #llvm.di_composite_type<
   tag = DW_TAG_class_type, name = "class_name", file = #file, scope = #nested_namespace,
@@ -83,9 +89,9 @@
   callingConvention = DW_CC_normal
 >
 
-// CHECK-DAG: #[[SP0:.*]] = #llvm.di_subprogram<compileUnit = #[[CU]], scope = #[[FILE]], name = "addr", linkageName = "addr", file = #[[FILE]], line = 3, scopeLine = 3, subprogramFlags = "Definition|Optimized", type = #[[SPTYPE0]]>
+// CHECK-DAG: #[[SP0:.*]] = #llvm.di_subprogram<compileUnit = #[[CU]], scope = #[[ANONYMOUS_NS]], name = "addr", linkageName = "addr", file = #[[FILE]], line = 3, scopeLine = 3, subprogramFlags = "Definition|Optimized", type = #[[SPTYPE0]]>
 #sp0 = #llvm.di_subprogram<
-  compileUnit = #cu, scope = #file, name = "addr", linkageName = "addr",
+  compileUnit = #cu, scope = #anonymous_namespace, name = "addr", linkageName = "addr",
   file = #file, line = 3, scopeLine = 3, subprogramFlags = "Definition|Optimized", type = #spType0
 >
 
@@ -130,6 +136,12 @@
   scope = #block2, name = "arg2"
 >
 
+// CHECK-DAG: #[[LABEL1:.*]] =  #llvm.di_label<scope = #[[BLOCK1]], name = "label", file = #[[FILE]], line = 42>
+#label1 = #llvm.di_label<scope = #block1, name = "label", file = #file, line = 42>
+
+// CHECK-DAG: #[[LABEL2:.*]] =  #llvm.di_label<scope = #[[BLOCK2]]>
+#label2 = #llvm.di_label<scope = #block2>
+
 // CHECK: llvm.func @addr(%[[ARG:.*]]: i64)
 llvm.func @addr(%arg: i64) {
   // CHECK: %[[ALLOC:.*]] = llvm.alloca
@@ -147,5 +159,9 @@ llvm.func @value(%arg1: i32, %arg2: i32) {
   llvm.intr.dbg.value #var1 = %arg1 : i32
   // CHECK: llvm.intr.dbg.value #[[VAR2]] = %[[ARG2]]
   llvm.intr.dbg.value #var2 = %arg2 : i32
+  // CHECK: llvm.intr.dbg.label #[[LABEL1]]
+  llvm.intr.dbg.label #label1
+  // CHECK: llvm.intr.dbg.label #[[LABEL2]]
+  llvm.intr.dbg.label #label2
   llvm.return
 }

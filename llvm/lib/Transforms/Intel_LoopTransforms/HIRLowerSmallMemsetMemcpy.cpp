@@ -70,7 +70,7 @@ class MemsetMemcpyVisitor final : public HLNodeVisitorBase {
 public:
   MemsetMemcpyVisitor(HIRFramework &HIRF) : HIRF(HIRF) {}
 
-  bool visit(HLInst *Inst);
+  void visit(HLInst *Inst);
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
 
@@ -81,16 +81,13 @@ private:
   RegDDRef *createLoopMemref(const RegDDRef *Op, unsigned Level);
 };
 
-bool MemsetMemcpyVisitor::visit(HLInst *Inst) {
+void MemsetMemcpyVisitor::visit(HLInst *Inst) {
 
   MemsetMemcpyCandidate MMC;
   if (doAnalysis(Inst, MMC)) {
     doTransform(Inst, MMC);
     ++NumLoweredMemsetMemcpy;
-    return true;
   }
-
-  return false;
 }
 
 class HIRLowerSmallMemsetMemcpy {
@@ -470,12 +467,13 @@ bool HIRLowerSmallMemsetMemcpy::run() {
 
   MemsetMemcpyVisitor MMV(HIRF);
 
+  unsigned PrevLowered = NumLoweredMemsetMemcpy;
   for (auto &RegIt : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion &Reg = cast<HLRegion>(RegIt);
     HLNodeUtils::visitRange(MMV, Reg.child_begin(), Reg.child_end());
   }
 
-  return NumLoweredMemsetMemcpy;
+  return NumLoweredMemsetMemcpy != PrevLowered;
 }
 
 PreservedAnalyses
@@ -486,7 +484,7 @@ HIRLowerSmallMemsetMemcpyPass::runImpl(Function &F, FunctionAnalysisManager &AM,
   }
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-  HIRLowerSmallMemsetMemcpy(HIRF).run();
+  ModifiedHIR = HIRLowerSmallMemsetMemcpy(HIRF).run();
 
   return PreservedAnalyses::all();
 }

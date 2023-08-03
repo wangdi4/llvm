@@ -16,9 +16,12 @@
 #include <optional>
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::oneapi {
 namespace detail {
+// Import from detail:: into ext::oneapi::detail:: to improve readability later
+using namespace ::sycl::detail;
+
 // Helper for creating ranges for empty weak_objects.
 template <int Dims> static range<Dims> createDummyRange() {
   static_assert(Dims >= 0 && Dims < 4, "Invalid dimensionality in range.");
@@ -224,5 +227,5 @@ private:
 };
 
 } // namespace ext::oneapi
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl

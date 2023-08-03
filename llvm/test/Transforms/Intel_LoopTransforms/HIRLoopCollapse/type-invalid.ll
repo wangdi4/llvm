@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-collapse" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; *** Source Code ***
 ; int A[10][20];
@@ -37,10 +38,13 @@
 ; CHECK:             + END LOOP
 ; CHECK:        END REGION
 ;
-; === ---------------------------------------------------------------- ===
-; Following is the LLVM's input code!
-; === ---------------------------------------------------------------- ===
-;
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopCollpase
+
+
 source_filename = "new.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -60,10 +64,10 @@ for.body3:                                        ; preds = %for.body3, %for.bod
   %j.014 = phi i32 [ 0, %for.body ], [ %inc, %for.body3 ]
   %and = and i32 %j.014, 7
   %0 = zext i32 %and to i64
-  %arrayidx5 = getelementptr inbounds [10 x [20 x i32]], [10 x [20 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %0
-  %1 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [10 x [20 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %0
+  %1 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   %add = add nsw i32 %1, 1
-  store i32 %add, i32* %arrayidx5, align 4, !tbaa !2
+  store i32 %add, ptr %arrayidx5, align 4, !tbaa !2
   %inc = add nuw nsw i32 %j.014, 1
   %exitcond = icmp eq i32 %inc, 20
   br i1 %exitcond, label %for.inc6, label %for.body3

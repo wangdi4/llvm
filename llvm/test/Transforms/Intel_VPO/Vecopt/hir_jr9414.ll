@@ -32,32 +32,32 @@
 ; CHECK-LABEL:    vector.body:
 ; CHECK-COUNT-2:    {{%.*}} = call <8 x bfloat> @llvm.x86.avx512bf16.mask.cvtneps2bf16.128
 
-define dso_local void @vec_bf(float* nocapture readonly %f, i16* nocapture %bf, i32 %len) local_unnamed_addr #0 {
+define dso_local void @vec_bf(ptr nocapture readonly %f, ptr nocapture %bf, i32 %len) local_unnamed_addr #0 {
 entry:
   %i.linear.iv = alloca i32, align 4
   %cmp = icmp eq i32 %len, 0
   br i1 %cmp, label %omp.precond.end, label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.015 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add7, %omp.inner.for.body ]
   %idxprom = sext i32 %.omp.iv.local.015 to i64
-  %ptridx = getelementptr inbounds float, float* %f, i64 %idxprom
-  %1 = load float, float* %ptridx, align 4
+  %ptridx = getelementptr inbounds float, ptr %f, i64 %idxprom
+  %1 = load float, ptr %ptridx, align 4
   %vecinit3.i = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>, float %1, i32 0
   %2 = call <8 x i16> @llvm.x86.avx512bf16.mask.cvtneps2bf16.128(<4 x float> %vecinit3.i, <8 x i16> zeroinitializer, <4 x i1> <i1 true, i1 true, i1 true, i1 true>) #1
   %vecext.i = extractelement <8 x i16> %2, i32 0
-  %ptridx6 = getelementptr inbounds i16, i16* %bf, i64 %idxprom
-  store i16 %vecext.i, i16* %ptridx6, align 2
+  %ptridx6 = getelementptr inbounds i16, ptr %bf, i64 %idxprom
+  store i16 %vecext.i, ptr %ptridx6, align 2
   %add7 = add nuw i32 %.omp.iv.local.015, 1
   %exitcond = icmp eq i32 %add7, %len
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
-  store i32 %len, i32* %i.linear.iv, align 4
+  store i32 %len, ptr %i.linear.iv, align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 

@@ -14,8 +14,8 @@
 ; Optimizer options:
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ;
 ; This test checks the the DuplicateCalledKernels pass clone a called kernel.
@@ -35,39 +35,37 @@
 ;
 ; The following checks that @bar is still a kernel.
 ; CHECK-DAG: !sycl.kernels = !{![[OCL_KERNELS:[0-9]+]]}
-; CHECK-DAG: ![[OCL_KERNELS]] = !{{{.*}}void (float addrspace(1)*, float addrspace(1)*)* @bar{{.*}}}
+; CHECK-DAG: ![[OCL_KERNELS]] = !{{{.*}}ptr @bar{{.*}}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: convergent nounwind
-define void @bar(float addrspace(1)* %a, float addrspace(1)* %b) #0 !dbg !9 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
+define void @bar(ptr addrspace(1) %a, ptr addrspace(1) %b) #0 !dbg !9 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
 entry:
-  %a.addr = alloca float addrspace(1)*, align 8
-  %b.addr = alloca float addrspace(1)*, align 8
+  %a.addr = alloca ptr addrspace(1), align 8
+  %b.addr = alloca ptr addrspace(1), align 8
   %x = alloca i32, align 4
-  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8, !tbaa !26
-  call void @llvm.dbg.declare(metadata float addrspace(1)** %a.addr, metadata !16, metadata !DIExpression()), !dbg !30
-  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8, !tbaa !26
-  call void @llvm.dbg.declare(metadata float addrspace(1)** %b.addr, metadata !17, metadata !DIExpression()), !dbg !30
-  %0 = bitcast i32* %x to i8*, !dbg !31
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4, !dbg !31
-  call void @llvm.dbg.declare(metadata i32* %x, metadata !18, metadata !DIExpression()), !dbg !31
+  store ptr addrspace(1) %a, ptr %a.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !16, metadata !DIExpression()), !dbg !30
+  store ptr addrspace(1) %b, ptr %b.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata ptr %b.addr, metadata !17, metadata !DIExpression()), !dbg !30
+  call void @llvm.lifetime.start.p0(i64 4, ptr %x) #4, !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %x, metadata !18, metadata !DIExpression()), !dbg !31
   %call = call i64 @_Z12get_local_idj(i32 0) #5, !dbg !31
   %conv = trunc i64 %call to i32, !dbg !31
-  store i32 %conv, i32* %x, align 4, !dbg !31, !tbaa !32
-  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !34, !tbaa !26
-  %2 = load i32, i32* %x, align 4, !dbg !34, !tbaa !32
-  %idxprom = sext i32 %2 to i64, !dbg !34
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %1, i64 %idxprom, !dbg !34
-  %3 = load float, float addrspace(1)* %arrayidx, align 4, !dbg !34, !tbaa !35
-  %4 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !34, !tbaa !26
-  %5 = load i32, i32* %x, align 4, !dbg !34, !tbaa !32
-  %idxprom1 = sext i32 %5 to i64, !dbg !34
-  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %4, i64 %idxprom1, !dbg !34
-  store float %3, float addrspace(1)* %arrayidx2, align 4, !dbg !34, !tbaa !35
-  %6 = bitcast i32* %x to i8*, !dbg !37
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %6) #4, !dbg !37
+  store i32 %conv, ptr %x, align 4, !dbg !31, !tbaa !32
+  %0 = load ptr addrspace(1), ptr %b.addr, align 8, !dbg !34, !tbaa !26
+  %1 = load i32, ptr %x, align 4, !dbg !34, !tbaa !32
+  %idxprom = sext i32 %1 to i64, !dbg !34
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %0, i64 %idxprom, !dbg !34
+  %2 = load float, ptr addrspace(1) %arrayidx, align 4, !dbg !34, !tbaa !35
+  %3 = load ptr addrspace(1), ptr %a.addr, align 8, !dbg !34, !tbaa !26
+  %4 = load i32, ptr %x, align 4, !dbg !34, !tbaa !32
+  %idxprom1 = sext i32 %4 to i64, !dbg !34
+  %arrayidx2 = getelementptr inbounds float, ptr addrspace(1) %3, i64 %idxprom1, !dbg !34
+  store float %2, ptr addrspace(1) %arrayidx2, align 4, !dbg !34, !tbaa !35
+  call void @llvm.lifetime.end.p0(i64 4, ptr %x) #4, !dbg !37
   ret void, !dbg !37
 }
 
@@ -75,26 +73,26 @@ entry:
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #2
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) #3
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #2
 
 ; Function Attrs: convergent nounwind
-define void @foo(float addrspace(1)* %a, float addrspace(1)* %b) #0 !dbg !38 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
+define void @foo(ptr addrspace(1) %a, ptr addrspace(1) %b) #0 !dbg !38 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
 entry:
-  %a.addr = alloca float addrspace(1)*, align 8
-  %b.addr = alloca float addrspace(1)*, align 8
-  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8, !tbaa !26
-  call void @llvm.dbg.declare(metadata float addrspace(1)** %a.addr, metadata !40, metadata !DIExpression()), !dbg !42
-  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8, !tbaa !26
-  call void @llvm.dbg.declare(metadata float addrspace(1)** %b.addr, metadata !41, metadata !DIExpression()), !dbg !42
-  %0 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !43, !tbaa !26
-  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !43, !tbaa !26
-  call void @bar(float addrspace(1)* %0, float addrspace(1)* %1) #6, !dbg !43
+  %a.addr = alloca ptr addrspace(1), align 8
+  %b.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %a, ptr %a.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !40, metadata !DIExpression()), !dbg !42
+  store ptr addrspace(1) %b, ptr %b.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata ptr %b.addr, metadata !41, metadata !DIExpression()), !dbg !42
+  %0 = load ptr addrspace(1), ptr %a.addr, align 8, !dbg !43, !tbaa !26
+  %1 = load ptr addrspace(1), ptr %b.addr, align 8, !dbg !43, !tbaa !26
+  call void @bar(ptr addrspace(1) %0, ptr addrspace(1) %1) #6, !dbg !43
   ret void, !dbg !44
 }
 
@@ -125,7 +123,7 @@ attributes #6 = { convergent "uniform-work-group-size"="false" }
 !5 = !{i32 1, !"wchar_size", i32 4}
 !6 = !{i32 2, i32 0}
 !7 = !{!"clang version 8.0.0 "}
-!8 = !{void (float addrspace(1)*, float addrspace(1)*)* @bar, void (float addrspace(1)*, float addrspace(1)*)* @foo}
+!8 = !{ptr @bar, ptr @foo}
 !9 = distinct !DISubprogram(name: "bar", scope: !10, file: !10, line: 1, type: !11, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: true, unit: !0, retainedNodes: !15)
 !10 = !DIFile(filename: "/tmp/1.cl", directory: "/tmp/tests")
 !11 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !12)
@@ -139,7 +137,7 @@ attributes #6 = { convergent "uniform-work-group-size"="false" }
 !19 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !20 = !{i32 1, i32 1}
 !21 = !{!"none", !"none"}
-!22 = !{!"float*", !"float*"}
+!22 = !{!"ptr", !"ptr"}
 !23 = !{!"", !""}
 !24 = !{i1 false, i1 false}
 !25 = !{i32 0, i32 0}

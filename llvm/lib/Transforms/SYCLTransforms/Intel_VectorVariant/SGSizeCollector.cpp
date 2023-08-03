@@ -133,9 +133,9 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     Function *F = It.first;
     StringRef VarsStr;
     DenseSet<unsigned> ExistingVars;
-    if (F->hasFnAttribute(KernelAttribute::VectorVariants)) {
+    if (F->hasFnAttribute(VectorUtils::VectorVariantsAttrName)) {
 
-      Attribute Attr = F->getFnAttribute(KernelAttribute::VectorVariants);
+      Attribute Attr = F->getFnAttribute(VectorUtils::VectorVariantsAttrName);
       VarsStr = Attr.getValueAsString();
 
       SmallVector<StringRef, 4> Variants;
@@ -163,7 +163,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
       Variants.push_back(VariantUnmasked.VectorName);
     }
 
-    F->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
+    F->addFnAttr(VectorUtils::VectorVariantsAttrName, join(Variants, ","));
     Modified = true;
   }
   return Modified;

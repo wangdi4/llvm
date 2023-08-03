@@ -62,40 +62,40 @@ entry:
 
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %.pre, %if.end ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = sext i32 %0 to i64
   %cmp1 = icmp sgt i64 %indvars.iv, %1
   %.pre = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp1, label %if.end, label %if.else
 
 if.else:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %.pre, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %.pre, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   br label %if.end
 
 if.end:                                           ; preds = %for.body, %if.else
   %t1.0 = phi i32 [ %2, %if.else ], [ %0, %for.body ]
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %t1.0, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %t1.0, ptr %arrayidx7, align 4, !tbaa !2
   %add9 = add nsw i32 %t1.0, %mul8
-  %arrayidx11 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add9, i32* %arrayidx11, align 4, !tbaa !2
-  %arrayidx15 = getelementptr inbounds [1024 x i32], [1024 x i32]* @d, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx15, align 4, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add9, ptr %arrayidx11, align 4, !tbaa !2
+  %arrayidx15 = getelementptr inbounds [1024 x i32], ptr @d, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx15, align 4, !tbaa !2
   %add16 = add nsw i32 %3, %add9
   %4 = sext i32 %add16 to i64
   %cmp17 = icmp sgt i64 %indvars.iv, %4
   %spec.select = select i1 %cmp17, i32 %t1.0, i32 %3
-  store i32 %spec.select, i32* %arrayidx15, align 4, !tbaa !2
+  store i32 %spec.select, ptr %arrayidx15, align 4, !tbaa !2
   %exitcond = icmp eq i64 %.pre, 1024
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %if.end
-  %5 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @b, i64 0, i64 0), align 16, !tbaa !2
-  %6 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @c, i64 0, i64 0), align 16, !tbaa !2
+  %5 = load i32, ptr @b, align 16, !tbaa !2
+  %6 = load i32, ptr @c, align 16, !tbaa !2
   %add24 = add nsw i32 %6, %5
-  %7 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @d, i64 0, i64 0), align 16, !tbaa !2
+  %7 = load i32, ptr @d, align 16, !tbaa !2
   %add25 = add nsw i32 %add24, %7
   ret i32 %add25
 }

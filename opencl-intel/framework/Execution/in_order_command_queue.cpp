@@ -29,11 +29,9 @@ InOrderCommandQueue::InOrderCommandQueue(
     SharedPtr<Context> pContext, cl_device_id clDefaultDeviceID,
     cl_command_queue_properties clProperties, EventsManager *pEventManager)
     : IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties,
-                           pEventManager),
-      m_commandsInExecution(0) {}
+                           pEventManager) {}
 InOrderCommandQueue::~InOrderCommandQueue() {
   assert(m_submittedQueue.IsEmpty());
-  assert(m_submittedQueueGuard == 0);
 }
 
 cl_err_code InOrderCommandQueue::Enqueue(Command *cmd) {

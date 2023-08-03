@@ -16,7 +16,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
@@ -104,7 +103,9 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
   if ((cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString() &&
        IsMatUseUnnecessary) ||
       (IsMatUseB && IsMemLPacked) || (IsMatUseA && IsMemLRowMajor) ||
-      (IsMatUseC && IsMemLRowMajor))
+      (IsMatUseC && IsMemLRowMajor) ||
+      (IsMatUseB && IsMemLRowMajor &&
+       MatrixType->getElementType()->isFloatTy()))
     return std::make_pair(false, CI);
   IRBuilder<> Builder(CI);
   LLVMContext &Ctx = Builder.getContext();

@@ -1,6 +1,6 @@
 ; RUN: llvm-as %p/work-group-builtins-32.ll -o %t.work-group-builtins-32.ll.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass
@@ -17,23 +17,23 @@ target triple = "i686-pc-win32"
 ; CHECK: @wg_test_broadcast
 ; CHECK: entry
 ; CHECK-NEXT: %AllocaWGResult = alloca i32
-; CHECK-NEXT: store i32 0, i32* %AllocaWGResult
+; CHECK-NEXT: store i32 0, ptr %AllocaWGResult
 ; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2)
-; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
+; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, ptr %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: %CallFinalizeWG = call i32 @_Z30__finalize_work_group_identityi(i32 %LoadWGFinalResult)
-; CHECK: store i32 %CallFinalizeWG, i32 addrspace(1)* %arrayidx2, align 1
+; CHECK: store i32 %CallFinalizeWG, ptr addrspace(1) %arrayidx2, align 1
 
-define void @wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
+define void @wg_test_broadcast(ptr addrspace(1) nocapture %a, ptr addrspace(1) nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i32 %call
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 1
   %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2) nounwind
-  %arrayidx2 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
-  store i32 %call1, i32 addrspace(1)* %arrayidx2, align 1
+  %arrayidx2 = getelementptr inbounds i32, ptr addrspace(1) %b, i32 %call
+  store i32 %call1, ptr addrspace(1) %arrayidx2, align 1
   ret void
 }
 
@@ -44,34 +44,32 @@ declare i32 @_Z20work_group_broadcastij(i32, i32)
 ; CHECK: @__Vectorized_.wg_test_broadcast
 ; CHECK: entry
 ; CHECK-NEXT: %AllocaWGResult = alloca <4 x i32>
-; CHECK-NEXT: store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult
+; CHECK-NEXT: store <4 x i32> zeroinitializer, ptr %AllocaWGResult
 ; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
-; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
+; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, ptr %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>, ptr %AllocaWGResult, align 16
 ; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z30__finalize_work_group_identityDv4_i(<4 x i32> %LoadWGFinalResult)
-; CHECK: store <4 x i32> %CallFinalizeWG, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
+; CHECK: store <4 x i32> %CallFinalizeWG, ptr addrspace(1) {{.*}}, align 1
 
-define void @__Vectorized_.wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
+define void @__Vectorized_.wg_test_broadcast(ptr addrspace(1) nocapture %a, ptr addrspace(1) nocapture %b) nounwind {
 entry:
   %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
-  %0 = getelementptr inbounds i32, i32 addrspace(1)* %a, i32 %call
-  %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <4 x i32> addrspace(1)*
-  %1 = load <4 x i32>, <4 x i32> addrspace(1)* %ptrTypeCast, align 1
+  %0 = getelementptr inbounds i32, ptr addrspace(1) %a, i32 %call
+  %1 = load <4 x i32>, ptr addrspace(1) %0, align 1
   %2 = call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
-  %3 = getelementptr inbounds i32, i32 addrspace(1)* %b, i32 %call
-  %ptrTypeCast4 = bitcast i32 addrspace(1)* %3 to <4 x i32> addrspace(1)*
-  store <4 x i32> %2, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
+  %3 = getelementptr inbounds i32, ptr addrspace(1) %b, i32 %call
+  store <4 x i32> %2, ptr addrspace(1) %3, align 1
   ret void
 }
 
 declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readnone
 
 ; CHECK: declare i32 @_Z12get_local_idj(i32)
-; CHECK: declare i32 @_Z20work_group_broadcastijjPi(i32, i32, i32, i32*)
-; CHECK: declare <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32>, i32, i32, <4 x i32>*)
+; CHECK: declare i32 @_Z20work_group_broadcastijjPi(i32, i32, i32, ptr)
+; CHECK: declare <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32>, i32, i32, ptr)
 
 
 !sycl.kernels = !{!0}
@@ -85,7 +83,7 @@ declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readn
 !opencl.module_info_list = !{!28}
 !llvm.functions_info = !{}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_broadcast, !1, !2, !3, !4, !5}
+!0 = !{ptr @wg_test_broadcast, !1, !2, !3, !4, !5}
 !1 = !{!"kernel_arg_addr_space", i32 1, i32 1}
 !2 = !{!"kernel_arg_access_qual", !"none", !"none"}
 !3 = !{!"kernel_arg_type", !"int*", !"int*"}
@@ -95,24 +93,24 @@ declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readn
 !7 = !{i32 2, i32 0}
 !8 = !{}
 !9 = !{!"-cl-std=CL2.0"}
-!10 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_broadcast, !11}
+!10 = !{ptr @wg_test_broadcast, !11}
 !11 = !{!12, !13, !14, !15, !16, !17, !18, !19, !20}
 !12 = !{!"local_buffer_size", null}
 !13 = !{!"barrier_buffer_size", null}
 !14 = !{!"kernel_execution_length", i32 7}
 !15 = !{!"kernel_has_barrier", i1 true}
 !16 = !{!"no_barrier_path", i1 false}
-!17 = !{!"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_broadcast}
+!17 = !{!"vectorized_kernel", ptr @__Vectorized_.wg_test_broadcast}
 !18 = !{!"vectorized_width", i32 1}
 !19 = !{!"kernel_wrapper", null}
 !20 = !{!"scalar_kernel", null}
-!21 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_broadcast, !22}
+!21 = !{ptr @__Vectorized_.wg_test_broadcast, !22}
 !22 = !{!12, !13, !23, !15, !24, !25, !26, !19, !27}
 !23 = !{!"kernel_execution_length", i32 9}
 !24 = !{!"no_barrier_path", null}
 !25 = !{!"vectorized_kernel", null}
 !26 = !{!"vectorized_width", i32 4}
-!27 = !{!"scalar_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_broadcast}
+!27 = !{!"scalar_kernel", ptr @wg_test_broadcast}
 !28 = !{!29, !30}
 !29 = !{!"gen_addr_space_pointer_counter", null}
 !30 = !{!"gen_addr_space_pointer_warnings"}
@@ -125,16 +123,16 @@ declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readn
 
 ;; These are inserted by GroupBuiltin pass, should not have debug info
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- %AllocaWGResult = alloca i32, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, ptr %AllocaWGResult, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- %WIcall = call i32 @_Z12get_local_idj(i32 0)
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, ptr %AllocaWGResult, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- %AllocaWGResult = alloca <4 x i32>, align 16
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, ptr %AllocaWGResult, align 16
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- %WIcall = call i32 @_Z12get_local_idj(i32 0)
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, ptr %AllocaWGResult, align 16
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

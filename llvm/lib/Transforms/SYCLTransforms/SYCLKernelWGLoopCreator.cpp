@@ -40,10 +40,10 @@ namespace {
 class WGLoopCreatorImpl {
 public:
   WGLoopCreatorImpl(Module &M, bool UseTLSGlobals,
-                    MapFunctionToReturnInst &FuncReturn)
+                    MapFunctionToReturnInst &FuncReturn, FuncSet &AllKernels)
       : M(M), Ctx(M.getContext()), Builder(Ctx),
         UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals),
-        FuncReturn(FuncReturn) {}
+        FuncReturn(FuncReturn), AllKernels(AllKernels) {}
 
   /// Run on the module.
   bool run();
@@ -134,6 +134,10 @@ private:
   /// Index i contains vector with vector kernel get_local_id(i) calls.
   InstVecVec LidCallsVec;
 
+  /// Map from a kernel function to get_global_id/get_local_id calls within it.
+  DenseMap<Function *, InstVecVec> FuncToGIDCalls;
+  DenseMap<Function *, InstVecVec> FuncToLIDCalls;
+
   /// Early exit call.
   CallInst *EECall = nullptr;
 
@@ -158,6 +162,9 @@ private:
   /// Map from function to its return instruction.
   MapFunctionToReturnInst &FuncReturn;
 
+  /// Kernels and their vector kernels.
+  FuncSet &AllKernels;
+
   /// LoopRegion of scalar or masked remainder.
   LoopRegion RemainderRegion;
 
@@ -168,6 +175,9 @@ private:
 
   /// Process TID calls in  not-inlined functions.
   bool processTIDInNotInlinedFuncs();
+
+  /// Find all get_global_id and get_local_id calls in kernels.
+  void collectTIDCalls();
 
   /// Fix TID calls in patched functions.
   /// get_local_id is replaced with load instruction from either TLS local id or
@@ -299,6 +309,9 @@ bool WGLoopCreatorImpl::run() {
 
   Changed |= processTIDInNotInlinedFuncs();
 
+  // processTIDInNotInlinedFuncs may create new TID calls in kernels.
+  collectTIDCalls();
+
   auto Kernels = getKernels(M);
   for (auto *F : Kernels) {
     KernelInternalMetadataAPI KIMD(F);
@@ -367,11 +380,10 @@ bool WGLoopCreatorImpl::processTIDInNotInlinedFuncs() {
   FuncSet KernelAndSyncFuncs;
   LoopUtils::fillFuncUsersSet(SyncFunctions, KernelAndSyncFuncs);
 
-  FuncSet Kernels = getAllKernels(M);
-  KernelAndSyncFuncs.insert(Kernels.begin(), Kernels.end());
+  KernelAndSyncFuncs.insert(AllKernels.begin(), AllKernels.end());
 
   InstVec TIDCallsToFix =
-      findTIDCallsInNotInlinedFuncs(KernelAndSyncFuncs, Kernels);
+      findTIDCallsInNotInlinedFuncs(KernelAndSyncFuncs, AllKernels);
 
   if (TIDCallsToFix.empty())
     return false;
@@ -382,6 +394,13 @@ bool WGLoopCreatorImpl::processTIDInNotInlinedFuncs() {
   fixTIDCallInNotInlinedFuncs(TIDCallsToFix);
 
   return true;
+}
+
+void WGLoopCreatorImpl::collectTIDCalls() {
+  FuncToGIDCalls =
+      std::move(getTIDCallsInFuncs(M, mangledGetGID(), AllKernels));
+  FuncToLIDCalls =
+      std::move(getTIDCallsInFuncs(M, mangledGetLID(), AllKernels));
 }
 
 InstVec
@@ -1309,10 +1328,8 @@ void WGLoopCreatorImpl::handleUniformEE(BasicBlock *RetBB) {
 
 ReturnInst *WGLoopCreatorImpl::getFunctionData(Function *F, InstVecVec &Gids,
                                                InstVecVec &Lids) {
-  std::string GID = mangledGetGID();
-  std::string LID = mangledGetLID();
-  LoopUtils::collectTIDCallInst(GID, Gids, F);
-  LoopUtils::collectTIDCallInst(LID, Lids, F);
+  Gids = FuncToGIDCalls[F];
+  Lids = FuncToLIDCalls[F];
 
   auto It = FuncReturn.find(F);
   if (It != FuncReturn.end())
@@ -1531,16 +1548,16 @@ PHINode *WGLoopCreatorImpl::createLIDPHI(Value *InitVal, Value *IncBy,
 }
 
 PreservedAnalyses SYCLKernelWGLoopCreatorPass::run(Module &M,
-                                                    ModuleAnalysisManager &) {
-  FuncSet FSet = getAllKernels(M);
+                                                   ModuleAnalysisManager &) {
+  FuncSet AllKernels = getAllKernels(M);
   MapFunctionToReturnInst FuncReturn;
-  for (auto *F : FSet) {
+  for (auto *F : AllKernels) {
     auto It = std::find_if(F->begin(), F->end(), [](BasicBlock &BB) {
       return isa<ReturnInst>(BB.getTerminator());
     });
     if (It != F->end())
       FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
   }
-  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn);
+  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn, AllKernels);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

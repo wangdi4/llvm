@@ -47,7 +47,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @g() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @f, align 4
+  %.pr = load i32, ptr @f, align 4
   %tobool47 = icmp eq i32 %.pr, 0
   br i1 %tobool47, label %for.end32, label %for.cond1.preheader.preheader
 
@@ -60,8 +60,8 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
 
 for.body2:                                        ; preds = %for.cond1.preheader, %for.body2
   %indvars.iv = phi i64 [ 2, %for.cond1.preheader ], [ %indvars.iv.next, %for.body2 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @b, i64 0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @b, i64 0, i64 %indvars.iv
+  store i32 0, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 7
   br i1 %cmp, label %for.body2, label %for.cond6.preheader.preheader
@@ -76,8 +76,8 @@ for.cond6.preheader:                              ; preds = %for.cond6.preheader
 
 for.body8:                                        ; preds = %for.cond6.preheader, %for.body8
   %indvars.iv50 = phi i64 [ 1, %for.cond6.preheader ], [ %indvars.iv.next51, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* @c, i64 0, i64 %indvars.iv50
-  store i32 %or, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr @c, i64 0, i64 %indvars.iv50
+  store i32 %or, ptr %arrayidx10, align 4
   %indvars.iv.next51 = add nuw nsw i64 %indvars.iv50, 1
   %exitcond = icmp eq i64 %indvars.iv.next51, 4294967296
   br i1 %exitcond, label %for.inc13, label %for.body8
@@ -97,8 +97,8 @@ for.cond19.preheader:                             ; preds = %for.cond19.preheade
 
 for.body21:                                       ; preds = %for.cond19.preheader, %for.body21
   %indvars.iv52 = phi i64 [ 1, %for.cond19.preheader ], [ %indvars.iv.next53, %for.body21 ]
-  %arrayidx23 = getelementptr inbounds [100 x i32], [100 x i32]* @c, i64 0, i64 %indvars.iv52
-  store i32 %and, i32* %arrayidx23, align 4
+  %arrayidx23 = getelementptr inbounds [100 x i32], ptr @c, i64 0, i64 %indvars.iv52
+  store i32 %and, ptr %arrayidx23, align 4
   %indvars.iv.next53 = add nuw nsw i64 %indvars.iv52, 1
   %exitcond54 = icmp eq i64 %indvars.iv.next53, 4294967296
   br i1 %exitcond54, label %for.inc27, label %for.body21
@@ -114,9 +114,9 @@ for.inc30:                                        ; preds = %for.inc27
   br i1 %tobool, label %for.cond.for.end32_crit_edge, label %for.cond1.preheader
 
 for.cond.for.end32_crit_edge:                     ; preds = %for.inc30
-  store i32 8, i32* @d, align 4
-  store i32 0, i32* @e, align 4
-  store i32 0, i32* @f, align 4
+  store i32 8, ptr @d, align 4
+  store i32 0, ptr @e, align 4
+  store i32 0, ptr @f, align 4
   br label %for.end32
 
 for.end32:                                        ; preds = %for.cond.for.end32_crit_edge, %entry

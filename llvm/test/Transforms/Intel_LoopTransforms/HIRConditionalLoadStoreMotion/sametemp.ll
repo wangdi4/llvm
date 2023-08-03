@@ -40,25 +40,25 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @sametemp(double* %A, i1 %which) {
+define void @sametemp(ptr %A, i1 %which) {
 
 entry:
   br label %L1
 
 L1:
   %i = phi i64 [ 0, %entry ], [ %i.next, %L1.latch ]
-  %Ai = getelementptr inbounds double, double* %A, i64 %i
+  %Ai = getelementptr inbounds double, ptr %A, i64 %i
   br i1 %which, label %then, label %else
 
 then:
-  %ldval.then = load double, double* %Ai, align 8
+  %ldval.then = load double, ptr %Ai, align 8
   %t.then = fadd double %ldval.then, 1.0
-  store double %t.then, double* %Ai, align 8
+  store double %t.then, ptr %Ai, align 8
   br label %L1.latch
 
 else:
-  %t.else = load double, double* %Ai, align 8
-  store double %t.else, double* %Ai, align 8
+  %t.else = load double, ptr %Ai, align 8
+  store double %t.else, ptr %Ai, align 8
   br label %L1.latch
 
 L1.latch:

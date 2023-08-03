@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==----------------- util.hpp - DPC++ Explicit SIMD API  ------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -39,7 +24,7 @@
 #endif // __SYCL_DEVICE_ONLY__
 
 namespace sycl {
-__SYCL_INLINE_VER_NAMESPACE(_V1) {
+inline namespace _V1 {
 namespace ext::intel::esimd::detail {
 
 /// ESIMD intrinsic operand size in bytes.
@@ -180,7 +165,7 @@ template <> struct word_type<uint> {
 
 // Utility for compile time loop unrolling.
 template <unsigned N> class ForHelper {
-  template <unsigned I, typename Action> static inline void repeat(Action A) {
+  template <unsigned I, typename Action> static void repeat(Action A) {
     if constexpr (I < N)
       A(I);
     if constexpr (I + 1 < N)
@@ -188,7 +173,7 @@ template <unsigned N> class ForHelper {
   }
 
 public:
-  template <typename Action> static inline void unroll(Action A) {
+  template <typename Action> static void unroll(Action A) {
     ForHelper::template repeat<0, Action>(A);
   }
 };
@@ -196,15 +181,22 @@ public:
 #ifdef __ESIMD_FORCE_STATELESS_MEM
 /// Returns the address referenced by the accessor \p Acc and
 /// the byte offset \p Offset.
-template <typename T, typename AccessorTy>
-T *accessorToPointer(AccessorTy Acc, uint32_t Offset = 0) {
-  auto BytePtr = reinterpret_cast<char *>(Acc.get_pointer().get()) + Offset;
-  return reinterpret_cast<T *>(BytePtr);
+template <typename T, typename AccessorTy, typename OffsetTy = uint32_t>
+auto accessorToPointer(AccessorTy Acc, OffsetTy Offset = 0) {
+  using QualCharPtrType =
+      std::conditional_t<std::is_const_v<typename AccessorTy::value_type>,
+                         const char *, char *>;
+  using QualTPtrType =
+      std::conditional_t<std::is_const_v<typename AccessorTy::value_type>,
+                         const T *, T *>;
+  auto BytePtr =
+      reinterpret_cast<QualCharPtrType>(Acc.get_pointer().get()) + Offset;
+  return reinterpret_cast<QualTPtrType>(BytePtr);
 }
 #endif // __ESIMD_FORCE_STATELESS_MEM
 
 } // namespace ext::intel::esimd::detail
-} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+} // namespace _V1
 } // namespace sycl
 
 /// @endcond ESIMD_DETAIL

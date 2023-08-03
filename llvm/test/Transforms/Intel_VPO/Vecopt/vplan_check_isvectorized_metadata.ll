@@ -35,13 +35,13 @@ preheader:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @B, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @C, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4
   %add = add nsw i32 %1, %0
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

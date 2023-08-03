@@ -97,14 +97,14 @@
 // Second, IR rewriting in Step 2 also needs to be circular. For example,
 // converting %y to addrspace(3) requires the compiler to know the converted
 // %y2, but converting %y2 needs the converted %y. To address this complication,
-// we break these cycles using "undef" placeholders. When converting an
+// we break these cycles using "poison" placeholders. When converting an
 // instruction `I` to a new address space, if its operand `Op` is not converted
-// yet, we let `I` temporarily use `undef` and fix all the uses of undef later.
+// yet, we let `I` temporarily use `poison` and fix all the uses later.
 // For instance, our algorithm first converts %y to
-//   %y' = phi float addrspace(3)* [ %input, undef ]
+//   %y' = phi float addrspace(3)* [ %input, poison ]
 // Then, it converts %y2 to
 //   %y2' = getelementptr %y', 1
-// Finally, it fixes the undef in %y' so that
+// Finally, it fixes the poison in %y' so that
 //   %y' = phi float addrspace(3)* [ %input, %y2' ]
 //
 //===----------------------------------------------------------------------===//
@@ -248,7 +248,7 @@ class InferAddressSpacesImpl {
       Instruction *I, unsigned NewAddrSpace,
       const ValueToValueMapTy &ValueWithNewAddrSpace,
       const PredicatedAddrSpaceMapTy &PredicatedAS,
-      SmallVectorImpl<const Use *> *UndefUsesToFix) const;
+      SmallVectorImpl<const Use *> *PoisonUsesToFix) const;
 
   // Changes the flat address expressions in function F to point to specific
   // address spaces if InferredAddrSpace says so. Postorder is the postorder of
@@ -275,7 +275,7 @@ class InferAddressSpacesImpl {
       Value *V, unsigned NewAddrSpace,
       const ValueToValueMapTy &ValueWithNewAddrSpace,
       const PredicatedAddrSpaceMapTy &PredicatedAS,
-      SmallVectorImpl<const Use *> *UndefUsesToFix) const;
+      SmallVectorImpl<const Use *> *PoisonUsesToFix) const;
   unsigned joinAddressSpaces(unsigned AS1, unsigned AS2) const;
 
   unsigned getPredicatedAddrSpace(const Value &V, Value *Opnd) const;
@@ -297,6 +297,14 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(InferAddressSpaces, DEBUG_TYPE, "Infer address spaces",
                     false, false)
+
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+static Type *getPtrOrVecOfPtrsWithNewAS(Type *Ty, unsigned NewAddrSpace) {
+  assert(Ty->isPtrOrPtrVectorTy());
+  PointerType *NPT = PointerType::get(Ty->getContext(), NewAddrSpace);
+  return Ty->getWithNewType(NPT);
+}
+#endif
 
 // Check whether that's no-op pointer bicast using a pair of
 // `ptrtoint`/`inttoptr` due to the missing no-op pointer bitcast over
@@ -343,14 +351,22 @@ static bool isAddressExpression(const Value &V, const DataLayout &DL,
 
   switch (Op->getOpcode()) {
   case Instruction::PHI:
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    assert(Op->getType()->isPtrOrPtrVectorTy());
+#else
     assert(Op->getType()->isPointerTy());
+#endif
     return true;
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
   case Instruction::GetElementPtr:
     return true;
   case Instruction::Select:
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return Op->getType()->isPtrOrPtrVectorTy();
+#else
     return Op->getType()->isPointerTy();
+#endif
   case Instruction::Call: {
     const IntrinsicInst *II = dyn_cast<IntrinsicInst>(&V);
     return II && II->getIntrinsicID() == Intrinsic::ptrmask;
@@ -415,6 +431,26 @@ bool InferAddressSpacesImpl::rewriteIntrinsicOperands(IntrinsicInst *II,
   case Intrinsic::ptrmask:
     // This is handled as an address expression, not as a use memory operation.
     return false;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  case Intrinsic::masked_gather: {
+    Type *RetTy = II->getType();
+    Type *NewPtrTy = NewV->getType();
+    Function *NewDecl =
+        Intrinsic::getDeclaration(M, II->getIntrinsicID(), {RetTy, NewPtrTy});
+    II->setArgOperand(0, NewV);
+    II->setCalledFunction(NewDecl);
+    return true;
+  }
+  case Intrinsic::masked_scatter: {
+    Type *ValueTy = II->getOperand(0)->getType();
+    Type *NewPtrTy = NewV->getType();
+    Function *NewDecl =
+        Intrinsic::getDeclaration(M, II->getIntrinsicID(), {ValueTy, NewPtrTy});
+    II->setArgOperand(1, NewV);
+    II->setCalledFunction(NewDecl);
+    return true;
+  }
+#endif
   default: {
     Value *Rewrite = TTI->rewriteIntrinsicWithAddressSpace(II, OldV, NewV);
     if (!Rewrite)
@@ -436,6 +472,16 @@ void InferAddressSpacesImpl::collectRewritableIntrinsicOperands(
     appendsFlatAddressExpressionToPostorderStack(II->getArgOperand(0),
                                                  PostorderStack, Visited);
     break;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  case Intrinsic::masked_gather:
+    appendsFlatAddressExpressionToPostorderStack(II->getArgOperand(0),
+                                                 PostorderStack, Visited);
+    break;
+  case Intrinsic::masked_scatter:
+    appendsFlatAddressExpressionToPostorderStack(II->getArgOperand(1),
+                                                 PostorderStack, Visited);
+    break;
+#endif
   default:
     SmallVector<int, 2> OpIndexes;
     if (TTI->collectFlatAddressOperands(OpIndexes, IID)) {
@@ -454,8 +500,11 @@ void InferAddressSpacesImpl::collectRewritableIntrinsicOperands(
 void InferAddressSpacesImpl::appendsFlatAddressExpressionToPostorderStack(
     Value *V, PostorderStackTy &PostorderStack,
     DenseSet<Value *> &Visited) const {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  assert(V->getType()->isPtrOrPtrVectorTy());
+#else
   assert(V->getType()->isPointerTy());
-
+#endif
   // Generic addressing expressions may be hidden in nested constant
   // expressions.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
@@ -502,8 +551,12 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
   // addressing calculations may also be faster.
   for (Instruction &I : instructions(F)) {
     if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      PushPtrOperand(GEP->getPointerOperand());
+#else
       if (!GEP->getType()->isVectorTy())
         PushPtrOperand(GEP->getPointerOperand());
+#endif
     } else if (auto *LI = dyn_cast<LoadInst>(&I))
       PushPtrOperand(LI->getPointerOperand());
     else if (auto *SI = dyn_cast<StoreInst>(&I))
@@ -522,14 +575,22 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
     } else if (auto *II = dyn_cast<IntrinsicInst>(&I))
       collectRewritableIntrinsicOperands(II, PostorderStack, Visited);
     else if (ICmpInst *Cmp = dyn_cast<ICmpInst>(&I)) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      if (Cmp->getOperand(0)->getType()->isPtrOrPtrVectorTy()) {
+#else
       // FIXME: Handle vectors of pointers
       if (Cmp->getOperand(0)->getType()->isPointerTy()) {
+#endif
         PushPtrOperand(Cmp->getOperand(0));
         PushPtrOperand(Cmp->getOperand(1));
       }
     } else if (auto *ASC = dyn_cast<AddrSpaceCastInst>(&I)) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      PushPtrOperand(ASC->getPointerOperand());
+#else
       if (!ASC->getType()->isVectorTy())
         PushPtrOperand(ASC->getPointerOperand());
+#endif
     } else if (auto *I2P = dyn_cast<IntToPtrInst>(&I)) {
       if (isNoopPtrIntCastPair(cast<Operator>(I2P), *DL, TTI))
         PushPtrOperand(
@@ -572,16 +633,20 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
 
 // A helper function for cloneInstructionWithNewAddressSpace. Returns the clone
 // of OperandUse.get() in the new address space. If the clone is not ready yet,
-// returns an undef in the new address space as a placeholder.
-static Value *operandWithNewAddressSpaceOrCreateUndef(
+// returns poison in the new address space as a placeholder.
+static Value *operandWithNewAddressSpaceOrCreatePoison(
     const Use &OperandUse, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     const PredicatedAddrSpaceMapTy &PredicatedAS,
-    SmallVectorImpl<const Use *> *UndefUsesToFix) {
+    SmallVectorImpl<const Use *> *PoisonUsesToFix) {
   Value *Operand = OperandUse.get();
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *NewPtrTy = getPtrOrVecOfPtrsWithNewAS(Operand->getType(), NewAddrSpace);
+#else
   Type *NewPtrTy = PointerType::getWithSamePointeeType(
       cast<PointerType>(Operand->getType()), NewAddrSpace);
+#endif
 
   if (Constant *C = dyn_cast<Constant>(Operand))
     return ConstantExpr::getAddrSpaceCast(C, NewPtrTy);
@@ -594,23 +659,27 @@ static Value *operandWithNewAddressSpaceOrCreateUndef(
   if (I != PredicatedAS.end()) {
     // Insert an addrspacecast on that operand before the user.
     unsigned NewAS = I->second;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *NewPtrTy = getPtrOrVecOfPtrsWithNewAS(Operand->getType(), NewAS);
+#else
     Type *NewPtrTy = PointerType::getWithSamePointeeType(
         cast<PointerType>(Operand->getType()), NewAS);
+#endif
     auto *NewI = new AddrSpaceCastInst(Operand, NewPtrTy);
     NewI->insertBefore(Inst);
     NewI->setDebugLoc(Inst->getDebugLoc());
     return NewI;
   }
 
-  UndefUsesToFix->push_back(&OperandUse);
-  return UndefValue::get(NewPtrTy);
+  PoisonUsesToFix->push_back(&OperandUse);
+  return PoisonValue::get(NewPtrTy);
 }
 
 // Returns a clone of `I` with its operands converted to those specified in
 // ValueWithNewAddrSpace. Due to potential cycles in the data flow graph, an
 // operand whose address space needs to be modified might not exist in
-// ValueWithNewAddrSpace. In that case, uses undef as a placeholder operand and
-// adds that operand use to UndefUsesToFix so that caller can fix them later.
+// ValueWithNewAddrSpace. In that case, uses poison as a placeholder operand and
+// adds that operand use to PoisonUsesToFix so that caller can fix them later.
 //
 // Note that we do not necessarily clone `I`, e.g., if it is an addrspacecast
 // from a pointer whose type already matches. Therefore, this function returns a
@@ -622,10 +691,13 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
     Instruction *I, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     const PredicatedAddrSpaceMapTy &PredicatedAS,
-    SmallVectorImpl<const Use *> *UndefUsesToFix) const {
+    SmallVectorImpl<const Use *> *PoisonUsesToFix) const {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *NewPtrType = getPtrOrVecOfPtrsWithNewAS(I->getType(), NewAddrSpace);
+#else
   Type *NewPtrType = PointerType::getWithSamePointeeType(
       cast<PointerType>(I->getType()), NewAddrSpace);
-
+#endif
   if (I->getOpcode() == Instruction::AddrSpaceCast) {
     Value *Src = I->getOperand(0);
     // Because `I` is flat, the source address space must be specific.
@@ -641,9 +713,9 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
     // Technically the intrinsic ID is a pointer typed argument, so specially
     // handle calls early.
     assert(II->getIntrinsicID() == Intrinsic::ptrmask);
-    Value *NewPtr = operandWithNewAddressSpaceOrCreateUndef(
+    Value *NewPtr = operandWithNewAddressSpaceOrCreatePoison(
         II->getArgOperandUse(0), NewAddrSpace, ValueWithNewAddrSpace,
-        PredicatedAS, UndefUsesToFix);
+        PredicatedAS, PoisonUsesToFix);
     Value *Rewrite =
         TTI->rewriteIntrinsicWithAddressSpace(II, II->getArgOperand(0), NewPtr);
     if (Rewrite) {
@@ -658,8 +730,12 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
   if (AS != UninitializedAddressSpace) {
     // For the assumed address space, insert an `addrspacecast` to make that
     // explicit.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *NewPtrTy = getPtrOrVecOfPtrsWithNewAS(I->getType(), AS);
+#else
     Type *NewPtrTy = PointerType::getWithSamePointeeType(
         cast<PointerType>(I->getType()), AS);
+#endif
     auto *NewI = new AddrSpaceCastInst(I, NewPtrTy);
     NewI->insertAfter(I);
     return NewI;
@@ -668,19 +744,27 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
   // Computes the converted pointer operands.
   SmallVector<Value *, 4> NewPointerOperands;
   for (const Use &OperandUse : I->operands()) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    if (!OperandUse.get()->getType()->isPtrOrPtrVectorTy())
+#else
     if (!OperandUse.get()->getType()->isPointerTy())
+#endif
       NewPointerOperands.push_back(nullptr);
     else
-      NewPointerOperands.push_back(operandWithNewAddressSpaceOrCreateUndef(
+      NewPointerOperands.push_back(operandWithNewAddressSpaceOrCreatePoison(
           OperandUse, NewAddrSpace, ValueWithNewAddrSpace, PredicatedAS,
-          UndefUsesToFix));
+          PoisonUsesToFix));
   }
 
   switch (I->getOpcode()) {
   case Instruction::BitCast:
     return new BitCastInst(NewPointerOperands[0], NewPtrType);
   case Instruction::PHI: {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    assert(I->getType()->isPtrOrPtrVectorTy());
+#else
     assert(I->getType()->isPointerTy());
+#endif
     PHINode *PHI = cast<PHINode>(I);
     PHINode *NewPHI = PHINode::Create(NewPtrType, PHI->getNumIncomingValues());
     for (unsigned Index = 0; Index < PHI->getNumIncomingValues(); ++Index) {
@@ -699,7 +783,11 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
     return NewGEP;
   }
   case Instruction::Select:
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    assert(I->getType()->isPtrOrPtrVectorTy());
+#else
     assert(I->getType()->isPointerTy());
+#endif
     return SelectInst::Create(I->getOperand(0), NewPointerOperands[1],
                               NewPointerOperands[2], "", nullptr, I);
   case Instruction::IntToPtr: {
@@ -725,10 +813,17 @@ static Value *cloneConstantExprWithNewAddressSpace(
     ConstantExpr *CE, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace, const DataLayout *DL,
     const TargetTransformInfo *TTI) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *TargetType =
+      CE->getType()->isPtrOrPtrVectorTy()
+          ? getPtrOrVecOfPtrsWithNewAS(CE->getType(), NewAddrSpace)
+          : CE->getType();
+#else
   Type *TargetType = CE->getType()->isPointerTy()
                          ? PointerType::getWithSamePointeeType(
                                cast<PointerType>(CE->getType()), NewAddrSpace)
                          : CE->getType();
+#endif
 
   if (CE->getOpcode() == Instruction::AddrSpaceCast) {
     // Because CE is flat, the source address space must be specific.
@@ -797,19 +892,19 @@ static Value *cloneConstantExprWithNewAddressSpace(
 // ValueWithNewAddrSpace. This function is called on every flat address
 // expression whose address space needs to be modified, in postorder.
 //
-// See cloneInstructionWithNewAddressSpace for the meaning of UndefUsesToFix.
+// See cloneInstructionWithNewAddressSpace for the meaning of PoisonUsesToFix.
 Value *InferAddressSpacesImpl::cloneValueWithNewAddressSpace(
     Value *V, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     const PredicatedAddrSpaceMapTy &PredicatedAS,
-    SmallVectorImpl<const Use *> *UndefUsesToFix) const {
+    SmallVectorImpl<const Use *> *PoisonUsesToFix) const {
   // All values in Postorder are flat address expressions.
   assert(V->getType()->getPointerAddressSpace() == FlatAddrSpace &&
          isAddressExpression(*V, *DL, TTI));
 
   if (Instruction *I = dyn_cast<Instruction>(V)) {
     Value *NewV = cloneInstructionWithNewAddressSpace(
-        I, NewAddrSpace, ValueWithNewAddrSpace, PredicatedAS, UndefUsesToFix);
+        I, NewAddrSpace, ValueWithNewAddrSpace, PredicatedAS, PoisonUsesToFix);
     if (Instruction *NewI = dyn_cast_or_null<Instruction>(NewV)) {
       if (NewI->getParent() == nullptr) {
         NewI->insertBefore(I);
@@ -1345,7 +1440,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
   // operands are converted, the clone is naturally in the new address space by
   // construction.
   ValueToValueMapTy ValueWithNewAddrSpace;
-  SmallVector<const Use *, 32> UndefUsesToFix;
+  SmallVector<const Use *, 32> PoisonUsesToFix;
   for (Value* V : Postorder) {
     unsigned NewAddrSpace = InferredAddrSpace.lookup(V);
 
@@ -1357,7 +1452,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
     if (V->getType()->getPointerAddressSpace() != NewAddrSpace) {
       Value *New =
           cloneValueWithNewAddressSpace(V, NewAddrSpace, ValueWithNewAddrSpace,
-                                        PredicatedAS, &UndefUsesToFix);
+                                        PredicatedAS, &PoisonUsesToFix);
       if (New)
         ValueWithNewAddrSpace[V] = New;
     }
@@ -1366,16 +1461,16 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
   if (ValueWithNewAddrSpace.empty())
     return false;
 
-  // Fixes all the undef uses generated by cloneInstructionWithNewAddressSpace.
-  for (const Use *UndefUse : UndefUsesToFix) {
-    User *V = UndefUse->getUser();
+  // Fixes all the poison uses generated by cloneInstructionWithNewAddressSpace.
+  for (const Use *PoisonUse : PoisonUsesToFix) {
+    User *V = PoisonUse->getUser();
     User *NewV = cast_or_null<User>(ValueWithNewAddrSpace.lookup(V));
     if (!NewV)
       continue;
 
-    unsigned OperandNo = UndefUse->getOperandNo();
-    assert(isa<UndefValue>(NewV->getOperand(OperandNo)));
-    NewV->setOperand(OperandNo, ValueWithNewAddrSpace.lookup(UndefUse->get()));
+    unsigned OperandNo = PoisonUse->getOperandNo();
+    assert(isa<PoisonValue>(NewV->getOperand(OperandNo)));
+    NewV->setOperand(OperandNo, ValueWithNewAddrSpace.lookup(PoisonUse->get()));
   }
 
   SmallVector<Instruction *, 16> DeadInstructions;
@@ -1483,6 +1578,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 #if INTEL_COLLAB
             auto *BCNewV = NewV;
 #endif // INTEL_COLLAB
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
@@ -1503,6 +1599,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 #if INTEL_COLLAB
             ASC->replaceAllUsesWith(BCNewV);
 #endif // INTEL_COLLAB
+#endif
             DeadInstructions.push_back(ASC);
             continue;
           }

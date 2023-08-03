@@ -1,4 +1,21 @@
 //===- PeepholeOptimizer.cpp - Peephole Optimizations ---------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -150,11 +167,11 @@ namespace {
   class RecurrenceInstr;
 
   class PeepholeOptimizer : public MachineFunctionPass {
-    const TargetInstrInfo *TII;
-    const TargetRegisterInfo *TRI;
-    MachineRegisterInfo *MRI;
-    MachineDominatorTree *DT;  // Machine dominator tree
-    MachineLoopInfo *MLI;
+    const TargetInstrInfo *TII = nullptr;
+    const TargetRegisterInfo *TRI = nullptr;
+    MachineRegisterInfo *MRI = nullptr;
+    MachineDominatorTree *DT = nullptr; // Machine dominator tree
+    MachineLoopInfo *MLI = nullptr;
 
   public:
     static char ID; // Pass identification
@@ -194,6 +211,11 @@ namespace {
     bool optimizeSelect(MachineInstr &MI,
                         SmallPtrSetImpl<MachineInstr *> &LocalMIs);
     bool optimizeCondBranch(MachineInstr &MI);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    MachineInstr *optimizeCCMPInstr(MachineInstr &MI);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     bool optimizeCoalescableCopy(MachineInstr &MI);
     bool optimizeUncoalescableCopy(MachineInstr &MI,
                                    SmallPtrSetImpl<MachineInstr *> &LocalMIs);
@@ -665,6 +687,13 @@ bool PeepholeOptimizer::optimizeCondBranch(MachineInstr &MI) {
   return TII->optimizeCondBranch(MI);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+MachineInstr *PeepholeOptimizer::optimizeCCMPInstr(MachineInstr &MI) {
+  return TII->optimizeCCMPInstr(*MRI, MI);
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 /// Try to find the next source that share the same register file
 /// for the value defined by \p Reg and \p SubReg.
 /// When true is returned, the \p RewriteMap can be used by the client to
@@ -1754,6 +1783,15 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
           Changed |= foldImmediate(*MI, ImmDefRegs, ImmDefMIs);
       }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      MachineInstr *NewMI = optimizeCCMPInstr(*MI);
+      if (NewMI) {
+        MI = NewMI;
+        Changed = true;
+      }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // Check whether MI is a load candidate for folding into a later
       // instruction. If MI is not a candidate, check whether we can fold an
       // earlier load into MI.

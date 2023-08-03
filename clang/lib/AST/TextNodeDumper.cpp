@@ -283,6 +283,8 @@ void TextNodeDumper::Visit(const Decl *D) {
       OS << " constexpr";
     if (FD->isConsteval())
       OS << " consteval";
+    else if (FD->isImmediateFunction())
+      OS << " immediate";
     if (FD->isMultiVersion())
       OS << " multiversion";
   }
@@ -1046,6 +1048,8 @@ void TextNodeDumper::VisitDeclRefExpr(const DeclRefExpr *Node) {
   case NOUR_Constant: OS << " non_odr_use_constant"; break;
   case NOUR_Discarded: OS << " non_odr_use_discarded"; break;
   }
+  if (Node->isImmediateEscalating())
+    OS << " immediate-escalating";
 }
 
 void TextNodeDumper::VisitUnresolvedLookupExpr(
@@ -1230,6 +1234,8 @@ void TextNodeDumper::VisitCXXConstructExpr(const CXXConstructExpr *Node) {
     OS << " std::initializer_list";
   if (Node->requiresZeroInitialization())
     OS << " zeroing";
+  if (Node->isImmediateEscalating())
+    OS << " immediate-escalating";
 }
 
 void TextNodeDumper::VisitCXXBindTemporaryExpr(
@@ -1497,6 +1503,9 @@ void TextNodeDumper::VisitVectorType(const VectorType *T) {
     break;
   case VectorType::SveFixedLengthPredicateVector:
     OS << " fixed-length sve predicate vector";
+    break;
+  case VectorType::RVVFixedLengthDataVector:
+    OS << " fixed-length rvv data vector";
     break;
   }
   OS << " " << T->getNumElements();
@@ -1821,7 +1830,8 @@ void TextNodeDumper::VisitVarDecl(const VarDecl *D) {
   if (D->hasInit()) {
     const Expr *E = D->getInit();
     // Only dump the value of constexpr VarDecls for now.
-    if (E && !E->isValueDependent() && D->isConstexpr()) {
+    if (E && !E->isValueDependent() && D->isConstexpr() &&
+        !D->getType()->isDependentType()) {
       const APValue *Value = D->evaluateValue();
       if (Value)
         AddChild("value", [=] { Visit(*Value, E->getType()); });

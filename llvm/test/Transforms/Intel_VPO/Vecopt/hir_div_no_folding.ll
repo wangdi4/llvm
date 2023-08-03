@@ -28,7 +28,7 @@
 ; CHECK-NEXT:   + END LOOP
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind memory(argmem: write) uwtable
-define dso_local void @_Z14sdiv_neg_denomPll(i64* nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z14sdiv_neg_denomPll(ptr nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -39,14 +39,14 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nsw i64 %i.05, %n
   %div = sdiv i64 %add, -100
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %i.05
-  store i64 %div, i64* %arrayidx, align 8 
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %i.05
+  store i64 %div, ptr %arrayidx, align 8 
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind memory(argmem: write) uwtable
-define dso_local void @_Z16udiv_large_denomPll(i64* nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z16udiv_large_denomPll(ptr nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -57,15 +57,15 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nsw i64 %i.05, %n
   %div = udiv i64 %add, 9223372036854775809
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %i.05
-  store i64 %div, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %i.05
+  store i64 %div, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind memory(argmem: write) uwtable
-define dso_local void @_Z20sdiv_small_neg_denomPll(i64* nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z20sdiv_small_neg_denomPll(ptr nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -76,15 +76,15 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nsw i64 %i.05, %n
   %add.lobit = lshr i64 %add, 63
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %i.05
-  store i64 %add.lobit, i64* %arrayidx, align 8 
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %i.05
+  store i64 %add.lobit, ptr %arrayidx, align 8 
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind memory(argmem: write) uwtable
-define dso_local void @_Z19sdiv_maxvalue_denomPll(i64* nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z19sdiv_maxvalue_denomPll(ptr nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -95,15 +95,15 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %add = add nsw i64 %i.05, %n
   %div = sdiv i64 %add, 9223372036854775807
-  %arrayidx = getelementptr inbounds i64, i64* %arr, i64 %i.05
-  store i64 %div, i64* %arrayidx, align 8 
+  %arrayidx = getelementptr inbounds i64, ptr %arr, i64 %i.05
+  store i64 %div, ptr %arrayidx, align 8 
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind memory(argmem: write) uwtable
-define dso_local void @_Z17sdiv_32bmin_denomPii(i32* nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z17sdiv_32bmin_denomPii(ptr nocapture noundef writeonly %arr, i64 noundef %n) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -115,8 +115,8 @@ for.body:                                         ; preds = %entry, %for.body
   %add = add nsw i64 %indvars.iv, %n
   %div = sdiv i64 %add, -2147483648
   %conv1 = trunc i64 %div to i32
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  store i32 %conv1, i32* %arrayidx, align 4 
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  store i32 %conv1, ptr %arrayidx, align 4 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

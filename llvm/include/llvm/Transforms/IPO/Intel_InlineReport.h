@@ -50,9 +50,11 @@ public:
                                 DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
-        IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
-        OuterInlineCost(-1), InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
-        EarlyExitInlineThreshold(INT_MAX), Call(CB), M(Module),
+        IRBrokerTarget(nullptr), IsInlined(IsInlined), IsCompact(false),
+        Reason(Reason), InlineCost(-1), OuterInlineCost(-1),
+        InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
+        EarlyExitInlineThreshold(INT_MAX), CostBenefit(std::nullopt),
+        ICSMethod(InlICSNone), Call(CB), M(Module),
         SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
@@ -64,11 +66,9 @@ public:
   void operator=(const InlineReportCallSite &) = delete;
 
   // Return a pointer to a copy of Base with an empty Children vector
-  InlineReportCallSite *copyBase(CallBase *CB);
-  // Return a clone of *this, but do not copy its children, and
-  // use the IIMap to get a new value for the 'Call'.
-  InlineReportCallSite *cloneBase(const ValueToValueMapTy &IIMap,
-                                  CallBase *ActiveInlineCallBase);
+  // Use 'NewIRCallee' for the IRCallee if specified.
+  InlineReportCallSite *copyBase(CallBase *CB,
+                                 InlineReportFunction *NewIRCallee = nullptr);
 
   InlineReportFunction *getIRCallee() const { return IRCallee; }
   void setIRCallee(InlineReportFunction *IRF) { IRCallee = IRF; }
@@ -79,10 +79,19 @@ public:
   InlineReportCallSite *getIRParent() const { return IRParent; }
   void setIRParent(InlineReportCallSite *IRCS) { IRParent = IRCS; }
 
+  InlineReportFunction *getIRBrokerTarget() const { return IRBrokerTarget; }
+  void setIRBrokerTarget(InlineReportFunction *IRF) { IRBrokerTarget = IRF; }
+  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned ReportLevel);
+
   InlineReason getReason() const { return Reason; }
   void setReason(InlineReason MyReason) { Reason = MyReason; }
   bool getIsInlined() const { return IsInlined; }
   void setIsInlined(bool Inlined) { IsInlined = Inlined; }
+
+  // Indicates that inlining for this call site will be summarized in
+  // compact form.
+  bool getIsCompact(void) const { return IsCompact; }
+  void setIsCompact(bool V) { IsCompact = V; }
 
   /// Return true if in the original inlining process there would be
   /// early exit due to high cost.
@@ -97,6 +106,12 @@ public:
   /// the threshold.
   int getInlineCost() const { return InlineCost; }
   void setInlineCost(int Cost) { InlineCost = Cost; }
+
+  /// Results from inlining cost/benefit analysis.
+  std::optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
+  void setCostBenefit(const std::optional<CostBenefitPair> &TheCostBenefit) {
+    CostBenefit = TheCostBenefit;
+  }
 
   /// Stored "early exit" cost of inlining.
   int getEarlyExitInlineCost() const { return EarlyExitInlineCost; }
@@ -117,6 +132,9 @@ public:
 
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
+
+  InlICSType getICSMethod(void) const { return ICSMethod; }
+  void setICSMethod(InlICSType V) { ICSMethod = V; }
 
   /// Stored "early exit" threshold of inlining.
   int getEarlyExitInlineThreshold() const { return EarlyExitInlineThreshold; }
@@ -158,17 +176,29 @@ public:
                             SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet,
                             InlineReportCallSite *NewIRCS);
 
+  // Initialize the inlining reason based on characteristics of 'Callee'.
+  void initReason(Function *Callee);
+
+  unsigned getLine() { return Line; }
+  void setLine(unsigned V) { Line = V; }
+  unsigned getCol() { return Col; }
+  void setCol(unsigned V) { Col = V; }
+
 private:
   InlineReportFunction *IRCallee;
   InlineReportFunction *IRCaller;
   InlineReportCallSite *IRParent;
+  InlineReportFunction *IRBrokerTarget;
   bool IsInlined;
+  bool IsCompact;
   InlineReason Reason;
   int InlineCost;
   int OuterInlineCost;
   int InlineThreshold;
   int EarlyExitInlineCost;
   int EarlyExitInlineThreshold;
+  std::optional<CostBenefitPair> CostBenefit;
+  InlICSType ICSMethod;
   InlineReportCallSiteVector Children;
   CallBase *Call;
   ///
@@ -181,7 +211,8 @@ private:
   unsigned Line;
   unsigned Col;
   bool SuppressPrint; // suppress inline-report print info
-
+  void printICSMethod(formatted_raw_ostream &OS, unsigned Level);
+  void printCostAndBenefit(formatted_raw_ostream &OS, unsigned Level);
   void printCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
   void printOuterCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
   void printCalleeNameModuleLineCol(formatted_raw_ostream &OS, unsigned Level);
@@ -198,7 +229,8 @@ class InlineReportFunction {
 public:
   explicit InlineReportFunction(const Function *F, bool SuppressPrint = false)
       : IsDead(false), IsCurrent(false), IsDeclaration(false), LinkageChar(' '),
-        LanguageChar(' '), SuppressPrint(SuppressPrint){};
+        LanguageChar(' '), SuppressPrint(SuppressPrint), IsCompact(false),
+        InlineCount(0){};
   ~InlineReportFunction(void);
   InlineReportFunction(const InlineReportFunction &) = delete;
   void operator=(const InlineReportFunction &) = delete;
@@ -244,6 +276,21 @@ public:
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
 
+  /// The number of times inlining has been applied to this function.
+  /// If the number is high enough, inlining of this function will be
+  /// reported in compact form.
+  unsigned getInlineCount(void) const { return InlineCount; }
+  void setInlineCount(unsigned V) { InlineCount = V; }
+
+  /// Indicates that all information needed to report inlining of this
+  /// function in compact form has been collected.
+  bool getIsCompact(void) const { return IsCompact; }
+  void setIsCompact(bool V) { IsCompact = V; }
+
+  /// Returns 'true' if inlining of this function will be reported in
+  /// compact form.
+  bool getIsSummarized() { return IsCompact && TotalInlines.size(); }
+
   /// Set a single character indicating the linkage type
   /// L: Local
   /// O: One definition rule (ODR)
@@ -288,6 +335,34 @@ public:
   moveOutlinedCallSites(InlineReportFunction *NewIRF,
                         SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet);
 
+  /// Return 'true' if 'IRFCallee' should be compacted when inlined into
+  /// this InlineReportFunction. If 'ForceCompact', always return 'true'.
+  bool shouldCompactCallBase(InlineReportFunction *IRFCallee,
+                             bool ForceCompact);
+
+  /// Indicate 'IRFCallee' was inlined into this InlineReportFunction
+  /// 'Count' times in compact form.
+  void addCompactInlinedCallBase(InlineReportFunction *IRFCallee,
+                                 unsigned Count = 1);
+
+  /// Indicate 'IRFCallee' was inlined into this InlineReportFunction
+  /// 'Count' times in compact form for a specific callsite.
+  void addForCompactInlinedCallBase(InlineReportFunction *IRFCallee,
+                                    unsigned Count = 1);
+
+  /// Add the compact inlined callsites from 'IRFCallee' to this
+  /// InlineReportFunction.
+  void inheritCompactCallBases(InlineReportFunction *IRFCallee);
+
+  /// Compact this InlineReportFunction.
+  void compact();
+
+  /// Compact the children of 'IRCS' into this InlineReportFunction.
+  void compactChildren(InlineReportCallSite *IRCS);
+
+  /// Clone compact info from 'IRF' to the current InlineReportFunction.
+  void cloneCompactInfo(InlineReportFunction *IRF);
+
 private:
   bool IsDead;
   bool IsCurrent;
@@ -295,8 +370,16 @@ private:
   char LinkageChar;
   char LanguageChar;
   std::string Name;
-  InlineReportCallSiteVector CallSites;
   bool SuppressPrint; // suppress inline-report print
+  bool IsCompact;
+  InlineReportCallSiteVector CallSites;
+  unsigned InlineCount;
+  // Records the inlines that will be summarized for the function
+  MapVector<InlineReportFunction *, unsigned> Inlines;
+  // Records the summarized inlines that will be inherited from the callee
+  // to the caller when the inlining of a callsite is reported in compact
+  // form.
+  MapVector<InlineReportFunction *, unsigned> TotalInlines;
 };
 
 typedef MapVector<Function *, InlineReportFunction *> InlineReportFunctionMap;
@@ -316,14 +399,13 @@ typedef std::map<CallBase *, InlineReportCallSite *>
 class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
-      : Level(MyLevel), ActiveInlineCallBase(nullptr), ActiveCallee(nullptr),
-        ActiveIRCS(nullptr), M(nullptr),
+      : Level(MyLevel), ActiveInlineCallBase(nullptr), ActiveCaller(nullptr),
+        ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr),
         OS(OptReportOptions::getOutputStream()){};
   virtual ~InlineReport(void);
 
   // Indicate that we have begun inlining functions in the current
   // SCC of the CG.
-  void beginSCC(CallGraphSCC &SCC, void *Inliner);
   void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner);
 
   // Indicate that we are done inlining functions in the current SCC.
@@ -332,6 +414,7 @@ public:
   void beginUpdate(CallBase *Call) {
     if (!isClassicIREnabled())
       return;
+    ActiveCaller = Call->getCaller();
     ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
@@ -344,6 +427,7 @@ public:
   void endUpdate() {
     if (!isClassicIREnabled())
       return;
+    ActiveCaller = nullptr;
     ActiveCallee = nullptr;
     ActiveIRCS = nullptr;
     ActiveInlineCallBase = nullptr;
@@ -430,8 +514,8 @@ public:
 
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
-  void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
-    if (!isClassicIREnabled() || !NewCall)
+  void addActiveCallSitePair(CallBase *OldCall, CallBase *NewCall) {
+    if (!isClassicIREnabled() || !NewCall || shouldSkipCallBase(NewCall))
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
@@ -464,11 +548,13 @@ public:
     LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
+    if (!FromCallback && shouldSkipCallBase(&CB))
+      return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);
-      if (MapIt != IRCallBaseCallSiteMap.end()) {
-        InlineReportCallSite *IRCS = MapIt->second;
-        IRCallBaseCallSiteMap.erase(MapIt);
+      if (MapIt != IRCallBaseCallSiteMap.end() || !FromCallback) {
+        InlineReportCallSite *IRCS = getOrAddCallSite(&CB);
+        IRCallBaseCallSiteMap.erase(&CB);
         IRCS->setCall(nullptr);
         IRCS->setReason(Reason);
       }
@@ -489,13 +575,25 @@ public:
     if (!isClassicIREnabled())
       return;
     auto MapIt = IRFunctionMap.find(&F);
-    if (MapIt != IRFunctionMap.end()) {
-      InlineReportFunction *IRF = MapIt->second;
+    if (MapIt != IRFunctionMap.end() || !FromCallback) {
+      InlineReportFunction *IRF = getOrAddFunction(&F);
       setDead(&F);
-      IRF->setLinkageChar(&F);
-      IRFunctionMap.erase(MapIt);
+      IRFunctionMap.erase(&F);
       IRDeadFunctionSet.insert(IRF);
     }
+    removeCallback(&F);
+  }
+
+  // Indicate that 'F' has been replaced.
+  void replaceFunctionReference(Function &F) {
+    LLVM_DEBUG(dbgs() << "replaceFunctionReference: " << &F << " ");
+    LLVM_DEBUG(dbgs() << F.getName());
+    LLVM_DEBUG(dbgs() << "\n");
+    if (!isClassicIREnabled())
+      return;
+    auto MapIt = IRFunctionMap.find(&F);
+    if (MapIt != IRFunctionMap.end())
+      IRFunctionMap.erase(&F);
     removeCallback(&F);
   }
 
@@ -516,10 +614,28 @@ public:
   void
   removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
 
+  // Return 'true' if there should not be an InlineReportCallSite for 'CB'
+  // in the inline report.
+  bool shouldSkipCallBase(CallBase *CB);
+
   /// Ensure that the inline report for this routine reflects the
   /// changes that have been made to that routine since the last call to
   /// Inliner::runOnSCC(). Return 'true' if 'F' is modified.
   bool makeCurrent(Function *F);
+
+  /// Indicate 'CBDirect' has been specialized as an direct call for the
+  /// indirect call 'CBIndirect' using the method 'ICSMethod'.
+  void addIndirectCallBaseTarget(InlICSType ICSMethod, CallBase *CBIndirect,
+                                 CallBase *CBDirect);
+
+  // Return a clone of 'OldIRCS', but do not copy its children, and
+  // use the IIMap to get a new value for the 'Call'.
+  InlineReportCallSite *cloneBase(InlineReportCallSite *OldIRCS,
+                                  const ValueToValueMapTy &IIMap,
+                                  CallBase *ActiveInlineCallBase);
+
+  // Set the target of the broken function bring called by 'CB' to 'F"
+  void setBrokerTarget(CallBase *CB, Function *F);
 
 private:
   /// The Level is specified by the option -inline-report=N.
@@ -528,6 +644,9 @@ private:
 
   // The CallBase for the call site currently being inlined
   CallBase *ActiveInlineCallBase;
+
+  // The Caller currently being inlined into
+  Function *ActiveCaller;
 
   // The Callee currently being inlined
   Function *ActiveCallee;
@@ -562,6 +681,14 @@ private:
 
   /// The output stream to print the inlining report to
   formatted_raw_ostream &OS;
+
+  /// Clone the newly created callsites in 'IIMap' and append them to
+  /// 'NewCallSite', while using 'IRFCallee' to update the compact form
+  /// of 'IRFCaller'. Assumes that 'IRFCaller' is in compact form.
+  void cloneChildrenCompact(InlineReportFunction *IRFCaller,
+                            InlineReportFunction *IRFCallee,
+                            InlineReportCallSite *NewCallSite,
+                            ValueToValueMapTy &IIMap);
 
   /// Clone the vector of InlineReportCallSites for NewCallSite
   /// using the mapping of old calls to new calls IIMap
@@ -609,7 +736,7 @@ private:
   InlineReportFunction *getOrAddFunction(Function *F);
 
   // Create an InlineReportCallSite to represent Call
-  InlineReportCallSite *addCallSite(CallBase *Call);
+  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
 
   // Get the existing or create an InlineReportCallSite to represent 'Call'
   InlineReportCallSite *getOrAddCallSite(CallBase *Call);

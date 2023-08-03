@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test checks that the DTrans type metadata reader passes when there is
 ; missing metadata but the check isn't strict.

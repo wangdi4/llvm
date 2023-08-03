@@ -24,15 +24,15 @@
 ; CHECK-NEXT:  END REGION
 ;
 ; CHECK:       getKnownBits({(%dst),+,0})
-; CHECK-NEXT:    -> {Zero=31, One=0}
+; CHECK-NEXT:    -> ???????????????????????????????????????????????????????????00000
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %dst, i32 %size) {
+define void @foo(ptr %dst, i32 %size) {
 entry:
-  %0 = ptrtoint i32* %dst to i64
+  %0 = ptrtoint ptr %dst to i64
   %maskedptr = and i64 %0, 31
   %maskcond = icmp eq i64 %maskedptr, 0
   call void @llvm.assume(i1 %maskcond)
@@ -51,10 +51,10 @@ for.cond.cleanup:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %dst, i64 %indvars.iv
+  %ptridx = getelementptr inbounds i32, ptr %dst, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
   %2 = add i32 %1, 7
-  store i32 %2, i32* %ptridx, align 4
+  store i32 %2, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count9
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

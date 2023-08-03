@@ -68,65 +68,6 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
                                      StringRef suffix) {
   SmallString<256> TypeName;
   llvm::raw_svector_ostream OS(TypeName);
-  // If RD is spirv_JointMatrixINTEL type, mangle differently.
-  if (CGM.getTriple().isSPIRV() || CGM.getTriple().isSPIR()) {
-    if (RD->getQualifiedNameAsString() == "__spv::__spirv_JointMatrixINTEL") {
-      if (auto TemplateDecl = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
-        ArrayRef<TemplateArgument> TemplateArgs =
-            TemplateDecl->getTemplateArgs().asArray();
-        OS << "spirv.JointMatrixINTEL.";
-        for (auto &TemplateArg : TemplateArgs) {
-          OS << "_";
-          if (TemplateArg.getKind() == TemplateArgument::Type) {
-            llvm::Type *TTy = ConvertType(TemplateArg.getAsType());
-            if (TTy->isIntegerTy()) {
-              switch (TTy->getIntegerBitWidth()) {
-              case 8:
-                OS << "char";
-                break;
-              case 16:
-                OS << "short";
-                break;
-              case 32:
-                OS << "int";
-                break;
-              case 64:
-                OS << "long";
-                break;
-              default:
-                OS << "i" << TTy->getIntegerBitWidth();
-                break;
-              }
-            } else if (TTy->isHalfTy()) {
-              OS << "half";
-            } else if (TTy->isFloatTy()) {
-              OS << "float";
-            } else if (TTy->isDoubleTy()) {
-              OS << "double";
-            } else if (TTy->isBFloatTy()) {
-              OS << "bfloat16";
-            } else if (TTy->isStructTy()) {
-              StringRef LlvmTyName = TTy->getStructName();
-              // Emit half/bfloat16/tf32 for sycl[::*]::{half,bfloat16,tf32}
-              if (LlvmTyName.startswith("class.sycl::") ||
-                  LlvmTyName.startswith("class.__sycl_internal::"))
-                LlvmTyName = LlvmTyName.rsplit("::").second;
-              if (LlvmTyName != "half" && LlvmTyName != "bfloat16" &&
-                  LlvmTyName != "tf32")
-                llvm_unreachable("Wrong matrix base type!");
-              OS << LlvmTyName;
-            } else {
-              llvm_unreachable("Wrong matrix base type!");
-            }
-          } else if (TemplateArg.getKind() == TemplateArgument::Integral) {
-            OS << TemplateArg.getAsIntegral();
-          }
-        }
-        Ty->setName(OS.str());
-        return;
-      }
-    }
-  }
   OS << RD->getKindName() << '.';
 
 #if INTEL_CUSTOMIZATION
@@ -221,6 +162,7 @@ bool CodeGenTypes::isRecordLayoutComplete(const Type *Ty) const {
   return I != RecordDeclTypes.end() && !I->second->isOpaque();
 }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 static bool
 isSafeToConvert(QualType T, CodeGenTypes &CGT,
                 llvm::SmallPtrSet<const RecordDecl*, 16> &AlreadyChecked);
@@ -308,6 +250,12 @@ static bool isSafeToConvert(const RecordDecl *RD, CodeGenTypes &CGT) {
 /// point.  This boils down to being whether it is complete, as well as whether
 /// we've temporarily deferred expanding the type because we're in a recursive
 /// context.
+#else
+/// isFuncParamTypeConvertible - Return true if the specified type in a
+/// function parameter or result position can be converted to an IR type at this
+/// point. This boils down to being whether it is complete.
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 bool CodeGenTypes::isFuncParamTypeConvertible(QualType Ty) {
   // Some ABIs cannot have their member pointers represented in IR unless
   // certain circumstances have been reached.
@@ -319,6 +267,7 @@ bool CodeGenTypes::isFuncParamTypeConvertible(QualType Ty) {
   if (!TT) return true;
 
   // Incomplete types cannot be converted.
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (TT->isIncompleteType())
     return false;
 
@@ -334,6 +283,11 @@ bool CodeGenTypes::isFuncParamTypeConvertible(QualType Ty) {
   // We decide this by checking whether ConvertRecordDeclType returns us an
   // opaque type for a struct that we know is defined.
   return isSafeToConvert(RT->getDecl(), *this);
+#else
+  // Incomplete types cannot be converted.
+  return !TT->isIncompleteType();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 }
 
 
@@ -433,7 +387,9 @@ static llvm::Type *getTypeForFormat(llvm::LLVMContext &VMContext,
 
 llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   assert(QFT.isCanonical());
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   const Type *Ty = QFT.getTypePtr();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   const FunctionType *FT = cast<FunctionType>(QFT.getTypePtr());
   // First, check whether we can build the full function type.  If the
   // function type depends on an incomplete type (e.g. a struct or enum), we
@@ -456,6 +412,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
     return llvm::StructType::get(getLLVMContext());
   }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // While we're converting the parameter types for a function, we don't want
   // to recursively convert any pointed-to structs.  Converting directly-used
   // structs is ok though.
@@ -463,7 +420,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
     SkippedLayout = true;
     return llvm::StructType::get(getLLVMContext());
   }
-
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // The function type can be built; call the appropriate routines to
   // build it.
   const CGFunctionInfo *FI;
@@ -497,12 +454,85 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
     ResultType = GetFunctionType(*FI);
   }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   RecordsBeingLaidOut.erase(Ty);
 
   if (RecordsBeingLaidOut.empty())
     while (!DeferredRecords.empty())
       ConvertRecordDeclType(DeferredRecords.pop_back_val());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return ResultType;
+}
+
+template <bool NeedTypeInterpret = false>
+llvm::Type *getJointMatrixINTELExtType(llvm::Type *CompTy,
+                                       ArrayRef<TemplateArgument> TemplateArgs,
+                                       const unsigned Val = 0) {
+  // TODO: we should actually have exactly 5 template parameters: 1 for
+  // type and 4 for type parameters. But in previous version of the SPIR-V
+  // spec we have Layout matrix type parameter, that was later removed.
+  // Once we update to the newest version of the spec - this should be updated.
+  assert((TemplateArgs.size() == 5 || TemplateArgs.size() == 6) &&
+         "Wrong JointMatrixINTEL template parameters number");
+  // This is required to represent optional 'Component Type Interpretation'
+  // parameter
+  std::vector<unsigned> Params;
+  for (size_t I = 1; I != TemplateArgs.size(); ++I) {
+    assert(TemplateArgs[I].getKind() == TemplateArgument::Integral &&
+           "Wrong JointMatrixINTEL template parameter");
+    Params.push_back(TemplateArgs[I].getAsIntegral().getExtValue());
+  }
+  // Don't add type interpretation for legacy matrices.
+  // Legacy matrices has 5 template parameters, while new representation
+  // has 6.
+  if (NeedTypeInterpret && TemplateArgs.size() != 5)
+    Params.push_back(Val);
+
+  return llvm::TargetExtType::get(CompTy->getContext(),
+                                  "spirv.JointMatrixINTEL", {CompTy}, Params);
+}
+
+/// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
+/// which is represented as a pointer to a structure to LLVM extension type
+/// with the parameters that follow SPIR-V JointMatrixINTEL type.
+/// The expected representation is:
+/// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
+///        %use%, (optional) %element_type_interpretation%)
+llvm::Type *CodeGenTypes::ConvertSYCLJointMatrixINTELType(RecordDecl *RD) {
+  auto *TemplateDecl = cast<ClassTemplateSpecializationDecl>(RD);
+  ArrayRef<TemplateArgument> TemplateArgs =
+      TemplateDecl->getTemplateArgs().asArray();
+  assert(TemplateArgs[0].getKind() == TemplateArgument::Type &&
+         "1st JointMatrixINTEL template parameter must be type");
+  llvm::Type *CompTy = ConvertType(TemplateArgs[0].getAsType());
+
+  // Per JointMatrixINTEL spec the type can have an optional
+  // 'Component Type Interpretation' parameter. We should emit it in case
+  // if on SYCL level joint matrix accepts 'bfloat16' or 'tf32' objects as
+  // matrix's components. Yet 'bfloat16' should be represented as 'int16' and
+  // 'tf32' as 'float' types.
+  if (CompTy->isStructTy()) {
+    StringRef LlvmTyName = CompTy->getStructName();
+    // Emit half/int16/float for sycl[::*]::{half,bfloat16,tf32}
+    if (LlvmTyName.startswith("class.sycl::") ||
+        LlvmTyName.startswith("class.__sycl_internal::"))
+      LlvmTyName = LlvmTyName.rsplit("::").second;
+    if (LlvmTyName == "half") {
+      CompTy = llvm::Type::getHalfTy(getLLVMContext());
+      return getJointMatrixINTELExtType(CompTy, TemplateArgs);
+    } else if (LlvmTyName == "tf32") {
+      CompTy = llvm::Type::getFloatTy(getLLVMContext());
+      // 'tf32' interpretation is mapped to '0'
+      return getJointMatrixINTELExtType<true>(CompTy, TemplateArgs, 0);
+    } else if (LlvmTyName == "bfloat16") {
+      CompTy = llvm::Type::getInt16Ty(getLLVMContext());
+      // 'bfloat16' interpretation is mapped to '1'
+      return getJointMatrixINTELExtType<true>(CompTy, TemplateArgs, 1);
+    } else {
+      llvm_unreachable("Wrong matrix base type!");
+    }
+  }
+  return getJointMatrixINTELExtType(CompTy, TemplateArgs);
 }
 
 /// ConvertType - Convert the specified type to its LLVM form.
@@ -529,6 +559,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   if (const RecordType *RT = dyn_cast<RecordType>(Ty))
     return ConvertRecordDeclType(RT->getDecl());
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // The LLVM type we return for a given Clang type may not always be the same,
   // most notably when dealing with recursive structs. We mark these potential
   // cases with ShouldUseCache below. Builtin types cannot be recursive.
@@ -550,6 +581,18 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       return CachedType;
 #endif
   }
+#else
+  llvm::Type *CachedType = nullptr;
+  auto TCI = TypeCache.find(Ty);
+  if (TCI != TypeCache.end())
+    CachedType = TCI->second;
+    // With expensive checks, check that the type we compute matches the
+    // cached type.
+#ifndef EXPENSIVE_CHECKS
+  if (CachedType)
+    return CachedType;
+#endif
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // If we don't have it in the cache, convert it now.
   llvm::Type *ResultType = nullptr;
@@ -743,13 +786,22 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 #include "clang/Basic/PPCTypes.def"
 #define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
 #include "clang/Basic/RISCVVTypes.def"
-    {
-      ASTContext::BuiltinVectorTypeInfo Info =
-          Context.getBuiltinVectorTypeInfo(cast<BuiltinType>(Ty));
-      return llvm::ScalableVectorType::get(ConvertType(Info.ElementType),
-                                           Info.EC.getKnownMinValue() *
-                                           Info.NumVectors);
-    }
+      {
+        ASTContext::BuiltinVectorTypeInfo Info =
+            Context.getBuiltinVectorTypeInfo(cast<BuiltinType>(Ty));
+        // Tuple types are expressed as aggregregate types of the same scalable
+        // vector type (e.g. vint32m1x2_t is two vint32m1_t, which is {<vscale x
+        // 2 x i32>, <vscale x 2 x i32>}).
+        if (Info.NumVectors != 1) {
+          llvm::Type *EltTy = llvm::ScalableVectorType::get(
+              ConvertType(Info.ElementType), Info.EC.getKnownMinValue());
+          llvm::SmallVector<llvm::Type *, 4> EltTys(Info.NumVectors, EltTy);
+          return llvm::StructType::get(getLLVMContext(), EltTys);
+        }
+        return llvm::ScalableVectorType::get(ConvertType(Info.ElementType),
+                                             Info.EC.getKnownMinValue() *
+                                                 Info.NumVectors);
+      }
 #define WASM_REF_TYPE(Name, MangledName, Id, SingletonId, AS)                  \
   case BuiltinType::Id: {                                                      \
     if (BuiltinType::Id == BuiltinType::WasmExternRef)                         \
@@ -785,19 +837,43 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   case Type::RValueReference: {
     const ReferenceType *RTy = cast<ReferenceType>(Ty);
     QualType ETy = RTy->getPointeeType();
-    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
     unsigned AS = getTargetAddressSpace(ETy);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    ResultType = llvm::PointerType::get(getLLVMContext(), AS);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
     ResultType = llvm::PointerType::get(PointeeType, AS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
     break;
   }
   case Type::Pointer: {
     const PointerType *PTy = cast<PointerType>(Ty);
     QualType ETy = PTy->getPointeeType();
+
+    if (CGM.getTriple().isSPIRV() || CGM.getTriple().isSPIR()) {
+      const Type *ClangETy = ETy.getTypePtrOrNull();
+      if (ClangETy && ClangETy->isStructureOrClassType()) {
+        RecordDecl *RD = ClangETy->getAsCXXRecordDecl();
+        if (RD && RD->getQualifiedNameAsString() ==
+                      "__spv::__spirv_JointMatrixINTEL") {
+          ResultType = ConvertSYCLJointMatrixINTELType(RD);
+          break;
+        }
+      }
+    }
+
+    unsigned AS = getTargetAddressSpace(ETy);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    ResultType = llvm::PointerType::get(getLLVMContext(), AS);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *PointeeType = ConvertTypeForMem(ETy);
     if (PointeeType->isVoidTy())
       PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-    unsigned AS = getTargetAddressSpace(ETy);
+
     ResultType = llvm::PointerType::get(PointeeType, AS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
     break;
   }
 
@@ -875,12 +951,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
 
   case Type::ObjCObjectPointer: {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    ResultType = llvm::PointerType::getUnqual(getLLVMContext());
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
     // Protocol qualifications do not influence the LLVM type, we just return a
     // pointer to the underlying interface type. We don't need to worry about
     // recursive conversion.
     llvm::Type *T =
-      ConvertTypeForMem(cast<ObjCObjectPointerType>(Ty)->getPointeeType());
+        ConvertTypeForMem(cast<ObjCObjectPointerType>(Ty)->getPointeeType());
     ResultType = T->getPointerTo();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     break;
   }
 
@@ -896,10 +976,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
 
   case Type::BlockPointer: {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
     llvm::Type *PointeeType = CGM.getLangOpts().OpenCL
                                   ? CGM.getGenericBlockLiteralType()
                                   : ConvertTypeForMem(FTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     // Block pointers lower to function type. For function type,
     // getTargetAddressSpace() returns default address space for
     // function pointer i.e. program address space. Therefore, for block
@@ -907,7 +989,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     // calling getTargetAddressSpace(), to ensure that we get the LLVM IR
     // address space for data pointers and not function pointers.
     unsigned AS = Context.getTargetAddressSpace(FTy.getAddressSpace());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
+    ResultType = llvm::PointerType::get(getLLVMContext(), AS);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
     ResultType = llvm::PointerType::get(PointeeType, AS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     break;
   }
 
@@ -945,7 +1032,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
 #if INTEL_CUSTOMIZATION
   case Type::Channel: {
-    ResultType = CGM.getOpenCLRuntime().getChannelType();
+    ResultType = CGM.getOpenCLRuntime().getChannelType(cast<ChannelType>(Ty));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -963,9 +1050,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   assert(ResultType && "Didn't convert a type?");
   assert((!CachedType || CachedType == ResultType) &&
          "Cached type doesn't match computed type");
-
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (ShouldUseCache)
     TypeCache[Ty] = ResultType;
+#else
+  TypeCache[Ty] = ResultType;
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return ResultType;
 }
 
@@ -1005,6 +1095,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!RD || !RD->isCompleteDefinition() || !Ty->isOpaque())
     return Ty;
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // If converting this type would cause us to infinitely loop, don't do it!
   if (!isSafeToConvert(RD, *this)) {
     DeferredRecords.push_back(RD);
@@ -1015,7 +1106,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   bool InsertResult = RecordsBeingLaidOut.insert(Key).second;
   (void)InsertResult;
   assert(InsertResult && "Recursively compiling a struct?");
-
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // Force conversion of non-virtual base classes recursively.
   if (const CXXRecordDecl *CRD = dyn_cast<CXXRecordDecl>(RD)) {
     for (const auto &I : CRD->bases()) {
@@ -1028,22 +1119,24 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   std::unique_ptr<CGRecordLayout> Layout = ComputeRecordLayout(RD, Ty);
   CGRecordLayouts[Key] = std::move(Layout);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // We're done laying out this struct.
   bool EraseResult = RecordsBeingLaidOut.erase(Key); (void)EraseResult;
   assert(EraseResult && "struct not in RecordsBeingLaidOut set?");
-
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // If this struct blocked a FunctionType conversion, then recompute whatever
   // was derived from that.
   // FIXME: This is hugely overconservative.
   if (SkippedLayout)
     TypeCache.clear();
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // If we're done converting the outer-most record, then convert any deferred
   // structs as well.
   if (RecordsBeingLaidOut.empty())
     while (!DeferredRecords.empty())
       ConvertRecordDeclType(DeferredRecords.pop_back_val());
-
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return Ty;
 }
 

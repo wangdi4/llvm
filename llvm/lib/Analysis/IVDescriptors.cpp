@@ -748,6 +748,10 @@ RecurrenceDescriptor::isMinMaxPattern(Instruction *I, RecurKind Kind,
     return InstDesc(Kind == RecurKind::FMin, I);
   if (match(I, m_Intrinsic<Intrinsic::maxnum>(m_Value(), m_Value())))
     return InstDesc(Kind == RecurKind::FMax, I);
+  if (match(I, m_Intrinsic<Intrinsic::minimum>(m_Value(), m_Value())))
+    return InstDesc(Kind == RecurKind::FMinimum, I);
+  if (match(I, m_Intrinsic<Intrinsic::maximum>(m_Value(), m_Value())))
+    return InstDesc(Kind == RecurKind::FMaximum, I);
 
   return InstDesc(false, I);
 }
@@ -843,11 +847,18 @@ RecurrenceDescriptor::isRecurrenceInstr(Loop *L, PHINode *OrigPhi,
   case Instruction::Call:
     if (isSelectCmpRecurrenceKind(Kind))
       return isSelectCmpPattern(L, OrigPhi, I, Prev);
+    auto HasRequiredFMF = [&]() {
+     if (FuncFMF.noNaNs() && FuncFMF.noSignedZeros())
+       return true;
+     if (isa<FPMathOperator>(I) && I->hasNoNaNs() && I->hasNoSignedZeros())
+       return true;
+     // minimum and maximum intrinsics do not require nsz and nnan flags since
+     // NaN and signed zeroes are propagated in the intrinsic implementation.
+     return match(I, m_Intrinsic<Intrinsic::minimum>(m_Value(), m_Value())) ||
+            match(I, m_Intrinsic<Intrinsic::maximum>(m_Value(), m_Value()));
+    };
     if (isIntMinMaxRecurrenceKind(Kind) ||
-        (((FuncFMF.noNaNs() && FuncFMF.noSignedZeros()) ||
-          (isa<FPMathOperator>(I) && I->hasNoNaNs() &&
-           I->hasNoSignedZeros())) &&
-         isFPMinMaxRecurrenceKind(Kind)))
+        (HasRequiredFMF() && isFPMinMaxRecurrenceKind(Kind)))
       return isMinMaxPattern(I, Kind, Prev);
     else if (isFMulAddIntrinsic(I))
       return InstDesc(Kind == RecurKind::FMulAdd, I,
@@ -965,13 +976,22 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
     LLVM_DEBUG(dbgs() << "Found an FMulAdd reduction PHI." << *Phi << "\n");
     return true;
   }
+  if (AddReductionVar(Phi, RecurKind::FMaximum, TheLoop, FMF, RedDes, DB, AC, DT,
+                      SE)) {
+    LLVM_DEBUG(dbgs() << "Found a float MAXIMUM reduction PHI." << *Phi << "\n");
+    return true;
+  }
+  if (AddReductionVar(Phi, RecurKind::FMinimum, TheLoop, FMF, RedDes, DB, AC, DT,
+                      SE)) {
+    LLVM_DEBUG(dbgs() << "Found a float MINIMUM reduction PHI." << *Phi << "\n");
+    return true;
+  }
   // Not a reduction of known type.
   return false;
 }
 
-bool RecurrenceDescriptor::isFixedOrderRecurrence(
-    PHINode *Phi, Loop *TheLoop,
-    MapVector<Instruction *, Instruction *> &SinkAfter, DominatorTree *DT) {
+bool RecurrenceDescriptor::isFixedOrderRecurrence(PHINode *Phi, Loop *TheLoop,
+                                                  DominatorTree *DT) {
 
   // Ensure the phi node is in the loop header and has two incoming values.
   if (Phi->getParent() != TheLoop->getHeader() ||
@@ -1007,8 +1027,7 @@ bool RecurrenceDescriptor::isFixedOrderRecurrence(
     Previous = dyn_cast<Instruction>(PrevPhi->getIncomingValueForBlock(Latch));
   }
 
-  if (!Previous || !TheLoop->contains(Previous) || isa<PHINode>(Previous) ||
-      SinkAfter.count(Previous)) // Cannot rely on dominance due to motion.
+  if (!Previous || !TheLoop->contains(Previous) || isa<PHINode>(Previous))
     return false;
 
   // Ensure every user of the phi node (recursively) is dominated by the
@@ -1017,27 +1036,16 @@ bool RecurrenceDescriptor::isFixedOrderRecurrence(
   // loop.
   // TODO: Consider extending this sinking to handle memory instructions.
 
-  // We optimistically assume we can sink all users after Previous. Keep a set
-  // of instructions to sink after Previous ordered by dominance in the common
-  // basic block. It will be applied to SinkAfter if all users can be sunk.
-  auto CompareByComesBefore = [](const Instruction *A, const Instruction *B) {
-    return A->comesBefore(B);
-  };
-  std::set<Instruction *, decltype(CompareByComesBefore)> InstrsToSink(
-      CompareByComesBefore);
-
+  SmallPtrSet<Value *, 8> Seen;
   BasicBlock *PhiBB = Phi->getParent();
   SmallVector<Instruction *, 8> WorkList;
   auto TryToPushSinkCandidate = [&](Instruction *SinkCandidate) {
-    // Already sunk SinkCandidate.
-    if (SinkCandidate->getParent() == PhiBB &&
-        InstrsToSink.find(SinkCandidate) != InstrsToSink.end())
-      return true;
-
     // Cyclic dependence.
     if (Previous == SinkCandidate)
       return false;
 
+    if (!Seen.insert(SinkCandidate).second)
+      return true;
     if (DT->dominates(Previous,
                       SinkCandidate)) // We already are good w/o sinking.
       return true;
@@ -1047,55 +1055,12 @@ bool RecurrenceDescriptor::isFixedOrderRecurrence(
         SinkCandidate->mayReadFromMemory() || SinkCandidate->isTerminator())
       return false;
 
-    // Avoid sinking an instruction multiple times (if multiple operands are
-    // fixed order recurrences) by sinking once - after the latest 'previous'
-    // instruction.
-    auto It = SinkAfter.find(SinkCandidate);
-    if (It != SinkAfter.end()) {
-      auto *OtherPrev = It->second;
-      // Find the earliest entry in the 'sink-after' chain. The last entry in
-      // the chain is the original 'Previous' for a recurrence handled earlier.
-      auto EarlierIt = SinkAfter.find(OtherPrev);
-      while (EarlierIt != SinkAfter.end()) {
-        Instruction *EarlierInst = EarlierIt->second;
-        EarlierIt = SinkAfter.find(EarlierInst);
-        // Bail out if order has not been preserved.
-        if (EarlierIt != SinkAfter.end() &&
-            !DT->dominates(EarlierInst, OtherPrev))
-          return false;
-        OtherPrev = EarlierInst;
-      }
-      // Bail out if order has not been preserved.
-      if (OtherPrev != It->second && !DT->dominates(It->second, OtherPrev))
-        return false;
-
-      // SinkCandidate is already being sunk after an instruction after
-      // Previous. Nothing left to do.
-      if (DT->dominates(Previous, OtherPrev) || Previous == OtherPrev)
-        return true;
-
-      // If there are other instructions to be sunk after SinkCandidate, remove
-      // and re-insert SinkCandidate can break those instructions. Bail out for
-      // simplicity.
-      if (any_of(SinkAfter,
-          [SinkCandidate](const std::pair<Instruction *, Instruction *> &P) {
-            return P.second == SinkCandidate;
-          }))
-        return false;
-
-      // Otherwise, Previous comes after OtherPrev and SinkCandidate needs to be
-      // re-sunk to Previous, instead of sinking to OtherPrev. Remove
-      // SinkCandidate from SinkAfter to ensure it's insert position is updated.
-      SinkAfter.erase(SinkCandidate);
-    }
-
     // If we reach a PHI node that is not dominated by Previous, we reached a
     // header PHI. No need for sinking.
     if (isa<PHINode>(SinkCandidate))
       return true;
 
     // Sink User tentatively and check its users
-    InstrsToSink.insert(SinkCandidate);
     WorkList.push_back(SinkCandidate);
     return true;
   };
@@ -1110,11 +1075,6 @@ bool RecurrenceDescriptor::isFixedOrderRecurrence(
     }
   }
 
-  // We can sink all users of Phi. Update the mapping.
-  for (Instruction *I : InstrsToSink) {
-    SinkAfter[I] = Previous;
-    Previous = I;
-  }
   return true;
 }
 
@@ -1172,6 +1132,10 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     assert((FMF.noNaNs() && FMF.noSignedZeros()) &&
            "nnan, nsz is expected to be set for FP max reduction.");
     return ConstantFP::getInfinity(Tp, true /*Negative*/);
+  case RecurKind::FMinimum:
+    return ConstantFP::getInfinity(Tp, false /*Negative*/);
+  case RecurKind::FMaximum:
+    return ConstantFP::getInfinity(Tp, true /*Negative*/);
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
@@ -1207,6 +1171,8 @@ unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
     return Instruction::ICmp;
   case RecurKind::FMax:
   case RecurKind::FMin:
+  case RecurKind::FMaximum:
+  case RecurKind::FMinimum:
   case RecurKind::SelectFCmp:
     return Instruction::FCmp;
 #if INTEL_CUSTOMIZATION
@@ -1324,14 +1290,20 @@ RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
 
 InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
                                          const SCEV *Step, BinaryOperator *BOp,
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
                                          Type *ElementType,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                          SmallVectorImpl<Instruction *> *Casts)
 #if INTEL_CUSTOMIZATION
     : InductionDescriptorTempl(Start, K, BOp), Step(Step),
       ElementType(ElementType) {
 #else
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp),
       ElementType(ElementType) {
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   assert(IK != IK_NoInduction && "Not an induction");
 
   // Start value type should match the induction kind and the value
@@ -1347,12 +1319,6 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
-#if !INTEL_CUSTOMIZATION
-  // Pointer induction that are not constant are supported in intel
-  // customization.
-  assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
-         "Step value should be constant for pointer induction");
-#endif
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
@@ -1366,10 +1332,12 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
          "Binary opcode should be specified for FP induction");
 #endif
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (IK == IK_PtrInduction)
     assert(ElementType && "Pointer induction must have element type");
   else
     assert(!ElementType && "Non-pointer induction cannot have element type");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (Casts) {
     for (auto &Inst : *Casts) {
@@ -1617,6 +1585,12 @@ bool InductionDescriptor::isInductionPHI(
     return false;
   }
 
+  // This function assumes that InductionPhi is called only on Phi nodes
+  // present inside loop headers. Check for the same, and throw an assert if
+  // the current Phi is not present inside the loop header.
+  assert(Phi->getParent() == AR->getLoop()->getHeader()
+    && "Invalid Phi node, not present in loop header");
+
   Value *StartValue =
       Phi->getIncomingValueForBlock(AR->getLoop()->getLoopPreheader());
 
@@ -1641,21 +1615,38 @@ bool InductionDescriptor::isInductionPHI(
   if (PhiTy->isIntegerTy()) {
     BinaryOperator *BOp =
         dyn_cast<BinaryOperator>(Phi->getIncomingValueForBlock(Latch));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     D = InductionDescriptor(StartValue, IK_IntInduction, Step, BOp,
-                            /* ElementType */ nullptr, CastsToIgnore);
+                            CastsToIgnore);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    D = InductionDescriptor(StartValue, IK_IntInduction, Step, BOp,
+                        /* ElementType */ nullptr, CastsToIgnore);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return true;
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
+
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  // This allows induction variables w/non-constant steps.
+  D = InductionDescriptor(StartValue, IK_PtrInduction, Step);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  PointerType *PtrTy = cast<PointerType>(PhiTy);
+  // Always use i8 element type for opaque pointer inductions.
+  // This allows induction variables w/non-constant steps.
+  if (PtrTy->isOpaque()) {
+    D = InductionDescriptor(StartValue, IK_PtrInduction, Step,
+                            /* BinOp */ nullptr,
+                            Type::getInt8Ty(PtrTy->getContext()));
+    return true;
+  }
+
+  // Pointer induction should be a constant.
   // INTEL Non-constant step is supported in VPlan Vectorizer only.
   if (OnlyConstPtrStep && !ConstStep) // INTEL
     return false;
 
-  // Always use i8 element type for opaque pointer inductions.
-  PointerType *PtrTy = cast<PointerType>(PhiTy);
-  Type *ElementType = PtrTy->isOpaque()
-                          ? Type::getInt8Ty(PtrTy->getContext())
-                          : PtrTy->getNonOpaquePointerElementType();
+  Type *ElementType = PtrTy->getNonOpaquePointerElementType();
   if (!ElementType->isSized())
     return false;
 
@@ -1690,5 +1681,6 @@ bool InductionDescriptor::isInductionPHI(
                             /* BinOp */ nullptr, ElementType);
   }
 #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return true;
 }

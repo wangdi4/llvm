@@ -197,14 +197,15 @@ void TightLoopEmitter::printCycle(
   LLVM_DEBUG(dbgs() << "Tight cycle found for Loop: " << L->getName() << "\n");
   if (ORBuilder.getVerbosity() >= OptReportVerbosity::High)
     ORBuilder(*(const_cast<Loop *>(L)), LI)
-        .addRemark(OptReportVerbosity::High, "Tight cycle found for Loop %s",
+        .addRemark(OptReportVerbosity::High, OptRemarkID::TightLoopFound,
                    L->getName());
 
   for (auto const &I : Workitems) {
     LLVM_DEBUG(I.first->dump());
     if (ORBuilder.getVerbosity() >= OptReportVerbosity::High)
       ORBuilder(*(const_cast<Loop *>(L)), LI)
-          .addRemark(OptReportVerbosity::High, "%s", getOptReportStr(I.first));
+          .addRemark(OptReportVerbosity::High, OptRemarkID::TightLoopValue,
+                     getOptReportStr(I.first));
   }
 }
 

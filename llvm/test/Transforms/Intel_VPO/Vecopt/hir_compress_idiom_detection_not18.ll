@@ -29,7 +29,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPiS_S_i(i32* noalias nocapture noundef %A, i32* noalias nocapture noundef readnone %B, i32* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPiS_S_i(ptr noalias nocapture noundef %A, ptr noalias nocapture noundef readnone %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp15 = icmp sgt i32 %N, 0
   br i1 %cmp15, label %for.body.preheader, label %for.cond.cleanup
@@ -47,18 +47,18 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j.016 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %add = add nsw i32 %j.016, 1
   %idxprom2 = sext i32 %add to i64
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %idxprom2
-  %1 = load i32, i32* %arrayidx3, align 4, !tbaa !3
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %idxprom2
+  %1 = load i32, ptr %arrayidx3, align 4, !tbaa !3
   %add4 = add nsw i32 %1, 1
-  store i32 %add4, i32* %arrayidx3, align 4, !tbaa !3
+  store i32 %add4, ptr %arrayidx3, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

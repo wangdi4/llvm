@@ -17,10 +17,10 @@
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           %red.init = 0.000000e+00;
 ; CHECK-NEXT:           %phi.temp = %red.init;
-; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 1:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
+; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[1:%"foo_$NG_fetch":4112(double:0)][0:<i64 0, i64 1> + 1:16(double:257)][0:0:8(double:2)];
 ; CHECK-NEXT:           %.vec1 = %.vec  +  %phi.temp;
 ; CHECK-NEXT:           %phi.temp = %.vec1;
-; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 3:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
+; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[1:%"foo_$NG_fetch":4112(double:0)][0:<i64 0, i64 1> + 3:16(double:257)][0:0:8(double:2)];
 ; CHECK-NEXT:           %.vec1 = %.vec  +  %phi.temp;
 ; CHECK-NEXT:           %phi.temp = %.vec1;
 ; CHECK-NEXT:           %add10 = @llvm.vector.reduce.fadd.v2f64(%add10,  %.vec1);
@@ -33,20 +33,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @mod1_mp_weight_ = external dso_local local_unnamed_addr global [1 x [257 x [2 x double]]], align 8
 
 ; Function Attrs: nofree nounwind
-define void @foo_(double* noalias nocapture %"foo_$WSUM", i32* noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
+define void @foo_(ptr noalias nocapture %"foo_$WSUM", ptr noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
 alloca:
-  %"foo_$NG_fetch" = load i32, i32* %"foo_$NG", align 4
+  %"foo_$NG_fetch" = load i32, ptr %"foo_$NG", align 4
   %int_sext1 = sext i32 %"foo_$NG_fetch" to i64
-  %"mod1_mp_weight_[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4112, double* elementtype(double) getelementptr inbounds ([1 x [257 x [2 x double]]], [1 x [257 x [2 x double]]]* @mod1_mp_weight_, i64 0, i64 0, i64 0, i64 0), i64 %int_sext1)
-  %"foo_$WSUM.promoted" = load double, double* %"foo_$WSUM", align 8
+  %"mod1_mp_weight_[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 4112, ptr elementtype(double) @mod1_mp_weight_, i64 %int_sext1)
+  %"foo_$WSUM.promoted" = load double, ptr %"foo_$WSUM", align 8
   br label %bb3
 
 bb3:                                              ; preds = %bb3, %alloca
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb3 ], [ 1, %alloca ]
   %add10 = phi double [ %add, %bb3 ], [ %"foo_$WSUM.promoted", %alloca ]
-  %"mod1_mp_weight_[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 16, double* elementtype(double) %"mod1_mp_weight_[]", i64 %indvars.iv)
-  %"mod1_mp_weight_[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"mod1_mp_weight_[][]", i64 1)
-  %"mod1_mp_weight_[][][]_fetch" = load double, double* %"mod1_mp_weight_[][][]", align 8
+  %"mod1_mp_weight_[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 16, ptr elementtype(double) %"mod1_mp_weight_[]", i64 %indvars.iv)
+  %"mod1_mp_weight_[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %"mod1_mp_weight_[][]", i64 1)
+  %"mod1_mp_weight_[][][]_fetch" = load double, ptr %"mod1_mp_weight_[][][]", align 8
   %add = fadd fast double %"mod1_mp_weight_[][][]_fetch", %add10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
@@ -54,9 +54,9 @@ bb3:                                              ; preds = %bb3, %alloca
 
 bb1:                                              ; preds = %bb3
   %add.lcssa = phi double [ %add, %bb3 ]
-  store double %add.lcssa, double* %"foo_$WSUM", align 8
+  store double %add.lcssa, ptr %"foo_$WSUM", align 8
   ret void
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
