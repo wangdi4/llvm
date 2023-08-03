@@ -47,45 +47,43 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%dyn_typ = type { i8*, %dyn_typ* }
-%"XDESC_1_0$i8*$" = type { %"QNCA_a0$i8*$rank1$", %dyn_typ*, i8*, i64, i8*, i8*, i8*, i8*, i8*, i8*, i8* }
-%"QNCA_a0$i8*$rank1$" = type { i8*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
-%dyn_typ_nopdt = type { i8*, %dyn_typ*, %dyn_typ* }
-%"FOO$.btI_TY" = type <{ i32, [4 x i8], %"QNCA_a0$i32*$rank1$" }>
-%"QNCA_a0$i32*$rank1$" = type { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
-@"var$5" = internal global %"XDESC_1_0$i8*$" zeroinitializer
+%dyn_typ = type { ptr, ptr }
+%"XDESC_1_0$ptr$" = type { %"QNCA_a0$ptr$rank1$", ptr, ptr, i64, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
+%"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%dyn_typ_nopdt = type { ptr, ptr, ptr }
+%"FOO$.btI_TY" = type <{ i32, [4 x i8], %"QNCA_a0$ptr$rank1$" }>
+@"var$5" = internal global %"XDESC_1_0$ptr$" zeroinitializer
 
 ; Function Attrs: nounwind uwtable
-define void @foo_(i32* noalias nocapture dereferenceable(4) %"foo_$A", i32* noalias nocapture dereferenceable(4) %"foo_$B", i32* noalias nocapture dereferenceable(4) %"foo_$N", %"FOO$.btI_TY"** noalias dereferenceable(80) %"foo_$CL") local_unnamed_addr #0 {
-; CHECK:         [[LPRIV_VEC:%.*]] = alloca <2 x %"FOO$.btI_TY"*>, align 16
-; CHECK-NEXT:    [[LPRIV_VEC_BC:%.*]] = bitcast <2 x %"FOO$.btI_TY"*>* [[LPRIV_VEC]] to %"FOO$.btI_TY"**
-; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr %"FOO$.btI_TY"*, %"FOO$.btI_TY"** [[LPRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x %"FOO$.btI_TY"**> [[LPRIV_VEC_BASE_ADDR]], i32 1
-; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x %"FOO$.btI_TY"**> [[LPRIV_VEC_BASE_ADDR]], i32 0
+define void @foo_(ptr noalias nocapture dereferenceable(4) %"foo_$A", ptr noalias nocapture dereferenceable(4) %"foo_$B", ptr noalias nocapture dereferenceable(4) %"foo_$N", ptr noalias dereferenceable(80) %"foo_$CL") local_unnamed_addr #0 {
+; CHECK:         [[LPRIV_VEC:%.*]] = alloca <2 x ptr>, align 16
+; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr ptr, ptr [[LPRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x ptr> [[LPRIV_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[LPRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:  [[BB1:BB[0-9]+]]:
-; CHECK:         call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(%"FOO$.btI_TY"** [[LPRIV_VEC_BASE_ADDR_EXTRACT_0]], %"FOO$.btI_TY"** [[LPRIV:%.*]])
-; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(%"FOO$.btI_TY"** [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]], %"FOO$.btI_TY"** [[LPRIV]])
+; CHECK:         call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(ptr [[LPRIV_VEC_BASE_ADDR_EXTRACT_0]], ptr [[LPRIV:%.*]])
+; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(ptr [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]], ptr [[LPRIV]])
 ; CHECK:  [[BB2:BB[0-9]+]]:
-; CHECK:         call void @"%FOO$.btI_TY.omp.copy_assign_deref"(%"FOO$.btI_TY"** [[LPRIV]], %"FOO$.btI_TY"** [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]])
-; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.dtor_deref"(%"FOO$.btI_TY"** [[LPRIV_VEC_BASE_ADDR_EXTRACT_0]])
-; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.dtor_deref"(%"FOO$.btI_TY"** [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]])
+; CHECK:         call void @"%FOO$.btI_TY.omp.copy_assign_deref"(ptr [[LPRIV]], ptr [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]])
+; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.dtor_deref"(ptr [[LPRIV_VEC_BASE_ADDR_EXTRACT_0]])
+; CHECK-NEXT:    call void @"%FOO$.btI_TY.omp.dtor_deref"(ptr [[LPRIV_VEC_BASE_ADDR_EXTRACT_1]])
 ;
-; HIR:        [[PRIV_MEM_BC0:%.*]] = &((%"FOO$.btI_TY"**)([[PRIV_MEM0:%.*]])[0])
-; HIR:        @"%FOO$.btI_TY.omp.mold_ctor_deref"(&((%"FOO$.btI_TY"**)([[PRIV_MEM0]])[0]),  [[LPRIV:%.*]])
-; HIR:        [[EXTRACT_1_0:%.*]] = extractelement &((<2 x %"FOO$.btI_TY"**>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; HIR:        [[PRIV_MEM_BC0:%.*]] = &((ptr)([[PRIV_MEM0:%.*]])[0])
+; HIR:        @"%FOO$.btI_TY.omp.mold_ctor_deref"(&((ptr)([[PRIV_MEM0]])[0]),  [[LPRIV:%.*]])
+; HIR:        [[EXTRACT_1_0:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; HIR:        @"%FOO$.btI_TY.omp.mold_ctor_deref"([[EXTRACT_1_0]],  [[LPRIV]])
-; HIR:        [[EXTRACT_1_120:%.*]] = extractelement &((<2 x %"FOO$.btI_TY"**>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; HIR:        [[EXTRACT_1_120:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; HIR:        @"%FOO$.btI_TY.omp.copy_assign_deref"([[LPRIV]],  [[EXTRACT_1_120]])
-; HIR:        @"%FOO$.btI_TY.omp.dtor_deref"(&((%"FOO$.btI_TY"**)([[PRIV_MEM0]])[0]))
-; HIR:        [[EXTRACT_1_130:%.*]] = extractelement &((<2 x %"FOO$.btI_TY"**>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; HIR:        @"%FOO$.btI_TY.omp.dtor_deref"(&((ptr)([[PRIV_MEM0]])[0]))
+; HIR:        [[EXTRACT_1_130:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; HIR:        @"%FOO$.btI_TY.omp.dtor_deref"([[EXTRACT_1_130]])
 ;
 DIR.OMP.SIMD.1:
-  %"foo_$CL.lpriv" = alloca %"FOO$.btI_TY"*, align 8
-  call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(%"FOO$.btI_TY"** nonnull %"foo_$CL.lpriv", %"FOO$.btI_TY"** nonnull %"foo_$CL") #5
+  %"foo_$CL.lpriv" = alloca ptr, align 8
+  call void @"%FOO$.btI_TY.omp.mold_ctor_deref"(ptr nonnull %"foo_$CL.lpriv", ptr nonnull %"foo_$CL") #5
   %"foo_$I.linear.iv" = alloca i32, align 8
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(48) bitcast (i8** getelementptr inbounds (%"XDESC_1_0$i8*$", %"XDESC_1_0$i8*$"* @"var$5", i64 0, i32 4) to i8*), i8 0, i64 48, i1 false)
-  %"foo_$N_fetch.3" = load i32, i32* %"foo_$N", align 1
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 16 dereferenceable(48) getelementptr inbounds (%"XDESC_1_0$ptr$", ptr @"var$5", i64 0, i32 4), i8 0, i64 48, i1 false)
+  %"foo_$N_fetch.3" = load i32, ptr %"foo_$N", align 1
   %rel.1.not22 = icmp slt i32 %"foo_$N_fetch.3", 1
   br i1 %rel.1.not22, label %DIR.OMP.END.SIMD.421, label %DIR.OMP.SIMD.132
 
@@ -93,37 +91,36 @@ omp.pdo.body5:                                    ; preds = %DIR.OMP.SIMD.134, %
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.134 ], [ %indvars.iv.next, %omp.pdo.body5 ]
   %add.429 = phi i32 [ %"foo_$CL_fetch.25.I_ID$.promoted", %DIR.OMP.SIMD.134 ], [ %add.4, %omp.pdo.body5 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %"foo_$A[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %"foo_$A", i64 %indvars.iv.next)
-  %"foo_$A[]_fetch.15" = load i32, i32* %"foo_$A[]", align 1
-  %"foo_$B[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %"foo_$B", i64 %indvars.iv.next)
-  %"foo_$B[]_fetch.17" = load i32, i32* %"foo_$B[]", align 1
+  %"foo_$A[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %"foo_$A", i64 %indvars.iv.next)
+  %"foo_$A[]_fetch.15" = load i32, ptr %"foo_$A[]", align 1
+  %"foo_$B[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %"foo_$B", i64 %indvars.iv.next)
+  %"foo_$B[]_fetch.17" = load i32, ptr %"foo_$B[]", align 1
   %add.3 = add nsw i32 %"foo_$B[]_fetch.17", %"foo_$A[]_fetch.15"
-  %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]_fetch.20", i64 4, i32* elementtype(i32) %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19", i64 %indvars.iv.next)
-  store i32 %add.3, i32* %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19[]", align 1
+  %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]_fetch.20", i64 4, ptr elementtype(i32) %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19", i64 %indvars.iv.next)
+  store i32 %add.3, ptr %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19[]", align 1
   %add.4 = add nsw i32 %add.429, %"foo_$A[]_fetch.15"
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.233, label %omp.pdo.body5
 
 DIR.OMP.SIMD.132:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"foo_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.LASTPRIVATE:F90_NONPOD.TYPED"(%"FOO$.btI_TY"** %"foo_$CL.lpriv", %"FOO$.btI_TY"* zeroinitializer, i32 1, void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.mold_ctor_deref", void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.copy_assign_deref", void (%"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.dtor_deref"), "QUAL.OMP.LIVEIN"(i32* %"foo_$B"), "QUAL.OMP.LIVEIN"(i32* %"foo_$A"), "QUAL.OMP.LIVEIN"(i32* %"foo_$N") ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"foo_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.LASTPRIVATE:F90_NONPOD.TYPED"(ptr %"foo_$CL.lpriv", ptr zeroinitializer, i32 1, ptr @"%FOO$.btI_TY.omp.mold_ctor_deref", ptr @"%FOO$.btI_TY.omp.copy_assign_deref", ptr @"%FOO$.btI_TY.omp.dtor_deref"), "QUAL.OMP.LIVEIN"(ptr %"foo_$B"), "QUAL.OMP.LIVEIN"(ptr %"foo_$A"), "QUAL.OMP.LIVEIN"(ptr %"foo_$N") ]
   br label %DIR.OMP.SIMD.134
 
 DIR.OMP.SIMD.134:                                 ; preds = %DIR.OMP.SIMD.132
-  %"foo_$CL_fetch.18" = load %"FOO$.btI_TY"*, %"FOO$.btI_TY"** %"foo_$CL.lpriv", align 8
-  %"foo_$CL_fetch.18.I_ARR$.addr_a0$" = getelementptr inbounds %"FOO$.btI_TY", %"FOO$.btI_TY"* %"foo_$CL_fetch.18", i64 0, i32 2, i32 0
-  %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19" = load i32*, i32** %"foo_$CL_fetch.18.I_ARR$.addr_a0$", align 1
-  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$" = getelementptr inbounds %"FOO$.btI_TY", %"FOO$.btI_TY"* %"foo_$CL_fetch.18", i64 0, i32 2, i32 6, i64 0, i32 2
-  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$", i32 0)
-  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]_fetch.20" = load i64, i64* %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]", align 1
-  %"foo_$CL_fetch.25.I_ID$" = getelementptr inbounds %"FOO$.btI_TY", %"FOO$.btI_TY"* %"foo_$CL_fetch.18", i64 0, i32 0
-  %"foo_$CL_fetch.25.I_ID$.promoted" = load i32, i32* %"foo_$CL_fetch.25.I_ID$", align 1
+  %"foo_$CL_fetch.18" = load ptr, ptr %"foo_$CL.lpriv", align 8
+  %"foo_$CL_fetch.18.I_ARR$.addr_a0$" = getelementptr inbounds %"FOO$.btI_TY", ptr %"foo_$CL_fetch.18", i64 0, i32 2, i32 0
+  %"foo_$CL_fetch.18.I_ARR$.addr_a0$_fetch.19" = load ptr, ptr %"foo_$CL_fetch.18.I_ARR$.addr_a0$", align 1
+  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$" = getelementptr inbounds %"FOO$.btI_TY", ptr %"foo_$CL_fetch.18", i64 0, i32 2, i32 6, i64 0, i32 2
+  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$", i32 0)
+  %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]_fetch.20" = load i64, ptr %"foo_$CL_fetch.18.I_ARR$.dim_info$.lower_bound$[]", align 1
+  %"foo_$CL_fetch.25.I_ID$.promoted" = load i32, ptr %"foo_$CL_fetch.18", align 1
   %wide.trip.count = zext i32 %"foo_$N_fetch.3" to i64
   br label %omp.pdo.body5
 
 DIR.OMP.END.SIMD.233:                             ; preds = %omp.pdo.body5
   %add.4.lcssa = phi i32 [ %add.4, %omp.pdo.body5 ]
-  store i32 %"foo_$N_fetch.3", i32* %"foo_$I.linear.iv", align 8
-  store i32 %add.4.lcssa, i32* %"foo_$CL_fetch.25.I_ID$", align 1
+  store i32 %"foo_$N_fetch.3", ptr %"foo_$I.linear.iv", align 8
+  store i32 %add.4.lcssa, ptr %"foo_$CL_fetch.18", align 1
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.233
@@ -131,7 +128,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.23
   br label %omp.pdo.cond
 
 omp.pdo.cond: ; preds = %DIR.OMP.END.SIMD.3
-  store %"FOO$.btI_TY"* null, %"FOO$.btI_TY"** %"foo_$CL", align 1
+  store ptr null, ptr %"foo_$CL", align 1
   br label %DIR.OMP.END.SIMD.421
 
 DIR.OMP.END.SIMD.421:                             ; preds = %DIR.OMP.SIMD.1, %omp.pdo.cond
@@ -139,25 +136,25 @@ DIR.OMP.END.SIMD.421:                             ; preds = %DIR.OMP.SIMD.1, %om
 }
 
 ; Function Attrs: nounwind uwtable
-declare void @"%FOO$.btI_TY.omp.mold_ctor_deref"(%"FOO$.btI_TY"** %dst, %"FOO$.btI_TY"** %src)
+declare void @"%FOO$.btI_TY.omp.mold_ctor_deref"(ptr %dst, ptr %src)
 
 ; Function Attrs: nounwind uwtable
-declare void @"%FOO$.btI_TY.omp.copy_assign_deref"(%"FOO$.btI_TY"** %dst, %"FOO$.btI_TY"** %src)
+declare void @"%FOO$.btI_TY.omp.copy_assign_deref"(ptr %dst, ptr %src)
 
 ; Function Attrs: nounwind uwtable
-declare void @"%FOO$.btI_TY.omp.dtor_deref"(%"FOO$.btI_TY"** %old)
+declare void @"%FOO$.btI_TY.omp.dtor_deref"(ptr %old)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #2
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #2
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #4
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #4

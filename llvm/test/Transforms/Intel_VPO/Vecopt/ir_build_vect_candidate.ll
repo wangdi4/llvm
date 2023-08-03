@@ -9,7 +9,7 @@
 ;
 ; Removed unnecessary auto-generated checks in generated vector code.
 ;
-define void @foo(i64* nocapture %larr) {
+define void @foo(ptr nocapture %larr) {
 ; CHECK-LABEL:  VPlan after predicator:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -23,20 +23,20 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_L1:%.*]] = phi  [ i64 [[VP_L1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INC:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LARR0:%.*]] i64 [[VP_L1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LDVAL:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[LARR0:%.*]] i64 [[VP_L1]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LDVAL:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP:%.*]] = icmp eq i64 [[VP_LDVAL]] i64 1111
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP_NOT:%.*]] = not i1 [[VP_LDVALCMP]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LDVALCMP_NOT]]
-; CHECK-NEXT:     [DA: Div] store i64 2222 i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] store i64 2222 ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LDVALCMP]]
-; CHECK-NEXT:     [DA: Div] store i64 3333 i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] store i64 3333 ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
@@ -54,25 +54,22 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_L1_IND_FINAL]]
 ;
-; CHECK:  define void @foo(i64* nocapture [[LARR0]]) {
+; CHECK:  define void @foo(ptr nocapture [[LARR0]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], [[VPLANNEDBB50:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB50]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, <4 x i64>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, ptr [[LARR0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, ptr [[SCALAR_GEP0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i64> [[WIDE_LOAD0]], <i64 1111, i64 1111, i64 1111, i64 1111>
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> <i64 2222, i64 2222, i64 2222, i64 2222>, <4 x i64>* [[TMP3]], i32 8, <4 x i1> [[TMP2]])
+; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> <i64 2222, i64 2222, i64 2222, i64 2222>, ptr [[SCALAR_GEP0]], i32 8, <4 x i1> [[TMP2]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> <i64 3333, i64 3333, i64 3333, i64 3333>, <4 x i64>* [[TMP4]], i32 8, <4 x i1> [[TMP1]])
+; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> <i64 3333, i64 3333, i64 3333, i64 3333>, ptr [[SCALAR_GEP0]], i32 8, <4 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
@@ -86,17 +83,17 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %l1 = phi i64 [ 0, %entry ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1
-  %ldval = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1
+  %ldval = load i64, ptr %arrayidx, align 8
   %ldvalcmp = icmp eq i64 %ldval, 1111
   br i1 %ldvalcmp, label %if.else, label %if.then
 
 if.then:                                          ; preds = %for.body
-  store i64 2222, i64* %arrayidx, align 8
+  store i64 2222, ptr %arrayidx, align 8
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  store i64 3333, i64* %arrayidx, align 8
+  store i64 3333, ptr %arrayidx, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return Sum + i;
 ;}
 
-define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
+define i32 @foo(ptr nocapture readonly %A, i32 %N, i32 %Init) {
 ;
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
@@ -44,8 +44,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_SUM_07]] = phi  [ i32 [[VP_ADD]], [[BB0]] ],  [ i32 [[VP_SUM_07_RED_INIT]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i32 [[VP_ADD]] = add i32 [[VP_A_I]] i32 [[VP_SUM_07]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -89,8 +89,8 @@ for.body.ph:                                 ; preds = %0
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.ph ]
   %Sum.07 = phi i32 [ %add, %for.body ], [ %Init, %for.body.ph ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %Sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

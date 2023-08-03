@@ -7,43 +7,41 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @test(i32* nocapture readonly %A, i64 %N, i32 %init) {
+define i32 @test(ptr nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:        Reduction list
-; CHECK-NEXT:   (+) Start: [2 x i32]* [[SUM0:%.*]]
-; CHECK-NEXT:    Linked values: [2 x i32]* [[VP_SUM:%.*]],
-; CHECK-NEXT:   Memory: [2 x i32]* [[SUM0]]
+; CHECK-NEXT:   (+) Start: ptr [[SUM0:%.*]]
+; CHECK-NEXT:    Linked values: ptr [[VP_SUM:%.*]],
+; CHECK-NEXT:   Memory: ptr [[SUM0]]
 
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [2 x i32]* [[VP_SUM]] = allocate-priv [2 x i32], OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast [2 x i32]* [[VP_SUM]]
-; CHECK-NEXT:     call i64 8 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32* [[VP_ELEM1:%.*]] = getelementptr inbounds [2 x i32]* [[VP_SUM]] i32 0 i32 1
-; CHECK-NEXT:     i32* [[VP_ELEM0:%.*]] = getelementptr inbounds [2 x i32]* [[VP_SUM]] i32 0 i32 0
-; CHECK-NEXT:     reduction-init-arr i32 0 [2 x i32]* [[VP_SUM]]
+; CHECK-NEXT:     ptr [[VP_SUM]] = allocate-priv [2 x i32], OrigAlign = 4
+; CHECK-NEXT:     call i64 8 ptr [[VP_SUM]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr [[VP_ELEM1:%.*]] = getelementptr inbounds [2 x i32], ptr [[VP_SUM]] i32 0 i32 1
+; CHECK-NEXT:     reduction-init-arr i32 0 ptr [[VP_SUM]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i32 [[VP_SUM_LD_0:%.*]] = load i32* [[VP_ELEM0]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i32 [[VP_SUM_LD_0:%.*]] = load ptr [[VP_SUM]]
 ; CHECK-NEXT:     i32 [[VP_ADD_0:%.*]] = add i32 [[VP_A_I]] i32 [[VP_SUM_LD_0]]
-; CHECK-NEXT:     store i32 [[VP_ADD_0]] i32* [[VP_ELEM0]]
-; CHECK-NEXT:     i32 [[VP_SUM_LD_1:%.*]] = load i32* [[VP_ELEM1]]
+; CHECK-NEXT:     store i32 [[VP_ADD_0]] ptr [[VP_SUM]]
+; CHECK-NEXT:     i32 [[VP_SUM_LD_1:%.*]] = load ptr [[VP_ELEM1]]
 ; CHECK-NEXT:     i32 [[VP_ADD_1:%.*]] = add i32 [[VP_A_I]] i32 [[VP_SUM_LD_1]]
-; CHECK-NEXT:     store i32 [[VP_ADD_1]] i32* [[VP_ELEM1]]
+; CHECK-NEXT:     store i32 [[VP_ADD_1]] ptr [[VP_ELEM1]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp slt i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB0]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
-; CHECK-NEXT:     [2 x i32] [[VP_RED_FINAL_ARR:%.*]] = reduction-final-arr{add} [2 x i32]* [[VP_SUM]] [2 x i32]* [[SUM0]]
+; CHECK-NEXT:     [2 x i32] [[VP_RED_FINAL_ARR:%.*]] = reduction-final-arr{add} ptr [[VP_SUM]] ptr [[SUM0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -55,37 +53,35 @@ entry:
   br label %fill.sum
 
 fill.sum:
-  %arr.begin = getelementptr inbounds [2 x i32], [2 x i32]* %sum, i32 0, i32 0
-  %arr.end = getelementptr i32, i32* %arr.begin, i32 2
-  %red.init.isempty = icmp eq i32* %arr.begin, %arr.end
+  %arr.end = getelementptr i32, ptr %sum, i32 2
+  %red.init.isempty = icmp eq ptr %sum, %arr.end
   br i1 %red.init.isempty, label %begin.simd.1, label %red.init.body
 
 red.init.body:
-  %red.curr.ptr = phi i32* [ %arr.begin, %fill.sum ], [ %red.next.ptr, %red.init.body ]
-  store i32 %init, i32* %red.curr.ptr, align 4
-  %red.next.ptr = getelementptr inbounds i32, i32* %red.curr.ptr, i32 1
-  %red.init.done = icmp eq i32* %red.next.ptr, %arr.end
+  %red.curr.ptr = phi ptr [ %sum, %fill.sum ], [ %red.next.ptr, %red.init.body ]
+  store i32 %init, ptr %red.curr.ptr, align 4
+  %red.next.ptr = getelementptr inbounds i32, ptr %red.curr.ptr, i32 1
+  %red.init.done = icmp eq ptr %red.next.ptr, %arr.end
   br i1 %red.init.done, label %begin.simd.1, label %red.init.body
 
 begin.simd.1:
-  %elem0 = getelementptr inbounds [2 x i32], [2 x i32]* %sum, i32 0, i32 0
-  %elem1 = getelementptr inbounds [2 x i32], [2 x i32]* %sum, i32 0, i32 1
+  %elem1 = getelementptr inbounds [2 x i32], ptr %sum, i32 0, i32 1
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"([2 x i32]* %sum, i32 0, i32 2) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum, i32 0, i32 2) ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %begin.simd ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
-  %sum.ld.0 = load i32, i32* %elem0, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
+  %sum.ld.0 = load i32, ptr %sum, align 4
   %add.0 = add nsw i32 %A.i, %sum.ld.0
-  store i32 %add.0, i32* %elem0, align 4
-  %sum.ld.1 = load i32, i32* %elem1, align 4
+  store i32 %add.0, ptr %sum, align 4
+  %sum.ld.1 = load i32, ptr %elem1, align 4
   %add.1 = add nsw i32 %A.i, %sum.ld.1
-  store i32 %add.1, i32* %elem1, align 4
+  store i32 %add.1, ptr %elem1, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp slt i64 %indvars.iv.next, %N
   br i1 %exitcond, label %for.body, label %for.cond.cleanup.loopexit
@@ -98,8 +94,8 @@ end.simd:
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
-  %fin.gep = getelementptr inbounds [2 x i32], [2 x i32]* %sum, i32 0, i32 1
-  %fin = load i32, i32* %fin.gep, align 4
+  %fin.gep = getelementptr inbounds [2 x i32], ptr %sum, i32 0, i32 1
+  %fin = load i32, ptr %fin.gep, align 4
   ret i32 %fin
 
 }

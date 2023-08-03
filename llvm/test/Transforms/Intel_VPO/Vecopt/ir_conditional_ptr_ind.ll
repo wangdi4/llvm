@@ -14,54 +14,54 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP0:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP0]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   PtrInduction(+) Start: i64* [[K_IV_B0:%.*]] Step: i64 1 StartVal: ? EndVal: ? BinOp: i64* [[VP1:%.*]] = getelementptr inbounds i64* [[VP_K_IV:%.*]] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] need close form
-; CHECK-NEXT:    Linked values: i64* [[VP_K_IV]], i64* [[VP_K_IV_NEXT:%.*]], i64* [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP]], i64* [[VP1]], i64* [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K_IV_B0:%.*]] Step: i64 8 StartVal: ? EndVal: ? BinOp: ptr [[VP1:%.*]] = getelementptr inbounds i8, ptr [[VP_K_IV:%.*]] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: ptr [[VP_K_IV]], ptr [[VP_K_IV_NEXT:%.*]], ptr [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP]], ptr [[VP1]], ptr [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64* [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} i64* [[K_IV_B0]] i64 1
-; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT:     ptr [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K_IV_B0]] i64 8
+; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 8
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB4]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP0]], [[BB5]] ]
-; CHECK-NEXT:     i64* [[VP_K_IV]] = phi  [ i64* [[VP_K_IV_IND_INIT]], [[BB4]] ],  [ i64* [[VP1]], [[BB5]] ]
+; CHECK-NEXT:     ptr [[VP_K_IV]] = phi  [ ptr [[VP_K_IV_IND_INIT]], [[BB4]] ],  [ ptr [[VP1]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 43
 ; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64* [[VP_K_IV_N2:%.*]] = getelementptr inbounds i64* [[VP_K_IV]] i64 1
+; CHECK-NEXT:       ptr [[VP_K_IV_N2:%.*]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64* [[VP_K_IV_N1:%.*]] = getelementptr inbounds i64* [[VP_K_IV]] i64 1
+; CHECK-NEXT:       ptr [[VP_K_IV_N1:%.*]] = getelementptr inbounds i64, ptr [[VP_K_IV]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB1]]
-; CHECK-NEXT:     i64* [[VP_K_IV_NEXT]] = phi  [ i64* [[VP_K_IV_N1]], [[BB1]] ],  [ i64* [[VP_K_IV_N2]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP1]] = getelementptr inbounds i64* [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     ptr [[VP_K_IV_NEXT]] = phi  [ ptr [[VP_K_IV_N1]], [[BB1]] ],  [ ptr [[VP_K_IV_N2]], [[BB2]] ]
+; CHECK-NEXT:     ptr [[VP1]] = getelementptr inbounds i8, ptr [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP0]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 1 i64 1
-; CHECK-NEXT:     i64* [[VP_K_IV_IND_FINAL]] = induction-final{getelementptr} i64* [[K_IV_B0]] i64 1
+; CHECK-NEXT:     ptr [[VP_K_IV_IND_FINAL]] = induction-final{getelementptr} ptr [[K_IV_B0]] i64 8
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_K0:%.*]] = phi i64* [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ] i64* [[VP_K_IV_IND_FINAL]] -> i64* [[K_IV_NEXT0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_K0:%.*]] = phi ptr [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ] ptr [[VP_K_IV_IND_FINAL]] -> ptr [[K_IV_NEXT0]]
 ;
 entry:
-  %k = alloca i64*, align 4
-  store i64* null, i64** %k, align 4
+  %k = alloca ptr, align 4
+  store ptr null, ptr %k, align 4
   br label %reg.entry
 
 reg.entry:
@@ -69,30 +69,30 @@ reg.entry:
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64*, i64** %k, align 4
+  %k.iv.b = load ptr, ptr %k, align 4
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 1, %for.body.lr.ph ], [ %indvars.iv.next, %latch ]
-  %k.iv = phi i64* [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
+  %k.iv = phi ptr [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %ee = icmp eq i64 %indvars.iv.next, 43
   br i1 %ee, label %then, label %else
 
 then:
-  %k.iv.n1 = getelementptr inbounds i64, i64* %k.iv, i64 1
+  %k.iv.n1 = getelementptr inbounds i64, ptr %k.iv, i64 1
   br label %latch
 else:
-  %k.iv.n2 = getelementptr inbounds i64, i64* %k.iv, i64 1
+  %k.iv.n2 = getelementptr inbounds i64, ptr %k.iv, i64 1
   br label %latch
 
 latch:
-  %k.iv.next = phi i64* [%k.iv.n1, %then ], [%k.iv.n2, %else ]
+  %k.iv.next = phi ptr [%k.iv.n1, %then ], [%k.iv.n2, %else ]
   %exitcond = icmp eq i64 %indvars.iv.next, %N
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
 
 for.cond.cleanup.loopexit:
-  %lcssa.k = phi i64* [%k.iv.next, %latch]
+  %lcssa.k = phi ptr [%k.iv.next, %latch]
   br label %for.cond.cleanup
 
 for.cond.cleanup:

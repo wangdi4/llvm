@@ -9,7 +9,7 @@
 
 ; CHECK: + DO i32 i1 = 0, {{.*}}, 8   <DO_LOOP>
 ; CHECK: |   (<8 x i32>*)(%A)[i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
+; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR ptr %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
 ; CHECK: + END LOOP
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
@@ -18,7 +18,7 @@
 ; Verify that we get a unit-strided store with -hir-ignore-wraparound.
 ; IGNORE-WRAP: + DO i32 i1 = 0, %loop.ub, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>
 ; IGNORE-WRAP: |   (<8 x i32>*)(%A)[i1] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; IGNORE-WRAP: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.i3.i64(i1)]
+; IGNORE-WRAP: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR ptr %A)[LINEAR zext.i3.i64(i1)]
 ; IGNORE-WRAP: + END LOOP
 
 
@@ -29,7 +29,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -41,8 +41,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %i.06 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %and = and i32 %i.06, 7
   %0 = zext i32 %and to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %0
-  store i32 %i.06, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %0
+  store i32 %i.06, ptr %arrayidx, align 4, !tbaa !2
   %inc = add nuw nsw i32 %i.06, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body
