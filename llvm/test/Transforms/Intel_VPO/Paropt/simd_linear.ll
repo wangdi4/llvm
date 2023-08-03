@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; void foo()
@@ -10,59 +10,63 @@
 ;     ++l;
 ; }
 
-; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LINEAR"(i32* %[[LPRIV:[^,]+]], i32 1){{.*}} ]
+; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(ptr %[[LPRIV:[^,]+]], i32 0, i32 1, i32 1){{.*}} ]
 ; CHECK: br label %[[LOOPBODY:[^,]+]]
 ; CHECK: [[LOOPBODY]]:
 ; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; CHECK: [[LEXIT]]:
 ; CHECK: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
-; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
-; CHECK-NEXT: store i32 %[[V]], i32* %l, align 4
+; CHECK: %[[V:.+]] = load i32, ptr %[[LPRIV]]
+; CHECK-NEXT: store i32 %[[V]], ptr %l, align 4
 ; CHECK: br label %[[REXIT:[^,]+]]
 ; CHECK: [[REXIT]]:
 
 ; ModuleID = 'simd.cpp'
 source_filename = "simd.cpp"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind uwtable
-define dso_local void @_Z3foov() #0 {
+define dso_local void @foo() {
 entry:
   %l = alloca i32, align 4
-  %.omp.iv = alloca i32, align 4
   %tmp = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %i = alloca i32, align 4
-  store i32 0, i32* %l, align 4
-  store i32 999, i32* %.omp.ub, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i32* %l, i32 1), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub) ]
-  store i32 0, i32* %.omp.iv, align 4
+  store i32 0, ptr %l, align 4
+  store i32 999, ptr %.omp.ub, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.LINEAR:TYPED"(ptr %l, i32 0, i32 1, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i, i32 0, i32 1, i32 1) ]
+
+  store i32 0, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %1 = load i32, i32* %.omp.iv, align 4
-  %2 = load i32, i32* %.omp.ub, align 4
+  %1 = load i32, ptr %.omp.iv, align 4
+  %2 = load i32, ptr %.omp.ub, align 4
   %cmp = icmp sle i32 %1, %2
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %3 = load i32, i32* %.omp.iv, align 4
+  %3 = load i32, ptr %.omp.iv, align 4
   %mul = mul nsw i32 %3, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, i32* %i, align 4
-  %4 = load i32, i32* %l, align 4
+  store i32 %add, ptr %i, align 4
+  %4 = load i32, ptr %l, align 4
   %inc = add nsw i32 %4, 1
-  store i32 %inc, i32* %l, align 4
+  store i32 %inc, ptr %l, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %5 = load i32, i32* %.omp.iv, align 4
+  %5 = load i32, ptr %.omp.iv, align 4
   %add1 = add nsw i32 %5, 1
-  store i32 %add1, i32* %.omp.iv, align 4
+  store i32 %add1, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
@@ -70,20 +74,11 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 9.0.0"}
