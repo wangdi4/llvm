@@ -143,6 +143,9 @@ enum CPUKind {
 #endif // INTEL_CUSTOMIZATION
   CK_Raptorlake,
   CK_Meteorlake,
+  CK_Arrowlake,
+  CK_ArrowlakeS,
+  CK_Lunarlake,
   CK_Sierraforest,
   CK_Grandridge,
   CK_Graniterapids,

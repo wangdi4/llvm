@@ -904,6 +904,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   case CK_Raptorlake:
   case CK_Meteorlake:
+  case CK_Arrowlake:
+  case CK_ArrowlakeS:
+  case CK_Lunarlake:
   case CK_Sierraforest:
   case CK_Grandridge:
   case CK_Graniterapids:
@@ -2577,6 +2580,9 @@ std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_CUSTOMIZATION
     case CK_Raptorlake:
     case CK_Meteorlake:
+    case CK_Arrowlake:
+    case CK_ArrowlakeS:
+    case CK_Lunarlake:
     case CK_Sierraforest:
     case CK_Grandridge:
     case CK_Graniterapids:
