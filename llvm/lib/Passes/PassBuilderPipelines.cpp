@@ -2677,8 +2677,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRSpecialOptPredicatePass());
       FPM.addPass(HIRLMMPass());
       if (RunVPOOpt) {
-        FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
         if (EnableVPlanDriverHIR) {
+          FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3),
+                      LoopOptLimiter::LoopOpt);
           bool WillRunLLVMIRVPlan =
               EnableVPlanDriver && RunPostLoopOptVPOPasses;
           FPM.addPass(vpo::VPlanDriverHIRPass(true, WillRunLLVMIRVPlan),
