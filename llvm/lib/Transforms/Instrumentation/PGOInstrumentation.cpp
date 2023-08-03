@@ -1891,14 +1891,14 @@ void PGOUseFunc::populateCounters() {
   // Fix the obviously inconsistent entry count.
   if (FuncMaxCount > 0 && FuncEntryCount == 0)
     FuncEntryCount = 1;
+  F.setEntryCount(ProfileCount(FuncEntryCount, Function::PCT_Real));
 
 #if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   std::optional<std::string> MLPGO_PARTIAL_USE =
       sys::Process::GetEnv("INTEL_MLPGO_PARTIAL_USE");
-  if (!MLPGO_PARTIAL_USE) {
-    F.setEntryCount(ProfileCount(FuncEntryCount, Function::PCT_Real));
-  }
+  if (MLPGO_PARTIAL_USE)
+    F.setEntryCount(ProfileCount(0, Function::PCT_Real));
 #endif // !INTEL_PRODUCT_RELEASE
 #endif // INTEL_CUSTOMIZATION
   markFunctionAttributes(FuncEntryCount, FuncMaxCount);
