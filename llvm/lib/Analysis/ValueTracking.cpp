@@ -2821,6 +2821,26 @@ static bool isKnownNonZeroFromOperator(const Operator *I,
       const auto *Call = cast<CallBase>(I);
       if (Call->isReturnNonNull())
         return true;
+#if INTEL_CUSTOMIZATION
+      // Some recursion is needed here to look through the call args
+      // (same as call-arg-to-ret aliasing case from llorg)
+      if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(I))
+        if (!NullPointerIsDefined(SI->getFunction(),
+                                  SI->getPointerAddressSpace())) {
+          if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
+            return true;
+          if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
+            if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
+              return true;
+          if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
+            if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
+              return true;
+        }
+      else if (const FakeloadInst *FI = dyn_cast<FakeloadInst>(I))
+        if (FI->getPointerAddressSpace() == 0 &&
+            isKnownNonZero(FI->getPointerOperand(), Depth, Q))
+          return true;
+#endif // INTEL_CUSTOMIZATION
       if (const auto *RP = getArgumentAliasingToReturnedPointer(Call, true))
         return isKnownNonZero(RP, Depth, Q);
     }
@@ -2983,36 +3003,6 @@ bool isKnownNonZero(const Value *V, const APInt &DemandedElts, unsigned Depth,
            A->hasNonNullAttr()))
         return true;
     }
-<<<<<<< HEAD
-
-    if (const auto *Call = dyn_cast<CallBase>(V)) {
-      if (Call->isReturnNonNull())
-        return true;
-#if INTEL_CUSTOMIZATION
-      // Some recursion is needed here to look through the call args
-      // (same as call-arg-to-ret aliasing case from llorg)
-      if (const SubscriptInst *SI = dyn_cast<SubscriptInst>(V))
-        if (!NullPointerIsDefined(SI->getFunction(),
-                                  SI->getPointerAddressSpace())) {
-          if (isKnownNonZero(SI->getPointerOperand(), Depth, Q))
-            return true;
-          if (auto *LC = dyn_cast<ConstantInt>(SI->getLowerBound()))
-            if (LC->isZero() && isKnownNonZero(SI->getIndex(), Depth, Q))
-              return true;
-          if (auto *IC = dyn_cast<ConstantInt>(SI->getIndex()))
-            if (IC->isZero() && isKnownNonZero(SI->getLowerBound(), Depth, Q))
-              return true;
-        }
-      else if (const FakeloadInst *FI = dyn_cast<FakeloadInst>(V))
-        if (FI->getPointerAddressSpace() == 0 &&
-            isKnownNonZero(FI->getPointerOperand(), Depth, Q))
-          return true;
-#endif // INTEL_CUSTOMIZATION
-      if (const auto *RP = getArgumentAliasingToReturnedPointer(Call, true))
-        return isKnownNonZero(RP, Depth, Q);
-    }
-=======
->>>>>>> d899dc5296c751a60afbe3eae2039dd1b326a499
   }
 
   if (const auto *I = dyn_cast<Operator>(V))
