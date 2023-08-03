@@ -11083,14 +11083,16 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
     // TODO: remove it before release
-    if (!TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo)) {
+    if (getToolChain().getTriple().getSubArch() ==
+            llvm::Triple::SPIRSubArch_x86_64 ||
+        TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo)) {
+      TranslatorArgs.push_back(
+          "-spirv-debug-info-version=nonsemantic-shader-200");
+    } else {
       TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
       // Prevent crash in the translator if input IR contains DIExpression
       // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
       TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
-    } else {
-      TranslatorArgs.push_back(
-          "-spirv-debug-info-version=nonsemantic-shader-200");
     }
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
@@ -11165,16 +11167,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_memory_access_aliasing" // INTEL_COLLAB
                 ",+SPV_KHR_uniform_group_instructions"
                 ",+SPV_INTEL_masked_gather_scatter"
-                ",+SPV_INTEL_tensor_float32_conversion";
-#if INTEL_CUSTOMIZATION
-    // TODO: remove it before release
-    if (CreatingSyclSPIRVFatObj ||
-        TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo))
-#else
-    if (CreatingSyclSPIRVFatObj)
-#endif // INTEL_CUSTOMIZATION
-      ExtArg += ",+SPV_KHR_non_semantic_info";
-
+                ",+SPV_INTEL_tensor_float32_conversion"
+                ",+SPV_KHR_non_semantic_info"; // INTEL_COLLAB
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
 
     const toolchains::SYCLToolChain &TC =
