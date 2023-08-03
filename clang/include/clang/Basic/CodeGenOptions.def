@@ -256,7 +256,6 @@ CODEGENOPT(StrictFloatCastOverflow, 1, 1)
 CODEGENOPT(UseComplexIntrinsics, 1, 0) ///< Use LLVM complex intrinsics
 #endif // INTEL_CUSTOMIZATION
 
-CODEGENOPT(UniformWGSize     , 1, 0) ///< -cl-uniform-work-group-size
 CODEGENOPT(NoZeroInitializedInBSS , 1, 0) ///< -fno-zero-initialized-in-bss.
 /// Method of Objective-C dispatch to use.
 ENUM_CODEGENOPT(ObjCDispatchMethod, ObjCDispatchMethodKind, 2, Legacy)
