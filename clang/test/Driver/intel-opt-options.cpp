@@ -261,3 +261,17 @@
 // PREFETCH_3: "-mllvm" "-hir-prefetching-trip-count-threshold=0"
 // PREFETCH_3: "-mllvm" "-hir-prefetching-skip-non-modified-regions"
 // PREFETCH_5: "-mllvm" "-hir-prefetching-enable-indirect-prefetching"
+
+// RUN: %clang --intel -qopt-prefetch -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang_cl --intel /Qopt-prefetch -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang --intel -qopt-prefetch=2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// RUN: %clang_cl --intel /Qopt-prefetch:2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DEFAULT
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-num-cachelines-threshold=0"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-skip-num-memory-streams-check"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-trip-count-threshold=0"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-skip-non-modified-regions"
+// PREFETCH_DEFAULT-NOT: "-hir-prefetching-enable-indirect-prefetching"

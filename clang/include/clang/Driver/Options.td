@@ -6382,6 +6382,9 @@ def qopt_prefetch_EQ : Joined<["-"], "qopt-prefetch=">,
   "0 disables.  Values of 1 - 5 are available.  Default is 2.">;
 def qno_opt_prefetch : Flag<["-"], "qno-opt-prefetch">, Alias<qopt_prefetch_EQ>,
   AliasArgs<["0"]>, HelpText<"Disable prefetching.">;
+def qopt_prefetch : Flag<["-"], "qopt-prefetch">, Alias<qopt_prefetch_EQ>,
+  AliasArgs<["2"]>, HelpText<"Enable prefetch insertion.  Same as "
+  "-qopt-prefetch=2.">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   Group<intel_opt_report_Group>,
   HelpText<"Generate an optimization report, min, med or max.">;
@@ -9576,6 +9579,9 @@ def _SLASH_Qopt_prefetch_COL : CLJoined<"Qopt-prefetch:">,
   "where 0 disables.  Values of 1 - 5 are available.  Default is 2.">;
 def _SLASH_Qopt_prefetch_ : CLFlag<"Qopt-prefetch-">, Alias<qopt_prefetch_EQ>,
   AliasArgs<["0"]>, HelpText<"Disable prefetching.">;
+def _SLASH_Qopt_prefetch : CLFlag<"Qopt-prefetch">, Alias<qopt_prefetch_EQ>,
+  AliasArgs<["2"]>, HelpText<"Enable prefetch insertion.  Same as "
+  "/Qopt-prefetch:2.">;
 def _SLASH_Qvec_with_mask : CLFlag<"Qvec-with-mask">,
   Alias<fvec_with_mask>,
   HelpText<"Enable vectorization for short trip-count loops with masking.">;
