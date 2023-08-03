@@ -852,12 +852,10 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ALDERLAKE;
       break;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_LNL
     // Lunarlake:
     case 0xbc:
-    case 0xbd:
       CPU = "lunarlake";
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_LUNARLAKE;
@@ -872,7 +870,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
-=======
     // Arrowlake:
     case 0xc5:
       CPU = "arrowlake";
@@ -889,7 +886,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ARROWLAKE_S;
       break;
 
->>>>>>> c9d92e66387baab18ceec1533503cc5f19048d91
     // Graniterapids:
     case 0xad:
       CPU = "graniterapids";

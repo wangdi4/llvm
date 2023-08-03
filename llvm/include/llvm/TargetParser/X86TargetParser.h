@@ -137,9 +137,6 @@ enum CPUKind {
 #if INTEL_FEATURE_CPU_RYL
   CK_Royal,
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-  CK_Lunarlake,
-#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
   CK_Raptorlake,
   CK_Meteorlake,

@@ -365,15 +365,12 @@ constexpr FeatureBitset FeaturesSierraforest =
     FeatureENQCMD | FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
 constexpr FeatureBitset FeaturesGrandridge =
     FeaturesSierraforest | FeatureRAOINT;
-<<<<<<< HEAD
 #if INTEL_FEATURE_CPU_LNL
 constexpr FeatureBitset FeaturesLunarlake = FeaturesSierraforest |
     FeatureSHA512 | FeatureSM3 | FeatureSM4 | FeatureAVXVNNIINT16;
 #endif // INTEL_FEATURE_CPU_LNL
-=======
 constexpr FeatureBitset FeaturesArrowlakeS = FeaturesSierraforest |
     FeatureAVXVNNIINT16 | FeatureSHA512 | FeatureSM3 | FeatureSM4;
->>>>>>> c9d92e66387baab18ceec1533503cc5f19048d91
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
