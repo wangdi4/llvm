@@ -252,14 +252,10 @@ CODEGENOPT(SplitMachineFunctions, 1, 0) ///< Split machine functions using profi
 /// float-to-int conversion instructions.
 CODEGENOPT(StrictFloatCastOverflow, 1, 1)
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 CODEGENOPT(UseComplexIntrinsics, 1, 0) ///< Use LLVM complex intrinsics
 #endif // INTEL_CUSTOMIZATION
 
-CODEGENOPT(UniformWGSize     , 1, 0) ///< -cl-uniform-work-group-size
-=======
->>>>>>> bec6f51f9c92a2c797e028197c38f7ed19c7fdba
 CODEGENOPT(NoZeroInitializedInBSS , 1, 0) ///< -fno-zero-initialized-in-bss.
 /// Method of Objective-C dispatch to use.
 ENUM_CODEGENOPT(ObjCDispatchMethod, ObjCDispatchMethodKind, 2, Legacy)
