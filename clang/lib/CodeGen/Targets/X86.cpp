@@ -1120,7 +1120,6 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (State.IsPreassigned.test(I))
       continue;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (IsSVMLCall &&
         isSVMLIntArgumentMask(getContext(), Args[I].type, FI.getReturnType())) {
@@ -1133,13 +1132,11 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
           llvm::Type::getInt1Ty(CGT.getLLVMContext()),
           llvm::ElementCount::getFixed(Context.getIntWidth(Args[I].type))));
     } else {
-      Args[I].info = classifyArgumentType(Args[I].type, State);
+      Args[I].info =
+          classifyArgumentType(Args[I].type, State, FI.isDelegateCall());
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    Args[I].info =
-        classifyArgumentType(Args[I].type, State, FI.isDelegateCall());
->>>>>>> 27dab4d305acb6e0935e014c061c5317016ae2b3
+
     UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
   }
 
