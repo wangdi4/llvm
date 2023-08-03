@@ -42,6 +42,7 @@ foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
     defvar scalar_code = !cond(!eq(clusive, "exclusive") : work_group_scan_exclusive_function_op_scalar, true : work_group_inclusive_function_op_scalar);
     def wg_scan_#clusive#_#name#_scalar_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name # "_helper"), work_group_v1_types, 0, scalar_code, [["$FUNC", "work_group_" # name # "_util"]]>;
     def wg_scan_#clusive#_#name#_fake : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name), work_group_v1_types, 0, ret_arg0_code>;
+    def wg_scan_#clusive#_#name#_mask_fake : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name # "_mask"), work_group_v1_types, 0, ret_arg0_code>;
   }
 }
 
@@ -144,18 +145,14 @@ foreach vf = [4, 8, 16, 32, 64] in {
   foreach clusive = ["exclusive", "inclusive"] in {
     defvar vector_code = !cond(!eq(clusive, "exclusive") : exclusive_vector_code, true : inclusive_vector_code);
     defvar mask_code = !cond(!eq(clusive, "exclusive") : exclusive_mask_code, true : inclusive_mask_code);
-    foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+    foreach name = ["add", "mul", "bitwise_and", "bitwise_or", "bitwise_xor"] in {
       defvar helper = "work_group_scan_" # clusive # "_" # name # "_helper";
       defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [vf]>.Tout;
-      def wg_scan_#clusive#_#name#vf#_impl : OclBuiltinImpl<!cast<OclBuiltin>(helper), types, 0, vector_code, [["$FUNC", "work_group_" # name # "_util"]]>;
-    }
-    foreach name = ["add", "mul"] in {
-      defvar helper = "work_group_scan_" # clusive # "_" # name # "_helper";
-      defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [vf]>.Tout;
-      defvar func = "work_group_" # name # "_util";
 
       def wg_scan_#clusive#_#name#vf#_impl : OclBuiltinImpl<!cast<OclBuiltin>(helper), types, 0, vector_code, [["$FUNC", "work_group_" # name # "_util"]]>;
-      defvar val = !cond(!eq(name, "add") : "0", true : "1");
+      defvar val = !cond(!eq(name, "mul") : "1",
+                         !eq(name, "bitwise_and") : "1",
+                         true : "0");
       def wg_scan_#clusive#_#name#vf#_mask_impl : OclBuiltinImpl<!cast<OclBuiltin>(helper # "_mask"), types, 0, mask_code, [["$FUNC", "work_group_" # name # "_util"], ["$VAL", val]]>;
     }
 
