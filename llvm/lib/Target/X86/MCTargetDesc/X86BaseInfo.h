@@ -197,6 +197,29 @@ namespace X86 {
     case X86::TEST8ri:
     case X86::TEST8rr:
       return FirstMacroFusionInstKind::Test;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::AND16ri_ND:
+    case X86::AND16ri8_ND:
+    case X86::AND16rm_ND:
+    case X86::AND16rr_ND:
+    case X86::AND16rr_ND_REV:
+    case X86::AND32ri_ND:
+    case X86::AND32ri8_ND:
+    case X86::AND32rm_ND:
+    case X86::AND32rr_ND:
+    case X86::AND32rr_ND_REV:
+    case X86::AND64ri32_ND:
+    case X86::AND64ri8_ND:
+    case X86::AND64rm_ND:
+    case X86::AND64rr_ND:
+    case X86::AND64rr_ND_REV:
+    case X86::AND8ri_ND:
+    case X86::AND8rm_ND:
+    case X86::AND8rr_ND:
+    case X86::AND8rr_ND_REV:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::AND16i16:
     case X86::AND16ri:
     case X86::AND16ri8:
@@ -254,6 +277,29 @@ namespace X86 {
     case X86::CMP8rr_REV:
       return FirstMacroFusionInstKind::Cmp;
     // ADD
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::ADD16ri_ND:
+    case X86::ADD16ri8_ND:
+    case X86::ADD16rm_ND:
+    case X86::ADD16rr_ND:
+    case X86::ADD16rr_ND_REV:
+    case X86::ADD32ri_ND:
+    case X86::ADD32ri8_ND:
+    case X86::ADD32rm_ND:
+    case X86::ADD32rr_ND:
+    case X86::ADD32rr_ND_REV:
+    case X86::ADD64ri32_ND:
+    case X86::ADD64ri8_ND:
+    case X86::ADD64rm_ND:
+    case X86::ADD64rr_ND:
+    case X86::ADD64rr_ND_REV:
+    case X86::ADD8ri_ND:
+    case X86::ADD8rm_ND:
+    case X86::ADD8rr_ND:
+    case X86::ADD8rr_ND_REV:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::ADD16i16:
     case X86::ADD16ri:
     case X86::ADD16ri8:
@@ -279,6 +325,29 @@ namespace X86 {
     case X86::ADD8rr:
     case X86::ADD8rr_REV:
     // SUB
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::SUB16ri_ND:
+    case X86::SUB16ri8_ND:
+    case X86::SUB16rm_ND:
+    case X86::SUB16rr_ND:
+    case X86::SUB16rr_ND_REV:
+    case X86::SUB32ri_ND:
+    case X86::SUB32ri8_ND:
+    case X86::SUB32rm_ND:
+    case X86::SUB32rr_ND:
+    case X86::SUB32rr_ND_REV:
+    case X86::SUB64ri32_ND:
+    case X86::SUB64ri8_ND:
+    case X86::SUB64rm_ND:
+    case X86::SUB64rr_ND:
+    case X86::SUB64rr_ND_REV:
+    case X86::SUB8ri_ND:
+    case X86::SUB8rm_ND:
+    case X86::SUB8rr_ND:
+    case X86::SUB8rr_ND_REV:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::SUB16i16:
     case X86::SUB16ri:
     case X86::SUB16ri8:
@@ -305,6 +374,14 @@ namespace X86 {
     case X86::SUB8rr_REV:
       return FirstMacroFusionInstKind::AddSub;
     // INC
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::INC16r_ND:
+    case X86::INC32r_ND:
+    case X86::INC64r_ND:
+    case X86::INC8r_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::INC16r:
     case X86::INC16r_alt:
     case X86::INC32r:
@@ -312,6 +389,14 @@ namespace X86 {
     case X86::INC64r:
     case X86::INC8r:
     // DEC
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::DEC16r_ND:
+    case X86::DEC32r_ND:
+    case X86::DEC64r_ND:
+    case X86::DEC8r_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::DEC16r:
     case X86::DEC16r_alt:
     case X86::DEC32r:
