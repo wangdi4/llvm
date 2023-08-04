@@ -1678,6 +1678,7 @@ void CXXNameMangler::mangleUnqualifiedName(
       // Otherwise, use the complete destructor name. This is relevant if a
       // class with a destructor is declared within a destructor.
       mangleCXXDtorType(Dtor_Complete);
+    assert(ND);
     writeAbiTags(ND, AdditionalAbiTags);
     break;
 
