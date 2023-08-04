@@ -1,11 +1,19 @@
 // REQUIRES: x86-registered-target
 // REQUIRES: amdgpu-registered-target
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-new-driver \
 // RUN:          -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib %s 2>&1 \
 // RUN:   | FileCheck %s
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-new-driver \
 // RUN:          --offload-arch=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib %s 2>&1 \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa \
+// RUN:          -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib -nogpulib %s 2>&1 \
+// RUN:   | FileCheck %s
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa \
+// RUN:          --offload-arch=gfx906 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib -nogpulib %s 2>&1 \
+>>>>>>> 2f79bb10461d114783a1548201928549ace09755
 // RUN:   | FileCheck %s
 // end INTEL_CUSTOMIZATION
 
