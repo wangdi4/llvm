@@ -640,8 +640,11 @@ FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
 FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
+<<<<<<< HEAD
 FUNCTION_PASS("inlinereportmakecurrent", InlineReportMakeCurrentPass()) // INTEL
 FUNCTION_PASS("instcombine", InstCombinePass())
+=======
+>>>>>>> 41895843b5915bb78e9d02aa711fa10f7174db43
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
 FUNCTION_PASS("intel-loop-attrs", IntelLoopAttrsPass())  // INTEL
