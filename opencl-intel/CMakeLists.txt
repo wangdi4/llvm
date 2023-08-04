@@ -66,15 +66,16 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG 53843eee13cfb2357919ee02714a43bef1af0f86)
-# PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
-set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
-# INTEL_CUSTOMIZATION
+set(OPENCL_CLANG_TAG e9d59b8525b657114951d89dd2da6d349f572bb7)
+# Override PCH extension map in opencl-clang/options_compile.cpp
+set(OPENCL_CLANG_PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
+llvm_map_components_to_libnames(ALL_LLVM_LIBS all)
+list(REMOVE_ITEM ALL_LLVM_LIBS LLVMBitReader LLVMBitWriter LLVMCore LLVMOption LLVMSupport)
 if(WIN32)
   # Don't link LLVMSupport_dyn which will propogate /MD flag to opencl-clang.
-  set(EXCLUDE_LIBS_FROM_ALL "LLVMSupport_dyn" CACHE STRING "")
+  list(APPEND ALL_LLVM_LIBS LLVMSupport_dyn)
 endif()
-# end INTEL_CUSTOMIZATION
+set(OPENCL_CLANG_EXCLUDE_LIBS_FROM_ALL "${ALL_LLVM_LIBS}" CACHE STRING "")
 
 message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
 FetchContent_Declare(
