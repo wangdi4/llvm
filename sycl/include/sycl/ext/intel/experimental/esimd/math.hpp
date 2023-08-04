@@ -1683,6 +1683,7 @@ __ESIMD_NS::simd<T, N> dp4(__ESIMD_NS::simd<T, N> v1,
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
+<<<<<<< HEAD
 /// float32->bf16 conversion (vector version).
 /// Available on the ATS, PVC platforms.
 /// \tparam N size of the input and returned vectors.
@@ -1852,6 +1853,8 @@ __ESIMD_API
 
 /// @} sycl_esimd_math
 
+=======
+>>>>>>> c9da5c7ff7e80b193491932ebd9c66ee0777d1f2
 /// @addtogroup sycl_esimd_logical
 /// @{
 
