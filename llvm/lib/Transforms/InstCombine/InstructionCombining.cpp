@@ -178,12 +178,6 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
-<<<<<<< HEAD
-static cl::opt<unsigned> LimitMaxIterations(
-    "instcombine-max-iterations",
-    cl::desc("Limit the maximum number of instruction combining iterations"),
-    cl::init(InstCombineDefaultMaxIterations));
-
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
@@ -213,10 +207,8 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
-=======
 // FIXME: Remove this option, it has been superseded by verify-fixpoint.
 // Only keeping it for now to avoid unnecessary test churn in this patch.
->>>>>>> 41895843b5915bb78e9d02aa711fa10f7174db43
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
     "instcombine-infinite-loop-threshold",
     cl::desc("Number of instruction combining iterations considered an "
@@ -5383,18 +5375,14 @@ static bool combineInstructionsOverFunction(
     Function &F, InstructionWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, unsigned MaxIterations, bool PreserveForDTrans,
-    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-    bool EnableUpCasting, bool EnableCanonicalizeSwap, LoopInfo *LI) {
-#endif // INTEL_CUSTOMIZATION
-=======
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool VerifyFixpoint,
+    bool PreserveForDTrans, bool EnableFcmpMinMaxCombine,
+    bool PreserveAddrCompute, bool EnableUpCasting, bool EnableCanonicalizeSwap,
     LoopInfo *LI) {
->>>>>>> 41895843b5915bb78e9d02aa711fa10f7174db43
+#endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
-  MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
+
 #if INTEL_CUSTOMIZATION
   if (EnablePreserveForDTrans)
     PreserveForDTrans = true;
@@ -5514,21 +5502,18 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-<<<<<<< HEAD
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,   // INTEL
-                                       DT, ORE, BFI, PSI,               // INTEL
-                                       Options.MaxIterations,           // INTEL
-                                       Options.PreserveForDTrans,       // INTEL
-                                       Options.EnableFcmpMinMaxCombine, // INTEL
-                                       Options.PreserveAddrCompute,     // INTEL
-                                       Options.EnableUpCasting,         // INTEL
-                                       Options.EnableCanonicalizeSwap,  // INTEL
-                                       LI))                             // INTEL
-=======
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
-                                       BFI, PSI, Options.MaxIterations,
-                                       Options.VerifyFixpoint, LI))
->>>>>>> 41895843b5915bb78e9d02aa711fa10f7174db43
+#if INTEL_CUSTOMIZATION
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
+                                       DT, ORE, BFI, PSI,
+                                       Options.MaxIterations,
+                                       Options.VerifyFixpoint,
+                                       Options.PreserveForDTrans,
+                                       Options.EnableFcmpMinMaxCombine,
+                                       Options.PreserveAddrCompute,
+                                       Options.EnableUpCasting,
+                                       Options.EnableCanonicalizeSwap,
+                                       LI))
+#endif // INTEL_CUSTOMIZATION
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -5577,21 +5562,17 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
-<<<<<<< HEAD
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
-                                         DT, ORE, BFI, PSI,             // INTEL
-                                         InstCombineDefaultMaxIterations,  // INTEL
-                                         PreserveForDTrans,             // INTEL
-                                         EnableFcmpMinMaxCombine,       // INTEL
-                                         PreserveAddrCompute,           // INTEL
-                                         EnableUpCasting,               // INTEL
-                                         EnableCanonicalizeSwap, LI);   // INTEL
-=======
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
-                                         BFI, PSI,
+#if INTEL_CUSTOMIZATION
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
+                                         DT, ORE, BFI, PSI,
                                          InstCombineDefaultMaxIterations,
-                                         /*VerifyFixpoint */ false, LI);
->>>>>>> 41895843b5915bb78e9d02aa711fa10f7174db43
+                                         /*VerifyFixpoint */ false,
+                                         PreserveForDTrans,
+                                         EnableFcmpMinMaxCombine,
+                                         PreserveAddrCompute,
+                                         EnableUpCasting,
+                                         EnableCanonicalizeSwap, LI);
+#endif // INTEL_CUSTOMIZATION
 }
 
 char InstructionCombiningPass::ID = 0;
