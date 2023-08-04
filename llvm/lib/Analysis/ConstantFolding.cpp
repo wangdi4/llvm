@@ -894,6 +894,7 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
   return ConstantFoldConstant(C, DL, TLI);
 }
 
+<<<<<<< HEAD
 /// Strip the pointer casts, but preserve the address space information.
 // TODO: This probably doesn't make sense with opaque pointers.
 static Constant *StripPtrCastKeepAS(Constant *Ptr) {
@@ -916,6 +917,8 @@ static Constant *StripPtrCastKeepAS(Constant *Ptr) {
   return Ptr;
 }
 
+=======
+>>>>>>> aabc71485a2dce11bbad9fbddac66428ddb41ef7
 /// If we can symbolically evaluate the GEP constant expression, do so.
 Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
                                   ArrayRef<Constant *> Ops,
@@ -950,7 +953,6 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
       BitWidth,
       DL.getIndexedOffsetInType(
           SrcElemTy, ArrayRef((Value *const *)Ops.data() + 1, Ops.size() - 1)));
-  Ptr = StripPtrCastKeepAS(Ptr);
 
   // If this is a GEP of a GEP, fold it all into a single GEP.
   while (auto *GEP = dyn_cast<GEPOperator>(Ptr)) {
@@ -972,7 +974,6 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     Ptr = cast<Constant>(GEP->getOperand(0));
     SrcElemTy = GEP->getSourceElementType();
     Offset += APInt(BitWidth, DL.getIndexedOffsetInType(SrcElemTy, NestedOps));
-    Ptr = StripPtrCastKeepAS(Ptr);
   }
 
   // If the base value for this address is a literal integer value, fold the
