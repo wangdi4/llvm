@@ -1084,7 +1084,6 @@ ESIMD_INLINE ESIMD_NODEBUG T0 reduce(simd<T1, SZ> v, BinaryOperation op) {
   }
 }
 
-<<<<<<< HEAD
 /// @addtogroup sycl_esimd_logical
 /// @{
 
@@ -1184,7 +1183,7 @@ bfn(T src0, T src1, T src2) {
 }
 
 /// @} sycl_esimd_logical
-=======
+
 /// Performs add with carry of 2 unsigned 32-bit vectors.
 /// @tparam N size of the vectors
 /// @param carry vector that is going to hold resulting carry flag
@@ -1310,7 +1309,6 @@ __ESIMD_API uint32_t subb(uint32_t &borrow, uint32_t src0, uint32_t src1) {
   borrow = BorrowV[0];
   return Res[0];
 }
->>>>>>> 8078b091ab17f5d43a13bb2f4da535fa22469f49
 
 /// @} sycl_esimd_math
 
