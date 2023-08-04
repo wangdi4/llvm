@@ -361,9 +361,14 @@ define i1 @undef(i32 %tmp) {
 ; CHECK-NEXT:    [[SWITCH_SHIFTAMT:%.*]] = mul nuw nsw i9 [[SWITCH_CAST]], 1
 ; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i9 3, [[SWITCH_SHIFTAMT]]
 ; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = trunc i9 [[SWITCH_DOWNSHIFT]] to i1
+<<<<<<< HEAD
 ; temp renamed
 ; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 undef
 ; CHECK-NEXT:    ret i1 [[TMP1]]
+=======
+; CHECK-NEXT:    [[_TMP4:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 undef
+; CHECK-NEXT:    ret i1 [[_TMP4]]
+>>>>>>> 6d55f6d8185ee3eae92f0a46d45f40a09028329f
 ;
 bb:
   switch i32 %tmp, label %bb3 [
@@ -377,8 +382,8 @@ bb1: br label %bb3
 bb2: br label %bb3
 
 bb3:
-  %tmp4 = phi i1 [ undef, %bb ], [ false, %bb2 ], [ true, %bb1 ]
-  ret i1 %tmp4
+  %_tmp4 = phi i1 [ undef, %bb ], [ false, %bb2 ], [ true, %bb1 ]
+  ret i1 %_tmp4
 }
 
 ; Also handle large switches that would be rejected by
