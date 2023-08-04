@@ -1,6 +1,6 @@
 //===--------------------------DTransUtils.h--------------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -122,56 +122,10 @@ bool isTypeTestRelatedIntrinsic(const Instruction *I);
 bool traceNonConstantValue(Value *InVal, uint64_t ElementSize,
                            bool EndsInZeroSizedArray);
 
-// Analysis to determine the set of fields of a structure that will be used by
-// a MemIntrinsic call to determine whether the call is supported by DTrans.
-//
-// For supported cases, return 'true' and populate the \p RegionDesc structure
-// with a description of the fields affected.
-//
-// Supported cases are cases where the MemIntrinsic will operate on a whole
-// number of fields, with possible pre/post field padding bytes due to field
-// alignment, of the input structure.
-//
-// \p DataLayout - The data layout.
-// \p StructTy - The structure type to analyze.
-// \p FieldNum - The number for the first field affected by the
-//               MemIntrinsic call.
-// \p PrePadBytes - If the actual pointer to the MemIntrinsic does not
-//                  correspond to the address the field starts at, number of
-//                  padding bytes prior to the field that is affected.
-// \p AccessSizeVal - Parameter for the size operand of the MemIntrinsic call.
-// \p [out] RegionDesc - Gets filled with description of the fields affected.
-bool analyzePartialStructUse(const DataLayout &DL, StructType *StructTy,
-                             size_t FieldNum, uint64_t PrePadBytes,
-                             const Value *AccessSizeVal,
-                             MemfuncRegion *RegionDesc);
-
-// This is a specialized form of the analyzePartialStructUse function that is
-// used to trigger the MemFuncNestedStructsPartialWrite safety bit when the
-// fields affected by the MemIntrinsic call end on a field boundary within an
-// inner structure, rather than on a boundary within the input structure type
-// itself.
-//
-// \p DataLayout - The data layout.
-// \p StructTy - The structure type to analyze.
-// \p SetSize - Parameter for the size operand of the MemIntrinsic call.
-bool analyzePartialAccessNestedStructures(const DataLayout &DL,
-                                          StructType *StructTy, Value *SetSize);
-
 /// Check if the called function has only one basic block that ends with
 /// 'unreachable' instruction.
 bool isDummyFuncWithUnreachable(const CallBase *Call,
                                 const TargetLibraryInfo &TLI);
-
-/// Check if the called function has two arguments ('this' pointer and an
-/// integer size) and is dummy.
-bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
-
-/// Check if the called function has two arguments ('this' pointer and a
-/// pointer) and is dummy.
-bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
 
 /// There is a possibility that a call to be analyzed is inside a BitCast, in
 /// which case we need to strip the pointer casting from the \p Call operand to
