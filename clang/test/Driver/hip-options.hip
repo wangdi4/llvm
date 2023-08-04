@@ -199,11 +199,12 @@
 // NOAPPROX-NOT: "-f{{(no-)?}}gpu-approx-transcendentals"
 
 // Check no warnings for -fgpu-approx-transcendentals.
-
-// RUN: %clang -fdriver-only -Werror --target=x86_64-unknown-linux-gnu -nogpuinc -nogpulib -fgpu-approx-transcendentals \
+// INTEL: Add -Wno-incompatible-compiler to avoid counting incompatible compiler warning
+// RUN: %clang -fdriver-only -Werror --target=x86_64-unknown-linux-gnu -nogpuinc -nogpulib -fgpu-approx-transcendentals -Wno-incompatible-compiler \
 // RUN:   --cuda-gpu-arch=gfx906 %s 2>&1 | count 0
 
-// RUN: %clang -fdriver-only -Werror --target=x86_64-unknown-linux-gnu -nostdinc -nostdlib -fgpu-approx-transcendentals \
+// INTEL: Add -Wno-incompatible-compiler to avoid counting incompatible compiler warning
+// RUN: %clang -fdriver-only -Werror --target=x86_64-unknown-linux-gnu -nostdinc -nostdlib -fgpu-approx-transcendentals -Wno-incompatible-compiler \
 // RUN:   -x c++ %s 2>&1 | count 0
 / Check -fno-offload-uniform-block is passed to clang -cc1 but
 // (default) -fno-offload-uniform-block is not.
