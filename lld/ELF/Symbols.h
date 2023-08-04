@@ -282,7 +282,7 @@ protected:
         used(false), exportDynamic(false), inDynamicList(false),
         referenced(false), referencedAfterWrap(false), traced(false),
         hasVersionSuffix(false), isInIplt(false), gotInIgot(false),
-        folded(false), needsTocRestore(false), scriptDefined(false),
+        folded(false), archSpecificBit(false), scriptDefined(false),
         dsoProtected(false), thunkAccessed(false), auxIdx(0), dynsymIndex(0),
         verdefIndex(0), versionId(0) {
   }
@@ -310,9 +310,18 @@ public:
   // True if defined relative to a section discarded by ICF.
   uint8_t folded : 1;
 
-  // True if a call to this symbol needs to be followed by a restore of the
-  // PPC64 toc pointer.
-  uint8_t needsTocRestore : 1;
+  // Allow reuse of a bit between architecture-exclusive symbol flags.
+  // - needsTocRestore(): On PPC64, true if a call to this symbol needs to be
+  //   followed by a restore of the toc pointer.
+  // - isTagged(): On AArch64, true if the symbol needs special relocation and
+  //   metadata semantics because it's tagged, under the AArch64 MemtagABI.
+  uint8_t archSpecificBit : 1;
+  bool needsTocRestore() const { return archSpecificBit; }
+  bool isTagged() const { return archSpecificBit; }
+  void setNeedsTocRestore(bool v) { archSpecificBit = v; }
+  void setIsTagged(bool v) {
+    archSpecificBit = v;
+  }
 
   // True if this symbol is defined by a symbol assignment or wrapped by --wrap.
   //
