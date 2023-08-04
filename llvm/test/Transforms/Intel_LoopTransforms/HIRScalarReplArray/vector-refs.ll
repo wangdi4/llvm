@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -vplan-force-vf=4 -hir-details -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -vplan-force-vf=4 -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to handle vector refs. In this case the inner loop is vectorized and completely unrolled. The vector refs of @B[][] are then scalar replaced.
 
@@ -34,7 +34,7 @@
 ; CHECK: + END LOOP
 
 ; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][sext.i32.i64(%n)] = %scalarepl;
-; CHECK:  <LVAL-REG> {al:4}(<4 x float>*)(LINEAR [4 x [100 x float]]* @B)[<4 x i64> 0][<4 x i64> <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> sext.i32.i64(%n)]
+; CHECK:  <LVAL-REG> {al:4}(<4 x float>*)(LINEAR ptr @B)[<4 x i64> 0][<4 x i64> <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> sext.i32.i64(%n)]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -60,17 +60,17 @@ for.cond1.preheader:                              ; preds = %for.inc26, %for.con
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [4 x [100 x float]], [4 x [100 x float]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv46
-  %0 = load float, float* %arrayidx5, align 4
-  %arrayidx9 = getelementptr inbounds [4 x [100 x float]], [4 x [100 x float]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv.next47
-  %1 = load float, float* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [4 x [100 x float]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv46
+  %0 = load float, ptr %arrayidx5, align 4
+  %arrayidx9 = getelementptr inbounds [4 x [100 x float]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv.next47
+  %1 = load float, ptr %arrayidx9, align 4
   %add10 = fadd float %0, %1
-  %arrayidx14 = getelementptr inbounds [4 x [100 x float]], [4 x [100 x float]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv46
-  store float %add10, float* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds [4 x [100 x float]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv46
+  store float %add10, ptr %arrayidx14, align 4
   %inc = fadd float %0, 1.000000e+00
-  store float %inc, float* %arrayidx5, align 4
+  store float %inc, ptr %arrayidx5, align 4
   %inc24 = fadd float %1, 1.000000e+00
-  store float %inc24, float* %arrayidx9, align 4
+  store float %inc24, ptr %arrayidx9, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.inc26, label %for.body3
