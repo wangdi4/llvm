@@ -7,7 +7,7 @@
 
 ; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -S  < %s 2>&1 | FileCheck %s
 
-define float @load_store_reduction_add(float* nocapture %a) {
+define float @load_store_reduction_add(ptr nocapture %a) {
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: load_store_reduction_add:for.body
@@ -15,8 +15,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_X_RED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: float* [[X0:%.*]]
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], ptr [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_X_RED_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[X0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1000 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
@@ -25,11 +25,10 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_X]] = allocate-priv float, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_X]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float -0.000000e+00
-; CHECK-NEXT:     store float [[VP_X_RED_INIT]] float* [[VP_X]]
+; CHECK-NEXT:     store float [[VP_X_RED_INIT]] ptr [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -37,20 +36,19 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
 ; CHECK-NEXT:     float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
-; CHECK-NEXT:     float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]]
+; CHECK-NEXT:     ptr [[VP_A_GEP:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     float [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]]
 ; CHECK-NEXT:     float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
-; CHECK-NEXT:     store float [[VP_ADD]] float* [[VP_X]]
+; CHECK-NEXT:     store float [[VP_ADD]] ptr [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 1000
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
-; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[VP_X]]
 ; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float [[X_PROMOTED0]]
-; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     i8* [[VP_X_BCAST1:%.*]] = bitcast float* [[VP_X]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_X_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] ptr [[X0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_X]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -58,71 +56,68 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     br <External Block>
 ;
 ; Check generated vector code.
-; CHECK:  define float @load_store_reduction_add(float* nocapture [[A0]]) {
+; CHECK:  define float @load_store_reduction_add(ptr nocapture [[A0]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[X0]] = alloca float, align 4
-; CHECK-NEXT:    store float 2.000000e+00, float* [[X0]], align 4
+; CHECK-NEXT:    store float 2.000000e+00, ptr [[X0]], align 4
 ; CHECK-NEXT:    [[X_VEC0:%.*]] = alloca <8 x float>, align 32
-; CHECK-NEXT:    [[X_VEC_BC0:%.*]] = bitcast <8 x float>* [[X_VEC0]] to float*
-; CHECK-NEXT:    [[X_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[X_VEC_BC0]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[X_VEC_BASE_ADDR0:%.*]] = getelementptr float, ptr [[X_VEC0]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[X_VEC_BASE_ADDR0_EXTRACT0:%.*]] = extractelement <8 x ptr> [[X_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[ENTRY_SPLIT0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  entry.split:
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.QUAL.LIST.END.2:
-; CHECK-NEXT:    [[X_PROMOTED0]] = load float, float* [[X0]], align 4
+; CHECK-NEXT:    [[X_PROMOTED0]] = load float, ptr [[X0]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[X_VEC0_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[X_VEC0_BCAST]])
-; CHECK-NEXT:    store <8 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, <8 x float>* [[X_VEC0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 32, ptr [[X_VEC_BASE_ADDR0_EXTRACT0]])
+; CHECK-NEXT:    store <8 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, ptr [[X_VEC0]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VPLANNEDBB10]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI30:%.*]] = phi <8 x float> [ <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[VPLANNEDBB10]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP0]] to <8 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, ptr [[A0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x float>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI30]], [[WIDE_LOAD0]]
-; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
+; CHECK-NEXT:    store <8 x float> [[TMP1]], ptr [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 1000
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <8 x float>, ptr [[X_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD50]])
-; CHECK-NEXT:    store float [[TMP5]], float* [[X0]], align 1
-; CHECK-NEXT:    [[X_VEC0_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[X_VEC0_BCAST]])
+; CHECK-NEXT:    store float [[TMP5]], ptr [[X0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 32, ptr [[X_VEC_BASE_ADDR0_EXTRACT0]])
 entry:
   %x = alloca float, align 4
-  store float 2.000000e+00, float* %x, align 4
+  store float 2.000000e+00, ptr %x, align 4
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
-  %x.promoted = load float, float* %x, align 4
+  %x.promoted = load float, ptr %x, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
   %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.body ]
   %add7 = phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %add, %for.body ]
-  %a.gep = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %a.load = load float, float* %a.gep
+  %a.gep = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %a.load = load float, ptr %a.gep
   %add = fadd float %add7, %a.load
-  store float %add, float* %x, align 4
+  store float %add, ptr %x, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.end, label %for.body
@@ -135,7 +130,7 @@ for.end1:                                         ; preds = %for.end
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
-  %last.val = load float, float* %x, align 4
+  %last.val = load float, ptr %x, align 4
   ret float %last.val
 }
 

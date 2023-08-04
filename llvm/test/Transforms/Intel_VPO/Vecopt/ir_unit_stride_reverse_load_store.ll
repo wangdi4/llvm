@@ -5,16 +5,16 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
-define void @reverse(i32* %src, i32* %dest) {
+define void @reverse(ptr %src, ptr %dest) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP0:%.*]] = sub i64 1023 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[SRC0:%.*]] i64 [[VP0]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[DEST0:%.*]] i64 [[VP0]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] store i32 [[VP1]] i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[SRC0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32, ptr [[DEST0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] store i32 [[VP1]] ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
@@ -26,7 +26,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
-; CHECK:  define void @reverse(i32* [[SRC0]], i32* [[DEST0]]) {
+; CHECK:  define void @reverse(ptr [[SRC0]], ptr [[DEST0]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
@@ -41,16 +41,14 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub nuw nsw <4 x i64> <i64 1023, i64 1023, i64 1023, i64 1023>, [[VEC_PHI0]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[SRC0]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i32, i32* [[SCALAR_GEP0]], i32 -3
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[SRC0]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i32, ptr [[SCALAR_GEP0]], i32 -3
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, ptr [[TMP1]], align 8
 ; CHECK-NEXT:    [[REVERSE0:%.*]] = shufflevector <4 x i32> [[WIDE_LOAD0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[DEST0]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP30]], i32 -3
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, ptr [[DEST0]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, ptr [[SCALAR_GEP30]], i32 -3
 ; CHECK-NEXT:    [[REVERSE40:%.*]] = shufflevector <4 x i32> [[REVERSE0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    store <4 x i32> [[REVERSE40]], <4 x i32>* [[TMP4]], align 8
+; CHECK-NEXT:    store <4 x i32> [[REVERSE40]], ptr [[TMP3]], align 8
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
@@ -63,10 +61,10 @@ entry:
 omp.inner.for.body:                               ; preds = %entry, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
   %0 = sub nuw nsw i64 1023, %indvars.iv
-  %arrayidx = getelementptr inbounds i32, i32* %src, i64 %0
-  %1 = load i32, i32* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %dest, i64 %0
-  store i32 %1, i32* %arrayidx2, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %src, i64 %0
+  %1 = load i32, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %dest, i64 %0
+  store i32 %1, ptr %arrayidx2, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit

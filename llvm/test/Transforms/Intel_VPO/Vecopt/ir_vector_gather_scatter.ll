@@ -11,24 +11,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ;    ary[i + 3] = t0;
 ;  }
 ;
-define void @foo(<4 x i32>* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 11, i64 22, i64 33>, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <4 x i32>*> [[MM_VECTORGEP]] to <4 x i32*>
-; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <4 x i32*> [[TMP0]], <4 x i32*> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
-; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <16 x i32*> [[VECBASEPTR_]], <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> [[ELEMBASEPTR_]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> poison)
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x ptr> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <4 x ptr> [[MM_VECTORGEP]], <4 x ptr> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
+; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <16 x ptr> [[VECBASEPTR_]], <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> [[ELEMBASEPTR_]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <16 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i64> [[VEC_PHI]], <i64 3, i64 3, i64 3, i64 3>
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP2]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x <4 x i32>*> [[MM_VECTORGEP2]] to <4 x i32*>
-; CHECK-NEXT:    [[VECBASEPTR_3:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
-; CHECK-NEXT:    [[ELEMBASEPTR_4:%.*]] = getelementptr i32, <16 x i32*> [[VECBASEPTR_3]], <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> [[TMP1]], <16 x i32*> [[ELEMBASEPTR_4]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds <4 x i32>, <4 x ptr> [[BROADCAST_SPLAT]], <4 x i64> [[TMP2]]
+; CHECK-NEXT:    [[VECBASEPTR_3:%.*]] = shufflevector <4 x ptr> [[MM_VECTORGEP2]], <4 x ptr> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>
+; CHECK-NEXT:    [[ELEMBASEPTR_4:%.*]] = getelementptr i32, <16 x ptr> [[VECBASEPTR_3]], <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:    call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> [[TMP1]], <16 x ptr> [[ELEMBASEPTR_4]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 44, i64 44, i64 44, i64 44>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI1]], 44
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI]], 4
@@ -41,12 +39,12 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr.ld = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %indvars.iv
-  %val = load <4 x i32>, <4 x i32>* %ptr.ld, align 4
+  %ptr.ld = getelementptr inbounds <4 x i32>, ptr %ary, i64 %indvars.iv
+  %val = load <4 x i32>, ptr %ptr.ld, align 4
   %add7 = add nsw <4 x i32> %val, <i32 7, i32 7, i32 7, i32 7>
   %idx.st = add i64 %indvars.iv, 3
-  %ptr.st = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %idx.st
-  store <4 x i32> %add7, <4 x i32>* %ptr.st, align 4
+  %ptr.st = getelementptr inbounds <4 x i32>, ptr %ary, i64 %idx.st
+  store <4 x i32> %add7, ptr %ptr.st, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 11
   %cmp = icmp ult i64 %indvars.iv.next, 3072
   br i1 %cmp, label %for.body, label %for.end

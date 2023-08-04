@@ -4,10 +4,10 @@
 
 ; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt -disable-output < %s | FileCheck %s
 
-@arr = common dso_local local_unnamed_addr global i32* null, align 8
+@arr = common dso_local local_unnamed_addr global ptr null, align 8
 
 ; Function Attrs: noinline norecurse nounwind uwtable
-define dso_local void @foo(i32* %ptr) local_unnamed_addr #0 {
+define dso_local void @foo(ptr %ptr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after single iteration optimization:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -21,9 +21,9 @@ define dso_local void @foo(i32* %ptr) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[PTR0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[PTR0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_TRUNC:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_TRUNC]] i32* [[VP_ARRAYIDX]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_TRUNC]] ptr [[VP_ARRAYIDX]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 true, [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
@@ -44,9 +44,9 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ptr, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ptr, i64 %indvars.iv
   %trunc = trunc i64 %indvars.iv to i32
-  store i32 %trunc, i32* %arrayidx, align 4
+  store i32 %trunc, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond, label %for.end, label %for.body

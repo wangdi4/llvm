@@ -32,8 +32,8 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_IV]] i64 [[VP_LANE]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i64 [[VP_LANE]]
-; CHECK-NEXT:         [DA: Div] store i64 [[VP_ADD]] i64* [[VP_ARRAYIDX4]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [100 x [100 x i64]], ptr @A i64 0 i64 [[VP_IV]] i64 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] store i64 [[VP_ADD]] ptr [[VP_ARRAYIDX4]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV]] i64 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Uni] br [[BB4]]
@@ -62,8 +62,8 @@ preheader:
 header:
   %iv = phi i64 [ %iv.next, %header ], [ 0, %preheader ]
   %add = add nuw nsw i64 %iv, %lane
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %iv, i64 %lane
-  store i64 %add, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @A, i64 0, i64 %iv, i64 %lane
+  store i64 %add, ptr %arrayidx4, align 8
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv, %lane
   br i1 %exitcond, label %loop.exit, label %header

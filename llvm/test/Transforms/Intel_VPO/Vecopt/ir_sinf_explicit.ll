@@ -5,20 +5,18 @@
 
 ; CHECK-LABEL: test_sinf
 ; CHECK:  [[RESULT:%.*]] = call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> {{.*}})
-; CHECK:  [[PTR:%.*]] = bitcast float* {{.*}} to <[[VL]] x float>*
-; CHECK:  store <[[VL]] x float> [[RESULT]], <[[VL]] x float>* [[PTR]], align 4
+; CHECK:  store <[[VL]] x float> [[RESULT]], ptr {{.*}}, align 4
 
 ; CHECK-LABEL: test_sin
 ; CHECK:  [[RESULT:%.*]] = call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> {{.*}})
-; CHECK:  [[PTR:%.*]] = bitcast double* {{.*}} to <[[VL]] x double>*
-; CHECK:  store <[[VL]] x double> [[RESULT]], <[[VL]] x double>* [[PTR]], align 8
+; CHECK:  store <[[VL]] x double> [[RESULT]], ptr {{.*}}, align 8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define x86_regcallcc void @test_sinf(float* nocapture %a, float* nocapture readonly %b, i32 %i) {
+define x86_regcallcc void @test_sinf(ptr nocapture %a, ptr nocapture readonly %b, i32 %i) {
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %b, float zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -27,11 +25,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %stride.add
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %stride.add
+  %0 = load float, ptr %arrayidx, align 4
   %call = tail call fast float @sinf(float %0) #3
-  %arrayidx2 = getelementptr inbounds float, float* %a, i64 %stride.add
-  store float %call, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %a, i64 %stride.add
+  store float %call, ptr %arrayidx2, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -44,9 +42,9 @@ simd.end.region:                                  ; preds = %simd.loop.exit
   ret void
 }
 
-define x86_regcallcc void @test_sin(double* nocapture %a, double* nocapture readonly %b, i32 %i) {
+define x86_regcallcc void @test_sin(ptr nocapture %a, ptr nocapture readonly %b, i32 %i) {
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(double* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(double* %b, float zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -55,11 +53,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds double, double* %b, i64 %stride.add
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %b, i64 %stride.add
+  %0 = load double, ptr %arrayidx, align 8
   %call = tail call fast double @sin(double %0) #3
-  %arrayidx2 = getelementptr inbounds double, double* %a, i64 %stride.add
-  store double %call, double* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds double, ptr %a, i64 %stride.add
+  store double %call, ptr %arrayidx2, align 8
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

@@ -6,35 +6,36 @@
 ; RUN: opt -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %p) {
+define dso_local void @foo(ptr nocapture %p) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP__OMP_IV_0:%.*]] = phi  [ i32 [[VP__OMP_IV_0_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP_ADD1:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_P_ADDR_06:%.*]] = phi  [ i32* [[VP_P_ADDR_06_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP0:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP__OMP_IV_0]] i32* [[VP_P_ADDR_06]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_P_ADDR_06:%.*]] = phi  [ ptr [[VP_P_ADDR_06_IND_INIT:%.*]], [[BB1]] ],  [ ptr [[VP0:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP__OMP_IV_0]] ptr [[VP_P_ADDR_06]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0]] = getelementptr inbounds i8, ptr [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP1:%.*]] = getelementptr inbounds i32, ptr [[VP_P_ADDR_06]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_0]] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P0:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[P0:%.*]] i64 4
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %.omp.iv.0 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add1, %omp.inner.for.body ]
-  %p.addr.06 = phi i32* [ %p, %omp.inner.for.body.lr.ph ], [ %incdec.ptr, %omp.inner.for.body ]
-  store i32 %.omp.iv.0, i32* %p.addr.06, align 4
-  %incdec.ptr = getelementptr inbounds i32, i32* %p.addr.06, i64 1
+  %p.addr.06 = phi ptr [ %p, %omp.inner.for.body.lr.ph ], [ %incdec.ptr, %omp.inner.for.body ]
+  store i32 %.omp.iv.0, ptr %p.addr.06, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %p.addr.06, i64 1
   %add1 = add nuw nsw i32 %.omp.iv.0, 1
   %exitcond = icmp eq i32 %add1, 256
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -50,56 +51,58 @@ DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
 ; This test checks that pointer-inductions are correctly identified when different step-sizes are used.
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3, i32* %p4) {
+define dso_local void @foo2(ptr %p1, ptr %p2, ptr %p3, ptr %p4) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 3] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB1]] ],  [ i32 [[VP0:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_P1_ADDR:%.*]] = phi  [ i32* [[VP_P1_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP1:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_P2_ADDR:%.*]] = phi  [ i32* [[VP_P2_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP2:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] i32* [[VP_P4_ADDR:%.*]] = phi  [ i32* [[VP_P4_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP3:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i32 [[VP_IV]] i32* [[VP_P1_ADDR]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_INCPTR1:%.*]] = getelementptr inbounds i32* [[VP_P1_ADDR]] i64 1
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP1]] = getelementptr inbounds i32* [[VP_P1_ADDR]] i64 [[VP_P1_ADDR_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_INCPTR2:%.*]] = getelementptr inbounds i32* [[VP_INCPTR1]] i64 1
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP2]] = getelementptr inbounds i32* [[VP_P2_ADDR]] i64 [[VP_P2_ADDR_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_P1_ADDR:%.*]] = phi  [ ptr [[VP_P1_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ ptr [[VP1:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_P2_ADDR:%.*]] = phi  [ ptr [[VP_P2_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ ptr [[VP2:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] ptr [[VP_P4_ADDR:%.*]] = phi  [ ptr [[VP_P4_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ ptr [[VP3:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i32 [[VP_IV]] ptr [[VP_P1_ADDR]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_INCPTR1:%.*]] = getelementptr inbounds i32, ptr [[VP_P1_ADDR]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP1]] = getelementptr inbounds i8, ptr [[VP_P1_ADDR]] i64 [[VP_P1_ADDR_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_INCPTR2:%.*]] = getelementptr inbounds i32, ptr [[VP_INCPTR1]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP2]] = getelementptr inbounds i8, ptr [[VP_P2_ADDR]] i64 [[VP_P2_ADDR_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_INCPTR3:%.*]] = getelementptr inbounds i32, ptr [[VP_P2_ADDR]] i64 2
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 3] i32 [[VP_ADD1:%.*]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 3] i32 [[VP0]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 3] i32 [[VP_ADD2:%.*]] = add i32 [[VP_ADD1]] i32 2
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 12] i32* [[VP_INCPTR4:%.*]] = getelementptr inbounds i32* [[P30:%.*]] i32 [[VP_ADD2]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] i32* [[VP3]] = getelementptr inbounds i32* [[VP_P4_ADDR]] i64 [[VP_P4_ADDR_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 12] ptr [[VP_INCPTR4:%.*]] = getelementptr inbounds i32, ptr [[P30:%.*]] i32 [[VP_ADD2]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] ptr [[VP3]] = getelementptr inbounds i8, ptr [[VP_P4_ADDR]] i64 [[VP_P4_ADDR_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] ptr [[VP_INCPTR5:%.*]] = getelementptr inbounds i32, ptr [[VP_P4_ADDR]] i64 -4
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 3
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P10:%.*]] i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P20:%.*]] i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P40:%.*]] i64 -4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[P10:%.*]] i64 8
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[P20:%.*]] i64 8
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[P40:%.*]] i64 -16
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %iv = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add2, %omp.inner.for.body ]
-  %p1.addr = phi i32* [ %p1, %omp.inner.for.body.lr.ph ], [ %incptr2, %omp.inner.for.body ]
-  %p2.addr = phi i32* [ %p2, %omp.inner.for.body.lr.ph ], [ %incptr3, %omp.inner.for.body ]
-  %p4.addr = phi i32* [ %p4, %omp.inner.for.body.lr.ph ], [ %incptr5, %omp.inner.for.body ]
-  store i32 %iv, i32* %p1.addr, align 4
-  %incptr1 = getelementptr inbounds i32, i32* %p1.addr, i64 1
-  %incptr2 = getelementptr inbounds i32, i32* %incptr1, i64 1
-  %incptr3 = getelementptr inbounds i32, i32* %p2.addr, i64 2
+  %p1.addr = phi ptr [ %p1, %omp.inner.for.body.lr.ph ], [ %incptr2, %omp.inner.for.body ]
+  %p2.addr = phi ptr [ %p2, %omp.inner.for.body.lr.ph ], [ %incptr3, %omp.inner.for.body ]
+  %p4.addr = phi ptr [ %p4, %omp.inner.for.body.lr.ph ], [ %incptr5, %omp.inner.for.body ]
+  store i32 %iv, ptr %p1.addr, align 4
+  %incptr1 = getelementptr inbounds i32, ptr %p1.addr, i64 1
+  %incptr2 = getelementptr inbounds i32, ptr %incptr1, i64 1
+  %incptr3 = getelementptr inbounds i32, ptr %p2.addr, i64 2
   %add1 = add nuw nsw i32 %iv, 1
   %add2 = add nuw nsw i32 %add1, 2
-  %incptr4 = getelementptr inbounds i32, i32* %p3, i32 %add2
-  %incptr5 = getelementptr inbounds i32, i32* %p4.addr, i64 -4
+  %incptr4 = getelementptr inbounds i32, ptr %p3, i32 %add2
+  %incptr5 = getelementptr inbounds i32, ptr %p4.addr, i64 -4
   %exitcond = icmp eq i32 %add2, 256
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
