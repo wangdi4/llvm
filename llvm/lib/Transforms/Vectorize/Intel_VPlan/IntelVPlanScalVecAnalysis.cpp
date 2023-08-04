@@ -639,6 +639,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::EarlyExitID: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // Exit ID phi operand of the instruction is expected to be a vector.
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    // Early exit lane operand is expected to be scalar.
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -1196,6 +1206,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::CompressExpandMask:
   case VPInstruction::SOAExtractValue:
   case VPInstruction::EarlyExitLane:
+  case VPInstruction::EarlyExitID:
     return true;
   default:
     return false;
