@@ -1373,6 +1373,13 @@ extern "C" __device__ double test_fmod(double x, double y) {
 // FINITEONLY-NEXT:    [[TMP1:%.*]] = tail call nnan ninf contract float @llvm.amdgcn.frexp.mant.f32(float [[X]])
 // FINITEONLY-NEXT:    ret float [[TMP1]]
 //
+// APPROX-LABEL: @test_frexpf(
+// APPROX-NEXT:  entry:
+// APPROX-NEXT:    [[TMP0:%.*]] = tail call i32 @llvm.amdgcn.frexp.exp.i32.f32(float [[X:%.*]])
+// APPROX-NEXT:    store i32 [[TMP0]], ptr [[Y:%.*]], align 4, !tbaa [[TBAA12:![0-9]+]]
+// APPROX-NEXT:    [[TMP1:%.*]] = tail call contract float @llvm.amdgcn.frexp.mant.f32(float [[X]])
+// APPROX-NEXT:    ret float [[TMP1]]
+
 extern "C" __device__ float test_frexpf(float x, int* y) {
   return frexpf(x, y);
 }
@@ -1391,6 +1398,13 @@ extern "C" __device__ float test_frexpf(float x, int* y) {
 // FINITEONLY-NEXT:    [[TMP1:%.*]] = tail call nnan ninf contract double @llvm.amdgcn.frexp.mant.f64(double [[X]])
 // FINITEONLY-NEXT:    ret double [[TMP1]]
 //
+// APPROX-LABEL: @test_frexp(
+// APPROX-NEXT:  entry:
+// APPROX-NEXT:    [[TMP0:%.*]] = tail call i32 @llvm.amdgcn.frexp.exp.i32.f64(double [[X:%.*]])
+// APPROX-NEXT:    store i32 [[TMP0]], ptr [[Y:%.*]], align 4, !tbaa [[TBAA12]]
+// APPROX-NEXT:    [[TMP1:%.*]] = tail call contract double @llvm.amdgcn.frexp.mant.f64(double [[X]])
+// APPROX-NEXT:    ret double [[TMP1]]
+
 extern "C" __device__ double test_frexp(double x, int* y) {
   return frexp(x, y);
 }
