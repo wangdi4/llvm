@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-lmm,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ;[Notes]
 ; - Although there is a !range metadata attached to the load of B[0][0], LIMM still triggers on the store of B[0][0]
@@ -52,8 +52,8 @@
 ;<27>               + DO i64 i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:            |      %limm = (@B)[0][0];
 ; CHECK:            |      <LVAL-REG> NON-LINEAR i32 %limm {sb:20}
-; CHECK:            |      <RVAL-REG> {al:16}(LINEAR [100 x i32]* @B)[i64 0][i64 0] inbounds  !tbaa !7 !range !12 {sb:18}
-; CHECK:            |         <BLOB> LINEAR [100 x i32]* @B {sb:5}
+; CHECK:            |      <RVAL-REG> {al:16}(LINEAR ptr @B)[i64 0][i64 0] inbounds  !tbaa !7 !range !12 {sb:18}
+; CHECK:            |         <BLOB> LINEAR ptr @B {sb:5}
 ;<29>               |
 ;<28>               |   + Ztt: No
 ;<28>               |   + NumExits: 1
@@ -69,20 +69,20 @@
 ;<31>               |   |
 ;<7>                |   |   %1 = (@A)[0][i1][i2];
 ;<7>                |   |   <LVAL-REG> NON-LINEAR i32 %1 {sb:9}
-;<7>                |   |   <RVAL-REG> {al:4}(LINEAR [100 x [100 x i32]]* @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !13 {sb:19}
-;<7>                |   |      <BLOB> LINEAR [100 x [100 x i32]]* @A {sb:8}
+;<7>                |   |   <RVAL-REG> {al:4}(LINEAR ptr @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !13 {sb:19}
+;<7>                |   |      <BLOB> LINEAR ptr @A {sb:8}
 ;<7>                |   |
 ;<9>                |   |   (@A)[0][i1][i2] = %0 + %1;
-;<9>                |   |   <LVAL-REG> {al:4}(LINEAR [100 x [100 x i32]]* @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !13 {sb:19}
-;<9>                |   |      <BLOB> LINEAR [100 x [100 x i32]]* @A {sb:8}
+;<9>                |   |   <LVAL-REG> {al:4}(LINEAR ptr @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !13 {sb:19}
+;<9>                |   |      <BLOB> LINEAR ptr @A {sb:8}
 ;<9>                |   |   <RVAL-REG> NON-LINEAR i32 %0 + %1 {sb:2}
 ;<9>                |   |      <BLOB> NON-LINEAR i32 %0 {sb:6}
 ;<9>                |   |      <BLOB> NON-LINEAR i32 %1 {sb:9}
 ;<9>                |   |
 ;<11>               |   |   %2 = (@A)[0][i2][i1];
 ;<11>               |   |   <LVAL-REG> NON-LINEAR i32 %2 {sb:12}
-;<11>               |   |   <RVAL-REG> {al:4}(LINEAR [100 x [100 x i32]]* @A)[i64 0][LINEAR i64 i2][LINEAR i64 i1] inbounds  !tbaa !13 {sb:19}
-;<11>               |   |      <BLOB> LINEAR [100 x [100 x i32]]* @A {sb:8}
+;<11>               |   |   <RVAL-REG> {al:4}(LINEAR ptr @A)[i64 0][LINEAR i64 i2][LINEAR i64 i1] inbounds  !tbaa !13 {sb:19}
+;<11>               |   |      <BLOB> LINEAR ptr @A {sb:8}
 ;<11>               |   |
 ;<32>               |   |   %limm = %2 + 1;
 ;<32>               |   |   <LVAL-REG> NON-LINEAR i32 %limm {sb:20}
@@ -91,8 +91,8 @@
 ;<32>               |   |
 ;<28>               |   + END LOOP
 ; CHECK:            |      (@B)[0][0] = %limm;
-; CHECK:            |      <LVAL-REG> {al:16}(LINEAR [100 x i32]* @B)[i64 0][i64 0] inbounds  !tbaa !7 {sb:18}
-; CHECK:            |         <BLOB> LINEAR [100 x i32]* @B {sb:5}
+; CHECK:            |      <LVAL-REG> {al:16}(LINEAR ptr @B)[i64 0][i64 0] inbounds  !tbaa !7 {sb:18}
+; CHECK:            |         <BLOB> LINEAR ptr @B {sb:5}
 ; CHECK:            |      <RVAL-REG> NON-LINEAR i32 %limm {sb:20}
 ;<30>               |
 ;<27>               + END LOOP
@@ -125,15 +125,15 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %0 = load   i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 0), align 16, !range !13,!tbaa !5
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %indvars.iv31, i64 %indvars.iv, !intel-tbaa !10
-  %1 = load i32, i32* %arrayidx6, align 4, !tbaa !10
+  %0 = load   i32, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 0), align 16, !range !13,!tbaa !5
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv31, i64 %indvars.iv, !intel-tbaa !10
+  %1 = load i32, ptr %arrayidx6, align 4, !tbaa !10
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !10
-  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv31, !intel-tbaa !10
-  %2 = load i32, i32* %arrayidx14, align 4, !tbaa !10
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !10
+  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv31, !intel-tbaa !10
+  %2 = load i32, ptr %arrayidx14, align 4, !tbaa !10
   %add15 = add nsw i32 %2, 1
-  store   i32 %add15, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 0), align 16, !tbaa !5
+  store   i32 %add15, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 0), align 16, !tbaa !5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup3, label %for.body4, !llvm.loop !12

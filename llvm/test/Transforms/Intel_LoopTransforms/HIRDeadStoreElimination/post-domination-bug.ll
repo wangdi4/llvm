@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -hir-create-function-level-region -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
 
 ; Verify that the store (@A)[0][i1] = 0 is not incorrectly eliminated due to a bug in post-domination logic.
 
@@ -46,13 +46,13 @@ entry:
   br label %for.body
 
 for.cond1.preheader:                              ; preds = %for.body
-  store i32 10, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @B, i64 0, i64 2), align 8
+  store i32 10, ptr getelementptr inbounds ([5 x i32], ptr @B, i64 0, i64 2), align 8
   br label %for.body3
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv20 = phi i64 [ 0, %entry ], [ %indvars.iv.next21, %for.body ]
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0, i64 %indvars.iv20
-  store i32 0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [5 x i32], ptr @A, i64 0, i64 %indvars.iv20
+  store i32 0, ptr %arrayidx, align 4
   %indvars.iv.next21 = add nuw nsw i64 %indvars.iv20, 1
   %exitcond23.not = icmp eq i64 %indvars.iv.next21, 5
   br i1 %exitcond23.not, label %for.cond1.preheader, label %for.body
@@ -65,16 +65,16 @@ for.body3:                                        ; preds = %for.cond1.preheader
   ]
 
 sw.bb:                                            ; preds = %for.body3
-  store i32 5, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @B, i64 0, i64 0), align 16
+  store i32 5, ptr getelementptr inbounds ([5 x i32], ptr @B, i64 0, i64 0), align 16
   br label %sw.epilog
 
 sw.bb4:                                           ; preds = %for.body3
-  store i32 2, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @B, i64 0, i64 1), align 4
+  store i32 2, ptr getelementptr inbounds ([5 x i32], ptr @B, i64 0, i64 1), align 4
   br label %sw.epilog
 
 sw.epilog:                                        ; preds = %sw.bb4, %sw.bb
-  %arrayidx6 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 5, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [5 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 5, ptr %arrayidx6, align 4
   br label %L
 
 L:                                                ; preds = %for.body3, %sw.epilog

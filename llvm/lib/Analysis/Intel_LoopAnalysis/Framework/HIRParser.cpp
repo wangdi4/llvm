@@ -4243,7 +4243,8 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
 }
 
 RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
-                                                 unsigned Level) {
+                                                 unsigned Level,
+                                                 Type *LoadOrStoreTy) {
 
   auto Ref = getDDRefUtils().createRegDDRef(0);
   auto GEPTy = GEPVal->getType();
@@ -4254,6 +4255,16 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   auto BaseCE = parse(GEPVal, Level);
   Ref->setBaseCE(BaseCE);
 
+  Type *ElementTy = nullptr;
+
+  // Set element type when we can unambigously do so based on type of base ptr.
+  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
+    ElementTy = Global->getValueType();
+
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
+    ElementTy = Alloca->getAllocatedType();
+  }
+
   // Create Index of zero.
   auto IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
 
@@ -4262,18 +4273,53 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   // Single element is always in bounds.
   Ref->setInBounds(true);
 
-  // Set element type when we can unambigously do so based on type of base ptr.
-  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
-    setSelfRefElementTypeAndStride(Ref, Global->getValueType());
-  } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
-    setSelfRefElementTypeAndStride(Ref, Alloca->getAllocatedType());
+  if (ElementTy) {
+    setSelfRefElementTypeAndStride(Ref, ElementTy);
+
+    // Add extra 0 dims/offsets to Ref if its element type is known.
+    // We restrict this logic to load and store refs. It may be incorrect to
+    // add dims/offsets to addressOf refs as we do not know whether the
+    // intention is to pass the address of the entire object or its sub-type.
+    if (LoadOrStoreTy) {
+      uint64_t ElementSize = 0;
+      uint64_t LoadOrStoreSize =
+          getCanonExprUtils().getTypeSizeInBytes(LoadOrStoreTy);
+
+      auto *ArrTy = dyn_cast<ArrayType>(ElementTy);
+      auto *STy = dyn_cast<StructType>(ElementTy);
+
+      // Keep adding zero dims/offsets until we hit an element type which is
+      // the same as the load/store type or whose size is less than the
+      // load/store type.
+      while (
+          (ArrTy || STy) &&
+          (ElementSize = getCanonExprUtils().getTypeSizeInBytes(ElementTy)) &&
+          (ElementSize > LoadOrStoreSize ||
+           (ElementSize == LoadOrStoreSize && ElementTy != LoadOrStoreTy))) {
+        if (STy) {
+          SmallVector<unsigned, 2> Offsets(Ref->getTrailingStructOffsets(1));
+
+          Offsets.push_back(0);
+          Ref->setTrailingStructOffsets(1, Offsets);
+
+          ElementTy = STy->getElementType(0);
+
+        } else {
+          Ref->addDimension(IndexCE->clone());
+          ElementTy = ArrTy->getElementType();
+        }
+
+        STy = dyn_cast<StructType>(ElementTy);
+        ArrTy = dyn_cast<ArrayType>(ElementTy);
+      }
+    }
   }
 
   return Ref;
 }
 
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
-                                    bool IsUse) {
+                                    bool IsUse, Type *LoadOrStoreTy) {
   const PHINode *BasePhi = nullptr;
   const Value *OrigGEPVal = GEPVal;
   RegDDRef *Ref = nullptr;
@@ -4327,7 +4373,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   } else if (GEPOp) {
     Ref = createRegularGEPDDRef(GEPOp, Level);
   } else {
-    Ref = createSingleElementGEPDDRef(GEPVal, Level);
+    Ref = createSingleElementGEPDDRef(GEPVal, Level, LoadOrStoreTy);
   }
 
   if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
@@ -4457,9 +4503,9 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   auto OpTy = OpVal->getType();
 
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
-    Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
-
     auto *LoadTy = LInst->getType();
+
+    Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true, LoadTy);
 
     if (!Ref->getBasePtrElementType()) {
       // We can assign the load type to self-refs: (%p)[0]
@@ -4509,9 +4555,9 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   auto *Inst = HInst->getLLVMInstruction();
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
-    Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
-
     auto *StoreValTy = SInst->getValueOperand()->getType();
+
+    Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true, StoreValTy);
 
     if (!Ref->getBasePtrElementType()) {
       // We can assign the store type to self-refs: (%p)[0]

@@ -15,7 +15,7 @@
 ; CHECK: Function: test
 ;
 ; CHECK:       BEGIN REGION { }
-; CHECK:             (float*)(%biasVal)[0] = 0.000000e+00;
+; CHECK:             (%biasVal)[0].0.0.0.0 = 0.000000e+00;
 ; CHECK:             (%biasVal)[1] = 0.000000e+00;
 ; CHECK:             (%biasVal)[2] = 0.000000e+00;
 ; CHECK:       END REGION

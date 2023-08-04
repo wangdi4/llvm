@@ -31,7 +31,7 @@
 ; CHECK:           |      |   |   %x.0 = i2;
 ; CHECK:           |      |   + END LOOP
 ; CHECK:           |      |      %x.0 = i1;
-; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
+; CHECK:           |      |      (@A)[0][0] = %x.0;
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
 ; CHECK:           |   else
@@ -40,7 +40,7 @@
 ; CHECK:           |      |   if (0 < %n)
 ; CHECK:           |      |   {
 ; CHECK:           |      |      %x.0 = i2;
-; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
+; CHECK:           |      |      (@A)[0][0] = %x.0;
 ; CHECK:           |      |   }
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
@@ -57,7 +57,7 @@
 ; CHECK:           |      |   if (0 < %n)
 ; CHECK:           |      |   {
 ; CHECK:           |      |      %x.0 = i1;
-; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
+; CHECK:           |      |      (@A)[0][0] = %x.0;
 ; CHECK:           |      |   }
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
@@ -67,7 +67,7 @@
 ; CHECK:           |      {
 ; CHECK:           |         + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |         |   %x.0 = i2;
-; CHECK:           |         |   (i32*)(@A)[0] = %x.0;
+; CHECK:           |         |   (@A)[0][0] = %x.0;
 ; CHECK:           |         + END LOOP
 ; CHECK:           |      }
 ; CHECK:           |   }

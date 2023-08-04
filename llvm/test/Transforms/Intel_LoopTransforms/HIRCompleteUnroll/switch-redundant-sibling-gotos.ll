@@ -34,17 +34,17 @@
 ; CHECK-NOT: switch
 ; CHECK-NOT: :
 
-; CHECK: %3 = (i32*)(@a)[0];
+; CHECK: %3 = (@a)[0][0];
 ; CHECK: %xor5 = %3  ^  1;
-; CHECK: (i32*)(@a)[0] = %xor5;
+; CHECK: (@a)[0][0] = %xor5;
 
 ; CHECK-NOT: if
 ; CHECK-NOT: switch
 ; CHECK-NOT: :
 
-; CHECK: %3 = (i32*)(@a)[0];
+; CHECK: %3 = (@a)[0][0];
 ; CHECK: %xor5 = %3  ^  1;
-; CHECK: (i32*)(@a)[0] = %xor5;
+; CHECK: (@a)[0][0] = %xor5;
 
 ; CHECK: END REGION
 

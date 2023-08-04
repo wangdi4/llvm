@@ -454,7 +454,10 @@ class HIRParser {
                                   unsigned Level);
 
   /// Creates a GEP RegDDRef representing a single element. For example- %t[0].
-  RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level);
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
+  RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level,
+                                        Type *LoadOrStoreTy);
 
   /// Creates a GEP RegDDRef for this GEPOrSubsOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
@@ -462,7 +465,10 @@ class HIRParser {
 
   /// Returns a RegDDRef containing GEPInfo. IsUse indicates whether this is a
   /// definition or a use of GEP.
-  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
+  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse,
+                           Type *LoadOrStoreTy = nullptr);
 
   /// Returns a RegDDRef representing this scalar value.
   /// \p LvalInst is non-null if this value represents an Lval.
