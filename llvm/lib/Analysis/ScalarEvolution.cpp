@@ -4669,8 +4669,8 @@ Type *ScalarEvolution::getWiderType(Type *T1, Type *T2) const {
   return  getTypeSizeInBits(T1) >= getTypeSizeInBits(T2) ? T1 : T2;
 }
 
-bool ScalarEvolution::instructionCouldExistWitthOperands(const SCEV *A,
-                                                         const SCEV *B) {
+bool ScalarEvolution::instructionCouldExistWithOperands(const SCEV *A,
+                                                        const SCEV *B) {
   /// For a valid use point to exist, the defining scope of one operand
   /// must dominate the other.
   bool PreciseA, PreciseB;
@@ -4682,7 +4682,6 @@ bool ScalarEvolution::instructionCouldExistWitthOperands(const SCEV *A,
   return (ScopeA == ScopeB) || DT.dominates(ScopeA, ScopeB) ||
     DT.dominates(ScopeB, ScopeA);
 }
-
 
 const SCEV *ScalarEvolution::getCouldNotCompute() {
   return CouldNotCompute.get();
