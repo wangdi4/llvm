@@ -178,11 +178,6 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
-static cl::opt<unsigned> LimitMaxIterations(
-    "instcombine-max-iterations",
-    cl::desc("Limit the maximum number of instruction combining iterations"),
-    cl::init(InstCombineDefaultMaxIterations));
-
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
@@ -212,6 +207,8 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
+// FIXME: Remove this option, it has been superseded by verify-fixpoint.
+// Only keeping it for now to avoid unnecessary test churn in this patch.
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
     "instcombine-infinite-loop-threshold",
     cl::desc("Number of instruction combining iterations considered an "
@@ -5379,12 +5376,13 @@ static bool combineInstructionsOverFunction(
     AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
 #if INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, unsigned MaxIterations, bool PreserveForDTrans,
-    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-    bool EnableUpCasting, bool EnableCanonicalizeSwap, LoopInfo *LI) {
+    ProfileSummaryInfo *PSI, unsigned MaxIterations, bool VerifyFixpoint,
+    bool PreserveForDTrans, bool EnableFcmpMinMaxCombine,
+    bool PreserveAddrCompute, bool EnableUpCasting, bool EnableCanonicalizeSwap,
+    LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
-  MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
+
 #if INTEL_CUSTOMIZATION
   if (EnablePreserveForDTrans)
     PreserveForDTrans = true;
@@ -5419,26 +5417,21 @@ static bool combineInstructionsOverFunction(
   // Iterate while there is work to do.
   unsigned Iteration = 0;
   while (true) {
-    ++NumWorklistIterations;
     ++Iteration;
 
-    if (Iteration > InfiniteLoopDetectionThreshold) {
-      report_fatal_error(
-          "Instruction Combining seems stuck in an infinite loop after " +
-          Twine(InfiniteLoopDetectionThreshold) + " iterations.");
-    }
-
-    if (Iteration > MaxIterations) {
+    if (Iteration > MaxIterations && !VerifyFixpoint) {
       LLVM_DEBUG(dbgs() << "\n\n[IC] Iteration limit #" << MaxIterations
                         << " on " << F.getName()
-                        << " reached; stopping before reaching a fixpoint\n");
+                        << " reached; stopping without verifying fixpoint\n");
       break;
     }
 
+    ++NumWorklistIterations;
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
-    MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist, RPOT);
+    bool MadeChangeInThisIteration =
+        prepareICWorklistFromFunction(F, DL, &TLI, Worklist, RPOT);
 
 #if INTEL_CUSTOMIZATION
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
@@ -5447,11 +5440,16 @@ static bool combineInstructionsOverFunction(
                         TTI, DT, ORE, BFI, PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
-
-    if (!IC.run())
+    MadeChangeInThisIteration |= IC.run();
+    if (!MadeChangeInThisIteration)
       break;
 
     MadeIRChange = true;
+    if (Iteration > MaxIterations) {
+      report_fatal_error(
+          "Instruction Combining did not reach a fixpoint after " +
+          Twine(MaxIterations) + " iterations");
+    }
   }
 
   if (Iteration == 1)
@@ -5474,7 +5472,8 @@ void InstCombinePass::printPipeline(
       OS, MapClassName2PassName);
   OS << '<';
   OS << "max-iterations=" << Options.MaxIterations << ";";
-  OS << (Options.UseLoopInfo ? "" : "no-") << "use-loop-info";
+  OS << (Options.UseLoopInfo ? "" : "no-") << "use-loop-info;";
+  OS << (Options.VerifyFixpoint ? "" : "no-") << "verify-fixpoint";
   OS << '>';
 #if INTEL_CUSTOMIZATION
   // TODO: Add the output for the rest of the options that are proprietary to
@@ -5503,15 +5502,18 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,   // INTEL
-                                       DT, ORE, BFI, PSI,               // INTEL
-                                       Options.MaxIterations,           // INTEL
-                                       Options.PreserveForDTrans,       // INTEL
-                                       Options.EnableFcmpMinMaxCombine, // INTEL
-                                       Options.PreserveAddrCompute,     // INTEL
-                                       Options.EnableUpCasting,         // INTEL
-                                       Options.EnableCanonicalizeSwap,  // INTEL
-                                       LI))                             // INTEL
+#if INTEL_CUSTOMIZATION
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
+                                       DT, ORE, BFI, PSI,
+                                       Options.MaxIterations,
+                                       Options.VerifyFixpoint,
+                                       Options.PreserveForDTrans,
+                                       Options.EnableFcmpMinMaxCombine,
+                                       Options.PreserveAddrCompute,
+                                       Options.EnableUpCasting,
+                                       Options.EnableCanonicalizeSwap,
+                                       LI))
+#endif // INTEL_CUSTOMIZATION
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -5560,14 +5562,17 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
-                                         DT, ORE, BFI, PSI,             // INTEL
-                                         InstCombineDefaultMaxIterations,  // INTEL
-                                         PreserveForDTrans,             // INTEL
-                                         EnableFcmpMinMaxCombine,       // INTEL
-                                         PreserveAddrCompute,           // INTEL
-                                         EnableUpCasting,               // INTEL
-                                         EnableCanonicalizeSwap, LI);   // INTEL
+#if INTEL_CUSTOMIZATION
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
+                                         DT, ORE, BFI, PSI,
+                                         InstCombineDefaultMaxIterations,
+                                         /*VerifyFixpoint */ false,
+                                         PreserveForDTrans,
+                                         EnableFcmpMinMaxCombine,
+                                         PreserveAddrCompute,
+                                         EnableUpCasting,
+                                         EnableCanonicalizeSwap, LI);
+#endif // INTEL_CUSTOMIZATION
 }
 
 char InstructionCombiningPass::ID = 0;
