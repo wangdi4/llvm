@@ -95,10 +95,10 @@ handleMaskRegisterForCallingConv(unsigned NumElts, CallingConv::ID CC,
   if (NumElts == 4)
     return {MVT::v4i32, 1};
   if (NumElts == 8 && CC != CallingConv::X86_RegCall &&
-      CC != CallingConv::Intel_OCL_BI)
+      CC != CallingConv::Intel_OCL_BI_AVX512) // INTEL
     return {MVT::v8i16, 1};
   if (NumElts == 16 && CC != CallingConv::X86_RegCall &&
-      CC != CallingConv::Intel_OCL_BI)
+      CC != CallingConv::Intel_OCL_BI_AVX512) // INTEL
     return {MVT::v16i8, 1};
   // v32i1 passes in ymm unless we have BWI and the calling convention is
   // regcall.
@@ -2064,10 +2064,10 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
-  if (shouldDisableArgRegFromCSR(CallConv) ||
 #if INTEL_CUSTOMIZATION
-      shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
+   if(shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
+      shouldDisableArgRegFromCSR(CallConv) ||
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -2193,11 +2193,6 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       isTailCall = false;
   }
 
-#if INTEL_CUSTOMIZATION
-  if (isTailCall || IsMustTail)
-    MF.getFrameInfo().setX86StackRealignable(false);
-#endif // INTEL_CUSTOMIZATION
-
   if (isTailCall && !IsMustTail) {
     // Check if it's really possible to do a tail call.
     isTailCall = IsEligibleForTailCallOptimization(
@@ -2212,6 +2207,11 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (isTailCall)
       ++NumTailCalls;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (isTailCall || IsMustTail)
+    MF.getFrameInfo().setX86StackRealignable(false);
+#endif // INTEL_CUSTOMIZATION
 
   if (IsMustTail && !isTailCall)
     report_fatal_error("failed to perform tail call elimination on a call "
@@ -2569,7 +2569,10 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // ForCall to true here has the effect of removing WrapperRIP when possible
     // to allow direct calls to be selected without first materializing the
     // address into a register.
-    Callee = LowerGlobalOrExternal(Callee, DAG, /*ForCall=*/true);
+#if INTEL_CUSTOMIZATION
+    Callee = LowerGlobalOrExternal(Callee, DAG, /*ForCall=*/true,
+                                   isSVMLCallingConv(CallConv));
+#endif
   } else if (Subtarget.isTarget64BitILP32() &&
              Callee.getValueType() == MVT::i32) {
     // Zero-extend the 32-bit Callee address into a 64-bit according to x32 ABI
