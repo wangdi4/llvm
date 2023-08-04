@@ -17,8 +17,13 @@
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -foffload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
+<<<<<<< HEAD
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fno-offload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
+=======
+// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
+// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fno-offload-lto -fopenmp-target-jit %s 2>&1 \
+>>>>>>> c54bce47a3b520f2c54fb014c89de1440f40eef4
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // end INTEL_CUSTOMIZATION
 //
@@ -38,21 +43,26 @@
 // PHASES-JIT-NEXT: 13: clang-linker-wrapper, {12}, image, (host-openmp)
 
 // Check that we add the `--embed-bitcode` flag to the linker wrapper.
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
+=======
+// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
+// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
+>>>>>>> c54bce47a3b520f2c54fb014c89de1440f40eef4
 // RUN: | FileCheck -check-prefix=LINKER %s
 // end INTEL_CUSTOMIZATION
 // LINKER: clang-linker-wrapper"{{.*}}"--embed-bitcode"
 
 // Check for incompatible combinations
 
-// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -fno-offload-lto \
+// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -fno-offload-lto \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
 // RUN: | FileCheck -check-prefix=NO-LTO %s
 // NO-LTO: error: the combination of '-fno-offload-lto' and '-fopenmp-target-jit' is incompatible
 
-// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -foffload-lto=thin \
+// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -foffload-lto=thin \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
 // RUN: | FileCheck -check-prefix=THIN-LTO %s
 // THIN-LTO: error: the combination of '-foffload-lto=' and '-fopenmp-target-jit' is incompatible
