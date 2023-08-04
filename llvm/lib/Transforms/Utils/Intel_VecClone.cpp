@@ -1372,34 +1372,75 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         // using that pointer
         Type *ArgPtrElemType = inferPtrElementType(*ArgVal);
         if (ArgPtrElemType) {
-          IRBuilder<> Builder(EntryBlock->getTerminator());
-          const unsigned VF = V.getVF();
-          auto *ArgPtrElemVectorType =
-              VectorType::get(ArgPtrElemType, VF, false);
-          // This generates fake vector memory for storing updated value
-          AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
-              ArgPtrElemVectorType, ArgVal->getType()->getPointerAddressSpace(),
-              nullptr, "alloca.fake." + Arg->getName());
-          Value *ScalarLoad = Builder.CreateLoad(
-              ArgPtrElemType,
-              Builder.CreateLoad(
-                  cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
-                  "load." + Arg->getName()),
-              "load.elem." + Arg->getName());
-          Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
-          Builder.CreateStore(VectorValue, ArgFakeAlloca);
-
-          Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
-          Value *VecGep = Builder.CreateGEP(
-              ArgPtrElemType,
-              Builder.CreatePointerCast(ArgFakeAlloca,
-                                        ArgPtrElemType->getPointerTo()),
-              Phi, ArgFakeAlloca->getName() + ".gep");
-          // Replace all direct uses to fake vector memory
-          ArgVal->replaceAllUsesWith(VecGep);
-          // Update ScalarArg to point fake vector memory so that we will add
-          // stride for it
-          ScalarArg = VecGep;
+          // Keeps all ArgVal pointer aliases used inside the loop
+          SmallVector<Value *, 4> ArgPtrs;
+          // Visited ArgVal pointers to avoid infinite while loop below
+          SmallSet<Value *, 4> ArgVisitedPtrs;
+          ArgPtrs.push_back(ArgVal);
+          ArgVisitedPtrs.insert(ArgVal);
+          // Have we found store to original memory that should not happen
+          // and we need to fix it using fake memory usage?
+          bool IsBadStore = false;
+          // This loop goes thru all alias uses and will set
+          // IsBadStore flag to true if we found store
+          while (!ArgPtrs.empty() && !IsBadStore) {
+            auto *ArgPtr = ArgPtrs.pop_back_val();
+            for (auto *U : ArgPtr->users()) {
+              // Only care about usage inside the loop
+              if (auto *I = dyn_cast<Instruction>(U))
+                if (I->getParent() == EntryBlock)
+                  continue;
+              // Record pointer usage as alias in ArgPtrs
+              if (dyn_cast<GetElementPtrInst>(U) || dyn_cast<CastInst>(U) ||
+                  dyn_cast<AddrSpaceCastInst>(U)) {
+                if (!ArgVisitedPtrs.contains(U)) {
+                  ArgPtrs.push_back(U);
+                  ArgVisitedPtrs.insert(U);
+                }
+              } else if (dyn_cast<StoreInst>(U) &&
+                         dyn_cast<StoreInst>(U)->getPointerOperand() ==
+                             ArgPtr) {
+                // Store to memory using any pointer alias will trigger
+                // fake memory generation below. We check
+                // dyn_cast<StoreInst>(U)->getPointerOperand() == ArgPtr here to
+                // make sure we write to pointer memory and not use it.
+                IsBadStore = true;
+                break;
+              }
+            }
+          }
+          // Generate fake memory in case if IsBadStore is true
+          if (IsBadStore) {
+            IRBuilder<> Builder(EntryBlock->getTerminator());
+            const unsigned VF = V.getVF();
+            auto *ArgPtrElemVectorType =
+                VectorType::get(ArgPtrElemType, VF, false);
+            // This generates fake vector memory for storing updated value
+            AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
+                ArgPtrElemVectorType,
+                ArgVal->getType()->getPointerAddressSpace(), nullptr,
+                "alloca.fake." + Arg->getName());
+            Value *ScalarLoad = Builder.CreateLoad(
+                ArgPtrElemType,
+                Builder.CreateLoad(
+                    cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
+                    "load." + Arg->getName()),
+                "load.elem." + Arg->getName());
+            Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
+            Builder.CreateStore(VectorValue, ArgFakeAlloca);
+            // Now insert new instructions into the loop
+            Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
+            Value *VecGep = Builder.CreateGEP(
+                ArgPtrElemType,
+                Builder.CreatePointerCast(ArgFakeAlloca,
+                                          ArgPtrElemType->getPointerTo()),
+                Phi, ArgFakeAlloca->getName() + ".gep");
+            // Replace all direct uses to fake vector memory
+            ArgVal->replaceAllUsesWith(VecGep);
+            // Update ScalarArg to point fake vector memory so that we will
+            // add stride for it
+            ScalarArg = VecGep;
+          }
         }
       }
 
