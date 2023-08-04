@@ -22,20 +22,20 @@
 ;   return j;
 ; }
 
-define noundef i32 @reduc_select_icmp_ne(i32* nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_icmp_ne(ptr nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %j.019 = phi i32 [ 2, %DIR.OMP.SIMD.1 ], [ %spec.select, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %v, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %v, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp5.not = icmp eq i32 %1, 3
   %spec.select = select i1 %cmp5.not, i32 %j.019, i32 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -71,20 +71,20 @@ DIR.OMP.END.SIMD.2:
 ;   return j;
 ; }
 
-define noundef i32 @reduc_select_icmp_eq(i32* nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_icmp_eq(ptr nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %j.019 = phi i32 [ 3, %DIR.OMP.SIMD.1 ], [ %spec.select, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %v, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %v, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp5 = icmp eq i32 %1, 3
   %spec.select = select i1 %cmp5, i32 7, i32 %j.019
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -122,20 +122,20 @@ DIR.OMP.END.SIMD.2:
 ;   return j;
 ; }
 
-define noundef i32 @reduc_select_icmp_var(i32* nocapture noundef readonly %v, i32 noundef %a, i32 noundef %b, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_icmp_var(ptr nocapture noundef readonly %v, i32 noundef %a, i32 noundef %b, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %j.019 = phi i32 [ %a, %DIR.OMP.SIMD.1 ], [ %spec.select, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %v, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %v, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp5.not = icmp eq i32 %1, 3
   %spec.select = select i1 %cmp5.not, i32 %j.019, i32 %b
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -171,20 +171,20 @@ DIR.OMP.END.SIMD.2:
 ;   return j;
 ; }
 
-define noundef i32 @reduc_select_fcmp_fast(float* nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_fcmp_fast(ptr nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %j.020 = phi i32 [ 2, %DIR.OMP.SIMD.1 ], [ %2, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %v, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %v, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %cmp6 = fcmp fast une float %1, 3.000000e+00
   %2 = select i1 %cmp6, i32 1, i32 %j.020
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -220,20 +220,20 @@ DIR.OMP.END.SIMD.2:
 ;   return j;
 ; }
 
-define noundef i32 @reduc_select_fcmp_nofast(float* nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_fcmp_nofast(ptr nocapture noundef readonly %v, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %j.020 = phi i32 [ 2, %DIR.OMP.SIMD.1 ], [ %2, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %v, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %v, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %cmp6 = fcmp une float %1, 3.000000e+00
   %2 = select i1 %cmp6, i32 1, i32 %j.020
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -252,7 +252,7 @@ DIR.OMP.END.SIMD.2:
 ; CHECK:  [[PHI:%.*]] = phi <8 x i32>
 ; CHECK:  [[ICMP:%.*]] = icmp sgt <8 x i32>
 ; CHECK: VPlannedBB5
-; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
+; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0
 ; CHECK:  [[ICMP2:%.*]] = icmp eq <8 x i32> [[LOAD]]
 ; CHECK:  [[SEL:%.*]] = select <8 x i1> [[ICMP2]]
 ; CHECK: VPlannedBB7
@@ -274,26 +274,26 @@ DIR.OMP.END.SIMD.2:
 ;   return r;
 ; }
 
-define noundef i32 @reduc_select_icmp_and(i32* nocapture noundef readonly %src1, i32* nocapture noundef readonly %src2, i64 noundef %n) local_unnamed_addr {
+define noundef i32 @reduc_select_icmp_and(ptr nocapture noundef readonly %src1, ptr nocapture noundef readonly %src2, i64 noundef %n) local_unnamed_addr {
 entry:
   %i.linear.iv = alloca i64, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8),  "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %r.021 = phi i32 [ 2, %DIR.OMP.SIMD.1 ], [ %r.1, %omp.body.continue ]
   %.omp.iv.local.019 = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %add8, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds i32, i32* %src1, i64 %.omp.iv.local.019
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %src1, i64 %.omp.iv.local.019
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp5 = icmp sgt i32 %1, 35
   br i1 %cmp5, label %land.lhs.true, label %omp.body.continue
 
 land.lhs.true:
-  %arrayidx6 = getelementptr inbounds i32, i32* %src2, i64 %.omp.iv.local.019
-  %2 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %src2, i64 %.omp.iv.local.019
+  %2 = load i32, ptr %arrayidx6, align 4
   %cmp7 = icmp eq i32 %2, 2
   %spec.select = select i1 %cmp7, i32 1, i32 %r.021
   br label %omp.body.continue
@@ -315,12 +315,12 @@ DIR.OMP.END.SIMD.2:
 ; CHECK:  [[PHI:%.*]] = phi <8 x i32>
 ; CHECK:  [[ICMP:%.*]] = icmp sgt <8 x i32>
 ; CHECK: VPlannedBB5
-; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
+; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0
 ; CHECK:  [[ICMP2:%.*]] = icmp eq <8 x i32> [[LOAD]]
 ; CHECK: VPlannedBB7
 ; CHECK:  [[AND:%.*]] = select <8 x i1> [[ICMP]], <8 x i1> [[ICMP2]], <8 x i1> zeroinitializer
 ; CHECK: VPlannedBB8
-; CHECK:  [[LOAD2:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
+; CHECK:  [[LOAD2:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0
 ; CHECK:  [[ICMP3:%.*]] = icmp slt <8 x i32> [[LOAD2]]
 ; CHECK:  [[SEL:%.*]] = select <8 x i1> [[ICMP3]]
 ; CHECK: VPlannedBB11
@@ -343,38 +343,37 @@ DIR.OMP.END.SIMD.2:
 ;  return r;
 ;}
 
-define i32 @reduc_select_icmp_and3(i32* readonly %src1, i32* readonly %src2, i32* readonly %src3, i64 %n) {
+define i32 @reduc_select_icmp_and3(ptr readonly %src1, ptr readonly %src2, ptr readonly %src3, i64 %n) {
 entry:
   %i.linear.iv = alloca i64, align 8
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i64* %i.linear.iv, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:
-  %1 = bitcast i64* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %r.024 = phi i32 [ 2, %DIR.OMP.SIMD.128 ], [ %r.1, %omp.body.continue ]
   %.omp.iv.local.022 = phi i64 [ 0, %DIR.OMP.SIMD.128 ], [ %add11, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds i32, i32* %src1, i64 %.omp.iv.local.022
-  %2 = load i32, i32* %arrayidx, align 4
-  %cmp5 = icmp sgt i32 %2, 35
+  %arrayidx = getelementptr inbounds i32, ptr %src1, i64 %.omp.iv.local.022
+  %1 = load i32, ptr %arrayidx, align 4
+  %cmp5 = icmp sgt i32 %1, 35
   br i1 %cmp5, label %land.lhs.true, label %omp.body.continue
 
 land.lhs.true:
-  %arrayidx6 = getelementptr inbounds i32, i32* %src2, i64 %.omp.iv.local.022
-  %3 = load i32, i32* %arrayidx6, align 4
-  %cmp7 = icmp eq i32 %3, 2
+  %arrayidx6 = getelementptr inbounds i32, ptr %src2, i64 %.omp.iv.local.022
+  %2 = load i32, ptr %arrayidx6, align 4
+  %cmp7 = icmp eq i32 %2, 2
   br i1 %cmp7, label %land.lhs.true8, label %omp.body.continue
 
 land.lhs.true8:
-  %arrayidx9 = getelementptr inbounds i32, i32* %src3, i64 %.omp.iv.local.022
-  %4 = load i32, i32* %arrayidx9, align 4
-  %cmp10 = icmp slt i32 %4, 90
+  %arrayidx9 = getelementptr inbounds i32, ptr %src3, i64 %.omp.iv.local.022
+  %3 = load i32, ptr %arrayidx9, align 4
+  %cmp10 = icmp slt i32 %3, 90
   %spec.select = select i1 %cmp10, i32 1, i32 %r.024
   br label %omp.body.continue
 

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>,hir-last-value-computation,print<hir>,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>,hir-last-value-computation,print<hir>,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that side effect in post-exit is captured and i2 loop will not be removed.
 
@@ -31,7 +31,7 @@
 ; CHECK:           |      |   |   %x.0 = i2;
 ; CHECK:           |      |   + END LOOP
 ; CHECK:           |      |      %x.0 = i1;
-; CHECK:           |      |      (@A)[0][0] = %x.0;
+; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
 ; CHECK:           |   else
@@ -40,7 +40,7 @@
 ; CHECK:           |      |   if (0 < %n)
 ; CHECK:           |      |   {
 ; CHECK:           |      |      %x.0 = i2;
-; CHECK:           |      |      (@A)[0][0] = %x.0;
+; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
 ; CHECK:           |      |   }
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
@@ -57,7 +57,7 @@
 ; CHECK:           |      |   if (0 < %n)
 ; CHECK:           |      |   {
 ; CHECK:           |      |      %x.0 = i1;
-; CHECK:           |      |      (@A)[0][0] = %x.0;
+; CHECK:           |      |      (i32*)(@A)[0] = %x.0;
 ; CHECK:           |      |   }
 ; CHECK:           |      + END LOOP
 ; CHECK:           |   }
@@ -67,7 +67,7 @@
 ; CHECK:           |      {
 ; CHECK:           |         + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |         |   %x.0 = i2;
-; CHECK:           |         |   (@A)[0][0] = %x.0;
+; CHECK:           |         |   (i32*)(@A)[0] = %x.0;
 ; CHECK:           |         + END LOOP
 ; CHECK:           |      }
 ; CHECK:           |   }
@@ -116,7 +116,7 @@ for.inc:                                          ; preds = %if.end
 
 for.cond4.for.end_crit_edge:                      ; preds = %for.inc
   %x.0.lcssa = phi i32 [ %x.0, %for.inc ]
-  store i32 %x.0.lcssa, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), align 16
+  store i32 %x.0.lcssa, ptr @A, align 16
   br label %for.end
 
 for.end:                                          ; preds = %for.cond4.for.end_crit_edge, %for.body3

@@ -18,14 +18,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: vector.body
 ; CHECK: [[SCALAR_IV:%.*]] = phi i64 [ %
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
-; CHECK: store {{.*}} <4 x i32>
+; CHECK: store <4 x i32>
 ; CHECK: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK: merge.blk17:
 ; CHECK-NEXT: [[UNI_PHI70:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB0:%.*]] ]
 ; CHECK: for.body:
 ; CHECK: [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ], [ [[UNI_PHI70]], [[VPLANNEDBB70:%.*]] ]
 ; Function Attrs: nounwind uwtable
-define void @var_tripcount(i32* nocapture %ip, i32 %n) local_unnamed_addr #0 {
+define void @var_tripcount(ptr nocapture %ip, i32 %n) local_unnamed_addr #0 {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
@@ -40,9 +40,9 @@ for.body.preheader:                               ; preds = %DIR.QUAL.LIST.END.2
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end, label %for.body
