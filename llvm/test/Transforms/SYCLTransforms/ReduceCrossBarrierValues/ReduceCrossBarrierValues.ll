@@ -432,3 +432,12 @@ attributes #0 = { convergent nounwind readnone willreturn }
 !1 = !{ptr null}
 
 ; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 2
+; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing line 4
+; DEBUGIFY: WARNING: Missing line 53
+; DEBUGIFY: WARNING: Missing line 69
+; DEBUGIFY: WARNING: Missing line 94
+; DEBUGIFY: WARNING: Missing line 106
+; DEBUGIFY-NOT: WARNING
