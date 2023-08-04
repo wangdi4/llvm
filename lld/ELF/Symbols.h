@@ -276,22 +276,17 @@ protected:
   Symbol(Kind k, InputFile *file, StringRef name, uint8_t binding,
          uint8_t stOther, uint8_t type)
       : file(file), nameData(name.data()), nameSize(name.size()), type(type),
-<<<<<<< HEAD
         binding(binding), stOther(stOther), symbolKind(k),
 #if INTEL_CUSTOMIZATION
         partition(0), isPreemptible(false), isUsedInRegularObj(false),
         used(false), exportDynamic(false), inDynamicList(false),
         referenced(false), referencedAfterWrap(false), traced(false),
         hasVersionSuffix(false), isInIplt(false), gotInIgot(false),
-        folded(false), needsTocRestore(false), scriptDefined(false),
+        folded(false), archSpecificBit(false), scriptDefined(false),
         dsoProtected(false), thunkAccessed(false), auxIdx(0), dynsymIndex(0),
         verdefIndex(0), versionId(0) {
   }
 #endif
-=======
-        binding(binding), stOther(stOther), symbolKind(k), exportDynamic(false),
-        archSpecificBit(false) {}
->>>>>>> ca35a19acab1cf6788c42037bbedeca86e34a455
 
   void overwrite(Symbol &sym, Kind k) const {
     if (sym.traced)
