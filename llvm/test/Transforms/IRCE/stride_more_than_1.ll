@@ -731,22 +731,6 @@ define i32 @test_10(ptr %p, ptr %capacity_p, ptr %num_elements_p) {
 ; CHECK-NEXT:    ret i32 [[IV_LCSSA1]]
 ; CHECK:       out_of_bounds:
 ; CHECK-NEXT:    ret i32 -1
-<<<<<<< HEAD
-=======
-; CHECK:       postloop:
-; CHECK-NEXT:    br label [[LOOP_POSTLOOP:%.*]]
-; CHECK:       loop.postloop:
-; CHECK-NEXT:    [[IV_POSTLOOP]] = phi i32 [ [[IV_COPY]], [[POSTLOOP]] ], [ [[IV_NEXT_POSTLOOP:%.*]], [[BACKEDGE_POSTLOOP]] ]
-; CHECK-NEXT:    [[CAPACITY_CHECK_POSTLOOP:%.*]] = icmp slt i32 [[IV_POSTLOOP]], [[LIMIT]]
-; CHECK-NEXT:    br i1 [[CAPACITY_CHECK_POSTLOOP]], label [[BACKEDGE_POSTLOOP]], label [[OUT_OF_BOUNDS_LOOPEXIT:%.*]], !prof [[PROF17]]
-; CHECK:       backedge.postloop:
-; CHECK-NEXT:    [[IV_WIDE_POSTLOOP:%.*]] = zext i32 [[IV_POSTLOOP]] to i64
-; CHECK-NEXT:    [[EL_PTR_POSTLOOP:%.*]] = getelementptr i32, ptr [[P]], i64 [[IV_WIDE_POSTLOOP]]
-; CHECK-NEXT:    store i32 1, ptr [[EL_PTR_POSTLOOP]], align 4
-; CHECK-NEXT:    [[IV_NEXT_POSTLOOP]] = add nuw nsw i32 [[IV_POSTLOOP]], 4
-; CHECK-NEXT:    [[LOOP_COND_POSTLOOP:%.*]] = icmp slt i32 [[IV_NEXT_POSTLOOP]], [[NUM_ELEMENTS]]
-; CHECK-NEXT:    br i1 [[LOOP_COND_POSTLOOP]], label [[LOOP_POSTLOOP]], label [[EXIT_LOOPEXIT]], !llvm.loop [[LOOP19:![0-9]+]], !irce.loop.clone !6
->>>>>>> 236e6787de1f884054c62fdddecfe93fe75232c8
 ;
 entry:
   %capacity = load i32, ptr %capacity_p, !range !4
