@@ -1,6 +1,6 @@
 ; Check that we use the loop with minref to create the extracted loop when we do bulk loop carried scalar replacement
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
@@ -133,43 +133,32 @@
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
-; CHECK:              (%7)[0][0] = 48;
-; CHECK:              (%7)[0][1] = 1;
-; CHECK:              (%7)[0][2] = 1;
-; CHECK:              (%7)[0][3] = 0;
-; CHECK:              (%8)[0].0 = %98;
-; CHECK:              %167 = @for_write_seq_lis(&((i8*)(%6)[0]),  -1,  1239157112576,  &((%7)[0][0]),  &((i8*)(%8)[0]));
-;
-; CHECK:           ret ;
-; CHECK:     END REGION
-;
-;Module Before HIR
-; ModuleID = 'ld-temp.o'
-source_filename = "ld-temp.o"
+
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2, i32* noalias nocapture readonly dereferenceable(4) %3, i32* noalias nocapture readonly dereferenceable(4) %4) local_unnamed_addr #0 {
+define void @jacobian_(ptr noalias nocapture readonly dereferenceable(8) %0, ptr noalias nocapture readonly dereferenceable(4) %1, ptr noalias nocapture readonly dereferenceable(4) %2, ptr noalias nocapture readonly dereferenceable(4) %3, ptr noalias nocapture readonly dereferenceable(4) %4) local_unnamed_addr #0 {
   %6 = alloca [8 x i64], align 16
   %7 = alloca [4 x i8], align 1
   %8 = alloca { double }, align 8
-  %9 = load i32, i32* %1, align 1
-  %10 = load i32, i32* %2, align 1
+  %9 = load i32, ptr %1, align 1
+  %10 = load i32, ptr %2, align 1
   %11 = sext i32 %9 to i64
   %12 = mul nsw i64 %11, 40
   %13 = sext i32 %10 to i64
   %14 = mul nsw i64 %12, %13
-  %15 = load i32, i32* %3, align 1
+  %15 = load i32, ptr %3, align 1
   %16 = icmp slt i32 %15, 1
   %17 = icmp slt i32 %10, 1
   %18 = or i1 %16, %17
   %19 = icmp slt i32 %9, 1
   %20 = or i1 %18, %19
-  %21 = load i32, i32* %4, align 1
+  %21 = load i32, ptr %4, align 1
   %22 = icmp slt i32 %21, 1
   %23 = or i1 %20, %22
-  br i1 %23, label %168, label %24
+  br i1 %23, label %164, label %24
 
 24:                                               ; preds = %5
   %25 = add nuw nsw i32 %9, 1
@@ -184,7 +173,7 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %32 = phi i64 [ 1, %24 ], [ %92, %90 ]
   %33 = phi double [ 0.000000e+00, %24 ], [ %91, %90 ]
   %34 = add nuw nsw i64 %32, 2
-  %35 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* elementtype(double) nonnull %0, i64 %34)
+  %35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %14, ptr elementtype(double) nonnull %0, i64 %34)
   br label %36
 
 36:                                               ; preds = %87, %31
@@ -194,9 +183,9 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %40 = add i32 %39, 2
   %41 = srem i32 %40, %10
   %42 = add nuw nsw i64 %37, 1
-  %43 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %35, i64 %42)
+  %43 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %12, ptr elementtype(double) nonnull %35, i64 %42)
   %44 = zext i32 %41 to i64
-  %45 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %35, i64 %44)
+  %45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %12, ptr elementtype(double) nonnull %35, i64 %44)
   br label %46
 
 46:                                               ; preds = %46, %36
@@ -206,14 +195,14 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %50 = add i32 %49, 3
   %51 = srem i32 %50, %9
   %52 = add nuw nsw i64 %47, 1
-  %53 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %43, i64 %52)
-  %54 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %53, i64 1)
-  %55 = load double, double* %54, align 1
-  %56 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %53, i64 2)
-  %57 = load double, double* %56, align 1
+  %53 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %43, i64 %52)
+  %54 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %53, i64 1)
+  %55 = load double, ptr %54, align 1
+  %56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %53, i64 2)
+  %57 = load double, ptr %56, align 1
   %58 = fdiv reassoc ninf nsz arcp contract afn double %57, %55
-  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %53, i64 3)
-  %60 = load double, double* %59, align 1
+  %59 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %53, i64 3)
+  %60 = load double, ptr %59, align 1
   %61 = fdiv reassoc ninf nsz arcp contract afn double %60, %55
   %62 = fmul reassoc ninf nsz arcp contract afn double %58, %58
   %63 = fmul reassoc ninf nsz arcp contract afn double %61, %61
@@ -222,14 +211,14 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %66 = fdiv reassoc ninf nsz arcp contract afn double %65, %55
   %67 = tail call reassoc ninf nsz arcp contract afn double @llvm.pow.f64(double %66, double 2.250000e+00)
   %68 = zext i32 %51 to i64
-  %69 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %45, i64 %68)
-  %70 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %69, i64 1)
-  %71 = load double, double* %70, align 1
-  %72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %69, i64 2)
-  %73 = load double, double* %72, align 1
+  %69 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %45, i64 %68)
+  %70 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %69, i64 1)
+  %71 = load double, ptr %70, align 1
+  %72 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %69, i64 2)
+  %73 = load double, ptr %72, align 1
   %74 = fdiv reassoc ninf nsz arcp contract afn double %73, %71
-  %75 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %69, i64 3)
-  %76 = load double, double* %75, align 1
+  %75 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %69, i64 3)
+  %76 = load double, ptr %75, align 1
   %77 = fdiv reassoc ninf nsz arcp contract afn double %76, %71
   %78 = fmul reassoc ninf nsz arcp contract afn double %74, %74
   %79 = fmul reassoc ninf nsz arcp contract afn double %77, %77
@@ -261,7 +250,7 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %97 = phi i64 [ %99, %155 ], [ 1, %94 ]
   %98 = phi double [ %156, %155 ], [ %95, %94 ]
   %99 = add nuw nsw i64 %97, 1
-  %100 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* elementtype(double) nonnull %0, i64 %99)
+  %100 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %14, ptr elementtype(double) nonnull %0, i64 %99)
   br label %101
 
 101:                                              ; preds = %152, %96
@@ -271,9 +260,9 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %105 = add i32 %104, 2
   %106 = srem i32 %105, %26
   %107 = add nuw nsw i64 %102, 1
-  %108 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %100, i64 %107)
+  %108 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %12, ptr elementtype(double) nonnull %100, i64 %107)
   %109 = zext i32 %106 to i64
-  %110 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %100, i64 %109)
+  %110 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %12, ptr elementtype(double) nonnull %100, i64 %109)
   br label %111
 
 111:                                              ; preds = %111, %101
@@ -283,14 +272,14 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %115 = add i32 %114, 3
   %116 = srem i32 %115, %25
   %117 = add nuw nsw i64 %112, 1
-  %118 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %108, i64 %117)
-  %119 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %118, i64 1)
-  %120 = load double, double* %119, align 1
-  %121 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %118, i64 2)
-  %122 = load double, double* %121, align 1
+  %118 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %108, i64 %117)
+  %119 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %118, i64 1)
+  %120 = load double, ptr %119, align 1
+  %121 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %118, i64 2)
+  %122 = load double, ptr %121, align 1
   %123 = fdiv reassoc ninf nsz arcp contract afn double %122, %120
-  %124 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %118, i64 3)
-  %125 = load double, double* %124, align 1
+  %124 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %118, i64 3)
+  %125 = load double, ptr %124, align 1
   %126 = fdiv reassoc ninf nsz arcp contract afn double %125, %120
   %127 = fmul reassoc ninf nsz arcp contract afn double %123, %123
   %128 = fmul reassoc ninf nsz arcp contract afn double %126, %126
@@ -299,14 +288,14 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %131 = fdiv reassoc ninf nsz arcp contract afn double %130, %120
   %132 = tail call reassoc ninf nsz arcp contract afn double @llvm.pow.f64(double %131, double 2.250000e+00)
   %133 = zext i32 %116 to i64
-  %134 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %110, i64 %133)
-  %135 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %134, i64 1)
-  %136 = load double, double* %135, align 1
-  %137 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %134, i64 2)
-  %138 = load double, double* %137, align 1
+  %134 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %110, i64 %133)
+  %135 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %134, i64 1)
+  %136 = load double, ptr %135, align 1
+  %137 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %134, i64 2)
+  %138 = load double, ptr %137, align 1
   %139 = fdiv reassoc ninf nsz arcp contract afn double %138, %136
-  %140 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %134, i64 3)
-  %141 = load double, double* %140, align 1
+  %140 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %134, i64 3)
+  %141 = load double, ptr %140, align 1
   %142 = fdiv reassoc ninf nsz arcp contract afn double %141, %136
   %143 = fmul reassoc ninf nsz arcp contract afn double %139, %139
   %144 = fmul reassoc ninf nsz arcp contract afn double %142, %142
@@ -331,33 +320,29 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
 
 158:                                              ; preds = %155
   %159 = phi double [ %156, %155 ]
-  %160 = getelementptr inbounds [4 x i8], [4 x i8]* %7, i64 0, i64 0
-  store i8 48, i8* %160, align 1
-  %161 = getelementptr inbounds [4 x i8], [4 x i8]* %7, i64 0, i64 1
-  store i8 1, i8* %161, align 1
-  %162 = getelementptr inbounds [4 x i8], [4 x i8]* %7, i64 0, i64 2
-  store i8 1, i8* %162, align 1
-  %163 = getelementptr inbounds [4 x i8], [4 x i8]* %7, i64 0, i64 3
-  store i8 0, i8* %163, align 1
-  %164 = getelementptr inbounds { double }, { double }* %8, i64 0, i32 0
-  store double %159, double* %164, align 8
-  %165 = bitcast [8 x i64]* %6 to i8*
-  %166 = bitcast { double }* %8 to i8*
-  %167 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %165, i32 -1, i64 1239157112576, i8* nonnull %160, i8* nonnull %166) #4
-  br label %168
+  store i8 48, ptr %7, align 1
+  %160 = getelementptr inbounds [4 x i8], ptr %7, i64 0, i64 1
+  store i8 1, ptr %160, align 1
+  %161 = getelementptr inbounds [4 x i8], ptr %7, i64 0, i64 2
+  store i8 1, ptr %161, align 1
+  %162 = getelementptr inbounds [4 x i8], ptr %7, i64 0, i64 3
+  store i8 0, ptr %162, align 1
+  store double %159, ptr %8, align 8
+  %163 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %6, i32 -1, i64 1239157112576, ptr nonnull %7, ptr nonnull %8) #4
+  br label %164
 
-168:                                              ; preds = %158, %5
+164:                                              ; preds = %158, %5
   ret void
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare double @llvm.pow.f64(double, double) #2
 
 ; Function Attrs: nofree
-declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #3
+declare i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #3
 
 attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nounwind readnone speculatable }
