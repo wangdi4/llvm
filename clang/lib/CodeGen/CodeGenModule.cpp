@@ -4579,6 +4579,13 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
           if (*Res == OMPDeclareTargetDeclAttr::MT_Local)
             return;
 #endif // INTEL_COLLAB
+
+          // If this variable has external storage and doesn't require special
+          // link handling we defer to its canonical definition.
+          if (VD->hasExternalStorage() &&
+              Res != OMPDeclareTargetDeclAttr::MT_Link)
+            return;
+
           bool UnifiedMemoryEnabled =
               getOpenMPRuntime().hasRequiresUnifiedSharedMemory();
           if ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
