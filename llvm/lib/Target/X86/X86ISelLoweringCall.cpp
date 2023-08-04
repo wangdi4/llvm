@@ -27,11 +27,31 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRBuilder.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
+
 #define DEBUG_TYPE "x86-isel"
 
 using namespace llvm;
 
 STATISTIC(NumTailCalls, "Number of tail calls");
+
+#if INTEL_CUSTOMIZATION
+// Returns true if a calling convention has potentially overlap between it's
+// callee-saved registers and registers used for argument passing. In this case,
+// if a register is used for argument passing, it shouldn't be treated as a
+// callee saved register.
+static bool shouldDisableCalleeSavedRegisterForCallConv(CallingConv::ID CC) {
+  switch (CC) {
+    case CallingConv::X86_RegCall:
+    case CallingConv::Intel_Features_Init:
+      return true;
+    default:
+      return isSVMLCallingConv(CC);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Call this when the user attempts to do something unsupported, like
 /// returning a double without SSE2 enabled on x86_64. This is not fatal, unlike
@@ -102,6 +122,14 @@ handleMaskRegisterForCallingConv(unsigned NumElts, CallingConv::ID CC,
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
+#if INTEL_CUSTOMIZATION
+  // Preserve mask arguments in their original type. Otherwise they'll be
+  // modified on pre-AVX512 targets before we get a chance to analyze them.
+  if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1)
+    return VT.getSimpleVT();
+#endif
+
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
       unsigned NumElts = VT.getVectorNumElements();
@@ -133,6 +161,14 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
+#if INTEL_CUSTOMIZATION
+  // Preserve mask arguments in their original type. Otherwise they'll be
+  // modified on pre-AVX512 targets before we get a chance to analyze them.
+  if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1)
+    return 1;
+#endif
+
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
       unsigned NumElts = VT.getVectorNumElements();
@@ -203,7 +239,13 @@ EVT X86TargetLowering::getSetCCResultType(const DataLayout &DL,
   if (!VT.isVector())
     return MVT::i8;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (Subtarget.hasAVX3()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (Subtarget.hasAVX512()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // Figure out what this type will be legalized to.
     EVT LegalVT = VT;
     while (getTypeAction(Context, LegalVT) != TypeLegal)
@@ -213,12 +255,26 @@ EVT X86TargetLowering::getSetCCResultType(const DataLayout &DL,
     if (LegalVT.getSimpleVT().is512BitVector())
       return EVT::getVectorVT(Context, MVT::i1, VT.getVectorElementCount());
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (LegalVT.getSimpleVT().isVector() &&
+        (Subtarget.hasVLX() || Subtarget.hasAVX256P())) {
+#else  // INTEL_FEATURE_ISA_AVX256P
     if (LegalVT.getSimpleVT().isVector() && Subtarget.hasVLX()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       // If we legalized to less than a 512-bit vector, then we will use a vXi1
       // compare for vXi32/vXi64 for sure. If we have BWI we will also support
       // vXi16/vXi8.
       MVT EltVT = LegalVT.getSimpleVT().getVectorElementType();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (Subtarget.hasBWI() || Subtarget.hasAVX256P() ||
+          EltVT.getSizeInBits() >= 32)
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (Subtarget.hasBWI() || EltVT.getSizeInBits() >= 32)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         return EVT::getVectorVT(Context, MVT::i1, VT.getVectorElementCount());
     }
   }
@@ -281,8 +337,15 @@ EVT X86TargetLowering::getOptimalMemOpType(
     if (Op.size() >= 16 &&
         (!Subtarget.isUnalignedMem16Slow() || Op.isAligned(Align(16)))) {
       // FIXME: Check if unaligned 64-byte accesses are slow.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (Op.size() >= 64 && Subtarget.useAVX512Regs() &&
+          (Subtarget.getPreferVectorWidth() >= 512)) {
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (Op.size() >= 64 && Subtarget.hasAVX512() &&
           (Subtarget.getPreferVectorWidth() >= 512)) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         return Subtarget.hasBWI() ? MVT::v64i8 : MVT::v16i32;
       }
       // FIXME: Check if unaligned 32-byte accesses are slow.
@@ -320,6 +383,46 @@ EVT X86TargetLowering::getOptimalMemOpType(
     return MVT::i64;
   return MVT::i32;
 }
+
+#if INTEL_CUSTOMIZATION
+TargetLoweringBase::ComplexABI
+X86TargetLowering::getComplexReturnABI(Type* ScalarFloatTy) const {
+  // Windows ABIs don't have dedicated _Complex rules, so they work as regular
+  // structs. These return as integers if the size is 8 bytes or fewer, or
+  // structs via memory if larger. (The size threshold is the same for both
+  // 32 and 64-bit ABIs).
+  if (Subtarget.isOSWindows()) {
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedValue();
+    if (FloatSize <= 32) {
+      return ComplexABI::Integer;
+    } else {
+      return ComplexABI::Memory;
+    }
+  }
+  if (Subtarget.is32Bit()) {
+    if (ScalarFloatTy->isFloatTy()) {
+      return ComplexABI::Integer;
+    } else if (ScalarFloatTy->isHalfTy()) {
+      return ComplexABI::Vector;
+    } else {
+      return ComplexABI::Memory;
+    }
+  } else {
+    // The x86-64 ABI specifies that (save for x86-fp80), this is handled as a
+    // regular C struct. This means that float and smaller get packed into a
+    // single vector in xmm0; double and x86-fp80 (by special case) return two
+    // values; and larger types than x86-fp80 (i.e., fp128) returns via memory.
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedValue();
+    if (FloatSize <= 32) {
+      return ComplexABI::Vector;
+    } else if (FloatSize <= 80) {
+      return ComplexABI::Struct;
+    } else {
+      return ComplexABI::Memory;
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86TargetLowering::isSafeMemOpType(MVT VT) const {
   if (VT == MVT::f32)
@@ -773,6 +876,9 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // For example, when they are used as return registers (preserve_* and X86's
   // regcall) or for argument passing (X86's regcall).
   bool ShouldDisableCalleeSavedRegister =
+#if INTEL_CUSTOMIZATION
+      shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
+#endif // INTEL_CUSTOMIZATION
       shouldDisableRetRegFromCSR(CallConv) ||
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
@@ -1763,12 +1869,29 @@ SDValue X86TargetLowering::LowerFormalArguments(
           RC = &X86::GR32RegClass;
         else if (Is64Bit && RegVT == MVT::i64)
           RC = &X86::GR64RegClass;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+        else if (RegVT == MVT::bf16)
+          RC = &X86::BFR16RegClass;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        else if (RegVT == MVT::f16)
+          RC = Subtarget.hasAVX3() ? &X86::FR16XRegClass : &X86::FR16RegClass;
+        else if (RegVT == MVT::f32)
+          RC = Subtarget.hasAVX3() ? &X86::FR32XRegClass : &X86::FR32RegClass;
+        else if (RegVT == MVT::f64)
+          RC = Subtarget.hasAVX3() ? &X86::FR64XRegClass : &X86::FR64RegClass;
+#else // INTEL_CUSTOMIZATION
         else if (RegVT == MVT::f16)
           RC = Subtarget.hasAVX512() ? &X86::FR16XRegClass : &X86::FR16RegClass;
         else if (RegVT == MVT::f32)
           RC = Subtarget.hasAVX512() ? &X86::FR32XRegClass : &X86::FR32RegClass;
         else if (RegVT == MVT::f64)
           RC = Subtarget.hasAVX512() ? &X86::FR64XRegClass : &X86::FR64RegClass;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         else if (RegVT == MVT::f80)
           RC = &X86::RFP80RegClass;
         else if (RegVT == MVT::f128)
@@ -1776,9 +1899,21 @@ SDValue X86TargetLowering::LowerFormalArguments(
         else if (RegVT.is512BitVector())
           RC = &X86::VR512RegClass;
         else if (RegVT.is256BitVector())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+          RC = (Subtarget.hasVLX() || Subtarget.hasAVX256P())
+                   ? &X86::VR256XRegClass
+                   : &X86::VR256RegClass;
+        else if (RegVT.is128BitVector())
+          RC = (Subtarget.hasVLX() || Subtarget.hasAVX256P())
+                   ? &X86::VR128XRegClass
+                   : &X86::VR128RegClass;
+#else  // INTEL_FEATURE_ISA_AVX256P
           RC = Subtarget.hasVLX() ? &X86::VR256XRegClass : &X86::VR256RegClass;
         else if (RegVT.is128BitVector())
           RC = Subtarget.hasVLX() ? &X86::VR128XRegClass : &X86::VR128RegClass;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         else if (RegVT == MVT::x86mmx)
           RC = &X86::VR64RegClass;
         else if (RegVT == MVT::v1i1)
@@ -1797,16 +1932,20 @@ SDValue X86TargetLowering::LowerFormalArguments(
         Register Reg = MF.addLiveIn(VA.getLocReg(), RC);
         ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
       }
-
+#if INTEL_CUSTOMIZATION
+      bool IsExtendedArg = !DAG.getTarget().Options.IntelABICompatible ||
+                          (DAG.getTarget().Options.IntelABICompatible &&
+                           F.hasLocalLinkage() && !F.hasAddressTaken());
       // If this is an 8 or 16-bit value, it is really passed promoted to 32
-      // bits.  Insert an assert[sz]ext to capture this, then truncate to the
-      // right size.
-      if (VA.getLocInfo() == CCValAssign::SExt)
+      // bits and the fuction is local linked.  Insert an assert[sz]ext to
+      // capture this, then truncate to the right size.
+      if (VA.getLocInfo() == CCValAssign::SExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
-      else if (VA.getLocInfo() == CCValAssign::ZExt)
+      else if (VA.getLocInfo() == CCValAssign::ZExt && IsExtendedArg)
         ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
                                DAG.getValueType(VA.getValVT()));
+#endif // INTEL_CUSTOMIZATION
       else if (VA.getLocInfo() == CCValAssign::BCvt)
         ArgValue = DAG.getBitcast(VA.getValVT(), ArgValue);
 
@@ -1926,6 +2065,9 @@ SDValue X86TargetLowering::LowerFormalArguments(
   }
 
   if (shouldDisableArgRegFromCSR(CallConv) ||
+#if INTEL_CUSTOMIZATION
+      shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
+#endif // INTEL_CUSTOMIZATION
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -2050,6 +2192,11 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                G->getGlobal()->hasDefaultVisibility()))
       isTailCall = false;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (isTailCall || IsMustTail)
+    MF.getFrameInfo().setX86StackRealignable(false);
+#endif // INTEL_CUSTOMIZATION
 
   if (isTailCall && !IsMustTail) {
     // Check if it's really possible to do a tail call.
@@ -2488,7 +2635,11 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // from the reg mask. Create a new RegMask for such calling conventions.
   // RegMask for calling conventions that disable only return registers (e.g.
   // preserve_most) will be modified later in LowerCallResult.
-  bool ShouldDisableArgRegs = shouldDisableArgRegFromCSR(CallConv) || HasNCSR;
+#if INTEL_CUSTOMIZATION
+  bool ShouldDisableArgRegs =
+      shouldDisableArgRegFromCSR(CallConv) ||
+      shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR;
+#endif // INTEL_CUSTOMIZATION
   if (ShouldDisableArgRegs || shouldDisableRetRegFromCSR(CallConv)) {
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
