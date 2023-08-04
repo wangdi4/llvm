@@ -6,7 +6,7 @@
 ; unrolling by searching for dominating store before the loop.
 
 ; CHECK: BEGIN REGION { }
-; CHECK: (i32*)(%Tmp1)[0] = 5;
+; CHECK: (%Tmp1)[0][0] = 5;
 ; CHECK: (%Tmp1)[0][1] = 10;
 
 ; CHECK: + DO i1 = 0, 1, 1   <DO_LOOP>
