@@ -58,7 +58,6 @@
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
@@ -90,8 +89,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "x86-isel"
 
-STATISTIC(NumTailCalls, "Number of tail calls");
-
 static cl::opt<int> ExperimentalPrefInnermostLoopAlignment(
     "x86-experimental-pref-innermost-loop-alignment", cl::init(4),
     cl::desc(
@@ -113,6 +110,7 @@ static cl::opt<bool> ExperimentalUnorderedISEL(
              "stores respectively."),
     cl::Hidden);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> EnableForceEmitMemoryFormBasicShuffle(
     "x86-force-emit-mem-form-basic-shuffle",
@@ -173,6 +171,8 @@ static bool shouldDisableArgRegFromCSR(CallingConv::ID CC) {
   return CC == CallingConv::X86_RegCall;
 }
 
+=======
+>>>>>>> 26a730821d48b86fe78fb854ee7ce3f64d696119
 X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                                      const X86Subtarget &STI)
     : TargetLowering(TM), Subtarget(STI) {
@@ -3136,6 +3136,7 @@ X86TargetLowering::getPreferredVectorAction(MVT VT) const {
   return TargetLoweringBase::getPreferredVectorAction(VT);
 }
 
+<<<<<<< HEAD
 static std::pair<MVT, unsigned>
 handleMaskRegisterForCallingConv(unsigned NumElts, CallingConv::ID CC,
                                  const X86Subtarget &Subtarget) {
@@ -6132,6 +6133,8 @@ bool X86TargetLowering::IsEligibleForTailCallOptimization(
   return true;
 }
 
+=======
+>>>>>>> 26a730821d48b86fe78fb854ee7ce3f64d696119
 FastISel *
 X86TargetLowering::createFastISel(FunctionLoweringInfo &funcInfo,
                                   const TargetLibraryInfo *libInfo) const {
@@ -6293,26 +6296,6 @@ bool X86::isOffsetSuitableForCodeModel(int64_t Offset, CodeModel::Model M,
     return true;
 
   return false;
-}
-
-/// Determines whether the callee is required to pop its own arguments.
-/// Callee pop is necessary to support tail calls.
-bool X86::isCalleePop(CallingConv::ID CallingConv,
-                      bool is64Bit, bool IsVarArg, bool GuaranteeTCO) {
-  // If GuaranteeTCO is true, we force some calls to be callee pop so that we
-  // can guarantee TCO.
-  if (!IsVarArg && shouldGuaranteeTCO(CallingConv, GuaranteeTCO))
-    return true;
-
-  switch (CallingConv) {
-  default:
-    return false;
-  case CallingConv::X86_StdCall:
-  case CallingConv::X86_FastCall:
-  case CallingConv::X86_ThisCall:
-  case CallingConv::X86_VectorCall:
-    return !is64Bit;
-  }
 }
 
 /// Return true if the condition is an signed comparison operation.
