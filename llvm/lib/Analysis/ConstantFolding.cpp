@@ -894,6 +894,7 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
   return ConstantFoldConstant(C, DL, TLI);
 }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 /// Strip the pointer casts, but preserve the address space information.
 // TODO: This probably doesn't make sense with opaque pointers.
 static Constant *StripPtrCastKeepAS(Constant *Ptr) {
@@ -903,18 +904,14 @@ static Constant *StripPtrCastKeepAS(Constant *Ptr) {
   auto *NewPtrTy = cast<PointerType>(Ptr->getType());
 
   // Preserve the address space number of the pointer.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (NewPtrTy->getAddressSpace() != OldPtrTy->getAddressSpace())
-    Ptr = ConstantExpr::getPointerCast(Ptr, OldPtrTy);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
   if (NewPtrTy->getAddressSpace() != OldPtrTy->getAddressSpace()) {
     Ptr = ConstantExpr::getPointerCast(
         Ptr, PointerType::getWithSamePointeeType(NewPtrTy,
                                                  OldPtrTy->getAddressSpace()));
   }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return Ptr;
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 /// If we can symbolically evaluate the GEP constant expression, do so.
 Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
@@ -950,7 +947,9 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
       BitWidth,
       DL.getIndexedOffsetInType(
           SrcElemTy, ArrayRef((Value *const *)Ops.data() + 1, Ops.size() - 1)));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Ptr = StripPtrCastKeepAS(Ptr);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // If this is a GEP of a GEP, fold it all into a single GEP.
   while (auto *GEP = dyn_cast<GEPOperator>(Ptr)) {
@@ -972,7 +971,9 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     Ptr = cast<Constant>(GEP->getOperand(0));
     SrcElemTy = GEP->getSourceElementType();
     Offset += APInt(BitWidth, DL.getIndexedOffsetInType(SrcElemTy, NestedOps));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     Ptr = StripPtrCastKeepAS(Ptr);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // If the base value for this address is a literal integer value, fold the
