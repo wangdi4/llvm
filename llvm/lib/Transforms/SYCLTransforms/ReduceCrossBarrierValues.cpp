@@ -204,6 +204,7 @@ static void copyAndReplaceUses(
       LLVM_DEBUG(dbgs() << "  Create a new copy.\n");
       Clone = OrigInst->clone();
       Clone->insertBefore(InsertPt);
+      Clone->setDebugLoc(InsertPt->getDebugLoc());
     }
     OriginToCopyMap[OrigInst] = Clone;
     CopyToOriginMap[Clone] = OrigInst;
