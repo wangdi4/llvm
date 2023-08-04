@@ -1,4 +1,4 @@
-; Check that we create a fake memory for linear(uval()) pointer-parameter pointee.
+; Check that we create a fake memory for linear(uval()) pointer-parameter pointee when we see a store to that pointer.
 
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 

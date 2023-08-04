@@ -641,15 +641,15 @@ void HLLoop::dumpOptReport() const {
   formatted_raw_ostream OS(dbgs());
   OptReport OR = getOptReport();
 
-  OptReportUtils::printNodeHeaderAndOrigin(OS, 0, OR, getDebugLoc());
+  OptReportUtils::printNodeHeaderAndOrigin(OS, 0, OR, getDebugLoc(), false);
 
   if (OR)
-    OptReportUtils::printOptReport(OS, 0, OR);
+    OptReportUtils::printOptReport(OS, 0, OR, false);
 
   OptReportUtils::printNodeFooter(OS, 0, OR);
 
   if (OR && OR.nextSibling())
-    OptReportUtils::printEnclosedOptReport(OS, 0, OR.nextSibling());
+    OptReportUtils::printEnclosedOptReport(OS, 0, OR.nextSibling(), false);
 #endif // !INTEL_PRODUCT_RELEASE
 }
 #endif

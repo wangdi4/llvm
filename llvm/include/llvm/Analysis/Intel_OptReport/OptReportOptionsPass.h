@@ -24,16 +24,24 @@
 
 namespace llvm {
 
+bool optReportShouldUseAbsolutePathsInModule(Module &);
+
 class OptReportOptions {
   OptReportVerbosity::Level Verbosity;
 
+  /// Whether opt-report filenames should be printed using absolute paths.
+  bool AbsolutePaths;
+
+  friend class OptReportOptionsPass;
+
 public:
-  OptReportOptions();
+  OptReportOptions(bool AbsolutePaths = false);
 
   enum OptReportEmitterKind { None, IR, HIR, MIR /*, vtune */ };
 
   bool isOptReportOn() const { return Verbosity > 0; }
   OptReportVerbosity::Level getVerbosity() const { return Verbosity; }
+  bool shouldPrintAbsolutePaths() const { return AbsolutePaths; }
 
   /// Handle invalidation from the pass manager.
   ///
@@ -63,12 +71,13 @@ public:
 
   OptReportOptionsAnalysis() {}
 
-  Result run(Function &, FunctionAnalysisManager &) {
-    return OptReportOptions();
+  Result run(Function &F, FunctionAnalysisManager &) {
+    return OptReportOptions(
+        optReportShouldUseAbsolutePathsInModule(*F.getParent()));
   }
 
-  Result run(Module &, ModuleAnalysisManager &) {
-    return OptReportOptions();
+  Result run(Module &M, ModuleAnalysisManager &) {
+    return OptReportOptions(optReportShouldUseAbsolutePathsInModule(M));
   }
 };
 
@@ -86,7 +95,10 @@ public:
     AU.setPreservesAll();
   }
 
-  bool doInitialization(Module &M) override { return false; }
+  bool doInitialization(Module &M) override {
+    Impl.AbsolutePaths = optReportShouldUseAbsolutePathsInModule(M);
+    return false;
+  }
 
   bool isOptReportOn() const { return Impl.isOptReportOn(); }
   OptReportVerbosity::Level getVerbosity() const {

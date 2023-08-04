@@ -1,4 +1,4 @@
-; RUN: opt -passes='early-cse<memssa>,intel-ir-optreport-emitter' -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes='early-cse<memssa>,intel-ir-optreport-emitter' -disable-output -intel-opt-report-file=stdout < %s | FileCheck %s
 ;
 ;
 ; Original test src:

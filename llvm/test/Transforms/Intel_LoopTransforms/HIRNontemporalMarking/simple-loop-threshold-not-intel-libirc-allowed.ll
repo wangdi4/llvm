@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check to make sure that we do not convert to nontemporal for a simple loop
@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <10>               + END LOOP
 ; <0>          END REGION
 
-define void @example(i64* %dest) "target-features"="+avx512f" {
+define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: example
 ; CHECK-NOT: !nontemporal
 ; CHECK-NOT: @llvm.x86.sse.sfence();
@@ -23,8 +23,8 @@ entry:
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  store i64 %index, i64* %addr, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  store i64 %index, ptr %addr, align 8
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 
@@ -43,7 +43,7 @@ exit:
 ; <15>               + END LOOP
 ; <0>          END REGION
 
-define void @vec-unaligned(double* %dest) "target-features"="+avx512f" {
+define void @vec-unaligned(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: vec-unaligned
 ; CHECK-NOT: !nontemporal
 ; CHECK-NOT: @llvm.x86.sse.sfence();
@@ -58,9 +58,9 @@ loop:
   %index.vec = or <8 x i64> %index.splat, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
   %index.vecfp = sitofp <8 x i64> %index.vec to <8 x double>
   %index.next = add i64 %index, 8
-  %addr = getelementptr inbounds double, double* %dest, i64 %index
-  %addr.vec = bitcast double* %addr to <8 x double>*
-  store <8 x double> %index.vecfp, <8 x double>* %addr.vec, align 8
+  %addr = getelementptr inbounds double, ptr %dest, i64 %index
+  %addr.vec = bitcast ptr %addr to ptr
+  store <8 x double> %index.vecfp, ptr %addr.vec, align 8
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 
@@ -79,9 +79,9 @@ exit:
 ; <15>               + END LOOP
 ; <0>          END REGION
 
-define void @vec-aligned(double* %dest) "target-features"="+avx512f" {
+define void @vec-aligned(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: vec-aligned
-; CHECK:            |   <LVAL-REG> {al:64}(<8 x double>*)(LINEAR double* %dest)[LINEAR i64 8 * i1] inbounds  !nontemporal
+; CHECK:            |   <LVAL-REG> {al:64}(<8 x double>*)(LINEAR ptr %dest)[LINEAR i64 8 * i1] inbounds  !nontemporal
 ; CHECK:               @llvm.x86.sse.sfence();
 
 entry:
@@ -94,9 +94,9 @@ loop:
   %index.vec = or <8 x i64> %index.splat, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
   %index.vecfp = sitofp <8 x i64> %index.vec to <8 x double>
   %index.next = add i64 %index, 8
-  %addr = getelementptr inbounds double, double* %dest, i64 %index
-  %addr.vec = bitcast double* %addr to <8 x double>*
-  store <8 x double> %index.vecfp, <8 x double>* %addr.vec, align 64
+  %addr = getelementptr inbounds double, ptr %dest, i64 %index
+  %addr.vec = bitcast ptr %addr to ptr
+  store <8 x double> %index.vecfp, ptr %addr.vec, align 64
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 

@@ -1,0 +1,96 @@
+# RUN: llc -run-pass=intel-mir-optreport-emitter -intel-opt-report-file=stdout -x mir < %s | FileCheck %s
+# RUN: llc -run-pass=intel-mir-optreport-emitter -intel-opt-report-file=stdout -intel-opt-report-use-absolute-paths -x mir < %s | FileCheck %s --check-prefix=ABSOLUTE
+
+# REQUIRES: system-windows
+
+# Check that the opt-report is generated using relative paths if the source file
+# is specified with a relative path, unless the option is used.
+
+# CHECK: LOOP BEGIN at ..\src\iota.c (2, 3)
+# ABSOLUTE: LOOP BEGIN at C:\Users\dwoodwor\opt-report-abs-filename\example\build\..\src\iota.c (2, 3)
+
+--- |
+  source_filename = "..\\src\\iota.c"
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-linux-gnu"
+  
+  define void @iota(ptr nocapture noundef writeonly %A) !dbg !3 {
+  entry:
+    br label %loop.14
+  
+  loop.14:                                          ; preds = %loop.14, %entry
+    %i1.i64.0 = phi i64 [ 0, %entry ], [ %nextivloop.14, %loop.14 ]
+    %0 = shl nuw nsw i64 %i1.i64.0, 2, !dbg !6
+    %scevgep = getelementptr i8, ptr %A, i64 %0, !dbg !6
+    %tmp = trunc i64 %i1.i64.0 to i32
+    %1 = insertelement <4 x i32> undef, i32 %tmp, i64 0, !dbg !6
+    %2 = shufflevector <4 x i32> %1, <4 x i32> poison, <4 x i32> zeroinitializer, !dbg !6
+    %3 = or <4 x i32> %2, <i32 0, i32 1, i32 2, i32 3>, !dbg !6
+    store <4 x i32> %3, ptr %scevgep, align 4, !dbg !6
+    %nextivloop.14 = add nuw nsw i64 %i1.i64.0, 4, !dbg !7
+    %4 = add nsw i64 %nextivloop.14, -4, !dbg !7
+    %condloop.14 = icmp ult i64 %4, 2044, !dbg !7
+    br i1 %condloop.14, label %loop.14, label %afterloop.14, !dbg !8, !llvm.loop !9
+  
+  afterloop.14:                                     ; preds = %loop.14
+    ret void, !dbg !19
+  }
+  
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!2}
+  
+  !0 = distinct !DICompileUnit(language: DW_LANG_C11, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)", isOptimized: true, flags: " --intel -O3 -x CORE-AVX512 -qopt-report=2 -mllvm -intel-opt-report-emitter=mir -c ..\\src\\iota.c -emit-llvm -S -o iota.ll -mllvm -unroll-partial-threshold=0 -fveclib=SVML -fheinous-gnu-extensions", runtimeVersion: 0, emissionKind: LineTablesOnly, splitDebugInlining: false, nameTableKind: None)
+  !1 = !DIFile(filename: "..\\src\\iota.c", directory: "C:\\Users\\dwoodwor\\opt-report-abs-filename\\example\\build")
+  !2 = !{i32 2, !"Debug Info Version", i32 3}
+  !3 = distinct !DISubprogram(name: "iota", scope: !1, file: !1, line: 1, type: !4, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0)
+  !4 = !DISubroutineType(types: !5)
+  !5 = !{}
+  !6 = !DILocation(line: 3, column: 10, scope: !3)
+  !7 = !DILocation(line: 2, column: 21, scope: !3)
+  !8 = !DILocation(line: 2, column: 3, scope: !3)
+  !9 = distinct !{!9, !8, !10, !11, !12, !13, !14}
+  !10 = !DILocation(line: 3, column: 12, scope: !3)
+  !11 = !{!"llvm.loop.mustprogress"}
+  !12 = !{!"llvm.loop.vectorize.width", i32 1}
+  !13 = !{!"llvm.loop.interleave.count", i32 1}
+  !14 = distinct !{!"intel.optreport.rootnode", !15}
+  !15 = distinct !{!"intel.optreport", !16}
+  !16 = !{!"intel.optreport.remarks", !17, !18}
+  !17 = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+  !18 = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
+  !19 = !DILocation(line: 4, column: 1, scope: !3)
+
+...
+---
+name:            iota
+tracksRegLiveness: true
+debugInstrRef:   true
+tracksDebugUserValues: true
+constants:
+  - id:              0
+    value:           '<4 x i32> <i32 0, i32 1, i32 2, i32 3>'
+    alignment:       16
+machineFunctionInfo: {}
+body:             |
+  bb.0.entry:
+    liveins: $rdi
+  
+    renamable $eax = XOR32rr undef $eax, undef $eax, implicit-def dead $eflags, implicit-def $rax
+    renamable $xmm0 = MOVDQArm $rip, 1, $noreg, %const.0, $noreg
+  
+  bb.1.loop.14 (align 16):
+    successors: %bb.1, %bb.2
+    liveins: $rax, $rdi, $xmm0
+  
+    renamable $xmm1 = MOVDI2PDIrr renamable $eax, debug-location !6
+    renamable $xmm1 = PSHUFDri killed renamable $xmm1, 0, debug-location !6
+    renamable $xmm1 = PORrr killed renamable $xmm1, renamable $xmm0, debug-location !6
+    MOVDQUmr renamable $rdi, 4, renamable $rax, 0, $noreg, killed renamable $xmm1, debug-location !6
+    CMP64ri32 renamable $rax, 2044, implicit-def $eflags, debug-location !7
+    renamable $rax = LEA64r killed renamable $rax, 1, $noreg, 4, $noreg, debug-location !7
+    JCC_1 %bb.1, 2, implicit killed $eflags, debug-location !8
+  
+  bb.2.afterloop.14:
+    RET64 debug-location !19
+
+...

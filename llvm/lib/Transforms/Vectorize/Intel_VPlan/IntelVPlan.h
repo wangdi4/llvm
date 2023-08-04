@@ -734,6 +734,8 @@ public:
                        // loop body.
     EarlyExitLane,     // Identify the first lane that takes an early-exit from
                        // loop.
+    EarlyExitID, // Compute the final value of exit ID at the merged exit block
+                 // of an early-exit loop.
   };
 
 private:
@@ -5263,6 +5265,35 @@ public:
 
   VPEarlyExitLane *cloneImpl() const override {
     return new VPEarlyExitLane(getOperand(0));
+  }
+};
+
+// Instruction to compute final value of exit ID at the merged exit block of an
+// early-exit loop. The exit ID values are set by mergeLoopExits and we need the
+// appropriate value at the exit block to divert control flow.
+class VPEarlyExitID final : public VPInstruction {
+public:
+  VPEarlyExitID(VPPHINode *ExitIDPhi, VPEarlyExitLane *ExitLane)
+      : VPInstruction(VPInstruction::EarlyExitID, ExitIDPhi->getType(),
+                      {ExitIDPhi, ExitLane}) {}
+
+  // Getters for operands
+  VPPHINode *getExitIDPhi() const { return cast<VPPHINode>(getOperand(0)); }
+  VPEarlyExitLane *getEarlyExitLane() const {
+    return cast<VPEarlyExitLane>(getOperand(1));
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitID;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitID *cloneImpl() const override {
+    return new VPEarlyExitID(getExitIDPhi(), getEarlyExitLane());
   }
 };
 

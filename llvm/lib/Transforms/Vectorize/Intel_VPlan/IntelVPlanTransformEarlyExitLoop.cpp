@@ -157,7 +157,17 @@ void VPTransformEarlyExitLoop::transform() {
       CmpInst::ICMP_NE, ExitIDPhi,
       Plan.getVPConstant(ConstantInt::get(ExitIDPhi->getType(), 0)));
   auto *EELane = Builder.create<VPEarlyExitLane>("early.exit.lane", EEIDMask);
-  (void)EELane;
+
+  // Step 4
+  // ======
+  //
+  // Add instruction to compute the final value of exit ID at the merged exit
+  // block. This extra wrapper is needed to account for cases where none of the
+  // loop iterations take the early-exit.
+  auto *EEID =
+      Builder.create<VPEarlyExitID>("early.exit.id", ExitIDPhi, EELane);
+  // Use the final value of exit ID to divert control flow in the cascaded-if.
+  CascadedIfCond->replaceUsesOfWith(ExitIDPhi, EEID);
 
   VPLAN_DUMP(TransformEarlyExitLoopDumpsControl, Plan);
 }
