@@ -1757,6 +1757,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
                                                   QualType SrcRecordTy,
                                                   QualType DestTy) {
   llvm::Type *DestLTy = CGF.ConvertType(DestTy);
+  if (!DestLTy->isPointerTy())
+    DestLTy = DestLTy->getPointerTo();
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   auto *ClassDecl =
       cast<CXXRecordDecl>(SrcRecordTy->castAs<RecordType>()->getDecl());
