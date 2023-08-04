@@ -155,9 +155,11 @@ What components support MarkerCount
 ===================================
 
 - Compiler (XMAIN + internal GCC)
-- Decoder (LLVM && GNU BINUTILS and XED)
+- Decoder
+    - LLVM && GNU BINUTILS
+    - XED (usage: `xed -set MARKERCOUNT 1 -64 -d <seq>`)
 - Simulators
-    - SDE
+    - SDE (usage: `sde -markercount 1 -- <app>`)
     - Keiko
 - Simulator triggers
     - SDE's existing trigger and alarm support can start/stop tracing at
@@ -166,13 +168,11 @@ What components support MarkerCount
 - Tracing representations
     - LIT format (arch.xml): Extended to architecturally capture MarkerCount
       values as part of arch.xml
-    - Pinball format
-- Tracing utilities
-    - PipeTrace: MarkerCount is pipe-trace viewable on a per-instruction basis
 - Tracing scripts
-    - SDE's tracing methodology scripts are extended to support a new tracing
-      methodology based on MarkerCount alignment of A/B LITs
-    - KPERF can generate A/B tracing at a top level for some benchmarks
+    - `SDE's tracing methodology script <https://github.com/intel-restricted/applications.simulators.sde.sde/blob/master/tracing/pinpoints-scripts/sde_pinpoints.py>`_
+      is extended to support a new tracing methodology based on MarkerCount alignment of A/B LITs.
+      (related knob `--intermediate_a_set`, `--intermediate_b_set`, `--skip_whole_program`, `--LIT_B_set_cfg`)
+    - `KPERF <https://github.com/intel-innersource/applications.compilers.infrastructure.pkgs/blob/master/kperf/kperf.sh>`_ can generate A/B tracing at a top level for some benchmarks
 
 
 Representations of MarkerCount

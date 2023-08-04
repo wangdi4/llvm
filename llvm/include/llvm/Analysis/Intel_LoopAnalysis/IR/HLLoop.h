@@ -586,8 +586,12 @@ public:
   }
 
   /// Returns the nesting level of the loop.
-  unsigned getNestingLevel() const {
-    assert(getParentRegion() && "getNestingLevel() invoked on detached loop!");
+  /// \p AssertIfDetached asserts if function is invoked on a detached loop. It
+  /// can be forcefully skipped by the client asserting that it knows what it is
+  /// doing.
+  unsigned getNestingLevel(bool AssertIfDetached = true) const {
+    assert((!AssertIfDetached || getParentRegion()) &&
+           "getNestingLevel() invoked on detached loop!");
     return NestingLevel;
   }
 

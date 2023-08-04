@@ -1366,21 +1366,35 @@ public:
 class UnrollHelper::CanonExprUpdater final : public HLNodeVisitorBase {
 private:
   UnrollHelper &UHelper;
+  unsigned CurLevel;
 
   void processRegDDRef(RegDDRef *RegDD);
-  void processCanonExpr(CanonExpr *CExpr);
+
+  // Returns true if CExpr was modified.
+  bool processCanonExpr(CanonExpr *CExpr);
 
 public:
-  CanonExprUpdater(UnrollHelper &UHelper) : UHelper(UHelper) {}
+  CanonExprUpdater(UnrollHelper &UHelper)
+      : UHelper(UHelper), CurLevel(UHelper.CurOrigLoop->getNestingLevel(
+                              false /*AssertIfDetached*/)) {}
 
   /// No processing needed for Goto
   void visit(HLGoto *Goto){};
   /// No processing needed for Label
   void visit(HLLabel *Label){};
+
+  void visit(HLLoop *Lp) {
+    ++CurLevel;
+    visit(cast<HLDDNode>(Lp));
+  }
+
   void visit(HLDDNode *Node);
   void visit(HLNode *Node) {
     llvm_unreachable(" Node not supported for unrolling.");
   };
+
+  void postVisit(HLLoop *Lp) { --CurLevel; }
+
   void postVisit(HLNode *Node) {}
 
   void createLvalTempMapping(RegDDRef *LvalRef);
@@ -1578,9 +1592,15 @@ void UnrollHelper::CanonExprUpdater::processRegDDRef(RegDDRef *Ref) {
 
   UHelper.renameTemps(Ref);
 
-  for (auto Iter = Ref->canon_begin(), End = Ref->canon_end(); Iter != End;
-       ++Iter) {
-    processCanonExpr(*Iter);
+  bool RemovedIV = false;
+  for (auto *CE : Ref->canons()) {
+    if (processCanonExpr(CE) && !CE->hasIV(UHelper.UnrollLevel)) {
+      RemovedIV = true;
+    }
+  }
+
+  if (RemovedIV) {
+    Ref->makeConsistent({}, CurLevel);
   }
 
   Ref->replaceNoAliasScopeInfo(UHelper.getNoAliasScopeMap());
@@ -1588,7 +1608,11 @@ void UnrollHelper::CanonExprUpdater::processRegDDRef(RegDDRef *Ref) {
 
 /// Processes CanonExpr to modify IV to:
 /// IV*UF + (Original IVCoeff)*UnrollIteration.
-void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
+bool UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
+
+  if (!CExpr->hasIV(UHelper.UnrollLevel))
+    return false;
+
   CExpr->shift(UHelper.UnrollLevel, UHelper.UnrollIteration);
 
   CExpr->multiplyIVByConstant(UHelper.UnrollLevel, UHelper.UnrollFactor);
@@ -1596,6 +1620,8 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   // non-negative. Can use HLNodeUtils::isKnownNonNegative() if simplification
   // is required for performance.
   // CExpr->simplify(true);
+
+  return true;
 }
 
 // Populates the scopes for all loop levels involved in unroll & jam. Since we
