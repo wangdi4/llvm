@@ -18867,7 +18867,6 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
                      DAG.getIntPtrConstant(0, dl));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 static SDValue LowerEXTRACT_VECTOR_ELT_VPEXTR(SDValue Op, SelectionDAG &DAG,
@@ -18891,7 +18890,7 @@ static SDValue LowerEXTRACT_VECTOR_ELT_VPEXTR(SDValue Op, SelectionDAG &DAG,
 }
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // Helper to find all the extracted elements from a vector.
 static APInt getExtractedDemandedElts(SDNode *N) {
   MVT VT = N->getSimpleValueType(0);
@@ -18925,7 +18924,6 @@ static APInt getExtractedDemandedElts(SDNode *N) {
   }
   return DemandedElts;
 }
->>>>>>> 071671e15c3eda59165db435b102fbeb1c673a29
 
 SDValue
 X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
