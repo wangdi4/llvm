@@ -5426,20 +5426,12 @@ static bool combineInstructionsOverFunction(
     LLVM_DEBUG(dbgs() << "\n\nINSTCOMBINE ITERATION #" << Iteration << " on "
                       << F.getName() << "\n");
 
-<<<<<<< HEAD
-    bool MadeChangeInThisIteration =
-        prepareICWorklistFromFunction(F, DL, &TLI, Worklist, RPOT);
-
 #if INTEL_CUSTOMIZATION
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
                         EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI,
                         TTI, DT, ORE, BFI, PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
-=======
-    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI, DT,
-                        ORE, BFI, PSI, DL, LI);
->>>>>>> 09156b36c65def7d1954e78b70408b4e743d417e
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);
     MadeChangeInThisIteration |= IC.run();
