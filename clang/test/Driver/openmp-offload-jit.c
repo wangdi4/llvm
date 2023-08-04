@@ -17,7 +17,7 @@
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -foffload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
-// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
+// RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fno-offload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // end INTEL_CUSTOMIZATION
@@ -39,7 +39,7 @@
 
 // Check that we add the `--embed-bitcode` flag to the linker wrapper.
 // INTEL_CUSTOMIZATION
-// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
+// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=LINKER %s
 // end INTEL_CUSTOMIZATION
@@ -47,12 +47,12 @@
 
 // Check for incompatible combinations
 
-// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -fno-offload-lto \
+// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -fno-offload-lto \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
 // RUN: | FileCheck -check-prefix=NO-LTO %s
 // NO-LTO: error: the combination of '-fno-offload-lto' and '-fopenmp-target-jit' is incompatible
 
-// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -foffload-lto=thin \
+// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -foffload-lto=thin \
 // RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
 // RUN: | FileCheck -check-prefix=THIN-LTO %s
 // THIN-LTO: error: the combination of '-foffload-lto=' and '-fopenmp-target-jit' is incompatible
