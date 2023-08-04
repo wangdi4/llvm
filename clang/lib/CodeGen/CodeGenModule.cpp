@@ -4575,12 +4575,10 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
         // Emit declaration of the must-be-emitted declare target variable.
         if (std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
                 OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD)) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
           if (*Res == OMPDeclareTargetDeclAttr::MT_Local)
             return;
 #endif // INTEL_COLLAB
-=======
 
           // If this variable has external storage and doesn't require special
           // link handling we defer to its canonical definition.
@@ -4588,7 +4586,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
               Res != OMPDeclareTargetDeclAttr::MT_Link)
             return;
 
->>>>>>> 141c4e7a9403fed46d84c7f0429295bd28c89368
           bool UnifiedMemoryEnabled =
               getOpenMPRuntime().hasRequiresUnifiedSharedMemory();
           if ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
