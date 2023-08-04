@@ -45,7 +45,7 @@ struct OptReportEmitter {
   OptReportEmitter() {}
 
   void printOptReportRecursive(const Loop *L, unsigned Depth,
-                               formatted_raw_ostream &FOS);
+                               formatted_raw_ostream &FOS, bool AbsolutePaths);
 
 #if INTEL_FEATURE_CSA
   bool isCSALibMathFunction(const Function &F);
@@ -53,26 +53,27 @@ struct OptReportEmitter {
   bool isCSALibCFunction(const Function &F);
 #endif // INTEL_FEATURE_CSA
 
-  bool run(Function &F, LoopInfo &LI);
+  bool run(Function &F, LoopInfo &LI, const OptReportOptions &Options);
 };
 
 void OptReportEmitter::printOptReportRecursive(const Loop *L, unsigned Depth,
-                                               formatted_raw_ostream &FOS) {
+                                               formatted_raw_ostream &FOS,
+                                               bool AbsolutePaths) {
   OptReport OR = OptReport::findOptReportInLoopID(L->getLoopID());
 
-  printNodeHeaderAndOrigin(FOS, Depth, OR, L->getStartLoc());
+  printNodeHeaderAndOrigin(FOS, Depth, OR, L->getStartLoc(), AbsolutePaths);
 
   if (OR) {
-    printOptReport(FOS, Depth + 1, OR);
+    printOptReport(FOS, Depth + 1, OR, AbsolutePaths);
   }
 
   for (const Loop *CL : L->getSubLoops())
-    printOptReportRecursive(CL, Depth + 1, FOS);
+    printOptReportRecursive(CL, Depth + 1, FOS, AbsolutePaths);
 
   printNodeFooter(FOS, Depth, OR);
 
   if (OR && OR.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OR.nextSibling());
+    printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
 }
 
 #if INTEL_FEATURE_CSA
@@ -132,7 +133,8 @@ bool OptReportEmitter::isCSALibCFunction(const Function &F) {
 }
 #endif // INTEL_FEATURE_CSA
 
-bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
+bool OptReportEmitter::run(Function &F, LoopInfo &LI,
+                           const OptReportOptions &Options) {
   if (DisableIROptReportEmitter)
     return false;
 
@@ -153,7 +155,8 @@ bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
   if (FunOR) {
     // Print the opt-report with remarks at function level.
     if (!FunOR.remarks().empty()) {
-      printNodeHeaderAndOrigin(OS, 0, FunOR, DebugLoc());
+      printNodeHeaderAndOrigin(OS, 0, FunOR, DebugLoc(),
+                               Options.shouldPrintAbsolutePaths());
       for (const OptRemark R : FunOR.remarks())
         printRemark(OS, 1, R);
       printNodeFooter(OS, 0, FunOR);
@@ -161,14 +164,15 @@ bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
 
     // Print lost loop opt-reports attached at function level.
     if (FunOR.firstChild())
-      printEnclosedOptReport(OS, 0, FunOR.firstChild());
+      printEnclosedOptReport(OS, 0, FunOR.firstChild(),
+                             Options.shouldPrintAbsolutePaths());
   }
 
   // Traversal through all loops of the program in lexicographical order.
   // Due to the specifics of loop build algorithm, it is achieved via reverse
   // iteration.
   for (LoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend(); I != E; ++I)
-    printOptReportRecursive(*I, 0, OS);
+    printOptReportRecursive(*I, 0, OS, Options.shouldPrintAbsolutePaths());
 
   OS << "================================================================="
         "\n\n";
@@ -192,11 +196,13 @@ struct OptReportEmitterLegacyPass : public FunctionPass {
 void OptReportEmitterLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool OptReportEmitterLegacyPass::runOnFunction(Function &F) {
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  return OptReportEmitter().run(F, LI);
+  const OptReportOptions &Options = getAnalysis<OptReportOptionsPass>().Impl;
+  return OptReportEmitter().run(F, LI, Options);
 }
 
 } // namespace
@@ -204,7 +210,8 @@ bool OptReportEmitterLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses OptReportEmitterPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   OptReportEmitter Emitter;
-  Emitter.run(F, AM.getResult<LoopAnalysis>(F));
+  Emitter.run(F, AM.getResult<LoopAnalysis>(F),
+              AM.getResult<OptReportOptionsAnalysis>(F));
   return PreservedAnalyses::all();
 }
 
@@ -212,6 +219,7 @@ char OptReportEmitterLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(OptReportEmitterLegacyPass, DEBUG_TYPE,
                       "The pass emits optimization reports", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(OptReportEmitterLegacyPass, DEBUG_TYPE,
                     "The pass emits optimization reports", false, false)
 

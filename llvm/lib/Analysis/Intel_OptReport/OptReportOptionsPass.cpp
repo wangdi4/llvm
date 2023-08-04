@@ -17,8 +17,10 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Path.h"
 
 using namespace llvm;
 
@@ -73,6 +75,29 @@ static cl::opt<std::string> OptReportFile(
              "writes to stderr. Default is 'stderr'."),
     cl::init("stderr"));
 
+/// Internal option to force absolute path printing on/off.
+static cl::opt<bool> ForceAbsolutePaths(
+    "intel-opt-report-use-absolute-paths",
+    cl::desc("Whether to use absolute paths in optimization reports. If not "
+             "set, this is determined automatically from the module."));
+
+bool llvm::optReportShouldUseAbsolutePathsInModule(Module &M) {
+
+  // Follow the flag if set.
+  if (ForceAbsolutePaths.getNumOccurrences() > 0)
+    return ForceAbsolutePaths;
+
+  // Otherwise, check for compile unit metadata. Absolute paths should be used
+  // if any of these is an absolute path.
+  for (DICompileUnit *CU : M.debug_compile_units())
+    if (sys::path::is_absolute(CU->getFilename()))
+      return true;
+
+  // Otherwise, absolute paths should be used if the module's source file name
+  // is an absolute path.
+  return sys::path::is_absolute(M.getSourceFileName());
+}
+
 formatted_raw_ostream &OptReportOptions::getOutputStream() {
 
   // Use stdout and stderr if requested.
@@ -100,7 +125,8 @@ char OptReportOptionsPass::ID = 0;
 INITIALIZE_PASS(OptReportOptionsPass, "optimization-report-options-pass",
                 "Optimization report options pass", false, true)
 
-OptReportOptions::OptReportOptions() : Verbosity(OptReportVerbosityOption) {}
+OptReportOptions::OptReportOptions(bool AbsolutePaths)
+    : Verbosity(OptReportVerbosityOption), AbsolutePaths(AbsolutePaths) {}
 
 OptReportOptionsPass::OptReportOptionsPass() : ImmutablePass(ID) {
   initializeOptReportOptionsPassPass(*PassRegistry::getPassRegistry());

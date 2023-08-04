@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir>,hir-vec-dir-insert,hir-cg,intel-ir-optreport-emitter" -intel-opt-report=medium -force-hir-cg -aa-pipeline=basic-aa -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vec-dir-insert,hir-cg,intel-ir-optreport-emitter" -intel-opt-report=medium -force-hir-cg -aa-pipeline=basic-aa -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that Opt Report prints out relevant information regarding why vectorization
 ; does not happen. Note that p1 is a global array, and t1 is represented as a
