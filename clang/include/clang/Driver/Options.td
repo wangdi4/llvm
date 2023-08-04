@@ -942,6 +942,11 @@ def Xspirv_translator : Separate<["-"], "Xspirv-translator">,
 def Xspirv_translator_EQ : JoinedAndSeparate<["-"], "Xspirv-translator=">,
   HelpText<"Pass <arg> to the LLVM IR to SPIR-V translation backend identified by <triple>.">,
   MetaVarName<"<triple> <arg>">, Flags<[CoreOption, HelpHidden]>;
+def Xspirv_to_ir_wrapper : Separate<["-"], "Xspirv-to-ir-wrapper">,
+  HelpText<"Pass <arg> to the SPIR-V to LLVM IR translation backend.">, MetaVarName<"<arg>">, Flags<[CoreOption, HelpHidden]>;
+def Xspirv_to_ir_wrapper_EQ : JoinedAndSeparate<["-"], "Xspirv-to-ir-wrapper=">,
+  HelpText<"Pass <arg> to the SPIR-V to LLVM IR translation backend identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">, Flags<[CoreOption, HelpHidden]>;
 #if INTEL_CUSTOMIZATION
 def Xopenmp_backend : Separate<["-"], "Xopenmp-target-backend">,
   HelpText<"Pass <arg> to the OpenMP based target backend.">,
