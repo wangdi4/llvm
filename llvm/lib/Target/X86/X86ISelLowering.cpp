@@ -62998,7 +62998,13 @@ X86TargetLowering::getSingleConstraintMatchWeight(
       return CW_Invalid;
     // Conditional OpMask regs (AVX512)
     case 'k':
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if ((Ty->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
       if ((Ty->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         return CW_Register;
       return CW_Invalid;
     // Any MMX reg
@@ -63012,40 +63018,7 @@ X86TargetLowering::getSingleConstraintMatchWeight(
     case '2':
       if (!Subtarget.hasSSE2())
         return CW_Invalid;
-<<<<<<< HEAD
-      // XMM0
-      case 'z':
-        if (((type->getPrimitiveSizeInBits() == 128) && Subtarget.hasSSE1()) ||
-            ((type->getPrimitiveSizeInBits() == 256) && Subtarget.hasAVX()) ||
-            ((type->getPrimitiveSizeInBits() == 512) && Subtarget.hasAVX512()))
-          return CW_SpecificReg;
-        return CW_Invalid;
-      // Conditional OpMask regs (AVX512)
-      case 'k':
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-        if ((type->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX3())
-#else // INTEL_FEATURE_ISA_AVX256P
-        if ((type->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX512())
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-          return CW_Register;
-        return CW_Invalid;
-      // Any MMX reg
-      case 'm':
-        if (type->isX86_MMXTy() && Subtarget.hasMMX())
-          return weight;
-        return CW_Invalid;
-      // Any SSE reg when ISA >= SSE2, same as 'x'
-      case 'i':
-      case 't':
-      case '2':
-        if (!Subtarget.hasSSE2())
-          return CW_Invalid;
-        break;
-=======
       break;
->>>>>>> 0c5e90647bc305afabbd949a224176eed1b3fd70
     }
     break;
   case 'v':
@@ -63059,19 +63032,14 @@ X86TargetLowering::getSingleConstraintMatchWeight(
     break;
   case 'k':
     // Enable conditional vector operations using %k<#> registers.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-    if ((type->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX3())
+    if ((Ty->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX3())
 #else // INTEL_FEATURE_ISA_AVX256P
-    if ((type->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX512())
+    if ((Ty->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX512())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-      weight = CW_Register;
-=======
-    if ((Ty->getPrimitiveSizeInBits() == 64) && Subtarget.hasAVX512())
       Wt = CW_Register;
->>>>>>> 0c5e90647bc305afabbd949a224176eed1b3fd70
     break;
   case 'I':
     if (auto *C = dyn_cast<ConstantInt>(Info.CallOperandVal))
