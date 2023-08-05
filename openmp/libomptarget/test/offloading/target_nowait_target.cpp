@@ -1,13 +1,10 @@
 // RUN: %libomptarget-compilexx-and-run-generic
-<<<<<<< HEAD
+// RUN: %libomptarget-compileoptxx-and-run-generic
 
 // UNSUPPORTED: amdgcn-amd-amdhsa
 // INTEL_CUSTOMIZATION
 // REQUIRES: NewHostRTEntry__kmpc_omp_taskwait_deps_51
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %libomptarget-compileoptxx-and-run-generic
->>>>>>> 125764a1b2ffc90859010d152ce0fd2c5c1e2c57
 
 #include <cassert>
 
