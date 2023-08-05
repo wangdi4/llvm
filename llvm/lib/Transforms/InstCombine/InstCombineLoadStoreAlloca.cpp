@@ -1973,10 +1973,8 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
     // Remove all instructions after the marker and handle dead blocks this
     // implies.
     SmallVector<BasicBlock *> Worklist;
-    bool Changed = handleUnreachableFrom(SI.getNextNode(), Worklist);
-    Changed |= handlePotentiallyDeadBlocks(Worklist);
-    if (Changed)
-      return &SI;
+    handleUnreachableFrom(SI.getNextNode(), Worklist);
+    handlePotentiallyDeadBlocks(Worklist);
     return nullptr;
   }
 

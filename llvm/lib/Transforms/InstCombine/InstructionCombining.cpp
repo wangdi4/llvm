@@ -3821,22 +3821,21 @@ Instruction *InstCombinerImpl::visitUnconditionalBranchInst(BranchInst &BI) {
 }
 
 // Under the assumption that I is unreachable, remove it and following
-// instructions.
-bool InstCombinerImpl::handleUnreachableFrom(
+// instructions. Changes are reported directly to MadeIRChange.
+void InstCombinerImpl::handleUnreachableFrom(
     Instruction *I, SmallVectorImpl<BasicBlock *> &Worklist) {
-  bool Changed = false;
   BasicBlock *BB = I->getParent();
   for (Instruction &Inst : make_early_inc_range(
            make_range(std::next(BB->getTerminator()->getReverseIterator()),
                       std::next(I->getReverseIterator())))) {
     if (!Inst.use_empty() && !Inst.getType()->isTokenTy()) {
       replaceInstUsesWith(Inst, PoisonValue::get(Inst.getType()));
-      Changed = true;
+      MadeIRChange = true;
     }
     if (Inst.isEHPad() || Inst.getType()->isTokenTy())
       continue;
     eraseInstFromFunction(Inst);
-    Changed = true;
+    MadeIRChange = true;
   }
 
   // Replace phi node operands in successor blocks with poison.
@@ -3846,19 +3845,17 @@ bool InstCombinerImpl::handleUnreachableFrom(
         if (PN.getIncomingBlock(U) == BB && !isa<PoisonValue>(U)) {
           replaceUse(U, PoisonValue::get(PN.getType()));
           addToWorklist(&PN);
-          Changed = true;
+          MadeIRChange = true;
         }
 
   // Handle potentially dead successors.
   for (BasicBlock *Succ : successors(BB))
     if (DeadEdges.insert({BB, Succ}).second)
       Worklist.push_back(Succ);
-  return Changed;
 }
 
-bool InstCombinerImpl::handlePotentiallyDeadBlocks(
+void InstCombinerImpl::handlePotentiallyDeadBlocks(
     SmallVectorImpl<BasicBlock *> &Worklist) {
-  bool Changed = false;
   while (!Worklist.empty()) {
     BasicBlock *BB = Worklist.pop_back_val();
     if (!all_of(predecessors(BB), [&](BasicBlock *Pred) {
@@ -3866,12 +3863,11 @@ bool InstCombinerImpl::handlePotentiallyDeadBlocks(
         }))
       continue;
 
-    Changed |= handleUnreachableFrom(&BB->front(), Worklist);
+    handleUnreachableFrom(&BB->front(), Worklist);
   }
-  return Changed;
 }
 
-bool InstCombinerImpl::handlePotentiallyDeadSuccessors(BasicBlock *BB,
+void InstCombinerImpl::handlePotentiallyDeadSuccessors(BasicBlock *BB,
                                                        BasicBlock *LiveSucc) {
   SmallVector<BasicBlock *> Worklist;
   for (BasicBlock *Succ : successors(BB)) {
@@ -3883,7 +3879,7 @@ bool InstCombinerImpl::handlePotentiallyDeadSuccessors(BasicBlock *BB,
       Worklist.push_back(Succ);
   }
 
-  return handlePotentiallyDeadBlocks(Worklist);
+  handlePotentiallyDeadBlocks(Worklist);
 }
 
 Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
@@ -3929,13 +3925,15 @@ Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
     return &BI;
   }
 
-  if (isa<UndefValue>(Cond) &&
-      handlePotentiallyDeadSuccessors(BI.getParent(), /*LiveSucc*/ nullptr))
-    return &BI;
-  if (auto *CI = dyn_cast<ConstantInt>(Cond))
-    if (handlePotentiallyDeadSuccessors(BI.getParent(),
-                                        BI.getSuccessor(!CI->getZExtValue())))
-      return &BI;
+  if (isa<UndefValue>(Cond)) {
+    handlePotentiallyDeadSuccessors(BI.getParent(), /*LiveSucc*/ nullptr);
+    return nullptr;
+  }
+  if (auto *CI = dyn_cast<ConstantInt>(Cond)) {
+    handlePotentiallyDeadSuccessors(BI.getParent(),
+                                    BI.getSuccessor(!CI->getZExtValue()));
+    return nullptr;
+  }
 
   return nullptr;
 }
@@ -3954,14 +3952,6 @@ Instruction *InstCombinerImpl::visitSwitchInst(SwitchInst &SI) {
     }
     return replaceOperand(SI, 0, Op0);
   }
-
-  if (isa<UndefValue>(Cond) &&
-      handlePotentiallyDeadSuccessors(SI.getParent(), /*LiveSucc*/ nullptr))
-    return &SI;
-  if (auto *CI = dyn_cast<ConstantInt>(Cond))
-    if (handlePotentiallyDeadSuccessors(
-            SI.getParent(), SI.findCaseValue(CI)->getCaseSuccessor()))
-      return &SI;
 
   KnownBits Known = computeKnownBits(Cond, 0, &SI);
   unsigned LeadingKnownZeros = Known.countMinLeadingZeros();
@@ -3993,6 +3983,16 @@ Instruction *InstCombinerImpl::visitSwitchInst(SwitchInst &SI) {
       Case.setValue(ConstantInt::get(SI.getContext(), TruncatedCase));
     }
     return replaceOperand(SI, 0, NewCond);
+  }
+
+  if (isa<UndefValue>(Cond)) {
+    handlePotentiallyDeadSuccessors(SI.getParent(), /*LiveSucc*/ nullptr);
+    return nullptr;
+  }
+  if (auto *CI = dyn_cast<ConstantInt>(Cond)) {
+    handlePotentiallyDeadSuccessors(SI.getParent(),
+                                    SI.findCaseValue(CI)->getCaseSuccessor());
+    return nullptr;
   }
 
   return nullptr;
