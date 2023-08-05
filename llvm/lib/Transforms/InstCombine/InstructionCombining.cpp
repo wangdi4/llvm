@@ -3844,6 +3844,23 @@ Instruction *InstCombinerImpl::visitUnconditionalBranchInst(BranchInst &BI) {
   return nullptr;
 }
 
+void InstCombinerImpl::addDeadEdge(BasicBlock *From, BasicBlock *To,
+                                   SmallVectorImpl<BasicBlock *> &Worklist) {
+  if (!DeadEdges.insert({From, To}).second)
+    return;
+
+  // Replace phi node operands in successor with poison.
+  for (PHINode &PN : To->phis())
+    for (Use &U : PN.incoming_values())
+      if (PN.getIncomingBlock(U) == From && !isa<PoisonValue>(U)) {
+        replaceUse(U, PoisonValue::get(PN.getType()));
+        addToWorklist(&PN);
+        MadeIRChange = true;
+      }
+
+  Worklist.push_back(To);
+}
+
 // Under the assumption that I is unreachable, remove it and following
 // instructions. Changes are reported directly to MadeIRChange.
 void InstCombinerImpl::handleUnreachableFrom(
@@ -3862,20 +3879,9 @@ void InstCombinerImpl::handleUnreachableFrom(
     MadeIRChange = true;
   }
 
-  // Replace phi node operands in successor blocks with poison.
-  for (BasicBlock *Succ : successors(BB))
-    for (PHINode &PN : Succ->phis())
-      for (Use &U : PN.incoming_values())
-        if (PN.getIncomingBlock(U) == BB && !isa<PoisonValue>(U)) {
-          replaceUse(U, PoisonValue::get(PN.getType()));
-          addToWorklist(&PN);
-          MadeIRChange = true;
-        }
-
   // Handle potentially dead successors.
   for (BasicBlock *Succ : successors(BB))
-    if (DeadEdges.insert({BB, Succ}).second)
-      Worklist.push_back(Succ);
+    addDeadEdge(BB, Succ, Worklist);
 }
 
 void InstCombinerImpl::handlePotentiallyDeadBlocks(
@@ -3899,8 +3905,7 @@ void InstCombinerImpl::handlePotentiallyDeadSuccessors(BasicBlock *BB,
     if (Succ == LiveSucc)
       continue;
 
-    if (DeadEdges.insert({BB, Succ}).second)
-      Worklist.push_back(Succ);
+    addDeadEdge(BB, Succ, Worklist);
   }
 
   handlePotentiallyDeadBlocks(Worklist);
@@ -5276,8 +5281,13 @@ bool InstCombinerImpl::prepareWorklist(
 
   auto HandleOnlyLiveSuccessor = [&](BasicBlock *BB, BasicBlock *LiveSucc) {
     for (BasicBlock *Succ : successors(BB))
-      if (Succ != LiveSucc)
-        DeadEdges.insert({BB, Succ});
+      if (Succ != LiveSucc && DeadEdges.insert({BB, Succ}).second)
+        for (PHINode &PN : Succ->phis())
+          for (Use &U : PN.incoming_values())
+            if (PN.getIncomingBlock(U) == BB && !isa<PoisonValue>(U)) {
+              U.set(PoisonValue::get(PN.getType()));
+              MadeIRChange = true;
+            }
   };
 
   for (BasicBlock *BB : RPOT) {
