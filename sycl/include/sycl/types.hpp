@@ -741,27 +741,12 @@ public:
 
   vec() = default;
 
-<<<<<<< HEAD
   constexpr vec(const vec &Rhs) = default;
-=======
-  // TODO Remove this difference between host and device side after
-  // when root cause of API incompatibility will be fixed
-#ifdef __SYCL_DEVICE_ONLY__
-  vec(const vec &Rhs) = default;
-  vec &operator=(const vec &Rhs) = default;
-#else
-  constexpr vec(const vec &Rhs) : m_Data(Rhs.m_Data) {}
-  constexpr vec &operator=(const vec &Rhs) = default;
-#endif
->>>>>>> b65969014f001f9730349a5caad5c2b85c9bc378
 
   constexpr vec(vec &&Rhs) = default;
 
-<<<<<<< HEAD
   constexpr vec &operator=(const vec &Rhs) = default;
 
-=======
->>>>>>> b65969014f001f9730349a5caad5c2b85c9bc378
   // W/o this, things like "vec<char,*> = vec<signed char, *>" doesn't work.
   template <typename Ty = DataT>
   typename std::enable_if_t<!std::is_same_v<Ty, rel_t> &&
