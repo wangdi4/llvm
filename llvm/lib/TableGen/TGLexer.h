@@ -84,6 +84,7 @@ enum TokKind {
 
   // Preprocessing tokens for internal usage by the lexer.
   // They are never returned as a result of Lex().
+  IfPP, // INTEL
   Ifdef,
   Ifndef,
   Else,
@@ -180,19 +181,7 @@ enum TokKind {
   StrVal,
   VarName,
   CodeFragment,
-<<<<<<< HEAD
-
-  // Preprocessing tokens for internal usage by the lexer.
-  // They are never returned as a result of Lex().
-  IfPP, // INTEL
-  Ifdef,
-  Ifndef,
-  Else,
-  Endif,
-  Define
-=======
   STRING_VALUE_LAST = CodeFragment,
->>>>>>> ebf394fdfc30fedb4557861fd434ec66daebb574
 };
 
 /// isBangOperator - Return true if this is a bang operator.
