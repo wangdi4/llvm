@@ -2,8 +2,12 @@
 // REQUIRES: nvptx-registered-target
 // REQUIRES: amdgpu-registered-target
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp -fopenmp-new-driver \
+=======
+// RUN:   not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
+>>>>>>> b7551458b661c9c21da7427fdaf0369aa87358c3
 // RUN:          --offload-arch=sm_52 --offload-arch=gfx803 \
 // RUN:          --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib/libomptarget-amdgpu-gfx803.bc \
 // RUN:          --libomptarget-nvptx-bc-path=%S/Inputs/libomptarget/libomptarget-nvptx-test.bc %s 2>&1 \
@@ -45,8 +49,12 @@
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "clang", inputs: ["[[HOST_BC]]", "[[BINARY]]"], output: "[[HOST_OBJ:.*]]"
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "Offload::Linker", inputs: ["[[HOST_OBJ]]"], output: "a.out"
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp -fopenmp-new-driver \
+=======
+// RUN:   not %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
+>>>>>>> b7551458b661c9c21da7427fdaf0369aa87358c3
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 --offload-arch=native \
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp \
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 --offload-arch=skylake \
