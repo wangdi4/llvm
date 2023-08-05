@@ -435,14 +435,6 @@ public:
       return false;
     }
 
-<<<<<<< HEAD
-=======
-    auto FailureCB = [this](const Twine &Message) {
-      this->CheckFailed(Message);
-    };
-    CV.initialize(OS, FailureCB, F);
-
->>>>>>> 502280ed3561e76443ac58e634d3d6468224dd48
     Broken = false;
     // FIXME: We strip const here because the inst visitor strips const.
     visit(const_cast<Function &>(F));
