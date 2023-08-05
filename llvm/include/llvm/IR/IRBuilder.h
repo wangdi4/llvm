@@ -158,6 +158,10 @@ public:
     ClearInsertionPoint();
   }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *getCastedInt8PtrValue(Value *Ptr);
+#endif
+
   /// Insert and return the specified instruction.
   template<typename InstTy>
   InstTy *Insert(InstTy *I, const Twine &Name = "") const {
