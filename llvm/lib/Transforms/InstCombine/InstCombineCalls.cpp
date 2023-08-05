@@ -558,21 +558,12 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
     cast<PointerType>(MI->getArgOperand(1)->getType())->getAddressSpace();
   unsigned DstAddrSp =
     cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
-<<<<<<< HEAD
-
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#endif
->>>>>>> ecec28714c819cc507b1bf6d9c0bd53f50a655ad
   IntegerType* IntType = IntegerType::get(MI->getContext(), Size<<3);
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *NewSrcPtrTy = PointerType::get(IntType, SrcAddrSp);
   Type *NewDstPtrTy = PointerType::get(IntType, DstAddrSp);
-<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#endif
->>>>>>> ecec28714c819cc507b1bf6d9c0bd53f50a655ad
 
   // If the memcpy has metadata describing the members, see if we can get the
   // TBAA tag describing our copy.
@@ -591,7 +582,6 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
       CopyMD = cast<MDNode>(M->getOperand(2));
   }
 
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Src = MI->getArgOperand(1);
   Value *Dest = MI->getArgOperand(0);
@@ -599,15 +589,6 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   Value *Src = Builder.CreateBitCast(MI->getArgOperand(1), NewSrcPtrTy);
   Value *Dest = Builder.CreateBitCast(MI->getArgOperand(0), NewDstPtrTy);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Src = Builder.CreateBitCast(MI->getArgOperand(1), NewSrcPtrTy);
-  Value *Dest = Builder.CreateBitCast(MI->getArgOperand(0), NewDstPtrTy);
-#else
-  Value *Src = MI->getArgOperand(1);
-  Value *Dest = MI->getArgOperand(0);
-#endif
->>>>>>> ecec28714c819cc507b1bf6d9c0bd53f50a655ad
   LoadInst *L = Builder.CreateLoad(IntType, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
@@ -717,11 +698,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemSet(AnyMemSetInst *MI) {
     unsigned DstAddrSp = cast<PointerType>(Dest->getType())->getAddressSpace();
     Type *NewDstPtrTy = PointerType::get(ITy, DstAddrSp);
     Dest = Builder.CreateBitCast(Dest, NewDstPtrTy);
-<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#endif
->>>>>>> ecec28714c819cc507b1bf6d9c0bd53f50a655ad
 
     // Extract the fill value and store.
     const uint64_t Fill = FillC->getZExtValue()*0x0101010101010101ULL;
@@ -1013,11 +990,7 @@ static Instruction *simplifyInvariantGroupIntrinsic(IntrinsicInst &II,
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (Result->getType() != II.getType())
     Result = IC.Builder.CreateBitCast(Result, II.getType());
-<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#endif
->>>>>>> ecec28714c819cc507b1bf6d9c0bd53f50a655ad
 
   return cast<Instruction>(Result);
 }
