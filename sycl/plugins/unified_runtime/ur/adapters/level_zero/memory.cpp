@@ -2095,7 +2095,7 @@ ur_result_t _ur_buffer::getZeHandle(char *&ZeHandle, access_mode_t AccessMode,
     // The host allocation may already exists, e.g. with imported
     // host ptr, or in case of interop buffer.
     if (!HostAllocation.ZeHandle) {
-      if (USMAllocatorConfigInstance.EnableBuffers) {
+      if (DisjointPoolConfigInstance.EnableBuffers) {
         HostAllocation.ReleaseAction = allocation_t::free;
         ur_usm_desc_t USMDesc{};
         USMDesc.align = getAlignment();
@@ -2154,7 +2154,7 @@ ur_result_t _ur_buffer::getZeHandle(char *&ZeHandle, access_mode_t AccessMode,
       Allocation.Valid = true;
       return UR_RESULT_SUCCESS;
     } else { // Create device allocation
-      if (USMAllocatorConfigInstance.EnableBuffers) {
+      if (DisjointPoolConfigInstance.EnableBuffers) {
         Allocation.ReleaseAction = allocation_t::free;
         ur_usm_desc_t USMDesc{};
         USMDesc.align = getAlignment();
@@ -2218,7 +2218,7 @@ ur_result_t _ur_buffer::getZeHandle(char *&ZeHandle, access_mode_t AccessMode,
         // host ptr, or in case of interop buffer.
         if (!HostAllocation.ZeHandle) {
           void *ZeHandleHost;
-          if (USMAllocatorConfigInstance.EnableBuffers) {
+          if (DisjointPoolConfigInstance.EnableBuffers) {
             HostAllocation.ReleaseAction = allocation_t::free;
             ur_usm_desc_t USMDesc{};
             USMDesc.align = getAlignment();
