@@ -558,7 +558,6 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
     cast<PointerType>(MI->getArgOperand(1)->getType())->getAddressSpace();
   unsigned DstAddrSp =
     cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
-
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   IntegerType* IntType = IntegerType::get(MI->getContext(), Size<<3);
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
