@@ -10,17 +10,12 @@
 // RUN: %clang -target x86_64-unknown-linux -malign-branch-boundary=16 -flto %s -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-LTO
 // BOUNDARY-LTO: "-plugin-opt=-x86-align-branch-boundary=16"
 
-<<<<<<< HEAD
-// RUN: %clang -target x86_64 -malign-branch-boundary=8 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
-// RUN: %clang -target x86_64 -malign-branch-boundary=15 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
-#if INTEL_CUSTOMIZATION
-// RUN: %clang_cl --target=x86_64 /Qalign-branch-boundary=8 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
-// RUN: %clang_cl --target=x86_64 /Qalign-branch-boundary=15 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
-#endif // INTEL_CUSTOMIZATION
-=======
 // RUN: not %clang -target x86_64 -malign-branch-boundary=8 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
 // RUN: not %clang -target x86_64 -malign-branch-boundary=15 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
->>>>>>> b7551458b661c9c21da7427fdaf0369aa87358c3
+#if INTEL_CUSTOMIZATION
+// RUN: not %clang_cl --target=x86_64 /Qalign-branch-boundary=8 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
+// RUN: not %clang_cl --target=x86_64 /Qalign-branch-boundary=15 %s -c -### 2>&1 | FileCheck %s --check-prefix=BOUNDARY-ERR
+#endif // INTEL_CUSTOMIZATION
 // BOUNDARY-ERR: invalid argument {{.*}} to -malign-branch-boundary=
 
 /// Test -malign-branch=
@@ -39,14 +34,10 @@
 // RUN: %clang -target x86_64-unknown-linux -malign-branch=fused,jcc,jmp -flto %s -### %s 2>&1 | FileCheck %s --check-prefix=TYPE0-LTO
 // TYPE0-LTO: "-plugin-opt=-x86-align-branch=fused+jcc+jmp"
 
-<<<<<<< HEAD
-// RUN: %clang -target x86_64 -malign-branch=fused,foo,bar %s -c -### %s 2>&1 | FileCheck %s --check-prefix=TYPE-ERR
+// RUN: not %clang -target x86_64 -malign-branch=fused,foo,bar %s -c -### %s 2>&1 | FileCheck %s --check-prefix=TYPE-ERR
 #if INTEL_CUSTOMIZATION
-// RUN: %clang_cl --target=x86_64 /Qalign-branch=fused,foo,bar %s -c -### %s 2>&1 | FileCheck %s --check-prefix=TYPE-ERR
+// RUN: not %clang_cl --target=x86_64 /Qalign-branch=fused,foo,bar %s -c -### %s 2>&1 | FileCheck %s --check-prefix=TYPE-ERR
 #endif // INTEL_CUSTOMIZATION
-=======
-// RUN: not %clang --target=x86_64 -malign-branch=fused,foo,bar %s -c -### %s 2>&1 | FileCheck %s --check-prefix=TYPE-ERR
->>>>>>> b7551458b661c9c21da7427fdaf0369aa87358c3
 // TYPE-ERR: invalid argument 'foo' to -malign-branch=; each element must be one of: fused, jcc, jmp, call, ret, indirect
 // TYPE-ERR: invalid argument 'bar' to -malign-branch=; each element must be one of: fused, jcc, jmp, call, ret, indirect
 
