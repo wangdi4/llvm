@@ -47,17 +47,21 @@
 // LLVM-LINK: -emit-llvm cannot be used when linking
 
 /// With ld.bfd or gold, link against LLVMgold.
-// RUN: %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
+// INTEL
+// RUN: not %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
 // RUN:   -fuse-ld=bfd -flto=thin -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
-// RUN: %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
+// INTEL
+// RUN: not %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
 // RUN:   -fuse-ld=gold -flto=full -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
 //
 // LLVMGOLD: "-plugin" "{{.*}}{{[/\\]}}LLVMgold.{{dll|dylib|so}}"
 
 /// lld does not need LLVMgold.
-// RUN: %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
+// INTEL
+// RUN: not %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
 // RUN:   -fuse-ld=lld -flto=full -### 2>&1 | FileCheck --check-prefix=NO-LLVMGOLD %s
-// RUN: %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
+// INTEL
+// RUN: not %clangxx -nocudainc -nocudalib --target=x86_64-unknown-linux-gnu --sysroot=%S/Inputs/basic_cross_linux_tree %s \
 // RUN:   -fuse-ld=gold -flto=full -fno-lto -### 2>&1 | FileCheck --check-prefix=NO-LLVMGOLD %s
 //
 // NO-LLVMGOLD-NOT: "-plugin" "{{.*}}{{[/\\]}}LLVMgold.{{dll|dylib|so}}"

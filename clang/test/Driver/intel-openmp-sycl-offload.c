@@ -326,9 +326,9 @@
 // RUN:  | FileCheck -check-prefixes=CHK_SVML,CHK_SVML_OMP %s
 // RUN: %clangxx -fveclib=SVML -fsycl -fsycl-targets=spir64 -c -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK_SVML,CHK_SVML_SYCL %s
-// RUN: %clangxx -fveclib=SVML -fsycl -fsycl-targets=nvptx64-nvidia-cuda -c -### %s 2>&1 \
+// RUN: not %clangxx -fveclib=SVML -fsycl -fsycl-targets=nvptx64-nvidia-cuda -c -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK_SVML,CHK_SVML_SYCL %s
-// RUN: %clangxx -fveclib=SVML -fsycl -fsycl-targets=amd_gpu_gfx1030 -c -### %s 2>&1 \
+// RUN: not %clangxx -fveclib=SVML -fsycl -fsycl-targets=amd_gpu_gfx1030 -c -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK_SVML,CHK_SVML_SYCL %s
 // CHK_SVML-NOT: unsupported option 'SVML'
 // CHK_SVML_SYCL: clang{{.*}} "-fsycl-is-device"

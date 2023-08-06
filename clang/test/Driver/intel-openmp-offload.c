@@ -275,19 +275,19 @@
 // FOPENMP_NOGCC_OPT-NOT: gcc{{.*}} "-fiopenmp" {{.*}} "-fheinous-gnu-extensions" "-fveclib=SVML"
 
 /// -fsycl-device-code-split=per_kernel should not be used for OpenMP
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_KERNEL
 // FOPENMP_NO_SPLIT_KERNEL-NOT: sycl-post-link{{.*}} -split=per_kernel
 
 /// -fsycl-device-code-split=auto should not be default for OpenMP
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_AUTO
 // FOPENMP_NO_SPLIT_AUTO-NOT: sycl-post-link{{.*}} -split=auto
 
 /// check -fopenmp-target-simd behavior
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -qopenmp-target-simd %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -qopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc --intel -Qopenmp -Qopenmp-targets:spir64 -Qopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
@@ -355,7 +355,7 @@
 // CHK-TOOLS-OPTS2: clang-offload-wrapper{{.*}} "-link-opts=-DFOO1 -DFOO2"
 
 /// test llvm-link behavior for fopenmp offload
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=OMP_LLVM_LINK_DEVICE_LIB
 // OMP_LLVM_LINK_DEVICE_LIB: llvm-link{{.*}} "--only-needed" "{{.*}}"
 

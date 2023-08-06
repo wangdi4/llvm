@@ -125,7 +125,8 @@
 // CHECK-ASAN-FREEBSD-LDL: "{{(.*[^-.0-9A-Z_a-z])?}}ld{{(.exe)?}}"
 // CHECK-ASAN-FREEBSD-LDL-NOT: "-ldl"
 
-// RUN: %clangxx -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -### %s 2>&1 \
 // RUN:     --target=i386-unknown-linux -fuse-ld=ld -stdlib=platform -fsanitize=address \
 // RUN:     -resource-dir=%S/Inputs/empty_resource_dir \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -268,7 +269,8 @@
 // CHECK-ASAN-MYRIAD-NOT: "-lc"
 // CHECK-ASAN-MYRIAD: libclang_rt.asan-sparcel.a"
 
-// RUN: %clangxx -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld -stdlib=platform -lstdc++ \
 // RUN:     -fsanitize=thread \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
@@ -304,7 +306,8 @@
 //
 // CHECK-TSAN-NO-LINK-RUNTIME-DARWIN-NOT: libclang_rt.tsan
 
-// RUN: %clangxx -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld -stdlib=platform -lstdc++ \
 // RUN:     -fsanitize=memory \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
@@ -418,7 +421,8 @@
 // CHECK-UBSAN-LINUX-LINK-CXX: "--whole-archive" "{{.*}}libclang_rt.ubsan_standalone_cxx-i386.a" "--no-whole-archive"
 // CHECK-UBSAN-LINUX-LINK-CXX-NOT: "-lstdc++"
 
-// RUN: %clangxx -fsanitize=undefined -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -fsanitize=undefined -### %s 2>&1 \
 // RUN:     --target=i386-unknown-linux -fuse-ld=ld -stdlib=platform \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -481,7 +485,8 @@
 // CHECK-ASAN-UBSAN-LINUX: "-lpthread"
 // CHECK-ASAN-UBSAN-LINUX: "-lresolv"
 
-// RUN: %clangxx -fsanitize=address,undefined -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -fsanitize=address,undefined -### %s 2>&1 \
 // RUN:     --target=i386-unknown-linux -fuse-ld=ld -stdlib=platform \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -494,7 +499,8 @@
 // CHECK-ASAN-UBSAN-LINUX-CXX: "-lpthread"
 // CHECK-ASAN-UBSAN-LINUX-CXX: "-lresolv"
 
-// RUN: %clangxx -fsanitize=memory,undefined -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -fsanitize=memory,undefined -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -503,7 +509,8 @@
 // CHECK-MSAN-UBSAN-LINUX-CXX: "--whole-archive" "{{.*}}libclang_rt.msan-x86_64.a" "--no-whole-archive"
 // CHECK-MSAN-UBSAN-LINUX-CXX-NOT: libclang_rt.ubsan
 
-// RUN: %clangxx -fsanitize=thread,undefined -### %s 2>&1 \
+// INTEL
+// RUN: not %clangxx -fsanitize=thread,undefined -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld \
 // RUN:     -resource-dir=%S/Inputs/resource_dir \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \

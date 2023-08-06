@@ -28,7 +28,8 @@
 /// On x86_64, there is an extra usr/lib/gcc/x86_64-linux-gnu/4.8/../../../x86_64-linux-gnu but we should not test it.
 
 /// Test we don't detect GCC installation under -B.
-// RUN: %clangxx %s -### --sysroot= 2>&1 \
+// INTEL
+// RUN: not %clangxx %s -### --sysroot= 2>&1 \
 // RUN:   --target=aarch64-suse-linux --gcc-toolchain=%S/Inputs/opensuse_42.2_aarch64_tree/usr -no-pie | \
 // RUN:   FileCheck %s --check-prefix=AARCH64
 // RUN: %clangxx %s -### --sysroot= 2>&1 \
