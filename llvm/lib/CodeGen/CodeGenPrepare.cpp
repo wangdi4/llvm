@@ -453,16 +453,11 @@ private:
 
   void removeAllAssertingVHReferences(Value *V);
   bool eliminateAssumptions(Function &F);
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool hoistCatchPadAlloca(Function &F);
 #endif // INTEL_COLLAB
-  bool eliminateFallThrough(Function &F);
-  bool eliminateMostlyEmptyBlocks(Function &F, ModifyDT &ModifiedDT);
-=======
   bool eliminateFallThrough(Function &F, DominatorTree *DT = nullptr);
   bool eliminateMostlyEmptyBlocks(Function &F);
->>>>>>> f5b5a30858f32e237636acd296b6d0f87c1dfe97
   BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
   bool canMergeBlocks(const BasicBlock *BB, const BasicBlock *DestBB) const;
   void eliminateMostlyEmptyBlock(BasicBlock *BB);
@@ -591,7 +586,6 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
       // optimization to those blocks.
       BasicBlock *Next = BB->getNextNode();
       // F.hasOptSize is already checked in the outer if statement.
-<<<<<<< HEAD
       if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
 #if INTEL_CUSTOMIZATION
         // Divopt may split a block BB into a "diamond":
@@ -609,7 +603,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
         for (unsigned i = 0; i < BB->getTerminator()->getNumSuccessors(); ++i)
           OrigProbs.push_back(BPI->getEdgeProbability(BB, i));
 
-        if (bypassSlowDivision(BB, BypassWidths, DTU, LI)) {
+        if (bypassSlowDivision(BB, BypassWidths)) {
           EverMadeChange = true;
 
           // If BB was split, and the new BB has a 2-way branch, set the probs
@@ -630,10 +624,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
         }
 #endif // INTEL_CUSTOMIZATION
       }
-=======
-      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get()))
-        EverMadeChange |= bypassSlowDivision(BB, BypassWidths);
->>>>>>> f5b5a30858f32e237636acd296b6d0f87c1dfe97
+
       BB = Next;
     }
   }
@@ -656,29 +647,14 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
     EverMadeChange |= splitBranchCondition(F, ModifiedDT);
 
 #if INTEL_CUSTOMIZATION
-  // Split some critical edges where one of the sources is an indirect branch,
-  // to help generate sane code for PHIs involving such edges.
-<<<<<<< HEAD
-  if (SplitIndirectBrCriticalEdges(
-          F, /*IgnoreBlocksWithoutPHI=*/true, BPI.get(), BFI.get(),
-          EnableSwitchCriticalEdgeSplit, DontSplitColdCriticalEdge)) {
-    EverMadeChange = true;
-    resetDTAndLI();
-  }
-#endif // INTEL_CUSTOMIZATION
-
-#ifndef NDEBUG
-  if (VerifyDT)
-    assert(getDT().verify(DominatorTree::VerificationLevel::Fast) &&
-           "Incorrect DominatorTree updates in CGP");
-
-  if (VerifyLoopInfo)
-    LI->verify(getDT());
-#endif
-=======
+  // Split some critical edges where one of the sources is an indirect branch
+  // or switch, to help generate sane code for PHIs involving such edges.
   EverMadeChange |=
-      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true);
->>>>>>> f5b5a30858f32e237636acd296b6d0f87c1dfe97
+      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true,
+                                   BPI.get(), BFI.get(),
+                                   EnableSwitchCriticalEdgeSplit,
+                                   DontSplitColdCriticalEdge);
+#endif // INTEL_CUSTOMIZATION
 
   // If we are optimzing huge function, we need to consider the build time.
   // Because the basic algorithm's complex is near O(N!).
