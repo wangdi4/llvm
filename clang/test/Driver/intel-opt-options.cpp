@@ -181,9 +181,9 @@
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-MULTI %s
 // THROUGHPUT-MULTI: "-mllvm" "-throughput-opt=2"
 
-// RUN: %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN: not %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
-// RUN: %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN: not %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
 // THROUGHPUT-BADARG: error: invalid argument 'badarg'
 

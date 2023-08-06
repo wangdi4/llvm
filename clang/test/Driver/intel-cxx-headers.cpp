@@ -9,7 +9,7 @@
 // CXX10: clang{{.*}} "{{.*}}/include/c++/10"
 // CXX10: ld{{.*}} "{{.*}}lib/gcc/x86_64-linux-gnu/10"
 
-// RUN: %clangxx --gcc-toolchain=%S/Inputs/intel_linux_tree/usr -### %s 2>&1 \
+// RUN: not %clangxx --gcc-toolchain=%S/Inputs/intel_linux_tree/usr -### %s 2>&1 \
 // RUN:  | FileCheck %s --check-prefix=NO_CXX_ERROR
 // NO_CXX_ERROR: error: C++ header location not resolved; check installed C++ dependencies
 

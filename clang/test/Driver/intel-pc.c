@@ -18,10 +18,10 @@
 // RUN: %clang_cl -### /Qpc=32 %s 2>&1 | FileCheck -check-prefix=CHECK_PC32 %s
 // CHECK_PC32: "-mx87-precision=32"
 
-// RUN: %clang -### -pc3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
-// RUN: %clang -### -pc 3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
-// RUN: %clang_cl -### /Qpc3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
-// RUN: %clang_cl -### /Qpc 3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
+// RUN: not %clang -### -pc3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
+// RUN: not %clang -### -pc 3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
+// RUN: not %clang_cl -### /Qpc3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
+// RUN: not %clang_cl -### /Qpc 3 %s 2>&1 | FileCheck -check-prefix=CHECK_PC_UNKNOWN %s
 // CHECK_PC_UNKNOWN: unsupported argument
 // CHECK_PC_UNKNOWN-NOT: "-mx87-precision=3"
 

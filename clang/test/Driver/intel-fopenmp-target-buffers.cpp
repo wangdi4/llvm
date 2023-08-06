@@ -18,9 +18,9 @@
 // RUN:   | FileCheck -check-prefix=OPENMP_BUFFERS_4GB_CPU %s
 // OPENMP_BUFFERS_4GB_CPU-NOT: -cl-intel-greater-than-4GB-buffer-required
 
-// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-buffers=blah %s 2>&1 \
+// RUN: not %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-buffers=blah %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=OPENMP_BUFFERS_BADARG %s
-// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qiopenmp -Qopenmp-targets=spir64 -Qopenmp-target-buffers=blah %s 2>&1 \
+// RUN: not %clang_cl -### --target=x86_64-pc-windows-msvc -Qiopenmp -Qopenmp-targets=spir64 -Qopenmp-target-buffers=blah %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=OPENMP_BUFFERS_BADARG %s
 // OPENMP_BUFFERS_BADARG: error: unsupported argument 'blah' to option
 

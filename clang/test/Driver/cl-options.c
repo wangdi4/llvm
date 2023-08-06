@@ -773,7 +773,7 @@
 // INTEL_CUSTOMIZATION
 // Validate -fprofile-instr-generate cannot work with incremental linking with MSVC linker
 // RUN: %clang_cl -### --intel -fprofile-instr-generate -- %s 2>&1 | FileCheck -check-prefix=CHECK-LINK-INCREMENTAL-NO %s
-// RUN: %clang_cl -### --intel -fprofile-instr-generate %s /link /incremental -- 2>&1 | FileCheck -check-prefix=CHECK-INCREMENTAL-INVALID %s
+// RUN: not %clang_cl -### --intel -fprofile-instr-generate %s /link /incremental -- 2>&1 | FileCheck -check-prefix=CHECK-INCREMENTAL-INVALID %s
 // CHECK-LINK-INCREMENTAL-NO: link.exe{{.*}} "-incremental:no"
 // CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
