@@ -715,8 +715,9 @@ void CGRecordLowering::accumulateVPtrs() {
             getPointerTo()->getPointerTo()));
 #endif  // INTEL_COLLAB
   if (Layout.hasOwnVBPtr())
-    Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
-        llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
+    Members.push_back(
+        MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
+                   llvm::PointerType::getUnqual(Types.getLLVMContext())));
 }
 
 void CGRecordLowering::accumulateVBases() {
