@@ -2032,7 +2032,11 @@ void Function::allocHungoffUselist() {
   setNumHungOffUseOperands(3);
 
   // Initialize the uselist with placeholder operands to allow traversal.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *CPN = ConstantPointerNull::get(PointerType::get(getContext(), 0));
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *CPN = ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Op<0>().set(CPN);
   Op<1>().set(CPN);
   Op<2>().set(CPN);
@@ -2044,10 +2048,14 @@ void Function::setHungoffOperand(Constant *C) {
     allocHungoffUselist();
     Op<Idx>().set(C);
   } else if (getNumOperands()) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Op<Idx>().set(ConstantPointerNull::get(PointerType::get(getContext(), 0)));
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+    Op<Idx>().set(
+        ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0)));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 }
-
 void Function::setValueSubclassDataBit(unsigned Bit, bool On) {
   assert(Bit < 16 && "SubclassData contains only 16 bits");
   if (On)
