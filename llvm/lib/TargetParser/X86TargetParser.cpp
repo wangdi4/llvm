@@ -245,6 +245,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_CPU_DMR
 #ifdef ENABLE_CPU_DMR
     FeaturesGraniteRapids |
+    FeatureAMX_COMPLEX |
     FeatureSM3 |
     FeatureSM4 |
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16

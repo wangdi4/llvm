@@ -1519,6 +1519,11 @@ def ProcessorFeatures {
   list<SubtargetFeature> GNRFeatures =
     !listconcat(SPRFeatures, GNRAdditionalFeatures);
 
+  // Graniterapids D
+  list<SubtargetFeature> GNRDAdditionalFeatures = [FeatureAMXCOMPLEX];
+  list<SubtargetFeature> GNRDFeatures =
+    !listconcat(GNRFeatures, GNRDAdditionalFeatures);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
 #define ENABLE_CPU_DMR
@@ -1575,7 +1580,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_CPU_DMR
   ];
   list<SubtargetFeature> LNCFeatures =
-    !listconcat(GNRFeatures, LNCAdditionalFeatures);
+    !listconcat(GNRDFeatures, LNCAdditionalFeatures);
   // Diamondrapids
   list<SubtargetFeature> DMRAdditionalFeatures = [
 // FIXME: Add FeatureMTT
@@ -1641,10 +1646,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> CommonAVX256Tuning = SKLTuning;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  // Graniterapids D
-  list<SubtargetFeature> GNRDAdditionalFeatures = [FeatureAMXCOMPLEX];
-  list<SubtargetFeature> GNRDFeatures =
-    !listconcat(GNRFeatures, GNRDAdditionalFeatures);
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
