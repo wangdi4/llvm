@@ -3110,6 +3110,7 @@ void tools::addOpenMPDeviceRTL(const Driver &D,
           << LibOmpTargetName << ArchPrefix;
   }
 }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
@@ -3129,9 +3130,12 @@ void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
 #endif // INTEL_CUSTOMIZATION
 
 void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
+=======
+void tools::addHIPRuntimeLibArgs(const ToolChain &TC, Compilation &C,
+>>>>>>> 932c63550ad5752ba333a7a4e0045b559c65840b
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) {
-  if (Args.hasArg(options::OPT_hip_link) &&
+  if ((C.getActiveOffloadKinds() & Action::OFK_HIP) &&
       !Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_no_hip_rt)) {
     TC.AddHIPRuntimeLibArgs(Args, CmdArgs);

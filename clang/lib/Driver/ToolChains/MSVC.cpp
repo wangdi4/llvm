@@ -575,7 +575,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     A.renderAsInput(Args, CmdArgs);
   }
 
-  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+  addHIPRuntimeLibArgs(TC, C, Args, CmdArgs);
 
   TC.addProfileRTLibs(Args, CmdArgs);
 

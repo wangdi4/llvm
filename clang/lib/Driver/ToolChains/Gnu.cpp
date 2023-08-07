@@ -973,7 +973,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   } else
     AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
-  addHIPRuntimeLibArgs(ToolChain, Args, CmdArgs);
+  addHIPRuntimeLibArgs(ToolChain, C, Args, CmdArgs);
 
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
