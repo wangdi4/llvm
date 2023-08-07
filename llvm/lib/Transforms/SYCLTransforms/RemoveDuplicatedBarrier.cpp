@@ -21,11 +21,6 @@
 
 using namespace llvm;
 
-extern bool EnableNativeDebug;
-
-RemoveDuplicatedBarrierPass::RemoveDuplicatedBarrierPass(bool IsNativeDebug)
-    : IsNativeDBG(IsNativeDebug || EnableNativeDebug) {}
-
 PreservedAnalyses RemoveDuplicatedBarrierPass::run(Module &M,
                                                    ModuleAnalysisManager &) {
   if (!runImpl(M))
@@ -107,22 +102,18 @@ bool RemoveDuplicatedBarrierPass::runImpl(Module &M) {
       // anyway.
       if ((CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) &
           BarrierValue->getZExtValue()) {
-        if (!(IsNativeDBG && Inst->getDebugLoc())) {
-          // barrier()-barrier(global) : remove the first barrier
-          // instruction
-          InstrsRemove.push_back(Inst);
-        }
+        // barrier()-barrier(global) : remove the first barrier
+        // instruction
+        InstrsRemove.push_back(Inst);
         // Update iterator.
         Inst = NextInst;
       } else {
         assert(
             (CLK_LOCAL_MEM_FENCE & BarrierValue->getZExtValue()) &&
             "barrier mem fence argument is something else than local/global");
-        if (!(IsNativeDBG && NextInst->getDebugLoc())) {
-          // barrier()-barrier(local) : remove the second barrier
-          // instruction
-          InstrsRemove.push_back(NextInst);
-        }
+        // barrier()-barrier(local) : remove the second barrier
+        // instruction
+        InstrsRemove.push_back(NextInst);
       }
     }
   }
