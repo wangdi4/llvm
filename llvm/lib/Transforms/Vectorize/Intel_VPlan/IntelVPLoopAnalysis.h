@@ -180,8 +180,8 @@ public:
         getRecurrenceKind());
   }
 
-  bool isSelectCmp() const {
-    return RecurrenceDescriptorData::isSelectCmpRecurrenceKind(
+  bool isAnyOf() const {
+    return RecurrenceDescriptorData::isAnyOfRecurrenceKind(
         getRecurrenceKind());
   }
 

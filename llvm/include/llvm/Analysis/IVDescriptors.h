@@ -70,8 +70,13 @@ enum class RecurKind {
   Udr,        ///< User-defined recurrence operation. // INTEL
   SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
               ///< invariant
-  SelectFCmp  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop
+  SelectFCmp,  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop
               ///< invariant
+  IAnyOf,   ///< Any_of reduction with select(icmp(),x,y) where one of (x,y) is
+            ///< loop invariant, and both x and y are integer type.
+  FAnyOf    ///< Any_of reduction with select(fcmp(),x,y) where one of (x,y) is
+            ///< loop invariant, and both x and y are integer type.
+  // TODO: Any_of reduction need not be restricted to integer type only.
 };
 
 /// The RecurrenceDescriptor is used to identify recurrences variables in a
@@ -143,8 +148,8 @@ public:
 
   /// Returns true if the recurrence kind is of the form
   ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
-  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
+  static bool isAnyOfRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::IAnyOf || Kind == RecurKind::FAnyOf;
   }
 
 protected:
@@ -232,6 +237,8 @@ public:
     switch (K) {
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
+    case RecurKind::IAnyOf:
+    case RecurKind::FAnyOf:
       return getRecurrenceStartValue();
     default:
       return getConstRecurrenceIdentity(K, Tp, FMF);
@@ -303,8 +310,8 @@ public:
   /// where one of (X, Y) is a loop invariant integer and the other is a PHI
   /// value. \p Prev specifies the description of an already processed select
   /// instruction, so its corresponding cmp can be matched to it.
-  static InstDesc isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
-                                     Instruction *I, InstDesc &Prev);
+  static InstDesc isAnyOfPattern(Loop *Loop, PHINode *OrigPhi, Instruction *I,
+                                 InstDesc &Prev);
 
   /// Returns a struct describing if the instruction is a
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
