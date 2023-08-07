@@ -45,14 +45,10 @@
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "clang", inputs: ["[[HOST_BC]]", "[[BINARY]]"], output: "[[HOST_OBJ:.*]]"
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "Offload::Linker", inputs: ["[[HOST_OBJ]]"], output: "a.out"
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   not %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp -fopenmp-new-driver \
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 --offload-arch=native \
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp \
-=======
-// RUN:   not %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
->>>>>>> e68ffa373f7f3e61de4e030d126f9968679cdfdc
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 --offload-arch=skylake \
 // RUN:     -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAILED
 // end INTEL_CUSTOMIZATION
