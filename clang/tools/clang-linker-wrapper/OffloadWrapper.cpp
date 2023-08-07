@@ -500,6 +500,7 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Builder.CreateBr(IfEndBB);
   Builder.SetInsertPoint(IfElseBB);
+
   auto *Switch = Builder.CreateSwitch(Flags, IfEndBB);
   // Create global variable registration code.
   Builder.SetInsertPoint(SwGlobalBB);
