@@ -19,14 +19,14 @@
 #include "clang_device_info.h"
 #include "opencl_clang.h" //IOCLFEBinaryResult
 
+#include "LLVMSPIRVLib.h"                    // llvm::ReadSPIRV
+#include "LLVMSPIRVOpts.h"                   // SPIRV::TranslatorOpts
 #include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
-#include <LLVMSPIRVLib.h>                    // llvm::ReadSPIRV
-#include <LLVMSPIRVOpts.h>                   // SPIRV::TranslatorOpts
-#include <llvm/Bitcode/BitcodeWriter.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Support/SwapByteOrder.h>
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/SwapByteOrder.h"
 
 #include <memory>
 #include <sstream>

@@ -16,7 +16,7 @@
 
 #include "cl_config.h"
 #include "clang_device_info.h"
-#include <frontend_api.h>
+#include "frontend_api.h"
 
 namespace Intel {
 namespace OpenCL {
