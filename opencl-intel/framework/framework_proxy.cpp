@@ -585,7 +585,7 @@ void FrameworkProxy::Destroy() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
   // Intentionally disable this code on windows due to shutdown issue
-#if !_WIN32
+#if !defined(_WIN32)
   // Many modules assume that FrameWorkProxy singleton, execution_module,
   // context_module and platform_module exist all the time -> we must ensure
   // that everything is shut down before deleting them.
@@ -593,7 +593,11 @@ void FrameworkProxy::Release(bool bTerminate) {
 #endif
 
   if (nullptr != m_pExecutionModule) {
-    m_pExecutionModule->Release(bTerminate);
+#if !defined(_WIN32)
+    // Since we still have some TBB related issues on windows that have not been
+    // resolved, we can't release it yet.
+    m_pExecutionModule->Release();
+#endif
     delete m_pExecutionModule;
   }
 
@@ -603,8 +607,8 @@ void FrameworkProxy::Release(bool bTerminate) {
   }
 
   if (nullptr != m_pPlatformModule) {
-  // Intentionally disable this code on windows due to shutdown issue
-#if !_WIN32
+    // Intentionally disable this code on windows due to shutdown issue
+#if !defined(_WIN32)
     m_pPlatformModule->Release(bTerminate);
 #endif
     delete m_pPlatformModule;
