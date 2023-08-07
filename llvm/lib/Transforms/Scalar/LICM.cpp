@@ -1132,11 +1132,18 @@ static bool isLoadInvariantInLoop(LoadInst *LI, DominatorTree *DT,
   // llvm.invariant.start operand
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *PtrASXTy = PointerType::get(LI->getContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *PtrASXTy = PointerType::get(Type::getInt8Ty(LI->getContext()),
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                     LI->getPointerAddressSpace());
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   auto *PtrInt8Ty = PointerType::get(Type::getInt8Ty(LI->getContext()),
                                      LI->getPointerAddressSpace());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+
+>>>>>>> 49e36acdd4116e3e3369cfadfb709c3a1043ac3f
   unsigned BitcastsVisited = 0;
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // Look through bitcasts until we reach the PtrASXTy type (this is

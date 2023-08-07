@@ -2903,9 +2903,15 @@ class llvm::sroa::AllocaSliceRewriter
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *AccessTy = IRB.getPtrTy(AddrSpace);
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     Type *AccessTy = NewAI.getAllocatedType()->getPointerTo(AddrSpace);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *AccessTy = NewAI.getAllocatedType()->getPointerTo(AddrSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 49e36acdd4116e3e3369cfadfb709c3a1043ac3f
     return IRB.CreateAddrSpaceCast(&NewAI, AccessTy);
   }
 public:
