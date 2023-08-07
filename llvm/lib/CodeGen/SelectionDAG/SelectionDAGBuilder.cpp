@@ -11130,10 +11130,17 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     ComputeValueVTs(*TLI, DAG.getDataLayout(),
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                     PointerType::get(F.getContext(),
+<<<<<<< HEAD
 #else
                     F.getReturnType()->getPointerTo(
 #endif
                         DAG.getDataLayout().getAllocaAddrSpace()),
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+                    F.getReturnType()->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+                                     DAG.getDataLayout().getAllocaAddrSpace()),
+>>>>>>> 5c62ac1ec754e81e67285ec00a94f64b1fe832da
                     ValueVTs);
 
     // NOTE: Assuming that a pointer will never break down to more than one VT
