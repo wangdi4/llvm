@@ -625,12 +625,8 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
 
   MPM.addPass(GroupBuiltinPass());
   MPM.addPass(BarrierInFunction());
-  // Only run this when not debugging or when not in native (gdb) debugging
-  if (m_debugType != intel::Native) {
-    // This optimization removes debug information from extraneous barrier
-    // calls by deleting them.
-    MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
-  }
+  if (Level != OptimizationLevel::O0)
+    MPM.addPass(RemoveDuplicatedBarrierPass());
 
   if (SYCLEnableSubGroupEmulation) {
     // Begin sub-group emulation

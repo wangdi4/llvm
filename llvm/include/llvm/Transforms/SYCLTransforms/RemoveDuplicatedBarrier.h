@@ -30,14 +30,11 @@ namespace llvm {
 class RemoveDuplicatedBarrierPass
     : public PassInfoMixin<RemoveDuplicatedBarrierPass> {
 public:
-  RemoveDuplicatedBarrierPass(bool IsNativeDebug = false);
   bool runImpl(Module &M);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
 private:
   BarrierUtils BarrierUtil;
-  /// Indicates whether under native debug mode.
-  bool IsNativeDBG;
 };
 } // namespace llvm
 

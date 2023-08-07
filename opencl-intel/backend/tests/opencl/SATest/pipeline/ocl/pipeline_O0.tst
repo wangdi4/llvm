@@ -52,8 +52,7 @@
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
-; CHECK:      Running pass: RemoveDuplicatedBarrierPass
-; CHECK-NEXT: Running pass: SGBuiltinPass
+; CHECK:      Running pass: SGBuiltinPass
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
