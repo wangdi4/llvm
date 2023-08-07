@@ -5361,6 +5361,9 @@ def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
 def regcall : Flag<["-"], "regcall">,
   HelpText<"Set __regcall as a default calling convention">;
 #endif // INTEL_CUSTOMIZATION
+def regcall4 : Flag<["-"], "regcall4">, Group<m_Group>, Flags<[CC1Option]>,
+  HelpText<"Set __regcall4 as a default calling convention to respect __regcall ABI v.4">,
+  MarshallingInfoFlag<LangOpts<"RegCall4">>;
 def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, FlangOption, FC1Option, NoXarchOption]>,
   HelpText<"Save intermediate compilation results.">;
 def save_temps : Flag<["-", "--"], "save-temps">, Flags<[FlangOption, FC1Option, NoXarchOption]>,
@@ -10082,10 +10085,8 @@ def _SLASH_Gv : CLFlag<"Gv">,
   HelpText<"Set __vectorcall as a default calling convention">;
 def _SLASH_Gregcall : CLFlag<"Gregcall">,
   HelpText<"Set __regcall as a default calling convention">;
-#if INTEL_CUSTOMIZATION
-def _SLASH_Qregcall : CLFlag<"Qregcall">, Alias<_SLASH_Gregcall>,
-  HelpText<"Set __regcall as a default calling convention">;
-#endif // INTEL_CUSTOMIZATION
+def _SLASH_Gregcall4 : CLFlag<"Gregcall4">,
+  HelpText<"Set __regcall4 as a default calling convention to respect __regcall ABI v.4">;
 
 // GNU Driver aliases
 
