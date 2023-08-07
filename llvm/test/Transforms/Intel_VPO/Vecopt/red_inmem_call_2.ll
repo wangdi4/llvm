@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooPii(ptr nocapture readonly %a) local_unnamed_addr #0 {
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
 ; HIR-NEXT:  VPlan IR for: _Z3fooPii:HIR.#{{[0-9]+}}
 ; HIR-NEXT:  External Defs Start:
@@ -17,9 +17,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  Reduction list
-; HIR-NEXT:   (+) Start: i32* [[S_RED0:%.*]]
-; HIR-NEXT:    Linked values: i32* [[VP_S_RED:%.*]], i32 [[VP_S_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_S_REDRED_FINAL:%.*]],
-; HIR-NEXT:   Memory: i32* [[S_RED0]]
+; HIR-NEXT:    (+) Start: ptr [[S_RED0:%.*]]
+; HIR-NEXT:    Linked values: ptr [[VP_S_RED:%.*]], i32 [[VP_S_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_S_REDRED_FINAL:%.*]],
+; HIR-NEXT:   Memory: ptr [[S_RED0]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  Induction list
 ; HIR-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: i64 [[VP1:%.*]] = add i64 [[VP2:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
@@ -28,30 +28,30 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-NEXT:     br [[BB2:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB2]]: # preds: [[BB1]]
-; HIR-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32, OrigAlign = 4
-; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[S_RED0]]
+; HIR-NEXT:     ptr [[VP_S_RED]] = allocate-priv i32, OrigAlign = 4
+; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[S_RED0]]
 ; HIR-NEXT:     i32 [[VP_S_REDRED_INIT]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; HIR-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
+; HIR-NEXT:     store i32 [[VP_S_REDRED_INIT]] ptr [[VP_S_RED]]
 ; HIR-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
 ; HIR-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; HIR-NEXT:     br [[BB0]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; HIR-NEXT:     i64 [[VP2]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP1]], [[BB3]] ]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[VP_S_RED]]
-; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_SUBSCRIPT]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[VP_S_RED]]
+; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call ptr [[VP_SUBSCRIPT]] ptr @_Z3gooRi
 ; HIR-NEXT:     i1 [[VP3:%.*]] = icmp eq i32 [[VP_CALL]] i32 50
 ; HIR-NEXT:     br i1 [[VP3]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB5]]: # preds: [[BB0]]
-; HIR-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S_RED]]
-; HIR-NEXT:       i32 [[VP_CALL2:%.*]] = call i32* [[VP_SUBSCRIPT_1]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_S_RED]]
+; HIR-NEXT:       i32 [[VP_CALL2:%.*]] = call ptr [[VP_SUBSCRIPT_1]] ptr @_Z3gooRi
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; HIR-NEXT:       i32 [[VP4:%.*]] = add i32 [[VP_CALL]] i32 10
-; HIR-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_S_RED]]
-; HIR-NEXT:       store i32 [[VP4]] i32* [[VP_SUBSCRIPT_2]]
+; HIR-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[VP_S_RED]]
+; HIR-NEXT:       store i32 [[VP4]] ptr [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
@@ -60,9 +60,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-NEXT:     br i1 [[VP5]], [[BB0]], [[BB6:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB6]]: # preds: [[BB3]]
-; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_S_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_S_RED]]
 ; HIR-NEXT:     i32 [[VP_S_REDRED_FINAL]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; HIR-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0]]
+; HIR-NEXT:     store i32 [[VP_S_REDRED_FINAL]] ptr [[S_RED0]]
 ; HIR-NEXT:     i64 [[VP__IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; HIR-NEXT:     br [[BB7:BB[0-9]+]]
 ; HIR-EMPTY:
@@ -74,9 +74,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
-; CHECK-NEXT:   (+) Start: i32* [[S_RED0:%.*]]
-; CHECK-NEXT:    Linked values: i32* [[VP_S_RED:%.*]], i32 [[VP_S_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_S_REDRED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i32* [[S_RED0]]
+; CHECK-NEXT:    (+) Start: ptr [[S_RED0:%.*]]
+; CHECK-NEXT:    Linked values: ptr [[VP_S_RED:%.*]], i32 [[VP_S_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_S_REDRED_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[S_RED0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1025 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
@@ -85,29 +85,28 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[S_RED0]]
+; CHECK-NEXT:     ptr [[VP_S_RED]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_S_RED]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[S_RED0]]
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_INIT]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; CHECK-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
+; CHECK-NEXT:     store i32 [[VP_S_REDRED_INIT]] ptr [[VP_S_RED]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call ptr [[VP_S_RED]] ptr @_Z3gooRi
 ; CHECK-NEXT:     i1 [[VP_CHK:%.*]] = icmp eq i32 [[VP_CALL]] i32 50
 ; CHECK-NEXT:     br i1 [[VP_CHK]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB0]]
-; CHECK-NEXT:       i32 [[VP_CALL2:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; CHECK-NEXT:       i32 [[VP_CALL2:%.*]] = call ptr [[VP_S_RED]] ptr @_Z3gooRi
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i32 [[VP_ADD:%.*]] = add i32 [[VP_CALL]] i32 10
-; CHECK-NEXT:       store i32 [[VP_ADD]] i32* [[VP_S_RED]]
+; CHECK-NEXT:       store i32 [[VP_ADD]] ptr [[VP_S_RED]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
@@ -116,11 +115,10 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_S_RED]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_S_RED]]
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_FINAL]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0]]
-; CHECK-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     store i32 [[VP_S_REDRED_FINAL]] ptr [[S_RED0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_S_RED]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -132,26 +130,26 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store i32 0, i32* %s.red, align 4
+  store i32 0, ptr %s.red, align 4
   br label %DIR.OMP.SIMD.131
 
 DIR.OMP.SIMD.131:                                 ; preds = %DIR.OMP.SIMD.1
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.131 ], [ %indvars.iv.next, %if.end ]
-  %call = call i32 @_Z3gooRi(i32* nonnull align 4 dereferenceable(4) %s.red)
+  %call = call i32 @_Z3gooRi(ptr nonnull align 4 dereferenceable(4) %s.red)
   %chk = icmp eq i32 %call, 50
   br i1 %chk, label %if.then, label %if.else
 
 if.then:
   %add = add i32 %call, 10
-  store i32 %add, i32* %s.red
+  store i32 %add, ptr %s.red
   br label %if.end
 
 if.else:
-  %call2 = call i32 @_Z3gooRi(i32* nonnull align 4 dereferenceable(4) %s.red)
+  %call2 = call i32 @_Z3gooRi(ptr nonnull align 4 dereferenceable(4) %s.red)
   br label %if.end
 
 if.end:
@@ -164,12 +162,12 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  %ld = load i32, i32* %s.red, align 4
+  %ld = load i32, ptr %s.red, align 4
   ret i32 %ld
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare dso_local i32 @_Z3gooRi(i32* nonnull align 4 dereferenceable(4))
+declare dso_local i32 @_Z3gooRi(ptr nonnull align 4 dereferenceable(4))
 
 

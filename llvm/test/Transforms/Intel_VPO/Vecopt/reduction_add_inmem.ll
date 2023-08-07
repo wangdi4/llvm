@@ -5,41 +5,41 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 
-define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
+define i32 @foo(ptr nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
 ; HIR-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; HIR-NEXT:  External Defs Start:
 ; HIR-DAG:     [[VP0:%.*]] = {%sum}
-; HIR-DAG:     [[VP1:%.*]] = {%A}
-; HIR-DAG:     [[VP2:%.*]] = {%N + -1}
+; HIR-DAG:     [[VP1:%.*]] = {%N + -1}
+; HIR-DAG:     [[VP2:%.*]] = {%A}
 ; HIR-NEXT:  External Defs End:
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR:         [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
-; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP2]] i64 1
-; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]
+; HIR-NEXT:     ptr [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
+; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
+; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[SUM0:%.*]]
 ; HIR-NEXT:     i32 [[VP_SUMRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; HIR-NEXT:     store i32 [[VP_SUMRED_INIT]] i32* [[VP_SUM]]
+; HIR-NEXT:     store i32 [[VP_SUMRED_INIT]] ptr [[VP_SUM]]
 ; HIR-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; HIR-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; HIR-NEXT:     br [[BB2:BB[0-9]+]]
 ; HIR:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; HIR-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP4]]
-; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_SUM]]
-; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP4]]
+; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_SUM]]
+; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; HIR-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[VP_SUM]]
-; HIR-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT_3]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[VP_SUM]]
+; HIR-NEXT:     store i32 [[VP6]] ptr [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
 ; HIR-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
 ; HIR-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
 ; HIR:         [[BB3]]: # preds: [[BB2]]
-; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUM]]
+; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUM]]
 ; HIR-NEXT:     i32 [[VP_SUMRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_3]]
-; HIR-NEXT:     store i32 [[VP_SUMRED_FINAL]] i32* [[SUM0]]
+; HIR-NEXT:     store i32 [[VP_SUMRED_FINAL]] ptr [[SUM0]]
 ; HIR-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; HIR-NEXT:     br [[BB4:BB[0-9]+]]
 ; === Generated HIR code
@@ -65,33 +65,31 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_SUM_BCAST:%.*]] = bitcast i32* [[VP_SUM]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_SUM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[SUM0:%.*]]
+; CHECK-NEXT:     ptr [[VP_SUM:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_SUM]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[SUM0:%.*]]
 ; CHECK-NEXT:     i32 [[VP_SUMRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; CHECK-NEXT:     store i32 [[VP_SUMRED_INIT]] i32* [[VP_SUM]]
+; CHECK-NEXT:     store i32 [[VP_SUMRED_INIT]] ptr [[VP_SUM]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i32 [[VP_SUM_LD:%.*]] = load i32* [[VP_SUM]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i32 [[VP_SUM_LD:%.*]] = load ptr [[VP_SUM]]
 ; CHECK-NEXT:     i32 [[VP_ADD:%.*]] = add i32 [[VP_A_I]] i32 [[VP_SUM_LD]]
-; CHECK-NEXT:     store i32 [[VP_ADD]] i32* [[VP_SUM]]
+; CHECK-NEXT:     store i32 [[VP_ADD]] ptr [[VP_SUM]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUM]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUM]]
 ; CHECK-NEXT:     i32 [[VP_SUMRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP_SUMRED_FINAL]] i32* [[SUM0]]
-; CHECK-NEXT:     i8* [[VP_SUM_BCAST1:%.*]] = bitcast i32* [[VP_SUM]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_SUM_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     store i32 [[VP_SUMRED_FINAL]] ptr [[SUM0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_SUM]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -109,56 +107,52 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
-; CHECK-NEXT:    [[SUM_VEC_BCAST:%.*]] = bitcast i32* [[SUM_VEC:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[SUM_VEC_BCAST]])
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[SUM0]], align 1
-; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[SUM0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[SUM_VEC_BASE_ADDR_EXTRACT_0_0:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[SUM0]], align 1
+; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[SUM0]], align 1
 ; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <2 x i32> zeroinitializer, i32 [[TMP2]], i32 0
-; CHECK-NEXT:    store <2 x i32> [[RED_INIT_INSERT0]], <2 x i32>* [[SUM_VEC0:%.*]], align 1
+; CHECK-NEXT:    store <2 x i32> [[RED_INIT_INSERT0]], ptr [[SUM_VEC0:%.*]], align 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[N0]], 4294967294
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP8:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP7:%.*]], [[VECTOR_BODY0]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP5]], align 4
-; CHECK-NEXT:    [[WIDE_LOAD40:%.*]] = load <2 x i32>, <2 x i32>* [[SUM_VEC0]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <2 x i32> [[WIDE_LOAD0]], [[WIDE_LOAD40]]
-; CHECK-NEXT:    store <2 x i32> [[TMP6]], <2 x i32>* [[SUM_VEC0]], align 4
-; CHECK-NEXT:    [[TMP7]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], [[TMP4]]
-; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP7:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VPLANNEDBB20]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP6:%.*]], [[VECTOR_BODY0]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[A0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD40:%.*]] = load <2 x i32>, ptr [[SUM_VEC0]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <2 x i32> [[WIDE_LOAD0]], [[WIDE_LOAD40]]
+; CHECK-NEXT:    store <2 x i32> [[TMP5]], ptr [[SUM_VEC0]], align 4
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], [[TMP4]]
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <2 x i32>, <2 x i32>* [[SUM_VEC0]], align 1
-; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[WIDE_LOAD60]])
-; CHECK-NEXT:    store i32 [[TMP10]], i32* [[SUM0]], align 1
-; CHECK-NEXT:    [[SUM_VEC_BCAST1:%.*]] = bitcast i32* [[SUM_VEC:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[SUM_VEC_BCAST1]])
-; CHECK-NEXT:    [[TMP11:%.*]] = mul i64 1, [[TMP4]]
-; CHECK-NEXT:    [[TMP12:%.*]] = add i64 0, [[TMP11]]
+; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <2 x i32>, ptr [[SUM_VEC0]], align 1
+; CHECK-NEXT:    [[TMP9:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[WIDE_LOAD60]])
+; CHECK-NEXT:    store i32 [[TMP9]], ptr [[SUM0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[SUM_VEC_BASE_ADDR_EXTRACT_0_0]])
+; CHECK-NEXT:    [[TMP10:%.*]] = mul i64 1, [[TMP4]]
+; CHECK-NEXT:    [[TMP11:%.*]] = add i64 0, [[TMP10]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
-;
 
 entry:
   %sum = alloca i32, align 4
-  store i32 %init, i32* %sum, align 4
+  store i32 %init, ptr %sum, align 4
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %sum, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum, i32 0, i32 1) ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %begin.simd ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
-  %sum.ld = load i32, i32* %sum, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
+  %sum.ld = load i32, ptr %sum, align 4
   %add = add nsw i32 %A.i, %sum.ld
-  store i32 %add, i32* %sum, align 4
+  store i32 %add, ptr %sum, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
@@ -171,7 +165,7 @@ end.simd:
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
-  %fin = load i32, i32* %sum, align 4
+  %fin = load i32, ptr %sum, align 4
   ret i32 %fin
 
 }
