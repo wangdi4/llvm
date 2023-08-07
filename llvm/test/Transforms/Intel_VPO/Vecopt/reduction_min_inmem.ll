@@ -9,7 +9,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %ip) {
+define i32 @foo(ptr nocapture readonly %ip) {
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
 ; HIR-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; HIR-NEXT:  External Defs Start:
@@ -19,24 +19,24 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR:         [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
-; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[MIN0:%.*]]
+; HIR-NEXT:     ptr [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
+; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[MIN0:%.*]]
 ; HIR-NEXT:     i32 [[VP_MINMINMAX_RED_INIT:%.*]] = reduction-init i32 [[VP_LOAD]]
-; HIR-NEXT:     store i32 [[VP_MINMINMAX_RED_INIT]] i32* [[VP_MIN]]
+; HIR-NEXT:     store i32 [[VP_MINMINMAX_RED_INIT]] ptr [[VP_MIN]]
 ; HIR-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; HIR-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; HIR-NEXT:     br [[BB2:BB[0-9]+]]
 ; HIR:         [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; HIR-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[IP0:%.*]] i64 [[VP2]]
-; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_MIN]]
-; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[IP0:%.*]] i64 [[VP2]]
+; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_MIN]]
+; HIR-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; HIR-NEXT:     i1 [[VP4:%.*]] = icmp sgt i32 [[VP_LOAD_2]] i32 [[VP_LOAD_1]]
 ; HIR-NEXT:     br i1 [[VP4]], [[BB4:BB[0-9]+]], [[BB3]]
 ; HIR:           [[BB4]]: # preds: [[BB2]]
-; HIR-NEXT:       i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[VP_MIN]]
-; HIR-NEXT:       store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_3]]
+; HIR-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[VP_MIN]]
+; HIR-NEXT:       store i32 [[VP_LOAD_1]] ptr [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
@@ -44,9 +44,9 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:     i1 [[VP5:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; HIR-NEXT:     br i1 [[VP5]], [[BB2]], [[BB5:BB[0-9]+]]
 ; HIR:         [[BB5]]: # preds: [[BB3]]
-; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_MIN]]
+; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_MIN]]
 ; HIR-NEXT:     i32 [[VP_MINMINMAX_RED_FINAL:%.*]] = reduction-final{u_smin} i32 [[VP_LOAD_3]]
-; HIR-NEXT:     store i32 [[VP_MINMINMAX_RED_FINAL]] i32* [[MIN0]]
+; HIR-NEXT:     store i32 [[VP_MINMINMAX_RED_FINAL]] ptr [[MIN0]]
 ; HIR-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; HIR-NEXT:     br [[BB6:BB[0-9]+]]
 ; === Generated HIR code
@@ -72,26 +72,25 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_MIN_BCAST:%.*]] = bitcast i32* [[VP_MIN]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_MIN_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[MIN0:%.*]]
+; CHECK-NEXT:     ptr [[VP_MIN:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_MIN]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[MIN0:%.*]]
 ; CHECK-NEXT:     i32 [[VP_MINMINMAX_RED_INIT:%.*]] = reduction-init i32 [[VP_LOAD]]
-; CHECK-NEXT:     store i32 [[VP_MINMINMAX_RED_INIT]] i32* [[VP_MIN]]
+; CHECK-NEXT:     store i32 [[VP_MINMINMAX_RED_INIT]] ptr [[VP_MIN]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[IP0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_VAL:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i32 [[VP_TMP:%.*]] = load i32* [[VP_MIN]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[IP0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_VAL:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i32 [[VP_TMP:%.*]] = load ptr [[VP_MIN]]
 ; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP_TMP]] i32 [[VP_VAL]]
 ; CHECK-NEXT:     br i1 [[VP_CMP1]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       store i32 [[VP_VAL]] i32* [[VP_MIN]]
+; CHECK-NEXT:       store i32 [[VP_VAL]] ptr [[VP_MIN]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BB4]]
@@ -100,11 +99,10 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_MIN]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_MIN]]
 ; CHECK-NEXT:     i32 [[VP_MINMINMAX_RED_FINAL:%.*]] = reduction-final{u_smin} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP_MINMINMAX_RED_FINAL]] i32* [[MIN0]]
-; CHECK-NEXT:     i8* [[VP_MIN_BCAST1:%.*]] = bitcast i32* [[VP_MIN]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_MIN_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     store i32 [[VP_MINMINMAX_RED_FINAL]] ptr [[MIN0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_MIN]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -114,41 +112,38 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; Checks for generated vector code
 ; CHECK:  define i32 @foo
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast i32* [[MIN_VEC:%.*]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[MIN_VEC_BCAST]])
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[MIN0]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i64 0
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[MIN_VEC_BASE_ADDR_EXTRACT_0_0:%.*]])
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[MIN0]], align 1
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32> poison, i32 [[TMP1]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT0]], <2 x i32> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[MIN0]], align 1
-; CHECK-NEXT:    store <2 x i32> [[BROADCAST_SPLAT0]], <2 x i32>* [[MIN_VEC0:%.*]], align 1
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[MIN0]], align 1
+; CHECK-NEXT:    store <2 x i32> [[BROADCAST_SPLAT0]], ptr [[MIN_VEC0:%.*]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP7:%.*]], [[VPLANNEDBB50:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP6:%.*]], [[VPLANNEDBB50]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP4]], align 4
-; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <2 x i32>, <2 x i32>* [[MIN_VEC0]], align 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp sgt <2 x i32> [[WIDE_LOAD30]], [[WIDE_LOAD0]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP5:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[IP0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <2 x i32>, ptr [[MIN_VEC0]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp sgt <2 x i32> [[WIDE_LOAD30]], [[WIDE_LOAD0]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[WIDE_LOAD0]], <2 x i32>* [[MIN_VEC0]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[WIDE_LOAD0]], ptr [[MIN_VEC0]], i32 4, <2 x i1> [[TMP3]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 1024
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[WIDE_LOAD70:%.*]] = load <2 x i32>, <2 x i32>* [[MIN_VEC0]], align 1
-; CHECK-NEXT:    [[TMP9:%.*]] = call i32 @llvm.vector.reduce.smin.v2i32(<2 x i32> [[WIDE_LOAD70]])
-; CHECK-NEXT:    store i32 [[TMP9]], i32* [[MIN0]], align 1
-; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast i32* [[MIN_VEC:%.*]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[MIN_VEC_BCAST1]])
+; CHECK-NEXT:    [[WIDE_LOAD70:%.*]] = load <2 x i32>, ptr [[MIN_VEC0]], align 1
+; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.smin.v2i32(<2 x i32> [[WIDE_LOAD70]])
+; CHECK-NEXT:    store i32 [[TMP7]], ptr [[MIN0]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[MIN_VEC_BASE_ADDR_EXTRACT_0_0]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
@@ -159,28 +154,27 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    br label [[FOR_END0:%.*]]
 ;
   %min = alloca i32, align 4
-  %1 = bitcast i32* %min to i8*
-  store i32 2147483647, i32* %min, align 4
+  store i32 2147483647, ptr %min, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(i32* %min, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr %min, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
-  %.pre = load i32, i32* %min, align 4
+  %.pre = load i32, ptr %min, align 4
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
-  %Val = load i32, i32* %arrayidx, align 4
-  %Tmp = load i32, i32* %min, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
+  %Val = load i32, ptr %arrayidx, align 4
+  %Tmp = load i32, ptr %min, align 4
   %cmp1 = icmp sgt i32 %Tmp, %Val
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:
-  store i32 %Val, i32* %min, align 4
+  store i32 %Val, ptr %min, align 4
   br label %for.inc
 
 for.inc:
@@ -196,7 +190,7 @@ DIR.OMP.END.SIMD.3:
   br label %DIR.QUAL.LIST.END.4
 
 DIR.QUAL.LIST.END.4:
-  %fin = load i32, i32* %min
+  %fin = load i32, ptr %min
   ret i32 %fin
 }
 
