@@ -7889,9 +7889,8 @@ static DIScope *FindDebugScopeForRegion(WRegionNode *W) {
 
 // Generate debug information describing the mapping from PrivValue to the
 // privatized NewPrivValue.
-static void genPrivatizationDebug(WRegionNode *W,
-                                  Value *PrivValue,
-                                  Value *NewPrivValue) {
+void VPOParoptTransform::genPrivatizationDebug(WRegionNode *W, Value *PrivValue,
+                                               Value *NewPrivValue) {
   Module *M = W->getEntryBBlock()->getModule();
   const bool AllowUnresolved = false;
   DICompileUnit *CU = nullptr;
@@ -7960,8 +7959,11 @@ static void genPrivatizationDebug(WRegionNode *W,
       // should not be observable by debugger.
       if (auto *GepBaseGV = dyn_cast_or_null<GlobalVariable>(
               NewPrivValue->stripInBoundsOffsets()))
-        if (GepBaseGV->hasAttribute(
-                VPOParoptAtomicFreeReduction::GlobalBufferAttr))
+        if (std::find_if(
+                AtomicFreeRedGlobalBufs.begin(), AtomicFreeRedGlobalBufs.end(),
+                [&GepBaseGV](std::pair<ReductionItem *, GlobalVariable *> &P) {
+                  return P.second == GepBaseGV;
+                }) != AtomicFreeRedGlobalBufs.end())
           GV = GepBaseGV;
     }
 

@@ -325,9 +325,13 @@ private:
   /// Information about functions that may call omp_get_num_threads.
   OmpNumThreadsCallerInfo NumThreadsCallerInfo;
 
-  /// Atomic-free reduction global buffers per reduction item.
+  /// Atomic-free reduction local buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedLocalBufs;
-  DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
+  // NOTE: MapVector is needed only for genPrivatization debug
+  // to be able to check if some global variable is a reduction buffer
+  // by scanning through the AtomicFreeRedGlobalBufs' underlying vector
+  /// Atomic-free reduction local buffers per reduction item.
+  MapVector<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
   struct LocalUpdateInfo {
     BasicBlock *UpdateBB = nullptr;
@@ -770,6 +774,11 @@ private:
   /// by DataLayout.
   std::optional<unsigned> getPrivatizationAllocaAddrSpace(const WRegionNode *W,
                                                           const Item *I) const;
+
+  /// Generate debug information describing the mapping from \p PrivValue to the
+  /// privatized \p NewPrivValue.
+  void genPrivatizationDebug(WRegionNode *W, Value *PrivValue,
+                             Value *NewPrivValue);
 
   /// Replace the variable with the privatized variable.
   /// If \p ExcludeEntryDirective is true, then uses in the entry
