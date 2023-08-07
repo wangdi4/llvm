@@ -1,5 +1,32 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 # This file handles building LLVM runtime sub-projects.
 cmake_minimum_required(VERSION 3.20.0)
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-49965
+# Copy some Intel predefined variables from llvm/CMakeLists.txt
+# Because the dafault build lack of many flags/variables from llvm/CMakeFiles.txt
+set(INTEL_CUSTOMIZATION ON)
+set(INTEL_DEPLOY_UNIFIED_LAYOUT ON CACHE BOOL "Build with unified flat layout")
+set(LLVM_ENABLE_PIC ON)
+# end INTEL_CUSTIMIZATION
 
 # Add path for custom and the LLVM build's modules to the CMake module path.
 set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
