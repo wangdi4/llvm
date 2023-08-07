@@ -1547,7 +1547,8 @@ struct RTLOptionTy {
   int32_t DeviceMode = DEVICE_MODE_TOP;
 
   /// List of Root devices provided via option ONEAPI_DEVICE_SELECTOR
-  std::vector<std::tuple<int32_t, int32_t, int32_t>> ExplicitRootDevices;
+  /// All the discard filter should be before the accept filter.
+  std::vector<std::tuple<bool, int32_t, int32_t, int32_t>> ExplicitRootDevices;
 
   /// Is the given RootID, SubID, CcsID specified in ONEAPI_DEVICE_SELECTOR
   bool shouldAddDevice(int32_t RootID, int32_t SubID, int32_t CCSID) {
@@ -1555,15 +1556,18 @@ struct RTLOptionTy {
       return false;
     for (const auto &RootDev : ExplicitRootDevices) {
       int32_t ErootID, EsubID, ECCSID;
-      ErootID = std::get<0>(RootDev);
+      ErootID = std::get<1>(RootDev);
       if (!((ErootID == -2) || (RootID == ErootID)))
         continue;
-      EsubID = std::get<1>(RootDev);
+      EsubID = std::get<2>(RootDev);
       if (((EsubID != -2) || (SubID == -1)) && (EsubID != SubID))
         continue;
-      ECCSID = std::get<2>(RootDev);
+      ECCSID = std::get<3>(RootDev);
       if (((ECCSID != -2) || (CCSID == -1)) && (ECCSID != CCSID))
         continue;
+      // Check if isDiscard
+      if (!std::get<0>(RootDev))
+        return false;
       return true;
     }
     return false;
@@ -1627,18 +1631,31 @@ struct RTLOptionTy {
     // Explicit Device mode if ONEAPI_DEVICE_SELECTOR is set
     if ((Env = readEnvVar("ONEAPI_DEVICE_SELECTOR"))) {
       std::string EnvStr(Env);
+      uint32_t numDiscard = 0;
       std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
                      [](unsigned char C) { return std::tolower(C); });
       std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
       for (const auto &Term : OdsStr) {
+        bool isDiscard = false;
         std::vector<std::string_view> Backend = tokenize(Term, ":");
         if (Backend.size() != 2) {
-          DP("Warning: Invalid ONEAPI_DEVICE_SELECTOR Backend  Pair\n");
+          DP("Warning: Invalid ONEAPI_DEVICE_SELECTOR Backend Pair\n");
           continue;
         }
         if (!(((Backend[0].size() == 1) && (Backend[0][0] == '*')) ||
-              (!strncmp(Backend[0].data(), "level_zero", Backend[0].length()))))
+              (!strncmp(Backend[0].data(), "level_zero",
+                        Backend[0].length())) ||
+              (!strncmp(Backend[0].data(), "!level_zero",
+                        Backend[0].length()))))
           break;
+        isDiscard = Backend[0][0] == '!';
+        if ((numDiscard > 0) && !isDiscard) {
+          DP("Warning: All discard filters must appear after all "
+             "accept filters\n");
+          break;
+        }
+        if (isDiscard)
+          numDiscard++;
         std::vector<std::string_view> Devices = tokenize(Backend[1], ",");
         for (const auto &DeviceId : Devices) {
           std::vector<std::string_view> SubDevices = tokenize(DeviceId, ".");
@@ -1674,17 +1691,26 @@ struct RTLOptionTy {
               RootD[2] = std::atoi(SubDevices[2].data());
             }
           }
-          ExplicitRootDevices.push_back(std::tuple<int32_t, int32_t, int32_t>(
-              RootD[0], RootD[1], RootD[2]));
+          if (isDiscard)
+            ExplicitRootDevices.insert(
+                ExplicitRootDevices.begin(),
+                std::tuple<bool, int32_t, int32_t, int32_t>(
+                    !isDiscard, RootD[0], RootD[1], RootD[2]));
+          else
+            ExplicitRootDevices.push_back(
+                std::tuple<bool, int32_t, int32_t, int32_t>(
+                    !isDiscard, RootD[0], RootD[1], RootD[2]));
         }
       }
     }
 
     DP("ONEAPI_DEVICE_SELECTOR specified %zu root devices\n",
        ExplicitRootDevices.size());
-    DP("  (DeviceID[.SubID[.CCSID]]) -2(all), -1(ignore)\n");
+    DP("  (Accept/Discard [T/F] DeviceID[.SubID[.CCSID]]) -2(all), "
+       "-1(ignore)\n");
     for (auto &T : ExplicitRootDevices) {
-      DP(" %d.%.d.%d\n", std::get<0>(T), std::get<1>(T), std::get<2>(T));
+      DP(" %c %d.%d.%d\n", (std::get<0>(T) == true) ? 'T' : 'F', std::get<1>(T),
+         std::get<2>(T), std::get<3>(T));
       (void)T; // silence warning
     }
 
