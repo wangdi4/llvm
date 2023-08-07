@@ -719,17 +719,10 @@ void CGRecordLowering::accumulateVPtrs() {
     Members.push_back(
         MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
                    llvm::PointerType::getUnqual(Types.getLLVMContext())));
-<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
         llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#else
-    Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
-        llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
-#endif
->>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
 }
 
 void CGRecordLowering::accumulateVBases() {
