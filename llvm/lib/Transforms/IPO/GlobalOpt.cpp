@@ -2265,8 +2265,15 @@ static void RemovePreallocated(Function *F) {
         Builder.SetInsertPoint(InsertBefore);
         auto *Alloca =
             Builder.CreateAlloca(ArgType, AddressSpace, nullptr, "paarg");
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         ArgAllocas[AllocArgIndex] = Alloca;
         AllocaReplacement = Alloca;
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+        auto *BitCast = Builder.CreateBitCast(
+            Alloca, Type::getInt8PtrTy(M->getContext()), UseCall->getName());
+        ArgAllocas[AllocArgIndex] = BitCast;
+        AllocaReplacement = BitCast;
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       }
 
       UseCall->replaceAllUsesWith(AllocaReplacement);
@@ -2476,18 +2483,32 @@ static void setUsedInitializer(GlobalVariable &V,
   const auto *VEPT = cast<PointerType>(VAT->getArrayElementType());
 
   // Type of pointer to the array of pointers.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *PtrTy =
       PointerType::get(V.getContext(), VEPT->getAddressSpace());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+  PointerType *Int8PtrTy =
+      Type::getInt8PtrTy(V.getContext(), VEPT->getAddressSpace());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   SmallVector<Constant *, 8> UsedArray;
   for (GlobalValue *GV : Init) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Constant *Cast = ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, PtrTy);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+    Constant *Cast =
+        ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     UsedArray.push_back(Cast);
   }
 
   // Sort to get deterministic order.
   array_pod_sort(UsedArray.begin(), UsedArray.end(), compareNames);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   ArrayType *ATy = ArrayType::get(PtrTy, UsedArray.size());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+  ArrayType *ATy = ArrayType::get(Int8PtrTy, UsedArray.size());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   Module *M = V.getParent();
   V.removeFromParent();

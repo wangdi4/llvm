@@ -2263,11 +2263,19 @@ CleanupAndExit:
 
     if (DestVolatile) {
       Type *Int32Ty = Type::getInt32Ty(Ctx);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = PointerType::get(Ctx, 0);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *Int32PtrTy = Type::getInt32PtrTy(Ctx);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Type *VoidTy = Type::getVoidTy(Ctx);
       Module *M = Func->getParent();
       FunctionCallee Fn = M->getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           HexagonVolatileMemcpyName, VoidTy, PtrTy, PtrTy, Int32Ty);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+          HexagonVolatileMemcpyName, VoidTy, Int32PtrTy, Int32PtrTy, Int32Ty);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       const SCEV *OneS = SE->getConstant(Int32Ty, 1);
       const SCEV *BECount32 = SE->getTruncateOrZeroExtend(BECount, Int32Ty);
@@ -2278,8 +2286,18 @@ CleanupAndExit:
         if (Value *Simp = simplifyInstruction(In, {*DL, TLI, DT}))
           NumWords = Simp;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       NewCall = CondBuilder.CreateCall(Fn,
                                        {StoreBasePtr, LoadBasePtr, NumWords});
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *Op0 = (StoreBasePtr->getType() == Int32PtrTy)
+                      ? StoreBasePtr
+                      : CondBuilder.CreateBitCast(StoreBasePtr, Int32PtrTy);
+      Value *Op1 = (LoadBasePtr->getType() == Int32PtrTy)
+                      ? LoadBasePtr
+                      : CondBuilder.CreateBitCast(LoadBasePtr, Int32PtrTy);
+      NewCall = CondBuilder.CreateCall(Fn, {Op0, Op1, NumWords});
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     } else {
       NewCall = CondBuilder.CreateMemMove(
           StoreBasePtr, SI->getAlign(), LoadBasePtr, LI->getAlign(), NumBytes);
