@@ -573,6 +573,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/lib/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.cpp @skozhukh @mamasten @ivankelarev @sguggill
 /llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 /llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
+/llvm/test/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 
 # COMPONENT: PAROPT
