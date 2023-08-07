@@ -6151,9 +6151,8 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
   if (!IsConstantOffsetFromGlobal(Ptr, PtrSym, PtrOffset, DL))
     return nullptr;
 
-  Type *Int8PtrTy = Type::getInt8PtrTy(Ptr->getContext());
+  Type *UnqualPtrTy = PointerType::getUnqual(Ptr->getContext());
   Type *Int32Ty = Type::getInt32Ty(Ptr->getContext());
-  Type *Int32PtrTy = Int32Ty->getPointerTo();
   Type *Int64Ty = Type::getInt64Ty(Ptr->getContext());
 
   auto *OffsetConstInt = dyn_cast<ConstantInt>(Offset);
@@ -6165,8 +6164,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
     return nullptr;
 
   Constant *C = ConstantExpr::getGetElementPtr(
-      Int32Ty, ConstantExpr::getBitCast(Ptr, Int32PtrTy),
-      ConstantInt::get(Int64Ty, OffsetInt / 4));
+      Int32Ty, Ptr, ConstantInt::get(Int64Ty, OffsetInt / 4));
   Constant *Loaded = ConstantFoldLoadFromConstPtr(C, Int32Ty, DL);
   if (!Loaded)
     return nullptr;
@@ -6197,7 +6195,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
       PtrSym != LoadedRHSSym || PtrOffset != LoadedRHSOffset)
     return nullptr;
 
-  return ConstantExpr::getBitCast(LoadedLHSPtr, Int8PtrTy);
+  return ConstantExpr::getBitCast(LoadedLHSPtr, UnqualPtrTy);
 }
 
 static Value *simplifyUnaryIntrinsic(Function *F, Value *Op0,
