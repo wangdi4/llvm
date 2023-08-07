@@ -1572,7 +1572,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPValue *ChangeValue = nullptr;
-  if (Reduction->isSelectCmp()) {
+  if (Reduction->isAnyOf()) {
     // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
     // instruction.  In more complex cases the Exit instruction is a PHI.
     // The PHI may have any number of predecessors, but only one of them
@@ -1632,7 +1632,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
           "red.final.cmplx", Reduction->getRecurrenceType(),
           ArrayRef<VPValue *>{PrivateMem, AI}, Reduction->getReductionOpcode());
   } else {
-      if (Reduction->isSelectCmp())
+      if (Reduction->isAnyOf())
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit,
           Reduction->getRecurrenceStartValue(), ChangeValue,

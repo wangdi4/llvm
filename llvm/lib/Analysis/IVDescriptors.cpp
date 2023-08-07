@@ -1135,13 +1135,6 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     return ConstantFP::getInfinity(Tp, false /*Negative*/);
   case RecurKind::FMaximum:
     return ConstantFP::getInfinity(Tp, true /*Negative*/);
-<<<<<<< HEAD
-=======
-  case RecurKind::IAnyOf:
-  case RecurKind::FAnyOf:
-    return getRecurrenceStartValue();
-    break;
->>>>>>> 425e9e81a0c9b5ee6d05ad20075d6fa51d85aba3
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
