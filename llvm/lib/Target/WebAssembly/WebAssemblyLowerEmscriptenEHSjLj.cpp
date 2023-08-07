@@ -471,6 +471,7 @@ static Type *getAddrIntType(Module *M) {
 }
 
 // Returns an integer pointer type for the target architecture's address space.
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
 // i32* for wasm32 and i64* for wasm64. With opaque pointers this is just a ptr
 // in address space zero.
@@ -484,6 +485,12 @@ static Type *getAddrPtrType(Module *M) {
   return Type::getIntNPtrTy(M->getContext(),
                             M->getDataLayout().getPointerSizeInBits());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+// i32* for wasm32 and i64* for wasm64.
+static Type *getAddrPtrType(Module *M) {
+  return Type::getIntNPtrTy(M->getContext(),
+                            M->getDataLayout().getPointerSizeInBits());
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 }
 
 // Returns an integer whose type is the integer type for the target's address
@@ -504,11 +511,15 @@ WebAssemblyLowerEmscriptenEHSjLj::getFindMatchingCatch(Module &M,
                                                        unsigned NumClauses) {
   if (FindMatchingCatches.count(NumClauses))
     return FindMatchingCatches[NumClauses];
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *Int8PtrTy = PointerType::getUnqual(M.getContext());
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   SmallVector<Type *, 16> Args(NumClauses, Int8PtrTy);
   FunctionType *FTy = FunctionType::get(Int8PtrTy, Args, false);
   Function *F = getEmscriptenFunction(
@@ -844,12 +855,17 @@ void WebAssemblyLowerEmscriptenEHSjLj::replaceLongjmpWith(Function *LongjmpF,
         Env =
             IRB.CreatePtrToInt(CI->getArgOperand(0), getAddrIntType(M), "env");
       else // WasmLongjmpF
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Env = IRB.CreateBitCast(CI->getArgOperand(0), IRB.getPtrTy(), "env");
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
         Env =
             IRB.CreateBitCast(CI->getArgOperand(0), IRB.getInt8PtrTy(), "env");
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+        Env =
+            IRB.CreateBitCast(CI->getArgOperand(0), IRB.getInt8PtrTy(), "env");
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       IRB.CreateCall(NewF, {Env, CI->getArgOperand(1)});
       ToErase.push_back(CI);
     }
@@ -962,21 +978,29 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
   if (EnableEmEH) {
     // Register __resumeException function
     FunctionType *ResumeFTy =
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         FunctionType::get(IRB.getVoidTy(), IRB.getPtrTy(), false);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
         FunctionType::get(IRB.getVoidTy(), IRB.getInt8PtrTy(), false);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+        FunctionType::get(IRB.getVoidTy(), IRB.getInt8PtrTy(), false);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
     ResumeF = getEmscriptenFunction(ResumeFTy, "__resumeException", &M);
     ResumeF->addFnAttr(Attribute::NoReturn);
 
     // Register llvm_eh_typeid_for function
     FunctionType *EHTypeIDTy =
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         FunctionType::get(IRB.getInt32Ty(), IRB.getPtrTy(), false);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
         FunctionType::get(IRB.getInt32Ty(), IRB.getInt8PtrTy(), false);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+        FunctionType::get(IRB.getInt32Ty(), IRB.getInt8PtrTy(), false);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
     EHTypeIDF = getEmscriptenFunction(EHTypeIDTy, "llvm_eh_typeid_for", &M);
   }
 
@@ -1020,6 +1044,7 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
       EmLongjmpF = getEmscriptenFunction(FTy, "emscripten_longjmp", &M);
       EmLongjmpF->addFnAttr(Attribute::NoReturn);
     } else { // EnableWasmSjLj
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *Int8PtrTy = IRB.getPtrTy();
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -1030,11 +1055,17 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
           IRB.getVoidTy(), {IRB.getInt8PtrTy(), IRB.getInt32Ty()}, false);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+      // Register __wasm_longjmp function, which calls __builtin_wasm_longjmp.
+      FunctionType *FTy = FunctionType::get(
+          IRB.getVoidTy(), {IRB.getInt8PtrTy(), IRB.getInt32Ty()}, false);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       WasmLongjmpF = getEmscriptenFunction(FTy, "__wasm_longjmp", &M);
       WasmLongjmpF->addFnAttr(Attribute::NoReturn);
     }
 
     if (SetjmpF) {
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *Int8PtrTy = IRB.getPtrTy();
       Type *Int32PtrTy = IRB.getPtrTy();
@@ -1047,11 +1078,16 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
           Int32PtrTy,
           {SetjmpFTy->getParamType(0), Int32Ty, Int32PtrTy, Int32Ty}, false);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+      // Register saveSetjmp function
+      FunctionType *SetjmpFTy = SetjmpF->getFunctionType();
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       FunctionType *FTy =
           FunctionType::get(Type::getInt32PtrTy(C),
                             {SetjmpFTy->getParamType(0), IRB.getInt32Ty(),
                              Type::getInt32PtrTy(C), IRB.getInt32Ty()},
                             false);
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
       SaveSetjmpF = getEmscriptenFunction(FTy, "saveSetjmp", &M);
 
@@ -1060,17 +1096,26 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
       FTy = FunctionType::get(Int32Ty,
                               {getAddrIntType(&M), Int32PtrTy, Int32Ty}, false);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+      SaveSetjmpF = getEmscriptenFunction(FTy, "saveSetjmp", &M);
+
+      // Register testSetjmp function
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       FTy = FunctionType::get(
           IRB.getInt32Ty(),
           {getAddrIntType(&M), Type::getInt32PtrTy(C), IRB.getInt32Ty()},
           false);
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       TestSetjmpF = getEmscriptenFunction(FTy, "testSetjmp", &M);
 
       // wasm.catch() will be lowered down to wasm 'catch' instruction in
       // instruction selection.
       CatchF = Intrinsic::getDeclaration(&M, Intrinsic::wasm_catch);
       // Type for struct __WasmLongjmpArgs
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LongjmpArgsTy = StructType::get(Int8PtrTy, // env
                                       Int32Ty    // val
@@ -1078,6 +1123,10 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
       LongjmpArgsTy = StructType::get(IRB.getInt8PtrTy(), // env
                                       IRB.getInt32Ty()    // val
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+      LongjmpArgsTy = StructType::get(IRB.getInt8PtrTy(), // env
+                                      IRB.getInt32Ty()    // val
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       );
     }
   }
@@ -1479,11 +1528,15 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runSjLjOnFunction(Function &F) {
   // saveSetjmp and testSetjmp calls have the correct arguments.
   SSAUpdater SetjmpTableSSA;
   SSAUpdater SetjmpTableSizeSSA;
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   SetjmpTableSSA.Initialize(PointerType::get(C, 0), "setjmpTable");
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   SetjmpTableSSA.Initialize(Type::getInt32PtrTy(C), "setjmpTable");
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  SetjmpTableSSA.Initialize(Type::getInt32PtrTy(C), "setjmpTable");
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   SetjmpTableSizeSSA.Initialize(Type::getInt32Ty(C), "setjmpTableSize");
   for (Instruction *I : SetjmpTableInsts)
     SetjmpTableSSA.AddAvailableValue(I->getParent(), I);
@@ -1737,11 +1790,15 @@ void WebAssemblyLowerEmscriptenEHSjLj::handleLongjmpableCallsForWasmSjLj(
         FunctionType::get(IRB.getInt32Ty(), /* isVarArg */ true);
     Value *PersF = M.getOrInsertFunction(PersName, PersType).getCallee();
     F.setPersonalityFn(
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         cast<Constant>(IRB.CreateBitCast(PersF, IRB.getPtrTy())));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
         cast<Constant>(IRB.CreateBitCast(PersF, IRB.getInt8PtrTy())));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+        cast<Constant>(IRB.CreateBitCast(PersF, IRB.getInt8PtrTy())));
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   }
 
   // Use the entry BB's debugloc as a fallback
@@ -1801,11 +1858,15 @@ void WebAssemblyLowerEmscriptenEHSjLj::handleLongjmpableCallsForWasmSjLj(
   Value *ValField =
       IRB.CreateConstGEP2_32(LongjmpArgsTy, LongjmpArgs, 0, 1, "val_gep");
   // void *env = __wasm_longjmp_args.env;
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *Env = IRB.CreateLoad(IRB.getPtrTy(), EnvField, "env");
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *Env = IRB.CreateLoad(IRB.getInt8PtrTy(), EnvField, "env");
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  Instruction *Env = IRB.CreateLoad(IRB.getInt8PtrTy(), EnvField, "env");
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   // int val = __wasm_longjmp_args.val;
   Instruction *Val = IRB.CreateLoad(IRB.getInt32Ty(), ValField, "val");
   // %label = testSetjmp(mem[%env], setjmpTable, setjmpTableSize);

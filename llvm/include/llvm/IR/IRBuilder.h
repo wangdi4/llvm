@@ -586,11 +586,15 @@ public:
 
   /// Fetch the type representing a pointer to an 8-bit integer value.
   PointerType *getInt8PtrTy(unsigned AddrSpace = 0) {
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return getPtrTy(AddrSpace);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     return Type::getInt8PtrTy(Context, AddrSpace);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+    return Type::getInt8PtrTy(Context, AddrSpace);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   }
 
   /// Fetch the type of an integer with size at least as big as that of a

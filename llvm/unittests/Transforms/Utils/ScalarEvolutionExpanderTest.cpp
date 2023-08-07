@@ -73,6 +73,7 @@ TEST_F(ScalarEvolutionExpanderTest, ExpandPtrTypeSCEV) {
   // expansion when the value in ValueOffsetPair is a ptr and the offset
   // is not divisible by the elem type size of value.
   auto *I8Ty = Type::getInt8Ty(Context);
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *I8PtrTy = PointerType::get(Context, 0);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -84,6 +85,11 @@ TEST_F(ScalarEvolutionExpanderTest, ExpandPtrTypeSCEV) {
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   auto *I32PtrTy = Type::getInt32PtrTy(Context);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  auto *I8PtrTy = Type::getInt8PtrTy(Context);
+  auto *I32Ty = Type::getInt32Ty(Context);
+  auto *I32PtrTy = Type::getInt32PtrTy(Context);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FTy =
       FunctionType::get(Type::getVoidTy(Context), std::vector<Type *>(), false);
   Function *F = Function::Create(FTy, Function::ExternalLinkage, "f", M);

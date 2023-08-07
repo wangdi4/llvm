@@ -127,6 +127,7 @@ TEST(ConstantsTest, FP128Test) {
 
 TEST(ConstantsTest, PointerCast) {
   LLVMContext C;
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *PtrTy = PointerType::get(C, 0);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -167,10 +168,28 @@ TEST(ConstantsTest, PointerCast) {
   EXPECT_EQ(Constant::getNullValue(PtrTy),
             ConstantExpr::getPointerCast(Constant::getNullValue(PtrTy), PtrTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int32PtrTy = Type::getInt32PtrTy(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  VectorType *Int8PtrVecTy = FixedVectorType::get(Int8PtrTy, 4);
+  VectorType *Int32PtrVecTy = FixedVectorType::get(Int32PtrTy, 4);
+  VectorType *Int64VecTy = FixedVectorType::get(Int64Ty, 4);
+  VectorType *Int8PtrScalableVecTy = ScalableVectorType::get(Int8PtrTy, 4);
+  VectorType *Int32PtrScalableVecTy = ScalableVectorType::get(Int32PtrTy, 4);
+  VectorType *Int64ScalableVecTy = ScalableVectorType::get(Int64Ty, 4);
+
+  // ptrtoint i8* to i64
+  EXPECT_EQ(
+      Constant::getNullValue(Int64Ty),
+      ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrTy), Int64Ty));
+
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   // bitcast i8* to i32*
   EXPECT_EQ(Constant::getNullValue(Int32PtrTy),
             ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrTy),
                                          Int32PtrTy));
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
@@ -201,6 +220,16 @@ TEST(ConstantsTest, PointerCast) {
       Constant::getNullValue(PtrVecTy),
       ConstantExpr::getPointerCast(Constant::getNullValue(PtrVecTy), PtrVecTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+
+  // ptrtoint <4 x i8*> to <4 x i64>
+  EXPECT_EQ(Constant::getNullValue(Int64VecTy),
+            ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrVecTy),
+                                         Int64VecTy));
+
+  // ptrtoint <vscale x 4 x i8*> to <vscale x 4 x i64>
+  EXPECT_EQ(
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
       Constant::getNullValue(Int64ScalableVecTy),
       ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrScalableVecTy),
                                    Int64ScalableVecTy));
@@ -209,6 +238,7 @@ TEST(ConstantsTest, PointerCast) {
   EXPECT_EQ(Constant::getNullValue(Int32PtrVecTy),
             ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrVecTy),
                                          Int32PtrVecTy));
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
@@ -229,10 +259,21 @@ TEST(ConstantsTest, PointerCast) {
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Int32Ptr1Ty = Type::getInt32PtrTy(C, 1);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+
+  // bitcast <vscale x 4 x i8*> to <vscale x 4 x i32*>
+  EXPECT_EQ(
+      Constant::getNullValue(Int32PtrScalableVecTy),
+      ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrScalableVecTy),
+                                   Int32PtrScalableVecTy));
+
+  Type *Int32Ptr1Ty = Type::getInt32PtrTy(C, 1);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   ConstantInt *K = ConstantInt::get(Type::getInt64Ty(C), 1234);
 
   // Make sure that addrspacecast of inttoptr is not folded away.
   EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                    ConstantExpr::getIntToPtr(K, PtrTy), Ptr1Ty));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -269,6 +310,21 @@ TEST(ConstantsTest, PointerCast) {
   EXPECT_NE(Constant::getNullValue(Int32Ptr1Ty),
             ConstantExpr::getAddrSpaceCast(NullInt32Ptr1, Int32PtrTy));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+                   ConstantExpr::getIntToPtr(K, Int32PtrTy), Int32Ptr1Ty));
+  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
+                   ConstantExpr::getIntToPtr(K, Int32Ptr1Ty), Int32PtrTy));
+
+  Constant *NullInt32Ptr0 = Constant::getNullValue(Int32PtrTy);
+  Constant *NullInt32Ptr1 = Constant::getNullValue(Int32Ptr1Ty);
+
+  // Make sure that addrspacecast of null is not folded away.
+  EXPECT_NE(Constant::getNullValue(Int32PtrTy),
+            ConstantExpr::getAddrSpaceCast(NullInt32Ptr0, Int32Ptr1Ty));
+
+  EXPECT_NE(Constant::getNullValue(Int32Ptr1Ty),
+            ConstantExpr::getAddrSpaceCast(NullInt32Ptr1, Int32PtrTy));
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 }
 
 #define CHECK(x, y)                                                            \
@@ -751,11 +807,15 @@ TEST(ConstantsTest, isElementWiseEqual) {
   EXPECT_FALSE(CF12U2->isElementWiseEqual(CF12U1));
   EXPECT_FALSE(CF12U1->isElementWiseEqual(CF12U2));
 
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *PtrTy = PointerType::get(Context, 0);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *PtrTy = Type::getInt8PtrTy(Context);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  PointerType *PtrTy = Type::getInt8PtrTy(Context);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   Constant *CPU = UndefValue::get(PtrTy);
   Constant *CP0 = ConstantPointerNull::get(PtrTy);
   Constant *CP0000 = ConstantVector::get({CP0, CP0, CP0, CP0});

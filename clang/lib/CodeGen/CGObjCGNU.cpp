@@ -4123,6 +4123,7 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
   // when linked against code which isn't (most of the time).
   llvm::GlobalVariable *IvarOffsetPointer = TheModule.getNamedGlobal(Name);
   if (!IvarOffsetPointer)
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     IvarOffsetPointer = new llvm::GlobalVariable(
         TheModule, llvm::PointerType::getUnqual(VMContext), false,
@@ -4132,6 +4133,11 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
             llvm::Type::getInt32PtrTy(VMContext), false,
             llvm::GlobalValue::ExternalLinkage, nullptr, Name);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+    IvarOffsetPointer = new llvm::GlobalVariable(TheModule,
+            llvm::Type::getInt32PtrTy(VMContext), false,
+            llvm::GlobalValue::ExternalLinkage, nullptr, Name);
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   return IvarOffsetPointer;
 }
 
@@ -4175,6 +4181,7 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
         CGF.CGM.getTarget().getTriple().isKnownWindowsMSVCEnvironment())
       return CGF.Builder.CreateZExtOrBitCast(
           CGF.Builder.CreateAlignedLoad(
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
               Int32Ty,
               CGF.Builder.CreateAlignedLoad(
@@ -4182,11 +4189,16 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
                   ObjCIvarOffsetVariable(Interface, Ivar),
                   CGF.getPointerAlign(), "ivar"),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
               Int32Ty, CGF.Builder.CreateAlignedLoad(
                            llvm::Type::getInt32PtrTy(VMContext),
                            ObjCIvarOffsetVariable(Interface, Ivar),
                            CGF.getPointerAlign(), "ivar"),
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
               CharUnits::fromQuantity(4)),
           PtrDiffTy);
     std::string name = "__objc_ivar_offset_value_" +

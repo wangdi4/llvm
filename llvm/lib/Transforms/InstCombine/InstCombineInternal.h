@@ -463,11 +463,15 @@ public:
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
     auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(PointerType::getUnqual(Ctx)),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(Type::getInt1PtrTy(Ctx)),
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+                             PoisonValue::get(Type::getInt1PtrTy(Ctx)),
+>>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
                              /*isVolatile*/ false, Align(1));
     InsertNewInstBefore(SI, *InsertAt);
   }
