@@ -251,8 +251,7 @@ static Value *MakeBinaryAtomicValue(
 
   llvm::IntegerType *IntType = llvm::IntegerType::get(
       CGF.getLLVMContext(), CGF.getContext().getTypeSize(T));
-  llvm::Type *IntPtrType =
-      llvm::PointerType::get(CGF.getLLVMContext(), AddrSpace);
+  llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *Args[2];
@@ -12563,15 +12562,12 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
                                      CharUnits::fromQuantity(16));
   }
   case NEON::BI__builtin_neon_vstrq_p128: {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *Int128PTy = llvm::PointerType::getUnqual(getLLVMContext());
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> dc138bb4dde84a691a1390fcc3460ae1a09cdfa7
     llvm::Type *Int128PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), 128);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Ptr = Builder.CreateBitCast(Ops[0], Int128PTy);
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Ptr = Ops[0];

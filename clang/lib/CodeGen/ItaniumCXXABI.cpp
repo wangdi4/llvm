@@ -684,25 +684,17 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Apply the adjustment and cast back to the original struct type
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  llvm::Value *Ptr =
-      Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
-#endif // INTEL_CUSTOMIZATION
-  Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
-#if INTEL_CUSTOMIZATION
-  This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
-                                                     "this.adjusted");
-#endif // INTEL_CUSTOMIZATION
-=======
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   This = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), This, Adj);
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
+#if INTEL_CUSTOMIZATION
+  llvm::Value *Ptr =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
   Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
-  This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
+  This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
+                                                     "this.adjusted");
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> dc138bb4dde84a691a1390fcc3460ae1a09cdfa7
   ThisPtrForCall = This;
 
   // Load the function pointer.
