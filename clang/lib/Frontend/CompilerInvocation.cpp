@@ -1407,12 +1407,12 @@ void CompilerInvocation::GenerateCodeGenArgs(const CodeGenOptions &Opts,
 
 #if INTEL_CUSTOMIZATION
   if (Opts.MSDebugInfoFile == CodeGenOptions::MSDebugInfoObjFile)
-    GenerateArg(Args, OPT_fms_debug_info_file_type, "obj", SA);
+    GenerateArg(Consumer, OPT_fms_debug_info_file_type, "obj");
   else if (Opts.MSDebugInfoFile == CodeGenOptions::MSDebugInfoPdbFile)
-    GenerateArg(Args, OPT_fms_debug_info_file_type, "pdb", SA);
+    GenerateArg(Consumer, OPT_fms_debug_info_file_type, "pdb");
 
   if (Opts.X87Precision)
-    GenerateArg(Args, OPT_mx87_precision, Twine(Opts.X87Precision), SA);
+    GenerateArg(Consumer, OPT_mx87_precision, Twine(Opts.X87Precision));
 #endif // INTEL_CUSTOMIZATION
 
   if (Opts.OptimizationLevel > 0) {
@@ -3426,11 +3426,11 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
         Opts.IntelCompat ? Opts.IntelCompatItemsStateDefault[I] : false;
     if (Opt != Default) {
       if (Default)
-        GenerateArg(Args, OPT_fintel_compatibility_disable,
-                    Opts.fromEnumIntelCompatItems(I), SA);
+        GenerateArg(Consumer, OPT_fintel_compatibility_disable,
+                    Opts.fromEnumIntelCompatItems(I));
       else
-        GenerateArg(Args, OPT_fintel_compatibility_enable,
-                    Opts.fromEnumIntelCompatItems(I), SA);
+        GenerateArg(Consumer, OPT_fintel_compatibility_enable,
+                    Opts.fromEnumIntelCompatItems(I));
     }
   }
   if (Opts.ShowIntelCompatUserDocsHelp) {
@@ -3443,7 +3443,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
       }
     }
     if (!Items.empty())
-      GenerateArg(Args, OPT_fintel_compatibility_doc, Items, SA);
+      GenerateArg(Consumer, OPT_fintel_compatibility_doc, Items);
   }
 
   if (Opts.IntelCompat) {
@@ -3452,7 +3452,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
       S += M.first;  // property
       S += ':';
       S += M.second; // value
-      GenerateArg(Args, OPT_fintel_imf_attr_EQ, S, SA);
+      GenerateArg(Consumer, OPT_fintel_imf_attr_EQ, S);
     }
     for (const auto& F : Opts.ImfAttrFuncMap) {
       for (const auto &C : F.second) {
@@ -3462,7 +3462,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
         S += C.second; // value
         S += ':';
         S += F.first;  // function name
-        GenerateArg(Args, OPT_fintel_imf_attr_EQ, S, SA);
+        GenerateArg(Consumer, OPT_fintel_imf_attr_EQ, S);
       }
     }
   }
@@ -3553,21 +3553,16 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
 
 #if INTEL_CUSTOMIZATION
   if (Opts.LongDoubleSize == 80)
-    GenerateArg(Args, OPT_fintel_long_double_size_EQ, "80", SA);
+    GenerateArg(Consumer, OPT_fintel_long_double_size_EQ, "80");
 #endif // INTEL_CUSTOMIZATION
 
   // Not generating '-mrtd', it's just an alias for '-fdefault-calling-conv='.
 
   // OpenMP was requested via '-fopenmp', not implied by '-fopenmp-simd' or
   // '-fopenmp-targets='.
-<<<<<<< HEAD
   if (Opts.OpenMP && !Opts.OpenMPSimd && !Opts.OpenMPSimdOnly && // INTEL
       !Opts.OpenMPTBBOnly) {                                     // INTEL
-    GenerateArg(Args, OPT_fopenmp, SA);
-=======
-  if (Opts.OpenMP && !Opts.OpenMPSimd) {
     GenerateArg(Consumer, OPT_fopenmp);
->>>>>>> b0848491f14acfaaa5700dfb6ef5572b3f610075
 
     if (Opts.OpenMP != 51)
       GenerateArg(Consumer, OPT_fopenmp_version_EQ, Twine(Opts.OpenMP));
@@ -3628,15 +3623,15 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
 
 #if INTEL_COLLAB
   if (Opts.OpenMPSimdDisabled)
-    GenerateArg(Args, OPT_fno_openmp_simd, SA);
+    GenerateArg(Consumer, OPT_fno_openmp_simd);
   if (Opts.OpenMPTBBDisabled)
-    GenerateArg(Args, OPT_fnointel_openmp_tbb, SA);
+    GenerateArg(Consumer, OPT_fnointel_openmp_tbb);
   if (Opts.OpenMPSimdOnly)
-    GenerateArg(Args, OPT_fopenmp_simd, SA);
+    GenerateArg(Consumer, OPT_fopenmp_simd);
   if (Opts.OpenMPTBBOnly)
-    GenerateArg(Args, OPT_fintel_openmp_tbb, SA);
+    GenerateArg(Consumer, OPT_fintel_openmp_tbb);
   if (Opts.OpenMPLateOutline)
-    GenerateArg(Args, OPT_fopenmp_late_outline, SA);
+    GenerateArg(Consumer, OPT_fopenmp_late_outline);
 #endif // INTEL_COLLAB
 
   // The arguments used to set Optimize, OptimizeSize and NoInlineDefine are
