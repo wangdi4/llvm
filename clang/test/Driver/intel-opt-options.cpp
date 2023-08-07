@@ -215,7 +215,7 @@
 // Check for a binary "name" match
 // RUN: not %clangxx --intel --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
 // RUN: not %clangxx --intel --dpcpp --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
-// SUPPORT-CHECK1: icpx: error: unsupported option '---'
+// SUPPORT-CHECK1: icpx: error: unknown argument: '---'
 
 // warn to use icpx when compiling .cpp files
 // RUN: %clang --intel -### %s 2>&1 | FileCheck -check-prefix=WARN-TO-USE-ICPX %s

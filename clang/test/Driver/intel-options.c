@@ -949,7 +949,7 @@
 // HELP-CHECK_CL: USAGE: icx-cl [options] file...
 
 // RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
-// SUPPORT-CHECK: icx: error: unsupported option '---'
+// SUPPORT-CHECK: icx: error: unknown argument: '---'
 
 // RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx-cl
 // RUN: %clang_cl -### --intel --icx --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx
