@@ -101,15 +101,11 @@ TEST(BasicBlockTest, TestInstructionsWithoutDebug) {
   LLVMContext Ctx;
 
   Module *M = new Module("MyModule", Ctx);
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::getUnqual(Ctx)};
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {Type::getInt32PtrTy(Ctx)};
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = {Type::getInt32PtrTy(Ctx)};
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FT = FunctionType::get(Type::getVoidTy(Ctx), ArgTy1, false);
   Argument *V = new Argument(Type::getInt32Ty(Ctx));
   Function *F = Function::Create(FT, Function::ExternalLinkage, "", M);

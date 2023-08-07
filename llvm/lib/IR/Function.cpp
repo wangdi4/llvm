@@ -2032,15 +2032,11 @@ void Function::allocHungoffUselist() {
   setNumHungOffUseOperands(3);
 
   // Initialize the uselist with placeholder operands to allow traversal.
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *CPN = ConstantPointerNull::get(PointerType::get(getContext(), 0));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   auto *CPN = ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  auto *CPN = ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0));
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   Op<0>().set(CPN);
   Op<1>().set(CPN);
   Op<2>().set(CPN);
@@ -2052,17 +2048,12 @@ void Function::setHungoffOperand(Constant *C) {
     allocHungoffUselist();
     Op<Idx>().set(C);
   } else if (getNumOperands()) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Op<Idx>().set(ConstantPointerNull::get(PointerType::get(getContext(), 0)));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     Op<Idx>().set(
         ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0)));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-    Op<Idx>().set(
-        ConstantPointerNull::get(Type::getInt1PtrTy(getContext(), 0)));
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   }
 }
 void Function::setValueSubclassDataBit(unsigned Bit, bool On) {

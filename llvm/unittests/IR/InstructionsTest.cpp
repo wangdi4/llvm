@@ -635,15 +635,11 @@ TEST(InstructionsTest, isEliminableCastPair) {
   Type* Int16Ty = Type::getInt16Ty(C);
   Type* Int32Ty = Type::getInt32Ty(C);
   Type* Int64Ty = Type::getInt64Ty(C);
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Int64PtrTy = PointerType::get(C, 0);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type* Int64PtrTy = Type::getInt64PtrTy(C);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type* Int64PtrTy = Type::getInt64PtrTy(C);
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 
   // Source and destination pointers have same size -> bitcast.
   EXPECT_EQ(CastInst::isEliminableCastPair(CastInst::PtrToInt,
@@ -688,7 +684,6 @@ TEST(InstructionsTest, isEliminableCastPair) {
                 "-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64"
                 "-v128:128:128-a:0:64-s:64:64-f80:128:128-n8:16:32:64-S128");
 
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Int64PtrTyAS1 = PointerType::get(C, 1);
   Type *Int64PtrTyAS2 = PointerType::get(C, 2);
@@ -696,10 +691,6 @@ TEST(InstructionsTest, isEliminableCastPair) {
   Type* Int64PtrTyAS1 = Type::getInt64PtrTy(C, 1);
   Type* Int64PtrTyAS2 = Type::getInt64PtrTy(C, 2);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type* Int64PtrTyAS1 = Type::getInt64PtrTy(C, 1);
-  Type* Int64PtrTyAS2 = Type::getInt64PtrTy(C, 2);
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 
   IntegerType *Int16SizePtr = DL.getIntPtrType(C, 1);
   IntegerType *Int64SizePtr = DL.getIntPtrType(C, 2);

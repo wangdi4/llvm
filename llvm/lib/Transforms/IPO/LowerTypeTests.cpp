@@ -435,7 +435,6 @@ class LowerTypeTestsModule {
 
   IntegerType *Int1Ty = Type::getInt1Ty(M.getContext());
   IntegerType *Int8Ty = Type::getInt8Ty(M.getContext());
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *Int8PtrTy = PointerType::getUnqual(M.getContext());
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -448,12 +447,6 @@ class LowerTypeTestsModule {
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *Int32PtrTy = PointerType::getUnqual(Int32Ty);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
-  ArrayType *Int8Arr0Ty = ArrayType::get(Type::getInt8Ty(M.getContext()), 0);
-  IntegerType *Int32Ty = Type::getInt32Ty(M.getContext());
-  PointerType *Int32PtrTy = PointerType::getUnqual(Int32Ty);
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   IntegerType *Int64Ty = Type::getInt64Ty(M.getContext());
   IntegerType *IntPtrTy = M.getDataLayout().getIntPtrType(M.getContext(), 0);
   // Indirect function call index assignment counter for WebAssembly

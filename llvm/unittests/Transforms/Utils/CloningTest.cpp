@@ -137,15 +137,11 @@ TEST_F(CloneInstruction, OverflowBits) {
 }
 
 TEST_F(CloneInstruction, Inbounds) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   V = new Argument(PointerType::get(context, 0));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   V = new Argument(Type::getInt32PtrTy(context));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  V = new Argument(Type::getInt32PtrTy(context));
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 
   Constant *Z = Constant::getNullValue(Type::getInt32Ty(context));
   std::vector<Value *> ops;
@@ -169,7 +165,6 @@ TEST_F(CloneInstruction, Exact) {
 }
 
 TEST_F(CloneInstruction, Attributes) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::get(context, 0)};
   FunctionType *FT1 =
@@ -178,10 +173,6 @@ TEST_F(CloneInstruction, Attributes) {
   Type *ArgTy1[] = { Type::getInt32PtrTy(context) };
   FunctionType *FT1 =  FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = { Type::getInt32PtrTy(context) };
-  FunctionType *FT1 =  FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 
   Function *F1 = Function::Create(FT1, Function::ExternalLinkage);
   BasicBlock *BB = BasicBlock::Create(context, "", F1);
@@ -206,7 +197,6 @@ TEST_F(CloneInstruction, Attributes) {
 }
 
 TEST_F(CloneInstruction, CallingConvention) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::get(context, 0)};
   FunctionType *FT1 =
@@ -215,10 +205,6 @@ TEST_F(CloneInstruction, CallingConvention) {
   Type *ArgTy1[] = { Type::getInt32PtrTy(context) };
   FunctionType *FT1 =  FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = { Type::getInt32PtrTy(context) };
-  FunctionType *FT1 =  FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 
   Function *F1 = Function::Create(FT1, Function::ExternalLinkage);
   F1->setCallingConv(CallingConv::Cold);
@@ -241,15 +227,11 @@ TEST_F(CloneInstruction, CallingConvention) {
 }
 
 TEST_F(CloneInstruction, DuplicateInstructionsToSplit) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::get(context, 0)};
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FT = FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
   V = new Argument(Type::getInt32Ty(context));
 
@@ -298,15 +280,11 @@ TEST_F(CloneInstruction, DuplicateInstructionsToSplit) {
 }
 
 TEST_F(CloneInstruction, DuplicateInstructionsToSplitBlocksEq1) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::get(context, 0)};
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FT = FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
   V = new Argument(Type::getInt32Ty(context));
 
@@ -359,15 +337,11 @@ TEST_F(CloneInstruction, DuplicateInstructionsToSplitBlocksEq1) {
 }
 
 TEST_F(CloneInstruction, DuplicateInstructionsToSplitBlocksEq2) {
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {PointerType::get(context, 0)};
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-  Type *ArgTy1[] = {Type::getInt32PtrTy(context)};
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FT = FunctionType::get(Type::getVoidTy(context), ArgTy1, false);
   V = new Argument(Type::getInt32Ty(context));
   Function *F = Function::Create(FT, Function::ExternalLinkage);

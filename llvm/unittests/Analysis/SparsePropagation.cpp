@@ -372,15 +372,11 @@ TEST_F(SparsePropagationTest, GlobalVariableOverDefined) {
 TEST_F(SparsePropagationTest, FunctionDefined) {
   Function *F =
       Function::Create(FunctionType::get(Builder.getInt64Ty(),
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                                          {PointerType::get(Context, 0)}, false),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
                                          {Type::getInt1PtrTy(Context)}, false),
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-                                         {Type::getInt1PtrTy(Context)}, false),
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
                        GlobalValue::InternalLinkage, "f", &M);
   BasicBlock *If = BasicBlock::Create(Context, "if", F);
   BasicBlock *Then = BasicBlock::Create(Context, "then", F);
@@ -420,15 +416,11 @@ TEST_F(SparsePropagationTest, FunctionDefined) {
 TEST_F(SparsePropagationTest, FunctionOverDefined) {
   Function *F =
       Function::Create(FunctionType::get(Builder.getInt64Ty(),
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                                          {PointerType::get(Context, 0)}, false),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
                                          {Type::getInt1PtrTy(Context)}, false),
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-                                         {Type::getInt1PtrTy(Context)}, false),
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
                        GlobalValue::InternalLinkage, "f", &M);
   BasicBlock *If = BasicBlock::Create(Context, "if", F);
   BasicBlock *Then = BasicBlock::Create(Context, "then", F);

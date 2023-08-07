@@ -715,7 +715,6 @@ void CGRecordLowering::accumulateVPtrs() {
             getPointerTo()->getPointerTo()));
 #endif  // INTEL_COLLAB
   if (Layout.hasOwnVBPtr())
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Members.push_back(
         MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
@@ -724,10 +723,6 @@ void CGRecordLowering::accumulateVPtrs() {
     Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
         llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-    Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
-        llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
 }
 
 void CGRecordLowering::accumulateVBases() {

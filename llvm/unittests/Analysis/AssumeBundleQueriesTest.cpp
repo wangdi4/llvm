@@ -421,15 +421,11 @@ static void RunRandTest(uint64_t Seed, int Size, int MinCount, int MaxCount,
 
   std::vector<Type *> TypeArgs;
   for (int i = 0; i < (Size * 2); i++)
-<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     TypeArgs.push_back(PointerType::getUnqual(C));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     TypeArgs.push_back(Type::getInt32PtrTy(C));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-    TypeArgs.push_back(Type::getInt32PtrTy(C));
->>>>>>> 2aebe63b2fa8d3647034ad453c85ab4427a4df5b
   FunctionType *FuncType =
       FunctionType::get(Type::getVoidTy(C), TypeArgs, false);
   Function *F =
