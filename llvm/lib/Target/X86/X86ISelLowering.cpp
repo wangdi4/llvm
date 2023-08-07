@@ -19910,17 +19910,30 @@ X86TargetLowering::LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const {
     // Get the Thread Pointer, which is %fs:__tls_array (32-bit) or
     // %gs:0x58 (64-bit). On MinGW, __tls_array is not available, so directly
     // use its literal value of 0x2C.
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Ptr = Constant::getNullValue(
         Subtarget.is64Bit() ? PointerType::get(*DAG.getContext(), 256)
                             : PointerType::get(*DAG.getContext(), 257));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
     Value *Ptr = Constant::getNullValue(Subtarget.is64Bit()
                                         ? Type::getInt8PtrTy(*DAG.getContext(),
                                                              256)
                                         : Type::getInt32PtrTy(*DAG.getContext(),
                                                               257));
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else
+    Value *Ptr = Constant::getNullValue(
+        Subtarget.is64Bit() ? PointerType::get(*DAG.getContext(), 256)
+                            : PointerType::get(*DAG.getContext(), 257));
+
+#endif
+>>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
 
     SDValue TlsArray = Subtarget.is64Bit()
                            ? DAG.getIntPtrConstant(0x58, dl)

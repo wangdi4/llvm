@@ -3248,12 +3248,20 @@ IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
     else
       IsOldStructor = true;
   }
+<<<<<<< HEAD
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *VoidPtrTy = PointerType::get(SrcGV->getContext(), 0);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *VoidPtrTy = Type::getInt8Ty(SrcGV->getContext())->getPointerTo();
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  PointerType *VoidPtrTy = Type::getInt8Ty(SrcGV->getContext())->getPointerTo();
+#else
+  PointerType *VoidPtrTy = PointerType::get(SrcGV->getContext(), 0);
+#endif
+>>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
   if (IsOldStructor) {
     auto &ST = *cast<StructType>(EltTy);
     Type *Tys[3] = {ST.getElementType(0), ST.getElementType(1), VoidPtrTy};

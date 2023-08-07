@@ -588,9 +588,15 @@ public:
   PointerType *getInt8PtrTy(unsigned AddrSpace = 0) {
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return getPtrTy(AddrSpace);
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     return Type::getInt8PtrTy(Context, AddrSpace);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else
+    return Type::getInt8PtrTy(Context, AddrSpace);
+#endif
+>>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
   }
 
   /// Fetch the type of an integer with size at least as big as that of a

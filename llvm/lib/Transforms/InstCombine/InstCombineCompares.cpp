@@ -640,6 +640,7 @@ static Value *rewriteGEPAsOffset(Type *ElemTy, Value *Start, Value *Base,
       }
     }
   }
+<<<<<<< HEAD
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *PtrTy = PointerType::get(
@@ -648,6 +649,15 @@ static Value *rewriteGEPAsOffset(Type *ElemTy, Value *Start, Value *Base,
   PointerType *PtrTy =
       ElemTy->getPointerTo(Start->getType()->getPointerAddressSpace());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  PointerType *PtrTy =
+      ElemTy->getPointerTo(Start->getType()->getPointerAddressSpace());
+#else
+  PointerType *PtrTy = PointerType::get(
+      Base->getContext(), Start->getType()->getPointerAddressSpace());
+#endif
+>>>>>>> 037e75fe5368fa0c5b852a3cebe7c0e51c796972
   for (Value *Val : Explored) {
     if (Val == Base)
       continue;
