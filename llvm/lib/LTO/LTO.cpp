@@ -200,7 +200,7 @@ void llvm::computeLTOCacheKey(
     ImportMapIteratorTy ModIt;
     const ModuleSummaryIndex::ModuleInfo *ModInfo;
 
-    StringRef getIdentifier() const { return ModIt->getKey(); }
+    StringRef getIdentifier() const { return ModIt->getFirst(); }
     const FunctionImporter::FunctionsToImportTy &getFunctions() const {
       return ModIt->second;
     }
@@ -213,7 +213,7 @@ void llvm::computeLTOCacheKey(
 
   for (ImportMapIteratorTy It = ImportList.begin(); It != ImportList.end();
        ++It) {
-    ImportModulesVector.push_back({It, Index.getModule(It->getKey())});
+    ImportModulesVector.push_back({It, Index.getModule(It->getFirst())});
   }
   // Order using module hash, to be both independent of module name and
   // module order.
@@ -1425,14 +1425,15 @@ class lto::ThinBackendProc {
 protected:
   const Config &Conf;
   ModuleSummaryIndex &CombinedIndex;
-  const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries;
+  const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries;
   lto::IndexWriteCallback OnWrite;
   bool ShouldEmitImportsFiles;
 
 public:
-  ThinBackendProc(const Config &Conf, ModuleSummaryIndex &CombinedIndex,
-                  const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
-                  lto::IndexWriteCallback OnWrite, bool ShouldEmitImportsFiles)
+  ThinBackendProc(
+      const Config &Conf, ModuleSummaryIndex &CombinedIndex,
+      const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries,
+      lto::IndexWriteCallback OnWrite, bool ShouldEmitImportsFiles)
       : Conf(Conf), CombinedIndex(CombinedIndex),
         ModuleToDefinedGVSummaries(ModuleToDefinedGVSummaries),
         OnWrite(OnWrite), ShouldEmitImportsFiles(ShouldEmitImportsFiles) {}
@@ -1489,7 +1490,7 @@ public:
   InProcessThinBackend(
       const Config &Conf, ModuleSummaryIndex &CombinedIndex,
       ThreadPoolStrategy ThinLTOParallelism,
-      const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
+      const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries,
       AddStreamFn AddStream, FileCache Cache, lto::IndexWriteCallback OnWrite,
       bool ShouldEmitIndexFiles, bool ShouldEmitImportsFiles)
       : ThinBackendProc(Conf, CombinedIndex, ModuleToDefinedGVSummaries,
@@ -1611,13 +1612,15 @@ ThinBackend lto::createInProcessThinBackend(ThreadPoolStrategy Parallelism,
                                             lto::IndexWriteCallback OnWrite,
                                             bool ShouldEmitIndexFiles,
                                             bool ShouldEmitImportsFiles) {
-  return [=](const Config &Conf, ModuleSummaryIndex &CombinedIndex,
-             const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
-             AddStreamFn AddStream, FileCache Cache) {
-    return std::make_unique<InProcessThinBackend>(
-        Conf, CombinedIndex, Parallelism, ModuleToDefinedGVSummaries, AddStream,
-        Cache, OnWrite, ShouldEmitIndexFiles, ShouldEmitImportsFiles);
-  };
+  return
+      [=](const Config &Conf, ModuleSummaryIndex &CombinedIndex,
+          const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries,
+          AddStreamFn AddStream, FileCache Cache) {
+        return std::make_unique<InProcessThinBackend>(
+            Conf, CombinedIndex, Parallelism, ModuleToDefinedGVSummaries,
+            AddStream, Cache, OnWrite, ShouldEmitIndexFiles,
+            ShouldEmitImportsFiles);
+      };
 }
 
 // Given the original \p Path to an output file, replace any path
@@ -1647,7 +1650,7 @@ class WriteIndexesThinBackend : public ThinBackendProc {
 public:
   WriteIndexesThinBackend(
       const Config &Conf, ModuleSummaryIndex &CombinedIndex,
-      const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
+      const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries,
       std::string OldPrefix, std::string NewPrefix,
       std::string NativeObjectPrefix, bool ShouldEmitImportsFiles,
       raw_fd_ostream *LinkedObjectsFile, lto::IndexWriteCallback OnWrite)
@@ -1695,13 +1698,15 @@ ThinBackend lto::createWriteIndexesThinBackend(
     std::string OldPrefix, std::string NewPrefix,
     std::string NativeObjectPrefix, bool ShouldEmitImportsFiles,
     raw_fd_ostream *LinkedObjectsFile, IndexWriteCallback OnWrite) {
-  return [=](const Config &Conf, ModuleSummaryIndex &CombinedIndex,
-             const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
-             AddStreamFn AddStream, FileCache Cache) {
-    return std::make_unique<WriteIndexesThinBackend>(
-        Conf, CombinedIndex, ModuleToDefinedGVSummaries, OldPrefix, NewPrefix,
-        NativeObjectPrefix, ShouldEmitImportsFiles, LinkedObjectsFile, OnWrite);
-  };
+  return
+      [=](const Config &Conf, ModuleSummaryIndex &CombinedIndex,
+          const DenseMap<StringRef, GVSummaryMapTy> &ModuleToDefinedGVSummaries,
+          AddStreamFn AddStream, FileCache Cache) {
+        return std::make_unique<WriteIndexesThinBackend>(
+            Conf, CombinedIndex, ModuleToDefinedGVSummaries, OldPrefix,
+            NewPrefix, NativeObjectPrefix, ShouldEmitImportsFiles,
+            LinkedObjectsFile, OnWrite);
+      };
 }
 
 Error LTO::runThinLTO(AddStreamFn AddStream, FileCache Cache,
@@ -1727,8 +1732,8 @@ Error LTO::runThinLTO(AddStreamFn AddStream, FileCache Cache,
 
   // Collect for each module the list of function it defines (GUID ->
   // Summary).
-  StringMap<GVSummaryMapTy>
-      ModuleToDefinedGVSummaries(ThinLTO.ModuleMap.size());
+  DenseMap<StringRef, GVSummaryMapTy> ModuleToDefinedGVSummaries(
+      ThinLTO.ModuleMap.size());
   ThinLTO.CombinedIndex.collectDefinedGVSummariesPerModule(
       ModuleToDefinedGVSummaries);
   // Create entries for any modules that didn't have any GV summaries
@@ -1745,9 +1750,9 @@ Error LTO::runThinLTO(AddStreamFn AddStream, FileCache Cache,
   // Synthesize entry counts for functions in the CombinedIndex.
   computeSyntheticCounts(ThinLTO.CombinedIndex);
 
-  StringMap<FunctionImporter::ImportMapTy> ImportLists(
+  DenseMap<StringRef, FunctionImporter::ImportMapTy> ImportLists(
       ThinLTO.ModuleMap.size());
-  StringMap<FunctionImporter::ExportSetTy> ExportLists(
+  DenseMap<StringRef, FunctionImporter::ExportSetTy> ExportLists(
       ThinLTO.ModuleMap.size());
   StringMap<std::map<GlobalValue::GUID, GlobalValue::LinkageTypes>> ResolvedODR;
 
