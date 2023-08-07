@@ -684,15 +684,17 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Apply the adjustment and cast back to the original struct type
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  This = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), This, Adj);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
   llvm::Value *Ptr =
       Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
-#endif // INTEL_CUSTOMIZATION
   Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
-#if INTEL_CUSTOMIZATION
   This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
                                                      "this.adjusted");
 #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   ThisPtrForCall = This;
 
   // Load the function pointer.
@@ -785,9 +787,14 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
                                       ? llvm::Intrinsic::type_test
                                       : llvm::Intrinsic::public_type_test;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        CheckResult =
+            Builder.CreateCall(CGM.getIntrinsic(IID), {VFPAddr, TypeId});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
         CheckResult = Builder.CreateCall(
             CGM.getIntrinsic(IID),
             {Builder.CreateBitCast(VFPAddr, CGF.Int8PtrTy), TypeId});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
 
       if (CGM.getItaniumVTableContext().isRelativeLayout()) {
@@ -864,8 +871,10 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
       };
 
       llvm::Value *Bit = Builder.getFalse();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::Value *CastedNonVirtualFn =
           Builder.CreateBitCast(NonVirtualFn, CGF.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       for (const CXXRecordDecl *Base : CGM.getMostBaseClasses(RD)) {
         llvm::Metadata *MD = CGM.CreateMetadataIdentifierForType(
             getContext().getMemberPointerType(
@@ -876,13 +885,21 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
 
         llvm::Value *TypeTest =
             Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::type_test),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                               {NonVirtualFn, TypeId});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
                                {CastedNonVirtualFn, TypeId});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
         Bit = Builder.CreateOr(Bit, TypeTest);
       }
 
       CGF.EmitCheck(std::make_pair(Bit, SanitizerKind::CFIMFCall),
                     SanitizerHandler::CFICheckFail, StaticData,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                    {NonVirtualFn, llvm::UndefValue::get(CGF.IntPtrTy)});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
                     {CastedNonVirtualFn, llvm::UndefValue::get(CGF.IntPtrTy)});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       FnNonVirtual = Builder.GetInsertBlock();
     }
@@ -1317,8 +1334,12 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
                                                         CGF.getPointerAlign());
 
     // Apply the offset.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Value *CompletePtr = Ptr.getPointer();
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *CompletePtr =
       CGF.Builder.CreateBitCast(Ptr.getPointer(), CGF.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CompletePtr =
         CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, CompletePtr, Offset);
 
@@ -1587,7 +1608,9 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
 
   if (CGM.getItaniumVTableContext().isRelativeLayout()) {
     // Load the type info.
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     Value = CGF.Builder.CreateBitCast(Value, CGM.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Value = CGF.Builder.CreateCall(
         CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
         {Value, llvm::ConstantInt::get(CGM.Int32Ty, -4)});
@@ -2464,8 +2487,12 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                                        NonVirtualAdjustment);
   }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return ResultPtr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // Cast back to the original type.
   return CGF.Builder.CreateBitCast(ResultPtr, InitialPtr.getType());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 llvm::Value *ItaniumCXXABI::performThisAdjustment(CodeGenFunction &CGF,
