@@ -830,7 +830,11 @@ Value *CoroCloner::deriveNewFramePointer() {
     auto *CalleeContext = NewF->getArg(ContextIdx);
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     auto *FramePtrTy = Shape.FrameTy->getPointerTo();
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> e0f3d72dd1da7d31b51159c3676b8c77c2e96bb5
     auto *ProjectionFunc =
         ActiveAsyncSuspend->getAsyncContextProjectionFunction();
     auto DbgLoc =
@@ -852,9 +856,15 @@ Value *CoroCloner::deriveNewFramePointer() {
     (void)InlineRes;
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return FramePtrAddr;
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateBitCast(FramePtrAddr, FramePtrTy);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    return Builder.CreateBitCast(FramePtrAddr, FramePtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> e0f3d72dd1da7d31b51159c3676b8c77c2e96bb5
   }
   // In continuation-lowering, the argument is the opaque storage.
   case coro::ABI::Retcon:
@@ -866,18 +876,32 @@ Value *CoroCloner::deriveNewFramePointer() {
     if (Shape.RetconLowering.IsFrameInlineInStorage)
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       return NewStorage;
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
       return Builder.CreateBitCast(NewStorage, FramePtrTy);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      return Builder.CreateBitCast(NewStorage, FramePtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> e0f3d72dd1da7d31b51159c3676b8c77c2e96bb5
 
     // Otherwise, load the real frame from the opaque storage.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateLoad(FramePtrTy, NewStorage);
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     auto FramePtrPtr =
       Builder.CreateBitCast(NewStorage, FramePtrTy->getPointerTo());
     return Builder.CreateLoad(FramePtrTy, FramePtrPtr);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    auto FramePtrPtr =
+      Builder.CreateBitCast(NewStorage, FramePtrTy->getPointerTo());
+    return Builder.CreateLoad(FramePtrTy, FramePtrPtr);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> e0f3d72dd1da7d31b51159c3676b8c77c2e96bb5
   }
   }
   llvm_unreachable("bad ABI");
@@ -1862,11 +1886,19 @@ static void splitRetconCoroutine(Function &F, coro::Shape &Shape,
     // Stash the allocated frame pointer in the continuation storage.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateStore(RawFramePtr, Id->getStorage());
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     auto Dest = Builder.CreateBitCast(Id->getStorage(),
                                       RawFramePtr->getType()->getPointerTo());
     Builder.CreateStore(RawFramePtr, Dest);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    auto Dest = Builder.CreateBitCast(Id->getStorage(),
+                                      RawFramePtr->getType()->getPointerTo());
+    Builder.CreateStore(RawFramePtr, Dest);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> e0f3d72dd1da7d31b51159c3676b8c77c2e96bb5
   }
 
   // Map all uses of llvm.coro.begin to the allocated frame pointer.
