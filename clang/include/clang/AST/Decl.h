@@ -454,6 +454,8 @@ public:
     return hasCachedLinkage();
   }
 
+  bool isPlaceholderVar(const LangOptions &LangOpts) const;
+
   /// Looks through UsingDecls and ObjCCompatibleAliasDecls for
   /// the underlying named decl.
   NamedDecl *getUnderlyingDecl() {

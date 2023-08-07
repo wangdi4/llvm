@@ -376,7 +376,7 @@ AA::combineOptionalValuesInAAValueLatice(const std::optional<Value *> &A,
 template <bool IsLoad, typename Ty>
 static bool getPotentialCopiesOfMemoryValue(
     Attributor &A, Ty &I, SmallSetVector<Value *, 4> &PotentialCopies,
-    SmallSetVector<Instruction *, 4> &PotentialValueOrigins,
+    SmallSetVector<Instruction *, 4> *PotentialValueOrigins,
     const AbstractAttribute &QueryingAA, bool &UsedAssumedInformation,
     bool OnlyExact) {
   LLVM_DEBUG(dbgs() << "Trying to determine the potential copies of " << I
@@ -387,8 +387,8 @@ static bool getPotentialCopiesOfMemoryValue(
   // sure that we can find all of them. If we abort we want to avoid spurious
   // dependences and potential copies in the provided container.
   SmallVector<const AAPointerInfo *> PIs;
-  SmallVector<Value *> NewCopies;
-  SmallVector<Instruction *> NewCopyOrigins;
+  SmallSetVector<Value *, 8> NewCopies;
+  SmallSetVector<Instruction *, 8> NewCopyOrigins;
 
   const auto *TLI =
       A.getInfoCache().getTargetLibraryInfoForFunction(*I.getFunction());
@@ -451,6 +451,30 @@ static bool getPotentialCopiesOfMemoryValue(
       return AdjV;
     };
 
+    auto SkipCB = [&](const AAPointerInfo::Access &Acc) {
+      if ((IsLoad && !Acc.isWriteOrAssumption()) || (!IsLoad && !Acc.isRead()))
+        return true;
+      if (IsLoad) {
+        if (Acc.isWrittenValueYetUndetermined())
+          return true;
+        if (PotentialValueOrigins && !isa<AssumeInst>(Acc.getRemoteInst()))
+          return false;
+        if (!Acc.isWrittenValueUnknown())
+          if (Value *V = AdjustWrittenValueType(Acc, *Acc.getWrittenValue()))
+            if (NewCopies.count(V)) {
+              NewCopyOrigins.insert(Acc.getRemoteInst());
+              return true;
+            }
+        if (auto *SI = dyn_cast<StoreInst>(Acc.getRemoteInst()))
+          if (Value *V = AdjustWrittenValueType(Acc, *SI->getValueOperand()))
+            if (NewCopies.count(V)) {
+              NewCopyOrigins.insert(Acc.getRemoteInst());
+              return true;
+            }
+      }
+      return false;
+    };
+
     auto CheckAccess = [&](const AAPointerInfo::Access &Acc, bool IsExact) {
       if ((IsLoad && !Acc.isWriteOrAssumption()) || (!IsLoad && !Acc.isRead()))
         return true;
@@ -475,8 +499,9 @@ static bool getPotentialCopiesOfMemoryValue(
           Value *V = AdjustWrittenValueType(Acc, *Acc.getWrittenValue());
           if (!V)
             return false;
-          NewCopies.push_back(V);
-          NewCopyOrigins.push_back(Acc.getRemoteInst());
+          NewCopies.insert(V);
+          if (PotentialValueOrigins)
+            NewCopyOrigins.insert(Acc.getRemoteInst());
           return true;
         }
         auto *SI = dyn_cast<StoreInst>(Acc.getRemoteInst());
@@ -489,8 +514,9 @@ static bool getPotentialCopiesOfMemoryValue(
         Value *V = AdjustWrittenValueType(Acc, *SI->getValueOperand());
         if (!V)
           return false;
-        NewCopies.push_back(V);
-        NewCopyOrigins.push_back(SI);
+        NewCopies.insert(V);
+        if (PotentialValueOrigins)
+          NewCopyOrigins.insert(SI);
       } else {
         assert(isa<StoreInst>(I) && "Expected load or store instruction only!");
         auto *LI = dyn_cast<LoadInst>(Acc.getRemoteInst());
@@ -500,7 +526,7 @@ static bool getPotentialCopiesOfMemoryValue(
                             << *Acc.getRemoteInst() << "\n";);
           return false;
         }
-        NewCopies.push_back(Acc.getRemoteInst());
+        NewCopies.insert(Acc.getRemoteInst());
       }
       return true;
     };
@@ -512,11 +538,11 @@ static bool getPotentialCopiesOfMemoryValue(
     AA::RangeTy Range;
     auto *PI = A.getAAFor<AAPointerInfo>(QueryingAA, IRPosition::value(Obj),
                                          DepClassTy::NONE);
-    if (!PI ||
-        !PI->forallInterferingAccesses(A, QueryingAA, I,
-                                       /* FindInterferingWrites */ IsLoad,
-                                       /* FindInterferingReads */ !IsLoad,
-                                       CheckAccess, HasBeenWrittenTo, Range)) {
+    if (!PI || !PI->forallInterferingAccesses(
+                   A, QueryingAA, I,
+                   /* FindInterferingWrites */ IsLoad,
+                   /* FindInterferingReads */ !IsLoad, CheckAccess,
+                   HasBeenWrittenTo, Range, SkipCB)) {
       LLVM_DEBUG(
           dbgs()
           << "Failed to verify all interfering accesses for underlying object: "
@@ -540,8 +566,9 @@ static bool getPotentialCopiesOfMemoryValue(
         return false;
       }
 
-      NewCopies.push_back(InitialValue);
-      NewCopyOrigins.push_back(nullptr);
+      NewCopies.insert(InitialValue);
+      if (PotentialValueOrigins)
+        NewCopyOrigins.insert(nullptr);
     }
 
     PIs.push_back(PI);
@@ -566,7 +593,8 @@ static bool getPotentialCopiesOfMemoryValue(
     A.recordDependence(*PI, QueryingAA, DepClassTy::OPTIONAL);
   }
   PotentialCopies.insert(NewCopies.begin(), NewCopies.end());
-  PotentialValueOrigins.insert(NewCopyOrigins.begin(), NewCopyOrigins.end());
+  if (PotentialValueOrigins)
+    PotentialValueOrigins->insert(NewCopyOrigins.begin(), NewCopyOrigins.end());
 
   return true;
 }
@@ -577,7 +605,7 @@ bool AA::getPotentiallyLoadedValues(
     const AbstractAttribute &QueryingAA, bool &UsedAssumedInformation,
     bool OnlyExact) {
   return getPotentialCopiesOfMemoryValue</* IsLoad */ true>(
-      A, LI, PotentialValues, PotentialValueOrigins, QueryingAA,
+      A, LI, PotentialValues, &PotentialValueOrigins, QueryingAA,
       UsedAssumedInformation, OnlyExact);
 }
 
@@ -585,10 +613,9 @@ bool AA::getPotentialCopiesOfStoredValue(
     Attributor &A, StoreInst &SI, SmallSetVector<Value *, 4> &PotentialCopies,
     const AbstractAttribute &QueryingAA, bool &UsedAssumedInformation,
     bool OnlyExact) {
-  SmallSetVector<Instruction *, 4> PotentialValueOrigins;
   return getPotentialCopiesOfMemoryValue</* IsLoad */ false>(
-      A, SI, PotentialCopies, PotentialValueOrigins, QueryingAA,
-      UsedAssumedInformation, OnlyExact);
+      A, SI, PotentialCopies, nullptr, QueryingAA, UsedAssumedInformation,
+      OnlyExact);
 }
 
 static bool isAssumedReadOnlyOrReadNone(Attributor &A, const IRPosition &IRP,

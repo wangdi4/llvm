@@ -49,7 +49,6 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 namespace llvm {
-class AAResults;
 class AssumptionCache;
 class BasicBlock;
 class BlockFrequencyInfo;

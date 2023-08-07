@@ -528,6 +528,7 @@ void LookupResult::resolveKind() {
   llvm::SmallDenseMap<QualType, unsigned, 16> UniqueTypes;
 
   bool Ambiguous = false;
+  bool ReferenceToPlaceHolderVariable = false;
   bool HasTag = false, HasFunction = false;
   bool HasFunctionTemplate = false, HasUnresolved = false;
   const NamedDecl *HasNonFunction = nullptr;
@@ -587,7 +588,7 @@ void LookupResult::resolveKind() {
 
     // For non-type declarations, check for a prior lookup result naming this
     // canonical declaration.
-    if (!ExistingI) {
+    if (!D->isPlaceholderVar(getSema().getLangOpts()) && !ExistingI) {
       auto UniqueResult = Unique.insert(std::make_pair(D, I));
       if (!UniqueResult.second) {
         // We've seen this entity before.
@@ -630,7 +631,11 @@ void LookupResult::resolveKind() {
           RemovedDecls.set(I);
           continue;
         }
-
+        if (D->isPlaceholderVar(getSema().getLangOpts()) &&
+            getContextForScopeMatching(D) ==
+                getContextForScopeMatching(Decls[I])) {
+          ReferenceToPlaceHolderVariable = true;
+        }
         Ambiguous = true;
       }
       HasNonFunction = D;
@@ -654,7 +659,9 @@ void LookupResult::resolveKind() {
       (HideTags && HasTag && (HasFunction || HasNonFunction || HasUnresolved)))
     Ambiguous = true;
 
-  if (Ambiguous)
+  if (Ambiguous && ReferenceToPlaceHolderVariable)
+    setAmbiguous(LookupResult::AmbiguousReferenceToPlaceholderVariable);
+  else if (Ambiguous)
     setAmbiguous(LookupResult::AmbiguousReference);
   else if (HasUnresolved)
     ResultKind = LookupResult::FoundUnresolvedValue;
@@ -2940,6 +2947,18 @@ void Sema::DiagnoseAmbiguousLookup(LookupResult &Result) {
         F.erase();
     }
     F.done();
+    break;
+  }
+
+  case LookupResult::AmbiguousReferenceToPlaceholderVariable: {
+    Diag(NameLoc, diag::err_using_placeholder_variable) << Name << LookupRange;
+    DeclContext *DC = nullptr;
+    for (auto *D : Result) {
+      Diag(D->getLocation(), diag::note_reference_placeholder) << D;
+      if (DC != nullptr && DC != D->getDeclContext())
+        break;
+      DC = D->getDeclContext();
+    }
     break;
   }
 

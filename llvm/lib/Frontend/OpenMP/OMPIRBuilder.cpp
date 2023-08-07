@@ -4944,14 +4944,12 @@ void OpenMPIRBuilder::emitOffloadingArrays(
             BP, Builder.CreateAlloca(Builder.getPtrTy())};
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
         Builder.restoreIP(CodeGenIP);
-        assert(DeviceAddrCB &&
-               "DeviceAddrCB missing for DevicePtr code generation");
-        DeviceAddrCB(I, Info.DevicePtrInfoMap[BPVal].second);
+        if (DeviceAddrCB)
+          DeviceAddrCB(I, Info.DevicePtrInfoMap[BPVal].second);
       } else if (CombinedInfo.DevicePointers[I] == DeviceInfoTy::Address) {
         Info.DevicePtrInfoMap[BPVal] = {BP, BP};
-        assert(DeviceAddrCB &&
-               "DeviceAddrCB missing for DevicePtr code generation");
-        DeviceAddrCB(I, BP);
+        if (DeviceAddrCB)
+          DeviceAddrCB(I, BP);
       }
     }
 
