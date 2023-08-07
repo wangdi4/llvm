@@ -12314,7 +12314,12 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     case Instruction::ExtractValue: {
       auto *LI = cast<LoadInst>(E->getSingleOperand(0));
       Builder.SetInsertPoint(LI);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Ptr = LI->getPointerOperand();
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      auto *PtrTy = PointerType::get(VecTy, LI->getPointerAddressSpace());
+      Value *Ptr = Builder.CreateBitCast(LI->getOperand(0), PtrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       LoadInst *V = Builder.CreateAlignedLoad(VecTy, Ptr, LI->getAlign());
       Value *NewV = propagateMetadata(V, E->Scalars);
       NewV = FinalShuffle(NewV, E);
@@ -12814,23 +12819,50 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     }
     case Instruction::Store: {
       auto *SI = cast<StoreInst>(VL0);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+      unsigned AS = SI->getPointerAddressSpace();
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       setInsertPointAfterBundle(E);
 
       Value *VecValue = vectorizeOperand(E, 0);
       VecValue = FinalShuffle(VecValue, E);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Ptr = SI->getPointerOperand();
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *ScalarPtr = SI->getPointerOperand();
+      Value *VecPtr = Builder.CreateBitCast(
+          ScalarPtr, VecValue->getType()->getPointerTo(AS));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       StoreInst *ST =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           Builder.CreateAlignedStore(VecValue, Ptr, SI->getAlign());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+          Builder.CreateAlignedStore(VecValue, VecPtr, SI->getAlign());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       // The pointer operand uses an in-tree scalar, so add the new StoreInst to
       // ExternalUses to make sure that an extract will be generated in the
       // future.
       if (TreeEntry *Entry = getTreeEntry(Ptr)) {
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      // The pointer operand uses an in-tree scalar, so add the new BitCast or
+      // StoreInst to ExternalUses to make sure that an extract will be
+      // generated in the future.
+      if (TreeEntry *Entry = getTreeEntry(ScalarPtr)) {
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         // Find which lane we need to extract.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         unsigned FoundLane = Entry->findLaneForValue(Ptr);
         ExternalUses.push_back(ExternalUser(Ptr, ST, FoundLane));
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+        unsigned FoundLane = Entry->findLaneForValue(ScalarPtr);
+        ExternalUses.push_back(ExternalUser(
+            ScalarPtr, ScalarPtr != VecPtr ? cast<User>(VecPtr) : ST,
+            FoundLane));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       }
 
       Value *V = propagateMetadata(ST, E->Scalars);

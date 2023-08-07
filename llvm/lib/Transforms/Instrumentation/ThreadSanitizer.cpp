@@ -275,7 +275,11 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
   Attr = Attr.addFnAttribute(Ctx, Attribute::NoUnwind);
   // Initialize the callbacks.
   TsanFuncEntry = M.getOrInsertFunction("__tsan_func_entry", Attr,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                                        IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                                         IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   TsanFuncExit =
       M.getOrInsertFunction("__tsan_func_exit", Attr, IRB.getVoidTy());
   TsanIgnoreBegin = M.getOrInsertFunction("__tsan_ignore_thread_begin", Attr,
@@ -290,49 +294,93 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
     std::string BitSizeStr = utostr(BitSize);
     SmallString<32> ReadName("__tsan_read" + ByteSizeStr);
     TsanRead[i] = M.getOrInsertFunction(ReadName, Attr, IRB.getVoidTy(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                                        IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                                         IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<32> WriteName("__tsan_write" + ByteSizeStr);
     TsanWrite[i] = M.getOrInsertFunction(WriteName, Attr, IRB.getVoidTy(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                                         IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                                          IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> UnalignedReadName("__tsan_unaligned_read" + ByteSizeStr);
     TsanUnalignedRead[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        UnalignedReadName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         UnalignedReadName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> UnalignedWriteName("__tsan_unaligned_write" + ByteSizeStr);
     TsanUnalignedWrite[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        UnalignedWriteName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         UnalignedWriteName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> VolatileReadName("__tsan_volatile_read" + ByteSizeStr);
     TsanVolatileRead[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        VolatileReadName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         VolatileReadName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> VolatileWriteName("__tsan_volatile_write" + ByteSizeStr);
     TsanVolatileWrite[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        VolatileWriteName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         VolatileWriteName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> UnalignedVolatileReadName("__tsan_unaligned_volatile_read" +
                                               ByteSizeStr);
     TsanUnalignedVolatileRead[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        UnalignedVolatileReadName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         UnalignedVolatileReadName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> UnalignedVolatileWriteName(
         "__tsan_unaligned_volatile_write" + ByteSizeStr);
     TsanUnalignedVolatileWrite[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        UnalignedVolatileWriteName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         UnalignedVolatileWriteName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> CompoundRWName("__tsan_read_write" + ByteSizeStr);
     TsanCompoundRW[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        CompoundRWName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         CompoundRWName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     SmallString<64> UnalignedCompoundRWName("__tsan_unaligned_read_write" +
                                             ByteSizeStr);
     TsanUnalignedCompoundRW[i] = M.getOrInsertFunction(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        UnalignedCompoundRWName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         UnalignedCompoundRWName, Attr, IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     Type *Ty = Type::getIntNTy(Ctx, BitSize);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *PtrTy = PointerType::get(Ctx, 0);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PtrTy = Ty->getPointerTo();
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     SmallString<32> AtomicLoadName("__tsan_atomic" + BitSizeStr + "_load");
     TsanAtomicLoad[i] =
         M.getOrInsertFunction(AtomicLoadName,
@@ -388,9 +436,17 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
   }
   TsanVptrUpdate =
       M.getOrInsertFunction("__tsan_vptr_update", Attr, IRB.getVoidTy(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                            IRB.getPtrTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                             IRB.getInt8PtrTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   TsanVptrLoad = M.getOrInsertFunction("__tsan_vptr_read", Attr,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                                       IRB.getVoidTy(), IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                                        IRB.getVoidTy(), IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   TsanAtomicThreadFence = M.getOrInsertFunction(
       "__tsan_atomic_thread_fence",
       TLI.getAttrList(&Ctx, {0}, /*Signed=*/true, /*Ret=*/false, Attr),
@@ -402,15 +458,29 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
       IRB.getVoidTy(), OrdTy);
 
   MemmoveFn =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      M.getOrInsertFunction("__tsan_memmove", Attr, IRB.getPtrTy(),
+                            IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
       M.getOrInsertFunction("__tsan_memmove", Attr, IRB.getInt8PtrTy(),
                             IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IntptrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   MemcpyFn =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      M.getOrInsertFunction("__tsan_memcpy", Attr, IRB.getPtrTy(),
+                            IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
       M.getOrInsertFunction("__tsan_memcpy", Attr, IRB.getInt8PtrTy(),
                             IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IntptrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   MemsetFn = M.getOrInsertFunction(
       "__tsan_memset",
       TLI.getAttrList(&Ctx, {1}, /*Signed=*/true, /*Ret=*/false, Attr),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      IRB.getPtrTy(), IRB.getPtrTy(), IRB.getInt32Ty(), IntptrTy);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
       IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IRB.getInt32Ty(), IntptrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 static bool isVtableAccess(Instruction *I) {
@@ -683,17 +753,29 @@ bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
       StoredValue = IRB.CreateExtractElement(
           StoredValue, ConstantInt::get(IRB.getInt32Ty(), 0));
     if (StoredValue->getType()->isIntegerTy())
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      StoredValue = IRB.CreateIntToPtr(StoredValue, IRB.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
       StoredValue = IRB.CreateIntToPtr(StoredValue, IRB.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     // Call TsanVptrUpdate.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    IRB.CreateCall(TsanVptrUpdate, {Addr, StoredValue});
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     IRB.CreateCall(TsanVptrUpdate,
                    {IRB.CreatePointerCast(Addr, IRB.getInt8PtrTy()),
                     IRB.CreatePointerCast(StoredValue, IRB.getInt8PtrTy())});
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     NumInstrumentedVtableWrites++;
     return true;
   }
   if (!IsWrite && isVtableAccess(II.Inst)) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    IRB.CreateCall(TsanVptrLoad, Addr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     IRB.CreateCall(TsanVptrLoad,
                    IRB.CreatePointerCast(Addr, IRB.getInt8PtrTy()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     NumInstrumentedVtableReads++;
     return true;
   }
@@ -725,7 +807,11 @@ bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
     else
       OnAccessFunc = IsWrite ? TsanUnalignedWrite[Idx] : TsanUnalignedRead[Idx];
   }
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  IRB.CreateCall(OnAccessFunc, Addr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
   IRB.CreateCall(OnAccessFunc, IRB.CreatePointerCast(Addr, IRB.getInt8PtrTy()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   if (IsCompoundRW || IsWrite)
     NumInstrumentedWrites++;
   if (IsCompoundRW || !IsWrite)
@@ -761,17 +847,32 @@ static ConstantInt *createOrdering(IRBuilder<> *IRB, AtomicOrdering ord) {
 bool ThreadSanitizer::instrumentMemIntrinsic(Instruction *I) {
   InstrumentationIRBuilder IRB(I);
   if (MemSetInst *M = dyn_cast<MemSetInst>(I)) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Cast1 = IRB.CreateIntCast(M->getArgOperand(1), IRB.getInt32Ty(), false);
+    Value *Cast2 = IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     IRB.CreateCall(
         MemsetFn,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        {M->getArgOperand(0),
+         Cast1,
+         Cast2});
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         {IRB.CreatePointerCast(M->getArgOperand(0), IRB.getInt8PtrTy()),
          IRB.CreateIntCast(M->getArgOperand(1), IRB.getInt32Ty(), false),
          IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false)});
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     I->eraseFromParent();
   } else if (MemTransferInst *M = dyn_cast<MemTransferInst>(I)) {
     IRB.CreateCall(
         isa<MemCpyInst>(M) ? MemcpyFn : MemmoveFn,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        {M->getArgOperand(0),
+         M->getArgOperand(1),
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         {IRB.CreatePointerCast(M->getArgOperand(0), IRB.getInt8PtrTy()),
          IRB.CreatePointerCast(M->getArgOperand(1), IRB.getInt8PtrTy()),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
          IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false)});
     I->eraseFromParent();
   }
@@ -794,11 +895,15 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     int Idx = getMemoryAccessFuncIndex(OrigTy, Addr, DL);
     if (Idx < 0)
       return false;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Args[] = {Addr,
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     const unsigned ByteSize = 1U << Idx;
     const unsigned BitSize = ByteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
     Type *PtrTy = Ty->getPointerTo();
     Value *Args[] = {IRB.CreatePointerCast(Addr, PtrTy),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                      createOrdering(&IRB, LI->getOrdering())};
     Value *C = IRB.CreateCall(TsanAtomicLoad[Idx], Args);
     Value *Cast = IRB.CreateBitOrPointerCast(C, OrigTy);
@@ -812,8 +917,12 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     const unsigned ByteSize = 1U << Idx;
     const unsigned BitSize = ByteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Args[] = {Addr,
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PtrTy = Ty->getPointerTo();
     Value *Args[] = {IRB.CreatePointerCast(Addr, PtrTy),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                      IRB.CreateBitOrPointerCast(SI->getValueOperand(), Ty),
                      createOrdering(&IRB, SI->getOrdering())};
     CallInst *C = CallInst::Create(TsanAtomicStore[Idx], Args);
@@ -830,8 +939,12 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     const unsigned ByteSize = 1U << Idx;
     const unsigned BitSize = ByteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Args[] = {Addr,
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PtrTy = Ty->getPointerTo();
     Value *Args[] = {IRB.CreatePointerCast(Addr, PtrTy),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                      IRB.CreateIntCast(RMWI->getValOperand(), Ty, false),
                      createOrdering(&IRB, RMWI->getOrdering())};
     CallInst *C = CallInst::Create(F, Args);
@@ -845,12 +958,18 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     const unsigned ByteSize = 1U << Idx;
     const unsigned BitSize = ByteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PtrTy = Ty->getPointerTo();
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Value *CmpOperand =
       IRB.CreateBitOrPointerCast(CASI->getCompareOperand(), Ty);
     Value *NewOperand =
       IRB.CreateBitOrPointerCast(CASI->getNewValOperand(), Ty);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Args[] = {Addr,
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Args[] = {IRB.CreatePointerCast(Addr, PtrTy),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                      CmpOperand,
                      NewOperand,
                      createOrdering(&IRB, CASI->getSuccessOrdering()),
