@@ -2471,9 +2471,14 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
   case ToolChain::UNW_None:
     return;
   case ToolChain::UNW_Libgcc: {
-    if (LGT == LibGccType::StaticLibGcc)
+    if (LGT == LibGccType::StaticLibGcc) {
+#if INTEL_CUSTOMIZATION
+      // Wrap -lgcc_eh in whole-archive when using -static-libgcc.
+      CmdArgs.push_back("--whole-archive");
       CmdArgs.push_back("-lgcc_eh");
-    else
+      CmdArgs.push_back("--no-whole-archive");
+#endif // INTEL_CUSTOMIZATION
+    } else
       CmdArgs.push_back("-lgcc_s");
     break;
   }
