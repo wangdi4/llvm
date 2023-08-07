@@ -1885,8 +1885,7 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
     --BBI;
     // Don't count debug info directives, lest they affect codegen,
     // and we skip pointer-to-pointer bitcasts, which are NOPs.
-    if (BBI->isDebugOrPseudoInst() ||
-        (isa<BitCastInst>(BBI) && BBI->getType()->isPointerTy())) {
+    if (BBI->isDebugOrPseudoInst()) {
       ScanInsts++;
       continue;
     }
@@ -2036,8 +2035,7 @@ bool InstCombinerImpl::mergeStoreIntoSuccessor(StoreInst &SI) {
   if (OtherBr->isUnconditional()) {
     --BBI;
     // Skip over debugging info and pseudo probes.
-    while (BBI->isDebugOrPseudoInst() ||
-           (isa<BitCastInst>(BBI) && BBI->getType()->isPointerTy())) {
+    while (BBI->isDebugOrPseudoInst()) {
       if (BBI==OtherBB->begin())
         return false;
       --BBI;

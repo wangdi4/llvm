@@ -1980,6 +1980,11 @@ def OMP_Allocate : Directive<"allocate"> {
     VersionedClause<OMPC_Align, 51>
   ];
 }
+def OMP_Allocators : Directive<"allocators"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Allocate>
+  ];
+}
 def OMP_DeclareVariant : Directive<"declare variant"> {
   let allowedClauses = [
     VersionedClause<OMPC_Match>
