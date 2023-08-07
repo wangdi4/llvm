@@ -4295,8 +4295,9 @@ def gno_embed_source : Flag<["-"], "gno-embed-source">, Group<g_flags_Group>,
     Flags<[NoXarchOption]>,
     HelpText<"Restore the default behavior of not embedding source text in DWARF debug sections">;
 def headerpad__max__install__names : Joined<["-"], "headerpad_max_install_names">;
-def help : Flag<["-", "--"], "help">, Flags<[CC1Option,CC1AsOption, FC1Option,
-    FlangOption]>, HelpText<"Display available options">,
+def help : Flag<["-", "--"], "help">,
+    Flags<[CC1Option, CC1AsOption, FC1Option, FlangOption]>,
+    HelpText<"Display available options">,
     MarshallingInfoFlag<FrontendOpts<"ShowHelp">>;
 //if INTEL_CUSTOMIZATION
 def fhelp : Flag<["-"], "fhelp">, Flags<[NoXarchOption]>, Alias<help>,
@@ -5248,8 +5249,8 @@ def nostdlibxx : Flag<["-"], "nostdlib++">, Group<Link_Group>;
 def nolibsycl : Flag<["-"], "nolibsycl">, Flags<[NoXarchOption, CoreOption]>,
   HelpText<"Do not link SYCL runtime library">;
 def object : Flag<["-"], "object">;
-def o : JoinedOrSeparate<["-"], "o">, Flags<[NoXarchOption,
-  CC1Option, CC1AsOption, FC1Option, FlangOption]>,
+def o : JoinedOrSeparate<["-"], "o">,
+  Flags<[NoXarchOption, CC1Option, CC1AsOption, FC1Option, FlangOption]>,
   HelpText<"Write output to <file>">, MetaVarName<"<file>">,
   MarshallingInfoString<FrontendOpts<"OutputFile">>;
 #if INTEL_CUSTOMIZATION
@@ -8480,7 +8481,7 @@ def defsym : Separate<["-"], "defsym">,
 // clang-cl Options
 //===----------------------------------------------------------------------===//
 
-def cl_Group : OptionGroup<"<clang-cl options>">, Flags<[CLDXCOption]>,
+def cl_Group : OptionGroup<"<clang-cl options>">,
   HelpText<"CL.EXE COMPATIBILITY OPTIONS">;
 
 def cl_compile_Group : OptionGroup<"<clang-cl compile-only options>">,
