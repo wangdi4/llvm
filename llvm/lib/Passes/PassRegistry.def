@@ -192,6 +192,7 @@ MODULE_PASS("agginliner", AggInlinerPass()) // INTEL
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("arg-noalias-prop", ArgNoAliasPropPass()) // INTEL
 MODULE_PASS("attributor", AttributorPass())
+MODULE_PASS("attributor-light", AttributorLightPass())
 MODULE_PASS("annotation2metadata", Annotation2MetadataPass())
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("auto-cpu-clone", AutoCPUClonePass())
@@ -481,6 +482,7 @@ CGSCC_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 CGSCC_PASS("argpromotion", ArgumentPromotionPass())
 CGSCC_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 CGSCC_PASS("attributor-cgscc", AttributorCGSCCPass())
+CGSCC_PASS("attributor-light-cgscc", AttributorLightCGSCCPass())
 CGSCC_PASS("openmp-opt-cgscc", OpenMPOptCGSCCPass())
 CGSCC_PASS("no-op-cgscc", NoOpCGSCCPass())
 #undef CGSCC_PASS
