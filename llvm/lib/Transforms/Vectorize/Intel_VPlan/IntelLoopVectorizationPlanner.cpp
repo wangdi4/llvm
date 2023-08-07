@@ -2402,8 +2402,8 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
     case RecurKind::Udr:
       SS1 << "user-defined";
       break;
-    case RecurKind::SelectICmp:
-    case RecurKind::SelectFCmp:
+    case RecurKind::IAnyOf:
+    case RecurKind::FAnyOf:
       SS1 << "select-compare";
       break;
     default:

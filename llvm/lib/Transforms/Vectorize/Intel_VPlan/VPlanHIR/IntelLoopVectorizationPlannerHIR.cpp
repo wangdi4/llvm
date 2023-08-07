@@ -207,8 +207,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
 
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
-    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
-        Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
+    if (Red->getRecurrenceKind() == RecurKind::IAnyOf ||
+        Red->getRecurrenceKind() == RecurKind::FAnyOf) {
       bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               INTERNAL("Select-compare reductions are not expected on this "
                        "path."));

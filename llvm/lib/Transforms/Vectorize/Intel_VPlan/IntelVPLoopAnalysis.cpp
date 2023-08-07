@@ -660,8 +660,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     case RecurKind::FMax:
     case RecurKind::FMinimum:
     case RecurKind::FMaximum:
-    case RecurKind::SelectICmp:
-    case RecurKind::SelectFCmp:
+    case RecurKind::IAnyOf:
+    case RecurKind::FAnyOf:
     case RecurKind::Udr:
       return Red->getRecurrenceStartValue();
     case RecurKind::None:
@@ -1573,7 +1573,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 
   VPValue *ChangeValue = nullptr;
   if (Reduction->isAnyOf()) {
-    // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
+    // A simple IAnyOf or FAnyOf pattern has a select for the Exit
     // instruction.  In more complex cases the Exit instruction is a PHI.
     // The PHI may have any number of predecessors, but only one of them
     // is a select; the rest produce the PHI recurrence from the loop
