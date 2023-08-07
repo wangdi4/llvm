@@ -1137,6 +1137,7 @@ static bool isLoadInvariantInLoop(LoadInst *LI, DominatorTree *DT,
   auto *PtrInt8Ty = PointerType::get(Type::getInt8Ty(LI->getContext()),
                                      LI->getPointerAddressSpace());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+
   unsigned BitcastsVisited = 0;
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // Look through bitcasts until we reach the PtrASXTy type (this is
