@@ -9,17 +9,8 @@
 define <3 x i16> @zext_i8(<3 x i8>) {
 ; SSE3-LABEL: zext_i8:
 ; SSE3:       # %bb.0:
-<<<<<<< HEAD
 ; SSE3-NEXT:    pxor %xmm1, %xmm1 ;INTEL
 ; SSE3-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3],xmm0[4],xmm1[4],xmm0[5],xmm1[5],xmm0[6],xmm1[6],xmm0[7],xmm1[7] ;INTEL
-=======
-; SSE3-NEXT:    movzbl {{[0-9]+}}(%esp), %edx
-; SSE3-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
-; SSE3-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx
-; SSE3-NEXT:    # kill: def $ax killed $ax killed $eax
-; SSE3-NEXT:    # kill: def $dx killed $dx killed $edx
-; SSE3-NEXT:    # kill: def $cx killed $cx killed $ecx
->>>>>>> 7f9b94c0445d92e44ee97d5300ac1657570f7bd9
 ; SSE3-NEXT:    retl
 ;
 ; SSE41-LABEL: zext_i8:
@@ -43,19 +34,7 @@ define <3 x i16> @zext_i8(<3 x i8>) {
 define <3 x i16> @sext_i8(<3 x i8>) {
 ; SSE3-LABEL: sext_i8:
 ; SSE3:       # %bb.0:
-<<<<<<< HEAD
 ; SSE3-NEXT:    punpcklbw {{.*#+}} xmm0 = xmm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7] ;INTEL
-=======
-; SSE3-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
-; SSE3-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; SSE3-NEXT:    shll $24, %ecx
-; SSE3-NEXT:    shll $8, %eax
-; SSE3-NEXT:    orl %ecx, %eax
-; SSE3-NEXT:    movd %eax, %xmm0
-; SSE3-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; SSE3-NEXT:    shll $8, %eax
-; SSE3-NEXT:    pinsrw $2, %eax, %xmm0
->>>>>>> 7f9b94c0445d92e44ee97d5300ac1657570f7bd9
 ; SSE3-NEXT:    psraw $8, %xmm0
 ; SSE3-NEXT:    retl
 ;
