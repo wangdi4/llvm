@@ -6404,6 +6404,7 @@ def qopt_streaming_stores_EQ : Joined<["-"], "qopt-streaming-stores=">,
   "are generated.">;
 def qno_opt_streaming_stores : Flag<["-"], "qno-opt-streaming-stores">,
   Alias<qopt_streaming_stores_EQ>, AliasArgs<["never"]>;
+def : Separate<["-"], "qopt-streaming-stores">, Alias<qopt_streaming_stores_EQ>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def qoverride_limits : Flag<["-"], "qoverride-limits">,
@@ -9629,6 +9630,8 @@ def : CLJoined<"Qopt-streaming-stores=">,
   Alias<qopt_streaming_stores_EQ>;
 def : CLFlag<"Qopt-streaming-stores-">,
   Alias<qopt_streaming_stores_EQ>, AliasArgs<["never"]>;
+def : CLSeparate<"Qopt-streaming-stores">,
+  Alias<qopt_streaming_stores_EQ>;
 def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;

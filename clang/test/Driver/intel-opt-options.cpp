@@ -199,9 +199,15 @@
 // Check -qopt-streaming-stores behavior
 // RUN: %clang -qopt-streaming-stores=always -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_ALWAYS %s
+// RUN: %clang -qopt-streaming-stores always -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=STREAMING_STORES_ALWAYS %s
 // RUN: %clang_cl -Qopt-streaming-stores:always -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_ALWAYS %s
+// RUN: %clang_cl -Qopt-streaming-stores always -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=STREAMING_STORES_ALWAYS %s
 // RUN: %clang -qopt-streaming-stores=never -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
+// RUN: %clang -qopt-streaming-stores never -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
 // RUN: %clang_cl -Qopt-streaming-stores:never -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
@@ -209,9 +215,14 @@
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
 // RUN: %clang_cl -Qopt-streaming-stores- -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
+// RUN: %clang_cl -Qopt-streaming-stores never -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
+// RUN: %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=STREAMING_STORES_UNKNOWN %s
 // STREAMING_STORES_ALWAYS: "-mllvm" "-hir-nontemporal-cacheline-count=0"
 // STREAMING_STORES_NEVER: "-mllvm" "-disable-hir-nontemporal-marking"
-
+// STREAMING_STORES_UNKNOWN: error: invalid argument 'unknown' to -qopt-streaming-stores=
+//
 // Check for a binary "name" match
 // RUN: not %clangxx --intel --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
 // RUN: not %clangxx --intel --dpcpp --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
