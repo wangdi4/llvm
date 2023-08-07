@@ -268,6 +268,9 @@ public:
 
   void setBrokerTarget(CallBase *CB, Function *F);
 
+  // Update the name of 'F' in the inlining report.
+  void updateName(Function *F);
+
   // Return 'true' if the inlining of 'Callee' into 'Caller' should be done
   // after compacting the representation of 'Callee'. If 'ForceCompact',
   // ensure that the compacted form is always used.

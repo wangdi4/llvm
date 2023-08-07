@@ -1387,6 +1387,29 @@ void InlineReportBuilder::setBrokerTarget(CallBase *CB, Function *F) {
   setMDReasonNotInlined(CB, NinlrBrokerFunction);
 }
 
+void InlineReportBuilder::updateName(Function *F) {
+  if (!isMDIREnabled())
+    return;
+  Metadata *FMD = F->getMetadata(FunctionTag);
+  if (!FMD)
+    return;
+  auto FIR = cast<MDTuple>(FMD);
+  std::string FuncName = std::string(F ? F->getName() : "");
+  FuncName.insert(0, "name: ");
+  LLVMContext &Ctx = F->getParent()->getContext();
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  FIR->replaceOperandWith(FMDIR_FuncName, FuncNameMD);
+  for (User *U : F->users())
+    if (auto CB = dyn_cast<CallBase>(U))
+      if (CB->getCalledFunction() == F) {
+        Metadata *CBMD = CB->getMetadata(CallSiteTag);
+        if (!CBMD)
+          continue;
+        auto CSIR = cast<MDTuple>(CBMD);
+        CSIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+      }
+}
+
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 InlineReportBuilder *llvm::getMDInlineReport() {

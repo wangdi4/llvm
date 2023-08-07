@@ -110,6 +110,13 @@ void InlineReport::setBrokerTarget(CallBase *CB, Function *F) {
   IRCS->setReason(NinlrBrokerFunction);
 }
 
+void InlineReport::updateName(Function *F) {
+  if (!isClassicIREnabled())
+    return;
+  InlineReportFunction *IRF = getOrAddFunction(F);
+  IRF->setName(std::string(F->getName()));
+}
+
 ///
 /// Print a simple message.
 ///
