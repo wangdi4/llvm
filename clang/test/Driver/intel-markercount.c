@@ -41,9 +41,9 @@
 // RUN: %clang --target=aarch64 -### -S -fmarker-count=me %s 2>&1 | FileCheck --check-prefixes=FM,LM %s
 
 /// Error
-// RUN: %clang --target=x86_64 -### -S -ffunction-marker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,FNAME %s
-// RUN: %clang --target=x86_64 -### -S -floop-marker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,LNAME %s
-// RUN: %clang --target=x86_64 -### -S -fmarker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,MNAME %s
+// RUN: not %clang --target=x86_64 -### -S -ffunction-marker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,FNAME %s
+// RUN: not %clang --target=x86_64 -### -S -floop-marker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,LNAME %s
+// RUN: not %clang --target=x86_64 -### -S -fmarker-count=mbe %s 2>&1 | FileCheck --check-prefixes=INVALID,MNAME %s
 
 // FN: -ffunction-marker-count=never
 // FM: -ffunction-marker-count=me
