@@ -866,14 +866,10 @@ def OMP_TargetParallel : Directive<"target parallel"> {
   let allowedOnceClauses = [
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_Device>,
-<<<<<<< HEAD
 #if INTEL_COLLAB
     VersionedClause<OMPC_Subdevice>,
     VersionedClause<OMPC_OmpxPlaces>,
 #endif // INTEL_COLLAB
-    VersionedClause<OMPC_If>,
-=======
->>>>>>> 65e80d6dfde052dc433077a03755120f42b5a626
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_ProcBind>,
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
@@ -1059,13 +1055,9 @@ def OMP_ParallelDoSimd : Directive<"parallel do simd"> {
     VersionedClause<OMPC_NonTemporal>,
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_If>,
-=======
->>>>>>> 65e80d6dfde052dc433077a03755120f42b5a626
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_ProcBind>,
     VersionedClause<OMPC_Schedule>,
@@ -1161,13 +1153,9 @@ def OMP_DoSimd : Directive<"do simd"> {
     VersionedClause<OMPC_Reduction>
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-=======
-    VersionedClause<OMPC_If>,
->>>>>>> 65e80d6dfde052dc433077a03755120f42b5a626
     VersionedClause<OMPC_Schedule>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Ordered>,
@@ -1242,13 +1230,9 @@ def OMP_TaskLoopSimd : Directive<"taskloop simd"> {
     VersionedClause<OMPC_Untied>
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_If>,
-=======
->>>>>>> 65e80d6dfde052dc433077a03755120f42b5a626
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_SafeLen>,
     VersionedClause<OMPC_SimdLen>,
@@ -1931,13 +1915,9 @@ def OMP_TargetTeamsDistributeParallelDoSimd :
     VersionedClause<OMPC_NonTemporal>
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_If>,
-=======
->>>>>>> 65e80d6dfde052dc433077a03755120f42b5a626
     VersionedClause<OMPC_Device>,
     VersionedClause<OMPC_NoWait>,
     VersionedClause<OMPC_DefaultMap>,
