@@ -2696,12 +2696,20 @@ LLVM_ATTRIBUTE_ALWAYS_INLINE static bool CheckChildSame(
 /// CheckPatternPredicate - Implements OP_CheckPatternPredicate.
 LLVM_ATTRIBUTE_ALWAYS_INLINE static bool
 CheckPatternPredicate(const unsigned char *MatcherTable, unsigned &MatcherIndex,
+<<<<<<< HEAD
                       const SelectionDAGISel &SDISel) {
 #if INTEL_CUSTOMIZATION
   uint16_t PreNo = MatcherTable[MatcherIndex++];
   PreNo |= MatcherTable[MatcherIndex++] << 8;
   return SDISel.CheckPatternPredicate(PreNo);
 #endif // INTEL_CUSTOMIZATION
+=======
+                      const SelectionDAGISel &SDISel, bool TwoBytePredNo) {
+  unsigned PredNo = MatcherTable[MatcherIndex++];
+  if (TwoBytePredNo)
+    PredNo |= MatcherTable[MatcherIndex++] << 8;
+  return SDISel.CheckPatternPredicate(PredNo);
+>>>>>>> a3a7e76893b81934b9aaa4ecfe8f24496c48ddab
 }
 
 /// CheckNodePredicate - Implements OP_CheckNodePredicate.
@@ -2849,7 +2857,10 @@ static unsigned IsPredicateKnownToFail(const unsigned char *Table,
                         Table[Index-1] - SelectionDAGISel::OPC_CheckChild0Same);
     return Index;
   case SelectionDAGISel::OPC_CheckPatternPredicate:
-    Result = !::CheckPatternPredicate(Table, Index, SDISel);
+  case SelectionDAGISel::OPC_CheckPatternPredicate2:
+    Result = !::CheckPatternPredicate(
+        Table, Index, SDISel,
+        Table[Index - 1] == SelectionDAGISel::OPC_CheckPatternPredicate2);
     return Index;
   case SelectionDAGISel::OPC_CheckPredicate:
     Result = !::CheckNodePredicate(Table, Index, SDISel, N.getNode());
@@ -3283,7 +3294,10 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       continue;
 
     case OPC_CheckPatternPredicate:
-      if (!::CheckPatternPredicate(MatcherTable, MatcherIndex, *this)) break;
+    case OPC_CheckPatternPredicate2:
+      if (!::CheckPatternPredicate(MatcherTable, MatcherIndex, *this,
+                                   Opcode == OPC_CheckPatternPredicate2))
+        break;
       continue;
     case OPC_CheckPredicate:
       if (!::CheckNodePredicate(MatcherTable, MatcherIndex, *this,
