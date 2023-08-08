@@ -39,8 +39,10 @@
 
 // Check that we add the `--embed-bitcode` flag to the linker wrapper.
 // INTEL_CUSTOMIZATION
-// RUN: not %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
-// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
+// RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
+// RUN:   --cuda-path=%S/Inputs/CUDA_111/usr/local/cuda \
+// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -Xopenmp-target -march=sm_52 \
+// RUN:   -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=LINKER %s
 // end INTEL_CUSTOMIZATION
 // LINKER: clang-linker-wrapper"{{.*}}"--embed-bitcode"
