@@ -217,7 +217,7 @@
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
 // RUN: %clang_cl -Qopt-streaming-stores never -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
-// RUN: %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
+// RUN: not %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_UNKNOWN %s
 // STREAMING_STORES_ALWAYS: "-mllvm" "-hir-nontemporal-cacheline-count=0"
 // STREAMING_STORES_NEVER: "-mllvm" "-disable-hir-nontemporal-marking"
