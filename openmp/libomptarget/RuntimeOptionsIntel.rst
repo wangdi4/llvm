@@ -144,7 +144,7 @@ Only OpenCL plugin supports "CPU" device type.
 <accept-filters> ::= <accept-filter>[;<accept-filter>...]
 <discard-filters> ::= <discard-filter>[;<discard-filter>...]
 <accept-filter> ::= <term>
-<discard-filter> ::= !<term>  // currently  not supported
+<discard-filter> ::= !<term>
 <term> ::= <backend>:<devices>
 <backend> ::= { * | level_zero | opencl | x86_64 }  // case insensitive
 <devices> ::= <device>[,<device>...]
