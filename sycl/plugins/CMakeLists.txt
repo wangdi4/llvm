@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -17,8 +16,6 @@
 #
 # end INTEL_CUSTOMIZATION
 
-=======
->>>>>>> a8cc71eb55171cef613d8e1077870fb0ea441b14
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" )
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-covered-switch-default")
   # INTEL_CUSTOMIZATION
