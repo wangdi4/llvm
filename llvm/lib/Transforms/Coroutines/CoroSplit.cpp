@@ -873,6 +873,7 @@ Value *CoroCloner::deriveNewFramePointer() {
     // Otherwise, load the real frame from the opaque storage.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateLoad(FramePtrTy, NewStorage);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     auto FramePtrPtr =
       Builder.CreateBitCast(NewStorage, FramePtrTy->getPointerTo());
     return Builder.CreateLoad(FramePtrTy, FramePtrPtr);
