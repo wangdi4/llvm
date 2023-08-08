@@ -18,8 +18,7 @@
 ;}
 
 ; CHECK-LABEL: foo
-; CHECK: %[[BitCastRes:.*]] = bitcast float* %[[GEPIndVar:.*]] to <{{.*}} x float>*
-; CHECK: %[[WideLoad:.*]] = load <{{.*}} x float>, <{{.*}} x float>* %[[BitCastRes]], align 8
+; CHECK: %[[WideLoad:.*]] = load <{{.*}} x float>, ptr %[[GEPIndVar:.*]], align 8
 ; CHECK: %[[CmpRes:.*]] = fcmp ogt <{{.*}} x float> %[[WideLoad]], zeroinitializer
 ; CHECK: %[[TruncRes:.*]] = trunc <{{.*}} x i64> %[[VecInd:.*]] to <{{.*}} x i32>
 ; CHECK: %[[AddRes:.*]] = add <{{.*}} x i32> %[[BroadcastSplat1:.*]], %[[TruncRes]]
@@ -40,7 +39,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local float @foo(i32 %n1) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
@@ -50,8 +49,8 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = fcmp ogt float %1, 0.000000e+00
   br i1 %cmp1, label %if.then, label %omp.inner.for.inc
 
@@ -61,8 +60,8 @@ if.then:                                          ; preds = %omp.inner.for.body
   %conv = sitofp i32 %add4 to float
   %add5 = add nsw i32 %2, %n1
   %idxprom6 = sext i32 %add5 to i64
-  %arrayidx7 = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %idxprom6, !intel-tbaa !2
-  store float %conv, float* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %idxprom6, !intel-tbaa !2
+  store float %conv, ptr %arrayidx7, align 4, !tbaa !2
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body
@@ -75,7 +74,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
   br label %DIR.OMP.END.SIMD.216
 
 DIR.OMP.END.SIMD.216:                             ; preds = %DIR.OMP.END.SIMD.2
-  %3 = load float, float* getelementptr inbounds ([1024 x float], [1024 x float]* @arr, i64 0, i64 0), align 16, !tbaa !2
+  %3 = load float, ptr @arr, align 16, !tbaa !2
   ret float %3
 }
 
