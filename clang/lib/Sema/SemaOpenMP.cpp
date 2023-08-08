@@ -6432,7 +6432,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
   VarsWithInheritedDSAType VarsWithInheritedDSA;
   bool ErrorFound = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // When using late outlining, do special handling for 'collapse' clauses.
   // Remove any user 'collapse', and instead add an implicit one that matches
@@ -6462,18 +6461,9 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
               .get(),
           SourceLocation(), SourceLocation(), SourceLocation()));
     }
-  } else {
-    if (getLangOpts().OpenMP >= 50 && UseClausesWithoutBind) {
-      ClausesWithImplicit.append(ClausesWithoutBind.begin(),
-                                 ClausesWithoutBind.end());
-    } else {
-      ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
-    }
-  }
+  } else
+    ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
 #endif // INTEL_CUSTOMIZATION
-=======
-  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
->>>>>>> 5f8d332027c8a9ea657752a3b33696ddc9a7e257
   if (AStmt && !CurContext->isDependentContext() && Kind != OMPD_atomic &&
       Kind != OMPD_critical && Kind != OMPD_section && Kind != OMPD_master &&
       Kind != OMPD_masked && !isOpenMPLoopTransformationDirective(Kind)) {
