@@ -1,4 +1,7 @@
 // RUN: %libomptarget-compilexx-run-and-check-generic
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: x86_64-pc-linux-gnu
+// end INTEL_CUSTOMIZATION
 
 #include <omp.h>
 #include <ompx.h>
