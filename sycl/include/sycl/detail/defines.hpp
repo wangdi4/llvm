@@ -8,12 +8,11 @@
 
 #pragma once
 
-#include <sycl/detail/defines_elementary.hpp>
+#include <sycl/detail/defines_elementary.hpp> // for __SYCL_ID_QUERIES_FIT_...
 
-#include <climits>
-
-#if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume) &&       \
+#if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume)
     !__SYCL_EXPLICIT_SIMD__
+#include <climits>
 #define __SYCL_ASSUME_INT(x) __builtin_assume((x) <= INT_MAX)
 #else
 #define __SYCL_ASSUME_INT(x)
