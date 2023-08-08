@@ -4182,6 +4182,7 @@ def VecTypeHint : InheritableAttr {
   let Spellings = [GNU<"vec_type_hint">, CXX11<"sycl", "vec_type_hint">];
   let Args = [TypeArgument<"TypeHint">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
+  let SupportsNonconformingLambdaSyntax = 1;
   let Documentation = [Undocumented];
 }
 
