@@ -1350,6 +1350,7 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
       }
       PrivateScope.addPrivate(LHSVD, OriginalAddr);
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      PrivateScope.addPrivate(
           RHSVD, IsArray ? GetAddrOfLocalVar(PrivateVD).withElementType(
                                ConvertTypeForMem(RHSVD->getType()))
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
@@ -1357,8 +1358,8 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
           RHSVD, IsArray ? Builder.CreateElementBitCast(
                                GetAddrOfLocalVar(PrivateVD),
                                ConvertTypeForMem(RHSVD->getType()), "rhs.begin")
-                         : GetAddrOfLocalVar(PrivateVD));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+                         : GetAddrOfLocalVar(PrivateVD));
     }
     ++ILHS;
     ++IRHS;
