@@ -154,13 +154,9 @@ template <> struct IsRuntimeProperty<foo> : std::true_type {};
 
 #pragma once
 
-<<<<<<< HEAD
-#include <cstdint> // for uint32_t
-=======
 #include <iosfwd>      // for nullptr_t
 #include <stdint.h>    // for uint32_t
 #include <type_traits> // for false_type
->>>>>>> c0483d73bf59449f3902db604844dc453dc2e5fb
 
 namespace sycl {
 inline namespace _V1 {

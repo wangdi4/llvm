@@ -10,13 +10,9 @@
 
 #include <sycl/detail/defines_elementary.hpp> // for __SYCL_ID_QUERIES_FIT_...
 
-<<<<<<< HEAD
-#if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume) &&       \
-    !__SYCL_EXPLICIT_SIMD__
-=======
 #if __SYCL_ID_QUERIES_FIT_IN_INT__ && __has_builtin(__builtin_assume)
+    !__SYCL_EXPLICIT_SIMD__
 #include <climits>
->>>>>>> c0483d73bf59449f3902db604844dc453dc2e5fb
 #define __SYCL_ASSUME_INT(x) __builtin_assume((x) <= INT_MAX)
 #else
 #define __SYCL_ASSUME_INT(x)
