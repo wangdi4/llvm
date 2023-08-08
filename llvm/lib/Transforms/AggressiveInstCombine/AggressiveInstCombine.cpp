@@ -986,13 +986,8 @@ static bool expandStrcmp(CallInst *CI, DominatorTree &DT, bool &MadeCFGChange) {
   size_t ConstantStrSize = ConstantStr.size();
 
   // Trivial cases are optimized during inst combine
-  if (ConstantStrSize == 0) {
+  if (ConstantStrSize == 0 || ConstantStrSize > 2)
     return false;
-  }
-
-  if (ConstantStrSize > 2) {
-    return false;
-  }
 
   // Check if strcmp result is only used in a comparison with zero
   if (!isOnlyUsedInZeroComparison(CI))
@@ -1012,7 +1007,7 @@ static bool expandStrcmp(CallInst *CI, DominatorTree &DT, bool &MadeCFGChange) {
   // For strcmp(P, "xy") do the following transformation:
   //
   // (before)
-  // dst = strcmp(P, "x")
+  // dst = strcmp(P, "xy")
   //
   // (after)
   // v0 = P[0] - 'x'
@@ -1052,19 +1047,19 @@ static bool expandStrcmp(CallInst *CI, DominatorTree &DT, bool &MadeCFGChange) {
         static_cast<unsigned char>(ConstantStr[CharacterIndexToCheck]));
     Value *CharacterSub =
         B.CreateNSWSub(StrCharacterValue, ConstantStrCharacterValue);
-    Value *IsCharacterSubZero =
+    Value *CharacterSubIsZero =
         B.CreateICmpEQ(CharacterSub, ConstantInt::get(RetType, 0));
-    BasicBlock *IsCharacterSubZeroBB =
+    BasicBlock *CharacterSubIsZeroBB =
         BasicBlock::Create(B.getContext(), "strcmp_expand_sub_is_zero",
                            InitialBB->getParent(), JoinBlock);
-    B.CreateCondBr(IsCharacterSubZero, IsCharacterSubZeroBB, JoinBlock);
+    B.CreateCondBr(CharacterSubIsZero, CharacterSubIsZeroBB, JoinBlock);
 
     ResultPHI->addIncoming(CharacterSub, B.GetInsertBlock());
     DTUpdates.emplace_back(DominatorTree::Insert, B.GetInsertBlock(),
-                           IsCharacterSubZeroBB);
+                           CharacterSubIsZeroBB);
 
-    B.SetInsertPoint(IsCharacterSubZeroBB);
-    DTUpdates.emplace_back(DominatorTree::Insert, IsCharacterSubZeroBB,
+    B.SetInsertPoint(CharacterSubIsZeroBB);
+    DTUpdates.emplace_back(DominatorTree::Insert, CharacterSubIsZeroBB,
                            JoinBlock);
   }
 

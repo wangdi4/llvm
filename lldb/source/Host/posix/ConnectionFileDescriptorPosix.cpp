@@ -118,6 +118,7 @@ void ConnectionFileDescriptor::CloseCommandPipe() {
 }
 
 bool ConnectionFileDescriptor::IsConnected() const {
+  std::lock_guard<std::recursive_mutex> guard(m_mutex);
   return m_io_sp && m_io_sp->IsValid();
 }
 
@@ -201,9 +202,6 @@ ConnectionStatus ConnectionFileDescriptor::Disconnect(Status *error_ptr) {
         static_cast<void *>(this));
     return eConnectionStatusSuccess;
   }
-
-  if (m_io_sp->GetFdType() == IOObject::eFDTypeSocket)
-    static_cast<Socket &>(*m_io_sp).PreDisconnect();
 
   // Try to get the ConnectionFileDescriptor's mutex.  If we fail, that is
   // quite likely because somebody is doing a blocking read on our file
