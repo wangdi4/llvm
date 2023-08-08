@@ -1,7 +1,7 @@
 ; Check goto parsing
 ; TODO: this test is being throttled due to too many nested ifs but not due to presence of goto. Make detection of gotos stronger.
 
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; CHECK-DAG: goto [[LABEL1:.*]];
 ; CHECK-DAG: goto [[LABEL2:.*]];
@@ -9,7 +9,7 @@
 ; CHECK-DAG: [[LABEL2]]:
 
 ; Check goto CG
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S -hir-cost-model-throttling=0 2>&1 | FileCheck %s -check-prefix=CHECK-CG
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S -hir-cost-model-throttling=0 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 ;          BEGIN REGION { }
 ;<54>            + DO i1 = 0, 1, 1   <DO_LOOP>
 ;<4>             |   (@A)[0][i1] = i1;
@@ -42,7 +42,7 @@
 
 ; look in first then block
 ; CHECK-CG: then{{.*}}:
-; CHECK-CG: load i32, i32* %i1.i32
+; CHECK-CG: load i32, ptr %i1.i32
 
 ; look for the i1 == 1 condition
 ; CHECK-CG-NEXT: %hir.cmp.[[IF_NUM:[0-9]+]] = icmp eq i32 {{.*}}, 1
@@ -54,8 +54,8 @@
 
 ; which contains ld/st to a[0][i1]
 ; CHECK-CG: hir.L.34:
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], ptr @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], ptr @A, i64 0,
 ; and a jump to hir version of L.41
 ; CHECK-CG: br label %hir.L.41
 
@@ -69,8 +69,8 @@
 
 ; which also contains ld/st to a[0][i1]
 ; CHECK-CG: hir.L.41:
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], ptr @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], ptr @A, i64 0,
 ; and ivupdate and loop end
 ; CHECK-CG: br i1 %condloop
 
@@ -88,8 +88,8 @@ entry:
 do.body:                                          ; preds = %do.cond, %entry
   %i.0 = phi i32 [ 0, %entry ], [ %inc15, %do.cond ]
   %idxprom = sext i32 %i.0 to i64
-  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom
-  store i32 %i.0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom
+  store i32 %i.0, ptr %arrayidx, align 4
   %cmp = icmp eq i32 %i.0, 0
   br i1 %cmp, label %if.then, label %if.end
 
@@ -115,26 +115,26 @@ if.end.6:                                         ; preds = %if.end.3
 
 L1:                                               ; preds = %if.end.6, %if.then
   %idxprom7 = sext i32 %i.0 to i64
-  %arrayidx8 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom7
-  %0 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom7
+  %0 = load i32, ptr %arrayidx8, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx8, align 4
+  store i32 %inc, ptr %arrayidx8, align 4
   br label %L2
 
 L2:                                               ; preds = %L1, %if.then.2
   %idxprom9 = sext i32 %i.0 to i64
-  %arrayidx10 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom9
-  %1 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom9
+  %1 = load i32, ptr %arrayidx10, align 4
   %inc11 = add nsw i32 %1, 1
-  store i32 %inc11, i32* %arrayidx10, align 4
+  store i32 %inc11, ptr %arrayidx10, align 4
   br label %L2.63
 
 L2.63:                                            ; preds = %L2, %if.then.5
   %idxprom12 = sext i32 %i.0 to i64
-  %arrayidx13 = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom12
-  %2 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [5 x i32], ptr @A, i32 0, i64 %idxprom12
+  %2 = load i32, ptr %arrayidx13, align 4
   %inc14 = add nsw i32 %2, 1
-  store i32 %inc14, i32* %arrayidx13, align 4
+  store i32 %inc14, ptr %arrayidx13, align 4
   %inc15 = add nsw i32 %i.0, 1
   br label %do.cond
 
@@ -143,6 +143,6 @@ do.cond:                                          ; preds = %L2.63
   br i1 %cmp16, label %do.body, label %do.end
 
 do.end:                                           ; preds = %do.cond
-  %3 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i32 0, i64 0), align 4
+  %3 = load i32, ptr getelementptr inbounds ([5 x i32], ptr @A, i32 0, i64 0), align 4
   ret i32 %3
 }

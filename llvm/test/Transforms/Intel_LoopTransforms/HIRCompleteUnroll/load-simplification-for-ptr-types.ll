@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -hir-complete-unroll-force-constprop -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -hir-complete-unroll-force-constprop -hir-details 2>&1 < %s | FileCheck %s
 
 ; The global @struct_blob contains global variables and functions inside it
 ; This test case is checking that DDRef simplification utility used by constant
@@ -26,29 +26,29 @@
 ; This inst was eliminated by copy propagation
 ; CHECK-NOT: %char_ld = null;
 ; CHECK: %func_ld = &((@bar)[0]);
-; CHECK: <RVAL-REG> &((LINEAR void ()* @bar)[i64 0]) inbounds  {sb:2}
-; CHECK:    <BLOB> LINEAR void ()* @bar {sb:[[BARSB:[0-9]+]]}
+; CHECK: <RVAL-REG> &((LINEAR ptr @bar)[i64 0]) inbounds  {sb:2}
+; CHECK:    <BLOB> LINEAR ptr @bar {sb:[[BARSB:[0-9]+]]}
 
 ; CHECK: %char_ld = &((@const_char_glob)[0]);
-; CHECK: <RVAL-REG> &((LINEAR i8* @const_char_glob)[i64 0]) inbounds  {sb:2}
-; CHECK:    <BLOB> LINEAR i8* @const_char_glob {sb:[[GLOBSB:[0-9]+]]}
+; CHECK: <RVAL-REG> &((LINEAR ptr @const_char_glob)[i64 0]) inbounds  {sb:2}
+; CHECK:    <BLOB> LINEAR ptr @const_char_glob {sb:[[GLOBSB:[0-9]+]]}
 
 ; CHECK: %func_ld = &((@bar)[0]);
-; CHECK:    <BLOB> LINEAR void ()* @bar {sb:[[BARSB]]}
+; CHECK:    <BLOB> LINEAR ptr @bar {sb:[[BARSB]]}
 
 ; CHECK: %char_ld = &((@const_char_glob)[0]);
-; CHECK:    <BLOB> LINEAR i8* @const_char_glob {sb:[[GLOBSB]]}
+; CHECK:    <BLOB> LINEAR ptr @const_char_glob {sb:[[GLOBSB]]}
 
 ; CHECK: %func_ld = &((@bar)[0]);
 ; CHECK: %char_ld = (@stuct_glob)[0][3].0;
 ; CHECK: %func_ld = &((@bar)[0]);
 
 
-%stuct.func.ptr = type { i8*, void ()* }
+%stuct.func.ptr = type { ptr, ptr }
 
 @char_glob = internal unnamed_addr global i8 0
 @const_char_glob = internal unnamed_addr constant i8 0
-@stuct_glob = internal unnamed_addr constant [4 x %stuct.func.ptr] [%stuct.func.ptr { i8* null, void ()* @bar }, %stuct.func.ptr { i8* @const_char_glob, void ()* @bar }, %stuct.func.ptr { i8* @const_char_glob, void ()* @bar }, %stuct.func.ptr { i8* @char_glob, void ()* @bar }]
+@stuct_glob = internal unnamed_addr constant [4 x %stuct.func.ptr] [%stuct.func.ptr { ptr null, ptr @bar }, %stuct.func.ptr { ptr @const_char_glob, ptr @bar }, %stuct.func.ptr { ptr @const_char_glob, ptr @bar }, %stuct.func.ptr { ptr @char_glob, ptr @bar }]
 
 
 declare void @bar()
@@ -59,16 +59,16 @@ entry:
 
 loop:
   %iv = phi i64 [ 0, %entry], [ %iv.inc, %loop]
-  %gep1 = getelementptr [4 x %stuct.func.ptr], [4 x %stuct.func.ptr]* @stuct_glob, i64 0, i64 %iv, i32 0
-  %char_ld = load i8*, i8** %gep1
-  %gep2 = getelementptr [4 x %stuct.func.ptr], [4 x %stuct.func.ptr]* @stuct_glob, i64 0, i64 %iv, i32 1
-  %func_ld = load void ()*, void ()** %gep2
+  %gep1 = getelementptr [4 x %stuct.func.ptr], ptr @stuct_glob, i64 0, i64 %iv, i32 0
+  %char_ld = load ptr, ptr %gep1
+  %gep2 = getelementptr [4 x %stuct.func.ptr], ptr @stuct_glob, i64 0, i64 %iv, i32 1
+  %func_ld = load ptr, ptr %gep2
   %iv.inc = add i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 4
   br i1 %cmp, label %exit, label %loop
 
 exit:
-  %ld.lcssa = phi i8* [ %char_ld, %loop ]
+  %ld.lcssa = phi ptr [ %char_ld, %loop ]
   ret void
 }  
 
