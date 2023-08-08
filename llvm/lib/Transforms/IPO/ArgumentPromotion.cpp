@@ -276,11 +276,6 @@ static Function *doPromotion(
   NF->copyAttributesFrom(F);
   NF->copyMetadata(F, 0);
 
-#if INTEL_CUSTOMIZATION
-  getInlineReport()->replaceFunctionWithFunction(F, NF);
-  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
-#endif // INTEL_CUSTOMIZATION
-
   // The new function will have the !dbg metadata copied from the original
   // function. The original function may not be deleted, and dbg metadata need
   // to be unique, so we need to drop it.
@@ -311,6 +306,10 @@ static Function *doPromotion(
 
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+#endif // INTEL_CUSTOMIZATION
 
   // Loop over all the callers of the function, transforming the call sites to
   // pass in the loaded pointers.
