@@ -1222,6 +1222,7 @@ if (!SYCLOptimizationMode) {
 
   invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
+<<<<<<< HEAD
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
@@ -1243,6 +1244,23 @@ if (!SYCLOptimizationMode) {
                                               /*UseBlockFrequencyInfo=*/false));
 }
   // clang-format on
+=======
+    FPM.addPass(
+        createFunctionToLoopPassAdaptor(std::move(LPM1),
+                                        /*UseMemorySSA=*/true,
+                                        /*UseBlockFrequencyInfo=*/true));
+    FPM.addPass(
+        SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+    FPM.addPass(InstCombinePass());
+    // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
+    // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
+    // *All* loop passes must preserve it, in order to be able to use it.
+    FPM.addPass(
+        createFunctionToLoopPassAdaptor(std::move(LPM2),
+                                        /*UseMemorySSA=*/false,
+                                        /*UseBlockFrequencyInfo=*/false));
+  }
+>>>>>>> 8f54d28d3fd3c3e45846b6c41d2f1de3e381739f
 
   // Delete small array after loop unroll.
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
