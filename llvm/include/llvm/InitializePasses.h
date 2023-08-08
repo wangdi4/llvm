@@ -263,7 +263,6 @@ void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
 void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerGlobalDtorsLegacyPassPass(PassRegistry &);
-void initializeLowerGuardIntrinsicLegacyPassPass(PassRegistry&);
 void initializeLowerWidenableConditionLegacyPassPass(PassRegistry&);
 void initializeLowerSubscriptIntrinsicLegacyPassPass(PassRegistry&); // INTEL
 void initializeLowerIntrinsicsPass(PassRegistry&);
