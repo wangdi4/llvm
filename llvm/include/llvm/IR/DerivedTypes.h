@@ -728,7 +728,9 @@ public:
   /// given address space. This is only useful during the opaque pointer
   /// transition.
   /// TODO: remove after opaque pointer transition is complete.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   [[deprecated("Use PointerType::get() with LLVMContext argument instead")]]
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   static PointerType *getWithSamePointeeType(PointerType *PT,
                                              unsigned AddressSpace) {
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
