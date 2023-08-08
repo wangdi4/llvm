@@ -1222,12 +1222,12 @@ if (!SYCLOptimizationMode) {
 
   invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
-<<<<<<< HEAD
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
-  FPM.addPass(
-      SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+  FPM.addPass(SimplifyCFGPass(
+      SimplifyCFGOptions().hoistCommonInsts(true).convertSwitchRangeToICmp(
+          true)));
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
@@ -1243,24 +1243,6 @@ if (!SYCLOptimizationMode) {
                                               /*UseBlockFrequencyInfo=*/false));
 }
   // clang-format on
-=======
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM1),
-                                        /*UseMemorySSA=*/true,
-                                        /*UseBlockFrequencyInfo=*/true));
-    FPM.addPass(SimplifyCFGPass(
-        SimplifyCFGOptions().hoistCommonInsts(true).convertSwitchRangeToICmp(
-            true)));
-    FPM.addPass(InstCombinePass());
-    // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
-    // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
-    // *All* loop passes must preserve it, in order to be able to use it.
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM2),
-                                        /*UseMemorySSA=*/false,
-                                        /*UseBlockFrequencyInfo=*/false));
-  }
->>>>>>> 2c377017c25c0d0ca2b06fc40a992346e030851a
 
   // Delete small array after loop unroll.
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
