@@ -1225,8 +1225,9 @@ if (!SYCLOptimizationMode) {
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
-  FPM.addPass(
-      SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+  FPM.addPass(SimplifyCFGPass(
+      SimplifyCFGOptions().hoistCommonInsts(true).convertSwitchRangeToICmp(
+          true)));
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
