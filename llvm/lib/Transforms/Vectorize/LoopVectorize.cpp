@@ -8822,9 +8822,8 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
   // IV by VF * UF.
   bool HasNUW = Style == TailFoldingStyle::None;
   auto *CanonicalIVIncrement =
-      new VPInstruction(HasNUW ? VPInstruction::CanonicalIVIncrementNUW
-                               : VPInstruction::CanonicalIVIncrement,
-                        {CanonicalIVPHI}, DL, "index.next");
+      new VPInstruction(VPInstruction::CanonicalIVIncrement, {CanonicalIVPHI},
+                        {HasNUW, false}, DL, "index.next");
   CanonicalIVPHI->addOperand(CanonicalIVIncrement);
 
   VPBasicBlock *EB = TopRegion->getExitingBasicBlock();
@@ -8837,9 +8836,8 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
     // we have to take unrolling into account. Each part needs to start at
     //   Part * VF
     auto *CanonicalIVIncrementParts =
-        new VPInstruction(HasNUW ? VPInstruction::CanonicalIVIncrementForPartNUW
-                                 : VPInstruction::CanonicalIVIncrementForPart,
-                          {StartV}, DL, "index.part.next");
+        new VPInstruction(VPInstruction::CanonicalIVIncrementForPart, {StartV},
+                          {HasNUW, false}, DL, "index.part.next");
     VecPreheader->appendRecipe(CanonicalIVIncrementParts);
 
     // Create the ActiveLaneMask instruction using the correct start values.
@@ -8876,9 +8874,8 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
 
     // Create the active lane mask for the next iteration of the loop.
     CanonicalIVIncrementParts =
-        new VPInstruction(HasNUW ? VPInstruction::CanonicalIVIncrementForPartNUW
-                                 : VPInstruction::CanonicalIVIncrementForPart,
-                          {IncrementValue}, DL);
+        new VPInstruction(VPInstruction::CanonicalIVIncrementForPart,
+                          {IncrementValue}, {HasNUW, false}, DL);
     EB->appendRecipe(CanonicalIVIncrementParts);
 
     auto *ALM = new VPInstruction(VPInstruction::ActiveLaneMask,
