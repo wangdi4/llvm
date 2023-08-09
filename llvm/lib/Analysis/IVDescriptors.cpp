@@ -1294,8 +1294,12 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                          SmallVectorImpl<Instruction *> *Casts)
 #if INTEL_CUSTOMIZATION
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     : InductionDescriptorTempl(Start, K, BOp), Step(Step),
       ElementType(ElementType) {
+#else
+    : InductionDescriptorTempl(Start, K, BOp), Step(Step){
+#endif
 #else
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {

@@ -2684,6 +2684,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
           ->getPointerTo(GlobalsAS);
 #endif // INTEL_COLLAB
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *PtrTy = llvm::PointerType::get(CGM.getLLVMContext(), GlobalsAS);
   // vtable field is derived from `this` pointer, therefore they should be in
   // the same addr space. Note that this might not be LLVM address space 0.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY

@@ -6041,7 +6041,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           auto *T = llvm::PointerType::get(
               CGM.getLLVMContext(),
-              CGM.getLLVMContext(),
 #if INTEL_COLLAB
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB

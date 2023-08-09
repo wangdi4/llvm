@@ -78,6 +78,7 @@ static std::string getTypeString(Type *T) {
   return Tmp.str();
 }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 static void setContextOpaquePointers(LLLexer &L, LLVMContext &C) {
   while (true) {
     lltok::Kind K = L.Lex();
@@ -91,10 +92,11 @@ static void setContextOpaquePointers(LLLexer &L, LLVMContext &C) {
     }
   }
 }
-
+#endif
 /// Run: module ::= toplevelentity*
 bool LLParser::Run(bool UpgradeDebugInfo,
                    DataLayoutCallbackTy DataLayoutCallback) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // If we haven't decided on whether or not we're using opaque pointers, do a
   // quick lex over the tokens to see if we explicitly construct any typed or
   // opaque pointer types.
@@ -102,7 +104,7 @@ bool LLParser::Run(bool UpgradeDebugInfo,
   // regardless of if --opaque-pointers is set.
   if (!Context.hasSetOpaquePointersValue())
     setContextOpaquePointers(OPLex, Context);
-
+#endif
   // Prime the lexer.
   Lex.Lex();
 
