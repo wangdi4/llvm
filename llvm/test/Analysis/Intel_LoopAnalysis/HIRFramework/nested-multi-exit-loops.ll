@@ -13,19 +13,17 @@
 ; CHECK: | + UNKNOWN LOOP i2
 ; CHECK: | |
 ; CHECK: | |  + UNKNOWN LOOP i3
-; CHECK: | |  |    goto %68;
+; CHECK: | |  |    goto bb66;
 ; CHECK: | |  + END LOOP
 ; CHECK: | |
-; CHECK: | |   goto %85;
-; CHECK: | |   %68:
+; CHECK: | |   goto bb79;
+; CHECK: | |   bb66:
 ; CHECK: | |
-; CHECK: | |   goto %83;
+; CHECK: | |   goto bb81;
 ; CHECK: | + END LOOP
 ; CHECK: |
-; CHECK: | %83:
-; CHECK: |
-; CHECK: | %85:
-; CHECK: |
+; CHECK: | bb81:
+; CHECK: | bb79:
 ; CHECK: | + UNKNOWN LOOP i2
 ; CHECK: | |
 ; CHECK: | |  + UNKNOWN LOOP i3
@@ -34,17 +32,17 @@
 ; CHECK: | + END LOOP
 ; CHECK: + END LOOP
 
-
+; ModuleID = 'nested-multi-exit-loops.ll'
+source_filename = "nested-multi-exit-loops.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.T_SKTREE = type { ptr, ptr, ptr, ptr, ptr, ptr }
 %struct.uExpressionValue = type { i32, %union.anon }
 %union.anon = type { double }
+%struct.T_SKTREE = type { ptr, ptr, ptr, ptr, ptr, ptr }
 %struct.IMPLEMENTATION = type { i32, ptr, ptr, i32, ptr, i32, ptr }
 %struct.PARAM = type { ptr, ptr, i32, ptr, i32, ptr, ptr }
 %struct.PARAM_PROPS = type { ptr, ptr, i32, ptr, ptr, i32, ptr, i32, i32, i32, i32, ptr }
-%struct.RANGE = type { ptr, ptr, ptr, ptr, i32, ptr }
 
 @implist = external hidden unnamed_addr global ptr, align 8
 @.str.606 = external hidden unnamed_addr constant [21 x i8], align 1
@@ -57,342 +55,334 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.2.1260 = external hidden unnamed_addr constant [3 x i8], align 1
 @.str.1.10510 = external hidden unnamed_addr constant [7 x i8], align 1
 
-; Function Attrs: nofree nounwind
-declare dso_local noalias ptr @malloc(i64) local_unnamed_addr #1
+declare dso_local noalias ptr @malloc(i64) local_unnamed_addr
 
-; Function Attrs: nounwind
-declare dso_local void @free(ptr nocapture) local_unnamed_addr #2
+declare dso_local void @free(ptr nocapture) local_unnamed_addr
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #3
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #3
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
-; Function Attrs: nofree nounwind readnone
-declare dso_local nonnull ptr @__ctype_tolower_loc() local_unnamed_addr #4
+declare dso_local nonnull ptr @__ctype_tolower_loc() local_unnamed_addr
 
-; Function Attrs: argmemonly nofree nounwind readonly
-declare dso_local i64 @strlen(ptr nocapture) local_unnamed_addr #5
+declare dso_local i64 @strlen(ptr nocapture) local_unnamed_addr
 
-; Function Attrs: nofree nounwind
-declare dso_local i64 @strtol(ptr readonly, ptr nocapture, i32) local_unnamed_addr #1
+declare dso_local i64 @strtol(ptr readonly, ptr nocapture, i32) local_unnamed_addr
 
-; Function Attrs: nofree nounwind
-declare dso_local ptr @strcpy(ptr noalias returned, ptr noalias nocapture readonly) local_unnamed_addr #1
+declare dso_local ptr @strcpy(ptr noalias returned, ptr noalias nocapture readonly) local_unnamed_addr
 
-; Function Attrs: norecurse nounwind uwtable
-define hidden i32 @IntParameterEvaluator(i32 %0, ptr nocapture readonly %1, ptr nocapture %2, ptr %3) {
-  %5 = alloca ptr, align 8
-  %6 = alloca ptr, align 8
-  %7 = alloca ptr, align 8
-  %8 = bitcast ptr %5 to ptr
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %8) #8
-  %9 = bitcast ptr %6 to ptr
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %9) #8
-  %10 = bitcast ptr %7 to ptr
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %10) #8
-  %11 = icmp sgt i32 %0, 0
-  br i1 %11, label %12, label %182
+define hidden i32 @IntParameterEvaluator(i32 %arg, ptr nocapture readonly %arg1, ptr nocapture %arg2, ptr %arg3) {
+bb:
+  %i = alloca ptr, align 8
+  %i4 = alloca ptr, align 8
+  %i5 = alloca ptr, align 8
+  %i6 = bitcast ptr %i to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i6)
+  %i7 = bitcast ptr %i4 to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i7)
+  %i8 = bitcast ptr %i5 to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i8)
+  %i9 = icmp sgt i32 %arg, 0
+  br i1 %i9, label %bb10, label %bb180
 
-12:                                               ; preds = %4
-  %13 = sext i32 %0 to i64
-  br label %14
+bb10:                                             ; preds = %bb
+  %i11 = sext i32 %arg to i64
+  br label %bb12
 
-14:                                               ; preds = %178, %12
-  %15 = phi i64 [ 0, %12 ], [ %179, %178 ]
-  %16 = getelementptr inbounds %struct.uExpressionValue, ptr %2, i64 %15, i32 0
-  store i32 1, ptr %16, align 8
-  %17 = getelementptr inbounds ptr, ptr %1, i64 %15
-  %18 = load ptr, ptr %17, align 8
-  %19 = tail call i64 @strlen(ptr %18) #9
-  %20 = add i64 %19, 1
-  %21 = tail call noalias ptr @malloc(i64 %20) #8
-  %22 = icmp eq ptr %21, null
-  br i1 %22, label %25, label %23
+bb12:                                             ; preds = %bb176, %bb10
+  %i13 = phi i64 [ 0, %bb10 ], [ %i177, %bb176 ]
+  %i14 = getelementptr inbounds %struct.uExpressionValue, ptr %arg2, i64 %i13, i32 0
+  store i32 1, ptr %i14, align 8
+  %i15 = getelementptr inbounds ptr, ptr %arg1, i64 %i13
+  %i16 = load ptr, ptr %i15, align 8
+  %i17 = tail call i64 @strlen(ptr %i16)
+  %i18 = add i64 %i17, 1
+  %i19 = tail call noalias ptr @malloc(i64 %i18)
+  %i20 = icmp eq ptr %i19, null
+  br i1 %i20, label %bb23, label %bb21
 
-23:                                               ; preds = %14
-  %24 = tail call ptr @strcpy(ptr nonnull %21, ptr %18) #8
-  br label %25
+bb21:                                             ; preds = %bb12
+  %i22 = tail call ptr @strcpy(ptr nonnull %i19, ptr %i16)
+  br label %bb23
 
-25:                                               ; preds = %23, %14
-  %26 = call i64 @strtol(ptr %21, ptr nonnull %5, i32 0) #8
-  %27 = trunc i64 %26 to i32
-  %28 = getelementptr inbounds %struct.uExpressionValue, ptr %2, i64 %15, i32 1
-  %29 = bitcast ptr %28 to ptr
-  store i32 %27, ptr %29, align 8
-  %30 = load ptr, ptr %5, align 8
-  %31 = icmp eq ptr %30, %21
-  br i1 %31, label %32, label %178
+bb23:                                             ; preds = %bb21, %bb12
+  %i24 = call i64 @strtol(ptr %i19, ptr nonnull %i, i32 0)
+  %i25 = trunc i64 %i24 to i32
+  %i26 = getelementptr inbounds %struct.uExpressionValue, ptr %arg2, i64 %i13, i32 1
+  %i27 = bitcast ptr %i26 to ptr
+  store i32 %i25, ptr %i27, align 8
+  %i28 = load ptr, ptr %i, align 8
+  %i29 = icmp eq ptr %i28, %i19
+  br i1 %i29, label %bb30, label %bb176
 
-32:                                               ; preds = %25
-  %33 = call fastcc i32 @Util_SplitString(ptr nonnull %6, ptr nonnull %7, ptr %21, ptr @.str.2.1260) #8
-  switch i32 %33, label %36 [
-    i32 0, label %38
-    i32 1, label %34
-    i32 2, label %35
+bb30:                                             ; preds = %bb23
+  %i31 = call fastcc i32 @Util_SplitString(ptr nonnull %i4, ptr nonnull %i5, ptr %i19, ptr @.str.2.1260)
+  switch i32 %i31, label %bb34 [
+    i32 0, label %bb36
+    i32 1, label %bb32
+    i32 2, label %bb33
   ]
 
-34:                                               ; preds = %32
-  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 8, i32 1198, ptr @.str.606, ptr @.str.1.10510, ptr @.str.47.608, ptr %21) #8
-  br label %37
+bb32:                                             ; preds = %bb30
+  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 8, i32 1198, ptr @.str.606, ptr @.str.1.10510, ptr @.str.47.608, ptr %i19)
+  br label %bb35
 
-35:                                               ; preds = %32
-  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 2, i32 1205, ptr @.str.606, ptr @.str.1.10510, ptr @.str.977, ptr @.str.48.609) #8
-  br label %37
+bb33:                                             ; preds = %bb30
+  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 2, i32 1205, ptr @.str.606, ptr @.str.1.10510, ptr @.str.977, ptr @.str.48.609)
+  br label %bb35
 
-36:                                               ; preds = %32
-  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 1, i32 1211, ptr @.str.606, ptr @.str.1.10510, ptr @.str.977, ptr @.str.49.610) #8
-  br label %37
+bb34:                                             ; preds = %bb30
+  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 1, i32 1211, ptr @.str.606, ptr @.str.1.10510, ptr @.str.977, ptr @.str.49.610)
+  br label %bb35
 
-37:                                               ; preds = %36, %35, %34
-  store ptr null, ptr %6, align 8
-  store ptr null, ptr %7, align 8
-  br label %154
+bb35:                                             ; preds = %bb34, %bb33, %bb32
+  store ptr null, ptr %i4, align 8
+  store ptr null, ptr %i5, align 8
+  br label %bb152
 
-38:                                               ; preds = %32
-  %39 = load ptr, ptr %6, align 8
-  %40 = load ptr, ptr @implist, align 8
-  %41 = icmp eq ptr %40, null
-  br i1 %41, label %151, label %42
+bb36:                                             ; preds = %bb30
+  %i37 = load ptr, ptr %i4, align 8
+  %i38 = load ptr, ptr @implist, align 8
+  %i39 = icmp eq ptr %i38, null
+  br i1 %i39, label %bb149, label %bb40
 
-42:                                               ; preds = %38
-  %43 = tail call ptr @__ctype_tolower_loc() #10
-  %44 = load ptr, ptr %43, align 8
-  br label %45
+bb40:                                             ; preds = %bb36
+  %i41 = tail call ptr @__ctype_tolower_loc()
+  %i42 = load ptr, ptr %i41, align 8
+  br label %bb43
 
-45:                                               ; preds = %77, %42
-  %46 = phi ptr [ %79, %77 ], [ %40, %42 ]
-  %47 = getelementptr inbounds %struct.T_SKTREE, ptr %46, i64 0, i32 4
-  %48 = load ptr, ptr %47, align 8
-  br label %49
+bb43:                                             ; preds = %bb75, %bb40
+  %i44 = phi ptr [ %i77, %bb75 ], [ %i38, %bb40 ]
+  %i45 = getelementptr inbounds %struct.T_SKTREE, ptr %i44, i64 0, i32 4
+  %i46 = load ptr, ptr %i45, align 8
+  br label %bb47
 
-49:                                               ; preds = %64, %45
-  %50 = phi ptr [ %48, %45 ], [ %66, %64 ]
-  %51 = phi ptr [ %39, %45 ], [ %65, %64 ]
-  %52 = load i8, ptr %51, align 1
-  %53 = sext i8 %52 to i64
-  %54 = getelementptr inbounds i32, ptr %44, i64 %53
-  %55 = load i32, ptr %54, align 4
-  %56 = load i8, ptr %50, align 1
-  %57 = sext i8 %56 to i64
-  %58 = getelementptr inbounds i32, ptr %44, i64 %57
-  %59 = load i32, ptr %58, align 4
-  %60 = sub nsw i32 %55, %59
-  %61 = icmp ne i32 %60, 0
-  %62 = icmp eq i8 %52, 0
-  %63 = or i1 %62, %61
-  br i1 %63, label %68, label %64
+bb47:                                             ; preds = %bb62, %bb43
+  %i48 = phi ptr [ %i46, %bb43 ], [ %i64, %bb62 ]
+  %i49 = phi ptr [ %i37, %bb43 ], [ %i63, %bb62 ]
+  %i50 = load i8, ptr %i49, align 1
+  %i51 = sext i8 %i50 to i64
+  %i52 = getelementptr inbounds i32, ptr %i42, i64 %i51
+  %i53 = load i32, ptr %i52, align 4
+  %i54 = load i8, ptr %i48, align 1
+  %i55 = sext i8 %i54 to i64
+  %i56 = getelementptr inbounds i32, ptr %i42, i64 %i55
+  %i57 = load i32, ptr %i56, align 4
+  %i58 = sub nsw i32 %i53, %i57
+  %i59 = icmp ne i32 %i58, 0
+  %i60 = icmp eq i8 %i50, 0
+  %i61 = or i1 %i60, %i59
+  br i1 %i61, label %bb66, label %bb62
 
-64:                                               ; preds = %49
-  %65 = getelementptr inbounds i8, ptr %51, i64 1
-  %66 = getelementptr inbounds i8, ptr %50, i64 1
-  %67 = icmp eq i8 %56, 0
-  br i1 %67, label %81, label %49
+bb62:                                             ; preds = %bb47
+  %i63 = getelementptr inbounds i8, ptr %i49, i64 1
+  %i64 = getelementptr inbounds i8, ptr %i48, i64 1
+  %i65 = icmp eq i8 %i54, 0
+  br i1 %i65, label %bb79, label %bb47
 
-68:                                               ; preds = %49
-  %69 = phi i32 [ %60, %49 ]
-  %70 = icmp slt i32 %69, 0
-  br i1 %70, label %71, label %73
+bb66:                                             ; preds = %bb47
+  %i67 = phi i32 [ %i58, %bb47 ]
+  %i68 = icmp slt i32 %i67, 0
+  br i1 %i68, label %bb69, label %bb71
 
-71:                                               ; preds = %68
-  %72 = getelementptr inbounds %struct.T_SKTREE, ptr %46, i64 0, i32 0
-  br label %77
+bb69:                                             ; preds = %bb66
+  %i70 = getelementptr inbounds %struct.T_SKTREE, ptr %i44, i64 0, i32 0
+  br label %bb75
 
-73:                                               ; preds = %68
-  %74 = icmp eq i32 %69, 0
-  br i1 %74, label %83, label %75
+bb71:                                             ; preds = %bb66
+  %i72 = icmp eq i32 %i67, 0
+  br i1 %i72, label %bb81, label %bb73
 
-75:                                               ; preds = %73
-  %76 = getelementptr inbounds %struct.T_SKTREE, ptr %46, i64 0, i32 1
-  br label %77
+bb73:                                             ; preds = %bb71
+  %i74 = getelementptr inbounds %struct.T_SKTREE, ptr %i44, i64 0, i32 1
+  br label %bb75
 
-77:                                               ; preds = %75, %71
-  %78 = phi ptr [ %76, %75 ], [ %72, %71 ]
-  %79 = load ptr, ptr %78, align 8
-  %80 = icmp eq ptr %79, null
-  br i1 %80, label %150, label %45
+bb75:                                             ; preds = %bb73, %bb69
+  %i76 = phi ptr [ %i74, %bb73 ], [ %i70, %bb69 ]
+  %i77 = load ptr, ptr %i76, align 8
+  %i78 = icmp eq ptr %i77, null
+  br i1 %i78, label %bb148, label %bb43
 
-81:                                               ; preds = %64
-  %82 = phi ptr [ %46, %64 ]
-  br label %85
+bb79:                                             ; preds = %bb62
+  %i80 = phi ptr [ %i44, %bb62 ]
+  br label %bb83
 
-83:                                               ; preds = %73
-  %84 = phi ptr [ %46, %73 ]
-  br label %85
+bb81:                                             ; preds = %bb71
+  %i82 = phi ptr [ %i44, %bb71 ]
+  br label %bb83
 
-85:                                               ; preds = %83, %81
-  %86 = phi ptr [ %82, %81 ], [ %84, %83 ]
-  %87 = icmp eq ptr %86, null
-  br i1 %87, label %151, label %88
+bb83:                                             ; preds = %bb81, %bb79
+  %i84 = phi ptr [ %i80, %bb79 ], [ %i82, %bb81 ]
+  %i85 = icmp eq ptr %i84, null
+  br i1 %i85, label %bb149, label %bb86
 
-88:                                               ; preds = %85
-  %89 = getelementptr inbounds %struct.T_SKTREE, ptr %86, i64 0, i32 5
-  %90 = bitcast ptr %89 to ptr
-  %91 = load ptr, ptr %90, align 8
-  %92 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %91, i64 0, i32 0
-  %93 = load i32, ptr %92, align 8
-  %94 = icmp eq i32 %93, 0
-  br i1 %94, label %151, label %95
+bb86:                                             ; preds = %bb83
+  %i87 = getelementptr inbounds %struct.T_SKTREE, ptr %i84, i64 0, i32 5
+  %i88 = bitcast ptr %i87 to ptr
+  %i89 = load ptr, ptr %i88, align 8
+  %i90 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %i89, i64 0, i32 0
+  %i91 = load i32, ptr %i90, align 8
+  %i92 = icmp eq i32 %i91, 0
+  br i1 %i92, label %bb149, label %bb93
 
-95:                                               ; preds = %88
-  br label %96
+bb93:                                             ; preds = %bb86
+  br label %bb94
 
-96:                                               ; preds = %128, %95
-  %97 = phi ptr [ %130, %128 ], [ %40, %95 ]
-  %98 = getelementptr inbounds %struct.T_SKTREE, ptr %97, i64 0, i32 4
-  %99 = load ptr, ptr %98, align 8
-  br label %100
+bb94:                                             ; preds = %bb126, %bb93
+  %i95 = phi ptr [ %i128, %bb126 ], [ %i38, %bb93 ]
+  %i96 = getelementptr inbounds %struct.T_SKTREE, ptr %i95, i64 0, i32 4
+  %i97 = load ptr, ptr %i96, align 8
+  br label %bb98
 
-100:                                              ; preds = %115, %96
-  %101 = phi ptr [ %99, %96 ], [ %117, %115 ]
-  %102 = phi ptr [ %39, %96 ], [ %116, %115 ]
-  %103 = load i8, ptr %102, align 1
-  %104 = sext i8 %103 to i64
-  %105 = getelementptr inbounds i32, ptr %44, i64 %104
-  %106 = load i32, ptr %105, align 4
-  %107 = load i8, ptr %101, align 1
-  %108 = sext i8 %107 to i64
-  %109 = getelementptr inbounds i32, ptr %44, i64 %108
-  %110 = load i32, ptr %109, align 4
-  %111 = sub nsw i32 %106, %110
-  %112 = icmp ne i32 %111, 0
-  %113 = icmp eq i8 %103, 0
-  %114 = or i1 %113, %112
-  br i1 %114, label %119, label %115
+bb98:                                             ; preds = %bb113, %bb94
+  %i99 = phi ptr [ %i97, %bb94 ], [ %i115, %bb113 ]
+  %i100 = phi ptr [ %i37, %bb94 ], [ %i114, %bb113 ]
+  %i101 = load i8, ptr %i100, align 1
+  %i102 = sext i8 %i101 to i64
+  %i103 = getelementptr inbounds i32, ptr %i42, i64 %i102
+  %i104 = load i32, ptr %i103, align 4
+  %i105 = load i8, ptr %i99, align 1
+  %i106 = sext i8 %i105 to i64
+  %i107 = getelementptr inbounds i32, ptr %i42, i64 %i106
+  %i108 = load i32, ptr %i107, align 4
+  %i109 = sub nsw i32 %i104, %i108
+  %i110 = icmp ne i32 %i109, 0
+  %i111 = icmp eq i8 %i101, 0
+  %i112 = or i1 %i111, %i110
+  br i1 %i112, label %bb117, label %bb113
 
-115:                                              ; preds = %100
-  %116 = getelementptr inbounds i8, ptr %102, i64 1
-  %117 = getelementptr inbounds i8, ptr %101, i64 1
-  %118 = icmp eq i8 %107, 0
-  br i1 %118, label %132, label %100
+bb113:                                            ; preds = %bb98
+  %i114 = getelementptr inbounds i8, ptr %i100, i64 1
+  %i115 = getelementptr inbounds i8, ptr %i99, i64 1
+  %i116 = icmp eq i8 %i105, 0
+  br i1 %i116, label %bb130, label %bb98
 
-119:                                              ; preds = %100
-  %120 = phi i32 [ %111, %100 ]
-  %121 = icmp slt i32 %120, 0
-  br i1 %121, label %122, label %124
+bb117:                                            ; preds = %bb98
+  %i118 = phi i32 [ %i109, %bb98 ]
+  %i119 = icmp slt i32 %i118, 0
+  br i1 %i119, label %bb120, label %bb122
 
-122:                                              ; preds = %119
-  %123 = getelementptr inbounds %struct.T_SKTREE, ptr %97, i64 0, i32 0
-  br label %128
+bb120:                                            ; preds = %bb117
+  %i121 = getelementptr inbounds %struct.T_SKTREE, ptr %i95, i64 0, i32 0
+  br label %bb126
 
-124:                                              ; preds = %119
-  %125 = icmp eq i32 %120, 0
-  br i1 %125, label %134, label %126
+bb122:                                            ; preds = %bb117
+  %i123 = icmp eq i32 %i118, 0
+  br i1 %i123, label %bb132, label %bb124
 
-126:                                              ; preds = %124
-  %127 = getelementptr inbounds %struct.T_SKTREE, ptr %97, i64 0, i32 1
-  br label %128
+bb124:                                            ; preds = %bb122
+  %i125 = getelementptr inbounds %struct.T_SKTREE, ptr %i95, i64 0, i32 1
+  br label %bb126
 
-128:                                              ; preds = %126, %122
-  %129 = phi ptr [ %127, %126 ], [ %123, %122 ]
-  %130 = load ptr, ptr %129, align 8
-  %131 = icmp eq ptr %130, null
-  br i1 %131, label %149, label %96
+bb126:                                            ; preds = %bb124, %bb120
+  %i127 = phi ptr [ %i125, %bb124 ], [ %i121, %bb120 ]
+  %i128 = load ptr, ptr %i127, align 8
+  %i129 = icmp eq ptr %i128, null
+  br i1 %i129, label %bb147, label %bb94
 
-132:                                              ; preds = %115
-  %133 = phi ptr [ %97, %115 ]
-  br label %136
+bb130:                                            ; preds = %bb113
+  %i131 = phi ptr [ %i95, %bb113 ]
+  br label %bb134
 
-134:                                              ; preds = %124
-  %135 = phi ptr [ %97, %124 ]
-  br label %136
+bb132:                                            ; preds = %bb122
+  %i133 = phi ptr [ %i95, %bb122 ]
+  br label %bb134
 
-136:                                              ; preds = %134, %132
-  %137 = phi ptr [ %133, %132 ], [ %135, %134 ]
-  %138 = icmp eq ptr %137, null
-  br i1 %138, label %151, label %139
+bb134:                                            ; preds = %bb132, %bb130
+  %i135 = phi ptr [ %i131, %bb130 ], [ %i133, %bb132 ]
+  %i136 = icmp eq ptr %i135, null
+  br i1 %i136, label %bb149, label %bb137
 
-139:                                              ; preds = %136
-  %140 = getelementptr inbounds %struct.T_SKTREE, ptr %137, i64 0, i32 5
-  %141 = bitcast ptr %140 to ptr
-  %142 = load ptr, ptr %141, align 8
-  %143 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %142, i64 0, i32 0
-  %144 = load i32, ptr %143, align 8
-  %145 = icmp eq i32 %144, 0
-  br i1 %145, label %151, label %146
+bb137:                                            ; preds = %bb134
+  %i138 = getelementptr inbounds %struct.T_SKTREE, ptr %i135, i64 0, i32 5
+  %i139 = bitcast ptr %i138 to ptr
+  %i140 = load ptr, ptr %i139, align 8
+  %i141 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %i140, i64 0, i32 0
+  %i142 = load i32, ptr %i141, align 8
+  %i143 = icmp eq i32 %i142, 0
+  br i1 %i143, label %bb149, label %bb144
 
-146:                                              ; preds = %139
-  %147 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %142, i64 0, i32 2
-  %148 = load ptr, ptr %147, align 8
-  br label %151
+bb144:                                            ; preds = %bb137
+  %i145 = getelementptr inbounds %struct.IMPLEMENTATION, ptr %i140, i64 0, i32 2
+  %i146 = load ptr, ptr %i145, align 8
+  br label %bb149
 
-149:                                              ; preds = %128
-  br label %151
+bb147:                                            ; preds = %bb126
+  br label %bb149
 
-150:                                              ; preds = %77
-  br label %151
+bb148:                                            ; preds = %bb75
+  br label %bb149
 
-151:                                              ; preds = %150, %149, %146, %139, %136, %88, %85, %38
-  %152 = phi ptr [ %39, %88 ], [ %148, %146 ], [ null, %139 ], [ null, %136 ], [ %39, %85 ], [ %39, %38 ], [ null, %149 ], [ %39, %150 ]
-  %153 = load ptr, ptr %7, align 8
-  br label %154
+bb149:                                            ; preds = %bb148, %bb147, %bb144, %bb137, %bb134, %bb86, %bb83, %bb36
+  %i150 = phi ptr [ %i37, %bb86 ], [ %i146, %bb144 ], [ null, %bb137 ], [ null, %bb134 ], [ %i37, %bb83 ], [ %i37, %bb36 ], [ null, %bb147 ], [ %i37, %bb148 ]
+  %i151 = load ptr, ptr %i5, align 8
+  br label %bb152
 
-154:                                              ; preds = %151, %37
-  %155 = phi ptr [ null, %37 ], [ %153, %151 ]
-  %156 = phi ptr [ null, %37 ], [ %39, %151 ]
-  %157 = phi ptr [ %3, %37 ], [ %152, %151 ]
-  %158 = phi ptr [ %21, %37 ], [ %153, %151 ]
-  %159 = tail call fastcc ptr @ParameterFind(ptr %158, ptr %157, i32 905) #8
-  %160 = icmp eq ptr %159, null
-  br i1 %160, label %175, label %161
+bb152:                                            ; preds = %bb149, %bb35
+  %i153 = phi ptr [ null, %bb35 ], [ %i151, %bb149 ]
+  %i154 = phi ptr [ null, %bb35 ], [ %i37, %bb149 ]
+  %i155 = phi ptr [ %arg3, %bb35 ], [ %i150, %bb149 ]
+  %i156 = phi ptr [ %i19, %bb35 ], [ %i151, %bb149 ]
+  %i157 = tail call fastcc ptr @ParameterFind(ptr %i156, ptr %i155, i32 905)
+  %i158 = icmp eq ptr %i157, null
+  br i1 %i158, label %bb173, label %bb159
 
-161:                                              ; preds = %154
-  %162 = getelementptr inbounds %struct.PARAM, ptr %159, i64 0, i32 0
-  %163 = load ptr, ptr %162, align 8
-  %164 = getelementptr inbounds %struct.PARAM_PROPS, ptr %163, i64 0, i32 5
-  %165 = load i32, ptr %164, align 8
-  %166 = getelementptr inbounds %struct.PARAM, ptr %159, i64 0, i32 1
-  %167 = load ptr, ptr %166, align 8
-  %168 = bitcast ptr %167 to ptr
-  %169 = icmp ne ptr %167, null
-  %170 = icmp eq i32 %165, 704
-  %171 = and i1 %169, %170
-  br i1 %171, label %172, label %174
+bb159:                                            ; preds = %bb152
+  %i160 = getelementptr inbounds %struct.PARAM, ptr %i157, i64 0, i32 0
+  %i161 = load ptr, ptr %i160, align 8
+  %i162 = getelementptr inbounds %struct.PARAM_PROPS, ptr %i161, i64 0, i32 5
+  %i163 = load i32, ptr %i162, align 8
+  %i164 = getelementptr inbounds %struct.PARAM, ptr %i157, i64 0, i32 1
+  %i165 = load ptr, ptr %i164, align 8
+  %i166 = bitcast ptr %i165 to ptr
+  %i167 = icmp ne ptr %i165, null
+  %i168 = icmp eq i32 %i163, 704
+  %i169 = and i1 %i167, %i168
+  br i1 %i169, label %bb170, label %bb172
 
-172:                                              ; preds = %161
-  %173 = load i32, ptr %168, align 4
-  store i32 %173, ptr %29, align 8
-  br label %177
+bb170:                                            ; preds = %bb159
+  %i171 = load i32, ptr %i166, align 4
+  store i32 %i171, ptr %i27, align 8
+  br label %bb175
 
-174:                                              ; preds = %161
-  br i1 %169, label %176, label %175
+bb172:                                            ; preds = %bb159
+  br i1 %i167, label %bb174, label %bb173
 
-175:                                              ; preds = %174, %154
-  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 0, i32 2882, ptr @.str.606, ptr @.str.1.10510, ptr @.str.72, ptr %157, ptr %158) #8
-  br label %177
+bb173:                                            ; preds = %bb172, %bb152
+  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 0, i32 2882, ptr @.str.606, ptr @.str.1.10510, ptr @.str.72, ptr %i155, ptr %i156)
+  br label %bb175
 
-176:                                              ; preds = %174
-  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 0, i32 2888, ptr @.str.606, ptr @.str.1.10510, ptr @.str.73, ptr %157, ptr %158) #8
-  br label %177
+bb174:                                            ; preds = %bb172
+  tail call void (i32, i32, ptr, ptr, ptr, ...) @CCTK_VWarn(i32 0, i32 2888, ptr @.str.606, ptr @.str.1.10510, ptr @.str.73, ptr %i155, ptr %i156)
+  br label %bb175
 
-177:                                              ; preds = %176, %175, %172
-  tail call void @free(ptr %156) #8
-  tail call void @free(ptr %155) #8
-  br label %178
+bb175:                                            ; preds = %bb174, %bb173, %bb170
+  tail call void @free(ptr %i154)
+  tail call void @free(ptr %i153)
+  br label %bb176
 
-178:                                              ; preds = %177, %25
-  tail call void @free(ptr %21) #8
-  %179 = add nuw nsw i64 %15, 1
-  %180 = icmp eq i64 %179, %13
-  br i1 %180, label %181, label %14
+bb176:                                            ; preds = %bb175, %bb23
+  tail call void @free(ptr %i19)
+  %i177 = add nuw nsw i64 %i13, 1
+  %i178 = icmp eq i64 %i177, %i11
+  br i1 %i178, label %bb179, label %bb12
 
-181:                                              ; preds = %178
-  br label %182
+bb179:                                            ; preds = %bb176
+  br label %bb180
 
-182:                                              ; preds = %181, %4
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %10) #8
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %9) #8
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %8) #8
+bb180:                                            ; preds = %bb179, %bb
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i8)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i7)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i6)
   ret i32 0
 }
 
-; Function Attrs: nounwind uwtable
-declare hidden fastcc ptr @ParameterFind(ptr, ptr readonly, i32) unnamed_addr #7
+declare hidden fastcc ptr @ParameterFind(ptr, ptr readonly, i32) unnamed_addr
 
-; Function Attrs: nounwind uwtable
-declare hidden void @CCTK_VWarn(i32, i32, ptr, ptr, ptr nocapture readonly, ...) unnamed_addr #7
+declare hidden void @CCTK_VWarn(i32, i32, ptr, ptr, ptr nocapture readonly, ...) unnamed_addr
 
-; Function Attrs: nounwind uwtable
-declare hidden fastcc i32 @Util_SplitString(ptr nocapture, ptr nocapture, ptr, ptr nocapture readonly) unnamed_addr #7
+declare hidden fastcc i32 @Util_SplitString(ptr nocapture, ptr nocapture, ptr, ptr nocapture readonly) unnamed_addr
 
+attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
