@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; CHECK: define{{.*}}@main.DIR.OMP.TASK.{{[0-9]+}}
 ; CHECK-DAG: %.offload_baseptrs = alloca
-; CHECK-DAG: %.offload_ptrs = alloca [1 x i8*]
+; CHECK-DAG: %.offload_ptrs = alloca [1 x ptr]
 ; CHECK-DAG: %.run_host_version = alloca i32
 ; CHECK: call{{.*}}tgt_target
 
@@ -17,58 +17,47 @@ target device_triples = "spir64"
 
 @.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 
-; Function Attrs: norecurse uwtable
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
   %retval = alloca i32, align 4
   %a = alloca [10 x i32], align 16
-  store i32 0, i32* %retval, align 4
-  %0 = bitcast [10 x i32]* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40, i8* %0) #2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"([10 x i32]* %a) ]
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
+  store i32 0, ptr %retval, align 4
+  call void @llvm.lifetime.start.p0(i64 40, ptr %a)
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+     "QUAL.OMP.SHARED"(ptr %a) ]
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
+
   fence acquire
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.SHARED"([10 x i32]* %a) ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([10 x i32]* %a, i32* %arrayidx, i64 4) ]
-  %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  store i32 5, i32* %arrayidx1, align 16
-  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TARGET"() ]
-  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.TASK"() ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+     "QUAL.OMP.SHARED"(ptr %a) ]
+
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+     "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(ptr %a, ptr %a, i64 4) ]
+
+  store i32 5, ptr %a, align 16
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TASK"() ]
   fence release
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SINGLE"() ]
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
-  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  %5 = load i32, i32* %arrayidx2, align 16
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %5)
-  %6 = bitcast [10 x i32]* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 40, i8* %6) #2
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SINGLE"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
+  %4 = load i32, ptr %a, align 16
+  %call = call i32 (ptr, ...) @printf(ptr @.str, i32 %4)
+  call void @llvm.lifetime.end.p0(i64 40, ptr %a)
   ret i32 0
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
+declare void @llvm.directive.region.exit(token)
 
-declare dso_local i32 @printf(i8*, ...) #3
+declare dso_local i32 @printf(ptr, ...)
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
-
-attributes #0 = { norecurse uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { nounwind }
-attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
 
 !0 = !{i32 0, i32 2055, i32 -939495916, !"main", i32 8, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 9.0.0"}
