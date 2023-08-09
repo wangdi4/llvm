@@ -334,7 +334,8 @@ public:
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                     bool RelaxedMode,
                                     unsigned NumIgnorableDims = 0,
-                                    bool IgnoreBaseCE = false);
+                                    bool IgnoreBaseCE = false,
+                                    bool IgnoreBasePtrElementType = false);
 
   /// Returns true if both haveEqualBaseAndShape() and haveEqualOffsets() are
   /// true.
