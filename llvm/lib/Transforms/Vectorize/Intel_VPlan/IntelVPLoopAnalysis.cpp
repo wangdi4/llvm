@@ -978,11 +978,29 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   assert(BeginBlock && EndBlock && "Separating scan pragma was not found!");
   assert(BeginBlock->getSingleSuccessor() && EndBlock->getSinglePredecessor() &&
          "Separating pragma directives must have one successor/predecessor!");
-  assert(BeginBlock->getSingleSuccessor() == EndBlock->getSinglePredecessor() &&
-         "Separating pragma directives must be one basic block away!");
   VPBasicBlock *FenceBlock = BeginBlock->getSingleSuccessor();
 
+  // Skip empty blocks that we might get when doing O0 vectorization.
+  // Running any of CFGSimplify passes which gets rid of extra empty blocks
+  // before VPlanDriver is not possible as they are permanenty turned off inside
+  // of a pass implementation with bool isRequired {return false;} and changing
+  // it is not the right approach to do. This machanism came with new pass
+  // manager. Please take a look into PassInstrumentation.h runBeforePass(..)
+  // and StandardInstrumentations.cpp OptNoneInstrumentation::shouldRun())
+  while (FenceBlock->size() == 1) {
+    FenceBlock = FenceBlock->getSingleSuccessor();
+    assert(FenceBlock && FenceBlock->getSinglePredecessor() &&
+           "Expected non-null block with single predecessor");
+  }
+
+  VPBasicBlock *CheckForLine = FenceBlock->getSingleSuccessor();
+  while (CheckForLine->size() == 1)
+    CheckForLine = CheckForLine->getSingleSuccessor();
+  assert(CheckForLine == EndBlock &&
+         "Expected to reach pragma end block from fence block in one line of "
+         "empty blocks!");
   // Remove the compiler generated fence instruction.
+  assert(FenceBlock && "Unexpected null fence block");
   VPInstruction *Fence = nullptr;
   for (auto &I : *FenceBlock) {
     if (I.getOpcode() == Instruction::Fence) {
