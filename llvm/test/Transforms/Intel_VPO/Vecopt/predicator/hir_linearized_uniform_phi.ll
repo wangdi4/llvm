@@ -3,7 +3,7 @@
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec' -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-print-after-predicator -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPLAN
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=HIR-CG
 
-define void @foo(i64 *%p, i1 *%uniform.ptr) {
+define void @foo(ptr %p, ptr %uniform.ptr) {
 ; VPLAN-LABEL:  VPlan after predicator:
 ; VPLAN-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; VPLAN-NEXT:  External Defs Start:
@@ -29,8 +29,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
-; VPLAN-NEXT:     [DA: Uni] i1* [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds i1* [[UNIFORM_PTR0:%.*]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_LOAD:%.*]] = load i1* [[VP_SUBSCRIPT_0]]
+; VPLAN-NEXT:     [DA: Uni] ptr [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds ptr [[UNIFORM_PTR0:%.*]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_0]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp ne i1 [[VP_LOAD]] i1 false
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP9]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
@@ -61,8 +61,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB3]]: # preds: [[BB8]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP__BLEND_BB7:%.*]] = blend [ i64 [[VP6]], i1 true ], [ i64 [[VP16]], i1 [[VP7]] ]
-; VPLAN-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript i64* [[P0:%.*]] i64 [[VP4]]
-; VPLAN-NEXT:     [DA: Div] store i64 [[VP__BLEND_BB7]] i64* [[VP_SUBSCRIPT]]
+; VPLAN-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript ptr [[P0:%.*]] i64 [[VP4]]
+; VPLAN-NEXT:     [DA: Div] store i64 [[VP__BLEND_BB7]] ptr [[VP_SUBSCRIPT]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp slt i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP17]], [[BB2]], [[BB9:BB[0-9]+]]
@@ -117,7 +117,7 @@ header:
   br i1 %cond, label %uni.start, label %latch
 
 uni.start:
-  %uniform = load i1, i1 *%uniform.ptr
+  %uniform = load i1, ptr %uniform.ptr
   br i1 %uniform, label %if.then, label %if.else
 
 if.then:
@@ -136,8 +136,8 @@ uni.end:
 
 latch:
   %st = phi i64 [ -1, %header ], [ %val, %uni.end]
-  %gep = getelementptr i64, i64 *%p, i64 %iv
-  store i64 %st, i64 *%gep
+  %gep = getelementptr i64, ptr %p, i64 %iv
+  store i64 %st, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 1024
   br i1 %exitcond, label %exit, label %header

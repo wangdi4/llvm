@@ -1,12 +1,12 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that the pointer IV is handled correctly.
-; CHECK: DO i1 = 0, (-1 * ptrtoint.i32*.i64(%p) + ptrtoint.i32*.i64(%q) + -4)/u4, 1
+; CHECK: DO i1 = 0, (-1 * ptrtoint.ptr.i64(%p) + ptrtoint.ptr.i64(%q) + -4)/u4, 1
 ; CHECK-NEXT: (%p)[2 * i1] = i1;
 ; CHECK-NEXT:  END LOOP
 
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details 2>&1 | FileCheck %s -check-prefix=DETAIL
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details 2>&1 | FileCheck %s -check-prefix=DETAIL
 
 ; Verify that we are able to detect no signed wrap for pointer IV loops.
 ; DETAIL: HasSignedIV: Yes
@@ -15,9 +15,9 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %p, i32* readnone %q) {
+define void @foo(ptr %p, ptr readnone %q) {
 entry:
-  %cmp.6 = icmp eq i32* %p, %q
+  %cmp.6 = icmp eq ptr %p, %q
   br i1 %cmp.6, label %for.end, label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
@@ -25,13 +25,13 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %p.addr.07 = phi i32* [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %p.addr.07, i64 %indvars.iv
+  %p.addr.07 = phi ptr [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
+  %arrayidx = getelementptr inbounds i32, ptr %p.addr.07, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
-  %incdec.ptr = getelementptr inbounds i32, i32* %p.addr.07, i64 1
+  store i32 %0, ptr %arrayidx, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %p.addr.07, i64 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %cmp = icmp eq i32* %incdec.ptr, %q
+  %cmp = icmp eq ptr %incdec.ptr, %q
   br i1 %cmp, label %for.end.loopexit, label %for.body
 
 for.end.loopexit:                                 ; preds = %for.body

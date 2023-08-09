@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that structure reference is parsed correctly.
@@ -10,13 +10,13 @@
 ; CHECK: + END LOOP
 
 
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 ; Verify that CG generates the correct GEP for the reference.
 
-; CHECK-CG: [[IV1:%[0-9].*]] = load i64, i64* %i1.i64
-; CHECK-CG: [[IV2:%[0-9].*]] = load i64, i64* %i2.i64
-; CHECK-CG: getelementptr inbounds [50 x %struct.S2], [50 x %struct.S2]* @obj2, i64 0, i64 [[IV1]], i32 1, i64 [[IV2]], i32 2
+; CHECK-CG: [[IV1:%[0-9].*]] = load i64, ptr %i1.i64
+; CHECK-CG: [[IV2:%[0-9].*]] = load i64, ptr %i2.i64
+; CHECK-CG: getelementptr inbounds [50 x %struct.S2], ptr @obj2, i64 0, i64 [[IV1]], i32 1, i64 [[IV2]], i32 2
 
 
 ;Module Before HIR; ModuleID = 'struct_array_struct_array_offset.c'
@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @obj2 = common local_unnamed_addr global [50 x %struct.S2] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture readnone %A, i32 %n) local_unnamed_addr {
+define void @foo(ptr nocapture readnone %A, i32 %n) local_unnamed_addr {
 entry:
   %cmp18 = icmp sgt i32 %n, 0
   br i1 %cmp18, label %for.body3.lr.ph.preheader, label %for.end8
@@ -46,8 +46,8 @@ for.body3.lr.ph:                                  ; preds = %for.body3.lr.ph.pre
 
 for.body3:                                        ; preds = %for.body3, %for.body3.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body3.lr.ph ], [ %indvars.iv.next, %for.body3 ]
-  %c = getelementptr inbounds [50 x %struct.S2], [50 x %struct.S2]* @obj2, i64 0, i64 %indvars.iv20, i32 1, i64 %indvars.iv, i32 2
-  store i32 %0, i32* %c, align 4
+  %c = getelementptr inbounds [50 x %struct.S2], ptr @obj2, i64 0, i64 %indvars.iv20, i32 1, i64 %indvars.iv, i32 2
+  store i32 %0, ptr %c, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.inc6, label %for.body3

@@ -1009,8 +1009,8 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   auto *OldFIR = dyn_cast<MDTuple>(OldFMD);
   if (!OldFIR)
     return;
-  FunctionIndexMap.insert({NewFunction, getFunctionIndex(OldFunction)});
-  FunctionIndexMap.erase(OldFunction);
+  assert(OldFunction->getName() == "" && NewFunction->getName() != "" &&
+         "Expecting name of OldFunction taken by NewFunction");
   // Use the LLVMContext from the OldFunction, as the one for the NewFunction
   // may not be set yet.
   LLVMContext &Ctx = OldFunction->getParent()->getContext();

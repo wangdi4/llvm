@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details-dims 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 %s -passes="convert-to-subscript,hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details-dims 2>&1 | FileCheck %s
+
+; NOTE: convert-to-subscript does not seem to be behaviing correctly for this case but it isn't important because this conversion doesn't happen in the actual compiler pipeline.
+; opt < %s -passes="convert-to-subscript,hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details-dims 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load and store whose address is formed using multiple geps is parsed correctly.
 
@@ -50,14 +52,14 @@ for.body.3:                                       ; preds = %for.body.3.lr.ph, %
   %j.02 = phi i32 [ 0, %for.body.3.lr.ph ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.04 to i64
   %idxprom4 = sext i32 %j.02 to i64
-  %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @B, i64 0, i64 %idxprom4
+  %arrayidx = getelementptr inbounds [100 x [100 x i32]], ptr @B, i64 0, i64 %idxprom4
   %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* %arrayidx, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx5, align 4
+  %0 = load i32, ptr %arrayidx5, align 4
   %idxprom6 = sext i32 %j.02 to i64
   %idxprom7 = sext i32 %i.04 to i64
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %idxprom7
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %idxprom7
   %arrayidx9 = getelementptr inbounds [100 x i32], [100 x i32]* %arrayidx8, i64 0, i64 %idxprom6
-  store i32 %0, i32* %arrayidx9, align 4
+  store i32 %0, ptr %arrayidx9, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body.3

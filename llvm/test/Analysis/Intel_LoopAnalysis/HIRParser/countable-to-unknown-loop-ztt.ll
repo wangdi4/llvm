@@ -1,17 +1,17 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; Verify that ZTT is extracted for the countable inner loop which is converted to unknown loop when parsing for the upper bound fails.
 
 ; CHECK: + DO i1 = 0, -1 * %.pr + -1, 1   <DO_LOOP>
 ; CHECK: |   %3 = (@g)[0];
-; CHECK: |   if (%3 > %m.sroa.0.0.copyload * i1 + (%.pr * %m.sroa.0.0.copyload) + smin(%m.sroa.0.0.copyload, %inc18))
+; CHECK: |   if (%3 > %m.sroa.0.0.copyload * i1 + (%m.sroa.0.0.copyload * %.pr) + smin(%m.sroa.0.0.copyload, %inc18))
 ; CHECK: |   {
 ; CHECK: |      + UNKNOWN LOOP i2
 ; CHECK: |      |   <i2 = 0>
 ; CHECK: |      |   for.body8:
 ; CHECK: |      |   (%1)[-1 * i2 + sext.i32.i64(%3)] = %conv;
 ; CHECK: |      |   %indvars.iv.next = -1 * i2 + sext.i32.i64(%3)  +  -1;
-; CHECK: |      |   if (-1 * i2 + sext.i32.i64(%3) + -1 > %m.sroa.0.0.copyload * i1 + (%.pr * %m.sroa.0.0.copyload) + smin(%m.sroa.0.0.copyload, %inc18))
+; CHECK: |      |   if (-1 * i2 + sext.i32.i64(%3) + -1 > %m.sroa.0.0.copyload * i1 + (%m.sroa.0.0.copyload * %.pr) + smin(%m.sroa.0.0.copyload, %inc18))
 ; CHECK: |      |   {
 ; CHECK: |      |      <i2 = i2 + 1>
 ; CHECK: |      |      goto for.body8;
@@ -32,19 +32,19 @@ target triple = "x86_64-unknown-linux-gnu"
 @h = dso_local local_unnamed_addr global i32 0, align 4
 @g = dso_local local_unnamed_addr global i32 0, align 4
 @k = dso_local local_unnamed_addr global i32 0, align 4
-@f = dso_local local_unnamed_addr global double* null, align 8
+@f = dso_local local_unnamed_addr global ptr null, align 8
 
 define dso_local void @foo() {
 entry:
-  %m.sroa.0.0.copyload = load i32, i32* getelementptr inbounds (%struct.struct_d, %struct.struct_d* @e, i64 0, i32 0, i32 0), align 4
-  %.pr = load i32, i32* @h, align 4
+  %m.sroa.0.0.copyload = load i32, ptr getelementptr inbounds (%struct.struct_d, ptr @e, i64 0, i32 0, i32 0), align 4
+  %.pr = load i32, ptr @h, align 4
   %tobool17 = icmp eq i32 %.pr, 0
   br i1 %tobool17, label %for.end10, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load i32, i32* @k, align 4
+  %0 = load i32, ptr @k, align 4
   %conv = sitofp i32 %0 to double
-  %1 = load double*, double** @f, align 8
+  %1 = load ptr, ptr @f, align 8
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc9
@@ -64,7 +64,7 @@ if.else:                                          ; preds = %for.body
 
 if.end:                                           ; preds = %if.else, %if.then
   %2 = phi i32 [ %add5, %if.else ], [ %add, %if.then ]
-  %3 = load i32, i32* @g, align 4
+  %3 = load i32, ptr @g, align 4
   %cmp716 = icmp sgt i32 %3, %2
   br i1 %cmp716, label %for.body8.lr.ph, label %for.inc9
 
@@ -75,8 +75,8 @@ for.body8.lr.ph:                                  ; preds = %if.end
 
 for.body8:                                        ; preds = %for.body8.lr.ph, %for.body8
   %indvars.iv = phi i64 [ %4, %for.body8.lr.ph ], [ %indvars.iv.next, %for.body8 ]
-  %ptridx = getelementptr inbounds double, double* %1, i64 %indvars.iv
-  store double %conv, double* %ptridx, align 8
+  %ptridx = getelementptr inbounds double, ptr %1, i64 %indvars.iv
+  store double %conv, ptr %ptridx, align 8
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
   %cmp7 = icmp sgt i64 %indvars.iv.next, %5
   br i1 %cmp7, label %for.body8, label %for.cond6.for.inc9_crit_edge
@@ -84,7 +84,7 @@ for.body8:                                        ; preds = %for.body8.lr.ph, %f
 for.cond6.for.inc9_crit_edge:                     ; preds = %for.body8
   %indvars.iv.next.lcssa = phi i64 [ %indvars.iv.next, %for.body8 ]
   %6 = trunc i64 %indvars.iv.next.lcssa to i32
-  store i32 %6, i32* @g, align 4
+  store i32 %6, ptr @g, align 4
   br label %for.inc9
 
 for.inc9:                                         ; preds = %for.cond6.for.inc9_crit_edge, %if.end
@@ -93,7 +93,7 @@ for.inc9:                                         ; preds = %for.cond6.for.inc9_
   br i1 %tobool, label %for.cond.for.end10_crit_edge, label %for.body
 
 for.cond.for.end10_crit_edge:                     ; preds = %for.inc9
-  store i32 0, i32* @h, align 4
+  store i32 0, ptr @h, align 4
   br label %for.end10
 
 for.end10:                                        ; preds = %for.cond.for.end10_crit_edge, %entry

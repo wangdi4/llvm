@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 ; Check parsing output for the loop verifying that the switch is parsed correctly.
 
@@ -8,15 +8,15 @@
 ; CHECK: |   switch(%c)
 ; CHECK: |   {
 ; CHECK: |   case 0:
-; CHECK: |      %call = @printf(&((@.str)[0][0]));
+; CHECK: |      %call = @printf(&((@.str)[0]));
 ; CHECK: |      break;
 ; CHECK: |   case 1:
 ; CHECK: |      break;
 ; CHECK: |   default:
-; CHECK: |      %call3 = @printf(&((@.str2)[0][0]));
+; CHECK: |      %call3 = @printf(&((@.str2)[0]));
 ; CHECK: |      goto for.inc;
 ; CHECK: |   }
-; CHECK: |   %call2 = @printf(&((@.str1)[0][0]));
+; CHECK: |   %call2 = @printf(&((@.str1)[0]));
 ; CHECK: |   for.inc:
 ; CHECK: + END LOOP
 
@@ -31,7 +31,7 @@
 ;CHECK-CG-NEXT: ]
 
 ;CHECK-CG: [[SWITCH_NAME]].default:
-;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0))
+;CHECK-CG: call i32 (ptr, ...) @printf(ptr @.str2)
 ;CHECK-CG: br label %hir.L.15
 
 ; Check loop backedge
@@ -40,7 +40,7 @@
 
 ; case0 and case1 jump to a merge block before jumping to the backedge
 ;CHECK-CG: [[SWITCH_NAME]].case.0:
-;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0))
+;CHECK-CG: call i32 (ptr, ...) @printf(ptr @.str)
 ;CHECK-CG: br label %[[SWITCH_NAME]].end
 
 ;CHECK-CG: [[SWITCH_NAME]].case.1:
@@ -48,7 +48,7 @@
 
 ; Check the merge block of case0 and case1 leading to the backedge
 ;CHECK-CG: [[SWITCH_NAME]].end:
-;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
+;CHECK-CG: call i32 (ptr, ...) @printf(ptr @.str1)
 ;CHECK-CG: br label %hir.L.15
 
 
@@ -78,15 +78,15 @@ for.body:                                         ; preds = %for.body.preheader,
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0))
+  %call = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([5 x i8], ptr @.str, i64 0, i64 0))
   br label %sw.bb1
 
 sw.bb1:                                           ; preds = %sw.bb, %for.body
-  %call2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
+  %call2 = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([4 x i8], ptr @.str1, i64 0, i64 0))
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %call3 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0))
+  %call3 = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([8 x i8], ptr @.str2, i64 0, i64 0))
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.default, %sw.bb1
@@ -101,4 +101,4 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare i32 @printf(i8* nocapture readonly, ...)
+declare i32 @printf(ptr nocapture readonly, ...)

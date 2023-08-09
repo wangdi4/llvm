@@ -1118,6 +1118,8 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
     return;
   if (OldFunction == NewFunction)
     return;
+  assert(OldFunction->getName() == "" && NewFunction->getName() != "" &&
+         "Expecting name of OldFunction taken by NewFunction");
   InlineReportFunction *IRF = getOrAddFunction(OldFunction);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   replaceAllUsesWith(OldFunction, NewFunction);
