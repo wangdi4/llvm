@@ -482,6 +482,10 @@ private:
   /// Cache the VPInductionInit associated with induction memory pointers.
   void cacheInductionInitPtrs();
 
+  /// Returns true if the value of I is known to not overflow and is safe to
+  /// propagate non-randomness.
+  bool isSafeToPropagateNonRandomShape(const VPInstruction *I);
+
   VPlanVector *Plan = nullptr;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.

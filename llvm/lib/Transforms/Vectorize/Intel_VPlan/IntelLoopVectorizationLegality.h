@@ -19,13 +19,13 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanDriver.h"
 #include "IntelVPlanLegalityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 using namespace llvm::loopopt;
 namespace llvm {

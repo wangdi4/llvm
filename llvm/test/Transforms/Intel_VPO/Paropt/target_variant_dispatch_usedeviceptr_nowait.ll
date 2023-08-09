@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; Test for TARGET VARIANT DISPATCH NOWAIT with USE_DEVICE_PTR clause
 ; Presence of a NOWAIT clause implies asynchronous execution

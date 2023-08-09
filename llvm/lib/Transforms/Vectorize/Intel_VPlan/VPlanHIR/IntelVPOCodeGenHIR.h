@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
+#include "../IntelVPlanDriver.h"
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanOptrpt.h"
@@ -28,7 +29,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 using namespace llvm::loopopt;
 

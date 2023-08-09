@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -debug-only=vpo-paropt-apply-config -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config)' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -debug-only=vpo-paropt-apply-config -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -debug-only=vpo-paropt-apply-config -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config)' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -debug-only=vpo-paropt-apply-config -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ; void foo() {

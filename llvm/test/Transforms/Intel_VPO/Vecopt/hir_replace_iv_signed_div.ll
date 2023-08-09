@@ -33,16 +33,16 @@
 ; CHECK: (<4 x i64>*)(%A)[%phi.temp] = [[DOTVEC0]], Mask = @{[[DOTVEC6:%.*]]};
 
 
-define void @foo(i64 *%A, i64 %t) {
+define void @foo(ptr %A, i64 %t) {
 entry:
   br label %loop
 
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.inc, %loop ]
-  %gep = getelementptr inbounds i64, i64* %A, i64 %iv
+  %gep = getelementptr inbounds i64, ptr %A, i64 %iv
   %add = add i64 %iv, %t
   %div = sdiv i64 %add, 100
-  store i64 %div, i64* %gep
+  store i64 %div, ptr %gep
   %iv.inc = add nsw i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 7
   br i1 %cmp, label %exit, label %loop

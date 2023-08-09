@@ -13,7 +13,7 @@
 ;
 
 ; CHECK:           + DO i1 = %ub.tmp, {{.*}}, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:      |   (<2 x i32>*)(bitcast (i8* getelementptr inbounds ([40 x i8], [40 x i8]* @arr, i64 0, i64 20) to i32*))[i1] = 0;
+; CHECK-NEXT:      |   (<2 x i32>*)(getelementptr inbounds ([40 x i8], ptr @arr, i64 0, i64 20))[i1] = 0;
 ; CHECK-NEXT:      + END LOOP
 ;
 define void @foo() {
@@ -22,8 +22,8 @@ entry:
 
 for.body:
   %t709 = phi i64 [ %t711, %for.body ], [ 1, %entry ]
-  %t710 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) bitcast (i8* getelementptr inbounds ([40 x i8], [40 x i8]* @arr, i64 0, i64 20) to i32*), i64 %t709) #10
-  store i32 0, i32* %t710, align 4
+  %t710 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) getelementptr inbounds ([40 x i8], ptr @arr, i64 0, i64 20), i64 %t709) #10
+  store i32 0, ptr %t710, align 4
   %t711 = add nuw nsw i64 %t709, 1
   %t712 = icmp eq i64 %t711, 4
   br i1 %t712, label %for.exit, label %for.body
@@ -32,4 +32,4 @@ for.exit:
   ret void
 }
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #4
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #4

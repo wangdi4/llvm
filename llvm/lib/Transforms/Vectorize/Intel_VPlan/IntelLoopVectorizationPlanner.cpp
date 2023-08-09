@@ -2666,6 +2666,20 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
   //   ... ; actual header code.
   VPInstruction *LastLinearIVStore = nullptr;
   auto *OriginalHeader = Header->getSingleSuccessor()->getSingleSuccessor();
+
+  // Skip empty blocks that we might get when doing O0 vectorization.
+  // Running any of CFGSimplify passes which gets rid of extra empty blocks
+  // before VPlanDriver is not possible as they are permanenty turned off inside
+  // of a pass implementation with bool isRequired {return false;} and changing
+  // it is not the right approach to do. This machanism came with new pass
+  // manager. Please take a look into PassInstrumentation.h runBeforePass(..)
+  // and StandardInstrumentations.cpp OptNoneInstrumentation::shouldRun())
+  while (OriginalHeader->size() == 1) {
+    OriginalHeader = OriginalHeader->getSingleSuccessor();
+    assert(OriginalHeader && OriginalHeader->getSinglePredecessor() &&
+           "Expected non-null block with single predecessor");
+  }
+
   for (auto &I : reverse(*OriginalHeader)) {
     auto *LSI = dyn_cast<VPLoadStoreInst>(&I);
     if (!LSI)

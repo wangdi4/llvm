@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
 ; Test to verify functionality of VPOParoptGuardMemoryMotion and VPORenameOperands
 ; passes on SIMD loop containing array section reduction idiom.

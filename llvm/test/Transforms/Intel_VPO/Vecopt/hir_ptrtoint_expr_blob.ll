@@ -5,7 +5,7 @@
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 
-define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
+define i64 @foo(ptr nocapture noalias %p1, ptr nocapture noalias %p2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -20,12 +20,12 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64** [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64** [[P10:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     i64* [[VP_LOAD:%.*]] = load i64** [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = ptrtoint i64* [[VP_LOAD]] to i64
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[P10:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     ptr [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = ptrtoint ptr [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 [[VP4]] i64 42
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[P20:%.*]]
-; CHECK-NEXT:     store i64 [[VP5]] i64* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[P20:%.*]]
+; CHECK-NEXT:     store i64 [[VP5]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -40,8 +40,8 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i64*>*)([[P10]])[i1]
-; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>([[DOTVEC0]])
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x ptr>*)([[P10]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>([[DOTVEC0]])
 ; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  42
 ; CHECK-NEXT:        |   [[EXTRACT_3_0:%.*]] = extractelement [[DOTVEC20]],  3
 ; CHECK-NEXT:        |   ([[P20]])[0] = [[EXTRACT_3_0]]
@@ -56,11 +56,11 @@ while.body.lr.ph.i:
 
 while.body.i:                                     ; preds = %while.body.i, %while.body.lr.ph.i
   %iv = phi i64 [ 0, %while.body.lr.ph.i ], [ %iv.add, %while.body.i ]
-  %ptr = getelementptr inbounds i64*, i64** %p1, i64 %iv
-  %ld = load i64*, i64** %ptr
-  %ptrtoint = ptrtoint i64* %ld to i64
+  %ptr = getelementptr inbounds ptr, ptr %p1, i64 %iv
+  %ld = load ptr, ptr %ptr
+  %ptrtoint = ptrtoint ptr %ld to i64
   %up2 = mul i64 %ptrtoint, 42
-  store i64 %up2, i64* %p2
+  store i64 %up2, ptr %p2
   %iv.add = add i64 %iv, 1
   %iv.cmp = icmp ult i64 %iv.add, 1024
   br i1 %iv.cmp, label %while.body.i, label %while.end.loopexit.i

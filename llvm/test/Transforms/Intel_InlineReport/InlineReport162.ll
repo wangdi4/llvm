@@ -12,6 +12,26 @@
 ; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=2 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-TH2 %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=3 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
 ; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=3 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=0 -dump-function-name-index-map < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT,CHECK-FNIMDUMP %s
+
+; CHECK-FNIMDUMP: BEGIN DUMPING FunctionNameIndexMap: 0
+; CHECK-FNIMDUMP: COMPACTING: goo
+; CHECK-FNIMDUMP:  2 boo
+; CHECK-FNIMDUMP:  1 foo
+; CHECK-FNIMDUMP:  3 goo
+; CHECK-FNIMDUMP:  4 hoo
+; CHECK-FNIMDUMP:  5 main
+; CHECK-FNIMDUMP:  0 mynoinline
+; CHECK-FNIMDUMP: END DUMPING FunctionNameIndexMap
+; CHECK-FNIMDUMP: BEGIN DUMPING FunctionNameIndexMap: 1
+; CHECK-FNIMDUMP: COMPACTING: hoo
+; CHECK-FNIMDUMP:  2 boo
+; CHECK-FNIMDUMP:  1 foo
+; CHECK-FNIMDUMP:  3 goo
+; CHECK-FNIMDUMP:  4 hoo
+; CHECK-FNIMDUMP:  5 main
+; CHECK-FNIMDUMP:  0 mynoinline
+; CHECK-FNIMDUMP: END DUMPING FunctionNameIndexMap
 
 ; Test compact form of inlining report.
 

@@ -1,19 +1,19 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s -check-prefix=DEFAULT
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s -check-prefix=DEFAULT
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=i686-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -mtriple=i686-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=x86_64-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -mtriple=x86_64-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=i686-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -mtriple=i686-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=x86_64-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -mtriple=x86_64-unknown-windows -vpo-paropt-emit-kmpc-begin=true %s | FileCheck %s -check-prefix=WITH_BEGIN --check-prefix=WITH_END
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false %s | FileCheck %s -check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false %s | FileCheck %s -check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=i686-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -mtriple=i686-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -vpo-paropt-emit-kmpc-begin-end-only-for-windows=false %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=i686-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -mtriple=i686-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
+; RUN: opt -passes='vpo-paropt' -S -mtriple=x86_64-unknown-windows %s | FileCheck %s -check-prefix=WITH_END
 
 ; Test src:
 ;

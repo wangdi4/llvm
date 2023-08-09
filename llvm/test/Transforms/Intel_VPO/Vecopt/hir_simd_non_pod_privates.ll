@@ -24,14 +24,14 @@
 %struct.ClassA = type { i32 }
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @ctor_dtor(i32* nocapture %dst, i32* nocapture readonly %src, i32 %n) local_unnamed_addr #2 {
+define dso_local void @ctor_dtor(ptr nocapture %dst, ptr nocapture readonly %src, i32 %n) local_unnamed_addr #2 {
 ; CHECK-LABEL: Function: ctor_dtor
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK:            %priv.mem.bc = &((%struct.ClassA*)(%priv.mem)[0]);
 ; CHECK:            %serial.temp = undef;
 ; CHECK:            %_ZTS6ClassA.omp.def_constr = @_ZTS6ClassA.omp.def_constr(&((%struct.ClassA*)(%priv.mem)[0]));
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr,  0;
-; CHECK:            %[[extract1:.*]] = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:            %[[extract1:.*]] = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; CHECK:            %_ZTS6ClassA.omp.def_constr2 = @_ZTS6ClassA.omp.def_constr(%[[extract1]]);
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr2,  1;
 
@@ -39,38 +39,38 @@ define dso_local void @ctor_dtor(i32* nocapture %dst, i32* nocapture readonly %s
 ; CHECK:            + END LOOP
 
 ; CHECK:            @_ZTS6ClassA.omp.destr(&((%struct.ClassA*)(%priv.mem)[0]));
-; CHECK:            %[[extract19:.*]] = extractelement &((<2 x %struct.ClassA*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:            %[[extract19:.*]] = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; CHECK:            @_ZTS6ClassA.omp.destr(%[[extract19]]);
 ; CHECK:         END REGION
 ;
 
 entry:
   %value.priv = alloca %struct.ClassA, align 4
-  %value.priv.constr = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* %value.priv)
+  %value.priv.constr = call ptr @_ZTS6ClassA.omp.def_constr(ptr %value.priv)
   %cmp3.not20 = icmp slt i32 %n, 1
   br i1 %cmp3.not20, label %omp.precond.end, label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.ClassA* %value.priv, %struct.ClassA zeroinitializer, i32 1, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %value.priv, %struct.ClassA zeroinitializer, i32 1, ptr @_ZTS6ClassA.omp.def_constr, ptr @_ZTS6ClassA.omp.destr) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1
-  %m_value = getelementptr inbounds %struct.ClassA, %struct.ClassA* %value.priv, i64 0, i32 0
+  %m_value = getelementptr inbounds %struct.ClassA, ptr %value.priv, i64 0, i32 0
   %wide.trip.count27 = zext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.128, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.128 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.trunc = trunc i64 %indvars.iv to i32
-  call void @_ZN6ClassA3incEi(%struct.ClassA* nonnull dereferenceable(4) %value.priv, i32 %iv.trunc) #4
-  %ptridx = getelementptr inbounds i32, i32* %src, i64 %indvars.iv
-  %src.ld = load i32, i32* %ptridx, align 4
-  %m_value.ld = load i32, i32* %m_value, align 4
+  call void @_ZN6ClassA3incEi(ptr nonnull dereferenceable(4) %value.priv, i32 %iv.trunc) #4
+  %ptridx = getelementptr inbounds i32, ptr %src, i64 %indvars.iv
+  %src.ld = load i32, ptr %ptridx, align 4
+  %m_value.ld = load i32, ptr %m_value, align 4
   %add5 = add nsw i32 %src.ld, %m_value.ld
-  %ptridx7 = getelementptr inbounds i32, i32* %dst, i64 %indvars.iv
-  %dst.ld = load i32, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %dst, i64 %indvars.iv
+  %dst.ld = load i32, ptr %ptridx7, align 4
   %add8 = add nsw i32 %add5, %dst.ld
-  store i32 %add8, i32* %ptridx7, align 4
+  store i32 %add8, ptr %ptridx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count27
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.226, label %omp.inner.for.body
@@ -83,7 +83,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.22
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
-  call void @_ZTS6ClassA.omp.destr(%struct.ClassA* nonnull %value.priv)
+  call void @_ZTS6ClassA.omp.destr(ptr nonnull %value.priv)
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3, %entry
@@ -113,22 +113,22 @@ define dso_local i32 @nested_loops() local_unnamed_addr #4 {
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i32 i1 = 0, 119, 1   <DO_LOOP>
 ; CHECK:          |   %priv.mem.bc = &((%"class.std::complex"*)(%priv.mem)[0]);
-; CHECK:          |   %extract.1. = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
-; CHECK:          |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(NON-LINEAR %"class.std::complex"* %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
+; CHECK:          |   %extract.1. = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:          |   <RVAL-REG> &((<2 x ptr>)(NON-LINEAR ptr %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
 ; CHECK:          |   %_ZTSSt7complexIdE.omp.def_constr3 = @_ZTSSt7complexIdE.omp.def_constr(%extract.1.);
 ; CHECK:          |
 ; CHECK:          |   + DO i32 i2 = 0, 119, 2   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK:          |   |   %nsbgepcopy = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
-; CHECK:          |   |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(NON-LINEAR %"class.std::complex"* %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
+; CHECK:          |   |   %nsbgepcopy = &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]);
+; CHECK:          |   |   <RVAL-REG> &((<2 x ptr>)(NON-LINEAR ptr %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
 ; CHECK:          |   |   %nsbgepcopy5 = &((%"class.std::complex"*)(%priv.mem)[0]);
 ; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy)[0].0.0 = 0x400A666660000000;
-; CHECK:          |   |   %nsbgepcopy6 = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
+; CHECK:          |   |   %nsbgepcopy6 = &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]);
 ; CHECK:          |   |   %nsbgepcopy7 = &((%"class.std::complex"*)(%priv.mem)[0]);
 ; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy6)[0].0.1 = 0x40119999A0000000;
 ; CHECK:          |   |   %serial.temp8 = undef;
 ; CHECK:          |   |   %_Z5pointRKSt7complexIfE = @_Z5pointRKSt7complexIfE(&((%"class.std::complex"*)(%priv.mem)[0]));
 ; CHECK:          |   |   %serial.temp8 = insertelement %serial.temp8,  %_Z5pointRKSt7complexIfE,  0;
-; CHECK:          |   |   %extract.1.10 = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:          |   |   %extract.1.10 = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; CHECK:          |   |   %_Z5pointRKSt7complexIfE11 = @_Z5pointRKSt7complexIfE(%extract.1.10);
 ; CHECK:          |   |   %serial.temp8 = insertelement %serial.temp8,  %_Z5pointRKSt7complexIfE11,  1;
 ; CHECK:          |   + END LOOP
@@ -138,10 +138,10 @@ define dso_local i32 @nested_loops() local_unnamed_addr #4 {
 entry:
   %j.i.linear.iv = alloca i32, align 4
   %ref.tmp.i.priv = alloca %"class.std::complex", align 4
-  %0 = bitcast i32* %j.i.linear.iv to i8*
-  %1 = bitcast %"class.std::complex"* %ref.tmp.i.priv to i8*
-  %_M_value.realp.i.i = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i.priv, i32 0, i32 0, i32 0
-  %_M_value.imagp.i.i = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i.priv, i32 0, i32 0, i32 1
+  %0 = bitcast ptr %j.i.linear.iv to ptr
+  %1 = bitcast ptr %ref.tmp.i.priv to ptr
+  %_M_value.realp.i.i = getelementptr inbounds %"class.std::complex", ptr %ref.tmp.i.priv, i32 0, i32 0, i32 0
+  %_M_value.imagp.i.i = getelementptr inbounds %"class.std::complex", ptr %ref.tmp.i.priv, i32 0, i32 0, i32 1
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.END.SIMD.2, %entry
@@ -149,14 +149,14 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.END.SIMD.2,
   br label %DIR.OMP.SIMD.115
 
 DIR.OMP.SIMD.115:                                 ; preds = %DIR.OMP.SIMD.1
-  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%"class.std::complex"* %ref.tmp.i.priv, %"class.std::complex" zeroinitializer, i32 1, %"class.std::complex"* (%"class.std::complex"*)* @_ZTSSt7complexIdE.omp.def_constr, void (%"class.std::complex"*)* @_ZTSSt7complexIdE.omp.destr) ]
+  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %ref.tmp.i.priv, %"class.std::complex" zeroinitializer, i32 1, ptr @_ZTSSt7complexIdE.omp.def_constr, ptr @_ZTSSt7complexIdE.omp.destr) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %DIR.OMP.SIMD.115, %omp.inner.for.body.i
   %.omp.iv.i.local.09 = phi i32 [ 0, %DIR.OMP.SIMD.115 ], [ %add3.i, %omp.inner.for.body.i ]
-  store float 0x400A666660000000, float* %_M_value.realp.i.i, align 4
-  store float 0x40119999A0000000, float* %_M_value.imagp.i.i, align 4
-  %call2.i = call i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nonnull align 4 dereferenceable(8) %ref.tmp.i.priv) #5
+  store float 0x400A666660000000, ptr %_M_value.realp.i.i, align 4
+  store float 0x40119999A0000000, ptr %_M_value.imagp.i.i, align 4
+  %call2.i = call i32 @_Z5pointRKSt7complexIfE(ptr nonnull align 4 dereferenceable(8) %ref.tmp.i.priv) #5
   %add3.i = add nuw nsw i32 %.omp.iv.i.local.09, 1
   %exitcond.not = icmp eq i32 %add3.i, 120
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.1, label %omp.inner.for.body.i
@@ -172,12 +172,12 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.1
 
 _ZL9MandelOMPv.exit:                              ; preds = %DIR.OMP.END.SIMD.2
   %ref.tmp.i4 = alloca %"class.std::complex", align 4
-  %3 = bitcast %"class.std::complex"* %ref.tmp.i4 to i8*
-  %_M_value.realp.i.i5 = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i4, i32 0, i32 0, i32 0
-  store float 0x3FF19999A0000000, float* %_M_value.realp.i.i5, align 4
-  %_M_value.imagp.i.i6 = getelementptr inbounds %"class.std::complex", %"class.std::complex"* %ref.tmp.i4, i32 0, i32 0, i32 1
-  store float 0x40019999A0000000, float* %_M_value.imagp.i.i6, align 4
-  %call1.i = call i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nonnull align 4 dereferenceable(8) %ref.tmp.i4)
+  %3 = bitcast ptr %ref.tmp.i4 to ptr
+  %_M_value.realp.i.i5 = getelementptr inbounds %"class.std::complex", ptr %ref.tmp.i4, i32 0, i32 0, i32 0
+  store float 0x3FF19999A0000000, ptr %_M_value.realp.i.i5, align 4
+  %_M_value.imagp.i.i6 = getelementptr inbounds %"class.std::complex", ptr %ref.tmp.i4, i32 0, i32 0, i32 1
+  store float 0x40019999A0000000, ptr %_M_value.imagp.i.i6, align 4
+  %call1.i = call i32 @_Z5pointRKSt7complexIfE(ptr nonnull align 4 dereferenceable(8) %ref.tmp.i4)
   ret i32 0
 }
 
@@ -188,22 +188,22 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 ; Function Attrs: nofree norecurse nounwind uwtable willreturn
-declare %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* nonnull returned %0) #5
+declare ptr @_ZTS6ClassA.omp.def_constr(ptr nonnull returned %0) #5
 
 ; Function Attrs: nofree norecurse nounwind uwtable willreturn
-declare void @_ZTS6ClassA.omp.destr(%struct.ClassA* nocapture readnone %0) #5
+declare void @_ZTS6ClassA.omp.destr(ptr nocapture readnone %0) #5
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable willreturn mustprogress
-declare void @_ZN6ClassA3incEi(%struct.ClassA* nocapture nonnull dereferenceable(4) %this, i32 %a) #1
+declare void @_ZN6ClassA3incEi(ptr nocapture nonnull dereferenceable(4) %this, i32 %a) #1
 
 ; Function Attrs: mustprogress nofree noinline nosync nounwind willreturn
-declare dso_local i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nocapture nonnull readonly align 4 dereferenceable(8) %c) #2
+declare dso_local i32 @_Z5pointRKSt7complexIfE(ptr nocapture nonnull readonly align 4 dereferenceable(8) %c) #2
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write) uwtable
-declare %"class.std::complex"* @_ZTSSt7complexIdE.omp.def_constr(%"class.std::complex"* noundef returned writeonly %0) #8
+declare ptr @_ZTSSt7complexIdE.omp.def_constr(ptr noundef returned writeonly %0) #8
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable
-declare void @_ZTSSt7complexIdE.omp.destr(%"class.std::complex"* nocapture readnone %0) #8
+declare void @_ZTSSt7complexIdE.omp.destr(ptr nocapture readnone %0) #8
 
 attributes #1 = { nofree noinline norecurse nounwind uwtable willreturn mustprogress }
 attributes #2 = { mustprogress nofree noinline nosync nounwind willreturn }

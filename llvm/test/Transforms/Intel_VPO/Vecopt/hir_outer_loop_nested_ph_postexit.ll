@@ -38,7 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @ub = dso_local local_unnamed_addr global [101 x i64] zeroinitializer
 
 ; Function Attrs: nounwind uwtable
-define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr #0 {
+define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, ptr nocapture %ub, ptr nocapture %a, i1 zeroext %vec) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: _Z3foollPlPA101_fb:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -80,12 +80,12 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]], [[BB6]]
 ; CHECK-NEXT:       i64 [[VP22:%.*]] = phi  [ i64 0, [[BB5]] ],  [ i64 [[VP23:%.*]], [[BB6]] ]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [101 x float]* [[A0:%.*]] i64 [[VP14]] i64 [[VP22]]
-; CHECK-NEXT:       store float [[VP20]] float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP14]] i64 [[VP22]]
+; CHECK-NEXT:       store float [[VP20]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i64 [[VP24:%.*]] = mul i64 3 i64 [[VP22]]
 ; CHECK-NEXT:       i64 [[VP25:%.*]] = add i64 [[VP16]] i64 [[VP24]]
-; CHECK-NEXT:       i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[UB0:%.*]] i64 [[VP22]]
-; CHECK-NEXT:       store i64 [[VP25]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[UB0:%.*]] i64 [[VP22]]
+; CHECK-NEXT:       store i64 [[VP25]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       i64 [[VP23]] = add i64 [[VP22]] i64 1
 ; CHECK-NEXT:       i1 [[VP26:%.*]] = icmp slt i64 [[VP23]] i64 [[VP21]]
 ; CHECK-NEXT:       br i1 [[VP26]], [[BB6]], [[BB7:BB[0-9]+]]
@@ -121,15 +121,13 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 entry:
   %i = alloca i64
   %j = alloca i64
-  %0 = bitcast i64* %i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #2
-  %1 = bitcast i64* %j to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %1) #2
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i) #2
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %j) #2
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.118, label %omp.precond.end
 
 DIR.OMP.SIMD.118:
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(i64* %i, i32 1), "QUAL.OMP.LINEAR"(i64* %j, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(ptr %i, i32 0, i32 1, i32 1), "QUAL.OMP.LINEAR:TYPED"(ptr %j, i32 0, i32 1, i32 1) ]
   %cmp622 = icmp sgt i64 %m, 0
   br label %omp.inner.for.body
 
@@ -145,11 +143,11 @@ for.body.lr.ph:
 for.body:
   %ret.124 = phi i64 [ %ret.021, %for.body.lr.ph ], [ %add10, %for.body ]
   %storemerge23 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
-  %idx7 = getelementptr inbounds [101 x float], [101 x float]* %a, i64 %.omp.iv.0, i64 %storemerge23
-  store float %conv, float* %idx7
+  %idx7 = getelementptr inbounds [101 x float], ptr %a, i64 %.omp.iv.0, i64 %storemerge23
+  store float %conv, ptr %idx7
   %add8 = add nsw i64 %ret.124, %storemerge23
-  %idx9 = getelementptr inbounds i64, i64* %ub, i64 %storemerge23
-  store i64 %add8, i64* %idx9
+  %idx9 = getelementptr inbounds i64, ptr %ub, i64 %storemerge23
+  store i64 %add8, ptr %idx9
   %add10 = add nsw i64 %ret.124, 2
   %inc = add nuw nsw i64 %storemerge23, 1
   %exitcond = icmp eq i64 %inc, %m
@@ -170,20 +168,20 @@ omp.loop.exit:
   %inc.lcssa25.lcssa = phi i64 [ %inc.lcssa25, %omp.inner.for.inc ]
   %ret.1.lcssa.lcssa = phi i64 [ %ret.1.lcssa, %omp.inner.for.inc ]
   %.omp.iv.0.lcssa = phi i64 [ %.omp.iv.0, %omp.inner.for.inc ]
-  store i64 %inc.lcssa25.lcssa, i64* %j
-  store i64 %.omp.iv.0.lcssa, i64* %i
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
+  store i64 %inc.lcssa25.lcssa, ptr %j
+  store i64 %.omp.iv.0.lcssa, ptr %i
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 
 omp.precond.end:
   %ret.2 = phi i64 [ %ret.1.lcssa.lcssa, %omp.loop.exit ], [ 0, %entry ]
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %j) #2
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i) #2
   ret i64 %ret.2
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -192,7 +190,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

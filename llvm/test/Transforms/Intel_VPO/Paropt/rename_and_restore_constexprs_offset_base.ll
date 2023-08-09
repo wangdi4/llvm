@@ -1,10 +1,10 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
+; RUN: opt -bugpoint-enable-legacy-pm -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
-; RUN: opt -opaque-pointers=1 -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
+; RUN: opt -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
+; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
 ; This is a version of rename_and_restore_constexprs_base_offset.ll, with the order of
 ; the clauses reversed.

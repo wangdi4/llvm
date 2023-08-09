@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes="vpo-paropt" -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vpo-paropt" -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-config=%S/Inputs/Intel_paropt_ndrange_heuristic.yaml -switch-to-offload -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-config=%S/Inputs/Intel_paropt_ndrange_heuristic.yaml -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-config=%S/Inputs/Intel_paropt_ndrange_heuristic.yaml -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-config=%S/Inputs/Intel_paropt_ndrange_heuristic.yaml -switch-to-offload -S %s | FileCheck %s
 
 ; Test src:
 ;int main(void)
