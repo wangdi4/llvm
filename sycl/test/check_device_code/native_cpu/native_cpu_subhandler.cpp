@@ -70,13 +70,8 @@ void test() {
   //CHECK-NEXT:}
 
   launch<class TestKernel>([]() {});
-<<<<<<< HEAD
-  //CHECK:define weak void @_ZTSZ4testvE10TestKernel_NativeCPUKernelsubhandler(ptr %{{.*}}, ptr %[[STATE3:.*]]) #{{.*}} {
-  //CHECK:       call void @_ZTSZ4testvE10TestKernel_NativeCPUKernel_NativeCPUKernel(ptr %[[STATE3]])
-=======
   //CHECK:define weak void @_ZTSZ4testvE10TestKernel(ptr %{{.*}}, ptr %[[STATE3:.*]]) #{{.*}} {
   //CHECK:       call void @_ZTSZ4testvE10TestKernel.NativeCPUKernel(ptr %[[STATE3]])
->>>>>>> aab5d747c46ec216e9f85868ede744d0bb35a307
   //CHECK-NEXT:  ret void
   //CHECK-NEXT:}
 }

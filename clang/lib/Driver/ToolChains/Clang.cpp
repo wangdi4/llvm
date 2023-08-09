@@ -10816,7 +10816,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       TargetTripleOpt = ("llvm_" + TargetTripleOpt).str();
     }
 
-    const bool IsSYCLNativeCPU = isSYCLNativeCPU(TC, C.getDefaultToolChain());
+    const bool IsSYCLNativeCPU = isSYCLNativeCPU(getToolChain(), C.getDefaultToolChain());
     if (IsSYCLNativeCPU) {
       TargetTripleOpt = "native_cpu";
     }
