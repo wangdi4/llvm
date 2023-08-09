@@ -7446,7 +7446,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
-<<<<<<< HEAD
+  Args.AddAllArgs(CmdArgs, options::OPT_Wsystem_headers_in_module_EQ);
+
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_Wcheck_unicode_security,
                    options::OPT_Wno_check_unicode_security, false))
@@ -7455,11 +7456,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
       || Args.hasArg(options::OPT_strict_ansi))
 #endif // INTEL_CUSTOMIZATION
-=======
-  Args.AddAllArgs(CmdArgs, options::OPT_Wsystem_headers_in_module_EQ);
-
-  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
->>>>>>> dc5cbba3196db61d57b7d84118732a6c96d8ee64
     CmdArgs.push_back("-pedantic");
 
   Args.AddLastArg(CmdArgs, options::OPT_pedantic_errors);
