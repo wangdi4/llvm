@@ -14,16 +14,15 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: double [[VP_CONV735:%.*]] = phi  [ double [[VP_CONV734:%.*]], [[BB0]] ],  [ double [[VP_ADD6:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: double [[VP_CONV735]], double* [[D_LPRIV0:%.*]], double [[VP_CONV734]], double* [[VP_D_LPRIV:%.*]], double [[VP_CONV735_PRIV_FINAL:%.*]],
-; CHECK-NEXT:   Memory: double* [[D_LPRIV0]]
+; CHECK-NEXT:    Linked values: double [[VP_CONV735]], ptr [[D_LPRIV0:%.*]], double [[VP_CONV734]], ptr [[VP_D_LPRIV:%.*]], double [[VP_CONV735_PRIV_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[D_LPRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     double* [[VP_D_LPRIV]] = allocate-priv double, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_D_LPRIV_BCAST:%.*]] = bitcast double* [[VP_D_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_D_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_D_LPRIV]] = allocate-priv double, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_D_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -50,8 +49,7 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     double [[VP_CONV735_PRIV_FINAL]] = private-final-c double [[VP_CONV735]] i64 [[VP_PRIV_IDX_BB3]] double [[D_LPRIV_PROMOTED0]]
-; CHECK-NEXT:     i8* [[VP_D_LPRIV_BCAST1:%.*]] = bitcast double* [[VP_D_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_D_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 8 ptr [[VP_D_LPRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -63,15 +61,15 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 
 entry:
   %d.lpriv = alloca double, align 8
-  store double 0.000000e+00, double* %d.lpriv, align 8
+  store double 0.000000e+00, ptr %d.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(double* %d.lpriv, double zeroinitializer, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %d.lpriv, double zeroinitializer, i32 1) ]
   br label %DIR.OMP.SIMD.237
 
 DIR.OMP.SIMD.237:                                 ; preds = %DIR.OMP.SIMD.1
-  %d.lpriv.promoted = load double, double* %d.lpriv, align 8
+  %d.lpriv.promoted = load double, ptr %d.lpriv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end, %DIR.OMP.SIMD.237
@@ -93,7 +91,7 @@ if.end:                                           ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit.split_crit_edge: ; preds = %if.end
   %conv735.lcssa = phi double [ %conv735, %if.end ]
-  store double %conv735.lcssa, double* %d.lpriv, align 8
+  store double %conv735.lcssa, ptr %d.lpriv, align 8
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.cond.omp.loop.exit.split_crit_edge

@@ -2,7 +2,7 @@
 ; RUN: opt %s -S -passes=vplan-vec -vplan-force-vf=4 -vplan-enable-all-liveouts \
 ; RUN: -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen | FileCheck %s
 
-define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture readonly %arr2) local_unnamed_addr #0 {
+define dso_local i64 @_Z3fooPlS_(ptr nocapture readonly %arr1, ptr nocapture readonly %arr2) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -13,16 +13,15 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i64 [[VP_RET_LCSSA26:%.*]] = phi  [ i64 [[VP_RET_LCSSA25:%.*]], [[BB0]] ],  [ i64 [[VP_RET:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i64 [[VP_RET_LCSSA26]], i64* [[RET_LPRIV0:%.*]], i64 [[VP_RET_LCSSA25]], i64* [[VP_RET_LPRIV:%.*]], i64 [[VP_RET_LCSSA26_PRIV_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
+; CHECK-NEXT:    Linked values: i64 [[VP_RET_LCSSA26]], ptr [[RET_LPRIV0:%.*]], i64 [[VP_RET_LCSSA25]], ptr [[VP_RET_LPRIV:%.*]], i64 [[VP_RET_LCSSA26_PRIV_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[RET_LPRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -31,8 +30,8 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:     i64 [[VP_RET_LCSSA25]] = phi  [ i64 [[RET_LPRIV_PROMOTED0:%.*]], [[BB3]] ],  [ i64 [[VP_RET_LCSSA26]], [[BB4]] ]
 ; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB3]] ],  [ i64 [[VP_PRIV_IDX_BB4:%.*]], [[BB4]] ]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015]] = phi  [ i64 [[VP__OMP_IV_LOCAL_015_IND_INIT]], [[BB3]] ],  [ i64 [[VP_ADD5]], [[BB4]] ]
-; CHECK-NEXT:     i64* [[VP_PTRIDX:%.*]] = getelementptr inbounds i64* [[ARR20:%.*]] i64 [[VP__OMP_IV_LOCAL_015]]
-; CHECK-NEXT:     i64 [[VP0:%.*]] = load i64* [[VP_PTRIDX]]
+; CHECK-NEXT:     ptr [[VP_PTRIDX:%.*]] = getelementptr inbounds i64, ptr [[ARR20:%.*]] i64 [[VP__OMP_IV_LOCAL_015]]
+; CHECK-NEXT:     i64 [[VP0:%.*]] = load ptr [[VP_PTRIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP123:%.*]] = icmp sgt i64 [[VP0]] i64 0
 ; CHECK-NEXT:     br i1 [[VP_CMP123]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
@@ -47,7 +46,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB6]]
 ; CHECK-NEXT:       i64 [[VP_INNER_IV24_LCSSA:%.*]] = phi  [ i64 [[VP_INNER_IV24]], [[BB6]] ]
-; CHECK-NEXT:       i64* [[VP_PTRIDX3:%.*]] = getelementptr inbounds i64* [[ARR10:%.*]] i64 [[VP_INNER_IV24_LCSSA]]
+; CHECK-NEXT:       ptr [[VP_PTRIDX3:%.*]] = getelementptr inbounds i64, ptr [[ARR10:%.*]] i64 [[VP_INNER_IV24_LCSSA]]
 ; CHECK-NEXT:       i64 [[VP_RET]] = add i64 [[VP0]] i64 [[VP_INNER_IV24_LCSSA]]
 ; CHECK-NEXT:       br [[BB4]]
 ; CHECK-EMPTY:
@@ -61,8 +60,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_RET_LCSSA26_PRIV_FINAL]] = private-final-c i64 [[VP_RET_LCSSA26]] i64 [[VP_PRIV_IDX_BB4]] i64 [[RET_LPRIV_PROMOTED0]]
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST1:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
@@ -74,22 +72,22 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 omp.inner.for.body.lr.ph:
   %ret.lpriv = alloca i64, align 8
   %l1.linear.iv = alloca i64, align 8
-  store i64 0, i64* %ret.lpriv, align 8
+  store i64 0, ptr %ret.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %ret.lpriv.promoted = load i64, i64* %ret.lpriv, align 8
+  %ret.lpriv.promoted = load i64, ptr %ret.lpriv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %for.cond.cleanup
   %ret.lcssa25 = phi i64 [ %ret.lpriv.promoted, %DIR.OMP.SIMD.2 ], [ %ret.lcssa26, %for.cond.cleanup ]
   %.omp.iv.local.015 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add5, %for.cond.cleanup ]
-  %ptridx = getelementptr inbounds i64, i64* %arr2, i64 %.omp.iv.local.015
-  %1 = load i64, i64* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr %arr2, i64 %.omp.iv.local.015
+  %1 = load i64, ptr %ptridx, align 8
   %cmp123 = icmp sgt i64 %1, 0
   br i1 %cmp123, label %for.body.preheader, label %for.cond.cleanup
 
@@ -98,7 +96,7 @@ for.body.preheader:                               ; preds = %omp.inner.for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %for.body
   %inner.iv24.lcssa = phi i64 [ %inner.iv24, %for.body ]
-  %ptridx3 = getelementptr inbounds i64, i64* %arr1, i64 %inner.iv24.lcssa
+  %ptridx3 = getelementptr inbounds i64, ptr %arr1, i64 %inner.iv24.lcssa
   %ret = add nsw i64 %1, %inner.iv24.lcssa
   br label %for.cond.cleanup
 
