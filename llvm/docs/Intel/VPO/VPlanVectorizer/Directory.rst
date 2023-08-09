@@ -60,7 +60,8 @@ The Driver calls various other subcomponents to handle each loop, such as:
 
 The Driver is implemented in the following files:
 
- * `.../Vectorize/IntelVPlanDriver.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/include/llvm/Transforms/Vectorize/IntelVPlanDriver.h>`_
+ * `.../Vectorize/IntelVPlanDriverPass.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/include/llvm/Transforms/Vectorize/IntelVPlanDriverPass.h>`_
+ * `.../Intel_VPlan/IntelVPlanDriver.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDriver.h>`_
  * `.../Intel_VPlan/IntelVPlanDriver.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDriver.cpp>`_
 
 Auto-vectorization Candidates

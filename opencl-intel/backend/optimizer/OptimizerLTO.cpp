@@ -59,7 +59,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;

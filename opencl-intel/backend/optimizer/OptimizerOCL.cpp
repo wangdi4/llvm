@@ -64,7 +64,7 @@
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
