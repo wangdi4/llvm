@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
+define dso_local void @header_use(i64 %N, ptr %a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: header_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -19,8 +19,8 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ],  [ i64 0, [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_HEADER_PHI_USE:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_DEF_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
-; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2:BB[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -68,8 +68,8 @@ entry:
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
   %header.phi.use = phi i64 [ 0, %entry ], [ %def, %latch ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %cmp = icmp eq i64 %N, 42
   br i1 %cmp, label %bb1, label %bb2
 
@@ -96,7 +96,7 @@ exit:
   ret void
 }
 
-define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
+define dso_local void @side_exit_use(i64 %N, ptr %a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: side_exit_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -104,8 +104,8 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ],  [ i64 0, [[BB0]] ]
-; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2:BB[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -152,8 +152,8 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %cmp = icmp eq i64 %N, 42
   br i1 %cmp, label %bb1, label %bb2
 
@@ -181,7 +181,7 @@ exit:
   ret void
 }
 
-define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
+define dso_local void @exit_use(i64 %N, ptr %a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: exit_use
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -189,8 +189,8 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ],  [ i64 0, [[BB0]] ]
-; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2:BB[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -238,8 +238,8 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %cmp = icmp eq i64 %N, 42
   br i1 %cmp, label %bb1, label %bb2
 
@@ -267,7 +267,7 @@ exit:
   ret void
 }
 
-define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr {
+define dso_local void @no_ssa_breakage(i64 %N, ptr %a, i64 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: no_ssa_breakage
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -276,8 +276,8 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0]] ],  [ i64 0, [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:     i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2:BB[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -321,8 +321,8 @@ entry:
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
   %iv.next = add nuw nsw i64 %iv, 1
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %cmp = icmp eq i64 %N, 42
   br i1 %cmp, label %bb1, label %bb2
 

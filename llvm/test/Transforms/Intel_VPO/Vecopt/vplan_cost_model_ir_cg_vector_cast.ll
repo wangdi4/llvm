@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<2 x i32>* nocapture readonly %p) {
+define void @foo(ptr nocapture readonly %p) {
 ;
 ; CHECK-LABEL:  Cost Model for VPlan foo:header.#{{[0-9]+}} with VF = 4:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
@@ -19,13 +19,13 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_GEP:%.*]] = getelementptr inbounds <2 x i32>* [[P0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:    Cost 1.1875 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_GEP]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_GEP:%.*]] = getelementptr inbounds  <2 x i32>, ptr [[P0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:    Cost 1.1875 for <2 x i32> [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:    Cost 5 for <2 x i64> [[VP_SEXT:%.*]] = sext <2 x i32> [[VP_LD]] to <2 x i64>
 ; CHECK-NEXT:    Cost 5 for <2 x i64> [[VP_ZEXT:%.*]] = zext <2 x i32> [[VP_LD]] to <2 x i64>
 ; CHECK-NEXT:    Cost 4 for <2 x i8> [[VP_TRUNC:%.*]] = trunc <2 x i32> [[VP_LD]] to <2 x i8>
-; CHECK-NEXT:    Cost 0 for <2 x i32*> [[VP_ITOPTR:%.*]] = inttoptr <2 x i64> [[VP_SEXT]] to <2 x i32*>
-; CHECK-NEXT:    Cost 0 for <2 x i64> [[VP_PTRTOI:%.*]] = ptrtoint <2 x i32*> [[VP_ITOPTR]] to <2 x i64>
+; CHECK-NEXT:    Cost 0 for <2 x ptr> [[VP_ITOPTR:%.*]] = inttoptr <2 x i64> [[VP_SEXT]] to <2 x ptr>
+; CHECK-NEXT:    Cost 0 for <2 x i64> [[VP_PTRTOI:%.*]] = ptrtoint <2 x ptr> [[VP_ITOPTR]] to <2 x i64>
 ; CHECK-NEXT:    Cost 1 for <2 x float> [[VP_SITOFP:%.*]] = sitofp <2 x i32> [[VP_LD]] to <2 x float>
 ; CHECK-NEXT:    Cost 2 for <2 x float> [[VP_UITOFP:%.*]] = uitofp <2 x i32> [[VP_LD]] to <2 x float>
 ; CHECK-NEXT:    Cost 3 for <2 x double> [[VP_SIFPEX:%.*]] = fpext <2 x float> [[VP_SITOFP]] to <2 x double>
@@ -54,13 +54,13 @@ entry:
 
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
-  %gep = getelementptr inbounds <2 x i32>, <2 x i32>* %p, i64 %iv
-  %ld = load <2 x i32>, <2 x i32>* %gep
+  %gep = getelementptr inbounds <2 x i32>, ptr %p, i64 %iv
+  %ld = load <2 x i32>, ptr %gep
   %sext = sext <2 x i32> %ld to <2 x i64>
   %zext = zext <2 x i32> %ld to <2 x i64>
   %trunc = trunc <2 x i32> %ld to <2 x i8>
-  %itoptr = inttoptr <2 x i64> %sext to <2 x i32*>
-  %ptrtoi = ptrtoint <2 x i32*> %itoptr to <2 x i64>
+  %itoptr = inttoptr <2 x i64> %sext to <2 x ptr>
+  %ptrtoi = ptrtoint <2 x ptr> %itoptr to <2 x i64>
   %sitofp = sitofp <2 x i32> %ld to <2 x float>
   %uitofp = uitofp <2 x i32> %ld to <2 x float>
   %sifpex = fpext <2 x float> %sitofp to <2 x double>

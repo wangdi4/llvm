@@ -37,9 +37,8 @@ define dso_local void @foo() {
 ; CHECK-LLVM-IR:       vector.body:
 ; CHECK-LLVM-IR-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-LLVM-IR-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-LLVM-IR-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [4 x i32], [4 x i32]* @a, i64 0, i64 [[UNI_PHI]]
-; CHECK-LLVM-IR-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-LLVM-IR-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
+; CHECK-LLVM-IR-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [4 x i32], ptr @a, i64 0, i64 [[UNI_PHI]]
+; CHECK-LLVM-IR-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 16
 ; CHECK-LLVM-IR-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-LLVM-IR-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 4
 ; CHECK-LLVM-IR-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 4
@@ -50,13 +49,13 @@ entry:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body
   %iv = phi i64 [ 0, %omp.inner.for.body.lr.ph ], [ %iv.next, %omp.inner.for.body ]
-  %idx = getelementptr inbounds [4 x i32], [4 x i32]* @a, i64 0, i64 %iv
-  %1 = load i32, i32* %idx, align 4
+  %idx = getelementptr inbounds [4 x i32], ptr @a, i64 0, i64 %iv
+  %1 = load i32, ptr %idx, align 4
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 4
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body, !llvm.loop !8
