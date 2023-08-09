@@ -468,7 +468,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @sguggill @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @mamasten @offsake @sguggill @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLegalityDescr.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp @skozhukh @mamasten @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.h @skozhukh @mamasten @sguggill
@@ -533,15 +533,15 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 
 /llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @skozhukh @sguggill @karthik-senthil
 
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h @mamasten @turinevgeny @skozhukh
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.h @mamasten @turinevgeny @skozhukh
-/llvm/lib/Transforms/SYCLTransforms/SYCLKernelVecClone.cpp @mamasten @turinevgeny @skozhukh
-/llvm/lib/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.cpp @mamasten @turinevgeny @skozhukh
-/llvm/test/Transforms/SYCLTransforms/SYCLKernelVecClone/ @mamasten @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h @mamasten @sguggill @offsake @skozhukh
+/llvm/include/llvm/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.h @mamasten @sguggill @offsake @skozhukh
+/llvm/lib/Transforms/SYCLTransforms/SYCLKernelVecClone.cpp @mamasten @sguggill @offsake @skozhukh
+/llvm/lib/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.cpp @mamasten @sguggill @offsake @skozhukh
+/llvm/test/Transforms/SYCLTransforms/SYCLKernelVecClone/ @mamasten @sguggill @offsake @skozhukh
 
-/llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @mamasten @turinevgeny @skozhukh
-/llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @turinevgeny @skozhukh
-/llvm/test/Transforms/Intel_VecClone/ @mamasten @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @mamasten @sguggill @offsake @skozhukh
+/llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @sguggill @offsake @skozhukh
+/llvm/test/Transforms/Intel_VecClone/ @mamasten @sguggill @offsake @skozhukh
 
 /llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @valerydmit @mamasten @wjschmidt
 /llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @valerydmit @mamasten @wjschmidt
