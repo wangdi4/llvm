@@ -1263,9 +1263,16 @@ llvm::MDNode *DTransInfoGenerator::CreateArrayTypeMD(QualType ClangType,
     // initializer.
   }
 
+  QualType ClangElemType = ClangType->castAsArrayTypeUnsafe()->getElementType();
+  // Special case for string literals.
+  if (CurInit) {
+    if (const StringLiteral *Str = dyn_cast_if_present<const StringLiteral>(
+            CurInit->IgnoreParenImpCasts()))
+      ClangElemType = CGM.getContext().getPointerType(Str->getType());
+  }
+
   ArrMD.push_back(
-      CreateTypeMD(ClangType->castAsArrayTypeUnsafe()->getElementType(),
-                   LLVMType->getArrayElementType(), CurInit));
+      CreateTypeMD(ClangElemType, LLVMType->getArrayElementType(), CurInit));
   return llvm::MDNode::get(Ctx, ArrMD);
 }
 

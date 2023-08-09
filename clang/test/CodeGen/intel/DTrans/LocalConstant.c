@@ -9,9 +9,9 @@ const char *const g[14] = {
           "!!", " P", "*P", " N", "*N", " K", "*K", " R", "*R", " Q",
                   "*Q", " B", "*B", "  "
                      };
-// PTR: @g = constant [14 x i8*] [i8* getelementptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
+// PTR: @g = constant [14 x [3 x i8]*] {{.?}}[3 x i8]* {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
 // OPQ: @g = constant [14 x ptr] [ptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
-// PTR: constant [14 x i8*] [i8* getelementptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
+// PTR: constant [14 x [3 x i8]*] {{.?}}[3 x i8]* {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
 // OPQ: constant [14 x ptr] [ptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
 // CHECK: @[[FOO_NAME:.+]] = internal global %struct._ZTS1S.S {{{.+}}}, align 8
 // PTR: internal global %struct._ZTS1S.S* @[[FOO_NAME]], align 8, !intel_dtrans_type ![[STRUCT_PTR:[0-9]+]]
@@ -28,7 +28,10 @@ int main() {
 }
 // CHECK: !intel.dtrans.types = !{![[STRUCT:[0-9]+]]}
 
-// CHECK: [[CHAR14_ARRAY]] = !{!"A", i32 14, ![[CHAR_PTR:[0-9]+]]}
-// CHECK: [[CHAR_PTR]] = !{i8 0, i32 1}
+// CHECK: [[CHAR14_ARRAY]] = !{!"A", i32 14, ![[CHAR3_ARR_PTR:[0-9]+]]}
+// CHECK: [[CHAR3_ARR_PTR]] = !{![[CHAR3_ARR:[0-9]+]], i32 1}
+// CHECK: [[CHAR3_ARR]] = !{!"A", i32 3, ![[CHAR:[0-9]+]]}
+// CHECK: [[CHAR]] = !{i8 0, i32 0}
 // CHECK: [[STRUCT_PTR]] = !{%struct._ZTS1S.S zeroinitializer, i32 1}
-// CHECK: [[STRUCT]] = !{!"S", %struct._ZTS1S.S zeroinitializer, i32 1, ![[CHAR_PTR]]}
+// CHECK: [[STRUCT]] = !{!"S", %struct._ZTS1S.S zeroinitializer, i32 1, ![[CHAR_PTR:[0-9]+]]}
+// CHECK: [[CHAR_PTR]] = !{i8 0, i32 1}
