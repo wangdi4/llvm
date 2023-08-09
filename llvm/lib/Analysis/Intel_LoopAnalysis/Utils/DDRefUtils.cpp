@@ -304,7 +304,8 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
 bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2, bool RelaxedMode,
                                        unsigned NumIgnorableDims,
-                                       bool IgnoreBaseCE) {
+                                       bool IgnoreBaseCE,
+                                       bool IgnoreBasePtrElementType) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
@@ -313,7 +314,8 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   // Fake refs cloned from self AddressOf refs will not have base ptr element
   // type so we will give up on refs like A[0] and A[5] if we don't skip null
   // base ptr element types.
-  if (BasePtrTy1 && BasePtrTy2 && BasePtrTy1 != BasePtrTy2) {
+  if (!IgnoreBasePtrElementType && BasePtrTy1 && BasePtrTy2 &&
+      BasePtrTy1 != BasePtrTy2) {
     return false;
   }
 
@@ -392,12 +394,18 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
       // In the highest dimension, allow mismatch if the stride and index is 0
       // as that dimension is a no-op. This can happen with fake refs which are
       // created by cloning self AddressOf refs.
+      // Also allow stride mismatch if both indices are zero as the dimension
+      // becomes irrelevant.
       if (DimI != NumDims) {
         return false;
       }
 
-      if ((!Stride1->isZero() || !Ref1->getDimensionIndex(DimI)->isZero()) &&
-          (!Stride2->isZero() || !Ref2->getDimensionIndex(DimI)->isZero())) {
+      bool Index1IsZero = Ref1->getDimensionIndex(DimI)->isZero();
+      bool Index2IsZero = Ref2->getDimensionIndex(DimI)->isZero();
+
+      if ((!Index1IsZero || !Index2IsZero) &&
+          (!Stride1->isZero() || !Index1IsZero) &&
+          (!Stride2->isZero() || !Index2IsZero)) {
         return false;
       }
     }
@@ -531,7 +539,14 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
     return false;
   }
 
-  if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
+  // Refs which were parsed as (i32*)(%a)[0] in typed ptr mode become (%a)[0] in
+  // opaque ptr mode with BasePtrElementType as i32. We were able to compute a
+  // distance of 0 between (i32*)(%a)[0] and (%a)[0] in typed ptr mode. We need
+  // this extension to do the same in opaque ptr mode.
+  bool IgnoreBasePtrElementType = Ref1->isSelfGEPRef() && Ref2->isSelfGEPRef();
+
+  if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode, 0, false /*IgnoreBaseCE*/,
+                             IgnoreBasePtrElementType)) {
     return false;
   }
 
