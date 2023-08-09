@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-loop-transform,vpo-paropt-loop-collapse)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-loop-transform -vpo-paropt-loop-collapse -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-loop-transform,vpo-paropt-loop-collapse)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-loop-transform -vpo-paropt-loop-collapse -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that collapse pass works correctly after tile pass.
 

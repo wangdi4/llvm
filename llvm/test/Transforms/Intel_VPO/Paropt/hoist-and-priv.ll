@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S --vpo-utils-add-typed-privates <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S --vpo-utils-add-typed-privates <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
 
 ; Test src:
 ;

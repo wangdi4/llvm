@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-rename-operands,gvn,vpo-restore-operands)' -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-rename-operands,gvn,vpo-restore-operands)' -S < %s 2>&1 | FileCheck %s
 
 ;; Check that GEPs on the UDS memory are not hoised outside of the guard regions.
 ;; This is the situation we'd like to avoid:

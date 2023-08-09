@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
+; RUN: opt -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
+; RUN: opt -passes='function(vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
 
 ; // C source
 ; #include <omp.h>

@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-paropt-loop-collapse -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-paropt-loop-collapse)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-paropt-loop-collapse -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-paropt-loop-collapse)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
 
 ; Check that VPO Paropt Prepare pass does not remove
 ; the "QUAL.OMP.OFFLOAD.NDRANGE" qualifier from the TARGET construct or

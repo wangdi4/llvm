@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-target-capture-non-pointers-using-map-to -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-target-capture-non-pointers-using-map-to -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-target-capture-non-pointers-using-map-to -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -vpo-paropt-target-capture-non-pointers-using-map-to -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 ;

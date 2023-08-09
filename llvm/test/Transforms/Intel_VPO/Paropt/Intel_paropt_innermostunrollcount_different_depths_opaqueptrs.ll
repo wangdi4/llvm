@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare)' -vpo-paropt-innermost-loop-unroll-count=50 -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare)' -vpo-paropt-innermost-loop-unroll-count=50 -switch-to-offload -S %s | FileCheck %s
 ; Check that we apply the unroll count to multiple innermost loops at different levels
 ; Original code:
 ;int main()

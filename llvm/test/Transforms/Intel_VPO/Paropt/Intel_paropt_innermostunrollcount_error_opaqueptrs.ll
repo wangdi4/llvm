@@ -1,4 +1,4 @@
-; RUN: not opt -opaque-pointers=1 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare)' -vpo-paropt-config=%S/Inputs/Intel_paropt_innermostunrollcount.yaml -switch-to-offload -S %s 2>&1 | FileCheck %s
+; RUN: not opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare)' -vpo-paropt-config=%S/Inputs/Intel_paropt_innermostunrollcount.yaml -switch-to-offload -S %s 2>&1 | FileCheck %s
 ; Check that we error if there's an existing unroll count from the FE and a YAML setting
 ; Original code:
 ;int main()

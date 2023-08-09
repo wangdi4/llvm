@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -O3 -paropt=31 -S %s | FileCheck %s
+; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
 
 ; Test src:
 ;

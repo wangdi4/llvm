@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes='default<O2>' -paropt=31 -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='default<O2>' -paropt=31 -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

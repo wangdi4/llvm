@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes=vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes=vpo-paropt -S %s | FileCheck %s
 
 ; C++ code is something like this:
 ; try {
