@@ -36,7 +36,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -46,7 +45,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -417,6 +415,54 @@ static bool tryToFPToSat(Instruction &I, TargetTransformInfo &TTI) {
   Value *Sat = Builder.CreateCall(Fn, In);
   I.replaceAllUsesWith(Builder.CreateSExt(Sat, IntTy));
   return true;
+}
+
+/// Try to replace a mathlib call to sqrt with the LLVM intrinsic. This avoids
+/// pessimistic codegen that has to account for setting errno and can enable
+/// vectorization.
+static bool foldSqrt(Instruction &I, TargetTransformInfo &TTI,
+                     TargetLibraryInfo &TLI, AssumptionCache &AC,
+                     DominatorTree &DT) {
+  // Match a call to sqrt mathlib function.
+  auto *Call = dyn_cast<CallInst>(&I);
+  if (!Call)
+    return false;
+
+  Module *M = Call->getModule();
+  LibFunc Func;
+  if (!TLI.getLibFunc(*Call, Func) || !isLibFuncEmittable(M, &TLI, Func))
+    return false;
+
+  if (Func != LibFunc_sqrt && Func != LibFunc_sqrtf && Func != LibFunc_sqrtl)
+    return false;
+
+  // If (1) this is a sqrt libcall, (2) we can assume that NAN is not created
+  // (because NNAN or the operand arg must not be less than -0.0) and (2) we
+  // would not end up lowering to a libcall anyway (which could change the value
+  // of errno), then:
+  // (1) errno won't be set.
+  // (2) it is safe to convert this to an intrinsic call.
+  Type *Ty = Call->getType();
+  Value *Arg = Call->getArgOperand(0);
+  if (TTI.haveFastSqrt(Ty) &&
+      (Call->hasNoNaNs() ||
+       cannotBeOrderedLessThanZero(Arg, M->getDataLayout(), &TLI, 0, &AC, &I,
+                                   &DT))) {
+    IRBuilder<> Builder(&I);
+    IRBuilderBase::FastMathFlagGuard Guard(Builder);
+    Builder.setFastMathFlags(Call->getFastMathFlags());
+
+    Function *Sqrt = Intrinsic::getDeclaration(M, Intrinsic::sqrt, Ty);
+    Value *NewSqrt = Builder.CreateCall(Sqrt, Arg, "sqrt");
+    I.replaceAllUsesWith(NewSqrt);
+
+    // Explicitly erase the old call because a call with side effects is not
+    // trivially dead.
+    I.eraseFromParent();
+    return true;
+  }
+
+  return false;
 }
 
 // Check if this array of constants represents a cttz table.
@@ -921,6 +967,7 @@ static bool foldPatternedLoads(Instruction &I, const DataLayout &DL) {
   return true;
 }
 
+<<<<<<< HEAD
 /// Try to replace a mathlib call to sqrt with the LLVM intrinsic. This avoids
 /// pessimistic codegen that has to account for setting errno and can enable
 /// vectorization.
@@ -1331,13 +1378,15 @@ static bool matchPowTable(Instruction &I) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 0b779b0daa4cfb7d99d10232890d98b43ff56ef0
 /// This is the entry point for folds that could be implemented in regular
 /// InstCombine, but they are separated because they are not expected to
 /// occur frequently and/or have more than a constant-length pattern match.
 static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
                                 TargetTransformInfo &TTI,
                                 TargetLibraryInfo &TLI, AliasAnalysis &AA,
-                                AssumptionCache &AC, bool &MadeCFGChange) {
+                                AssumptionCache &AC) {
   bool MadeChange = false;
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
@@ -1365,7 +1414,7 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       // NOTE: This function introduces erasing of the instruction `I`, so it
       // needs to be called at the end of this sequence, otherwise we may make
       // bugs.
-      MadeChange |= foldLibraryCalls(I, TTI, TLI, DT, AC, MadeCFGChange);
+      MadeChange |= foldSqrt(I, TTI, TLI, AC, DT);
     }
   }
 
@@ -1381,12 +1430,12 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
 /// handled in the callers of this function.
 static bool runImpl(Function &F, AssumptionCache &AC, TargetTransformInfo &TTI,
                     TargetLibraryInfo &TLI, DominatorTree &DT,
-                    AliasAnalysis &AA, bool &ChangedCFG) {
+                    AliasAnalysis &AA) {
   bool MadeChange = false;
   const DataLayout &DL = F.getParent()->getDataLayout();
   TruncInstCombine TIC(AC, TLI, DL, DT);
   MadeChange |= TIC.run(F);
-  MadeChange |= foldUnusualPatterns(F, DT, TTI, TLI, AA, AC, ChangedCFG);
+  MadeChange |= foldUnusualPatterns(F, DT, TTI, TLI, AA, AC);
   return MadeChange;
 }
 
@@ -1397,16 +1446,13 @@ PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-
-  bool MadeCFGChange = false;
-
-  if (!runImpl(F, AC, TTI, TLI, DT, AA, MadeCFGChange)) {
+  if (!runImpl(F, AC, TTI, TLI, DT, AA)) {
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
   }
-
   // Mark all the analyses that instcombine updates as preserved.
   PreservedAnalyses PA;
+<<<<<<< HEAD
 
   if (MadeCFGChange)
     PA.preserve<DominatorTreeAnalysis>();
@@ -1415,5 +1461,8 @@ PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
 
   PA.preserve<WholeProgramAnalysis>(); // INTEL
 
+=======
+  PA.preserveSet<CFGAnalyses>();
+>>>>>>> 0b779b0daa4cfb7d99d10232890d98b43ff56ef0
   return PA;
 }
