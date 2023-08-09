@@ -302,7 +302,7 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
 }
 
 void Driver::setDriverMode(StringRef Value) {
-  static const std::string OptName =
+  static StringRef OptName =
       getOpts().getOption(options::OPT_driver_mode).getPrefixedName();
   if (auto M = llvm::StringSwitch<std::optional<DriverMode>>(Value)
                    .Case("gcc", GCCMode)
@@ -513,9 +513,9 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 }
 #if INTEL_CUSTOMIZATION
 void Driver::parseIntelDriverMode(ArrayRef<const char *> Args) {
-  static const std::string OptIntel =
+  static const StringRef OptIntel =
       getOpts().getOption(options::OPT__intel).getPrefixedName();
-  static const std::string OptDPCPP =
+  static const StringRef OptDPCPP =
       getOpts().getOption(options::OPT__dpcpp).getPrefixedName();
 
   for (StringRef Arg : Args) {
@@ -11177,7 +11177,7 @@ bool clang::driver::willEmitRemarks(const ArgList &Args) {
 
 llvm::StringRef clang::driver::getDriverMode(StringRef ProgName,
                                              ArrayRef<const char *> Args) {
-  static const std::string OptName =
+  static StringRef OptName =
       getDriverOptTable().getOption(options::OPT_driver_mode).getPrefixedName();
   llvm::StringRef Opt;
   for (StringRef Arg : Args) {
