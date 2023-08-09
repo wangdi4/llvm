@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
+=======
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+>>>>>>> ef1722497b29370046a279b8de697d9384c04bbf
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
 
@@ -432,6 +436,7 @@ entry:
 ; CHECK: Both ModRef:   call void @an_argmemonly_func(ptr %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(ptr %q) #{{.*}} [ "unknown"() ]
 }
 
+<<<<<<< HEAD
 ; CHECK:      attributes #{{.*}} = { nocallback nofree nounwind willreturn memory(argmem: write) }
 ; CHECK-NEXT: attributes #{{.*}} = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
 ; CHECK-NEXT: attributes #{{.*}} = { nosync nounwind willreturn memory(argmem: readwrite) }
@@ -449,6 +454,8 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { memory(argmem: readwrite) }
 ; end INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ef1722497b29370046a279b8de697d9384c04bbf
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { noinline nounwind readonly }
 attributes #2 = { noinline nounwind writeonly }
