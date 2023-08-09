@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare),cgscc(inline),function(loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare),cgscc(inline),function(loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 ;

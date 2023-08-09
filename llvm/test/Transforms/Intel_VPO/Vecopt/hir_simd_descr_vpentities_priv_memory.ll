@@ -44,7 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; %2 is used as a valid alias to the reduction variable %s inside the loop.
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
+define dso_local i32 @foo1(ptr %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -58,10 +58,10 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_S:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP2]] i32 1
 ; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] ptr [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -69,21 +69,21 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[PTR_ADDR_PROMOTED0:%.*]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP7]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_S]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP_SRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] ptr [[S0:%.*]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -91,47 +91,47 @@ define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     br <External Block>
 ;
 entry:
-  %ptr.addr = alloca i32*, align 8
+  %ptr.addr = alloca ptr, align 8
   %s = alloca i32, align 4
   %c = alloca i8, align 1
-  store i32* %ptr, i32** %ptr.addr, align 8, !tbaa !2
-  %0 = bitcast i32* %s to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  store i32 0, i32* %s, align 4, !tbaa !6
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %c) #2
+  store ptr %ptr, ptr %ptr.addr, align 8, !tbaa !2
+  %0 = bitcast ptr %s to ptr
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0) #2
+  store i32 0, ptr %s, align 4, !tbaa !6
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %c) #2
   %conv = trunc i32 %step to i8
-  store i8 %conv, i8* %c, align 1, !tbaa !8
+  store i8 %conv, ptr %c, align 1, !tbaa !8
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
-  %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
-  %c.promoted = load i8, i8* %c, align 1, !tbaa !8
-  %.pre = load i32, i32* %s, align 4, !tbaa !6
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s, i32 0, i32 1) ]
+  %ptr.addr.promoted = load ptr, ptr %ptr.addr, align 8, !tbaa !2
+  %c.promoted = load i8, ptr %c, align 1, !tbaa !8
+  %.pre = load i32, ptr %s, align 4, !tbaa !6
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.114
   %2 = phi i32 [ %add8, %omp.inner.for.body ], [ %.pre, %DIR.OMP.SIMD.114 ]
   %.omp.iv.0 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.114 ]
-  %3 = load i32, i32* %ptr.addr.promoted, align 4, !tbaa !6
+  %3 = load i32, ptr %ptr.addr.promoted, align 4, !tbaa !6
   %conv6 = sext i8 %c.promoted to i32
   %mul7 = mul nsw i32 %3, %conv6
   %add8 = add nsw i32 %mul7, %2
-  store i32 %add8, i32* %s, align 4, !tbaa !6
+  store i32 %add8, ptr %s, align 4, !tbaa !6
   %add9 = add nuw nsw i32 %.omp.iv.0, 1
   %exitcond = icmp eq i32 %add9, %n
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-  %.pre19 = load i32, i32* %s, align 4, !tbaa !6
+  %.pre19 = load i32, ptr %s, align 4, !tbaa !6
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
   %4 = phi i32 [ %.pre19, %omp.loop.exit ], [ 0, %entry ]
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %c) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %c) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %0) #2
   ret i32 %4
 }
 
@@ -162,7 +162,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 ; by later optimizations. Also %2 is used as a valid alias to the reduction
 ; variable %s inside the loop.
 
-define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
+define dso_local i32 @foo2(ptr %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -176,10 +176,10 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_S:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_S:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     i32 [[VP_SRED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] i32* [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP_SRED_INIT]] ptr [[VP_S]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -187,20 +187,20 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP_SRED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[PTR_ADDR_PROMOTED0:%.*]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = mul i32 [[VP_LOAD]] i32 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP11]] i32 [[VP6]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_S]]
+; CHECK-NEXT:     store i32 [[VP7]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP9]] i32 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i32 [[VP_SRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP7]]
-; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     store i32 [[VP_SRED_FINAL]] ptr [[S0:%.*]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -211,55 +211,55 @@ define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; CHECK-NEXT:  Id: 0   i32 [[VP_SRED_FINAL]] -> [[VP13:%.*]] = {%2}
 ;
 entry:
-  %ptr.addr = alloca i32*, align 8
+  %ptr.addr = alloca ptr, align 8
   %s = alloca i32, align 4
   %c = alloca i8, align 1
   %some_ptr = alloca i32, align 4
-  store i32* %ptr, i32** %ptr.addr, align 8, !tbaa !2
-  %0 = bitcast i32* %s to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  store i32 0, i32* %s, align 4, !tbaa !6
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %c) #2
+  store ptr %ptr, ptr %ptr.addr, align 8, !tbaa !2
+  %0 = bitcast ptr %s to ptr
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0) #2
+  store i32 0, ptr %s, align 4, !tbaa !6
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %c) #2
   %conv = trunc i32 %step to i8
-  store i8 %conv, i8* %c, align 1, !tbaa !8
+  store i8 %conv, ptr %c, align 1, !tbaa !8
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
-  %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
-  %c.promoted = load i8, i8* %c, align 1, !tbaa !8
-  %.pre = load i32, i32* %s, align 4, !tbaa !6
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s, i32 0, i32 1) ]
+  %ptr.addr.promoted = load ptr, ptr %ptr.addr, align 8, !tbaa !2
+  %c.promoted = load i8, ptr %c, align 1, !tbaa !8
+  %.pre = load i32, ptr %s, align 4, !tbaa !6
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.114
   %2 = phi i32 [ %add8, %omp.inner.for.body ], [ %.pre, %DIR.OMP.SIMD.114 ]
   %.omp.iv.0 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.114 ]
-  %3 = load i32, i32* %ptr.addr.promoted, align 4, !tbaa !6
+  %3 = load i32, ptr %ptr.addr.promoted, align 4, !tbaa !6
   %conv6 = sext i8 %c.promoted to i32
   %mul7 = mul nsw i32 %3, %conv6
   %add8 = add nsw i32 %mul7, %2
-  store i32 %add8, i32* %s, align 4, !tbaa !6
+  store i32 %add8, ptr %s, align 4, !tbaa !6
   %add9 = add nuw nsw i32 %.omp.iv.0, 1
   %exitcond = icmp eq i32 %add9, %n
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  store i32 %add8, i32* %some_ptr
+  store i32 %add8, ptr %some_ptr
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-  %.pre19 = load i32, i32* %s, align 4, !tbaa !6
+  %.pre19 = load i32, ptr %s, align 4, !tbaa !6
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
   %4 = phi i32 [ %.pre19, %omp.loop.exit ], [ 0, %entry ]
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %c) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %c) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %0) #2
   ret i32 %4
 }
 
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -268,7 +268,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 
 attributes #1 = { argmemonly nounwind }

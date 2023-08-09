@@ -26,20 +26,20 @@
 ; CHECK-NEXT:<{{.*}}>
 ; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK-NEXT:        |   %0 = (%src)[i1];
-; CHECK-NEXT:        |   %mul = i1  *  i1;
+; CHECK-NEXT:        |   %mul = i1 * i1;
 ; CHECK-NEXT:        |   (%dst)[i1] = %0 + %mul;
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:<{{.*}}>
 ; CHECK-NEXT:        @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; CHECK-NEXT:  END REGION
 ; CHECK-EMPTY:
-; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load ptr [[LD_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%src),+,4}
-; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} ptr [[ST_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,4}
-; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR_CLONE:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load ptr [[LD_PTR_CLONE:%.*]])
 ; CHECK-NEXT:    -> {(%src),+,4}
-; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR_CLONE:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} ptr [[ST_PTR_CLONE:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,4}
 ; CHECK-NEXT:  getMinusExpr({(%dst),+,0},
 ; CHECK-NEXT:               {(%src),+,0})
@@ -49,7 +49,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias %dst, i32* noalias %src, i32 %size) {
+define void @foo(ptr noalias %dst, ptr noalias %src, i32 %size) {
 entry:
 
   %cmp9 = icmp sgt i32 %size, 0
@@ -67,13 +67,13 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %src, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %src, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %mul = mul nsw i32 %1, %1
   %add = add nsw i32 %0, %mul
-  %ptridx2 = getelementptr inbounds i32, i32* %dst, i64 %indvars.iv
-  store i32 %add, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %dst, i64 %indvars.iv
+  store i32 %add, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count11
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

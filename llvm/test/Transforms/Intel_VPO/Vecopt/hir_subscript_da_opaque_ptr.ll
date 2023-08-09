@@ -14,7 +14,7 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: Printing Divergence info for foo:HIR.#1
 ; CHECK: Printing Divergence info for foo:HIR.#1
 ; CHECK: Basic Block: BB3
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR1:%.*]] = subscript inbounds ptr [[PTR0:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR1:%.*]] = subscript inbounds ptr [[PTR0:%.*]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR1]]
 
 define void @foo(float %centerx) {
@@ -28,8 +28,7 @@ simd.begin.region:
 
 simd.loop.header:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.header ]
-  %arrayidx37 = getelementptr inbounds [8 x float], ptr %uvy, i64 0, i64 0
-  store float %centerx, ptr %arrayidx37, align 4
+  store float %centerx, ptr %uvy, align 4
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 8
   br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
@@ -45,7 +44,7 @@ simd.end.region:
 ; CHECK: Printing Divergence info for bar:HIR.#2
 ; CHECK: Printing Divergence info for bar:HIR.#2
 ; CHECK: Basic Block: BB9
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR3:%.*]] = subscript inbounds ptr [[PTR2:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR3:%.*]] = subscript inbounds ptr [[PTR2:%.*]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr addrspace(1) [[PTR4:%.*]] = addrspacecast ptr [[PTR3]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr addrspace(1) [[PTR5:%.*]] = subscript inbounds ptr addrspace(1) [[PTR4]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR6:%.*]] = addrspacecast ptr addrspace(1) [[PTR5]]
@@ -63,8 +62,7 @@ simd.begin.region:
 
 simd.loop.header:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.header ]
-  %arrayidx37 = getelementptr inbounds [8 x float], ptr %uvy, i64 0, i64 0
-  %castptr = addrspacecast ptr %arrayidx37 to ptr addrspace(1)
+  %castptr = addrspacecast ptr %uvy to ptr addrspace(1)
   %castbackptr = addrspacecast ptr addrspace(1) %castptr to ptr addrspace(0)
   store float %centerx, ptr %castbackptr, align 4
   %indvar = add nuw i32 %index, 1
@@ -82,10 +80,10 @@ simd.end.region:
 ; CHECK: Printing Divergence info for baz:HIR.#3
 ; CHECK: Printing Divergence info for baz:HIR.#3
 ; CHECK: Basic Block: BB17
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR9:%.*]] = subscript inbounds ptr [[PTR8:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR9:%.*]] = subscript inbounds ptr [[PTR8:%.*]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %another ptr [[PTR9]]
 ; CHECK: Basic Block: BB16
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR11:%.*]] = subscript inbounds ptr [[PTR10:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR11:%.*]] = subscript inbounds ptr [[PTR10:%.*]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR11]]
 
 define void @baz(float %centerx, float %another, i1 %flag) {
@@ -99,15 +97,14 @@ simd.begin.region:
 
 simd.loop.header:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %latch ]
-  %arrayidx37 = getelementptr inbounds [8 x float], ptr %uvy, i64 0, i64 0
   br i1 %flag, label %if.block, label %then.block
 
 if.block:
-  store float %centerx, ptr %arrayidx37, align 4
+  store float %centerx, ptr %uvy, align 4
   br label %latch
 
 then.block:
-  store float %another, ptr %arrayidx37, align 4
+  store float %another, ptr %uvy, align 4
   br label %latch
 
 latch:
@@ -126,10 +123,10 @@ simd.end.region:
 ; CHECK: Printing Divergence info for rebaz:HIR.#4
 ; CHECK: Printing Divergence info for rebaz:HIR.#4
 ; CHECK: Basic Block: BB26
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR13:%.*]] = subscript inbounds ptr [[PTR12:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR13:%.*]] = subscript inbounds ptr [[PTR12:%.*]] 
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store i32 %another ptr [[PTR13]]
 ; CHECK: Basic Block: BB25
-; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR15:%.*]] = subscript inbounds ptr [[PTR14:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR15:%.*]] = subscript inbounds ptr [[PTR14:%.*]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR15]]
 
 define void @rebaz(float %centerx, i32 %another, i1 %flag) {
@@ -143,15 +140,14 @@ simd.begin.region:
 
 simd.loop.header:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %latch ]
-  %arrayidx37 = getelementptr inbounds [8 x float], ptr %uvy, i64 0, i64 0
   br i1 %flag, label %if.block, label %then.block
 
 if.block:
-  store float %centerx, ptr %arrayidx37, align 4
+  store float %centerx, ptr %uvy, align 4
   br label %latch
 
 then.block:
-  store i32 %another, ptr %arrayidx37, align 4
+  store i32 %another, ptr %uvy, align 4
   br label %latch
 
 latch:
@@ -169,14 +165,14 @@ simd.end.region:
 
 ; CHECK: Printing Divergence info for threebaz:HIR.#5
 ; CHECK: Basic Block: BB35
-; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR17:%.*]] = subscript inbounds ptr [[PTR16:%.*]] i64 0 i64 0
+; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR17:%.*]] = subscript inbounds ptr [[PTR16:%.*]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr addrspace(1) [[PTR18:%.*]] = addrspacecast ptr [[PTR17]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr addrspace(1) [[PTR19:%.*]] = subscript inbounds ptr addrspace(1) [[PTR18]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR20:%.*]] = addrspacecast ptr addrspace(1) [[PTR19]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR21:%.*]] = subscript inbounds ptr [[PTR20]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] store i16 %another ptr [[PTR21]]
 ; CHECK: Basic Block: BB34
-; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR22:%.*]] = subscript inbounds ptr [[PTR16]] i64 0 i64 0
+; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR22:%.*]] = subscript inbounds ptr [[PTR16]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] store float %centerx ptr [[PTR22]]
 
 define void @threebaz(float %centerx, i16 %another, i1 %flag) {
@@ -190,15 +186,14 @@ simd.begin.region:
 
 simd.loop.header:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %latch ]
-  %arrayidx37 = getelementptr inbounds [8 x float], ptr %uvy, i64 0, i64 0
   br i1 %flag, label %if.block, label %then.block
 
 if.block:
-  store float %centerx, ptr %arrayidx37, align 4
+  store float %centerx, ptr %uvy, align 4
   br label %latch
 
 then.block:
-  %castptr = addrspacecast ptr %arrayidx37 to ptr addrspace(1)
+  %castptr = addrspacecast ptr %uvy to ptr addrspace(1)
   %castbackptr = addrspacecast ptr addrspace(1) %castptr to ptr addrspace(0)
   store i16 %another, ptr %castbackptr, align 4
   br label %latch

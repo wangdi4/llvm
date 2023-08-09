@@ -9,11 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements VPlan vectorizer driver pass.
+// This file implements the VPlan vectorizer driver pass.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAlignAssumeCleanup.h"
@@ -30,10 +29,21 @@
 #include "IntelVPlanVConflictTransformation.h"
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
+#include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
+#include "VPlanHIR/IntelVPOCodeGenHIR.h"
+#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -46,22 +56,12 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
-#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 
 #define DEBUG_TYPE "vplan-vec"
 
@@ -1442,6 +1442,15 @@ static std::string getDescription(const Function &F) {
   return "function (" + F.getName().str() + ")";
 }
 
+VPlanDriverPass::VPlanDriverPass() { Impl = new VPlanDriverImpl(); }
+
+VPlanDriverPass::VPlanDriverPass(const VPlanDriverPass &P) noexcept
+    : PassInfoMixin<VPlanDriverPass>(P) {
+  Impl = new VPlanDriverImpl();
+}
+
+VPlanDriverPass::~VPlanDriverPass() { delete Impl; }
+
 PreservedAnalyses VPlanDriverPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
 
@@ -1462,8 +1471,8 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   LoopAccessInfoManager *LAIs = &AM.getResult<LoopAccessAnalysis>(F);
 
-  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
-                    TLI, BFI, nullptr, VecErrorHandler))
+  if (!Impl->runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
+                     TLI, BFI, nullptr, VecErrorHandler))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -1546,6 +1555,19 @@ void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
 } // namespace vpo
 } // namespace llvm
 
+VPlanDriverHIRPass::VPlanDriverHIRPass(bool LightWeightMode,
+                                       bool WillRunLLVMIRVPlan) {
+  Impl = new VPlanDriverHIRImpl(LightWeightMode, WillRunLLVMIRVPlan);
+}
+
+VPlanDriverHIRPass::VPlanDriverHIRPass(const VPlanDriverHIRPass &P) noexcept
+    : loopopt::HIRPassInfoMixin<VPlanDriverHIRPass>(P) {
+  Impl = new VPlanDriverHIRImpl(P.Impl->lightWeightMode(),
+                                P.Impl->willRunLLVMIRVPlan());
+}
+
+VPlanDriverHIRPass::~VPlanDriverHIRPass() { delete Impl; }
+
 PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
                                               FunctionAnalysisManager &AM,
                                               loopopt::HIRFramework &HIRF) {
@@ -1559,8 +1581,8 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto AC = &AM.getResult<AssumptionAnalysis>(F);
   auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
-  ModifiedHIR = Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis,
-                             Verbosity, WR, TTI, TLI, AC, DT);
+  ModifiedHIR = Impl->runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis,
+                              Verbosity, WR, TTI, TLI, AC, DT);
   return PreservedAnalyses::all();
 }
 

@@ -18,11 +18,11 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanDriver.h"
 #include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 namespace llvm {
 class Loop;

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; void foo() {

@@ -392,7 +392,7 @@
 // VPlan Vectorizer passes
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpSimdIf.h"

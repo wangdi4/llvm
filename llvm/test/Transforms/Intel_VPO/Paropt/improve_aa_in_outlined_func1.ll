@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring),vpo-paropt,aa-eval" -aa-pipeline="basic-aa,scoped-noalias-aa" -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt,aa-eval" -aa-pipeline="basic-aa,scoped-noalias-aa" -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

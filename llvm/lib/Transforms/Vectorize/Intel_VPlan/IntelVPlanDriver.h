@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines VPlan vectorizer driver pass.
+// This file defines the VPlan vectorizer driver pass.
 //
 //===----------------------------------------------------------------------===//
 
@@ -198,23 +198,6 @@ public:
   }
 };
 
-class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
-  VPlanDriverImpl Impl;
-  static bool RunForSycl;
-  static bool RunForO0;
-  /// Error handler, see the corresponding commment in VPlanDriverImpl.
-  static VecErrorHandlerTy VecErrorHandler;
-
-public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
-  static void setRunForO0(bool isO0Vec) { RunForO0 = isO0Vec; }
-
-  static bool isRequired() { return (RunForSycl || RunForO0); }
-
-  static void setVecErrorHandler(VecErrorHandlerTy H) { VecErrorHandler = H; }
-};
-
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
   friend VPlanDriverImpl;
 
@@ -249,18 +232,9 @@ public:
       : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),
         SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode),
         WillRunLLVMIRVPlan(WillRunLLVMIRVPlan){};
-};
 
-class VPlanDriverHIRPass
-    : public loopopt::HIRPassInfoMixin<VPlanDriverHIRPass> {
-  VPlanDriverHIRImpl Impl;
-
-public:
-  static constexpr auto PassName = "hir-vplan-vec";
-  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
-                            loopopt::HIRFramework &);
-  VPlanDriverHIRPass(bool LightWeightMode, bool WillRunLLVMIRVPlan)
-      : Impl(LightWeightMode, WillRunLLVMIRVPlan){};
+  bool lightWeightMode() { return LightWeightMode; }
+  bool willRunLLVMIRVPlan() { return WillRunLLVMIRVPlan; }
 };
 
 } // namespace vpo

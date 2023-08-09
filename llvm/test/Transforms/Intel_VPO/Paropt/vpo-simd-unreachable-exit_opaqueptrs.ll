@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -pass-remarks-missed=openmp -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
+; RUN: opt -pass-remarks-missed=openmp -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
 ; CHECK: OpenMP simd loop does not have a reachable exit
 ; CHECK-NOT: call{{.*}}directive.region.entry
 
