@@ -6151,6 +6151,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
   if (!IsConstantOffsetFromGlobal(Ptr, PtrSym, PtrOffset, DL))
     return nullptr;
 
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *UnqualPtrTy = PointerType::getUnqual(Ptr->getContext());
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
@@ -6161,15 +6162,20 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
   Type *Int32PtrTy = Int32Ty->getPointerTo();
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Int64Ty = Type::getInt64Ty(Ptr->getContext());
+=======
+  Type *Int32Ty = Type::getInt32Ty(Ptr->getContext());
+>>>>>>> 98f16dfa136636ea8d83ed326c92c5ce3d42bd72
 
   auto *OffsetConstInt = dyn_cast<ConstantInt>(Offset);
   if (!OffsetConstInt || OffsetConstInt->getType()->getBitWidth() > 64)
     return nullptr;
 
-  uint64_t OffsetInt = OffsetConstInt->getSExtValue();
-  if (OffsetInt % 4 != 0)
+  APInt OffsetInt = OffsetConstInt->getValue().sextOrTrunc(
+      DL.getIndexTypeSizeInBits(Ptr->getType()));
+  if (OffsetInt.srem(4) != 0)
     return nullptr;
 
+<<<<<<< HEAD
   Constant *C = ConstantExpr::getGetElementPtr(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Int32Ty, Ptr, ConstantInt::get(Int64Ty, OffsetInt / 4));
@@ -6178,6 +6184,9 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
       ConstantInt::get(Int64Ty, OffsetInt / 4));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Constant *Loaded = ConstantFoldLoadFromConstPtr(C, Int32Ty, DL);
+=======
+  Constant *Loaded = ConstantFoldLoadFromConstPtr(Ptr, Int32Ty, OffsetInt, DL);
+>>>>>>> 98f16dfa136636ea8d83ed326c92c5ce3d42bd72
   if (!Loaded)
     return nullptr;
 
@@ -6207,11 +6216,15 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
       PtrSym != LoadedRHSSym || PtrOffset != LoadedRHSOffset)
     return nullptr;
 
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   return ConstantExpr::getBitCast(LoadedLHSPtr, UnqualPtrTy);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   return ConstantExpr::getBitCast(LoadedLHSPtr, Int8PtrTy);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  return LoadedLHSPtr;
+>>>>>>> 98f16dfa136636ea8d83ed326c92c5ce3d42bd72
 }
 
 static Value *simplifyUnaryIntrinsic(Function *F, Value *Op0,
