@@ -4054,9 +4054,15 @@ cc_library(
     hdrs = ["include/mlir/InitAllExtensions.h"],
     deps = [
         ":ArithToLLVM",
+        ":ComplexToLLVM",
+        ":ControlFlowToLLVM",
         ":FuncExtensions",
+        ":IndexToLLVM",
+        ":MathToLLVM",
+        ":MemRefToLLVM",
         ":NVVMTarget",
         ":NVVMToLLVM",
+        ":UBToLLVM",
     ],
 )
 
@@ -10593,8 +10599,11 @@ cc_library(
         ":CallOpInterfaces",
         ":CastInterfaces",
         ":ControlFlowInterfaces",
+        ":ConvertToLLVM",
         ":IR",
         ":LoopLikeInterface",
+        ":LLVMCommonConversion",
+        ":LLVMDialect",
         ":Pass",
         ":Rewrite",
         ":SideEffectInterfaces",
