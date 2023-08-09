@@ -83,21 +83,34 @@ if (LLVM_TREE_AVAILABLE)
   # INTEL_CUSTOMIZATION
   # We want clang to use the gcc toolchain on rdrive instead of the gcc on system
   # when that gcc version is not supported(too low on old system)
-  if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  if (${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND
+      "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM")
     set(USE_RDRIVE_GCC_FLAG "")
     set(_have_unsupported_gcc FALSE)
     set(_unsupported_gcc_versions
       4.8.5
     )
-    
-    get_filename_component(_clang_path "clang" PROGRAM)
-    if("${_clang_path}" STREQUAL "")
-      # clang not present(in self-build context), using gcc on rdrvie just to be safe
+    # Ask the driver to find clang rather than depending on PATH setup.
+    # We query clang rather than icx because clang is what is used for the
+    # tests in question, and the two drivers find GCC using different methods.
+    execute_process(
+      COMMAND "${CMAKE_CXX_COMPILER}" --print-prog-name=clang
+      OUTPUT_VARIABLE _clang_path
+      ERROR_QUIET
+      COMMAND_ERROR_IS_FATAL ANY
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    cmake_path(IS_ABSOLUTE _clang_path _clang_path_is_absolute)
+
+    # The --print-prog-name=foo option prints "foo" rather than an absolute
+    # path if it's not found. Use that to ensure we found clang.
+    if(NOT _clang_path_is_absolute)
+      # Conservatively use an rdrive GCC if we didn't find clang for any reason.
       set(_have_unsupported_gcc TRUE)
     else()
       # In normal ics build context, there will be a clang, using that clang to detect which gcc will be used
       execute_process(
-        COMMAND sh -c "clang -v 2>&1 | grep \"Selected GCC installation\""
+        COMMAND sh -c "${_clang_path} -v 2>&1 | grep \"Selected GCC installation\""
         OUTPUT_VARIABLE _selected_gcc_line
         ERROR_QUIET
       )
