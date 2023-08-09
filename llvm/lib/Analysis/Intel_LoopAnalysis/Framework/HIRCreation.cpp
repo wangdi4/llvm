@@ -347,20 +347,24 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     }
 
     // DomChildBB is an early exit. We should link it after the loop latch.
-    if (IsMultiExitLoop && !IsLoopLatch && !Lp->contains(DomChildBB)) {
-      // In the case of nested multi-exit loops, DomChildBB may belong to an
-      // ancestor loop. The following code tries to get to the outermost
-      // multi-exit parent loop of Lp which does not contain DomChildBB.
-      auto *EarlyExitLp = Lp;
+    if (IsMultiExitLoop && !Lp->contains(DomChildBB)) {
       auto *ParentLp = Lp->getParentLoop();
-      while (ParentLp && !ParentLp->getExitingBlock() &&
-             !ParentLp->contains(DomChildBB) &&
-             CurRegion->containsBBlock(ParentLp->getHeader())) {
-        EarlyExitLp = ParentLp;
-        ParentLp = ParentLp->getParentLoop();
+      // If BB is loop latch, we should still link DomChildBB after the
+      // containing ancestor loop otherwise the contained instructions would be
+      // created at the wrong nesting level.
+      if (!IsLoopLatch || (ParentLp && !ParentLp->contains(DomChildBB))) {
+        // In the case of nested multi-exit loops, DomChildBB may belong to an
+        // ancestor loop. The following code tries to get to the outermost
+        // multi-exit parent loop of Lp which does not contain DomChildBB.
+        auto *EarlyExitLp = Lp;
+        while (ParentLp && !ParentLp->contains(DomChildBB) &&
+               CurRegion->containsBBlock(ParentLp->getHeader())) {
+          EarlyExitLp = ParentLp;
+          ParentLp = ParentLp->getParentLoop();
+        }
+        EarlyExits[EarlyExitLp].push_back(DomChildBB);
+        continue;
       }
-      EarlyExits[EarlyExitLp].push_back(DomChildBB);
-      continue;
     }
 
     // Link if's then/else children.
