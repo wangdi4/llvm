@@ -7446,6 +7446,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
+  Args.AddAllArgs(CmdArgs, options::OPT_Wsystem_headers_in_module_EQ);
+
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_Wcheck_unicode_security,
                    options::OPT_Wno_check_unicode_security, false))
