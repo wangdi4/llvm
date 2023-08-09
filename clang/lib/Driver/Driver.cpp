@@ -513,9 +513,9 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
 }
 #if INTEL_CUSTOMIZATION
 void Driver::parseIntelDriverMode(ArrayRef<const char *> Args) {
-  static const std::string OptIntel =
+  static const StringRef OptIntel =
       getOpts().getOption(options::OPT__intel).getPrefixedName();
-  static const std::string OptDPCPP =
+  static const StringRef OptDPCPP =
       getOpts().getOption(options::OPT__dpcpp).getPrefixedName();
 
   for (StringRef Arg : Args) {
