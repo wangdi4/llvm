@@ -247,6 +247,15 @@ FastMathFlags VPRecipeWithIRFlags::getFastMathFlags() const {
   return Res;
 }
 
+VPInstruction::VPInstruction(unsigned Opcode,
+                             std::initializer_list<VPValue *> Operands,
+                             FastMathFlags FMFs, DebugLoc DL, const Twine &Name)
+    : VPRecipeWithIRFlags(VPDef::VPInstructionSC, Operands, FMFs),
+      VPValue(this), Opcode(Opcode), DL(DL), Name(Name.str()) {
+  // Make sure the VPInstruction is a floating-point operation.
+  assert(isFPMathOp() && "this op can't take fast-math flags");
+}
+
 Value *VPInstruction::generateInstruction(VPTransformState &State,
                                           unsigned Part) {
   IRBuilderBase &Builder = State.Builder;
@@ -390,10 +399,24 @@ Value *VPInstruction::generateInstruction(VPTransformState &State,
   }
 }
 
+#if !defined(NDEBUG)
+bool VPInstruction::isFPMathOp() const {
+  // Inspired by FPMathOperator::classof. Notable differences are that we don't
+  // support Call, PHI and Select opcodes here yet.
+  return Opcode == Instruction::FAdd || Opcode == Instruction::FMul ||
+         Opcode == Instruction::FNeg || Opcode == Instruction::FSub ||
+         Opcode == Instruction::FDiv || Opcode == Instruction::FRem ||
+         Opcode == Instruction::FCmp;
+}
+#endif
+
 void VPInstruction::execute(VPTransformState &State) {
   assert(!State.Instance && "VPInstruction executing an Instance");
   IRBuilderBase::FastMathFlagGuard FMFGuard(State.Builder);
-  State.Builder.setFastMathFlags(FMF);
+  assert(hasFastMathFlags() == isFPMathOp() &&
+         "Recipe not a FPMathOp but has fast-math flags?");
+  if (hasFastMathFlags())
+    State.Builder.setFastMathFlags(getFastMathFlags());
   for (unsigned Part = 0; Part < State.UF; ++Part) {
     Value *GeneratedValue = generateInstruction(State, Part);
     if (!hasResult())
@@ -456,7 +479,6 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
     O << Instruction::getOpcodeName(getOpcode());
   }
 
-  O << FMF;
   printFlags(O);
   printOperands(O, SlotTracker);
 
@@ -466,16 +488,6 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
   }
 }
 #endif
-
-void VPInstruction::setFastMathFlags(FastMathFlags FMFNew) {
-  // Make sure the VPInstruction is a floating-point operation.
-  assert((Opcode == Instruction::FAdd || Opcode == Instruction::FMul ||
-          Opcode == Instruction::FNeg || Opcode == Instruction::FSub ||
-          Opcode == Instruction::FDiv || Opcode == Instruction::FRem ||
-          Opcode == Instruction::FCmp) &&
-         "this op can't take fast-math flags");
-  FMF = FMFNew;
-}
 
 void VPWidenCallRecipe::execute(VPTransformState &State) {
   assert(State.VF.isVector() && "not widening");
@@ -604,6 +616,17 @@ void VPWidenSelectRecipe::execute(VPTransformState &State) {
     State.set(this, Sel, Part);
     State.addMetadata(Sel, &I);
   }
+}
+
+VPRecipeWithIRFlags::FastMathFlagsTy::FastMathFlagsTy(
+    const FastMathFlags &FMF) {
+  AllowReassoc = FMF.allowReassoc();
+  NoNaNs = FMF.noNaNs();
+  NoInfs = FMF.noInfs();
+  NoSignedZeros = FMF.noSignedZeros();
+  AllowReciprocal = FMF.allowReciprocal();
+  AllowContract = FMF.allowContract();
+  ApproxFunc = FMF.approxFunc();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
