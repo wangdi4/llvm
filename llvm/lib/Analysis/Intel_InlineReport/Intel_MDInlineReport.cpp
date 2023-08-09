@@ -29,6 +29,11 @@ using namespace MDInliningReport;
 
 #define DEBUG_TYPE "mdinlinereport"
 
+static cl::opt<bool>
+    DumpFunctionNameIndexMap("dump-function-name-index-map", cl::Hidden,
+                             cl::init(0), cl::Optional,
+                             cl::desc("Dump function name index map"));
+
 std::string llvm::getLinkageStr(Function *F) {
   std::string LinkageChar =
       (F->hasLocalLinkage()
@@ -580,13 +585,17 @@ void InlineReportBuilder::inheritCompactCallBases(Function *Caller,
   unsigned CallerIndex = getFunctionIndex(Caller);
   auto MV = TotalInlines[getFunctionIndex(Callee)];
   for (auto &InlinedPair : *MV) {
-    addForCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+    addForCompactInlinedCallBase(CallerIndex, InlinedPair.first,
+                                 InlinedPair.second);
     if (getIsCompact(Caller))
-      addCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+      addCompactInlinedCallBase(CallerIndex, InlinedPair.first,
+                                InlinedPair.second);
   }
 }
 
 void InlineReportBuilder::compact(Function *F) {
+  if (DumpFunctionNameIndexMap)
+    dumpFunctionNameIndexMap(F);
   Module *M = F->getParent();
   unsigned CallerIndex = getFunctionIndex(F);
   Metadata *MDF = F->getMetadata(FunctionTag);
@@ -1011,6 +1020,9 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
     return;
   assert(OldFunction->getName() == "" && NewFunction->getName() != "" &&
          "Expecting name of OldFunction taken by NewFunction");
+  unsigned FI = getFunctionIndex(OldFunction);
+  FunctionIndexMap.erase(OldFunction);
+  FunctionIndexMap.insert({NewFunction, FI});
   // Use the LLVMContext from the OldFunction, as the one for the NewFunction
   // may not be set yet.
   LLVMContext &Ctx = OldFunction->getParent()->getContext();
