@@ -3707,14 +3707,14 @@ bool Parser::getTypeOfPossibleControllingExpr(QualType &QT) {
   const BuiltinType *NBT, *QBT;
   bool IsCompQT = QT->isComplexType();
   if (IsCompQT)
-    QBT = QT->getAs<ComplexType>()->getElementType()->getAs<BuiltinType>();
+    QBT = QT->castAs<ComplexType>()->getElementType()->castAs<BuiltinType>();
   else
-    QBT = QT->getAs<BuiltinType>();
+    QBT = QT->castAs<BuiltinType>();
 
   if (NQT->isComplexType())
-    NBT = NQT->getAs<ComplexType>()->getElementType()->getAs<BuiltinType>();
+    NBT = NQT->castAs<ComplexType>()->getElementType()->castAs<BuiltinType>();
   else
-    NBT = NQT->getAs<BuiltinType>();
+    NBT = NQT->castAs<BuiltinType>();
 
   switch (NBT->getKind()) {
   case BuiltinType::Float:
