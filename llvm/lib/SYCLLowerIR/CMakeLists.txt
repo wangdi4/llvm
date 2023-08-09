@@ -149,7 +149,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   GlobalOffset.cpp
   TargetHelpers.cpp
   PrepareSYCLNativeCPU.cpp
-  EmitSYCLNativeCPUHeader.cpp
+  RenameKernelSYCLNativeCPU.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/SYCLLowerIR
