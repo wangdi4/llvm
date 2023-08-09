@@ -7,7 +7,7 @@
 ; match. CG checks ensure that the generated vector HLInst retains a form so
 ; that isMax()/isMin() remains true for the same.
 ;
-define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unnamed_addr #0 {
+define dso_local i64 @getmax(ptr noalias nocapture readonly %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: getmax:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -23,8 +23,8 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 [[MAX_0120:%.*]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR0:%.*]] i64 [[VP4]]
-; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LARR0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = mul i64 [[VP_LOAD]] i64 3
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP7]]
@@ -65,8 +65,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %max.012 = phi i64 [ -9223372036854775808, %entry ], [ %1, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.013
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.013
+  %0 = load i64, ptr %arrayidx, align 8
   %mul = mul nsw i64 %0, 3
   %add = add nsw i64 %mul, 2
   %cmp1 = icmp sgt i64 %max.012, %add
@@ -80,7 +80,7 @@ for.end:                                          ; preds = %for.body
   ret i64 %.lcssa
 }
 
-define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unnamed_addr #0 {
+define dso_local i64 @getmin(ptr noalias nocapture readonly %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: getmin:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -97,8 +97,8 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 [[MIN_0120:%.*]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LARR0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 [[VP_LOAD]] i64 3
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sgt i64 [[VP3]] i64 [[VP8]]
@@ -144,8 +144,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %min.012 = phi i64 [ 9223372036854775807, %entry ], [ %1, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.013
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.013
+  %0 = load i64, ptr %arrayidx, align 8
   %mul = mul nsw i64 %0, 3
   %add = add nsw i64 %mul, 2
   %cmp1 = icmp sgt i64 %min.012, %add

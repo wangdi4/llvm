@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind writeonly uwtable
-define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n, i32 noundef %seed) local_unnamed_addr #0 {
+define dso_local void @init(ptr nocapture noundef writeonly %a, i32 noundef %n, i32 noundef %seed) local_unnamed_addr #0 {
 ;
 ; PEEL-LABEL: Function: init
 ; PEEL-EMPTY:
@@ -19,7 +19,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-NEXT:        {
 ; PEEL-NEXT:           goto [[MERGE_BLK0:merge.blk[0-9]+]].26
 ; PEEL-NEXT:        }
-; PEEL-NEXT:        [[DOTVEC10:%.*]] = ptrtoint.<8 x i32*>.<8 x i64>(&((<8 x i32*>)([[A0:%.*]])[0]))
+; PEEL-NEXT:        [[DOTVEC10:%.*]] = ptrtoint.<8 x ptr>.<8 x i64>(&((<8 x ptr>)([[A0:%.*]])[0]))
 ; PEEL-NEXT:        [[DOTVEC20:%.*]] = [[DOTVEC10]]  /u  4
 ; PEEL-NEXT:        [[DOTVEC30:%.*]] = [[DOTVEC20]]  *  7
 ; PEEL-NEXT:        [[DOTVEC40:%.*]] = [[DOTVEC30]]  [[U0:%.*]]  8
@@ -179,8 +179,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %.p = select i1 %cmp1, i32 %0, i32 %1
   %2 = add i32 %.p, %seed
   %rem2 = urem i32 %2, 101
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  store i32 %rem2, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  store i32 %rem2, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body

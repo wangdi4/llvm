@@ -3,14 +3,14 @@
 
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>, std::allocator<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>>>::_Vector_impl" }
-%"struct.std::_Vector_base<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>, std::allocator<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>>>::_Vector_impl" = type { %"class.std::set"*, %"class.std::set"*, %"class.std::set"* }
+%"struct.std::_Vector_base<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>, std::allocator<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>>>::_Vector_impl" = type { ptr, ptr, ptr }
 %"class.std::set" = type { %"class.std::_Rb_tree" }
 %"class.std::_Rb_tree" = type { %"struct.std::_Rb_tree<unsigned int, unsigned int, std::_Identity<unsigned int>, std::less<unsigned int>, std::allocator<unsigned int>>::_Rb_tree_impl" }
 %"struct.std::_Rb_tree<unsigned int, unsigned int, std::_Identity<unsigned int>, std::less<unsigned int>, std::allocator<unsigned int>>::_Rb_tree_impl" = type { %"struct.std::_Rb_tree_key_compare", %"struct.std::_Rb_tree_header" }
 %"struct.std::_Rb_tree_key_compare" = type { %"struct.std::less" }
 %"struct.std::less" = type { i8 }
 %"struct.std::_Rb_tree_header" = type { %"struct.std::_Rb_tree_node_base", i64 }
-%"struct.std::_Rb_tree_node_base" = type { i32, %"struct.std::_Rb_tree_node_base"*, %"struct.std::_Rb_tree_node_base"*, %"struct.std::_Rb_tree_node_base"* }
+%"struct.std::_Rb_tree_node_base" = type { i32, ptr, ptr, ptr }
 %"struct.std::_Rb_tree_node" = type <{ %"struct.std::_Rb_tree_node_base", %"struct.__gnu_cxx::__aligned_membuf", [4 x i8] }>
 %"struct.__gnu_cxx::__aligned_membuf" = type { [4 x i8] }
 
@@ -43,7 +43,7 @@ define i32 @_Z18n_nonzero_elementsv() {
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[RED_INIT_INSERT0]]
 ;
 ; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[NSBGEPCOPY0:%.*]] = &((<4 x i8*>)([[TMP0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0.0.0.0)
+; CHECK-NEXT:        |   [[NSBGEPCOPY0:%.*]] = &((<4 x ptr>)([[TMP0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0.0.0.0)
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[NSBGEPCOPY0]])[40]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[PHI_TEMP0]]  +  [[DOTVEC0]]
 ; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC10]]
@@ -53,7 +53,7 @@ define i32 @_Z18n_nonzero_elementsv() {
 ; CHECK:       END REGION
 ;
 entry:
-  %0 = load %"class.std::set"*, %"class.std::set"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @column_indices, i64 0, i32 0, i32 0, i32 0), align 8
+  %0 = load ptr, ptr @column_indices, align 8
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
@@ -63,12 +63,11 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %n.09 = phi i32 [ 0, %entry ], [ %conv3, %for.body ]
-  %1 = getelementptr inbounds %"class.std::set", %"class.std::set"* %0, i64 %indvars.iv, i32 0, i32 0, i32 0, i32 0, i32 0
-  %_M_node_count.i.i = getelementptr inbounds i8, i8* %1, i64 40
-  %2 = bitcast i8* %_M_node_count.i.i to i64*
-  %3 = load i64, i64* %2, align 8
-  %4 = trunc i64 %3 to i32
-  %conv3 = add i32 %n.09, %4
+  %1 = getelementptr inbounds %"class.std::set", ptr %0, i64 %indvars.iv, i32 0, i32 0, i32 0, i32 0, i32 0
+  %_M_node_count.i.i = getelementptr inbounds i8, ptr %1, i64 40
+  %2 = load i64, ptr %_M_node_count.i.i, align 8
+  %3 = trunc i64 %2 to i32
+  %conv3 = add i32 %n.09, %3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

@@ -14,11 +14,11 @@
 ; NOLIB-NEXT:  + END LOOP
 
 ; NOLIB-LABEL: + DO i1 = {{.*}} <simd-vectorized>
-; NOLIB-NEXT:  |   @_ZGVbN2vvv_sincos({{.*}}, &((<2 x double*>)(@sin.arr)[0][i1 + %n + <i64 0, i64 1>]), &((<2 x double*>)(@cos.arr)[0][i1 + %n + <i64 0, i64 1>]));
+; NOLIB-NEXT:  |   @_ZGVbN2vvv_sincos({{.*}}, &((<2 x ptr>)(@sin.arr)[0][i1 + %n + <i64 0, i64 1>]), &((<2 x ptr>)(@cos.arr)[0][i1 + %n + <i64 0, i64 1>]));
 ; NOLIB-NEXT:  + END LOOP
 
 ; NOLIB-LABEL: + DO i1 = {{.*}} <vector-remainder>
-; NOLIB-NEXT:  |   @_ZGVbN2vvv_sincos({{.*}}, &((<2 x double*>)(@sin.arr)[0][i1 + %n + <i64 0, i64 1>]), &((<2 x double*>)(@cos.arr)[0][i1 + %n + <i64 0, i64 1>]));
+; NOLIB-NEXT:  |   @_ZGVbN2vvv_sincos({{.*}}, &((<2 x ptr>)(@sin.arr)[0][i1 + %n + <i64 0, i64 1>]), &((<2 x ptr>)(@cos.arr)[0][i1 + %n + <i64 0, i64 1>]));
 ; NOLIB-NEXT:  + END LOOP
 
 ; NOLIB-LABEL: + DO i1 = {{.*}} <vector-remainder>
@@ -85,10 +85,10 @@ for.preheader:
 for.body:
   %iv = phi i64 [ %n, %for.preheader ], [ %iv.next, %for.body ]
 
-  %sin = getelementptr inbounds [256 x double], [256 x double]* @sin.arr, i64 0, i64 %iv
-  %cos = getelementptr inbounds [256 x double], [256 x double]* @cos.arr, i64 0, i64 %iv
+  %sin = getelementptr inbounds [256 x double], ptr @sin.arr, i64 0, i64 %iv
+  %cos = getelementptr inbounds [256 x double], ptr @cos.arr, i64 0, i64 %iv
 
-  call void @sincos(double 1.0, double* %sin, double* %cos)
+  call void @sincos(double 1.0, ptr %sin, ptr %cos)
 
   %iv.next = add nuw nsw i64 %iv, 1
   %cmp = icmp ult i64 %iv.next, 256
@@ -103,6 +103,6 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
 
 ; Function Attrs: nofree nounwind
-declare dso_local void @sincos(double, double*, double*) local_unnamed_addr #1
+declare dso_local void @sincos(double, ptr, ptr) local_unnamed_addr #1
 
 attributes #1 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" "vector-variants"="_ZGVbN2vvv_sincos,_ZGVcN4vvv_sincos,_ZGVdN4vvv_sincos,_ZGVeN8vvv_sincos" }
