@@ -1672,6 +1672,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
       continue;
 
     CallBase *CB = getSupportedCallBase(User);
+
     if (isLimitReached())
       continue;
 
