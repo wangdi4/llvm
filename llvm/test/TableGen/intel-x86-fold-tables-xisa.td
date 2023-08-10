@@ -5,7 +5,7 @@
 //   1. Update X86ManualFoldTables.def to manually correct the entries in fold tables, or
 //      fix the vulnerable rules in X86FoldTablesEmitter.cpp until the diff is reasonable
 //   2. cp %t.diff intel-x86-fold-tables-xisa.inc
-//   3. Add INTEL markup for %t.diff
+//   3. Add INTEL markup for intel-x86-fold-tables-xisa.inc
 
 // RUN: not diff -U 1 %p/x86-fold-tables.inc %llvm_lib_dir/Target/X86/X86GenFoldTables.inc | sed "/---\|+++/d;s/@@.*/.../" >%t.diff
 // RUN: grep -v "INTEL_FEATURE" %p/intel-x86-fold-tables-xisa.inc >%t.ref
