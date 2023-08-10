@@ -32,11 +32,10 @@
 #include "cpu_config.h"
 #include "cpu_logger.h"
 #include "dispatcher_commands.h"
-#include "task_executor.h"
-#include <thread>
 #if defined(USE_ITT)
-#include <ocl_itt.h>
+#include "ocl_itt.h"
 #endif
+#include "task_executor.h"
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -44,6 +43,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <thread>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

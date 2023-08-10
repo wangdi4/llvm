@@ -18,7 +18,6 @@ File Name:  CompilationServiceTest.cpp
 
 #include "BackendWrapper.h"
 #include "common_utils.h"
-
 #include "gtest_wrapper.h"
 
 TEST_F(BackEndTests_CompilationService, CreateProgramSuccess) {

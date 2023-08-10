@@ -13,11 +13,9 @@
 // License.
 
 #include "CommonOCLBuilder.h"
-
+#include "clang_device_info.h"
 #include "ocl_string_exception.h"
 #include "opencl_clang.h"
-
-#include <clang_device_info.h>
 #include <string>
 
 using namespace Intel::OpenCL::FECompilerAPI;

@@ -14,11 +14,10 @@
 
 #pragma once
 
-#include "common_dev_limits.h"
-#include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
-
 #include "CL/cl.h"
 #include "CL/cl_gvp_ext.h"
+#include "common_dev_limits.h"
+#include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 #include <cassert>
 #include <climits>
 #include <cstring>

@@ -19,7 +19,6 @@
 #include "ICLDevBackendKernel.h"
 #include "ICLDevBackendOptions.h"
 #include "ICLDevBackendProgram.h"
-#include "LLVM\Function.h"
 #include "cl_device_api.h"
 
 namespace Intel {

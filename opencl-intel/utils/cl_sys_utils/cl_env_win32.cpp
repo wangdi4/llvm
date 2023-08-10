@@ -13,10 +13,9 @@
 // License.
 
 #include "cl_env.h"
+#include <windows.h>
 
 using namespace Intel::OpenCL::Utils;
-
-#include <windows.h>
 
 bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
                                      const std::string &EnvName) {

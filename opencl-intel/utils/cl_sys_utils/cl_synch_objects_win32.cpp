@@ -14,10 +14,9 @@
 
 #include "cl_synch_objects.h"
 #include "hw_utils.h"
-
+#include "tbb/concurrent_queue.h"
 #include <assert.h>
 #include <stdio.h> // Todo: replace printf with log mechanisem
-#include <tbb/concurrent_queue.h>
 #include <windows.h>
 
 /************************************************************************

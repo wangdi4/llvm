@@ -13,15 +13,14 @@
 // License.
 
 #include "cl_stopwatch.h"
-
 #include "hw_utils.h"
-
-using namespace Intel::OpenCL::Utils;
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 #include <assert.h>
+
+using namespace Intel::OpenCL::Utils;
 
 StopWatch::StopWatch() {
   assert(0 && "Deprecated code");

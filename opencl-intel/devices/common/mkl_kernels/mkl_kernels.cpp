@@ -16,11 +16,10 @@
 //  mkl_kernels.cpp
 ///////////////////////////////////////////////////////////
 
-#include "export/mkl_builtins.h"
-#include <cl_dynamic_lib.h>
-
-#include "gemm.h"
 #include "mkl_kernels.h"
+#include "cl_dynamic_lib.h"
+#include "export/mkl_builtins.h"
+#include "gemm.h"
 
 #ifdef __OMP2TBB__
 extern "C" void __kmpc_begin(void *loc, int flags);

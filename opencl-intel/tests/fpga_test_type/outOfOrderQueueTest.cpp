@@ -11,10 +11,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CL/cl_ext.h"
 #include "TestsHelpClasses.h"
 #include "base_fixture.h"
 #include "common_utils.h"
-#include <CL/cl_ext.h>
 
 class OOOQueueTest : public OCLFPGABaseFixture,
                      public ::testing::WithParamInterface<int> {

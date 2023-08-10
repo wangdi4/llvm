@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include <cl_device_api.h>
-#include <cl_types.h>
+#include "cl_device_api.h"
+#include "cl_types.h"
 
 extern void clDevBuildStatusUpdate(cl_dev_program IN prog, void *user_data,
                                    cl_build_status status);

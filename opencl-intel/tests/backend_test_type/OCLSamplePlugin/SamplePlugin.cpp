@@ -16,7 +16,6 @@ File Name:  SamplePlugin.cpp
 
 \*****************************************************************************/
 #include "SamplePlugin.h"
-#include "cl_device_api.h"
 #include <assert.h>
 
 using namespace Intel::OpenCL::DeviceBackend;

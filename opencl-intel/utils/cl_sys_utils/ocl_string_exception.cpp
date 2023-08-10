@@ -13,6 +13,7 @@
 // License.
 
 #include "ocl_string_exception.h"
+
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 

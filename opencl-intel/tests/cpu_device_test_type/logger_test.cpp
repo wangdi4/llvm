@@ -22,8 +22,10 @@
 // logger_test.cpp
 ///////////////////////////////////////////////////////////
 
+#include "logger_test.h"
 #include "CL/cl.h"
 #include "cl_device_api.h"
+#include "cl_sys_defines.h"
 #include "cpu_dev_test.h"
 
 #include <stdarg.h>
@@ -31,12 +33,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef _WIN32
-#include <string.h>
-#endif
-
-#include "cl_sys_defines.h"
-#include "logger_test.h"
 #define MAX_CLIENT_NUM 10
 
 static char *pLoggerClient[MAX_CLIENT_NUM];

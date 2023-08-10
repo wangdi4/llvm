@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <CL/cl.h>
+#include "CL/cl.h"
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>

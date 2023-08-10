@@ -21,9 +21,7 @@
 #include "FrontendDriverFixture.h"
 #include "common_utils.h"
 #include "opencl_clang.h"
-
-#include <llvm/Support/MemoryBuffer.h>
-
+#include "llvm/Support/MemoryBuffer.h"
 #include <algorithm>
 
 using namespace Intel::OpenCL::ClangFE;

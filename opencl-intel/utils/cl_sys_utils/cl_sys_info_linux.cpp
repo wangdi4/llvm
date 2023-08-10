@@ -14,31 +14,27 @@
 
 #include "cl_sys_info.h"
 
-#include <assert.h>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <time.h>
-#include <unistd.h>
-
-#include <sys/resource.h>
-#include <sys/sysinfo.h>
-
-#include <sys/syscall.h>
-
-#ifdef USE_NUMA
-#include <numa.h>
-#endif // USE_NUMA
-
 #include "cl_secure_string_linux.h"
 #include "hw_utils.h"
-
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/TargetParser/Host.h"
+
+#include <assert.h>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#ifdef USE_NUMA
+#include <numa.h>
+#endif // USE_NUMA
+#include <sstream>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <sys/sysinfo.h>
+#include <time.h>
+#include <unistd.h>
 
 using namespace llvm;
 using namespace llvm::sys;

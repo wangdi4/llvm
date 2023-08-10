@@ -18,8 +18,7 @@
 #include "cl_synch_objects.h"
 #include "task_executor.h"
 #include "task_group.h"
-
-#include <tbb/partitioner.h>
+#include "tbb/partitioner.h"
 
 namespace Intel {
 namespace OpenCL {

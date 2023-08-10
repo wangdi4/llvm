@@ -20,9 +20,8 @@
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
 #include "task_executor.h"
+#include "tbb/global_control.h"
 #include "tbb_thread_manager.h"
-
-#include <tbb/global_control.h>
 
 #ifdef DEVICE_NATIVE
 // no logger on discrete device

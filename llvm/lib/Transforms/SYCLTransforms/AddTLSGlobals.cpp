@@ -41,13 +41,13 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
     if (I == ImplicitArgsUtils::IA_BARRIER_BUFFER && NoBarrier)
       continue;
 
-    // TODO handle name conflicts
-    assert(!M.getGlobalVariable(ImplicitArgsUtils::getArgName(I)));
+    assert(!M.getNamedGlobal(ImplicitArgsUtils::getArgNameWithPrefix(I)) &&
+           "TLS global variable already exists");
     Type *ArgType = IAInfo->getArgType(I);
     GlobalVariable *GV = new GlobalVariable(
         M, ArgType, false, GlobalValue::LinkOnceODRLinkage,
-        UndefValue::get(ArgType), ImplicitArgsUtils::getArgName(I), nullptr,
-        GlobalValue::GeneralDynamicTLSModel);
+        UndefValue::get(ArgType), ImplicitArgsUtils::getArgNameWithPrefix(I),
+        nullptr, GlobalValue::GeneralDynamicTLSModel);
     GV->setAlignment(M.getDataLayout().getPreferredAlign(GV));
   }
 

@@ -18,8 +18,8 @@
  *  Implementation of the Class OpenCLFramework
  ******************************************************************************/
 
+#include "CL/cl.h"
 #include "llvm/Transforms/SYCLTransforms/DevLimits.h"
-#include <CL/cl.h>
 #include <tmmintrin.h>
 
 // ToDo: remove on move to 1.2 spec ---------------- Start

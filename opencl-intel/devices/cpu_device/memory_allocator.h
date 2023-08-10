@@ -15,9 +15,9 @@
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include <cl_device_api.h>
-#include <cl_synch_objects.h>
-#include <cl_types.h>
+#include "cl_device_api.h"
+#include "cl_synch_objects.h"
+#include "cl_types.h"
 #include <map>
 
 namespace Intel {

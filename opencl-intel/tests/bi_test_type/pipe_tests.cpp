@@ -1,10 +1,8 @@
 #include "bi_tests.h"
-
+#include "common_utils.h"
 #include <fstream>
 #include <map>
 #include <sstream>
-
-#include "common_utils.h"
 
 class PipeTest : public BITest {
 protected:

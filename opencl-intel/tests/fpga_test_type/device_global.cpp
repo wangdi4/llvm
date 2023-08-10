@@ -2,7 +2,6 @@
 #include "TestsHelpClasses.h"
 #include "base_fixture.h"
 #include "common_utils.h"
-
 #include <vector>
 
 static const char *BinaryFile1 = "device_global_image1.bc";

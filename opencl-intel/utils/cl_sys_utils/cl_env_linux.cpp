@@ -13,10 +13,9 @@
 // License.
 
 #include "cl_env.h"
+#include <cstdlib>
 
 using namespace Intel::OpenCL::Utils;
-
-#include <cstdlib>
 
 bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
                                      const std::string &EnvName) {

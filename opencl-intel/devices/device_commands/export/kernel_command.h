@@ -14,11 +14,10 @@
 
 #pragma once
 
+#include "IDeviceCommandManager.h"
+#include "cl_dev_backend_api.h"
+#include "cl_sys_defines.h"
 #include "command.h"
-#include <IDeviceCommandManager.h>
-#include <cl_dev_backend_api.h>
-
-#include <cl_sys_defines.h>
 
 namespace Intel {
 namespace OpenCL {
