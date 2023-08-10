@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 //
 // Modifications, Copyright (C) 2021 Intel Corporation
@@ -14,10 +13,7 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-//==------------- math.hpp - Intel specific math API -----------------------==//
-=======
 //==-------------- math.hpp - Intel specific math API ----------------------==//
->>>>>>> 350632536c1f594516738e6c38edb75c72e77eee
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
