@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_sm4
+// REQUIRES: intel_feature_isa_sm4_evex
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
 
 // CHECK:      vsm4key4 %zmm24, %zmm23, %zmm22

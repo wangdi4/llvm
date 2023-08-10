@@ -232,8 +232,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
 constexpr FeatureBitset FeaturesGraniteRapids =
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
-    FeatureAMX_COMPLEX;
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI ;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 constexpr FeatureBitset FeaturesCommonAVX256 =
@@ -245,12 +245,9 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_CPU_DMR
 #ifdef ENABLE_CPU_DMR
     FeaturesGraniteRapids |
-#if INTEL_FEATURE_ISA_SM3
+    FeatureAMX_COMPLEX |
     FeatureSM3 |
-#endif // INTEL_FEATURE_ISA_SM3
-#if INTEL_FEATURE_ISA_SM4
     FeatureSM4 |
-#endif // INTEL_FEATURE_ISA_SM4
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
     FeatureAVX512VNNIFP16 |
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
@@ -264,9 +261,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 // FIXME: Need to change to AVX-NE-CONVERT
     FeatureAVXCONVERT |
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT16 |
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
     FeatureAVXVNNIINT8 |
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     FeatureAVX512MEDIAX |
@@ -280,9 +275,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
     FeatureAVXIFMA |
     FeatureCMPCCXADD |
-#if INTEL_FEATURE_ISA_SHA512
     FeatureSHA512 |
-#endif // INTEL_FEATURE_ISA_SHA512
 #if INTEL_FEATURE_ISA_PREFETCHST2
     FeaturePREFETCHST2 |
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
@@ -369,14 +362,16 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSierraforest =
-    FeaturesAlderlake | FeatureCMPCCXADD | FeatureAVXIFMA |
-    FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
+    FeaturesAlderlake | FeatureCMPCCXADD | FeatureAVXIFMA | FeatureUINTR |
+    FeatureENQCMD | FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
 constexpr FeatureBitset FeaturesGrandridge =
     FeaturesSierraforest | FeatureRAOINT;
 #if INTEL_FEATURE_CPU_LNL
 constexpr FeatureBitset FeaturesLunarlake = FeaturesSierraforest |
     FeatureSHA512 | FeatureSM3 | FeatureSM4 | FeatureAVXVNNIINT16;
 #endif // INTEL_FEATURE_CPU_LNL
+constexpr FeatureBitset FeaturesArrowlakeS = FeaturesSierraforest |
+    FeatureAVXVNNIINT16 | FeatureSHA512 | FeatureSM3 | FeatureSM4;
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -578,12 +573,21 @@ constexpr ProcInfo Processors[] = {
   { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake, 'p', false },
   // Meteorlake microarchitecture based processors.
   { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesAlderlake, 'p', false },
+  // Arrowlake microarchitecture based processors.
+  { {"arrowlake"}, CK_Arrowlake, FEATURE_AVX2, FeaturesSierraforest, 'p', false },
+  { {"arrowlake-s"}, CK_ArrowlakeS, FEATURE_AVX2, FeaturesArrowlakeS, '\0', false },
+  { {"arrowlake_s"}, CK_ArrowlakeS, FEATURE_AVX2, FeaturesArrowlakeS, 'p', true },
+  // Lunarlake microarchitecture based processors.
+  { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesArrowlakeS, 'p', false },
   // Sierraforest microarchitecture based processors.
   { {"sierraforest"}, CK_Sierraforest, FEATURE_AVX2, FeaturesSierraforest, 'p', false },
   // Grandridge microarchitecture based processors.
   { {"grandridge"}, CK_Grandridge, FEATURE_AVX2, FeaturesGrandridge, 'p', false },
   // Granite Rapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids, 'n', false },
+  // Granite Rapids D microarchitecture based processors.
+  { {"graniterapids-d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, '\0', false },
+  { {"graniterapids_d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, 'n', true },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, 'n', false },
   // Knights Landing processor.
@@ -788,8 +792,10 @@ constexpr FeatureBitset ImpliedFeaturesFMA = FeatureAVX;
 constexpr FeatureBitset ImpliedFeaturesGFNI = FeatureSSE2;
 constexpr FeatureBitset ImpliedFeaturesPCLMUL = FeatureSSE2;
 constexpr FeatureBitset ImpliedFeaturesSHA = FeatureSSE2;
-constexpr FeatureBitset ImpliedFeaturesVAES = FeatureAES | FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesVAES = FeatureAES | FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesVPCLMULQDQ = FeatureAVX | FeaturePCLMUL;
+constexpr FeatureBitset ImpliedFeaturesSM3 = FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesSM4 = FeatureAVX2;
 
 // AVX512 features.
 constexpr FeatureBitset ImpliedFeaturesAVX512CD = FeatureAVX512F;
@@ -955,34 +961,15 @@ constexpr FeatureBitset ImpliedFeaturesAMX_AVX512_TILE16MOV =
 constexpr FeatureBitset ImpliedFeaturesAVX512NECONVERT = FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-#if INTEL_FEATURE_ISA_SHA512
-// AUTO GENERATED BY TOOL
-constexpr FeatureBitset ImpliedFeaturesSHA512 = FeatureAVX;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_SHA512
-#if INTEL_FEATURE_ISA_SM3
-// AUTO GENERATED BY TOOL
-constexpr FeatureBitset ImpliedFeaturesSM3 = FeatureAVX;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_SM3
-#if INTEL_FEATURE_ISA_SM4
-// AUTO GENERATED BY TOOL
-constexpr FeatureBitset ImpliedFeaturesSM4 = FeatureAVX;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_SM4
 #if INTEL_FEATURE_ISA_DSPV1
 // AUTO GENERATED BY TOOL
 constexpr FeatureBitset ImpliedFeaturesDSPV1 = FeatureSSE3;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_DSPV1
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
-// AUTO GENERATED BY TOOL
-constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 // AUTO GENERATED BY TOOL
-constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT16 = FeatureAVX512F;
+constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT16 = FeatureAVX512F |
+    FeatureAVXVNNIINT16;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 #if INTEL_FEATURE_ISA_AMX_SPARSE
@@ -1053,9 +1040,11 @@ constexpr FeatureBitset ImpliedFeaturesUMSR = {};
 constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = {};
 constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
+constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesSHA512 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
 // Key Locker Features

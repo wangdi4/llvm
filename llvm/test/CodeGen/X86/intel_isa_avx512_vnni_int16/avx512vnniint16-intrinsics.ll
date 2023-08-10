@@ -13,7 +13,7 @@ define <16 x i32> @test_int_x86_vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <16 x 
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwsud %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x76,0x48,0xd2,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwsud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -43,15 +43,15 @@ define <16 x i32> @test_int_x86_mask_vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwsud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwsud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwsud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwsud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
 define <16 x i32> @test_int_x86_vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_vpdpwsuds512:
@@ -63,7 +63,7 @@ define <16 x i32> @test_int_x86_vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwsuds %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x76,0x48,0xd3,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwsuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -93,15 +93,15 @@ define <16 x i32> @test_int_x86_mask_vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, 
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwsuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwsuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwsuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwsuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
 define <16 x i32> @test_int_x86_vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_vpdpwusd512:
@@ -113,7 +113,7 @@ define <16 x i32> @test_int_x86_vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x 
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwusd %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x75,0x48,0xd2,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwusd.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -143,15 +143,15 @@ define <16 x i32> @test_int_x86_mask_vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwusd.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwusd.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwusd512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwusd.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
 define <16 x i32> @test_int_x86_vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_vpdpwusds512:
@@ -163,7 +163,7 @@ define <16 x i32> @test_int_x86_vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwusds %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x75,0x48,0xd3,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwusds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -193,15 +193,15 @@ define <16 x i32> @test_int_x86_mask_vpdpwusds512(<16 x i32> %A, <16 x i32> %B, 
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwusds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwusds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwusds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwusds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
 define <16 x i32> @test_int_x86_vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_vpdpwuud512:
@@ -213,7 +213,7 @@ define <16 x i32> @test_int_x86_vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x 
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwuud %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x74,0x48,0xd2,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwuud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -243,15 +243,15 @@ define <16 x i32> @test_int_x86_mask_vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwuud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwuud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwuud512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwuud.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
 define <16 x i32> @test_int_x86_vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_vpdpwuuds512:
@@ -263,7 +263,7 @@ define <16 x i32> @test_int_x86_vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x
 ; X86:       # %bb.0:
 ; X86-NEXT:    vpdpwuuds %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf2,0x74,0x48,0xd3,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %ret = call <16 x i32> @llvm.x86.vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %ret = call <16 x i32> @llvm.x86.avx2.vpdpwuuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   ret <16 x i32> %ret
 }
 
@@ -293,13 +293,13 @@ define <16 x i32> @test_int_x86_mask_vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, 
 ; X86-NEXT:    movl %ebp, %esp # encoding: [0x89,0xec]
 ; X86-NEXT:    popl %ebp # encoding: [0x5d]
 ; X86-NEXT:    retl # encoding: [0xc3]
-  %1 = call <16 x i32> @llvm.x86.vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+  %1 = call <16 x i32> @llvm.x86.avx2.vpdpwuuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
   %2 = bitcast i16 %E to <16 x i1>
   %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> %A
-  %4 = call <16 x i32> @llvm.x86.vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
+  %4 = call <16 x i32> @llvm.x86.avx2.vpdpwuuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %D)
   %5 = select <16 x i1> %2, <16 x i32> %4, <16 x i32> zeroinitializer
   %ret = add <16 x i32> %3, %5
   ret <16 x i32> %ret
 }
-declare <16 x i32> @llvm.x86.vpdpwuuds512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
+declare <16 x i32> @llvm.x86.avx2.vpdpwuuds.512(<16 x i32> %A, <16 x i32> %B, <16 x i32> %C)
 
