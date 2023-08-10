@@ -1,0 +1,637 @@
+// INTEL_FEATURE_XISA_COMMON
+...
+   // EVEX scalar with corresponding VEX.
++  { X86::KMOVBkk_EVEX, X86::KMOVBkk },
++  { X86::KMOVBkm_EVEX, X86::KMOVBkm },
++  { X86::KMOVBkr_EVEX, X86::KMOVBkr },
++  { X86::KMOVBmk_EVEX, X86::KMOVBmk },
++  { X86::KMOVBrk_EVEX, X86::KMOVBrk },
++  { X86::KMOVDkk_EVEX, X86::KMOVDkk },
++  { X86::KMOVDkm_EVEX, X86::KMOVDkm },
++  { X86::KMOVDkr_EVEX, X86::KMOVDkr },
++  { X86::KMOVDmk_EVEX, X86::KMOVDmk },
++  { X86::KMOVDrk_EVEX, X86::KMOVDrk },
++  { X86::KMOVQkk_EVEX, X86::KMOVQkk },
++  { X86::KMOVQkm_EVEX, X86::KMOVQkm },
++  { X86::KMOVQkr_EVEX, X86::KMOVQkr },
++  { X86::KMOVQmk_EVEX, X86::KMOVQmk },
++  { X86::KMOVQrk_EVEX, X86::KMOVQrk },
++  { X86::KMOVWkk_EVEX, X86::KMOVWkk },
++  { X86::KMOVWkm_EVEX, X86::KMOVWkm },
++  { X86::KMOVWkr_EVEX, X86::KMOVWkr },
++  { X86::KMOVWmk_EVEX, X86::KMOVWmk },
++  { X86::KMOVWrk_EVEX, X86::KMOVWrk },
++  { X86::MULX32rm_EVEX, X86::MULX32rm },
++  { X86::MULX32rr_EVEX, X86::MULX32rr },
++  { X86::MULX64rm_EVEX, X86::MULX64rm },
++  { X86::MULX64rr_EVEX, X86::MULX64rr },
++  { X86::TDPBF16PSE, X86::TDPBF16PS },
++  { X86::TDPBSSDE, X86::TDPBSSD },
++  { X86::TDPBSUDE, X86::TDPBSUD },
++  { X86::TDPBUSDE, X86::TDPBUSD },
++  { X86::TDPBUUDE, X86::TDPBUUD },
++  { X86::TILELOADDE, X86::TILELOADD },
++  { X86::TILELOADDT1E, X86::TILELOADDT1 },
++  { X86::TILEMOVE, X86::TILEMOV },
++  { X86::TILESTOREDE, X86::TILESTORED },
++  { X86::TILEZEROE, X86::TILEZERO },
++  { X86::VAADDPBF16Z128mr, X86::VAADDPBF16mr },
++  { X86::VAADDPDZ128mr, X86::VAADDPDmr },
++  { X86::VAADDPHZ128mr, X86::VAADDPHmr },
++  { X86::VAADDPSZ128mr, X86::VAADDPSmr },
++  { X86::VAADDSBF16Z128mr, X86::VAADDSBF16mr },
++  { X86::VAADDSDZ128mr, X86::VAADDSDmr },
++  { X86::VAADDSHZ128mr, X86::VAADDSHmr },
++  { X86::VAADDSSZ128mr, X86::VAADDSSmr },
+   { X86::VADDPDZ128rm, X86::VADDPDrm },
+...
+   { X86::VANDPSZ128rr, X86::VANDPSrr },
++  { X86::VBCSTNEBF162PSZ128rm, X86::VBCSTNEBF162PSrm },
++  { X86::VBCSTNESH2PSZ128rm, X86::VBCSTNESH2PSrm },
+   { X86::VBROADCASTI32X2Z128rm, X86::VPBROADCASTQrm },
+...
+   { X86::VCOMISSZrr_Int, X86::VCOMISSrr_Int },
++  { X86::VCVTBF162PHZ128rr, X86::VCVTBF162PHrr },
+   { X86::VCVTDQ2PDZ128rm, X86::VCVTDQ2PDrm },
+...
+   { X86::VCVTDQ2PSZ128rr, X86::VCVTDQ2PSrr },
++  { X86::VCVTNE2PS2PHZ128rm, X86::VCVT2PS2PHrm },
++  { X86::VCVTNE2PS2PHZ128rr, X86::VCVT2PS2PHrr },
++  { X86::VCVTNEEBF162PSZ128rm, X86::VCVTNEEBF162PSrm },
++  { X86::VCVTNEEPH2PSZ128rm, X86::VCVTNEEPH2PSrm },
++  { X86::VCVTNEOBF162PSZ128rm, X86::VCVTNEOBF162PSrm },
++  { X86::VCVTNEOPH2PSZ128rm, X86::VCVTNEOPH2PSrm },
++  { X86::VCVTNEPH2BF16Z128rm, X86::VCVTNEPH2BF16rm },
++  { X86::VCVTNEPH2BF16Z128rr, X86::VCVTNEPH2BF16rr },
+   { X86::VCVTPD2DQZ128rm, X86::VCVTPD2DQrm },
+...
+   { X86::VDIVSSZrr_Int, X86::VDIVSSrr_Int },
++  { X86::VDPPHPSZ128m, X86::VDPPHPSrm },
++  { X86::VDPPHPSZ128r, X86::VDPPHPSrr },
+   { X86::VEXTRACTPSZmr, X86::VEXTRACTPSmr },
+...
+   { X86::VMAXSSZrr_Int, X86::VMAXSSrr_Int },
++  { X86::VMEMADVISEZ128mr, X86::VMEMADVISEmr },
+   { X86::VMINCPDZ128rm, X86::VMINCPDrm },
+...
+   { X86::VMOV64toSDZrr, X86::VMOV64toSDrr },
++  { X86::VMOVADVISEWZ128mri, X86::VMOVADVISEW128mri },
++  { X86::VMOVADVISEWZ128rmi, X86::VMOVADVISEW128rmi },
+   { X86::VMOVAPDZ128mr, X86::VMOVAPDmr },
+...
+   { X86::VMOVDQU8Z128rr_REV, X86::VMOVDQUrr_REV },
++  { X86::VMOVGETZ128rm, X86::VMOVGETrm },
+   { X86::VMOVHLPSZrr, X86::VMOVHLPSrr },
+...
+   { X86::VMOVZPQILo2PQIZrr, X86::VMOVZPQILo2PQIrr },
++  { X86::VMPSADBWZ128rmi, X86::VMPSADBWrmi },
++  { X86::VMPSADBWZ128rri, X86::VMPSADBWrri },
+   { X86::VMULPDZ128rm, X86::VMULPDrm },
+...
+   { X86::VORPSZ128rr, X86::VORPSrr },
++  { X86::VPAADDDZ128mr, X86::VPAADDDmr },
++  { X86::VPAADDQZ128mr, X86::VPAADDQmr },
++  { X86::VPAANDDZ128mr, X86::VPAANDDmr },
++  { X86::VPAANDQZ128mr, X86::VPAANDQmr },
+   { X86::VPABSBZ128rm, X86::VPABSBrm },
+...
+   { X86::VPANDQZ128rr, X86::VPANDrr },
++  { X86::VPAORDZ128mr, X86::VPAORDmr },
++  { X86::VPAORQZ128mr, X86::VPAORQmr },
+   { X86::VPAVGBZ128rm, X86::VPAVGBrm },
+...
+   { X86::VPAVGWZ128rr, X86::VPAVGWrr },
++  { X86::VPAXORDZ128mr, X86::VPAXORDmr },
++  { X86::VPAXORQZ128mr, X86::VPAXORQmr },
+   { X86::VPBROADCASTBZ128rm, X86::VPBROADCASTBrm },
+...
+   { X86::VPCLMULQDQZ128rr, X86::VPCLMULQDQrr },
++  { X86::VPDPBSSDSZ128m, X86::VPDPBSSDSrm },
++  { X86::VPDPBSSDSZ128r, X86::VPDPBSSDSrr },
++  { X86::VPDPBSSDZ128m, X86::VPDPBSSDrm },
++  { X86::VPDPBSSDZ128r, X86::VPDPBSSDrr },
++  { X86::VPDPBSUDSZ128m, X86::VPDPBSUDSrm },
++  { X86::VPDPBSUDSZ128r, X86::VPDPBSUDSrr },
++  { X86::VPDPBSUDZ128m, X86::VPDPBSUDrm },
++  { X86::VPDPBSUDZ128r, X86::VPDPBSUDrr },
+   { X86::VPDPBUSDSZ128m, X86::VPDPBUSDSrm },
+...
+   { X86::VPDPBUSDZ128r, X86::VPDPBUSDrr },
++  { X86::VPDPBUUDSZ128m, X86::VPDPBUUDSrm },
++  { X86::VPDPBUUDSZ128r, X86::VPDPBUUDSrr },
++  { X86::VPDPBUUDZ128m, X86::VPDPBUUDrm },
++  { X86::VPDPBUUDZ128r, X86::VPDPBUUDrr },
+   { X86::VPDPWSSDSZ128m, X86::VPDPWSSDSrm },
+...
+   { X86::VPDPWSSDZ128r, X86::VPDPWSSDrr },
++  { X86::VPDPWSUDSZ128m, X86::VPDPWSUDSrm },
++  { X86::VPDPWSUDSZ128r, X86::VPDPWSUDSrr },
++  { X86::VPDPWSUDZ128m, X86::VPDPWSUDrm },
++  { X86::VPDPWSUDZ128r, X86::VPDPWSUDrr },
++  { X86::VPDPWUSDSZ128m, X86::VPDPWUSDSrm },
++  { X86::VPDPWUSDSZ128r, X86::VPDPWUSDSrr },
++  { X86::VPDPWUSDZ128m, X86::VPDPWUSDrm },
++  { X86::VPDPWUSDZ128r, X86::VPDPWUSDrr },
++  { X86::VPDPWUUDSZ128m, X86::VPDPWUUDSrm },
++  { X86::VPDPWUUDSZ128r, X86::VPDPWUUDSrr },
++  { X86::VPDPWUUDZ128m, X86::VPDPWUUDrm },
++  { X86::VPDPWUUDZ128r, X86::VPDPWUUDrr },
+   { X86::VPERMILPDZ128mi, X86::VPERMILPDmi },
+...
+   { X86::VSHUFPSZ128rri, X86::VSHUFPSrri },
++  { X86::VSM4KEY4Z128rm, X86::VSM4KEY4rm },
++  { X86::VSM4KEY4Z128rr, X86::VSM4KEY4rr },
++  { X86::VSM4RNDS4Z128rm, X86::VSM4RNDS4rm },
++  { X86::VSM4RNDS4Z128rr, X86::VSM4RNDS4rr },
+   { X86::VSQRTPDZ128m, X86::VSQRTPDm },
+...
+   // EVEX scalar with corresponding VEX.
++  { X86::VAADDPBF16Z256mr, X86::VAADDPBF16Ymr },
++  { X86::VAADDPDZ256mr, X86::VAADDPDYmr },
++  { X86::VAADDPHZ256mr, X86::VAADDPHYmr },
++  { X86::VAADDPSZ256mr, X86::VAADDPSYmr },
+   { X86::VADDPDZ256rm, X86::VADDPDYrm },
+...
+   { X86::VANDPSZ256rr, X86::VANDPSYrr },
++  { X86::VBCSTNEBF162PSZ256rm, X86::VBCSTNEBF162PSYrm },
++  { X86::VBCSTNESH2PSZ256rm, X86::VBCSTNESH2PSYrm },
+   { X86::VBROADCASTF32X2Z256rm, X86::VBROADCASTSDYrm },
+...
+   { X86::VBROADCASTSSZ256rr, X86::VBROADCASTSSYrr },
++  { X86::VCVTBF162PHZ256rr, X86::VCVTBF162PHYrr },
+   { X86::VCVTDQ2PDZ256rm, X86::VCVTDQ2PDYrm },
+...
+   { X86::VCVTDQ2PSZ256rr, X86::VCVTDQ2PSYrr },
++  { X86::VCVTNE2PS2PHZ256rm, X86::VCVT2PS2PHYrm },
++  { X86::VCVTNE2PS2PHZ256rr, X86::VCVT2PS2PHYrr },
++  { X86::VCVTNEEBF162PSZ256rm, X86::VCVTNEEBF162PSYrm },
++  { X86::VCVTNEEPH2PSZ256rm, X86::VCVTNEEPH2PSYrm },
++  { X86::VCVTNEOBF162PSZ256rm, X86::VCVTNEOBF162PSYrm },
++  { X86::VCVTNEOPH2PSZ256rm, X86::VCVTNEOPH2PSYrm },
++  { X86::VCVTNEPH2BF16Z256rm, X86::VCVTNEPH2BF16Yrm },
++  { X86::VCVTNEPH2BF16Z256rr, X86::VCVTNEPH2BF16Yrr },
+   { X86::VCVTPD2DQZ256rm, X86::VCVTPD2DQYrm },
+...
+   { X86::VDIVPSZ256rr, X86::VDIVPSYrr },
++  { X86::VDPPHPSZ256m, X86::VDPPHPSYrm },
++  { X86::VDPPHPSZ256r, X86::VDPPHPSYrr },
+   { X86::VEXTRACTF32x4Z256mr, X86::VEXTRACTF128mr },
+...
+   { X86::VMAXPSZ256rr, X86::VMAXPSYrr },
++  { X86::VMEMADVISEZ256mr, X86::VMEMADVISEYmr },
+   { X86::VMINCPDZ256rm, X86::VMINCPDYrm },
+...
+   { X86::VMINPSZ256rr, X86::VMINPSYrr },
++  { X86::VMOVADVISEWZ256mri, X86::VMOVADVISEW256mri },
++  { X86::VMOVADVISEWZ256rmi, X86::VMOVADVISEW256rmi },
+   { X86::VMOVAPDZ256mr, X86::VMOVAPDYmr },
+...
+   { X86::VMOVDQU8Z256rr_REV, X86::VMOVDQUYrr_REV },
++  { X86::VMOVGETZ256rm, X86::VMOVGETYrm },
+   { X86::VMOVNTDQAZ256rm, X86::VMOVNTDQAYrm },
+...
+   { X86::VMOVUPSZ256rr_REV, X86::VMOVUPSYrr_REV },
++  { X86::VMPSADBWZ256rmi, X86::VMPSADBWYrmi },
++  { X86::VMPSADBWZ256rri, X86::VMPSADBWYrri },
+   { X86::VMULPDZ256rm, X86::VMULPDYrm },
+...
+   { X86::VORPSZ256rr, X86::VORPSYrr },
++  { X86::VPAADDDZ256mr, X86::VPAADDDYmr },
++  { X86::VPAADDQZ256mr, X86::VPAADDQYmr },
++  { X86::VPAANDDZ256mr, X86::VPAANDDYmr },
++  { X86::VPAANDQZ256mr, X86::VPAANDQYmr },
+   { X86::VPABSBZ256rm, X86::VPABSBYrm },
+...
+   { X86::VPANDQZ256rr, X86::VPANDYrr },
++  { X86::VPAORDZ256mr, X86::VPAORDYmr },
++  { X86::VPAORQZ256mr, X86::VPAORQYmr },
+   { X86::VPAVGBZ256rm, X86::VPAVGBYrm },
+...
+   { X86::VPAVGWZ256rr, X86::VPAVGWYrr },
++  { X86::VPAXORDZ256mr, X86::VPAXORDYmr },
++  { X86::VPAXORQZ256mr, X86::VPAXORQYmr },
+   { X86::VPBROADCASTBZ256rm, X86::VPBROADCASTBYrm },
+...
+   { X86::VPCLMULQDQZ256rr, X86::VPCLMULQDQYrr },
++  { X86::VPDPBSSDSZ256m, X86::VPDPBSSDSYrm },
++  { X86::VPDPBSSDSZ256r, X86::VPDPBSSDSYrr },
++  { X86::VPDPBSSDZ256m, X86::VPDPBSSDYrm },
++  { X86::VPDPBSSDZ256r, X86::VPDPBSSDYrr },
++  { X86::VPDPBSUDSZ256m, X86::VPDPBSUDSYrm },
++  { X86::VPDPBSUDSZ256r, X86::VPDPBSUDSYrr },
++  { X86::VPDPBSUDZ256m, X86::VPDPBSUDYrm },
++  { X86::VPDPBSUDZ256r, X86::VPDPBSUDYrr },
+   { X86::VPDPBUSDSZ256m, X86::VPDPBUSDSYrm },
+...
+   { X86::VPDPBUSDZ256r, X86::VPDPBUSDYrr },
++  { X86::VPDPBUUDSZ256m, X86::VPDPBUUDSYrm },
++  { X86::VPDPBUUDSZ256r, X86::VPDPBUUDSYrr },
++  { X86::VPDPBUUDZ256m, X86::VPDPBUUDYrm },
++  { X86::VPDPBUUDZ256r, X86::VPDPBUUDYrr },
+   { X86::VPDPWSSDSZ256m, X86::VPDPWSSDSYrm },
+...
+   { X86::VPDPWSSDZ256r, X86::VPDPWSSDYrr },
++  { X86::VPDPWSUDSZ256m, X86::VPDPWSUDSYrm },
++  { X86::VPDPWSUDSZ256r, X86::VPDPWSUDSYrr },
++  { X86::VPDPWSUDZ256m, X86::VPDPWSUDYrm },
++  { X86::VPDPWSUDZ256r, X86::VPDPWSUDYrr },
++  { X86::VPDPWUSDSZ256m, X86::VPDPWUSDSYrm },
++  { X86::VPDPWUSDSZ256r, X86::VPDPWUSDSYrr },
++  { X86::VPDPWUSDZ256m, X86::VPDPWUSDYrm },
++  { X86::VPDPWUSDZ256r, X86::VPDPWUSDYrr },
++  { X86::VPDPWUUDSZ256m, X86::VPDPWUUDSYrm },
++  { X86::VPDPWUUDSZ256r, X86::VPDPWUUDSYrr },
++  { X86::VPDPWUUDZ256m, X86::VPDPWUUDYrm },
++  { X86::VPDPWUUDZ256r, X86::VPDPWUUDYrr },
+   { X86::VPERMDZ256rm, X86::VPERMDYrm },
+...
+   { X86::VSHUFPSZ256rri, X86::VSHUFPSYrri },
++  { X86::VSM4KEY4Z256rm, X86::VSM4KEY4Yrm },
++  { X86::VSM4KEY4Z256rr, X86::VSM4KEY4Yrr },
++  { X86::VSM4RNDS4Z256rm, X86::VSM4RNDS4Yrm },
++  { X86::VSM4RNDS4Z256rr, X86::VSM4RNDS4Yrr },
+   { X86::VSQRTPDZ256m, X86::VSQRTPDYm },
+...
+     default: return true;
++    case X86::VAADDPBF16Z128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPBF16Z256mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPDZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPDZ256mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPHZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPHZ256mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPSZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDPSZ256mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDSBF16Z128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDSDZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDSHZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VAADDSSZ128mr: return Subtarget->hasAVXRAOFP();
++    case X86::VBCSTNEBF162PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VBCSTNEBF162PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VBCSTNESH2PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VBCSTNESH2PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTBF162PHZ128rr: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTBF162PHZ256rr: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNE2PS2PHZ128rm: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNE2PS2PHZ128rr: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNE2PS2PHZ256rm: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNE2PS2PHZ256rr: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNEEBF162PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEEBF162PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEEPH2PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEEPH2PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEOBF162PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEOBF162PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEOPH2PSZ128rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEOPH2PSZ256rm: return Subtarget->hasAVXNECONVERT();
++    case X86::VCVTNEPH2BF16Z128rm: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNEPH2BF16Z128rr: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNEPH2BF16Z256rm: return Subtarget->hasAVXCONVERT();
++    case X86::VCVTNEPH2BF16Z256rr: return Subtarget->hasAVXCONVERT();
++    case X86::VDPPHPSZ128m: return Subtarget->hasAVXDOTPRODPHPS();
++    case X86::VDPPHPSZ128r: return Subtarget->hasAVXDOTPRODPHPS();
++    case X86::VDPPHPSZ256m: return Subtarget->hasAVXDOTPRODPHPS();
++    case X86::VDPPHPSZ256r: return Subtarget->hasAVXDOTPRODPHPS();
++    case X86::VMEMADVISEZ128mr: return Subtarget->hasAVXMOVRS();
++    case X86::VMEMADVISEZ256mr: return Subtarget->hasAVXMOVRS();
++    case X86::VMOVADVISEWZ128mri: return Subtarget->hasAVXMOVRS();
++    case X86::VMOVADVISEWZ128rmi: return Subtarget->hasAVXMOVRS();
++    case X86::VMOVADVISEWZ256mri: return Subtarget->hasAVXMOVRS();
++    case X86::VMOVADVISEWZ256rmi: return Subtarget->hasAVXMOVRS();
++    case X86::VMOVGETZ128rm: return Subtarget->hasAVXMOVGET();
++    case X86::VMOVGETZ256rm: return Subtarget->hasAVXMOVGET();
++    case X86::VPAADDDZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAADDDZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAADDQZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAADDQZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAANDDZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAANDDZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAANDQZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAANDQZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAORDZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAORDZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAORQZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAORQZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAXORDZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAXORDZ256mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAXORQZ128mr: return Subtarget->hasAVXRAOINT();
++    case X86::VPAXORQZ256mr: return Subtarget->hasAVXRAOINT();
+     case X86::VPDPBUSDSZ128m: return Subtarget->hasAVXVNNI();
+...
+     case X86::VPDPWSSDZ256r: return Subtarget->hasAVXVNNI();
++    case X86::VPDPWSUDSZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDSZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDSZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDSZ256r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWSUDZ256r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDSZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDSZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDSZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDSZ256r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUSDZ256r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDSZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDSZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDSZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDSZ256r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDZ128m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDZ128r: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDZ256m: return Subtarget->hasAVXVNNIINT16();
++    case X86::VPDPWUUDZ256r: return Subtarget->hasAVXVNNIINT16();
+     case X86::VPMADD52HUQZ128m: return Subtarget->hasAVXIFMA();
+...
+ 
++// NDD encoded instructions that have a Legacy Bit8 encoding
++// (table format: <NDD opcode, X86-Bit8 opcode>).
++static const X86EvexToVexCompressTableEntry ND2NonNDBit8CompressTable[] = {
++  // NDD scalar with corresponding X86.
++  { X86::ADC8ri_ND, X86::ADC8ri },
++  { X86::ADC8rm_ND, X86::ADC8rm },
++  { X86::ADC8rr_ND, X86::ADC8rr },
++  { X86::ADC8rr_ND_REV, X86::ADC8rr_REV },
++  { X86::ADD8ri_ND, X86::ADD8ri },
++  { X86::ADD8rm_ND, X86::ADD8rm },
++  { X86::ADD8rr_ND, X86::ADD8rr },
++  { X86::ADD8rr_ND_REV, X86::ADD8rr_REV },
++  { X86::AND8ri_ND, X86::AND8ri },
++  { X86::AND8rm_ND, X86::AND8rm },
++  { X86::AND8rr_ND, X86::AND8rr },
++  { X86::AND8rr_ND_REV, X86::AND8rr_REV },
++  { X86::DEC8r_ND, X86::DEC8r },
++  { X86::INC8r_ND, X86::INC8r },
++  { X86::NEG8r_ND, X86::NEG8r },
++  { X86::NOT8r_ND, X86::NOT8r },
++  { X86::OR8ri_ND, X86::OR8ri },
++  { X86::OR8rm_ND, X86::OR8rm },
++  { X86::OR8rr_ND, X86::OR8rr },
++  { X86::OR8rr_ND_REV, X86::OR8rr_REV },
++  { X86::RCL8r1_ND, X86::RCL8r1 },
++  { X86::RCL8rCL_ND, X86::RCL8rCL },
++  { X86::RCL8ri_ND, X86::RCL8ri },
++  { X86::RCR8r1_ND, X86::RCR8r1 },
++  { X86::RCR8rCL_ND, X86::RCR8rCL },
++  { X86::RCR8ri_ND, X86::RCR8ri },
++  { X86::ROL8r1_ND, X86::ROL8r1 },
++  { X86::ROL8rCL_ND, X86::ROL8rCL },
++  { X86::ROL8ri_ND, X86::ROL8ri },
++  { X86::ROR8r1_ND, X86::ROR8r1 },
++  { X86::ROR8rCL_ND, X86::ROR8rCL },
++  { X86::ROR8ri_ND, X86::ROR8ri },
++  { X86::SAR8r1_ND, X86::SAR8r1 },
++  { X86::SAR8rCL_ND, X86::SAR8rCL },
++  { X86::SAR8ri_ND, X86::SAR8ri },
++  { X86::SBB8ri_ND, X86::SBB8ri },
++  { X86::SBB8rm_ND, X86::SBB8rm },
++  { X86::SBB8rr_ND, X86::SBB8rr },
++  { X86::SBB8rr_ND_REV, X86::SBB8rr_REV },
++  { X86::SHL8r1_ND, X86::SHL8r1 },
++  { X86::SHL8rCL_ND, X86::SHL8rCL },
++  { X86::SHL8ri_ND, X86::SHL8ri },
++  { X86::SHR8r1_ND, X86::SHR8r1 },
++  { X86::SHR8rCL_ND, X86::SHR8rCL },
++  { X86::SHR8ri_ND, X86::SHR8ri },
++  { X86::SUB8ri_ND, X86::SUB8ri },
++  { X86::SUB8rm_ND, X86::SUB8rm },
++  { X86::SUB8rr_ND, X86::SUB8rr },
++  { X86::SUB8rr_ND_REV, X86::SUB8rr_REV },
++  { X86::XOR8ri_ND, X86::XOR8ri },
++  { X86::XOR8rm_ND, X86::XOR8rm },
++  { X86::XOR8rr_ND, X86::XOR8rr },
++  { X86::XOR8rr_ND_REV, X86::XOR8rr_REV },
++};
++
++// NDD encoded instructions that have a Legacy Bit16 encoding
++// (table format: <NDD opcode, X86-Bit16 opcode>).
++static const X86EvexToVexCompressTableEntry ND2NonNDBit16CompressTable[] = {
++  // NDD scalar with corresponding X86.
++  { X86::ADC16ri8_ND, X86::ADC16ri8 },
++  { X86::ADC16ri_ND, X86::ADC16ri },
++  { X86::ADC16rm_ND, X86::ADC16rm },
++  { X86::ADC16rr_ND, X86::ADC16rr },
++  { X86::ADC16rr_ND_REV, X86::ADC16rr_REV },
++  { X86::ADD16ri8_ND, X86::ADD16ri8 },
++  { X86::ADD16ri_ND, X86::ADD16ri },
++  { X86::ADD16rm_ND, X86::ADD16rm },
++  { X86::ADD16rr_ND, X86::ADD16rr },
++  { X86::ADD16rr_ND_REV, X86::ADD16rr_REV },
++  { X86::AND16ri8_ND, X86::AND16ri8 },
++  { X86::AND16ri_ND, X86::AND16ri },
++  { X86::AND16rm_ND, X86::AND16rm },
++  { X86::AND16rr_ND, X86::AND16rr },
++  { X86::AND16rr_ND_REV, X86::AND16rr_REV },
++  { X86::CMOV16rm_ND, X86::CMOV16rm },
++  { X86::CMOV16rr_ND, X86::CMOV16rr },
++  { X86::DEC16r_ND, X86::DEC16r },
++  { X86::IMUL16rm_ND, X86::IMUL16rm },
++  { X86::IMUL16rr_ND, X86::IMUL16rr },
++  { X86::INC16r_ND, X86::INC16r },
++  { X86::NEG16r_ND, X86::NEG16r },
++  { X86::NOT16r_ND, X86::NOT16r },
++  { X86::OR16ri8_ND, X86::OR16ri8 },
++  { X86::OR16ri_ND, X86::OR16ri },
++  { X86::OR16rm_ND, X86::OR16rm },
++  { X86::OR16rr_ND, X86::OR16rr },
++  { X86::OR16rr_ND_REV, X86::OR16rr_REV },
++  { X86::RCL16r1_ND, X86::RCL16r1 },
++  { X86::RCL16rCL_ND, X86::RCL16rCL },
++  { X86::RCL16ri_ND, X86::RCL16ri },
++  { X86::RCR16r1_ND, X86::RCR16r1 },
++  { X86::RCR16rCL_ND, X86::RCR16rCL },
++  { X86::RCR16ri_ND, X86::RCR16ri },
++  { X86::ROL16r1_ND, X86::ROL16r1 },
++  { X86::ROL16rCL_ND, X86::ROL16rCL },
++  { X86::ROL16ri_ND, X86::ROL16ri },
++  { X86::ROR16r1_ND, X86::ROR16r1 },
++  { X86::ROR16rCL_ND, X86::ROR16rCL },
++  { X86::ROR16ri_ND, X86::ROR16ri },
++  { X86::SAR16r1_ND, X86::SAR16r1 },
++  { X86::SAR16rCL_ND, X86::SAR16rCL },
++  { X86::SAR16ri_ND, X86::SAR16ri },
++  { X86::SBB16ri8_ND, X86::SBB16ri8 },
++  { X86::SBB16ri_ND, X86::SBB16ri },
++  { X86::SBB16rm_ND, X86::SBB16rm },
++  { X86::SBB16rr_ND, X86::SBB16rr },
++  { X86::SBB16rr_ND_REV, X86::SBB16rr_REV },
++  { X86::SHL16r1_ND, X86::SHL16r1 },
++  { X86::SHL16rCL_ND, X86::SHL16rCL },
++  { X86::SHL16ri_ND, X86::SHL16ri },
++  { X86::SHLD16rrCL_ND, X86::SHLD16rrCL },
++  { X86::SHLD16rri8_ND, X86::SHLD16rri8 },
++  { X86::SHR16r1_ND, X86::SHR16r1 },
++  { X86::SHR16rCL_ND, X86::SHR16rCL },
++  { X86::SHR16ri_ND, X86::SHR16ri },
++  { X86::SHRD16rrCL_ND, X86::SHRD16rrCL },
++  { X86::SHRD16rri8_ND, X86::SHRD16rri8 },
++  { X86::SUB16ri8_ND, X86::SUB16ri8 },
++  { X86::SUB16ri_ND, X86::SUB16ri },
++  { X86::SUB16rm_ND, X86::SUB16rm },
++  { X86::SUB16rr_ND, X86::SUB16rr },
++  { X86::SUB16rr_ND_REV, X86::SUB16rr_REV },
++  { X86::XOR16ri8_ND, X86::XOR16ri8 },
++  { X86::XOR16ri_ND, X86::XOR16ri },
++  { X86::XOR16rm_ND, X86::XOR16rm },
++  { X86::XOR16rr_ND, X86::XOR16rr },
++  { X86::XOR16rr_ND_REV, X86::XOR16rr_REV },
++};
++
++// NDD encoded instructions that have a Legacy Bit32 encoding
++// (table format: <NDD opcode, X86-Bit32 opcode>).
++static const X86EvexToVexCompressTableEntry ND2NonNDBit32CompressTable[] = {
++  // NDD scalar with corresponding X86.
++  { X86::ADC32ri8_ND, X86::ADC32ri8 },
++  { X86::ADC32ri_ND, X86::ADC32ri },
++  { X86::ADC32rm_ND, X86::ADC32rm },
++  { X86::ADC32rr_ND, X86::ADC32rr },
++  { X86::ADC32rr_ND_REV, X86::ADC32rr_REV },
++  { X86::ADCX32rm_ND, X86::ADCX32rm },
++  { X86::ADCX32rr_ND, X86::ADCX32rr },
++  { X86::ADD32ri8_ND, X86::ADD32ri8 },
++  { X86::ADD32ri_ND, X86::ADD32ri },
++  { X86::ADD32rm_ND, X86::ADD32rm },
++  { X86::ADD32rr_ND, X86::ADD32rr },
++  { X86::ADD32rr_ND_REV, X86::ADD32rr_REV },
++  { X86::ADOX32rm_ND, X86::ADOX32rm },
++  { X86::ADOX32rr_ND, X86::ADOX32rr },
++  { X86::AND32ri8_ND, X86::AND32ri8 },
++  { X86::AND32ri_ND, X86::AND32ri },
++  { X86::AND32rm_ND, X86::AND32rm },
++  { X86::AND32rr_ND, X86::AND32rr },
++  { X86::AND32rr_ND_REV, X86::AND32rr_REV },
++  { X86::CMOV32rm_ND, X86::CMOV32rm },
++  { X86::CMOV32rr_ND, X86::CMOV32rr },
++  { X86::DEC32r_ND, X86::DEC32r },
++  { X86::IMUL32rm_ND, X86::IMUL32rm },
++  { X86::IMUL32rr_ND, X86::IMUL32rr },
++  { X86::INC32r_ND, X86::INC32r },
++  { X86::NEG32r_ND, X86::NEG32r },
++  { X86::NOT32r_ND, X86::NOT32r },
++  { X86::OR32ri8_ND, X86::OR32ri8 },
++  { X86::OR32ri_ND, X86::OR32ri },
++  { X86::OR32rm_ND, X86::OR32rm },
++  { X86::OR32rr_ND, X86::OR32rr },
++  { X86::OR32rr_ND_REV, X86::OR32rr_REV },
++  { X86::RCL32r1_ND, X86::RCL32r1 },
++  { X86::RCL32rCL_ND, X86::RCL32rCL },
++  { X86::RCL32ri_ND, X86::RCL32ri },
++  { X86::RCR32r1_ND, X86::RCR32r1 },
++  { X86::RCR32rCL_ND, X86::RCR32rCL },
++  { X86::RCR32ri_ND, X86::RCR32ri },
++  { X86::ROL32r1_ND, X86::ROL32r1 },
++  { X86::ROL32rCL_ND, X86::ROL32rCL },
++  { X86::ROL32ri_ND, X86::ROL32ri },
++  { X86::ROR32r1_ND, X86::ROR32r1 },
++  { X86::ROR32rCL_ND, X86::ROR32rCL },
++  { X86::ROR32ri_ND, X86::ROR32ri },
++  { X86::SAR32r1_ND, X86::SAR32r1 },
++  { X86::SAR32rCL_ND, X86::SAR32rCL },
++  { X86::SAR32ri_ND, X86::SAR32ri },
++  { X86::SBB32ri8_ND, X86::SBB32ri8 },
++  { X86::SBB32ri_ND, X86::SBB32ri },
++  { X86::SBB32rm_ND, X86::SBB32rm },
++  { X86::SBB32rr_ND, X86::SBB32rr },
++  { X86::SBB32rr_ND_REV, X86::SBB32rr_REV },
++  { X86::SHL32r1_ND, X86::SHL32r1 },
++  { X86::SHL32rCL_ND, X86::SHL32rCL },
++  { X86::SHL32ri_ND, X86::SHL32ri },
++  { X86::SHLD32rrCL_ND, X86::SHLD32rrCL },
++  { X86::SHLD32rri8_ND, X86::SHLD32rri8 },
++  { X86::SHR32r1_ND, X86::SHR32r1 },
++  { X86::SHR32rCL_ND, X86::SHR32rCL },
++  { X86::SHR32ri_ND, X86::SHR32ri },
++  { X86::SHRD32rrCL_ND, X86::SHRD32rrCL },
++  { X86::SHRD32rri8_ND, X86::SHRD32rri8 },
++  { X86::SUB32ri8_ND, X86::SUB32ri8 },
++  { X86::SUB32ri_ND, X86::SUB32ri },
++  { X86::SUB32rm_ND, X86::SUB32rm },
++  { X86::SUB32rr_ND, X86::SUB32rr },
++  { X86::SUB32rr_ND_REV, X86::SUB32rr_REV },
++  { X86::XOR32ri8_ND, X86::XOR32ri8 },
++  { X86::XOR32ri_ND, X86::XOR32ri },
++  { X86::XOR32rm_ND, X86::XOR32rm },
++  { X86::XOR32rr_ND, X86::XOR32rr },
++  { X86::XOR32rr_ND_REV, X86::XOR32rr_REV },
++};
++
++// NDD encoded instructions that have a Legacy Bit64 encoding
++// (table format: <NDD opcode, X86-Bit64 opcode>).
++static const X86EvexToVexCompressTableEntry ND2NonNDBit64CompressTable[] = {
++  // NDD scalar with corresponding X86.
++  { X86::ADC64ri32_ND, X86::ADC64ri32 },
++  { X86::ADC64ri8_ND, X86::ADC64ri8 },
++  { X86::ADC64rm_ND, X86::ADC64rm },
++  { X86::ADC64rr_ND, X86::ADC64rr },
++  { X86::ADC64rr_ND_REV, X86::ADC64rr_REV },
++  { X86::ADCX64rm_ND, X86::ADCX64rm },
++  { X86::ADCX64rr_ND, X86::ADCX64rr },
++  { X86::ADD64ri32_ND, X86::ADD64ri32 },
++  { X86::ADD64ri8_ND, X86::ADD64ri8 },
++  { X86::ADD64rm_ND, X86::ADD64rm },
++  { X86::ADD64rr_ND, X86::ADD64rr },
++  { X86::ADD64rr_ND_REV, X86::ADD64rr_REV },
++  { X86::ADOX64rm_ND, X86::ADOX64rm },
++  { X86::ADOX64rr_ND, X86::ADOX64rr },
++  { X86::AND64ri32_ND, X86::AND64ri32 },
++  { X86::AND64ri8_ND, X86::AND64ri8 },
++  { X86::AND64rm_ND, X86::AND64rm },
++  { X86::AND64rr_ND, X86::AND64rr },
++  { X86::AND64rr_ND_REV, X86::AND64rr_REV },
++  { X86::CMOV64rm_ND, X86::CMOV64rm },
++  { X86::CMOV64rr_ND, X86::CMOV64rr },
++  { X86::DEC64r_ND, X86::DEC64r },
++  { X86::IMUL64rm_ND, X86::IMUL64rm },
++  { X86::IMUL64rr_ND, X86::IMUL64rr },
++  { X86::INC64r_ND, X86::INC64r },
++  { X86::NEG64r_ND, X86::NEG64r },
++  { X86::NOT64r_ND, X86::NOT64r },
++  { X86::OR64ri32_ND, X86::OR64ri32 },
++  { X86::OR64ri8_ND, X86::OR64ri8 },
++  { X86::OR64rm_ND, X86::OR64rm },
++  { X86::OR64rr_ND, X86::OR64rr },
++  { X86::OR64rr_ND_REV, X86::OR64rr_REV },
++  { X86::RCL64r1_ND, X86::RCL64r1 },
++  { X86::RCL64rCL_ND, X86::RCL64rCL },
++  { X86::RCL64ri_ND, X86::RCL64ri },
++  { X86::RCR64r1_ND, X86::RCR64r1 },
++  { X86::RCR64rCL_ND, X86::RCR64rCL },
++  { X86::RCR64ri_ND, X86::RCR64ri },
++  { X86::ROL64r1_ND, X86::ROL64r1 },
++  { X86::ROL64rCL_ND, X86::ROL64rCL },
++  { X86::ROL64ri_ND, X86::ROL64ri },
++  { X86::ROR64r1_ND, X86::ROR64r1 },
++  { X86::ROR64rCL_ND, X86::ROR64rCL },
++  { X86::ROR64ri_ND, X86::ROR64ri },
++  { X86::SAR64r1_ND, X86::SAR64r1 },
++  { X86::SAR64rCL_ND, X86::SAR64rCL },
++  { X86::SAR64ri_ND, X86::SAR64ri },
++  { X86::SBB64ri32_ND, X86::SBB64ri32 },
++  { X86::SBB64ri8_ND, X86::SBB64ri8 },
++  { X86::SBB64rm_ND, X86::SBB64rm },
++  { X86::SBB64rr_ND, X86::SBB64rr },
++  { X86::SBB64rr_ND_REV, X86::SBB64rr_REV },
++  { X86::SHL64r1_ND, X86::SHL64r1 },
++  { X86::SHL64rCL_ND, X86::SHL64rCL },
++  { X86::SHL64ri_ND, X86::SHL64ri },
++  { X86::SHLD64rrCL_ND, X86::SHLD64rrCL },
++  { X86::SHLD64rri8_ND, X86::SHLD64rri8 },
++  { X86::SHR64r1_ND, X86::SHR64r1 },
++  { X86::SHR64rCL_ND, X86::SHR64rCL },
++  { X86::SHR64ri_ND, X86::SHR64ri },
++  { X86::SHRD64rrCL_ND, X86::SHRD64rrCL },
++  { X86::SHRD64rri8_ND, X86::SHRD64rri8 },
++  { X86::SUB64ri32_ND, X86::SUB64ri32 },
++  { X86::SUB64ri8_ND, X86::SUB64ri8 },
++  { X86::SUB64rm_ND, X86::SUB64rm },
++  { X86::SUB64rr_ND, X86::SUB64rr },
++  { X86::SUB64rr_ND_REV, X86::SUB64rr_REV },
++  { X86::XOR64ri32_ND, X86::XOR64ri32 },
++  { X86::XOR64ri8_ND, X86::XOR64ri8 },
++  { X86::XOR64rm_ND, X86::XOR64rm },
++  { X86::XOR64rr_ND, X86::XOR64rr },
++  { X86::XOR64rr_ND_REV, X86::XOR64rr_REV },
++};
++
+// end INTEL_FEATURE_XISA_COMMON
