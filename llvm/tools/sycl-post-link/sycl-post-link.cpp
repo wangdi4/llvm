@@ -839,11 +839,7 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
     FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
-  if (!MD.getModule().getContext().supportsTypedPointers()) {
-    MPM.addPass(ESIMDOptimizeVecArgCallConvPass{});
-  } else {
-    MPM.addPass(ESIMDLowerVecArgPass{});
-  }
+  MPM.addPass(ESIMDOptimizeVecArgCallConvPass{});
   FunctionPassManager MainFPM;
   MainFPM.addPass(ESIMDLowerLoadStorePass{});
 

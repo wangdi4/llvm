@@ -213,15 +213,16 @@ namespace {
       (void) llvm::createExpandLargeDivRemPass();
       (void) llvm::createExpandMemCmpPass();
       (void) llvm::createExpandVectorPredicationPass();
+#if INTEL_CUSTOMIZATION
       (void)llvm::createSYCLLowerWGScopePass();
       (void)llvm::createSYCLLowerESIMDPass();
       (void)llvm::createESIMDLowerLoadStorePass();
-      (void)llvm::createESIMDLowerVecArgPass();
       (void)llvm::createESIMDVerifierPass();
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       (void)llvm::createESIMDVerifierPass();
       (void)llvm::createSYCLLowerInvokeSimdPass();
+#endif // INTEL_CUSTOMIZATION
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
