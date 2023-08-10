@@ -19,7 +19,8 @@
 ; }
 
 ; Make sure that we generate two critical sections for the reduction update,
-; one for "distribute parallel for" and another for "teams":
+; one for "distribute parallel for" and another for "teams".
+; We generate a call "__kmpc_critical_simd" for the teams region now.
 ; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK-DAG: [[CMP0:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID0]], 0
 ; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 1)
@@ -31,8 +32,8 @@
 ; CHECK: call spir_func void @__kmpc_critical
 ; CHECK: br i1 [[PRED]], label %[[MASTERCODE1:[a-zA-Z._0-9]+]], label %[[FALLTHRU1:[a-zA-Z._0-9]+]]
 ; CHECK: [[MASTERCODE1]]:
-; CHECK: call spir_func void @__kmpc_critical
-; CHECK: call spir_func void @__kmpc_end_critical
+; CHECK: call spir_func void @__kmpc_critical_simd
+; CHECK: call spir_func void @__kmpc_end_critical_simd
 ; CHECK: br label %[[FALLTHRU1]]
 ; CHECK: [[FALLTHRU1]]:
 ; CHECK-NOT: call spir_func void @__kmpc_critical
