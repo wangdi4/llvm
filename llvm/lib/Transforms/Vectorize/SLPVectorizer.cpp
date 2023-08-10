@@ -10046,6 +10046,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         VecCost += TTI->getCastInstrCost(E->getAltOpcode(), VecTy, Src1Ty,
                                          TTI::CastContextHint::None, CostKind);
       }
+<<<<<<< HEAD
       if (E->ReuseShuffleIndices.empty()) {
         VecCost +=
             TTI->getShuffleCost(TargetTransformInfo::SK_Select, FinalVecTy);
@@ -10069,6 +10070,18 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
                                        FinalVecTy, Mask);
       }
+=======
+      SmallVector<int> Mask;
+      buildShuffleEntryMask(
+          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
+          [E](Instruction *I) {
+            assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
+            return I->getOpcode() == E->getAltOpcode();
+          },
+          Mask);
+      VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
+                                     FinalVecTy, Mask);
+>>>>>>> c619222ea43eb309f2ee2ff5d63a7056cd7d1c7a
       return VecCost;
     };
     return GetCostDiff(GetScalarCost, GetVectorCost);
