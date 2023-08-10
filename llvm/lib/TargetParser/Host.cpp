@@ -1822,8 +1822,12 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // EAX from subleaf 0 is the maximum subleaf supported. Some CPUs don't
   // return all 0s for invalid subleaves so check the limit.
   bool HasLeaf7Subleaf1 =
+<<<<<<< HEAD
       HasLeaf7 && EAX >= 1 &&
       !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+=======
+      MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+>>>>>>> df83784392c67df14f6c3c68f86587e27f8e7fc1
   Features["sha512"]     = HasLeaf7Subleaf1 && ((EAX >> 0) & 1);
   Features["sm3"]        = HasLeaf7Subleaf1 && ((EAX >> 1) & 1);
   Features["sm4"]        = HasLeaf7Subleaf1 && ((EAX >> 2) & 1);
