@@ -84,7 +84,7 @@ static void MLPGOInferFunction(Module *M, Function &F, CallGraph &CG,
   std::set<std::pair<const BasicBlock *, const BasicBlock *>> BackEdgesSet;
 
   FindFunctionBackedges(F, BackEdges);
-  for (auto BackEdge : BackEdges)
+  for (auto &BackEdge : BackEdges)
     BackEdgesSet.insert(BackEdge);
 
   mlpgo::ProcedureType ProcType;
@@ -101,7 +101,7 @@ static void MLPGOInferFunction(Module *M, Function &F, CallGraph &CG,
 
     std::optional<mlpgo::MLBrFeatureVec> IF =
         mlpgo::ExtractInstFeatures(TI, F, ProcType, LI, DT, PostDT, Scc,
-                                   BackEdgesSet, Parameter, &BPI, &BPI, true);
+                                   BackEdgesSet, Parameter, BPI, BPI, true);
 
     if (!IF)
       continue;
