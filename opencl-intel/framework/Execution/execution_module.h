@@ -435,6 +435,10 @@ private:
       cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
       cl_event *event, Utils::ApiLogger *api_logger, cl_command_type cmdType);
 
+  // Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
+  // remove it from kernel-event map.
+  void callbackForKernelEventMap(cl_event Evt);
+
   ContextModule *m_pContextModule; // Pointer to the context operation. This is
                                    // the internal interface of the module.
   OCLObjectsMap<_cl_command_queue_int, _cl_context_int>
@@ -456,6 +460,9 @@ private:
 
   // Whether parallel copy is enabled.
   bool m_enableParallelCopy = false;
+
+  /// Sync for the access of ExecutionModule::m_OclKernelEventMap
+  std::mutex KernelEventMutex;
 
   DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 };
