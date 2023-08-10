@@ -18,7 +18,7 @@
 #define __TBB_test_common_utils_yield_H
 
 #include "config.h"
-#include <oneapi/tbb/detail/_machine.h>
+#include "oneapi/tbb/detail/_machine.h"
 
 namespace utils {
 #if __TBB_GLIBCXX_THIS_THREAD_YIELD_BROKEN

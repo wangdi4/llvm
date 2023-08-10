@@ -13,9 +13,10 @@
 // License.
 
 #include "cl_user_logger.h"
+
+#include "CL/cl_ext.h"
 #include "cl_config.h"
 #include "cl_sys_defines.h"
-#include <CL/cl_ext.h>
 #include <algorithm>
 #include <cassert>
 #include <ctime>

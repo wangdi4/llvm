@@ -18,12 +18,11 @@
 #include "cl_shutdown.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
-
+#include "tbb/task_arena.h"
+#include "tbb/task_group.h"
+#include "tbb/task_scheduler_observer.h"
 #include <atomic>
 #include <mutex>
-#include <tbb/task_arena.h>
-#include <tbb/task_group.h>
-#include <tbb/task_scheduler_observer.h>
 #include <vector>
 
 #ifdef DEVICE_NATIVE

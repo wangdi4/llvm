@@ -21,9 +21,8 @@
 #ifndef HARNESS_TRAPPER_H
 #include "spin_barrier.h"
 #include "task_group_with_reference.h"
-
-#include <tbb/task_arena.h>
-#include <tbb/task_group.h>
+#include "tbb/task_arena.h"
+#include "tbb/task_group.h"
 
 #ifndef ASSERT
 #define ASSERT __TBB_ASSERT

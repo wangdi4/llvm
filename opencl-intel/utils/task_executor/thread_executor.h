@@ -16,15 +16,15 @@
 
 #ifdef __THREAD_EXECUTOR__
 
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
 #include "cl_synch_objects.h"
 #include "task_executor.h"
 
 #include <list>
 #include <queue>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #define MAX_WORKING_THREADS_COUNT                                              \
   128 // We're assuming that there won't be more than 128 working

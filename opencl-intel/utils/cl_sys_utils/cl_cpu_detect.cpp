@@ -17,7 +17,6 @@
 #include "hw_utils.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/TargetParser/Host.h"
-
 #include <map>
 
 using namespace Intel::OpenCL::Utils;

@@ -12,25 +12,23 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+
+#include "cl_sys_defines.h"
 #include "cl_utils.h"
-
-#if _MSC_VER == 1600
-#include <intrin.h>
-#endif
-
-#include <algorithm>
-#include <bitset>
-#include <vector>
-
-#include <assert.h>
-#include <powrprof.h>
-#include <windows.h>
-
 #include "llvm/Support/Path.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/Triple.h"
+
+#include <algorithm>
+#include <assert.h>
+#include <bitset>
+#if _MSC_VER == 1600
+#include <intrin.h>
+#endif
+#include <powrprof.h>
+#include <vector>
+#include <windows.h>
 
 using namespace llvm;
 using namespace llvm::sys;
