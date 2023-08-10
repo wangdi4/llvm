@@ -10046,29 +10046,24 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         VecCost += TTI->getCastInstrCost(E->getAltOpcode(), VecTy, Src1Ty,
                                          TTI::CastContextHint::None, CostKind);
       }
-      if (E->ReuseShuffleIndices.empty()) {
-        VecCost +=
-            TTI->getShuffleCost(TargetTransformInfo::SK_Select, FinalVecTy);
-      } else {
-        SmallVector<int> Mask;
+      SmallVector<int> Mask;
 #if INTEL_CUSTOMIZATION
-        // If tree entry is a MultiNode trunk with frontiers and reordering
-        // modified any opcodes this will build the alternate mask taking into
-        // account these overrides.
-        // This could be a much better glue up if buildShuffleEntryMask was
-        // a TreeEntry member.
-        if (!E->buildAltShuffleMask(Mask))
+      // If tree entry is a MultiNode trunk with frontiers and reordering
+      // modified any opcodes this will build the alternate mask taking into
+      // account these overrides.
+      // This could be a much better glue up if buildShuffleEntryMask was
+      // a TreeEntry member.
+      if (!E->buildAltShuffleMask(Mask))
 #endif // INTEL_CUSTOMIZATION
-        buildShuffleEntryMask(
-            E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
-            [E](Instruction *I) {
-              assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
-              return I->getOpcode() == E->getAltOpcode();
-            },
-            Mask);
-        VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
-                                       FinalVecTy, Mask);
-      }
+      buildShuffleEntryMask(
+          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
+          [E](Instruction *I) {
+            assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
+            return I->getOpcode() == E->getAltOpcode();
+          },
+          Mask);
+      VecCost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
+                                     FinalVecTy, Mask);
       return VecCost;
     };
     return GetCostDiff(GetScalarCost, GetVectorCost);
