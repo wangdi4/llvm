@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <builtin_kernels.h>
-#include <cl_dynamic_lib.h>
-#include <cl_types.h>
+#include "builtin_kernels.h"
+#include "cl_dynamic_lib.h"
+#include "cl_types.h"
 
 #include <mkl_cblas.h>
 #include <mkl_types.h>

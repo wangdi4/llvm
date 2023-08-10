@@ -14,16 +14,15 @@
 
 #pragma once
 
+#include "ICLDevBackendProgram.h"
+#include "cl_device_api.h"
+#include "cl_synch_objects.h"
+#include "cl_thread.h"
+#include "task_executor.h"
+
 #include <map>
 #include <string>
 #include <vector>
-
-#include <ICLDevBackendProgram.h>
-#include <cl_device_api.h>
-#include <task_executor.h>
-
-#include <cl_synch_objects.h>
-#include <cl_thread.h>
 
 namespace Intel {
 namespace OpenCL {

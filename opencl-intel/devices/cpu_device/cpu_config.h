@@ -14,11 +14,10 @@
 
 #pragma once
 
-#include <mutex>
-#include <vector>
-
 #include "ICLDevBackendOptions.h"
 #include "cl_config.h"
+#include <mutex>
+#include <vector>
 
 /*******************************************************************************
  * Configuration keys

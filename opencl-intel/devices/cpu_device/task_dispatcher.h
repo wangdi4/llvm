@@ -14,15 +14,15 @@
 
 #pragma once
 
+#include "builtin_kernels.h"
 #include "cl_device_api.h"
+#include "cl_thread.h"
 #include "cpu_config.h"
 #include "dispatcher_commands.h"
 #include "handle_allocator.h"
 #include "memory_allocator.h"
 #include "program_service.h"
 #include "task_executor.h"
-#include <builtin_kernels.h>
-#include <cl_thread.h>
 
 #include <atomic>
 #include <list>
