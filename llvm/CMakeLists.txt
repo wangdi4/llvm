@@ -992,6 +992,22 @@ if (UWD_BUILD)
     set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmtd.lib libvcruntimed.lib libucrtd.lib"
         CACHE STRING "Building with OneCore.lib" FORCE)
   endif()
+  if (LLVM_BUILD_32_BITS)
+    # FIXME: This is a workaround to make sure "/MD[d]" are replaced by "/MT[d]"
+    # for windows 32bit build. Because upstream clean up old code for handling MSVC
+    # runtime setting in commit 9f4dfcb795bb. 
+    # CMP0091 policy introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
+    # MSVC runtime library. After it is enabled, this should be
+    # removed, and use CMAKE_MSVC_RUNTIME_LIBRARY to set MSVC runtime flag.
+    foreach(flag_var
+      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "[/-]MDd" "/MTd" ${flag_var} "${${flag_var}}")
+      string(REGEX REPLACE "[/-]MD" "/MT" ${flag_var} "${${flag_var}}")
+    endforeach()
+  endif()
 endif()
 #end INTEL_CUSTOMIZATION
 if(WIN32 OR CYGWIN)
