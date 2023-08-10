@@ -4297,9 +4297,6 @@ private:
       return FoundLane;
     }
 
-<<<<<<< HEAD
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
-=======
     /// Build a shuffle mask for graph entry which represents a merge of main
     /// and alternate operations.
     void
@@ -4308,8 +4305,7 @@ private:
                           SmallVectorImpl<Value *> *OpScalars = nullptr,
                           SmallVectorImpl<Value *> *AltScalars = nullptr) const;
 
-#ifndef NDEBUG
->>>>>>> f522be63bcdc8498419cc26ef1e6258f547c3ba4
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
     /// Debug printer.
     LLVM_DUMP_METHOD void dump() const {
       dbgs() << Idx << ".\n";
@@ -10054,7 +10050,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
                                          TTI::CastContextHint::None, CostKind);
       }
       SmallVector<int> Mask;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // If tree entry is a MultiNode trunk with frontiers and reordering
       // modified any opcodes this will build the alternate mask taking into
@@ -10063,11 +10058,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       // a TreeEntry member.
       if (!E->buildAltShuffleMask(Mask))
 #endif // INTEL_CUSTOMIZATION
-      buildShuffleEntryMask(
-          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
-=======
       E->buildAltOpShuffleMask(
->>>>>>> f522be63bcdc8498419cc26ef1e6258f547c3ba4
           [E](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
             return I->getOpcode() == E->getAltOpcode();
@@ -13055,7 +13046,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       // each vector operation.
       ValueList OpScalars, AltScalars;
       SmallVector<int> Mask;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // If tree entry is a MultiNode trunk with frontiers and reordering
       // modified any opcodes this will build the alternate mask taking into
@@ -13064,11 +13054,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       // a TreeEntry member.
       if (!E->buildAltShuffleMask(Mask, &OpScalars, &AltScalars))
 #endif // INTEL_CUSTOMIZATION
-      buildShuffleEntryMask(
-          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
-=======
       E->buildAltOpShuffleMask(
->>>>>>> f522be63bcdc8498419cc26ef1e6258f547c3ba4
           [E, this](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
             return isAlternateInstruction(I, E->getMainOp(), E->getAltOp(),
