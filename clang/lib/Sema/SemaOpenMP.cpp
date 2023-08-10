@@ -6440,6 +6440,11 @@ bool Sema::mapLoopConstruct(llvm::SmallVector<OMPClause *> &ClausesWithoutBind,
 
   bool UseClausesWithoutBind = false;
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPLateOutline)
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Restricting to "#pragma omp loop bind"
   if (getLangOpts().OpenMP >= 50 && Kind == OMPD_loop) {
     if (BindKind == OMPC_BIND_unknown) {
