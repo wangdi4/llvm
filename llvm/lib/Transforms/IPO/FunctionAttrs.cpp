@@ -1831,14 +1831,10 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 
 template <typename AARGetterT>
 static SmallSet<Function *, 8>
-<<<<<<< HEAD
 deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
-                                   AARGetterT &&AARGetter,     // INTEL
-                                   WholeProgramInfo *WPInfo) { // INTEL
-=======
-deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter,
+                       AARGetterT &&AARGetter,   // INTEL
+                       WholeProgramInfo *WPInfo, // INTEL
                        bool ArgAttrsOnly) {
->>>>>>> c1803d5366c794ecade4e4ccd0013690a1976d49
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
 
   // Bail if the SCC only contains optnone functions.
@@ -1929,14 +1925,10 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
 #endif // INTEL_CUSTOMIZATION
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter, WPInfo);
-#endif // INTEL_CUSTOMIZATION
-=======
   auto ChangedFunctions =
-      deriveAttrsInPostOrder(Functions, AARGetter, ArgAttrsOnly);
->>>>>>> c1803d5366c794ecade4e4ccd0013690a1976d49
+      deriveAttrsInPostOrder(Functions, AARGetter, WPInfo, ArgAttrsOnly);
+#endif // INTEL_CUSTOMIZATION
   if (ChangedFunctions.empty())
     return PreservedAnalyses::all();
 
