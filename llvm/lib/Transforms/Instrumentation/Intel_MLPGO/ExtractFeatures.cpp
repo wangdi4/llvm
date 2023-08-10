@@ -447,7 +447,7 @@ bool isLoopEntering(const LoopInfo &LI,
 }
 
 void ExtractSuccessorFeatures(
-    const BranchProbabilityInfo *BPI, const BranchProbabilityInfo *OldBPI,
+    const BranchProbabilityInfo &BPI, const BranchProbabilityInfo &OldBPI,
     const BasicBlock *Src, const BasicBlock *Dst, const LoopInfo &LI,
     const DominatorTree &DT, const PostDominatorTree &PostDT,
     const BranchProbabilityInfo::SccInfo &Scc,
@@ -516,8 +516,8 @@ void ExtractSuccessorFeatures(
 
   // Estimated Weight Feature detection
 
-  std::optional<uint32_t> Weight =
-      BPI->getLLVMEstimatedWeight(Src, Dst, isLoopEntering(LI, Scc, Src, Dst));
+  std::optional<uint32_t> Weight;
+  BPI.getLLVMEstimatedWeight(Src, Dst, isLoopEntering(LI, Scc, Src, Dst));
 
   SuccFeatures.SuccessorEstimatedWeight =
       Weight.value_or(static_cast<uint32_t>(0x3));
@@ -583,8 +583,8 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
     const LoopInfo &LI, const DominatorTree &DT,
     const PostDominatorTree &PostDT, const BranchProbabilityInfo::SccInfo &Scc,
     std::set<std::pair<const BasicBlock *, const BasicBlock *>> BackEdgesSet,
-    mlpgo::Parameters &Parameter, const BranchProbabilityInfo *OldBPI,
-    const BranchProbabilityInfo *BPI, bool IsInference) {
+    mlpgo::Parameters &Parameter, const BranchProbabilityInfo &OldBPI,
+    const BranchProbabilityInfo &BPI, bool IsInference) {
 
   TerminatorInst BRI(Terminator);
   const auto *BB = Terminator->getParent();
@@ -674,7 +674,7 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
   auto *L = LI.getLoopFor(BB);
   SmallPtrSet<const BasicBlock *, 8> UnlikelyBlocks;
   if (L) {
-    BPI->computeUnlikelySuccessorsWrapper(BB, L, UnlikelyBlocks);
+    BPI.computeUnlikelySuccessorsWrapper(BB, L, UnlikelyBlocks);
 
     SrcBBFeatures.srcLoopBlockSize = L->getNumBlocks();
 
@@ -720,13 +720,11 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
 
     // information like branch probability and dominate relationship, conducted
     // by Dominator tree or etc.
-    auto BP =
-        BPI ? BPI->getEdgeProbability(BB, Dst) : BranchProbability::getZero();
+    auto BP = BPI.getEdgeProbability(BB, Dst);
 
     FeaturesVec.getSuccExtraFeatures(Succ).SuccBP = BP.getNumerator();
 
-    auto EdgeProb = OldBPI ? OldBPI->getEdgeProbability(BB, Dst)
-                           : BranchProbability::getZero();
+    auto EdgeProb = OldBPI.getEdgeProbability(BB, Dst);
 
     FeaturesVec.getSuccExtraFeatures(Succ).SuccessorPredicateBB =
         EdgeProb.getNumerator();
@@ -862,9 +860,8 @@ void ExtractFeatures(Function &F, mlpgo::Parameters &Parameter,
   std::set<std::pair<const BasicBlock *, const BasicBlock *>> BackEdgesSet;
 
   FindFunctionBackedges(F, BackEdges);
-  for (auto BackEdge : BackEdges) {
+  for (auto &BackEdge : BackEdges)
     BackEdgesSet.insert(BackEdge);
-  }
 
   unsigned int EdgesCountInCFG = 0;
 
@@ -889,7 +886,7 @@ void ExtractFeatures(Function &F, mlpgo::Parameters &Parameter,
     // extract other features like branch direction ...
     std::optional<mlpgo::MLBrFeatureVec> IF =
         ExtractInstFeatures(Terminator, F, ProcType, LI, DT, PostDT, Scc,
-                            BackEdgesSet, Parameter, &OldBPI, &BPI);
+                            BackEdgesSet, Parameter, OldBPI, BPI);
     if (IF) {
       IF->getSrcBBFeatures().srcFunctionEdgesSize = EdgesCountInCFG;
       IF->setBBCount(BBCountValueMap[&BB]);
