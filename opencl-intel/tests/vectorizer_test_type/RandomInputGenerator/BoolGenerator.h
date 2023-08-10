@@ -8,9 +8,8 @@
 #ifndef BOOLGENERATOR_H_
 #define BOOLGENERATOR_H_
 
-#include <limits>
-
 #include "Generator.h"
+#include <limits>
 
 template <class T> class BoolGenerator : public Generator<T> {
 public:

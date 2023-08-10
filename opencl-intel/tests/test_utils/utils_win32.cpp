@@ -10,13 +10,12 @@
 
 #include "common_utils.h"
 
+#include <Psapi.h>
 #include <assert.h>
 #include <climits>
 #include <fstream>
 #include <string>
 #include <vector>
-
-#include <Psapi.h>
 #include <windows.h>
 
 bool GetEnv(std::string &result, const std::string &name) {

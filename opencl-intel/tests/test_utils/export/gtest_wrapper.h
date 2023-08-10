@@ -17,7 +17,7 @@
 #pragma clang diagnostic ignored "-Wsuggest-override"
 #pragma clang diagnostic ignored "-Wsign-compare"
 #endif
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif

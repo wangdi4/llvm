@@ -17,13 +17,12 @@
 #include "cl_sys_info.h"
 #include "cl_types.h"
 #include "cl_utils.h"
+#include "gtest_wrapper.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-
-#include "gtest_wrapper.h"
 
 #ifdef _WIN32
 #include <windows.h>

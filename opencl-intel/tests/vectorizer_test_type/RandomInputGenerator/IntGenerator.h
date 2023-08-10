@@ -8,9 +8,8 @@
 #ifndef INTGENERATOR_H_
 #define INTGENERATOR_H_
 
-#include <limits>
-
 #include "Generator.h"
+#include <limits>
 
 using std::numeric_limits;
 
