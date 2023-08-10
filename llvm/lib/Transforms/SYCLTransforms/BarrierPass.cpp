@@ -34,6 +34,26 @@
 
 using namespace llvm;
 
+extern bool EnableTLSGlobals;
+
+bool EnableNativeDebug;
+static cl::opt<bool, true>
+    OptEnableNativeDebug("enable-native-debug", cl::location(EnableNativeDebug),
+                         cl::init(false), cl::Hidden,
+                         cl::desc("enable native debug"));
+
+KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
+    : DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr), I32Ty(nullptr),
+      UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals),
+      LocalIdAllocTy(nullptr), LocalIds(nullptr), LocalIdArrayTy(nullptr),
+      ConstZero(nullptr), ConstOne(nullptr), AllocaValues(nullptr),
+      SpecialValues(nullptr), CrossBarrierValues(nullptr),
+      SyncInstructions(nullptr), DPV(nullptr), DPB(nullptr),
+      CurrentFunction(nullptr), CurrentBarrierKeyValues(nullptr),
+      IsNativeDBG(IsNativeDebug || OptEnableNativeDebug) {
+  std::fill(PtrLocalId, PtrLocalId + MAX_WORK_DIM, nullptr);
+}
+
 PreservedAnalyses KernelBarrier::run(Module &M, ModuleAnalysisManager &MAM) {
   // Get Analysis data.
   auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
@@ -69,8 +89,11 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   bool ModuleHasAnyInternalCalls = false;
   bool Changed = false;
 
-  TLSLocalIds = M.getGlobalVariable(CompilationUtils::getTLSLocalIdsName());
-  HasTLSGlobals = TLSLocalIds != nullptr;
+  if (UseTLSGlobals) {
+    // LocalIds should already be created in WGLoopCreatorPass.
+    LocalIds = M.getGlobalVariable(CompilationUtils::getTLSLocalIdsName());
+    assert(LocalIds && "TLS LocalIds not found");
+  }
 
   // Find all functions that call synchronize instructions.
   CompilationUtils::FuncSet FunctionsWithSync =
@@ -140,7 +163,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
 
   // Fix TID user functions that doesn't contains sync instruction. This is
   // only needed for subgroup emulation.
-  if (!HasTLSGlobals)
+  if (!UseTLSGlobals)
     Changed |= fixSynclessTIDUsers(M, FunctionsWithSync);
 
   // Fix get_local_id() and get_global_id() function calls.
@@ -276,7 +299,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     auto *AI = dyn_cast<AllocaInst>(V);
 
     // Don't fix implicit GID.
-    if (SP && AI && CompilationUtils::isImplicitGID(AI)) {
+    if (IsNativeDBG && AI && CompilationUtils::isImplicitGID(AI)) {
       // Move implicit GID out of barrier loop.
       AI->moveBefore(AddrInsertBefore);
       continue;
@@ -284,7 +307,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
 
     // Collect debug intrinsic.
     TinyPtrVector<DbgDeclareInst *> DIs;
-    if (SP)
+    if (IsNativeDBG)
       DIs = CompilationUtils::findDbgUses(V);
 
     // Only use the first DbgVariableIntrinsic.
@@ -424,7 +447,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       InstructionsToRemove.push_back(AI);
 
     // Remove old DbgVariableIntrinsic.
-    if (SP)
+    if (IsNativeDBG)
       for (auto *DI : DIs)
         DI->eraseFromParent();
   }
@@ -876,7 +899,7 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
   KeyValues->CurrSBIndex =
       new AllocaInst(SizeTTy, AllocaAddrSpace, "pCurrSBIndex", InsertBefore);
 
-  if (!HasTLSGlobals) {
+  if (!UseTLSGlobals) {
     // get_local_id()
     KeyValues->LocalIdValues =
         new AllocaInst(LocalIdArrayTy, AllocaAddrSpace,
@@ -988,8 +1011,12 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
 
   IRBuilder<> B(GetWIProperties);
   B.SetCurrentDebugLocation(Call->getDebugLoc());
-  Value *LocalIds =
-      TLSLocalIds ? TLSLocalIds : CurrentBarrierKeyValues->LocalIdValues;
+  Value *LocalIds;
+  if (UseTLSGlobals) {
+    LocalIds = this->LocalIds;
+  } else {
+    LocalIds = CurrentBarrierKeyValues->LocalIdValues;
+  }
   Instruction *Result = createGetLocalId(LocalIds, Call->getArgOperand(0), B);
   B.CreateBr(SplitContinue);
 
@@ -1029,7 +1056,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
   for (Instruction *I : GetLIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
-    if (!HasTLSGlobals)
+    if (!UseTLSGlobals)
       getBarrierKeyValues(Func);
     else
       CurrentFunction = Func;
@@ -1046,7 +1073,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
   for (auto *I : GetGIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
-    if (!HasTLSGlobals)
+    if (!UseTLSGlobals)
       getBarrierKeyValues(Func);
     else
       CurrentFunction = Func;
@@ -1179,7 +1206,7 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
          "OriginalArg with base type i1!");
 
   // function argument with debug info will be handled in fixAllocaAndDbg.
-  if (HasTLSGlobals && !CompilationUtils::findDbgUses(OriginalArg).empty())
+  if (IsNativeDBG && !CompilationUtils::findDbgUses(OriginalArg).empty())
     return;
 
   // offset in special buffer to load the argument value from.

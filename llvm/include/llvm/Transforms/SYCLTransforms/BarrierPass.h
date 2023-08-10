@@ -42,6 +42,9 @@ namespace llvm {
 ///   module functions with barriers that are called from inside the module
 class KernelBarrier : public PassInfoMixin<KernelBarrier> {
 public:
+  explicit KernelBarrier(bool IsNativeDebug = false,
+                         bool useTLSGlobals = false);
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
@@ -207,22 +210,22 @@ private:
   Value *createGetPtrToLocalId(unsigned Dim) {
     // For accesses to constant dimensions, cache the GEP instruction
     Value **Ptr;
-    if (HasTLSGlobals) {
+    if (UseTLSGlobals) {
       Ptr = PtrLocalId + Dim;
     } else {
       Ptr = CurrentBarrierKeyValues->PtrLocalId + Dim;
     }
     if (!*Ptr) {
       Function *F;
-      if (HasTLSGlobals) {
+      if (UseTLSGlobals) {
         F = CurrentFunction;
       } else {
         F = CurrentBarrierKeyValues->TheFunction;
       }
       IRBuilder<> LB(F->getEntryBlock().getTerminator());
       Value *LocalIdValues;
-      if (HasTLSGlobals) {
-        LocalIdValues = TLSLocalIds;
+      if (UseTLSGlobals) {
+        LocalIdValues = LocalIds;
       } else {
         // If the LocalIDValues are generated externally to the function, make
         // sure we place the GEP before the value is accessed
@@ -256,51 +259,51 @@ private:
   void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
                             DenseMap<Function *, size_t> &PrivateSizeMap);
 
-  const DataLayout *DL = nullptr;
+  const DataLayout *DL;
 
   /// This is barrier utility class.
   BarrierUtils Utils;
 
   /// This holds the processed module context.
-  LLVMContext *Context = nullptr;
+  LLVMContext *Context;
   /// This holds size of size_t of processed module.
-  unsigned int SizeT = 0;
+  unsigned int SizeT;
   /// This holds type of size_t of processed module.
-  Type *SizeTTy = nullptr;
-  Type *I32Ty = nullptr;
+  Type *SizeTTy;
+  Type *I32Ty;
 
-  /// The module has TLS globals if true, implicit arguments otherwise.
-  bool HasTLSGlobals = false;
+  /// Use TLS globals if true, implicit arguments otherwise.
+  bool UseTLSGlobals;
   /// Type of allocation used for storing local ID values for all dimensions.
-  PointerType *LocalIdAllocTy = nullptr;
+  PointerType *LocalIdAllocTy;
   /// This holds TLS global containing local ids.
-  GlobalVariable *TLSLocalIds = nullptr;
+  GlobalVariable *LocalIds;
   /// This holds type of the TLS global containing local ids.
-  ArrayType *LocalIdArrayTy = nullptr;
+  ArrayType *LocalIdArrayTy;
   /// This holds cached GEP instructions for local ids.
-  Value *PtrLocalId[MAX_WORK_DIM] = {nullptr};
+  Value *PtrLocalId[MAX_WORK_DIM];
 
-  Value *ConstZero = nullptr;
-  Value *ConstOne = nullptr;
+  Value *ConstZero;
+  Value *ConstOne;
 
   /// This holds instruction to be removed in the processed function/module.
   InstVec InstructionsToRemove;
 
   /// This holds the container of all Group-A values in processed function.
-  ValueVec *AllocaValues = nullptr;
+  ValueVec *AllocaValues;
   /// This holds the container of all Group-B.1 values in processed function.
-  ValueVec *SpecialValues = nullptr;
+  ValueVec *SpecialValues;
   /// This holds the container of all Group-B.2 values in processed function.
-  ValueVec *CrossBarrierValues = nullptr;
+  ValueVec *CrossBarrierValues;
 
   /// This holds the container of all sync instructions in processed function.
-  InstSet *SyncInstructions = nullptr;
+  InstSet *SyncInstructions;
 
   /// This holds the data per value analysis pass.
-  DataPerValue *DPV = nullptr;
+  DataPerValue *DPV;
 
   /// This holds the data per barrier analysis pass.
-  DataPerBarrier *DPB = nullptr;
+  DataPerBarrier *DPB;
 
   struct BarrierKeyValues {
     BarrierKeyValues()
@@ -334,9 +337,9 @@ private:
   using MapFunctionToKeyValuesTy = std::map<Function *, BarrierKeyValues>;
 
   /// This holds the function currently being handled.
-  Function *CurrentFunction = nullptr;
+  Function *CurrentFunction;
   /// This holds barrier key values for current handled function.
-  BarrierKeyValues *CurrentBarrierKeyValues = nullptr;
+  BarrierKeyValues *CurrentBarrierKeyValues;
   /// This holds a map between function and its barrier key values.
   MapFunctionToKeyValuesTy BarrierKeyValuesPerFunction;
 
@@ -344,6 +347,9 @@ private:
   /// This holds a map between sync basic block and previous pre sync loop
   /// header basic block.
   MapBasicBlockToBasicBlockTy PreSyncLoopHeader;
+
+  /// true if and only if we are running in native (gdb) dbg mode.
+  bool IsNativeDBG;
 
   /// This holds a map between function to its total size of all new addr
   /// alloca created in fixAllocaAndDbg.
