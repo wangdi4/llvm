@@ -1832,8 +1832,9 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 template <typename AARGetterT>
 static SmallSet<Function *, 8>
 deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
-                                   AARGetterT &&AARGetter,     // INTEL
-                                   WholeProgramInfo *WPInfo) { // INTEL
+                       AARGetterT &&AARGetter,   // INTEL
+                       WholeProgramInfo *WPInfo, // INTEL
+                       bool ArgAttrsOnly) {
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
 
   // Bail if the SCC only contains optnone functions.
@@ -1841,6 +1842,10 @@ deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
     return {};
 
   SmallSet<Function *, 8> Changed;
+  if (ArgAttrsOnly) {
+    addArgumentAttrs(Nodes.SCCNodes, Changed);
+    return Changed;
+  }
 
   addArgumentReturnedAttrs(Nodes.SCCNodes, Changed);
   addMemoryAttrs(Nodes.SCCNodes, AARGetter, Changed);
@@ -1875,10 +1880,13 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
                                                   LazyCallGraph &CG,
                                                   CGSCCUpdateResult &) {
   // Skip non-recursive functions if requested.
+  // Only infer argument attributes for non-recursive functions, because
+  // it can affect optimization behavior in conjunction with noalias.
+  bool ArgAttrsOnly = false;
   if (C.size() == 1 && SkipNonRecursive) {
     LazyCallGraph::Node &N = *C.begin();
     if (!N->lookup(N))
-      return PreservedAnalyses::all();
+      ArgAttrsOnly = true;
   }
 
   FunctionAnalysisManager &FAM =
@@ -1918,7 +1926,8 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
   }
 
 #if INTEL_CUSTOMIZATION
-  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter, WPInfo);
+  auto ChangedFunctions =
+      deriveAttrsInPostOrder(Functions, AARGetter, WPInfo, ArgAttrsOnly);
 #endif // INTEL_CUSTOMIZATION
   if (ChangedFunctions.empty())
     return PreservedAnalyses::all();
@@ -1958,7 +1967,7 @@ void PostOrderFunctionAttrsPass::printPipeline(
   static_cast<PassInfoMixin<PostOrderFunctionAttrsPass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
   if (SkipNonRecursive)
-    OS << "<skip-non-recursive>";
+    OS << "<skip-non-recursive-function-attrs>";
 }
 
 template <typename AARGetterT>
