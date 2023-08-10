@@ -172,8 +172,8 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
     const LoopInfo &LI, const DominatorTree &DT,
     const PostDominatorTree &PostDT, const BranchProbabilityInfo::SccInfo &Scc,
     std::set<std::pair<const BasicBlock *, const BasicBlock *>> BackEdgesSet,
-    mlpgo::Parameters &Parameter, const BranchProbabilityInfo *OldBPI = nullptr,
-    const BranchProbabilityInfo *BPI = nullptr, bool IsInference = false);
+    mlpgo::Parameters &Parameter, const BranchProbabilityInfo &OldBPI,
+    const BranchProbabilityInfo &BPI, bool IsInference = false);
 
 bool ValidateFeatureVec(MLBrFeatureVec &FeatureVec,
                         mlpgo::Parameters &Parameter);
