@@ -11,10 +11,9 @@
 // Internal tests for autorun kernels feature
 //
 // ===--------------------------------------------------------------------=== //
-#include "simple_fixture.h"
-
+#include "CL/cl.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
+#include "simple_fixture.h"
 
 #include <algorithm>
 #include <numeric>

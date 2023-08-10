@@ -2,6 +2,7 @@
 //  CPUDeviceTest.cpp
 ///////////////////////////////////////////////////////////
 
+#include "CL/cl_ext.h"
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
 #include "cl_device_api.h"
@@ -10,21 +11,19 @@
 #include "common_utils.h"
 #include "cpu_dev_limits.h"
 #include "cpu_dev_test.h"
+#include "gtest_wrapper.h"
 #include "image_test.h"
 #include "kernel_execute_test.h"
 #include "logger_test.h"
 #include "program.h"
 #include "program_service_test.h"
 #include "task_executor.h"
-
-#include "gtest_wrapper.h"
-#include <CL/cl_ext.h>
+#include "tbb/global_control.h"
 #include <assert.h>
 #include <random>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tbb/global_control.h>
 #ifdef _WIN32
 #include <windows.h>
 #else

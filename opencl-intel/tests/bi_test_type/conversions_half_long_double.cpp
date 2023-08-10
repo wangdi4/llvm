@@ -16,7 +16,6 @@
 #include "TestsHelpClasses.h"
 #include "bi_tests.h"
 #include "common_utils.h"
-
 #include <math.h>
 
 extern cl_device_type gDeviceType;

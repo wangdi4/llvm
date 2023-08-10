@@ -18,6 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly.
 
+#include "CL/cl.h"
 #include "FrontendDriver.h"
 #include "FrontendDriverFixture.h"
 #include "clang_device_info.h"
@@ -25,10 +26,8 @@
 #include "frontend_api.h"
 #include "gtest_wrapper.h"
 #include "opencl_clang.h"
-#include <CL/cl.h>
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp"
-
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/SwapByteOrder.h"
 
