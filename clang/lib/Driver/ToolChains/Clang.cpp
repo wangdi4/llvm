@@ -11132,16 +11132,11 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
        getToolChain().getTriple().isSPIR())) {
     TranslatorArgs.push_back("-spirv-max-version=1.4");
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_CUSTOMIZATION
-    // Enable NonSemanticShaderDebugInfo.200 for CPU AOT and for non-Windows
-    // JIT. Don't enable on FPGA H/W.
-    const bool EnableNonSemanticDebug =
-        (getToolChain().getTriple().getSubArch() ==
-         llvm::Triple::SPIRSubArch_x86_64) ||
-        (!getToolChain().getTriple().isOSWindows() &&
-         !C.getDriver().IsFPGAHWMode());
-    if (EnableNonSemanticDebug) {
+    // TODO: remove it before release
+    if (getToolChain().getTriple().getSubArch() ==
+            llvm::Triple::SPIRSubArch_x86_64 ||
+        TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo)) {
       TranslatorArgs.push_back(
           "-spirv-debug-info-version=nonsemantic-shader-200");
     } else {
@@ -11151,7 +11146,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
     }
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_CUSTOMIZATION
     if (JA.isDeviceOffloading(Action::OFK_OpenMP))
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
