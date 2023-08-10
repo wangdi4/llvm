@@ -15,7 +15,7 @@
 #ifndef ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H
 #define ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H
 
-#include <tbb/task_group.h>
+#include "tbb/task_group.h"
 
 /// Extend tbb::task_group with reserve/release_wait functions
 class task_group_with_reference : public tbb::task_group {

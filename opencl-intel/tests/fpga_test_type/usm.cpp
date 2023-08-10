@@ -18,10 +18,10 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "CL/cl_ext.h"
 #include "base_fixture.h"
 #include "common_utils.h"
 #include "gtest/gtest.h"
-#include <CL/cl_ext.h>
 
 class UsmTest : public OCLFPGABaseFixture,
                 public ::testing::WithParamInterface<int> {

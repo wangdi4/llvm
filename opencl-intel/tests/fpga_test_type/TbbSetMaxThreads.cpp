@@ -20,8 +20,8 @@
 
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
+#include "tbb/global_control.h"
 #include "test_utils.h"
-#include <tbb/global_control.h>
 
 extern cl_device_type gDeviceType;
 

@@ -35,12 +35,11 @@
 
 #include "cl_device_api.h"
 #include "cl_shared_ptr.h"
-#include <cl_sys_defines.h>
-#include <stddef.h>
-
+#include "cl_sys_defines.h"
 #ifndef DEVICE_NATIVE
 #include "ocl_itt.h"
 #endif
+#include <stddef.h>
 
 // Forward declaration
 struct ocl_gpa_data;

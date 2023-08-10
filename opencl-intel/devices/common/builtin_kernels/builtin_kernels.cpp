@@ -17,8 +17,8 @@
 ///////////////////////////////////////////////////////////
 
 #include "builtin_kernels.h"
+#include "cl_sys_defines.h"
 #include <assert.h>
-#include <cl_sys_defines.h>
 #include <string>
 
 using namespace llvm;

@@ -19,12 +19,10 @@
 // problem reports or change requests be submitted to it directly
 
 #include "SimpleBackingStore.h"
-
+#include "cl_sys_defines.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "cl_sys_defines.h"
 
 //////////////////////////////////////////////////////////////////////////
 /// SimpleBackingStore

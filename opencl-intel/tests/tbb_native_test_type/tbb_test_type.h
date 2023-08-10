@@ -15,12 +15,11 @@
 #pragma once
 
 #include "gtest_wrapper.h"
+#include "tbb/tbb.h"
 
 #ifndef _WIN32
 #include <unistd.h>
 #endif
-
-#include "tbb/tbb.h"
 
 struct parallel_functor {
   parallel_functor(std::atomic<long> &counter) : my_counter(counter) {}

@@ -12,17 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_amx_syscall.h"
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-
-#include "cl_amx_syscall.h"
 #include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/signal.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 using namespace Intel::OpenCL::Utils;
 #define XFEATURE_XTILECFG 17

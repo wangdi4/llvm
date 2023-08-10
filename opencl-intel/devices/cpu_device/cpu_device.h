@@ -23,6 +23,7 @@
 #include "backend_wrapper.h"
 #include "cl_device_api.h"
 #include "cl_dynamic_lib.h"
+#include "cl_synch_objects.h"
 #include "cpu_config.h"
 #include "cpu_dev_limits.h"
 #include "cpu_logger.h"
@@ -32,7 +33,6 @@
 #include "tbb/scalable_allocator.h"
 #endif
 #include <atomic>
-#include <cl_synch_objects.h>
 #include <mutex>
 #include <unordered_map>
 #include <vector>

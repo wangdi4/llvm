@@ -25,8 +25,7 @@
 //  Implementation of the Class MemoryObject
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <cl_device_api.h>
-
+#include "cl_device_api.h"
 class SimpleBackingStore : public IOCLDevBackingStore {
 public:
   SimpleBackingStore(const cl_image_format *pclImageFormat,

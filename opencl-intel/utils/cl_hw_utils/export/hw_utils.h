@@ -17,7 +17,7 @@
 #include "hw_defs.h"
 
 #ifdef _WIN32
-#include "intrin.h"
+#include <intrin.h>
 #endif
 
 namespace Intel {

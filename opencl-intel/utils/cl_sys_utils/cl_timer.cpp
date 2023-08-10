@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_timer.h"
 #include <cassert>
 #include <cstdio>
 #ifdef _WIN32
@@ -19,7 +20,6 @@
 #else
 #include <sys/time.h>
 #endif
-#include "cl_timer.h"
 
 namespace Intel {
 namespace OpenCL {

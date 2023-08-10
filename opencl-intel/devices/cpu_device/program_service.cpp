@@ -21,12 +21,11 @@
 
 #include "program_service.h"
 #include "backend_wrapper.h"
+#include "builtin_kernels.h"
+#include "cl_synch_objects.h"
+#include "cpu_dev_limits.h"
 #include "cpu_logger.h"
 #include "program_config.h"
-
-#include <builtin_kernels.h>
-#include <cl_synch_objects.h>
-#include <cpu_dev_limits.h>
 
 #include <assert.h>
 #include <limits.h>

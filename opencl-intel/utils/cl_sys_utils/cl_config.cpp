@@ -18,8 +18,8 @@
 #include "cl_sys_info.h"
 #include "task_executor.h"
 #include "llvm/Support/Threading.h"
-
 #include <cassert>
+
 #ifdef _WIN32
 #include <Windows.h>
 #else

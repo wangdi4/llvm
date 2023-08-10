@@ -77,7 +77,7 @@ const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
-const StringRef NAME_TLS_LOCAL_IDS = "LocalIds";
+const StringRef NAME_TLS_LOCAL_IDS = "__LocalIds";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
 const StringRef SAMPLER = "sampler_t";
@@ -1848,7 +1848,7 @@ Type *getWorkGroupIDElementType(Module *M) { return LoopUtils::getIndTy(M); }
 
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
-  return M->getGlobalVariable(ImplicitArgsUtils::getArgName(Idx));
+  return M->getGlobalVariable(ImplicitArgsUtils::getArgNameWithPrefix(Idx));
 }
 
 StringRef getTLSLocalIdsName() { return NAME_TLS_LOCAL_IDS; }

@@ -17,8 +17,8 @@
 #include "CLElfTypes.h"
 #include "ElfReader.h"
 #include "ElfWriter.h"
-#include "assert.h"
 #include "elf_binary.h"
+#include <assert.h>
 
 namespace Intel {
 namespace OpenCL {

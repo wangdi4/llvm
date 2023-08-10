@@ -18,11 +18,10 @@
 
 #include "cl_utils.h"
 
+#include "CL/cl.h"
+#include "CL/cl_ext.h"
+#include "CL/cl_gl.h"
 #include "cl_sys_info.h"
-
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
-#include <CL/cl_gl.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>

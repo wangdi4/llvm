@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <cl_device_api.h>
+#include "cl_device_api.h"
 
 extern bool imageTest(bool profiling);
 extern bool copyImage(bool profiling, IOCLDevMemoryObject *srcMemObj,

@@ -1,10 +1,8 @@
-#include "gtest_wrapper.h"
-
-#include <string>
-
 #include "BackendWrapper.h"
 #include "KernelProperties.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
+#include <string>
 
 #if defined _M_X64 || defined __x86_64__
 #define BC_FILE "reqd_num_sub_groups_64.bc"

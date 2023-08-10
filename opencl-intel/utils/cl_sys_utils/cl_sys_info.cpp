@@ -13,11 +13,9 @@
 // License.
 
 #include "cl_sys_info.h"
-
-#include <driverversion.h>
-#include <hwloc.h>
-
+#include "hwloc.h"
 #include "llvm/Support/Threading.h"
+#include <driverversion.h>
 
 // OCL product version string will change with each commit, it will thwart
 // build-same check. So we put it in a specific section and then ignore this

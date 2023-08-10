@@ -28,12 +28,13 @@
  *  TODO: More objects that may be added: Semaphore, Event, else???
  ************************************************************************/
 
-#ifdef __USE_TBB_CONCURENT_QUEUE
-#include <tbb/concurrent_queue.h>
-#endif
 #include "cl_utils.h"
 #include "hw_utils.h"
 #include "ittnotify.h"
+#ifdef __USE_TBB_CONCURENT_QUEUE
+#include "tbb/concurrent_queue.h"
+#endif
+
 #include <assert.h>
 #include <atomic>
 #include <mutex>

@@ -34,12 +34,12 @@
 #define IGNORE_GCC_UNUSED __attribute__((unused))
 #endif
 
+#include "cl_sys_defines.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "cl_sys_defines.h"
 
 // #define PROV_DEBUG_PRINT(...) printf(__VA_ARGS__)
 #define PROV_DEBUG_PRINT(...)

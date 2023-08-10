@@ -13,6 +13,7 @@
 // License.
 
 #include "MetadataAPITestFixture.h"
+#include "gtest_wrapper.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
@@ -20,8 +21,6 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-
-#include "gtest_wrapper.h"
 
 #include <algorithm>
 #include <utility>

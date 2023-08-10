@@ -11,11 +11,10 @@
 // Internal tests for half precision atomic_min/atomic_max builtins
 //
 // ===--------------------------------------------------------------------=== //
-#include "simple_fixture.h"
-
+#include "CL/cl.h"
+#include "CL/cl_half.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <CL/cl_half.h>
+#include "simple_fixture.h"
 
 #include <string>
 #include <vector>

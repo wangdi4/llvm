@@ -20,7 +20,7 @@
 ///////////////////////////////////////////////////////////
 
 #pragma once
-#include <cl_device_api.h>
+#include "cl_device_api.h"
 
 bool InitLoggerTest();
 

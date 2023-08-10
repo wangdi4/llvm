@@ -16,11 +16,19 @@
 
 #include "base_command_list.hpp"
 #include "cl_config.h"
+#include "cl_env.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "cl_user_logger.h"
 #include "cl_utils.h"
 #include "cpu_dev_limits.h"
 #include "task_group.hpp"
+#include "tbb/blocked_range.h"
+#include "tbb/concurrent_queue.h"
+#include "tbb/enumerable_thread_specific.h"
+#include "tbb/scalable_allocator.h"
+#include "tbb/task.h"
 #include "tbb_execution_schedulers.h"
 
 #include "llvm/ADT/SmallString.h"
@@ -29,17 +37,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cl_env.h>
-#include <cl_sys_defines.h>
-#include <cl_sys_info.h>
 #include <string>
-#include <tbb/blocked_range.h>
-#include <tbb/concurrent_queue.h>
-#include <tbb/enumerable_thread_specific.h>
-#include <tbb/scalable_allocator.h>
-#include <tbb/task.h>
 #include <vector>
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

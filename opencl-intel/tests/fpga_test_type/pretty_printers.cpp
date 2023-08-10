@@ -1,7 +1,5 @@
 #include "pretty_printers.h"
-
-#include <CL/cl.h>
-
+#include "CL/cl.h"
 #include <string>
 
 std::string ErrToStr(cl_int error) {

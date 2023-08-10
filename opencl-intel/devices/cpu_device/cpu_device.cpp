@@ -13,22 +13,21 @@
 // License.
 
 #include "cpu_device.h"
+#include "CL/cl_ext.h"
+#include "CL/cl_fpga_ext.h"
+#include "buildversion.h"
+#include "builtin_kernels.h"
+#include "cl_cpu_detect.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
+#include "clang_device_info.h"
+#include "cpu_dev_limits.h"
 #include "cpu_logger.h"
 #include "memory_allocator.h"
 #include "program_config.h"
 #include "program_service.h"
 #include "task_dispatcher.h"
-
-#include <CL/cl_ext.h>
-#include <CL/cl_fpga_ext.h>
-#include <buildversion.h>
-#include <builtin_kernels.h>
-#include <cl_cpu_detect.h>
-#include <cl_shared_ptr.hpp>
-#include <cl_sys_defines.h>
-#include <cl_sys_info.h>
-#include <clang_device_info.h>
-#include <cpu_dev_limits.h>
 #include <numeric>
 
 #ifdef __INCLUDE_MKL__

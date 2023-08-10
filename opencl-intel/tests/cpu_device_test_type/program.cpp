@@ -22,9 +22,9 @@
 //  program.cpp
 //  Include the kernels that are going to be executed
 ///////////////////////////////////////////////////////////
-#include "stdio.h"
 
 #include "program.h"
+#include <stdio.h>
 
 void CL_CALLBACK _TestKernel(void *params) {
   TestKernel_param_t *myParams = (TestKernel_param_t *)params;

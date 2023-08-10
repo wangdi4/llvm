@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "cl_device_api.h"
+#include "cl_monitor.h"
+#include "cl_types.h"
 #include "llvm/ADT/StringExtras.h"
 #include <cassert>
-#include <cl_device_api.h>
-#include <cl_monitor.h>
-#include <cl_types.h>
 #include <fstream>
 #include <iostream>
 #include <limits>
