@@ -3152,15 +3152,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       OpenMPNeedsStackSaveRestore) {
 #else
   if (InlinedFunctionInfo.ContainsDynamicAllocas) {
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-    Module *M = Caller->getParent();
-    // Get the two intrinsics we care about.
-    Function *StackSave = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
-    Function *StackRestore=Intrinsic::getDeclaration(M,Intrinsic::stackrestore);
-
-=======
->>>>>>> 25bc999d1fb2efccc3ece398550af738aea7d310
     // Insert the llvm.stacksave.
     CallInst *SavedPtr = IRBuilder<>(&*FirstNewBlock, FirstNewBlock->begin())
                              .CreateStackSave("savedstack");
