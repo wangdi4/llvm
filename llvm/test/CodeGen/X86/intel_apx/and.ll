@@ -208,7 +208,7 @@ define i16 @and16mi8(ptr %a) {
 ; CHECK-LABEL: and16mi8:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    andl $123, %eax, %eax
+; CHECK-NEXT:    andl $123, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -232,7 +232,7 @@ define i64 @and64mi8(ptr %a) {
 ; CHECK-LABEL: and64mi8:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    andl $123, %eax, %eax
+; CHECK-NEXT:    andl $123, %eax
 ; CHECK-NEXT:    retq
 entry:
   %t= load i64, ptr %a
@@ -255,7 +255,7 @@ define i16 @and16mi(ptr %a) {
 ; CHECK-LABEL: and16mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    andl $1234, %eax, %eax # imm = 0x4D2
+; CHECK-NEXT:    andl $1234, %eax # imm = 0x4D2
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -279,7 +279,7 @@ define i64 @and64mi(ptr %a) {
 ; CHECK-LABEL: and64mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    andl $123456, %eax, %eax # imm = 0x1E240
+; CHECK-NEXT:    andl $123456, %eax # imm = 0x1E240
 ; CHECK-NEXT:    retq
 entry:
   %t= load i64, ptr %a

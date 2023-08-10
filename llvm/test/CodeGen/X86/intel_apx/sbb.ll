@@ -115,7 +115,7 @@ define i16 @sbb16ri8(i16 %a, i16 %x, i16 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpw %si, %dx
 ; CHECK-NEXT:    sbbw $0, %di, %ax
-; CHECK-NEXT:    addl $-123, %eax, %eax
+; CHECK-NEXT:    addl $-123, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %s = sub i16 %a, 123
@@ -130,7 +130,7 @@ define i32 @sbb32ri8(i32 %a, i32 %x, i32 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpl %esi, %edx
 ; CHECK-NEXT:    sbbl $0, %edi, %eax
-; CHECK-NEXT:    addl $-123, %eax, %eax
+; CHECK-NEXT:    addl $-123, %eax
 ; CHECK-NEXT:    retq
   %s = sub i32 %a, 123
   %k = icmp ugt i32 %x, %y
@@ -144,7 +144,7 @@ define i64 @sbb64ri8(i64 %a, i64 %x, i64 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpq %rsi, %rdx
 ; CHECK-NEXT:    sbbq $0, %rdi, %rax
-; CHECK-NEXT:    addq $-123, %rax, %rax
+; CHECK-NEXT:    addq $-123, %rax
 ; CHECK-NEXT:    retq
   %s = sub i64 %a, 123
   %k = icmp ugt i64 %x, %y
@@ -158,7 +158,7 @@ define i8 @sbb8ri(i8 %a, i8 %x, i8 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpb %sil, %dl
 ; CHECK-NEXT:    sbbb $0, %dil, %al
-; CHECK-NEXT:    addb $-123, %al, %al
+; CHECK-NEXT:    addb $-123, %al
 ; CHECK-NEXT:    retq
   %s = sub i8 %a, 123
   %k = icmp ugt i8 %x, %y
@@ -172,7 +172,7 @@ define i16 @sbb16ri(i16 %a, i16 %x, i16 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpw %si, %dx
 ; CHECK-NEXT:    sbbw $0, %di, %ax
-; CHECK-NEXT:    addl $-1234, %eax, %eax # imm = 0xFB2E
+; CHECK-NEXT:    addl $-1234, %eax # imm = 0xFB2E
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %s = sub i16 %a, 1234
@@ -187,7 +187,7 @@ define i32 @sbb32ri(i32 %a, i32 %x, i32 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpl %esi, %edx
 ; CHECK-NEXT:    sbbl $0, %edi, %eax
-; CHECK-NEXT:    addl $-123456, %eax, %eax # imm = 0xFFFE1DC0
+; CHECK-NEXT:    addl $-123456, %eax # imm = 0xFFFE1DC0
 ; CHECK-NEXT:    retq
   %s = sub i32 %a, 123456
   %k = icmp ugt i32 %x, %y
@@ -201,7 +201,7 @@ define i64 @sbb64ri(i64 %a, i64 %x, i64 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpq %rsi, %rdx
 ; CHECK-NEXT:    sbbq $0, %rdi, %rax
-; CHECK-NEXT:    addq $-123456, %rax, %rax # imm = 0xFFFE1DC0
+; CHECK-NEXT:    addq $-123456, %rax # imm = 0xFFFE1DC0
 ; CHECK-NEXT:    retq
   %s = sub i64 %a, 123456
   %k = icmp ugt i64 %x, %y
@@ -271,7 +271,7 @@ define i16 @sbb16mi8(ptr %ptr, i16 %x, i16 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpw %si, %dx
 ; CHECK-NEXT:    sbbw $0, (%rdi), %ax
-; CHECK-NEXT:    addl $-123, %eax, %eax
+; CHECK-NEXT:    addl $-123, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %a = load i16, ptr %ptr
@@ -287,7 +287,7 @@ define i32 @sbb32mi8(ptr %ptr, i32 %x, i32 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpl %esi, %edx
 ; CHECK-NEXT:    sbbl $0, (%rdi), %eax
-; CHECK-NEXT:    addl $-123, %eax, %eax
+; CHECK-NEXT:    addl $-123, %eax
 ; CHECK-NEXT:    retq
   %a = load i32, ptr %ptr
   %s = sub i32 %a, 123
@@ -302,7 +302,7 @@ define i64 @sbb64mi8(ptr %ptr, i64 %x, i64 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpq %rsi, %rdx
 ; CHECK-NEXT:    sbbq $0, (%rdi), %rax
-; CHECK-NEXT:    addq $-123, %rax, %rax
+; CHECK-NEXT:    addq $-123, %rax
 ; CHECK-NEXT:    retq
   %a = load i64, ptr %ptr
   %s = sub i64 %a, 123
@@ -317,7 +317,7 @@ define i8 @sbb8mi(ptr %ptr, i8 %x, i8 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpb %sil, %dl
 ; CHECK-NEXT:    sbbb $0, (%rdi), %al
-; CHECK-NEXT:    addb $-123, %al, %al
+; CHECK-NEXT:    addb $-123, %al
 ; CHECK-NEXT:    retq
   %a = load i8, ptr %ptr
   %s = sub i8 %a, 123
@@ -332,7 +332,7 @@ define i16 @sbb16mi(ptr %ptr, i16 %x, i16 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpw %si, %dx
 ; CHECK-NEXT:    sbbw $0, (%rdi), %ax
-; CHECK-NEXT:    addl $-1234, %eax, %eax # imm = 0xFB2E
+; CHECK-NEXT:    addl $-1234, %eax # imm = 0xFB2E
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %a = load i16, ptr %ptr
@@ -348,7 +348,7 @@ define i32 @sbb32mi(ptr %ptr, i32 %x, i32 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpl %esi, %edx
 ; CHECK-NEXT:    sbbl $0, (%rdi), %eax
-; CHECK-NEXT:    addl $-123456, %eax, %eax # imm = 0xFFFE1DC0
+; CHECK-NEXT:    addl $-123456, %eax # imm = 0xFFFE1DC0
 ; CHECK-NEXT:    retq
   %a = load i32, ptr %ptr
   %s = sub i32 %a, 123456
@@ -363,7 +363,7 @@ define i64 @sbb64mi(ptr %ptr, i64 %x, i64 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpq %rsi, %rdx
 ; CHECK-NEXT:    sbbq $0, (%rdi), %rax
-; CHECK-NEXT:    addq $-123456, %rax, %rax # imm = 0xFFFE1DC0
+; CHECK-NEXT:    addq $-123456, %rax # imm = 0xFFFE1DC0
 ; CHECK-NEXT:    retq
   %a = load i64, ptr %ptr
   %s = sub i64 %a, 123456

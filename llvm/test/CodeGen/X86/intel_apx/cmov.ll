@@ -7,7 +7,7 @@ define i8 @cmov8rr(i8 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpb $1, %dil
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovel %edi, %eax, %eax
+; CHECK-NEXT:    cmovel %edi, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
   %2 = icmp eq i8 %0, 1
@@ -20,7 +20,7 @@ define i16 @cmov16rr(i16 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovnel %edi, %eax, %eax
+; CHECK-NEXT:    cmovnel %edi, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
   %2 = icmp ne i16 %0, 1
@@ -33,7 +33,7 @@ define i32 @cmov32rr(i32 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovnel %edi, %eax, %eax
+; CHECK-NEXT:    cmovnel %edi, %eax
 ; CHECK-NEXT:    retq
   %2 = icmp ugt i32 %0, 1
   %3 = select i1 %2, i32 %0, i32 1
@@ -45,7 +45,7 @@ define i64 @cmov64rr(i64 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testq %rdi, %rdi
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmoveq %rdi, %rax, %rax
+; CHECK-NEXT:    cmoveq %rdi, %rax
 ; CHECK-NEXT:    retq
   %2 = icmp ult i64 %0, 1
   %3 = select i1 %2, i64 %0, i64 1
@@ -58,8 +58,8 @@ define i8 @cmov8rm(i8 %a, i8 %b, i8 %x, ptr %y.ptr) {
 ; CHECK-NEXT:    cmpb %sil, %dil
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    movzbl (%rcx), %ecx
-; CHECK-NEXT:    cmoval %ecx, %edx, %ecx
-; CHECK-NEXT:    addb %al, %cl, %al
+; CHECK-NEXT:    cmovbel %edx, %ecx
+; CHECK-NEXT:    addb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
   %cond = icmp ugt i8 %a, %b
@@ -76,7 +76,7 @@ define i16 @cmov16rm(i16 %a, i16 %b, i16 %x, ptr %y.ptr) {
 ; CHECK-NEXT:    cmpw %si, %di
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    cmovaw (%rcx), %dx, %cx
-; CHECK-NEXT:    addl %eax, %ecx, %eax
+; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -94,7 +94,7 @@ define i32 @cmov32rm(i32 %a, i32 %b, i32 %x, ptr %y.ptr) {
 ; CHECK-NEXT:    cmpl %esi, %edi
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    cmoval (%rcx), %edx, %ecx
-; CHECK-NEXT:    addl %eax, %ecx, %eax
+; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
   %cond = icmp ugt i32 %a, %b
@@ -111,7 +111,7 @@ define i64 @cmov64rm(i64 %a, i64 %b, i64 %x, ptr %y.ptr) {
 ; CHECK-NEXT:    cmpq %rsi, %rdi
 ; CHECK-NEXT:    cmovaq %rdi, %rdx, %rax
 ; CHECK-NEXT:    cmovaq (%rcx), %rdx, %rcx
-; CHECK-NEXT:    addq %rax, %rcx, %rax
+; CHECK-NEXT:    addq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
   %cond = icmp ugt i64 %a, %b
@@ -127,7 +127,7 @@ define i8 @cmov8rm_inv(i8 %a, i8 %x, ptr %y.ptr) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testb %dil, %dil
 ; CHECK-NEXT:    movzbl (%rdx), %eax
-; CHECK-NEXT:    cmovsl %esi, %eax, %eax
+; CHECK-NEXT:    cmovsl %esi, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:

@@ -58,7 +58,7 @@ define i16 @not16m(ptr %ptr) {
 ; CHECK-LABEL: not16m:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    notl %eax, %eax
+; CHECK-NEXT:    notl %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:

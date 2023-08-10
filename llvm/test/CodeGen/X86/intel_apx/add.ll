@@ -207,7 +207,7 @@ define i16 @add16mi8(ptr %a) {
 ; CHECK-LABEL: add16mi8:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    addl $123, %eax, %eax
+; CHECK-NEXT:    addl $123, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -253,7 +253,7 @@ define i16 @add16mi(ptr %a) {
 ; CHECK-LABEL: add16mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    addl $1234, %eax, %eax # imm = 0x4D2
+; CHECK-NEXT:    addl $1234, %eax # imm = 0x4D2
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -295,7 +295,7 @@ define i8 @addflag8rr(i8 noundef %a, i8 noundef %b) {
 ; CHECK-NEXT:    addb %sil, %dil, %al
 ; CHECK-NEXT:    movzbl %al, %eax
 ; CHECK-NEXT:    movl $255, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -308,7 +308,7 @@ define i16 @addflag16rr(i16 noundef %a, i16 noundef %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addw %si, %di, %ax
 ; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -321,7 +321,7 @@ define i32 @addflag32rr(i32 noundef %a, i32 noundef %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addl %esi, %edi, %eax
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 %b)
@@ -333,7 +333,7 @@ define i64 @addflag64rr(i64 noundef %a, i64 noundef %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addq %rsi, %rdi, %rax
 ; CHECK-NEXT:    movq $-1, %rcx
-; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
+; CHECK-NEXT:    cmovbq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 %b)
@@ -346,7 +346,7 @@ define i8 @addflag8rm(i8 noundef %a, ptr %b) {
 ; CHECK-NEXT:    addb (%rsi), %dil, %al
 ; CHECK-NEXT:    movzbl %al, %eax
 ; CHECK-NEXT:    movl $255, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -360,7 +360,7 @@ define i16 @addflag16rm(i16 noundef %a, ptr %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addw (%rsi), %di, %ax
 ; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -374,7 +374,7 @@ define i32 @addflag32rm(i32 noundef %a, ptr %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addl (%rsi), %edi, %eax
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
     %t = load i32, ptr %b
@@ -387,7 +387,7 @@ define i64 @addflag64rm(i64 noundef %a, ptr %b) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addq (%rsi), %rdi, %rax
 ; CHECK-NEXT:    movq $-1, %rcx
-; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
+; CHECK-NEXT:    cmovbq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
     %t = load i64, ptr %b
@@ -400,7 +400,7 @@ define i16 @addflag16ri8(i16 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addw $123, %di, %ax
 ; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -413,7 +413,7 @@ define i32 @addflag32ri8(i32 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addl $123, %edi, %eax
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 123)
@@ -425,7 +425,7 @@ define i64 @addflag64ri8(i64 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addq $123, %rdi, %rax
 ; CHECK-NEXT:    movq $-1, %rcx
-; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
+; CHECK-NEXT:    cmovbq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 123)
@@ -438,7 +438,7 @@ define i8 @addflag8ri(i8 noundef %a) {
 ; CHECK-NEXT:    addb $123, %dil, %al
 ; CHECK-NEXT:    movzbl %al, %eax
 ; CHECK-NEXT:    movl $255, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -451,7 +451,7 @@ define i16 @addflag16ri(i16 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addw $1234, %di, %ax # imm = 0x4D2
 ; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -464,7 +464,7 @@ define i32 @addflag32ri(i32 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addl $123456, %edi, %eax # imm = 0x1E240
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 123456)
@@ -476,7 +476,7 @@ define i64 @addflag64ri(i64 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addq $123456, %rdi, %rax # imm = 0x1E240
 ; CHECK-NEXT:    movq $-1, %rcx
-; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
+; CHECK-NEXT:    cmovbq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 123456)
@@ -490,8 +490,8 @@ define i1 @add64ri_reloc(i16 %k) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movswq %di, %rax
-; CHECK-NEXT:    addq %rax, %rax, %rax
-; CHECK-NEXT:    addq $val, %rax, %rax
+; CHECK-NEXT:    addq %rax, %rax
+; CHECK-NEXT:    addq $val, %rax
 ; CHECK-NEXT:    setne %al
 ; CHECK-NEXT:    retq
   %g = getelementptr inbounds i16, ptr @val, i16 %k

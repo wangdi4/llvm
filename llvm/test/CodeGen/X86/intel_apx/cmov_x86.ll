@@ -8,7 +8,7 @@ define i32 @test1(i32 %x, i32 %n, i32 %w, ptr %vp) nounwind readnone {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    btl %esi, %edi
 ; CHECK-NEXT:    movl $12, %eax
-; CHECK-NEXT:    cmovael (%rcx), %eax, %eax
+; CHECK-NEXT:    cmovael (%rcx), %eax
 ; CHECK-NEXT:    retq
 entry:
 	%0 = lshr i32 %x, %n
@@ -24,7 +24,7 @@ define i32 @test2(i32 %x, i32 %n, i32 %w, ptr %vp) nounwind readnone {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    btl %esi, %edi
 ; CHECK-NEXT:    movl $12, %eax
-; CHECK-NEXT:    cmovbl (%rcx), %eax, %eax
+; CHECK-NEXT:    cmovbl (%rcx), %eax
 ; CHECK-NEXT:    retq
 entry:
 	%0 = lshr i32 %x, %n
@@ -47,7 +47,7 @@ define void @test3(i64 %a, i64 %b, i1 %p) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    testb $1, %dl
-; CHECK-NEXT:    cmovnel %edi, %esi, %edi
+; CHECK-NEXT:    cmovel %esi, %edi
 ; CHECK-NEXT:    callq bar@PLT
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    retq
@@ -81,8 +81,8 @@ define i1 @test4() nounwind {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movsbl g_3(%rip), %eax
 ; CHECK-NEXT:    movzbl %al, %ecx
-; CHECK-NEXT:    shrl $7, %ecx, %ecx
-; CHECK-NEXT:    xorb $1, %cl, %cl
+; CHECK-NEXT:    shrl $7, %ecx
+; CHECK-NEXT:    xorb $1, %cl
 ; CHECK-NEXT:    sarl %cl, %eax, %ecx
 ; CHECK-NEXT:    movzbl g_96(%rip), %eax
 ; CHECK-NEXT:    testb %al, %al
@@ -102,13 +102,13 @@ define i1 @test4() nounwind {
 ; CHECK-NEXT:    jne .LBB3_5
 ; CHECK-NEXT:  # %bb.4: # %bb.i.i
 ; CHECK-NEXT:    movzbl g_100(%rip), %ecx
-; CHECK-NEXT:    xorl %ebx, %ebx, %ebx
+; CHECK-NEXT:    xorl %ebx, %ebx
 ; CHECK-NEXT:    movl %eax, %ecx
 ; CHECK-NEXT:  .LBB3_5: # %func_1.exit
 ; CHECK-NEXT:    movb %cl, g_96(%rip)
 ; CHECK-NEXT:    movzbl %cl, %esi
 ; CHECK-NEXT:    movl $_2E_str, %edi
-; CHECK-NEXT:    xorl %eax, %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    callq printf@PLT
 ; CHECK-NEXT:    movl %ebx, %eax
 ; CHECK-NEXT:    popq %rbx
@@ -157,10 +157,10 @@ declare i32 @printf(ptr nocapture, ...) nounwind
 define i32 @test5(ptr nocapture %P) nounwind readonly {
 ; CHECK-LABEL: test5:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $42, (%rdi)
 ; CHECK-NEXT:    setge %al
-; CHECK-NEXT:    orl $-2, %eax, %eax
+; CHECK-NEXT:    orl $-2, %eax
 ; CHECK-NEXT:    retq
 entry:
 	%0 = load i32, ptr %P, align 4
@@ -172,7 +172,7 @@ entry:
 define i32 @test6(ptr nocapture %P) nounwind readonly {
 ; CHECK-LABEL: test6:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    cmpl $42, (%rdi)
 ; CHECK-NEXT:    setl %al
 ; CHECK-NEXT:    leal 4(%rax,%rax,8), %eax
@@ -213,7 +213,7 @@ define i32 @smin(i32 %x) {
 ; CHECK-NEXT:    notl %edi, %eax
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovnsl %eax, %ecx, %eax
+; CHECK-NEXT:    cmovsl %ecx, %eax
 ; CHECK-NEXT:    retq
   %not_x = xor i32 %x, -1
   %1 = icmp slt i32 %not_x, -1
@@ -226,7 +226,7 @@ define i32 @pr47049_1(i32 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovlel %edi, %eax, %eax
+; CHECK-NEXT:    cmovlel %edi, %eax
 ; CHECK-NEXT:    retq
   %2 = icmp slt i32 %0, 1
   %3 = select i1 %2, i32 %0, i32 1
@@ -238,7 +238,7 @@ define i32 @pr47049_2(i32 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $-1, %eax
-; CHECK-NEXT:    cmovnsl %edi, %eax, %eax
+; CHECK-NEXT:    cmovnsl %edi, %eax
 ; CHECK-NEXT:    retq
   %2 = icmp sgt i32 %0, -1
   %3 = select i1 %2, i32 %0, i32 -1
@@ -250,7 +250,7 @@ define i32 @pr47049_3(i32 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovgl %edi, %eax, %eax
+; CHECK-NEXT:    cmovgl %edi, %eax
 ; CHECK-NEXT:    retq
   %2 = icmp sgt i32 %0, 1
   %3 = select i1 %2, i32 %0, i32 1
@@ -262,7 +262,7 @@ define i32 @pr47049_4(i32 %0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    testl %edi, %edi
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    cmovnel %edi, %eax, %eax
+; CHECK-NEXT:    cmovnel %edi, %eax
 ; CHECK-NEXT:    retq
   %2 = icmp ugt i32 %0, 1
   %3 = select i1 %2, i32 %0, i32 1
