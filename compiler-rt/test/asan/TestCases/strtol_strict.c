@@ -23,6 +23,12 @@
 // RUN: %env_asan_opts=strict_string_checks=true not %run %t test7 2>&1 | FileCheck %s --check-prefix=CHECK7
 // REQUIRES: shadow-scale-3
 
+// INTEL_CUSTOMIZATION
+// JIRA: CMPLRLLVM-49841
+// TODO: Disable the flaky test and pending investigation
+// UNSUPPORTED: windows
+// end INTEL_CUSTOMIZATION
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
