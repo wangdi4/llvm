@@ -5190,7 +5190,9 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
                                            vpo::ADDRESS_SPACE_GENERIC);
 
   if (IsTargetSPIRV) {
-    if (VPOParoptUtils::enableDeviceSimdCodeGen())
+    // Use thread lock (as apposed to group lock) for these cases.
+    // All threads encountering __kmpc_critical_simd tries to acquire lock.
+    if (VPOParoptUtils::enableDeviceSimdCodeGen() || isa<WRNTeamsNode>(W))
       BeginName = "__kmpc_critical_simd";
 
     // TODO: generate "__kmpc_critical_with_hint" with same host signature when
@@ -5212,7 +5214,9 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
   CallInst *EndCritical = nullptr;
 
   if (IsTargetSPIRV) {
-    if (VPOParoptUtils::enableDeviceSimdCodeGen())
+    // Use thread lock (as apposed to group lock) for these cases.
+    // All threads encountering __kmpc_end_critical_simd tries to release lock.
+    if (VPOParoptUtils::enableDeviceSimdCodeGen() || isa<WRNTeamsNode>(W))
       EndName = "__kmpc_end_critical_simd";
     EndCritical = genCall(M, EndName, RetTy, { Arg });
   }
