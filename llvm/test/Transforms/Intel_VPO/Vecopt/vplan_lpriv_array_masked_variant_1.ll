@@ -21,39 +21,37 @@ define i16 @foo(i16 %a, i32 %n) {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
 ; CHECK:    [[BB11:BB[0-9]+]]: # preds: new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] private-final-array-masked [12 x i16]* [[VP1:%.*]] [12 x i16]* [[B3_I_LPRIV0:%.*]] i1 [[VP5:%.*]]
+; CHECK-NEXT:     [DA: Uni] private-final-array-masked ptr [[VP1:%.*]] ptr [[B3_I_LPRIV0:%.*]] i1 [[VP5:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
 ;
 ; ****** CG check for LLVM IR ******
-; LLVMIR:	VPlannedBB23:
-; LLVMIR:  %23 = bitcast <2 x i1> %15 to i2
-; LLVMIR:  %ctlz = call i2 @llvm.ctlz.i2(i2 %25, i1 true)
-; LLVMIR:  %26 = sub i2 1, %ctlz
-; LLVMIR:  %priv.extract = extractelement <2 x [12 x i16]*> %.vec.base.addr, i2 %26
-; LLVMIR:  %27 = bitcast [12 x i16]* %b3.i.lpriv to i8*
-; LLVMIR:  %28 = bitcast [12 x i16]* %priv.extract to i8*
-; LLVMIR:  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %27, i8* align 2 %28, i64 24, i1 false)
+; LLVMIR:	VPlannedBB25:
+; LLVMIR:  [[BITCAST:%.*]] = bitcast <2 x i1> {{%.*}} to i2
+; LLVMIR:  %ctlz = call i2 @llvm.ctlz.i2(i2 [[BITCAST]], i1 true)
+; LLVMIR:  [[SUB:%.*]] = sub i2 1, %ctlz
+; LLVMIR:  %priv.extract = extractelement <2 x ptr> %.vec.base.addr, i2 [[SUB]]
+; LLVMIR:  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %b3.i.lpriv, ptr align 2 %priv.extract, i64 24, i1 false)
 ; LLVMIR-NEXT:  br label %VPlannedBB24
 ;
 ; ****** Resulting HIR code check ******
 ; HIR:            %bsfintmask = bitcast.<2 x i1>.i2(%.vec14);
 ; HIR-NEXT:       %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
 ; HIR-NEXT:       %ext.lane = 1  -  %bsf;
-; HIR-NEXT:       @llvm.memcpy.p0a12i16.p0a12i16.i64(&((%b3.i.lpriv)[0]),  &(([12 x i16]*)(%priv.mem9)[0][%ext.lane]),  24,  0);
+; HIR-NEXT:       @llvm.memcpy.p0.p0.i64(&((%b3.i.lpriv)[0]),  &(([12 x i16]*)(%priv.mem9)[0][%ext.lane]),  24,  0);
 
 omp.inner.for.body.i.lr.ph:
   %b3.i.lpriv = alloca [12 x i16], align 1
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"([12 x i16]* %b3.i.lpriv, i16 0, i32 12) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %b3.i.lpriv, i16 0, i32 12) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:
   %.omp.iv.i.local.03 = phi i32 [ %add5.i, %omp.body.continue.i ], [ 0, %DIR.OMP.SIMD.1 ]
 
-  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i32 %.omp.iv.i.local.03, i32 3
-  store i16 %a, i16* %arrayidx.i
+  %arrayidx.i = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i32 %.omp.iv.i.local.03, i32 3
+  store i16 %a, ptr %arrayidx.i
 
   br label %omp.body.continue.i
 
@@ -65,8 +63,8 @@ omp.body.continue.i:
 omp.inner.for.cond.i.DIR.OMP.END.SIMD.5.i.loopexit_crit_edge:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
 
-  %idx = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 1
-  %res = load i16, i16* %idx
+  %idx = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i64 0, i64 1
+  %res = load i16, ptr %idx
 
   ret i16 %res
 }
