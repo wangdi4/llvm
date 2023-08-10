@@ -20,9 +20,9 @@ define void @A(ptr addrspace(1) nocapture %out, ptr addrspace(1) nocapture %a, i
 ; CHECK-ARG: %pWorkDim = getelementptr i8, ptr %UniformArgs, i32 24
 ; CHECK-TLS: %3 = getelementptr i8, ptr %UniformArgs, i32 24
 
-; CHECK-TLS: store ptr [[BC:%[a-zA-Z0-9]+]], ptr @pWorkDim
+; CHECK-TLS: store ptr [[BC:%[a-zA-Z0-9]+]], ptr @__pWorkDim
 
-; CHECK-TLS: store ptr %pWGId, ptr @pWGId
+; CHECK-TLS: store ptr %pWGId, ptr @__pWGId
 
 ; CHECK-ARG: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %pWorkDim, i32 0, i32 8, i32 0, i32 0
 ; CHECK-TLS: [[GEP:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr [[BC]], i32 0, i32 8, i32 0, i32 0
@@ -60,7 +60,7 @@ define void @A(ptr addrspace(1) nocapture %out, ptr addrspace(1) nocapture %a, i
 ; CHECK:     [[IV1:%[a-zA-Z0-9]+]] = insertvalue [4 x i64] [[IV0]], i64 [[ADD1]], 1
 ; CHECK-ARG: %BaseGlbId = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
 ; CHECK-TLS: [[IV2:%[a-zA-Z0-9]+]] = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
-; CHECK-TLS: store [4 x i64] [[IV2]], ptr @BaseGlbId
+; CHECK-TLS: store [4 x i64] [[IV2]], ptr @__BaseGlbId
 ; CHECK:     ret void
 
 !sycl.kernels = !{!0}

@@ -93,6 +93,10 @@ const char *ImplicitArgsUtils::getArgName(unsigned Idx) {
   return ImpArgs[Idx].Name;
 }
 
+std::string ImplicitArgsUtils::getArgNameWithPrefix(unsigned Idx) {
+  return (Twine("__") + getArgName(Idx)).str();
+}
+
 // Initialize the implicit arguments properties.
 ImplicitArgProperties ImplicitArgsUtils::ImplicitArgProps[NUM_IMPLICIT_ARGS];
 bool ImplicitArgsUtils::Initialized = false;

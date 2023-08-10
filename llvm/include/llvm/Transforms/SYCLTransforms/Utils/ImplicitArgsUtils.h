@@ -176,6 +176,9 @@ public:
 
   static const char *getArgName(unsigned Idx);
 
+  /// Returns implicit argument name with '__' prefix.
+  static std::string getArgNameWithPrefix(unsigned Idx);
+
   /// Returns a value which is >= 'offset' for the offset of the implicit args
   /// from the start of the kernel uniform args. Used to ensure the implicit
   /// args
