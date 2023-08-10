@@ -1,3 +1,21 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===-- sanitizer_common.cpp ----------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -118,6 +136,10 @@ void ReportErrorSummary(const char *error_message, const char *alt_tool_name) {
   buff.append("SUMMARY: %s: %s",
               alt_tool_name ? alt_tool_name : SanitizerToolName, error_message);
   __sanitizer_report_error_summary(buff.data());
+
+#if INTEL_CUSTOMIZATION
+  WarnAboutMissingSymbolizer();
+#endif  // INTEL_CUSTOMIZATION
 }
 
 // Removes the ANSI escape sequences from the input string (in-place).
@@ -383,6 +405,25 @@ void WaitForDebugger(unsigned seconds, const char *label) {
     SleepForSeconds(seconds);
   }
 }
+
+#if INTEL_CUSTOMIZATION
+// JIRA: CMPLRLLVM-48308, CMPLRLLVM-48853
+// Tell user symbolizer is missing and this will lead to less debug info. And
+// instruct user how to provide a symbolizer for the program
+// We do that only when the sanitizers have some errors to report, not when
+// they use symbolizer to do the suppressions
+static bool NoSymbolizerFound = false;
+void WarnAboutMissingSymbolizer() {
+  if (NoSymbolizerFound) {
+    Printf(
+        "\nWARNING: No symbolizer is found; this would lead to less symbolic "
+        "information in the stack trace. Please install llvm-symbolizer or add "
+        "\"${ONEAPI_ROOT}/bin/compiler\" to your PATH environment "
+        "variable.\n\n");
+  }
+}
+void NotifyNoSymbolizer() { NoSymbolizerFound = true; }
+#endif  // INTEL_CUSTOMIZATION
 
 } // namespace __sanitizer
 

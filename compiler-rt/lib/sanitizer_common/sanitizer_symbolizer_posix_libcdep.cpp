@@ -481,13 +481,7 @@ static SymbolizerTool *ChooseExternalSymbolizer(LowLevelAllocator *allocator) {
   }
 
 #if INTEL_CUSTOMIZATION
-  // JIRA: CMPLRLLVM-48308
-  // Tell user symbolizer is missing and this will lead to less debug info. And
-  // instruct user how to provide a symbolizer for the program
-  Report(
-      "WARNING: No symbolizer is found; this would lead to less symbolic "
-      "information in the stack trace. Please install llvm-symbolizer or add "
-      "\"${ONEAPI_ROOT}/bin/compiler\" to your PATH environment variable.\n");
+  NotifyNoSymbolizer();
 #endif  // INTEL_CUSTOMIZATION
 
   return nullptr;
