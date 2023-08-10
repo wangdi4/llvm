@@ -507,7 +507,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   // -passes). This should be removed later when such support has been
   // deprecated, i.e. when all lit tests running opt (and not using
   // -enable-new-pm=0) have been updated to use -passes.
-  for (auto PassName : Passes) {
+  for (const auto &PassName : Passes) {
     if (auto Err = PB.parsePassPipeline(MPM, PassName)) {
       errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
       return false;
