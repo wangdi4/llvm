@@ -2983,7 +2983,14 @@ bool X86InstrInfo::hasCommutePreference(MachineInstr &MI, bool &Commute) const {
 
 int X86::getCondSrcNoFromDesc(const MCInstrDesc &MCID) {
   unsigned Opcode = MCID.getOpcode();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (!(X86::isJCC(Opcode) || X86::isSETCC(Opcode) || X86::isCMOVCC(Opcode) ||
+        X86::isCFCMOVCC(Opcode)))
+#else  // INTEL_FEATURE_ISA_APX_F
   if (!(X86::isJCC(Opcode) || X86::isSETCC(Opcode) || X86::isCMOVCC(Opcode)))
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     return -1;
   // Assume that condition code is always the last use operand.
   unsigned NumUses = MCID.getNumOperands() - MCID.getNumDefs();
@@ -11355,6 +11362,8 @@ MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
   //    CTEST32ri %1:gr32, 1234, 0, 5, implicit-def $eflags, implicit $eflags
   else if (SrcRegDef->getOpcode() == X86::COPY &&
            MI.getOpcode() == X86::CTEST16rr) {
+    if (!SrcRegDef->getOperand(1).getReg().isVirtual())
+      return nullptr;
     MachineInstr *VregDefInstr =
         MRI.getVRegDef(SrcRegDef->getOperand(1).getReg());
     if (!VregDefInstr)
@@ -11375,6 +11384,8 @@ MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
     return nullptr;
   if (CopySubRegMI &&
       !MRI.hasOneNonDBGUser(CopySubRegMI->getOperand(0).getReg()))
+    return nullptr;
+  if (AndMI->getParent() != MI.getParent())
     return nullptr;
   unsigned Opc = 0;
   bool NeedMemOp = false;

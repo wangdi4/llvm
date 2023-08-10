@@ -121,7 +121,8 @@ static cl::opt<APXFeatureString, true, cl::parser<std::string>> X86APXFeatures(
     cl::desc("Specify apx features to enable (plus separated list of types):"
              "\npush2pop2    PUSH2/POP2 instructions"
              "\negpr         extended general purpose register"
-             "\nndd          non-destructive destination"),
+             "\nndd          non-destructive destination"
+             "\nccmp         conditional compare"),
     cl::location(APXFeatureStr));
 
 #endif // INTEL_FEATURE_ISA_APX_F
