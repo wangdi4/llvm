@@ -20,16 +20,16 @@ define void @foo() {
 ; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 2 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_LD1_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_LD1:%.*]] = load <2 x i32>* [[VP_LD1_IDX]]
-; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_LD2_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>]* @arr.i32.2 i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_LD2:%.*]] = load <2 x i32>* [[VP_LD2_IDX]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_LD1_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_LD1:%.*]] = load ptr [[VP_LD1_IDX]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_LD2_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.2 i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_LD2:%.*]] = load ptr [[VP_LD2_IDX]]
 ; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_R1:%.*]] = add <2 x i32> [[VP_LD1]] <2 x i32> [[VP_LD2]]
 ; CHECK-NEXT:    Cost 1 for <2 x i32> [[VP_R2:%.*]] = sub <2 x i32> [[VP_LD1]] <2 x i32> [[VP_LD2]]
 ; CHECK-NEXT:    Cost 2 for <2 x i32> [[VP_R3:%.*]] = mul <2 x i32> [[VP_R1]] <2 x i32> [[VP_R2]]
 ; CHECK-NEXT:    Cost 80 for <2 x i32> [[VP_R4:%.*]] = sdiv <2 x i32> [[VP_R3]] <2 x i32> [[VP_LD1]]
-; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>]* @arr.i32.3 i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:    Cost 1 for store <2 x i32> [[VP_R4]] <2 x i32>* [[VP_ST_IDX]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.3 i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:    Cost 1 for store <2 x i32> [[VP_R4]] ptr [[VP_ST_IDX]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
@@ -50,18 +50,18 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld1.idx = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* @arr.i32.1, i64 0, i64 %indvars.iv
-  %ld1 = load <2 x i32>, <2 x i32>* %ld1.idx
-  %ld2.idx = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* @arr.i32.2, i64 0, i64 %indvars.iv
-  %ld2 = load <2 x i32>, <2 x i32>* %ld2.idx
+  %ld1.idx = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld1 = load <2 x i32>, ptr %ld1.idx
+  %ld2.idx = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld2 = load <2 x i32>, ptr %ld2.idx
 
   %r1 = add nsw nuw <2 x i32> %ld1, %ld2
   %r2 = sub nsw nuw <2 x i32> %ld1, %ld2
   %r3 = mul nsw nuw <2 x i32> %r1, %r2
   %r4 = sdiv <2 x i32> %r3, %ld1
 
-  %st.idx = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* @arr.i32.3, i64 0, i64 %indvars.iv
-  store <2 x i32> %r4, <2 x i32>* %st.idx
+  %st.idx = getelementptr inbounds [1024 x <2 x i32>], ptr @arr.i32.3, i64 0, i64 %indvars.iv
+  store <2 x i32> %r4, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
