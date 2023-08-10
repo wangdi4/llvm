@@ -651,7 +651,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
   MPM.addPass(SplitBBonBarrier());
   if (Level != OptimizationLevel::O0)
     MPM.addPass(ReduceCrossBarrierValuesPass());
-  MPM.addPass(KernelBarrier(m_debugType == intel::Native, m_UseTLSGlobals));
+  MPM.addPass(KernelBarrier());
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
 #endif
