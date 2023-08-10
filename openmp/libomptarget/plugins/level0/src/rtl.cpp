@@ -4600,12 +4600,11 @@ static int32_t decideLoopKernelGroupArguments(
   return OFFLOAD_SUCCESS;
 }
 
-static void
-decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
-                           uint32_t ThreadLimit, ze_kernel_handle_t Kernel,
-                           const KernelPropertiesTy &KernelPR,
-                           uint32_t *GroupSizes, ze_group_count_t &GroupCounts,
-                           bool HalfNumThreads, size_t LoopTripcount) {
+static void decideKernelGroupArguments(
+    int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
+    TgtNDRangeDescTy *LoopLevels, ze_kernel_handle_t Kernel,
+    const KernelPropertiesTy &KernelPR, uint32_t *GroupSizes,
+    ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   if (!KInfo) {
@@ -4766,6 +4765,26 @@ decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
       GRPCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
 
+    size_t LoopTripcount = 0;
+    if (LoopLevels) {
+      // TODO: consider other possible LoopDesc uses
+      DP("Loop desciptor provided but specific ND-range is disabled\n");
+      // TODO: get rid of this constraint
+      if (LoopLevels->NumLoops > 1) {
+        DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
+           LoopLevels->NumLoops);
+      } else if (LoopLevels->Levels[0].Ub >= LoopLevels->Levels[0].Lb) {
+        LoopTripcount = (LoopLevels->Levels[0].Ub - LoopLevels->Levels[0].Lb +
+                         LoopLevels->Levels[0].Stride) /
+                        LoopLevels->Levels[0].Stride;
+        DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
+           " = %zu\n",
+           LoopLevels->Levels[0].Ub, LoopLevels->Levels[0].Lb,
+           LoopLevels->Levels[0].Stride, LoopLevels->Levels[0].Stride,
+           LoopTripcount);
+      }
+    }
+
     if (LoopTripcount && !UsedReductionSubscriptionRate) {
       size_t AdjustedGroupCount =
           (LoopTripcount + GRPSizes[0] - 1) / GRPSizes[0];
@@ -4886,28 +4905,12 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
       if (GroupCounts.groupCountX > 8)
         GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
     } else {
-      size_t LoopTC = 0;
-      if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
-        // TODO: consider other possible LoopDesc uses
-        DP("Loop desciptor provided but specific ND-range is disabled\n");
-        TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
-        // TODO: get rid of this constraint
-        if (LI->NumLoops > 1) {
-          DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
-             LI->NumLoops);
-        } else if (LI->Levels[0].Ub >= LI->Levels[0].Lb) {
-          LoopTC =
-              (LI->Levels[0].Ub - LI->Levels[0].Lb + LI->Levels[0].Stride) /
-              LI->Levels[0].Stride;
-          DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
-             " = %zu\n",
-             LI->Levels[0].Ub, LI->Levels[0].Lb, LI->Levels[0].Stride,
-             LI->Levels[0].Stride, LoopTC);
-        }
-      }
+      bool UseLoopTC =
+          LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount;
       decideKernelGroupArguments(
-          SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit, Kernel, KernelPR,
-          GroupSizes, GroupCounts, HalfNumThreads, LoopTC);
+          SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit,
+          UseLoopTC ? (TgtNDRangeDescTy *)LoopDesc : nullptr, Kernel, KernelPR,
+          GroupSizes, GroupCounts, HalfNumThreads);
     }
     KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
                               ThreadLimit, GroupSizes, GroupCounts);

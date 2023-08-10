@@ -6,20 +6,20 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: VPlan after initial VPlan
-; CHECK:      i32** [[A_GEP:%.*]] = getelementptr i32** %vec.a.cast i32 {{.*}}
-; CHECK-NEXT: i32* [[A_ELEM:%.*]] = load i32** [[A_GEP]]
-; CHECK-NEXT: call i1 true i32* [[A_ELEM]] i64 16 void (i1)* @llvm.assume
+; CHECK:      ptr [[A_GEP:%.*]] = getelementptr ptr, ptr %vec.a i32 {{.*}}
+; CHECK-NEXT: ptr [[A_ELEM:%.*]] = load ptr [[A_GEP]]
+; CHECK-NEXT: call i1 true ptr [[A_ELEM]] i64 16 ptr @llvm.assume
 
-; CHECK: Removing alignment assumption: {{.*}} call i1 true i32* [[A_ELEM]] i64 16 void (i1)* @llvm.assume
+; CHECK: Removing alignment assumption: {{.*}} call i1 true ptr [[A_ELEM]] i64 16 ptr @llvm.assume
 
 ; CHECK-LABEL: VPlan after cleaning up alignment assumptions
-; CHECK:      i32** [[A_GEP]] = getelementptr i32** %vec.a.cast
-; CHECK-NEXT: i32* [[A_ELEM]] = load i32** [[A_GEP]]
-; CHECK-NOT:  call i1 true i32* [[A_ELEM]] i64 i16 void (i1)* @llvm.assume
+; CHECK:      ptr [[A_GEP]] = getelementptr ptr, ptr %vec.a
+; CHECK-NEXT: ptr [[A_ELEM]] = load ptr [[A_GEP]]
+; CHECK-NOT:  call i1 true ptr [[A_ELEM]] i64 i16 ptr @llvm.assume
 
-define i32 @foo(i32* %a) #0 {
+define i32 @foo(ptr %a) #0 {
 entry:
-  %0 = load i32, i32* %a, align 4
+  %0 = load i32, ptr %a, align 4
   ret i32 %0
 }
 
