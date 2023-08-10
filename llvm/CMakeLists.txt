@@ -177,7 +177,6 @@ set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
 if (INTEL_CUSTOMIZATION)
   # List of Intel specific projects
   set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
-  set(OPENCL_CLANG_LIBRARY_NAME "common_clang" CACHE STRING "")
   # List of all known projects in the mono repo
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)

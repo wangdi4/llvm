@@ -8,13 +8,12 @@
 #ifndef ARRAYPARAMETER_H_
 #define ARRAYPARAMETER_H_
 
-#include <cstddef>
-
 #ifdef WINDOWS
-#include <CL/cl.h>
+#include "CL/cl.h"
 #else
-#include <opencl.h>
+#include "CL/opencl.h"
 #endif
+#include <cstddef>
 
 class ArrayParameter {
 

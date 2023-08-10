@@ -6,13 +6,11 @@
  */
 
 #include "RandomInputGenerator.h"
-
-#include <time.h>
-#include <vector>
-
 #include "BoolGenerator.h"
 #include "IntGenerator.h"
 #include "RealGenerator.h"
+#include <time.h>
+#include <vector>
 
 using std::vector;
 

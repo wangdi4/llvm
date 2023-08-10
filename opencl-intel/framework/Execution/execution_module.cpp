@@ -57,9 +57,6 @@ using namespace Intel::OpenCL::Utils;
 
 namespace {
 
-/// Sync for the access of ExecutionModule::m_OclKernelEventMap
-std::mutex KernelEventMutex;
-
 /// Check mutex of map flags.
 /// \return CL_SUCCESS if OK.
 cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
@@ -75,22 +72,19 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
   return CL_SUCCESS;
 }
 
-/// Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
-/// remove it from kernel-event map.
-void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
+} // anonymous namespace
+
+void ExecutionModule::callbackForKernelEventMap(cl_event Evt) {
   std::lock_guard<std::mutex> Mu(KernelEventMutex);
 
-  assert(EM && "expect valid ExecutionModule instance");
-  OclKernelEventMapTy &KernelEvents = EM->getKernelEventMap();
+  OclKernelEventMapTy &KernelEvents = getKernelEventMap();
   auto It = std::find_if(KernelEvents.begin(), KernelEvents.end(),
                          [Evt](auto &I) { return Evt == I.second; });
   if (It != KernelEvents.end())
     KernelEvents.erase(It);
 
-  (void)EM->ReleaseEvent(Evt);
+  (void)ReleaseEvent(Evt);
 }
-
-} // anonymous namespace
 
 /******************************************************************
  * Constructor. Only assign pointers, for objects initilaztion use
@@ -2220,7 +2214,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // KernelEventMutex and OclEvent::m_ObserversListGuard.
         // We have to set the callback before calling EnqueueSelf.
         pNDRangeKernelCmd->SetFPGASerializeCompleteCallBack(
-            [this](cl_event Evt) { callbackForKernelEventMap(Evt, this); });
+            [this](cl_event Evt) { callbackForKernelEventMap(Evt); });
 
         // EnqueueSelf must also be guarded by KernelEventMutex,
         // otherwise prevClEvent's status could change during
