@@ -357,6 +357,8 @@ Scalar evolution for VPlan is implemented in the following files:
 * `.../VPlanHIR/IntelVPlanScalarEvolutionHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.h>`_
 * `.../VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp>`_
 
+.. _ValueTracking-label:
+
 Value Tracking Analysis
 -----------------------
 
@@ -376,6 +378,8 @@ Value tracking is implemented in the following files:
 
 Divergence Analysis
 -------------------
+
+:doc:`DivergenceAnalysis`
 
 Divergence Analysis (DA) analyzes the behavior of values within a vector.  These behaviors are
 referred to as `shapes`, which include `uniform` (identical in all lanes of a vector),
@@ -464,6 +468,8 @@ The Intel ``OptVLS`` infrastructure is implemented in the following files:
 * `llvm/lib/Analysis/Intel_OptVLS.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Analysis/Intel_OptVLS.cpp>`_
 * `llvm/lib/Analysis/Intel_OptVLSClientUtils.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Analysis/Intel_OptVLSClientUtils.cpp>`_
 
+.. _CallVecDecisions-label:
+
 Function Call Vectorization Analysis
 ------------------------------------
 
@@ -475,6 +481,8 @@ Function call vectorization analysis is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanCallVecDecisions.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.h>`_
 * `.../Intel_VPlan/IntelVPlanCallVecDecisions.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.cpp>`_
+
+.. _SVA-label:
 
 Scalar/Vector Analysis
 ----------------------
@@ -537,6 +545,8 @@ Loop exit canonicalization is implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanLoopExitCanonicalization.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.h>`_
 * `.../Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp>`_
 
+.. _LoopCFU-label:
+
 Loop Control Flow Uniformity (CFU) Transform
 --------------------------------------------
 
@@ -567,6 +577,8 @@ Predication and linearization are implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanPredicator.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h>`_
 * `.../Intel_VPlan/IntelVPlanPredicator.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp>`_
 
+.. _AZB-label:
+
 All-Zero Bypass Transform
 -------------------------
 
@@ -579,6 +591,8 @@ The All-Zero Bypass Transform is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanAllZeroBypass.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.h>`_
 * `.../Intel_VPlan/IntelVPlanAllZeroBypass.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.cpp>`_
+
+.. _MaskedModeLoopTransform-label:
 
 Masked Loop Variant Transform
 -----------------------------
@@ -651,6 +665,8 @@ The early-exit loop transform is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanTransformEarlyExit.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTransformEarlyExit.h>`_
 * `.../Intel_VPlan/IntelVPlanTransformEarlyExit.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTransformEarlyExit.cpp>`_
+
+.. _VConflictTransform-label:
 
 VConflict Idiom Transform
 -------------------------
