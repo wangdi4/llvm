@@ -104,6 +104,18 @@ Changes to the Windows Target
 Changes to the X86 Backend
 --------------------------
 
+<<<<<<< HEAD
+=======
+* ``__builtin_unpredictable`` (unpredictable metadata in LLVM IR), is handled by X86 Backend.
+  ``X86CmovConversion`` pass now respects this builtin and does not convert CMOVs to branches.
+* Add support for the ``PBNDKB`` instruction.
+* Support ISA of ``SHA512``.
+* Support ISA of ``SM3``.
+* Support ISA of ``SM4``.
+* Support ISA of ``AVX-VNNI-INT16``.
+* ``-mcpu=graniterapids-d`` is now supported.
+
+>>>>>>> df83784392c67df14f6c3c68f86587e27f8e7fc1
 Changes to the OCaml bindings
 -----------------------------
 
