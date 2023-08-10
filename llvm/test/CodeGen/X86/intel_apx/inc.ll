@@ -58,7 +58,7 @@ define i16 @inc16m(ptr %ptr) {
 ; CHECK-LABEL: inc16m:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    incl %eax, %eax
+; CHECK-NEXT:    incl %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -95,7 +95,7 @@ define i8 @uinc8r(i8 noundef %a) {
 ; CHECK-NEXT:    incb %dil, %al
 ; CHECK-NEXT:    movzbl %al, %eax
 ; CHECK-NEXT:    movl $255, %ecx
-; CHECK-NEXT:    cmovel %ecx, %eax, %eax
+; CHECK-NEXT:    cmovel %ecx, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -108,7 +108,7 @@ define i16 @uinc16r(i16 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    incw %di, %ax
 ; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
-; CHECK-NEXT:    cmovel %ecx, %eax, %eax
+; CHECK-NEXT:    cmovel %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -121,7 +121,7 @@ define i32 @uinc32r(i32 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    incl %edi, %eax
 ; CHECK-NEXT:    movl $-1, %ecx
-; CHECK-NEXT:    cmovel %ecx, %eax, %eax
+; CHECK-NEXT:    cmovel %ecx, %eax
 ; CHECK-NEXT:    retq
 entry:
   %inc = call i32 @llvm.uadd.sat.i32(i32 %a, i32 1)
@@ -133,7 +133,7 @@ define i64 @uinc64r(i64 noundef %a) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    incq %rdi, %rax
 ; CHECK-NEXT:    movq $-1, %rcx
-; CHECK-NEXT:    cmoveq %rcx, %rax, %rax
+; CHECK-NEXT:    cmoveq %rcx, %rax
 ; CHECK-NEXT:    retq
 entry:
   %inc = call i64 @llvm.uadd.sat.i64(i64 %a, i64 1)

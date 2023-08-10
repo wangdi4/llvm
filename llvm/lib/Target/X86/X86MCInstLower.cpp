@@ -2147,7 +2147,15 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   // Add a comment about EVEX-2-VEX compression for AVX-512 instrs that
   // are compressed from EVEX encoding to VEX encoding.
   if (TM.Options.MCOptions.ShowMCEncoding) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_LEGACY)
+      OutStreamer->AddComment("EVEX TO LEGACY Compression ", false);
+    else if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_VEX)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_VEX)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       OutStreamer->AddComment("EVEX TO VEX Compression ", false);
   }
 

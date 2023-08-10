@@ -47,7 +47,7 @@ define i8 @shl8m1(ptr %ptr) {
 ; CHECK-LABEL: shl8m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzbl (%rdi), %eax
-; CHECK-NEXT:    addb %al, %al, %al
+; CHECK-NEXT:    addb %al, %al
 ; CHECK-NEXT:    retq
 entry:
   %a = load i8, ptr %ptr
@@ -59,7 +59,7 @@ define i16 @shl16m1(ptr %ptr) {
 ; CHECK-LABEL: shl16m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    addl %eax, %eax, %eax
+; CHECK-NEXT:    addl %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -72,7 +72,7 @@ define i32 @shl32m1(ptr %ptr) {
 ; CHECK-LABEL: shl32m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movl (%rdi), %eax
-; CHECK-NEXT:    addl %eax, %eax, %eax
+; CHECK-NEXT:    addl %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
   %a = load i32, ptr %ptr
@@ -84,7 +84,7 @@ define i64 @shl64m1(ptr %ptr) {
 ; CHECK-LABEL: shl64m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    addq %rax, %rax, %rax
+; CHECK-NEXT:    addq %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
   %a = load i64, ptr %ptr
@@ -111,7 +111,7 @@ define i16 @shl16mcl(ptr %ptr, i16 %cl) {
 ; CHECK-NEXT:    movl %esi, %ecx
 ; CHECK-NEXT:    movzwl (%rdi), %eax
 ; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    shll %cl, %eax, %eax
+; CHECK-NEXT:    shll %cl, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -161,7 +161,7 @@ define i16 @shl16mi(ptr %ptr) {
 ; CHECK-LABEL: shl16mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    shll $4, %eax, %eax
+; CHECK-NEXT:    shll $4, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:

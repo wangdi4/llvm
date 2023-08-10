@@ -17,7 +17,7 @@ define i16 @shr16m1(ptr %ptr) {
 ; CHECK-LABEL: shr16m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    shrl %eax, %eax
+; CHECK-NEXT:    shrl %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -67,7 +67,7 @@ define i16 @shr16mcl(ptr %ptr, i16 %cl) {
 ; CHECK-NEXT:    movl %esi, %ecx
 ; CHECK-NEXT:    movzwl (%rdi), %eax
 ; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    shrl %cl, %eax, %eax
+; CHECK-NEXT:    shrl %cl, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -117,7 +117,7 @@ define i16 @shr16mi(ptr %ptr) {
 ; CHECK-LABEL: shr16mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    shrl $4, %eax, %eax
+; CHECK-NEXT:    shrl $4, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -162,7 +162,7 @@ define i16 @shr16r1(i16 noundef %a) {
 ; CHECK-LABEL: shr16r1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl %di, %eax
-; CHECK-NEXT:    shrl %eax, %eax
+; CHECK-NEXT:    shrl %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -208,7 +208,7 @@ define i16 @shr16rcl(i16 noundef %a, i16 %cl) {
 ; CHECK-NEXT:    movl %esi, %ecx
 ; CHECK-NEXT:    movzwl %di, %eax
 ; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    shrl %cl, %eax, %eax
+; CHECK-NEXT:    shrl %cl, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -254,7 +254,7 @@ define i16 @shr16ri(i16 noundef %a) {
 ; CHECK-LABEL: shr16ri:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl %di, %eax
-; CHECK-NEXT:    shrl $4, %eax, %eax
+; CHECK-NEXT:    shrl $4, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:

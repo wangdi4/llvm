@@ -23,7 +23,7 @@ define i8 @xor_i8_ri(i8 zeroext %0, i8 zeroext %1) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorb $-17, %dil, %al
 ; X64-NEXT:    movzbl %al, %eax
-; X64-NEXT:    cmovel %edi, %eax, %eax
+; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    retq
   %3 = xor i8 %0, -17
@@ -47,7 +47,7 @@ define i8 @xor_i8_rr(i8 zeroext %0, i8 zeroext %1) {
 ; X64-LABEL: xor_i8_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorl %edi, %esi, %eax
-; X64-NEXT:    cmovel %edi, %eax, %eax
+; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    retq
   %3 = xor i8 %1, %0
@@ -73,7 +73,7 @@ define i16 @xor_i16_ri(i16 zeroext %0, i16 zeroext %1) {
 ; X64-LABEL: xor_i16_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorl $65519, %edi, %eax # imm = 0xFFEF
-; X64-NEXT:    cmovel %edi, %eax, %eax
+; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    retq
   %3 = xor i16 %0, -17
@@ -98,7 +98,7 @@ define i16 @xor_i16_rr(i16 zeroext %0, i16 zeroext %1) {
 ; X64-LABEL: xor_i16_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorl %edi, %esi, %eax
-; X64-NEXT:    cmovel %edi, %eax, %eax
+; X64-NEXT:    cmovel %edi, %eax
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    retq
   %3 = xor i16 %1, %0
@@ -122,7 +122,7 @@ define i32 @xor_i32_ri(i32 %0, i32 %1) {
 ; X64-LABEL: xor_i32_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorl $-17, %edi, %eax
-; X64-NEXT:    cmovlel %edi, %eax, %eax
+; X64-NEXT:    cmovlel %edi, %eax
 ; X64-NEXT:    retq
   %3 = xor i32 %0, -17
   %4 = icmp slt i32 %3, 1
@@ -145,7 +145,7 @@ define i32 @xor_i32_rr(i32 %0, i32 %1) {
 ; X64-LABEL: xor_i32_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorl %edi, %esi, %eax
-; X64-NEXT:    cmovlel %edi, %eax, %eax
+; X64-NEXT:    cmovlel %edi, %eax
 ; X64-NEXT:    retq
   %3 = xor i32 %1, %0
   %4 = icmp slt i32 %3, 1
@@ -179,7 +179,7 @@ define i64 @xor_i64_ri(i64 %0, i64 %1) nounwind {
 ; X64-LABEL: xor_i64_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorq $-17, %rdi, %rax
-; X64-NEXT:    cmovleq %rdi, %rax, %rax
+; X64-NEXT:    cmovleq %rdi, %rax
 ; X64-NEXT:    retq
   %3 = xor i64 %0, -17
   %4 = icmp slt i64 %3, 1
@@ -213,7 +213,7 @@ define i64 @xor_i64_rr(i64 %0, i64 %1) nounwind {
 ; X64-LABEL: xor_i64_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    xorq %rdi, %rsi, %rax
-; X64-NEXT:    cmovleq %rdi, %rax, %rax
+; X64-NEXT:    cmovleq %rdi, %rax
 ; X64-NEXT:    retq
   %3 = xor i64 %1, %0
   %4 = icmp slt i64 %3, 1

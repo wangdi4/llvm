@@ -48,6 +48,12 @@ namespace X86 {
 enum AsmComments {
   // For instr that was compressed from EVEX to VEX.
   AC_EVEX_2_VEX = MachineInstr::TAsmComments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  , // For instr that was compressed from EVEX to Legacy.
+  AC_EVEX_2_LEGACY = AC_EVEX_2_VEX << 1
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Return a pair of condition code for the given predicate and whether
