@@ -10,6 +10,7 @@ VPlan Vectorizer
 
    Directory
    Pipeline
+   DivergenceAnalysis
 
 Introduction
 ============
@@ -24,3 +25,5 @@ For a "road atlas" of the VPlan Vectorizer files, see :doc:`Directory`.
 For an overall description of the VPlan Vectorizer pipeline design, see :doc:`Pipeline`.
 
 Additional documentation for individual features will be linked here.
+
+:doc:`DivergenceAnalysis`
