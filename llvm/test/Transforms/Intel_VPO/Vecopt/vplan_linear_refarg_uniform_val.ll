@@ -25,7 +25,7 @@ entry:
   br i1 %cmp, label %omp.precond.end, label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1), "QUAL.OMP.PRIVATE"(i32* %k.priv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED.IV"(ptr %i.linear.iv, i32 0, i32 1, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %k.priv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
@@ -33,9 +33,9 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
   %.omp.iv.local.017 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %add5, %omp.inner.for.body ]
-  store i32 %.omp.iv.local.017, i32* %i.linear.iv, align 4
-  store i32 %N, i32* %k.priv, align 4
-  %call = call noundef i32 @_Z3barPii(i32* noundef nonnull %k.priv, i32 noundef %.omp.iv.local.017)
+  store i32 %.omp.iv.local.017, ptr %i.linear.iv, align 4
+  store i32 %N, ptr %k.priv, align 4
+  %call = call noundef i32 @_Z3barPii(ptr noundef nonnull %k.priv, i32 noundef %.omp.iv.local.017)
   %add5 = add nuw nsw i32 %.omp.iv.local.017, 1
   %exitcond.not = icmp eq i32 %add5, %N
   br i1 %exitcond.not, label %omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge, label %omp.inner.for.body
@@ -50,6 +50,6 @@ omp.precond.end:                                  ; preds = %omp.inner.for.cond.
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare dso_local noundef i32 @_Z3barPii(i32* noundef, i32 noundef) local_unnamed_addr #3
+declare dso_local noundef i32 @_Z3barPii(ptr noundef, i32 noundef) local_unnamed_addr #3
 
 attributes #3 = { "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "vector-variants"="_ZGVbN4ul__Z3barPii" }
