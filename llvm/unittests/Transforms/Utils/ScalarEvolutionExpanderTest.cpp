@@ -161,7 +161,7 @@ TEST_F(ScalarEvolutionExpanderTest, SCEVZeroExtendExprNonIntegral) {
 
   Type *T_int1 = Type::getInt1Ty(Context);
   Type *T_int64 = Type::getInt64Ty(Context);
-  Type *T_pint64 = T_int64->getPointerTo(10);
+  Type *T_pint64 = PointerType::get(Context, 10);
 
   FunctionType *FTy =
       FunctionType::get(Type::getVoidTy(Context), {T_pint64}, false);
@@ -235,7 +235,7 @@ TEST_F(ScalarEvolutionExpanderTest, SCEVExpanderIsSafeToExpandAt) {
   NIM.setDataLayout(DataLayout);
 
   Type *T_int64 = Type::getInt64Ty(Context);
-  Type *T_pint64 = T_int64->getPointerTo(10);
+  Type *T_pint64 = PointerType::get(Context, 10);
 
   FunctionType *FTy =
       FunctionType::get(Type::getVoidTy(Context), {T_pint64}, false);
