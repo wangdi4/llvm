@@ -406,7 +406,7 @@ unsigned HLInst::getNumOperandsInternal() const {
     // indirect calls.
     NumOp = CInst->getNumOperands() - 1;
     // For indirect calls, we add function pointer as an operand.
-    if (!CInst->getCalledFunction()) {
+    if (CInst->isIndirectCall()) {
       ++NumOp;
     }
   } else {

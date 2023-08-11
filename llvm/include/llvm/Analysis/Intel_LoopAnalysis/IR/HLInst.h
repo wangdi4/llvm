@@ -340,7 +340,7 @@ public:
   /// Returns true if this is an indirect call instruction.
   bool isIndirectCallInst() const {
     auto Call = getCallInst();
-    return (Call && !Call->getCalledFunction());
+    return (Call && Call->isIndirectCall());
   }
 
   /// Returns the operand representing the function pointer of indirect call.

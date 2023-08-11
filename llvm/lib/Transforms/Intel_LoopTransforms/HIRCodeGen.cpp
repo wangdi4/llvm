@@ -2010,12 +2010,9 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
       Ops.erase(Ops.begin());
     }
 
-    Value *FuncVal = Call->getCalledFunction();
-
-    if (!FuncVal) {
-      // For indirect calls, function pointer is stored in last operand.
-      FuncVal = Ops.pop_back_val();
-    }
+    // For indirect calls, function pointer is stored in last operand.
+    Value *FuncVal =
+        Call->isIndirectCall() ? Ops.pop_back_val() : Call->getCalledOperand();
 
     CallInst *ResCall =
         Builder.CreateCall(Call->getFunctionType(), FuncVal, Ops, Bundles);
