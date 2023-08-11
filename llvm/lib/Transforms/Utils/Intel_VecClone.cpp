@@ -336,6 +336,17 @@ bool VecCloneImpl::vlaAllocasExist(Function &F) {
   return false;
 }
 
+static bool canInferPtrElementType(Function &F, const VFInfo &Variant) {
+  for (const auto &[I, Parm] : enumerate(Variant.getParameters())) {
+    if (Parm.isLinearUVal()) {
+      Type *ArgPtrElemType = inferPtrElementType(*F.getArg(I));
+      if (!ArgPtrElemType)
+        return false;
+    }
+  }
+  return true;
+}
+
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
@@ -1955,10 +1966,53 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       return VFABI::demangleForVFABI(Name);
     });
 
+
     SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
     getVariantsCPUDispatchData(F, CPUDispatchMap);
 
+    // Fix for CMPLRLLVM-49470 - the problem here is we can't easily infer the
+    // pointer type for a linear uval arg at -O0 because these pointers are
+    // stored to and loaded from memory indirectly (i.e., through memory).
+    // Special processing is required for linear uval parameters in that stores
+    // to that memory should not be done to the original memory due to OpenMP
+    // standard requirements. See processLinearArgs. As an example, unoptimized
+    // IR would appear something like the following where the ptr is stored to
+    // memory, loaded, and then a second load is needed to load the actual
+    // value from %a and the store of the value to memory is through a load of
+    // the pointer. In the optimized case the store of a value would be made
+    // directly to %a and that memory is replaced by other local memory so that
+    // the original memory is not modified. We'll need to revisit later to see
+    // if we can do a better job supporting this case, namely we would need to
+    // modify an external function inferPtrElementType and most likely
+    // processLinearArgs. The other difficulty in supporting this is that we
+    // could have more then one store to the original pointer, where each store
+    // could have a different type due to the way opaque pointers have now
+    // forced loads/stores to carry the type information. Due to time
+    // constraints, this workaround will be good enough for now to prevent a
+    // stability issue.
+    //
+    // define i32 @foo(ptr noundef nonnull align 4 dereferenceable(4) %a) {
+    // entry:
+    //  %a.addr = alloca ptr, align 8
+    //  ...
+    //  %0 = load ptr, ptr %a.addr, align 8
+    //  %1 = load i32, ptr %0, align 4
+    //  %2 = load i32, ptr %m.addr, align 4
+    //  %add = add nsw i32 %1, %2
+    //  %3 = load ptr, ptr %a.addr, align 8
+    //  store i32 %add, ptr %3, align 4
+    //
     for (const VFInfo &Variant : Variants) {
+      bool AbleToInferPtrElementType = canInferPtrElementType(F, Variant);
+      if (!AbleToInferPtrElementType) {
+        LLVM_DEBUG(dbgs() << "Bail out due to presence of unoptimized uval "
+                          << "parameter\n");
+        F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
+        if (ORBuilder)
+          (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
+                                    OptRemarkID::VecCloneLinearUValUnoptimized);
+        continue;
+      }
       // VecClone runs after OCLVecClone. Hence, VecClone will be triggered
       // again for the OpenCL kernels. To prevent this, we do not process
       // functions whose name include the current vector variant name. The
