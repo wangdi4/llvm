@@ -1156,8 +1156,15 @@ HLInst *HLNodeUtils::createCall(FunctionType *FTy, Value *Callee,
 
 HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
 
+  Type *PtrTy =
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+      getContext().supportsTypedPointers()
+          ? Type::getInt8PtrTy(getContext(), 0)
+          :
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+          getDataLayout().getAllocaPtrType(getContext());
   Function *StacksaveFunc =
-      Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave);
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave, {PtrTy});
 
   SmallVector<RegDDRef *, 1> Ops;
   CallInst *Call;
@@ -1170,8 +1177,8 @@ HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
 }
 
 HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
-  Function *StackrestoreFunc =
-      Intrinsic::getDeclaration(&getModule(), Intrinsic::stackrestore);
+  Function *StackrestoreFunc = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::stackrestore, {AddrArg->getDestType()});
 
   SmallVector<RegDDRef *, 1> Ops = {AddrArg};
   CallInst *Call;

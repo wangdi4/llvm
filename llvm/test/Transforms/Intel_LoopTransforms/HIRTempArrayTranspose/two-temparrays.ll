@@ -22,14 +22,14 @@
 ; HIR After
 
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:      %call = @llvm.stacksave();
+; CHECK:      %call = @llvm.stacksave.p0();
 ; CHECK:      %TranspTmpArr = alloca 64;
 ; CHECK:      + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK:      |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; CHECK:      |   |   (%TranspTmpArr)[i1][i2] = (%a)[i2][i1];
 ; CHECK:      |   + END LOOP
 ; CHECK:      + END LOOP
-; CHECK:      %call3 = @llvm.stacksave();
+; CHECK:      %call3 = @llvm.stacksave.p0();
 ; CHECK:      %TranspTmpArr4 = alloca 64;
 ; CHECK:      + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK:      |   + DO i2 = 0, 3, 1   <DO_LOOP>
@@ -49,8 +49,8 @@
 ;             |   |   (%result)[sext.i32.i64(%0) * i1 + i2] = %sub;
 ;             |   + END LOOP
 ;             + END LOOP
-; CHECK:      @llvm.stackrestore(&((%call3)[0]));
-; CHECK:      @llvm.stackrestore(&((%call)[0]));
+; CHECK:      @llvm.stackrestore.p0(&((%call3)[0]));
+; CHECK:      @llvm.stackrestore.p0(&((%call)[0]));
 ;         END REGION
 
 

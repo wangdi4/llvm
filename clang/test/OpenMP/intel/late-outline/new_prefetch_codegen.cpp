@@ -171,7 +171,7 @@ foobar bar;
 // CHECK-32-NEXT:    [[TMP20:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr [[ARRAYIDX17]], i32 0, i32 1, i32 0) ]
 // CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP20]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-32-NEXT:    [[TMP21:%.*]] = load i32, ptr [[N_ADDR]], align 4
-// CHECK-32-NEXT:    [[TMP22:%.*]] = call ptr @llvm.stacksave()
+// CHECK-32-NEXT:    [[TMP22:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK-32-NEXT:    store ptr [[TMP22]], ptr [[SAVED_STACK]], align 4
 // CHECK-32-NEXT:    [[TMP23:%.*]] = mul nuw i32 1000, [[TMP21]]
 // CHECK-32-NEXT:    [[VLA:%.*]] = alloca i16, i32 [[TMP23]], align 2
@@ -217,7 +217,7 @@ foobar bar;
 // CHECK-32-NEXT:    [[TMP42:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr getelementptr inbounds ([[STRUCT_FOOBAR]], ptr @bar, i32 0, i32 2, i32 6, i32 8), double 0.000000e+00, i32 1, i32 4) ]
 // CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP42]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-32-NEXT:    [[TMP43:%.*]] = load ptr, ptr [[SAVED_STACK]], align 4
-// CHECK-32-NEXT:    call void @llvm.stackrestore(ptr [[TMP43]])
+// CHECK-32-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP43]])
 // CHECK-32-NEXT:    ret void
 //
 // CHECK-LABEL: @_Z13test_prefetchm(
@@ -296,7 +296,7 @@ foobar bar;
 // CHECK-NEXT:    [[TMP22:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr [[ARRAYIDX19]], i32 0, i64 1, i32 0) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP22]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-NEXT:    [[TMP23:%.*]] = load i64, ptr [[N_ADDR]], align 8
-// CHECK-NEXT:    [[TMP24:%.*]] = call ptr @llvm.stacksave()
+// CHECK-NEXT:    [[TMP24:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK-NEXT:    store ptr [[TMP24]], ptr [[SAVED_STACK]], align 8
 // CHECK-NEXT:    [[TMP25:%.*]] = mul nuw i64 1000, [[TMP23]]
 // CHECK-NEXT:    [[VLA:%.*]] = alloca i16, i64 [[TMP25]], align 16
@@ -342,7 +342,7 @@ foobar bar;
 // CHECK-NEXT:    [[TMP44:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr getelementptr inbounds ([[STRUCT_FOOBAR]], ptr @bar, i32 0, i32 2, i64 6, i64 8), double 0.000000e+00, i64 1, i32 4) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP44]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-NEXT:    [[TMP45:%.*]] = load ptr, ptr [[SAVED_STACK]], align 8
-// CHECK-NEXT:    call void @llvm.stackrestore(ptr [[TMP45]])
+// CHECK-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP45]])
 // CHECK-NEXT:    ret void
 //
 void test_prefetch(unsigned long n) {

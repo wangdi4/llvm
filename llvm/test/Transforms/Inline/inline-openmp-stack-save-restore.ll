@@ -5,9 +5,9 @@
 ; the inlined code with the static allocas.
 
 ; CHECK: define{{.*}}@_Z25test_target__parallel_forPfS_
-; CHECK: call ptr @llvm.stacksave()
+; CHECK: call ptr @llvm.stacksave.p0()
 ; CHECK: alloca
-; CHECK: call void @llvm.stackrestore
+; CHECK: call void @llvm.stackrestore.p0
 ; CHECK: ret void
 
 ; Function Attrs: nounwind

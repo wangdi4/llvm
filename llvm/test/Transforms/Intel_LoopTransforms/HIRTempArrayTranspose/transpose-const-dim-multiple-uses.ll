@@ -39,7 +39,7 @@
 ;              + END LOOP
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:       %call15 = @llvm.stacksave();
+; CHECK:       %call15 = @llvm.stacksave.p0();
 ; CHECK:       %TranspTmpArr = alloca 39600;
 ;
 ;              + DO i1 = 0, 149, 1

@@ -23,7 +23,7 @@
 
 ; HIR After
 ; CHECK: BEGIN REGION { modified }
-; CHECK:   %call = @llvm.stacksave();
+; CHECK:   %call = @llvm.stacksave.p0();
 ; CHECK:   %TranspTmpArr = alloca 800 * sext.i32.i64(%load92);
 ;
 ;          + DO i1 = 0, 199, 1   <DO_LOOP>
@@ -47,7 +47,7 @@
 ;          |   + END LOOP
 ;          + END LOOP
 ;
-;          @llvm.stackrestore(&((%call)[0]));
+;          @llvm.stackrestore.p0(&((%call)[0]));
 ;    END REGION
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-const-dimsize=200 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLED

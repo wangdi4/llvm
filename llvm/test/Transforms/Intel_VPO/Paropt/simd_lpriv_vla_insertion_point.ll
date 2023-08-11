@@ -12,18 +12,18 @@
 ;check the debug messages for finding the VLA and for setting a VLA insertion point.
 ;CHECK: checkIfVLA: '  %{{[^,]+}} = alloca i32, i64 %{{[^,]+}}, align 16' is a VLA clause operand.
 ;CHECK: setInsertionPtForVlaAllocas: Found a VLA operand. Setting VLA insertion point to
-;CHECK: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call ptr @llvm.stacksave()'.
+;CHECK: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call ptr @llvm.stacksave.p0()'.
 ;
 ;check in the IR that the allocas and the stacksave call are inserted before the region entry and that the stackrestore is inserted after the region exit
-;CHECK:  [[SS1:%[^ ]+]] = call ptr @llvm.stacksave()
+;CHECK:  [[SS1:%[^ ]+]] = call ptr @llvm.stacksave.p0()
 ;CHECK:  store ptr [[SS1]], ptr %saved_stack, align 8
 ;CHECK:  %vla.lpriv = alloca i32, i32 %{{[^,]}}, align 16
-;CHECK:  [[SS2:%[^ ]+]]  = call ptr @llvm.stacksave()
+;CHECK:  [[SS2:%[^ ]+]]  = call ptr @llvm.stacksave.p0()
 ;CHECK:  %{{[^,]}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %vla.lpriv, i32 0, i32 %n)
 ;CHECK:  call void @llvm.directive.region.exit(token %{{[^,]+}}) [ "DIR.OMP.END.SIMD"() ]
-;CHECK:  call void @llvm.stackrestore(ptr [[SS2]])
+;CHECK:  call void @llvm.stackrestore.p0(ptr [[SS2]])
 ;CHECK:  [[READSS1:%[^ ]+]] = load ptr, ptr %saved_stack, align 8
-;CHECK:  call void @llvm.stackrestore(ptr [[READSS1]])
+;CHECK:  call void @llvm.stackrestore.p0(ptr [[READSS1]])
 ;
 ; ModuleID = 'test3.c'
 source_filename = "test3.c"

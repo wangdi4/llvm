@@ -25,10 +25,10 @@
 ; Check in the IR that the allocas and the stacksave call are inserted before kmpc_reduce and that the stackrestore is inserted after kmpc_end_reduce
 ; CHECK:  %e.addr.red = alloca i32, i64 1, align 8
 ; CHECK:  %e.addr.red.minus.offset.addr = alloca ptr, align 8
-; CHECK:  [[SS:%[^ ]+]]  = call ptr @llvm.stacksave()
+; CHECK:  [[SS:%[^ ]+]]  = call ptr @llvm.stacksave.p0()
 ; CHECK:   %{{[^,]+}} = call i32 @__kmpc_reduce
 ; CHECK:  call void @__kmpc_end_reduce
-; CHECK:  call void @llvm.stackrestore(ptr [[SS]])
+; CHECK:  call void @llvm.stackrestore.p0(ptr [[SS]])
 
 ; ModuleID = 'test3.cpp'
 source_filename = "test3.cpp"

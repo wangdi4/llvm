@@ -50,7 +50,7 @@ void foo() {
 
   // <num_elem> = <num_iters> + 1 constant affinity for affinity(a)
   // CHECK: [[NUM_ELEMS:%.+]] = add nuw i64 1, [[CONV]]
-  // CHECK: [[SV:%.+]] = call ptr @llvm.stacksave()
+  // CHECK: [[SV:%.+]] = call ptr @llvm.stacksave.p0()
   // CHECK: store ptr [[SV]], ptr [[SV_ADDR:%.+]], align 8
 
   // kmp_task_affinity_info_t affs[<num_elem>];
@@ -126,7 +126,7 @@ void foo() {
   // CHECK: [[TMP34:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.AFFARRAY"(i32 [[NAFFS]], ptr [[AFFS_ADDR]]) ]
   // CHECK: call void @llvm.directive.region.exit(token [[TMP34]]) [ "DIR.OMP.END.TASK"() ]
   // CHECK: [[SV:%.+]] = load ptr, ptr [[SV_ADDR]],
-  // CHECK: call void @llvm.stackrestore(ptr [[SV]])
+  // CHECK: call void @llvm.stackrestore.p0(ptr [[SV]])
 #pragma omp task affinity(iterator(i=0:a): p[i]) affinity(a)
   ;
 }

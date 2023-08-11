@@ -31,7 +31,7 @@
 ; HIR After
 
 ;      BEGIN REGION { modified }
-;            %call13 = @llvm.stacksave();
+;            %call13 = @llvm.stacksave.p0();
 ;            %TranspTmpArr14 = alloca 8 * (%"arbrcs_$NDIM_fetch.2290" * %"arbrcs_$NLINK_fetch.2294");
 ;
 ;            + DO i1 = 0, %"arbrcs_$NDIM_fetch.2290" + -1, 1
@@ -60,7 +60,7 @@
 ;            |   + END LOOP
 ;            + END LOOP
 ;
-;            @llvm.stackrestore(&((%call13)[0]));
+;            @llvm.stackrestore.p0(&((%call13)[0]));
 ;      END REGION
 
 

@@ -12,19 +12,19 @@
 ;IR was hand modified to add TYPED modifer to the Reduction clause.
 ;check the debug messages for finding the VLA and for setting a VLA insertion point.
 ;ALL: checkIfVLA: '  %{{[^,]+}} = alloca i32, i64 %{{[^,]+}}, align 16' is a VLA clause operand.
-;OPQPTR: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call ptr @llvm.stacksave()'.
+;OPQPTR: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call ptr @llvm.stacksave.p0()'.
 
 ;check in the IR that the allocas and the stacksave call are inserted before the region entry and that the stackrestore is inserted after the region exit
-;OPQPTR:  [[SS1:%[^ ]+]] = call ptr @llvm.stacksave()
+;OPQPTR:  [[SS1:%[^ ]+]] = call ptr @llvm.stacksave.p0()
 ;OPQPTR:  store ptr [[SS1]], ptr %saved_stack, align 8
 ;OPQPTR:  %vla.fast_red.alloca = alloca i32, i64 %{{[^,]}}, align 16
 ;OPQPTR:  %vla.red = alloca i32, i64 %{{[^,]}}, align 16
-;OPQPTR:  [[SS2:%[^ ]+]]  = call ptr @llvm.stacksave()
+;OPQPTR:  [[SS2:%[^ ]+]]  = call ptr @llvm.stacksave.p0()
 ;OPQPTR:  %{{[^,]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
 ;OPQPTR:  call void @llvm.directive.region.exit(token %{{[^,]+}}) [ "DIR.OMP.END.SIMD"() ]
-;OPQPTR:  call void @llvm.stackrestore(ptr [[SS2]])
+;OPQPTR:  call void @llvm.stackrestore.p0(ptr [[SS2]])
 ;OPQPTR:  [[READSS1:%[^ ]+]] = load ptr, ptr %saved_stack, align 8
-;OPQPTR:  call void @llvm.stackrestore(ptr [[READSS1]])
+;OPQPTR:  call void @llvm.stackrestore.p0(ptr [[READSS1]])
 
 ; ModuleID = 'simd_reduction_typed_vla_insertion_point.c'
 source_filename = "simd_reduction_typed_vla_insertion_point.c"

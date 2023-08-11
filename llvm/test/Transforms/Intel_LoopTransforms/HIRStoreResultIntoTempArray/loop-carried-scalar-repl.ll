@@ -59,7 +59,7 @@
 ;Function: jacobian_
 ;
 ; CHECK: BEGIN REGION { modified }
-; CHECK:       %call = @llvm.stacksave();
+; CHECK:       %call = @llvm.stacksave.p0();
 ; CHECK:       %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1  *  sext.i32.i64(%"jacobian_$NX_fetch") + 1;
 ; CHECK:       %array_size4 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK:       %TempArray = alloca %array_size4;
@@ -103,7 +103,7 @@
 ;                 (double*)(%ARGBLOCK_0)[0] = %"jacobian_$M.0";
 ;                 %func_result280 = @for_write_seq_lis(&((%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0]),  &((%ARGBLOCK_0)[0]));
 ;
-; CHECK:       @llvm.stackrestore(&((%call)[0]));
+; CHECK:       @llvm.stackrestore.p0(&((%call)[0]));
 ;              ret ;
 ;        END REGION
 
