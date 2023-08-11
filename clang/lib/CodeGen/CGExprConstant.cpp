@@ -1706,6 +1706,14 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   InConstantContext = D.hasConstantInitialization();
 
   QualType destType = D.getType();
+
+#if INTEL_COLLAB
+  CodeGenModule::inDeclareTargetRegionRAII RAII(
+      CGM, CGM.getContext().getLangOpts().OpenMPLateOutline
+               ? D.hasAttr<OMPDeclareTargetDeclAttr>()
+               : false);
+#endif // INTEL_COLLAB
+
   const Expr *E = D.getInit();
   assert(E && "No initializer to emit");
 
