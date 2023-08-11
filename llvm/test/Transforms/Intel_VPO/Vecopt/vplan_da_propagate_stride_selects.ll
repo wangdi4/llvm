@@ -7,23 +7,23 @@
 ; REQUIRES: asserts
 
 
-define void @foo([1024 x i32]* %src, [1024 x i32]* %dest, i1 %cond) {
+define void @foo(ptr %src, ptr %dest, i1 %cond) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX1:%.*]] = getelementptr inbounds [1024 x i32]* [[SRC0:%.*]] i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* [[SRC0]] i64 1 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_SELECT_SRC:%.*]] = select i1 [[COND0:%.*]] i32* [[VP_ARRAYIDX1]] i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SELECT_SRC]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds [1024 x i32]* [[DEST0:%.*]] i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX1:%.*]] = getelementptr inbounds [1024 x i32], ptr [[SRC0:%.*]] i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32], ptr [[SRC0]] i64 1 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_SELECT_SRC:%.*]] = select i1 [[COND0:%.*]] ptr [[VP_ARRAYIDX1]] ptr [[VP_ARRAYIDX2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SELECT_SRC]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds [1024 x i32], ptr [[DEST0:%.*]] i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 2] i64 [[VP_IV_2_TIMES:%.*]] = mul i64 [[VP_INDVARS_IV]] i64 2
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [1024 x i32]* [[DEST0]] i64 1 i64 [[VP_IV_2_TIMES]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i32* [[VP_SELECT_DEST:%.*]] = select i1 [[COND0]] i32* [[VP_ARRAYIDX3]] i32* [[VP_ARRAYIDX4]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store i32 [[VP_LOAD]] i32* [[VP_SELECT_DEST]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [1024 x i32], ptr [[DEST0]] i64 1 i64 [[VP_IV_2_TIMES]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] ptr [[VP_SELECT_DEST:%.*]] = select i1 [[COND0]] ptr [[VP_ARRAYIDX3]] ptr [[VP_ARRAYIDX4]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store i32 [[VP_LOAD]] ptr [[VP_SELECT_DEST]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -38,15 +38,15 @@ entry:
 
 omp.inner.for.body:                               ; preds = %entry, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %src, i64 0, i64 %indvars.iv
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* %src, i64 1, i64 %indvars.iv
-  %select.src = select i1 %cond, i32* %arrayidx1, i32* %arrayidx2
-  %load = load i32, i32* %select.src, align 8
-  %arrayidx3 = getelementptr inbounds [1024 x i32], [1024 x i32]* %dest, i64 0, i64 %indvars.iv
+  %arrayidx1 = getelementptr inbounds [1024 x i32], ptr %src, i64 0, i64 %indvars.iv
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr %src, i64 1, i64 %indvars.iv
+  %select.src = select i1 %cond, ptr %arrayidx1, ptr %arrayidx2
+  %load = load i32, ptr %select.src, align 8
+  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr %dest, i64 0, i64 %indvars.iv
   %iv.2.times = mul i64 %indvars.iv, 2
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* %dest, i64 1, i64 %iv.2.times
-  %select.dest = select i1 %cond, i32* %arrayidx3, i32* %arrayidx4
-  store i32 %load, i32* %select.dest, align 8
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr %dest, i64 1, i64 %iv.2.times
+  %select.dest = select i1 %cond, ptr %arrayidx3, ptr %arrayidx4
+  store i32 %load, ptr %select.dest, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit

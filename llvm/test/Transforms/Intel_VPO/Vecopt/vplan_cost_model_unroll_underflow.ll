@@ -9,10 +9,10 @@
 ; The checks confirm that the OVLS groups are recognized, the unroll heuristic reduces
 ; the cost, and the result is non-negative.
 
-; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load i32* {{.*}} *OVLS*({{.*}}) AdjCost: {{[1-9][0-9]*}}
-; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load i32* {{.*}} *OVLS*({{.*}}) AdjCost: 0
-; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load i32* {{.*}} *OVLS*({{.*}}) AdjCost: 0
-; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load i32* {{.*}} *OVLS*({{.*}}) AdjCost: 0
+; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: {{[1-9][0-9]*}}
+; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: 0
+; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: 0
+; CHECK: Cost {{[0-9]*}} for i32 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: 0
 ; CHECK: Cost decrease due to Unroll heuristic
 ; CHECK: Total Cost: {{[^-]}}
 
@@ -27,18 +27,18 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %acc.08 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i32 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds [4096 x i32], ptr @a, i32 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 16
   %1 = or i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i32 0, i64 %1
-  %2 = load i32, i32* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds [4096 x i32], ptr @a, i32 0, i64 %1
+  %2 = load i32, ptr %arrayidx2, align 8
   %add1 = add nsw i32 %0, %2
   %3 = or i64 %indvars.iv, 2
-  %arrayidx4 = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i32 0, i64 %3
-  %4 = load i32, i32* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [4096 x i32], ptr @a, i32 0, i64 %3
+  %4 = load i32, ptr %arrayidx4, align 8
   %5 = or i64 %indvars.iv, 3
-  %arrayidx6 = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i32 0, i64 %5
-  %6 = load i32, i32* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds [4096 x i32], ptr @a, i32 0, i64 %5
+  %6 = load i32, ptr %arrayidx6, align 8
   %add2 = add nsw i32 %4, %6
   %add3 = add nsw i32 %add1, %acc.08
   %add = add nsw i32 %add2, %add3

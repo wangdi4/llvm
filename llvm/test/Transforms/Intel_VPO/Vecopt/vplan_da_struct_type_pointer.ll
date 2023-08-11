@@ -10,22 +10,20 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { i32, i32 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %SArr) local_unnamed_addr {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] %struct.S* [[VP_A:%.*]] = getelementptr inbounds %struct.S* [[SARR0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_A_PTR:%.*]] = getelementptr inbounds %struct.S* [[VP_A]] i32 0 i32 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_A:%.*]] = getelementptr inbounds [[STRUCT_S0:%.*]], ptr [[SARR0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i32 [[VP0]] i32* [[VP_A_PTR]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_B:%.*]] = getelementptr inbounds %struct.S* [[SARR0]] i64 [[VP_INDVARS_IV]] i32 0
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 42 i32* [[VP_B]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_C:%.*]] = getelementptr inbounds %struct.S* [[SARR0]] i64 0 i32 0
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_C_LOAD:%.*]] = load i32* [[VP_C]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i32 [[VP0]] ptr [[VP_A]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_B:%.*]] = getelementptr inbounds [[STRUCT_S0]], ptr [[SARR0]] i64 [[VP_INDVARS_IV]] i32 0
+; CHECK-NEXT:  Divergent: [Shape: Random] store i32 42 ptr [[VP_B]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_C_LOAD:%.*]] = load ptr [[SARR0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -39,38 +37,36 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK: call void @llvm.masked.scatter
 ; CHECK: call void @llvm.masked.scatter
 ; For sanity ensure that scalar load is generated for uniform load to StructType in vector loop
-; CHECK: {{.*}} = load i32, i32*
-; CHECK-LABEL: VPlannedBB6:
+; CHECK: {{.*}} = load i32, ptr
+; CHECK-LABEL: VPlannedBB4:
 ;
 omp.inner.for.body.lr.ph:
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
 
   ; Non-uniform GEPs
-  %a = getelementptr inbounds %struct.S, %struct.S* %SArr, i64 %indvars.iv
-  %a.ptr = getelementptr inbounds %struct.S, %struct.S * %a, i32 0, i32 0
+  %a = getelementptr inbounds %struct.S, ptr %SArr, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %a.ptr, align 4, !tbaa !2
-  %b = getelementptr inbounds %struct.S, %struct.S* %SArr, i64 %indvars.iv, i32 0
-  store i32 42, i32* %b, align 4
+  store i32 %1, ptr %a, align 4, !tbaa !2
+  %b = getelementptr inbounds %struct.S, ptr %SArr, i64 %indvars.iv, i32 0
+  store i32 42, ptr %b, align 4
 
   ; Uniform GEP
-  %c = getelementptr inbounds %struct.S, %struct.S* %SArr, i64 0, i32 0
-  %c_load = load i32, i32* %c, align 4
+  %c_load = load i32, ptr %SArr, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
-  store i32 1023, i32* %i.lpriv, align 4, !tbaa !7
+  store i32 1023, ptr %i.lpriv, align 4, !tbaa !7
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
