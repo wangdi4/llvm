@@ -62,7 +62,7 @@ entry:
     "QUAL.OMP.PRIVATE:TYPED"(ptr %vla, i32 0, i64 %1),
     "QUAL.OMP.SHARED:TYPED"(ptr %omp.vla.tmp, i64 0, i32 1) ]
 
-; Inside the outlined function, check that the i32* in the privates thunk, is linked to the array allocated in the buffer at the end.
+; Inside the outlined function, check that the gep in the privates thunk, is linked to the array allocated in the buffer at the end.
 ; CHECK: define internal void @{{.*}}DIR.OMP.TASK{{.*}}
 ; CHECK: %.privates = getelementptr inbounds %__struct.kmp_task_t_with_privates, ptr %taskt.withprivates, i32 0, i32 1
 ; CHECK: [[VLA_PRIV_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %.privates, i32 0, i32 0
