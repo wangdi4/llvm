@@ -61157,6 +61157,29 @@ static SDValue combineConcatVectorOps(const SDLoc &DL, MVT VT,
         }
       }
       break;
+    case X86ISD::VPERM2X128: {
+      if (!IsSplat && VT.is512BitVector() && Subtarget.useAVX512Regs()) {
+        assert(NumOps == 2 && "Bad concat_vectors operands");
+        unsigned Imm0 = Ops[0].getConstantOperandVal(2);
+        unsigned Imm1 = Ops[1].getConstantOperandVal(2);
+        // TODO: Handle zero'd subvectors.
+        if ((Imm0 & 0x88) == 0 && (Imm1 & 0x88) == 0) {
+          int Mask[4] = {(int)(Imm0 & 0x03), (int)((Imm0 >> 4) & 0x3), (int)(Imm1 & 0x03),
+                         (int)((Imm1 >> 4) & 0x3)};
+          MVT ShuffleVT = EltSizeInBits >= 32 ? VT : MVT::v8i64;
+          SDValue LHS = concatSubVectors(Ops[0].getOperand(0),
+                                         Ops[0].getOperand(1), DAG, DL);
+          SDValue RHS = concatSubVectors(Ops[1].getOperand(0),
+                                         Ops[1].getOperand(1), DAG, DL);
+          SDValue Res = DAG.getNode(X86ISD::SHUF128, DL, ShuffleVT,
+                                    DAG.getBitcast(ShuffleVT, LHS),
+                                    DAG.getBitcast(ShuffleVT, RHS),
+                                    getV4X86ShuffleImm8ForMask(Mask, DL, DAG));
+          return DAG.getBitcast(VT, Res);
+        }
+      }
+      break;
+    }
     case X86ISD::SHUF128: {
       if (!IsSplat && NumOps == 2 && VT.is512BitVector()) {
         unsigned Imm0 = Ops[0].getConstantOperandVal(2);
