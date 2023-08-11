@@ -3529,7 +3529,8 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     SmallVector<int, 4> ArgChunks(VecArgTys.size(), 1);
     int RetChunks = 1;
     Type *VecRetTy = nullptr;
-    Function *VectorF = nullptr;
+    Value *VectorF = nullptr;
+    FunctionType *VectorFTy = nullptr;
     if (MatchedVariant) {
       VecRetTy =
           getWidenedReturnType(VPCall->getType(), MatchedVariant->getVF());
@@ -3543,13 +3544,16 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
             ArgChunks, RetChunks, VecArgTys, VecRetTy, *MatchedVariant,
             Plan->getDataLayout()->getPointerSizeInBits() == 64);
 
-      VectorF = getOrInsertVectorVariantFunction(*CalledFunc, *MatchedVariant,
-                                                 VecArgTys, VecRetTy, ArgChunks,
-                                                 RetChunks);
+      VectorF = getOrInsertVectorVariantFunction(
+          VectorFTy, *CalledFunc, *MatchedVariant, VecArgTys, VecRetTy,
+          ArgChunks, RetChunks);
+      assert(VectorF && "Can't create vector variant function.");
     } else {
       VectorF =
           getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
                                        TLI, VectorIntrinID, IsMasked);
+      assert(VectorF && "Can't create vector function.");
+      VectorFTy = cast<Function>(VectorF)->getFunctionType();
     }
 
     // For AVX512 ISA class as per VECABI mask argument shell be passed in one
@@ -3612,9 +3616,9 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
       }
     }
 
-    assert(VectorF && "Can't create vector function.");
-    CallInst *VecCall = Builder.CreateCall(VectorF, LegalizedVecArgs);
-    VecCall->setCallingConv(VectorF->getCallingConv());
+    CallInst *VecCall =
+        Builder.CreateCall(VectorFTy, VectorF, LegalizedVecArgs);
+    llvm::setCallCallingConvention(VecCall, VectorF);
 
     Value *CallResult = VecCall;
     if (RetChunks > 1) {

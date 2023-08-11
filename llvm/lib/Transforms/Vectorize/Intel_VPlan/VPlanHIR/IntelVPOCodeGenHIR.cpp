@@ -3214,7 +3214,8 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
     SmallVector<int, 4> ArgChunks(ArgTys.size(), 1);
     int RetChunks = 1;
     Type *VecRetTy = nullptr;
-    Function *VectorF = nullptr;
+    Value *VectorF = nullptr;
+    FunctionType *VectorFTy = nullptr;
     if (MatchedVariant) {
       VecRetTy =
           getWidenedReturnType(Fn->getReturnType(), MatchedVariant->getVF());
@@ -3228,12 +3229,15 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
             Plan->getDataLayout()->getPointerSizeInBits() == 64);
 
       VectorF = getOrInsertVectorVariantFunction(
-          *Fn, *MatchedVariant, ArgTys, VecRetTy, ArgChunks, RetChunks);
+          VectorFTy, *Fn, *MatchedVariant, ArgTys, VecRetTy, ArgChunks,
+          RetChunks);
+      assert(VectorF && "Can't create vector variant function.");
     } else {
       VectorF = getOrInsertVectorLibFunction(Fn, VF / PumpFactor, ArgTys, TLI,
                                              VectorIntrinID, Mask != nullptr);
+      assert(VectorF && "Can't create vector function.");
+      VectorFTy = cast<Function>(VectorF)->getFunctionType();
     }
-    assert(VectorF && "Can't create vector function.");
 
     auto PackMaskArgument = [this](RegDDRef *Mask) {
       auto *MaskVecTy = cast<FixedVectorType>(Mask->getDestType());
@@ -3312,11 +3316,11 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
                             : FastMathFlags();
 
     HLInst *WideInst = HLNodeUtilities.createCall(
-        VectorF, LegalizedCallArgs, VectorF->getName(), nullptr /*Lval*/,
-        {} /*Bundle*/, {} /*BundleOps*/, FMF);
+        VectorFTy, VectorF, LegalizedCallArgs, VectorF->getName(),
+        nullptr /*Lval*/, {} /*Bundle*/, {} /*BundleOps*/, FMF);
     CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
     assert(VecCall && "Call instruction is expected to be exist");
-    VecCall->setCallingConv(VectorF->getCallingConv());
+    llvm::setCallCallingConvention(VecCall, VectorF);
 
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
