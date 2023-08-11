@@ -8,30 +8,28 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVdN8uuuu_test_fn(<4 x i8> addrspace(1)* %src) {
+define void @_ZGVdN8uuuu_test_fn(ptr addrspace(1) %src) {
 ; CHECK-LABEL: @_ZGVdN8uuuu_test_fn(
 ; CHECK:  entry:
 ; CHECK:    [[PRIVATE_MEM:%.*]] = alloca [2 x [2 x <4 x i8>]], align 4
-; CHECK:    [[PRIVADDR:%.*]] = bitcast [2 x [2 x <4 x i8>]]* [[PRIVATE_MEM]] to [2 x <4 x i8>]*
-; CHECK:    [[PRIV_BASE_ADDR:%.*]] = getelementptr [2 x <4 x i8>], [2 x <4 x i8>]* [[PRIVADDR]], <2 x i32> <i32 0, i32 1>
+; CHECK:    [[PRIV_BASE_ADDR:%.*]] = getelementptr [2 x <4 x i8>], ptr [[PRIVATE_MEM]], <2 x i32> <i32 0, i32 1>
 ; CHECK:  vector.body:
-; CHECK:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK:    [[TMP4:%.*]] = load <4 x i8>, <4 x i8> addrspace(1)* [[SRC:%.*]]
+; CHECK:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x ptr> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK:    [[TMP4:%.*]] = load <4 x i8>, ptr addrspace(1) [[SRC:%.*]]
 ; CHECK:    [[REPLICATEDVAL_:%.*]] = shufflevector <4 x i8> [[TMP4]], <4 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK:    [[TMP5:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP2]] to <2 x i8*>
-; CHECK:    [[VECBASEPTR_:%.*]] = shufflevector <2 x i8*> [[TMP5]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+; CHECK:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x ptr> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK:    [[VECBASEPTR_:%.*]] = shufflevector <2 x ptr> [[MM_VECTORGEP2]], <2 x ptr> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x ptr> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
+; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0(<8 x i8> [[REPLICATEDVAL_]], <8 x ptr> [[ELEMBASEPTR_]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
   %sPrivateStorage = alloca [2 x <4 x i8>], align 4
@@ -39,19 +37,19 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(<4 x i8> addrspace(1)* %src, <4 x i8> zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"([2 x <4 x i8>]* %sPrivateStorage, <4 x i8> zeroinitializer, i32 2)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %src, <4 x i8> zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %sPrivateStorage, <4 x i8> zeroinitializer, i32 2)]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
   %0 = sext i32 %index to i64
   %add = add nuw i64 %0, %call
-  %1 = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage, i64 0, i64 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 256, i8* nonnull %1)
-  %2 = load <4 x i8>, <4 x i8> addrspace(1)* %src, align 4
-  %arrayidx3 = getelementptr inbounds [2 x <4 x i8>], [2 x <4 x i8>]* %sPrivateStorage, i64 0, i64 0
-  store <4 x i8> %2, <4 x i8>* %arrayidx3, align 4
-  call void @llvm.lifetime.end.p0i8(i64 256, i8* nonnull %1)
+  %1 = getelementptr inbounds [2 x <4 x i8>], ptr %sPrivateStorage, i64 0, i64 0, i64 0
+  call void @llvm.lifetime.start.p0(i64 256, ptr nonnull %1)
+  %2 = load <4 x i8>, ptr addrspace(1) %src, align 4
+  %arrayidx3 = getelementptr inbounds [2 x <4 x i8>], ptr %sPrivateStorage, i64 0, i64 0
+  store <4 x i8> %2, ptr %arrayidx3, align 4
+  call void @llvm.lifetime.end.p0(i64 256, ptr nonnull %1)
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

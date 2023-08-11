@@ -5,8 +5,8 @@
 %opencl.pipe_wo_t.6 = type opaque
 %opencl.pipe_ro_t.7 = type opaque
 
-@test_pipe_workgroup_write_int.res_id = internal unnamed_addr addrspace(3) global %opencl.reserve_id_t.5* undef, align 8
-@test_pipe_workgroup_read_int.res_id = internal unnamed_addr addrspace(3) global %opencl.reserve_id_t.5* undef, align 8
+@test_pipe_workgroup_write_int.res_id = internal unnamed_addr addrspace(3) global ptr undef, align 8
+@test_pipe_workgroup_read_int.res_id = internal unnamed_addr addrspace(3) global ptr undef, align 8
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32 %0) local_unnamed_addr #1
@@ -15,25 +15,25 @@ declare i64 @_Z13get_global_idj(i32 %0) local_unnamed_addr #1
 declare i64 @_Z14get_local_sizej(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: convergent
-declare zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(%opencl.reserve_id_t.5* %0) local_unnamed_addr #3
+declare zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(ptr %0) local_unnamed_addr #3
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: convergent
-declare %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %0, i32 %1, i32 %2, i32 %3) local_unnamed_addr #2
+declare ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %0, i32 %1, i32 %2, i32 %3) local_unnamed_addr #2
 
-declare i32 @__read_pipe_4(%opencl.pipe_ro_t.7 addrspace(1)* %0, %opencl.reserve_id_t.5* %1, i32 %2, i8 addrspace(4)* %3, i32 %4, i32 %5) local_unnamed_addr
+declare i32 @__read_pipe_4(ptr addrspace(1) %0, ptr %1, i32 %2, ptr addrspace(4) %3, i32 %4, i32 %5) local_unnamed_addr
 
 ; Function Attrs: convergent
-declare void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %0, %opencl.reserve_id_t.5* %1, i32 %2, i32 %3) local_unnamed_addr #4
+declare void @__work_group_commit_read_pipe(ptr addrspace(1) %0, ptr %1, i32 %2, i32 %3) local_unnamed_addr #4
 
 ; CHECK-LABEL: @_ZGVeN16uu_test_pipe_workgroup_read_int(
 ; CHECK:       vector.body:
-; CHECK:         [[TMP6:%.*]] = tail call %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* [[LOAD_IN_PIPE:%.*]], i32 [[DOTEXTRACT_0_:%.*]], i32 4, i32 4)
-; CHECK:         [[TMP7:%.*]] = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(%opencl.reserve_id_t.5* [[TMP6]])
+; CHECK:         [[TMP6:%.*]] = tail call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) [[LOAD_IN_PIPE:%.*]], i32 [[DOTEXTRACT_0_:%.*]], i32 4, i32 4)
+; CHECK:         [[TMP7:%.*]] = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(ptr [[TMP6]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i1> undef, i1 [[TMP7]], i32 0
-; CHECK-NEXT:    [[TMP9:%.*]] = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(%opencl.reserve_id_t.5* [[TMP6]])
+; CHECK-NEXT:    [[TMP9:%.*]] = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(ptr [[TMP6]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <2 x i1> [[TMP8]], i1 [[TMP9]], i32 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
 ; CHECK:       VPlannedBB7:
@@ -44,9 +44,9 @@ declare void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %0
 ; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE]], true
 ; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_CALL_IF:%.*]], label [[TMP22:%.*]]
 ; CHECK:       pred.call.if:
-; CHECK-NEXT:    [[TMP21:%.*]] = tail call i32 @__read_pipe_4(%opencl.pipe_ro_t.7 addrspace(1)* [[LOAD_IN_PIPE]], %opencl.reserve_id_t.5* [[TMP15:%.*]], i32 [[DOTEXTRACT_0_11:%.*]], i8 addrspace(4)* [[DOTEXTRACT_0_12:%.*]], i32 4, i32 4)
+; CHECK-NEXT:    [[TMP21:%.*]] = tail call i32 @__read_pipe_4(ptr addrspace(1) [[LOAD_IN_PIPE]], ptr [[TMP15:%.*]], i32 [[DOTEXTRACT_0_11:%.*]], ptr addrspace(4) [[DOTEXTRACT_0_12:%.*]], i32 4, i32 4)
 ; CHECK-NEXT:    br label [[TMP22]]
-; CHECK:       22:
+; CHECK:       21:
 ; CHECK-NEXT:    [[TMP23:%.*]] = phi i32 [ undef, [[PRED_LOAD_CONTINUE:%.*]] ], [ [[TMP21]], [[PRED_CALL_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
@@ -54,23 +54,23 @@ declare void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %0
 ; CHECK-NEXT:    [[TMP24:%.*]] = icmp eq i1 [[PREDICATE13]], true
 ; CHECK-NEXT:    br i1 [[TMP24]], label [[PRED_CALL_IF19:%.*]], label [[TMP26:%.*]]
 ; CHECK:       pred.call.if19:
-; CHECK-NEXT:    [[TMP25:%.*]] = tail call i32 @__read_pipe_4(%opencl.pipe_ro_t.7 addrspace(1)* [[LOAD_IN_PIPE]], %opencl.reserve_id_t.5* [[TMP15:%.*]], i32 [[DOTEXTRACT_1_:%.*]], i8 addrspace(4)* [[DOTEXTRACT_1_14:%.*]], i32 4, i32 4)
+; CHECK-NEXT:    [[TMP25:%.*]] = tail call i32 @__read_pipe_4(ptr addrspace(1) [[LOAD_IN_PIPE]], ptr [[TMP15:%.*]], i32 [[DOTEXTRACT_1_:%.*]], ptr addrspace(4) [[DOTEXTRACT_1_14:%.*]], i32 4, i32 4)
 ; CHECK-NEXT:    br label [[TMP26]]
 ; CHECK:       pred.load.continue22:
 ; CHECK-NEXT:    [[TMP33:%.*]] = bitcast <2 x i1> [[TMP10]] to i2
 ; CHECK-NEXT:    [[TMP34:%.*]] = icmp ne i2 [[TMP33]], 0
 ; CHECK-NEXT:    br i1 [[TMP34]], label [[PRED_CALL_IF23:%.*]], label [[TMP35:%.*]]
 ; CHECK:       pred.call.if23:
-; CHECK-NEXT:    tail call void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* [[LOAD_IN_PIPE]], %opencl.reserve_id_t.5* [[TMP32:%.*]], i32 4, i32 4)
+; CHECK-NEXT:    tail call void @__work_group_commit_read_pipe(ptr addrspace(1) [[LOAD_IN_PIPE]], ptr [[TMP32:%.*]], i32 4, i32 4)
 ; CHECK-NEXT:    br label [[TMP35]]
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVeN16uu_test_pipe_workgroup_read_int(%opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, i32 addrspace(1)* %dst) local_unnamed_addr #5 {
+define void @_ZGVeN16uu_test_pipe_workgroup_read_int(ptr addrspace(1) %in_pipe, ptr addrspace(1) %dst) local_unnamed_addr #5 {
 entry:
-  %alloca.in_pipe = alloca %opencl.pipe_ro_t.7 addrspace(1)*
-  store %opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, %opencl.pipe_ro_t.7 addrspace(1)** %alloca.in_pipe
-  %alloca.dst = alloca i32 addrspace(1)*
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %alloca.dst
+  %alloca.in_pipe = alloca ptr addrspace(1)
+  store ptr addrspace(1) %in_pipe, ptr %alloca.in_pipe
+  %alloca.dst = alloca ptr addrspace(1)
+  store ptr addrspace(1) %dst, ptr %alloca.dst
   %call = tail call i64 @_Z13get_global_idj(i32 0) #7
   %call3 = tail call i64 @_Z12get_local_idj(i32 0) #7
   %0 = trunc i64 %call3 to i32
@@ -78,12 +78,12 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(%opencl.pipe_ro_t.7 addrspace(1)** %alloca.in_pipe, %opencl.pipe_ro_t.7 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca.dst, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca.in_pipe, %opencl.pipe_ro_t.7 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca.dst, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.dst = load i32 addrspace(1)*, i32 addrspace(1)** %alloca.dst
-  %load.in_pipe = load %opencl.pipe_ro_t.7 addrspace(1)*, %opencl.pipe_ro_t.7 addrspace(1)** %alloca.in_pipe
+  %load.dst = load ptr addrspace(1), ptr %alloca.dst
+  %load.in_pipe = load ptr addrspace(1), ptr %alloca.in_pipe
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
@@ -95,25 +95,24 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %3 = trunc i64 %call1 to i32
   ; Uniform kernel-convergent-call, kernel-uniform-call, kernel-call-once call
   ; Expected to be not widened and not serialized.
-  %4 = tail call %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %load.in_pipe, i32 %3, i32 4, i32 4) #8
-  store %opencl.reserve_id_t.5* %4, %opencl.reserve_id_t.5* addrspace(3)* @test_pipe_workgroup_read_int.res_id, align 8
+  %4 = tail call ptr @__work_group_reserve_read_pipe(ptr addrspace(1) %load.in_pipe, i32 %3, i32 4, i32 4) #8
+  store ptr %4, ptr addrspace(3) @test_pipe_workgroup_read_int.res_id, align 8
   ; Regular uniform OCL call, expected to be serialized
-  %call2 = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(%opencl.reserve_id_t.5* %4) #9
+  %call2 = tail call zeroext i1 @_Z19is_valid_reserve_id13ocl_reserveid(ptr %4) #9
   br i1 %call2, label %if.then, label %if.end
 
 if.then:                                          ; preds = %simd.loop
-  %5 = load %opencl.reserve_id_t.5*, %opencl.reserve_id_t.5* addrspace(3)* @test_pipe_workgroup_read_int.res_id, align 8
+  %5 = load ptr, ptr addrspace(3) @test_pipe_workgroup_read_int.res_id, align 8
   %sext = shl i64 %add, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %load.dst, i64 %idxprom
-  %6 = bitcast i32 addrspace(1)* %arrayidx to i8 addrspace(1)*
-  %7 = addrspacecast i8 addrspace(1)* %6 to i8 addrspace(4)*
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %load.dst, i64 %idxprom
+  %6 = addrspacecast ptr addrspace(1) %arrayidx to ptr addrspace(4)
   ; Regular non-uniform OCL call, expect serialization with predication
-  %8 = tail call i32 @__read_pipe_4(%opencl.pipe_ro_t.7 addrspace(1)* %load.in_pipe, %opencl.reserve_id_t.5* %5, i32 %add1, i8 addrspace(4)* %7, i32 4, i32 4) #6
-  %9 = load %opencl.reserve_id_t.5*, %opencl.reserve_id_t.5* addrspace(3)* @test_pipe_workgroup_read_int.res_id, align 8
+  %7 = tail call i32 @__read_pipe_4(ptr addrspace(1) %load.in_pipe, ptr %5, i32 %add1, ptr addrspace(4) %6, i32 4, i32 4) #6
+  %8 = load ptr, ptr addrspace(3) @test_pipe_workgroup_read_int.res_id, align 8
   ; Non-uniform kernel-convergent-call, kernel-uniform-call, kernel-call-once call
   ; Expected to be all-ones bypassed, not widened and not serialized.
-  tail call void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %load.in_pipe, %opencl.reserve_id_t.5* %9, i32 4, i32 4) #8
+  tail call void @__work_group_commit_read_pipe(ptr addrspace(1) %load.in_pipe, ptr %8, i32 4, i32 4) #8
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %simd.loop
