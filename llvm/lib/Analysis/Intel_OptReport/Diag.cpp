@@ -506,6 +506,9 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::VecCloneVariantLegalization,
      "'omp declare' vector variants were skipped due to limited "
      "support for vector length and/or argument and/or return type: %s."},
+    {OptRemarkID::VecCloneLinearUValUnoptimized,
+     "'omp declare' vector variants were skipped due to limited support for "
+     "uval parameters at -O0."},
     {OptRemarkID::VectorizerReductionInfo,
      "vectorization support: %s reduction with value type %s"},
 
