@@ -4976,7 +4976,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   }
 
   // For indirect calls, set the function pointer as the last operand.
-  if (Call && !Call->getCalledFunction()) {
+  if (Call && Call->isIndirectCall()) {
     RegDDRef *Ref = createScalarDDRef(Call->getCalledOperand(), Level);
     HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }

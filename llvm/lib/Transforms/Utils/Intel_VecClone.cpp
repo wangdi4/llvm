@@ -463,8 +463,10 @@ void VecCloneImpl::Factory::cloneFunction() {
                                         DL.getPointerSizeInBits() == 64);
   }
 
-  Clone = getOrInsertVectorVariantFunction(
-      F, V, LogicalArgTypes, LogicalRetType, ArgChunks, RetChunks);
+  FunctionType *FTy = nullptr;
+  Clone = cast<Function>(getOrInsertVectorVariantFunction(
+      FTy, F, V, LogicalArgTypes, LogicalRetType, ArgChunks, RetChunks));
+  (void)FTy;
 
   auto SetArgName = [](Function::arg_iterator &ArgIt, StringRef Name,
                        int NumParts) {

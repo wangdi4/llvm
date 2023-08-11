@@ -152,7 +152,7 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
           if (HLS.TLI.isFunctionVectorizable(Func->getName())) {
             SelfStats->NumProfitableVectorizableCalls++;
           }
-        } else {
+        } else if (Call->isIndirectCall()) {
           SelfStats->NumIndirectCalls++;
         }
       }

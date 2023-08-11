@@ -1223,18 +1223,14 @@ void llvm::updateVectorVariantAttributes(Function &VectorF,
   VectorF.setVisibility(OrigF.getVisibility());
 }
 
-Function *
-llvm::getOrInsertVectorVariantFunction(Function &OrigF, const VFInfo &Variant,
+Value *
+llvm::getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
+                                       const VFInfo &Variant,
                                        ArrayRef<Type *> ArgTys, Type *RetTy,
                                        ArrayRef<int> ArgChunks, int RetChunks) {
-
   // OrigF is the original scalar function being called.
   StringRef VFnName = Variant.VectorName;
   LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
-  Module *M = OrigF.getParent();
-  Function *VectorF = M->getFunction(VFnName);
-  if (VectorF)
-    return VectorF;
 
   Type *VecRetTy = RetTy;
   SmallVector<Type *> LegalizedArgTys(ArgTys);
@@ -1243,9 +1239,19 @@ llvm::getOrInsertVectorVariantFunction(Function &OrigF, const VFInfo &Variant,
     buildTargetISALegalizedSignature(Variant, ArgTys, ArgChunks, RetChunks,
                                      LegalizedArgTys, VecRetTy);
   }
-  FunctionType *FTy = FunctionType::get(VecRetTy, LegalizedArgTys, false);
+  FTy = FunctionType::get(VecRetTy, LegalizedArgTys, false);
+  Module *M = OrigF.getParent();
+  // If a function already exists, use it.
+  if (Function *F = M->getFunction(VFnName)) {
+    assert(F->getFunctionType() == FTy && "Vector function type mismatch");
+    return F;
+  }
 
-  VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
+  // A vector variant function might appear as ifunc.
+  if (Value *IF = M->getNamedIFunc(VFnName))
+    return IF;
+
+  Function *VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
   updateVectorVariantAttributes(*VectorF, OrigF, Variant, ArgTys, ArgChunks);
   return VectorF;
 }
@@ -1379,6 +1385,27 @@ Function *llvm::getOrInsertVectorLibFunction(
     }
   }
   return VectorF;
+}
+
+void llvm::setCallCallingConvention(CallInst *CI, Value *Callee) {
+  if (auto *F = dyn_cast<Function>(Callee)) {
+    CI->setCallingConv(F->getCallingConv());
+    return;
+  }
+  // Current LLVM implementation of GNU indirect functions does not carry
+  // information about the original function calling convention. We could
+  // probably parse the ifunc resolver function and find an actual routine it
+  // may resolve into in order to find actual calling convention. Since
+  // currently only Intel-specific variants can be an ifunc, for the sake of
+  // simplicity we just check the name and set calling convention based on it.
+  //
+  if (auto *IFunc = dyn_cast<GlobalIFunc>(Callee))
+    if (VFInfo::isIntelVFABIMangling(IFunc->getName())) {
+      CI->setCallingConv(CallingConv::X86_RegCall);
+      return;
+    }
+
+  llvm_unreachable("Unhandled case for a callee type");
 }
 
 Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,

@@ -259,10 +259,21 @@ private:
 
   /// Creates a new Call instruction.
   std::pair<HLInst *, CallInst *>
+  createCallImpl(FunctionType *FTy, Value *Callee,
+                 ArrayRef<RegDDRef *> CallArgs, const Twine &Name = "call",
+                 RegDDRef *LvalRef = nullptr,
+                 ArrayRef<OperandBundleDef> Bundle = {},
+                 ArrayRef<RegDDRef *> BundleOps = {});
+
+  /// Creates a new Call instruction.
+  std::pair<HLInst *, CallInst *>
   createCallImpl(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                  const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                  ArrayRef<OperandBundleDef> Bundle = {},
-                 ArrayRef<RegDDRef *> BundleOps = {});
+                 ArrayRef<RegDDRef *> BundleOps = {}) {
+    return createCallImpl(F.getFunctionType(), F.getCallee(), CallArgs, Name,
+                          LvalRef, Bundle, BundleOps);
+  }
 
   /// Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -888,11 +899,22 @@ public:
                     const Twine &Name = "max");
 
   /// Creates a new Call instruction.
+  HLInst *createCall(FunctionType *FTy, Value *Callee,
+                     ArrayRef<RegDDRef *> CallArgs, const Twine &Name = "call",
+                     RegDDRef *LvalRef = nullptr,
+                     ArrayRef<OperandBundleDef> Bundle = {},
+                     ArrayRef<RegDDRef *> BundleOps = {},
+                     FastMathFlags FMF = FastMathFlags());
+
+  /// Creates a new Call instruction.
   HLInst *createCall(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                      ArrayRef<OperandBundleDef> Bundle = {},
                      ArrayRef<RegDDRef *> BundleOps = {},
-                     FastMathFlags FMF = FastMathFlags());
+                     FastMathFlags FMF = FastMathFlags()) {
+    return createCall(F.getFunctionType(), F.getCallee(), CallArgs, Name,
+                      LvalRef, Bundle, BundleOps, FMF);
+  }
 
   /// Creates a new Prefetch intrinsic call.
   HLInst *createPrefetch(RegDDRef *AddressRef, RegDDRef *RW, RegDDRef *Locality,
