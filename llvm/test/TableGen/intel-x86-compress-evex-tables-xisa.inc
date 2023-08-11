@@ -317,33 +317,6 @@
 +    case X86::VPAXORQZ256mr: return Subtarget->hasAVXRAOINT();
      case X86::VPDPBUSDSZ128m: return Subtarget->hasAVXVNNI();
 ...
-     case X86::VPDPWSSDZ256r: return Subtarget->hasAVXVNNI();
-+    case X86::VPDPWSUDSZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDSZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDSZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDSZ256r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWSUDZ256r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDSZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDSZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDSZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDSZ256r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUSDZ256r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDSZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDSZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDSZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDSZ256r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDZ128m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDZ128r: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDZ256m: return Subtarget->hasAVXVNNIINT16();
-+    case X86::VPDPWUUDZ256r: return Subtarget->hasAVXVNNIINT16();
-     case X86::VPMADD52HUQZ128m: return Subtarget->hasAVXIFMA();
-...
  
 +// NDD encoded instructions that have a Legacy Bit8 encoding
 +// (table format: <NDD opcode, X86-Bit8 opcode>).
