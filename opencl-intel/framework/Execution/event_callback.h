@@ -14,8 +14,8 @@
 
 #pragma once
 
+#include "cl_types.h"
 #include "event_observer.h"
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

@@ -12,29 +12,27 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iomanip>
-
-#include <CL/cl_fpga_ext.h>
-#include <CL/cl_gvp_ext.h>
-#include <cl_cpu_detect.h>
-#include <cl_objects_map.h>
-#include <cl_shared_ptr.hpp>
-#include <ocl_itt.h>
-
-#include "UserLoggerOutputParams.h"
 #include "cl_framework.h"
+#include "CL/cl_fpga_ext.h"
+#include "CL/cl_gvp_ext.h"
+#include "UserLoggerOutputParams.h"
+#include "cl_cpu_detect.h"
+#include "cl_objects_map.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
 #include "framework_proxy.h"
+#include "ocl_itt.h"
+#include "tracing_api.h"
+#include "tracing_notify.h"
+
+#include <iomanip>
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include "cl_framework_alias_linux.h"
-#include <cl_linux_utils.h>
+#include "cl_linux_utils.h"
 #endif
-
-#include <tracing_api.h>
-#include <tracing_notify.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;

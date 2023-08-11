@@ -12,19 +12,19 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <CL/cl_gl.h>
-#include <assert.h>
-#include <cl_sys_defines.h>
-#include <stdarg.h>
-
 #include "Device.h"
+#include "CL/cl_gl.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
+#include "framework_proxy.h"
 #include "observer.h"
 #include "platform_module.h"
-#include <framework_proxy.h>
+
+#include <assert.h>
+#include <stdarg.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;

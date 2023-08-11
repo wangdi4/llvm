@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_object.h>
-#include <cl_objects_map.h>
-#include <cl_types.h>
-
 #include "Device.h"
+#include "Logger.h"
+#include "cl_device_api.h"
+#include "cl_object.h"
+#include "cl_objects_map.h"
 #include "cl_sys_defines.h"
+#include "cl_types.h"
 #include <memory>
 #include <string>
 

@@ -14,11 +14,10 @@
 
 #pragma once
 
+#include "CL/cl_ext.h"
 #include "cl_linux_utils.h"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
-
-#include <CL/cl_ext.h>
 
 // Disable warning 'deprecated-declarations' emitted from
 // opencl-headers/CL/cl_icd.h

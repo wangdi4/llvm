@@ -157,7 +157,6 @@
 ; CHECK:      Running pass: ModuleInlinerWrapperPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
 ; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: SROAPass
@@ -168,6 +167,7 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: SROAPass on test
 ; CHECK:      Running pass: InstCombinePass on test
 ; CHECK:      Running pass: SimplifyCFGPass on test

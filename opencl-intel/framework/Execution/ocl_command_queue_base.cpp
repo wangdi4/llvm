@@ -14,6 +14,7 @@
 
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_types.h"
 #include "cl_user_logger.h"
 #include "command_queue.h"
 #include "context_module.h"
@@ -23,7 +24,6 @@
 #include "ocl_event.h"
 #include "ocl_itt.h"
 #include <cassert>
-#include <cl_types.h>
 #include <cstring>
 
 using namespace Intel::OpenCL::Framework;

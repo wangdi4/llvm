@@ -12,11 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-#include <cl_sys_info.h>
-
-#include "Context.h"
 #include "build_event.h"
+#include "Context.h"
+#include "cl_sys_info.h"
+#include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 

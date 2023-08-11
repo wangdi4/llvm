@@ -269,7 +269,6 @@
 
 ; CHECK:      Running pass: PatchCallbackArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-NEXT: Running pass: InstCombinePass
@@ -294,6 +293,7 @@
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 
+; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DCEPass
 
 ; CHECK:      Running pass: SimplifyCFGPass

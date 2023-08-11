@@ -13,17 +13,22 @@
 // License.
 
 #include "context_module.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.hpp"
+#include "Device.h"
 #include "GenericMemObj.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "command_queue.h"
 #include "events_manager.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "ocl_itt.h"
 #include "pipe.h"
+#include "platform_module.h"
 #include "program.h"
 #include "program_with_library_kernels.h"
 #include "sampler.h"
@@ -31,13 +36,9 @@
 #include "user_event.h"
 #include "usm_buffer.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
-#include <CL/cl_fpga_ext.h>
-#include <Device.h>
+
 #include <algorithm>
 #include <assert.h>
-#include <cl_objects_map.h>
-#include <cl_utils.h>
-#include <platform_module.h>
 #include <set>
 
 using namespace Intel::OpenCL::Utils;

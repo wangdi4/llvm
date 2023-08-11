@@ -13,10 +13,10 @@
 // License.
 
 #include "user_event.h"
+#include "cl_sys_info.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
 #include <assert.h>
-#include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;
 

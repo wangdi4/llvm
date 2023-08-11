@@ -13,23 +13,27 @@
 // License.
 
 #include "enqueue_commands.h"
+#include "Logger.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "PipeCommon.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "cl_types.h"
 #include "command_queue.h"
 #include "context_module.h"
 #include "events_manager.h"
+#include "execution_module.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "ocl_event.h"
+#include "ocl_itt.h"
 #include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
-#include <Logger.h>
 
 // For debug
+#include <assert.h>
 #include <stdio.h>
 #if defined(_WIN32)
 #include <process.h>
@@ -37,10 +41,6 @@
 #else
 #include <malloc.h>
 #endif
-#include "cl_sys_info.h"
-#include "execution_module.h"
-#include "ocl_itt.h"
-#include <assert.h>
 
 #if defined(USE_ITT)
 #if defined(_M_X64)

@@ -14,10 +14,10 @@
 
 #pragma once
 
+#include "Logger.h"
 #include "cl_framework.h"
+#include "cl_object.h"
 #include "cl_shared_ptr.h"
-#include <Logger.h>
-#include <cl_object.h>
 #include <map>
 
 namespace Intel {

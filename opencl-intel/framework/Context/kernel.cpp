@@ -13,8 +13,13 @@
 // License.
 
 #include "kernel.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.h"
+#include "Device.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_utils.h"
 #include "context_module.h"
 #include "fe_compiler.h"
 #include "framework_proxy.h"
@@ -27,15 +32,9 @@
 #include "svm_buffer.h"
 #include "usm_buffer.h"
 
-#include <CL/cl_fpga_ext.h>
-#include <Device.h>
-#include <assert.h>
-#include <cl_objects_map.h>
-#include <cl_sys_defines.h>
-#include <cl_utils.h>
-
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+#include <assert.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::Utils;

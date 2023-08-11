@@ -14,7 +14,7 @@
 //
 #pragma once
 
-#include <CL/cl.h>
+#include "CL/cl.h"
 
 #ifdef __cplusplus
 extern "C" {

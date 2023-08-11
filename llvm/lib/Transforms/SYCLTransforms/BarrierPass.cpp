@@ -91,7 +91,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
 
   if (UseTLSGlobals) {
     // LocalIds should already be created in WGLoopCreatorPass.
-    LocalIds = M.getGlobalVariable(CompilationUtils::getTLSLocalIdsName());
+    LocalIds = M.getNamedGlobal(CompilationUtils::getTLSLocalIdsName());
     assert(LocalIds && "TLS LocalIds not found");
   }
 

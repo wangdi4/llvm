@@ -15,7 +15,7 @@
 #pragma once
 
 #include "cl_shared_ptr.h"
-#include <cl_types.h>
+#include "cl_types.h"
 
 using Intel::OpenCL::Utils::SharedPtr;
 

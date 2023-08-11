@@ -15,10 +15,10 @@
 #pragma once
 
 #include "Context.h"
+#include "cl_types.h"
 #include "enqueue_commands.h"
 #include "ocl_command_queue.h"
 #include "queue_event.h"
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <cl_device_api.h>
-#include <cl_types.h>
+#include "cl_device_api.h"
+#include "cl_types.h"
 
 namespace Intel {
 namespace OpenCL {

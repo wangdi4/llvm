@@ -16,13 +16,12 @@
 
 #include "Context.h"
 #include "Device.h"
+#include "Logger.h"
 #include "MemoryObject.h"
+#include "cl_device_api.h"
 #include "cl_framework.h"
-
 #include "cl_heap.h"
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_object.h>
+#include "cl_object.h"
 
 #include <atomic>
 #include <list>

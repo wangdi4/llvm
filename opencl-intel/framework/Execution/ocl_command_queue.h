@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "Logger.h"
 #include "cl_object.h"
+#include "cl_types.h"
 #include "ocl_itt.h"
 #include "queue_event.h"
-#include <Logger.h>
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

@@ -14,14 +14,12 @@
 
 #include "queue_event.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
-#include <cassert>
-#include <cl_sys_info.h>
-
-// For debugging
-#include "cl_utils.h"
 #include <assert.h>
+#include <cassert>
 
 using namespace Intel::OpenCL::Framework;
 

@@ -14,11 +14,11 @@
 
 #pragma once
 
-#include <Logger.h>
-#include <build_event.h>
-#include <cl_device_api.h>
-#include <cl_types.h>
-#include <observer.h>
+#include "Logger.h"
+#include "build_event.h"
+#include "cl_device_api.h"
+#include "cl_types.h"
+#include "observer.h"
 
 #include <atomic>
 #include <map>
