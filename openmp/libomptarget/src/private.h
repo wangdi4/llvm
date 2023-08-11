@@ -282,6 +282,22 @@ struct TargetMemcpyArgsTy {
   const size_t *DstDimensions;
   const size_t *SrcDimensions;
 
+#if INTEL_COLLAB
+  /// Captured shape information. This allows the call site to use the same
+  /// address for the inputs having different chronological values.
+  llvm::SmallVector<size_t> Shape;
+  /// Return pointer to captured volume
+  size_t *getVolume() { return Shape.data(); }
+  /// Return pointer to captured destination offsets
+  size_t *getDstOffsets() { return Shape.data() + NumDims; }
+  /// Return pointer to captured source offsets
+  size_t *getSrcOffsets() { return Shape.data() + NumDims * 2; }
+  /// Return pointer to captured destination dimensions
+  size_t *getDstDimensions() { return Shape.data() + NumDims * 3; }
+  /// Return pointer to captured source dimensions
+  size_t *getSrcDimensions() { return Shape.data() + NumDims * 4; }
+#endif // INTEL_COLLAB
+
   /**
    * Constructor for single dimensional copy
    */
@@ -305,7 +321,18 @@ struct TargetMemcpyArgsTy {
         IsRectMemcpy(true), Length(0), DstOffset(0), SrcOffset(0),
         ElementSize(ElementSize), NumDims(NumDims), Volume(Volume),
         DstOffsets(DstOffsets), SrcOffsets(SrcOffsets),
+#if INTEL_COLLAB
+        DstDimensions(DstDimensions), SrcDimensions(SrcDimensions) {
+    // Positive NumDims is guranteed
+    Shape.insert(Shape.end(), Volume, Volume + NumDims);
+    Shape.insert(Shape.end(), DstOffsets, DstOffsets + NumDims);
+    Shape.insert(Shape.end(), SrcOffsets, SrcOffsets + NumDims);
+    Shape.insert(Shape.end(), DstDimensions, DstDimensions + NumDims);
+    Shape.insert(Shape.end(), SrcDimensions, SrcDimensions + NumDims);
+  }
+#else  // INTEL_COLLAB
         DstDimensions(DstDimensions), SrcDimensions(SrcDimensions){};
+#endif // INTEL_COLLAB
 };
 // Invalid GTID as defined by libomp; keep in sync
 #define KMP_GTID_DNE (-2)

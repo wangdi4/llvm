@@ -295,11 +295,18 @@ static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
   // Call blocked version
   int Rc = OFFLOAD_SUCCESS;
   if (Args->IsRectMemcpy) {
+#if INTEL_COLLAB
+    Rc = omp_target_memcpy_rect(
+        Args->Dst, Args->Src, Args->ElementSize, Args->NumDims,
+        Args->getVolume(), Args->getDstOffsets(), Args->getSrcOffsets(),
+        Args->getDstDimensions(), Args->getSrcDimensions(), Args->DstDevice,
+        Args->SrcDevice);
+#else  // INTEL_COLLAB
     Rc = omp_target_memcpy_rect(
         Args->Dst, Args->Src, Args->ElementSize, Args->NumDims, Args->Volume,
         Args->DstOffsets, Args->SrcOffsets, Args->DstDimensions,
         Args->SrcDimensions, Args->DstDevice, Args->SrcDevice);
-
+#endif // INTEL_COLLAB
     DP("omp_target_memcpy_rect returns %d\n", Rc);
   } else {
     Rc = omp_target_memcpy(Args->Dst, Args->Src, Args->Length, Args->DstOffset,
@@ -480,9 +487,18 @@ EXTERN int omp_target_memcpy_rect_async(
     return INT_MAX;
   }
 
+#if INTEL_COLLAB
+  // Use the same check as in synchronous version to fail fast.
+  if (!Dst || !Src || ElementSize < 1 || NumDims < 1 || !Volume ||
+      !DstOffsets || !SrcOffsets || !DstDimensions || !SrcDimensions) {
+    REPORT("Call to omp_target_memcpy_rect_async with invalid arguments\n");
+    return OFFLOAD_FAIL;
+  }
+#else  // INTEL_COLLAB
   // Check the source and dest address
   if (Dst == nullptr || Src == nullptr)
     return OFFLOAD_FAIL;
+#endif // INTEL_COLLAB
 
   // Create task object
   TargetMemcpyArgsTy *Args = new TargetMemcpyArgsTy(
