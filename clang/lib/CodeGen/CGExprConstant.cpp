@@ -1672,6 +1672,12 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
 
   QualType destType = D.getType();
 
+#if INTEL_COLLAB
+  CodeGenModule::inDeclareTargetRegionRAII RAII(
+      CGM, CGM.getContext().getLangOpts().OpenMPLateOutline
+               ? D.hasAttr<OMPDeclareTargetDeclAttr>()
+               : false);
+#endif // INTEL_COLLAB
   // Try to emit the initializer.  Note that this can allow some things that
   // are not allowed by tryEmitPrivateForMemory alone.
   if (auto value = D.evaluateValue()) {

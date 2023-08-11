@@ -385,6 +385,7 @@ private:
   /// Non-zero if emitting code from a target region, including functions
   /// called from other functions in the region.
   unsigned int InTargetRegion = 0;
+  unsigned int InDeclareTargetRegion = 0;
 
   /// Mangle context used for OpenMP offloading to produce consistent names
   /// between (Windows) host and target.
@@ -1276,6 +1277,27 @@ public:
     }
     ~GenerateOpenCLConstantsRAII() { CGM.GenerateOpenCLConstants = Saved; }
   };
+  class inDeclareTargetRegionRAII {
+    CodeGenModule &CGM;
+    bool Entered;
+
+  public:
+    inDeclareTargetRegionRAII(CodeGenModule &CGM, bool ShouldEnter)
+        : CGM(CGM), Entered(ShouldEnter) {
+      if (Entered)
+        CGM.enterDeclareTargetRegion();
+    }
+    ~inDeclareTargetRegionRAII() {
+      if (Entered)
+        CGM.exitDeclareTargetRegion();
+    }
+  };
+  void enterDeclareTargetRegion() { ++InDeclareTargetRegion; }
+  void exitDeclareTargetRegion() {
+    assert(InDeclareTargetRegion != 0 && "mismatched target region enter/exit");
+    --InDeclareTargetRegion;
+  }
+  bool inDeclareTargetRegion() { return InDeclareTargetRegion > 0; }
   class InTargetRegionRAII {
     CodeGenModule &CGM;
     bool Entered;
