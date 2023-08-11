@@ -8,15 +8,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ;
-; LLVM-CHECK:   %wide.masked.gather = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> %mm_vectorGEP, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
-; LLVM-CHECK:   %wide.masked.gather4 = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> %mm_vectorGEP3, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
-; LLVM-CHECK:   %wide.masked.gather6 = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> %mm_vectorGEP5, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
+; LLVM-CHECK:   %vls.load = call <16 x i64> @llvm.masked.load.v16i64.p0(ptr %scalar.gep, i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i64> poison)
+; LLVM-CHECK:   %1 = shufflevector <16 x i64> %vls.load, <16 x i64> %vls.load, <4 x i32> <i32 0, i32 3, i32 6, i32 9>
+; LLVM-CHECK:   %2 = shufflevector <16 x i64> %vls.load, <16 x i64> %vls.load, <4 x i32> <i32 1, i32 4, i32 7, i32 10>
+; LLVM-CHECK:   %3 = shufflevector <16 x i64> %vls.load, <16 x i64> %vls.load, <4 x i32> <i32 2, i32 5, i32 8, i32 11>
 ;
-; HIR-CHECK:        + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; HIR-CHECK-NEXT:   |   %.vec = (<4 x i64>*)(%lp)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];
-; HIR-CHECK-NEXT:   |   %.vec2 = (<4 x i64>*)(%lp)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1];
-; HIR-CHECK-NEXT:   |   %.vec3 = (<4 x i64>*)(%lp)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 2];
-; HIR-CHECK-NEXT:   + END LOOP
+; HIR-CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-CHECK-NEXT:  |   %.vls.load = undef;
+; HIR-CHECK-NEXT:  |   %.vls.load = (<16 x i64>*)(%lp)[3 * i1], Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>};
+; HIR-CHECK-NEXT:  |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 3, i32 6, i32 9>;
+; HIR-CHECK-NEXT:  |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 4, i32 7, i32 10>;
+; HIR-CHECK-NEXT:  |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 5, i32 8, i32 11>;
+; HIR-CHECK-NEXT:  + END LOOP
 ;
 define void @foo(ptr %lp) {
 entry:
