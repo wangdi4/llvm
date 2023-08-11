@@ -1652,11 +1652,10 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
     return (void)markOverdefined(&I);
   }
 
-<<<<<<< HEAD
   Constant *Ptr = Operands[0];
   auto Indices = ArrayRef(Operands.begin() + 1, Operands.end());
 
-  #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CMPLRLLVM-22930: If the constant is an array and the value is a pointer,
   // or vice-versa, then we need to cast it and replace the uses.
   Value *GEPOperand = I.getPointerOperand();
@@ -1671,13 +1670,8 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  Constant *C =
-      ConstantExpr::getGetElementPtr(I.getSourceElementType(), Ptr, Indices);
-  markConstant(&I, C);
-=======
   if (Constant *C = ConstantFoldInstOperands(&I, Operands, DL))
     markConstant(&I, C);
->>>>>>> 18423c7e1f9d973df697f7f3c1ad2a60be582aef
 }
 
 void SCCPInstVisitor::visitStoreInst(StoreInst &SI) {
