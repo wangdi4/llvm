@@ -685,8 +685,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
   if (Level != OptimizationLevel::O0) {
-    // Cleaning up internal globals
-    MPM.addPass(GlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     MPM.addPass(DeadArgumentEliminationPass());
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
@@ -719,6 +717,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(PrepareKernelArgsPass(m_UseTLSGlobals));
 
   if (Level != OptimizationLevel::O0) {
+    // Cleaning up internal globals
+    MPM.addPass(GlobalDCEPass());
     // These passes come after PrepareKernelArgsPass to eliminate the
     // redundancy reducced by it
     FunctionPassManager FPM;

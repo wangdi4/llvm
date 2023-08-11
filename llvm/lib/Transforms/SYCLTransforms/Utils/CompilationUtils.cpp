@@ -1848,7 +1848,7 @@ Type *getWorkGroupIDElementType(Module *M) { return LoopUtils::getIndTy(M); }
 
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
-  return M->getGlobalVariable(ImplicitArgsUtils::getArgNameWithPrefix(Idx));
+  return M->getNamedGlobal(ImplicitArgsUtils::getArgNameWithPrefix(Idx));
 }
 
 StringRef getTLSLocalIdsName() { return NAME_TLS_LOCAL_IDS; }

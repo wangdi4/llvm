@@ -45,7 +45,7 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
            "TLS global variable already exists");
     Type *ArgType = IAInfo->getArgType(I);
     GlobalVariable *GV = new GlobalVariable(
-        M, ArgType, false, GlobalValue::LinkOnceODRLinkage,
+        M, ArgType, false, GlobalValue::InternalLinkage,
         UndefValue::get(ArgType), ImplicitArgsUtils::getArgNameWithPrefix(I),
         nullptr, GlobalValue::GeneralDynamicTLSModel);
     GV->setAlignment(M.getDataLayout().getPreferredAlign(GV));
