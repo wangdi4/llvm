@@ -25,18 +25,18 @@
 ; Check DA results
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], {{.*}} ],  [ i64 [[IND_INIT:%vp.*]], {{.*}} ]
 ; The first GEP from the GEP split should be unit strided and the next one should be strided.
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] [100 x double]* [[BASE:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr i64 [[IINDEX:%.*]] i64 [[IV]]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] double* [[ELEMENT:%vp.*]] = getelementptr inbounds [100 x double]* [[BASE]] i64 0 i64 [[JINDEX:%.*]]
-; CHECK: Divergent: [Shape: Random] double* [[ELEMENT2:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr2 i64 [[IINDEX]] i64 [[IV]] i64 [[JINDEX]]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 8] double* {{%vp.*}} = getelementptr inbounds [100 x [100 x double]]* %arr3 i64 [[IINDEX]] i64 [[JINDEX]] i64 [[IV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] ptr [[BASE:%vp.*]] = getelementptr inbounds [100 x [100 x double]], ptr %arr i64 [[IINDEX:%.*]] i64 [[IV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] ptr [[ELEMENT:%vp.*]] = getelementptr inbounds [100 x double], ptr [[BASE]] i64 0 i64 [[JINDEX:%.*]]
+; CHECK: Divergent: [Shape: Random] ptr [[ELEMENT2:%vp.*]] = getelementptr inbounds [100 x [100 x double]], ptr %arr2 i64 [[IINDEX]] i64 [[IV]] i64 [[JINDEX]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 8] ptr {{%vp.*}} = getelementptr inbounds [100 x [100 x double]], ptr %arr3 i64 [[IINDEX]] i64 [[JINDEX]] i64 [[IV]]
 ; Check that we generate two scatters followed by a wide store.
 ; CHECK-LABEL: vector.body:
-; CHECK: call void @llvm.masked.scatter{{.*}}<4 x double> [[STOREVAL:%.*]], <4 x double*>
-; CHECK: call void @llvm.masked.scatter{{.*}}<4 x double> [[STOREVAL]], <4 x double*>
-; CHECK: store <4 x double> [[STOREVAL]], <4 x double>*
+; CHECK: call void @llvm.masked.scatter{{.*}}<4 x double> [[STOREVAL:%.*]], <4 x ptr>
+; CHECK: call void @llvm.masked.scatter{{.*}}<4 x double> [[STOREVAL]], <4 x ptr>
+; CHECK: store <4 x double> [[STOREVAL]], ptr
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo([100 x [100 x double]]* nocapture %arr, [100 x [100 x double]]* nocapture %arr2, [100 x [100 x double]]* nocapture %arr3) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %arr, ptr nocapture %arr2, ptr nocapture %arr3) local_unnamed_addr #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -58,13 +58,13 @@ DIR.OMP.SIMD.1:                                   ; preds = %simdloop.for.body.l
 simdloop.for.body:                               ; preds = %simdloop.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %simdloop.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
   ; Check DA results by splitting the GEP
-  %arrayidx10.p = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* %arr, i64 %indvars.iv55, i64 %indvars.iv
-  %arrayidx10 = getelementptr inbounds [100 x double], [100 x double]* %arrayidx10.p, i64 0, i64 %indvars.iv51
-  store double %conv, double* %arrayidx10, align 8
-  %arrayidx16 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* %arr2, i64 %indvars.iv55, i64 %indvars.iv, i64 %indvars.iv51
-  store double %conv, double* %arrayidx16, align 8
-  %arrayidx22 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* %arr3, i64 %indvars.iv55, i64 %indvars.iv51, i64 %indvars.iv
-  store double %conv, double* %arrayidx22, align 8
+  %arrayidx10.p = getelementptr inbounds [100 x [100 x double]], ptr %arr, i64 %indvars.iv55, i64 %indvars.iv
+  %arrayidx10 = getelementptr inbounds [100 x double], ptr %arrayidx10.p, i64 0, i64 %indvars.iv51
+  store double %conv, ptr %arrayidx10, align 8
+  %arrayidx16 = getelementptr inbounds [100 x [100 x double]], ptr %arr2, i64 %indvars.iv55, i64 %indvars.iv, i64 %indvars.iv51
+  store double %conv, ptr %arrayidx16, align 8
+  %arrayidx22 = getelementptr inbounds [100 x [100 x double]], ptr %arr3, i64 %indvars.iv55, i64 %indvars.iv51, i64 %indvars.iv
+  store double %conv, ptr %arrayidx22, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 30
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %simdloop.for.body
