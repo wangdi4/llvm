@@ -23,6 +23,9 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    movq %rsp, %rbp
+; CHECK-NEXT:    pushq %r15
+; CHECK-NEXT:    pushq %r14
+; CHECK-NEXT:    pushq %rbx
 ; CHECK-NEXT:    andq $-1024, %rsp # imm = 0xFC00
 ; CHECK-NEXT:    subq $25600, %rsp # imm = 0x6400
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
@@ -34,174 +37,102 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB0_2
-; CHECK-NEXT:  .LBB0_1: # %loadstoreloop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    movl %esi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    movl $1088, %edx # imm = 0x440
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_1
-; CHECK-NEXT:  .LBB0_2: # %split
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB0_4
-; CHECK-NEXT:  .LBB0_3: # %loadstoreloop2
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_3
-; CHECK-NEXT:  .LBB0_4: # %split1
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB0_6
-; CHECK-NEXT:  .LBB0_5: # %loadstoreloop4
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_5
-; CHECK-NEXT:  .LBB0_6: # %split3
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %r9w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %r8w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %di
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
-; CHECK-NEXT:    addq $64, %rsi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw %r9w, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %r8w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
 ; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rdx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %si
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %si, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
-; CHECK-NEXT:    t2rpntlvwz0 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movswq %si, %r8
-; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %ax
+; CHECK-NEXT:    movw (%r9), %bx
+; CHECK-NEXT:    movw 2(%r9), %r11w
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw 2(%r8), %r10w
+; CHECK-NEXT:    addq $64, %r9
+; CHECK-NEXT:    addq $64, %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movw 2(%rcx), %cx
+; CHECK-NEXT:    movw %bx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r11w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r9, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r8, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rdi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %rbx
+; CHECK-NEXT:    movw %bx, %r10w
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r9
+; CHECK-NEXT:    movw %r9w, %di
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r14
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r15
+; CHECK-NEXT:    t2rpntlvwz0 (%r14,%r15), %tmm2
+; CHECK-NEXT:    tilestored %tmm2, (%r11,%rbx)
+; CHECK-NEXT:    tilestored %tmm3, (%r8,%r9)
+; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
+; CHECK-NEXT:    movw (%rcx), %ax
+; CHECK-NEXT:    movswq 2(%rcx), %r8
+; CHECK-NEXT:    movw %r8w, %cx
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    tilezero %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_7: # %load-store-loop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_7
-; CHECK-NEXT:  # %bb.8: # %memcpy-split
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_9: # %load-store-loop6
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    # kill: def $rcx killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_9
-; CHECK-NEXT:  # %bb.10: # %memcpy-split5
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
@@ -210,7 +141,6 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    vmovdqa64 64(%rax), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 128(%rax), %zmm0
@@ -339,66 +269,26 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_11: # %load-store-loop9
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movl $1024, %edx # imm = 0x400
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_11
-; CHECK-NEXT:  # %bb.12: # %memcpy-split8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_13: # %load-store-loop12
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_13
-; CHECK-NEXT:  # %bb.14: # %memcpy-split11
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_15: # %load-store-loop15
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_15
-; CHECK-NEXT:  # %bb.16: # %memcpy-split14
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %di # 2-byte Reload
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %cx # 2-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $r8 killed $rax
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
@@ -463,7 +353,7 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm13
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm14
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm15
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
@@ -531,56 +421,42 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %dx
-; CHECK-NEXT:    movw %dx, %si
-; CHECK-NEXT:    shrw $2, %si
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw %r8w, %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movw %r11w, %di
+; CHECK-NEXT:    movl %r11d, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
+; CHECK-NEXT:    movzwl %r9w, %r9d
+; CHECK-NEXT:    shrl $2, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $sil
-; CHECK-NEXT:    movb %sil, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $r9b
+; CHECK-NEXT:    movb %r9b, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
-; CHECK-NEXT:    movswq %dx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm0
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r11), %tmm1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_17: # %load-store-loop18
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_17
-; CHECK-NEXT:  # %bb.18: # %memcpy-split17
 ; CHECK-NEXT:    movq buf2@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
@@ -624,29 +500,15 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB0_19: # %load-store-loop21
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB0_19
-; CHECK-NEXT:  # %bb.20: # %memcpy-split20
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %si # 2-byte Reload
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm1
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm2
@@ -695,7 +557,10 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    movq %rbp, %rsp
+; CHECK-NEXT:    leaq -24(%rbp), %rsp
+; CHECK-NEXT:    popq %rbx
+; CHECK-NEXT:    popq %r14
+; CHECK-NEXT:    popq %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
@@ -920,6 +785,9 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    movq %rsp, %rbp
+; CHECK-NEXT:    pushq %r15
+; CHECK-NEXT:    pushq %r14
+; CHECK-NEXT:    pushq %rbx
 ; CHECK-NEXT:    andq $-1024, %rsp # imm = 0xFC00
 ; CHECK-NEXT:    subq $25600, %rsp # imm = 0x6400
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
@@ -931,174 +799,102 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB1_2
-; CHECK-NEXT:  .LBB1_1: # %loadstoreloop4
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    movl %esi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    movl $1088, %edx # imm = 0x440
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_1
-; CHECK-NEXT:  .LBB1_2: # %split3
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB1_4
-; CHECK-NEXT:  .LBB1_3: # %loadstoreloop2
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_3
-; CHECK-NEXT:  .LBB1_4: # %split1
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB1_6
-; CHECK-NEXT:  .LBB1_5: # %loadstoreloop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_5
-; CHECK-NEXT:  .LBB1_6: # %split
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %r9w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %r8w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %di
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
-; CHECK-NEXT:    addq $64, %rsi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw %r9w, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %r8w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
 ; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rdx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %si
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %si, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
-; CHECK-NEXT:    t2rpntlvwz0t1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movswq %si, %r8
-; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %ax
+; CHECK-NEXT:    movw (%r9), %bx
+; CHECK-NEXT:    movw 2(%r9), %r11w
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw 2(%r8), %r10w
+; CHECK-NEXT:    addq $64, %r9
+; CHECK-NEXT:    addq $64, %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movw 2(%rcx), %cx
+; CHECK-NEXT:    movw %bx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r11w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r9, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r8, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rdi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %rbx
+; CHECK-NEXT:    movw %bx, %r10w
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r9
+; CHECK-NEXT:    movw %r9w, %di
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r14
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r15
+; CHECK-NEXT:    t2rpntlvwz0t1 (%r14,%r15), %tmm2
+; CHECK-NEXT:    tilestored %tmm2, (%r11,%rbx)
+; CHECK-NEXT:    tilestored %tmm3, (%r8,%r9)
+; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
+; CHECK-NEXT:    movw (%rcx), %ax
+; CHECK-NEXT:    movswq 2(%rcx), %r8
+; CHECK-NEXT:    movw %r8w, %cx
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    tilezero %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_7: # %load-store-loop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_7
-; CHECK-NEXT:  # %bb.8: # %memcpy-split
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_9: # %load-store-loop6
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    # kill: def $rcx killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_9
-; CHECK-NEXT:  # %bb.10: # %memcpy-split5
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
@@ -1107,7 +903,6 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    vmovdqa64 64(%rax), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 128(%rax), %zmm0
@@ -1236,66 +1031,26 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_11: # %load-store-loop9
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movl $1024, %edx # imm = 0x400
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_11
-; CHECK-NEXT:  # %bb.12: # %memcpy-split8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_13: # %load-store-loop12
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_13
-; CHECK-NEXT:  # %bb.14: # %memcpy-split11
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_15: # %load-store-loop15
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_15
-; CHECK-NEXT:  # %bb.16: # %memcpy-split14
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %di # 2-byte Reload
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %cx # 2-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $r8 killed $rax
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
@@ -1360,7 +1115,7 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm13
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm14
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm15
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
@@ -1428,56 +1183,42 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %dx
-; CHECK-NEXT:    movw %dx, %si
-; CHECK-NEXT:    shrw $2, %si
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw %r8w, %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movw %r11w, %di
+; CHECK-NEXT:    movl %r11d, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
+; CHECK-NEXT:    movzwl %r9w, %r9d
+; CHECK-NEXT:    shrl $2, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $sil
-; CHECK-NEXT:    movb %sil, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $r9b
+; CHECK-NEXT:    movb %r9b, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
-; CHECK-NEXT:    movswq %dx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm0
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r11), %tmm1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_17: # %load-store-loop18
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_17
-; CHECK-NEXT:  # %bb.18: # %memcpy-split17
 ; CHECK-NEXT:    movq buf2@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
@@ -1521,29 +1262,15 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB1_19: # %load-store-loop21
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB1_19
-; CHECK-NEXT:  # %bb.20: # %memcpy-split20
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %si # 2-byte Reload
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm1
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm2
@@ -1592,7 +1319,10 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    movq %rbp, %rsp
+; CHECK-NEXT:    leaq -24(%rbp), %rsp
+; CHECK-NEXT:    popq %rbx
+; CHECK-NEXT:    popq %r14
+; CHECK-NEXT:    popq %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
@@ -1814,6 +1544,9 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    movq %rsp, %rbp
+; CHECK-NEXT:    pushq %r15
+; CHECK-NEXT:    pushq %r14
+; CHECK-NEXT:    pushq %rbx
 ; CHECK-NEXT:    andq $-1024, %rsp # imm = 0xFC00
 ; CHECK-NEXT:    subq $25600, %rsp # imm = 0x6400
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
@@ -1825,174 +1558,102 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB2_2
-; CHECK-NEXT:  .LBB2_1: # %loadstoreloop4
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    movl %esi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    movl $1088, %edx # imm = 0x440
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_1
-; CHECK-NEXT:  .LBB2_2: # %split3
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB2_4
-; CHECK-NEXT:  .LBB2_3: # %loadstoreloop2
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_3
-; CHECK-NEXT:  .LBB2_4: # %split1
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB2_6
-; CHECK-NEXT:  .LBB2_5: # %loadstoreloop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_5
-; CHECK-NEXT:  .LBB2_6: # %split
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %r9w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %r8w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %di
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
-; CHECK-NEXT:    addq $64, %rsi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw %r9w, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %r8w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
 ; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rdx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %si
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %si, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
-; CHECK-NEXT:    t2rpntlvwz1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movswq %si, %r8
-; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %ax
+; CHECK-NEXT:    movw (%r9), %bx
+; CHECK-NEXT:    movw 2(%r9), %r11w
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw 2(%r8), %r10w
+; CHECK-NEXT:    addq $64, %r9
+; CHECK-NEXT:    addq $64, %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movw 2(%rcx), %cx
+; CHECK-NEXT:    movw %bx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r11w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r9, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r8, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rdi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %rbx
+; CHECK-NEXT:    movw %bx, %r10w
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r9
+; CHECK-NEXT:    movw %r9w, %di
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r14
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r15
+; CHECK-NEXT:    t2rpntlvwz1 (%r14,%r15), %tmm2
+; CHECK-NEXT:    tilestored %tmm2, (%r11,%rbx)
+; CHECK-NEXT:    tilestored %tmm3, (%r8,%r9)
+; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
+; CHECK-NEXT:    movw (%rcx), %ax
+; CHECK-NEXT:    movswq 2(%rcx), %r8
+; CHECK-NEXT:    movw %r8w, %cx
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    tilezero %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_7: # %load-store-loop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_7
-; CHECK-NEXT:  # %bb.8: # %memcpy-split
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_9: # %load-store-loop6
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    # kill: def $rcx killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_9
-; CHECK-NEXT:  # %bb.10: # %memcpy-split5
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
@@ -2001,7 +1662,6 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    vmovdqa64 64(%rax), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 128(%rax), %zmm0
@@ -2130,66 +1790,26 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_11: # %load-store-loop9
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movl $1024, %edx # imm = 0x400
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_11
-; CHECK-NEXT:  # %bb.12: # %memcpy-split8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_13: # %load-store-loop12
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_13
-; CHECK-NEXT:  # %bb.14: # %memcpy-split11
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_15: # %load-store-loop15
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_15
-; CHECK-NEXT:  # %bb.16: # %memcpy-split14
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %di # 2-byte Reload
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %cx # 2-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $r8 killed $rax
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
@@ -2254,7 +1874,7 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm13
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm14
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm15
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
@@ -2322,56 +1942,42 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %dx
-; CHECK-NEXT:    movw %dx, %si
-; CHECK-NEXT:    shrw $2, %si
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw %r8w, %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movw %r11w, %di
+; CHECK-NEXT:    movl %r11d, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
+; CHECK-NEXT:    movzwl %r9w, %r9d
+; CHECK-NEXT:    shrl $2, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $sil
-; CHECK-NEXT:    movb %sil, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $r9b
+; CHECK-NEXT:    movb %r9b, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
-; CHECK-NEXT:    movswq %dx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm0
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r11), %tmm1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_17: # %load-store-loop18
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_17
-; CHECK-NEXT:  # %bb.18: # %memcpy-split17
 ; CHECK-NEXT:    movq buf2@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
@@ -2415,29 +2021,15 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB2_19: # %load-store-loop21
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB2_19
-; CHECK-NEXT:  # %bb.20: # %memcpy-split20
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %si # 2-byte Reload
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm1
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm2
@@ -2486,7 +2078,10 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    movq %rbp, %rsp
+; CHECK-NEXT:    leaq -24(%rbp), %rsp
+; CHECK-NEXT:    popq %rbx
+; CHECK-NEXT:    popq %r14
+; CHECK-NEXT:    popq %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
@@ -2708,6 +2303,9 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
 ; CHECK-NEXT:    movq %rsp, %rbp
+; CHECK-NEXT:    pushq %r15
+; CHECK-NEXT:    pushq %r14
+; CHECK-NEXT:    pushq %rbx
 ; CHECK-NEXT:    andq $-1024, %rsp # imm = 0xFC00
 ; CHECK-NEXT:    subq $25600, %rsp # imm = 0x6400
 ; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
@@ -2719,174 +2317,102 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB3_2
-; CHECK-NEXT:  .LBB3_1: # %loadstoreloop4
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    movl %esi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    movl $1088, %edx # imm = 0x440
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %esi # 4-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
+; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    callq memset@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_1
-; CHECK-NEXT:  .LBB3_2: # %split3
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB3_4
-; CHECK-NEXT:  .LBB3_3: # %loadstoreloop2
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_3
-; CHECK-NEXT:  .LBB3_4: # %split1
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
-; CHECK-NEXT:    testb $1, %cl
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jne .LBB3_6
-; CHECK-NEXT:  .LBB3_5: # %loadstoreloop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movb $0, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_5
-; CHECK-NEXT:  .LBB3_6: # %split
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %r9w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %r8w
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw 2(%rax), %di
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
-; CHECK-NEXT:    addq $64, %rsi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw %r9w, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %r8w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
 ; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rdx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %di
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %si
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %si, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $al
-; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq %rsi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq buf@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
-; CHECK-NEXT:    t2rpntlvwz1t1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movswq %si, %r8
-; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movw (%rax), %ax
+; CHECK-NEXT:    movw (%r9), %bx
+; CHECK-NEXT:    movw 2(%r9), %r11w
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw 2(%r8), %r10w
+; CHECK-NEXT:    addq $64, %r9
+; CHECK-NEXT:    addq $64, %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
-; CHECK-NEXT:    movw 2(%rcx), %cx
+; CHECK-NEXT:    movw %bx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r11w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r9, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %r8, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rdi, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq %rcx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %rbx
+; CHECK-NEXT:    movw %bx, %r10w
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r9
+; CHECK-NEXT:    movw %r9w, %di
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %r10w, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $cl
+; CHECK-NEXT:    movb %cl, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r14
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r15
+; CHECK-NEXT:    t2rpntlvwz1t1 (%r14,%r15), %tmm2
+; CHECK-NEXT:    tilestored %tmm2, (%r11,%rbx)
+; CHECK-NEXT:    tilestored %tmm3, (%r8,%r9)
+; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rcx
+; CHECK-NEXT:    movw (%rcx), %ax
+; CHECK-NEXT:    movswq 2(%rcx), %r8
+; CHECK-NEXT:    movw %r8w, %cx
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    tilezero %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_7: # %load-store-loop
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_7
-; CHECK-NEXT:  # %bb.8: # %memcpy-split
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_9: # %load-store-loop6
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    # kill: def $rcx killed $rax
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_9
-; CHECK-NEXT:  # %bb.10: # %memcpy-split5
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
@@ -2895,7 +2421,6 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
 ; CHECK-NEXT:    movw %ax, {{[-0-9]+}}(%r{{[sb]}}p) # 2-byte Spill
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    vmovdqa64 64(%rax), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 128(%rax), %zmm0
@@ -3024,66 +2549,26 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_11: # %load-store-loop9
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movl $1024, %edx # imm = 0x400
+; CHECK-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_11
-; CHECK-NEXT:  # %bb.12: # %memcpy-split8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_13: # %load-store-loop12
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_13
-; CHECK-NEXT:  # %bb.14: # %memcpy-split11
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_15: # %load-store-loop15
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_15
-; CHECK-NEXT:  # %bb.16: # %memcpy-split14
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %di # 2-byte Reload
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %cx # 2-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $r8 killed $rax
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %ax # 2-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovaps %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
@@ -3148,7 +2633,7 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm13
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm14
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm15
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %ax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
@@ -3216,56 +2701,42 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %ax
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %cx
-; CHECK-NEXT:    movw {{[0-9]+}}(%rsp), %dx
-; CHECK-NEXT:    movw %dx, %si
-; CHECK-NEXT:    shrw $2, %si
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r8
+; CHECK-NEXT:    movw %r8w, %cx
+; CHECK-NEXT:    movswq {{[0-9]+}}(%rsp), %r11
+; CHECK-NEXT:    movw %r11w, %di
+; CHECK-NEXT:    movl %r11d, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
+; CHECK-NEXT:    movzwl %r9w, %r9d
+; CHECK-NEXT:    shrl $2, %r9d
+; CHECK-NEXT:    # kill: def $r9w killed $r9w killed $r9d
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    # implicit-def: $sil
-; CHECK-NEXT:    movb %sil, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    # implicit-def: $r9b
+; CHECK-NEXT:    movb %r9b, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movw %di, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    # implicit-def: $al
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
-; CHECK-NEXT:    movswq %dx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
-; CHECK-NEXT:    movswq %cx, %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm0
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r11), %tmm1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r10
+; CHECK-NEXT:    tileloadd (%r10,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
-; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
-; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movswq %cx, %rsi
-; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_17: # %load-store-loop18
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    addq $64, %rdi
+; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r8)
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1088, %rax # imm = 0x440
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_17
-; CHECK-NEXT:  # %bb.18: # %memcpy-split17
 ; CHECK-NEXT:    movq buf2@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq $32, {{[0-9]+}}(%rsp)
@@ -3309,29 +2780,15 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    vmovdqa64 %zmm2, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm1, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    vmovdqa64 %zmm0, {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    # kill: def $rax killed $eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:  .LBB3_19: # %load-store-loop21
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; CHECK-NEXT:    movb (%rdx,%rax), %dl
-; CHECK-NEXT:    movb %dl, (%rcx,%rax)
-; CHECK-NEXT:    addq $1, %rax
-; CHECK-NEXT:    cmpq $1024, %rax # imm = 0x400
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    jb .LBB3_19
-; CHECK-NEXT:  # %bb.20: # %memcpy-split20
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
-; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
-; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    callq memcpy@PLT
 ; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %si # 2-byte Reload
+; CHECK-NEXT:    movw {{[-0-9]+}}(%r{{[sb]}}p), %dx # 2-byte Reload
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rcx # 8-byte Reload
+; CHECK-NEXT:    # kill: def $rdi killed $rax
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm0
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm1
 ; CHECK-NEXT:    vmovdqa64 {{[0-9]+}}(%rsp), %zmm2
@@ -3380,7 +2837,10 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
-; CHECK-NEXT:    movq %rbp, %rsp
+; CHECK-NEXT:    leaq -24(%rbp), %rsp
+; CHECK-NEXT:    popq %rbx
+; CHECK-NEXT:    popq %r14
+; CHECK-NEXT:    popq %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
