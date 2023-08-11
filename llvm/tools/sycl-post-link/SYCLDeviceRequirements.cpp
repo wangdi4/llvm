@@ -70,7 +70,11 @@ void llvm::getSYCLDeviceRequirements(
   std::optional<llvm::SmallVector<uint64_t, 3>> ReqdWorkGroupSize;
   for (const Function &F : MD.getModule()) {
     if (const MDNode *MDN = F.getMetadata("reqd_work_group_size")) {
+<<<<<<< HEAD
       llvm::SmallVector<uint64_t, 3> NewReqdWorkGroupSize;
+=======
+      llvm::SmallVector<size_t, 3> NewReqdWorkGroupSize;
+>>>>>>> 826ae34ecb46b974a3fcd7a1d0428be3a2d9df9f
       for (size_t I = 0, E = MDN->getNumOperands(); I < E; ++I)
         NewReqdWorkGroupSize.push_back(
             ExtractUnsignedIntegerFromMDNodeOperand(MDN, I));
