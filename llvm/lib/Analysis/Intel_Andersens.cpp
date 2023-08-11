@@ -2105,6 +2105,70 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
   return lib_call_handled;
 }
 
+// Returns true if any use of "V" is escaped.
+static bool anyUnhandledUseEscaped(Value *V,
+                                   SmallPtrSetImpl<User *> &VisitedPhis,
+                                   DenseMap<const Value *, bool> &Cache) {
+
+  auto IT = Cache.find(V);
+  if (IT != Cache.end())
+    return IT->second;
+
+  if (!V->getType()->isPointerTy()) {
+    Cache.try_emplace(V, false);
+    return false;
+  }
+
+  for (Use &U : V->uses()) {
+    User *I = U.getUser();
+    if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+      if (anyUnhandledUseEscaped(LI, VisitedPhis, Cache)) {
+        Cache.try_emplace(V, true);
+        return true;
+      }
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+      auto *BitCastOp = dyn_cast<BitCastOperator>(SI->getOperand(1));
+      if (V != SI->getOperand(1) &&
+          (BitCastOp && BitCastOp->getOperand(0) != V)) {
+        Cache.try_emplace(V, true);
+        return true;
+      }
+    } else if (Operator::getOpcode(I) == Instruction::GetElementPtr ||
+               isa<AddressInst>(I) ||
+               Operator::getOpcode(I) == Instruction::BitCast ||
+               Operator::getOpcode(I) == Instruction::AddrSpaceCast) {
+      if (anyUnhandledUseEscaped(I, VisitedPhis, Cache)) {
+        Cache.try_emplace(V, true);
+        return true;
+      }
+    } else if (auto *Call = dyn_cast<CallBase>(I)) {
+      // No need to check for escaping through arguments since arguments are
+      // handled during constraints' collection.
+      continue;
+    } else if (ICmpInst *ICI = dyn_cast<ICmpInst>(I)) {
+      continue;
+    } else if (isa<PHINode>(I)) {
+      // Ignore user if it has already been visited.
+      if (!VisitedPhis.insert(I).second)
+        continue;
+
+      if (anyUnhandledUseEscaped(I, VisitedPhis, Cache)) {
+        Cache.try_emplace(V, true);
+        return true;
+      }
+    } else if (Constant *C = dyn_cast<Constant>(I)) {
+      // Ignore constants which don't have any live uses.
+      if (isa<GlobalValue>(C) || C->isConstantUsed())
+        continue;
+    } else {
+      Cache.try_emplace(V, true);
+      return true;
+    }
+  }
+  Cache.try_emplace(V, false);
+  return false;
+}
+
 /// CollectConstraints - This stage scans the program, adding a constraint to
 /// the Constraints list for each instruction in the program that induces a
 /// constraint, and setting up the initial points-to graph.
@@ -2120,6 +2184,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
   // Next, add any constraints on global variables and their initializers.
   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
        I != E; ++I) {
+    DenseMap<const Value *, bool> Cache;
     // Associate the address of the global object as pointing to the memory for
     // the global: &G = <G memory>
     unsigned ObjectIndex = getObject(&(*I));
@@ -2128,10 +2193,11 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     CreateConstraint(Constraint::AddressOf, getNodeValue(*I), ObjectIndex);
 
     if (I->hasDefinitiveInitializer()) {
+      SmallPtrSet<User *, 16> VisitedPhis;
       AddGlobalInitializerConstraints(ObjectIndex, I->getInitializer());
-      if (!I->hasLocalLinkage()) {
+      if (!I->hasLocalLinkage() ||
+          anyUnhandledUseEscaped(&(*I), VisitedPhis, Cache))
         CreateConstraint(Constraint::Copy, ObjectIndex, UniversalSet);
-      }
     } else {
       // If it doesn't have an initializer (i.e. it's defined in another
       // translation unit), it points to the universal set.
