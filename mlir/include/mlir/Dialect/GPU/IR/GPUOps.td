@@ -431,14 +431,19 @@ def GPU_GPUFuncOp : GPU_Op<"func", [
   let hasVerifier = 1;
 }
 
-def GPU_LaunchFuncOp : GPU_Op<"launch_func",
-                              [GPU_AsyncOpInterface, AttrSizedOperandSegments]>,
+def LaunchIndx : AnyTypeOf<[Index, I32, I64]>;
+
+def GPU_LaunchFuncOp :GPU_Op<"launch_func", [
+      GPU_AsyncOpInterface, AttrSizedOperandSegments,
+      AllTypesMatch<["gridSizeX", "gridSizeY", "gridSizeZ", "blockSizeX",
+                     "blockSizeY", "blockSizeZ"]>]>,
     Arguments<(ins Variadic<GPU_AsyncToken>:$asyncDependencies,
                SymbolRefAttr:$kernel,
-               Index:$gridSizeX, Index:$gridSizeY, Index:$gridSizeZ,
-               Index:$blockSizeX, Index:$blockSizeY, Index:$blockSizeZ,
+               LaunchIndx:$gridSizeX, LaunchIndx:$gridSizeY, LaunchIndx:$gridSizeZ,
+               LaunchIndx:$blockSizeX, LaunchIndx:$blockSizeY, LaunchIndx:$blockSizeZ,
                Optional<I32>:$dynamicSharedMemorySize,
-               Variadic<AnyType>:$kernelOperands)>,
+               Variadic<AnyType>:$kernelOperands,
+               Optional<AnyType>:$asyncObject)>,
     Results<(outs Optional<GPU_AsyncToken>:$asyncToken)> {
   let summary = "Launches a function as a GPU kernel";
 
@@ -529,7 +534,11 @@ def GPU_LaunchFuncOp : GPU_Op<"launch_func",
       "KernelDim3":$blockSize, "Value":$dynamicSharedMemorySize,
       "ValueRange":$kernelOperands,
       CArg<"Type", "nullptr">:$asyncTokenType,
-      CArg<"ValueRange", "{}">:$asyncDependencies)>
+      CArg<"ValueRange", "{}">:$asyncDependencies)>,
+    OpBuilder<(ins "SymbolRefAttr":$kernel, "KernelDim3":$gridSize,
+      "KernelDim3":$blockSize, "Value":$dynamicSharedMemorySize,
+      "ValueRange":$kernelOperands,
+      CArg<"Value", "nullptr">:$asyncObject)>
   ];
 
   let extraClassDeclaration = [{
@@ -559,9 +568,11 @@ def GPU_LaunchFuncOp : GPU_Op<"launch_func",
 
   let assemblyFormat = [{
       custom<AsyncDependencies>(type($asyncToken), $asyncDependencies)
+      (`<` $asyncObject^ `:` type($asyncObject) `>`)?
       $kernel
-      `blocks` `in` ` ` `(`$gridSizeX`,` $gridSizeY`,` $gridSizeZ`)`
-      `threads` `in` ` ` `(`$blockSizeX`,` $blockSizeY`,` $blockSizeZ`)`
+      `blocks` `in` ` ` `(` $gridSizeX `,` $gridSizeY `,` $gridSizeZ `)`
+      `threads` `in` ` ` `(` $blockSizeX `,` $blockSizeY `,` $blockSizeZ `)`
+      custom<LaunchDimType>(type($gridSizeX))
       (`dynamic_shared_memory_size` $dynamicSharedMemorySize^)?
       custom<LaunchFuncOperands>($kernelOperands, type($kernelOperands)) attr-dict
   }];
@@ -1082,15 +1093,19 @@ def GPU_BinaryOp : GPU_Op<"binary", [Symbol]>, Arguments<(ins
      - An optional attribute implementing the offloading LLVM translation interface.
      - An array of GPU object attributes.
 
-    During translation into LLVM, the offloading attribute will be called
-    for translating GPU binary and launch operations into LLVM instructions. If
-    no attribute is provided, the default handler selects the first object from
-    the array and embeds it as a string.
+    During translation, the offloading attribute will be called for translating
+    GPU `binary` and `launch_func` operations. The default offloading handler is:
+    `#gpu.select_object`, this handler selects the first object from the array
+    and embeds it as a string.
 
     Examples:
     ```
+      // Selects the first object.
       gpu.binary @myobject [#gpu.object<...>, #gpu.object<...>]
+      // Uses the `#foo.my_handler` for handling the binary during translation.
       gpu.binary @myobject <#foo.my_handler> [#gpu.object<...>, #gpu.object<...>]
+      // Selects the object with the `#rocdl.target` target attribute.
+      gpu.binary @myobject <#gpu.select_object<#rocdl.target>> [#gpu.object<...>, #gpu.object<#rocdl.target, ...>]
     ```
   }];
   let builders = [
@@ -1103,7 +1118,7 @@ def GPU_BinaryOp : GPU_Op<"binary", [Symbol]>, Arguments<(ins
   ];
   let skipDefaultBuilders = 1;
   let assemblyFormat = [{
-    $sym_name (`<` $offloadingHandler ^ `>`)? attr-dict $objects
+    $sym_name custom<OffloadingHandler>($offloadingHandler) attr-dict $objects
   }];
 }
 
