@@ -57,10 +57,9 @@ VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   // TODO: remove getAccessType() from this place.
   MemAccessTy AccTy = getAccessType(Ref, Level, &Stride);
 
-  // Return null if we are forcing only stride-2 VLS and the stride
-  // is not equal to 2.
+  // Return null for limited VLS for AVX512
   int64_t ElemStride = Stride / Ref->getDestTypeSizeInBytes();
-  if (getForceStride2VLS() && ElemStride != 2)
+  if (limitVLSForAVX512(ElemStride, *Inst))
     return nullptr;
 
   unsigned Opcode = Inst->getOpcode();
