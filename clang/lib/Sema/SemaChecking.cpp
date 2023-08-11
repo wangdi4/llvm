@@ -18836,7 +18836,7 @@ bool Sema::CheckParmsForFunctionDef(ArrayRef<ParmVarDecl *> Parameters,
         !Param->isImplicit() && !getLangOpts().CPlusPlus) {
       // Diagnose this as an extension in C17 and earlier.
       if (!getLangOpts().C23)
-        Diag(Param->getLocation(), diag::ext_parameter_name_omitted_c2x);
+        Diag(Param->getLocation(), diag::ext_parameter_name_omitted_c23);
     }
 
     // C99 6.7.5.3p12:
@@ -19235,7 +19235,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
           ASTC.getTypeSizeInCharsIfKnown(EffectiveType);
       // PR50741 - If EffectiveType has unknown size (e.g., if it's a void
       // pointer) bounds-checking isn't meaningful.
-      if (!ElemCharUnits)
+      if (!ElemCharUnits || ElemCharUnits->isZero())
         return;
       llvm::APInt ElemBytes(index.getBitWidth(), ElemCharUnits->getQuantity());
       // If index has more active bits than address space, we already know
