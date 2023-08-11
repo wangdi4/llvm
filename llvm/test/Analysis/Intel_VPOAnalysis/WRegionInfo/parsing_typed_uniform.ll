@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>),vplan-vec' -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>),vplan-vec' -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
 
 ; This code tests TYPED clause
 ; The test is passed if UNIFORM:TYPED clause is parsed correctly
