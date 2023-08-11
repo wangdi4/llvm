@@ -48,7 +48,7 @@ public:
     AS_CXX11,
 
     /// [[...]]
-    AS_C2x,
+    AS_C23,
 
     /// __declspec(...)
     AS_Declspec,
@@ -129,7 +129,7 @@ public:
 
     static Form GNU() { return AS_GNU; }
     static Form CXX11() { return AS_CXX11; }
-    static Form C2x() { return AS_C2x; }
+    static Form C23() { return AS_C23; }
     static Form Declspec() { return AS_Declspec; }
     static Form Microsoft() { return AS_Microsoft; }
     static Form Keyword(bool IsAlignas, bool IsRegularKeywordAttribute) {
@@ -217,12 +217,12 @@ public:
 
   bool isCXX11Attribute() const { return SyntaxUsed == AS_CXX11 || IsAlignas; }
 
-  bool isC2xAttribute() const { return SyntaxUsed == AS_C2x; }
+  bool isC23Attribute() const { return SyntaxUsed == AS_C23; }
 
   /// The attribute is spelled [[]] in either C or C++ mode, including standard
   /// attributes spelled with a keyword, like alignas.
   bool isStandardAttributeSyntax() const {
-    return isCXX11Attribute() || isC2xAttribute();
+    return isCXX11Attribute() || isC23Attribute();
   }
 
   bool isGNUAttribute() const { return SyntaxUsed == AS_GNU; }
