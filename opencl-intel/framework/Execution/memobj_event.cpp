@@ -13,8 +13,8 @@
 // License.
 
 #include "memobj_event.h"
+#include "cl_sys_info.h"
 #include <assert.h>
-#include <cl_sys_info.h>
 
 using namespace Intel::OpenCL::Framework;
 

@@ -14,21 +14,20 @@
 
 #pragma once
 
+#include "CL/cl_fpga_ext.h"
 #include "Device.h"
+#include "Logger.h"
 #include "MemoryObject.h"
+#include "cl_device_api.h"
 #include "cl_object.h"
+#include "cl_types.h"
 #include "command_name.h"
 #include "kernel.h"
 #include "observer.h"
+#include "ocl_itt.h"
 #include "queue_event.h"
 #include "task_executor.h"
-
-#include <CL/cl_fpga_ext.h>
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_types.h>
 #include <list>
-#include <ocl_itt.h>
 
 namespace Intel {
 namespace OpenCL {

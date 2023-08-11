@@ -13,14 +13,12 @@
 // License.
 
 #include "tracing_api.h"
-#include "tracing_handle.h"
-#include "tracing_notify.h"
-
 #include "cl_framework.h"
-#if defined(_WIN32)
-#else
+#if !defined(_WIN32)
 #include "cl_framework_alias_linux.h"
 #endif
+#include "tracing_handle.h"
+#include "tracing_notify.h"
 
 #include <algorithm>
 

@@ -14,9 +14,9 @@
 //
 #pragma once
 
-#include <CL/cl.h>
+#include "CL/cl.h"
 /* cl_mem_properties_intel * is defined in this head file */
-#include <CL/cl_ext.h>
+#include "CL/cl_ext.h"
 
 #ifdef __cplusplus
 extern "C" {

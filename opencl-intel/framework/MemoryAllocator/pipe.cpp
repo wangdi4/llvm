@@ -13,8 +13,8 @@
 // License.
 
 #include "pipe.h"
+#include "CL/cl_fpga_ext.h"
 #include "framework_proxy.h"
-#include <CL/cl_fpga_ext.h>
 #include <algorithm>
 
 using namespace Intel::OpenCL::Framework;

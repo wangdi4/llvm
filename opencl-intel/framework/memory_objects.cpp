@@ -12,10 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "GenericImageArray.h"
 #include "MemoryAllocator/GenericMemObj.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
-
-#include "GenericImageArray.h"
 #include "cl_shared_ptr.hpp"
 #include "pipe.h"
 

@@ -14,12 +14,12 @@
 
 #pragma once
 
+#include "Logger.h"
 #include "cl_framework.h"
 #include "command_queue.h"
 #include "iexecution.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
-#include <Logger.h>
 #include <unordered_map>
 
 // forward declarations

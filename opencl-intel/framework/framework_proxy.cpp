@@ -14,11 +14,10 @@
 
 #include "framework_proxy.h"
 #include "Logger.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
-#include <cl_shared_ptr.hpp>
-#include <task_executor.h>
-
+#include "task_executor.h"
 #include "llvm/Support/Threading.h"
 
 #if defined(_WIN32)

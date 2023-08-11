@@ -16,10 +16,10 @@
 
 #include "build_event.h"
 #include "cl_shared_ptr.h"
+#include "cl_types.h"
 #include "fe_compiler.h"
 #include "program.h"
 #include "task_executor.h"
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

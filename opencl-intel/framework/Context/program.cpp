@@ -14,16 +14,16 @@
 
 #include "program.h"
 #include "Context.h"
+#include "Device.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_utils.h"
 #include "device_program.h"
+#include "fe_compiler.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "sampler.h"
-#include <Device.h>
 #include <algorithm>
 #include <assert.h>
-#include <cl_utils.h>
-#include <fe_compiler.h>
 #include <string.h>
 #include <string>
 #include <vector>

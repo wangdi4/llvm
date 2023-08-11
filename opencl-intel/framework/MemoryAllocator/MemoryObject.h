@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include "Context.h"
+#include "Device.h"
+#include "Logger.h"
+#include "cl_device_api.h"
 #include "cl_framework.h"
 #include "cl_object.h"
 #include "observer.h"
-
-#include "Context.h"
-#include "Device.h"
-#include <Logger.h>
-#include <cl_device_api.h>
 
 #include <atomic>
 #include <map>

@@ -14,7 +14,6 @@
 
 #pragma once
 #include "program.h"
-
 #include <string>
 
 namespace Intel {

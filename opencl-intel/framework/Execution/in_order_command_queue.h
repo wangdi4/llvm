@@ -14,12 +14,12 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_synch_objects.h"
+#include "cl_types.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
 #include "ocl_command_queue.h"
-#include <Logger.h>
-#include <cl_synch_objects.h>
-#include <cl_types.h>
 
 #include <atomic>
 #include <list>

@@ -13,15 +13,13 @@
 // License.
 
 #include "GenericMemObj.h"
-
-#include "cl_sys_defines.h"
-#include <Device.h>
-#include <algorithm>
-#include <assert.h>
-
+#include "Device.h"
 #include "MemoryObjectFactory.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_utils.h"
+#include <algorithm>
+#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;

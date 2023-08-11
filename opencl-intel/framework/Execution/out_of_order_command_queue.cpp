@@ -15,11 +15,11 @@
 #include "out_of_order_command_queue.h"
 #include "Device.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_utils.h"
 #include "enqueue_commands.h"
 #include "events_manager.h"
 #include "ocl_event.h"
 #include <assert.h>
-#include <cl_utils.h>
 
 using namespace Intel::OpenCL::Framework;
 

@@ -15,11 +15,10 @@
 #pragma once
 
 #include "MemoryObject.h"
+#include "cl_device_api.h"
+#include "cl_object.h"
+#include "cl_types.h"
 #include "ocl_event.h"
-
-#include <cl_device_api.h>
-#include <cl_object.h>
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

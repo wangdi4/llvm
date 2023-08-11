@@ -15,9 +15,8 @@
 #pragma once
 
 #include "cl_framework.h"
-#include <cl_types.h>
-
 #include "cl_shared_ptr.h"
+#include "cl_types.h"
 #include <map>
 
 using Intel::OpenCL::Utils::SharedPtr;

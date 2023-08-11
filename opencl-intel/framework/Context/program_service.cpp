@@ -19,6 +19,7 @@
 #include "cl_autoptr_ex.h"
 #include "cl_device_api.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_synch_objects.h"
 #include "cl_user_logger.h"
 #include "events_manager.h"
 #include "fe_compiler.h"
@@ -30,8 +31,6 @@
 #include "program_with_source.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
-#include <cl_synch_objects.h>
-
 #include <string>
 
 using namespace Intel::OpenCL::Framework;

@@ -14,21 +14,16 @@
 
 #pragma once
 
-// framework
-#include "context_module.h"
-#include "execution_module.h"
-#include "ocl_config.h"
-#include "platform_module.h"
-
-// cl_api
-#include "cl_types.h"
-#include "task_executor.h"
-
-// utils
 #include "Logger.h"
 #include "cl_shutdown.h"
 #include "cl_thread.h"
+#include "cl_types.h"
+#include "context_module.h"
+#include "execution_module.h"
+#include "ocl_config.h"
 #include "ocl_itt.h"
+#include "platform_module.h"
+#include "task_executor.h"
 
 // system
 #include <mutex>

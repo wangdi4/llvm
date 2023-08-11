@@ -13,11 +13,11 @@
 // License.
 
 #pragma once
+#include "cl_object.h"
+#include "cl_types.h"
 #include "ocl_event.h"
 #include "ocl_itt.h"
 #include "queue_event.h"
-#include <cl_object.h>
-#include <cl_types.h>
 #include <mutex>
 
 namespace Intel {

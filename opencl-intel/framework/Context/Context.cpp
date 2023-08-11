@@ -12,18 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <algorithm>
-#include <assert.h>
-#include <limits.h>
-
 #include "Context.h"
 #include "Device.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_user_logger.h"
+#include "cl_utils.h"
 #include "context_module.h"
+#include "framework_proxy.h"
 #include "ocl_itt.h"
 #include "pipe.h"
 #include "program_builtin_kernels.h"
@@ -36,9 +35,10 @@
 #include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
-#include <cl_objects_map.h>
-#include <cl_utils.h>
-#include <framework_proxy.h>
+
+#include <algorithm>
+#include <assert.h>
+#include <limits.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
