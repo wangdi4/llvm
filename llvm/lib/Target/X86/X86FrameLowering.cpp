@@ -59,6 +59,11 @@
 STATISTIC(NumFrameLoopProbe, "Number of loop stack probes used in prologue");
 STATISTIC(NumFrameExtraProbe,
           "Number of extra stack probes generated in prologue");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+STATISTIC(NumFunctionUsingPush2Pop2, "Number of funtions using push2/pop2");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -2924,6 +2929,8 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
 #if INTEL_FEATURE_ISA_APX_F
   assert(X86FI->getNumCandidatesForPush2Pop2() % 2 == 0 &&
          "Expect even candidates for push2/pop2");
+  if (X86FI->getNumCandidatesForPush2Pop2())
+    ++NumFunctionUsingPush2Pop2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   X86FI->setCalleeSavedFrameSize(CalleeSavedFrameSize);
