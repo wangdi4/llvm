@@ -9,17 +9,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 %vec3 = type { <3 x i32> }
-define void @vecInStruct(%vec3 addrspace(1)* %base.ptr) {
+define void @vecInStruct(ptr addrspace(1) %base.ptr) {
 ; CHECK-LABEL: @vecInStruct(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[VEC3:%.*]], <8 x [[VEC3]] addrspace(1)*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[VEC3]], <8 x [[VEC3]] addrspace(1)*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x <3 x i32> addrspace(1)*> [[MM_VECTORGEP2]] to <8 x i32 addrspace(1)*>
-; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x i32 addrspace(1)*> [[TMP0]], <8 x i32 addrspace(1)*> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x i32 addrspace(1)*> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p1i32(<24 x i32 addrspace(1)*> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> poison)
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[VEC3:%.*]], <8 x ptr addrspace(1)> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[VEC3]], <8 x ptr addrspace(1)> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x ptr addrspace(1)> [[MM_VECTORGEP2]], <8 x ptr addrspace(1)> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x ptr addrspace(1)> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p1(<24 x ptr addrspace(1)> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> poison)
 ; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
 ; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
 ; CHECK-NEXT:    [[WIDE_EXTRACT4:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
@@ -33,9 +32,9 @@ simd.loop.ph:
 
 simd.loop:
   %index = phi i64 [ 0, %simd.loop.ph ], [ %indvar, %simd.loop ]
-  %gep1 = getelementptr inbounds %vec3, %vec3 addrspace(1)* %base.ptr, i64 %index
-  %gep2 = getelementptr inbounds %vec3, %vec3 addrspace(1)* %gep1, i64 0, i32 0
-  %load = load <3 x i32>, <3 x i32> addrspace(1)* %gep2, align 16
+  %gep1 = getelementptr inbounds %vec3, ptr addrspace(1) %base.ptr, i64 %index
+  %gep2 = getelementptr inbounds %vec3, ptr addrspace(1) %gep1, i64 0, i32 0
+  %load = load <3 x i32>, ptr addrspace(1) %gep2, align 16
   %scalar0 = extractelement <3 x i32> %load, i32 0
   %scalar1 = extractelement <3 x i32> %load, i32 1
   %scalar2 = extractelement <3 x i32> %load, i32 2
@@ -51,16 +50,15 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-define void @vecTy(<3 x i32>* %base.ptr) {
+define void @vecTy(ptr %base.ptr) {
 ; CHECK-LABEL: @vecTy(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <3 x i32>, <8 x <3 x i32>*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x <3 x i32>*> [[MM_VECTORGEP]] to <8 x i32*>
-; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x i32*> [[TMP0]], <8 x i32*> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x i32*> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p0i32(<24 x i32*> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> poison)
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <3 x i32>, <8 x ptr> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[VECBASEPTR_:%.*]] = shufflevector <8 x ptr> [[MM_VECTORGEP]], <8 x ptr> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[ELEMBASEPTR_:%.*]] = getelementptr i32, <24 x ptr> [[VECBASEPTR_]], <24 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <24 x i32> @llvm.masked.gather.v24i32.v24p0(<24 x ptr> [[ELEMBASEPTR_]], i32 4, <24 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <24 x i32> poison)
 ; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 0, i32 3, i32 6, i32 9, i32 12, i32 15, i32 18, i32 21>
 ; CHECK-NEXT:    [[WIDE_EXTRACT2:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 1, i32 4, i32 7, i32 10, i32 13, i32 16, i32 19, i32 22>
 ; CHECK-NEXT:    [[WIDE_EXTRACT3:%.*]] = shufflevector <24 x i32> [[WIDE_MASKED_GATHER]], <24 x i32> undef, <8 x i32> <i32 2, i32 5, i32 8, i32 11, i32 14, i32 17, i32 20, i32 23>
@@ -74,8 +72,8 @@ simd.loop.ph:
 
 simd.loop:
   %index = phi i64 [ 0, %simd.loop.ph ], [ %indvar, %simd.loop ]
-  %gep1 = getelementptr inbounds <3 x i32>, <3 x i32>* %base.ptr, i64 %index
-  %load = load <3 x i32>, <3 x i32>* %gep1, align 16
+  %gep1 = getelementptr inbounds <3 x i32>, ptr %base.ptr, i64 %index
+  %load = load <3 x i32>, ptr %gep1, align 16
   %scalar0 = extractelement <3 x i32> %load, i32 0
   %scalar1 = extractelement <3 x i32> %load, i32 1
   %scalar2 = extractelement <3 x i32> %load, i32 2
@@ -92,14 +90,14 @@ return:                                           ; preds = %simd.end.region
 }
 
 %myStruct = type { i32, i8 }
-define void @structTy(%myStruct* %base.ptr) {
+define void @structTy(ptr %base.ptr) {
 ; CHECK-LABEL: @structTy(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP1:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], <8 x %myStruct*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[MYSTRUCT]], <8 x %myStruct*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[MM_VECTORGEP2]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison)
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], <8 x ptr> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[MYSTRUCT]], <8 x ptr> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[MM_VECTORGEP2]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison)
 ;
 entry:
   br label %simd.loop.ph
@@ -110,9 +108,9 @@ simd.loop.ph:
 
 simd.loop:
   %index = phi i64 [ 0, %simd.loop.ph ], [ %indvar, %simd.loop ]
-  %gep1 = getelementptr inbounds %myStruct, %myStruct* %base.ptr, i64 %index
-  %gep2 = getelementptr inbounds %myStruct, %myStruct* %gep1, i64 0, i32 0
-  %load = load i32, i32* %gep2, align 4
+  %gep1 = getelementptr inbounds %myStruct, ptr %base.ptr, i64 %index
+  %gep2 = getelementptr inbounds %myStruct, ptr %gep1, i64 0, i32 0
+  %load = load i32, ptr %gep2, align 4
   %indvar = add nuw i64 %index, 1
   %vl.cond = icmp ult i64 %indvar, 8
   br i1 %vl.cond, label %simd.loop, label %simd.end.region
