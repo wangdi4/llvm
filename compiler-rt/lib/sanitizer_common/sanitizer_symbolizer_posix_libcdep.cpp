@@ -473,6 +473,17 @@ static SymbolizerTool *ChooseExternalSymbolizer(LowLevelAllocator *allocator) {
     VReport(2, "Using llvm-symbolizer found at: %s\n", found_path);
     return new(*allocator) LLVMSymbolizer(found_path, allocator);
   }
+  
+#if INTEL_CUSTOMIZATION
+  // JIRA: CMPLRLLVM-48308
+  // Above code tried to find the llvm-symbolizer from PATH but failed
+  // Lets try to find it in ONEAPI folder layout
+  if (const char *found_path = FindPathToBinary("compiler/llvm-symbolizer")) {
+    VReport(2, "Using llvm-symbolizer found at: %s\n", found_path);
+    return new(*allocator) LLVMSymbolizer(found_path, allocator);
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   if (common_flags()->allow_addr2line) {
     if (const char *found_path = FindPathToBinary("addr2line")) {
       VReport(2, "Using addr2line found at: %s\n", found_path);
