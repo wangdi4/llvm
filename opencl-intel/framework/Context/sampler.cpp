@@ -12,13 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-
+#include "sampler.h"
 #include "Context.h"
 #include "cl_logger.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
-#include "sampler.h"
+#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;

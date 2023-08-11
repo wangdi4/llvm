@@ -14,19 +14,20 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_device_api.h"
+#include "cl_dynamic_lib.h"
 #include "cl_framework.h"
+#include "cl_object.h"
 #include "fe_compiler.h"
-#include <Logger.h>
+
 #include <atomic>
-#include <cl_device_api.h>
-#include <cl_dynamic_lib.h>
-#include <cl_object.h>
-#include <list>
-#include <map>
-#include <mutex>
 #if defined(DX_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
+#include <list>
+#include <map>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {

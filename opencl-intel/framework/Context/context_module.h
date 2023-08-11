@@ -15,11 +15,11 @@
 #pragma once
 #include "Context.h"
 #include "GenericMemObj.h"
+#include "Logger.h"
 #include "cl_framework.h"
 #include "cl_objects_map.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
-#include <Logger.h>
 
 namespace Intel {
 namespace OpenCL {

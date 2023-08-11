@@ -18,6 +18,11 @@
  * and order.
  */
 
+#include "cl_sys_defines.h"
+#include "cl_types.h"
+#include "cl_utils.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+
 #include <assert.h>
 #include <math.h>
 #include <string.h>
@@ -51,15 +56,8 @@
 #endif
 #endif
 
-#include <cl_types.h>
-
-#include "cl_sys_defines.h"
-
-#include "cl_utils.h"
-
+// has dependency on <Xmmintrin.h>
 #include "conversion_rules.h"
-
-#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 // to overcome WinDef.h problem of min/max macro:
 #define OCL_MIN(x, y) (x < y) ? x : y

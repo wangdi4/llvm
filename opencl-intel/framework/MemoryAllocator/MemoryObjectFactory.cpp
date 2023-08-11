@@ -13,9 +13,9 @@
 // License.
 
 #include "MemoryObjectFactory.h"
+#include "CL/cl.h"
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
-#include <CL/cl.h>
 #include <assert.h>
 
 using namespace std;

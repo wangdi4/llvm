@@ -14,12 +14,11 @@
 
 #pragma once
 
+#include "cl_framework.h"
+#include "cl_object.h"
+#include "event_observer.h"
 #include <atomic>
 #include <list>
-
-#include "cl_framework.h"
-#include "event_observer.h"
-#include <cl_object.h>
 
 namespace Intel {
 namespace OpenCL {

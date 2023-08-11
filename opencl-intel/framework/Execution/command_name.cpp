@@ -13,8 +13,8 @@
 // License.
 
 #include "command_name.h"
+#include "CL/cl_ext.h"
 #include "llvm/Support/Compiler.h"
-#include <CL/cl_ext.h>
 
 namespace Intel {
 namespace OpenCL {

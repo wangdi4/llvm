@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <CL/cl_gl.h>
-#include <cl_types.h>
+#include "CL/cl_gl.h"
+#include "cl_types.h"
 
 namespace Intel {
 namespace OpenCL {

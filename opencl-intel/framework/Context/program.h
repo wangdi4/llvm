@@ -14,18 +14,18 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_object.h"
+#include "cl_objects_map.h"
+#include "cl_synch_objects.h"
+#include "cl_types.h"
 #include "device_program.h"
 #include "kernel.h"
-#include <Logger.h>
+#include "observer.h"
 #include <atomic>
-#include <cl_object.h>
-#include <cl_objects_map.h>
-#include <cl_synch_objects.h>
-#include <cl_types.h>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <observer.h>
 #include <vector>
 
 namespace Intel {

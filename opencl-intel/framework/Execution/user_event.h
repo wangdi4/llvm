@@ -14,9 +14,9 @@
 
 #pragma once
 
+#include "cl_object.h"
+#include "cl_types.h"
 #include "queue_event.h"
-#include <cl_object.h>
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

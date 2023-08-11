@@ -12,10 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <sstream>
-// Debug
-#include <assert.h>
-
 #include "Context.h"
 #include "Device.h"
 #include "cl_logger.h"
@@ -27,6 +23,10 @@
 #include "ocl_command_queue.h"
 #include "ocl_event.h"
 #include "out_of_order_command_queue.h"
+
+// Debug
+#include <assert.h>
+#include <sstream>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;

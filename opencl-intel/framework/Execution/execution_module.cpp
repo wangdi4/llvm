@@ -12,20 +12,26 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <algorithm>
-
+#include "execution_module.h"
+#include "CL/cl_ext.h"
 #include "Context.h"
+#include "Device.h"
 #include "GenericMemObj.h"
+#include "Logger.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "cl_objects_map.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "command_queue.h"
 #include "context_module.h"
 #include "conversion_rules.h"
+#include "device_queue.h"
 #include "enqueue_commands.h"
 #include "events_manager.h"
-#include "execution_module.h"
 #include "framework_proxy.h"
 #include "immediate_command_queue.h"
 #include "in_order_command_queue.h"
+#include "kernel.h"
 #include "out_of_order_command_queue.h"
 #include "platform_module.h"
 #include "svm_buffer.h"
@@ -34,16 +40,8 @@
 #include "usm_buffer.h"
 #include "usm_commands.h"
 
-#include "Device.h"
-#include "cl_sys_defines.h"
-#include "kernel.h"
-
-#include "cl_shared_ptr.hpp"
-#include "device_queue.h"
-#include <CL/cl_ext.h>
-#include <Logger.h>
+#include <algorithm>
 #include <cassert>
-#include <cl_objects_map.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;

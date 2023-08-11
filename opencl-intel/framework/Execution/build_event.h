@@ -14,10 +14,10 @@
 
 #pragma once
 
+#include "cl_object.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_types.h"
 #include "ocl_event.h"
-#include <cl_object.h>
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

@@ -13,10 +13,10 @@
 // License.
 
 #include "program_with_il.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.h"
 #include "cl_logger.h"
 #include "cl_sys_defines.h"
-#include <CL/cl_fpga_ext.h>
 
 #include <algorithm> // std::find
 

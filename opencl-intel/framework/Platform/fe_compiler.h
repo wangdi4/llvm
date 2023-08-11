@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_dynamic_lib.h"
 #include "cl_framework.h"
-#include <Logger.h>
-#include <cl_dynamic_lib.h>
-#include <cl_object.h>
-#include <frontend_api.h>
+#include "cl_object.h"
+#include "frontend_api.h"
 
 namespace Intel {
 namespace OpenCL {

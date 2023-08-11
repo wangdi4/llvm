@@ -14,15 +14,13 @@
 
 #include "platform_module.h"
 #include "Device.h"
-#include "fe_compiler.h"
-
-#include <cl_device_api.h>
-#include <cl_object_info.h>
-#include <cl_objects_map.h>
-#include <cl_sys_defines.h>
-
+#include "cl_device_api.h"
+#include "cl_object_info.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+#include "fe_compiler.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 #include <algorithm>
 #include <assert.h>
