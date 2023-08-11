@@ -54,7 +54,11 @@ using namespace llvm;
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Int8Ptr(PointerType::get(Context, 0)),
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Int8Ptr(Type::getInt8PtrTy(Context)),
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       ResumeFnType(FunctionType::get(Type::getVoidTy(Context), Int8Ptr,
                                      /*isVarArg=*/false)),
       NullPtr(ConstantPointerNull::get(Int8Ptr)) {}
@@ -154,9 +158,14 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
     return;
 
   Value *Replacement =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Elide
           ? ConstantPointerNull::get(PointerType::get(CoroId->getContext(), 0))
           : CoroFrees.front()->getFrame();
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Elide ? ConstantPointerNull::get(Type::getInt8PtrTy(CoroId->getContext()))
+            : CoroFrees.front()->getFrame();
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   for (CoroFreeInst *CF : CoroFrees) {
     CF->replaceAllUsesWith(Replacement);
@@ -285,7 +294,11 @@ void coro::Shape::buildFrom(Function &F) {
   if (!CoroBegin) {
     // Replace coro.frame which are supposed to be lowered to the result of
     // coro.begin with undef.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     auto *Undef = UndefValue::get(PointerType::get(F.getContext(), 0));
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+    auto *Undef = UndefValue::get(Type::getInt8PtrTy(F.getContext()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     for (CoroFrameInst *CF : CoroFrames) {
       CF->replaceAllUsesWith(Undef);
       CF->eraseFromParent();

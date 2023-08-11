@@ -594,7 +594,11 @@ static void emitBodyAndFallthrough(CodeGenFunction &CGF,
 }
 
 void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *NullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *NullPtr = llvm::ConstantPointerNull::get(Builder.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   auto &TI = CGM.getContext().getTargetInfo();
   unsigned NewAlign = TI.getNewAlign() / TI.getCharWidth();
 
@@ -783,7 +787,11 @@ RValue CodeGenFunction::EmitCoroutineIntrinsic(const CallExpr *E,
     }
     CGM.Error(E->getBeginLoc(), "this builtin expect that __builtin_coro_begin "
                                 "has been used earlier in this function");
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     auto *NullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+    auto *NullPtr = llvm::ConstantPointerNull::get(Builder.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     return RValue::get(NullPtr);
   }
   case llvm::Intrinsic::coro_size: {

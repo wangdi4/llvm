@@ -21454,6 +21454,9 @@ Value *ARMTargetLowering::emitLoadLinked(IRBuilderBase &Builder, Type *ValueTy,
         IsAcquire ? Intrinsic::arm_ldaexd : Intrinsic::arm_ldrexd;
     Function *Ldrex = Intrinsic::getDeclaration(M, Int);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    Addr = Builder.CreateBitCast(Addr, Type::getInt8PtrTy(M->getContext()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Value *LoHi = Builder.CreateCall(Ldrex, Addr, "lohi");
 
     Value *Lo = Builder.CreateExtractValue(LoHi, 0, "lo");
@@ -21503,6 +21506,9 @@ Value *ARMTargetLowering::emitStoreConditional(IRBuilderBase &Builder,
     Value *Hi = Builder.CreateTrunc(Builder.CreateLShr(Val, 32), Int32Ty, "hi");
     if (!Subtarget->isLittle())
       std::swap(Lo, Hi);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    Addr = Builder.CreateBitCast(Addr, Type::getInt8PtrTy(M->getContext()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateCall(Strex, {Lo, Hi, Addr});
   }
 
@@ -21638,8 +21644,13 @@ bool ARMTargetLowering::lowerInterleavedLoad(
 
   auto createLoadIntrinsic = [&](Value *BaseAddr) {
     if (Subtarget->hasNEON()) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = Builder.getPtrTy(LI->getPointerAddressSpace());
       Type *Tys[] = {VecTy, PtrTy};
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *Int8Ptr = Builder.getInt8PtrTy(LI->getPointerAddressSpace());
+      Type *Tys[] = {VecTy, Int8Ptr};
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       static const Intrinsic::ID LoadInts[3] = {Intrinsic::arm_neon_vld2,
                                                 Intrinsic::arm_neon_vld3,
                                                 Intrinsic::arm_neon_vld4};
@@ -21647,7 +21658,11 @@ bool ARMTargetLowering::lowerInterleavedLoad(
           Intrinsic::getDeclaration(LI->getModule(), LoadInts[Factor - 2], Tys);
 
       SmallVector<Value *, 2> Ops;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Ops.push_back(BaseAddr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Ops.push_back(Builder.CreateBitCast(BaseAddr, Int8Ptr));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Ops.push_back(Builder.getInt32(LI->getAlign().value()));
 
       return Builder.CreateCall(VldnFunc, Ops, "vldN");
@@ -21656,13 +21671,23 @@ bool ARMTargetLowering::lowerInterleavedLoad(
              "expected interleave factor of 2 or 4 for MVE");
       Intrinsic::ID LoadInts =
           Factor == 2 ? Intrinsic::arm_mve_vld2q : Intrinsic::arm_mve_vld4q;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = Builder.getPtrTy(LI->getPointerAddressSpace());
       Type *Tys[] = {VecTy, PtrTy};
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *VecEltTy =
+          VecTy->getElementType()->getPointerTo(LI->getPointerAddressSpace());
+      Type *Tys[] = {VecTy, VecEltTy};
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Function *VldnFunc =
           Intrinsic::getDeclaration(LI->getModule(), LoadInts, Tys);
 
       SmallVector<Value *, 2> Ops;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Ops.push_back(BaseAddr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Ops.push_back(Builder.CreateBitCast(BaseAddr, VecEltTy));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       return Builder.CreateCall(VldnFunc, Ops, "vldN");
     }
   };
@@ -21789,6 +21814,15 @@ bool ARMTargetLowering::lowerInterleavedStore(StoreInst *SI,
     // and sub-vector type to something legal.
     LaneLen /= NumStores;
     SubVecTy = FixedVectorType::get(SubVecTy->getElementType(), LaneLen);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+
+    // We will compute the pointer operand of each store from the original base
+    // address using GEPs. Cast the base address to a pointer to the scalar
+    // element type.
+    BaseAddr = Builder.CreateBitCast(
+        BaseAddr,
+        SubVecTy->getElementType()->getPointerTo(SI->getPointerAddressSpace()));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   assert(isTypeLegal(EVT::getEVT(SubVecTy)) && "Illegal vstN vector type!");
@@ -21801,14 +21835,23 @@ bool ARMTargetLowering::lowerInterleavedStore(StoreInst *SI,
       static const Intrinsic::ID StoreInts[3] = {Intrinsic::arm_neon_vst2,
                                                  Intrinsic::arm_neon_vst3,
                                                  Intrinsic::arm_neon_vst4};
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = Builder.getPtrTy(SI->getPointerAddressSpace());
       Type *Tys[] = {PtrTy, SubVecTy};
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *Int8Ptr = Builder.getInt8PtrTy(SI->getPointerAddressSpace());
+      Type *Tys[] = {Int8Ptr, SubVecTy};
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       Function *VstNFunc = Intrinsic::getDeclaration(
           SI->getModule(), StoreInts[Factor - 2], Tys);
 
       SmallVector<Value *, 6> Ops;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Ops.push_back(BaseAddr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Ops.push_back(Builder.CreateBitCast(BaseAddr, Int8Ptr));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       append_range(Ops, Shuffles);
       Ops.push_back(Builder.getInt32(SI->getAlign().value()));
       Builder.CreateCall(VstNFunc, Ops);
@@ -21817,13 +21860,23 @@ bool ARMTargetLowering::lowerInterleavedStore(StoreInst *SI,
              "expected interleave factor of 2 or 4 for MVE");
       Intrinsic::ID StoreInts =
           Factor == 2 ? Intrinsic::arm_mve_vst2q : Intrinsic::arm_mve_vst4q;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = Builder.getPtrTy(SI->getPointerAddressSpace());
       Type *Tys[] = {PtrTy, SubVecTy};
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *EltPtrTy = SubVecTy->getElementType()->getPointerTo(
+          SI->getPointerAddressSpace());
+      Type *Tys[] = {EltPtrTy, SubVecTy};
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Function *VstNFunc =
           Intrinsic::getDeclaration(SI->getModule(), StoreInts, Tys);
 
       SmallVector<Value *, 6> Ops;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Ops.push_back(BaseAddr);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      Ops.push_back(Builder.CreateBitCast(BaseAddr, EltPtrTy));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       append_range(Ops, Shuffles);
       for (unsigned F = 0; F < Factor; F++) {
         Ops.push_back(Builder.getInt32(F));

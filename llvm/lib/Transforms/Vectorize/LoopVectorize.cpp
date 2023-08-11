@@ -9784,7 +9784,12 @@ void VPWidenMemoryInstructionRecipe::execute(VPTransformState &State) {
       PartPtr = Builder.CreateGEP(ScalarDataTy, Ptr, Increment, "", InBounds);
     }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return PartPtr;
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+    unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
+    return Builder.CreateBitCast(PartPtr, DataTy->getPointerTo(AddressSpace));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   };
 
   // Handle Stores:

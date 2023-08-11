@@ -953,7 +953,11 @@ protected:
     // Add ifuncs
     {
       const unsigned AddrSpace = 123;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *FuncPtrTy = PointerType::get(C, AddrSpace);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
+      auto *FuncPtrTy = Type::getInt8Ty(C)->getPointerTo(123);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       auto *FuncTy = FunctionType::get(FuncPtrTy, false);
 
       auto *ResolverF = Function::Create(FuncTy, GlobalValue::PrivateLinkage,
