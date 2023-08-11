@@ -1706,8 +1706,6 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   InConstantContext = D.hasConstantInitialization();
 
   QualType destType = D.getType();
-<<<<<<< HEAD
-=======
 
 #if INTEL_COLLAB
   CodeGenModule::inDeclareTargetRegionRAII RAII(
@@ -1715,22 +1713,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
                ? D.hasAttr<OMPDeclareTargetDeclAttr>()
                : false);
 #endif // INTEL_COLLAB
-  // Try to emit the initializer.  Note that this can allow some things that
-  // are not allowed by tryEmitPrivateForMemory alone.
-  if (auto value = D.evaluateValue()) {
-    return tryEmitPrivateForMemory(*value, destType);
-  }
 
-  // FIXME: Implement C++11 [basic.start.init]p2: if the initializer of a
-  // reference is a constant expression, and the reference binds to a temporary,
-  // then constant initialization is performed. ConstExprEmitter will
-  // incorrectly emit a prvalue constant in this case, and the calling code
-  // interprets that as the (pointer) value of the reference, rather than the
-  // desired value of the referee.
-  if (destType->isReferenceType())
-    return nullptr;
-
->>>>>>> f1e4b45acee28717a166386b02c950e50a2c5ebd
   const Expr *E = D.getInit();
   assert(E && "No initializer to emit");
 
