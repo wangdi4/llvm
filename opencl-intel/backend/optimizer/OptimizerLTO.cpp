@@ -560,9 +560,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
     if (Level != OptimizationLevel::O0) {
-      // Clean up internal globals. ModuleInlinerWrapperPass doesn't discard
-      // internal lib function, e.g. udiv, which is inlined and now unused.
-      MPM.addPass(GlobalDCEPass());
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
       // Scalarize argument, e.g. local.ids inserted by WGLoopCreator.
@@ -586,6 +583,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(PrepareKernelArgsPass(m_UseTLSGlobals));
 
     if (Level != OptimizationLevel::O0) {
+      // Clean up internal globals. ModuleInlinerWrapperPass doesn't discard
+      // internal lib function, e.g. udiv, which is inlined and now unused.
+      MPM.addPass(GlobalDCEPass());
       // These passes come after PrepareKernelArgs pass to eliminate the
       // redundancy produced by it.
       FunctionPassManager FPM;

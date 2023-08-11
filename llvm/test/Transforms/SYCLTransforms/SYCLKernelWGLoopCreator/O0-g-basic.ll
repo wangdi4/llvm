@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: @__LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+; CHECK: @__LocalIds = internal thread_local global [3 x i64] undef, align 16
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
 define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #0 !dbg !6 !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !kernel_arg_name !17 !kernel_arg_host_accessible !18 !kernel_arg_pipe_depth !19 !kernel_arg_pipe_io !16 !kernel_arg_buffer_location !16 !no_barrier_path !20 !kernel_has_sub_groups !18 !kernel_execution_length !21 !kernel_has_global_sync !18 !recommended_vector_length !13 {

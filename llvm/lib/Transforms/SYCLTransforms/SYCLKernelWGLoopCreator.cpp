@@ -365,7 +365,7 @@ bool WGLoopCreatorImpl::createTLSLocalIds() {
   if (UseTLSGlobals) {
     // Add TLS for local IDs.
     LocalIds = new GlobalVariable(
-        M, LIDArrayTy, /*isConstant*/ false, GlobalValue::LinkOnceODRLinkage,
+        M, LIDArrayTy, /*isConstant*/ false, GlobalValue::InternalLinkage,
         UndefValue::get(LIDArrayTy), getTLSLocalIdsName(),
         /*InsertBefore*/ nullptr, GlobalValue::GeneralDynamicTLSModel);
     LocalIds->setAlignment(M.getDataLayout().getPreferredAlign(LocalIds));
