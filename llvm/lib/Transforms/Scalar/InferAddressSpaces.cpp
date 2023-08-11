@@ -166,6 +166,13 @@ static cl::opt<bool> AssumeDefaultIsFlatAddressSpace(
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
 
+#ifdef INTEL_CUSTOMIZATION
+static cl::opt<unsigned>
+    AddressSpaceArg("address-space", cl::init(UninitializedAddressSpace),
+                    cl::ReallyHidden,
+                    cl::desc("The parameter for testing from opt util."));
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_COLLAB
 static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
                                         cl::init(UninitializedAddressSpace));
@@ -780,6 +787,11 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
         GEP->getSourceElementType(), NewPointerOperands[0],
         SmallVector<Value *, 4>(GEP->indices()));
     NewGEP->setIsInBounds(GEP->isInBounds());
+
+#ifdef INTEL_CUSTOMIZATION
+    // We need to keep llvm.index.group metadata attached to GEP instruction
+    NewGEP->copyMetadata(*GEP);
+#endif // INTEL_CUSTOMIZATION
     return NewGEP;
   }
   case Instruction::Select:
@@ -1672,7 +1684,7 @@ FunctionPass *llvm::createInferAddressSpacesPass(unsigned AddressSpace) {
 }
 
 InferAddressSpacesPass::InferAddressSpacesPass()
-    : FlatAddrSpace(UninitializedAddressSpace) {}
+    : FlatAddrSpace(AddressSpaceArg) {} // INTEL
 InferAddressSpacesPass::InferAddressSpacesPass(unsigned AddressSpace)
     : FlatAddrSpace(AddressSpace) {}
 
