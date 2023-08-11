@@ -2,100 +2,94 @@
 ; RUN: opt -passes='vplan-vec' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S < %s 2>&1 | FileCheck %s
 
 %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFdiiELm4EE.std::array" }
-%"struct._ZTSSt5arrayIPFdiiELm4EE.std::array" = type { [4 x double (i32, i32)*] }
+%"struct._ZTSSt5arrayIPFdiiELm4EE.std::array" = type { [4 x ptr] }
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }
 %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" = type { [1 x i64] }
 
-define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_, double addrspace(1)* %_arg_1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_3, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_4, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %_arg_5, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_7, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_8, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_9, i64 addrspace(1)* %_arg_10, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_12, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_13, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_14) {
+define void @fn(ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_, ptr addrspace(1) %_arg_1, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_2, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_3, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_4, ptr addrspace(1) %_arg_5, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_7, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_8, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_9, ptr addrspace(1) %_arg_10, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_12, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_13, ptr byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_14) {
 ;
 ; CHECK:       indirect.call.loop.entry:
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <8 x double (i32, i32)* addrspace(4)*> [ [[TMP9:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <8 x ptr addrspace(4)> [ [[TMP9:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[CUR_INDIRECT_CALL_RETURN0:%.*]] = phi <8 x double> [ zeroinitializer, [[VECTOR_BODY0]] ], [ [[FINAL_INDIRECT_CALL_RETURN0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[INDX0:%.*]] = phi i64 [ 0, [[VECTOR_BODY0]] ], [ [[INDX_UPDATED0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <8 x double (i32, i32)* addrspace(4)*> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
-; CHECK-NEXT:    [[IS_VISITED0:%.*]] = icmp eq double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]], null
+; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <8 x ptr addrspace(4)> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
+; CHECK-NEXT:    [[IS_VISITED0:%.*]] = icmp eq ptr addrspace(4) [[CURRENT_FPTR0]], null
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.indirect.call:
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <8 x double (i32, i32)* addrspace(4)*> poison, double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]], i64 0
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <8 x double (i32, i32)* addrspace(4)*> [[CURRENT_FPTR_SPLATINSERT0]], <8 x double (i32, i32)* addrspace(4)*> poison, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <8 x double (i32, i32)* addrspace(4)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <8 x ptr addrspace(4)> poison, ptr addrspace(4) [[CURRENT_FPTR0]], i64 0
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <8 x ptr addrspace(4)> [[CURRENT_FPTR_SPLATINSERT0]], <8 x ptr addrspace(4)> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <8 x ptr addrspace(4)> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <8 x i1> [[FUNC_PTR_MASK0]] to <8 x i64>
 ; CHECK-NEXT:    [[MASKCAST0:%.*]] = bitcast <8 x i64> [[MASKEXT0]] to <8 x double>
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]] to <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)*
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP10]], i32 2
-; CHECK-NEXT:    [[TMP12:%.*]] = load <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP11]], align 8
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr ptr addrspace(4), ptr addrspace(4) [[CURRENT_FPTR0]], i32 2
+; CHECK-NEXT:    [[TMP12:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[TMP11]], align 8
 ; CHECK-NEXT:    [[TMP13:%.*]] = call addrspace(4) <8 x double> [[TMP12]](<8 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <8 x i32> [[TMP8:%.*]], <8 x double> [[MASKCAST0]])
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x double> [[TMP13]], <8 x double> [[CUR_INDIRECT_CALL_RETURN0]]
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x double (i32, i32)* addrspace(4)*> zeroinitializer, <8 x double (i32, i32)* addrspace(4)*> [[VECTOR_OF_FUNC_PTRS0]]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x ptr addrspace(4)> zeroinitializer, <8 x ptr addrspace(4)> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.latch:
 ; CHECK-NEXT:    [[FINAL_INDIRECT_CALL_RETURN0]] = phi <8 x double> [ [[INDIRECT_CALL_RETURN_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[CUR_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_ENTRY0:%.*]] ]
-; CHECK-NEXT:    [[CURRENT_VECTOR_OF_FUNC_PTRS0]] = phi <8 x double (i32, i32)* addrspace(4)*> [ [[VECTOR_OF_FUNC_PTRS_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[VECTOR_OF_FUNC_PTRS0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
+; CHECK-NEXT:    [[CURRENT_VECTOR_OF_FUNC_PTRS0]] = phi <8 x ptr addrspace(4)> [ [[VECTOR_OF_FUNC_PTRS_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[VECTOR_OF_FUNC_PTRS0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
 ; CHECK-NEXT:    [[INDX_UPDATED0]] = add i64 [[INDX0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDX_UPDATED0]], 8
 ; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[INDIRECT_CALL_LOOP_EXIT0:%.*]], label [[INDIRECT_CALL_LOOP_ENTRY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.exit:
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_LCSSA_PHI0:%.*]] = phi <8 x double> [ [[FINAL_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP120:%.*]] = getelementptr inbounds double, double addrspace(1)* [[SCALAR_GEP70:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast double addrspace(1)* [[SCALAR_GEP120]] to <8 x double> addrspace(1)*
-; CHECK-NEXT:    store <8 x double> [[INDIRECT_CALL_RETURN_LCSSA_PHI0]], <8 x double> addrspace(1)* [[TMP14]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP120:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[SCALAR_GEP70:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
+; CHECK-NEXT:    store <8 x double> [[INDIRECT_CALL_RETURN_LCSSA_PHI0]], ptr addrspace(1) [[SCALAR_GEP120]], align 8
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    [[TMP15:%.*]] = add nuw nsw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
 ; CHECK-NEXT:    [[TMP16:%.*]] = add nuw nsw i32 [[UNI_PHI0:%.*]], 8
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult i32 [[TMP16]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB140:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB14:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:
-  %alloca._arg_1 = alloca double addrspace(1)*, align 8
-  store double addrspace(1)* %_arg_1, double addrspace(1)** %alloca._arg_1, align 8
-  %alloca._arg_5 = alloca %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)*, align 8
-  store %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %_arg_5, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)** %alloca._arg_5, align 8
-  %alloca._arg_10 = alloca i64 addrspace(1)*, align 8
-  store i64 addrspace(1)* %_arg_10, i64 addrspace(1)** %alloca._arg_10, align 8
+  %alloca._arg_1 = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %_arg_1, ptr %alloca._arg_1, align 8
+  %alloca._arg_5 = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %_arg_5, ptr %alloca._arg_5, align 8
+  %alloca._arg_10 = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %_arg_10, ptr %alloca._arg_10, align 8
   %0 = tail call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(double addrspace(1)** %alloca._arg_1, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_3, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_4, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(%"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)** %alloca._arg_5, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_7, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_8, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_9, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i64 addrspace(1)** %alloca._arg_10, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_12, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_13, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_14, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca._arg_1, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_3, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_4, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca._arg_5, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_7, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_8, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_9, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca._arg_10, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_12, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_13, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %_arg_14, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" zeroinitializer, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load._arg_10 = load i64 addrspace(1)*, i64 addrspace(1)** %alloca._arg_10, align 8
-  %load._arg_5 = load %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)*, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)** %alloca._arg_5, align 8
-  %load._arg_1 = load double addrspace(1)*, double addrspace(1)** %alloca._arg_1, align 8
+  %load._arg_10 = load ptr addrspace(1), ptr %alloca._arg_10, align 8
+  %load._arg_5 = load ptr addrspace(1), ptr %alloca._arg_5, align 8
+  %load._arg_1 = load ptr addrspace(1), ptr %alloca._arg_1, align 8
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
   %1 = sext i32 %index to i64
   %add = add nuw i64 %1, %0
-  %2 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_14, i64 0, i32 0, i32 0, i64 0
-  %3 = load i64, i64* %2, align 8
-  %add.ptr.i = getelementptr inbounds i64, i64 addrspace(1)* %load._arg_10, i64 %3
-  %4 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_9, i64 0, i32 0, i32 0, i64 0
-  %5 = load i64, i64* %4, align 8
-  %add.ptr.i39 = getelementptr inbounds %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned", %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %load._arg_5, i64 %5
-  %6 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %_arg_4, i64 0, i32 0, i32 0, i64 0
-  %7 = load i64, i64* %6, align 8
-  %add.ptr.i50 = getelementptr inbounds double, double addrspace(1)* %load._arg_1, i64 %7
+  %2 = load i64, ptr %_arg_14, align 8
+  %add.ptr.i = getelementptr inbounds i64, ptr addrspace(1) %load._arg_10, i64 %2
+  %3 = load i64, ptr %_arg_9, align 8
+  %add.ptr.i39 = getelementptr inbounds %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned", ptr addrspace(1) %load._arg_5, i64 %3
+  %4 = load i64, ptr %_arg_4, align 8
+  %add.ptr.i50 = getelementptr inbounds double, ptr addrspace(1) %load._arg_1, i64 %4
   %rem.i.i.i = and i64 %add, 1
-  %ptridx.i12.i.i = getelementptr inbounds %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned", %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %add.ptr.i39, i64 %rem.i.i.i
-  %ptridx.i16.i.i = getelementptr inbounds i64, i64 addrspace(1)* %add.ptr.i, i64 %add
-  %8 = load i64, i64 addrspace(1)* %ptridx.i16.i.i, align 8
-  %conv.i.i = trunc i64 %8 to i32
-  %arraydecay.i.i.i.i.i = getelementptr inbounds %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned", %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %ptridx.i12.i.i, i64 0, i32 0, i32 0, i64 0
-  %9 = addrspacecast double (i32, i32)* addrspace(1)* %arraydecay.i.i.i.i.i to double (i32, i32)* addrspace(4)*
-  %10 = tail call double (double (i32, i32)* addrspace(4)*, i32, i32, ...) @__intel_indirect_call(double (i32, i32)* addrspace(4)* %9, i32 1, i32 %conv.i.i) #7
-  %ptridx.i.i.i = getelementptr inbounds double, double addrspace(1)* %add.ptr.i50, i64 %add
-  store double %10, double addrspace(1)* %ptridx.i.i.i, align 8
+  %ptridx.i12.i.i = getelementptr inbounds %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned", ptr addrspace(1) %add.ptr.i39, i64 %rem.i.i.i
+  %ptridx.i16.i.i = getelementptr inbounds i64, ptr addrspace(1) %add.ptr.i, i64 %add
+  %5 = load i64, ptr addrspace(1) %ptridx.i16.i.i, align 8
+  %conv.i.i = trunc i64 %5 to i32
+  %6 = addrspacecast ptr addrspace(1) %ptridx.i12.i.i to ptr addrspace(4)
+  %7 = tail call double (ptr addrspace(4), i32, i32, ...) @__intel_indirect_call(ptr addrspace(4) %6, i32 1, i32 %conv.i.i) #7
+  %ptridx.i.i.i = getelementptr inbounds double, ptr addrspace(1) %add.ptr.i50, i64 %add
+  store double %7, ptr addrspace(1) %ptridx.i.i.i, align 8
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -111,7 +105,7 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-declare double @__intel_indirect_call(double (i32, i32)* addrspace(4)* %0, i32 %1, i32 %2, ...)
+declare double @__intel_indirect_call(ptr addrspace(4) %0, i32 %1, i32 %_arg_14, ...)
 
 declare i64 @_Z13get_global_idj(i32 %0)
 
