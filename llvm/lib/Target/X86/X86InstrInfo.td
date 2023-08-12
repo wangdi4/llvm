@@ -1541,6 +1541,15 @@ def i64relocImmSExt32 : PatLeaf<(i64 relocImm), [{
 def imm_su : PatLeaf<(imm), [{
     return !shouldAvoidImmediateInstFormsForSize(N);
 }]>;
+// INTEL_CUSTOMIZATION
+def i16imm_noamx : PatLeaf<(i16 imm:$src), [{
+    return llvm::none_of(N->uses(), [&](SDNode *U) { return isAMXSDNode(U); });
+}]>;
+def i8imm_noamx : PatLeaf<(i8 imm:$src), [{
+    return llvm::none_of(N->uses(), [&](SDNode *U) { return isAMXSDNode(U); });
+}]>;
+// end INTEL_CUSTOMIZATION
+
 def i64immSExt32_su : PatLeaf<(i64immSExt32), [{
     return !shouldAvoidImmediateInstFormsForSize(N);
 }]>;
