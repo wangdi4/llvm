@@ -343,7 +343,38 @@ namespace {
       else
         Segment = CurDAG->getRegister(0, MVT::i16);
     }
-
+#if INTEL_CUSTOMIZATION
+    // Utility function to determine whether it is AMX SDNode right after
+    // lowering but before ISEL.
+    bool isAMXSDNode(SDNode *N) const {
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      // Check if N is AMX SDNode:
+      // 1. check specific opcode since these carry MVT::Untyped instead of
+      // x86amx_type;
+      // 2. check result type;
+      // 3. check operand type;
+      switch (N->getOpcode()) {
+      default:
+        break;
+      case X86::PT2RPNTLVWZ0V:
+      case X86::PT2RPNTLVWZ0T1V:
+      case X86::PT2RPNTLVWZ1V:
+      case X86::PT2RPNTLVWZ1T1V:
+        return true;
+      }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      for (unsigned Idx = 0, E = N->getNumValues(); Idx != E; ++Idx) {
+        if (N->getValueType(Idx) == MVT::x86amx)
+          return true;
+      }
+      for (unsigned Idx = 0, E = N->getNumOperands(); Idx != E; ++Idx) {
+        SDValue Op = N->getOperand(Idx);
+        if (Op.getValueType() == MVT::x86amx)
+          return true;
+      }
+      return false;
+    }
+#endif // INTEL_CUSTOMIZATION
     // Utility function to determine whether we should avoid selecting
     // immediate forms of instructions for better code size or not.
     // At a high level, we'd like to avoid such instructions when
