@@ -148,6 +148,12 @@ if triple == 'nvptx64-nvidia-cuda-sycldevice':
 
 # INTEL_CUSTOMIZATION
 additional_flags = getAdditionalFlags() + config.sycl_clang_extra_flags.split(' ')
+if 'ICS_GCCBIN' in os.environ:
+    gcc_path = os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], "gcc"))
+    gcc_version = subprocess.check_output([gcc_path, "-dumpversion"]).decode()
+    major, minor, patch = tuple(int(v) for v in gcc_version.split(".", 3))
+    if (major, minor, patch) >= (10, 1, 0):
+        config.available_features.add("c++20")
 # end INTEL_CUSTOMIZATION
 
 if config.cuda_be == "ON":
