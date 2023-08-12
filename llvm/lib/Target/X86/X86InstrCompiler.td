@@ -353,8 +353,8 @@ let Predicates = [IntelAdvOpt], AddedComplexity = 1 in {
     def MOV32ri8  : I<0, Pseudo, (outs GR32:$dst), (ins i8imm:$src),  "", []>;
   } // SchedRW
 
-  def : Pat<(i16 imm:$src), (EXTRACT_SUBREG (MOV32ri16 imm:$src), sub_16bit)>;
-  def : Pat<(i8 imm:$src), (EXTRACT_SUBREG (MOV32ri8 imm:$src), sub_8bit)>;
+  def : Pat<(i16imm_noamx:$src), (EXTRACT_SUBREG (MOV32ri16 imm:$src), sub_16bit)>;
+  def : Pat<(i8imm_noamx:$src), (EXTRACT_SUBREG (MOV32ri8 imm:$src), sub_8bit)>;
 }
 // end INTEL_CUSTOMIZATION
 
