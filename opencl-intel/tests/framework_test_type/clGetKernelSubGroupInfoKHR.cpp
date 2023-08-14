@@ -12,7 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CL/cl.h"
 #include "CL/cl_ext.h"
 #include "gtest_wrapper.h"
 #include <iostream>

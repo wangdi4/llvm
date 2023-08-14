@@ -20,10 +20,10 @@
 
 #ifndef _WIN32
 
+#include "CL/cl.h"
 #include "TestsHelpClasses.h"
 #include "cl_sys_info.h"
 #include "common_utils.h"
-#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 

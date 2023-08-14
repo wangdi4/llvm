@@ -19,8 +19,8 @@
 //| No crash.
 //| Return true in case of SUCCESS.
 
+#include "CL/cl.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
 
 #define TEST_SIZE 100
 #define TEST_COUNT 100000

@@ -1,5 +1,4 @@
 #include "CL/cl.h"
-
 #include "FrameworkTest.h"
 #include "cl_provisional.h"
 

@@ -1,13 +1,10 @@
 #include "CL/cl.h"
+#include "FrameworkTest.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
-
-#include <stdio.h>
-
-#include <fstream>
-
-#include "FrameworkTest.h"
 #include "common_utils.h"
+#include <fstream>
+#include <stdio.h>
 
 using namespace Intel::OpenCL::Utils;
 

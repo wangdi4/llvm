@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "cl_cpu_detect.h"
 #include "common_utils.h"
-#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 
