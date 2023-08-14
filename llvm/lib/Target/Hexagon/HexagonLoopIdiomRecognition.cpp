@@ -2053,8 +2053,13 @@ bool HexagonLoopIdiomRecognize::processCopyingStore(Loop *CurLoop,
   // read or write the memory region we're storing to.  For memcpy, this
   // includes the load that feeds the stores.  Check for an alias by generating
   // the base address and checking everything.
-  Value *StoreBasePtr = Expander.expandCodeFor(StoreEv->getStart(),
+  Value *StoreBasePtr = Expander.expandCodeFor(
+      StoreEv->getStart(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.getPtrTy(SI->getPointerAddressSpace()), ExpPt);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+      Builder.getInt8PtrTy(SI->getPointerAddressSpace()), ExpPt);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Value *LoadBasePtr = nullptr;
 
   bool Overlap = false;
@@ -2124,8 +2129,13 @@ CleanupAndExit:
 
   // For a memcpy, we have to make sure that the input array is not being
   // mutated by the loop.
-  LoadBasePtr = Expander.expandCodeFor(LoadEv->getStart(),
+  LoadBasePtr = Expander.expandCodeFor(
+      LoadEv->getStart(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.getPtrTy(LI->getPointerAddressSpace()), ExpPt);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+      Builder.getInt8PtrTy(LI->getPointerAddressSpace()), ExpPt);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   SmallPtrSet<Instruction*, 2> Ignore2;
   Ignore2.insert(SI);
