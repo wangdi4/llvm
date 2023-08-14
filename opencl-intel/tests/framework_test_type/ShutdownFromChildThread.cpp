@@ -1,6 +1,6 @@
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "FrameworkTestThreads.h"
-#include <CL/cl.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

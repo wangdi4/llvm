@@ -1,8 +1,4 @@
 #include "CL/cl.h"
-
-#include <stdio.h>
-#include <string>
-
 #include "FrameworkTest.h"
 #include "cl_cpu_detect.h"
 #include "cl_device_api.h"
@@ -10,6 +6,8 @@
 #include "cl_types.h"
 #include "common_utils.h"
 #include "gtest_wrapper.h"
+#include <stdio.h>
+#include <string>
 
 // #define DEBUGGING_DEATH_TEST
 

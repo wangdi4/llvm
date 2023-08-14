@@ -3,7 +3,6 @@
 #include "cl_types.h"
 #include "gtest_wrapper.h"
 #include <stdio.h>
-
 #include <string>
 
 extern cl_device_type gDeviceType;

@@ -1,11 +1,9 @@
-#include <CL/cl.h>
-#include <stdio.h>
-
+#include "CL/cl.h"
+#include "FrameworkTest.h"
 // Need to know if ITT/GPA is active, to determine number of iterations - to
 // prevent timeouts.
-#include "../../utils/cl_sys_utils/export/cl_config.h"
-
-#include "FrameworkTest.h"
+#include "cl_config.h"
+#include <stdio.h>
 //|
 //| TEST: Memoryleak.CreateReleaseOOOQueueTest
 //|

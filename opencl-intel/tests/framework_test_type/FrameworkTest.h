@@ -1,12 +1,11 @@
 #pragma once
 
-#include <CL/cl_ext.h>
-#include <cl_utils.h>
-
+#include "CL/cl_ext.h"
+#include "cl_utils.h"
+#include "test_utils.h"
 #ifndef _WIN32
 #include <sys/types.h>
 #endif
-#include "test_utils.h"
 
 #ifdef _WIN32
 #define STDCALL __stdcall

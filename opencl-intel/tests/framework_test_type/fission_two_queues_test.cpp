@@ -20,9 +20,8 @@
 //|
 //| Return true in case of SUCCESS.
 
+#include "CL/cl_ext.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
 #include <stdio.h>
 
 #define WORK_SIZE 1

@@ -8,7 +8,7 @@
 ////
 //// ===--------------------------------------------------------------------= //
 #include "CL.h"
-#include <CL/cl_ext.h>
+#include "CL/cl_ext.h"
 
 TEST_F(CL, DISABLED_ZeroLocalSize) {
   cl_int iRet = CL_SUCCESS;

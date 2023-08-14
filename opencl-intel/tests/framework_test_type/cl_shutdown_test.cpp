@@ -2,9 +2,9 @@
 #include "FrameworkTest.h"
 #include "cl_types.h"
 #include "gtest_wrapper.h"
+#include <float.h>
 #include <stdio.h>
 
-#include <float.h>
 //
 // Testing note: This test case creates a dedicated process for each test. In
 // order to test it in Visual Studio define the following macro to forse running

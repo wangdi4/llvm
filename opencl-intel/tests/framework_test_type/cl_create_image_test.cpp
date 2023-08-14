@@ -19,7 +19,6 @@
 // problem reports or change requests be submitted to it directly
 
 #include "CL/cl.h"
-#include "CL/cl_platform.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 #include "test_utils.h"

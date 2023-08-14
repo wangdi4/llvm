@@ -4,11 +4,9 @@
  * make a better,easier tests.
  *
  */
-
-#include "gtest_wrapper.h"
-
 #include "CL/cl.h"
 #include "FrameworkTest.h"
+#include "gtest_wrapper.h"
 #include <fstream>
 #include <iostream>
 #include <sys/stat.h>

@@ -19,8 +19,8 @@
 //| The kernel returns the correct results during all iterations on all
 // sub-devices
 
+#include "CL/cl.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
 #include <stdio.h>
 
 #define ITERATIONS_PER_SUBDEVICE 50
