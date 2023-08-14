@@ -4192,7 +4192,6 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
   assert(FuncInfo.MF->getFrameInfo().hasVarSizedObjects());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 const char *llvm::CSA_LOCAL_CACHE_METADATA_KEY = "CSA.Local.Cache.ID";
@@ -4211,7 +4210,7 @@ static void setLocalCacheID(const Instruction &I, SDValue &L) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static const MDNode *getRangeMetadata(const Instruction &I) {
   // If !noundef is not present, then !range violation results in a poison
   // value rather than immediate undefined behavior. In theory, transferring
@@ -4223,7 +4222,6 @@ static const MDNode *getRangeMetadata(const Instruction &I) {
     return nullptr;
   return I.getMetadata(LLVMContext::MD_range);
 }
->>>>>>> 9deee6bffa9c331f46c68e5dd4cb4abf93dc0716
 
 void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   if (I.isAtomic())
