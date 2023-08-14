@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/Support/FileSystem.h"
 
 namespace llvm {
 
@@ -161,13 +162,16 @@ void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin) {
 }
 
 void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
-                        const DILocation *DL) {
+                        const DILocation *DL, bool AbsolutePaths) {
   assert(DL &&
          "Client code is responsible for providing non-null debug location");
 
   auto *Scope = cast<DIScope>(DL->getScope());
-  FOS << " at " << Scope->getFilename() << " (" << DL->getLine() << ", "
-      << DL->getColumn() << ")\n";
+  SmallVector<char, 64> Path(Scope->getFilename().bytes());
+  if (AbsolutePaths)
+    sys::fs::make_absolute(Scope->getDirectory(), Path);
+  FOS << " at " << Path << " (" << DL->getLine() << ", " << DL->getColumn()
+      << ")\n";
 }
 
 void printNodeHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
@@ -182,13 +186,14 @@ void printNodeFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
 }
 
 void printNodeHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
-                              OptReport OR, const DebugLoc &DL) {
+                              OptReport OR, const DebugLoc &DL,
+                              bool AbsolutePaths) {
   printNodeHeader(FOS, Depth, OR);
 
   if (DL.get())
-    printDebugLocation(FOS, Depth, DL.get());
+    printDebugLocation(FOS, Depth, DL.get(), AbsolutePaths);
   else if (OR && OR.debugLoc())
-    printDebugLocation(FOS, Depth, OR.debugLoc());
+    printDebugLocation(FOS, Depth, OR.debugLoc(), AbsolutePaths);
   else
     FOS << "\n";
 
@@ -200,21 +205,22 @@ void printNodeHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
 }
 
 void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                            OptReport OR) {
+                            OptReport OR, bool AbsolutePaths) {
   assert(OR && "Client code is responsible for providing non-null OptReport");
 
-  printNodeHeaderAndOrigin(FOS, Depth, OR, DebugLoc());
+  printNodeHeaderAndOrigin(FOS, Depth, OR, DebugLoc(), AbsolutePaths);
 
-  printOptReport(FOS, Depth + 1, OR);
+  printOptReport(FOS, Depth + 1, OR, AbsolutePaths);
   printNodeFooter(FOS, Depth, OR);
 
   // After printing Optimization Report for the first child, we check whether it
   // has attached lost next sibling loops.
   if (OR.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OR.nextSibling());
+    printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
 }
 
-void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
+void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR,
+                    bool AbsolutePaths) {
   assert(OR && "Client code is responsible for providing non-null OptReport");
 
   for (const OptRemark R : OR.remarks())
@@ -223,7 +229,7 @@ void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
   // After printing Optimization Report for the loop, we check whether it has
   // attached lost child loops opt reports.
   if (OR.firstChild())
-    printEnclosedOptReport(FOS, Depth, OR.firstChild());
+    printEnclosedOptReport(FOS, Depth, OR.firstChild(), AbsolutePaths);
 }
 } // namespace OptReportUtils
 } // namespace llvm

@@ -44,14 +44,16 @@ static cl::opt<bool> DisableHIROptReportEmitter(
     cl::desc("Disable HIR optimization report emitter"));
 
 struct HIROptReportEmitter {
-  bool run(Function &F, HIRFramework &HIRF);
+  bool run(Function &F, HIRFramework &HIRF, const OptReportOptions &Options);
 };
 
 struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   formatted_raw_ostream &FOS;
   unsigned Depth;
+  bool AbsolutePaths;
 
-  HIROptReportEmitVisitor(formatted_raw_ostream &FOS) : FOS(FOS), Depth(0) {}
+  HIROptReportEmitVisitor(formatted_raw_ostream &FOS, bool AbsolutePaths)
+      : FOS(FOS), Depth(0), AbsolutePaths(AbsolutePaths) {}
 
   bool skipRecursion(const HLNode *Node) {
     const HLLoop *L = dyn_cast<HLLoop>(Node);
@@ -68,17 +70,17 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   void visit(const HLRegion *Reg) {
     OptReport OR = Reg->getOptReport();
     if (OR && OR.firstChild())
-      printEnclosedOptReport(FOS, Depth, OR.firstChild());
+      printEnclosedOptReport(FOS, Depth, OR.firstChild(), AbsolutePaths);
   }
 
   void visit(const HLLoop *Lp) {
     OptReport OR = Lp->getOptReport();
 
-    printNodeHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc());
+    printNodeHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc(), AbsolutePaths);
 
     ++Depth;
     if (OR)
-      printOptReport(FOS, Depth, OR);
+      printOptReport(FOS, Depth, OR, AbsolutePaths);
   }
 
   void postVisit(const HLLoop *Lp) {
@@ -88,14 +90,15 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
     printNodeFooter(FOS, Depth, OR);
 
     if (OR && OR.nextSibling())
-      printEnclosedOptReport(FOS, Depth, OR.nextSibling());
+      printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
   }
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 };
 
-bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF) {
+bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF,
+                              const OptReportOptions &Options) {
   if (DisableHIROptReportEmitter)
     return false;
 
@@ -103,7 +106,7 @@ bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF) {
   OS << "Report from: HIR Loop optimizations framework for : " << F.getName()
      << "\n";
 
-  HIROptReportEmitVisitor ORV(OS);
+  HIROptReportEmitVisitor ORV(OS, Options.shouldPrintAbsolutePaths());
   HIRF.getHLNodeUtils().visitAll(ORV);
 
   OS << "=================================================================\n\n";
@@ -123,6 +126,7 @@ char HIROptReportEmitterWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptReportEmitterWrapperPass, "hir-optreport-emitter",
                       "HIR optimization report emitter", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(HIROptReportEmitterWrapperPass, "hir-optreport-emitter",
                     "HIR optimization report emitter", false, false)
 
@@ -146,9 +150,10 @@ bool HIROptReportEmitterWrapperPass::runOnFunction(Function &F) {
     return false;
 
   HIRFramework &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  const OptReportOptions &Options = getAnalysis<OptReportOptionsPass>().Impl;
 
   HIROptReportEmitter Emitter;
-  Emitter.run(F, HIRF);
+  Emitter.run(F, HIRF, Options);
 
   return false;
 }
@@ -160,7 +165,7 @@ PreservedAnalyses HIROptReportEmitterPass::runImpl(Function &F,
     return PreservedAnalyses::all();
 
   HIROptReportEmitter Emitter;
-  Emitter.run(F, HIRF);
+  Emitter.run(F, HIRF, AM.getResult<OptReportOptionsAnalysis>(F));
 
   return PreservedAnalyses::all();
 }

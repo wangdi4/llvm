@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -vpo-paropt -intel-opt-report=low -intel-ir-optreport-emitter -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization),vpo-paropt,function(intel-ir-optreport-emitter)' -intel-opt-report=low -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -vpo-paropt -intel-opt-report=low -intel-ir-optreport-emitter -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization),vpo-paropt,function(intel-ir-optreport-emitter)' -intel-opt-report=low -S < %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
