@@ -8,8 +8,15 @@
 
 #pragma once
 
+<<<<<<< HEAD
 #include <algorithm>   // for std::min and vs2017 win
 #include <type_traits> // for integral_constant, conditional_t, remove_cv_t
+=======
+#include <sycl/detail/stl_type_traits.hpp>
+
+#include <algorithm> // for std::min and vs2017 win
+#include <type_traits>
+>>>>>>> aa3d6fe9dd81c6440717b5314cb5383633c79df6
 
 namespace sycl {
 inline namespace _V1 {
