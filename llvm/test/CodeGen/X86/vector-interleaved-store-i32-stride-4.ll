@@ -341,26 +341,26 @@ define void @store_i32_stride4_vf8(ptr %in.vecptr0, ptr %in.vecptr1, ptr %in.vec
 ; AVX512-LABEL: store_i32_stride4_vf8:
 ; AVX512:       # %bb.0:
 ; INTEL_CUSTOMIZATION
-; AVX512-NEXT:    vmovaps (%rdi), %ymm0
-; AVX512-NEXT:    vmovaps (%rsi), %ymm1
-; AVX512-NEXT:    vmovaps (%rdx), %ymm2
-; AVX512-NEXT:    vmovaps (%rcx), %ymm3
-; AVX512-NEXT:    vunpcklps {{.*#+}} ymm4 = ymm0[0],ymm1[0],ymm0[1],ymm1[1],ymm0[4],ymm1[4],ymm0[5],ymm1[5]
-; AVX512-NEXT:    vunpcklps {{.*#+}} ymm5 = ymm2[0],ymm3[0],ymm2[1],ymm3[1],ymm2[4],ymm3[4],ymm2[5],ymm3[5]
-; AVX512-NEXT:    vunpcklpd {{.*#+}} ymm6 = ymm4[0],ymm5[0],ymm4[2],ymm5[2]
-; AVX512-NEXT:    vunpckhpd {{.*#+}} ymm4 = ymm4[1],ymm5[1],ymm4[3],ymm5[3]
-; AVX512-NEXT:    vunpckhps {{.*#+}} ymm0 = ymm0[2],ymm1[2],ymm0[3],ymm1[3],ymm0[6],ymm1[6],ymm0[7],ymm1[7]
-; AVX512-NEXT:    vunpckhps {{.*#+}} ymm1 = ymm2[2],ymm3[2],ymm2[3],ymm3[3],ymm2[6],ymm3[6],ymm2[7],ymm3[7]
-; AVX512-NEXT:    vunpcklpd {{.*#+}} ymm2 = ymm0[0],ymm1[0],ymm0[2],ymm1[2]
-; AVX512-NEXT:    vunpckhpd {{.*#+}} ymm0 = ymm0[1],ymm1[1],ymm0[3],ymm1[3]
-; AVX512-NEXT:    vinsertf128 $1, %xmm0, %ymm2, %ymm1
-; AVX512-NEXT:    vinsertf128 $1, %xmm4, %ymm6, %ymm3
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm1, %zmm3, %zmm1
-; AVX512-NEXT:    vmovaps %zmm1, (%r8)
-; AVX512-NEXT:    vperm2f128 {{.*#+}} ymm0 = ymm2[2,3],ymm0[2,3]
-; AVX512-NEXT:    vperm2f128 {{.*#+}} ymm1 = ymm6[2,3],ymm4[2,3]
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm1, %zmm0
-; AVX512-NEXT:    vmovaps %zmm0, 64(%r8)
+; AVX512-NEXT:    vmovdqa (%rdi), %ymm0
+; AVX512-NEXT:    vmovdqa (%rsi), %ymm1
+; AVX512-NEXT:    vmovdqa (%rdx), %ymm2
+; AVX512-NEXT:    vmovdqa (%rcx), %ymm3
+; AVX512-NEXT:    vpunpckldq {{.*#+}} ymm4 = ymm0[0],ymm1[0],ymm0[1],ymm1[1],ymm0[4],ymm1[4],ymm0[5],ymm1[5]
+; AVX512-NEXT:    vpunpckldq {{.*#+}} ymm5 = ymm2[0],ymm3[0],ymm2[1],ymm3[1],ymm2[4],ymm3[4],ymm2[5],ymm3[5]
+; AVX512-NEXT:    vpunpcklqdq {{.*#+}} ymm6 = ymm4[0],ymm5[0],ymm4[2],ymm5[2]
+; AVX512-NEXT:    vpunpckhqdq {{.*#+}} ymm4 = ymm4[1],ymm5[1],ymm4[3],ymm5[3]
+; AVX512-NEXT:    vpunpckhdq {{.*#+}} ymm0 = ymm0[2],ymm1[2],ymm0[3],ymm1[3],ymm0[6],ymm1[6],ymm0[7],ymm1[7]
+; AVX512-NEXT:    vpunpckhdq {{.*#+}} ymm1 = ymm2[2],ymm3[2],ymm2[3],ymm3[3],ymm2[6],ymm3[6],ymm2[7],ymm3[7]
+; AVX512-NEXT:    vpunpcklqdq {{.*#+}} ymm2 = ymm0[0],ymm1[0],ymm0[2],ymm1[2]
+; AVX512-NEXT:    vpunpckhqdq {{.*#+}} ymm0 = ymm0[1],ymm1[1],ymm0[3],ymm1[3]
+; AVX512-NEXT:    vinserti128 $1, %xmm0, %ymm2, %ymm1
+; AVX512-NEXT:    vinserti128 $1, %xmm4, %ymm6, %ymm3
+; AVX512-NEXT:    vinserti64x4 $1, %ymm1, %zmm3, %zmm1
+; AVX512-NEXT:    vmovdqa64 %zmm1, (%r8)
+; AVX512-NEXT:    vinserti64x4 $1, %ymm0, %zmm2, %zmm0
+; AVX512-NEXT:    vinserti64x4 $1, %ymm4, %zmm6, %zmm1
+; AVX512-NEXT:    vshufi64x2 {{.*#+}} zmm0 = zmm1[2,3,6,7],zmm0[2,3,6,7]
+; AVX512-NEXT:    vmovdqa64 %zmm0, 64(%r8)
 ; end INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
