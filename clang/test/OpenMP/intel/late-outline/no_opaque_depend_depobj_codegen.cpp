@@ -178,7 +178,7 @@ void foo1() {
 // CHECK-NEXT:    [[TMP50:%.*]] = load i64, i64* [[DEPOBJ_SIZE_ADDR]], align 8
 // CHECK-NEXT:    [[TMP51:%.*]] = add nuw i64 0, [[TMP50]]
 // CHECK-NEXT:    [[TMP52:%.*]] = add nuw i64 [[TMP51]], 5
-// CHECK-NEXT:    [[TMP53:%.*]] = call i8* @llvm.stacksave()
+// CHECK-NEXT:    [[TMP53:%.*]] = call i8* @llvm.stacksave.p0i8()
 // CHECK-NEXT:    store i8* [[TMP53]], i8** [[SAVED_STACK]], align 8
 // CHECK-NEXT:    [[VLA:%.*]] = alloca [[STRUCT_KMP_DEPEND_INFO]], i64 [[TMP52]], align 16
 // CHECK-NEXT:    store i64 [[TMP52]], i64* [[__VLA_EXPR0]], align 8
@@ -242,7 +242,7 @@ void foo1() {
 // CHECK-NEXT:    call void @_Z11doSomethingv() #[[ATTR1:[0-9]+]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP92]]) [ "DIR.OMP.END.TASK"() ]
 // CHECK-NEXT:    [[TMP93:%.*]] = load i8*, i8** [[SAVED_STACK]], align 8
-// CHECK-NEXT:    call void @llvm.stackrestore(i8* [[TMP93]])
+// CHECK-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[TMP93]])
 // CHECK-NEXT:    [[TMP94:%.*]] = bitcast i8** [[OBJ1]] to %struct.kmp_depend_info**
 // CHECK-NEXT:    [[TMP95:%.*]] = load %struct.kmp_depend_info*, %struct.kmp_depend_info** [[TMP94]], align 8
 // CHECK-NEXT:    [[TMP96:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP95]], i64 -1
@@ -255,7 +255,7 @@ void foo1() {
 // CHECK-NEXT:    [[TMP101:%.*]] = load i64, i64* [[DEPOBJ_SIZE_ADDR7]], align 8
 // CHECK-NEXT:    [[TMP102:%.*]] = add nuw i64 0, [[TMP101]]
 // CHECK-NEXT:    [[TMP103:%.*]] = add nuw i64 [[TMP102]], 0
-// CHECK-NEXT:    [[TMP104:%.*]] = call i8* @llvm.stacksave()
+// CHECK-NEXT:    [[TMP104:%.*]] = call i8* @llvm.stacksave.p0i8()
 // CHECK-NEXT:    store i8* [[TMP104]], i8** [[SAVED_STACK8]], align 8
 // CHECK-NEXT:    [[VLA9:%.*]] = alloca [[STRUCT_KMP_DEPEND_INFO]], i64 [[TMP103]], align 16
 // CHECK-NEXT:    store i64 [[TMP103]], i64* [[__VLA_EXPR1]], align 8
@@ -279,7 +279,7 @@ void foo1() {
 // CHECK-NEXT:    call void @_Z11doSomethingv() #[[ATTR1]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP118]]) [ "DIR.OMP.END.TASK"() ]
 // CHECK-NEXT:    [[TMP119:%.*]] = load i8*, i8** [[SAVED_STACK8]], align 8
-// CHECK-NEXT:    call void @llvm.stackrestore(i8* [[TMP119]])
+// CHECK-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[TMP119]])
 // CHECK-NEXT:    store i16*** [[B]], i16**** [[C]], align 8
 // CHECK-NEXT:    [[TMP120:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR11]], i64 0, i64 0
 // CHECK-NEXT:    [[TMP121:%.*]] = load i16***, i16**** [[C]], align 8

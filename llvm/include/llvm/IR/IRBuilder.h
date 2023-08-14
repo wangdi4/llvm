@@ -1070,7 +1070,15 @@ public:
   /// Create a call to llvm.stacksave
   CallInst *CreateStackSave(const Twine &Name = "") {
     const DataLayout &DL = BB->getModule()->getDataLayout();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return CreateIntrinsic(Intrinsic::stacksave, {DL.getAllocaPtrType(Context)},
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+    return CreateIntrinsic(
+        Intrinsic::stacksave,
+        {Context.supportsTypedPointers()
+             ? Type::getInt8PtrTy(Context, DL.getAllocaAddrSpace())
+             : DL.getAllocaPtrType(Context)},
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                            {}, nullptr, Name);
   }
 

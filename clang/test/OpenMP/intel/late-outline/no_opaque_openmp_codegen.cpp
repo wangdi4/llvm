@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   // CHECK: [[N10_ADDR:%n10.*]] = alloca i64,
   // CHECK: [[A_ADDR:%a.*]] = alloca i32*,
   // CHECK: [[B_ADDR:%b.*]] = alloca i32*,
-  // CHECK: call i8* @llvm.stacksave()
+  // CHECK: call i8* @llvm.stacksave.p0i8()
   // CHECK: [[ARR3_ADDR:%.+]] = alloca double, i64
   S1 s1;
   S2 s2;

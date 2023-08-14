@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
   // CHECK: [[A_ADDR:%a.*]] = alloca ptr,
   // CHECK: [[B_ADDR:%b.*]] = alloca ptr,
   // CHECK: [[S4:%s4.*]] = alloca %struct.S4,
-  // CHECK: call ptr @llvm.stacksave()
+  // CHECK: call ptr @llvm.stacksave.p0()
   // CHECK: [[ARR3_ADDR:%.+]] = alloca double, i64
   S1 s1;
   S2 s2;
