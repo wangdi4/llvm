@@ -319,6 +319,8 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
 
       auto Inst = HInst->getLLVMInstruction();
 
+      LLVM_DEBUG(dbgs() << "\tUndoSinking for Inst:\n"; HInst->dump(););
+
       if (isa<LoadInst>(Inst)) {
         // Create a copy inst when a matching store is found
         HLInst *CopyInst = nullptr;
@@ -365,7 +367,10 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
 
         HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
 
-        Lp->addLiveOutTemp(HInst->getRvalDDRef());
+        for (auto *Ref :
+             make_range(HInst->op_ddref_begin(), HInst->op_ddref_end())) {
+          Lp->addLiveOutTemp(Ref, true /* OnlyNonLinear */);
+        }
 
         HInst->getLvalDDRef()->makeConsistent({}, LoopLevel - 1);
         HInst->setIsSinked(false);

@@ -10,9 +10,9 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK:      [Compress/Expand Idiom] Increment {sb:3}+1 detected: <13>         %j.014 = %j.014  +  1; <Safe Reduction>
-; CHECK-NEXT: [Compress/Expand Idiom] No associated loads/stores found (safe reduction): <13>         %j.014 = %j.014  +  1; <Safe Reduction>
-; CHECK-NEXT: [Compress/Expand Idiom] Increment rejected: <13>         %j.014 = %j.014  +  1; <Safe Reduction>
+; CHECK:      [Compress/Expand Idiom] Increment {sb:3}+1 detected: <12>         %j.014 = %j.014  +  1; <Safe Reduction>
+; CHECK-NEXT: [Compress/Expand Idiom] No associated loads/stores found (safe reduction): <12>         %j.014 = %j.014  +  1; <Safe Reduction>
+; CHECK-NEXT: [Compress/Expand Idiom] Increment rejected: <12>         %j.014 = %j.014  +  1; <Safe Reduction>
 ; CHECK-NEXT: Idiom List
 ; CHECK-NEXT:   No idioms detected.
 
@@ -20,7 +20,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local i32 @_Z3fooPdS_Pii(double* noalias nocapture noundef readonly %A, double* noalias nocapture noundef writeonly %B, i32* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooPdS_Pii(ptr noalias nocapture noundef readonly %A, ptr noalias nocapture noundef writeonly %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp13 = icmp sgt i32 %N, 0
   br i1 %cmp13, label %for.body.preheader, label %for.cond.cleanup
@@ -39,16 +39,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j.014 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
-  %arrayidx5 = getelementptr inbounds double, double* %B, i64 0
-  store double %1, double* %arrayidx5, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
+  store double %1, ptr %B, align 8, !tbaa !7
   %inc = add nsw i32 %j.014, 1
   br label %for.inc
 

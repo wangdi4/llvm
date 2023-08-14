@@ -12,10 +12,10 @@
 ; Check for vectorized HIR loop
 
 ; CHECK:      BEGIN REGION {
-; CHECK-NEXT: %.vec = (<4 x float>*)(%vec.a.cast)[0];
-; CHECK-NEXT: %.vec2 = (<4 x float>*)(%vec.b.cast)[0];
+; CHECK-NEXT: %.vec = (<4 x float>*)(%vec.a)[0];
+; CHECK-NEXT: %.vec2 = (<4 x float>*)(%vec.b)[0];
 ; CHECK-NEXT: %.vec3 = %.vec2  +  %.vec;
-; CHECK-NEXT: (<4 x float>*)(%ret.cast)[0] = %.vec3;
+; CHECK-NEXT: (<4 x float>*)(%vec.retval)[0] = %.vec3;
 ; CHECK:      END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -34,11 +34,8 @@ entry:
   %vec.a = alloca <4 x float>, align 16
   %vec.b = alloca <4 x float>, align 16
   %vec.retval = alloca <4 x float>, align 16
-  %vec.a.cast = bitcast <4 x float>* %vec.a to float*
-  store <4 x float> %a, <4 x float>* %vec.a, align 16
-  %vec.b.cast = bitcast <4 x float>* %vec.b to float*
-  store <4 x float> %b, <4 x float>* %vec.b, align 16
-  %ret.cast = bitcast <4 x float>* %vec.retval to float*
+  store <4 x float> %a, ptr %vec.a, align 16
+  store <4 x float> %b, ptr %vec.b, align 16
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
@@ -47,13 +44,13 @@ simd.begin.region:                                ; preds = %entry
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %vec.a.cast.gep = getelementptr float, float* %vec.a.cast, i32 %index
-  %vec.a.elem = load float, float* %vec.a.cast.gep, align 4
-  %vec.b.cast.gep = getelementptr float, float* %vec.b.cast, i32 %index
-  %vec.b.elem = load float, float* %vec.b.cast.gep, align 4
+  %vec.a.cast.gep = getelementptr float, ptr %vec.a, i32 %index
+  %vec.a.elem = load float, ptr %vec.a.cast.gep, align 4
+  %vec.b.cast.gep = getelementptr float, ptr %vec.b, i32 %index
+  %vec.b.elem = load float, ptr %vec.b.cast.gep, align 4
   %add = fadd fast float %vec.b.elem, %vec.a.elem
-  %ret.cast.gep = getelementptr float, float* %ret.cast, i32 %index
-  store float %add, float* %ret.cast.gep, align 4
+  %ret.cast.gep = getelementptr float, ptr %vec.retval, i32 %index
+  store float %add, ptr %ret.cast.gep, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -66,7 +63,7 @@ simd.end.region:                                  ; preds = %simd.loop.exit
   br label %return
 
 return:                                           ; preds = %simd.end.region
-  %vec.ret = load <4 x float>, <4 x float>* %vec.retval, align 16
+  %vec.ret = load <4 x float>, ptr %vec.retval, align 16
   ret <4 x float> %vec.ret
 }
 

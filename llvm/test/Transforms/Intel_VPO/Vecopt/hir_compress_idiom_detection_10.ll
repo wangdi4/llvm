@@ -34,9 +34,9 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store double [[VP9:%.*]] double* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store double [[VP9:%.*]] ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      double [[VP_LOAD:%.*]] = load double* [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      double [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = sext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
@@ -55,19 +55,19 @@
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP16]], [[BB1]] ],  [ i32 [[VP18:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[VP10]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B0]] i64 [[VP10]]
-; CHECK-NEXT:       double [[VP17:%.*]] = expand-load double* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1]] = subscript inbounds ptr [[B0]] i64 [[VP10]]
+; CHECK-NEXT:       double [[VP17:%.*]] = expand-load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       double [[VP14:%.*]] = fmul double [[VP17]] double 3.000000e+00
 ; CHECK-NEXT:       double [[VP9]] = fadd double [[VP14]] double 2.000000e+00
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP10]]
-; CHECK-NEXT:       compress-store double [[VP9]] double* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[B0]] i64 [[VP10]]
+; CHECK-NEXT:       compress-store double [[VP9]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
@@ -109,7 +109,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdS_Pii(double* noalias nocapture noundef readnone %A, double* noalias nocapture noundef %B, i32* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdS_Pii(ptr noalias nocapture noundef readnone %A, ptr noalias nocapture noundef %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp14 = icmp sgt i32 1024, 0
   br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup
@@ -127,18 +127,18 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j.015 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %idxprom2 = sext i32 %j.015 to i64
-  %arrayidx3 = getelementptr inbounds double, double* %B, i64 %idxprom2
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %B, i64 %idxprom2
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
   %mul = fmul fast double %1, 3.000000e+00
   %add = fadd fast double %mul, 2.000000e+00
-  store double %add, double* %arrayidx3, align 8, !tbaa !7
+  store double %add, ptr %arrayidx3, align 8, !tbaa !7
   %inc = add nsw i32 %j.015, 1
   br label %for.inc
 
