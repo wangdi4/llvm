@@ -35,7 +35,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP12]] = add i32 [[VP10]] i32 1
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP13:%.*]] = sext i32 [[VP10]] to i64
 ; CHECK-EMPTY:
@@ -57,15 +57,15 @@
 ; CHECK-NEXT:     float [[VP6]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP10]] = phi  [ i32 [[VP19]], [[BB1]] ],  [ i32 [[VP21:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP9]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP8]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
 ; CHECK-NEXT:     br i1 [[VP15]], [[BB3]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[VP13]] = sext i32 [[VP10]] to i64
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[F0]] i64 [[VP13]]
-; CHECK-NEXT:       float [[VP22:%.*]] = expand-load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[F0]] i64 [[VP13]]
+; CHECK-NEXT:       float [[VP22:%.*]] = expand-load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       float [[VP7]] = fadd float [[VP22]] float [[VP6]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
@@ -161,9 +161,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree nosync nounwind uwtable
-define dso_local noundef i32 @_Z3fooPfiPi(float* noalias nocapture noundef readonly %f, i32 noundef %n, i32* noalias noundef %a) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3fooPfiPi(ptr noalias nocapture noundef readonly %f, i32 noundef %n, ptr noalias noundef %a) local_unnamed_addr #0 {
 entry:
-  call void @llvm.assume(i1 true) [ "align"(i32* %a, i64 32) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %a, i64 32) ]
   %cmp13 = icmp sgt i32 %n, 0
   br i1 %cmp13, label %for.body.preheader, label %for.cond.cleanup
 
@@ -188,16 +188,16 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %r.015 = phi float [ 0.000000e+00, %for.body.preheader ], [ %r.1, %for.inc ]
   %c.014 = phi i32 [ 0, %for.body.preheader ], [ %c.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %inc = add nsw i32 %c.014, 1
   %idxprom1 = sext i32 %c.014 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %f, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4, !tbaa !7
+  %arrayidx2 = getelementptr inbounds float, ptr %f, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4, !tbaa !7
   %add = fadd fast float %1, %r.015
   br label %for.inc
 

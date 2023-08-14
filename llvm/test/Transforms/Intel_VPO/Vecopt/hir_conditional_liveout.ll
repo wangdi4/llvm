@@ -18,11 +18,11 @@
 ; INPUT:           |   + LiveIn symbases: 8, 12
 ; INPUT:           |   + LiveOut symbases: 3
 ; INPUT:           |   + DO i64 i2 = 0, -1 * i1 + 62, 1   <DO_LOOP>  <MAX_TC_EST = 63>   <LEGAL_MAX_TC = 63>
-; INPUT:           |   |   %2 = (%zo)[0][i2 + 1][0];
-; INPUT:           |   |   if (%2 == 0)
+; INPUT:           |   |   %0 = (%zo)[0][i2 + 1][0];
+; INPUT:           |   |   if (%0 == 0)
 ; INPUT:           |   |   {
-; INPUT:           |   |      %3 = (%s1)[0][i2 + 1];
-; INPUT:           |   |      (%s1)[0][i2 + 1] = %3 + -1;
+; INPUT:           |   |      %1 = (%s1)[0][i2 + 1];
+; INPUT:           |   |      (%s1)[0][i2 + 1] = %1 + -1;
 ; INPUT:           |   |   }
 ; INPUT:           |   |   else
 ; INPUT:           |   |   {
@@ -65,8 +65,8 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = phi  [ i32 [[NZ_0610:%.*]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x [100 x i32]]* [[ZO0:%.*]] i64 0 i64 [[VP8]] i64 0
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ZO0:%.*]] i64 0 i64 [[VP8]] i64 0
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp eq i32 [[VP_LOAD]] i32 0
 ; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -76,11 +76,11 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP11:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i32]* [[S10:%.*]] i64 0 i64 [[VP11]]
-; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[S10:%.*]] i64 0 i64 [[VP11]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       i32 [[VP12:%.*]] = add i32 [[VP_LOAD_1]] i32 -1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x i32]* [[S10]] i64 0 i64 [[VP11]]
-; CHECK-NEXT:       store i32 [[VP12]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[S10]] i64 0 i64 [[VP11]]
+; CHECK-NEXT:       store i32 [[VP12]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
@@ -142,12 +142,10 @@ define dso_local i32 @main() local_unnamed_addr {
 entry:
   %zo = alloca [100 x [100 x i32]], align 16
   %s1 = alloca [100 x i32], align 16
-  %0 = bitcast [100 x [100 x i32]]* %zo to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40000, i8* nonnull %0)
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(40000) %0, i8 0, i64 40000, i1 false)
-  %1 = bitcast [100 x i32]* %s1 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %1)
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(400) %1, i8 0, i64 400, i1 false)
+  call void @llvm.lifetime.start.p0(i64 40000, ptr nonnull %zo)
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 16 dereferenceable(40000) %zo, i8 0, i64 40000, i1 false)
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %s1)
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 16 dereferenceable(400) %s1, i8 0, i64 400, i1 false)
   br label %outer.header
 
 outer.header:                              ; preds = %for.inc14, %entry
@@ -158,16 +156,16 @@ outer.header:                              ; preds = %for.inc14, %entry
 for.body4:                                        ; preds = %outer.header, %for.inc
   %indvars.iv = phi i64 [ 1, %outer.header ], [ %indvars.iv.next, %for.inc ]
   %nz.159 = phi i32 [ %nz.061, %outer.header ], [ %nz.2, %for.inc ]
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %zo, i64 0, i64 %indvars.iv, i64 0
-  %2 = load i32, i32* %arrayidx6, align 16
-  %cmp9 = icmp eq i32 %2, 0
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], ptr %zo, i64 0, i64 %indvars.iv, i64 0
+  %0 = load i32, ptr %arrayidx6, align 16
+  %cmp9 = icmp eq i32 %0, 0
   br i1 %cmp9, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body4
-  %arrayidx13 = getelementptr inbounds [100 x i32], [100 x i32]* %s1, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx13, align 4
-  %sub = add i32 %3, -1
-  store i32 %sub, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x i32], ptr %s1, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx13, align 4
+  %sub = add i32 %1, -1
+  store i32 %sub, ptr %arrayidx13, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body4, %if.then
@@ -184,16 +182,16 @@ for.inc14:                                        ; preds = %for.inc
 
 for.end15:                                        ; preds = %for.inc14
   %nz.2.lcssa.lcssa = phi i32 [ %nz.2.lcssa, %for.inc14 ]
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %1)
-  call void @llvm.lifetime.end.p0i8(i64 40000, i8* nonnull %0)
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %s1)
+  call void @llvm.lifetime.end.p0(i64 40000, ptr nonnull %zo)
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg)
