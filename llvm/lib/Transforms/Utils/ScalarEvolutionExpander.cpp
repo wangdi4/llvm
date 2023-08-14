@@ -191,15 +191,14 @@ Value *SCEVExpander::InsertNoopCastOfTo(Value *V, Type *Ty) {
   if (Op == Instruction::IntToPtr) {
     auto *PtrTy = cast<PointerType>(Ty);
     if (DL.isNonIntegralPointerType(PtrTy)) {
-      auto *Int8PtrTy = Builder.getInt8PtrTy(PtrTy->getAddressSpace());
       assert(DL.getTypeAllocSize(Builder.getInt8Ty()) == 1 &&
              "alloc size of i8 must by 1 byte for the GEP to be correct");
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       return Builder.CreateGEP(
-          Builder.getInt8Ty(), Constant::getNullValue(Int8PtrTy), V, "scevgep");
+          Builder.getInt8Ty(), Constant::getNullValue(PtrTy), V, "scevgep");
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
       auto *GEP = Builder.CreateGEP(
-          Builder.getInt8Ty(), Constant::getNullValue(Int8PtrTy), V, "scevgep");
+          Builder.getInt8Ty(), Constant::getNullValue(PtrTy), V, "scevgep");
       return Builder.CreateBitCast(GEP, Ty);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
     }
@@ -2668,8 +2667,7 @@ Value *SCEVExpander::generateOverflowCheck(const SCEVAddRecExpr *AR,
     bool NeedNegCheck = !SE.isKnownPositive(Step);
 
     if (PointerType *ARPtrTy = dyn_cast<PointerType>(ARTy)) {
-      StartValue = InsertNoopCastOfTo(
-          StartValue, Builder.getInt8PtrTy(ARPtrTy->getAddressSpace()));
+      StartValue = InsertNoopCastOfTo(StartValue, ARPtrTy);
       Value *NegMulV = Builder.CreateNeg(MulV);
       if (NeedPosCheck)
         Add = Builder.CreateGEP(Builder.getInt8Ty(), StartValue, MulV);
@@ -2775,7 +2773,7 @@ Value *SCEVExpander::fixupLCSSAFormFor(Value *V) {
   // instruction.
   Type *ToTy;
   if (DefI->getType()->isIntegerTy())
-    ToTy = DefI->getType()->getPointerTo();
+    ToTy = PointerType::get(DefI->getContext(), 0);
   else
     ToTy = Type::getInt32Ty(DefI->getContext());
   Instruction *User =
