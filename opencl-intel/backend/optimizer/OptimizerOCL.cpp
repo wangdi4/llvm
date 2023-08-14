@@ -802,7 +802,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(VerifierPass());
 #endif
   }
-  MPM.addPass(KernelBarrier(m_debugType == intel::Native, m_UseTLSGlobals));
+  MPM.addPass(KernelBarrier());
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
 #endif
