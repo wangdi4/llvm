@@ -195,16 +195,12 @@ Value *SCEVExpander::InsertNoopCastOfTo(Value *V, Type *Ty) {
              "alloc size of i8 must by 1 byte for the GEP to be correct");
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       return Builder.CreateGEP(
-<<<<<<< HEAD
-          Builder.getInt8Ty(), Constant::getNullValue(Int8PtrTy), V, "scevgep");
+          Builder.getInt8Ty(), Constant::getNullValue(PtrTy), V, "scevgep");
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
       auto *GEP = Builder.CreateGEP(
-          Builder.getInt8Ty(), Constant::getNullValue(Int8PtrTy), V, "scevgep");
+          Builder.getInt8Ty(), Constant::getNullValue(PtrTy), V, "scevgep");
       return Builder.CreateBitCast(GEP, Ty);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-          Builder.getInt8Ty(), Constant::getNullValue(PtrTy), V, "scevgep");
->>>>>>> a7ee80fab213fe7a52b159e3a6c13c7355c30b25
     }
   }
   // Short-circuit unnecessary bitcasts.
