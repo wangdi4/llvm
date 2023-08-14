@@ -10,6 +10,7 @@
 
 #include <sycl/detail/stl_type_traits.hpp>
 
+#include <algorithm> // for std::min and vs2017 win
 #include <type_traits>
 
 namespace sycl {
