@@ -5105,7 +5105,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     unsigned NumInvariantDims = 0;
     unsigned NumDims = SrcRegDDRef->getNumDimensions();
     if (ForFusion && (NumDims == DstRegDDRef->getNumDimensions()) &&
-        (SrcRegDDRef->isCollapsed() != DstRegDDRef->isCollapsed())) {
+        (SrcRegDDRef->isCollapsed() || DstRegDDRef->isCollapsed())) {
       for (unsigned DimI = 1; DimI <= NumDims; ++DimI, ++NumInvariantDims) {
         if (!SrcRegDDRef->getDimensionIndex(DimI)->isInvariantAtLevel(
                 RefiningLevel, true) ||
