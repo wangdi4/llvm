@@ -1072,8 +1072,12 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
     // no need to collect profile counts on these instructions, since the
     // profile counts are just used to adjust the entry count of the splinter
     // function for the cold portion of the routine.
-    if (IsVirtualTarget && !isa<CallBase>(User))
-      continue;
+    if (IsVirtualTarget) {
+      auto CB = dyn_cast<CallBase>(User);
+      // CMPLRLLVM-50418: Check that the called function is the use.
+      if (!CB || CB->getCalledFunction() != DuplicateFunction)
+        continue;
+    }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     // Don't bother with BlockAddress used by CallBr for asm goto.
@@ -1577,12 +1581,9 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
 
   FunctionCloner Cloner(&F, OI.get(), ORE, LookupAssumptionCache, GetTTI);
   Cloner.normalizeReturnBlock();
-
   Function *OutlinedFunction = Cloner.doSingleRegionFunctionOutlining();
-
   if (!OutlinedFunction)
     return {false, nullptr};
-
   if (tryPartialInline(Cloner))
     return {true, OutlinedFunction};
 
@@ -1657,10 +1658,13 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     // If the function is a virtual target then, there may be users that
-    // are not call sites. We can skip those here.
-    if (IsVirtualTarget &&
-        !isa<CallInst>(User) && !isa<InvokeInst>(User))
-      continue;
+    // are not calls to the function. We can skip these here.
+    if (IsVirtualTarget) {
+      auto CB = dyn_cast<CallBase>(User);
+      // CMPLRLLVM-50418: Check that the called function is the use.
+      if (!CB || CB->getCalledFunction() != Cloner.ClonedFunc)
+        continue;
+    }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     // Don't bother with BlockAddress used by CallBr for asm goto.
