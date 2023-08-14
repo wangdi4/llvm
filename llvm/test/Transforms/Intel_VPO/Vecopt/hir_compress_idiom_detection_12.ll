@@ -37,7 +37,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP11:%.*]] = add i32 [[VP9]] i32 3
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store double [[VP_LOAD:%.*]] double* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store double [[VP_LOAD:%.*]] ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP12:%.*]] = sext i32 [[VP9]] to i64
 ; CHECK-EMPTY:
@@ -49,7 +49,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP15:%.*]] = add i32 [[VP13]] i32 2
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      store double [[VP_LOAD]] ptr [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP16:%.*]] = sext i32 [[VP13]] to i64
 ; CHECK-EMPTY:
@@ -70,23 +70,23 @@
 ; CHECK-NEXT:     i32 [[VP13]] = phi  [ i32 [[VP21]], [[BB1]] ],  [ i32 [[VP25:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP9]] = phi  [ i32 [[VP20]], [[BB1]] ],  [ i32 [[VP23:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP8]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP7]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP8]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP8]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
 ; CHECK-NEXT:     br i1 [[VP18]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP8]]
-; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP8]]
+; CHECK-NEXT:       double [[VP_LOAD]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP22:%.*]] = compress-expand-index {stride: 3} i64 [[VP12]]
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP22]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[B0]] i64 [[VP22]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] ptr [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i64 [[VP16]] = sext i32 [[VP13]] to i64
 ; CHECK-NEXT:       i64 [[VP24:%.*]] = compress-expand-index {stride: 2} i64 [[VP16]]
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B20]] i64 [[VP24]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1]] = subscript inbounds ptr [[B20]] i64 [[VP24]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] ptr [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
@@ -123,11 +123,11 @@
 ; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP10]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD60:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9>
 ; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4f64([[DOTVEC50]],  poison,  [[DOTVEC30]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS0]],  &((<4 x double*>)([[B0]])[%add6]),  0,  [[CAST40]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0([[COMPRESS0]],  &((<4 x ptr>)([[B0]])[%add6]),  0,  [[CAST40]])
 ; CHECK-NEXT:        |   [[SHUFFLE70:%.*]] = shufflevector [[PHI_TEMP0]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD80:%.*]] = [[SHUFFLE70]]  +  <i64 0, i64 2, i64 4, i64 6>
 ; CHECK-NEXT:        |   [[COMPRESS90:%.*]] = @llvm.x86.avx512.mask.compress.v4f64([[DOTVEC50]],  poison,  [[DOTVEC30]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS90]],  &((<4 x double*>)([[B20]])[%add8]),  0,  [[CAST40]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0([[COMPRESS90]],  &((<4 x ptr>)([[B20]])[%add8]),  0,  [[CAST40]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[SELECT100:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST110:%.*]] = bitcast.<4 x i1>.i4([[SELECT0]])
@@ -151,7 +151,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdS_S_PiiiS0_S0_(double* noalias nocapture noundef readonly %A, double* noalias nocapture noundef writeonly %B, double* noalias nocapture noundef writeonly %B2, i32* noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %j0, i32* noalias nocapture noundef readnone %out1, i32* noalias nocapture noundef readnone %out2) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdS_S_PiiiS0_S0_(ptr noalias nocapture noundef readonly %A, ptr noalias nocapture noundef writeonly %B, ptr noalias nocapture noundef writeonly %B2, ptr noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %j0, ptr noalias nocapture noundef readnone %out1, ptr noalias nocapture noundef readnone %out2) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 1024, 0
   br i1 %cmp21, label %for.body.preheader, label %for.cond.cleanup
@@ -170,21 +170,21 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j2.023 = phi i32 [ 0, %for.body.preheader ], [ %j2.1, %for.inc ]
   %j.022 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
   %idxprom4 = sext i32 %j.022 to i64
-  %arrayidx5 = getelementptr inbounds double, double* %B, i64 %idxprom4
-  store double %1, double* %arrayidx5, align 8, !tbaa !7
+  %arrayidx5 = getelementptr inbounds double, ptr %B, i64 %idxprom4
+  store double %1, ptr %arrayidx5, align 8, !tbaa !7
   %add = add nsw i32 %j.022, 3
   %idxprom8 = sext i32 %j2.023 to i64
-  %arrayidx9 = getelementptr inbounds double, double* %B2, i64 %idxprom8
-  store double %1, double* %arrayidx9, align 8, !tbaa !7
+  %arrayidx9 = getelementptr inbounds double, ptr %B2, i64 %idxprom8
+  store double %1, ptr %arrayidx9, align 8, !tbaa !7
   %add10 = add nsw i32 %j2.023, 2
   br label %for.inc
 

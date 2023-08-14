@@ -9,10 +9,10 @@ define i16 @foo(i16 %a, i32 %n) {
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %priv.mem.bc = &(([12 x i16]*)(%priv.mem)[0])
 ; CHECK:           + DO i1 = 0, {{.*}}, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:      |   %nsbgepcopy = &((<4 x [12 x i16]*>)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>])
+; CHECK-NEXT:      |   %nsbgepcopy = &((<4 x ptr>)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>])
 ; CHECK-NEXT:      |   (<4 x i16>*)(%nsbgepcopy)[i1 + <i64 0, i64 1, i64 2, i64 3>][3] = %a
 ; CHECK-NEXT:      + END LOOP
-; CHECK:           @llvm.memcpy.p0a12i16.p0a12i16.i64(&((%b3.i.lpriv)[0]),  &(([12 x i16]*)(%priv.mem)[0][3]),  24,  0)
+; CHECK:           @llvm.memcpy.p0.p0.i64(&((%b3.i.lpriv)[0]),  &(([12 x i16]*)(%priv.mem)[0][3]),  24,  0)
 
 ; CHECK:           + DO i1 = {{.*}}, %n, 1   <DO_LOOP>
 ; CHECK-NEXT:      |   (%b3.i.lpriv)[i1][3] = %a
@@ -27,14 +27,14 @@ omp.inner.for.body.i.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"([12 x i16]* %b3.i.lpriv, i16 0, i32 12) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %b3.i.lpriv, i16 0, i32 12) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:
   %.omp.iv.i.local.03 = phi i32 [ %add5.i, %omp.body.continue.i ], [ 0, %DIR.OMP.SIMD.1 ]
 
-  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i32 %.omp.iv.i.local.03, i32 3
-  store i16 %a, i16* %arrayidx.i
+  %arrayidx.i = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i32 %.omp.iv.i.local.03, i32 3
+  store i16 %a, ptr %arrayidx.i
 
   br label %omp.body.continue.i
 
@@ -46,8 +46,8 @@ omp.body.continue.i:
 omp.inner.for.cond.i.DIR.OMP.END.SIMD.5.i.loopexit_crit_edge:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
 
-  %idx = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 1
-  %res = load i16, i16* %idx
+  %idx = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i64 0, i64 1
+  %res = load i16, ptr %idx
 
   ret i16 %res
 }

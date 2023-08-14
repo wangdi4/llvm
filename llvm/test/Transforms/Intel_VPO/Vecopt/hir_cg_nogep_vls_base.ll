@@ -10,10 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.baz = type { float, float, float, float }
 
 ; The test used to crash in VPlan HIR CG.
-define void @snork(%struct.widget* %arg) #0 align 2 {
+define void @snork(ptr %arg) #0 align 2 {
 ; CHECK:             + DO i1 = 0, 1043, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<4 x <2 x float>*>)([[ARG0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 1].1),  0
-; CHECK-NEXT:        |   [[GEP_BASE0:%.*]] = [[EXTRACT_0_0]]
+; CHECK-NEXT:        |   [[GEP_BASE0:%.*]] = &(([[STRUCTBAZ:%.*]])([[ARG0:%.*]])[i1 + 1].1)
 ; CHECK-NEXT:        |   [[DOTVLS_LOAD0:%.*]] = (<16 x i64>*)([[GEP_BASE0]])[-2]
 ; CHECK-NEXT:        |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 4, i32 8, i32 12>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = bitcast.<4 x i64>.<8 x float>([[VLS_EXTRACT0]])
@@ -34,19 +33,15 @@ bb:
 
 bb1:                                              ; preds = %bb1, %bb
   %t = phi i64 [ %t18, %bb1 ], [ 1, %bb ]
-  %t2 = getelementptr inbounds %struct.widget, %struct.widget* %arg, i64 %t
-  %t3 = bitcast %struct.widget* %t2 to <2 x float>*
-  %t4 = getelementptr inbounds %struct.widget, %struct.widget* %arg, i64 %t, i32 0, i32 2
-  %t5 = bitcast float* %t4 to <2 x float>*
-  %t6 = getelementptr inbounds %struct.widget, %struct.widget* %arg, i64 %t, i32 1
-  %t7 = bitcast %struct.baz* %t6 to <2 x float>*
-  %t8 = getelementptr inbounds %struct.widget, %struct.widget* %arg, i64 %t, i32 1, i32 2
-  %t9 = bitcast float* %t8 to <2 x float>*
+  %t2 = getelementptr inbounds %struct.widget, ptr %arg, i64 %t
+  %t4 = getelementptr inbounds %struct.widget, ptr %arg, i64 %t, i32 0, i32 2
+  %t6 = getelementptr inbounds %struct.widget, ptr %arg, i64 %t, i32 1
+  %t8 = getelementptr inbounds %struct.widget, ptr %arg, i64 %t, i32 1, i32 2
 
-  %t12 = load <2 x float>, <2 x float>* %t3, align 16
-  %t13 = load <2 x float>, <2 x float>* %t5, align 8
-  %t10 = load <2 x float>, <2 x float>* %t7, align 16
-  %t11 = load <2 x float>, <2 x float>* %t9, align 8
+  %t12 = load <2 x float>, ptr %t2, align 16
+  %t13 = load <2 x float>, ptr %t4, align 8
+  %t10 = load <2 x float>, ptr %t6, align 16
+  %t11 = load <2 x float>, ptr %t8, align 8
 
   %t14 = extractelement <2 x float> %t10, i64 0
   %t15 = extractelement <2 x float> %t12, i64 1
