@@ -20,9 +20,8 @@
 //| Legal subdivisions pass. Illegal subdivisions fail. Attempts to allocate
 // more compute units than are available fail. | Return true in case of SUCCESS.
 
+#include "CL/cl_ext.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
 
 extern cl_device_type gDeviceType;
 

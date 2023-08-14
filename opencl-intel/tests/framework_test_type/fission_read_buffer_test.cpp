@@ -18,9 +18,9 @@
 //|
 //| Return true in case of SUCCESS.
 
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "cl_types.h"
-#include <CL/cl.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

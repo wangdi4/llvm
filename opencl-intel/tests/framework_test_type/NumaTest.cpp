@@ -22,8 +22,8 @@
 #include "cl_sys_info.h"
 #include "common_utils.h"
 #include "task_executor.h"
-#include <tbb/global_control.h>
-#include <tbb/info.h>
+#include "tbb/global_control.h"
+#include "tbb/info.h"
 
 extern cl_device_type gDeviceType;
 

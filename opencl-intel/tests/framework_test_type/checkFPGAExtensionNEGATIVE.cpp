@@ -1,8 +1,7 @@
-#include "CL/cl.h"
+#include "CL/cl_fpga_ext.h"
 #include "FrameworkTest.h"
 #include "cl_types.h"
 #include "gtest_wrapper.h"
-#include <CL/cl_fpga_ext.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

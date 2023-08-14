@@ -24,7 +24,6 @@
 #include "TestsHelpClasses.h"
 #include "cl_sys_info.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
 #include <stdio.h>
 
 extern cl_device_type gDeviceType;

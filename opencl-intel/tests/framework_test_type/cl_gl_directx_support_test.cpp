@@ -14,14 +14,11 @@
 //|
 //| Return true in case of SUCCESS.
 
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
-
-#include <stdio.h>
-
+#include "CL/cl_ext.h"
 #include "FrameworkTest.h"
 #include "common_utils.h"
 #include "gtest_wrapper.h"
+#include <stdio.h>
 
 #define CL_CONFIG_GL_DIRECTX_INTEROP "CL_CONFIG_GL_DIRECTX_INTEROP"
 

@@ -15,12 +15,11 @@
 //| Return true in case of SUCCESS.
 
 #ifdef __INCLUDE_MKL__
-#include <CL/cl.h>
+#include "CL/cl.h"
+#include "FrameworkTest.h"
+#include "cl_types.h"
 #include <assert.h>
 #include <stdio.h>
-
-#include "FrameworkTest.h"
-#include <cl_types.h>
 
 #define WORK_SIZE 1
 #define MAX_SOURCE_SIZE 2048

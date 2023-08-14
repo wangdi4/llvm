@@ -1,8 +1,8 @@
+#include "CL/cl.h"
 #include "TestsHelpClasses.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "common_utils.h"
-#include <CL/cl.h>
 #include <cstdio>
 
 extern cl_device_type gDeviceType;

@@ -18,13 +18,12 @@
 // stderr.
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/wait.h>
-
 #include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "gtest_wrapper.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
 extern cl_device_type gDeviceType;
 

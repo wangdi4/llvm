@@ -18,12 +18,11 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "CL/cl.h"
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
-#include <CL/cl.h>
-#include <tbb/parallel_for.h>
-
+#include "tbb/parallel_for.h"
 #include <thread>
 
 extern cl_device_type gDeviceType;
