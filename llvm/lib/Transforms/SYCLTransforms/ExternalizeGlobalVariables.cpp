@@ -30,6 +30,9 @@ constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6147;
 static bool externalizeDeviceGlobal(Module *M) {
   bool Changed = false;
   for (auto &GV : M->globals()) {
+    if (GV.isConstant())
+      continue;
+
     if (MDNode *DecoMD = GV.getMetadata("spirv.Decorations")) {
       for (const MDOperand &MDOp : DecoMD->operands()) {
         MDNode *Node = dyn_cast<MDNode>(MDOp);
@@ -38,11 +41,10 @@ static bool externalizeDeviceGlobal(Module *M) {
             mdconst::extract<ConstantInt>(Node->getOperand(0))
                     ->getZExtValue() == SPIRV_HOST_ACCESS_DECOR) {
 
-          // If a device global with spirv decorations has an internal linkage
-          // type, we need to reset it to external. Otherwise it can easily be
-          // optimized and not found by LLJIT.
-          if (GV.hasInternalLinkage())
-            GV.setLinkage(GlobalValue::ExternalLinkage);
+          // Reset linkage type to external to make sure it will not be
+          // optimized out and can be accepted during post optimization
+          // processing.
+          GV.setLinkage(GlobalValue::ExternalLinkage);
 
           // Add an alias metadata for later use.
           GV.addMetadata("spirv.Decorations.HostAccess", *Node);
