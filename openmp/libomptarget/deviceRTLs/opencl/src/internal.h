@@ -125,10 +125,10 @@ INLINE int __kmp_get_num_workers() {
 }
 #endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
-/// Return the active sub group leader id
-INLINE int __kmp_get_active_sub_group_leader_id() {
+/// Equivalent to sub_group_elect() which is not supported in CPU backend
+INLINE int __kmp_sub_group_elect() {
   int id = __spirv_BuiltInSubgroupLocalInvocationId;
-  return sub_group_scan_inclusive_min(id);
+  return id == sub_group_non_uniform_scan_inclusive_min(id);
 }
 
 /// Delay for exponential backoff
@@ -143,8 +143,7 @@ INLINE void __kmp_acquire_lock(int *lock) {
 #if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
   if (sub_group_elect()) {
 #else
-  if (__spirv_BuiltInSubgroupLocalInvocationId ==
-      __kmp_get_active_sub_group_leader_id()) {
+  if (__kmp_sub_group_elect()) {
 #endif
     int expected;
     bool acquired = false;
@@ -170,8 +169,7 @@ INLINE void __kmp_release_lock(int *lock) {
 #if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
   if (sub_group_elect())
 #else
-  if (__spirv_BuiltInSubgroupLocalInvocationId ==
-      __kmp_get_active_sub_group_leader_id())
+  if (__kmp_sub_group_elect())
 #endif
     atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
 }
