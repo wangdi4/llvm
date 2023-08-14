@@ -173,8 +173,6 @@ namespace {
 /// dispatch with specific functionality.
 enum class FlagArithMnemonic {
   ADC,
-  ADCX,
-  ADOX,
   RCL,
   RCR,
   SBB,
@@ -281,6 +279,7 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
 
 #undef LLVM_EXPAND_INSTR_SIZES
 
+<<<<<<< HEAD
   case X86::ADCX32rr:
   case X86::ADCX64rr:
   case X86::ADCX32rm:
@@ -309,6 +308,8 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
   case X86::ADOX64rm:
     return FlagArithMnemonic::ADOX;
 
+=======
+>>>>>>> fda9a9c61ebf4f768ad0a230141fb4123128697f
   case X86::SETB_C32r:
   case X86::SETB_C64r:
     return FlagArithMnemonic::SETB;
@@ -878,7 +879,6 @@ void X86FlagsCopyLoweringPass::rewriteArithmetic(
 
   switch (getMnemonicFromOpcode(MI.getOpcode())) {
   case FlagArithMnemonic::ADC:
-  case FlagArithMnemonic::ADCX:
   case FlagArithMnemonic::RCL:
   case FlagArithMnemonic::RCR:
   case FlagArithMnemonic::SBB:
@@ -887,13 +887,6 @@ void X86FlagsCopyLoweringPass::rewriteArithmetic(
     // Set up an addend that when one is added will need a carry due to not
     // having a higher bit available.
     Addend = 255;
-    break;
-
-  case FlagArithMnemonic::ADOX:
-    Cond = X86::COND_O; // OF == 1
-    // Set up an addend that when one is added will turn from positive to
-    // negative and thus overflow in the signed domain.
-    Addend = 127;
     break;
   }
 
