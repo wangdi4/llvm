@@ -279,37 +279,6 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
 
 #undef LLVM_EXPAND_INSTR_SIZES
 
-<<<<<<< HEAD
-  case X86::ADCX32rr:
-  case X86::ADCX64rr:
-  case X86::ADCX32rm:
-  case X86::ADCX64rm:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  case X86::ADCX32rr_ND:
-  case X86::ADCX64rr_ND:
-  case X86::ADCX32rm_ND:
-  case X86::ADCX64rm_ND:
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    return FlagArithMnemonic::ADCX;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  case X86::ADOX32rr_ND:
-  case X86::ADOX64rr_ND:
-  case X86::ADOX32rm_ND:
-  case X86::ADOX64rm_ND:
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-  case X86::ADOX32rr:
-  case X86::ADOX64rr:
-  case X86::ADOX32rm:
-  case X86::ADOX64rm:
-    return FlagArithMnemonic::ADOX;
-
-=======
->>>>>>> fda9a9c61ebf4f768ad0a230141fb4123128697f
   case X86::SETB_C32r:
   case X86::SETB_C64r:
     return FlagArithMnemonic::SETB;

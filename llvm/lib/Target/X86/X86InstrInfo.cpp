@@ -7223,10 +7223,6 @@ static bool unfoldLoad(const MachineInstr &MI) {
   case X86::ADC32rr:
   case X86::ADC64rr:
   case X86::ADC8rr:
-  case X86::ADCX32rr:
-  case X86::ADCX64rr:
-  case X86::ADOX32rr:
-  case X86::ADOX64rr:
   case X86::SBB16rr:
   case X86::SBB32rr:
   case X86::SBB64rr:
