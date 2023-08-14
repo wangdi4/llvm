@@ -1,4 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-array-transpose,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-array-transpose,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that transpose kicks in with opaque pointers when there are no bitcasts
 ; in the incoming IR and the malloc offset &((%call)[8]) is computed in bytes.
