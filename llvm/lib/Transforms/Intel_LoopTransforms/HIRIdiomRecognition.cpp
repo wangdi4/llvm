@@ -1,6 +1,6 @@
 //===- HIRIdiomRecognition.cpp - Implements Loop idiom recognition pass ---===//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -294,18 +294,14 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
 
   for (DDEdge *E : Range) {
     DDRef *OtherRef = IsOutgoing ? E->getSink() : E->getSrc();
-
-    if (RemovedNodes.count(OtherRef->getHLDDNode())) {
-      // No dependence if we removed the node
-      continue;
-    }
-
     const DirectionVector *DV = &E->getDV();
 
     // In case of the target loop is not the topmost loop we need to refine the
     // dependency to be less conservative.
     RefinedDependence RefinedDep;
-    if (Level != 1) {
+    // RefinedDV fails for removed nodes so we conservatively only check
+    // available DV.
+    if (Level != 1 && !RemovedNodes.count(OtherRef->getHLDDNode())) {
       RefinedDep = DDA.refineDV(E, Level, Level, false);
       if (RefinedDep.isIndependent()) {
         LLVM_DEBUG(dbgs() << "Edge was refined as independant:\n");
