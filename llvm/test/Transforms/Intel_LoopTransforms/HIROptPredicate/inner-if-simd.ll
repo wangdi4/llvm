@@ -1,4 +1,4 @@
-; RUN: opt -disable-hir-opt-predicate-region-simd=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; This test checks that the inner If condition is hoisted out even if the outer
 ; If can't be hoisted, and the SIMD directives are set correctly.

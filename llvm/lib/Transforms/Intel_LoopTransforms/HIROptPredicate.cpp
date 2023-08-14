@@ -162,14 +162,6 @@ static cl::opt<bool> DisableUnswitchSIMD("disable-" OPT_SWITCH "-simd",
                                                   " when the loop is "
                                                   "inside SIMD directives"));
 
-// Disable the optimization for SIMD at region level
-static cl::opt<bool>
-    DisableUnswitchRegionSIMD("disable-" OPT_SWITCH "-region-simd",
-                              cl::init(true), cl::Hidden,
-                              cl::desc("Disable " OPT_DESC " when the loop is "
-                                       "inside SIMD directives at region "
-                                       "level"));
-
 namespace {
 
 // Structure to handle the information if the condition can be partially
@@ -1410,6 +1402,89 @@ bool HIROptPredicate::CandidateLookup::isRestrictedByConstraints(
   return false;
 }
 
+// Enum to handle the different cases of enclosing a loop with SIMD directives
+enum SIMDType {
+  None,           // Candidate is not inside a SIMD loop
+  PreAndPostLoop, // SIMD directives are in pre-header and post exit of
+                  //   the loop.
+  Region,         // SIMD directives covers the whole region
+  NotSupported    // SIMD directives aren't supported
+};
+
+// Return the type of SIMD directives that encapsulates the current loop.
+// This result will be used to used to identify which type of analysis will
+// be done.
+static SIMDType getSupportedSIMDType(const HLLoop *Loop,
+                                     bool IsTargetLoop = false) {
+  assert(Loop && "Trying to collect SIMD information from a null Loop");
+
+  auto *SIMDBegin = Loop->getSIMDEntryIntrinsic();
+  if (!SIMDBegin)
+    return SIMDType::None;
+
+  // Check if SIMD support is enabled
+  if (DisableUnswitchSIMD)
+    return SIMDType::NotSupported;
+
+  // If the loop is not the target loop (i.e. source loop that encloses the
+  // If), then it has to be the innermost loop.
+  if (!IsTargetLoop && !Loop->isInnermost())
+    return SIMDType::NotSupported;
+
+  // The target loop needs to be the outermost loop and the parent needs to
+  // be a region.
+  //
+  // NOTE: This can be improved when we add support for SIMD blocks (JR-47148).
+  if (IsTargetLoop && !isa<HLRegion>(Loop->getParent()))
+    return SIMDType::NotSupported;
+
+  const HLInst *SIMDEnd = Loop->getSIMDExitIntrinsic();
+  // There is a chance that the SIMD directives are enclosing a sibling loop.
+  // If that is the case, the SIMD end won't be found.
+  //
+  // NOTE: This problem is documented in CMPLRLLVM-49174. if this issue happens
+  // then SIMDBegin should be null for the current loop. We return NotSupported
+  // to keep the NFC behavior before PR #14212.
+  if (!SIMDEnd)
+    return SIMDType::NotSupported;
+
+  assert(SIMDEnd->isSIMDEndDirective() && "SIMD end directive expected");
+
+  if (Loop->getNumPreheader() == 1 && Loop->getNumPostexit() == 1) {
+    // Check if the SIMD directives encapsulates the loop in the preheader and
+    // postexit
+    auto *PreHeaderInst = Loop->getFirstPreheaderNode();
+    auto *PostExitInst = Loop->getFirstPostexitNode();
+    if (PreHeaderInst == SIMDBegin && PostExitInst == SIMDEnd)
+      return SIMDType::PreAndPostLoop;
+  }
+
+  if (isa<HLRegion>(SIMDBegin->getParent()) &&
+      isa<HLRegion>(SIMDEnd->getParent()))
+    return SIMDType::Region;
+
+  // TODO: Add support to a SIMD block, for example:
+  //
+  // HLRegion begin
+  //   HLNode
+  //   SIMD begin
+  //     Loop begin
+  //       HLIf
+  //     Loop end
+  //   SIMD end
+  //   HLNode
+  // HLRegion end
+  //
+  // Assume that the condition in the If is invariant within the SIMD block,
+  // but not invariant in the region (e.g. an instruction outside the SIMD
+  // block modifies a reference in the condition), then we can still apply
+  // the transformation. We just need to add the proof that all the memrefs
+  // in the condition needs to be invariant between the SIMD clauses
+  // (CMPLRLLVM-47148).
+
+  return SIMDType::NotSupported;
+}
+
 template <typename NodeTy>
 void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   if (!CurrLoop) {
@@ -1459,19 +1534,12 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     Level = CurLevel;
   }
 
-  if (IsCandidate) {
+  if (IsCandidate && (Level != CurLevel - 1)) {
     auto *TargetLoop = Node->getParentLoopAtLevel(Level + 1);
-    bool IsValidLevel = DisableUnswitchRegionSIMD ? Level >= 0 : Level > 0;
 
-    if (IsValidLevel && TargetLoop->isSIMD()) {
-      // We don't support hoisting outside non-innermost loop
-      // with SIMD pragma as it can inhibit the outer-loop vectorization
-      // of that outer loop. We update the level to CurrLoop's level
-      // so that inner-if see some valid opportunities.
-      // TODO: enhance the logic so that SIMD pragma can be moved/copied
-      //       with Opt Pred when possible (JR-47148)
-      //       Level updating logic can be further relaxed to hoist
-      //       inner-if to outside of outer-if when needed.
+    // If the target loop is SIMD and not supported, then disable it.
+    if (TargetLoop->isSIMD() &&
+        getSupportedSIMDType(TargetLoop, true) == SIMDType::NotSupported) {
       LLVM_DEBUG(
           dbgs()
           << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
@@ -1483,9 +1551,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
       // parent loop of candidate, (nesting level check below). This is because
       // visit(HLLoop *) disables all candidates within it if it has convergent
       // calls. Ideally, we should do the same for SIMD loops as well.
-    } else if ((Level != CurLevel - 1) &&
-               HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
-
+    } else if (HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
       LLVM_DEBUG(
           dbgs()
           << "Hoisting disabled as target loop contains convergent calls.\n");
@@ -1758,79 +1824,6 @@ bool HIROptPredicate::CandidateLookup::isProfitableOuterLoop(
 
   Pass.OuterLoopIfs.insert({If, HoistingIncreaseCodeSize});
   return true;
-}
-
-// Enum to handle the different cases of enclosing a loop with SIMD directives
-enum SIMDType {
-  None,           // Candidate is not inside a SIMD loop
-  PreAndPostLoop, // SIMD directives are in pre-header and post exit of
-                  //   the loop.
-  Region,         // SIMD directives covers the whole region
-  NotSupported    // SIMD directives aren't supported
-};
-
-// Return the type of SIMD directives that encapsulates the current loop.
-// This result will be used to used to identify which type of analysis will
-// be done.
-static SIMDType getSupportedSIMDType(const HLLoop *Loop) {
-  assert(Loop && "Trying to collect SIMD information from a null Loop");
-
-  auto *SIMDBegin = Loop->getSIMDEntryIntrinsic();
-  if (!SIMDBegin)
-    return SIMDType::None;
-
-  if (DisableUnswitchSIMD || !Loop->isInnermost())
-    return SIMDType::NotSupported;
-
-  const HLInst *SIMDEnd = Loop->getSIMDExitIntrinsic();
-  // There is a chance that the SIMD directives are enclosing a sibling loop.
-  // If that is the case, the SIMD end won't be found.
-  //
-  // NOTE: This problem is documented in CMPLRLLVM-49174. if this issue happens
-  // then SIMDBegin should be null for the current loop. We return NotSupported
-  // to keep the NFC behavior before PR #14212.
-  if (!SIMDEnd)
-    return SIMDType::NotSupported;
-
-  assert(SIMDEnd->isSIMDEndDirective() && "SIMD end directive expected");
-
-  if (Loop->getNumPreheader() == 1 && Loop->getNumPostexit() == 1) {
-    // Check if the SIMD directives encapsulates the loop in the preheader and
-    // postexit
-    auto *PreHeaderInst = Loop->getFirstPreheaderNode();
-    auto *PostExitInst = Loop->getFirstPostexitNode();
-    if (PreHeaderInst == SIMDBegin && PostExitInst == SIMDEnd)
-      return SIMDType::PreAndPostLoop;
-  }
-
-  if (isa<HLRegion>(SIMDBegin->getParent()) &&
-      isa<HLRegion>(SIMDEnd->getParent())) {
-
-    if (DisableUnswitchRegionSIMD)
-      return SIMDType::NotSupported;
-
-    return SIMDType::Region;
-  }
-
-  // TODO: Add support to a SIMD block, for example:
-  //
-  // HLRegion begin
-  //   HLNode
-  //   SIMD begin
-  //     Loop begin
-  //       HLIf
-  //     Loop end
-  //   SIMD end
-  //   HLNode
-  // HLRegion end
-  //
-  // Assume that the condition in the If is invariant within the SIMD block,
-  // but not invariant in the region (e.g. an instruction outside the SIMD
-  // block modifies a reference in the condition), then we can still apply
-  // the transformation. We just need to add the proof that all the memrefs
-  // in the condition needs to be invariant between the SIMD clauses.
-
-  return SIMDType::NotSupported;
 }
 
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
@@ -2505,7 +2498,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     // nodes of the loop. We need to duplicate the SIMD intrinsics. This will
     // only happen if the SIMD intrinsics are part of the loop pre-header and
     // loop post-exit, and these are the only instructions in both lists.
-    if (getSupportedSIMDType(TargetLoop) != SIMDType::PreAndPostLoop) {
+    if (getSupportedSIMDType(TargetLoop, true) != SIMDType::PreAndPostLoop) {
       // TODO: check if candidate is defined in preheader
       TargetLoop->extractZttPreheaderAndPostexit();
     }
@@ -2777,7 +2770,7 @@ void HIROptPredicate::transformIf(
   // loop are handled differently.
   const HLInst *SIMDBegin = nullptr;
   const HLInst *SIMDEnd = nullptr;
-  if (!DisableUnswitchRegionSIMD && !IsPreAndPostSIMDLoop(TargetLoop)) {
+  if (!DisableUnswitchSIMD && !IsPreAndPostSIMDLoop(TargetLoop)) {
     SIMDBegin = TargetLoop->getSIMDEntryIntrinsic();
     SIMDEnd = TargetLoop->getSIMDExitIntrinsic();
   }
