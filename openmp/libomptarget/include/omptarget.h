@@ -905,6 +905,9 @@ EXTERN
 #endif  // INTEL_COLLAB
 int __tgt_print_device_info(int64_t DeviceId);
 
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int __tgt_activate_record_replay(int64_t DeviceId, uint64_t MemorySize,
                                  bool IsRecord, bool SaveOutput);
 
