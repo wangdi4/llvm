@@ -668,10 +668,23 @@ CompareValueComplexity(EquivalenceClasses<const Value *> &EqCacheValue,
                GlobalValue::isInternalLinkage(LT));
     };
 
+#if INTEL_CUSTOMIZATION
     // Use the names to distinguish the two values, but only if the
-    // names are semantically important.
-    if (IsGVNameSemantic(LGV) && IsGVNameSemantic(RGV))
+    // names are semantically important, or the linkages are equal.
+    // SCEV symbols are all scoped in the same module, there should not be
+    // namespace collisions.
+    if ((IsGVNameSemantic(LGV) && IsGVNameSemantic(RGV)) ||
+        LGV->getLinkage() == RGV->getLinkage())
       return LGV->getName().compare(RGV->getName());
+    // If we can't compare by name, sort based on linkage.
+    // This cast should be safe as we're only interested in relative
+    // ordering (which is defined for enums)
+    // We want to avoid returning "0" on indeterminate comparisons, as this
+    // will cause the caching mechanism to make incorrect transitive
+    // inferences.
+    return static_cast<int>(LGV->getLinkage()) -
+           static_cast<int>(RGV->getLinkage());
+#endif // INTEL_CUSTOMIZATION
   }
 
   // For instructions, compare their loop depth, and their operand count.  This
