@@ -803,7 +803,15 @@ void CanonExpr::multiplyIVByConstant(unsigned Lvl, int64_t Val) {
   if (Val == 0) {
     removeIV(Lvl);
   } else {
-    IVCoeffs[Lvl - 1].Coeff *= Val;
+    // Perform multiplication using APInt so we overflow doesn't cause
+    // undefined behavior. Ideally, we should be doing this for all
+    // arithmetic operations in CE.
+    APInt CoeffAP(64, IVCoeffs[Lvl - 1].Coeff);
+    APInt ValAP(64, Val);
+
+    CoeffAP = CoeffAP * ValAP;
+
+    IVCoeffs[Lvl - 1].Coeff = CoeffAP.getSExtValue();
   }
 }
 
