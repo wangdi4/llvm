@@ -2061,12 +2061,6 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
 #endif // INTEL_FEATURE_ISA_APX_F
 
 #if INTEL_FEATURE_ISA_APX_F
-// BinOpRR_RFF_EVEX - Binary instructions with inputs "reg, reg", which used
-// EVEX encoding.
-class BinOpRR_RFF_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info>
-  : BinOpRR_EVEX<opcode, MRMDestReg, mnemonic, info, []>,
-    Sched<[WriteADC]>;
-
 // BinOpRR_RFF_ND - Binary instructions with inputs "reg, reg", where the
 // pattern has both a regclass and EFLAGS as a result, and has EFLAGS as input,
 // ndd version.
@@ -2087,8 +2081,8 @@ let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRR_RFF<opcode, mnemonic, typeinfo, node>;
   let Predicates = [In64BitMode] in
-  def _EVEX : BinOpRR_RFF_EVEX<opcode, mnemonic, typeinfo>,
-              EmitVEXOrEVEXPrefix;
+  def _EVEX : BinOpRR_EVEX<opcode, MRMDestReg, mnemonic, typeinfo,[]>,
+              EmitVEXOrEVEXPrefix, Sched<[WriteADC]>;
 }
   let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRR_RFF_ND<opcode, mnemonic, typeinfo, node>, EVEX_B4V;
@@ -3045,109 +3039,51 @@ class ADCOXOpRM <bits<8> opcode, string mnemonic, X86TypeInfo info>
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-class ADCOXOpRR_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info>
-  : BinOpRR_EVEX<opcode, MRMSrcReg, mnemonic, info, []> {
-  let Opcode = opcode;
-  let OpSize = OpSizeFixed;
-}
-
-class ADCOXOpRM_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info>
-  : BinOpRM_EVEX<opcode, MRMSrcMem, mnemonic, info, []> {
-  let Opcode = opcode;
-  let OpSize = OpSizeFixed;
-}
-
-class ADCOXOpRR_NDD<bits<8> opcode, string mnemonic, X86TypeInfo info>
-  : BinOpRR_NDD<opcode, MRMSrcReg, mnemonic, info, []> {
-  let Opcode = opcode;
-  let OpSize = OpSizeFixed;
-}
-
-class ADCOXOpRM_NDD<bits<8> opcode, string mnemonic, X86TypeInfo info>
-  : BinOpRM_NDD<opcode, MRMSrcMem, mnemonic, info, []> {
-  let Opcode = opcode;
-  let OpSize = OpSizeFixed;
-}
-
-multiclass ADCXOpRR<string mnemonic, X86TypeInfo info> {
-let Constraints = "$src1 = $dst", isCommutable = 1,
-    Predicates = [NoNDD, NoEGPR, HasADX] in
-  def NAME : ADCOXOpRR<0xF6, mnemonic, info>, T8PD;
-let OpPrefix = PD in {
-let Constraints = "$src1 = $dst", isCommutable = 1,
-    Predicates = [HasEGPR, In64BitMode] in
-  def _EVEX : ADCOXOpRR_EVEX<0x66, mnemonic, info>;
-let Predicates=[HasADX, HasNDD, In64BitMode] in
-  def _ND : ADCOXOpRR_NDD<0x66, mnemonic, info>, EVEX_B4V;
-}
-}
-
-multiclass ADCXOpRM<string mnemonic, X86TypeInfo info> {
-let Constraints = "$src1 = $dst", Predicates = [NoNDD, NoEGPR, HasADX] in
-  def NAME : ADCOXOpRM<0xF6, mnemonic, info>, T8PD;
-let OpPrefix = PD in {
+multiclass ADCOXOpRR_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info> {
+let Opcode = opcode, OpSize = OpSizeFixed in {
 let Constraints = "$src1 = $dst", Predicates = [HasEGPR, In64BitMode] in
-  def _EVEX : ADCOXOpRM_EVEX<0x66, mnemonic, info>;
-let Predicates = [HasADX, HasNDD, In64BitMode] in
-  def _ND : ADCOXOpRM_NDD<0x66, mnemonic, info>, EVEX_B4V;
-}
-}
-
-multiclass ADOXOpRR<string mnemonic, X86TypeInfo info> {
-let Constraints = "$src1 = $dst", isCommutable = 1,
-    Predicates = [NoNDD, NoEGPR, HasADX] in
-  def NAME : ADCOXOpRR<0xF6, mnemonic, info>, T8XS;
-let OpPrefix = XS in {
-let Constraints = "$src1 = $dst", isCommutable = 1,
-    Predicates = [HasEGPR, In64BitMode] in
-  def _EVEX : ADCOXOpRR_EVEX<0x66, mnemonic, info>;
+  def _EVEX : BinOpRR_EVEX<0x66, MRMSrcReg, mnemonic, info, []>;
 let Predicates=[HasADX, HasNDD, In64BitMode] in
-  def _ND : ADCOXOpRR_NDD<0x66, mnemonic, info>, EVEX_B4V;
+  def _ND : BinOpRR_NDD<0x66, MRMSrcReg, mnemonic, info, []>, EVEX_B4V;
 }
 }
 
-multiclass ADOXOpRM<string mnemonic, X86TypeInfo info> {
-let Constraints = "$src1 = $dst", Predicates = [NoNDD, NoEGPR, HasADX] in
-  def NAME : ADCOXOpRM<0xF6, mnemonic, info>, T8XS;
-let OpPrefix = XS in {
+multiclass ADCOXOpRM_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info> {
+let Opcode = opcode, OpSize = OpSizeFixed in {
 let Constraints = "$src1 = $dst", Predicates = [HasEGPR, In64BitMode] in
-  def _EVEX : ADCOXOpRM_EVEX<0x66, mnemonic, info>;
+  def _EVEX : BinOpRM_EVEX<0x66, MRMSrcMem, mnemonic, info, []>;
 let Predicates = [HasADX, HasNDD, In64BitMode] in
-  def _ND : ADCOXOpRM_NDD<0x66, mnemonic, info>, EVEX_B4V;
+  def _ND : BinOpRM_NDD<0x66, MRMSrcMem, mnemonic, info, []>, EVEX_B4V;
 }
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
 let Defs = [EFLAGS], Uses = [EFLAGS], hasSideEffects = 0 in {
-  let SchedRW = [WriteADC] in {
-  defm ADCX32rr : ADCXOpRR<"adcx", Xi32>;
-  defm ADCX64rr : ADCXOpRR<"adcx", Xi64>;
-
-  defm ADOX32rr : ADOXOpRR<"adox", Xi32>;
-  defm ADOX64rr : ADOXOpRR<"adox", Xi64>;
-  } // SchedRW
-
-  let mayLoad = 1,
-      SchedRW = [WriteADC.Folded, WriteADC.ReadAfterFold,
-                 // Memory operand.
-                 ReadDefault, ReadDefault, ReadDefault, ReadDefault, ReadDefault,
-                 // Implicit read of EFLAGS
-                 WriteADC.ReadAfterFold] in {
-  defm ADCX32rm : ADCXOpRM<"adcx", Xi32>;
-  defm ADCX64rm : ADCXOpRM<"adcx", Xi64>;
-
-  defm ADOX32rm : ADOXOpRM<"adox", Xi32>;
-  defm ADOX64rm : ADOXOpRM<"adox", Xi64>;
-  } // mayLoad, SchedRW
-}
-#else // INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasADX], Defs = [EFLAGS], Uses = [EFLAGS],
-    Constraints = "$src1 = $dst", hasSideEffects = 0 in {
   let SchedRW = [WriteADC], isCommutable = 1 in {
+  let Predicates = [HasADX], Constraints = "$src1 = $dst" in {
+#endif // INTEL_CUSTOMIZATION
   def ADCX32rr : ADCOXOpRR<0xF6, "adcx", Xi32>, T8PD;
   def ADCX64rr : ADCOXOpRR<0xF6, "adcx", Xi64>, T8PD;
 
   def ADOX32rr : ADCOXOpRR<0xF6, "adox", Xi32>, T8XS;
   def ADOX64rr : ADCOXOpRR<0xF6, "adox", Xi64>, T8XS;
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  let OpPrefix = PD in {
+  defm ADCX32rr : ADCOXOpRR_EVEX<0x66, "adcx", Xi32>;
+  defm ADCX64rr : ADCOXOpRR_EVEX<0x66, "adcx", Xi64>;
+  }
+  let OpPrefix = XS in {
+  defm ADOX32rr : ADCOXOpRR_EVEX<0x66, "adox", Xi32>;
+  defm ADOX64rr : ADCOXOpRR_EVEX<0x66, "adox", Xi64>;
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   } // SchedRW
 
   let mayLoad = 1,
@@ -3156,12 +3092,29 @@ let Predicates = [HasADX], Defs = [EFLAGS], Uses = [EFLAGS],
                  ReadDefault, ReadDefault, ReadDefault, ReadDefault, ReadDefault,
                  // Implicit read of EFLAGS
                  WriteADC.ReadAfterFold] in {
+#if INTEL_CUSTOMIZATION
+  let Predicates = [HasADX], Constraints = "$src1 = $dst" in {
+#endif // INTEL_CUSTOMIZATION
   def ADCX32rm : ADCOXOpRM<0xF6, "adcx", Xi32>, T8PD;
   def ADCX64rm : ADCOXOpRM<0xF6, "adcx", Xi64>, T8PD;
 
   def ADOX32rm : ADCOXOpRM<0xF6, "adox", Xi32>, T8XS;
   def ADOX64rm : ADCOXOpRM<0xF6, "adox", Xi64>, T8XS;
-  } // mayLoad, SchedRW
-}
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  let OpPrefix = PD in {
+  defm ADCX32rm : ADCOXOpRM_EVEX<0x66, "adcx", Xi32>;
+  defm ADCX64rm : ADCOXOpRM_EVEX<0x66, "adcx", Xi64>;
+  }
+
+  let OpPrefix = XS in {
+  defm ADOX32rm : ADCOXOpRM_EVEX<0x66, "adox", Xi32>;
+  defm ADOX64rm : ADCOXOpRM_EVEX<0x66, "adox", Xi64>;
+  }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  } // mayLoad, SchedRW
+}
