@@ -734,7 +734,6 @@ llvm::Type *CodeGenModule::getVTableComponentType() const {
 #if INTEL_COLLAB
   return DefaultInt8PtrTy;
 #else // INTEL_COLLAB
-  return GlobalsInt8PtrTy;
   return Int8PtrTy;
 #endif // INTEL_COLLAB
 }
@@ -903,18 +902,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           fnPtr, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
-      // TODO: this icky and only exists due to functions being in the generic
-      //       address space, rather than the global one, even though they are
-      //       globals;  fixing said issue might be intrusive, and will be done
-      //       later.
-      unsigned FnAS = fnPtr->getType()->getPointerAddressSpace();
-      unsigned GVAS = CGM.GlobalsInt8PtrTy->getPointerAddressSpace();
-
-      if (FnAS != GVAS)
-        fnPtr =
-            llvm::ConstantExpr::getAddrSpaceCast(fnPtr, CGM.GlobalsInt8PtrTy);
       return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
-
 #endif // INTEL_COLLAB
   }
 
