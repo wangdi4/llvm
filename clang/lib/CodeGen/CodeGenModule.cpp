@@ -5710,7 +5710,6 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
   return {FTy, C};
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// CreateSVMLFunction - Create a new SVML function with the specified
 /// type and name.
@@ -5742,29 +5741,6 @@ void CodeGenModule::ConstructIMFCallAttributes(StringRef Name,
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// isTypeConstant - Determine whether an object of this type can be emitted
-/// as a constant.
-///
-/// If ExcludeCtor is true, the duration when the object's constructor runs
-/// will not be considered. The caller will need to verify that the object is
-/// not written to during its construction. ExcludeDtor works similarly.
-bool CodeGenModule::isTypeConstant(QualType Ty, bool ExcludeCtor,
-                                   bool ExcludeDtor) {
-  if (!Ty.isConstant(Context) && !Ty->isReferenceType())
-    return false;
-
-  if (Context.getLangOpts().CPlusPlus) {
-    if (const CXXRecordDecl *Record
-          = Context.getBaseElementType(Ty)->getAsCXXRecordDecl())
-      return ExcludeCtor && !Record->hasMutableFields() &&
-             (Record->hasTrivialDestructor() || ExcludeDtor);
-  }
-
-  return true;
-}
-
-=======
->>>>>>> 35c0cd2156c18aa5a9fc524867409e92ac0c187b
 static void maybeEmitPipeStorageMetadata(const VarDecl *D,
                                          llvm::GlobalVariable *GV,
                                          CodeGenModule &CGM) {
