@@ -2465,6 +2465,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
           (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
 #if INTEL_FEATURE_ISA_APX_F
           &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
+          &&  (Opc != X86::LEA64r || !PI->getFlag(MachineInstr::FrameDestroy))
 #endif // INTEL_FEATURE_ISA_APX_F
         )
 #endif // INTEL_CUSTOMIZATION

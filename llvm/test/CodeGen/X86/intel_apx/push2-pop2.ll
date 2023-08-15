@@ -170,3 +170,145 @@ entry:
   tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
   ret void
 }
+
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg)
+
+define void @lea_in_epilog(i1 %arg, ptr %arg1, ptr %arg2, i64 %arg3, i64 %arg4, i64 %arg5, i64 %arg6, i64 %arg7, i64 %arg8, i64 %arg9, i64 %arg10) nounwind {
+; CHECK-LABEL: lea_in_epilog:
+; CHECK:       # %bb.0: # %bb
+; CHECK-NEXT:    testb $1, %dil
+; CHECK-NEXT:    je .LBB6_5
+; CHECK-NEXT:  # %bb.1: # %bb13
+; CHECK-NEXT:    pushq %rax
+; CHECK-NEXT:    push2 %rbp, %r15
+; CHECK-NEXT:    push2 %r14, %r13
+; CHECK-NEXT:    push2 %r12, %rbx
+; CHECK-NEXT:    subq $16, %rsp
+; CHECK-NEXT:    movq %r9, %r14
+; CHECK-NEXT:    movq %rsi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    addq {{[0-9]+}}(%rsp), %r14
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r13
+; CHECK-NEXT:    addq %r14, %r13
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r15
+; CHECK-NEXT:    addq %r14, %r15
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rbx
+; CHECK-NEXT:    addq %r14, %rbx
+; CHECK-NEXT:    xorl %ebp, %ebp
+; CHECK-NEXT:    xorl %r12d, %r12d
+; CHECK-NEXT:    movl %edi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB6_2: # %bb15
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    incq %r12
+; CHECK-NEXT:    movl $432, %edx # imm = 0x1B0
+; CHECK-NEXT:    xorl %edi, %edi
+; CHECK-NEXT:    movq %r15, %rsi
+; CHECK-NEXT:    callq memcpy@PLT
+; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %edi # 4-byte Reload
+; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rax
+; CHECK-NEXT:    addq %rax, %r13
+; CHECK-NEXT:    addq %rax, %r15
+; CHECK-NEXT:    addq %rax, %rbx
+; CHECK-NEXT:    addq %rax, %r14
+; CHECK-NEXT:    addq $8, %rbp
+; CHECK-NEXT:    testb $1, %dil
+; CHECK-NEXT:    je .LBB6_2
+; CHECK-NEXT:  # %bb.3: # %bb11
+; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsp
+; CHECK-NEXT:    pop2 %rbx, %r12
+; CHECK-NEXT:    pop2 %r13, %r14
+; CHECK-NEXT:    pop2 %r15, %rbp
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsp
+; CHECK-NEXT:    jne .LBB6_5
+; CHECK-NEXT:  # %bb.4: # %bb12
+; CHECK-NEXT:    movq $0, (%rax)
+; CHECK-NEXT:  .LBB6_5: # %bb14
+; CHECK-NEXT:    retq
+;
+; FRAME-LABEL: lea_in_epilog:
+; FRAME:       # %bb.0: # %bb
+; FRAME-NEXT:    testb $1, %dil
+; FRAME-NEXT:    je .LBB6_5
+; FRAME-NEXT:  # %bb.1: # %bb13
+; FRAME-NEXT:    pushq %rbp
+; FRAME-NEXT:    movq %rsp, %rbp
+; FRAME-NEXT:    push2 %r15, %r14
+; FRAME-NEXT:    push2 %r13, %r12
+; FRAME-NEXT:    pushq %rbx
+; FRAME-NEXT:    subq $24, %rsp
+; FRAME-NEXT:    movq %rsi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; FRAME-NEXT:    addq 16(%rbp), %r9
+; FRAME-NEXT:    movq 48(%rbp), %rbx
+; FRAME-NEXT:    addq %r9, %rbx
+; FRAME-NEXT:    movq 40(%rbp), %r12
+; FRAME-NEXT:    addq %r9, %r12
+; FRAME-NEXT:    movq 32(%rbp), %r15
+; FRAME-NEXT:    addq %r9, %r15
+; FRAME-NEXT:    xorl %r13d, %r13d
+; FRAME-NEXT:    xorl %r14d, %r14d
+; FRAME-NEXT:    movl %edi, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; FRAME-NEXT:    .p2align 4, 0x90
+; FRAME-NEXT:  .LBB6_2: # %bb15
+; FRAME-NEXT:    # =>This Inner Loop Header: Depth=1
+; FRAME-NEXT:    movq %r9, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; FRAME-NEXT:    incq %r14
+; FRAME-NEXT:    movl $432, %edx # imm = 0x1B0
+; FRAME-NEXT:    xorl %edi, %edi
+; FRAME-NEXT:    movq %r12, %rsi
+; FRAME-NEXT:    callq memcpy@PLT
+; FRAME-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %edi # 4-byte Reload
+; FRAME-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %r9 # 8-byte Reload
+; FRAME-NEXT:    movq 16(%rbp), %rax
+; FRAME-NEXT:    addq %rax, %rbx
+; FRAME-NEXT:    addq %rax, %r12
+; FRAME-NEXT:    addq %rax, %r15
+; FRAME-NEXT:    addq %rax, %r9
+; FRAME-NEXT:    addq $8, %r13
+; FRAME-NEXT:    testb $1, %dil
+; FRAME-NEXT:    je .LBB6_2
+; FRAME-NEXT:  # %bb.3: # %bb11
+; FRAME-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
+; FRAME-NEXT:    leaq {{[0-9]+}}(%rsp), %rsp
+; FRAME-NEXT:    popq %rbx
+; FRAME-NEXT:    pop2 %r12, %r13
+; FRAME-NEXT:    pop2 %r14, %r15
+; FRAME-NEXT:    popq %rbp
+; FRAME-NEXT:    jne .LBB6_5
+; FRAME-NEXT:  # %bb.4: # %bb12
+; FRAME-NEXT:    movq $0, (%rax)
+; FRAME-NEXT:  .LBB6_5: # %bb14
+; FRAME-NEXT:    retq
+bb:
+  br i1 %arg, label %bb13, label %bb14
+
+bb11:
+  br i1 %arg, label %bb14, label %bb12
+
+bb12:
+  store double 0.000000e+00, ptr %arg1, align 8
+  br label %bb14
+
+bb13:
+  %getelementptr = getelementptr i8, ptr null, i64 %arg5
+  br label %bb15
+
+bb14:
+  ret void
+
+bb15:
+  %phi = phi i64 [ 0, %bb13 ], [ %add, %bb15 ]
+  %getelementptr16 = getelementptr double, ptr null, i64 %phi
+  %add = add i64 %phi, 1
+  %mul = mul i64 %arg6, %add
+  %getelementptr17 = getelementptr i8, ptr %getelementptr, i64 %mul
+  call void @llvm.memcpy.p0.p0.i64(ptr %getelementptr16, ptr %getelementptr17, i64 0, i1 false)
+  %getelementptr18 = getelementptr i8, ptr %getelementptr17, i64 %arg7
+  %getelementptr19 = getelementptr i8, ptr %getelementptr17, i64 %arg8
+  call void @llvm.memcpy.p0.p0.i64(ptr null, ptr %getelementptr19, i64 0, i1 false)
+  %getelementptr20 = getelementptr i8, ptr %getelementptr17, i64 %arg9
+  call void @llvm.memcpy.p0.p0.i64(ptr null, ptr %getelementptr20, i64 432, i1 false)
+  %getelementptr21 = getelementptr i8, ptr %getelementptr17, i64 %arg10
+  call void @llvm.memcpy.p0.p0.i64(ptr null, ptr %getelementptr21, i64 0, i1 false)
+  br i1 %arg, label %bb11, label %bb15
+}
