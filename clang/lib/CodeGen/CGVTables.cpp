@@ -731,12 +731,16 @@ bool CodeGenVTables::useRelativeLayout() const {
 llvm::Type *CodeGenModule::getVTableComponentType() const {
   if (UseRelativeLayout(*this))
     return Int32Ty;
+<<<<<<< HEAD
 #if INTEL_COLLAB
   return DefaultInt8PtrTy;
 #else // INTEL_COLLAB
   return GlobalsInt8PtrTy;
   return Int8PtrTy;
 #endif // INTEL_COLLAB
+=======
+  return Int8PtrTy;
+>>>>>>> 66c18fee337fdf04f04f48e0fefb68157915b8a8
 }
 
 llvm::Type *CodeGenVTables::getVTableComponentType() const {
@@ -749,12 +753,16 @@ static void AddPointerLayoutOffset(const CodeGenModule &CGM,
 #if INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
+<<<<<<< HEAD
       CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
       CGM.Int8PtrTy));
 #endif  // INTEL_COLLAB
+=======
+      CGM.Int8PtrTy));
+>>>>>>> 66c18fee337fdf04f04f48e0fefb68157915b8a8
 }
 
 static void AddRelativeLayoutOffset(const CodeGenModule &CGM,
@@ -791,12 +799,16 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
+<<<<<<< HEAD
 #if INTEL_COLLAB
       return builder.add(
           llvm::ConstantExpr::getBitCast(rtti, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
 #endif // INTEL_COLLAB
+=======
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
+>>>>>>> 66c18fee337fdf04f04f48e0fefb68157915b8a8
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -899,6 +911,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
           builder, fnPtr, vtableAddressPoint, vtableHasLocalLinkage,
           component.getKind() == VTableComponent::CK_CompleteDtorPointer);
     } else
+<<<<<<< HEAD
 #if INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           fnPtr, CGM.DefaultInt8PtrTy));
@@ -916,17 +929,24 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
 
 #endif // INTEL_COLLAB
+=======
+      return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
+>>>>>>> 66c18fee337fdf04f04f48e0fefb68157915b8a8
   }
 
   case VTableComponent::CK_UnusedFunctionPointer:
     if (useRelativeLayout())
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
+<<<<<<< HEAD
 #if INTEL_COLLAB
       return builder.addNullPointer(CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
       return builder.addNullPointer(CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
+=======
+      return builder.addNullPointer(CGM.Int8PtrTy);
+>>>>>>> 66c18fee337fdf04f04f48e0fefb68157915b8a8
   }
 
   llvm_unreachable("Unexpected vtable component kind");
