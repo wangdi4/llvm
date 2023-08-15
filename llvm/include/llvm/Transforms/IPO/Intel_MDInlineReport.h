@@ -112,7 +112,7 @@ class InlineReportBuilder {
   MapVector<Function *, unsigned> FunctionIndexMap;
   // Similar to FunctionIndexMap, but uses the Function name which is still
   // valid after the Function is deleted.
-  MapVector<StringRef, unsigned> FunctionNameIndexMap;
+  std::map<std::string, unsigned> FunctionNameIndexMap;
   // Maps function index to map of function index to inline counts for
   // summarized inlines
   MapVector<unsigned, MapVector<unsigned, unsigned> *> Inlines;
@@ -157,7 +157,7 @@ public:
   // Init the temporary data structures for the Function at the given index.
   void initFunctionTempsAtIndex(Function *F, unsigned Index) {
     FunctionIndexMap.insert({F, Index});
-    FunctionNameIndexMap.insert({F->getName(), Index});
+    FunctionNameIndexMap.insert({std::string(F->getName()), Index});
     Inlines[Index] = new MapVector<unsigned, unsigned>;
     TotalInlines[Index] = new MapVector<unsigned, unsigned>;
     InlineCount[Index] = 0;
@@ -241,7 +241,7 @@ public:
   // This must be used if the Function may have already been deleted.
   unsigned getFunctionIndexByName(Module *M, StringRef FunctionName) {
     ensureModuleTableIsInitialized(M);
-    auto MapIt = FunctionNameIndexMap.find(FunctionName);
+    auto MapIt = FunctionNameIndexMap.find(std::string(FunctionName));
     if (MapIt != FunctionNameIndexMap.end())
       return MapIt->second;
     if (Function *F = M->getFunction(FunctionName)) {
@@ -267,6 +267,9 @@ public:
   void setIsCompact(Metadata *CurrentCallInstReport, bool Value);
 
   void setBrokerTarget(CallBase *CB, Function *F);
+
+  // Update the name of 'F' in the inlining report.
+  void updateName(Function *F);
 
   // Return 'true' if the inlining of 'Callee' into 'Caller' should be done
   // after compacting the representation of 'Callee'. If 'ForceCompact',
@@ -350,6 +353,15 @@ public:
         addCallback(NewCall);
         break;
       }
+  }
+
+  void dumpFunctionNameIndexMap(Function *F) {
+    static unsigned ICount = 0;
+    dbgs() << "BEGIN DUMPING FunctionNameIndexMap: " << ICount++ << "\n";
+    dbgs() << "COMPACTING: " << F->getName() << "\n";
+    for (const auto &Pair : FunctionNameIndexMap)
+      dbgs() << "  " << Pair.second << " " << Pair.first << "\n";
+    dbgs() << "END DUMPING FunctionNameIndexMap\n";
   }
 
   // Indicate that 'CB' has been eliminated as dead code with the

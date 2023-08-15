@@ -29,6 +29,11 @@ using namespace MDInliningReport;
 
 #define DEBUG_TYPE "mdinlinereport"
 
+static cl::opt<bool>
+    DumpFunctionNameIndexMap("dump-function-name-index-map", cl::Hidden,
+                             cl::init(0), cl::Optional,
+                             cl::desc("Dump function name index map"));
+
 std::string llvm::getLinkageStr(Function *F) {
   std::string LinkageChar =
       (F->hasLocalLinkage()
@@ -580,13 +585,17 @@ void InlineReportBuilder::inheritCompactCallBases(Function *Caller,
   unsigned CallerIndex = getFunctionIndex(Caller);
   auto MV = TotalInlines[getFunctionIndex(Callee)];
   for (auto &InlinedPair : *MV) {
-    addForCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+    addForCompactInlinedCallBase(CallerIndex, InlinedPair.first,
+                                 InlinedPair.second);
     if (getIsCompact(Caller))
-      addCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+      addCompactInlinedCallBase(CallerIndex, InlinedPair.first,
+                                InlinedPair.second);
   }
 }
 
 void InlineReportBuilder::compact(Function *F) {
+  if (DumpFunctionNameIndexMap)
+    dumpFunctionNameIndexMap(F);
   Module *M = F->getParent();
   unsigned CallerIndex = getFunctionIndex(F);
   Metadata *MDF = F->getMetadata(FunctionTag);
@@ -1009,8 +1018,11 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   auto *OldFIR = dyn_cast<MDTuple>(OldFMD);
   if (!OldFIR)
     return;
-  FunctionIndexMap.insert({NewFunction, getFunctionIndex(OldFunction)});
+  assert(OldFunction->getName() == "" && NewFunction->getName() != "" &&
+         "Expecting name of OldFunction taken by NewFunction");
+  unsigned FI = getFunctionIndex(OldFunction);
   FunctionIndexMap.erase(OldFunction);
+  FunctionIndexMap.insert({NewFunction, FI});
   // Use the LLVMContext from the OldFunction, as the one for the NewFunction
   // may not be set yet.
   LLVMContext &Ctx = OldFunction->getParent()->getContext();
@@ -1385,6 +1397,29 @@ void InlineReportBuilder::setBrokerTarget(CallBase *CB, Function *F) {
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
   CSIR->replaceOperandWith(CSMDIR_BrokerTargetName, FuncNameMD);
   setMDReasonNotInlined(CB, NinlrBrokerFunction);
+}
+
+void InlineReportBuilder::updateName(Function *F) {
+  if (!isMDIREnabled())
+    return;
+  Metadata *FMD = F->getMetadata(FunctionTag);
+  if (!FMD)
+    return;
+  auto FIR = cast<MDTuple>(FMD);
+  std::string FuncName = std::string(F ? F->getName() : "");
+  FuncName.insert(0, "name: ");
+  LLVMContext &Ctx = F->getParent()->getContext();
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  FIR->replaceOperandWith(FMDIR_FuncName, FuncNameMD);
+  for (User *U : F->users())
+    if (auto CB = dyn_cast<CallBase>(U))
+      if (CB->getCalledFunction() == F) {
+        Metadata *CBMD = CB->getMetadata(CallSiteTag);
+        if (!CBMD)
+          continue;
+        auto CSIR = cast<MDTuple>(CBMD);
+        CSIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+      }
 }
 
 extern cl::opt<unsigned> IntelInlineReportLevel;

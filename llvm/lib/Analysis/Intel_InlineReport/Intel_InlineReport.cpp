@@ -110,6 +110,13 @@ void InlineReport::setBrokerTarget(CallBase *CB, Function *F) {
   IRCS->setReason(NinlrBrokerFunction);
 }
 
+void InlineReport::updateName(Function *F) {
+  if (!isClassicIREnabled())
+    return;
+  InlineReportFunction *IRF = getOrAddFunction(F);
+  IRF->setName(std::string(F->getName()));
+}
+
 ///
 /// Print a simple message.
 ///
@@ -1111,6 +1118,8 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
     return;
   if (OldFunction == NewFunction)
     return;
+  assert(OldFunction->getName() == "" && NewFunction->getName() != "" &&
+         "Expecting name of OldFunction taken by NewFunction");
   InlineReportFunction *IRF = getOrAddFunction(OldFunction);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   replaceAllUsesWith(OldFunction, NewFunction);

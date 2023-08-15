@@ -19,6 +19,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/TargetParser/X86TargetParser.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -88,6 +90,8 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
   ValueToValueMapTy VMap;
   Dispatcher = CloneFunction(&Fn, VMap, nullptr, true);
   Dispatcher->setName(OrigName);
+  getInlineReport()->updateName(Dispatcher);
+  getMDInlineReport()->updateName(Dispatcher);
 
   // Now, create the body for the Dispatcher.
   LLVMContext &Ctx = Fn.getContext();
@@ -435,6 +439,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 
       New->setName(Fn->getName() + "." + Twine(TargetCpuSuffix));
+      getInlineReport()->updateName(New);
+      getMDInlineReport()->updateName(New);
 
       MVOptions.emplace_back(New, "" /* Op(1)? */, NewFeatures);
 
@@ -448,6 +454,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     std::string OrigName = Fn->getName().str();
     Fn->setName(OrigName + ".A"); // "generic" suffix.
+    getInlineReport()->updateName(Fn);
+    getMDInlineReport()->updateName(Fn);
 
     // Since we are renaming the function, any comdats with the same name must
     // also be renamed. This is required when targeting COFF, as the comdat name

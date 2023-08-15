@@ -637,6 +637,9 @@ public:
   // Set the target of the broken function bring called by 'CB' to 'F"
   void setBrokerTarget(CallBase *CB, Function *F);
 
+  // Update the name of 'F' in the inlining report.
+  void updateName(Function *F);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
