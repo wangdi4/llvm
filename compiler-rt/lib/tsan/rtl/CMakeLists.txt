@@ -275,6 +275,7 @@ else()
               $<TARGET_OBJECTS:RTSanitizerCommonLibc.${arch}>
               $<TARGET_OBJECTS:RTSanitizerCommonCoverage.${arch}>
               $<TARGET_OBJECTS:RTSanitizerCommonSymbolizer.${arch}>
+              $<TARGET_OBJECTS:RTSanitizerCommonSymbolizerInternal.${arch}>
               $<TARGET_OBJECTS:RTUbsan.${arch}>
       ADDITIONAL_HEADERS ${TSAN_HEADERS}
       CFLAGS ${TSAN_RTL_CFLAGS}
@@ -298,6 +299,7 @@ else()
               $<TARGET_OBJECTS:RTSanitizerCommonLibc.${arch}>
               $<TARGET_OBJECTS:RTSanitizerCommonCoverage.${arch}>
               $<TARGET_OBJECTS:RTSanitizerCommonSymbolizer.${arch}>
+              $<TARGET_OBJECTS:RTSanitizerCommonSymbolizerInternal.${arch}>
               $<TARGET_OBJECTS:RTUbsan.${arch}>
       ADDITIONAL_HEADERS ${TSAN_HEADERS}
       CFLAGS ${TSAN_RTL_DYNAMIC_CFLAGS}
