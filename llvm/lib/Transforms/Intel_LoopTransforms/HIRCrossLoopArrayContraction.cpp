@@ -1683,10 +1683,20 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
           DefLoopClone->promoteNestingLevel(DefLp->getNestingLevel());
 
-          if (auto *ParentLoop = DefLoopClone->getParentLoop()) {
-            for (unsigned LiveInSB : make_range(DefLoopClone->live_in_begin(),
-                                                DefLoopClone->live_in_end())) {
-              ParentLoop->addLiveInTemp(LiveInSB);
+          auto *UseParentLoop = UseLp->getParentLoop();
+          assert(UseParentLoop && "Non-null parent loop of UseLp expected!");
+
+          // Add DefLoop's liveins to UseLp's parent loop.
+          for (unsigned LiveInSB : make_range(DefLoopClone->live_in_begin(),
+                                              DefLoopClone->live_in_end())) {
+            UseParentLoop->addLiveInTemp(LiveInSB);
+          }
+
+          // Add DefLoop's preheader temps as liveins to UseLp's parent loop.
+          for (auto &PreheaderNode : DefLoopClone->preheaderNodes()) {
+            // We can exclude preheader lval temps if it causes any issues.
+            for (auto *Ref : cast<HLInst>(&PreheaderNode)->ddrefs()) {
+              UseParentLoop->addLiveInTemp(Ref);
             }
           }
         }
