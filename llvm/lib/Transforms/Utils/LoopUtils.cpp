@@ -1964,11 +1964,12 @@ Value *llvm::addRuntimeChecks(
             B.End->getType()->getPointerAddressSpace()) &&
            (B.Start->getType()->getPointerAddressSpace() ==
             A.End->getType()->getPointerAddressSpace()) &&
+           "Trying to bounds check pointers with different address spaces");
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
     assert((AS0 == B.End->getType()->getPointerAddressSpace()) &&
            (AS1 == A.End->getType()->getPointerAddressSpace()) &&
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
            "Trying to bounds check pointers with different address spaces");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PtrArithTy0 = Type::getInt8PtrTy(Ctx, AS0);
