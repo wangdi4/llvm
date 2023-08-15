@@ -4995,7 +4995,6 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
   renderDwarfFormat(D, T, Args, CmdArgs, EffectiveDWARFVersion);
   RenderDebugInfoCompressionArgs(Args, CmdArgs, D, TC);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_gintel_opencl_builtin_types,
                    options::OPT_gno_intel_opencl_builtin_types,
@@ -5007,7 +5006,7 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     CmdArgs.push_back(Args.MakeArgString("-debug-line-version=" + Twine(Value)));
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // This controls whether or not we perform JustMyCode instrumentation.
   if (Args.hasFlag(options::OPT_fjmc, options::OPT_fno_jmc, false)) {
     if (TC.getTriple().isOSBinFormatELF() || D.IsCLMode()) {
@@ -5034,7 +5033,6 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
   if (EmitCodeView && Output.isFilename())
     addDebugObjectName(Args, CmdArgs, DebugCompilationDir,
                        Output.getFilename());
->>>>>>> 279c1ba68e829017fec4590faa2943641db54cad
 }
 
 #if INTEL_CUSTOMIZATION
@@ -7173,13 +7171,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Add clang-cl arguments.
   types::ID InputType = Input.getType();
   if (D.IsCLMode())
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    AddClangCLArgs(Args, InputType, CmdArgs, &DebugInfoKind, &EmitCodeView, JA);
+    AddClangCLArgs(Args, InputType, CmdArgs, JA);
 #endif // INTEL_CUSTOMIZATION
-=======
-    AddClangCLArgs(Args, InputType, CmdArgs);
->>>>>>> 279c1ba68e829017fec4590faa2943641db54cad
 
   // Add the sycld debug library when --dependent-lib=msvcrtd is used from
   // the command line.  This is to allow for CMake based builds using the
@@ -9446,7 +9440,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(Str));
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
     A->render(Args, CmdArgs);
@@ -9501,13 +9494,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   addIntelOptimizationArgs(TC, Args, CmdArgs, Input, false, JA);
 #endif // INTEL_CUSTOMIZATION
-  // Add the output path to the object file for CodeView debug infos.
-  if (EmitCodeView && Output.isFilename())
-    addDebugObjectName(Args, CmdArgs, DebugCompilationDir,
-                       Output.getFilename());
 
-=======
->>>>>>> 279c1ba68e829017fec4590faa2943641db54cad
   // Add the "-o out -x type src.c" flags last. This is done primarily to make
   // the -cc1 command easier to edit when reproducing compiler crashes.
   if (Output.getType() == types::TY_Dependencies) {
@@ -9794,15 +9781,9 @@ static EHFlags parseClangCLEHFlags(const Driver &D, const ArgList &Args) {
 
 #if INTEL_CUSTOMIZATION
 void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
-<<<<<<< HEAD
-                           ArgStringList &CmdArgs,
-                           llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
-                           bool *EmitCodeView, const JobAction &JA) const {
+                           ArgStringList &CmdArgs, const JobAction &JA) const {
   bool isSPIR = getToolChain().getTriple().isSPIR();
 #endif // INTEL_CUSTOMIZATION
-=======
-                           ArgStringList &CmdArgs) const {
->>>>>>> 279c1ba68e829017fec4590faa2943641db54cad
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
 
   ProcessVSRuntimeLibrary(Args, CmdArgs, getToolChain());

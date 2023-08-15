@@ -108,17 +108,11 @@ private:
 
 #if INTEL_CUSTOMIZATION
   void AddClangCLArgs(const llvm::opt::ArgList &Args, types::ID InputType,
-<<<<<<< HEAD
-                      llvm::opt::ArgStringList &CmdArgs,
-                      llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
-                      bool *EmitCodeView, const JobAction &JA) const;
+                      llvm::opt::ArgStringList &CmdArgs, const JobAction &JA) const;
   void ClangTidySourceCheck(Compilation &C, const JobAction &JA,
                             const InputInfoList &Inputs,
                             const llvm::opt::ArgList &TCArgs) const;
 #endif // INTEL_CUSTOMIZATION
-=======
-                      llvm::opt::ArgStringList &CmdArgs) const;
->>>>>>> 279c1ba68e829017fec4590faa2943641db54cad
 
   void ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
                                 const InputInfo &Output,
