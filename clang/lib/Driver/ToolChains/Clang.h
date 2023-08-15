@@ -108,9 +108,7 @@ private:
 
 #if INTEL_CUSTOMIZATION
   void AddClangCLArgs(const llvm::opt::ArgList &Args, types::ID InputType,
-                      llvm::opt::ArgStringList &CmdArgs,
-                      llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
-                      bool *EmitCodeView, const JobAction &JA) const;
+                      llvm::opt::ArgStringList &CmdArgs, const JobAction &JA) const;
   void ClangTidySourceCheck(Compilation &C, const JobAction &JA,
                             const InputInfoList &Inputs,
                             const llvm::opt::ArgList &TCArgs) const;
