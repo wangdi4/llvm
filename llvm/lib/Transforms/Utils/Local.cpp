@@ -2838,7 +2838,16 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
         K->mergeDIAssignID(J);
         break;
       case LLVMContext::MD_tbaa:
-        K->setMetadata(Kind, MDNode::getMostGenericTBAA(JMD, KMD));
+        // Assuming following example
+        // %K = load float, ptr %fx, align 4, !tbaa !745
+        // %J = load float, ptr %fx, align 4
+        // We know that (1) %fx must be the same for %K and %J because of SSA;
+        // (2) value in memory that is loaded from %fx must be the same,
+        // because they are CSE candidates; (3) %K and %J most likely represent
+        // the same type, because otherwise %J would have TBAA MD.
+        if (DoesKMove || J->hasMetadata(LLVMContext::MD_tbaa) ||
+            !isa<LoadInst>(J) || !J->isIdenticalTo(K))
+          K->setMetadata(Kind, MDNode::getMostGenericTBAA(JMD, KMD));
         break;
       case LLVMContext::MD_alias_scope:
         K->setMetadata(Kind, MDNode::getMostGenericAliasScope(JMD, KMD));
