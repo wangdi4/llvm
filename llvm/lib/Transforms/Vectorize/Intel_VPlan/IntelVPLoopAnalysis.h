@@ -38,7 +38,6 @@ namespace vpo {
 
 class VPValue;
 class VPlanVector;
-class IntelVPlanUtils;
 class VPLoop;
 class VPlan;
 class VPValue;
