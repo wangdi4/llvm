@@ -597,11 +597,7 @@ public:
 
   // Return the DWARF version to emit, in the absence of arguments
   // to the contrary.
-<<<<<<< HEAD
-  virtual unsigned GetDefaultDwarfVersion() const { return 4; }  // INTEL
-=======
   virtual unsigned GetDefaultDwarfVersion() const;
->>>>>>> bbc0f99f3bc96f1db16f649fc21dd18e5b0918f6
 
   // Some toolchains may have different restrictions on the DWARF version and
   // may need to adjust it. E.g. NVPTX may need to enforce DWARF2 even when host
