@@ -94,6 +94,13 @@ def RenderJoined : OptionFlag;
 // (only sensible on joined options).
 def RenderSeparate : OptionFlag;
 
+// Define Visibility categories
+
+class OptionVisibility {}
+
+// Explicit specifier for default visibility
+def DefaultVis : OptionVisibility;
+
 // Define the option group class.
 
 class OptionGroup<string name> {
@@ -102,6 +109,7 @@ class OptionGroup<string name> {
   string HelpText = ?;
   OptionGroup Group = ?;
   list<OptionFlag> Flags = [];
+  list<OptionVisibility> Visibility = [];
 }
 
 // Define the option class.
@@ -118,6 +126,7 @@ class Option<list<string> prefixes, string name, OptionKind kind> {
   string Values = ?;
   code ValuesCode = ?;
   list<OptionFlag> Flags = [];
+  list<OptionVisibility> Visibility = [DefaultVis];
   OptionGroup Group = ?;
   Option Alias = ?;
   list<string> AliasArgs = [];
@@ -166,6 +175,9 @@ class Alias<Option alias> { Option Alias = alias; }
 class AliasArgs<list<string> aliasargs> { list<string> AliasArgs = aliasargs; }
 class EnumName<string name> { string EnumName = name; }
 class Flags<list<OptionFlag> flags> { list<OptionFlag> Flags = flags; }
+class Visibility<list<OptionVisibility> visibility> {
+  list<OptionVisibility> Visibility = visibility;
+}
 class Group<OptionGroup group> { OptionGroup Group = group; }
 class HelpText<string text> { string HelpText = text; }
 class MetaVarName<string name> { string MetaVarName = name; }
@@ -264,7 +276,7 @@ class AlwaysEmit { bit ShouldAlwaysEmit = true; }
 class Normalizer<code normalizer> { code Normalizer = normalizer; }
 class Denormalizer<code denormalizer> { code Denormalizer = denormalizer; }
 class NormalizedValuesScope<code scope> { code NormalizedValuesScope = scope; }
-class NormalizedValues<list<code> definitions> { list<code> NormalizedValues = definitions; } 
+class NormalizedValues<list<code> definitions> { list<code> NormalizedValues = definitions; }
 class ValueMerger<code merger> { code ValueMerger = merger; }
 class ValueExtractor<code extractor> { code ValueExtractor = extractor; }
 
