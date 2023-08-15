@@ -451,6 +451,12 @@ ToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
   return UnwindTableLevel::None;
 }
 
+unsigned ToolChain::GetDefaultDwarfVersion() const {
+#if INTEL_CUSTOMIZATION
+  return 4;
+#endif // INTEL_CUSTOMIZATION
+}
+
 Tool *ToolChain::getClang() const {
   if (!Clang)
     Clang.reset(new tools::Clang(*this, useIntegratedBackend()));
