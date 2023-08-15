@@ -13,38 +13,38 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #3
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #3
 declare token @llvm.directive.region.entry() #5
 declare void @llvm.directive.region.exit(token) #5
 
 attributes #1 = { mustprogress nofree noinline norecurse nosync nounwind memory(argmem: read) willreturn uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "vector-variants"="_ZGVbN4v_f_plus_one_" }
 
 ; Function Attrs: mustprogress nofree noinline norecurse nosync nounwind memory(argmem: read) willreturn uwtable
-define i32 @f_plus_one_(i32* noalias nocapture readonly dereferenceable(4) %"f_plus_one_$X") local_unnamed_addr #1 {
+define i32 @f_plus_one_(ptr noalias nocapture readonly dereferenceable(4) %"f_plus_one_$X") local_unnamed_addr #1 {
 alloca_1:
-  %"f_plus_one_$X_fetch.28" = load i32, i32* %"f_plus_one_$X", align 1
+  %"f_plus_one_$X_fetch.28" = load i32, ptr %"f_plus_one_$X", align 1
   %add.39 = add nsw i32 %"f_plus_one_$X_fetch.28", 1
   ret i32 %add.39
 }
 
 ; Function Attrs: nounwind uwtable
-define void @MAIN__(i32 *%TEST_ARRAY) local_unnamed_addr #0 {
+define void @MAIN__(ptr %TEST_ARRAY) local_unnamed_addr #0 {
 alloca_0:
   %"var$9.priv" = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %"var$9.priv")]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %"var$9.priv", i32 0, i32 1)]
   br label %omp.pdo.body22
 
 omp.pdo.body22:                                   ; preds = %DIR.OMP.SIMD.1, %omp.pdo.body22
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.pdo.body22 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %index = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %"TEST_ARRAY", i64 %indvars.iv.next)
-  %val = load i32, i32* %index, align 4
-  store i32 %val, i32* %"var$9.priv", align 4
-  %func_result5 = call i32 @f_plus_one_(i32* nonnull %"var$9.priv")
-  store i32 %func_result5, i32* %index, align 4
+  %index = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %"TEST_ARRAY", i64 %indvars.iv.next)
+  %val = load i32, ptr %index, align 4
+  store i32 %val, ptr %"var$9.priv", align 4
+  %func_result5 = call i32 @f_plus_one_(ptr nonnull %"var$9.priv")
+  store i32 %func_result5, ptr %index, align 4
   %exitcond55.not = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond55.not, label %DIR.OMP.END.SIMD.1, label %omp.pdo.body22
 
@@ -59,21 +59,18 @@ bb14:                                             ; preds = %DIR.OMP.END.SIMD.15
 ; CHECK-LABEL: define {{[^@]+}}@f_plus_one_
 ;
 ; CHECK:       region.0:
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32>* [[PRIV_MEM:%.*]] to i32*
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TEST_ARRAY:%.*]] to <4 x i32>*
-; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], <4 x i32>* [[PRIV_MEM]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i64 0
-; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i32*> [[DOTSPLATINSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull [[TMP3]])
-; CHECK-NEXT:    store <4 x i32> [[TMP4]], <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TEST_ARRAY]], i64 4
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[TMP5]] to <4 x i32>*
-; CHECK-NEXT:    [[GEPLOAD3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP6]], align 4
-; CHECK-NEXT:    store <4 x i32> [[GEPLOAD3]], <4 x i32>* [[PRIV_MEM]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull [[TMP3]])
-; CHECK-NEXT:    store <4 x i32> [[TMP7]], <4 x i32>* [[TMP6]], align 4
+; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, ptr [[TEST_ARRAY:%.*]], align 4
+; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], ptr [[PRIV_MEM:%.*]], align 4
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[PRIV_MEM]], i64 0
+; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x ptr> [[DOTSPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x ptr> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x ptr> nonnull [[TMP3]])
+; CHECK-NEXT:    store <4 x i32> [[TMP4]], ptr [[TEST_ARRAY]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TEST_ARRAY]], i64 4
+; CHECK-NEXT:    [[GEPLOAD3:%.*]] = load <4 x i32>, ptr [[TMP5]], align 4
+; CHECK-NEXT:    store <4 x i32> [[GEPLOAD3]], ptr [[PRIV_MEM]], align 4
+; CHECK-NEXT:    [[TMP7:%.*]] = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x ptr> nonnull [[TMP3]])
+; CHECK-NEXT:    store <4 x i32> [[TMP7]], ptr [[TMP5]], align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_1_SPLIT:%.*]]
 ;
 ;
