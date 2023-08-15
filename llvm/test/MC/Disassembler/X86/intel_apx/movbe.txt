@@ -1,0 +1,27 @@
+# REQUIRES: intel_feature_isa_apx_f
+# RUN: llvm-mc -triple x86_64 -disassemble %s | FileCheck %s --check-prefix=ATT
+# RUN: llvm-mc -triple x86_64 -disassemble -output-asm-variant=1 %s | FileCheck %s --check-prefix=INTEL
+
+# ATT:   movbew	(%r16,%r17), %r18w
+# INTEL: movbe	r18w, word ptr [r16 + r17]
+0x62,0xec,0x79,0x08,0x60,0x14,0x08
+
+# ATT:   movbel	(%r16,%r17), %r18d
+# INTEL: movbe	r18d, dword ptr [r16 + r17]
+0x62,0xec,0x78,0x08,0x60,0x14,0x08
+
+# ATT:   movbeq	(%r16,%r17), %r18
+# INTEL: movbe	r18, qword ptr [r16 + r17]
+0x62,0xec,0xf8,0x08,0x60,0x14,0x08
+
+# ATT:   movbew	%r16w, (%r17,%r18)
+# INTEL: movbe	word ptr [r17 + r18], r16w
+0x62,0xec,0x79,0x08,0x61,0x04,0x11
+
+# ATT:   movbel	%r16d, (%r17,%r18)
+# INTEL: movbe	dword ptr [r17 + r18], r16d
+0x62,0xec,0x78,0x08,0x61,0x04,0x11
+
+# ATT:   movbeq	%r16, (%r17,%r18)
+# INTEL: movbe	qword ptr [r17 + r18], r16
+0x62,0xec,0xf8,0x08,0x61,0x04,0x11
