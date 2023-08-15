@@ -1116,7 +1116,13 @@ def ARPL16mr : I<0x63, MRMDestMem, (outs), (ins i16mem:$dst, GR16:$src),
 //===----------------------------------------------------------------------===//
 // MOVBE Instructions
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasMOVBE, NoEGPR] in {
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasMOVBE] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   let SchedRW = [WriteALULd] in {
   def MOVBE16rm : I<0xF0, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
                     "movbe{w}\t{$src, $dst|$dst, $src}",
@@ -1146,6 +1152,28 @@ let Predicates = [HasMOVBE] in {
                      T8PS;
   }
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasMOVBE, HasEGPR] in {
+  let SchedRW = [WriteALULd] in {
+  def MOVBE16rm_EVEX : ITy_EVEX<0x60, MRMSrcMem, Xi16, (outs GR16:$dst), (ins i16mem:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(set GR16:$dst, (bswap (loadi16 addr:$src)))], 0>;
+  def MOVBE32rm_EVEX : ITy_EVEX<0x60, MRMSrcMem, Xi32, (outs GR32:$dst), (ins i32mem:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(set GR32:$dst, (bswap (loadi32 addr:$src)))], 0>;
+  def MOVBE64rm_EVEX : ITy_EVEX<0x60, MRMSrcMem, Xi64, (outs GR64:$dst), (ins i64mem:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(set GR64:$dst, (bswap (loadi64 addr:$src)))], 0>;
+  }
+  let SchedRW = [WriteStore] in {
+  def MOVBE16mr_EVEX : ITy_EVEX<0x61, MRMDestMem, Xi16, (outs), (ins i16mem:$dst, GR16:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(store (bswap GR16:$src), addr:$dst)]>;
+  def MOVBE32mr_EVEX : ITy_EVEX<0x61, MRMDestMem, Xi32, (outs), (ins i32mem:$dst, GR32:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(store (bswap GR32:$src), addr:$dst)]>;
+  def MOVBE64mr_EVEX : ITy_EVEX<0x61, MRMDestMem, Xi64, (outs), (ins i64mem:$dst, GR64:$src),
+                         "movbe", "{$src, $dst|$dst, $src}", [(store (bswap GR64:$src), addr:$dst)]>;
+  }
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // RDRAND Instruction
