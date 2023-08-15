@@ -1887,7 +1887,7 @@ SDValue X86TargetLowering::LowerFormalArguments(
           RC = Subtarget.hasAVX3() ? &X86::FR32XRegClass : &X86::FR32RegClass;
         else if (RegVT == MVT::f64)
           RC = Subtarget.hasAVX3() ? &X86::FR64XRegClass : &X86::FR64RegClass;
-#else // INTEL_CUSTOMIZATION
+#else // INTEL_FEATURE_ISA_AVX256P
         else if (RegVT == MVT::f16)
           RC = Subtarget.hasAVX512() ? &X86::FR16XRegClass : &X86::FR16RegClass;
         else if (RegVT == MVT::f32)
