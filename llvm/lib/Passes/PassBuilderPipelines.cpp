@@ -3147,11 +3147,12 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
         LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
         (PGOOpt->Action == PGOOptions::IRInstr ||
          PGOOpt->Action == PGOOptions::IRUse)) {
-    addPGOInstrPasses(MPM, Level,
-                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
-                      /* IsCS */ false, PGOOpt->ProfileFile,
-                      PGOOpt->ProfileRemappingFile, LTOPhase, PGOOpt->FS);
-    MPM.addPass(PGOIndirectCallPromotion(false, false));
+      addPGOInstrPasses(
+          MPM, Level,
+          /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
+          /* IsCS */ false, PGOOpt->AtomicCounterUpdate, PGOOpt->ProfileFile,
+          PGOOpt->ProfileRemappingFile, LTOPhase, PGOOpt->FS);
+      MPM.addPass(PGOIndirectCallPromotion(false, false));
     }
     if (PGOOpt && PGOOpt->IsCGPGO &&
         LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
@@ -3997,8 +3998,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
        PGOOpt->Action == PGOOptions::IRUse)) {
     addPGOInstrPasses(MPM, Level,
                       /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
-                      /* IsCS */ false, PGOOpt->ProfileFile,
-                      PGOOpt->ProfileRemappingFile,
+                      /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
+                      PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                       ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
