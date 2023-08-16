@@ -78,9 +78,9 @@ static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
    METAVAR,                                                                    \
    OPT_LINK_##ID,                                                              \
    opt::Option::KIND##Class,                                                   \
-   VISIBILITY,                                                                 \
    PARAM,                                                                      \
    FLAGS,                                                                      \
+   VISIBILITY,                                                                 \
    OPT_LINK_##GROUP,                                                           \
    OPT_LINK_##ALIAS,                                                           \
    ALIASARGS,                                                                  \
