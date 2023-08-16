@@ -39,9 +39,6 @@ using namespace llvm;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::ELFUtils;
 
-static constexpr llvm::opt::DriverVisibility DefaultVis =
-    llvm::opt::DriverVisibility::DefaultVis;
-
 #ifdef OCLFRONTEND_PLUGINS
 #include "link_data.h"
 #include "plugin_manager.h"
