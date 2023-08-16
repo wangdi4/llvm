@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt  -passes="hir-ssa-deconstruction,print<hir>" < %s 2>&1 -disable-output | FileCheck %s
 
 ; Verify that the load of %e is parsed in terms of %add.ptr rather than @h.
 ; The element type obtained through %incdec.ptr2 phi's update value is %struct.f
