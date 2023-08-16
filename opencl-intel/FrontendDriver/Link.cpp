@@ -70,6 +70,7 @@ enum LINK_OPT_ID {
 #undef OPTION
 #undef PREFIX
 
+using namespace llvm::opt;
 static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
