@@ -1337,6 +1337,29 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     getToolChain().AddHIPIncludeArgs(Args, CmdArgs);
 
 #if INTEL_CUSTOMIZATION
+  // Add the PSTL header search directory before the standard search
+  // directories.  This will be done for both host and device compilations
+  // in the presence of -fsycl -fsycl-pstl-offload.  The location is based on
+  // known installation locations for the unified directory structure, unless
+  // the use of DPL_ROOT is provided, which will override.
+  if (JA.isOffloading(Action::OFK_SYCL) &&
+      Args.hasArg(options::OPT_fsycl_pstl_offload_EQ)) {
+    Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ);
+    StringRef Value(A->getValue());
+    SmallString<128> HeaderBase(D.Dir);
+    llvm::sys::path::append(HeaderBase, "..", "..");
+    if (Value != "off") {
+      std::optional<std::string> DPLRoot =
+          llvm::sys::Process::GetEnv("DPL_ROOT");
+      if (DPLRoot)
+        HeaderBase = *DPLRoot;
+    }
+    llvm::sys::path::append(HeaderBase, "include", "oneapi", "pstl",
+                            "pstl_offload");
+    CmdArgs.push_back("-internal-isystem");
+    CmdArgs.push_back(Args.MakeArgString(HeaderBase));
+  }
+
   // Add the AC Types header directories before the SYCL headers
   if (Args.hasArg(options::OPT_qactypes)) {
     CmdArgs.push_back("-internal-isystem");
@@ -5956,6 +5979,25 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     const auto DeviceTraitsMacrosArgs = D.getDeviceTraitsMacrosArgs();
     for (const auto &Arg : DeviceTraitsMacrosArgs) {
       CmdArgs.push_back(Arg);
+    }
+    // -fsycl-pstl-offload support
+    if (Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ)) {
+      StringRef Value;
+      Value = llvm::StringSwitch<StringRef>(A->getValue())
+                  .Case("off", "0")
+                  .Case("default", "1")
+                  .Case("cpu", "2")
+                  .Case("gpu", "3")
+                  .Default("");
+      if (Value.empty()) {
+        if (!IsSYCLOffloadDevice)
+          D.Diag(diag::err_drv_invalid_argument_to_option)
+              << A->getValue() << A->getOption().getName();
+      } else {
+        SmallString<128> Macro("-D__SYCL_PSTL_OFFLOAD__=");
+        Macro += Value;
+        CmdArgs.push_back(Args.MakeArgString(Macro));
+      }
     }
   }
 
