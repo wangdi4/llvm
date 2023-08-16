@@ -15,17 +15,14 @@
 #ifndef __GENERATOR_CONFIG_H__
 #define __GENERATOR_CONFIG_H__
 
-#include <string.h>
-
 #include "FloatOperations.h"
 #include "ImageDesc.h"
+#include "OpenCLKernelArgumentsParser.h"
 #include "TypeDesc.h"
+#include "tinyxml_wrapper.h"
+#include <string.h>
 #include <utility>
 #include <vector>
-
-#include "tinyxml_wrapper.h"
-
-#include "OpenCLKernelArgumentsParser.h"
 
 namespace Validation {
 /// abstract class that describes method of generation

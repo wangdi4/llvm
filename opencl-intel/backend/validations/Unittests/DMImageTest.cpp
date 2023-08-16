@@ -12,18 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iostream>
-#include <limits>
-#include <list>
-
-#include "gtest_wrapper.h"
-
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 #include "Image.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
+#include "gtest_wrapper.h"
+
+#include <iostream>
+#include <limits>
+#include <list>
 
 using namespace Validation;
 

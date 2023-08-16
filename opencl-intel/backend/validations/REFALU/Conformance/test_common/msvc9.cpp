@@ -8,8 +8,8 @@
 
 #if defined(_WIN32) && defined(_MSC_VER)
 
+#include "CL/cl_platform.h"
 #include "compat.h"
-#include <CL/cl_platform.h>
 #include <assert.h>
 #include <float.h>
 #include <math.h>

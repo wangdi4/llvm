@@ -15,16 +15,15 @@
 #include "OpenCLProgramConfiguration.h"
 #include "SATestException.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-
-#define DEBUG_TYPE "OpenCLProgramConfiguration"
-#include "llvm/Support/Debug.h"
-
 #include <sstream>
 #include <stdlib.h>
 #include <string>
+
+#define DEBUG_TYPE "OpenCLProgramConfiguration"
 
 using namespace std;
 

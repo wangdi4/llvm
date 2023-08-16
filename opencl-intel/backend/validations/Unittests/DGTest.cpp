@@ -15,20 +15,18 @@
 // DMTest.cpp : Defines the entry point for the console application.
 //
 
-#include <stdlib.h>
-#include <time.h>
-
 #include "Buffer.h"
 #include "BufferContainerList.h"
 #include "DGHelper.h"
 #include "DataGenerator.h"
 #include "IMemoryObject.h"
+#include "gtest_wrapper.h"
 
 #include <iostream>
 #include <limits>
 #include <list>
-
-#include "gtest_wrapper.h"
+#include <stdlib.h>
+#include <time.h>
 
 using namespace Validation;
 

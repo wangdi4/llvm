@@ -17,8 +17,8 @@
 
 #include "Conformance/reference_math.h"
 #include "FloatOperations.h"
-#include "assert.h"
 #include "dxfloat.h"
+#include <assert.h>
 
 namespace Validation {
 

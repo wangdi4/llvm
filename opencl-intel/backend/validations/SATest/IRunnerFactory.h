@@ -20,7 +20,6 @@
 #include "IProgramRunner.h"
 #include "IRunConfiguration.h"
 #include "IRunResultComparator.h"
-
 #include <string>
 
 namespace Validation {

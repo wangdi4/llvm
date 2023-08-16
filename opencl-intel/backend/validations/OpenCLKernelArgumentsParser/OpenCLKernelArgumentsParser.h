@@ -14,6 +14,7 @@
 
 #ifndef __OPENCL_KERNEL_ARGUMENTS_PARSER__
 #define __OPENCL_KERNEL_ARGUMENTS_PARSER__
+
 #include "Exception.h"
 #include "IMemoryObjectDesc.h"
 #include "IOpenCLKernelArgumentsParser.h"

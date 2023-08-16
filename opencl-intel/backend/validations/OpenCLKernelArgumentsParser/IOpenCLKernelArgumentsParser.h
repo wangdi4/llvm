@@ -14,6 +14,7 @@
 
 #ifndef __IOPENCL_KERNEL_ARGUMENTS_PARSER__
 #define __IOPENCL_KERNEL_ARGUMENTS_PARSER__
+
 #include "IMemoryObjectDesc.h"
 #include "llvm/IR/Module.h"
 #include <string>

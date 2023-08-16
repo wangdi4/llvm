@@ -20,7 +20,6 @@
 
 #include "OclBuiltinEmitter.h"
 #include "OclBuiltinsHeaderGen.h"
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"

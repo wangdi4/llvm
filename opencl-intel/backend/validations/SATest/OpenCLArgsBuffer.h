@@ -15,10 +15,9 @@
 #ifndef OPENCL_ARGS_BUFFER_H
 #define OPENCL_ARGS_BUFFER_H
 
+#include "CL/cl.h"
 #include "IBufferContainerList.h"
 #include "IRunResult.h"
-
-#include "CL/cl.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "cl_types.h"

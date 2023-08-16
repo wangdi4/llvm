@@ -15,14 +15,12 @@
 #ifndef SATest_H
 #define SATest_H
 
+#include "BufferContainerList.h"
 #include "IProgram.h"
 #include "IProgramRunner.h"
 #include "IRunConfiguration.h"
-
-#include "BufferContainerList.h"
 #include "RunResult.h"
 #include "RunnerFactoryGenerator.h"
-
 #include <string>
 
 namespace Validation {
