@@ -39,6 +39,9 @@ using namespace llvm;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::ELFUtils;
 
+static constexpr llvm::opt::DriverVisibility DefaultVis =
+    llvm::opt::DriverVisibility::DefaultVis;
+
 #ifdef OCLFRONTEND_PLUGINS
 #include "link_data.h"
 #include "plugin_manager.h"
@@ -48,8 +51,8 @@ extern Intel::OpenCL::PluginManager g_pluginManager;
 enum LINK_OPT_ID {
   OPT_LINK_INVALID = 0, // This is not an option ID.
 #define PREFIX(NAME, VALUE)
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)                   \
   OPT_LINK_##ID,
 #include "OpenCLLinkOptions.inc"
   OPT_LINK_LAST_OPTION
@@ -61,22 +64,23 @@ enum LINK_OPT_ID {
   static constexpr StringLiteral NAME##_init[] = VALUE;                        \
   static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
                                                 std::size(NAME##_init) - 1);
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)
 #include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 
 static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)                   \
   {PREFIX,                                                                     \
    NAME,                                                                       \
    HELPTEXT,                                                                   \
    METAVAR,                                                                    \
    OPT_LINK_##ID,                                                              \
    opt::Option::KIND##Class,                                                   \
+   VISIBILITY,                                                                 \
    PARAM,                                                                      \
    FLAGS,                                                                      \
    OPT_LINK_##GROUP,                                                           \
