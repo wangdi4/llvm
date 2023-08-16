@@ -338,6 +338,16 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II,
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
 
+/// Determine whether the given attribute has an identifier argument.
+static ParsedAttributeArgumentsProperties
+attributeStringLiteralListArg(const IdentifierInfo &II) {
+#define CLANG_ATTR_STRING_LITERAL_ARG_LIST
+  return llvm::StringSwitch<uint32_t>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(0);
+#undef CLANG_ATTR_STRING_LITERAL_ARG_LIST
+}
+
 /// Determine whether the given attribute has a variadic identifier argument.
 static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #define CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
