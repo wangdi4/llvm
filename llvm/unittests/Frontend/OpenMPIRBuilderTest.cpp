@@ -5358,17 +5358,12 @@ TEST_F(OpenMPIRBuilderTest, TargetRegion) {
 
   TargetRegionEntryInfo EntryInfo("func", 42, 4711, 17);
   OpenMPIRBuilder::LocationDescription OmpLoc({Builder.saveIP(), DL});
-<<<<<<< HEAD
-  Builder.restoreIP(OMPBuilder.createTarget(OmpLoc, Builder.saveIP(), EntryInfo,
-                                            -1, -1, Inputs, BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
-=======
   Builder.restoreIP(OMPBuilder.createTarget(OmpLoc, Builder.saveIP(),
                                             Builder.saveIP(), EntryInfo, -1, 0,
                                             Inputs, GenMapInfoCB, BodyGenCB));
->>>>>>> b7fcf515150f7bdf052e08ebd192c8b644d2ec14
+#if INTEL_COLLAB
+  OMPBuilder.finalize(false /* IsLateOutline */);
+#else
   OMPBuilder.finalize();
 #endif
   Builder.CreateRetVoid();
