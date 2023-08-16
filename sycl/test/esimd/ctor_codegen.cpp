@@ -19,7 +19,11 @@ SYCL_EXTERNAL auto foo(double i) SYCL_ESIMD_FUNCTION {
   return val;
 // CHECK: %[[V0:[a-zA-Z0-9_\.]+]] = insertelement <2 x double> undef, double %[[I]], i64 0
 // CHECK-NEXT: %[[V1:[a-zA-Z0-9_\.]+]] = shufflevector <2 x double> %[[V0]], <2 x double> poison, <2 x i32> zeroinitializer
-// CHECK-NEXT: store <2 x double> %[[V1]], ptr addrspace(4) %[[RES]]
+// INTEL_CUSTOMIZATION
+// INTEL - zero geps are not being optimized away in xmain
+// CHECK-NEXT: %[[V2:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+// CHECK-NEXT: store <2 x double> %[[V1]], ptr addrspace(4) %[[V2]]
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 }
@@ -35,7 +39,10 @@ SYCL_EXTERNAL auto baz() SYCL_ESIMD_FUNCTION {
   // CHECK: define dso_local spir_func void @_Z3bazv({{.*}} %[[RES:[a-zA-Z0-9_\.]+]]){{.*}} {
   simd<int, 2> val(17, 3);
   return val;
-  // CHECK: store <2 x i32> <i32 17, i32 20>, ptr addrspace(4) %[[RES]]
+  // INTEL_CUSTOMIZATION
+  // CHECK: %[[V1:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+  // CHECK-NEXT: store <2 x i32> <i32 17, i32 20>, ptr addrspace(4) %[[V1]]
+  // end INTEL_CUSTOMIZATION
   // CHECK-NEXT: ret void
   // CHECK-NEXT: }
 }
@@ -45,7 +52,10 @@ SYCL_EXTERNAL auto gee() SYCL_ESIMD_FUNCTION {
 // CHECK: define dso_local spir_func void @_Z3geev({{.*}} %[[RES:[a-zA-Z0-9_\.]+]]){{.*}} {
   simd<float, 2> val(-7);
   return val;
-// CHECK: store <2 x float> <float -7.000000e+00, float -7.000000e+00>, ptr addrspace(4) %[[RES]]
+// INTEL_CUSTOMIZATION
+// CHECK: %[[V1:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+// CHECK-NEXT: store <2 x float> <float -7.000000e+00, float -7.000000e+00>, ptr addrspace(4) %[[V1]]
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 }
@@ -55,7 +65,10 @@ SYCL_EXTERNAL auto foomask() SYCL_ESIMD_FUNCTION {
 // CHECK: define dso_local spir_func void @_Z7foomaskv({{.*}} %[[RES:[a-zA-Z0-9_\.]+]]){{.*}} {
   simd_mask<2> val({ 1, 0 });
   return val;
-// CHECK: store <2 x i16> <i16 1, i16 0>, ptr addrspace(4) %[[RES]]
+// INTEL_CUSTOMIZATION
+// CHECK: %[[V1:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+// CHECK-NEXT: store <2 x i16> <i16 1, i16 0>, ptr addrspace(4) %[[V1]]
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 }
@@ -65,7 +78,10 @@ SYCL_EXTERNAL auto geemask() SYCL_ESIMD_FUNCTION {
 // CHECK: define dso_local spir_func void @_Z7geemaskv({{.*}} %[[RES:[a-zA-Z0-9_\.]+]]){{.*}} {
   simd_mask<2> val(1);
   return val;
-// CHECK: store <2 x i16> <i16 1, i16 1>, ptr addrspace(4) %[[RES]]
+// INTEL_CUSTOMIZATION
+// CHECK: %[[V1:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+// CHECK-NEXT: store <2 x i16> <i16 1, i16 1>, ptr addrspace(4) %[[V1]]
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 }
@@ -90,7 +106,10 @@ SYCL_EXTERNAL auto geehalf() SYCL_ESIMD_FUNCTION {
 // CHECK: define dso_local spir_func void @_Z7geehalfv({{.*}} %[[RES:[a-zA-Z0-9_\.]+]]){{.*}} {
   simd<half, 2> val(-7);
   return val;
-// CHECK: store <2 x half> <half 0xHC700, half 0xHC700>, ptr addrspace(4) %[[RES]]
+// INTEL_CUSTOMIZATION
+// CHECK: %[[V1:[a-zA-Z0-9_\.]+]] = getelementptr inbounds %{{[^,]*}}, ptr addrspace(4) %[[RES]], i64 0, i32 0
+// CHECK-NEXT: store <2 x half> <half 0xHC700, half 0xHC700>, ptr addrspace(4) %[[V1]]
+// end INTEL_CUSTOMIZATION
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 }
