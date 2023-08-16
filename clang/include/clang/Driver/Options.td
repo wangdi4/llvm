@@ -3850,6 +3850,17 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
 // TODO: remove this option before release
 def fsycl_nonsemantic_debuginfo : Flag<["-"], "fsycl-nonsemantic-debuginfo">, Flags<[HelpHidden, CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL code with new SPIR-V debug info">;
+def fsycl_pstl_offload_EQ : Joined<["-"], "fsycl-pstl-offload=">,
+  Values<"cpu,gpu,default,off">, Flags<[CoreOption, DpcppOption]>,
+  HelpText<"Enable offloading of C++ standard parallel algorithms. Valid "
+  "arguments are gpu and cpu (experimental).">;
+def fsycl_pstl_offload : Flag<["-"], "fsycl-pstl-offload">,
+  Alias<fsycl_pstl_offload_EQ>, AliasArgs<["default"]>,
+  HelpText<"Enable offloading of C++ standard parallel algorithms "
+  "(experimental).">;
+def fno_sycl_pstl_offload : Flag<["-"], "fno-sycl-pstl-offload">,
+  Alias<fsycl_pstl_offload_EQ>, AliasArgs<["off"]>, HelpText<"Disable "
+  "offloading of C++ standard parallel algorithms.">;
 #endif // INTEL_CUSTOMIZATION
 def ftarget_compile_fast : Flag<["-"], "ftarget-compile-fast">,
   Flags<[CoreOption]>, HelpText<"Experimental feature: Reduce target "
@@ -8815,6 +8826,14 @@ def _SLASH_fsycl_targets_EQ : CLCommaJoined<"fsycl-targets=">, Alias<fsycl_targe
 def _SLASH_fsycl_unnamed_lambda : CLFlag<"fsycl-unnamed-lambda">, Alias<fsycl_unnamed_lambda>;
 def _SLASH_fno_sycl_unnamed_lambda : CLFlag<"fno-sycl-unnamed-lambda">,
   Alias<fno_sycl_unnamed_lambda>;
+def _SLASH_fsycl_pstl_offload_EQ : CLJoined<"fsycl-pstl-offload=">,
+  Alias<fsycl_pstl_offload_EQ>;
+def _SLASH_fsycl_pstl_offload_COL : CLJoined<"fsycl-pstl-offload:">,
+  Alias<fsycl_pstl_offload_EQ>;
+def _SLASH_fsycl_pstl_offload : CLFlag<"fsycl-pstl-offload">,
+  Alias<fsycl_pstl_offload_EQ>, AliasArgs<["default"]>;
+def _SLASH_fno_sycl_pstl_offload : CLFlag<"fno-sycl-pstl-offload">,
+  Alias<fsycl_pstl_offload_EQ>, AliasArgs<["off"]>;
 def _SLASH_ftarget_compile_fast : CLFlag<"ftarget-compile-fast">,
   Alias<ftarget_compile_fast>;
 def _SLASH_fuse_ld_COL : CLJoined<"fuse-ld:">, Alias<fuse_ld_EQ>;

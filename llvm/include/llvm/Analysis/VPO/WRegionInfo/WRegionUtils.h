@@ -368,10 +368,15 @@ public:
   static bool hasWorksharingLoop(WRegionNode *W, bool Recursive = false);
 #endif
 
-  /// Returns \b true if \p W contains a parallel or generic loop construct.
+  /// Returns the number of \p W's children that are PARALLEL or generic LOOP.
+  /// \p NumGenericLoop and \p NumGenericLoopWithReduction are expected to be
+  /// initialized to 0 from the caller; they will return with the number of LOOP
+  /// constructs found, and the number of LOOP with REDUCTION, respectively.
   /// If Recursive==false, search only the immediate children; otherwise,
   /// search children recursively.
-  static bool hasParallelOrGenericLoop(WRegionNode *W, bool Recursive = false);
+  static int countParallelOrGenericLoop(WRegionNode *W, int &NumGenericLoop,
+                                        int &NumGenericLoopWithReduction,
+                                        bool Recursive = false);
 
   /// Return \b true if the WRGraph contains OMP target construct(s).
   /// This is used by offloading codegen to exclude routines with
