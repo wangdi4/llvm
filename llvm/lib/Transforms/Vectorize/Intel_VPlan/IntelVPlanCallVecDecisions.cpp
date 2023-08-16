@@ -383,6 +383,17 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
+  // Call to builtin_prefetch should not be vectorized(widened/scalarized).
+  // This is especially problematic for cases where the pointer being prefetched
+  // is unit strided where we unnecessarily generate VF prefetches from
+  // {ptr, ptr + 1, ..., ptr + VF -1}. This can lead to big performance
+  // regressions especially in hot loops due to the extracts needed to generate
+  // the scalarized calls. Classic compiler handles prefetches the same way.
+  if (VPCall->isIntrinsicFromList({Intrinsic::prefetch})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   // DPC++'s unmasked functions. The implementation is vector-variant based but
   // no pumping allowed and the mask needs to be ignore when making the call
   // (the whole purpose of the feature), hence separate scenario.

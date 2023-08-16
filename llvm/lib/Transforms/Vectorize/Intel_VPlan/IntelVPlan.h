@@ -2328,9 +2328,9 @@ public:
     if (getUnderlyingCallInst() == nullptr)
       return;
 
-    // DoNotWiden is used for kernel uniform calls and for uniform calls without
-    // side-effects today i.e. the property is not VF-dependent. Hence it need
-    // not be reset here.
+    // DoNotWiden is used for kernel uniform calls, prefetch, and for uniform
+    // calls without side-effects today i.e. the property is not VF-dependent.
+    // Hence it need not be reset here.
     if (VecScenario == CallVecScenarios::DoNotWiden)
       return;
 
