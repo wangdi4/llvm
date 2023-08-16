@@ -68,8 +68,8 @@ define i64 @test_v4f64_legal_sext(<4 x double> %a0, <4 x double> %a1) {
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    cmpltpd %xmm1, %xmm3
 ; SSE-NEXT:    cmpltpd %xmm0, %xmm2
-; SSE-NEXT:    orpd %xmm3, %xmm2 ;INTEL
-; SSE-NEXT:    movmskpd %xmm2, %ecx ;INTEL
+; SSE-NEXT:    shufps {{.*#+}} xmm2 = xmm2[0,2],xmm3[0,2]
+; SSE-NEXT:    movmskps %xmm2, %ecx
 ; SSE-NEXT:    xorl %eax, %eax
 ; SSE-NEXT:    negl %ecx
 ; SSE-NEXT:    sbbq %rax, %rax
@@ -898,8 +898,8 @@ define i1 @bool_reduction_v4f64(<4 x double> %x, <4 x double> %y) {
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    cmplepd %xmm1, %xmm3
 ; SSE-NEXT:    cmplepd %xmm0, %xmm2
-; SSE-NEXT:    orpd %xmm3, %xmm2 ;INTEL
-; SSE-NEXT:    movmskpd %xmm2, %eax ;INTEL
+; SSE-NEXT:    shufps {{.*#+}} xmm2 = xmm2[0,2],xmm3[0,2]
+; SSE-NEXT:    movmskps %xmm2, %eax
 ; SSE-NEXT:    testl %eax, %eax
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
