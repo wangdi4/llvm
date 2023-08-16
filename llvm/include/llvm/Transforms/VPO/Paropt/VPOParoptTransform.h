@@ -214,6 +214,12 @@ public:
   bool privatizeSharedItems();
 #endif  // INTEL_CUSTOMIZATION
 
+  ~VPOParoptTransform() {
+    for (OffloadEntry *OE : OffloadEntries)
+      delete OE;
+    OffloadEntries.clear();
+  }
+
 private:
   /// A reference to the parent module transform object. It can be NULL if
   /// paropt transform is construted from a function pass.

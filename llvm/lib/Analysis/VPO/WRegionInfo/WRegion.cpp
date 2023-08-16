@@ -1228,9 +1228,28 @@ void WRNGenericLoopNode::mapLoopScheme0() {
 //   // 2. BIND(TEAMS)
 //   //    This binding means the league of teams can share the work, so
 //   //    it is correct to map it to DISTRIBUTE or DISTRIBUTE PARALLEL FOR.
-//   //    Our optimization maps it to DISTRIBUTE if it has an immediate child
+//   //    Typically the LOOP maps to DISTRIBUTE if it has an immediate child
 //   //    construct that is PARALLEL or LOOP; otherwise it maps it to
-//   //    DISTRIBUTE PARALLEL FOR.
+//   //    DISTRIBUTE PARALLEL FOR. Exceptions:
+//   //      2a. If the LOOP has REDUCTION, map it to DISTRIBUTE PARALLEL FOR
+//   //          always, because DISTRIBUTE doesn't take REDUCTION.
+//   //      2b. If the LOOP's immediate children are all LOOP constructs and
+//   //          at least one of them have REDUCTION, then map the LOOP to
+//   //          DISTRIBUTE PARALLEL FOR.
+#if INTEL_CUSTOMIZATION
+//   //      Related Jiras:
+//   //      2a. TODO: CMPLRLLVM-49872: FE will clone REDUCTION clause to the
+//   //          parent TEAMS construct in some cases so BE can drop the clause
+//   //          if converting LOOP to DISTRIBUTE.
+//   //      2b. This is for performance tuning. Currently our implementation
+//   //          falls back to default nd-range if REDUCTION is present. Since
+//   //          in this case the LOOP in question doesn't have REDUCTION but
+//   //          its child LOOP has REDUCTION, by mapping the outer LOOP to
+//   //          DISTRIBUTE PARALLEL FOR, the inner LOOP becomes SIMD, and
+//   //          SIMD is a no-op in the kernel (without target-simd enabled)
+//   //          so specific nd-range can take place.
+//   //          See CMPLRLLVM-50076 regarding performance of 550.pmd.
+#endif // INTEL_CUSTOMIZATION
 //   // 3. Example showing the difference
 //   //
 //   //     int x[4] = {} ; //initialize to 0
@@ -1330,6 +1349,25 @@ void WRNGenericLoopNode::mapLoopScheme1() {
   assert((ParentDirID != DIR_OMP_NONE || Bind != WRNLoopBindAbsent) &&
          "Missing BIND clause in an orphaned LOOP construct");
 
+  // A LOOP bound to TEAMS can be converted into DISTRIBUTE or
+  // DISTRIBUTE PARALLEL FOR, as described in the header comment.
+  // See sections 2, 2a, and 2b in the comment for details.
+  auto mapLoopBindTeams = [](WRegionNode *W) -> int {
+    if (!W->getRed().empty())
+      return DIR_OMP_DISTRIBUTE_PARLOOP; // 2a
+
+    int NumLoop = 0; // number of immediate children that are LOOP constructs
+    int NumLoopWithReduction = 0; // as above, but with REDUCTION clause
+    if (int NumParallelOrLoop = WRegionUtils::countParallelOrGenericLoop(
+            W, NumLoop, NumLoopWithReduction)) {
+      if ((NumParallelOrLoop == NumLoop) && (NumLoopWithReduction > 0))
+        return DIR_OMP_DISTRIBUTE_PARLOOP; // 2b
+      else
+        return DIR_OMP_DISTRIBUTE; // 2
+    }
+    return DIR_OMP_DISTRIBUTE_PARLOOP; // 2
+  };
+
   switch (ParentDirID) {
   // case DIR_OMP_TARGET:
   // TODO: We want to map LOOP that's closely nested inside a TARGET
@@ -1340,14 +1378,15 @@ void WRNGenericLoopNode::mapLoopScheme1() {
   //       TEAMS LOOP if it's closedly nested inside TARGET.
   //       Note that if LOOP is not closely nested inside TARGET,
   //       then it just falls into the default case in this switch.
+#if INTEL_CUSTOMIZATION
+  //       Jira: CMPLRLLVM-49824
+  //       Requested FE to expand TARGET LOOP into TARGET TEAMS LOOP.
+#endif // INTEL_CUSTOMIZATION
   case DIR_OMP_TEAMS:
     if (Bind == WRNLoopBindThread || Bind == WRNLoopBindParallel)
       MappedDir = DIR_OMP_PARALLEL_LOOP;
-    else if (getRed().empty() && // DISTRIBUTE does not support REDUCTION
-             WRegionUtils::hasParallelOrGenericLoop(this))
-      MappedDir = DIR_OMP_DISTRIBUTE;
     else
-      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+      MappedDir = mapLoopBindTeams(this);
     break;
   case DIR_OMP_DISTRIBUTE:
     MappedDir = DIR_OMP_PARALLEL_LOOP;
@@ -1378,11 +1417,8 @@ void WRNGenericLoopNode::mapLoopScheme1() {
       MappedDir = DIR_OMP_LOOP;
     else if (Bind == WRNLoopBindAbsent)
       MappedDir = DIR_OMP_PARALLEL_LOOP;
-    // after this point Bind must be WRNLoopBindTeams
-    else if (WRegionUtils::hasParallelOrGenericLoop(this))
-      MappedDir = DIR_OMP_DISTRIBUTE;
-    else
-      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+    else // Bind == WRNLoopBindTeams
+      MappedDir = mapLoopBindTeams(this);
   }
 
   if (MappedDir == DIR_OMP_NONE)

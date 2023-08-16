@@ -2876,8 +2876,10 @@ public:
     }
   }
 
-  /// Allocate memory from L0 GPU RT
-  void *allocL0(size_t Size, size_t Align, int32_t Kind);
+  /// Allocate memory from L0 GPU RT. We use over-allocation workaround
+  /// to support target pointer with offset, and positive "ActiveSize" is
+  /// specified in such cases for correct debug logging.
+  void *allocL0(size_t Size, size_t Align, int32_t Kind, size_t ActiveSize = 0);
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
@@ -2930,7 +2932,7 @@ public:
       }
     }
 
-    AllocBase = allocL0(AllocSize, Align, Kind);
+    AllocBase = allocL0(AllocSize, Align, Kind, Size);
     if (AllocBase) {
       Mem = (void *)((uintptr_t)AllocBase + Offset);
       AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
@@ -5067,7 +5069,8 @@ int32_t MemAllocatorTy::enqueueMemCopy(void *Dst, const void *Src,
   return DeviceInfo->enqueueMemCopy(DeviceId, Dst, Src, Size);
 }
 
-void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
+void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind,
+                              size_t ActiveSize) {
   void *Mem = nullptr;
   ze_device_mem_alloc_desc_t DeviceDesc{ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
                                         nullptr, 0, 0};
@@ -5102,7 +5105,8 @@ void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
     assert(0 && "Invalid target data allocation kind");
   }
 
-  log(Size, Size, Kind);
+  size_t LoggedSize = ActiveSize ? ActiveSize : Size;
+  log(LoggedSize, LoggedSize, Kind);
 
   auto RC = DeviceInfo->postMemAlloc(Mem, Size, Kind, Device);
   if (RC != OFFLOAD_SUCCESS)

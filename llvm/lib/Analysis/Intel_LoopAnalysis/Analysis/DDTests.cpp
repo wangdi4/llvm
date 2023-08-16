@@ -4219,6 +4219,10 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
     return false;
   }
 
+  // Do not try to delinearize dd refs with non-trivial denominator.
+  if ((SrcCE->getDenominator() != 1) || (DstCE->getDenominator() != 1))
+    return false;
+
   // For DDGBuild,  check if can be delinearzed
   // Otherwise, already checked before calling RefineDV
   if (ForDDGBuild && (!isDelinearizeCandidate(SrcDDRef) ||

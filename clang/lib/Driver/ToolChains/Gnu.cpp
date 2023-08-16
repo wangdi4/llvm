@@ -3571,8 +3571,10 @@ Generic_GCC::Generic_GCC(const Driver &D, const llvm::Triple &Triple,
 #if INTEL_CUSTOMIZATION
   // Diagnose unsupported options only once.
   if (Triple.isSPIR()) {
-    // All sanitizer options are not currently supported for spir64.
-    for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
+    // All sanitizer and traceback options are not currently supported
+    // for spir64.
+    for (auto A :
+         Args.filtered(options::OPT_fsanitize_EQ, options::OPT_traceback))
       D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
           << A->getAsString(Args) << Triple.str();
   }
@@ -4067,9 +4069,10 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
       case options::OPT_fno_pie:
         break;
 #if INTEL_CUSTOMIZATION
+      // Restrict any options that are not valid for spir64 targets but are
+      // permitted for Host compilation.
       case options::OPT_fsanitize_EQ:
-        // -fsanitize is not valid for spir64 targets, restrict it from being
-        // used during the device compilation.
+      case options::OPT_traceback:
         if (!getTriple().isSPIR())
           DAL->append(A);
         break;
