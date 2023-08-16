@@ -6669,7 +6669,6 @@ void BoUpSLP::buildExternalUses(
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Building the CurrMultiNode changes the way we do the recursion.
 // Originally, we used to do a DFS towards the definitions.
@@ -6811,10 +6810,7 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
 }
 #endif // INTEL_CUSTOMIZATION
 
-DenseMap<Value *, SmallVector<StoreInst *, 4>>
-=======
 DenseMap<Value *, SmallVector<StoreInst *>>
->>>>>>> ca2eabdb52fa95a001c18e2dd6a15018585e7429
 BoUpSLP::collectUserStores(const BoUpSLP::TreeEntry *TE) const {
   DenseMap<Value *, SmallVector<StoreInst *>> PtrToStoresMap;
   for (unsigned Lane : seq<unsigned>(0, TE->Scalars.size())) {
