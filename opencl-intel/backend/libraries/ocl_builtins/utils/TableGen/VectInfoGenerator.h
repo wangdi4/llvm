@@ -16,9 +16,7 @@
 #define __VECT_INFO_GENERATOR_H__
 
 #include "OclBuiltinEmitter.h"
-
 #include "llvm/Analysis/VectorUtils.h"
-
 #include <algorithm>
 #include <sstream>
 

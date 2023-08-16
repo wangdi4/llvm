@@ -16,7 +16,6 @@
 #include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
 #include "cl_cpu_detect.h"
-
 #include <map>
 
 namespace Intel {

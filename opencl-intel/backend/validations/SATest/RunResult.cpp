@@ -14,10 +14,10 @@
 
 #include "RunResult.h"
 #include "Exception.h"
-
-#define DEBUG_TYPE "SATest"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
+#define DEBUG_TYPE "SATest"
 
 using namespace Validation;
 

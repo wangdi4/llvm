@@ -13,7 +13,6 @@
 // License.
 
 #include "Stats.h"
-
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 

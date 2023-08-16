@@ -13,7 +13,7 @@
 // License.
 
 #include "BE_DynamicLib.h"
-#include <ocl_string_exception.h>
+#include "ocl_string_exception.h"
 
 #if defined(_WIN32)
 #include <windows.h>

@@ -12,6 +12,8 @@
 
 #include "OptimizerOCL.h"
 
+#include "SPIRVLowerConstExpr.h"
+#include "SPIRVToOCL.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
@@ -55,9 +57,6 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
-
-#include "SPIRVLowerConstExpr.h"
-#include "SPIRVToOCL.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h"

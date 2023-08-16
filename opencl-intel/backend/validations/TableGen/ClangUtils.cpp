@@ -14,13 +14,12 @@
 
 #include "ClangUtils.h"
 #include "cl_device_api.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
-
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 
 static std::string getZeroLiteral(const std::string &type) {
   if ("char" == type || "short" == type || "int" == type || "uchar" == type ||

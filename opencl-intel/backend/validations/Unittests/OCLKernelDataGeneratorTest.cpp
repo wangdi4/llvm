@@ -13,18 +13,12 @@
 // License.
 
 #include "OCLKernelDataGenerator.h"
-#include "FloatOperations.h"
-#include "RandomUniformProvider.h"
-#include "gtest_wrapper.h"
-#include <algorithm>
-#include <fstream>
-#include <iostream>
-#include <time.h>
-#include <vector>
-
 #include "Buffer.h"
 #include "BufferContainerList.h"
+#include "FloatOperations.h"
 #include "OpenCLKernelArgumentsParser.h"
+#include "RandomUniformProvider.h"
+#include "gtest_wrapper.h"
 #include "tinyxml_wrapper.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -32,7 +26,12 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 #include <string>
+#include <time.h>
+#include <vector>
 
 // #include "crtdbg.h"
 //  static long _crt_test_leaks =  _CrtSetBreakAlloc(15313);

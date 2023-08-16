@@ -16,7 +16,6 @@
 #define __RuntimeServices_H_
 
 #include "VectorizerFunction.h"
-
 #include "llvm/IR/Instructions.h"
 
 using namespace llvm;

@@ -16,8 +16,8 @@
 #define WORK_GROUP_STORAGE_H
 
 #include "IWorkItemBuiltins.h"
-#include <llvm/ADT/APInt.h>
-#include <llvm/IR/DerivedTypes.h>
+#include "llvm/ADT/APInt.h"
+#include "llvm/IR/DerivedTypes.h"
 #include <vector>
 
 namespace Validation {

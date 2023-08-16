@@ -21,9 +21,8 @@
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
 #include "auto_ptr_ex.h"
-#include "mem_utils.h"
-
 #include "cl_dev_backend_api.h"
+#include "mem_utils.h"
 #include "llvm/IR/Module.h"
 
 namespace Validation {

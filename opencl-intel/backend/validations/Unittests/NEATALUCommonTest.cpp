@@ -14,16 +14,15 @@
 
 // \brief Tests for OpenCL common built-in functions (see spec. 6.11.4.) in
 // NEATALU
-#include "gtest_wrapper.h" // Test framework
-
-#include "DataGenerator.h"
 
 #include "ALUTest.h"
+#include "DataGenerator.h"
 #include "NEATALU.h"
 #include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
+#include "gtest_wrapper.h" // Test framework
 
 using namespace Validation;
 

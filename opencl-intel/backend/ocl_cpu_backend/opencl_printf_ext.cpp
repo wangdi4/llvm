@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "opencl_printf_ext.h"
 #include "exceptions.h" // LLVM_BACKEND_UNUSED
 #include <Compiler.h>   // LLVM_FALLTHROUGH
 #include <assert.h>
@@ -22,8 +23,6 @@
 #include <process.h>
 #include <stdint.h>
 #endif
-
-#include "opencl_printf_ext.h"
 
 using namespace std;
 using namespace Intel::OpenCL;

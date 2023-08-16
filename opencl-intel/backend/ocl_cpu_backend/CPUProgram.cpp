@@ -20,7 +20,6 @@
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
 #include "cl_sys_info.h"
-
 #include "llvm/ExecutionEngine/Orc/ObjectFileInterface.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"

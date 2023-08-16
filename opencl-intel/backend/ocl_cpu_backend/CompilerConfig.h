@@ -18,7 +18,6 @@
 #include "ICompilerConfig.h"
 #include "cpu_dev_limits.h"
 #include "exceptions.h"
-
 #include <algorithm>
 
 namespace Intel {

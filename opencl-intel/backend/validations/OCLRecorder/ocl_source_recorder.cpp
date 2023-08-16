@@ -12,15 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "ocl_source_recorder.h"
+#include "compile_data.h"
+#include "link_data.h"
+#include "opencl_clang.h"
 #include <algorithm>
 #include <assert.h>
 #include <mutex>
 #include <vector>
-
-#include "compile_data.h"
-#include "link_data.h"
-#include "ocl_source_recorder.h"
-#include "opencl_clang.h"
 
 using namespace llvm;
 

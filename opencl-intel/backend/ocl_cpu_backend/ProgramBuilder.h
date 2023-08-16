@@ -18,7 +18,6 @@
 #include "IAbstractBackendFactory.h"
 #include "ICLDevBackendOptions.h"
 #include "ICompilerConfig.h"
-
 #include "RuntimeService.h"
 
 namespace llvm {

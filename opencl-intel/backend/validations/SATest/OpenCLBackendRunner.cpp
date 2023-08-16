@@ -14,40 +14,34 @@
 
 #include "OpenCLBackendRunner.h"
 #include "BackendOptions.h"
-#include "OpenCLArgsBuffer.h"
-#include "OpenCLBackendWrapper.h"
-#include "OpenCLProgramConfiguration.h"
-#include "OpenCLRunConfiguration.h"
-
-#include "Performance.h"
-#include "SATestException.h"
-
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
+#include "Buffer.h"
 #include "BufferContainerList.h"
 #include "OCLKernelDataGenerator.h"
+#include "OpenCLArgsBuffer.h"
+#include "OpenCLBackendWrapper.h"
 #include "OpenCLKernelArgumentsParser.h"
+#include "OpenCLProgramConfiguration.h"
+#include "OpenCLRunConfiguration.h"
+#include "Performance.h"
+#include "SATestException.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
 #include "cpu_dev_limits.h"
-
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/MemoryBuffer.h>
-
+#include "mem_utils.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string.h>
 #include <vector>
 
-#include "Buffer.h"
-#include "mem_utils.h"
-
+// debug macro
 #define DEBUG_TYPE "OpenCLBackendRunner"
-#include <llvm/Support/raw_ostream.h>
-// debug macros
-#include <llvm/Support/Debug.h>
-
-#include <string.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;

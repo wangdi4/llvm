@@ -17,6 +17,7 @@
 #include "ImageDesc.h"
 #include <assert.h>
 #include <time.h>
+
 using namespace Validation;
 
 OCLKernelDataGeneratorConfig::OCLKernelDataGeneratorConfig(

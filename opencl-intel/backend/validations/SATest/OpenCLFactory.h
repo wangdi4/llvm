@@ -16,7 +16,6 @@
 #define OPENCL_FACTORY_H
 
 #include "IRunnerFactory.h"
-
 #include <string>
 
 namespace Validation {

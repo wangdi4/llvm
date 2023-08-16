@@ -12,20 +12,18 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "NEATALU.h"
+#include "ALUTest.h"
 #include "BufferContainerList.h"
 #include "DGHelper.h"
 #include "DataGenerator.h"
-
 #include "FloatOperations.h"
-#include "NEATALU.h"
+#include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
 #include "gtest_wrapper.h"
 #include <fstream>
-
-#include "ALUTest.h"
-#include "NEATALUUtils.h"
 
 using namespace Validation;
 

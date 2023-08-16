@@ -12,7 +12,15 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "InterpreterPluggable.h"
+#include "PlugInNEAT.h"
+#include "BLTImages.h"
+#include "Buffer.h"
+#include "Helpers.h"
+#include "IMemoryObject.h"
+#include "Image.h"
+#include "NEAT_WRAP.h"
+#include "OCLBuiltinParser.h"
+
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
@@ -28,15 +36,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
-
-#include "BLTImages.h"
-#include "Buffer.h"
-#include "Helpers.h"
-#include "IMemoryObject.h"
-#include "Image.h"
-#include "NEAT_WRAP.h"
-#include "OCLBuiltinParser.h"
-#include "PlugInNEAT.h"
 
 #include <algorithm>
 #include <cmath>

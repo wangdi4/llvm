@@ -14,7 +14,6 @@
 
 #include "BackendConfiguration.h"
 #include "cl_dev_backend_api.h"
-
 #include <assert.h>
 
 namespace Intel {

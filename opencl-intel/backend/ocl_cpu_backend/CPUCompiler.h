@@ -16,10 +16,8 @@
 
 #include "Compiler.h"
 #include "ICompilerConfig.h"
-
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Target/TargetMachine.h"
-
 #include <string>
 
 namespace llvm {

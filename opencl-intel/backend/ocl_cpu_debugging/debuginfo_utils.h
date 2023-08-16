@@ -15,8 +15,7 @@
 #ifndef DEBUGINFO_UTILS_H
 #define DEBUGINFO_UTILS_H
 
-#include <llvm/IR/DebugInfo.h>
-
+#include "llvm/IR/DebugInfo.h"
 #include <string>
 
 namespace debugservermessages {

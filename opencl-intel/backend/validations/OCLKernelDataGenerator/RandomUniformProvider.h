@@ -18,7 +18,6 @@
 #include "DataType.h"
 #include "FloatOperations.h"
 #include "dxfloat.h"
-
 #include <float.h>
 
 namespace Validation {

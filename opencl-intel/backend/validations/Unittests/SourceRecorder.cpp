@@ -12,23 +12,25 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Exception.h"
 #include "compile_data.h"
 #include "gtest_wrapper.h"
+#include "ocl_source_recorder.h"
 #include "plugin_manager.h"
 #include "source_file.h"
 #include <cassert>
+#include <exception>
 #include <link_data.h>
+
 #if defined(_WIN32)
 #include <windows.h>
 #else
 #include <cstdlib>
 #endif
-#include <exception>
+
 #if defined(HAVE_PTHREAD_H) && defined(HAVE_PTHREAD_GETSPECIFIC)
 #include <pthread.h>
 #endif // defined(HAVE_PTHREAD_H) && defined(HAVE_PTHREAD_GETSPECIFIC)
-#include "Exception.h"
-#include "ocl_source_recorder.h"
 
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::Frontend;

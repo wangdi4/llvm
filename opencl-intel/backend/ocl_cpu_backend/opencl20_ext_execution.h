@@ -20,6 +20,8 @@
 #endif
 
 #include "IBlockToKernelMapper.h"
+#include "ICLDevBackendServiceFactory.h"
+#include "IDeviceCommandManager.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Declaration section

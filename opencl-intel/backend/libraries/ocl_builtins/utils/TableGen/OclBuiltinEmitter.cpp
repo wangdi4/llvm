@@ -46,9 +46,9 @@
 #include <string>
 #include <vector>
 
-using namespace llvm;
-
 #define DEBUG_TYPE "ocl-tblgen-builtin-emitter"
+
+using namespace llvm;
 
 static cl::opt<bool>
     GenOCLBuiltinPrototype("gen-ocl-proto", cl::Hidden,

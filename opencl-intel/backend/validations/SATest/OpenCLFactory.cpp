@@ -13,7 +13,6 @@
 // License.
 
 #include "OpenCLFactory.h"
-
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLCPUBackendRunner.h"
 #include "OpenCLComparator.h"
@@ -21,11 +20,11 @@
 #include "OpenCLReferenceRunner.h"
 #include "OpenCLRunConfiguration.h"
 #include "RunResult.h"
-
-#define DEBUG_TYPE "OpenCLFactory"
-// debug macros
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
+// debug macro
+#define DEBUG_TYPE "OpenCLFactory"
 
 using namespace Validation;
 using std::string;
