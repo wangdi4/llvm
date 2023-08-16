@@ -1,6 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; The test checks if
 ;   '%1 = @llvm.directive.region.entry()' / '@llvm.directive.region.exit(%1)'

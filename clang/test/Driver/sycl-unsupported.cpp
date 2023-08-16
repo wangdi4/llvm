@@ -21,6 +21,19 @@
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_x86_64 -fcf-protection -### %s 2>&1 \
 // RUN:  | FileCheck %s -DARCH=spir64_x86_64 -DOPT=-fcf-protection
 
+// INTEL_CUSTOMIZATION
+// RUN: %clangxx -fsycl -traceback -fsycl-targets=spir64 -### %s 2>&1 \
+// RUN:  | FileCheck %s -DARCH=spir64 -DOPT=-traceback
+// RUN: %clang_cl -fsycl -traceback -fsycl-targets=spir64 -### %s 2>&1 \
+// RUN:  | FileCheck %s -DARCH=spir64 -DOPT=-traceback
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -traceback -### %s 2>&1 \
+// RUN:  | FileCheck %s -DARCH=spir64_gen -DOPT=-traceback
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_fpga -traceback -### %s 2>&1 \
+// RUN:  | FileCheck %s -DARCH=spir64_fpga -DOPT=-traceback
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_x86_64 -traceback -### %s 2>&1 \
+// RUN:  | FileCheck %s -DARCH=spir64_x86_64 -DOPT=-traceback
+// end INTEL_CUSTOMIZATION
+
 // CHECK: ignoring '[[OPT]]' option as it is not currently supported for target '[[ARCH]]{{.*}}' [-Woption-ignored]
 // CHECK-NOT: clang{{.*}} "-fsycl-is-device"{{.*}} "[[OPT]]{{.*}}"
 // CHECK: clang{{.*}} "-fsycl-is-host"{{.*}} "[[OPT]]{{.*}}"
