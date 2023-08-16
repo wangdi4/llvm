@@ -214,9 +214,9 @@ class shift_ri_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 }
 
 multiclass mshift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node,
-                      X86TypeInfo typeinfo> {
+                     X86TypeInfo typeinfo, int canConvert = 0> {
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst" in {
+let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = canConvert in {
 let Predicates = [NoNDD] in
   def NAME : shift_ri<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode] in
@@ -227,7 +227,8 @@ let Predicates = [HasNDD, In64BitMode] in
   def _ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>,
             EVEX_B4V;
 }
-let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
+let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = canConvert,
+    Predicates = [In64BitMode] in
   def _NF : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
 let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -264,11 +265,11 @@ defm SHL32rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi32>;
 defm SHL64rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi64>;
 }
 
-let SchedRW = [WriteShift], isConvertibleToThreeAddress = 1 in {
-defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8>;
-defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16>;
-defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
-defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
+let SchedRW = [WriteShift] in {
+defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8, 1>;
+defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16, 1>;
+defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32, 1>;
+defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64, 1>;
 }
 
 let SchedRW = [WriteShift] in {
