@@ -5948,27 +5948,89 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
   // update code at the exit block of the loop.
   if (HonorZTT && W->getIsOmpLoop())
     if (BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB()) {
-      // FIXME: some prior transformations (e.g. reduction-via-critical
-      //        for SPIR-V target) may introduce non-linear code outside
-      //        the ZTT and before the exit block, so the loop below
-      //        may not find the right block always.
-      while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
-        ExitBlock = *pred_begin(ExitBlock);
-      assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
-             "Expect two predecessors for the omp loop region exit.");
-      auto PI = pred_begin(ExitBlock);
-      auto Pred1 = *PI++;
-      auto Pred2 = *PI++;
+      // The goal is to identify a target block, which has the ZTT block
+      // and loop exit as its predecessors.
 
-      BasicBlock *LoopExitBB = nullptr;
-      if (Pred1 == ZttBlock && Pred2 != ZttBlock)
-        LoopExitBB = Pred2;
-      else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
-        LoopExitBB = Pred1;
-      else
-        llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+      // Certain previous transformations (e.g., the reduction-via-critical for
+      // SPIR-V targets) may generate non-linear code outside of the ZTT and
+      // prior to the exit block. This can result in a backward search from the
+      // exit block not always identifying the correct block. To address this, a
+      // top-down approach is implemented that inspects the successors of ZTT
+      // block.
 
-      return SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+      // There are three cases:
+      //
+      //   (1)    |
+      //       ZTT block -------+
+      //          |             |
+      //         ...            |
+      //          |             |
+      //   loop region exit     |
+      //          |             |
+      //    target block <------+
+      //          |
+      //         ...
+      //          |
+      //   WRegion exit
+      //          |
+      //
+      // In case 1, both top-down and bottom-up can find the target block.
+
+      //   (2)    |
+      //       ZTT block -------+
+      //          |             |
+      //         ...            |
+      //          |             |
+      //   loop region exit     |
+      //          |             |
+      //    target block <------+
+      //          |
+      //         ...
+      //
+      //   WRegion exit
+      //          |
+      //
+      // In case 2, there is no path between WRegion exit and target block.
+      // Only top-down approach can find the target block.
+
+      //   (3)    |
+      //       ZTT block
+      //          |
+      //         ...
+      //          |
+      //   loop region exit
+      //          |
+      //         ...
+      //
+      //   WRegion exit
+      //          |
+      //
+      // In case 3, the top-down approach recognizes that the target block
+      // doesn't exist due to the ZTT block not having exactly two successors.
+      // The empty privatization block will be insert to WRegion exit.
+
+      for (succ_iterator SI = succ_begin(ZttBlock), SE = succ_end(ZttBlock);
+           SI != SE; SI++) {
+        BasicBlock *BB = *SI;
+        pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
+        if (std::distance(PI, PE) == 2) {
+          auto Pred1 = *PI++;
+          auto Pred2 = *PI++;
+
+          BasicBlock *LoopExitBB = nullptr;
+          if (Pred1 == ZttBlock && Pred2 != ZttBlock)
+            LoopExitBB = Pred2;
+          else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
+            LoopExitBB = Pred1;
+          else
+            llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+
+          return SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+        }
+      }
+      // It's possible that even with the existence of a ZTT block, there
+      // might not be a corresponding target block. In such scenarios, the
+      // insertion point will default to the WRegion's exit block.
     }
 
   BasicBlock *PrivExitBB =
