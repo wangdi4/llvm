@@ -18,12 +18,11 @@
 #include "ComparisonResults.h"
 #include "IComparisonResults.h"
 #include "dxfloat.h"
+#include "gtest_wrapper.h"
 #include <iostream>
 #include <limits>
 #include <list>
 #include <typeinfo>
-
-#include "gtest_wrapper.h"
 
 using namespace Validation;
 using namespace Validation::Utils;

@@ -19,7 +19,6 @@
 #include "IPerformance.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
-
 #include <map>
 #include <string>
 #include <vector>

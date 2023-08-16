@@ -18,10 +18,8 @@
 #include "ICLDevBackendOptions.h"
 #include "IRunConfiguration.h"
 #include "common_dev_limits.h"
-#include <cstddef> // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
-
 #include "llvm/Support/DataTypes.h"
-
+#include <cstddef> // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
 #include <string>
 #include <vector>
 

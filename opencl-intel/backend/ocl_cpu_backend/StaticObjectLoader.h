@@ -17,7 +17,6 @@
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
-
 #include <memory>
 
 namespace Intel {

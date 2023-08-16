@@ -14,11 +14,6 @@
 
 // DMTest.cpp : Defines the entry point for the console application.
 //
-#include <iostream>
-#include <limits>
-#include <list>
-
-#include "gtest_wrapper.h"
 
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
@@ -28,6 +23,11 @@
 #include "VectorWidth.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
+#include "gtest_wrapper.h"
+
+#include <iostream>
+#include <limits>
+#include <list>
 
 using namespace Validation;
 using namespace Validation::Utils;

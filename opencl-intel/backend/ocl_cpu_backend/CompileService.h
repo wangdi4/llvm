@@ -17,11 +17,11 @@
 #include "IAbstractBackendFactory.h"
 #include "ProgramBuilder.h"
 #include "cl_dev_backend_api.h"
-#include "llvm/Support/Mutex.h"
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
+#include "llvm/Support/Mutex.h"
 
 namespace Intel {
 namespace OpenCL {

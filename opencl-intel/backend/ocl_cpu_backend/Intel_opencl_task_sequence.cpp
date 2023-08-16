@@ -10,9 +10,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-
 #include "IBlockToKernelMapper.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "IDeviceCommandManager.h"
@@ -22,6 +19,9 @@
 #include "Intel_opencl_task_sequence.h"
 #include "opencl20_ext_execution.h"
 #undef LLVM_BACKEND_NOINLINE_PRE
+
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "opencl_task_sequence"
 

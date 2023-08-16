@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstdio>
 #if defined(_WIN32)
 #define NOMINMAX
 #include <process.h>

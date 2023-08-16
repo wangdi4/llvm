@@ -21,9 +21,8 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/DynamicLibrary.h"
 
+#include <assert.h>
 #include <cstdint>
-#include <stdio.h>
-
 #ifdef _WIN32
 #include <smmintrin.h>
 #else
@@ -31,9 +30,8 @@
 #include <smmintrin.h>
 #endif
 #endif
-
-#include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE

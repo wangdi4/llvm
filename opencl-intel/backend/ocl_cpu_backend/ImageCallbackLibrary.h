@@ -20,7 +20,6 @@
 #include "cl_cpu_detect.h"
 #include "cl_utils.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
-
 #include <memory>
 
 namespace Intel {

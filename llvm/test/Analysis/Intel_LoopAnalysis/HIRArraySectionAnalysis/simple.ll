@@ -1,7 +1,5 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
-
 ; Check the result of analysis.
 
 ; BEGIN REGION { }

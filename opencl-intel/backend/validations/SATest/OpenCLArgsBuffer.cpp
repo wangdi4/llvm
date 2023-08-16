@@ -17,11 +17,8 @@
 #include "Exception.h"
 #include "Image.h"
 #include "SATestException.h"
-
-#include "mem_utils.h"
-
 #include "cpu_dev_limits.h"
-
+#include "mem_utils.h"
 #include <algorithm>
 #include <functional>
 

@@ -16,7 +16,7 @@
 #define LLI_WORK_ITEM_STORAGE_H
 
 #include "IWorkItemBuiltins.h"
-#include <llvm/IR/DerivedTypes.h>
+#include "llvm/IR/DerivedTypes.h"
 #include <vector>
 
 namespace Validation {

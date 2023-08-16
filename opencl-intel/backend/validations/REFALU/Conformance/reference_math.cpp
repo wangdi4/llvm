@@ -14,7 +14,9 @@
 
 #include "reference_math.h"
 #include "CL/cl.h"
+#include "Utility.h"
 #include "imathLibd.h"
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 
@@ -23,9 +25,6 @@
 #include <stdint.h>
 #pragma GCC diagnostic ignored "-Wall"
 #endif
-
-#include "Utility.h"
-#include <float.h>
 
 #if defined(__SSE__) ||                                                        \
     (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64)))

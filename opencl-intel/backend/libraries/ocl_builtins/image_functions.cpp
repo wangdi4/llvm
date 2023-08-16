@@ -15,9 +15,9 @@
 #pragma OPENCL EXTENSION cl_khr_depth_images : enable
 
 #define __OPENCL__
-#include "opencl-intrin-wrapper.h"
 
 #include "cl_image_declaration.h"
+#include "opencl-intrin-wrapper.h"
 
 #define NORMALIZED_SAMPLER 0x08
 

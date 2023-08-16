@@ -16,7 +16,6 @@
 #define __MANGLER_H_
 
 #include "llvm/IR/DerivedTypes.h"
-
 #include <string>
 
 using namespace llvm;

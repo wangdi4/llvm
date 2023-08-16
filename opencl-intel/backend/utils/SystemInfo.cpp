@@ -14,6 +14,13 @@
 
 #include "SystemInfo.h"
 #include "llvm/Support/Path.h"
+#include <assert.h>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <sstream>
+#include <string.h>
+#include <time.h>
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -23,14 +30,6 @@
 #include <unistd.h>
 #define MAX_PATH PATH_MAX
 #endif
-
-#include <assert.h>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <string.h>
-#include <time.h>
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace std;

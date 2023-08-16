@@ -12,7 +12,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
+define dso_local i32 @_Z3fooPi(ptr nocapture readonly %A) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPi:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -22,7 +22,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: i32 [[VP0:%.*]] = load i32* [[VP_PTRIDX:%.*]]
+; CHECK-NEXT:    Exit instr: i32 [[VP0:%.*]] = load ptr [[VP_PTRIDX:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP0]], i32 [[VP__PRIV_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -35,10 +35,10 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
-; CHECK-NEXT:     call i64 4 i8* [[TMP1:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i32* [[VP_PTRIDX]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP0]] = load i32* [[VP_PTRIDX]]
-; CHECK-NEXT:     call i64 4 i8* [[TMP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 4 ptr [[TMP1:%.*]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr [[VP_PTRIDX]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP0]] = load ptr [[VP_PTRIDX]]
+; CHECK-NEXT:     call i64 4 ptr [[TMP1]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
@@ -62,32 +62,31 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:      Live-Out:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    Id: 0
 ; CHECK-NEXT:      Phi: nullptr    Start op: -1
-; CHECK-NEXT:      Live-Out:   [[TMP2]] = load i32, i32* [[PTRIDX0:%.*]], align 4
+; CHECK-NEXT:      Live-Out:   [[TMP2]] = load i32, ptr [[PTRIDX0:%.*]], align 4
 ;
 DIR.OMP.SIMD.116:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1)
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %2 = load i32, i32* %ptridx, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %ptridx, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.217, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.217:                             ; preds = %omp.inner.for.body
-  %.lcssa = phi i32 [ %2, %omp.inner.for.body ]
+  %.lcssa = phi i32 [ %1, %omp.inner.for.body ]
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.217
@@ -99,7 +98,7 @@ DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   ret i32 %mul1
 }
 
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

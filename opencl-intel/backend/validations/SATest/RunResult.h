@@ -15,14 +15,12 @@
 #ifndef RUN_RESULTS_H
 #define RUN_RESULTS_H
 
+#include "BufferContainerList.h"
 #include "IBufferContainerList.h"
 #include "IComparisonResults.h"
 #include "IPerformance.h"
 #include "IRunResult.h"
-
-#include "BufferContainerList.h"
 #include "Performance.h"
-
 #include <map>
 #include <string>
 #include <vector>

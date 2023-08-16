@@ -17,12 +17,10 @@
 #include "Kernel.h"
 #include "Program.h"
 #include "exceptions.h"
-
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <assert.h>
 
 #define DEBUG_TYPE "cpublocktokernelmapper"

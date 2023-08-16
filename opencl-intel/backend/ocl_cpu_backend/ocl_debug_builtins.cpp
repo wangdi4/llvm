@@ -15,7 +15,6 @@
 #include "ServiceFactory.h"
 #include "cl_dev_backend_api.h"
 #include "icldebuggingservice.h"
-
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/DataTypes.h"

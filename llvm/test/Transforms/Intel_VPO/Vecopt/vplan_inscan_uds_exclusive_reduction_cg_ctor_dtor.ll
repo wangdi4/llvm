@@ -49,7 +49,7 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB18:
+; CHECK-LABEL: VPlannedBB17:
 ; CHECK-NEXT:    call ptr @_ZTS5Dummy.omp.def_constr(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
@@ -82,8 +82,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.236, label %omp.precond.end
 
 DIR.OMP.SIMD.236:                                 ; preds = %entry
-  %x.i.i52 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  store float 0.000000e+00, ptr %x.i.i52, align 4
+  store float 0.000000e+00, ptr %red.red, align 4
   %y.i.i53 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 1
   store float 0.000000e+00, ptr %y.i.i53, align 4
   br label %DIR.VPO.GUARD.MEM.MOTION.4.lr.ph
@@ -107,8 +106,7 @@ DIR.VPO.GUARD.MEM.MOTION.3.split:                 ; preds = %DIR.VPO.GUARD.MEM.M
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.3.split
   %2 = trunc i64 %indvars.iv to i32
   store i32 %2, ptr %i.linear.iv, align 4
-  %x6 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  %3 = load float, ptr %x6, align 4
+  %3 = load float, ptr %red.red, align 4
   %arrayidx7 = getelementptr inbounds float, ptr %m_out_vec, i64 %indvars.iv
   store float %3, ptr %arrayidx7, align 4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.552
@@ -144,10 +142,9 @@ DIR.VPO.GUARD.MEM.MOTION.5:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %idxprom8 = sext i32 %5 to i64
   %arrayidx9 = getelementptr inbounds float, ptr %m_in, i64 %idxprom8
   %6 = load float, ptr %arrayidx9, align 4
-  %x1.i = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  %7 = load float, ptr %x1.i, align 4
+  %7 = load float, ptr %red.red, align 4
   %add.i = fadd fast float %7, %6
-  store float %add.i, ptr %x1.i, align 4
+  store float %add.i, ptr %red.red, align 4
   %y2.i = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 1
   store float %6, ptr %y2.i, align 4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.13
@@ -166,7 +163,7 @@ omp.inner.for.cond.DIR.OMP.END.SIMD.15.loopexit_crit_edge: ; preds = %DIR.VPO.EN
   br label %DIR.OMP.END.SIMD.7
 
 DIR.OMP.END.SIMD.7:                               ; preds = %omp.inner.for.cond.DIR.OMP.END.SIMD.15.loopexit_crit_edge
-  %.fca.0.load = load float, ptr %x.i.i52, align 4
+  %.fca.0.load = load float, ptr %red.red, align 4
   %add.i.i = fadd fast float %.fca.0.load, %0
   br label %omp.precond.end
 

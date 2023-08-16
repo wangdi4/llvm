@@ -15,26 +15,25 @@
 #ifndef OPEN_CL_REFERENCE_RUNNER_H
 #define OPEN_CL_REFERENCE_RUNNER_H
 
-#include <cstddef> // for std::size_t
-#include <vector>
-
 #include "IBufferContainerList.h"
 #include "IMemoryObject.h"
 #include "IProgram.h"
 #include "IProgramRunner.h"
 #include "IRunResult.h"
+#include "InterpreterPlugIn.h"
+#include "InterpreterPluggable.h"
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
+#include "PlugInNEAT.h"
 #include "cl_dynamic_lib.h"
 #include "cl_types.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
+#include <cstddef> // for std::size_t
+#include <vector>
 
-#include "InterpreterPlugIn.h"
-#include "InterpreterPluggable.h"
-#include "PlugInNEAT.h"
 namespace Validation {
 class OpenCLKernelConfiguration;
 

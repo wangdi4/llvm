@@ -21,13 +21,13 @@
 #include "cl_config.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
-#include <memory>
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
 #include <assert.h>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>

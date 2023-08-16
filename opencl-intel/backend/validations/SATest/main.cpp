@@ -16,14 +16,12 @@
 #include "SATest.h"
 #include "SATestException.h"
 #include "exceptions.h"
+// Command line options
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DataTypes.h"
-
 #include <iostream>
 #include <string>
 #include <time.h>
-
-// Command line options
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace Validation;

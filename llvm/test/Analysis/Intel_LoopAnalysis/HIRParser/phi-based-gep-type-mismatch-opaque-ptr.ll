@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
 
 ; Verify that the the GEP %3 can be parsed as (%g)[i1].1 even though there is
 ; a mismatch between its base ptr element type ({ i32, i32 }) and the
