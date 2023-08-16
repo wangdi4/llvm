@@ -283,6 +283,11 @@ static bool applyConfig(Function &F, WRegionInfo &WI,
     W->setEntryDirective(CI);
 #endif
   }
+
+  for (OffloadEntry *OE : OffloadEntries)
+    delete OE;
+  OffloadEntries.clear();
+
   return Changed;
 }
 } // end anonymous namespace
