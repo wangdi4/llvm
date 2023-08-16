@@ -18,7 +18,6 @@
 #define __BACKEND_UTILS_H__
 
 #include "llvm/IR/Module.h"
-
 #include <vector>
 
 namespace Intel {

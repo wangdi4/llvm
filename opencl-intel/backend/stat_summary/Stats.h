@@ -12,12 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include <assert.h>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <assert.h>
 
 typedef std::map<const std::string, unsigned> StatValueMap;
 typedef std::map<std::string, StatValueMap> NamedStatValueMap;

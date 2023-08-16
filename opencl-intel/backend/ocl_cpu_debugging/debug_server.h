@@ -20,9 +20,7 @@
 #endif // OclCpuDebugging_EXPORTS
 
 #include "export/icldebuggingservice.h"
-
 #include "llvm/Support/Mutex.h"
-
 #include <memory>
 #include <windows.h>
 #pragma warning(disable : 4985) /* disable ceil warnings */

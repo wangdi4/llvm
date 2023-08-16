@@ -27,7 +27,6 @@
 #include "exceptions.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global
 // constructors are called
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
@@ -38,7 +37,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetSelect.h"
-
+#include "llvm/TargetParser/Triple.h"
 #include <string>
 
 using namespace llvm;

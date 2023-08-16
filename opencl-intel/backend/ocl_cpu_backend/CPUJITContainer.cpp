@@ -16,7 +16,6 @@
 #include "CPUProgram.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"

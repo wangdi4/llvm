@@ -16,6 +16,7 @@
 #include "AsmCompiler.h"
 #include "exceptions.h"
 
+#include "lld/Common/Driver.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -38,12 +39,10 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include <mutex>
-
-#include "lld/Common/Driver.h"
 
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <signal.h>
 #include <sstream>
 #include <stdio.h>

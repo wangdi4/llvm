@@ -13,7 +13,6 @@
 // License.
 
 #include "source_file.h"
-
 #include <stdio.h>
 
 namespace Intel {
