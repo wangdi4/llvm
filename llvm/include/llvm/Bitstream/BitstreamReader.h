@@ -132,7 +132,11 @@ public:
 
   /// Return the bit # of the bit we are reading.
   uint64_t GetCurrentBitNo() const {
+<<<<<<< HEAD
     return uint64_t(NextChar)*CHAR_BIT - BitsInCurWord; // INTEL
+=======
+    return uint64_t(NextChar)*CHAR_BIT - BitsInCurWord;
+>>>>>>> 7a2dfe2237ec4433cfd8eb057631d1859513d54f
   }
 
   // Return the byte # of the current bit.
