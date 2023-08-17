@@ -45,11 +45,18 @@ GCC-compatible ``clang`` and ``clang++`` drivers.
 }];
 
   string Program = "clang";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<string> ExcludedFlags = ["HelpHidden", "NoDriverOption", "CLOption",
                                 "Unsupported", "Ignored", "DpcppUnsupported",
                                 "FlangOnlyOption"];
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Note: We *must* use DefaultVis and not ClangOption, since that's
+  // the name of the actual TableGen record. The alias will not work.
+  list<string> VisibilityMask = ["DefaultVis"];
+  list<string> IgnoreFlags = ["HelpHidden", "Unsupported", "Ignored"];
+>>>>>>> 2425b4c5e5ef5d5fdaffae164230aa6276333081
 }
 
 include "Options.td"

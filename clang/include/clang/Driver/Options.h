@@ -40,6 +40,7 @@ enum ClangFlags {
   LinkerInput = (1 << 5),
   NoArgumentUnused = (1 << 6),
   Unsupported = (1 << 7),
+<<<<<<< HEAD
   CoreOption = (1 << 8),
   CLOption = (1 << 9),
   CC1Option = (1 << 10),
@@ -59,6 +60,12 @@ enum ClangFlags {
   DpcppHidden = (1 << 23),
   DpcppOption = (1 << 24)
 #endif // INTEL_CUSTOMIZATION
+=======
+  LinkOption = (1 << 8),
+  Ignored = (1 << 9),
+  TargetSpecific = (1 << 10),
+  Deprecated = (1 << 11),
+>>>>>>> 2425b4c5e5ef5d5fdaffae164230aa6276333081
 };
 
 // Flags specifically for clang option visibility. We alias DefaultVis to
@@ -66,6 +73,12 @@ enum ClangFlags {
 // for multiple drivers (clang, cl, flang, etc).
 enum ClangVisibility {
   ClangOption = llvm::opt::DefaultVis,
+  CLOption = (1 << 1),
+  CC1Option = (1 << 2),
+  CC1AsOption = (1 << 3),
+  FlangOption = (1 << 4),
+  FC1Option = (1 << 5),
+  DXCOption = (1 << 6),
 };
 
 enum ID {
