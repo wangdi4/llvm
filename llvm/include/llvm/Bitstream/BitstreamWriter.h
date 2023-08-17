@@ -128,13 +128,8 @@ public:
   /// valid. Flushing only occurs at (sub)block boundaries.
   BitstreamWriter(SmallVectorImpl<char> &O, raw_fd_stream *FS = nullptr,
                   uint32_t FlushThreshold = 512)
-<<<<<<< HEAD
-      : Out(O), FS(FS), FlushThreshold(uint64_t(FlushThreshold) << 20), // INTEL
-        CurBit(0), CurValue(0), CurCodeSize(2) {}                       // INTEL
-=======
       : Out(O), FS(FS), FlushThreshold(uint64_t(FlushThreshold) << 20), CurBit(0),
         CurValue(0), CurCodeSize(2) {}
->>>>>>> 7a2dfe2237ec4433cfd8eb057631d1859513d54f
 
   ~BitstreamWriter() {
     assert(CurBit == 0 && "Unflushed data remaining");
