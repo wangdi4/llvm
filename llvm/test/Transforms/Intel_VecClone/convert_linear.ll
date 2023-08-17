@@ -1,7 +1,7 @@
 ; Check handling of upconverting a linear (variable %i) to ensure stride calculation
 ; is inserted correctly.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo
 ; CHECK: simd.begin.region:
@@ -9,12 +9,12 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 2
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(i32* %i.addr, i32 0, i32 1)
+; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %i.addr, i32 0, i32 1)
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
-; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
-; CHECK-NEXT: %0 = load i32, i32* %i.addr
+; CHECK-NEXT: store i32 %stride.add, ptr %i.addr
+; CHECK-NEXT: %0 = load i32, ptr %i.addr
 ; CHECK-NEXT: %conv = sext i32 %0 to i64
 
 ; ModuleID = 'convert.c'
@@ -26,11 +26,11 @@ define i64 @foo(i64 %x, i32 %i) #0 {
 entry:
   %x.addr = alloca i64, align 8
   %i.addr = alloca i32, align 4
-  store i64 %x, i64* %x.addr, align 8
-  store i32 %i, i32* %i.addr, align 4
-  %0 = load i32, i32* %i.addr, align 4
+  store i64 %x, ptr %x.addr, align 8
+  store i32 %i, ptr %i.addr, align 4
+  %0 = load i32, ptr %i.addr, align 4
   %conv = sext i32 %0 to i64
-  %1 = load i64, i64* %x.addr, align 8
+  %1 = load i64, ptr %x.addr, align 8
   %add = add nsw i64 %conv, %1
   ret i64 %add
 }

@@ -1,6 +1,6 @@
 ; Check to see that we are applying the correct updated linear index for an external array access gep.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4ul_foo
 ; CHECK: simd.begin.region:
@@ -9,18 +9,18 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: i32* %x.addr
+; CHECK-SAME: ptr %x.addr
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: i32* %i.addr
+; CHECK-SAME: ptr %i.addr
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
-; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
-; CHECK-NEXT: %0 = load i32, i32* %x.addr
-; CHECK-NEXT: %1 = load i32, i32* %i.addr
+; CHECK-NEXT: store i32 %stride.add, ptr %i.addr
+; CHECK-NEXT: %0 = load i32, ptr %x.addr
+; CHECK-NEXT: %1 = load i32, ptr %i.addr
 ; CHECK-NEXT: %idxprom = sext i32 %1 to i64
-; CHECK-NEXT: %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @ext_a, i64 0, i64 %idxprom
-; CHECK-NEXT: store i32 %0, i32* %arrayidx
+; CHECK-NEXT: %arrayidx = getelementptr inbounds [128 x i32], ptr @ext_a, i64 0, i64 %idxprom
+; CHECK-NEXT: store i32 %0, ptr %arrayidx
 
 ; ModuleID = 'external_array_assign.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -33,13 +33,13 @@ define void @foo(i32 %x, i32 %i) #0 {
 entry:
   %x.addr = alloca i32, align 4
   %i.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  store i32 %i, i32* %i.addr, align 4
-  %0 = load i32, i32* %x.addr, align 4
-  %1 = load i32, i32* %i.addr, align 4
+  store i32 %x, ptr %x.addr, align 4
+  store i32 %i, ptr %i.addr, align 4
+  %0 = load i32, ptr %x.addr, align 4
+  %1 = load i32, ptr %i.addr, align 4
   %idxprom = sext i32 %1 to i64
-  %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @ext_a, i64 0, i64 %idxprom
-  store i32 %0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [128 x i32], ptr @ext_a, i64 0, i64 %idxprom
+  store i32 %0, ptr %arrayidx, align 4
   ret void
 }
 

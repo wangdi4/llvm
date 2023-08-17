@@ -1,6 +1,6 @@
 ; Check VecClone skips widening uniform parameters of <n x Ty> types.
 
-; RUN: opt -opaque-pointers=0 -passes=vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes=vec-clone -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -21,8 +21,8 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_foo,_ZGVbN4uu_foo" }
 ; CHECK-NEXT:   %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME:   "DIR.OMP.SIMD"
 ; CHECK-SAME:   "QUAL.OMP.SIMDLEN"
-; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<2 x i8>* %alloca.a, <2 x i8> zeroinitializer, i32 1)
-; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<3 x i32>* %alloca.b, <3 x i32> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.a, <2 x i8> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.b, <3 x i32> zeroinitializer, i32 1)
 ; CHECK:      simd.loop.preheader:
 ; CHECK-NOT:    %mask
 ; CHECK:      simd.loop.header:
@@ -34,8 +34,8 @@ attributes #0 = { "vector-variants"="_ZGVbM4uu_foo,_ZGVbN4uu_foo" }
 ; CHECK-NEXT:   %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME:   "DIR.OMP.SIMD"
 ; CHECK-SAME:   "QUAL.OMP.SIMDLEN"
-; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<2 x i8>* %alloca.a, <2 x i8> zeroinitializer, i32 1)
-; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(<3 x i32>* %alloca.b, <3 x i32> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.a, <2 x i8> zeroinitializer, i32 1)
+; CHECK-SAME:   "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca.b, <3 x i32> zeroinitializer, i32 1)
 ; CHECK:      simd.loop.header:
 ; CHECK:        call void @bar(<2 x i8> %load.a)
 ; CHECK:        %ext = extractelement <3 x i32> %load.b, i32 0
