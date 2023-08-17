@@ -1336,6 +1336,15 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
           << Val << A->getOption().getName();
   }
 
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_prefetch_distance_EQ)) {
+    StringRef Val = A->getValue();
+    addllvmOption(Args.MakeArgString(
+        Twine("-hir-prefetching-iteration-distance=") + Val));
+  }
+
+  if (Args.hasArg(options::OPT_qopt_prefetch_loads_only))
+    addllvmOption("-hir-prefetching-loads-only");
+
   // Add designator that we are doing host compilation for SYCL offload.
   if (JA.isOffloading(Action::OFK_SYCL) &&
       !JA.isDeviceOffloading(Action::OFK_SYCL))

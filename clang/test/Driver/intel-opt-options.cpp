@@ -286,3 +286,15 @@
 // PREFETCH_DEFAULT-NOT: "-hir-prefetching-trip-count-threshold=0"
 // PREFETCH_DEFAULT-NOT: "-hir-prefetching-skip-non-modified-regions"
 // PREFETCH_DEFAULT-NOT: "-hir-prefetching-enable-indirect-prefetching"
+
+// RUN: %clang --intel -qopt-prefetch-distance=2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DISTANCE
+// RUN: %clang_cl --intel /Qopt-prefetch-distance:2 -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_DISTANCE
+// PREFETCH_DISTANCE: "-hir-prefetching-iteration-distance=2"
+
+// RUN: %clang --intel -qopt-prefetch-loads-only -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_LOADS_ONLY
+// RUN: %clang_cl --intel /Qopt-prefetch-loads-only -### %s 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=PREFETCH_LOADS_ONLY
+// PREFETCH_LOADS_ONLY: "-hir-prefetching-loads-only"
