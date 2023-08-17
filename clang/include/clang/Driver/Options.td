@@ -1859,12 +1859,8 @@ def fprofile_dwo_dir_EQ : Joined<["-"], "fprofile-dwo-dir=">, Group<f_Group>,
 def fprofile_sample_use : Flag<["-"], "fprofile-sample-use">, Group<f_Group>,
     Visibility<[ClangOption, CLOption]>;
 def fno_profile_sample_use : Flag<["-"], "fno-profile-sample-use">, Group<f_Group>,
-<<<<<<< HEAD
-    Visibility<[ClangOption, CLOption, DXCOption]>;
-#if INTEL_CUSTOMIZATION
-=======
     Visibility<[ClangOption, CLOption]>;
->>>>>>> 6915f7706418f3e781a71c8cec338764f8b1d3b2
+#if INTEL_CUSTOMIZATION
 def fprofile_sample_use_EQ : Joined<["-"], "fprofile-sample-use=">,
     Group<f_Group>, Flags<[NoXarchOption]>,
     Visibility<[ClangOption, CC1Option]>,
@@ -5011,7 +5007,7 @@ def m32 : Flag<["-"], "m32">, Group<m_Group>, Flags<[NoXarchOption]>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
 def mxucc : Flag<["-"], "mxucc">, Group<m_Group>, Flags<[NoXarchOption]>,
-            Visibility<[ClangOption, CLOption, DXCOption]>;
+            Visibility<[ClangOption, CLOption, DXCOption]>,
             HelpText<"Enable XuCC mode">;
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
@@ -7393,17 +7389,9 @@ def reuse_exe_EQ : Joined<["-"], "reuse-exe=">, Flags<[DpcppOption]>,
   Visibility<[ClangOption, CLOption, DXCOption]>,
   HelpText<"Speed up FPGA aoc compile if the device code in <exe> is unchanged.">,
   MetaVarName<"<exe>">;
-<<<<<<< HEAD
-def fsycl : Flag<["-"], "fsycl">, Flags<[NoXarchOption, DpcppOption]>, Visibility<[ClangOption, CLOption, DXCOption]>,
+def fsycl : Flag<["-"], "fsycl">, Flags<[NoXarchOption, DpcppOption]>, Visibility<[ClangOption, CLOption]>,
   Group<sycl_Group>, HelpText<"Enables SYCL kernels compilation for device">;
-def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[NoXarchOption, DpcppOption]>,  Visibility<[ClangOption, CLOption, DXCOption]>,
-=======
-def fsycl : Flag<["-"], "fsycl">, Flags<[NoXarchOption]>,
-  Visibility<[ClangOption, CLOption]>,
-  Group<sycl_Group>, HelpText<"Enables SYCL kernels compilation for device">;
-def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[NoXarchOption]>,
-  Visibility<[ClangOption, CLOption]>,
->>>>>>> 6915f7706418f3e781a71c8cec338764f8b1d3b2
+def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[NoXarchOption, DpcppOption]>,  Visibility<[ClangOption, CLOption]>,
   Group<sycl_Group>, HelpText<"Disables SYCL kernels compilation for device">;
 // FIXME: -fsycl-explicit-simd is deprecated. remove it when support is dropped.
 def : Flag<["-"], "fsycl-explicit-simd">, Flags<[Deprecated]>, Visibility<[ClangOption, CLOption, DXCOption]>,
@@ -9170,13 +9158,8 @@ def fsycl_is_native_cpu : Flag<["-"], "fsycl-is-native-cpu">,
 
 #if INTEL_CUSTOMIZATION
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
-<<<<<<< HEAD
   Flags<[NoArgumentUnused, DpcppOption]>,
-  Visibility<[ClangOption, CC1Option, CLOption, DXCOption]>,
-=======
-  Flags<[NoArgumentUnused]>,
   Visibility<[ClangOption, CC1Option, CLOption]>,
->>>>>>> 6915f7706418f3e781a71c8cec338764f8b1d3b2
   HelpText<"SYCL language standard to compile for.">,
   Values<"2020,2017,121,1.2.1,sycl-1.2.1">,
   ShouldParseIf<!strconcat(fsycl_is_device.KeyPath, "||", fsycl_is_host.KeyPath)>;
