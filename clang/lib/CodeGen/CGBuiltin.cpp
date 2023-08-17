@@ -12576,12 +12576,8 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
                                      CharUnits::fromQuantity(16));
   }
   case NEON::BI__builtin_neon_vstrq_p128: {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-    llvm::Type *Int128PTy = llvm::PointerType::getUnqual(getLLVMContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *Int128PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), 128);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Ptr = Builder.CreateBitCast(Ops[0], Int128PTy);
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Ptr = Ops[0];

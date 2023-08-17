@@ -8,7 +8,11 @@
 
 #pragma once
 
+<<<<<<< HEAD
 #include <algorithm>   // for std::min and vs2017 win
+=======
+#include <algorithm> // for std::min and vs2017 win
+>>>>>>> b9c73bc053a8077f3504869a87496270fd71af3f
 #include <type_traits> // for integral_constant, conditional_t, remove_cv_t
 
 namespace sycl {
