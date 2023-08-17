@@ -66,6 +66,7 @@ config.spirv_enable_opaque_pointers = @SPIRV_ENABLE_OPAQUE_POINTERS@
 config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+config.reverse_iteration = @LLVM_ENABLE_REVERSE_ITERATION@
 config.dxil_tests = @LLVM_INCLUDE_DXIL_TESTS@
 config.have_llvm_driver = @LLVM_TOOL_LLVM_DRIVER_BUILD@
 

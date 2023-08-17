@@ -2224,8 +2224,7 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
       // FIXME: The expression inside a CXXDefaultArgExpr is owned by the
       // called function's declaration, not by the caller. If we simply add
       // this expression to the CFG, we could end up with the same Expr
-      // appearing multiple times.
-      // PR13385 / <rdar://problem/12156507>
+      // appearing multiple times (PR13385).
       //
       // It's likewise possible for multiple CXXDefaultInitExprs for the same
       // expression to be used in the same function (through aggregate
@@ -3511,6 +3510,11 @@ CFGBlock *CFGBuilder::VisitForStmt(ForStmt *F) {
     Block = Succ = TransitionBlock = createBlock(false);
     TransitionBlock->setLoopTarget(F);
 
+
+    // Loop iteration (after increment) should end with destructor of Condition
+    // variable (if any).
+    addAutomaticObjHandling(ScopePos, LoopBeginScopePos, F);
+
     if (Stmt *I = F->getInc()) {
       // Generate increment code in its own basic block.  This is the target of
       // continue statements.
@@ -3530,8 +3534,6 @@ CFGBlock *CFGBuilder::VisitForStmt(ForStmt *F) {
    ContinueJumpTarget = JumpTarget(Succ, ContinueScopePos);
    ContinueJumpTarget.block->setLoopTarget(F);
 
-    // Loop body should end with destructor of Condition variable (if any).
-   addAutomaticObjHandling(ScopePos, LoopBeginScopePos, F);
 
     // If body is not a compound statement create implicit scope
     // and add destructors.

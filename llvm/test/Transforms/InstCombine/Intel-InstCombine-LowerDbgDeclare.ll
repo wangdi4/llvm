@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=instcombine -instcombine-lower-dbg-declare=1 < %s \
+; RUN: opt -S -passes='instcombine<no-verify-fixpoint>' -instcombine-lower-dbg-declare=1 < %s \
 ; RUN:   | FileCheck %s
 ;
 ; Intel-specific validation of LowerDbgDeclare.

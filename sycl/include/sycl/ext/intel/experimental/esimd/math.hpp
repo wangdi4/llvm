@@ -512,77 +512,69 @@ imul(T &rmd, T0 src0, T1 src1) {
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-addc(__ESIMD_NS::simd<uint32_t, N> &carry, __ESIMD_NS::simd<uint32_t, N> src0,
-     __ESIMD_NS::simd<uint32_t, N> src1) {
-  std::pair<__ESIMD_DNS::vector_type_t<uint32_t, N>,
-            __ESIMD_DNS::vector_type_t<uint32_t, N>>
-      Result = __esimd_addc<uint32_t, N>(src0.data(), src1.data());
-
-  carry = Result.first;
-  return Result.second;
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::addc(carry, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> addc(
+    __ESIMD_NS::simd<uint32_t, N> &carry, __ESIMD_NS::simd<uint32_t, N> src0,
+    __ESIMD_NS::simd<uint32_t, N> src1) {
+  return __ESIMD_NS::addc(carry, src0, src1);
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-addc(__ESIMD_NS::simd<uint32_t, N> &carry, __ESIMD_NS::simd<uint32_t, N> src0,
-     uint32_t src1) {
-  __ESIMD_NS::simd<uint32_t, N> Src1V = src1;
-  return addc(carry, src0, Src1V);
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::addc(carry, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> addc(
+    __ESIMD_NS::simd<uint32_t, N> &carry, __ESIMD_NS::simd<uint32_t, N> src0,
+    uint32_t src1) {
+  return __ESIMD_NS::addc(carry, src0, src1);
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-addc(__ESIMD_NS::simd<uint32_t, N> &carry, uint32_t src0,
-     __ESIMD_NS::simd<uint32_t, N> src1) {
-  __ESIMD_NS::simd<uint32_t, N> Src0V = src0;
-  return addc(carry, Src0V, src1);
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::addc(carry, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> addc(
+    __ESIMD_NS::simd<uint32_t, N> &carry, uint32_t src0,
+    __ESIMD_NS::simd<uint32_t, N> src1) {
+  return __ESIMD_NS::addc(carry, src0, src1);
 }
 
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::addc(carry, src0, src1);")
 __ESIMD_API uint32_t addc(uint32_t &carry, uint32_t src0, uint32_t src1) {
-  __ESIMD_NS::simd<uint32_t, 1> CarryV = carry;
-  __ESIMD_NS::simd<uint32_t, 1> Src0V = src0;
-  __ESIMD_NS::simd<uint32_t, 1> Src1V = src1;
-  __ESIMD_NS::simd<uint32_t, 1> Res = addc(CarryV, Src0V, Src1V);
-  carry = CarryV[0];
-  return Res[0];
+  return __ESIMD_NS::addc(carry, src0, src1);
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-subb(__ESIMD_NS::simd<uint32_t, N> &borrow, __ESIMD_NS::simd<uint32_t, N> src0,
-     __ESIMD_NS::simd<uint32_t, N> src1) {
-  std::pair<__ESIMD_DNS::vector_type_t<uint32_t, N>,
-            __ESIMD_DNS::vector_type_t<uint32_t, N>>
-      Result = __esimd_subb<uint32_t, N>(src0.data(), src1.data());
-
-  borrow = Result.first;
-  return Result.second;
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::subb(borrow, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> subb(
+    __ESIMD_NS::simd<uint32_t, N> &borrow, __ESIMD_NS::simd<uint32_t, N> src0,
+    __ESIMD_NS::simd<uint32_t, N> src1) {
+  return __ESIMD_NS::subb(borrow, src0, src1);
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-subb(__ESIMD_NS::simd<uint32_t, N> &borrow, __ESIMD_NS::simd<uint32_t, N> src0,
-     uint32_t src1) {
-  __ESIMD_NS::simd<uint32_t, N> Src1V = src1;
-  return subb(borrow, src0, Src1V);
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::subb(borrow, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> subb(
+    __ESIMD_NS::simd<uint32_t, N> &borrow, __ESIMD_NS::simd<uint32_t, N> src0,
+    uint32_t src1) {
+  return __ESIMD_NS::subb(borrow, src0, src1);
 }
 
 template <int N>
-__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
-subb(__ESIMD_NS::simd<uint32_t, N> &borrow, uint32_t src0,
-     __ESIMD_NS::simd<uint32_t, N> src1) {
-  __ESIMD_NS::simd<uint32_t, N> Src0V = src0;
-  return subb(borrow, Src0V, src1);
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::subb(borrow, src0, src1);")
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N> subb(
+    __ESIMD_NS::simd<uint32_t, N> &borrow, uint32_t src0,
+    __ESIMD_NS::simd<uint32_t, N> src1) {
+  return __ESIMD_NS::subb(borrow, src0, src1);
 }
 
+__SYCL_DEPRECATED(
+    "Please use sycl::ext::intel::esimd::subb(borrow, src0, src1);")
 __ESIMD_API uint32_t subb(uint32_t &borrow, uint32_t src0, uint32_t src1) {
-  __ESIMD_NS::simd<uint32_t, 1> BorrowV = borrow;
-  __ESIMD_NS::simd<uint32_t, 1> Src0V = src0;
-  __ESIMD_NS::simd<uint32_t, 1> Src1V = src1;
-  __ESIMD_NS::simd<uint32_t, 1> Res = subb(BorrowV, Src0V, Src1V);
-  borrow = BorrowV[0];
-  return Res[0];
+  return __ESIMD_NS::subb(borrow, src0, src1);
 }
 
 /// Integral quotient (vector version)
@@ -593,10 +585,11 @@ __ESIMD_API uint32_t subb(uint32_t &borrow, uint32_t src0, uint32_t src1) {
 /// @param src1 the divisor scalar value.
 /// @return vector of quotient elements.
 template <typename T, int SZ, typename U>
+__SYCL_DEPRECATED("Use: src0 / src1;")
 __ESIMD_API
     std::enable_if_t<std::is_integral<T>::value && std::is_integral<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    quot(__ESIMD_NS::simd<T, SZ> src0, U src1) {
+                     __ESIMD_NS::simd<T, SZ>> quot(__ESIMD_NS::simd<T, SZ> src0,
+                                                   U src1) {
   return src0 / src1;
 }
 
@@ -607,12 +600,12 @@ __ESIMD_API
 /// @param src1 the divisor.
 /// @return quotient value.
 template <typename T0, typename T1>
+__SYCL_DEPRECATED("Use: src0 / src1;")
 __ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
                                  __ESIMD_DNS::is_esimd_scalar<T1>::value &&
                                  std::is_integral<T0>::value &&
                                  std::is_integral<T1>::value,
-                             std::remove_const_t<T0>>
-quot(T0 src0, T1 src1) {
+                             std::remove_const_t<T0>> quot(T0 src0, T1 src1) {
   return src0 / src1;
 }
 
@@ -624,10 +617,11 @@ quot(T0 src0, T1 src1) {
 /// @param src1 the divisor scalar value.
 /// @return vector of elements after applying modulo operation.
 template <typename T, int SZ, typename U>
+__SYCL_DEPRECATED("Use: src0 % src1;")
 __ESIMD_API
     std::enable_if_t<std::is_integral<T>::value && std::is_integral<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    mod(__ESIMD_NS::simd<T, SZ> src0, U src1) {
+                     __ESIMD_NS::simd<T, SZ>> mod(__ESIMD_NS::simd<T, SZ> src0,
+                                                  U src1) {
   return src0 % src1;
 }
 
@@ -638,12 +632,12 @@ __ESIMD_API
 /// @param src1 the divisor.
 /// @return Modulo value.
 template <typename T0, typename T1>
+__SYCL_DEPRECATED("Use: src0 % src1;")
 __ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
                                  __ESIMD_DNS::is_esimd_scalar<T1>::value &&
                                  std::is_integral<T0>::value &&
                                  std::is_integral<T1>::value,
-                             std::remove_const_t<T0>>
-mod(T0 src0, T1 src1) {
+                             std::remove_const_t<T0>> mod(T0 src0, T1 src1) {
   return src0 % src1;
 }
 
@@ -657,11 +651,11 @@ mod(T0 src0, T1 src1) {
 /// @param src1 the divisor scalar value.
 /// @return vector of quotient elements.
 template <typename T, int SZ, typename U>
-__ESIMD_API
-    std::enable_if_t<std::is_integral<T>::value && std::is_integral<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    div(__ESIMD_NS::simd<T, SZ> &remainder, __ESIMD_NS::simd<T, SZ> src0,
-        U src1) {
+__SYCL_DEPRECATED("Use: T res = src0 / src1; T remainder = src0 % src1;")
+__ESIMD_API std::enable_if_t<
+    std::is_integral<T>::value && std::is_integral<U>::value,
+    __ESIMD_NS::simd<T, SZ>> div(__ESIMD_NS::simd<T, SZ> &remainder,
+                                 __ESIMD_NS::simd<T, SZ> src0, U src1) {
   remainder = src0 % src1;
   return src0 / src1;
 }
@@ -676,12 +670,12 @@ __ESIMD_API
 /// @param src1 the divisor input vector.
 /// @return vector of quotient elements.
 template <typename T, int SZ, typename U>
-__ESIMD_API
-    std::enable_if_t<std::is_integral<T>::value && std::is_integral<U>::value &&
-                         __ESIMD_DNS::is_esimd_scalar<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    div(__ESIMD_NS::simd<T, SZ> &remainder, U src0,
-        __ESIMD_NS::simd<T, SZ> src1) {
+__SYCL_DEPRECATED("Use: T res = src0 / src1; T remainder = src0 % src1;")
+__ESIMD_API std::enable_if_t<
+    std::is_integral<T>::value && std::is_integral<U>::value &&
+        __ESIMD_DNS::is_esimd_scalar<U>::value,
+    __ESIMD_NS::simd<T, SZ>> div(__ESIMD_NS::simd<T, SZ> &remainder, U src0,
+                                 __ESIMD_NS::simd<T, SZ> src1) {
   remainder = src0 % src1;
   return src0 / src1;
 }
@@ -696,13 +690,14 @@ __ESIMD_API
 /// @param src1 the divisor scalar value.
 /// @return scalar quotient value.
 template <typename RT, typename T0, typename T1>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<RT>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T0>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T1>::value,
-                                  std::remove_const_t<RT>>
-    div(__ESIMD_NS::simd<std::remove_const_t<RT>, 1> &remainder, T0 src0,
-        T1 src1) {
+__SYCL_DEPRECATED("Use: T res = src0 / src1; T remainder = src0 % src1;")
+__ESIMD_API std::enable_if_t<
+    __ESIMD_DNS::is_esimd_scalar<RT>::value &&
+        __ESIMD_DNS::is_esimd_scalar<T0>::value &&
+        __ESIMD_DNS::is_esimd_scalar<T1>::value,
+    std::remove_const_t<RT>> div(__ESIMD_NS::simd<std::remove_const_t<RT>, 1>
+                                     &remainder,
+                                 T0 src0, T1 src1) {
   remainder[0] = src0 % src1;
   return src0 / src1;
 }
@@ -723,6 +718,7 @@ ESIMD_NODEBUG
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp2(__ESIMD_NS::simd<T1, SZ> src0, U src1,
                                          Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
@@ -747,6 +743,7 @@ __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp2(__ESIMD_NS::simd<T1, SZ> src0, U src1,
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp3(__ESIMD_NS::simd<T1, SZ> src0, U src1,
                                          Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
@@ -771,6 +768,7 @@ __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp3(__ESIMD_NS::simd<T1, SZ> src0, U src1,
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp4(__ESIMD_NS::simd<T1, SZ> src0, U src1,
                                          Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
@@ -795,6 +793,7 @@ __ESIMD_API __ESIMD_NS::simd<T0, SZ> dp4(__ESIMD_NS::simd<T1, SZ> src0, U src1,
 /// @return vector of elements.
 template <typename T0, typename T1, typename U, int SZ,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<T0, SZ> dph(__ESIMD_NS::simd<T1, SZ> src0, U src1,
                                          Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
@@ -820,6 +819,7 @@ __ESIMD_API __ESIMD_NS::simd<T0, SZ> dph(__ESIMD_NS::simd<T1, SZ> src0, U src1,
 /// @return resulting vector from linear equation operation.
 template <typename RT, typename T1, typename T2, int SZ,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<RT, SZ> line(__ESIMD_NS::simd<T1, 4> src0,
                                           __ESIMD_NS::simd<T2, SZ> src1,
                                           Sat sat = {}) {
@@ -849,8 +849,10 @@ __ESIMD_API __ESIMD_NS::simd<RT, SZ> line(__ESIMD_NS::simd<T1, 4> src0,
 /// @return resulting vector from linear equation operation.
 template <typename RT, typename T, int SZ,
           class Sat = __ESIMD_NS::saturation_off_tag>
-__ESIMD_API __ESIMD_NS::simd<RT, SZ>
-line(float P, float Q, __ESIMD_NS::simd<T, SZ> src1, Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API __ESIMD_NS::simd<RT, SZ> line(float P, float Q,
+                                          __ESIMD_NS::simd<T, SZ> src1,
+                                          Sat sat = {}) {
   __ESIMD_NS::simd<float, 4> Src0 = P;
   Src0(3) = Q;
   return esimd::line<RT>(Src0, src1, sat);
@@ -880,13 +882,14 @@ line(float P, float Q, __ESIMD_NS::simd<T, SZ> src1, Sat sat = {}) {
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG ESIMD_INLINE
-    std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
-                         std::is_floating_point<T1>::value &&
-                         __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
-                         std::is_floating_point<U>::value,
-                     __ESIMD_NS::simd<T0, SZ>>
-    dp2(__ESIMD_NS::simd<T1, SZ> src0, U src1, Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API std::enable_if_t<
+    __ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
+        std::is_floating_point<T1>::value &&
+        __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
+        std::is_floating_point<U>::value,
+    __ESIMD_NS::simd<T0, SZ>> dp2(__ESIMD_NS::simd<T1, SZ> src0, U src1,
+                                  Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
 
   __ESIMD_NS::simd<float, SZ> Src1 = src1;
@@ -913,13 +916,14 @@ ESIMD_NODEBUG ESIMD_INLINE
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG ESIMD_INLINE
-    std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
-                         std::is_floating_point<T1>::value &&
-                         __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
-                         std::is_floating_point<U>::value,
-                     __ESIMD_NS::simd<T0, SZ>>
-    dp3(__ESIMD_NS::simd<T1, SZ> src0, U src1, Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API std::enable_if_t<
+    __ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
+        std::is_floating_point<T1>::value &&
+        __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
+        std::is_floating_point<U>::value,
+    __ESIMD_NS::simd<T0, SZ>> dp3(__ESIMD_NS::simd<T1, SZ> src0, U src1,
+                                  Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
 
   __ESIMD_NS::simd<float, SZ> Src1 = src1;
@@ -947,13 +951,14 @@ ESIMD_NODEBUG ESIMD_INLINE
 /// @return vector of elements.
 template <typename T0, typename T1, int SZ, typename U,
           class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG ESIMD_INLINE
-    std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
-                         std::is_floating_point<T1>::value &&
-                         __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
-                         std::is_floating_point<U>::value,
-                     __ESIMD_NS::simd<T0, SZ>>
-    dp4(__ESIMD_NS::simd<T1, SZ> src0, U src1, Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API std::enable_if_t<
+    __ESIMD_DNS::is_fp_or_dword_type<T1>::value &&
+        std::is_floating_point<T1>::value &&
+        __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
+        std::is_floating_point<U>::value,
+    __ESIMD_NS::simd<T0, SZ>> dp4(__ESIMD_NS::simd<T1, SZ> src0, U src1,
+                                  Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
 
   __ESIMD_NS::simd<T1, SZ> Src1 = src1;
@@ -982,13 +987,14 @@ ESIMD_NODEBUG ESIMD_INLINE
 /// @return vector of elements.
 template <typename T, typename U, int SZ,
           class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG ESIMD_INLINE
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API
     std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
                          std::is_floating_point<T>::value &&
                          __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
                          std::is_floating_point<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    dph(__ESIMD_NS::simd<T, SZ> src0, U src1, Sat sat = {}) {
+                     __ESIMD_NS::simd<T, SZ>> dph(__ESIMD_NS::simd<T, SZ> src0,
+                                                  U src1, Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
 
   __ESIMD_NS::simd<float, SZ> Src1 = src1;
@@ -1015,12 +1021,13 @@ ESIMD_NODEBUG ESIMD_INLINE
 /// values: saturation_on/saturation_off.
 /// @return resulting vector from linear equation operation.
 template <typename T, int SZ, class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
-                                      std::is_floating_point<T>::value,
-                                  __ESIMD_NS::simd<T, SZ>>
-    line(__ESIMD_NS::simd<T, 4> src0, __ESIMD_NS::simd<T, SZ> src1,
-         Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API
+    std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
+                         std::is_floating_point<T>::value,
+                     __ESIMD_NS::simd<T, SZ>> line(__ESIMD_NS::simd<T, 4> src0,
+                                                   __ESIMD_NS::simd<T, SZ> src1,
+                                                   Sat sat = {}) {
   static_assert(SZ % 4 == 0, "result size is not a multiple of 4");
 
   __ESIMD_NS::simd<T, SZ> Src1 = src1;
@@ -1048,11 +1055,13 @@ ESIMD_NODEBUG
 /// values: saturation_on/saturation_off.
 /// @return resulting vector from linear equation operation.
 template <typename T, int SZ, class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
-                                      std::is_floating_point<T>::value,
-                                  __ESIMD_NS::simd<T, SZ>>
-    line(float P, float Q, __ESIMD_NS::simd<T, SZ> src1, Sat sat = {}) {
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API
+    std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
+                         std::is_floating_point<T>::value,
+                     __ESIMD_NS::simd<T, SZ>> line(float P, float Q,
+                                                   __ESIMD_NS::simd<T, SZ> src1,
+                                                   Sat sat = {}) {
   __ESIMD_NS::simd<T, 4> Src0 = P;
   Src0(3) = Q;
   return esimd::line<T>(Src0, src1, sat);
@@ -1083,7 +1092,7 @@ template <typename T> __ESIMD_API T frc(T src0) {
   return Result[0];
 }
 
-// lzd
+// lzd - leading zero detection
 template <typename RT, typename T0, int SZ,
           class Sat = __ESIMD_NS::saturation_off_tag>
 __ESIMD_API __ESIMD_NS::simd<RT, SZ> lzd(__ESIMD_NS::simd<T0, SZ> src0,
@@ -1094,11 +1103,10 @@ __ESIMD_API __ESIMD_NS::simd<RT, SZ> lzd(__ESIMD_NS::simd<T0, SZ> src0,
 }
 
 template <typename RT, typename T0, class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<RT>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T0>::value,
-                                  std::remove_const_t<RT>>
-    lzd(T0 src0, Sat sat = {}) {
+__ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<RT>::value &&
+                                 __ESIMD_DNS::is_esimd_scalar<T0>::value,
+                             std::remove_const_t<RT>>
+lzd(T0 src0, Sat sat = {}) {
   __ESIMD_NS::simd<T0, 1> Src0 = src0;
   __ESIMD_NS::simd<RT, 1> Result = esimd::lzd<RT>(Src0);
   return Result[0];
@@ -1110,6 +1118,7 @@ ESIMD_NODEBUG
 
 template <int SZ, typename U, typename V,
           class Sat = __ESIMD_NS::saturation_off_tag>
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
 __ESIMD_API __ESIMD_NS::simd<float, SZ> lrp(__ESIMD_NS::simd<float, SZ> src0,
                                             U src1, V src2, Sat sat = {}) {
   static_assert(SZ >= 4 && (SZ & 0x3) == 0,
@@ -1138,13 +1147,15 @@ __ESIMD_API __ESIMD_NS::simd<float, SZ> lrp(__ESIMD_NS::simd<float, SZ> src0,
 // using less efficient implementation.
 template <typename T, int SZ, typename U, typename V,
           class Sat = __ESIMD_NS::saturation_off_tag>
-ESIMD_NODEBUG ESIMD_INLINE
+__SYCL_DEPRECATED("Gen9 specific: use emulation sequence")
+__ESIMD_API
     std::enable_if_t<__ESIMD_DNS::is_fp_or_dword_type<T>::value &&
                          std::is_floating_point<T>::value &&
                          __ESIMD_DNS::is_fp_or_dword_type<U>::value &&
                          std::is_floating_point<U>::value,
-                     __ESIMD_NS::simd<T, SZ>>
-    lrp(__ESIMD_NS::simd<T, SZ> src0, U src1, V src2, Sat sat = {}) {
+                     __ESIMD_NS::simd<T, SZ>> lrp(__ESIMD_NS::simd<T, SZ> src0,
+                                                  U src1, V src2,
+                                                  Sat sat = {}) {
 
   __ESIMD_NS::simd<float, SZ> Src1 = src1;
   __ESIMD_NS::simd<float, SZ> Src2 = src2;
@@ -1171,11 +1182,10 @@ __ESIMD_API __ESIMD_NS::simd<T0, SZ> bf_reverse(__ESIMD_NS::simd<T1, SZ> src0) {
 
 /// bf_reverse
 template <typename T0, typename T1>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T1>::value,
-                                  std::remove_const_t<T0>>
-    bf_reverse(T1 src0) {
+__ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
+                                 __ESIMD_DNS::is_esimd_scalar<T1>::value,
+                             std::remove_const_t<T0>>
+bf_reverse(T1 src0) {
   __ESIMD_NS::simd<T1, 1> Src0 = src0;
   __ESIMD_NS::simd<T0, 1> Result = esimd::bf_reverse<T0>(Src0);
   return Result[0];
@@ -1183,7 +1193,7 @@ ESIMD_NODEBUG
 
 /// bf_insert
 template <typename T0, typename T1, int SZ, typename U, typename V, typename W>
-ESIMD_NODEBUG ESIMD_INLINE
+__ESIMD_API
     std::enable_if_t<std::is_integral<T1>::value, __ESIMD_NS::simd<T0, SZ>>
     bf_insert(U src0, V src1, W src2, __ESIMD_NS::simd<T1, SZ> src3) {
   typedef typename __ESIMD_DNS::dword_type<T1> DT1;
@@ -1199,11 +1209,10 @@ ESIMD_NODEBUG ESIMD_INLINE
 
 /// bf_insert
 template <typename T0, typename T1, typename T2, typename T3, typename T4>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T4>::value,
-                                  std::remove_const_t<T0>>
-    bf_insert(T1 src0, T2 src1, T3 src2, T4 src3) {
+__ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
+                                 __ESIMD_DNS::is_esimd_scalar<T4>::value,
+                             std::remove_const_t<T0>>
+bf_insert(T1 src0, T2 src1, T3 src2, T4 src3) {
   __ESIMD_NS::simd<T4, 1> Src3 = src3;
   __ESIMD_NS::simd<T0, 1> Result = esimd::bf_insert<T0>(src0, src1, src2, Src3);
   return Result[0];
@@ -1211,7 +1220,7 @@ ESIMD_NODEBUG
 
 /// bf_extract
 template <typename T0, typename T1, int SZ, typename U, typename V>
-ESIMD_NODEBUG ESIMD_INLINE
+__ESIMD_API
     std::enable_if_t<std::is_integral<T1>::value, __ESIMD_NS::simd<T0, SZ>>
     bf_extract(U src0, V src1, __ESIMD_NS::simd<T1, SZ> src2) {
   typedef typename __ESIMD_DNS::dword_type<T1> DT1;
@@ -1226,11 +1235,10 @@ ESIMD_NODEBUG ESIMD_INLINE
 
 /// bf_extract
 template <typename T0, typename T1, typename T2, typename T3>
-ESIMD_NODEBUG
-    ESIMD_INLINE std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
-                                      __ESIMD_DNS::is_esimd_scalar<T3>::value,
-                                  std::remove_const_t<T0>>
-    bf_extract(T1 src0, T2 src1, T3 src2) {
+__ESIMD_API std::enable_if_t<__ESIMD_DNS::is_esimd_scalar<T0>::value &&
+                                 __ESIMD_DNS::is_esimd_scalar<T3>::value,
+                             std::remove_const_t<T0>>
+bf_extract(T1 src0, T2 src1, T3 src2) {
   __ESIMD_NS::simd<T3, 1> Src2 = src2;
   __ESIMD_NS::simd<T0, 1> Result = esimd::bf_extract<T0>(src0, src1, Src2);
   return Result[0];
@@ -1258,8 +1266,7 @@ constexpr double __ESIMD_CONST_PI = 3.1415926535897932384626433832795;
 /// @endcond ESIMD_DETAIL
 
 template <typename T, int SZ>
-ESIMD_NODEBUG ESIMD_INLINE __ESIMD_NS::simd<T, SZ>
-atan(__ESIMD_NS::simd<T, SZ> src0) {
+__ESIMD_API __ESIMD_NS::simd<T, SZ> atan(__ESIMD_NS::simd<T, SZ> src0) {
   static_assert(std::is_floating_point<T>::value,
                 "Floating point argument type is expected.");
   __ESIMD_NS::simd<T, SZ> Src0 = __ESIMD_NS::abs(src0);
@@ -1301,7 +1308,7 @@ template <typename T> __ESIMD_API T atan(T src0) {
 // acos
 
 template <typename T, int SZ>
-ESIMD_NODEBUG ESIMD_INLINE
+__ESIMD_API
     std::enable_if_t<std::is_floating_point<T>::value, __ESIMD_NS::simd<T, SZ>>
     acos(__ESIMD_NS::simd<T, SZ> src0) {
   __ESIMD_NS::simd<T, SZ> Src0 = __ESIMD_NS::abs(src0);
@@ -1339,7 +1346,7 @@ __ESIMD_API std::enable_if_t<std::is_floating_point<T>::value, T> acos(T src0) {
 // asin
 
 template <typename T, int SZ>
-ESIMD_NODEBUG ESIMD_INLINE
+__ESIMD_API
     std::enable_if_t<std::is_floating_point<T>::value, __ESIMD_NS::simd<T, SZ>>
     asin(__ESIMD_NS::simd<T, SZ> src0) {
   __ESIMD_NS::simd_mask<SZ> Neg = src0 < T(0.0);

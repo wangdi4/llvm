@@ -487,7 +487,12 @@ static void createProfileDir(const char *Filename) {
 static FILE *openFileForMerging(const char *ProfileFileName, int *MergeDone) {
   FILE *ProfileFile = getProfileFile();
   int rc;
-
+  // initializeProfileForContinuousMode will lock the profile, but if
+  // ProfileFile is set by user via __llvm_profile_set_file_object, it's assumed
+  // unlocked at this point.
+  if (ProfileFile && !__llvm_profile_is_continuous_mode_enabled()) {
+    lprofLockFileHandle(ProfileFile);
+  }
   if (!ProfileFile) {
     createProfileDir(ProfileFileName);
     ProfileFile = lprofOpenFileEx(ProfileFileName);
@@ -539,6 +544,9 @@ static int writeFile(const char *OutputName) {
 
   if (OutputFile == getProfileFile()) {
     fflush(OutputFile);
+    if (doMerging() && !__llvm_profile_is_continuous_mode_enabled()) {
+      lprofUnlockFileHandle(OutputFile);
+    }
   } else {
     fclose(OutputFile);
   }
@@ -719,12 +727,12 @@ static void initializeProfileForContinuousMode(void) {
 static const char *DefaultProfileName = "default.profraw";
 static void resetFilenameToDefault(void) {
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
-#if defined( __GNUC__) || defined(__clang__)
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
     free((void *)lprofCurFilename.FilenamePat);
-#if defined( __GNUC__) || defined(__clang__)
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
   }
@@ -771,7 +779,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   int MergingEnabled = 0;
   int FilenamePatLen = strlen(FilenamePat);
 
-#if defined( __GNUC__) || defined(__clang__)
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
@@ -782,7 +790,7 @@ static int parseFilenamePattern(const char *FilenamePat,
   if (lprofCurFilename.FilenamePat && lprofCurFilename.OwnsFilenamePat) {
     free((void *)lprofCurFilename.FilenamePat);
   }
-#if defined( __GNUC__) || defined(__clang__)
+#if defined( __GNUC__) || defined(__clang__) //INTEL
 #pragma GCC diagnostic pop
 #endif
 

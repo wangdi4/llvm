@@ -535,8 +535,10 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         // types.
         const Align MaxAlign = std::max(EntryAI->getAlign(), AI.getAlign());
         EntryAI->setAlignment(MaxAlign);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
         if (AI.getType() != EntryAI->getType())
           return new BitCastInst(EntryAI, AI.getType());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         return replaceInstUsesWith(AI, EntryAI);
       }
     }
@@ -562,13 +564,19 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
       LLVM_DEBUG(dbgs() << "Found alloca equal to global: " << AI << '\n');
       LLVM_DEBUG(dbgs() << "  memcpy = " << *Copy << '\n');
       unsigned SrcAddrSpace = TheSrc->getType()->getPointerAddressSpace();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *DestTy = PointerType::get(AI.getAllocatedType(), SrcAddrSpace);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       if (AI.getAddressSpace() == SrcAddrSpace) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        Instruction *NewI = replaceInstUsesWith(AI, TheSrc);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         Value *Cast = Builder.CreateBitCast(TheSrc, DestTy);
         Instruction *NewI = replaceInstUsesWith(AI, Cast);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         eraseInstFromFunction(*Copy);
         ++NumGlobalCopies;
         return NewI;
@@ -579,8 +587,12 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        PtrReplacer.replacePointer(TheSrc);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
         Value *Cast = Builder.CreateBitCast(TheSrc, DestTy);
         PtrReplacer.replacePointer(Cast);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         ++NumGlobalCopies;
       }
     }
@@ -634,13 +646,20 @@ static StoreInst *combineStoreToNewValue(InstCombinerImpl &IC, StoreInst &SI,
          "can't fold an atomic store of requested type");
 
   Value *Ptr = SI.getPointerOperand();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   unsigned AS = SI.getPointerAddressSpace();
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
   SI.getAllMetadata(MD);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  StoreInst *NewStore =
+      IC.Builder.CreateAlignedStore(V, Ptr, SI.getAlign(), SI.isVolatile());
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
   StoreInst *NewStore = IC.Builder.CreateAlignedStore(
       V, IC.Builder.CreateBitCast(Ptr, V->getType()->getPointerTo(AS)),
       SI.getAlign(), SI.isVolatile());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   NewStore->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
   for (const auto &MDPair : MD) {
     unsigned ID = MDPair.first;
@@ -1883,8 +1902,7 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
     --BBI;
     // Don't count debug info directives, lest they affect codegen,
     // and we skip pointer-to-pointer bitcasts, which are NOPs.
-    if (BBI->isDebugOrPseudoInst() ||
-        (isa<BitCastInst>(BBI) && BBI->getType()->isPointerTy())) {
+    if (BBI->isDebugOrPseudoInst()) {
       ScanInsts++;
       continue;
     }
@@ -1964,11 +1982,15 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
 
   // This is a non-terminator unreachable marker. Don't remove it.
   if (isa<UndefValue>(Ptr)) {
-    // Remove all instructions after the marker and guaranteed-to-transfer
-    // instructions before the marker.
-    if (handleUnreachableFrom(SI.getNextNode()) ||
-        removeInstructionsBeforeUnreachable(SI))
+    // Remove guaranteed-to-transfer instructions before the marker.
+    if (removeInstructionsBeforeUnreachable(SI))
       return &SI;
+
+    // Remove all instructions after the marker and handle dead blocks this
+    // implies.
+    SmallVector<BasicBlock *> Worklist;
+    handleUnreachableFrom(SI.getNextNode(), Worklist);
+    handlePotentiallyDeadBlocks(Worklist);
     return nullptr;
   }
 
@@ -2030,8 +2052,7 @@ bool InstCombinerImpl::mergeStoreIntoSuccessor(StoreInst &SI) {
   if (OtherBr->isUnconditional()) {
     --BBI;
     // Skip over debugging info and pseudo probes.
-    while (BBI->isDebugOrPseudoInst() ||
-           (isa<BitCastInst>(BBI) && BBI->getType()->isPointerTy())) {
+    while (BBI->isDebugOrPseudoInst()) {
       if (BBI==OtherBB->begin())
         return false;
       --BBI;

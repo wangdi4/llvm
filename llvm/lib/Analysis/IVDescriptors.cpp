@@ -74,8 +74,8 @@ bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurKind Kind) {
   case RecurKind::SMin:
   case RecurKind::UMax:
   case RecurKind::UMin:
-  case RecurKind::SelectICmp:
-  case RecurKind::SelectFCmp:
+  case RecurKind::IAnyOf:
+  case RecurKind::FAnyOf:
     return true;
   }
   return false;
@@ -453,18 +453,17 @@ bool RecurrenceDescriptor::AddReductionVar(
 
     // A reduction operation must only have one use of the reduction value.
     if (!IsAPhi && !IsASelect && !isMinMaxRecurrenceKind(Kind) &&
-        !isSelectCmpRecurrenceKind(Kind) &&
-        hasMultipleUsesOf(Cur, VisitedInsts, 1))
+        !isAnyOfRecurrenceKind(Kind) && hasMultipleUsesOf(Cur, VisitedInsts, 1))
       return false;
 
     // All inputs to a PHI node must be a reduction value.
     if (IsAPhi && Cur != Phi && !areAllUsesIn(Cur, VisitedInsts))
       return false;
 
-    if ((isIntMinMaxRecurrenceKind(Kind) || Kind == RecurKind::SelectICmp) &&
+    if ((isIntMinMaxRecurrenceKind(Kind) || Kind == RecurKind::IAnyOf) &&
         (isa<ICmpInst>(Cur) || isa<SelectInst>(Cur)))
       ++NumCmpSelectPatternInst;
-    if ((isFPMinMaxRecurrenceKind(Kind) || Kind == RecurKind::SelectFCmp) &&
+    if ((isFPMinMaxRecurrenceKind(Kind) || Kind == RecurKind::FAnyOf) &&
         (isa<FCmpInst>(Cur) || isa<SelectInst>(Cur)))
       ++NumCmpSelectPatternInst;
 
@@ -530,7 +529,7 @@ bool RecurrenceDescriptor::AddReductionVar(
                  ((!isa<FCmpInst>(UI) && !isa<ICmpInst>(UI) &&
                    !isa<SelectInst>(UI)) ||
                   (!isConditionalRdxPattern(Kind, UI).isRecurrence() &&
-                   !isSelectCmpPattern(TheLoop, Phi, UI, IgnoredVal)
+                   !isAnyOfPattern(TheLoop, Phi, UI, IgnoredVal)
                         .isRecurrence() &&
                    !isMinMaxPattern(UI, Kind, IgnoredVal).isRecurrence())))
         return false;
@@ -550,7 +549,7 @@ bool RecurrenceDescriptor::AddReductionVar(
       NumCmpSelectPatternInst != 0)
     return false;
 
-  if (isSelectCmpRecurrenceKind(Kind) && NumCmpSelectPatternInst != 1)
+  if (isAnyOfRecurrenceKind(Kind) && NumCmpSelectPatternInst != 1)
     return false;
 
   if (IntermediateStore) {
@@ -670,8 +669,8 @@ bool RecurrenceDescriptor::AddReductionVar(
 // value if nothing changed (0 in the example above) or the other selected
 // value (3 in the example above).
 RecurrenceDescriptor::InstDesc
-RecurrenceDescriptor::isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
-                                         Instruction *I, InstDesc &Prev) {
+RecurrenceDescriptor::isAnyOfPattern(Loop *Loop, PHINode *OrigPhi,
+                                     Instruction *I, InstDesc &Prev) {
   // We must handle the select(cmp(),x,y) as a single instruction. Advance to
   // the select.
   CmpInst::Predicate Pred;
@@ -701,8 +700,8 @@ RecurrenceDescriptor::isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
   if (!Loop->isLoopInvariant(NonPhi))
     return InstDesc(false, I);
 
-  return InstDesc(I, isa<ICmpInst>(I->getOperand(0)) ? RecurKind::SelectICmp
-                                                     : RecurKind::SelectFCmp);
+  return InstDesc(I, isa<ICmpInst>(I->getOperand(0)) ? RecurKind::IAnyOf
+                                                     : RecurKind::FAnyOf);
 }
 
 RecurrenceDescriptor::InstDesc
@@ -845,8 +844,8 @@ RecurrenceDescriptor::isRecurrenceInstr(Loop *L, PHINode *OrigPhi,
   case Instruction::FCmp:
   case Instruction::ICmp:
   case Instruction::Call:
-    if (isSelectCmpRecurrenceKind(Kind))
-      return isSelectCmpPattern(L, OrigPhi, I, Prev);
+    if (isAnyOfRecurrenceKind(Kind))
+      return isAnyOfPattern(L, OrigPhi, I, Prev);
     auto HasRequiredFMF = [&]() {
      if (FuncFMF.noNaNs() && FuncFMF.noSignedZeros())
        return true;
@@ -939,8 +938,8 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
     LLVM_DEBUG(dbgs() << "Found a UMIN reduction PHI." << *Phi << "\n");
     return true;
   }
-  if (AddReductionVar(Phi, RecurKind::SelectICmp, TheLoop, FMF, RedDes, DB, AC,
-                      DT, SE)) {
+  if (AddReductionVar(Phi, RecurKind::IAnyOf, TheLoop, FMF, RedDes, DB, AC, DT,
+                      SE)) {
     LLVM_DEBUG(dbgs() << "Found an integer conditional select reduction PHI."
                       << *Phi << "\n");
     return true;
@@ -965,8 +964,8 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
     LLVM_DEBUG(dbgs() << "Found a float MIN reduction PHI." << *Phi << "\n");
     return true;
   }
-  if (AddReductionVar(Phi, RecurKind::SelectFCmp, TheLoop, FMF, RedDes, DB, AC,
-                      DT, SE)) {
+  if (AddReductionVar(Phi, RecurKind::FAnyOf, TheLoop, FMF, RedDes, DB, AC, DT,
+                      SE)) {
     LLVM_DEBUG(dbgs() << "Found a float conditional select reduction PHI."
                       << " PHI." << *Phi << "\n");
     return true;
@@ -1167,13 +1166,13 @@ unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
   case RecurKind::SMin:
   case RecurKind::UMax:
   case RecurKind::UMin:
-  case RecurKind::SelectICmp:
+  case RecurKind::IAnyOf:
     return Instruction::ICmp;
   case RecurKind::FMax:
   case RecurKind::FMin:
   case RecurKind::FMaximum:
   case RecurKind::FMinimum:
-  case RecurKind::SelectFCmp:
+  case RecurKind::FAnyOf:
     return Instruction::FCmp;
 #if INTEL_CUSTOMIZATION
   // For UDRs finalization is done by calling custom reducer.

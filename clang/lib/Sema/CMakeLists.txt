@@ -105,6 +105,7 @@ add_clang_library(clangSema
   ClangOpenCLBuiltinsImpl
   ClangSPIRVBuiltinsImpl
   omp_gen
+  ClangDriverOptions
 
   LINK_LIBS
   clangAST

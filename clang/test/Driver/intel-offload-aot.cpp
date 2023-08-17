@@ -2,9 +2,9 @@
 // REQUIRES: x86-registered-target
 
 /// Check -Xopenmp-target triggers error when multiple triples are used.
-// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64,spir64_gen -Xopenmp-target-frontend -DFOO %s 2>&1 \
+// RUN: not %clang -### -fiopenmp -fopenmp-targets=spir64,spir64_gen -Xopenmp-target-frontend -DFOO %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-FOPENMP-AMBIGUOUS-ERROR %s
-// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64,spir64_gen -Xopenmp-target-frontend -DFOO %s 2>&1 \
+// RUN: not %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64,spir64_gen -Xopenmp-target-frontend -DFOO %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-FOPENMP-AMBIGUOUS-ERROR %s
 // CHK-FOPENMP-AMBIGUOUS-ERROR: clang{{.*}} error: cannot deduce implicit triple value for -Xopenmp-target, specify triple using -Xopenmp-target=<triple>
 
@@ -12,9 +12,9 @@
 
 /// Check -Xopenmp-target-frontend triggers error when an option requiring
 /// arguments is passed to it.
-// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -Xopenmp-target-frontend -Xopenmp-target-frontend -mcpu=none %s 2>&1 \
+// RUN: not %clang -### -fiopenmp -fopenmp-targets=spir64 -Xopenmp-target-frontend -Xopenmp-target-frontend -mcpu=none %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-FOPENMP-NESTED-ERROR %s
-// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -Xopenmp-target-frontend -Xopenmp-target-frontend -mcpu=none %s 2>&1 \
+// RUN: not %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -Xopenmp-target-frontend -Xopenmp-target-frontend -mcpu=none %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-FOPENMP-NESTED-ERROR %s
 // CHK-FOPENMP-NESTED-ERROR: clang{{.*}} error: invalid -Xopenmp-target argument: '-Xopenmp-target-frontend -Xopenmp-target-frontend', options requiring arguments are unsupported
 

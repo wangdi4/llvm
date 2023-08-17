@@ -8,7 +8,7 @@
 // end INTEL_CUSTOMIZATION
 
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=i386-unknown-linux -rtlib=platform \
+// RUN:     --target=i386-unknown-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-LD-32 %s
@@ -196,7 +196,7 @@
 // CHECK-CLANG-LD-STATIC-PIE: "{{.*}}rcrt1.o"
 // CHECK-CLANG-LD-STATIC-PIE: "--start-group" "-lgcc" "-lgcc_eh" "-lc" "--end-group"
 //
-// RUN: %clang -static-pie -pie -### %s -no-pie 2>&1 \
+// RUN: not %clang -static-pie -pie -### %s -no-pie 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -211,7 +211,7 @@
 // CHECK-CLANG-LD-STATIC-PIE-PIE: "{{.*}}rcrt1.o"
 // CHECK-CLANG-LD-STATIC-PIE-PIE: "--start-group" "-lgcc" "-lgcc_eh" "-lc" "--end-group"
 //
-// RUN: %clang -static-pie -static -### %s -no-pie 2>&1 \
+// RUN: not %clang -static-pie -static -### %s -no-pie 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -226,7 +226,7 @@
 // CHECK-CLANG-LD-STATIC-PIE-STATIC: "{{.*}}rcrt1.o"
 // CHECK-CLANG-LD-STATIC-PIE-STATIC: "--start-group" "-lgcc" "-lgcc_eh" "-lc" "--end-group"
 //
-// RUN: %clang -static-pie -nopie -### %s -no-pie 2>&1 \
+// RUN: not %clang -static-pie -nopie -### %s -no-pie 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -rtlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -340,7 +340,7 @@
 // RUN:   | FileCheck --check-prefix=CHECK-LD-64-STATIC %s
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=i386-unknown-linux -rtlib=platform -m32 \
+// RUN:     --target=i386-unknown-linux -rtlib=platform --unwindlib=platform -m32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_32bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-32-TO-32 %s
@@ -356,7 +356,7 @@
 // CHECK-32-TO-32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=i386-unknown-linux -rtlib=platform -m64 \
+// RUN:     --target=i386-unknown-linux -rtlib=platform --unwindlib=platform -m64 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_32bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-32-TO-64 %s
@@ -372,7 +372,7 @@
 // CHECK-32-TO-64: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux -rtlib=platform -m64 \
+// RUN:     --target=x86_64-unknown-linux -rtlib=platform --unwindlib=platform -m64 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-64-TO-64 %s
@@ -387,8 +387,8 @@
 // CHECK-64-TO-64: "-L[[SYSROOT]]/lib"
 // CHECK-64-TO-64: "-L[[SYSROOT]]/usr/lib"
 //
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux -rtlib=plaform -m32 \
+// RUN: not %clang -### %s -no-pie 2>&1 \
+// RUN:     --target=x86_64-unknown-linux -rtlib=plaform --unwindlib=platform -m32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-64-TO-32 %s
@@ -404,7 +404,7 @@
 // CHECK-64-TO-32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform \
+// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-X32 %s
@@ -420,7 +420,7 @@
 // CHECK-X32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux -rtlib=platform -mx32 \
+// RUN:     --target=x86_64-unknown-linux -rtlib=platform --unwindlib=platform -mx32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-64-TO-X32 %s
@@ -436,7 +436,7 @@
 // CHECK-64-TO-X32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=i386-unknown-linux -rtlib=platform -mx32 \
+// RUN:     --target=i386-unknown-linux -rtlib=platform --unwindlib=platform -mx32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-32-TO-X32 %s
@@ -452,7 +452,7 @@
 // CHECK-32-TO-X32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform -m64 \
+// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform --unwindlib=platform -m64 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-X32-TO-64 %s
@@ -468,7 +468,7 @@
 // CHECK-X32-TO-64: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform -m32 \
+// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform --unwindlib=platform -m32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/multilib_64bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-X32-TO-32 %s
@@ -484,7 +484,7 @@
 // CHECK-X32-TO-32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux -rtlib=platform -m32 \
+// RUN:     --target=x86_64-unknown-linux -rtlib=platform --unwindlib=platform -m32 \
 // RUN:     --gcc-toolchain=%S/Inputs/multilib_64bit_linux_tree/usr \
 // RUN:     --sysroot=%S/Inputs/multilib_32bit_linux_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-64-TO-32-SYSROOT %s
@@ -499,7 +499,7 @@
 // Check that we support unusual patch version formats, including missing that
 // component.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=i386-unknown-linux -rtlib=platform -m32 \
+// RUN:     --target=i386-unknown-linux -rtlib=platform --unwindlib=platform -m32 \
 // RUN:     -ccc-install-dir %S/Inputs/gcc_version_parsing1/bin \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
@@ -554,7 +554,7 @@
 //
 // Check multi arch support on Ubuntu 12.04 LTS.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm-unknown-linux-gnueabihf -rtlib=platform \
+// RUN:     --target=arm-unknown-linux-gnueabihf -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/ubuntu_12.04_LTS_multiarch_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-UBUNTU-12-04-ARM-HF %s
@@ -570,7 +570,7 @@
 //
 // Check Ubuntu 13.10 on x86-64 targeting arm-linux-gnueabihf.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm-linux-gnueabihf -rtlib=platform \
+// RUN:     --target=arm-linux-gnueabihf -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/x86-64_ubuntu_13.10 \
 // RUN:   | FileCheck --check-prefix=CHECK-X86-64-UBUNTU-13-10-ARM-HF %s
@@ -589,7 +589,7 @@
 //
 // Check Ubuntu 13.10 on x86-64 targeting arm-linux-gnueabi.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm-linux-gnueabi -rtlib=platform \
+// RUN:     --target=arm-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/x86-64_ubuntu_13.10 \
 // RUN:   | FileCheck --check-prefix=CHECK-X86-64-UBUNTU-13-10-ARM %s
@@ -608,7 +608,7 @@
 //
 // Check Ubuntu 14.04 on powerpc64le.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=powerpc64le-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=powerpc64le-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/ubuntu_14.04_multiarch_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-UBUNTU-14-04-PPC64LE %s
@@ -625,7 +625,7 @@
 // Check Ubuntu 14.04 on x32.
 // "/usr/lib/gcc/x86_64-linux-gnu/4.8/x32/crtend.o" "/usr/lib/gcc/x86_64-linux-gnu/4.8/../../../../libx32/crtn.o"
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform \
+// RUN:     --target=x86_64-unknown-linux-gnux32 -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/ubuntu_14.04_multiarch_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-UBUNTU-14-04-X32 %s
@@ -642,7 +642,7 @@
 //
 // Check fedora 18 on arm.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=armv7-unknown-linux-gnueabihf -rtlib=platform \
+// RUN:     --target=armv7-unknown-linux-gnueabihf -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/fedora_18_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FEDORA-18-ARM-HF %s
@@ -657,12 +657,12 @@
 //
 // Check Fedora 21 on AArch64.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm64-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=arm64-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/fedora_21_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FEDORA-21-AARCH64 %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=aarch64-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=aarch64-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/fedora_21_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FEDORA-21-AARCH64 %s
@@ -677,7 +677,7 @@
 //
 // Check Fedora 31 on riscv64.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=riscv64-redhat-linux -rtlib=platform \
+// RUN:     --target=riscv64-redhat-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/fedora_31_riscv64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FEDORA-31-RISCV64 %s
@@ -691,7 +691,7 @@
 // CHECK-FEDORA-31-RISCV64: "{{.*}}/usr/lib/gcc/riscv64-redhat-linux/9{{/|\\\\}}crtn.o"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm-unknown-linux-gnueabi -rtlib=platform \
+// RUN:     --target=arm-unknown-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/ubuntu_12.04_LTS_multiarch_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-UBUNTU-12-04-ARM %s
@@ -707,7 +707,7 @@
 //
 // Test the setup that shipped in SUSE 10.3 on ppc64.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=powerpc64-suse-linux -rtlib=platform \
+// RUN:     --target=powerpc64-suse-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/suse_10.3_ppc64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-SUSE-10-3-PPC64 %s
@@ -720,12 +720,12 @@
 //
 // Check openSuse Leap 42.2 on AArch64
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=arm64-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=arm64-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_42.2_aarch64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-42-2-AARCH64 %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=aarch64-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=aarch64-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_42.2_aarch64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-42-2-AARCH64 %s
@@ -740,12 +740,12 @@
 //
 // Check openSUSE Tumbleweed on armv6hl
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=armv6hl-suse-linux-gnueabi -rtlib=platform \
+// RUN:     --target=armv6hl-suse-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_armv6hl_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-ARMV6HL %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=armv6hl-suse-linux-gnueabi -rtlib=platform \
+// RUN:     --target=armv6hl-suse-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_armv6hl_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-ARMV6HL %s
@@ -760,12 +760,12 @@
 //
 // Check openSUSE Tumbleweed on armv7hl
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=armv7hl-suse-linux-gnueabi -rtlib=platform \
+// RUN:     --target=armv7hl-suse-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_armv7hl_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-ARMV7HL %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=armv7hl-suse-linux-gnueabi -rtlib=platform \
+// RUN:     --target=armv7hl-suse-linux-gnueabi -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_armv7hl_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-ARMV7HL %s
@@ -780,12 +780,12 @@
 //
 // Check openSUSE Tumbleweed on riscv64
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=riscv64-suse-linux -rtlib=platform \
+// RUN:     --target=riscv64-suse-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_riscv64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-RISCV64 %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=riscv64-suse-linux -rtlib=platform \
+// RUN:     --target=riscv64-suse-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_riscv64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-RISCV64 %s
@@ -800,7 +800,7 @@
 //
 // Check openSUSE Tumbleweed on ppc
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=powerpc-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=powerpc-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/opensuse_tumbleweed_ppc_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-OPENSUSE-TW-PPC %s
@@ -1349,7 +1349,7 @@
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
 // CHECK-ANDROID-PTHREAD-NOT: -lpthread
 //
-// RUN: %clang %t.o -no-pie -### -o %t 2>&1 \
+// RUN: not %clang %t.o -no-pie -### -o %t 2>&1 \
 // RUN:     --target=arm-linux-androideabi -pthread \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
@@ -1358,14 +1358,14 @@
 //
 // Check linker invocation on a Debian LoongArch sysroot.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=loongarch64-linux-gnu -rtlib=platform \
+// RUN:     --target=loongarch64-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_loong64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-LOONG64 %s
 //
 // Check that "-gnuf64" is seen as "-gnu" for loong64.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=loongarch64-linux-gnuf64 -rtlib=platform \
+// RUN:     --target=loongarch64-linux-gnuf64 -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_loong64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-LOONG64 %s
@@ -1381,7 +1381,7 @@
 //
 // Check linker invocation on Debian 6 MIPS 32/64-bit.
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-gnu -rtlib=platform \
+// RUN:     --target=mipsel-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPSEL %s
@@ -1397,7 +1397,7 @@
 // CHECK-DEBIAN-ML-MIPSEL: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-gnu -rtlib=platform \
+// RUN:     --target=mips64el-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64EL %s
@@ -1413,7 +1413,7 @@
 // CHECK-DEBIAN-ML-MIPS64EL: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-gnu -rtlib=platform -mabi=n32 \
+// RUN:     --target=mips64el-linux-gnu -rtlib=platform --unwindlib=platform -mabi=n32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64EL-N32 %s
@@ -1429,7 +1429,7 @@
 // CHECK-DEBIAN-ML-MIPS64EL-N32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-gnuabi64 -rtlib=platform -mabi=32 \
+// RUN:     --target=mips64el-linux-gnuabi64 -rtlib=platform --unwindlib=platform -mabi=32 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64EL-O32 %s
@@ -1445,12 +1445,12 @@
 // CHECK-DEBIAN-ML-MIPS64EL-O32: "-L[[SYSROOT]]/usr/lib"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64-unknown-linux-gnu --rtlib=platform \
+// RUN:     --target=mips64-unknown-linux-gnu --rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64-GNUABI %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64-linux-gnuabi64 -rtlib=platform -mabi=n64 \
+// RUN:     --target=mips64-linux-gnuabi64 -rtlib=platform --unwindlib=platform -mabi=n64 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64-GNUABI %s
@@ -1467,12 +1467,12 @@
 // CHECK-DEBIAN-ML-MIPS64-GNUABI: "{{.*}}/usr/lib/mips64-linux-gnuabi64{{/|\\\\}}crtn.o"
 //
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-unknown-linux-gnu -rtlib=platform \
+// RUN:     --target=mips64el-unknown-linux-gnu -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64EL-GNUABI %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-gnuabi64 -rtlib=platform -mabi=n64 \
+// RUN:     --target=mips64el-linux-gnuabi64 -rtlib=platform --unwindlib=platform -mabi=n64 \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/debian_6_mips64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-ML-MIPS64EL-GNUABI %s
@@ -1490,7 +1490,7 @@
 //
 // Test linker invocation for Freescale SDK (OpenEmbedded).
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=powerpc-fsl-linux -rtlib=platform \
+// RUN:     --target=powerpc-fsl-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/freescale_ppc_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FSL-PPC %s
@@ -1500,7 +1500,7 @@
 // CHECK-FSL-PPC: "{{.*}}{{/|\\\\}}crtbegin.o"
 // CHECK-FSL-PPC: "-L[[SYSROOT]]/usr/lib"
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=powerpc64-fsl-linux -rtlib=platform \
+// RUN:     --target=powerpc64-fsl-linux -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/freescale_ppc64_tree \
 // RUN:   | FileCheck --check-prefix=CHECK-FSL-PPC64 %s

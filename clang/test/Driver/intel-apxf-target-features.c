@@ -22,7 +22,7 @@
 // NO-EGPR-NDD: "-target-feature" "+ndd" "-target-feature" "-egpr"
 // NO-EGPR-NO-NDD: "-target-feature" "-egpr" "-target-feature" "-ndd"
 
-// RUN: %clang -target x86_64-unknown-linux-gnu -mapx-features=egpr,foo,bar %s -### -o %t.o 2>&1 | FileCheck -check-prefix=ERROR %s
+// RUN: not %clang -target x86_64-unknown-linux-gnu -mapx-features=egpr,foo,bar %s -### -o %t.o 2>&1 | FileCheck -check-prefix=ERROR %s
 //
 // ERROR: unsupported argument 'foo' to option '-mapx-features='
 // ERROR: unsupported argument 'bar' to option '-mapx-features='

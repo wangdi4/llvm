@@ -2180,7 +2180,11 @@ unsigned ARMFastISel::ARMSelectCallOp(bool UseReg) {
 
 unsigned ARMFastISel::getLibcallReg(const Twine &Name) {
   // Manually compute the global's type to avoid building it when unnecessary.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *GVTy = PointerType::get(*Context, /*AS=*/0);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *GVTy = Type::getInt32PtrTy(*Context, /*AS=*/0);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   EVT LCREVT = TLI.getValueType(DL, GVTy);
   if (!LCREVT.isSimple()) return 0;
 
@@ -2964,7 +2968,11 @@ unsigned ARMFastISel::ARMLowerPICELF(const GlobalValue *GV, MVT VT) {
       /*AddCurrentAddress=*/UseGOT_PREL);
 
   Align ConstAlign =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      MF->getDataLayout().getPrefTypeAlign(PointerType::get(*Context, 0));
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
       MF->getDataLayout().getPrefTypeAlign(Type::getInt32PtrTy(*Context));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   unsigned Idx = MF->getConstantPool()->getConstantPoolIndex(CPV, ConstAlign);
   MachineMemOperand *CPMMO =
       MF->getMachineMemOperand(MachinePointerInfo::getConstantPool(*MF),

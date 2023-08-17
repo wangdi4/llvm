@@ -148,6 +148,12 @@ if triple == 'nvptx64-nvidia-cuda-sycldevice':
 
 # INTEL_CUSTOMIZATION
 additional_flags = getAdditionalFlags() + config.sycl_clang_extra_flags.split(' ')
+if 'ICS_GCCBIN' in os.environ:
+    gcc_path = os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], "gcc"))
+    gcc_version = subprocess.check_output([gcc_path, "-dumpversion"]).decode()
+    major, minor, patch = tuple(int(v) for v in gcc_version.split(".", 3))
+    if (major, minor, patch) >= (10, 1, 0):
+        config.available_features.add("c++20")
 # end INTEL_CUSTOMIZATION
 
 if config.cuda_be == "ON":
@@ -168,11 +174,11 @@ if config.level_zero_be == "ON":
 if config.native_cpu_be == "ON":
     config.available_features.add('native_cpu_be')
 
-if triple == 'nvptx64-nvidia-cuda':
+if 'nvptx64-nvidia-cuda' in triple:
     llvm_config.with_system_environment('CUDA_PATH')
     config.available_features.add('cuda')
 
-if triple == 'amdgcn-amd-amdhsa':
+if 'amdgcn-amd-amdhsa' in triple:
     llvm_config.with_system_environment('ROCM_PATH')
     config.available_features.add('hip_amd')
     # For AMD the specific GPU has to be specified with --offload-arch

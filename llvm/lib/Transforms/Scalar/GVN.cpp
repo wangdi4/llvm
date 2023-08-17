@@ -2285,12 +2285,19 @@ bool GVNPass::processAssumeIntrinsic(AssumeInst *IntrinsicI) {
   if (ConstantInt *Cond = dyn_cast<ConstantInt>(V)) {
     if (Cond->isZero()) {
       Type *Int8Ty = Type::getInt8Ty(V->getContext());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Type *PtrTy = PointerType::get(V->getContext(), 0);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       // Insert a new store to null instruction before the load to indicate that
       // this code is not reachable.  FIXME: We could insert unreachable
       // instruction directly because we can modify the CFG.
       auto *NewS = new StoreInst(PoisonValue::get(Int8Ty),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                                 Constant::getNullValue(PtrTy), IntrinsicI);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
                                  Constant::getNullValue(Int8Ty->getPointerTo()),
                                  IntrinsicI);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       if (MSSAU) {
         const MemoryUseOrDef *FirstNonDom = nullptr;
         const auto *AL =

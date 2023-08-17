@@ -21,7 +21,7 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.txt.in
 #
-certifi>=2023.07.22 # INTEL_CUSTOMIZATION
+certifi==2023.7.22
     # via requests
 cffi==1.15.1
     # via pynacl

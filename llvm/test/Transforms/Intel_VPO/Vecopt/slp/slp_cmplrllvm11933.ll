@@ -32,6 +32,9 @@
 %struct.anon = type { ptr, ptr }
 
 define i32 @rayobject_bb_intersect_test(ptr nocapture readonly %isec, ptr nocapture readonly %_bb) {
+; CHECK-LABEL: define i32 @rayobject_bb_intersect_test
+; CHECK-SAME: (ptr nocapture readonly [[ISEC:%.*]], ptr nocapture readonly [[_BB:%.*]]) #[[ATTR0:[0-9]+]] {
+; CHECK-NEXT:  entry:
 entry:
 
   %0 = load float, ptr %isec, align 8
@@ -42,12 +45,12 @@ entry:
   %2 = load float, ptr %arrayidx3, align 4
   %arrayidx5 = getelementptr inbounds %struct.Isect, ptr %isec, i64 0, i32 6, i64 1
 
-
-; CHECK:       [[ARRAYIDX3:%.*]] = getelementptr inbounds %struct.Isect, ptr [[ISEC:%.*]], i64 0, i32 0, i64 1
-; CHECK:       [[ARRAYIDX5:%.*]] = getelementptr inbounds %struct.Isect, ptr [[ISEC:%.*]], i64 0, i32 6, i64 1
-; CHECK:       [[TMP1:%.*]] = load <2 x float>, ptr [[ARRAYIDX3]], align 4
-; CHECK-NEXT:  [[TMP3:%.*]] = load <2 x float>, ptr [[ARRAYIDX5]], align 4
-; CHECK-NEXT:  [[TMP4:%.*]] = fmul fast <2 x float> [[TMP3]], [[TMP1]]
+; CHECK:         [[ARRAYIDX3:%.*]] = getelementptr inbounds [[STRUCT_ISECT:%.*]], ptr [[ISEC]], i64 0, i32 0, i64 1
+; CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [[STRUCT_ISECT]], ptr [[ISEC]], i64 0, i32 6, i64 1
+; CHECK:         [[TMP9:%.*]] = load float, ptr %arrayidx36, align 4
+; CHECK-NEXT:    [[TMP10:%.*]] = load <2 x float>, ptr [[ARRAYIDX3]], align 4
+; CHECK-NEXT:    [[TMP11:%.*]] = load <2 x float>, ptr [[ARRAYIDX5]], align 4
+; CHECK-NEXT:    [[TMP12:%.*]] = fmul fast <2 x float> [[TMP11]], [[TMP10]]
 
   %3 = load float, ptr %arrayidx5, align 4
   %mul6 = fmul fast float %3, %2
@@ -82,11 +85,10 @@ entry:
   %idxprom35 = sext i32 %12 to i64
   %arrayidx36 = getelementptr inbounds float, ptr %_bb, i64 %idxprom35
 
-; CHECK:       [[TMP5:%.*]] = load float, ptr %arrayidx36, align 4
-; CHECK-NEXT:  [[TMP6:%.*]] = insertelement <2 x float> poison, float [[N:%.*]], i32 0
-; CHECK-NEXT:  [[TMP7:%.*]] = insertelement <2 x float> [[TMP6]], float [[TMP5]], i32 1
-; CHECK-NEXT:  [[TMP8:%.*]] = fmul fast <2 x float> [[TMP7]], [[TMP3]]
-; CHECK-NEXT:  [[TMP9:%.*]] = fsub fast <2 x float> [[TMP8]], [[TMP4]]
+; CHECK:         [[TMP13:%.*]] = insertelement <2 x float> poison, float [[TMP7:%.*]], i32 0
+; CHECK-NEXT:    [[TMP14:%.*]] = insertelement <2 x float> [[TMP13]], float [[TMP9]], i32 1
+; CHECK-NEXT:    [[TMP15:%.*]] = fmul fast <2 x float> [[TMP14]], [[TMP11]]
+; CHECK-NEXT:    [[TMP16:%.*]] = fsub fast <2 x float> [[TMP15]], [[TMP12]]
 
   %13 = load float, ptr %arrayidx36, align 4
   %mul39 = fmul fast float %13, %5
@@ -103,14 +105,14 @@ entry:
   %idxprom51 = sext i32 %16 to i64
   %arrayidx52 = getelementptr inbounds float, ptr %_bb, i64 %idxprom51
 
-; CHECK:       [[TMP10:%.*]] = load float, ptr %arrayidx52, align 4
-; CHECK-NEXT:  [[TMP11:%.*]] = insertelement <2 x float> poison, float [[TMP10]], i32 0
-; CHECK-NEXT:  [[TMP12:%.*]] = insertelement <2 x float> [[TMP11]], float [[N1:%.*]], i32 1
-; CHECK-NEXT:  [[TMP13:%.*]] = fmul fast <2 x float> [[TMP12]], [[TMP3]]
-; CHECK-NEXT:  [[TMP14:%.*]] = fsub fast <2 x float> [[TMP13]], [[TMP4]]
-; CHECK-NEXT:  [[TMP15:%.*]] = extractelement <2 x float> [[TMP9]], i32 0
-; CHECK-NEXT:  [[TMP16:%.*]] = extractelement <2 x float> [[TMP14]], i32 1
-; CHECK-NEXT:  [[TMP17:%.*]] = fcmp fast ole float [[TMP15]], [[TMP16]]
+; CHECK:         [[TMP20:%.*]] = load float, ptr %arrayidx52, align 4
+; CHECK-NEXT:    [[TMP21:%.*]] = insertelement <2 x float> poison, float [[TMP20]], i32 0
+; CHECK-NEXT:    [[TMP22:%.*]] = insertelement <2 x float> [[TMP21]], float [[TMP3:%.*]], i32 1
+; CHECK-NEXT:    [[TMP23:%.*]] = fmul fast <2 x float> [[TMP22]], [[TMP11]]
+; CHECK-NEXT:    [[TMP24:%.*]] = fsub fast <2 x float> [[TMP23]], [[TMP12]]
+; CHECK-NEXT:    [[TMP25:%.*]] = extractelement <2 x float> [[TMP16]], i32 0
+; CHECK-NEXT:    [[TMP26:%.*]] = extractelement <2 x float> [[TMP24]], i32 1
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ole float [[TMP25]], [[TMP26]]
 
   %17 = load float, ptr %arrayidx52, align 4
   %mul55 = fmul fast float %17, %3
@@ -119,21 +121,21 @@ entry:
   %18 = select i1 %cmp, float %sub32, float %sub
   %cmp59 = fcmp fast ogt float %sub48, %18
 
-; CHECK:       [[TMP18:%.*]] = extractelement <2 x float> [[TMP9]], i32 1
-; CHECK-NEXT:  [[TMP19:%.*]] = extractelement <2 x float> [[TMP14]], i32 0
-; CHECK-NEXT:  [[TMP20:%.*]] = fcmp fast oge float [[TMP19]], [[TMP18]]
-  %cmp61 = fcmp fast oge float %sub56, %sub40
+; CHECK:         [[TMP28:%.*]] = extractelement <2 x float> [[TMP16]], i32 1
+; CHECK-NEXT:    [[TMP29:%.*]] = extractelement <2 x float> [[TMP24]], i32 0
+; CHECK-NEXT:    [[CMP61:%.*]] = fcmp fast oge float [[TMP29]], [[TMP28]]
+%cmp61 = fcmp fast oge float %sub56, %sub40
   %19 = select i1 %cmp61, float %sub56, float %sub40
   %cmp57 = fcmp fast olt float %sub24, %19
   %or.cond143 = or i1 %cmp59, %cmp57
 
 ; Verify that both operands of cmp are extracts from the same vector
-; CHECK:       [[TMP21:%.*]] = fcmp fast ogt float [[TMP19]], [[TMP16]]
+; CHECK:         [[CMP63:%.*]] = fcmp fast ogt float [[TMP29]], [[TMP26]]
   %cmp63 = fcmp fast ogt float %sub56, %sub
   %or.cond144 = or i1 %cmp63, %or.cond143
 
 ; Verify that both operands of cmp are extracts from the same vector
-; CHECK:       [[TMP22:%.*]] = fcmp fast olt float [[TMP15]], [[TMP18]]
+; CHECK:         [[CMP65:%.*]] = fcmp fast olt float [[TMP25]], [[TMP28]]
   %cmp65 = fcmp fast olt float %sub32, %sub40
   %or.cond145 = or i1 %cmp65, %or.cond144
   br i1 %or.cond145, label %cleanup, label %if.end

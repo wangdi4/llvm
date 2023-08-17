@@ -54,6 +54,8 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ScopedPrinter.h"
 
+#include <optional>
+
 #if INTEL_COLLAB
 #include "CGOpenMPRuntime.h"
 #endif // INTEL_COLLAB
@@ -207,6 +209,45 @@ public:
   bool shouldDynamicCastCallBeNullChecked(bool SrcIsPtr,
                                           QualType SrcRecordTy) override;
 
+  /// Determine whether we know that all instances of type RecordTy will have
+  /// the same vtable pointer values, that is distinct from all other vtable
+  /// pointers. While this is required by the Itanium ABI, it doesn't happen in
+  /// practice in some cases due to language extensions.
+  bool hasUniqueVTablePointer(QualType RecordTy) {
+    const CXXRecordDecl *RD = RecordTy->getAsCXXRecordDecl();
+
+    // Under -fapple-kext, multiple definitions of the same vtable may be
+    // emitted.
+    if (!CGM.getCodeGenOpts().AssumeUniqueVTables ||
+        getContext().getLangOpts().AppleKext)
+      return false;
+
+    // If the type_info* would be null, the vtable might be merged with that of
+    // another type.
+    if (!CGM.shouldEmitRTTI())
+      return false;
+
+    // If there's only one definition of the vtable in the program, it has a
+    // unique address.
+    if (!llvm::GlobalValue::isWeakForLinker(CGM.getVTableLinkage(RD)))
+      return true;
+
+    // Even if there are multiple definitions of the vtable, they are required
+    // by the ABI to use the same symbol name, so should be merged at load
+    // time. However, if the class has hidden visibility, there can be
+    // different versions of the class in different modules, and the ABI
+    // library might treat them as being the same.
+    if (CGM.GetLLVMVisibility(RD->getVisibility()) !=
+        llvm::GlobalValue::DefaultVisibility)
+      return false;
+
+    return true;
+  }
+
+  bool shouldEmitExactDynamicCast(QualType DestRecordTy) override {
+    return hasUniqueVTablePointer(DestRecordTy);
+  }
+
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *emitDynamicCastCall(CodeGenFunction &CGF, Address Value,
                                    QualType SrcRecordTy, QualType DestTy,
@@ -226,6 +267,12 @@ public:
                                      QualType SrcRecordTy,
                                      QualType DestTy) override;
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+
+  llvm::Value *emitExactDynamicCast(CodeGenFunction &CGF, Address ThisAddr,
+                                    QualType SrcRecordTy, QualType DestTy,
+                                    QualType DestRecordTy,
+                                    llvm::BasicBlock *CastSuccess,
+                                    llvm::BasicBlock *CastFail) override;
 
   bool EmitBadCastCall(CodeGenFunction &CGF) override;
 
@@ -637,15 +684,17 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Apply the adjustment and cast back to the original struct type
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  This = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), This, Adj);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
   llvm::Value *Ptr =
       Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
-#endif // INTEL_CUSTOMIZATION
   Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
-#if INTEL_CUSTOMIZATION
   This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
                                                      "this.adjusted");
 #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   ThisPtrForCall = This;
 
   // Load the function pointer.
@@ -738,9 +787,14 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
                                       ? llvm::Intrinsic::type_test
                                       : llvm::Intrinsic::public_type_test;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        CheckResult =
+            Builder.CreateCall(CGM.getIntrinsic(IID), {VFPAddr, TypeId});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
         CheckResult = Builder.CreateCall(
             CGM.getIntrinsic(IID),
             {Builder.CreateBitCast(VFPAddr, CGF.Int8PtrTy), TypeId});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
 
       if (CGM.getItaniumVTableContext().isRelativeLayout()) {
@@ -817,8 +871,10 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
       };
 
       llvm::Value *Bit = Builder.getFalse();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::Value *CastedNonVirtualFn =
           Builder.CreateBitCast(NonVirtualFn, CGF.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       for (const CXXRecordDecl *Base : CGM.getMostBaseClasses(RD)) {
         llvm::Metadata *MD = CGM.CreateMetadataIdentifierForType(
             getContext().getMemberPointerType(
@@ -829,13 +885,21 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
 
         llvm::Value *TypeTest =
             Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::type_test),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                               {NonVirtualFn, TypeId});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
                                {CastedNonVirtualFn, TypeId});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
         Bit = Builder.CreateOr(Bit, TypeTest);
       }
 
       CGF.EmitCheck(std::make_pair(Bit, SanitizerKind::CFIMFCall),
                     SanitizerHandler::CFICheckFail, StaticData,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                    {NonVirtualFn, llvm::UndefValue::get(CGF.IntPtrTy)});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
                     {CastedNonVirtualFn, llvm::UndefValue::get(CGF.IntPtrTy)});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       FnNonVirtual = Builder.GetInsertBlock();
     }
@@ -1267,11 +1331,15 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
     llvm::Value *OffsetPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
         CGF.IntPtrTy, VTable, -2, "complete-offset.ptr");
     llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,
-        CGF.getPointerAlign());
+                                                        CGF.getPointerAlign());
 
     // Apply the offset.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Value *CompletePtr = Ptr.getPointer();
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *CompletePtr =
       CGF.Builder.CreateBitCast(Ptr.getPointer(), CGF.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CompletePtr =
         CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, CompletePtr, Offset);
 
@@ -1540,7 +1608,9 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
 
   if (CGM.getItaniumVTableContext().isRelativeLayout()) {
     // Load the type info.
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     Value = CGF.Builder.CreateBitCast(Value, CGM.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Value = CGF.Builder.CreateCall(
         CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
         {Value, llvm::ConstantInt::get(CGM.Int32Ty, -4)});
@@ -1616,6 +1686,89 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
   return Value;
 }
 
+llvm::Value *ItaniumCXXABI::emitExactDynamicCast(
+    CodeGenFunction &CGF, Address ThisAddr, QualType SrcRecordTy,
+    QualType DestTy, QualType DestRecordTy, llvm::BasicBlock *CastSuccess,
+    llvm::BasicBlock *CastFail) {
+  ASTContext &Context = getContext();
+
+  // Find all the inheritance paths.
+  const CXXRecordDecl *SrcDecl = SrcRecordTy->getAsCXXRecordDecl();
+  const CXXRecordDecl *DestDecl = DestRecordTy->getAsCXXRecordDecl();
+  CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
+                     /*DetectVirtual=*/false);
+  (void)DestDecl->isDerivedFrom(SrcDecl, Paths);
+
+  // Find an offset within `DestDecl` where a `SrcDecl` instance and its vptr
+  // might appear.
+  std::optional<CharUnits> Offset;
+  for (const CXXBasePath &Path : Paths) {
+    // dynamic_cast only finds public inheritance paths.
+    if (Path.Access != AS_public)
+      continue;
+
+    CharUnits PathOffset;
+    for (const CXXBasePathElement &PathElement : Path) {
+      // Find the offset along this inheritance step.
+      const CXXRecordDecl *Base =
+          PathElement.Base->getType()->getAsCXXRecordDecl();
+      if (PathElement.Base->isVirtual()) {
+        // For a virtual base class, we know that the derived class is exactly
+        // DestDecl, so we can use the vbase offset from its layout.
+        const ASTRecordLayout &L = Context.getASTRecordLayout(DestDecl);
+        PathOffset = L.getVBaseClassOffset(Base);
+      } else {
+        const ASTRecordLayout &L =
+            Context.getASTRecordLayout(PathElement.Class);
+        PathOffset += L.getBaseClassOffset(Base);
+      }
+    }
+
+    if (!Offset)
+      Offset = PathOffset;
+    else if (Offset != PathOffset) {
+      // Base appears in at least two different places. Find the most-derived
+      // object and see if it's a DestDecl. Note that the most-derived object
+      // must be at least as aligned as this base class subobject, and must
+      // have a vptr at offset 0.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      ThisAddr = Address(emitDynamicCastToVoid(CGF, ThisAddr, SrcRecordTy),
+                         CGF.VoidPtrTy, ThisAddr.getAlignment());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ThisAddr = Address(EmitDynamicCastToVoid(CGF, ThisAddr, SrcRecordTy, DestRecordTy),
+                         CGF.VoidPtrTy, ThisAddr.getAlignment());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      SrcDecl = DestDecl;
+      Offset = CharUnits::Zero();
+      break;
+    }
+  }
+
+  if (!Offset) {
+    // If there are no public inheritance paths, the cast always fails.
+    CGF.EmitBranch(CastFail);
+    return llvm::PoisonValue::get(CGF.VoidPtrTy);
+  }
+
+  // Compare the vptr against the expected vptr for the destination type at
+  // this offset. Note that we do not know what type ThisAddr points to in
+  // the case where the derived class multiply inherits from the base class
+  // so we can't use GetVTablePtr, so we load the vptr directly instead.
+  llvm::Instruction *VPtr = CGF.Builder.CreateLoad(
+      ThisAddr.withElementType(CGF.VoidPtrPtrTy), "vtable");
+  CGM.DecorateInstructionWithTBAA(
+      VPtr, CGM.getTBAAVTablePtrAccessInfo(CGF.VoidPtrPtrTy));
+  llvm::Value *Success = CGF.Builder.CreateICmpEQ(
+      VPtr, getVTableAddressPoint(BaseSubobject(SrcDecl, *Offset), DestDecl));
+  llvm::Value *Result = ThisAddr.getPointer();
+  if (!Offset->isZero())
+    Result = CGF.Builder.CreateInBoundsGEP(
+        CGF.CharTy, Result,
+        {llvm::ConstantInt::get(CGF.PtrDiffTy, -Offset->getQuantity())});
+  CGF.Builder.CreateCondBr(Success, CastSuccess, CastFail);
+  return Result;
+}
+
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
 llvm::Value *ItaniumCXXABI::emitDynamicCastToVoid(CodeGenFunction &CGF,
                                                   Address ThisAddr,
@@ -1627,6 +1780,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
                                                   QualType SrcRecordTy,
                                                   QualType DestTy) {
   llvm::Type *DestLTy = CGF.ConvertType(DestTy);
+  if (!DestLTy->isPointerTy())
+    DestLTy = DestLTy->getPointerTo();
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   auto *ClassDecl =
       cast<CXXRecordDecl>(SrcRecordTy->castAs<RecordType>()->getDecl());
@@ -2332,8 +2487,12 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                                        NonVirtualAdjustment);
   }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  return ResultPtr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // Cast back to the original type.
   return CGF.Builder.CreateBitCast(ResultPtr, InitialPtr.getType());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 llvm::Value *ItaniumCXXABI::performThisAdjustment(CodeGenFunction &CGF,

@@ -42,6 +42,7 @@ def main(builtin_params={}):
         config_prefix=opts.configPrefix,
         show_final_subst=opts.show_final_subst, #INTEL
         echo_all_commands=opts.echoAllCommands,
+        per_test_coverage=opts.per_test_coverage,
     )
 
     discovered_tests = lit.discovery.find_tests_for_inputs(

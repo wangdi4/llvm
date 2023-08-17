@@ -267,6 +267,28 @@ public:
                   ConversionPatternRewriter &rewriter) const override;
 };
 
+class CastPattern final : public OpConversionPattern<memref::CastOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(memref::CastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value src = adaptor.getSource();
+    Type srcType = src.getType();
+
+    TypeConverter *converter = getTypeConverter();
+    Type dstType = converter->convertType(op.getType());
+    if (srcType != dstType)
+      return rewriter.notifyMatchFailure(op, [&](Diagnostic &diag) {
+        diag << "types doesn't match: " << srcType << " and " << dstType;
+      });
+
+    rewriter.replaceOp(op, src);
+    return success();
+  }
+};
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -282,6 +304,9 @@ AllocaOpPattern::matchAndRewrite(memref::AllocaOp allocaOp, OpAdaptor adaptor,
 
   // Get the SPIR-V type for the allocation.
   Type spirvType = getTypeConverter()->convertType(allocType);
+  if (!spirvType)
+    return rewriter.notifyMatchFailure(allocaOp, "type conversion failed");
+
   rewriter.replaceOpWithNewOp<spirv::VariableOp>(allocaOp, spirvType,
                                                  spirv::StorageClass::Function,
                                                  /*initializer=*/nullptr);
@@ -301,6 +326,8 @@ AllocOpPattern::matchAndRewrite(memref::AllocOp operation, OpAdaptor adaptor,
 
   // Get the SPIR-V type for the allocation.
   Type spirvType = getTypeConverter()->convertType(allocType);
+  if (!spirvType)
+    return rewriter.notifyMatchFailure(operation, "type conversion failed");
 
   // Insert spirv.GlobalVariable for this allocation.
   Operation *parent =
@@ -445,7 +472,7 @@ IntLoadOpPattern::matchAndRewrite(memref::LoadOp loadOp, OpAdaptor adaptor,
   int dstBits = dstType.getIntOrFloatBitWidth();
   assert(dstBits % srcBits == 0);
 
-  // If the rewrited load op has the same bit width, use the loading value
+  // If the rewritten load op has the same bit width, use the loading value
   // directly.
   if (srcBits == dstBits) {
     Value loadVal = rewriter.create<spirv::LoadOp>(loc, accessChain);
@@ -679,12 +706,16 @@ LogicalResult MemorySpaceCastOpPattern::matchAndRewrite(
 
   Value result = adaptor.getSource();
   Type resultPtrType = typeConverter.convertType(resultType);
+  if (!resultPtrType)
+    return rewriter.notifyMatchFailure(addrCastOp,
+                                       "failed to convert memref type");
+
   Type genericPtrType = resultPtrType;
   // SPIR-V doesn't have a general address space cast operation. Instead, it has
   // conversions to and from generic pointers. To implement the general case,
   // we use specific-to-generic conversions when the source class is not
   // generic. Then when the result storage class is not generic, we convert the
-  // generic pointer (either the input on ar intermediate result) to theat
+  // generic pointer (either the input on ar intermediate result) to that
   // class. This also means that we'll need the intermediate generic pointer
   // type if neither the source or destination have it.
   if (sourceSc != spirv::StorageClass::Generic &&
@@ -779,10 +810,10 @@ LogicalResult ReinterpretCastPattern::matchAndRewrite(
 namespace mlir {
 void populateMemRefToSPIRVPatterns(SPIRVTypeConverter &typeConverter,
                                    RewritePatternSet &patterns) {
-  patterns
-      .add<AllocaOpPattern, AllocOpPattern, AtomicRMWOpPattern,
-           DeallocOpPattern, IntLoadOpPattern, IntStoreOpPattern, LoadOpPattern,
-           MemorySpaceCastOpPattern, StoreOpPattern, ReinterpretCastPattern>(
-          typeConverter, patterns.getContext());
+  patterns.add<AllocaOpPattern, AllocOpPattern, AtomicRMWOpPattern,
+               DeallocOpPattern, IntLoadOpPattern, IntStoreOpPattern,
+               LoadOpPattern, MemorySpaceCastOpPattern, StoreOpPattern,
+               ReinterpretCastPattern, CastPattern>(typeConverter,
+                                                    patterns.getContext());
 }
 } // namespace mlir

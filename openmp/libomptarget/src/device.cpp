@@ -32,9 +32,13 @@
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 #include "device.h"
+#include "OmptCallback.h"
+#include "OmptInterface.h"
 #include "omptarget.h"
 #include "private.h"
 #include "rtl.h"
+
+#include "Utilities.h"
 
 #include <cassert>
 #include <climits>
@@ -47,6 +51,9 @@
 #ifdef INTEL_CUSTOMIZATION
 using llvm::SmallVector;
 #endif // INTEL_CUSTOMIZATION
+#ifdef OMPT_SUPPORT
+using namespace llvm::omp::target::ompt;
+#endif
 
 int HostDataToTargetTy::addEventIfNecessary(DeviceTy &Device,
                                             AsyncInfoTy &AsyncInfo) const {
@@ -596,6 +603,28 @@ void DeviceTy::init() {
   if (Ret != OFFLOAD_SUCCESS)
     return;
 
+  // Enables recording kernels if set.
+  llvm::omp::target::BoolEnvar OMPX_RecordKernel("LIBOMPTARGET_RECORD", false);
+  if (OMPX_RecordKernel) {
+    // Enables saving the device memory kernel output post execution if set.
+    llvm::omp::target::BoolEnvar OMPX_ReplaySaveOutput(
+        "LIBOMPTARGET_RR_SAVE_OUTPUT", false);
+    // Sets the maximum to pre-allocate device memory.
+    llvm::omp::target::UInt64Envar OMPX_DeviceMemorySize(
+        "LIBOMPTARGET_RR_DEVMEM_SIZE", 16);
+#if INTEL_CUSTOMIZATION
+    DP("Activating Record-Replay for Device %d with %lu GB memory\n",
+       RTLDeviceID, (unsigned long) OMPX_DeviceMemorySize.get());
+#else // INTEL_CUSTOMIZATION
+    DP("Activating Record-Replay for Device %d with %lu GB memory\n",
+       RTLDeviceID, OMPX_DeviceMemorySize.get());
+#endif // INTEL_CUSTOMIZATION
+
+    RTL->activate_record_replay(RTLDeviceID,
+                                OMPX_DeviceMemorySize * 1024 * 1024 * 1024,
+                                true, OMPX_ReplaySaveOutput);
+  }
+
   IsInit = true;
 }
 
@@ -635,6 +664,12 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
   return Ret;
 #else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data allocation
+  OMPT_IF_BUILT(InterfaceRAII TargetDataAllocRAII(
+                    RegionInterface.getCallbacks<ompt_target_data_alloc>(),
+                    RTLDeviceID, HstPtr, Size,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -646,6 +681,12 @@ int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
   XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtAllocBegin, CorrID);
   return Rc;
 #else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data deletion
+  OMPT_IF_BUILT(InterfaceRAII TargetDataDeleteRAII(
+                    RegionInterface.getCallbacks<ompt_target_data_delete>(),
+                    RTLDeviceID, TgtAllocBegin,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   return RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -690,6 +731,13 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
   OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
 #else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data submit
+  OMPT_IF_BUILT(
+      InterfaceRAII TargetDataSubmitRAII(
+          RegionInterface.getCallbacks<ompt_target_data_transfer_to_device>(),
+          RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+          /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
@@ -725,6 +773,13 @@ int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
       targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
 #else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data retrieval
+  OMPT_IF_BUILT(
+      InterfaceRAII TargetDataRetrieveRAII(
+          RegionInterface.getCallbacks<ompt_target_data_transfer_from_device>(),
+          RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+          /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   if (!RTL->data_retrieve_async || !RTL->synchronize)
     return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,

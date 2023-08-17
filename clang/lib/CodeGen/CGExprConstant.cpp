@@ -1144,8 +1144,35 @@ public:
     case CK_ConstructorConversion:
       return Visit(subExpr, destType);
 
+    case CK_ArrayToPointerDecay:
+      if (const auto *S = dyn_cast<StringLiteral>(subExpr))
+        return CGM.GetAddrOfConstantStringFromLiteral(S).getPointer();
+      return nullptr;
+    case CK_NullToPointer:
+      if (llvm::Constant *C = Visit(subExpr, destType))
+        return CGM.EmitNullConstant(destType);
+      return nullptr;
+
     case CK_IntToOCLSampler:
       llvm_unreachable("global sampler variables are not generated");
+
+    case CK_IntegralCast: {
+      QualType FromType = subExpr->getType();
+      // See also HandleIntToIntCast in ExprConstant.cpp
+      if (FromType->isIntegerType())
+        if (llvm::Constant *C = Visit(subExpr, FromType))
+          if (auto *CI = dyn_cast<llvm::ConstantInt>(C)) {
+            unsigned SrcWidth = CGM.getContext().getIntWidth(FromType);
+            unsigned DstWidth = CGM.getContext().getIntWidth(destType);
+            if (DstWidth == SrcWidth)
+              return CI;
+            llvm::APInt A = FromType->isSignedIntegerType()
+                                ? CI->getValue().sextOrTrunc(DstWidth)
+                                : CI->getValue().zextOrTrunc(DstWidth);
+            return llvm::ConstantInt::get(CGM.getLLVMContext(), A);
+          }
+      return nullptr;
+    }
 
     case CK_Dependent: llvm_unreachable("saw dependent cast!");
 
@@ -1181,7 +1208,6 @@ public:
     case CK_CPointerToObjCPointerCast:
     case CK_BlockPointerToObjCPointerCast:
     case CK_AnyPointerToBlockPointerCast:
-    case CK_ArrayToPointerDecay:
     case CK_FunctionToPointerDecay:
     case CK_BaseToDerived:
     case CK_DerivedToBase:
@@ -1200,8 +1226,6 @@ public:
     case CK_IntegralComplexToFloatingComplex:
     case CK_PointerToIntegral:
     case CK_PointerToBoolean:
-    case CK_NullToPointer:
-    case CK_IntegralCast:
     case CK_BooleanToSignedIntegral:
     case CK_IntegralToPointer:
     case CK_IntegralToBoolean:
@@ -1232,9 +1256,8 @@ public:
     return Visit(E->getSubExpr(), T);
   }
 
-  llvm::Constant *VisitMaterializeTemporaryExpr(MaterializeTemporaryExpr *E,
-                                                QualType T) {
-    return Visit(E->getSubExpr(), T);
+  llvm::Constant *VisitIntegerLiteral(IntegerLiteral *I, QualType T) {
+    return llvm::ConstantInt::get(CGM.getLLVMContext(), I->getValue());
   }
 
   llvm::Constant *EmitArrayInitialization(InitListExpr *ILE, QualType T) {
@@ -1339,7 +1362,12 @@ public:
       assert(CGM.getContext().hasSameUnqualifiedType(Ty, Arg->getType()) &&
              "argument to copy ctor is of wrong type");
 
-      return Visit(Arg, Ty);
+      // Look through the temporary; it's just converting the value to an
+      // lvalue to pass it to the constructor.
+      if (auto *MTE = dyn_cast<MaterializeTemporaryExpr>(Arg))
+        return Visit(MTE->getSubExpr(), Ty);
+      // Don't try to support arbitrary lvalue-to-rvalue conversions for now.
+      return nullptr;
     }
 
     return CGM.EmitNullConstant(Ty);
@@ -1367,6 +1395,13 @@ public:
 
   llvm::Constant *VisitUnaryExtension(const UnaryOperator *E, QualType T) {
     return Visit(E->getSubExpr(), T);
+  }
+
+  llvm::Constant *VisitUnaryMinus(UnaryOperator *U, QualType T) {
+    if (llvm::Constant *C = Visit(U->getSubExpr(), T))
+      if (auto *CI = dyn_cast<llvm::ConstantInt>(C))
+        return llvm::ConstantInt::get(CGM.getLLVMContext(), -CI->getValue());
+    return nullptr;
   }
 
   // Utility methods
@@ -1678,28 +1713,23 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
                ? D.hasAttr<OMPDeclareTargetDeclAttr>()
                : false);
 #endif // INTEL_COLLAB
-  // Try to emit the initializer.  Note that this can allow some things that
-  // are not allowed by tryEmitPrivateForMemory alone.
-  if (auto value = D.evaluateValue()) {
-    return tryEmitPrivateForMemory(*value, destType);
-  }
-
-  // FIXME: Implement C++11 [basic.start.init]p2: if the initializer of a
-  // reference is a constant expression, and the reference binds to a temporary,
-  // then constant initialization is performed. ConstExprEmitter will
-  // incorrectly emit a prvalue constant in this case, and the calling code
-  // interprets that as the (pointer) value of the reference, rather than the
-  // desired value of the referee.
-  if (destType->isReferenceType())
-    return nullptr;
 
   const Expr *E = D.getInit();
   assert(E && "No initializer to emit");
 
-  auto nonMemoryDestType = getNonMemoryType(CGM, destType);
-  auto C =
-    ConstExprEmitter(*this).Visit(const_cast<Expr*>(E), nonMemoryDestType);
-  return (C ? emitForMemory(C, destType) : nullptr);
+  if (!destType->isReferenceType()) {
+    QualType nonMemoryDestType = getNonMemoryType(CGM, destType);
+    if (llvm::Constant *C = ConstExprEmitter(*this).Visit(const_cast<Expr *>(E),
+                                                          nonMemoryDestType))
+      return emitForMemory(C, destType);
+  }
+
+  // Try to emit the initializer.  Note that this can allow some things that
+  // are not allowed by tryEmitPrivateForMemory alone.
+  if (APValue *value = D.evaluateValue())
+    return tryEmitPrivateForMemory(*value, destType);
+
+  return nullptr;
 }
 
 llvm::Constant *
@@ -1767,6 +1797,10 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const Expr *E,
                                                 QualType destType) {
   assert(!destType->isVoidType() && "can't emit a void constant");
 
+  if (llvm::Constant *C =
+          ConstExprEmitter(*this).Visit(const_cast<Expr *>(E), destType))
+    return C;
+
   Expr::EvalResult Result;
 
   bool Success = false;
@@ -1776,13 +1810,10 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const Expr *E,
   else
     Success = E->EvaluateAsRValue(Result, CGM.getContext(), InConstantContext);
 
-  llvm::Constant *C;
   if (Success && !Result.HasSideEffects)
-    C = tryEmitPrivate(Result.Val, destType);
-  else
-    C = ConstExprEmitter(*this).Visit(const_cast<Expr*>(E), destType);
+    return tryEmitPrivate(Result.Val, destType);
 
-  return C;
+  return nullptr;
 }
 
 llvm::Constant *CodeGenModule::getNullPointer(llvm::PointerType *T, QualType QT) {

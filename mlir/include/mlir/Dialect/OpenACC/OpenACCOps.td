@@ -116,6 +116,25 @@ def OpenACC_DataClauseEnum : I64EnumAttr<"DataClause",
 def OpenACC_DataClauseAttr : EnumAttr<OpenACC_Dialect, OpenACC_DataClauseEnum,
                                       "data_clause">;
 
+class OpenACC_Attr<string name, string attrMnemonic,
+                   list<Trait> traits = [],
+                   string baseCppClass = "::mlir::Attribute">
+    : AttrDef<OpenACC_Dialect, name, traits, baseCppClass> {
+  let mnemonic = attrMnemonic;
+}
+
+// Attribute to describe the declare data clause used on variable.
+// Intended to be used at the variable creation site (on the global op or the
+// corresponding allocation operation). This is used in conjunction with the
+// declare operations (`acc.declare_enter` and `acc.declare_exit`) since those
+// describe how the data action is performed. The attribute itself makes it
+// easier to find out whether the variable is in a declare clause and what kind
+// of clause it is.
+def DeclareAttr : OpenACC_Attr<"Declare", "declare"> {
+  let parameters = (ins "DataClauseAttr":$dataClause);
+  let assemblyFormat = "`<` struct(params) `>`";
+}
+
 // Used for data specification in data clauses (2.7.1).
 // Either (or both) extent and upperbound must be specified.
 def OpenACC_DataBoundsOp : OpenACC_Op<"bounds",
@@ -596,12 +615,14 @@ def OpenACC_ReductionRecipeOp : OpenACC_Op<"reduction.recipe",
     mandatory regions.
 
       1. The initializer region specifies how to initialize the local reduction
-         value. The region has an argument that contains the value of the
+         value. The region has a first argument that contains the value of the
          reduction accumulator at the start of the reduction. It is expected to
-         `acc.yield` the new value.
+         `acc.yield` the new value. Extra arguments can be added to deal with
+         dynamic arrays.
       2. The reduction region contains a sequences of operations to combine two
-         values of the reduction type into one. It has two arguments and it is
-         expected to `acc.yield` the combined value.
+         values of the reduction type into one. It has at least two arguments
+         and it is expected to `acc.yield` the combined value. Extra arguments
+         can be added to deal with dynamic arrays.
 
     Example:
 
@@ -1299,6 +1320,73 @@ def OpenACC_GlobalDestructorOp : OpenACC_Op<"global_dtor",
   }];
 
   let hasVerifier = 0;
+}
+
+//===----------------------------------------------------------------------===//
+// 2.15.1 Routine Directive
+//===----------------------------------------------------------------------===//
+
+def OpenACC_RoutineOp : OpenACC_Op<"routine", [IsolatedFromAbove]> {
+  let summary = "acc routine operation";
+
+  let description = [{
+    The `acc.routine` operation is used to capture the clauses of acc
+    routine directive, including the associated function name. The associated
+    function keeps track of its corresponding routine declaration through
+    the `RoutineInfoAttr`.
+
+    Example:
+
+    ```mlir
+    func.func @acc_func(%a : i64) -> () attributes {acc.routine_info = #acc.routine_info<[@acc_func_rout1]>} {
+      return
+    }
+    acc.routine @acc_func_rout1 func(@acc_func) gang
+    ```
+  }];
+
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       SymbolNameAttr:$func_name,
+                       OptionalAttr<StrAttr>:$bind_name,
+                       OptionalAttr<UnitAttr>:$gang,
+                       OptionalAttr<UnitAttr>:$worker,
+                       OptionalAttr<UnitAttr>:$vector,
+                       OptionalAttr<UnitAttr>:$seq,
+                       OptionalAttr<UnitAttr>:$nohost,
+                       OptionalAttr<UnitAttr>:$implicit,
+                       OptionalAttr<APIntAttr>:$gangDim);
+
+  let extraClassDeclaration = [{
+    static StringRef getGangDimKeyword() { return "dim"; }
+  }];
+
+  let assemblyFormat = [{
+    $sym_name `func` `(` $func_name `)`
+    oilist (
+        `bind` `(` $bind_name `)`
+      | `gang` `` custom<RoutineGangClause>($gang, $gangDim)
+      | `worker` $worker
+      | `vector` $vector
+      | `seq` $seq
+      | `nohost` $nohost
+      | `implicit` $implicit
+    ) attr-dict-with-keyword
+  }];
+
+  let hasVerifier = 1;
+}
+
+def RoutineInfoAttr : OpenACC_Attr<"RoutineInfo", "routine_info"> {
+  let summary = "Keeps track of associated acc routine information";
+
+  let description = [{
+    This attribute is used to create the association between a function and
+    its `acc.routine` operation. A `func.func` uses this if its name
+    was referenced in an `acc routine` directive.
+  }];
+
+  let parameters = (ins ArrayRefParameter<"SymbolRefAttr", "">:$accRoutines);
+  let assemblyFormat = "`<` `[` `` $accRoutines `]` `>`";
 }
 
 //===----------------------------------------------------------------------===//

@@ -181,9 +181,9 @@
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-MULTI %s
 // THROUGHPUT-MULTI: "-mllvm" "-throughput-opt=2"
 
-// RUN: %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN: not %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
-// RUN: %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN: not %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
 // THROUGHPUT-BADARG: error: invalid argument 'badarg'
 
@@ -217,7 +217,7 @@
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
 // RUN: %clang_cl -Qopt-streaming-stores never -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_NEVER %s
-// RUN: %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
+// RUN: not %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_UNKNOWN %s
 // STREAMING_STORES_ALWAYS: "-mllvm" "-hir-nontemporal-cacheline-count=0"
 // STREAMING_STORES_NEVER: "-mllvm" "-disable-hir-nontemporal-marking"
@@ -226,7 +226,7 @@
 // Check for a binary "name" match
 // RUN: not %clangxx --intel --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
 // RUN: not %clangxx --intel --dpcpp --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
-// SUPPORT-CHECK1: icpx: error: unsupported option '---'
+// SUPPORT-CHECK1: icpx: error: unknown argument: '---'
 
 // warn to use icpx when compiling .cpp files
 // RUN: %clang --intel -### %s 2>&1 | FileCheck -check-prefix=WARN-TO-USE-ICPX %s

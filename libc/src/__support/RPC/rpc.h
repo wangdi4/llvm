@@ -23,7 +23,7 @@
 #include "src/__support/CPP/functional.h"
 #include "src/__support/CPP/optional.h"
 #include "src/__support/GPU/utils.h"
-#include "src/string/memory_utils/memcpy_implementations.h"
+#include "src/string/memory_utils/inline_memcpy.h"
 
 #include <stdint.h>
 
@@ -79,12 +79,12 @@ template <bool Invert, typename Packet> struct Process {
   LIBC_INLINE Process &operator=(Process &&) = default;
   LIBC_INLINE ~Process() = default;
 
-  uint64_t port_count;
-  cpp::Atomic<uint32_t> *inbox;
-  cpp::Atomic<uint32_t> *outbox;
-  Packet *packet;
+  uint64_t port_count = 0;
+  cpp::Atomic<uint32_t> *inbox = nullptr;
+  cpp::Atomic<uint32_t> *outbox = nullptr;
+  Packet *packet = nullptr;
 
-  static constexpr uint64_t NUM_BITS_IN_WORD = (sizeof(uint32_t) * 8);
+  static constexpr uint64_t NUM_BITS_IN_WORD = sizeof(uint32_t) * 8;
   cpp::Atomic<uint32_t> lock[MAX_PORT_COUNT / NUM_BITS_IN_WORD] = {0};
 
   /// Initialize the communication channels.
@@ -156,12 +156,11 @@ template <bool Invert, typename Packet> struct Process {
 
   /// Attempt to claim the lock at index. Return true on lock taken.
   /// lane_mask is a bitmap of the threads in the warp that would hold the
-  /// single lock on success, e.g. the result of gpu::get_lane_mask().
-  /// The lock is held when the nth bit of the lock bitfield is set, otherwise
-  /// it is availible.
+  /// single lock on success, e.g. the result of gpu::get_lane_mask()
+  /// The lock is held when the n-th bit of the lock bitfield is set.
   [[clang::convergent]] LIBC_INLINE bool try_lock(uint64_t lane_mask,
                                                   uint64_t index) {
-    // On amdgpu, test and set to lock[index] and a sync_lane would suffice
+    // On amdgpu, test and set to the nth lock bit and a sync_lane would suffice
     // On volta, need to handle differences between the threads running and
     // the threads that were detected in the previous call to get_lane_mask()
     //
@@ -170,7 +169,7 @@ template <bool Invert, typename Packet> struct Process {
     // succeed in taking the lock, as otherwise it will leak. This is handled
     // by making threads which are not in lane_mask or with 0, a no-op.
     uint32_t id = gpu::get_lane_id();
-    bool id_in_lane_mask = lane_mask & (1u << id);
+    bool id_in_lane_mask = lane_mask & (1ul << id);
 
     // All threads in the warp call fetch_or. Possibly at the same time.
     bool before = set_nth(lock, index, id_in_lane_mask);
@@ -208,9 +207,9 @@ template <bool Invert, typename Packet> struct Process {
     // Wait for other threads in the warp to finish using the lock
     gpu::sync_lane(lane_mask);
 
-    // Use exactly one thread to clear the associated lock bit. Must restrict
-    // to a single thread to avoid one thread dropping the lock, then an
-    // unrelated warp claiming the lock, then a second thread in this warp
+    // Use exactly one thread to clear the nth bit in the lock array Must
+    // restrict to a single thread to avoid one thread dropping the lock, then
+    // an unrelated warp claiming the lock, then a second thread in this warp
     // dropping the lock again.
     clear_nth(lock, index, rpc::is_first_lane(lane_mask));
     gpu::sync_lane(lane_mask);
@@ -244,8 +243,8 @@ template <bool Invert, typename Packet> struct Process {
   /// Conditionally set the n-th bit in the atomic bitfield.
   LIBC_INLINE static constexpr uint32_t set_nth(cpp::Atomic<uint32_t> *bits,
                                                 uint64_t index, bool cond) {
-    const uint32_t slot = index / NUM_BITS_IN_WORD;
-    const uint32_t bit = index % NUM_BITS_IN_WORD;
+    uint64_t slot = index / NUM_BITS_IN_WORD;
+    uint64_t bit = index % NUM_BITS_IN_WORD;
     return bits[slot].fetch_or(static_cast<uint32_t>(cond) << bit,
                                cpp::MemoryOrder::RELAXED) &
            (1u << bit);
@@ -254,9 +253,9 @@ template <bool Invert, typename Packet> struct Process {
   /// Conditionally clear the n-th bit in the atomic bitfield.
   LIBC_INLINE static constexpr uint32_t clear_nth(cpp::Atomic<uint32_t> *bits,
                                                   uint64_t index, bool cond) {
-    const uint32_t slot = index / NUM_BITS_IN_WORD;
-    const uint32_t bit = index % NUM_BITS_IN_WORD;
-    return bits[slot].fetch_and(-1u ^ (static_cast<uint32_t>(cond) << bit),
+    uint64_t slot = index / NUM_BITS_IN_WORD;
+    uint64_t bit = index % NUM_BITS_IN_WORD;
+    return bits[slot].fetch_and(~0u ^ (static_cast<uint32_t>(cond) << bit),
                                 cpp::MemoryOrder::RELAXED) &
            (1u << bit);
   }

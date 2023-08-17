@@ -233,6 +233,20 @@ void VPRecipeBase::moveBefore(VPBasicBlock &BB,
   insertBefore(BB, I);
 }
 
+FastMathFlags VPRecipeWithIRFlags::getFastMathFlags() const {
+  assert(OpType == OperationType::FPMathOp &&
+         "recipe doesn't have fast math flags");
+  FastMathFlags Res;
+  Res.setAllowReassoc(FMFs.AllowReassoc);
+  Res.setNoNaNs(FMFs.NoNaNs);
+  Res.setNoInfs(FMFs.NoInfs);
+  Res.setNoSignedZeros(FMFs.NoSignedZeros);
+  Res.setAllowReciprocal(FMFs.AllowReciprocal);
+  Res.setAllowContract(FMFs.AllowContract);
+  Res.setApproxFunc(FMFs.ApproxFunc);
+  return Res;
+}
+
 Value *VPInstruction::generateInstruction(VPTransformState &State,
                                           unsigned Part) {
   IRBuilderBase &Builder = State.Builder;
@@ -1299,8 +1313,8 @@ void VPReductionPHIRecipe::execute(VPTransformState &State) {
   Value *Iden = nullptr;
   RecurKind RK = RdxDesc.getRecurrenceKind();
   if (RecurrenceDescriptor::isMinMaxRecurrenceKind(RK) ||
-      RecurrenceDescriptor::isSelectCmpRecurrenceKind(RK)) {
-    // MinMax reduction have the start value as their identify.
+      RecurrenceDescriptor::isAnyOfRecurrenceKind(RK)) {
+    // MinMax and AnyOf reductions have the start value as their identity.
     if (ScalarPHI) {
       Iden = StartV;
     } else {

@@ -595,6 +595,11 @@ void MachineBasicBlock::printName(raw_ostream &os, unsigned printNameFlags,
       os << "bb_id " << *getBBID();
       hasAttributes = true;
     }
+    if (CallFrameSize != 0) {
+      os << (hasAttributes ? ", " : " (");
+      os << "call-frame-size " << CallFrameSize;
+      hasAttributes = true;
+    }
   }
 
   if (hasAttributes)
@@ -1192,6 +1197,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
 #endif // INTEL_CUSTOMIZATION
 
   MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
+  NMBB->setCallFrameSize(Succ->getCallFrameSize());
 
   // Is there an indirect jump with jump table?
   bool ChangedIndirectJump = false;

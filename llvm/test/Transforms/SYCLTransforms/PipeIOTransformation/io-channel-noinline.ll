@@ -57,9 +57,9 @@ target triple = "x86_64-pc-linux"
 @ch_out1.pipe.bs = addrspace(1) global [456 x i8] zeroinitializer, align 4
 
 ; CHECK: @ch_in0.str = private unnamed_addr constant [7 x i8] c"ch_in0\00"
-; CHECK: @ch_out1.str = private unnamed_addr constant [8 x i8] c"ch_out1\00"
 ; CHECK: @ch_in1.str = private unnamed_addr constant [7 x i8] c"ch_in1\00"
 ; CHECK: @ch_out0.str = private unnamed_addr constant [8 x i8] c"ch_out0\00"
+; CHECK: @ch_out1.str = private unnamed_addr constant [8 x i8] c"ch_out1\00"
 
 ; CHECK-LABEL: @readFileViaChannel
 ; CHECK: call i32 @__io_pipe_0_0_readChannelHelper

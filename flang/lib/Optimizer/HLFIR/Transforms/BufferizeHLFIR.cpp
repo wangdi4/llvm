@@ -253,8 +253,7 @@ struct ApplyOpConversion : public mlir::OpConversionPattern<hlfir::ApplyOp> {
     if (fir::isa_trivial(apply.getType())) {
       result = rewriter.create<fir::LoadOp>(loc, result);
     } else {
-      auto module = apply->getParentOfType<mlir::ModuleOp>();
-      fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+      fir::FirOpBuilder builder(rewriter, apply.getOperation());
       result =
           packageBufferizedExpr(loc, builder, hlfir::Entity{result}, false);
     }
@@ -288,8 +287,7 @@ struct ConcatOpConversion : public mlir::OpConversionPattern<hlfir::ConcatOp> {
   matchAndRewrite(hlfir::ConcatOp concat, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = concat->getLoc();
-    auto module = concat->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, concat.getOperation());
     assert(adaptor.getStrings().size() >= 2 &&
            "must have at least two strings operands");
     if (adaptor.getStrings().size() > 2)
@@ -328,8 +326,7 @@ struct SetLengthOpConversion
   matchAndRewrite(hlfir::SetLengthOp setLength, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = setLength->getLoc();
-    auto module = setLength->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, setLength.getOperation());
     // Create a temp with the new length.
     hlfir::Entity string = getBufferizedExprStorage(adaptor.getString());
     auto charType = hlfir::getFortranElementType(setLength.getType());
@@ -362,8 +359,7 @@ struct GetLengthOpConversion
   matchAndRewrite(hlfir::GetLengthOp getLength, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = getLength->getLoc();
-    auto module = getLength->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, getLength.getOperation());
     hlfir::Entity bufferizedExpr = getBufferizedExprStorage(adaptor.getExpr());
     mlir::Value length = hlfir::genCharLength(loc, builder, bufferizedExpr);
     if (!length)
@@ -379,9 +375,26 @@ struct GetLengthOpConversion
 /// expression bufferization at hlfir.end_associate. If there was more than one
 /// hlfir.end_associate, it would be cleaned up multiple times, perhaps before
 /// one of the other uses.
+/// Note that we have to be careful about expressions used by a single
+/// hlfir.end_associate that may be executed more times than the producer
+/// of the expression value. This may also cause multiple clean-ups
+/// for the same memory (e.g. cause double-free errors). For example,
+/// hlfir.end_associate inside hlfir.elemental may cause such issues
+/// for expressions produced outside of hlfir.elemental.
 static bool allOtherUsesAreSafeForAssociate(mlir::Value value,
                                             mlir::Operation *currentUse,
                                             mlir::Operation *endAssociate) {
+  // If value producer is from a different region than
+  // hlfir.associate/end_associate, then conservatively assume
+  // that the hlfir.end_associate may execute more times than
+  // the value producer.
+  // TODO: this may be improved for operations that cannot
+  // result in multiple executions (e.g. ifOp).
+  if (value.getParentRegion() != currentUse->getParentRegion() ||
+      (endAssociate &&
+       value.getParentRegion() != endAssociate->getParentRegion()))
+    return false;
+
   for (mlir::Operation *useOp : value.getUsers())
     if (!mlir::isa<hlfir::DestroyOp>(useOp) && useOp != currentUse) {
       // hlfir.shape_of and hlfir.get_length will not disrupt cleanup so it is
@@ -419,8 +432,7 @@ struct AssociateOpConversion
   matchAndRewrite(hlfir::AssociateOp associate, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = associate->getLoc();
-    auto module = associate->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, associate.getOperation());
     mlir::Value bufferizedExpr = getBufferizedExprStorage(adaptor.getSource());
     const bool isTrivialValue = fir::isa_trivial(bufferizedExpr.getType());
 
@@ -504,7 +516,7 @@ struct AssociateOpConversion
     }
     // non-trivial value with more than one use. We will have to make a copy and
     // use that
-    hlfir::Entity source = hlfir::Entity{adaptor.getSource()};
+    hlfir::Entity source = hlfir::Entity{bufferizedExpr};
     auto [temp, cleanup] = createTempFromMold(loc, builder, source);
     builder.create<hlfir::AssignOp>(loc, source, temp, temp.isAllocatable(),
                                     /*keep_lhs_length_if_realloc=*/false,
@@ -560,8 +572,7 @@ struct EndAssociateOpConversion
   matchAndRewrite(hlfir::EndAssociateOp endAssociate, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = endAssociate->getLoc();
-    auto module = endAssociate->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, endAssociate.getOperation());
     genFreeIfMustFree(loc, builder, adaptor.getVar(), adaptor.getMustFree());
     rewriter.eraseOp(endAssociate);
     return mlir::success();
@@ -580,8 +591,7 @@ struct DestroyOpConversion
     mlir::Location loc = destroy->getLoc();
     hlfir::Entity bufferizedExpr = getBufferizedExprStorage(adaptor.getExpr());
     if (!fir::isa_trivial(bufferizedExpr.getType())) {
-      auto module = destroy->getParentOfType<mlir::ModuleOp>();
-      fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+      fir::FirOpBuilder builder(rewriter, destroy.getOperation());
       mlir::Value mustFree = getBufferizedExprMustFreeFlag(adaptor.getExpr());
       mlir::Value firBase = bufferizedExpr.getFirBase();
       genFreeIfMustFree(loc, builder, firBase, mustFree);
@@ -600,8 +610,7 @@ struct NoReassocOpConversion
   matchAndRewrite(hlfir::NoReassocOp noreassoc, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = noreassoc->getLoc();
-    auto module = noreassoc->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, noreassoc.getOperation());
     mlir::Value bufferizedExpr = getBufferizedExprStorage(adaptor.getVal());
     mlir::Value result =
         builder.create<hlfir::NoReassocOp>(loc, bufferizedExpr);
@@ -660,8 +669,7 @@ struct ElementalOpConversion
   matchAndRewrite(hlfir::ElementalOp elemental, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = elemental->getLoc();
-    auto module = elemental->getParentOfType<mlir::ModuleOp>();
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, elemental.getOperation());
     // The body of the elemental op may contain operation that will require
     // to be translated. Notify the rewriter about the cloned operations.
     HLFIRListener listener{builder, rewriter};
@@ -726,11 +734,10 @@ struct CharExtremumOpConversion
   matchAndRewrite(hlfir::CharExtremumOp char_extremum, OpAdaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override {
     mlir::Location loc = char_extremum->getLoc();
-    auto module = char_extremum->getParentOfType<mlir::ModuleOp>();
     auto predicate = char_extremum.getPredicate();
     bool predIsMin =
         predicate == hlfir::CharExtremumPredicate::min ? true : false;
-    fir::FirOpBuilder builder(rewriter, fir::getKindMapping(module));
+    fir::FirOpBuilder builder(rewriter, char_extremum.getOperation());
     assert(adaptor.getStrings().size() >= 2 &&
            "must have at least two strings operands");
     auto numOperands = adaptor.getStrings().size();

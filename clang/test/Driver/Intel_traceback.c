@@ -27,7 +27,7 @@
 // TRACEBACKWITHG: -debug-info-kind=constructor
 
 /// Unsupported on other targets.
-// RUN: %clang -### -S -traceback -target aarch64  %s 2>&1 | FileCheck --check-prefix=TARGET %s
+// RUN: not %clang -### -S -traceback -target aarch64  %s 2>&1 | FileCheck --check-prefix=TARGET %s
 // TARGET: unsupported option '-traceback' for target 'aarch64'
 
 // -traceback requires lgcc_s
