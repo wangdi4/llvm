@@ -14,13 +14,13 @@
 #
 # end INTEL_CUSTOMIZATION
 
-# PI Unified Runtime plugin library
+# PI Unified Runtime plugin library.
 #
 if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_DIR)
   include(FetchContent)
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-  set(UNIFIED_RUNTIME_TAG v0.7)
+  set(UNIFIED_RUNTIME_TAG v0.7.1)
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.

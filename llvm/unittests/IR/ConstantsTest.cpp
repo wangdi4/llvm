@@ -151,14 +151,13 @@ TEST(ConstantsTest, PointerCast) {
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // ptrtoint ptr to i64
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  // ptrtoint i8* to i64
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   EXPECT_EQ(
       Constant::getNullValue(Int64Ty),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ConstantExpr::getPointerCast(Constant::getNullValue(PtrTy), Int64Ty));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+  // ptrtoint i8* to i64
+  EXPECT_EQ(
+      Constant::getNullValue(Int64Ty),
       ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrTy), Int64Ty));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
@@ -175,16 +174,15 @@ TEST(ConstantsTest, PointerCast) {
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // ptrtoint <4 x ptr> to <4 x i64>
+  EXPECT_EQ(Constant::getNullValue(Int64VecTy),
+            ConstantExpr::getPointerCast(Constant::getNullValue(PtrVecTy),
+                                         Int64VecTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   // ptrtoint <4 x i8*> to <4 x i64>
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   EXPECT_EQ(Constant::getNullValue(Int64VecTy),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-            ConstantExpr::getPointerCast(Constant::getNullValue(PtrVecTy),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
             ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrVecTy),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                                          Int64VecTy));
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // ptrtoint <vscale x 4 x ptr> to <vscale x 4 x i64>
@@ -196,11 +194,13 @@ TEST(ConstantsTest, PointerCast) {
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   // ptrtoint <vscale x 4 x i8*> to <vscale x 4 x i64>
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  EXPECT_EQ(
+
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_EQ(
       Constant::getNullValue(PtrVecTy),
       ConstantExpr::getPointerCast(Constant::getNullValue(PtrVecTy), PtrVecTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_EQ(
       Constant::getNullValue(Int64ScalableVecTy),
       ConstantExpr::getPointerCast(Constant::getNullValue(Int8PtrScalableVecTy),
                                    Int64ScalableVecTy));
@@ -232,16 +232,19 @@ TEST(ConstantsTest, PointerCast) {
   ConstantInt *K = ConstantInt::get(Type::getInt64Ty(C), 1234);
 
   // Make sure that addrspacecast of inttoptr is not folded away.
-  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
                    ConstantExpr::getIntToPtr(K, PtrTy), Ptr1Ty));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
                    ConstantExpr::getIntToPtr(K, Int32PtrTy), Int32Ptr1Ty));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
+
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
                    ConstantExpr::getIntToPtr(K, Ptr1Ty), PtrTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+  EXPECT_NE(K, ConstantExpr::getAddrSpaceCast(
                    ConstantExpr::getIntToPtr(K, Int32Ptr1Ty), Int32PtrTy));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 

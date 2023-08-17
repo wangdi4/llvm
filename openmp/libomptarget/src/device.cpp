@@ -612,8 +612,13 @@ void DeviceTy::init() {
     // Sets the maximum to pre-allocate device memory.
     llvm::omp::target::UInt64Envar OMPX_DeviceMemorySize(
         "LIBOMPTARGET_RR_DEVMEM_SIZE", 16);
+#if INTEL_CUSTOMIZATION
+    DP("Activating Record-Replay for Device %d with %lu GB memory\n",
+       RTLDeviceID, (unsigned long) OMPX_DeviceMemorySize.get());
+#else // INTEL_CUSTOMIZATION
     DP("Activating Record-Replay for Device %d with %lu GB memory\n",
        RTLDeviceID, OMPX_DeviceMemorySize.get());
+#endif // INTEL_CUSTOMIZATION
 
     RTL->activate_record_replay(RTLDeviceID,
                                 OMPX_DeviceMemorySize * 1024 * 1024 * 1024,
