@@ -116,8 +116,8 @@ entry:
 
 land.rhs:
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @b, i32 0, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr @b, i32 0, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1.not = icmp sgt i32 %0, %v
   br i1 %cmp1.not, label %for.end.split.loop.exit8, label %for.inc
 

@@ -24,7 +24,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.119
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %"(ptr)hello_$X$" = getelementptr inbounds [256 x float], [256 x float]* %"hello_$X.priv", i64 0, i64 0
+  %"(ptr)hello_$X$" = getelementptr inbounds [256 x float], ptr %"hello_$X.priv", i64 0, i64 0
   br label %omp.pdo.body8
 
 omp.pdo.body8:                                    ; preds = %DIR.OMP.SIMD.2, %omp.pdo.body8
