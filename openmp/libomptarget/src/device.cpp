@@ -665,13 +665,19 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
   return Ret;
 #else  // INTEL_CUSTOMIZATION
   /// RAII to establish tool anchors before and after data allocation
+  void *TargetPtr = nullptr;
   OMPT_IF_BUILT(InterfaceRAII TargetDataAllocRAII(
                     RegionInterface.getCallbacks<ompt_target_data_alloc>(),
-                    RTLDeviceID, HstPtr, Size,
+                    RTLDeviceID, HstPtr, &TargetPtr, Size,
                     /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
 
+<<<<<<< HEAD
   return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
 #endif // INTEL_CUSTOMIZATION
+=======
+  TargetPtr = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
+  return TargetPtr;
+>>>>>>> 41f3626f8b300cef24c06d9e8b7cf53029a4330a
 }
 
 int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
