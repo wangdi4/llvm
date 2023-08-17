@@ -927,3 +927,7 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 
 # Optional Reviewer in GitHub
 .github/optional-reviewers/ @jsji
+
+# COMPONENT: None
+# Override ownership by product gatekeeper
+* @intel-restricted/xmain-product-gatekeeper
