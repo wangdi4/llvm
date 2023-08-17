@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # Modifications, Copyright (C) 2023 Intel Corporation
@@ -14,6 +15,8 @@
 #
 # end INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> eeaab87f51fbc23dbea31e4f6060ca3e40a6857a
 # PI Unified Runtime plugin library.
 #
 if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_DIR)
@@ -21,6 +24,7 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
   set(UNIFIED_RUNTIME_TAG v0.7.1)
+<<<<<<< HEAD
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
@@ -29,6 +33,8 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
       set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
     endif()
   endif(INTEL_CUSTOMIZATION)
+=======
+>>>>>>> eeaab87f51fbc23dbea31e4f6060ca3e40a6857a
 
   message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
   FetchContent_Declare(unified-runtime
