@@ -598,6 +598,49 @@ entry:
   ret <32 x float> %1
 }
 
+define <16 x float> @test_cexpf8_mask_split_to_avx2(<16 x float> %A, <8 x i1> %0, <16 x float> %C) #2 {
+; CHECK-LABEL: define <16 x float> @test_cexpf8_mask_split_to_avx2
+; CHECK-SAME: (<16 x float> [[A:%.*]], <8 x i1> [[TMP0:%.*]], <16 x float> [[C:%.*]]) #[[ATTR0:[0-9]+]] {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[SELECT_MASKCVT:%.*]] = select <8 x i1> [[TMP0]], <8 x i64> <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>, <8 x i64> zeroinitializer
+; CHECK-NEXT:    [[C_PART_0_OF_2_:%.*]] = shufflevector <16 x float> [[C]], <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[SELECT_MASKCVT_PART_0_OF_2_:%.*]] = shufflevector <8 x i64> [[SELECT_MASKCVT]], <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[VCALL:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[C_PART_0_OF_2_]], <4 x i64> [[SELECT_MASKCVT_PART_0_OF_2_]])
+; CHECK-NEXT:    [[C_PART_1_OF_2_:%.*]] = shufflevector <16 x float> [[C]], <16 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:    [[SELECT_MASKCVT_PART_1_OF_2_:%.*]] = shufflevector <8 x i64> [[SELECT_MASKCVT]], <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[VCALL1:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[C_PART_1_OF_2_]], <4 x i64> [[SELECT_MASKCVT_PART_1_OF_2_]])
+; CHECK-NEXT:    [[SHUFFLE_COMB:%.*]] = shufflevector <8 x float> [[VCALL]], <8 x float> [[VCALL1]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:    [[MASK_REPLICATE:%.*]] = shufflevector <8 x i1> [[TMP0]], <8 x i1> undef, <16 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3, i32 4, i32 4, i32 5, i32 5, i32 6, i32 6, i32 7, i32 7>
+; CHECK-NEXT:    [[SELECT_MERGE:%.*]] = select fast <16 x i1> [[MASK_REPLICATE]], <16 x float> [[SHUFFLE_COMB]], <16 x float> [[A]]
+; CHECK-NEXT:    ret <16 x float> [[SELECT_MERGE]]
+;
+entry:
+  %1 = tail call fast svml_cc <16 x float> @__svml_cexpf8_mask(<16 x float> %A, <8 x i1> %0, <16 x float> %C)
+  ret <16 x float> %1
+}
+
+define <8 x double> @test_cexp4_mask_split_to_avx2(<8 x double> %A, <4 x i1> %0, <8 x double> %C) #2 {
+; CHECK-LABEL: define <8 x double> @test_cexp4_mask_split_to_avx2
+; CHECK-SAME: (<8 x double> [[A:%.*]], <4 x i1> [[TMP0:%.*]], <8 x double> [[C:%.*]]) #[[ATTR0:[0-9]+]] {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[MASK_FACTOR_REPLICATE:%.*]] = shufflevector <4 x i1> [[TMP0]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK-NEXT:    [[SELECT_MASKCVT:%.*]] = select <8 x i1> [[MASK_FACTOR_REPLICATE]], <8 x i64> <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>, <8 x i64> zeroinitializer
+; CHECK-NEXT:    [[C_PART_0_OF_2_:%.*]] = shufflevector <8 x double> [[C]], <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[SELECT_MASKCVT_PART_0_OF_2_:%.*]] = shufflevector <8 x i64> [[SELECT_MASKCVT]], <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[VCALL:%.*]] = call fast svml_avx_cc <4 x double> @__svml_cexp2_mask_e9(<4 x double> [[C_PART_0_OF_2_]], <4 x i64> [[SELECT_MASKCVT_PART_0_OF_2_]])
+; CHECK-NEXT:    [[C_PART_1_OF_2_:%.*]] = shufflevector <8 x double> [[C]], <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[SELECT_MASKCVT_PART_1_OF_2_:%.*]] = shufflevector <8 x i64> [[SELECT_MASKCVT]], <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[VCALL1:%.*]] = call fast svml_avx_cc <4 x double> @__svml_cexp2_mask_e9(<4 x double> [[C_PART_1_OF_2_]], <4 x i64> [[SELECT_MASKCVT_PART_1_OF_2_]])
+; CHECK-NEXT:    [[SHUFFLE_COMB:%.*]] = shufflevector <4 x double> [[VCALL]], <4 x double> [[VCALL1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[MASK_REPLICATE:%.*]] = shufflevector <4 x i1> [[TMP0]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK-NEXT:    [[SELECT_MERGE:%.*]] = select fast <8 x i1> [[MASK_REPLICATE]], <8 x double> [[SHUFFLE_COMB]], <8 x double> [[A]]
+; CHECK-NEXT:    ret <8 x double> [[SELECT_MERGE]]
+;
+entry:
+  %1 = tail call fast svml_cc <8 x double> @__svml_cexp4_mask(<8 x double> %A, <4 x i1> %0, <8 x double> %C)
+  ret <8 x double> %1
+}
+
 declare svml_cc <8 x float> @__svml_sinf8(<8 x float>)
 
 declare svml_cc <16 x float> @__svml_sinf16(<16 x float>)
@@ -633,6 +676,10 @@ declare svml_cc <8 x float> @__svml_cexpf4(<8 x float>)
 declare svml_cc <8 x float> @__svml_cexpf4_mask(<8 x float>, <4 x i64>)
 
 declare svml_cc <32 x float> @__svml_cexpf16_mask(<32 x float>, <16 x i1>, <32 x float>)
+
+declare svml_cc <8 x double> @__svml_cexp4_mask(<8 x double>, <4 x i1>, <8 x double>)
+
+declare svml_cc <16 x float> @__svml_cexpf8_mask(<16 x float>, <8 x i1>, <16 x float>)
 
 attributes #0 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="128" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="512" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -963,14 +963,18 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     // If we are splitting a call to masked 512-bit SVML function, create
     // a new mask parameter and get rid of the source parameter which is
     // absent in non-512bit SVML functions.
+    // v2xi128 is illegal in backend, split it into v4xi64.
+    unsigned Factor = ComponentBitWidth == 128 ? 2 : 1;
     IntegerType *NewMaskElementType =
-        IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth);
-    VectorType *NewMaskType = FixedVectorType::get(NewMaskElementType, LogicalVL);
-
+        IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth / Factor);
+    VectorType *NewMaskType =
+        FixedVectorType::get(NewMaskElementType, Factor * LogicalVL);
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
     Constant *Ones =
-        ConstantVector::getSplat(ElementCount::getFixed(LogicalVL),
+        ConstantVector::getSplat(ElementCount::getFixed(Factor * LogicalVL),
                                  ConstantInt::get(NewMaskElementType, -1));
+    MaskValue = replicateVectorElts(MaskValue, Factor, Builder,
+                                    "mask.factor.replicate");
     Value *NewMask =
         Builder.CreateSelect(MaskValue, Ones, Zeros, "select.maskcvt");
 
@@ -1288,6 +1292,18 @@ bool MapIntrinToImlImpl::runImpl() {
         if (CallIsAVX512 ^ NewCallIsAVX512)
           legalizeAVX512MaskArgs(CI, Args, MaskArg, LogicalVL, TargetVL,
                                  ComponentBitWidth);
+        // Widen the Mask Argument for complex svml, whose ComponentBitWidth
+        // is double of ScalarBitWidth
+        else if ((ComponentBitWidth > ScalarBitWidth) && !(NewCallIsAVX512) &&
+                 (cast<FixedVectorType>(MaskArg->getType())
+                      ->getElementType()
+                      ->getScalarSizeInBits() < ComponentBitWidth)) {
+          assert(ComponentBitWidth / ScalarBitWidth == 2 &&
+                 "Unexpected situation to widen mask argument");
+          Value *NewMaskArg =
+              replicateVectorElts(MaskArg, 2, Builder, "mask.widen.replicate");
+          Args.back() = NewMaskArg;
+        }
       }
 
       // FT will point to the legal FunctionType based on target register
