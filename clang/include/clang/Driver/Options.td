@@ -3851,9 +3851,8 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
 def fsycl_nonsemantic_debuginfo : Flag<["-"], "fsycl-nonsemantic-debuginfo">, Flags<[HelpHidden, CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL code with new SPIR-V debug info">;
 def fsycl_pstl_offload_EQ : Joined<["-"], "fsycl-pstl-offload=">,
-  Values<"cpu,gpu,default,off">, Flags<[CoreOption, DpcppOption]>,
-  HelpText<"Enable offloading of C++ standard parallel algorithms. Valid "
-  "arguments are gpu and cpu (experimental).">;
+  Values<"cpu,gpu,default,off">, HelpText<"Enable offloading of C++ standard "
+  "parallel algorithms. Valid arguments are gpu and cpu (experimental).">;
 def fsycl_pstl_offload : Flag<["-"], "fsycl-pstl-offload">,
   Alias<fsycl_pstl_offload_EQ>, AliasArgs<["default"]>,
   HelpText<"Enable offloading of C++ standard parallel algorithms "
