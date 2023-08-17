@@ -6666,8 +6666,17 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     auto IsExtDefUsedForCondLastPriv = [](VPExternalDef *ExtDef) {
-      return llvm::any_of(ExtDef->users(),
-                          [](VPUser *U) { return isa<VPPrivateFinalCond>(U); });
+      SetVector<VPValue *> Worklist;
+      Worklist.insert(ExtDef);
+
+      for (size_t I = 0; I < Worklist.size(); I++)
+        for (VPUser *U : Worklist[I]->users()) {
+          if (isa<VPPrivateFinalCond>(U))
+            return true;
+          Worklist.insert(U);
+        }
+
+      return false;
     };
 
     // Special case handling of copies generated for conditional last private
