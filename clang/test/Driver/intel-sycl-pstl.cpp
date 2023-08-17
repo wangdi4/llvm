@@ -54,3 +54,11 @@
 // PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
 // PSTL_DPL_ROOT: clang{{.*}} "-fsycl-is-host"
 // PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
+
+// RUN: %clangxx -help -### 2>&1 \
+// RUN:   | FileCheck %s --check-prefix=PSTL_HELP
+// PSTL_HELP: fsycl-pstl-offload
+
+// RUN: %clang_cl -help -### 2>&1 \
+// RUN:   | FileCheck %s --check-prefix=PSTL_WIN_HELP
+// PSTL_WIN_HELP-NOT: fsycl-pstl-offload
