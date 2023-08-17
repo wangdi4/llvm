@@ -1406,11 +1406,7 @@ def : Flag<["-"], "fcuda-rdc">, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-cuda-rdc">, Alias<fno_gpu_rdc>;
 defm cuda_short_ptr : BoolFOption<"cuda-short-ptr",
   TargetOpts<"NVPTXUseShortPointers">, DefaultFalse,
-<<<<<<< HEAD
-  PosFlag<SetTrue, [], "Use 32-bit pointers for accessing const/local/shared address spaces">,
-=======
   PosFlag<SetTrue, [CC1Option], [ClangOption], "Use 32-bit pointers for accessing const/local/shared address spaces">,
->>>>>>> b76237d444355b9b36b6b122c20b4d66c562f0ec
   NegFlag<SetFalse>>;
 defm cuda_prec_sqrt : BoolFOption<"cuda-prec-sqrt",
   TargetOpts<"NVVMCudaPrecSqrt">, DefaultFalse,
@@ -1476,14 +1472,9 @@ def hipspv_pass_plugin_EQ : Joined<["--"], "hipspv-pass-plugin=">,
   HelpText<"path to a pass plugin for HIP to SPIR-V passes.">;
 defm gpu_allow_device_init : BoolFOption<"gpu-allow-device-init",
   LangOpts<"GPUAllowDeviceInit">, DefaultFalse,
-<<<<<<< HEAD
-  PosFlag<SetTrue, [CC1Option], "Allow">, NegFlag<SetFalse, [], "Don't allow">,
-  BothFlags<[], " device side init function in HIP">>,
-=======
   PosFlag<SetTrue, [CC1Option], [ClangOption], "Allow">,
   NegFlag<SetFalse, [], [ClangOption], "Don't allow">,
   BothFlags<[], [ClangOption], " device side init function in HIP (experimental)">>,
->>>>>>> b76237d444355b9b36b6b122c20b4d66c562f0ec
   ShouldParseIf<hip.KeyPath>;
 def gpu_max_threads_per_block_EQ : Joined<["--"], "gpu-max-threads-per-block=">,
   Flags<[CC1Option]>,
@@ -2599,7 +2590,7 @@ defm protect_parens : BoolFOption<"protect-parens",
 #if INTEL_CUSTOMIZATION
 defm use_complex_intrinsics : BoolFOption<"use-complex-intrinsics",
   CodeGenOpts<"UseComplexIntrinsics">, DefaultFalse,
-  PosFlag<SetTrue, [CC1Option],
+  PosFlag<SetTrue, [CC1Option], [ClangOption],
           "Determines whether to lower _Complex operations to LLVM complex "
           "intrinsics">,
   NegFlag<SetFalse>>;
@@ -3894,15 +3885,10 @@ defm sycl_unnamed_lambda
           Default<!strconcat(
               sycl_ver.KeyPath,
               " >= clang::LangOptions::SYCLMajorVersion::SYCL_2020")>,
-<<<<<<< HEAD
-          PosFlag<SetTrue, [], "Allow">, NegFlag<SetFalse, [], "Disallow">,
-// if INTEL_CUSTOMIZATION
-          BothFlags<[CC1Option, CoreOption, DpcppOption], " unnamed SYCL lambda kernels">>;
-// endif // INTEL_CUSTOMIZATION
-=======
           PosFlag<SetTrue, [], [ClangOption], "Allow">, NegFlag<SetFalse, [], [ClangOption], "Disallow">,
-          BothFlags<[CC1Option, CoreOption], [ClangOption], " unnamed SYCL lambda kernels">>;
->>>>>>> b76237d444355b9b36b6b122c20b4d66c562f0ec
+// if INTEL_CUSTOMIZATION
+          BothFlags<[CC1Option, CoreOption, DpcppOption], [ClangOption], " unnamed SYCL lambda kernels">>;
+// endif // INTEL_CUSTOMIZATION
 defm sycl_force_inline_kernel_lambda
     : BoolFOption<
           "sycl-force-inline-kernel-lambda", LangOpts<"SYCLForceInlineKernelLambda">,
@@ -8232,8 +8218,9 @@ def fintel_spill_params : Flag<["-"], "fintel-spill-parms">,
   MarshallingInfoFlag<CodeGenOpts<"IntelSpillParms">>;
 defm assume_counted_loops : BoolFOption<"assume-counted-loops",
   CodeGenOpts<"AssumeCountedLoops">, DefaultFalse,
-  PosFlag<SetTrue, [], "Treat">, NegFlag<SetFalse, [], "Do not treat">,
-  BothFlags<[CC1Option, NoArgumentUnused],
+  PosFlag<SetTrue, [], [ClangOption], "Treat">,
+  NegFlag<SetFalse, [], [ClangOption], "Do not treat">,
+  BothFlags<[CC1Option, NoArgumentUnused], [ClangOption],
             " simple for loops in C/C++ as counted loops">>;
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
@@ -8490,10 +8477,9 @@ def fsycl_std_layout_kernel_params: Flag<["-"], "fsycl-std-layout-kernel-params"
   MarshallingInfoFlag<LangOpts<"SYCLStdLayoutKernelParams">>;
 defm sycl_allow_func_ptr: BoolFOption<"sycl-allow-func-ptr",
   LangOpts<"SYCLAllowFuncPtr">, DefaultFalse,
-<<<<<<< HEAD
-  PosFlag<SetTrue, [], "Allow">,
-  NegFlag<SetFalse, [], "Disallow">,
-  BothFlags<[CC1Option, CoreOption], " function pointers in SYCL device.">>;
+  PosFlag<SetTrue, [], [ClangOption], "Allow">,
+  NegFlag<SetFalse, [], [ClangOption], "Disallow">,
+  BothFlags<[CC1Option, CoreOption], [ClangOption], " function pointers in SYCL device.">>;
 #if INTEL_CUSTOMIZATION
 def fopenmp_declare_target_scalar_defaultmap_firstprivate
     : Flag<["-"], "fopenmp-declare-target-scalar-defaultmap-firstprivate">,
@@ -8530,11 +8516,6 @@ def fopenmp_declare_target_device_type_error_enable
       MarshallingInfoFlag<
           LangOpts<"OpenMPDeclareTargetDeviceTypeDisableError">>;
 #endif  // INTEL_COLLAB
-=======
-  PosFlag<SetTrue, [], [ClangOption], "Allow">,
-  NegFlag<SetFalse, [], [ClangOption], "Disallow">,
-  BothFlags<[CC1Option, CoreOption], [ClangOption], " function pointers in SYCL device.">>;
->>>>>>> b76237d444355b9b36b6b122c20b4d66c562f0ec
 def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   HelpText<"Enable Dead Argument Elimination in SPIR kernels">,
   MarshallingInfoFlag<LangOpts<"EnableDAEInSpirKernels">>;
