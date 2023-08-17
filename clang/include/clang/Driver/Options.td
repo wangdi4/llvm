@@ -7144,6 +7144,12 @@ def qno_opt_prefetch : Flag<["-"], "qno-opt-prefetch">, Alias<qopt_prefetch_EQ>,
 def qopt_prefetch : Flag<["-"], "qopt-prefetch">, Alias<qopt_prefetch_EQ>,
   AliasArgs<["2"]>, HelpText<"Enable prefetch insertion.  Same as "
   "-qopt-prefetch=2.">;
+def qopt_prefetch_distance_EQ : Joined<["-"], "qopt-prefetch-distance=">,
+  HelpText<"Specify the prefetch distance to be used for compiler generated "
+  "prefetches inside loops. Value indicates distance from memory to L2 cache.">;
+def qopt_prefetch_loads_only : Flag<["-"], "qopt-prefetch-loads-only">,
+  HelpText<"Only insert prefetches based on the loads inside the loop. Stores "
+  "are ignored.">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   Group<intel_opt_report_Group>,
   HelpText<"Generate an optimization report, min, med or max.">;
@@ -10361,6 +10367,15 @@ def _SLASH_Qopt_prefetch_ : CLFlag<"Qopt-prefetch-">, Alias<qopt_prefetch_EQ>,
 def _SLASH_Qopt_prefetch : CLFlag<"Qopt-prefetch">, Alias<qopt_prefetch_EQ>,
   AliasArgs<["2"]>, HelpText<"Enable prefetch insertion.  Same as "
   "/Qopt-prefetch:2.">;
+def _SLASH_Qopt_prefetch_distance_EQ : CLJoined<"Qopt-prefetch-distance=">,
+  Alias<qopt_prefetch_distance_EQ>;
+def _SLASH_Qopt_prefetch_distance_COL : CLJoined<"Qopt-prefetch-distance:">,
+  Alias<qopt_prefetch_distance_EQ>, HelpText<"Specify the prefetch distance to "
+  "be used for compiler generated prefetches inside loops. Value indicates "
+  "distance from memory to L2 cache.">;
+def _SLASH_Qopt_prefetch_loads_only : CLFlag<"Qopt-prefetch-loads-only">,
+  Alias<qopt_prefetch_loads_only>, HelpText<"Only insert prefetches based on "
+  "the loads inside the loop. Stores are ignored.">;
 def _SLASH_Qvec_with_mask : CLFlag<"Qvec-with-mask">,
   Alias<fvec_with_mask>,
   HelpText<"Enable vectorization for short trip-count loops with masking.">;
