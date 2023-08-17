@@ -4463,9 +4463,7 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
     if (MemVTs[i] != ValueVTs[i])
       Val = DAG.getPtrExtOrTrunc(Val, dl, MemVTs[i]);
     SDValue St =
-<<<<<<< HEAD
-        DAG.getStore(Root, dl, Val, Add, MachinePointerInfo(PtrV, Offsets[i]),
-                     Alignment, MMOFlags, AAInfo);
+        DAG.getStore(Root, dl, Val, Add, PtrInfo, Alignment, MMOFlags, AAInfo);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -4473,9 +4471,6 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-=======
-        DAG.getStore(Root, dl, Val, Add, PtrInfo, Alignment, MMOFlags, AAInfo);
->>>>>>> 566065207ba33cdc6d76c2d0c9304182ab408f73
     Chains[ChainI] = St;
   }
 
