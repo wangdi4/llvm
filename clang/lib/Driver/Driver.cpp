@@ -322,35 +322,8 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
   llvm::PrettyStackTraceString CrashInfo("Command line argument parsing");
   ContainsError = false;
 
-<<<<<<< HEAD
-  unsigned IncludedFlagsBitmask;
-  unsigned ExcludedFlagsBitmask;
-#if INTEL_CUSTOMIZATION
-  if (IsIntelMode()) {
-    // Check for -i_allow-all-opts.
-    bool AllowAllOpts = false;
-    for (StringRef Opt : ArgStrings) {
-      if (Opt == getOpts().getOption(
-              options::OPT_i_allow_all_opts).getPrefixedName()) {
-        AllowAllOpts = true;
-        break;
-      }
-    }
-    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-        getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, AllowAllOpts);
-  } else
-#endif // INTEL_CUSTOMIZATION
-  std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-      getIncludeExcludeOptionFlagMasks(IsClCompatMode);
-
-  // Make sure that Flang-only options don't pollute the Clang output
-  // TODO: Make sure that Clang-only options don't pollute Flang output
-  if (!IsFlangMode())
-    ExcludedFlagsBitmask |= options::FlangOnlyOption;
-
-=======
   llvm::opt::Visibility VisibilityMask = getOptionVisibilityMask(UseDriverMode);
->>>>>>> 2425b4c5e5ef5d5fdaffae164230aa6276333081
+
   unsigned MissingArgIndex, MissingArgCount;
   InputArgList Args = getOpts().ParseArgs(ArgStrings, MissingArgIndex,
                                           MissingArgCount, VisibilityMask);
@@ -711,41 +684,6 @@ std::string Driver::GetUserOnlyTemporaryDirectory(StringRef Prefix) const {
     return "";
   }
   return std::string(Path.str());
-}
-
-std::pair<unsigned, unsigned>
-Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
-                                              bool AllowAllOpts) const {
-  unsigned IncludedFlagsBitmask = 0;
-  unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-
-  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
-  // accepted and parsed.  This allows for a transition period for using a more
-  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
-  if (IsClCompatMode) {
-    if (!AllowAllOpts) {
-      // Include CL and Core options.
-      IncludedFlagsBitmask |= options::CLOption;
-      IncludedFlagsBitmask |= options::CLDXCOption;
-      IncludedFlagsBitmask |= options::CoreOption;
-    }
-  } else {
-    if (!AllowAllOpts)
-      ExcludedFlagsBitmask |= options::CLOption;
-  }
-  if (IsDXCMode()) {
-    // Include DXC and Core options.
-    IncludedFlagsBitmask |= options::DXCOption;
-    IncludedFlagsBitmask |= options::CLDXCOption;
-    IncludedFlagsBitmask |= options::CoreOption;
-  } else {
-    ExcludedFlagsBitmask |= options::DXCOption;
-  }
-  if (!IsClCompatMode && !IsDXCMode())
-    if (!AllowAllOpts)
-      ExcludedFlagsBitmask |= options::CLDXCOption;
-
-  return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 
 Arg *clang::driver::getLastArchArg(const ArgList &Args, bool claimArg) {

@@ -40,32 +40,15 @@ enum ClangFlags {
   LinkerInput = (1 << 5),
   NoArgumentUnused = (1 << 6),
   Unsupported = (1 << 7),
-<<<<<<< HEAD
-  CoreOption = (1 << 8),
-  CLOption = (1 << 9),
-  CC1Option = (1 << 10),
-  CC1AsOption = (1 << 11),
-  NoDriverOption = (1 << 12),
-  LinkOption = (1 << 13),
-  FlangOption = (1 << 14),
-  FC1Option = (1 << 15),
-  FlangOnlyOption = (1 << 16),
-  DXCOption = (1 << 17),
-  CLDXCOption = (1 << 18),
-  Ignored = (1 << 19),
-  TargetSpecific = (1 << 20),
-  Deprecated = (1 << 21),
-#if INTEL_CUSTOMIZATION
-  DpcppUnsupported = (1 << 22),
-  DpcppHidden = (1 << 23),
-  DpcppOption = (1 << 24)
-#endif // INTEL_CUSTOMIZATION
-=======
   LinkOption = (1 << 8),
   Ignored = (1 << 9),
   TargetSpecific = (1 << 10),
   Deprecated = (1 << 11),
->>>>>>> 2425b4c5e5ef5d5fdaffae164230aa6276333081
+#if INTEL_CUSTOMIZATION
+  DpcppUnsupported = (1 << 12),
+  DpcppHidden = (1 << 13),
+  DpcppOption = (1 << 14)
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Flags specifically for clang option visibility. We alias DefaultVis to

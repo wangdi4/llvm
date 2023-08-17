@@ -816,12 +816,6 @@ private:
 
   /// Parse and set whether we are in Intel/DPCPP mode.
   void parseIntelDriverMode(ArrayRef<const char *> Args);
-
-  /// Specific to Intel, specialization function for setting the option flags
-  /// to handle icx/dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned>
-  getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
-                                        bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the driver mode (cl, gcc, etc) from the value of the `--driver-mode`

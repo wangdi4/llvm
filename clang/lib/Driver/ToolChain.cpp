@@ -2179,11 +2179,13 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       // Setup masks so Windows options aren't picked up for parsing
       // Linux options
       unsigned IncludedFlagsBitmask = 0;
-      unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+      unsigned ExcludedFlagsBitmask = 0;
       if (getDriver().IsCLMode()) {
         // Include CL and Core options.
         IncludedFlagsBitmask |= options::CLOption;
-        IncludedFlagsBitmask |= options::CoreOption;
+        IncludedFlagsBitmask |= options::ClangOption;
+        IncludedFlagsBitmask |= options::CLOption;
+        IncludedFlagsBitmask |= options::DXCOption;
       } else
         ExcludedFlagsBitmask |= options::CLOption;
       unsigned MissingArgIndex, MissingArgCount;
