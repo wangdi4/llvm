@@ -671,13 +671,9 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
                     RTLDeviceID, HstPtr, &TargetPtr, Size,
                     /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
 
-<<<<<<< HEAD
-  return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
-#endif // INTEL_CUSTOMIZATION
-=======
   TargetPtr = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
   return TargetPtr;
->>>>>>> 41f3626f8b300cef24c06d9e8b7cf53029a4330a
+#endif // INTEL_CUSTOMIZATION
 }
 
 int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
