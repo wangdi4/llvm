@@ -1,6 +1,6 @@
 ; Check to see that the linear parameter i is updated with the correct stride.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4lu_foo
 
@@ -10,15 +10,15 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: i32* %i.addr
+; CHECK-SAME: ptr %i.addr
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: i32* %x.addr
+; CHECK-SAME: ptr %x.addr
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
-; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
+; CHECK-NEXT: store i32 %stride.add, ptr %i.addr
 
 ; CHECK: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
@@ -34,10 +34,10 @@ define i32 @foo(i32 %i, i32 %x) #0 {
 entry:
   %i.addr = alloca i32, align 4
   %x.addr = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4
-  store i32 %x, i32* %x.addr, align 4
-  %0 = load i32, i32* %x.addr, align 4
-  %1 = load i32, i32* %i.addr, align 4
+  store i32 %i, ptr %i.addr, align 4
+  store i32 %x, ptr %x.addr, align 4
+  %0 = load i32, ptr %x.addr, align 4
+  %1 = load i32, ptr %i.addr, align 4
   %add = add nsw i32 %0, %1
   ret i32 %add
 }

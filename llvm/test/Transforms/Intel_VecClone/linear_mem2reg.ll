@@ -1,16 +1,16 @@
 ; Check to see that the linear parameter i is updated with the correct stride when Mem2Reg is on.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4lu_foo
 ; CHECK: simd.begin.region:
 ; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.LINEAR
-; CHECK-SAME: i32* %alloca.i
+; CHECK-SAME: ptr %alloca.i
 ; CHECK-SAME: i32 1
 ; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32* %alloca.x
+; CHECK-SAME: ptr %alloca.x
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
