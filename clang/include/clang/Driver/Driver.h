@@ -500,7 +500,7 @@ public:
   /// ParseArgStrings - Parse the given list of strings into an
   /// ArgList.
   llvm::opt::InputArgList ParseArgStrings(ArrayRef<const char *> Args,
-                                          bool IsClCompatMode,
+                                          bool UseDriverMode,
                                           bool &ContainsError);
 
   /// BuildInputs - Construct the list of inputs and their types from
@@ -816,12 +816,6 @@ private:
 
   /// Parse and set whether we are in Intel/DPCPP mode.
   void parseIntelDriverMode(ArrayRef<const char *> Args);
-
-  /// Specific to Intel, specialization function for setting the option flags
-  /// to handle icx/dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned>
-  getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
-                                        bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the driver mode (cl, gcc, etc) from the value of the `--driver-mode`
@@ -858,7 +852,8 @@ private:
 
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
-  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
+  llvm::opt::Visibility
+  getOptionVisibilityMask(bool UseDriverMode = true) const;
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when
