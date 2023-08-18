@@ -822,10 +822,17 @@ void Verifier::visitGlobalVariable(const GlobalVariable &GV) {
       PointerType *FuncPtrTy =
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           PointerType::get(Context, DL.getProgramAddressSpace());
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
           FunctionType::get(Type::getVoidTy(Context), false)->
           getPointerTo(DL.getProgramAddressSpace());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+          FunctionType::get(Type::getVoidTy(Context), false)
+              ->getPointerTo(DL.getProgramAddressSpace());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
       Check(STy && (STy->getNumElements() == 2 || STy->getNumElements() == 3) &&
                 STy->getTypeAtIndex(0u)->isIntegerTy(32) &&
                 STy->getTypeAtIndex(1) == FuncPtrTy,
