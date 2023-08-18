@@ -63,5 +63,5 @@ int main(int argc, char *argv[]) {
 // INTEL_CUSTOMIZATION
 // This test sometimes fails because of "!dbg attachment points at wrong
 // subprogram for function", as reported in CMPLRLLVM-49511.
-// UNSUPPORTED: iomp
+// UNSUPPORTED: {{.*linux.*}}
 // end INTEL_CUSTOMIZATION
