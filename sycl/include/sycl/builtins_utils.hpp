@@ -274,6 +274,7 @@ struct same_size_unsigned_int<SwizzleOp<VecT, OperationLeftT, OperationRightT,
           sizeof...(Indexes)>;
 };
 
+<<<<<<< HEAD
 // Utility traits for getting a floating point type with the specified size.
 template <size_t Size> struct get_float_by_size {
   using type = select_scalar_by_size_t<Size, void, half, float, double>;
@@ -299,6 +300,8 @@ struct same_size_float<SwizzleOp<VecT, OperationLeftT, OperationRightT,
 template <typename T>
 using same_size_float_t = typename same_size_float<T>::type;
 
+=======
+>>>>>>> d4639a43c3b1ce0fad1fac15c809a6b658178903
 // Utility trait for changing the element type of a type T. If T is a scalar,
 // the new type replaces T completely.
 template <typename NewElemT, typename T> struct change_elements {
@@ -356,6 +359,28 @@ struct upsampled_int<SwizzleOp<VecT, OperationLeftT, OperationRightT,
 
 template <typename T> using upsampled_int_t = typename upsampled_int<T>::type;
 
+<<<<<<< HEAD
+=======
+// Wrapper trait around nan_return to allow propagation through swizzles and
+// marrays.
+template <typename T> struct nan_return_unswizzled {
+  using type = typename nan_types<T, T>::ret_type;
+};
+template <typename T, size_t N> struct nan_return_unswizzled<marray<T, N>> {
+  using type = marray<typename nan_return_unswizzled<T>::type, N>;
+};
+template <typename VecT, typename OperationLeftT, typename OperationRightT,
+          template <typename> class OperationCurrentT, int... Indexes>
+struct nan_return_unswizzled<SwizzleOp<VecT, OperationLeftT, OperationRightT,
+                                       OperationCurrentT, Indexes...>> {
+  using type = typename nan_return_unswizzled<
+      vec<typename VecT::element_type, sizeof...(Indexes)>>::type;
+};
+
+template <typename T>
+using nan_return_unswizzled_t = typename nan_return_unswizzled<T>::type;
+
+>>>>>>> d4639a43c3b1ce0fad1fac15c809a6b658178903
 // Utility functions for converting to/from vec/marray.
 template <class T, size_t N> vec<T, 2> to_vec2(marray<T, N> X, size_t Start) {
   return {X[Start], X[Start + 1]};

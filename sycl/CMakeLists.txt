@@ -268,7 +268,10 @@ add_custom_target(sycl-headers
   DEPENDS ${OUT_HEADERS_IN_SYCL_DIR}
           ${OUT_HEADERS_IN_CL_DIR}
           ${OUT_HEADERS_IN_STD_DIR}
+<<<<<<< HEAD
           ${OUT_HEADERS_IN_SYCLCOMPAT_DIR}
+=======
+>>>>>>> d4639a43c3b1ce0fad1fac15c809a6b658178903
           sycl-builtins-header
           boost_mp11-headers)
 
