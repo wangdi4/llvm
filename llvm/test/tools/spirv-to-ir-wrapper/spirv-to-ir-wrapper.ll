@@ -1,5 +1,4 @@
 ; Check for passthrough abilities
-<<<<<<< HEAD
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: spirv-to-ir-wrapper %t.bc -o %t_1.bc -skip-unknown-input
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
@@ -9,17 +8,6 @@
 ; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-to-ir-wrapper %t.spv -o %t_2.bc
 ; RUN: llvm-dis %t_2.bc -o %t_2.ll
-=======
-; RUN: llvm-as  %s -o %t.bc
-; RUN: spirv-to-ir-wrapper %t.bc -o %t_1.bc -skip-unknown-input
-; RUN: llvm-dis  %t_1.bc -o %t_1.ll
-; RUN: FileCheck %s --input-file %t_1.ll
-
-; Check for SPIR-V conversion
-; RUN: llvm-spirv  %t.bc -o %t.spv
-; RUN: spirv-to-ir-wrapper %t.spv -o %t_2.bc
-; RUN: llvm-dis  %t_2.bc -o %t_2.ll
->>>>>>> e5f5b1b9966711f4b88765b3d7a9465a6b6b6d62
 ; RUNx: FileCheck %s --input-file %t_2.ll
 
 ; CHECK: target datalayout

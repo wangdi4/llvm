@@ -473,19 +473,11 @@ private:
   /// ptrtoint+arithmetic+inttoptr.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *expandAddToGEP(const SCEV *Op, Type *Ty, Value *V);
-<<<<<<< HEAD
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
   Value *expandAddToGEP(const SCEV *const *op_begin, const SCEV *const *op_end,
                         PointerType *PTy, Type *Ty, Value *V);
   Value *expandAddToGEP(const SCEV *Op, PointerType *PTy, Type *Ty, Value *V);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *expandAddToGEP(const SCEV *const *op_begin, const SCEV *const *op_end,
-                        PointerType *PTy, Type *Ty, Value *V);
-  Value *expandAddToGEP(const SCEV *Op, PointerType *PTy, Type *Ty, Value *V);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> e5f5b1b9966711f4b88765b3d7a9465a6b6b6d62
 
   /// Find a previous Value in ExprValueMap for expand.
   Value *FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
