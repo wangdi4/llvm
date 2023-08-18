@@ -61,7 +61,7 @@ Mat4X4 __attribute__((noinline)) foo(Mat3X3 in) {
 // the return value.
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @ker
-// AMDGCN-SAME: (ptr addrspace(1) noundef align 4 [[IN:%.*]], ptr addrspace(1) noundef align 4 [[OUT:%.*]]) #[[ATTR1:[0-9]+]] !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 {
+// AMDGCN-SAME: (ptr addrspace(1) noundef align 4 [[IN:%.*]], ptr addrspace(1) noundef align 4 [[OUT:%.*]]) #[[ATTR1:[0-9]+]] !kernel_arg_addr_space ![[MD11:[0-9]+]] !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[IN_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
 // AMDGCN-NEXT:    [[OUT_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
@@ -98,7 +98,7 @@ Mat64X64 __attribute__((noinline)) foo_large(Mat32X32 in) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @ker_large
-// AMDGCN-SAME: (ptr addrspace(1) noundef align 4 [[IN:%.*]], ptr addrspace(1) noundef align 4 [[OUT:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !7 {
+// AMDGCN-SAME: (ptr addrspace(1) noundef align 4 [[IN:%.*]], ptr addrspace(1) noundef align 4 [[OUT:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[IN_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
 // AMDGCN-NEXT:    [[OUT_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
@@ -168,7 +168,7 @@ void test_indirect_arg_globl(void) {
 #endif
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @test_indirect_arg_local
-// AMDGCN-SAME: () #[[ATTR1]] !kernel_arg_addr_space !9 !kernel_arg_access_qual !9 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !9 {
+// AMDGCN-SAME: () #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[BYVAL_TEMP:%.*]] = alloca [[STRUCT_LARGESTRUCTONEMEMBER:%.*]], align 8, addrspace(5)
 // AMDGCN-NEXT:    call void @llvm.memcpy.p5.p3.i64(ptr addrspace(5) align 8 [[BYVAL_TEMP]], ptr addrspace(3) align 8 @test_indirect_arg_local.l_s, i64 800, i1 false)
@@ -193,7 +193,7 @@ void test_indirect_arg_private(void) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @KernelOneMember
-// AMDGCN-SAME: (<2 x i32> [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !13 {
+// AMDGCN-SAME: (<2 x i32> [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[U:%.*]] = alloca [[STRUCT_STRUCTONEMEMBER:%.*]], align 8, addrspace(5)
 // AMDGCN-NEXT:    [[COERCE_DIVE:%.*]] = getelementptr inbounds [[STRUCT_STRUCTONEMEMBER]], ptr addrspace(5) [[U]], i32 0, i32 0
@@ -208,7 +208,7 @@ kernel void KernelOneMember(struct StructOneMember u) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @KernelOneMemberSpir
-// AMDGCN-SAME: (ptr addrspace(1) noundef align 8 [[U:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !14 !kernel_arg_access_qual !11 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !13 {
+// AMDGCN-SAME: (ptr addrspace(1) noundef align 8 [[U:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[U_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
 // AMDGCN-NEXT:    store ptr addrspace(1) [[U]], ptr addrspace(5) [[U_ADDR]], align 8
@@ -223,7 +223,7 @@ kernel void KernelOneMemberSpir(global struct StructOneMember* u) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @KernelLargeOneMember
-// AMDGCN-SAME: ([[STRUCT_LARGESTRUCTONEMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !13 {
+// AMDGCN-SAME: ([[STRUCT_LARGESTRUCTONEMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[U:%.*]] = alloca [[STRUCT_LARGESTRUCTONEMEMBER]], align 8, addrspace(5)
 // AMDGCN-NEXT:    store [[STRUCT_LARGESTRUCTONEMEMBER]] [[U_COERCE]], ptr addrspace(5) [[U]], align 8
@@ -271,7 +271,7 @@ void FuncLargeTwoMember(struct LargeStructTwoMember u) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @KernelTwoMember
-// AMDGCN-SAME: ([[STRUCT_STRUCTTWOMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !17 !kernel_arg_base_type !17 !kernel_arg_type_qual !13 {
+// AMDGCN-SAME: ([[STRUCT_STRUCTTWOMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}}  !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[U:%.*]] = alloca [[STRUCT_STRUCTTWOMEMBER]], align 8, addrspace(5)
 // AMDGCN-NEXT:    store [[STRUCT_STRUCTTWOMEMBER]] [[U_COERCE]], ptr addrspace(5) [[U]], align 8
@@ -287,7 +287,7 @@ kernel void KernelTwoMember(struct StructTwoMember u) {
 }
 
 // AMDGCN-LABEL: define dso_local amdgpu_kernel void @KernelLargeTwoMember
-// AMDGCN-SAME: ([[STRUCT_LARGESTRUCTTWOMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !18 !kernel_arg_base_type !18 !kernel_arg_type_qual !13 {
+// AMDGCN-SAME: ([[STRUCT_LARGESTRUCTTWOMEMBER:%.*]] [[U_COERCE:%.*]]) #[[ATTR1]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {{.*}}
 // AMDGCN-NEXT:  entry:
 // AMDGCN-NEXT:    [[U:%.*]] = alloca [[STRUCT_LARGESTRUCTTWOMEMBER]], align 8, addrspace(5)
 // AMDGCN-NEXT:    store [[STRUCT_LARGESTRUCTTWOMEMBER]] [[U_COERCE]], ptr addrspace(5) [[U]], align 8
