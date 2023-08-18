@@ -1671,7 +1671,7 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
   auto AddrOfGlobal = [&VD, this]() { return CGM.GetAddrOfGlobal(VD); };
 
   auto LinkageForVariable = [&VD, this]() {
-    return CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/false);
+    return CGM.getLLVMLinkageVarDefinition(VD);
   };
 
   std::vector<llvm::GlobalVariable *> GeneratedRefs;
@@ -11015,7 +11015,7 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
   const auto *VD = cast<VarDecl>(GD.getDecl());
   if (CGM.getLangOpts().OpenMPLateOutline && VD->isConstexpr() &&
       (CGM.getLangOpts().OpenMPIsTargetDevice && VD->isStaticDataMember() ||
-       CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
+       CGM.getLLVMLinkageVarDefinition(VD) ==
            llvm::GlobalValue::InternalLinkage))
     return false;
 #endif // INTEL_COLLAB
@@ -11124,7 +11124,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 
   auto AddrOfGlobal = [&VD, this]() { return CGM.GetAddrOfGlobal(VD); };
   auto LinkageForVariable = [&VD, this]() {
-    return CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/false);
+    return CGM.getLLVMLinkageVarDefinition(VD);
   };
   std::vector<llvm::GlobalVariable *> GeneratedRefs;
   OMPBuilder.registerTargetGlobalVariable(
