@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that WG loops are created in O0 and -g mode. Not-inlined
 ; function read local id from TLS global.

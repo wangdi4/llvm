@@ -26,8 +26,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-local-buffers"
 
-extern bool EnableTLSGlobals;
-
 PreservedAnalyses LocalBuffersPass::run(Module &M, ModuleAnalysisManager &AM) {
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
   if (!runImpl(M, LBInfo))
@@ -45,7 +43,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   LBInfo->computeSize();
   const auto &LocalsMap = LBInfo->getDirectLocalsMap();
 
-  UseTLSGlobals |= EnableTLSGlobals;
+  HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
   Context = &M.getContext();
 
   DIFinder = DebugInfoFinder();
@@ -290,7 +288,7 @@ void LocalBuffersPass::runOnFunction(Function *F) {
 
   // Getting the implicit arguments
   Value *LocalMem = 0;
-  if (UseTLSGlobals) {
+  if (HasTLSGlobals) {
     LocalMem =
         CompilationUtils::getTLSGlobal(M, ImplicitArgsUtils::IA_SLM_BUFFER);
     assert(LocalMem && "TLS LocalMem is not found.");

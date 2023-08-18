@@ -45,6 +45,6 @@ entry:
 !6 = !{!"half*", !"long", !"long"}
 !7 = !{ptr addrspace(1) null, i64 0, i64 0}
 
-; DEBUGIFY-COUNT-60: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
+; DEBUGIFY-COUNT-76: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
 ; DEBUGIFY-NEXT: WARNING: Missing line 12
 ; DEBUGIFY-NEXT: PASS

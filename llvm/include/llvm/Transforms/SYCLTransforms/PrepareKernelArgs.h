@@ -28,13 +28,10 @@ class AssumptionCache;
 /// calculated based on the arguments' alignment, which in non LLVM dependent.
 class PrepareKernelArgsPass : public PassInfoMixin<PrepareKernelArgsPass> {
 public:
-  PrepareKernelArgsPass(bool UseTLSGlobals = false) : UseTLSGlobals(UseTLSGlobals) {}
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, bool UseTLSGlobals,
-               function_ref<AssumptionCache *(Function &F)> GetAC,
+  bool runImpl(Module &M, function_ref<AssumptionCache *(Function &F)> GetAC,
                ImplicitArgsInfo *IAInfo);
 
   static bool isRequired() { return true; }
@@ -102,8 +99,8 @@ private:
 
   Type *ArgsBufferValueTy = nullptr;
 
-  /// Use TLS globals instead of implicit arguments.
-  bool UseTLSGlobals;
+  /// Has TLS globals instead of implicit arguments.
+  bool HasTLSGlobals = false;
 
   /// OpenCL 2.0 enqueue_kernel and kernel query functions.
   SmallVector<Function *, 8> EnqueueKernelAndQueryFuncs;

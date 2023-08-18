@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that get_*_id calls are replaced in O0 and -g mode in the
 ; case there is no kernels.

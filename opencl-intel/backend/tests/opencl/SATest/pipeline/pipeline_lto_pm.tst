@@ -109,7 +109,9 @@
 ; CHECK:      Running pass: VectorCombinePass
 ; CHECK:      Running pass: JumpThreadingPass
 
-; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
+; CHECK:      Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
+; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
@@ -128,16 +130,16 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Running pass: SGLoopConstructPass
+; CHECK:      Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValues
 ; CHECK:      Running analysis: DataPerValueAnalysis
-; CHECK:      Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 ; CHECK:      Running analysis: DominanceFrontierAnalysis
 ; CHECK:      Running analysis: DominatorTreeAnalysis
@@ -151,8 +153,8 @@
 ; CHECK:      Running analysis: LoopWIAnalysis
 
 ; CHECK:      Running pass: AddImplicitArgsPass
-; CHECK:      Running analysis: CallGraphAnalysis
-; CHECK:      Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass

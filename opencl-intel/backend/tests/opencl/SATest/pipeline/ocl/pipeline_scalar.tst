@@ -170,15 +170,21 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Running pass: SGLoopConstructPass
+; CHECK:      Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValuesPass
-; CHECK:      Running pass: KernelBarrier
+; CHECK-NEXT: Running analysis: DataPerValueAnalysis
+; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
+; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-NEXT: Running pass: VerifierPass
+; CHECK-NEXT: Running pass: KernelBarrier
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running pass: PromotePass
 
@@ -193,7 +199,7 @@
 ; CHECK:      Running pass: BuiltinLICMPass
 ; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK-NEXT: Running analysis: LoopWIAnalysis
-; CHECK:      Running pass: AddImplicitArgsPass
+; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass

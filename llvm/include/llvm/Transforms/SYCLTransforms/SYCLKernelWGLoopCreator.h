@@ -18,15 +18,9 @@ namespace llvm {
 class SYCLKernelWGLoopCreatorPass
     : public PassInfoMixin<SYCLKernelWGLoopCreatorPass> {
 public:
-  SYCLKernelWGLoopCreatorPass(bool UseTLSGlobals = false)
-      : UseTLSGlobals(UseTLSGlobals) {}
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   static bool isRequired() { return true; }
-
-private:
-  bool UseTLSGlobals;
 };
 
 } // namespace llvm

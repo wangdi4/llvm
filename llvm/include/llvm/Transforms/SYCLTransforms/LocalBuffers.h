@@ -22,9 +22,6 @@ namespace llvm {
 
 class LocalBuffersPass : public PassInfoMixin<LocalBuffersPass> {
 public:
-  explicit LocalBuffersPass(bool UseTLSGlobals = false)
-      : UseTLSGlobals(UseTLSGlobals) {}
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
@@ -62,8 +59,8 @@ private:
   /// @brief instance of LocalBuffAnalysis pass
   LocalBufferInfo *LBInfo = nullptr;
 
-  /// @brief use TLS globals instead of implicit arguments
-  bool UseTLSGlobals = false;
+  /// @brief has TLS globals instead of implicit arguments
+  bool HasTLSGlobals = false;
 
   /// @brief save the first instruction as insert point for current function
   Instruction *InsertPoint = nullptr;

@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that
 ;   * gid calls in foo are fixed. foo is used in kernel without barrier path,

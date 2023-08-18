@@ -1846,6 +1846,13 @@ Type *getWorkGroupInfoElementType(LLVMContext &C,
 
 Type *getWorkGroupIDElementType(Module *M) { return LoopUtils::getIndTy(M); }
 
+bool hasTLSGlobals(Module &M) {
+  for (int Idx = 0; Idx < ImplicitArgsUtils::IA_NUMBER; ++Idx)
+    if (getTLSGlobal(&M, Idx))
+      return true;
+  return false;
+}
+
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
   return M->getNamedGlobal(ImplicitArgsUtils::getArgNameWithPrefix(Idx));
@@ -1863,11 +1870,11 @@ Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
       CompilationUtils::AppendWithDimension("pLocalId_", Dim));
 }
 
-void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
+void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemArguments) {
   size_t ArgsCount = F->arg_size();
-  if (!UseTLSGlobals)
+  if (!HasTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
   SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);

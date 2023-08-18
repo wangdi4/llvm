@@ -290,13 +290,9 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
     std::unique_ptr<KernelJITProperties> spKernelJITProps(
         CreateKernelJITProperties(vecSize));
 
-    intel::DebuggingServiceType debugType =
-        intel::getDebuggingServiceType(buildOptions.GetDebugInfoFlag(), pModule,
-                                       buildOptions.GetUseNativeDebuggerFlag());
-    bool useTLSGlobals = (debugType == intel::Native);
     std::unique_ptr<Kernel> spKernel(
         CreateKernel(pFunc, pWrapperFunc->getName().str(), spKernelProps.get(),
-                     useTLSGlobals));
+                     CompilationUtils::hasTLSGlobals(*pModule)));
 
     // We want the JIT of the wrapper function to be called
     AddKernelJIT(static_cast<CPUProgram *>(pProgram), spKernel.get(),
