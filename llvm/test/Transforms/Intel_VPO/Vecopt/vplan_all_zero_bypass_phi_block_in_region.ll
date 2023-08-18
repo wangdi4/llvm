@@ -15,22 +15,22 @@
 declare i64 @llvm.vplan.laneid()
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP9:%.*]] = icmp eq i32 [[Y0:%.*]] i32 [[X0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_MUL11:%.*]] = mul i32 [[Y0]] i32 [[X0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32, ptr [[B0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load ptr [[VP_ARRAYIDX3]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP4:%.*]] = icmp sgt i32 [[VP2]] i32 8
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -41,8 +41,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_CMP4]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0]] i32 [[Y0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32, ptr [[C0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_DIV]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin13
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin13: # preds: [[BB3]]
@@ -51,7 +51,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin13
 ; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[C0]] i64 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32, ptr [[C0]] i64 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB6:BB[0-9]+]], [[BB4]]
@@ -65,7 +65,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB6_BR_VP_CMP9]]
-; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL11]] i32* [[VP_ARRAYIDX13]]
+; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL11]] ptr [[VP_ARRAYIDX13]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB8]]
@@ -109,25 +109,25 @@ entry:
   %lane = call i64 @llvm.vplan.laneid()
   %cmp9 = icmp eq i32 %y, %x
   %mul11 = mul nsw i32 %y, %x
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %lane
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %lane
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 7
   br i1 %cmp1, label %if.then, label %exit
 
 if.then:
-  %arrayidx3 = getelementptr inbounds i32, i32* %b, i64 %lane
-  %1 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %b, i64 %lane
+  %1 = load i32, ptr %arrayidx3, align 4
   %cmp4 = icmp sgt i32 %1, 8
   br i1 %cmp4, label %if.then5, label %if.end
 
 if.then5:
   %div = sdiv i32 %x, %y
-  %arrayidx7 = getelementptr inbounds i32, i32* %c, i64 %lane
-  store i32 %div, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %c, i64 %lane
+  store i32 %div, ptr %arrayidx7, align 4
   br label %if.end
 
 if.end:
-  %arrayidx13 = getelementptr inbounds i32, i32* %c, i64 %lane
+  %arrayidx13 = getelementptr inbounds i32, ptr %c, i64 %lane
   br label %for.body
 
 for.body:
@@ -135,7 +135,7 @@ for.body:
   br i1 %cmp9, label %if.then10, label %for.inc
 
 if.then10:
-  store i32 %mul11, i32* %arrayidx13, align 4
+  store i32 %mul11, ptr %arrayidx13, align 4
   br label %for.inc
 
 for.inc:

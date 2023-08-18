@@ -12,21 +12,20 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noalias nocapture noundef readonly %B, i32* noalias nocapture noundef writeonly %C, i32* noalias nocapture noundef writeonly %D, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef readonly %A, ptr noalias nocapture noundef readonly %B, ptr noalias nocapture noundef writeonly %C, ptr noalias nocapture noundef writeonly %D, i32 noundef %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
 ; CHECK-NEXT:  VPlan IR for: foo:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LINEAR_IV:%.*]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     [DA: Div] i8* [[VP0:%.*]] = bitcast i32* [[VP_I_LINEAR_IV]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     [DA: Div] ptr [[VP_I_LINEAR_IV:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV46_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV46_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOAD:%.*]] = load i32* [[I_LINEAR_IV0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOAD:%.*]] = load ptr [[I_LINEAR_IV0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]] = induction-init{add} i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_I_LINEAR_IV_IND_INIT]] i32* [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_I_LINEAR_IV_IND_INIT]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_I_LINEAR_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT490:%.*]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -34,15 +33,15 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV46:%.*]] = phi  [ i64 [[VP_INDVARS_IV46_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT47:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = phi  [ i32 [[VP_I_LINEAR_IV_IND_INIT]], [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP1]] i32* [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP1]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = trunc i64 [[VP_INDVARS_IV46]] to i32
-; CHECK-NEXT:     [DA: Div] store i32 [[VP3]] i32* [[VP_I_LINEAR_IV]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV46]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX11]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP3]] ptr [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds i32, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV46]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = load ptr [[VP_ARRAYIDX11]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP12:%.*]] = icmp sgt i32 [[VP4]] i32 7
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX21:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV46]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX21]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_SMAX:%.*]] = call i32 [[VP5]] i32 0 i32 (i32, i32)* @llvm.smax.i32
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX21:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV46]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load ptr [[VP_ARRAYIDX21]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_SMAX:%.*]] = call i32 [[VP5]] i32 0 ptr @llvm.smax.i32
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = zext i32 [[VP_SMAX]] to i64
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -54,13 +53,13 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
-; CHECK-NEXT:     [DA: Uni] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Uni] i32* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP9:%.*]] = load i32* [[VP_ARRAYIDX6]]
+; CHECK-NEXT:     [DA: Uni] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0]] i64 [[VP_INDVARS_IV_NEXT]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Uni] ptr [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[B0]] i64 [[VP_INDVARS_IV_NEXT]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP9:%.*]] = load ptr [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ADD7:%.*]] = add i32 [[VP9]] i32 [[VP8]]
-; CHECK-NEXT:     [DA: Uni] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV_NEXT]]
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP_ADD7]] i32* [[VP_ARRAYIDX9]]
+; CHECK-NEXT:     [DA: Uni] ptr [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32, ptr [[C0:%.*]] i64 [[VP_INDVARS_IV_NEXT]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_ADD7]] ptr [[VP_ARRAYIDX9]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
@@ -74,8 +73,8 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:      [[BB8]]: # preds: all.zero.bypass.begin31
 ; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = block-predicate i1 [[VP_BB21_BR_VP_CMP12]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_MUL17:%.*]] = mul i32 [[VP9]] i32 [[VP8]]
-; CHECK-NEXT:       [DA: Uni] i32* [[VP_ARRAYIDX19:%.*]] = getelementptr inbounds i32* [[D0:%.*]] i64 [[VP_INDVARS_IV_NEXT]]
-; CHECK-NEXT:       [DA: Uni] store i32 [[VP_MUL17]] i32* [[VP_ARRAYIDX19]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_ARRAYIDX19:%.*]] = getelementptr inbounds i32, ptr [[D0:%.*]] i64 [[VP_INDVARS_IV_NEXT]]
+; CHECK-NEXT:       [DA: Uni] store i32 [[VP_MUL17]] ptr [[VP_ARRAYIDX19]]
 ; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end33
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end33: # preds: [[BB8]], all.zero.bypass.begin31
@@ -100,11 +99,10 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV46_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_I_LINEAR_IV_IND_FINAL:%.*]] = induction-final{add} i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP_I_LINEAR_IV_IND_FINAL]] i32* [[I_LINEAR_IV0]]
-; CHECK-NEXT:     [DA: Div] i8* [[VP13:%.*]] = bitcast i32* [[VP_I_LINEAR_IV]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP13]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_I_LINEAR_IV_IND_FINAL]] ptr [[I_LINEAR_IV0]]
+; CHECK-NEXT:     [DA: Div] call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]
@@ -119,47 +117,46 @@ entry:
   br i1 %cmp3.not37, label %omp.precond.end, label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = bitcast i32* %i.linear.iv to i8*
   %wide.trip.count49 = sext i32 %N to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %do.end
   %indvars.iv46 = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next47, %do.end ]
-  %2 = trunc i64 %indvars.iv46 to i32
-  store i32 %2, i32* %i.linear.iv, align 4
-  %arrayidx11 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv46
-  %3 = load i32, i32* %arrayidx11, align 4
-  %cmp12 = icmp sgt i32 %3, 7
-  %arrayidx21 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv46
-  %4 = load i32, i32* %arrayidx21, align 4
-  %smax = call i32 @llvm.smax.i32(i32 %4, i32 0)
-  %5 = zext i32 %smax to i64
+  %1 = trunc i64 %indvars.iv46 to i32
+  store i32 %1, ptr %i.linear.iv, align 4
+  %arrayidx11 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv46
+  %2 = load i32, ptr %arrayidx11, align 4
+  %cmp12 = icmp sgt i32 %2, 7
+  %arrayidx21 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv46
+  %3 = load i32, ptr %arrayidx21, align 4
+  %smax = call i32 @llvm.smax.i32(i32 %3, i32 0)
+  %4 = zext i32 %smax to i64
   br label %do.body
 
 do.body:                                          ; preds = %do.cond, %omp.inner.for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %do.cond ], [ -1, %omp.inner.for.body ]
   %indvars.iv.next = add nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  %6 = load i32, i32* %arrayidx, align 4
-  %arrayidx6 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv.next
-  %7 = load i32, i32* %arrayidx6, align 4
-  %add7 = add nsw i32 %7, %6
-  %arrayidx9 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv.next
-  store i32 %add7, i32* %arrayidx9, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  %5 = load i32, ptr %arrayidx, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv.next
+  %6 = load i32, ptr %arrayidx6, align 4
+  %add7 = add nsw i32 %6, %5
+  %arrayidx9 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv.next
+  store i32 %add7, ptr %arrayidx9, align 4
   br i1 %cmp12, label %if.then, label %do.cond
 
 if.then:                                          ; preds = %do.body
-  %mul17 = mul nsw i32 %7, %6
-  %arrayidx19 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv.next
-  store i32 %mul17, i32* %arrayidx19, align 4
+  %mul17 = mul nsw i32 %6, %5
+  %arrayidx19 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv.next
+  store i32 %mul17, ptr %arrayidx19, align 4
   br label %do.cond
 
 do.cond:                                          ; preds = %do.body, %if.then
-  %exitcond.not = icmp eq i64 %indvars.iv.next, %5
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %4
   br i1 %exitcond.not, label %do.end, label %do.body
 
 do.end:                                           ; preds = %do.cond

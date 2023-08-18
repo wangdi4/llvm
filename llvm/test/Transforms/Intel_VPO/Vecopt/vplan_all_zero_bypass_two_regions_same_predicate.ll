@@ -16,16 +16,15 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* nocapture %c, i32* nocapture %d, i32 %x, i32 %y) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %a, ptr nocapture %b, ptr nocapture %c, ptr nocapture %d, i32 %x, i32 %y) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
 ; CHECK-NEXT:  VPlan IR for: foo:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     [DA: Div] i8* [[VP_I_LPRIV_BCAST:%.*]] = bitcast i32* [[VP_I_LPRIV]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     [DA: Div] ptr [[VP_I_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] call i64 4 ptr [[VP_I_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 256, UF = 1
@@ -33,8 +32,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin24
 ; CHECK-EMPTY:
@@ -44,16 +43,16 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store i32 [[ADD20:%.*]] i32* [[VP_ARRAYIDX4]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] store i32 [[ADD20:%.*]] ptr [[VP_ARRAYIDX4]]
 ; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end26
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end26: # preds: [[BB4]], all.zero.bypass.begin24
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: all.zero.bypass.end26
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] store i32 [[DIV0:%.*]] i32* [[VP_ARRAYIDX6]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[C0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store i32 [[DIV0:%.*]] ptr [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin28
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin28: # preds: [[BB5]]
@@ -62,8 +61,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.begin28
 ; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[D0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store i32 [[MUL110:%.*]] i32* [[VP_ARRAYIDX13]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32, ptr [[D0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] store i32 [[MUL110:%.*]] ptr [[VP_ARRAYIDX13]]
 ; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end30
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end30: # preds: [[BB6]], all.zero.bypass.begin28
@@ -89,7 +88,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -100,24 +99,24 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.2 ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %1, 7
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx4 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
-  store i32 %add2, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
+  store i32 %add2, ptr %arrayidx4, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
-  %arrayidx6 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  store i32 %div, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  store i32 %div, ptr %arrayidx6, align 4
   br i1 %cmp1, label %if.then10, label %omp.inner.for.inc
 
 if.then10:                                        ; preds = %if.end
-  %arrayidx13 = getelementptr inbounds i32, i32* %d, i64 %indvars.iv
-  store i32 %mul11, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds i32, ptr %d, i64 %indvars.iv
+  store i32 %mul11, ptr %arrayidx13, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then10, %if.end

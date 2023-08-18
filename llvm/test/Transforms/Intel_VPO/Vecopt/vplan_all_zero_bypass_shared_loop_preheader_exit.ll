@@ -8,7 +8,7 @@
 
 declare i64 @llvm.vplan.laneid()
 
-define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %a, ptr nocapture %b, ptr nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
 ;
 ;          (D) entry ------
 ;                |        |
@@ -35,8 +35,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ADD3:%.*]] = add i32 [[Y0:%.*]] i32 [[X0:%.*]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_PTRIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_PTRIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_PTRIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load ptr [[VP_PTRIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin9
 ; CHECK-EMPTY:
@@ -51,8 +51,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB2]], [[BB1]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ],  [ i64 0, [[BB1]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Uni] i32* [[VP_PTRIDX5:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Uni] store i32 [[VP_ADD3]] i32* [[VP_PTRIDX5]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_PTRIDX5:%.*]] = getelementptr inbounds i32, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Uni] store i32 [[VP_ADD3]] ptr [[VP_PTRIDX5]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 256
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_CMP1]]
@@ -67,8 +67,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]], [[BB4]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV37:%.*]] = phi  [ i64 0, [[BB3]] ],  [ i64 [[VP_INDVARS_IV_NEXT38:%.*]], [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_CMP1]]
-; CHECK-NEXT:       [DA: Uni] i32* [[VP_PTRIDX10:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV37]]
-; CHECK-NEXT:       [DA: Uni] store i32 [[VP_DIV]] i32* [[VP_PTRIDX10]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_PTRIDX10:%.*]] = getelementptr inbounds i32, ptr [[C0:%.*]] i64 [[VP_INDVARS_IV37]]
+; CHECK-NEXT:       [DA: Uni] store i32 [[VP_DIV]] ptr [[VP_PTRIDX10]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_NEXT38]] = add i64 [[VP_INDVARS_IV37]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND39:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT38]] i64 256
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP_CMP1]]
@@ -89,8 +89,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 entry:
   %lane = call i64 @llvm.vplan.laneid()
   %add3 = add nsw i32 %y, %x
-  %ptridx = getelementptr inbounds i32, i32* %a, i64 %lane
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %a, i64 %lane
+  %0 = load i32, ptr %ptridx, align 4
   %cmp1 = icmp sgt i32 %0, 7
   br i1 %cmp1, label %for.pre, label %exit
 
@@ -103,16 +103,16 @@ for2.pre:
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.pre ]
-  %ptridx5 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
-  store i32 %add3, i32* %ptridx5, align 4
+  %ptridx5 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
+  store i32 %add3, ptr %ptridx5, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 256
   br i1 %exitcond, label %for2.pre, label %for.body
 
 for.body2:
   %indvars.iv37 = phi i64 [ 0, %for2.pre ], [ %indvars.iv.next38, %for.body2 ]
-  %ptridx10 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv37
-  store i32 %div, i32* %ptridx10, align 4
+  %ptridx10 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv37
+  store i32 %div, ptr %ptridx10, align 4
   %indvars.iv.next38 = add nuw nsw i64 %indvars.iv37, 1
   %exitcond39 = icmp eq i64 %indvars.iv.next38, 256
   br i1 %exitcond39, label %for.body2.end, label %for.body2
