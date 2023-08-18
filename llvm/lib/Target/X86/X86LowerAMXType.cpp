@@ -701,7 +701,7 @@ static void replaceWithTileLoad(Use &U, Value *Ptr, bool IsPHI = false) {
   Value *Col = II->getOperand(Idx + 1);
 #endif // INTEL_CUSTOMIZATION
 
-  Instruction *UserI = dyn_cast<Instruction>(U.getUser());
+  Instruction *UserI = cast<Instruction>(U.getUser());
   IRBuilder<> Builder(UserI);
   Value *Stride = Builder.getInt64(64);
   std::array<Value *, 4> Args = {Row, Col, Ptr, Stride};
