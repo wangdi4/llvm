@@ -79,11 +79,7 @@ int main() {
   check_scalar_nan<unsigned int, float>(Queue);
   check_vec_nan<uint32_t, float>(Queue);
   if (Queue.get_device().has(sycl::aspect::fp64)) {
-<<<<<<< HEAD
-    check_scalar_nan<unsigned long, long_float_t>(Queue);
-=======
     check_scalar_nan<unsigned long, double>(Queue);
->>>>>>> d4639a43c3b1ce0fad1fac15c809a6b658178903
     check_scalar_nan<unsigned long long, double>(Queue);
     check_vec_nan<uint64_t, double>(Queue);
     check_vec_nan<unsigned long long, double>(Queue);
