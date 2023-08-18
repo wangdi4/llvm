@@ -15,7 +15,8 @@
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-SYCL_EXTERNAL EXTERN_C void __itt_offload_wi_start_wrapper() {
+DEVICE_EXTERN_C
+void __itt_offload_wi_start_wrapper() {
   if (!isITTEnabled())
     return;
 
@@ -29,7 +30,8 @@ SYCL_EXTERNAL EXTERN_C void __itt_offload_wi_start_wrapper() {
   __itt_offload_wi_start_stub(GroupID, WIID, WGSize);
 }
 
-SYCL_EXTERNAL EXTERN_C void __itt_offload_wi_finish_wrapper() {
+DEVICE_EXTERN_C
+void __itt_offload_wi_finish_wrapper() {
   if (!isITTEnabled())
     return;
 
@@ -40,14 +42,16 @@ SYCL_EXTERNAL EXTERN_C void __itt_offload_wi_finish_wrapper() {
   __itt_offload_wi_finish_stub(GroupID, WIID);
 }
 
-SYCL_EXTERNAL EXTERN_C void __itt_offload_wg_barrier_wrapper() {
+DEVICE_EXTERN_C
+void __itt_offload_wg_barrier_wrapper() {
   if (!isITTEnabled())
     return;
 
   __itt_offload_wg_barrier_stub(0);
 }
 
-SYCL_EXTERNAL EXTERN_C void __itt_offload_wi_resume_wrapper() {
+DEVICE_EXTERN_C
+void __itt_offload_wi_resume_wrapper() {
   if (!isITTEnabled())
     return;
 
