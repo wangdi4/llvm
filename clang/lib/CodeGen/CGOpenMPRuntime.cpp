@@ -11015,7 +11015,7 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
   const auto *VD = cast<VarDecl>(GD.getDecl());
   if (CGM.getLangOpts().OpenMPLateOutline && VD->isConstexpr() &&
       (CGM.getLangOpts().OpenMPIsTargetDevice && VD->isStaticDataMember() ||
-       CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
+       CGM.getLLVMLinkageVarDefinition(VD) ==
            llvm::GlobalValue::InternalLinkage))
     return false;
 #endif // INTEL_COLLAB
