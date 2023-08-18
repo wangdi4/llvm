@@ -430,6 +430,7 @@ const TargetLoweringObjectFile &AsmPrinter::getObjFileLowering() const {
 }
 
 const DataLayout &AsmPrinter::getDataLayout() const {
+  assert(MMI && "MMI could not be nullptr!");
   return MMI->getModule()->getDataLayout();
 }
 
@@ -592,6 +593,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
+      assert(MMI && "MMI could not be nullptr here!");
       if (MMI->hasDebugInfo()) {
         DD = new DwarfDebug(this);
         Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
