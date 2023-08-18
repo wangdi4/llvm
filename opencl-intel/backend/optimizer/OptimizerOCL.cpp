@@ -587,9 +587,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
     MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
 
-  if (m_debugType == intel::Native)
-    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
-  MPM.addPass(SYCLKernelWGLoopCreatorPass(m_UseTLSGlobals));
+  MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
+  MPM.addPass(SYCLKernelWGLoopCreatorPass());
 
   MPM.addPass(IndirectCallLowering()); // INTEL
   // Clean up scalar kernel after WGLoop for native subgroups.
@@ -636,8 +635,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   else
     MPM.addPass(AddImplicitArgsPass());
 
-  MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize(), m_UseTLSGlobals));
-  MPM.addPass(LocalBuffersPass(m_UseTLSGlobals));
+  MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize()));
+  MPM.addPass(LocalBuffersPass());
   // clang converts OCL's local to global.
   // LocalBuffersPass changes the local allocation from global to a
   // kernel argument.
@@ -681,7 +680,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
   if (m_HasOcl20)
-    MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
+    MPM.addPass(PatchCallbackArgsPass());
 
   if (Level != OptimizationLevel::O0) {
     // AddImplicitArgs pass may create dead implicit arguments.
@@ -713,7 +712,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
-  MPM.addPass(PrepareKernelArgsPass(m_UseTLSGlobals));
+  MPM.addPass(PrepareKernelArgsPass());
 
   if (Level != OptimizationLevel::O0) {
     // Cleaning up internal globals
@@ -779,8 +778,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(SGBarrierSimplifyPass());
     // Insert ImplicitGIDPass in the middle of subgroup emulation
     // to track GIDs in emulation loops
-    if (m_debugType == intel::Native)
-      MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
+    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
 
     // Resume sub-group emulation
     MPM.addPass(SGValueWidenPass());

@@ -33,17 +33,15 @@ using namespace SYCLKernelMetadataAPI;
 #define DEBUG_TYPE "sycl-kernel-wgloop-creator"
 
 using MapFunctionToReturnInst = DenseMap<Function *, ReturnInst *>;
-extern bool EnableTLSGlobals;
 static constexpr StringRef PatchLocalIDsName = "local.ids";
 
 namespace {
 class WGLoopCreatorImpl {
 public:
-  WGLoopCreatorImpl(Module &M, bool UseTLSGlobals,
-                    MapFunctionToReturnInst &FuncReturn, FuncSet &AllKernels)
-      : M(M), Ctx(M.getContext()), Builder(Ctx),
-        UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals),
-        FuncReturn(FuncReturn), AllKernels(AllKernels) {}
+  WGLoopCreatorImpl(Module &M, MapFunctionToReturnInst &FuncReturn,
+                    FuncSet &AllKernels)
+      : M(M), Ctx(M.getContext()), Builder(Ctx), FuncReturn(FuncReturn),
+        AllKernels(AllKernels) {}
 
   /// Run on the module.
   bool run();
@@ -65,7 +63,7 @@ private:
 
   IRBuilder<> Builder;
 
-  bool UseTLSGlobals;
+  bool UseTLSGlobals = false;
 
   /// Prefix for name of instructions used for loop of the dimension.
   std::string DimStr;
@@ -305,6 +303,10 @@ bool WGLoopCreatorImpl::run() {
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
 
+  auto Kernels = getKernels(M);
+  UseTLSGlobals =
+      llvm::any_of(M, [](Function &F) { return F.getSubprogram() != nullptr; });
+
   bool Changed = createTLSLocalIds();
 
   Changed |= processTIDInNotInlinedFuncs();
@@ -312,7 +314,6 @@ bool WGLoopCreatorImpl::run() {
   // processTIDInNotInlinedFuncs may create new TID calls in kernels.
   collectTIDCalls();
 
-  auto Kernels = getKernels(M);
   for (auto *F : Kernels) {
     KernelInternalMetadataAPI KIMD(F);
     // No need to check if NoBarrierPath Value exists, it is guaranteed that
@@ -1558,6 +1559,6 @@ PreservedAnalyses SYCLKernelWGLoopCreatorPass::run(Module &M,
     if (It != F->end())
       FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
   }
-  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn, AllKernels);
+  WGLoopCreatorImpl Impl(M, FuncReturn, AllKernels);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

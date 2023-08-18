@@ -26,8 +26,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-prepare-args"
 
-extern bool EnableTLSGlobals;
-
 namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
@@ -42,7 +40,7 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
     return &FAM.getResult<AssumptionAnalysis>(F);
   };
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, UseTLSGlobals, GetAC, IAInfo))
+  if (!runImpl(M, GetAC, IAInfo))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
@@ -62,16 +60,16 @@ collectEnqueueKernelAndQueryFuncs(Module &M,
 }
 
 bool PrepareKernelArgsPass::runImpl(
-    Module &M, bool UseTLSGlobals,
-    function_ref<AssumptionCache *(Function &F)> GetAC,
+    Module &M, function_ref<AssumptionCache *(Function &F)> GetAC,
     ImplicitArgsInfo *IAInfo) {
   this->M = &M;
-  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
   this->IAInfo = IAInfo;
   LLVMContext &C = M.getContext();
   SizetTy = IntegerType::get(C, M.getDataLayout().getPointerSizeInBits());
   I32Ty = Type::getInt32Ty(C);
   I8Ty = Type::getInt8Ty(C);
+
+  HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
   // Get all kernels (original scalar kernels and vectorized kernels).
   auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
@@ -132,7 +130,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
   std::vector<unsigned int> MemoryArguments;
-  CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
+  CompilationUtils::parseKernelArguments(M, WrappedKernel, HasTLSGlobals,
                                          Arguments, MemoryArguments);
 
   std::vector<Value *> Params;
@@ -274,7 +272,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes);
   for (unsigned int I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     Value *Arg = nullptr;
-    if (!UseTLSGlobals)
+    if (!HasTLSGlobals)
       assert(CallIt->getType() == IAInfo->getArgType(I) &&
              "Mismatch in arg found in function and expected arg type");
     assert((I == ImplicitArgsUtils::IA_SLM_BUFFER ||
@@ -426,7 +424,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     } break;
     }
 
-    if (UseTLSGlobals) {
+    if (HasTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
       auto *C = dyn_cast<Constant>(Arg);
       if (!(C && C->isNullValue() &&

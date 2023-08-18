@@ -42,9 +42,10 @@ DebuggingServiceType getUserDefinedDebuggingServiceType() {
 
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled, Module *M,
                                              bool useNativeDebugger) {
-  if (!debuggingEnabled && !CompilationUtils::getDebugFlagFromMetadata(M)) {
+  if (llvm::any_of(*M, [](Function &F) -> bool { return F.getSubprogram(); }))
+    return Native;
+  if (!debuggingEnabled)
     return None;
-  }
 
   DebuggingServiceType serviceType;
 #if _WIN32

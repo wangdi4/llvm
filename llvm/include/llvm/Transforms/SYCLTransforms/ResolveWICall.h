@@ -25,14 +25,13 @@ enum TInternalCallType : int;
 /// Resolve work item function calls.
 class ResolveWICallPass : public PassInfoMixin<ResolveWICallPass> {
 public:
-  ResolveWICallPass(bool IsUniformWG = false, bool UseTLSGlobals = false)
-      : IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {}
+  ResolveWICallPass(bool IsUniformWG = false) : IsUniformWG(IsUniformWG) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
-               ImplicitArgsInfo *IAInfo, CallGraph *CG);
+  bool runImpl(Module &M, bool IsUniformWG, ImplicitArgsInfo *IAInfo,
+               CallGraph *CG);
 
   static bool isRequired() { return true; }
 
@@ -155,8 +154,8 @@ private:
   // True if a module is compiled with uniform work-group size,
   // e.g. -cl-uniform-work-group-size.
   bool IsUniformWG;
-  // Use TLS globals instead of implicit arguments.
-  bool UseTLSGlobals;
+  // Has TLS globals instead of implicit arguments.
+  bool HasTLSGlobals = false;
 };
 
 } // namespace llvm

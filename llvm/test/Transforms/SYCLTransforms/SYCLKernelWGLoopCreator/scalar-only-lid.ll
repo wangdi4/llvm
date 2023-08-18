@@ -78,5 +78,5 @@ attributes #0 = { noinline optnone }
 !1 = !{!"int*", !"int*"}
 !2 = !{ptr null, ptr null}
 
-; DEBUGIFY-COUNT-25: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-31: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING

@@ -692,6 +692,9 @@ Type *getWorkGroupInfoElementType(LLVMContext &C,
 /// Get implicit arguments IA_WORK_GROUP_ID element type.
 Type *getWorkGroupIDElementType(Module *M);
 
+/// Return true if the module has TLS global variables.
+bool hasTLSGlobals(Module &M);
+
 /// Retrieves requested TLS global variable in the given module
 /// \param M The module for which global variable needs to be retrieved.
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
@@ -716,9 +719,10 @@ void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
 /// level arguments.
 /// \param M The module.
 /// \param F The kernel for which to create argument vector.
+/// \param HasTLSGlobals Whether the module has TLS global variables.
 /// \param Arguments Output KernelArgument vector.
 /// \param MemoryArguments Output memory argument indices.
-void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
+void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemoryArguments);
 

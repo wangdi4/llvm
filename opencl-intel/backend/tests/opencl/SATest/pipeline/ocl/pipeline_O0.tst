@@ -43,6 +43,8 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: VFAnalysis
@@ -56,15 +58,15 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Running pass: SGLoopConstructPass
+; CHECK:      Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running analysis: DataPerValueAnalysis
 ; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass

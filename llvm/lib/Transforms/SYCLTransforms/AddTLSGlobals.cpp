@@ -18,12 +18,6 @@
 
 using namespace llvm;
 
-// Command line option for other passes to use TLS mode
-bool EnableTLSGlobals;
-static cl::opt<bool, true> OptEnableTLSGlobals(
-    "sycl-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
-    cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
-
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);

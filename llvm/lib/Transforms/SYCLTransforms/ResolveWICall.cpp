@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBufferAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <algorithm>
@@ -28,12 +29,10 @@ static cl::opt<bool> OptUniformWGSize(
     "sycl-uniform-wg-size", cl::init(false), cl::Hidden,
     cl::desc("The flag speficies work groups size as uniform"));
 
-extern bool EnableTLSGlobals;
-
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG))
+  if (!runImpl(M, IsUniformWG, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();
@@ -41,7 +40,7 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   return PA;
 }
 
-bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
+bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG,
                                 ImplicitArgsInfo *IAInfo, CallGraph *CG) {
   this->M = &M;
   Ctx = &M.getContext();
@@ -50,7 +49,7 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
 
   PrefetchDecl = false;
   this->IsUniformWG = IsUniformWG | OptUniformWGSize;
-  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
+  HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
   // extended execution flags
   ExtExecDecls.clear();
@@ -91,7 +90,7 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
   IRBuilder<> Builder(*Ctx);
-  if (UseTLSGlobals) {
+  if (HasTLSGlobals) {
     Builder.SetInsertPoint(dyn_cast<Instruction>(F->getEntryBlock().begin()));
     WorkInfo = createLoadForTLSGlobal(Builder, M,
                                       ImplicitArgsUtils::IA_WORK_GROUP_INFO);
@@ -742,7 +741,7 @@ void ResolveWICallPass::clearPerFunctionCache() {
 
 Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
-  if (UseTLSGlobals)
+  if (HasTLSGlobals)
     Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!Block2KernelMapper)
     Block2KernelMapper = IAInfo->GenerateGetFromWorkInfo(
@@ -752,7 +751,7 @@ Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
 
 Value *ResolveWICallPass::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
-  if (UseTLSGlobals)
+  if (HasTLSGlobals)
     Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!RuntimeInterface)
     RuntimeInterface = IAInfo->GenerateGetFromWorkInfo(
