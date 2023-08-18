@@ -1368,7 +1368,11 @@ processInputModule(std::unique_ptr<Module> M) {
     if (!MMsWithDefaultSpecConsts.empty()) {
       for (size_t i = 0; i != MMsWithDefaultSpecConsts.size(); ++i) {
         module_split::ModuleDesc &IrMD = MMsWithDefaultSpecConsts[i];
-        IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
+        IrPropSymFilenameTriple T = saveModule(IrMD, ID,
+#ifdef INTEL_COLLAB
+                                               OMPOffloadParallelCompile,
+#endif // INTEL_COLLAB
+                                               OutIRFileName);
         addTableRow(*Table, T);
       }
 
