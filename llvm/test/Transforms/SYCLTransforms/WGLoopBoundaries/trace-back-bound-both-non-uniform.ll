@@ -66,5 +66,4 @@ attributes #2 = { nounwind readnone }
 !10 = !{!"", !"", !"", !""}
 !11 = !{i1 true}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

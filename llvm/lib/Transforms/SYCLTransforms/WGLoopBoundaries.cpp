@@ -538,7 +538,8 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   } while (MinMaxBoundaryRemoved || EarlyExitCollapsed);
 
   // Create early exit functions for later use of loop generator.
-  createWGLoopBoundariesFunction();
+  if (!UniDescs.empty() || !TIDDescs.empty())
+    createWGLoopBoundariesFunction();
 
   // Remove all instructions marked for removal.
   for (Instruction *I : ToRemove) {
@@ -1704,17 +1705,14 @@ void WGLoopBoundariesImpl::createWGLoopBoundariesFunction() {
 
   // Fill local size member vector, and set initial lower/upper bounds.
   fillInitialBoundaries(BB);
-  Value *UniformCond = ConstOne;
-  if (UniDescs.size() || TIDDescs.size()) {
-    // In case there are early exits, recover instructions leading to them
-    // into the block and update the value map.
-    VMap ValueMap;
-    recoverBoundInstructions(ValueMap, BB);
-    // Update upper/lower bounds according to boundary descriptions.
-    obtainEEBoundaries(BB, ValueMap);
-    // Update uniform condition according to uniform early exit descriptions.
-    UniformCond = obtainUniformCond(BB, ValueMap);
-  }
+  // In case there are early exits, recover instructions leading to them
+  // into the block and update the value map.
+  VMap ValueMap;
+  recoverBoundInstructions(ValueMap, BB);
+  // Update upper/lower bounds according to boundary descriptions.
+  obtainEEBoundaries(BB, ValueMap);
+  // Update uniform condition according to uniform early exit descriptions.
+  Value *UniformCond = obtainUniformCond(BB, ValueMap);
 
   // Insert boundaries into the array return value.
   Value *RetVal = UndefValue::get(BoundFunc->getReturnType());

@@ -66,5 +66,4 @@ attributes #2 = { nounwind readnone }
 !8 = !{}
 
 ; DEBUGIFY-COUNT-1: Instruction with empty DebugLoc in function test
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.test
 ; DEBUGIFY-NOT: WARNING

@@ -53,6 +53,4 @@ attributes #3 = { nounwind readnone }
 
 !0 = !{void ()* @test_get_sub_group_id, void ()* @test_get_sub_group_local_id}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.test_get_sub_group_id
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.test_get_sub_group_local_id
 ; DEBUGIFY-NOT: WARNING

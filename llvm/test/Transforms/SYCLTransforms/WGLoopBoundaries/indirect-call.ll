@@ -33,7 +33,7 @@ exit:
   ret void
 }
 
-; CHECK-LABEL: define [7 x i64] @WG.boundaries.test_indirect_call
+; CHECK-NOT: define [7 x i64] @WG.boundaries.test_indirect_call
 
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
@@ -41,5 +41,4 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
 !0 = !{ptr @test_indirect_call}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

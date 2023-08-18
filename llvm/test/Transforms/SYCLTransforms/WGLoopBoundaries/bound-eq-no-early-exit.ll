@@ -31,5 +31,4 @@ declare i32 @_Z13get_global_idj(i32)
 
 !0 = !{ptr @program}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING
