@@ -1269,19 +1269,11 @@ GlobalVariable *llvm::UpgradeGlobalVariable(GlobalVariable *GV) {
     NewCtors[i] = ConstantStruct::get(EltTy, Ctor->getAggregateElement(0u),
                                       Ctor->getAggregateElement(1),
                                       Constant::getNullValue(IRB.getPtrTy()));
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    NewCtors[i] = ConstantStruct::get(
-        EltTy, Ctor->getAggregateElement(0u), Ctor->getAggregateElement(1),
-        Constant::getNullValue(IRB.getInt8PtrTy()));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
     NewCtors[i] = ConstantStruct::get(
         EltTy, Ctor->getAggregateElement(0u), Ctor->getAggregateElement(1),
         Constant::getNullValue(IRB.getInt8PtrTy()));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
   }
   Constant *NewInit = ConstantArray::get(ArrayType::get(EltTy, N), NewCtors);
 
@@ -4275,24 +4267,14 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
     }
 
     // Create a new call with an added null annotation attribute argument.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     NewCall =
         Builder.CreateCall(NewFn, {CI->getArgOperand(0), CI->getArgOperand(1),
                                    CI->getArgOperand(2), CI->getArgOperand(3),
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                                    Constant::getNullValue(Builder.getPtrTy())});
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    NewCall = Builder.CreateCall(
-        NewFn,
-        {CI->getArgOperand(0), CI->getArgOperand(1), CI->getArgOperand(2),
-         CI->getArgOperand(3), Constant::getNullValue(Builder.getInt8PtrTy())});
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
                                    Constant::getNullValue(Builder.getInt8PtrTy())});
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
     NewCall->takeName(CI);
     CI->replaceAllUsesWith(NewCall);
     CI->eraseFromParent();
@@ -4305,24 +4287,14 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
       return;
     }
     // Create a new call with an added null annotation attribute argument.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     NewCall =
         Builder.CreateCall(NewFn, {CI->getArgOperand(0), CI->getArgOperand(1),
                                    CI->getArgOperand(2), CI->getArgOperand(3),
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                                    Constant::getNullValue(Builder.getPtrTy())});
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    NewCall = Builder.CreateCall(
-        NewFn,
-        {CI->getArgOperand(0), CI->getArgOperand(1), CI->getArgOperand(2),
-         CI->getArgOperand(3), Constant::getNullValue(Builder.getInt8PtrTy())});
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
                                    Constant::getNullValue(Builder.getInt8PtrTy())});
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
     NewCall->takeName(CI);
     CI->replaceAllUsesWith(NewCall);
     CI->eraseFromParent();

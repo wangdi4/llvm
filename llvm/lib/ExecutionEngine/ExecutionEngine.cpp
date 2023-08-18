@@ -449,15 +449,9 @@ int ExecutionEngine::runFunctionAsMain(Function *Fn,
   FunctionType *FTy = Fn->getFunctionType();
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *PPInt8Ty = PointerType::get(Fn->getContext(), 0);
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type* PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
   Type *PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
 
   // Check the argument types.
   if (NumArgs > 3)

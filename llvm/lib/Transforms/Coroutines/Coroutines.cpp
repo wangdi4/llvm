@@ -56,15 +56,9 @@ coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Int8Ptr(PointerType::get(Context, 0)),
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Int8Ptr(Type::getInt8PtrTy(Context)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
       Int8Ptr(Type::getInt8PtrTy(Context, 0)),
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 4708c0d7f2b2385a6e9282d412a04f9094aac09c
       ResumeFnType(FunctionType::get(Type::getVoidTy(Context), Int8Ptr,
                                      /*isVarArg=*/false)),
       NullPtr(ConstantPointerNull::get(Int8Ptr)) {}
