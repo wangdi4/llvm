@@ -118,6 +118,9 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/CFG.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -272,6 +275,10 @@ static cl::opt<bool> EnableSwitchCriticalEdgeSplit(
 static cl::opt<bool> DontSplitColdCriticalEdge(
     "cgp-dont-split-cold-critical-edge", cl::Hidden, cl::init(true),
     cl::desc("Don't split a cold critical edge from an indirectbr/switch."));
+
+static cl::opt<bool> EnableCmpLeaJcc2IncCmpJcc(
+    "cgp-icmp-CmpLeaJcc2IncCmpJcc", cl::Hidden, cl::init(true),
+    cl::desc("Transform CmpLeaJcc to IncCmpJcc by changing src and jcc"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableICMP_EQToICMP_ST(
@@ -511,6 +518,9 @@ private:
   bool optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT);
   bool combineToUSubWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
   bool combineToUAddWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
+#if INTEL_CUSTOMIZATION
+  bool combineCmpLeaJcc2IncCmpJcc(CmpInst *Cmp);
+#endif // INTEL_CUSTOMIZATION
   void verifyBFIUpdates(Function &F);
 };
 
@@ -1803,6 +1813,189 @@ bool CodeGenPrepare::combineToUSubWithOverflow(CmpInst *Cmp,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// If CMP's src is also src of a monotonic INC, change the src to dest of
+// the INC according to CMP's CC, to avoid the INC sink after CMP
+// which would break CMP+JCC macro-fuse chance.
+// TODO: The similar transform for monotonic DEC if needed.
+// An example:
+// Transform   %a = phi (%inc, ...)
+//             %inc = add nsw i64 %a, 1
+//             %cmp = icmp eq i64 %a, %b    // %a is CMP's src
+//             br %cmp
+// To          %a = phi (%inc, ...)
+//             %inc = add nsw i64 %a, 1
+//             %cmp = icmp sgt i64 %inc, %b // %inc becomess CMP's src
+//             br %cmp
+// to avoid %inc sink after %cmp as LEA (by phi-node-elimination and
+// twoaddressinstruction passes), so icmp+br would be glued.
+// In most cases, this could be optimized by Loop Strength Reduction, unless
+// it is in a complicated loop.
+bool CodeGenPrepare::combineCmpLeaJcc2IncCmpJcc(CmpInst *Cmp) {
+  // This optimization is designed for macro fusion.
+  if (!EnableCmpLeaJcc2IncCmpJcc || !TTI->canMacroFuseCmp())
+    return false;
+  if (isa<FCmpInst>(Cmp) || !Cmp->hasOneUse())
+    return false;
+  Value *CmpOp0 = Cmp->getOperand(0), *CmpOp1 = Cmp->getOperand(1);
+  auto *CI0 = dyn_cast_or_null<ConstantInt>(CmpOp0);
+  auto *CI1 = dyn_cast_or_null<ConstantInt>(CmpOp1);
+  if ((CI0 && CI0->isZero() && Cmp->getPredicate() == ICmpInst::ICMP_EQ) ||
+      (CI1 && CI1->isZero() && Cmp->getPredicate() == ICmpInst::ICMP_EQ))
+    return false; // Avoid changing CMP to 0 which could optimize to TEST.
+  Function *F = Cmp->getParent()->getParent();
+  for (unsigned i = 0; i < Cmp->getNumOperands(); i++) {
+    auto *CmpOpL = Cmp->getOperand(i);
+    if (dyn_cast<Constant>(CmpOpL))
+      continue;
+    for (User *U : CmpOpL->users()) {
+      Instruction *CmpOpIncI = cast<Instruction>(U);
+      if (!CmpOpIncI)
+        continue;
+      // Only if CmpOpIncI and Cmp are in the same BB and CmpOpIncI
+      // dominates Cmp could do the transform.
+      if (CmpOpIncI->getParent() != Cmp->getParent() ||
+          !getDT(*F).dominates(CmpOpIncI, Cmp))
+        continue;
+      Value *AddLHS = nullptr;
+      Instruction *CmpUsr = cast<Instruction>(*Cmp->user_begin());
+      auto *BI = dyn_cast<BranchInst>(CmpUsr);
+      if (!BI || !BI->isConditional())
+        continue;
+      if (match(CmpOpIncI, m_Add(m_Value(AddLHS), m_One())) &&
+          // Check nsw or nuw to avoid INC overflow.
+          (CmpOpIncI->hasNoSignedWrap() || CmpOpIncI->hasNoUnsignedWrap())) {
+        // Check the pattern that make sure %a is monotonic increase.
+        // %a = phi (%inc, ...)
+        // ...
+        // %inc = add %a, 1
+        PHINode *CmpOpDefPhi = dyn_cast<PHINode>(CmpOpL);
+        if (!CmpOpDefPhi)
+          continue;
+        for (unsigned i = 0; i < CmpOpDefPhi->getNumIncomingValues(); i++) {
+          Value *PHIValue = CmpOpDefPhi->getIncomingValue(i);
+          if (dyn_cast<PHINode>(PHIValue)) { // It might be two level phi
+            CmpOpDefPhi = dyn_cast<PHINode>(PHIValue); // Find the root phi
+            break; // Consider only one PHIValue is phi node situation.
+          }
+        }
+        if (CmpOpDefPhi->getNumIncomingValues() != 2)
+          continue; // Only deal phi node with 2 inputs.
+        bool isMonoInc = false, isLE = false, isEqual = false;
+        // Deal with two phis. One should be monotomic INC;
+        // The other is initial value from a SEL between const and variable.
+        for (unsigned i = 0; i < 2; i++) {
+          Value *PHIValue = CmpOpDefPhi->getIncomingValue(i);
+          if (!isPotentiallyReachable(CmpOpDefPhi->getParent(),
+                                      CmpOpIncI->getParent()))
+            continue;
+          if (PHIValue == U) { // Phi node is %inc
+            isMonoInc = true;
+          } else {
+            // Check that the initial value of CmpOpL <= CmpOpR
+            // TODO pattern match for "for(i=0;i<n;i++)"
+            auto *CmpOpR = Cmp->getOperand(1 - i); //%data_ext_sel_2
+
+            // Pattern match to check %data_ext_sel_1 <= %data_ext_sel_2:
+            //   %data_ext_1 = sext i32 %data to i64
+            //   %data_ext_2 = sext i32 %data to i64
+            //   %data_ext_sel_1 = select i1 %cmp, i64 %data_ext_1, i64 1
+            //   %data_ext_sel_2 = select i1 %cmp, i64 %data_ext_2, i64 9
+            // loop:
+            //   %phi = phi i64 (%data_ext_sel_1, %inc)
+            //   %inc = add nsw i64 %phi, 1
+            //   %cmp_eq = icmp eq i64 %phi, %data_ext_sel_2
+            //   br %cmp_eq, label %loop, label %exit
+            SExtInst *PHIValueIExt = dyn_cast<SExtInst>(PHIValue);
+            SExtInst *CmpOpRIExt = dyn_cast<SExtInst>(CmpOpR);
+            if (PHIValueIExt && CmpOpRIExt) { // Filter Sext
+              PHIValue = PHIValueIExt->getOperand(0);
+              CmpOpR = CmpOpRIExt->getOperand(0);
+            }
+            SelectInst *PHIValueISel = dyn_cast<SelectInst>(PHIValue);
+            SelectInst *CmpOpRISel = dyn_cast<SelectInst>(CmpOpR);
+            if (PHIValueISel && CmpOpRISel &&
+                // Make sure selection condistion is the same: %cmp
+                PHIValueISel->getCondition() == CmpOpRISel->getCondition()) {
+              for (unsigned j = 1; j < 3; j++) { // Deal with SEL's src.
+                auto *PHIValueISelOp = PHIValueISel->getOperand(j);
+                auto *CmpOpRISelOp = CmpOpRISel->getOperand(j);
+                // check CmpOpL <= CmpOpR, when both of them are const
+                auto *PHIISelCI = dyn_cast<ConstantInt>(PHIValueISelOp);
+                auto *CmpRISelCI = dyn_cast<ConstantInt>(CmpOpRISelOp);
+                if (PHIISelCI && CmpRISelCI) {
+                  APInt Sub = CmpRISelCI->getValue() - PHIISelCI->getValue();
+                  if (Sub.isNonNegative())
+                    isLE = true;
+                  else
+                    isLE = false;
+                } else {
+                  // check CmpOpL == CmpOpR, when both of them are variables
+                  SExtInst *PHIValueExtI = dyn_cast<SExtInst>(PHIValueISelOp);
+                  SExtInst *CmpOpRExtI = dyn_cast<SExtInst>(CmpOpRISelOp);
+                  if (PHIValueISelOp == CmpOpRISelOp ||
+                      (PHIValueExtI && CmpOpRExtI &&
+                       PHIValueExtI->getType() == CmpOpRExtI->getType() &&
+                       PHIValueExtI->getOperand(0) ==
+                           CmpOpRExtI->getOperand(0))) {
+                    isEqual = true;
+                  } else
+                    isEqual = false;
+                }
+              }
+            }
+          }
+        }
+        // If CmpOp is not monotonic increase, or
+        // the iniatial value of CmpOpL NOT <= CmpOpR, drop the transformation.
+        if (!isMonoInc || !isLE || !isEqual)
+          continue;
+        if (Cmp->getPredicate() == ICmpInst::ICMP_EQ) {
+          LLVM_DEBUG(dbgs() << "Transfer ICMP_LEA+1_EQ from ");
+          LLVM_DEBUG(Cmp->dump());
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp eq i64 %a, N
+          // --> icmp sgt %inc, N
+          if (i == 0)
+            Cmp->setPredicate(ICmpInst::ICMP_SGT);
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp eq i64 N, %a
+          // --> icmp slt i64 N, %inc
+          else // i == 1
+            Cmp->setPredicate(ICmpInst::ICMP_SLT);
+          Cmp->setOperand(i, cast<Value>(CmpOpIncI));
+          LLVM_DEBUG(dbgs() << "    To ");
+          LLVM_DEBUG(Cmp->dump());
+          return true;
+        } else if (Cmp->getPredicate() == ICmpInst::ICMP_NE) {
+          LLVM_DEBUG(dbgs() << "Transfer ICMP_LEA+1_NE from ");
+          LLVM_DEBUG(Cmp->dump());
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp ne i64 %a, N
+          // --> icmp sle %inc, N
+          if (i == 0)
+            Cmp->setPredicate(ICmpInst::ICMP_SLE);
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp ne i64 N, %a
+          // --> icmp sge N, %inc
+          else // i == 1
+            Cmp->setPredicate(ICmpInst::ICMP_SGE);
+          Cmp->setOperand(i, cast<Value>(CmpOpIncI));
+          LLVM_DEBUG(dbgs() << "    To ");
+          LLVM_DEBUG(Cmp->dump());
+          return true;
+        } // TODO Cmp->getPredicate() == ICmpInst::ICMP_SLT)
+      }   // TODO match m_Sub and transform eq to slt/sgt, ne to sge.
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Sink the given CmpInst into user blocks to reduce the number of virtual
 /// registers that must be created and coalesced. This is a clear win except on
 /// targets with multiple condition code registers (PowerPC), where it might
@@ -2002,6 +2195,11 @@ bool CodeGenPrepare::optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT) {
 
   if (swapICmpOperandsToExposeCSEOpportunities(Cmp))
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (combineCmpLeaJcc2IncCmpJcc(Cmp))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

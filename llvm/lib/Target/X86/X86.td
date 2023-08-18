@@ -1608,18 +1608,12 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX512_COMPLEX
                                                   FeatureAVX512COMPLEX,
 #endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
-#if INTEL_FEATURE_ISA_AVX512_REDUCTION
-                                                  FeatureAVX512REDUCTION,
-#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
                                                   FeatureAVX512SATCVT,
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #if INTEL_FEATURE_ISA_AVX256P
                                                   FeatureAVX256P,
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
-                                                  FeatureVPINSRVPEXTR,
-#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
                                                   FeatureRAOINT,
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
                                                   FeatureAVXRAOFP,
