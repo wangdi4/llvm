@@ -585,7 +585,7 @@ void foo1(void)
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int mrg_one[4];
 
-  //expected-error@+1{{attribute requires a string}}
+  //expected-error@+1{{expected string literal as argument of '__merge__' attribute}}
   __attribute__((__merge__(3,9.0f)))
   unsigned int mrg_two[4];
 

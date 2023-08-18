@@ -27,10 +27,10 @@ void foo4() {
 //expected-error@+1{{'cluster' attribute takes no more than 1 argument}}
 void __attribute__((cluster("clustername", 1))) bar1() {}
 
-//expected-error@+1{{'cluster' attribute requires a string}}
+//expected-error@+1{{expected string literal as argument of 'cluster' attribute}}
 void __attribute__((cluster(123))) bar2() {}
 
-//expected-error@+1{{'cluster' attribute requires a string}}
+//expected-error@+1{{expected string literal as argument of 'cluster' attribute}}
 void __attribute__((cluster(foo1))) bar3() {}
 
 [[clang::cluster("cluster_name")]] void bar4() {}

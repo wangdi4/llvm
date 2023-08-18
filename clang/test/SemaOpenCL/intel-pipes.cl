@@ -24,6 +24,6 @@ __kernel void k3() __attribute__((io("tmp"))) { // expected-warning{{'io' attrib
 }
 
 __kernel void k4(__global float __attribute__((io("tmp"))) *fp_data, // expected-warning{{'io' attribute only applies to OpenCL channels or pipes}}
-                 read_only pipe float __attribute__((io(1))) pf, // expected-error{{'io' attribute requires a string}}
+                 read_only pipe float __attribute__((io(1))) pf, // expected-error{{expected string literal as argument of 'io' attribute}}
                  write_only pipe int __attribute__((io("tmp"))) pi) {
 }

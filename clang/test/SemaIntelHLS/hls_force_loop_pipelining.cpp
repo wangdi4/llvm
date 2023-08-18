@@ -39,7 +39,7 @@ foo6() {}
 //expected-error@+1{{'hls_force_loop_pipelining' attribute argument must be 'on' or 'off'}}
 __attribute__((hls_force_loop_pipelining("abc"))) void foo7() {}
 
-//expected-error@+1{{'hls_force_loop_pipelining' attribute requires a string}}
+//expected-error@+1{{expected string literal as argument of 'hls_force_loop_pipelining' attribute}}
 __attribute__((hls_force_loop_pipelining(1))) void foo8() {}
 
 __attribute__((hls_ii(1)))
