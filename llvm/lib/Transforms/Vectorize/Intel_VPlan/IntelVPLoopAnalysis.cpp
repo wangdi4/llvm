@@ -585,7 +585,7 @@ VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
   VPCompressExpandIdiom *CEIdiom =
       new VPCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
                                 Increments, Stores, Loads, Indices);
-  ComressExpandIdiomList.emplace_back(CEIdiom);
+  CompressExpandIdiomList.emplace_back(CEIdiom);
 
   linkValue(CEIdiom, RecurrentPhi);
   linkValue(CEIdiom, LiveIn);
@@ -790,8 +790,8 @@ void VPLoopEntityList::dump(raw_ostream &OS,
       dumpList("\nInduction list\n", InductionList, OS);
     if (!PrivatesList.empty())
       dumpList("\nPrivate list\n", PrivatesList, OS);
-    if (!ComressExpandIdiomList.empty())
-      dumpList("\nCompress/expand idiom list\n", ComressExpandIdiomList, OS);
+    if (!CompressExpandIdiomList.empty())
+      dumpList("\nCompress/expand idiom list\n", CompressExpandIdiomList, OS);
     OS << "\n";
   }
 }
