@@ -45,11 +45,11 @@ common.ret:                                       ; preds = %5, %2
 define fastcc i64 @save1(i1 %0) {
 ; CHECK-LABEL: define fastcc i64 @save1
 ; CHECK-SAME: (i1 [[TMP0:%.*]]) {
-; CHECK-NEXT:    [[S2:%.*]] = call ptr @llvm.stacksave()
+; CHECK-NEXT:    [[S2:%.*]] = call ptr @llvm.stacksave.p0()
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[TMP5:%.*]], label [[TMP3:%.*]]
 ; CHECK:       common.ret:
-; CHECK-NEXT:    call void @llvm.stackrestore(ptr [[S2]])
+; CHECK-NEXT:    call void @llvm.stackrestore.p0(ptr [[S2]])
 ; CHECK-NEXT:    ret i64 0
 ; CHECK:       3:
 ; CHECK-NEXT:    [[TMP4:%.*]] = alloca i32, i32 0, align 4
@@ -62,17 +62,17 @@ define fastcc i64 @save1(i1 %0) {
 
 common.ret:                                       ; preds = %5, %2
   %merge = phi ptr [ %s1, %2 ], [ %s2, %5 ]
-  call void @llvm.stackrestore(ptr %merge)
+  call void @llvm.stackrestore.p0(ptr %merge)
   ret i64 0
 
 2:                                                ; preds = %1
-  %s1 = call ptr @llvm.stacksave()
+  %s1 = call ptr @llvm.stacksave.p0()
   %3 = alloca i64, align 8
   %4 = alloca i32, i32 0, align 4
   br label %common.ret
 
 5:                                                ; preds = %1
-  %s2 = call ptr @llvm.stacksave()
+  %s2 = call ptr @llvm.stacksave.p0()
   %6 = alloca i64, align 8
   %7 = alloca i64, i32 0, align 8
   br label %common.ret
@@ -87,15 +87,15 @@ define fastcc i64 @neg(i1 %0) {
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[TMP5:%.*]], label [[TMP2:%.*]]
 ; CHECK:       common.ret:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi ptr [ [[S1:%.*]], [[TMP2]] ], [ [[S2:%.*]], [[TMP5]] ]
-; CHECK-NEXT:    call void @llvm.stackrestore(ptr [[MERGE]])
+; CHECK-NEXT:    call void @llvm.stackrestore.p0(ptr [[MERGE]])
 ; CHECK-NEXT:    ret i64 0
 ; CHECK:       2:
 ; CHECK-NEXT:    [[TMP3:%.*]] = alloca i32, i32 0, align 4
-; CHECK-NEXT:    [[S1]] = call ptr @llvm.stacksave()
+; CHECK-NEXT:    [[S1]] = call ptr @llvm.stacksave.p0()
 ; CHECK-NEXT:    [[TMP4:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br label [[COMMON_RET:%.*]]
 ; CHECK:       5:
-; CHECK-NEXT:    [[S2]] = call ptr @llvm.stacksave()
+; CHECK-NEXT:    [[S2]] = call ptr @llvm.stacksave.p0()
 ; CHECK-NEXT:    [[TMP6:%.*]] = alloca i64, align 8
 ; CHECK-NEXT:    br label [[COMMON_RET]]
 ;
@@ -103,21 +103,21 @@ define fastcc i64 @neg(i1 %0) {
 
 common.ret:                                       ; preds = %5, %2
   %merge = phi ptr [ %s1, %2 ], [ %s2, %5 ]
-  call void @llvm.stackrestore(ptr %merge)
+  call void @llvm.stackrestore.p0(ptr %merge)
   ret i64 0
 
 2:                                                ; preds = %1
   %3 = alloca i32, i32 0, align 4
-  %s1 = call ptr @llvm.stacksave()
+  %s1 = call ptr @llvm.stacksave.p0()
   %4 = alloca i64, align 8
   br label %common.ret
 
 5:                                                ; preds = %1
-  %s2 = call ptr @llvm.stacksave()
+  %s2 = call ptr @llvm.stacksave.p0()
   %6 = alloca i64, align 8
   br label %common.ret
 }
 
-declare ptr @llvm.stacksave()
-declare void @llvm.stackrestore(ptr)
+declare ptr @llvm.stacksave.p0()
+declare void @llvm.stackrestore.p0(ptr)
 
