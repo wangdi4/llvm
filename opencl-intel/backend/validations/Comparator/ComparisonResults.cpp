@@ -13,7 +13,6 @@
 // License.
 
 #include "ComparisonResults.h"
-
 #include <algorithm>
 
 using namespace Validation;

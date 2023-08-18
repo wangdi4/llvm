@@ -15,17 +15,15 @@
 #ifndef __XML_DATA_READER_H__
 #define __XML_DATA_READER_H__
 
-#include <fstream>
-#include <limits>
-#include <string>
-
-#include "tinyxml_wrapper.h"
-#include "llvm/Support/DataTypes.h"
-
 #include "Exception.h"
 #include "IBufferContainerList.h"
 #include "IDataReader.h"
 #include "XMLDataReadWrite.h"
+#include "tinyxml_wrapper.h"
+#include "llvm/Support/DataTypes.h"
+#include <fstream>
+#include <limits>
+#include <string>
 
 namespace Validation {
 

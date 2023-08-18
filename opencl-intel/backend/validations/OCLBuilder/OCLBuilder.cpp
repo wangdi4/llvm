@@ -15,8 +15,8 @@
 #include "OCLBuilder.h"
 #include "cl_env.h"
 #include "clang_device_info.h"
+#include "ocl_string_exception.h"
 #include "opencl_c_features.h"
-#include <ocl_string_exception.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::FECompilerAPI;

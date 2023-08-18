@@ -12,10 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "llvm/Support/DataTypes.h"
-
 #include "DataType.h"
 #include "dxfloat.h"
+#include "llvm/Support/DataTypes.h"
+
 using namespace Validation;
 
 DataTypeValWrapper::DataTypeMetadataMap

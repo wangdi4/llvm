@@ -17,11 +17,10 @@
 #include "Image.h"
 #include "cl_types.h"
 #include "llvm/IR/Function.h"
-
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "DataVersion"
 #include "llvm/Support/Debug.h"
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/raw_ostream.h"
+
+#define DEBUG_TYPE "DataVersion"
 
 enum convertEnum {
   ADDRESS_BASE = 0,

@@ -13,7 +13,6 @@
 // License.
 
 #include "OpenCLCompilationFlags.h"
-
 #include "llvm/IR/Constants.h"
 
 using namespace llvm;

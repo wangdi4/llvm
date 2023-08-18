@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "ImageType.h"
 #include "llvm/Support/DataTypes.h"
 
-#include "ImageType.h"
 using namespace Validation;
 
 ImageTypeValWrapper::ImageTypeValMetadataMap

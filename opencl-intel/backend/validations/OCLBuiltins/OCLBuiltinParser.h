@@ -27,7 +27,6 @@ Apple clang
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/DataTypes.h"
-
 #include <string>
 
 namespace llvm {

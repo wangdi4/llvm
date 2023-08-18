@@ -15,13 +15,12 @@
 #ifndef V_LOAD_STORE_H
 #define V_LOAD_STORE_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/IR/DerivedTypes.h"
-
 #include "Conformance/reference_convert.h"
 #include "Helpers.h"
 #include "dxfloat.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace Validation {
 namespace OCLBuiltins {

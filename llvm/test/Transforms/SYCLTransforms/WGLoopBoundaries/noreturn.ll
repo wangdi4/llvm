@@ -5,8 +5,18 @@ target triple = "x86_64-pc-linux"
 
 define void @test(ptr addrspace(1) %out) noreturn !no_barrier_path !1 {
 entry:
+  %id = call i64 @_Z13get_global_idj(i32 0)
+  %cmp = icmp slt i64 %id, 10
+  br i1 %cmp, label %body, label %exit
+
+body:
+  br label %exit
+
+exit:
   ret void
 }
+
+declare i64 @_Z13get_global_idj(i32)
 
 ; To make sure "WG.boundaries.test" don't have noreturn attribute.
 ; CHECK: define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %out) {

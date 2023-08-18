@@ -15,7 +15,6 @@
 #ifndef __COMPARATOR_H__
 #define __COMPARATOR_H__
 
-#define DEBUG_TYPE "Comparator"
 #include "Buffer.h"
 #include "BufferContainerList.h"
 #include "DataType.h"
@@ -29,6 +28,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <vector>
+
+#define DEBUG_TYPE "Comparator"
 
 namespace Validation {
 

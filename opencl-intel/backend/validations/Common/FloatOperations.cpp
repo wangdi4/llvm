@@ -15,7 +15,6 @@
 #include "FloatOperations.h"
 #include "imathLibd.h"
 #include "reference_math.h"
-
 #include <algorithm>
 
 namespace Validation {

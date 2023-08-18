@@ -15,12 +15,11 @@
 #ifndef __IMAGE_CHANNEL_ORDER_H__
 #define __IMAGE_CHANNEL_ORDER_H__
 
+#include "Exception.h"
 #include <cassert>
 #include <cstddef> // for std::size_t
 #include <map>
 #include <string>
-
-#include "Exception.h"
 
 namespace Validation {
 /// Structure describing type of elements in Buffer

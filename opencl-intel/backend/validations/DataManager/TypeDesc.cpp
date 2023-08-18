@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "TypeDesc.h"
+#include "NEATValue.h"
+#include "dxfloat.h"
 #include "llvm/Support/DataTypes.h"
 
-#include "NEATValue.h"
-#include "TypeDesc.h"
-#include "dxfloat.h"
 using namespace Validation;
 
 std::map<TypeVal, TypeValWrapper::TypeMetadata> TypeValWrapper::m_metaData;

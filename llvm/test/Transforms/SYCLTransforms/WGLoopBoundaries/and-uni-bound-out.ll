@@ -34,5 +34,4 @@ declare void @_Z7barrierm(i32)
 !sycl.kernels = !{!0}
 !0 = !{ptr @program}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

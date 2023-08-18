@@ -15,10 +15,6 @@
 #ifndef __BINARY_DATA_WRITER_H__
 #define __BINARY_DATA_WRITER_H__
 
-#include "llvm/Support/DataTypes.h"
-#include <fstream>
-#include <string>
-
 #include "Buffer.h"
 #include "BufferDesc.h"
 #include "DataVersion.h"
@@ -28,6 +24,9 @@
 #include "IDataWriter.h"
 #include "Image.h"
 #include "ImageDesc.h"
+#include "llvm/Support/DataTypes.h"
+#include <fstream>
+#include <string>
 
 namespace Validation {
 /// @brief IBufferContainerList object writer to data file in Binary format

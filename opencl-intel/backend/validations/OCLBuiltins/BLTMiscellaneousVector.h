@@ -15,13 +15,12 @@
 #ifndef BLT_MISCELLANEOUSVECTOR_H
 #define BLT_MISCELLANEOUSVECTOR_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/IR/DerivedTypes.h"
-
 #include "Helpers.h"
 #include "RefALU.h"
 #include "Utils.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace Validation {
 namespace OCLBuiltins {

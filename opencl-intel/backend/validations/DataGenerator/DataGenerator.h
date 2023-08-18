@@ -15,14 +15,14 @@
 #ifndef __DATA_GENERATOR_H__
 #define __DATA_GENERATOR_H__
 
-#include <BufferContainerList.h>
-#include <Exception.h>
-#include <IDataReader.h>
-#include <dxfloat.h>
+#include "BufferContainerList.h"
+#include "Exception.h"
+#include "IDataReader.h"
+#include "dxfloat.h"
+#include "llvm/Support/DataTypes.h"
 #include <iostream>
 #include <limits>
 #include <list>
-#include <llvm/Support/DataTypes.h>
 #include <time.h>
 
 namespace Validation {

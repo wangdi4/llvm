@@ -15,14 +15,13 @@
 #ifndef __BUFFER_CONTAINER_LIST_H__
 #define __BUFFER_CONTAINER_LIST_H__
 
-#include <cstddef> // for std::size_t
-#include <vector>
-
 #include "BufferContainer.h"
 #include "IBufferContainer.h"
 #include "IBufferContainerList.h"
 #include "IContainer.h"
 #include "IContainerVisitor.h"
+#include <cstddef> // for std::size_t
+#include <vector>
 
 namespace Validation {
 
