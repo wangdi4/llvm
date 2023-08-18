@@ -20,7 +20,6 @@
 #include "Image.h"
 #include "NEATValue.h"
 #include "dxfloat.h"
-#include "math.h"
 #include <cmath>
 #include <limits>
 #include <memory>

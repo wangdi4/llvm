@@ -15,13 +15,12 @@
 #ifndef BLT_IMAGES_H
 #define BLT_IMAGES_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/IR/DerivedTypes.h"
-
 #include "Helpers.h"
 #include "ImagesALU.h"
 #include "RefALU.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Debug.h"
 
 // !!!! HACK

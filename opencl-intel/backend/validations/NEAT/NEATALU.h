@@ -21,12 +21,12 @@ differ from func in result accuracy(for detailed info see section 7.4)
 
 #ifndef __NEATALU_H__
 #define __NEATALU_H__
+
 #include "FloatOperations.h"
 #include "ImagesALU.h"
 #include "IntervalError.h"
 #include "NEAT_WRAP.h"
 #include "RefALU.h"
-
 #include <algorithm>
 #include <math.h>
 #include <vector>

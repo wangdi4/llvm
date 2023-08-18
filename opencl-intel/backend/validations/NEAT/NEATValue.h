@@ -18,8 +18,8 @@
 #include "DataType.h"
 #include "Exception.h"
 #include "FloatOperations.h"
-#include "assert.h"
 #include "dxfloat.h"
+#include <assert.h>
 #include <cstring>
 #include <sstream>
 

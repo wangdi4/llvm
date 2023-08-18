@@ -55,9 +55,9 @@
 //    0                             0.0
 //
 //-----------------------------------------------------------------------------
-#include <llvm/Support/Compiler.h>
-#include <llvm/Support/DataTypes.h> // LLVM data types
 
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/DataTypes.h" // LLVM data types
 #include <iostream>
 #include <limits>
 

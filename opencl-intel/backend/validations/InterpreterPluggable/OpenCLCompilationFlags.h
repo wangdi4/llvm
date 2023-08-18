@@ -16,7 +16,6 @@
 #define OPEN_CL_REF_COMPILATION_FLAGS_H
 
 #include "llvm/IR/Module.h"
-
 #include <string>
 
 namespace Validation {

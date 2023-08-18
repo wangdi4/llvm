@@ -17,8 +17,7 @@
 
 #include "FloatOperations.h"
 #include "NEATValue.h"
-
-#include <imathLibd.h>
+#include "imathLibd.h"
 
 namespace Validation {
 double ComputeUlp(double ref);

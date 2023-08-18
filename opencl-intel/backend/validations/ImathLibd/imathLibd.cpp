@@ -16,14 +16,15 @@
 //
 
 #include "imathLibd.h"
-#if defined(_WIN32)
-#include "mathimf.h"
-#else
-#include "math.h"
-#endif
-
 #include <assert.h>
 #include <errno.h>
+
+#if defined(_WIN32)
+#include <mathimf.h>
+#else
+#include <math.h>
+#endif
+
 // This is the constructor of a class that has been exported.
 // see imathLibd.h for the class definition
 CimathLibd::CimathLibd() { return; }

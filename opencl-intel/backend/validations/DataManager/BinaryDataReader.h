@@ -15,10 +15,6 @@
 #ifndef __BINARY_DATA_READER_H__
 #define __BINARY_DATA_READER_H__
 
-#include <fstream>
-#include <string>
-#include <vector>
-
 #include "Buffer.h"
 #include "DataVersion.h"
 #include "Exception.h"
@@ -28,6 +24,9 @@
 #include "IMemoryObject.h"
 #include "Image.h"
 #include "llvm/Support/DataTypes.h"
+#include <fstream>
+#include <string>
+#include <vector>
 
 namespace Validation {
 /// @brief IBufferContainerList binary reader

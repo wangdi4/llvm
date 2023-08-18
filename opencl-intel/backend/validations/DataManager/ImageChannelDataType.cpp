@@ -12,10 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "llvm/Support/DataTypes.h"
-
 #include "ImageChannelDataType.h"
 #include "dxfloat.h" // for CFloat16
+#include "llvm/Support/DataTypes.h"
+
 using namespace Validation;
 
 ImageChannelDataTypeValWrapper::ImageChannelDataTypeMetadataMap

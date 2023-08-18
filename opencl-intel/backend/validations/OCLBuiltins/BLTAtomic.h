@@ -15,12 +15,11 @@
 #ifndef BLT_ATOMIC_H
 #define BLT_ATOMIC_H
 
+#include "Helpers.h"
+#include "RefALU.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/DerivedTypes.h"
-
-#include "Helpers.h"
-#include "RefALU.h"
 
 namespace Validation {
 namespace OCLBuiltins {

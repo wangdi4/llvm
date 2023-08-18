@@ -15,10 +15,10 @@
 #ifndef __OCL_BUILDER_H__
 #define __OCL_BUILDER_H__
 
+#include "BE_DynamicLib.h"
+#include "CommonOCLBuilder.h"
+#include "Exception.h"
 #include "frontend_api.h"
-#include <BE_DynamicLib.h>
-#include <CommonOCLBuilder.h>
-#include <Exception.h>
 
 namespace Validation {
 

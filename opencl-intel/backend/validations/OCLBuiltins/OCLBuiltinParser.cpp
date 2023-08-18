@@ -12,11 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "OCLBuiltinParser"
-
 #include "OCLBuiltinParser.h"
 #include "Exception.h"
-#include "assert.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Regex.h"
@@ -24,9 +21,12 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
+#include <assert.h>
 #include <iostream>
 #include <map>
 #include <sstream>
+
+#define DEBUG_TYPE "OCLBuiltinParser"
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;

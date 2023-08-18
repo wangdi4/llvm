@@ -15,11 +15,10 @@
 #ifndef BLT_INTEGER_H
 #define BLT_INTEGER_H
 
+#include "Helpers.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/DerivedTypes.h"
-
-#include "Helpers.h"
 
 namespace Validation {
 namespace OCLBuiltins {

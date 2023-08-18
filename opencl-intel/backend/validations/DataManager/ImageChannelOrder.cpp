@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "ImageChannelOrder.h"
 #include "llvm/Support/DataTypes.h"
 
-#include "ImageChannelOrder.h"
 using namespace Validation;
 
 ImageChannelOrderValWrapper::ImageChannelOrderMetadataMap

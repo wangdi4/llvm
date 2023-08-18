@@ -16,8 +16,8 @@
 #define __DATATYPE_H__
 
 #include "Exception.h"
-#include "assert.h"
 #include "llvm/Support/DataTypes.h" // LLVM data types
+#include <assert.h>
 #include <map>
 
 namespace Validation {

@@ -15,10 +15,9 @@
 #ifndef __DATAVERSION_H__
 #define __DATAVERSION_H__
 
-#include <iomanip>
-
 #include "IBufferContainerList.h"
 #include "llvm/IR/Metadata.h"
+#include <iomanip>
 
 namespace Validation {
 struct DataVersion {

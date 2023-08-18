@@ -15,14 +15,12 @@
 #ifndef BLT_WORK_GROUP_H
 #define BLT_WORK_GROUP_H
 
+#include "Helpers.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/DerivedTypes.h"
-
 #include <map>
 #include <string>
-
-#include "Helpers.h"
 
 namespace Validation {
 namespace OCLBuiltins {

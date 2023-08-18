@@ -15,11 +15,10 @@
 #ifndef BLT_ASYNC_COPIES_AND_PREFETCH_H
 #define BLT_ASYNC_COPIES_AND_PREFETCH_H
 
+#include "Helpers.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/DerivedTypes.h"
-
-#include "Helpers.h"
 #include <RefALU.h>
 
 namespace Validation {

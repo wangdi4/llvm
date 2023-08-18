@@ -17,9 +17,9 @@
 
 #include "Exception.h"
 #include "IMemoryObjectDesc.h"
-#include "assert.h"
 #include "dxfloat.h"
 #include "llvm/Support/DataTypes.h" // LLVM data types
+#include <assert.h>
 #include <map>
 #include <sstream>
 #include <vector>

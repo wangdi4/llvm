@@ -15,19 +15,15 @@
 #ifndef __XML_DATAREADWRITE_H__
 #define __XML_DATAREADWRITE_H__
 
+#include "IBufferContainer.h"
+#include "IDataReader.h"
+#include "IDataWriter.h"
+#include "IMemoryObject.h"
+#include "tinyxml_wrapper.h"
+#include "llvm/Support/DataTypes.h"
 #include <fstream>
 #include <limits>
 #include <string>
-
-#include "tinyxml_wrapper.h"
-
-#include "llvm/Support/DataTypes.h"
-
-#include "IDataReader.h"
-#include "IDataWriter.h"
-
-#include "IBufferContainer.h"
-#include "IMemoryObject.h"
 
 namespace Validation {
 /// @brief base interface for classes which perform read/write operations
