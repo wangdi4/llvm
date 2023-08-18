@@ -94,7 +94,6 @@ public:
                                       const context &Context,
                                       const device &Device,
                                       bool JITCompilationIsRequired = false);
-
   // TODO: remove this function when m_UniversalKernelSet is removed
   RTDeviceBinaryImage &
   getDeviceImage(const std::vector<RTDeviceBinaryImage *> &ImagesToVerify,
