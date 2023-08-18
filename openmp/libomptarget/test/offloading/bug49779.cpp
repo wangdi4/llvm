@@ -7,6 +7,10 @@
 // UNSUPPORTED: amdgcn-amd-amdhsa
 // UNSUPPORTED: amdgcn-amd-amdhsa-oldDriver
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <cassert>
 #include <iostream>
 
