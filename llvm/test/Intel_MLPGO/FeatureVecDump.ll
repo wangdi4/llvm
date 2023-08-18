@@ -4,6 +4,7 @@
 ; Remove the output to avoid collision with subsequent runs of the test
 ; RUN: rm %t.profile.mlpgo*
 ; RUN: opt -profile-ml-use -debug-only=mlpgo -passes=mlpgo %s -S 2>&1 | FileCheck %s --check-prefixes=PROB_DUMP,PROB_METADATA
+; UNSUPPORTED: intel_use_sanitizers
 
 ; The IR is generated from
 ; int TripCount = 64;
