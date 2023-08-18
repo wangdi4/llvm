@@ -52,7 +52,6 @@ add_llvm_tool(llvm-objdump
   DEPENDS
   ObjdumpOptsTableGen
   OtoolOptsTableGen
-  GENERATE_DRIVER
   )
 
 if(NOT LLVM_TOOL_LLVM_DRIVER_BUILD)
