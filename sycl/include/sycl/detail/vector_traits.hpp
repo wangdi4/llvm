@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <algorithm> // for std::min and vs2017 win
 #include <sycl/detail/stl_type_traits.hpp>
 
 #include <type_traits>
