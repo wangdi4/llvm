@@ -3,16 +3,16 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$i32*$rank2$" = type { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 define i32 @sum_() {
 ; CHECK:  define i32 @sum_() {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[B3_I_LPRIV0:%.*]] = alloca %"QNCA_a0$i32*$rank2$", align 1
-; CHECK-NEXT:    [[B3_I_LPRIV_VEC0:%.*]] = alloca [2 x %"QNCA_a0$i32*$rank2$"], align 8
-; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BC0:%.*]] = bitcast [2 x %"QNCA_a0$i32*$rank2$"]* [[B3_I_LPRIV_VEC0]] to %"QNCA_a0$i32*$rank2$"*
-; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR0:%.*]] = getelementptr %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* [[B3_I_LPRIV_VEC_BC0]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_1_0:%.*]] = extractelement <2 x %"QNCA_a0$i32*$rank2$"*> [[B3_I_LPRIV_VEC_BASE_ADDR0]], i32 1
+; CHECK-NEXT:    [[B3_I_LPRIV0:%.*]] = alloca %"QNCA_a0$ptr$rank2$", align 1
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC0:%.*]] = alloca [2 x %"QNCA_a0$ptr$rank2$"], align 8
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR0:%.*]] = getelementptr %"QNCA_a0$ptr$rank2$", ptr [[B3_I_LPRIV_VEC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_1_0:%.*]] = extractelement <2 x ptr> [[B3_I_LPRIV_VEC_BASE_ADDR0]], i32 1
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <2 x ptr> [[B3_I_LPRIV_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1440:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.144:
@@ -25,8 +25,7 @@ define i32 @sum_() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
-; CHECK-NEXT:    [[B3_I_LPRIV_VEC0_BCAST:%.*]] = bitcast [2 x %"QNCA_a0$i32*$rank2$"]* [[B3_I_LPRIV_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 192, i8* [[B3_I_LPRIV_VEC0_BCAST]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 192, ptr [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_0_0]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
@@ -43,16 +42,14 @@ define i32 @sum_() {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast %"QNCA_a0$i32*$rank2$"* [[B3_I_LPRIV0]] to i8*
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast %"QNCA_a0$i32*$rank2$"* [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_1_0]] to i8*
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[TMP4]], i8* align 8 [[TMP5]], i64 96, i1 false)
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[B3_I_LPRIV0]], ptr align 8 [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_1_0]], i64 96, i1 false)
 ;
 entry:
-  %b3.i.lpriv = alloca %"QNCA_a0$i32*$rank2$", align 1
+  %b3.i.lpriv = alloca %"QNCA_a0$ptr$rank2$", align 1
   br label %DIR.OMP.SIMD.144
 
 DIR.OMP.SIMD.144:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(%"QNCA_a0$i32*$rank2$"* %b3.i.lpriv, %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %b3.i.lpriv, %"QNCA_a0$ptr$rank2$" zeroinitializer, i32 1) ]
   br label %loop_test12.preheader
 
 loop_test12.preheader:

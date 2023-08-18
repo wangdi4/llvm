@@ -9,7 +9,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
+define void @foo(ptr nocapture %src, ptr nocapture %dst) {
 ;  typedef int32_t v2i32 __attribute__((vector_size(8)));
 ;  v2i32 *ary, t0, t1, t2;
 ;  for (i = 0; i < 1024; i += 3) {
@@ -45,20 +45,18 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:   #7 <4 x 64> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[DST0:%.*]], i64 [[UNI_PHI40:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT0:%.*]], <4 x i64> [[VEC_PHI0:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <2 x i32>*> [[MM_VECTORGEP0]] to <4 x i32*>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
+; CHECK:         [[SCALAR_GEP0:%.*]] = getelementptr inbounds <2 x i32>, ptr [[DST0:%.*]], i64 [[UNI_PHI40:%.*]]
+; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds <2 x i32>, <4 x ptr> [[BROADCAST_SPLAT0:%.*]], <4 x i64> [[VEC_PHI0:%.*]]
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = and <4 x i32> [[WIDE_MASKED_GATHER0]], <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <4 x i32> [[TMP1]], zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = xor <4 x i1> [[TMP2]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SRC0:%.*]], i64 [[UNI_PHI40]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP60]] to <16 x i64>*
+; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds <2 x i32>, ptr [[SRC0:%.*]], i64 [[UNI_PHI40]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> zeroinitializer, <16 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i64> @llvm.masked.load.v16i64.p0v16i64(<16 x i64>* [[TMP4]], i32 4, <16 x i1> [[TMP5]], <16 x i64> poison)
+; CHECK-NEXT:    [[VLS_LOAD0:%.*]] = call <16 x i64> @llvm.masked.load.v16i64.p0(ptr [[SCALAR_GEP60]], i32 4, <16 x i1> [[TMP5]], <16 x i64> poison)
 ; CHECK-NEXT:    [[VP_SRC_0_VAL0:%.*]] = shufflevector <16 x i64> [[VLS_LOAD0]], <16 x i64> [[VLS_LOAD0]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i64> [[VP_SRC_0_VAL0]] to <8 x i32>
 ; CHECK-NEXT:    [[VP_SRC_1_VAL0:%.*]] = shufflevector <16 x i64> [[VLS_LOAD0]], <16 x i64> [[VLS_LOAD0]], <4 x i32> <i32 1, i32 4, i32 7, i32 10>
@@ -77,9 +75,8 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <8 x i32> [[TMP11]] to <4 x i64>
 ; CHECK-NEXT:    [[EXTENDED_80:%.*]] = shufflevector <4 x i64> [[TMP16]], <4 x i64> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <16 x i64> [[TMP15]], <16 x i64> [[EXTENDED_80]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP0]] to <16 x i64>*
 ; CHECK-NEXT:    [[TMP19:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> zeroinitializer, <16 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    call void @llvm.masked.store.v16i64.p0v16i64(<16 x i64> [[TMP17]], <16 x i64>* [[TMP18]], i32 4, <16 x i1> [[TMP19]])
+; CHECK-NEXT:    call void @llvm.masked.store.v16i64.p0(<16 x i64> [[TMP17]], ptr [[SCALAR_GEP0]], i32 4, <16 x i1> [[TMP19]])
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -89,41 +86,40 @@ for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
 
   ; if (dst[i][0] & 1) {
-  %dst_0 = getelementptr inbounds <2 x i32>, <2 x i32>* %dst, i64 %indvars.iv
-  %dst_0_0 = bitcast <2 x i32>* %dst_0 to i32*
-  %dst_0_0.val = load i32, i32* %dst_0_0, align 4
+  %dst_0 = getelementptr inbounds <2 x i32>, ptr %dst, i64 %indvars.iv
+  %dst_0_0.val = load i32, ptr %dst_0, align 4
   %and = and i32 %dst_0_0.val, 1
   %tobool = icmp eq i32 %and, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   ;   t0 = src[i + 0] + 7;
-  %src_0 = getelementptr inbounds <2 x i32>, <2 x i32>* %src, i64 %indvars.iv
-  %src_0.val = load <2 x i32>, <2 x i32>* %src_0, align 4
+  %src_0 = getelementptr inbounds <2 x i32>, ptr %src, i64 %indvars.iv
+  %src_0.val = load <2 x i32>, ptr %src_0, align 4
   %t0 = add <2 x i32> %src_0.val, <i32 7, i32 7>
 
   ;   t1 = src[i + 1] + 11;
   %i1 = add nsw nuw i64 %indvars.iv, 1
-  %src_1 = getelementptr inbounds <2 x i32>, <2 x i32>* %src, i64 %i1
-  %src_1.val = load <2 x i32>, <2 x i32>* %src_1, align 4
+  %src_1 = getelementptr inbounds <2 x i32>, ptr %src, i64 %i1
+  %src_1.val = load <2 x i32>, ptr %src_1, align 4
   %t1 = add <2 x i32> %src_1.val, <i32 11, i32 11>
 
   ;   t2 = src[i + 2] + 12;
   %i2 = add nsw nuw i64 %indvars.iv, 2
-  %src_2 = getelementptr inbounds <2 x i32>, <2 x i32>* %src, i64 %i2
-  %src_2.val = load <2 x i32>, <2 x i32>* %src_2, align 4
+  %src_2 = getelementptr inbounds <2 x i32>, ptr %src, i64 %i2
+  %src_2.val = load <2 x i32>, ptr %src_2, align 4
   %t2 = add <2 x i32> %src_2.val, <i32 12, i32 12>
 
   ;   dst[i + 0] = t0;
-  store <2 x i32> %t0, <2 x i32>* %dst_0, align 4
+  store <2 x i32> %t0, ptr %dst_0, align 4
 
   ;   dst[i + 1] = t1;
-  %dst_1 = getelementptr inbounds <2 x i32>, <2 x i32>* %dst, i64 %i1
-  store <2 x i32> %t1, <2 x i32>* %dst_1, align 4
+  %dst_1 = getelementptr inbounds <2 x i32>, ptr %dst, i64 %i1
+  store <2 x i32> %t1, ptr %dst_1, align 4
 
   ;   dst[i + 2] = t2;
-  %dst_2 = getelementptr inbounds <2 x i32>, <2 x i32>* %dst, i64 %i2
-  store <2 x i32> %t2, <2 x i32>* %dst_2, align 4
+  %dst_2 = getelementptr inbounds <2 x i32>, ptr %dst, i64 %i2
+  store <2 x i32> %t2, ptr %dst_2, align 4
 
   br label %for.inc
 
