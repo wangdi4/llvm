@@ -35,6 +35,8 @@ class Model {
 public:
   Model();
 
+  Model(Model &&) = delete;
+
   ~Model();
 
   bool ok();
