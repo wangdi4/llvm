@@ -582,7 +582,6 @@ bool AsmPrinter::doInitialization(Module &M) {
                             CodeViewLineTablesGroupName,
                             CodeViewLineTablesGroupDescription);
     }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // Create the debug handler for traceback if there is a TraceBack
@@ -594,10 +593,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
-=======
-    if (!EmitCodeView || M.getDwarfVersion()) {
       assert(MMI && "MMI could not be nullptr here!");
->>>>>>> 7c6c03ea71106c671f82eedf32f15c7d23af2f40
       if (MMI->hasDebugInfo()) {
         DD = new DwarfDebug(this);
         Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
