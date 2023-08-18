@@ -1108,7 +1108,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; CHECK-NEXT: declare void @__kmpc_end_single(ptr, i32)
 
 ; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare ptr @__kmpc_omp_task_alloc(ptr, i32, i32, i64, i64, ptr)
+; CHECK-NEXT: declare noalias ptr @__kmpc_omp_task_alloc(ptr, i32, i32, i64, i64, ptr)
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare i32 @__kmpc_omp_task(ptr, i32, ptr)
@@ -1192,7 +1192,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; CHECK-NEXT: declare void @__kmpc_taskloop(ptr, i32, ptr, i32, ptr, ptr, i64, i32, i32, i64, ptr)
 
 ; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare ptr @__kmpc_omp_target_task_alloc(ptr, i32, i32, i64, i64, ptr, i64)
+; CHECK-NEXT: declare noalias ptr @__kmpc_omp_target_task_alloc(ptr, i32, i32, i64, i64, ptr, i64)
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare ptr @__kmpc_taskred_modifier_init(ptr, i32, i32, i32, ptr)
@@ -1225,7 +1225,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; CHECK-NEXT: declare void @__kmpc_doacross_fini(ptr, i32)
 
 ; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare ptr @__kmpc_alloc(i32, i64, ptr)
+; CHECK-NEXT: declare noalias ptr @__kmpc_alloc(i32, i64, ptr)
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_free(i32, ptr, ptr)
@@ -1303,10 +1303,10 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; CHECK-NEXT: declare void @__kmpc_barrier_simple_spmd(ptr nocapture nofree readonly, i32)
 
 ; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare ptr @__kmpc_aligned_alloc(i32, i64, i64, ptr)
+; CHECK-NEXT: declare noalias ptr @__kmpc_aligned_alloc(i32, i64, i64, ptr)
 
 ; CHECK: ; Function Attrs: nosync nounwind allocsize(0)
-; CHECK-NEXT: declare ptr @__kmpc_alloc_shared(i64)
+; CHECK-NEXT: declare noalias ptr @__kmpc_alloc_shared(i64)
 
 ; CHECK: ; Function Attrs: convergent nounwind
 ; CHECK: declare void @__kmpc_barrier_simple_generic(ptr, i32)
@@ -1843,7 +1843,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_omp_target_task_alloc(ptr nocapture nofree readonly, i32, i32, i64, i64, ptr nocapture nofree readonly, i64)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_taskred_modifier_init(ptr nocapture nofree readonly, i32, i32, i32, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_taskred_modifier_init(ptr nocapture nofree readonly, i32, i32, i32, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare ptr @__kmpc_taskred_init(i32, i32, ptr)
@@ -1855,7 +1855,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; OPTIMISTIC-NEXT: declare void @__kmpc_copyprivate(ptr nocapture nofree readonly, i32, i64, ptr nocapture nofree readonly, ptr, i32)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_threadprivate_cached(ptr nocapture nofree readonly, i32, ptr, i64, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_threadprivate_cached(ptr nocapture nofree readonly, i32, ptr, i64, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare void @__kmpc_threadprivate_register(ptr nocapture nofree readonly, ptr, ptr nocapture nofree readonly, ptr nocapture nofree readonly, ptr nocapture nofree readonly)
@@ -1879,7 +1879,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; OPTIMISTIC-NEXT: declare void @__kmpc_free(i32, ptr, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_init_allocator(i32, ptr, i32, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_init_allocator(i32, ptr, i32, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare void @__kmpc_destroy_allocator(i32, ptr)
@@ -1933,16 +1933,16 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; OPTIMISTIC-NEXT: declare void @__tgt_push_mapper_component(ptr, ptr, ptr, i64, i64, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_task_allow_completion_event(ptr nocapture nofree readonly, i32, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_task_allow_completion_event(ptr nocapture nofree readonly, i32, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_task_reduction_get_th_data(i32, ptr, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_task_reduction_get_th_data(i32, ptr, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_task_reduction_init(i32, i32, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_task_reduction_init(i32, i32, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare noalias ptr @__kmpc_task_reduction_modifier_init(ptr, i32, i32, i32, ptr)
+; OPTIMISTIC-NEXT: declare ptr @__kmpc_task_reduction_modifier_init(ptr, i32, i32, i32, ptr)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare void @__kmpc_proxy_task_completed_ooo(ptr)
@@ -2417,7 +2417,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; EXT-NEXT: declare void @__kmpc_end_single(ptr, i32 signext)
 
 ; EXT: ; Function Attrs: nounwind
-; EXT-NEXT: declare ptr @__kmpc_omp_task_alloc(ptr, i32 signext, i32 signext, i64, i64, ptr)
+; EXT-NEXT: declare noalias ptr @__kmpc_omp_task_alloc(ptr, i32 signext, i32 signext, i64, i64, ptr)
 
 ; EXT: ; Function Attrs: nounwind
 ; EXT-NEXT: declare signext i32 @__kmpc_omp_task(ptr, i32 signext, ptr)
@@ -2501,7 +2501,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; EXT-NEXT: declare void @__kmpc_taskloop(ptr, i32 signext, ptr, i32 signext, ptr, ptr, i64, i32 signext, i32 signext, i64, ptr)
 
 ; EXT: ; Function Attrs: nounwind
-; EXT-NEXT: declare ptr @__kmpc_omp_target_task_alloc(ptr, i32 signext, i32 signext, i64, i64, ptr, i64)
+; EXT-NEXT: declare noalias ptr @__kmpc_omp_target_task_alloc(ptr, i32 signext, i32 signext, i64, i64, ptr, i64)
 
 ; EXT: ; Function Attrs: nounwind
 ; EXT-NEXT: declare ptr @__kmpc_taskred_modifier_init(ptr, i32 signext, i32 signext, i32 signext, ptr)
@@ -2534,7 +2534,7 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; EXT-NEXT: declare void @__kmpc_doacross_fini(ptr, i32 signext)
 
 ; EXT: ; Function Attrs: nounwind
-; EXT-NEXT: declare ptr @__kmpc_alloc(i32 signext, i64, ptr)
+; EXT-NEXT: declare noalias ptr @__kmpc_alloc(i32 signext, i64, ptr)
 
 ; EXT: ; Function Attrs: nounwind
 ; EXT-NEXT: declare void @__kmpc_free(i32 signext, ptr, ptr)
@@ -2612,10 +2612,10 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; EXT-NEXT: declare void @__kmpc_barrier_simple_spmd(ptr nocapture nofree readonly, i32 signext)
 
 ; EXT: ; Function Attrs: nounwind
-; EXT-NEXT: declare ptr @__kmpc_aligned_alloc(i32 signext, i64, i64, ptr)
+; EXT-NEXT: declare noalias ptr @__kmpc_aligned_alloc(i32 signext, i64, i64, ptr)
 
 ; EXT: ; Function Attrs: nosync nounwind allocsize(0)
-; EXT-NEXT: declare ptr @__kmpc_alloc_shared(i64)
+; EXT-NEXT: declare noalias ptr @__kmpc_alloc_shared(i64)
 
 ; EXT: ; Function Attrs: convergent nounwind
 ; EXT: declare void @__kmpc_barrier_simple_generic(ptr, i32 signext)
