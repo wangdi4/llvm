@@ -3744,16 +3744,11 @@ def fnoopenmp_use_tls : Flag<["-"], "fnoopenmp-use-tls">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>, Visibility<[ClangOption, CC1Option]>;
 #if INTEL_CUSTOMIZATION
 def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">,
-<<<<<<< HEAD
-  Flags<[NoXarchOption]>, Visibility<[ClangOption, CC1Option]>,
+  Flags<[NoXarchOption]>, Visibility<[ClangOption, CC1Option, FlangOption]>,
   HelpText<"Specify comma-separated list of triples that correspond to OpenMP "
   "offloading targets to be supported.  Valid triples include spir64_gen, "
   "spir64_x86_64 and spir64">;
 #endif // INTEL_CUSTOMIZATION
-=======
-  Flags<[NoXarchOption]>, Visibility<[ClangOption, CC1Option, FlangOption]>,
-  HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;
->>>>>>> 83a06997c69a17def2f58fd556c094b8f1060b89
 def fopenmp_relocatable_target : Flag<["-"], "fopenmp-relocatable-target">,
   Group<f_Group>, Flags<[NoArgumentUnused, HelpHidden]>,
   Visibility<[ClangOption, CC1Option]>;
