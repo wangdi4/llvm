@@ -6935,9 +6935,7 @@ bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
-  if (!supportsGather())
-    return false;
+bool X86TTIImpl::isLegalMaskedGatherScatter(Type *DataTy, Align Alignment) {
   Type *ScalarTy = DataTy->getScalarType();
   if (ScalarTy->isPointerTy())
     return true;
@@ -6950,6 +6948,12 @@ bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
 
   unsigned IntWidth = ScalarTy->getIntegerBitWidth();
   return IntWidth == 32 || IntWidth == 64;
+}
+
+bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
+  if (!supportsGather() || !ST->preferGather())
+    return false;
+  return isLegalMaskedGatherScatter(DataTy, Alignment);
 }
 
 bool X86TTIImpl::isLegalAltInstr(VectorType *VecTy, unsigned Opcode0,
@@ -6987,6 +6991,7 @@ bool X86TTIImpl::isLegalAltInstr(VectorType *VecTy, unsigned Opcode0,
 
 bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   // AVX2 doesn't support scatter
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX3())
@@ -6994,8 +6999,11 @@ bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   if (!ST->hasAVX512())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (!ST->hasAVX512() || !ST->preferScatter())
+>>>>>>> 993bdb047c90e9b85fb91578349a9faf4f6a853d
     return false;
-  return isLegalMaskedGather(DataType, Alignment);
+  return isLegalMaskedGatherScatter(DataType, Alignment);
 }
 
 bool X86TTIImpl::hasDivRemOp(Type *DataType, bool IsSigned) {
