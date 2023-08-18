@@ -536,6 +536,112 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
   return false;
 }
 
+static RegDDRef *cloneWithI8BasePtrElementType(const RegDDRef *Ref, Type *I8Ty,
+                                               uint64_t SizeMultiplier) {
+  auto *RefClone = Ref->clone();
+  RefClone->setBasePtrElementType(I8Ty);
+  // Stride is same as size of I8Type which is 1.
+  RefClone->getDimensionStride(1)->setConstant(1);
+  RefClone->getDimensionIndex(1)->multiplyByConstant(SizeMultiplier);
+  RefClone->getDimensionLower(1)->multiplyByConstant(SizeMultiplier);
+
+  // Convert trailing offsets into bytes, add them into index and remove the
+  // offsets.
+  auto Offsets = Ref->getTrailingStructOffsets(1);
+
+  if (!Offsets.empty()) {
+    auto &DL = Ref->getCanonExprUtils().getDataLayout();
+    auto DimTy = Ref->getDimensionElementType(1);
+
+    auto OffsetDist = DDRefUtils::getOffsetDistance(DimTy, DL, Offsets);
+    RefClone->getDimensionIndex(1)->addConstant(OffsetDist, true);
+    RefClone->removeTrailingStructOffsets(1);
+  }
+
+  return RefClone;
+}
+
+// Tries to change refs' base ptr element type to make them match by cloning
+// and updating their index. In the worst case both refs' base ptr element type
+// may be changed to i8.
+// Returns the cloned refs or null as applicable.
+//
+// For example-
+//
+// Ref1 : ((i32) %a)[3]
+// Ref2 : ((i16) %a)[2]
+//
+// NewRef1 : ((i8) %a)[12]
+// NewRef2 : ((i8) %a)[4]
+//
+// This allows the caller to compute a distance of 8 bytes between the two
+// refs.
+static std::pair<RegDDRef *, RegDDRef *>
+makeBasePtrElemTyConsistentForDistComputation(const RegDDRef *&Ref1,
+                                              const RegDDRef *&Ref2) {
+
+  auto *BasePtrElementTy1 = Ref1->getBasePtrElementType();
+  auto *BasePtrElementTy2 = Ref2->getBasePtrElementType();
+
+  if (BasePtrElementTy1 == BasePtrElementTy2)
+    return {nullptr, nullptr};
+
+  if (!Ref1->isSingleDimension() || !Ref2->isSingleDimension() ||
+      Ref1->getDimensionConstStride(1) == 0 ||
+      Ref2->getDimensionConstStride(1) == 0)
+    return {nullptr, nullptr};
+
+  // No need to handle mismatch if the BaseCEs are different.
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
+    return {nullptr, nullptr};
+
+  if (!BasePtrElementTy1) {
+    auto *Ref1Clone = Ref1->clone();
+    Ref1Clone->setBasePtrElementType(BasePtrElementTy2);
+    Ref1 = Ref1Clone;
+
+    return {Ref1Clone, nullptr};
+
+  } else if (!BasePtrElementTy2) {
+    auto *Ref2Clone = Ref2->clone();
+    Ref2Clone->setBasePtrElementType(BasePtrElementTy1);
+    Ref2 = Ref2Clone;
+
+    return {nullptr, Ref2Clone};
+  }
+
+  if (!BasePtrElementTy1->isSized() || !BasePtrElementTy2->isSized())
+    return {nullptr, nullptr};
+
+  auto Size1 = Ref1->getCanonExprUtils().getTypeSizeInBytes(BasePtrElementTy1);
+  auto Size2 = Ref1->getCanonExprUtils().getTypeSizeInBytes(BasePtrElementTy2);
+
+  auto *I8Ty = Type::getInt8Ty(Ref1->getDDRefUtils().getContext());
+
+  if ((BasePtrElementTy1 != I8Ty) &&
+      (!Ref1->getDimensionIndex(1)->canMultiplyByConstant(Size1) ||
+       !Ref1->getDimensionLower(1)->canMultiplyByConstant(Size1)))
+    return {nullptr, nullptr};
+
+  if ((BasePtrElementTy2 != I8Ty) &&
+      (!Ref2->getDimensionIndex(1)->canMultiplyByConstant(Size2) ||
+       !Ref2->getDimensionLower(1)->canMultiplyByConstant(Size2)))
+    return {nullptr, nullptr};
+
+  RegDDRef *Ref1Clone = nullptr, *Ref2Clone = nullptr;
+  if (BasePtrElementTy1 != I8Ty) {
+    Ref1Clone = cloneWithI8BasePtrElementType(Ref1, I8Ty, Size1);
+    Ref1 = Ref1Clone;
+  }
+
+  if (BasePtrElementTy2 != I8Ty) {
+    Ref2Clone = cloneWithI8BasePtrElementType(Ref2, I8Ty, Size2);
+    Ref2 = Ref2Clone;
+  }
+
+  return {Ref1Clone, Ref2Clone};
+}
+
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
                                       int64_t *Distance, bool RelaxedMode) {
@@ -544,14 +650,13 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
     return false;
   }
 
-  // Refs which were parsed as (i32*)(%a)[0] in typed ptr mode become (%a)[0] in
-  // opaque ptr mode with BasePtrElementType as i32. We were able to compute a
-  // distance of 0 between (i32*)(%a)[0] and (%a)[0] in typed ptr mode. We need
-  // this extension to do the same in opaque ptr mode.
-  bool IgnoreBasePtrElementType = Ref1->isSelfGEPRef() && Ref2->isSelfGEPRef();
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
 
-  if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode, 0, false /*IgnoreBaseCE*/,
-                             IgnoreBasePtrElementType)) {
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
+
+  if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
     return false;
   }
 
@@ -716,6 +821,12 @@ static std::optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
   }
+
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
+
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
 
   // Check dimensions from highest to lowest.
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
