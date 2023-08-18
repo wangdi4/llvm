@@ -283,8 +283,16 @@ uint64_t HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
     int64_t Dist;
     auto Res = DDRefUtils::getConstByteDistance(CurRef, PrevRef, &Dist);
     (void)Res;
-    assert((Res && (Dist >= 0)) &&
-           "Refs do not have constant non-negative distance!");
+
+    if (!Res || Dist < 0) {
+      LLVM_DEBUG(dbgs() << "CurRef: "; CurRef->dump(true); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "CurNode: "; CurRef->getHLDDNode()->dump());
+
+      LLVM_DEBUG(dbgs() << "PrevRef: "; PrevRef->dump(true); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "PrevNode: "; PrevRef->getHLDDNode()->dump());
+
+      llvm_unreachable("Refs do not have constant non-negative distance!");
+    }
 
     if (Dist == 0) {
       continue;
