@@ -386,37 +386,32 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     InputFile::isInGroup = true;
     for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
       auto magic = identify_magic(p.first.getBuffer());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (magic == file_magic::bitcode || magic == file_magic::elf_relocatable) {
         // The following lines are community code. They were commented out and
         // replaced with the code below since we need to catch when an
         // object has GNU LTO information.
-        // if (magic == file_magic::elf_relocatable)
-        //   files.push_back(createObjFile(p.first, path, true));
-        // else if (magic == file_magic::bitcode)
+        //
+        // if (magic == file_magic::elf_relocatable) {
+        //   if (!tryAddFatLTOFile(p.first, path, p.second, true))
+        //     files.push_back(createObjFile(p.first, path, true));
+        // } else if (magic == file_magic::bitcode)
         //   files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
+        //
         auto *lazyFile = (magic == file_magic::elf_relocatable)
                              ? (InputFile*)createObjFile(p.first, path, true)
                              : make<BitcodeFile>(p.first, path, p.second, true);
         if (lazyFile->isGNULTOFile)
           ctx.lazyGNULTOFiles.push_back(lazyFile);
         else
-          files.push_back(lazyFile);
+          if (!tryAddFatLTOFile(p.first, path, p.second, true))
+            files.push_back(createObjFile(p.first, path, true));
       }
       // There is a chance that we could have nested archives. In this case
       // we need to parse them.
       else if (ParseNestedArchive(p.first)) {
         continue;
       } else {
-=======
-      if (magic == file_magic::elf_relocatable) {
-        if (!tryAddFatLTOFile(p.first, path, p.second, true))
-          files.push_back(createObjFile(p.first, path, true));
-      } else if (magic == file_magic::bitcode)
-        files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
-      else
->>>>>>> 14e3bec8fc3e1f10c3dc57277ae3dbf9a4087b1c
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
              "' is neither ET_REL nor LLVM bitcode");
       }
@@ -449,24 +444,24 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     files.push_back(make<BitcodeFile>(mbref, "", 0, inLib));
     break;
   case file_magic::elf_relocatable:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The following line is community code. It was commented out and
     // replaced with the code below since we need to catch when an
     // object has GNU LTO information.
-    // files.push_back(createObjFile(mbref, "", inLib));
+    //
+    // if (!tryAddFatLTOFile(mbref, "", 0, inLib))
+    //   files.push_back(createObjFile(mbref, "", inLib));
+    //
     {
       auto *objFile = createObjFile(mbref, "", inLib);
       if (objFile->isGNULTOFile)
         ctx.gnuLTOFiles.push_back(objFile);
-      else
-        files.push_back(objFile);
+      else {
+        if (!tryAddFatLTOFile(mbref, "", 0, inLib))
+          files.push_back(createObjFile(mbref, "", inLib));
+      }
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (!tryAddFatLTOFile(mbref, "", 0, inLib))
-      files.push_back(createObjFile(mbref, "", inLib));
->>>>>>> 14e3bec8fc3e1f10c3dc57277ae3dbf9a4087b1c
     break;
   default:
     error(path + ": unknown file type");
