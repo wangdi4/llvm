@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 // FIXME: Remove -opaque-pointers when opaque pointers are enabled by
 // default and remove the above comment as well.  // INTEL
 
+=======
+>>>>>>> 2eb9ea34f0a61f4ea1e835b32ac8f324acedfe2f
 // UNSUPPORTED: target={{.*}}-zos{{.*}}, target={{.*}}-aix{{.*}}
 // RUN: rm -rf %t
 // RUN: split-file %s %t
