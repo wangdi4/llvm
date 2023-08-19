@@ -405,7 +405,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
           ctx.lazyGNULTOFiles.push_back(lazyFile);
         else
           if (!tryAddFatLTOFile(p.first, path, p.second, true))
-            files.push_back(createObjFile(p.first, path, true));
+            files.push_back(lazyFile);
       }
       // There is a chance that we could have nested archives. In this case
       // we need to parse them.
@@ -458,7 +458,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         ctx.gnuLTOFiles.push_back(objFile);
       else {
         if (!tryAddFatLTOFile(mbref, "", 0, inLib))
-          files.push_back(createObjFile(mbref, "", inLib));
+          files.push_back(objFile);
       }
     }
 #endif // INTEL_CUSTOMIZATION
