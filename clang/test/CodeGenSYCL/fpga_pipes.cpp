@@ -1,15 +1,11 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl
-// RUN: %clang_cc1 -fsycl-is-device %s -opaque-pointers -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_CSA
 // INTEL - Disable test for CSA compiler as it is flaky.
 // UNSUPPORTED: csa-registered-target
 // end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
->>>>>>> 2eb9ea34f0a61f4ea1e835b32ac8f324acedfe2f
 
 using WPipeTy = __attribute__((pipe("write_only"))) const int;
 SYCL_EXTERNAL WPipeTy WPipeCreator();
