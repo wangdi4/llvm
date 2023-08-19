@@ -4653,6 +4653,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
 
     // Emit the definition if it can't be deferred.
     EmitGlobalDefinition(GD);
+    addEmittedDeferredDecl(GD);
     return;
   }
 
