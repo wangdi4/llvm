@@ -231,10 +231,6 @@ public:
     return *this;
   }
 
-<<<<<<< HEAD
-  inline ExprResult ExprEmpty() { return ExprResult(false); }
-  inline StmtResult StmtEmpty() { return StmtResult(false); }
-
 #if INTEL_CUSTOMIZATION
   typedef ActionResult<Attr*> AttrResult;
   inline AttrResult AttrError() { return AttrResult(true); }
@@ -242,10 +238,6 @@ public:
   inline AttrResult AttrEmpty() { return AttrResult(false); }
 #endif  // INTEL_CUSTOMIZATION
 
-  inline Expr *AssertSuccess(ExprResult R) {
-    assert(!R.isInvalid() && "operation was asserted to never fail!");
-    return R.get();
-=======
   // For types where we can fit a flag in with the pointer, provide
   // conversions to/from pointer type.
   static ActionResult getFromOpaquePointer(void *P) {
@@ -254,7 +246,6 @@ public:
     assert(Result.isInvalid() ||
            PtrTraits::getAsVoidPointer(Result.get()) == P);
     return Result;
->>>>>>> efe4a54884cb1e5f1d6306f5e831d369c6fd6f54
   }
   void *getAsOpaquePointer() const { return (void *)Value; }
 };
