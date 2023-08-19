@@ -3207,7 +3207,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       if (Val.equals("fast=2")) {
         // When -fp-model=fast=2 is used, override with fast, as fast=2 is
         // not supported at this time.
-        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+        D.Diag(clang::diag::warn_drv_overriding_option)
                << Args.MakeArgString("-ffp-model=" + Val)
                << Args.MakeArgString("-ffp-model=fast");
         Val = "fast";
