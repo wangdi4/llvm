@@ -846,7 +846,7 @@ public:
 
   /// Return compress/expand idiom descriptor by \p VPVal.
   const VPCompressExpandIdiom *getCompressExpandIdiom(const VPValue *VPVal) const {
-    return find(ComressExpandIdiomMap, VPVal);
+    return find(CompressExpandIdiomMap, VPVal);
   }
 
   /// Get descriptor for an entity's memory.
@@ -885,14 +885,16 @@ public:
   using VPReductionList = SmallVector<std::unique_ptr<VPReduction>, 4>;
   using VPInductionList = SmallVector<std::unique_ptr<VPInduction>, 4>;
   using VPPrivatesList = SmallVector<std::unique_ptr<VPPrivate>, 4>;
-  using VPComressExpandIdiomList = SmallVector<std::unique_ptr<VPCompressExpandIdiom>, 4>;
+  using VPCompressExpandIdiomList =
+      SmallVector<std::unique_ptr<VPCompressExpandIdiom>, 4>;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
   using VPReductionMap = DenseMap<const VPValue *, const VPReduction *>;
   using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
   using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
-  using VPComressExpandIdiomMap = DenseMap<const VPValue *, const VPCompressExpandIdiom *>;
+  using VPCompressExpandIdiomMap =
+      DenseMap<const VPValue *, const VPCompressExpandIdiom *>;
 
   // Return the iterator-range to the list of privates loop-entities.
   inline decltype(auto) vpprivates() const {
@@ -914,8 +916,8 @@ public:
   // Return the iterator-range to the list of compress/expand idiom
   // loop-entities.
   inline decltype(auto) vpceidioms() const {
-    return map_range(make_range(ComressExpandIdiomList.begin(),
-                                ComressExpandIdiomList.end()),
+    return map_range(make_range(CompressExpandIdiomList.begin(),
+                                CompressExpandIdiomList.end()),
                      getRawPointer<VPCompressExpandIdiom>);
   }
 
@@ -1035,7 +1037,7 @@ public:
     else if (auto Priv = dyn_cast<VPPrivate>(E))
       linkValue(PrivateMap, Priv, Val);
     else if (auto CEIdiom = dyn_cast<VPCompressExpandIdiom>(E))
-      linkValue(ComressExpandIdiomMap, CEIdiom, Val);
+      linkValue(CompressExpandIdiomMap, CEIdiom, Val);
     else
       llvm_unreachable("Unknown loop entity");
   }
@@ -1051,12 +1053,12 @@ private:
   VPReductionList ReductionList;
   VPInductionList InductionList;
   VPPrivatesList PrivatesList;
-  VPComressExpandIdiomList ComressExpandIdiomList;
+  VPCompressExpandIdiomList CompressExpandIdiomList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
   VPPrivateMap PrivateMap;
-  VPComressExpandIdiomMap ComressExpandIdiomMap;
+  VPCompressExpandIdiomMap CompressExpandIdiomMap;
 
   // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
   using MemDescrTy =
