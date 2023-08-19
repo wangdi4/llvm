@@ -804,15 +804,6 @@ def FeatureHardenSlsIJmp
           "harden-sls-ijmp", "HardenSlsIJmp", "true",
           "Harden against straight line speculation across indirect JMP instructions.">;
 
-#if INTEL_CUSTOMIZATION
-def FeaturePreferNoGather
-    : SubtargetFeature<"prefer-no-gather", "PreferGather", "false",
-                       "Indicates if gather prefer to be disabled">;
-def FeaturePreferNoScatter
-    : SubtargetFeature<"prefer-no-scatter", "PreferScatter", "false",
-                       "Indicates if scatter prefer to be disabled">;
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // X86 Subtarget Tuning features
 //===----------------------------------------------------------------------===//

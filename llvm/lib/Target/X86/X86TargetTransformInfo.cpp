@@ -6991,17 +6991,13 @@ bool X86TTIImpl::isLegalAltInstr(VectorType *VecTy, unsigned Opcode0,
 
 bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   // AVX2 doesn't support scatter
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX3())
+  if (!ST->hasAVX3() || !ST->preferScatter())
 #else // INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX512())
+  if (!ST->hasAVX512() || !ST->preferScatter())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (!ST->hasAVX512() || !ST->preferScatter())
->>>>>>> 993bdb047c90e9b85fb91578349a9faf4f6a853d
     return false;
   return isLegalMaskedGatherScatter(DataType, Alignment);
 }

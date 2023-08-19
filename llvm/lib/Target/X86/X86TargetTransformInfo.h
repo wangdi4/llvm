@@ -303,14 +303,8 @@ public:
   bool isLegalBroadcastLoad(Type *ElementTy, ElementCount NumElements) const;
   bool forceScalarizeMaskedGatherScatter(VectorType *VTy, Align Alignment); // INTEL
   bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
-<<<<<<< HEAD
   bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment); // INTEL
-=======
-  bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment) {
-    return forceScalarizeMaskedGather(VTy, Alignment);
-  }
   bool isLegalMaskedGatherScatter(Type *DataType, Align Alignment);
->>>>>>> 993bdb047c90e9b85fb91578349a9faf4f6a853d
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
