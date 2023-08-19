@@ -11124,7 +11124,7 @@ InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL,
   // We include the cost of shuffles because they are also serialized
   // with the inserts, and at least one will appear if we have any
   // duplicated elements.  [CMPLRLLVM-38655]
-  if (ForPoisonSrc)
+  if (ForPoisonSrc && !CompatibilitySLPMode)
     Cost += TTI->getSerializationCost(VecTy->getElementType(),
                                       VecTy->getNumElements(), Cost);
 #endif // INTEL_CUSTOMIZATION
