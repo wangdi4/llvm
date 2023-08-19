@@ -162,7 +162,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
           types::lookupTypeForTypeSpecifier(A->getValue());
       if (Previous && !IsSourceTypeOpt &&
           A->getAsString(Args) != Previous->getAsString(Args))
-        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+        D.Diag(clang::diag::warn_drv_overriding_option)
             << Previous->getAsString(Args) << A->getAsString(Args);
       // Only capture the -x option if it is for arch setting
       if (IsSourceTypeOpt)
