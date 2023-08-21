@@ -24071,6 +24071,23 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
         SDValue Mul2 = DAG.getNode(ISD::FMUL, DL, VT, Est, Half);
         SDValue FNMA = DAG.getNode(X86ISD::FNMADD, DL, VT, Mul1, Mul2, Half);
         return DAG.getNode(ISD::FMA, DL, VT, Est, FNMA, Est);
+      } else if (IABRValue <= 50) {
+        RefinementSteps = 0;
+        SDLoc DL(Op);
+        SDValue One = DAG.getConstantFP(1, DL, VT);
+        SDValue Half = DAG.getConstantFP(0.5, DL, VT);
+        uint64_t C2 = 0x3FD8000004600001ull;
+        SDValue DC2 = DAG.getConstantFP(*(double *)(&C2), DL, VT);
+        uint64_t C3 = 0x3FD4000005E80001ull;
+        SDValue DC3 = DAG.getConstantFP(*(double *)(&C3), DL, VT);
+
+        SDValue Est = DAG.getNode(X86ISD::RSQRT14, DL, VT, Op);
+        SDValue Mul1 = DAG.getNode(ISD::FMUL, DL, VT, Op, Est);
+        SDValue FNMA = DAG.getNode(X86ISD::FNMADD, DL, VT, Est, Mul1, One);
+        SDValue Mul2 = DAG.getNode(ISD::FMUL, DL, VT, FNMA, Est);
+        SDValue FMA1 = DAG.getNode(ISD::FMA, DL, VT, DC3, FNMA, DC2);
+        SDValue FMA2 = DAG.getNode(ISD::FMA, DL, VT, FMA1, FNMA, Half);
+        return DAG.getNode(ISD::FMA, DL, VT, FMA2, Mul2, Est);
       }
     }
     if (RefinementSteps != TargetLoweringBase::ReciprocalEstimate::Unspecified)
