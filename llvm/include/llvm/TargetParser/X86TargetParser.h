@@ -104,13 +104,7 @@ enum CPUKind {
   CK_Goldmont,
   CK_GoldmontPlus,
   CK_Tremont,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   CK_Gracemont,
-#endif // INTEL_CUSTOMIZATION
-=======
-  CK_Gracemont,
->>>>>>> 6acff5390d0504ef0e805a7266a48398fb67876c
   CK_Nehalem,
   CK_Westmere,
   CK_SandyBridge,
