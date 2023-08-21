@@ -1,16 +1,5 @@
 ; RUN: opt < %s -aa-pipeline=globals-aa -passes=gvn -S | FileCheck %s
 
-<<<<<<< HEAD
-=======
-; Check that load from global variable is not moved across barrier.
-
-
-target triple = "nvptx"
-
-@foo.l.0 = internal unnamed_addr addrspace(3) global i32 undef, align 4
-
-define dso_local spir_kernel void @foo(ptr addrspace(1) nocapture %0) {
->>>>>>> a08431c86e6731a0a3a3b089fbacc9ce593b8393
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:    [[TMP2:%.*]] = tail call i32 @_Z13get_global_idj(i32 0) #0
 ; CHECK-NEXT:    [[TMP3:%.*]] = tail call i32 @_Z12get_local_idj(i32 0) #0
@@ -43,11 +32,7 @@ define dso_local spir_kernel void @foo(ptr addrspace(1) nocapture %0) {
   br label %7
 
 7:                                                ; preds = %5, %1
-<<<<<<< HEAD
   tail call void @llvm.nvvm.barrier0() #2
-=======
-  tail call void @llvm.nvvm.barrier0() #1
->>>>>>> a08431c86e6731a0a3a3b089fbacc9ce593b8393
   %8 = load i32, ptr addrspace(3) @foo.l.0, align 4
   %9 = getelementptr inbounds i32, ptr addrspace(1) %0, i32 %2
   store i32 %8, ptr addrspace(1) %9, align 4
