@@ -17629,7 +17629,7 @@ defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  X86vdphf8ps,  avx512vl_
 #if INTEL_FEATURE_ISA_SM4_EVEX
 multiclass avx512_sm4_base<string OpStr> {
   // SM4_Base is in X86InstrSSE.td.
-  let Predicates = [HasAVX256P_Or_HasSM4] in {
+  let Predicates = [HasSM4, HasVLX] in {
     defm Z128 : SM4_Base<OpStr, avx512vl_i32_info.info128.RC,
                 "128", avx512vl_i32_info.info128.LdFrag,
                 avx512vl_i32_info.info128.MemOp>, EVEX_V128;
@@ -17655,14 +17655,14 @@ multiclass VNNIINT16_rmb<bits<8> Op, string OpStr, X86FoldableSchedWrite sched,
   defm r  :   AVX512_maskable_3src<Op, MRMSrcReg, VTI, (outs VTI.RC:$dst),
                                    (ins VTI.RC:$src2, VTI.RC:$src3), OpStr,
                                    "$src3, $src2", "$src2, $src3",
-                                   (VTI.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1,
+                                   (VTI.VT (!cast<Intrinsic>("int_x86_avx2_"#OpStr#"_"#VL) VTI.RC:$src1,
                                             VTI.RC:$src2, VTI.RC:$src3)),
                                    IsCommutable, IsCommutable>,
                                    EVEX_4V, Sched<[sched]>;
   defm m  :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
                                    (ins VTI.RC:$src2, VTI.MemOp:$src3), OpStr,
                                    "$src3, $src2", "$src2, $src3",
-                                   (VTI.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1, VTI.RC:$src2,
+                                   (VTI.VT (!cast<Intrinsic>("int_x86_avx2_"#OpStr#"_"#VL) VTI.RC:$src1, VTI.RC:$src2,
                                             (VTI.VT (VTI.LdFrag addr:$src3))))>,
                                    EVEX_4V, EVEX_CD8<32, CD8VF>,
                                    Sched<[sched.Folded, sched.ReadAfterFold]>;
@@ -17670,7 +17670,7 @@ multiclass VNNIINT16_rmb<bits<8> Op, string OpStr, X86FoldableSchedWrite sched,
                                    (ins VTI.RC:$src2, VTI.ScalarMemOp:$src3),
                                    OpStr, "${src3}"#VTI.BroadcastStr#", $src2",
                                    "$src2, ${src3}"#VTI.BroadcastStr,
-                                   (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1, VTI.RC:$src2,
+                                   (!cast<Intrinsic>("int_x86_avx2_"#OpStr#"_"#VL) VTI.RC:$src1, VTI.RC:$src2,
                                     (VTI.VT (VTI.BroadcastLdFrag addr:$src3)))>,
                                    EVEX_4V, EVEX_CD8<32, CD8VF>, EVEX_B,
                                    Sched<[sched.Folded, sched.ReadAfterFold]>;

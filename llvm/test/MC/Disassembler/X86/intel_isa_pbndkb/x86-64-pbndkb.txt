@@ -1,8 +1,0 @@
-# REQUIRES: intel_feature_isa_pbndkb
-# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s --check-prefixes=ATT
-# RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
-
-# ATT:   pbndkb
-# INTEL: pbndkb
-0x0f,0x01,0xc7
-
