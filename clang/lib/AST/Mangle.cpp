@@ -233,6 +233,12 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   else
     mangleCXXName(GD, Out);
 
+#if INTEL_CUSTOMIZATION
+  // do no produce @<number> suffix if it is regcall4
+  if (CC == CCM_RegCall && getASTContext().getLangOpts().RegCall4)
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   const FunctionDecl *FD = cast<FunctionDecl>(D);
   const FunctionType *FT = FD->getType()->castAs<FunctionType>();
   const FunctionProtoType *Proto = dyn_cast<FunctionProtoType>(FT);
