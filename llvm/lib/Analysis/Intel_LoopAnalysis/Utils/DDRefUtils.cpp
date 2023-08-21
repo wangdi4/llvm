@@ -372,7 +372,12 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   // non-collapsed refs. Which was over conservative.
   unsigned Ref1CollapsedLevels = Ref1->getNumCollapsedLevels();
   unsigned Ref2CollapsedLevels = Ref2->getNumCollapsedLevels();
-  if ((Ref1CollapsedLevels != Ref2CollapsedLevels) &&
+  auto *Ref1Node = Ref1->getHLDDNode();
+  auto *Ref2Node = Ref2->getHLDDNode();
+  auto *Ref1Loop = Ref1Node ? Ref1Node->getParentLoop() : nullptr;
+  auto *Ref2Loop = Ref2Node ? Ref2Node->getParentLoop() : nullptr;
+  if (((Ref1Loop != Ref2Loop) ||
+       (Ref1CollapsedLevels != Ref2CollapsedLevels)) &&
       ((Ref1CollapsedLevels > NumIgnorableDims) ||
        (Ref2CollapsedLevels > NumIgnorableDims))) {
     return false;
