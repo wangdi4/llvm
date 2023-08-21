@@ -894,8 +894,7 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     }
     break;
   }
-<<<<<<< HEAD
-  case 'e': {
+  case 'e':
 #if INTEL_CUSTOMIZATION
     if (Name.startswith("experimental.matrix.wi.element.coordinate.")) {
       Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
@@ -907,48 +906,11 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
       }
     }
 #endif // INTEL_CUTOMIZATION
-    if (Name.startswith("experimental.vector.extract.")) {
-      rename(F);
-      Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
-      NewFn = Intrinsic::getDeclaration(F->getParent(),
-                                        Intrinsic::vector_extract, Tys);
-      return true;
-    }
-
-    if (Name.startswith("experimental.vector.insert.")) {
-      rename(F);
-      auto Args = F->getFunctionType()->params();
-      Type *Tys[] = {Args[0], Args[1]};
-      NewFn = Intrinsic::getDeclaration(F->getParent(),
-                                        Intrinsic::vector_insert, Tys);
-      return true;
-    }
-
-    SmallVector<StringRef, 2> Groups;
-    static const Regex R("^experimental.vector.reduce.([a-z]+)\\.[a-z][0-9]+");
-    if (R.match(Name, &Groups)) {
-      Intrinsic::ID ID;
-      ID = StringSwitch<Intrinsic::ID>(Groups[1])
-               .Case("add", Intrinsic::vector_reduce_add)
-               .Case("mul", Intrinsic::vector_reduce_mul)
-               .Case("and", Intrinsic::vector_reduce_and)
-               .Case("or", Intrinsic::vector_reduce_or)
-               .Case("xor", Intrinsic::vector_reduce_xor)
-               .Case("smax", Intrinsic::vector_reduce_smax)
-               .Case("smin", Intrinsic::vector_reduce_smin)
-               .Case("umax", Intrinsic::vector_reduce_umax)
-               .Case("umin", Intrinsic::vector_reduce_umin)
-               .Case("fmax", Intrinsic::vector_reduce_fmax)
-               .Case("fmin", Intrinsic::vector_reduce_fmin)
-               .Default(Intrinsic::not_intrinsic);
-=======
-  case 'e':
     if (Name.consume_front("experimental.vector.")) {
       Intrinsic::ID ID = StringSwitch<Intrinsic::ID>(Name)
                              .StartsWith("extract.", Intrinsic::vector_extract)
                              .StartsWith("insert.", Intrinsic::vector_insert)
                              .Default(Intrinsic::not_intrinsic);
->>>>>>> d6a1388d6fba33da1e3a99589d5f26cfb2cf4d23
       if (ID != Intrinsic::not_intrinsic) {
         const auto *FT = F->getFunctionType();
         SmallVector<Type *, 2> Tys;
