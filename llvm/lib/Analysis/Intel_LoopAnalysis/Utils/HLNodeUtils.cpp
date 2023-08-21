@@ -1084,12 +1084,11 @@ HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
                       Name, LvalRef);
 }
 
-std::pair<HLInst *, CallInst *>
-HLNodeUtils::createCallImpl(FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
-                            const Twine &Name, RegDDRef *LvalRef,
-                            ArrayRef<OperandBundleDef> Bundle,
-                            ArrayRef<RegDDRef *> BundelOps) {
-  bool HasReturn = !Func.getFunctionType()->getReturnType()->isVoidTy();
+std::pair<HLInst *, CallInst *> HLNodeUtils::createCallImpl(
+    FunctionType *FTy, Value *Callee, ArrayRef<RegDDRef *> CallArgs,
+    const Twine &Name, RegDDRef *LvalRef, ArrayRef<OperandBundleDef> Bundle,
+    ArrayRef<RegDDRef *> BundelOps) {
+  bool HasReturn = !FTy->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
   SmallVector<Value *, 8> Args;
@@ -1108,7 +1107,7 @@ HLNodeUtils::createCallImpl(FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
     Args.push_back(Val ? Val : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(
-      Func, Args, Bundle,
+      FTy, Callee, Args, Bundle,
       HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
@@ -1140,16 +1139,16 @@ HLNodeUtils::createCallImpl(FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
   return std::make_pair(HInst, InstVal);
 }
 
-HLInst *HLNodeUtils::createCall(FunctionCallee Func,
+HLInst *HLNodeUtils::createCall(FunctionType *FTy, Value *Callee,
                                 ArrayRef<RegDDRef *> CallArgs,
                                 const Twine &Name, RegDDRef *LvalRef,
                                 ArrayRef<OperandBundleDef> Bundle,
-                                ArrayRef<RegDDRef *> BundelOps,
+                                ArrayRef<RegDDRef *> BundleOps,
                                 FastMathFlags FMF) {
   HLInst *HInst;
   CallInst *Call;
   std::tie(HInst, Call) =
-      createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps);
+      createCallImpl(FTy, Callee, CallArgs, Name, LvalRef, Bundle, BundleOps);
   copyFMFForHLInst(HInst, FMF);
 
   return HInst;

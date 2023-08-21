@@ -1049,14 +1049,16 @@ void updateVectorVariantAttributes(Function &VectorF, const Function &OrigF,
 /// variant type using information from \p ArgTys and \p RetTy for their logical
 /// types respectively. The original function \p OrigF and variant information
 /// \p Variant is used to set proper vector variant attributes.
-/// Note that actual signature of the vector variant function will be different
-/// than logical one if any of the arguments or return value would require target
-/// ISA class legalization (in order to be VFABI compliant), i.e. these arguments
-/// are passed/returned as chunks (subvectors). This information is provided via
-/// \p ArgChunks and \p RetChunks.
-Function *getOrInsertVectorVariantFunction(
-    Function &OrigF, const VFInfo &Variant, ArrayRef<Type *> ArgTys,
-    Type *RetTy, ArrayRef<int> ArgChunks = std::nullopt, int RetChunks = 1);
+/// Actual function type is returned via \p FTy. Note that it may be different
+/// than logical one if any of the arguments or return value would require
+/// target ISA class legalization (in order to be VFABI compliant), i.e. these
+/// arguments are passed/returned as chunks (subvectors). This information is
+/// provided via \p ArgChunks and \p RetChunks.
+Value *getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
+                                        const VFInfo &Variant,
+                                        ArrayRef<Type *> ArgTys, Type *RetTy,
+                                        ArrayRef<int> ArgChunks = std::nullopt,
+                                        int RetChunks = 1);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
@@ -1067,6 +1069,9 @@ Function *getOrInsertVectorLibFunction(
   Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
   TargetLibraryInfo *TLI, Intrinsic::ID ID, bool Masked,
   const CallInst *Call = nullptr);
+
+/// Update \p CI call to use calling convention from a \p Callee.
+void setCallCallingConvention(CallInst *CI, Value *Callee);
 
 /// \brief Return true if \p FnName is an OpenCL SinCos function
 bool isOpenCLSinCos(StringRef FcnName);
