@@ -1,4 +1,4 @@
-; RUN: opt -disable-hir-opt-predicate-region-simd=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test case checks that opt predicate was applied since the SIMD
 ; directives are at region level and the condition is invariant to the region.
