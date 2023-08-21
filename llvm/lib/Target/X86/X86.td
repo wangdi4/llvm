@@ -1758,7 +1758,10 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6acff5390d0504ef0e805a7266a48398fb67876c
   // Gracemont
   list<SubtargetFeature> GRTTuning = [TuningMacroFusion,
                                       TuningSlow3OpsLEA,
@@ -1770,6 +1773,7 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
+<<<<<<< HEAD
 #if INTEL_FEATURE_CPU_RYL
 #define ENABLE_CPU_RYL
   list<SubtargetFeature> RYLAdditionalFeatures = [
@@ -1788,6 +1792,9 @@ def ProcessorFeatures {
     !listconcat(ICLTuning, RYLAdditionalTuning);
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> 6acff5390d0504ef0e805a7266a48398fb67876c
   // Sierraforest
   list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
                                                   FeatureAVXIFMA,
@@ -2332,6 +2339,9 @@ def : ProcModel<"royal", RYLModel,
 #endif // INTEL_CUSTOMIZATION
 def : ProcModel<"alderlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+// FIXME: Use Gracemont Schedule Model when it is ready.
+def : ProcModel<"gracemont", AlderlakePModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"meteorlake", AlderlakePModel,

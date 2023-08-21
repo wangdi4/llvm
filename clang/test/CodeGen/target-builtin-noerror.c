@@ -136,9 +136,13 @@ void verifycpustrings(void) {
   (void)__builtin_cpu_is("tigerlake");
   (void)__builtin_cpu_is("sapphirerapids");
   (void)__builtin_cpu_is("tremont");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   (void)__builtin_cpu_is("gracemont");
 #endif // INTEL_CUSTOMIZATION
+=======
+  (void)__builtin_cpu_is("gracemont");
+>>>>>>> 6acff5390d0504ef0e805a7266a48398fb67876c
   (void)__builtin_cpu_is("westmere");
   (void)__builtin_cpu_is("znver1");
   (void)__builtin_cpu_is("znver2");
