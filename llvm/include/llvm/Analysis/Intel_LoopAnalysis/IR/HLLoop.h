@@ -258,9 +258,6 @@ protected:
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID,
                                  MDNode **ExternalLoopMetadata);
 
-  /// Return true if the specified directive is attached to the loop.
-  const HLInst *getDirective(int DirectiveID) const;
-
   /// Adds a pair of {level-factor} info specified in the blocking pragma for
   /// this loop.
   void addBlockingPragmaLevelAndFactor(int Level, RegDDRef *Factor) {
@@ -813,12 +810,10 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const { return getDirective(DIR_OMP_SIMD); }
+  bool isSIMD() const { return getSIMDEntryIntrinsic(); }
 
   /// Return SIMD Entry intrinsic
-  const HLInst* getSIMDEntryIntrinsic() const {
-    return getDirective(DIR_OMP_SIMD);
-  }
+  const HLInst *getSIMDEntryIntrinsic() const;
 
   // Return SIMD Exit intrinsic
   const HLInst *getSIMDExitIntrinsic() const;

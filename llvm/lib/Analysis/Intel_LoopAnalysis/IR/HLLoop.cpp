@@ -1288,59 +1288,104 @@ static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
   return I->isDirective(DirectiveID);
 }
 
-static const HLInst *getDirectiveFromNode(const HLNode *Node, int DirectiveID) {
-  while ((Node = Node->getPrevNode())) {
-    if (nodeIsDirective(Node, DirectiveID)) {
-      return cast<HLInst>(Node);
-    }
+// Return true if the input node is the opposite of the input directive. For
+// example, assume that the input DirectiveID is DIR_OMP_SIMD (SIMD entry),
+// then this funtion will return true if Node is an HLInst and is
+// is DIR_OMP_END_SIMD (SIMD end).
+static inline bool nodeIsOppositeDirective(const HLNode *Node,
+                                           int DirectiveID) {
+  switch (DirectiveID) {
+  case DIR_OMP_SIMD:
+    return nodeIsDirective(Node, DIR_OMP_END_SIMD);
+  case DIR_OMP_END_SIMD:
+    return nodeIsDirective(Node, DIR_OMP_SIMD);
+  default:
+    return false;
   }
+}
+
+// Traverse through the previous nodes of the input Node and check if the input
+// directive is found.
+static const HLInst *searchDirectiveUpward(const HLNode *Node,
+                                           int DirectiveID) {
+  while ((Node = Node->getPrevNode())) {
+    // If we find the opposite directive before the input directive, then it
+    // means that the current loop is not wrapped by it, therefore we can
+    // exit early.
+    if (nodeIsOppositeDirective(Node, DirectiveID))
+      return nullptr;
+    if (nodeIsDirective(Node, DirectiveID))
+      return cast<HLInst>(Node);
+  }
+
   return nullptr;
 }
 
-const HLInst *HLLoop::getDirective(int DirectiveID) const {
+// Traverse through the next nodes of the input Node and check if the input
+// directive is found.
+static const HLInst *searchDirectiveDownward(const HLNode *Node,
+                                             int DirectiveID) {
+  while ((Node = Node->getNextNode())) {
+    if (nodeIsOppositeDirective(Node, DirectiveID))
+      return nullptr;
+    if (nodeIsDirective(Node, DirectiveID))
+      return cast<HLInst>(Node);
+  }
+
+  return nullptr;
+}
+
+// Traverse through the pre-header and pre-loop to find the instruction that
+// holds the SIMD entry.
+const HLInst *HLLoop::getSIMDEntryIntrinsic() const {
   // Allow SIMD loop detection if directive is inside loop's Preheader.
   if (hasPreheader()) {
     auto *LastPreheaderNode = getLastPreheaderNode();
 
-    if (nodeIsDirective(LastPreheaderNode, DirectiveID))
+    if (nodeIsDirective(LastPreheaderNode, DIR_OMP_SIMD))
       return cast<HLInst>(LastPreheaderNode);
 
     const HLInst *DirInst =
-        getDirectiveFromNode(LastPreheaderNode, DirectiveID);
+        searchDirectiveUpward(LastPreheaderNode, DIR_OMP_SIMD);
     if (DirInst)
       return DirInst;
   }
 
   // Allow SIMD loop detection if directive is sibling node to HLLoop.
-  if (const HLInst *DirInst = getDirectiveFromNode(this, DirectiveID)) {
+  if (const HLInst *DirInst = searchDirectiveUpward(this, DIR_OMP_SIMD))
+    return DirInst;
+
+  // Allow SIMD loop detection inside if conditions inside SIMD region
+  if (auto *Parent = dyn_cast<HLIf>(getParent()))
+    return searchDirectiveUpward(Parent, DIR_OMP_SIMD);
+
+  return nullptr;
+}
+
+// Traverse through the pre-header and pre-loop to find the instruction that
+// holds the SIMD exit.
+const HLInst *HLLoop::getSIMDExitIntrinsic() const {
+  // Allow SIMD loop detection if directive is inside loop's Postexit.
+  if (hasPostexit()) {
+    auto *PostExitNode = getFirstPostexitNode();
+
+    if (nodeIsDirective(PostExitNode, DIR_OMP_END_SIMD))
+      return cast<HLInst>(PostExitNode);
+
+    const HLInst *DirInst =
+        searchDirectiveDownward(PostExitNode, DIR_OMP_END_SIMD);
+    if (DirInst)
+      return DirInst;
+  }
+
+  // Allow SIMD loop detection if directive is sibling node to HLLoop.
+  if (const HLInst *DirInst = searchDirectiveDownward(this, DIR_OMP_END_SIMD)) {
     return DirInst;
   }
 
   // Allow SIMD loop detection inside if conditions inside SIMD region
   if (auto *Parent = dyn_cast<HLIf>(getParent())) {
-    return getDirectiveFromNode(Parent, DirectiveID);
-  }
-
-  return nullptr;
-}
-
-const HLInst *HLLoop::getSIMDExitIntrinsic() const {
-  // PostExit
-  const HLNode *Node = getFirstPostexitNode();
-  while (Node) {
-    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
-      if (Inst->isSIMDEndDirective())
-        return Inst;
-    Node = Node->getNextNode();
-  }
-
-  // PostLoop
-  Node = getNextNode();
-  while (Node) {
-    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
-      if (Inst->isSIMDEndDirective())
-        return Inst;
-    Node = Node->getNextNode();
+    return searchDirectiveDownward(Parent, DIR_OMP_END_SIMD);
   }
 
   return nullptr;
