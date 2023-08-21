@@ -4382,20 +4382,13 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
     // Pseudo HIR for generic array reduction initialization -
     //
-    // %bc = bitcast.[N x Ty]*.Ty*(&(([N x Ty]*)(%priv.wide.arr)[0]));
+    // %priv.arr.copy = &(ptr)(%priv.mem)[0])
     // + DO i1 = 0, (VF * N) - 1, 1   <DO_LOOP>
-    // |   (Ty*)(%bc)[i1] = %identity;
+    // |   (Ty*)(%priv.arr.copy)[i1] = %identity;
     // + END LOOP
     //
     // TODO: Generate vectorized version of initialization loop similar to
     // finalization.
-
-    // Bitcast base address from array type to element type.
-    auto BaseAddrBc = createBitCast(
-        PointerType::get(
-            ElemTy, cast<PointerType>(PrivArr->getType())->getAddressSpace()),
-        getOrCreateScalarRef(PrivArr, 0), nullptr /*Container*/,
-        "arr.red.base.addr.bc");
 
     unsigned NumIters = NumElems * getVF();
     std::pair<HLLoop *, RegDDRef *> LoopIVPair = emitHLLoopSkeletonAndLoopIVRef(
@@ -4404,8 +4397,17 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     auto *IVRef = LoopIVPair.second;
 
     // Create memref to access each element of wide alloca (assumes contiguous
-    // memory). Looks like - (ElemTy*)(%arr.red.base.addr.bc)[i1]
-    RegDDRef *Addr = BaseAddrBc->getLvalDDRef()->clone();
+    // memory). Looks like - (ElemTy*)(%priv.arr.copy)[i1]
+    RegDDRef *Addr = getOrCreateScalarRef(PrivArr, 0);
+    // If private array memref is not a self-blob then emit an extra copy to
+    // make it a self-blob.
+    if (!Addr->isSelfBlob()) {
+      // For example -
+      // %priv.arr.copy = &(([N x Ty]*)(%priv.mem)[0])
+      auto *CopyInst = HLNodeUtilities.createCopyInst(Addr, "priv.arr.copy");
+      HLNodeUtilities.insertBefore(InitLoop, CopyInst);
+      Addr = CopyInst->getLvalDDRef()->clone();
+    }
     InitLoop->addLiveInTemp(Addr);
     unsigned PtrLvl = InitLoop->getNestingLevel() - 1;
     RegDDRef *Memref = DDRefUtilities.createMemRefWithIndices(

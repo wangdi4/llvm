@@ -4837,12 +4837,9 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
 
   // Pseudo IR for generic array reduction initialization -
   //
-  // PH:
-  //   %bc = bitcast [NumElems x ElemTy]* %lane0.arr to ElemTy*
-  //
   // init.loop:
   //   %iv = phi [0, PH], [%iv.next, init.loop]
-  //   %ptr = gep %bc, %iv
+  //   %ptr = gep %lane0.arr, %iv
   //   store %identity, %ptr
   //   %iv.next = add %iv, 1
   //   %iv.cond = icmp ult %iv.next, VF * NumElems
@@ -4851,23 +4848,15 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
   // TODO: Generate vectorized version of initialization loop similar to
   // finalization.
 
-  // Bitcast base address from array type to element type -
-  // %bc = bitcast [NumElems x ElemTy]* %priv.arr.firstlane to ElemTy*
-  auto BaseAddrBc = Builder.CreateBitCast(
-      getScalarValue(PrivArr, 0),
-      PointerType::get(
-          ElemTy, cast<PointerType>(PrivArr->getType())->getAddressSpace()),
-      "arr.red.base.addr.bc");
-
   auto PhiExitPair = generateKnownTCEmptyLoop(NumIters, "array.redn.init.loop");
   PHINode *IVPhi = PhiExitPair.first;
 
   // Loop body. Access each element of wide alloca (assumes contiguous memory)
   // and store reduction's identity value in it -
-  // %ptr = gep ElemTy* %bc, %iv.phi
+  // %ptr = gep ElemTy, ptr %lane0.arr, %iv.phi
   // store %Identity, %ptr
-  Value *ElemPtr =
-      Builder.CreateGEP(ElemTy, BaseAddrBc, {IVPhi}, "cur.elem.ptr");
+  Value *ElemPtr = Builder.CreateGEP(ElemTy, getScalarValue(PrivArr, 0),
+                                     {IVPhi}, "cur.elem.ptr");
   Builder.CreateStore(getScalarValue(RedInitArr->getOperand(0), 0), ElemPtr);
 
   BasicBlock *InitLoopExit = PhiExitPair.second;
@@ -4901,11 +4890,9 @@ void VPOCodeGen::generateArrayReductionFinal(
   // final.main.loop:
   //   %iv = phi [0, PH], [%iv.next, final.main.loop]
   //   %gep.orig = gep %orig.arr, %iv
-  //   %gep.orig.bc = bitcast %gep.orig to <FinLpVF X ElemTy>*
-  //   %ld.orig = load %gep.orig.bc
+  //   %ld.orig = load %gep.orig
   //   %gep.lane0 = gep %lane0.arr, %iv
-  //   %gep.lane0.bc = bitcast %gep.lane0 to <FinLpVF X ElemTy>*
-  //   %ld.lane0 = load %gep.lane0.bc
+  //   %ld.lane0 = load %gep.lane0
   //   ... (SIMD loop nest VF-times)
   //   %red.op1 = red-opcode %ld.orig, %ld.lane0
   //   ...
@@ -4961,8 +4948,6 @@ void VPOCodeGen::generateArrayReductionFinal(
                                            Type *ElemLdTy, unsigned LoopLB,
                                            unsigned LoopInc, unsigned LoopUB,
                                            const Twine &Prefix) {
-    unsigned AddrSpace =
-        cast<PointerType>(OrigArr->getType())->getPointerAddressSpace();
     const DataLayout &DL = *Plan->getDataLayout();
     // Determine alignment of wide load/store using element type of array.
     Align Alignment = Align(DL.getABITypeAlign(ArrTy->getElementType()));
@@ -4977,11 +4962,6 @@ void VPOCodeGen::generateArrayReductionFinal(
     // Load elements from original array.
     Value *OrigArrGep = Builder.CreateGEP(
         ArrTy, OrigArr, {Builder.getInt64(0), IVPhi}, "orig.arr.gep");
-    // We need an extra bitcast if load type doesn't match GEP's type.
-    Type *ElemLdPtrTy = ElemLdTy->getPointerTo(AddrSpace);
-    if (ElemLdPtrTy != OrigArrGep->getType())
-      OrigArrGep =
-          Builder.CreateBitCast(OrigArrGep, ElemLdPtrTy, "orig.arr.bc");
     Value *OrigArrLd = Builder.CreateAlignedLoad(ElemLdTy, OrigArrGep,
                                                  Alignment, "orig.arr.ld");
 
@@ -4992,9 +4972,6 @@ void VPOCodeGen::generateArrayReductionFinal(
       Value *LaneArrGep = Builder.CreateGEP(
           ArrTy, getScalarValue(PrivArr, Lane), {Builder.getInt64(0), IVPhi},
           "priv.arr.gep.lane" + Twine(Lane));
-      if (ElemLdPtrTy != LaneArrGep->getType())
-        LaneArrGep = Builder.CreateBitCast(LaneArrGep, ElemLdPtrTy,
-                                           "priv.arr.bc.lane" + Twine(Lane));
       Value *LaneArrLd = Builder.CreateAlignedLoad(
           ElemLdTy, LaneArrGep, Alignment, "priv.arr.ld.lane" + Twine(Lane));
       assert(ReducedSubArr->getType() == LaneArrLd->getType() &&
