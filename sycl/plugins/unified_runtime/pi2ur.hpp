@@ -467,6 +467,10 @@ inline pi_result ur2piDeviceInfoValue(ur_device_info_t ParamName,
           *pValuePI = pValueUR->value.affinity_domain;
           break;
         }
+        case UR_DEVICE_PARTITION_BY_CSLICE: {
+          *pValuePI = 0;
+          break;
+        }
         default:
           die("UR_DEVICE_INFO_PARTITION_TYPE query returned unsupported type");
         }
@@ -1244,6 +1248,14 @@ inline pi_result piDevicePartition(
   }
 
   std::vector<ur_device_partition_property_t> UrProperties{};
+
+  // UR_DEVICE_PARTITION_BY_CSLICE doesn't have a value, so
+  // handle it outside the while loop below.
+  if (UrType == UR_DEVICE_PARTITION_BY_CSLICE) {
+    ur_device_partition_property_t UrProperty{};
+    UrProperty.type = UrType;
+    UrProperties.push_back(UrProperty);
+  }
   while (*(++Properties)) {
     ur_device_partition_property_t UrProperty;
     UrProperty.type = UrType;
@@ -1260,9 +1272,6 @@ inline pi_result piDevicePartition(
       /* No need to convert affinity domain enums from pi to ur because they
        * are equivalent */
       UrProperty.value.affinity_domain = *Properties;
-      break;
-    }
-    case UR_DEVICE_PARTITION_BY_CSLICE: {
       break;
     }
     default: {
