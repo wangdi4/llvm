@@ -1758,7 +1758,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
   // Gracemont
   list<SubtargetFeature> GRTTuning = [TuningMacroFusion,
                                       TuningSlow3OpsLEA,
@@ -1770,6 +1769,7 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RYL
 #define ENABLE_CPU_RYL
   list<SubtargetFeature> RYLAdditionalFeatures = [
@@ -1788,6 +1788,7 @@ def ProcessorFeatures {
     !listconcat(ICLTuning, RYLAdditionalTuning);
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+
   // Sierraforest
   list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
                                                   FeatureAVXIFMA,

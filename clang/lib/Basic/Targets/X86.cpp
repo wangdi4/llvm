@@ -869,11 +869,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Tremont:
     defineCPUMacros(Builder, "tremont");
     break;
-#if INTEL_CUSTOMIZATION
+  // Gracemont and later atom-cores use P-core cpu macros.
   case CK_Gracemont:
-    defineCPUMacros(Builder, "gracemont");
-    break;
-#endif // INTEL_CUSTOMIZATION
   case CK_Nehalem:
   case CK_Westmere:
   case CK_SandyBridge:
@@ -2538,9 +2535,8 @@ std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
-#if INTEL_CUSTOMIZATION
     case CK_Gracemont:
-#endif // INTEL_CUSTOMIZATION
+
     case CK_Westmere:
     case CK_SandyBridge:
     case CK_IvyBridge:
