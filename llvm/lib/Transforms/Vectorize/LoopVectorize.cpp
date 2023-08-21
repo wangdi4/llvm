@@ -1059,6 +1059,23 @@ void reportVectorizationInfo(const StringRef Msg, const StringRef ORETag,
       << Msg);
 }
 
+/// Report successful vectorization of the loop. In case an outer loop is
+/// vectorized, prepend "outer" to the vectorization remark.
+static void reportVectorization(OptimizationRemarkEmitter *ORE, Loop *TheLoop,
+                                VectorizationFactor VF, unsigned IC) {
+  LLVM_DEBUG(debugVectorizationMessage(
+      "Vectorizing: ", TheLoop->isInnermost() ? "innermost loop" : "outer loop",
+      nullptr));
+  StringRef LoopType = TheLoop->isInnermost() ? "" : "outer ";
+  ORE->emit([&]() {
+    return OptimizationRemark(LV_NAME, "Vectorized", TheLoop->getStartLoc(),
+                              TheLoop->getHeader())
+           << "vectorized " << LoopType << "loop (vectorization width: "
+           << ore::NV("VectorizationFactor", VF.Width)
+           << ", interleaved count: " << ore::NV("InterleaveCount", IC) << ")";
+  });
+}
+
 } // end namespace llvm
 
 #ifndef NDEBUG
@@ -8118,7 +8135,7 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlan &Plan) {
     VPBasicBlock *HeaderVPBB = Plan.getVectorLoopRegion()->getEntryBasicBlock();
     auto NewInsertionPoint = HeaderVPBB->getFirstNonPhi();
     auto *IV = new VPWidenCanonicalIVRecipe(Plan.getCanonicalIV());
-    HeaderVPBB->insert(IV, HeaderVPBB->getFirstNonPhi());
+    HeaderVPBB->insert(IV, NewInsertionPoint);
 
     VPBuilder::InsertPointGuard Guard(Builder);
     Builder.setInsertPoint(HeaderVPBB, NewInsertionPoint);
@@ -8900,11 +8917,14 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
       }
 
       RecipeBuilder.setRecipe(Instr, Recipe);
-      if (isa<VPWidenIntOrFpInductionRecipe>(Recipe) &&
-          HeaderVPBB->getFirstNonPhi() != VPBB->end()) {
-        // Move VPWidenIntOrFpInductionRecipes for optimized truncates to the
+      if (isa<VPWidenIntOrFpInductionRecipe>(Recipe)) {
+        // VPWidenIntOrFpInductionRecipes must be kept in the phi section of
+        // HeaderVPBB. VPWidenIntOrFpInductionRecipes for optimized truncates
+        // may be generated after non-phi recipes and need to be moved to the
         // phi section of HeaderVPBB.
-        assert(isa<TruncInst>(Instr));
+        assert((HeaderVPBB->getFirstNonPhi() == VPBB->end() ||
+                isa<TruncInst>(Instr)) &&
+               "unexpected recipe needs moving");
         Recipe->insertBefore(*HeaderVPBB, HeaderVPBB->getFirstNonPhi());
       } else
         VPBB->appendRecipe(Recipe);
@@ -9688,6 +9708,8 @@ static bool processLoopInVPlanNativePath(
     LVP.executePlan(VF.Width, 1, BestPlan, LB, DT, false);
   }
 
+  reportVectorization(ORE, L, VF, 1);
+
   // Mark the loop as already vectorized to avoid vectorizing again.
   Hints.setAlreadyVectorized();
   assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()));
@@ -10256,13 +10278,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
           DisableRuntimeUnroll = true;
       }
       // Report the vectorization decision.
-      ORE->emit([&]() {
-        return OptimizationRemark(LV_NAME, "Vectorized", L->getStartLoc(),
-                                  L->getHeader())
-               << "vectorized loop (vectorization width: "
-               << NV("VectorizationFactor", VF.Width)
-               << ", interleaved count: " << NV("InterleaveCount", IC) << ")";
-      });
+      reportVectorization(ORE, L, VF, IC);
     }
 
     if (ORE->allowExtraAnalysis(LV_NAME))
