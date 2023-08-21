@@ -83,5 +83,7 @@
 // CHECK-TARGET-ID-ERROR: error: invalid offload arch combinations: 'gfx90a' and 'gfx90a:xnack+'
 
 // RUN: %clang -### -target x86_64-pc-linux-gnu -fopenmp --offload-arch=gfx90a \
-// RUN:   -O3 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPT
+// INTEL_CUSTOMIZATION
+// RUN:   -O3 -nogpulib -fopenmp-new-driver %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPT
+// end INTEL_CUSTOMIZATION
 // CHECK-OPT: clang-linker-wrapper{{.*}}"--opt-level=O3"
