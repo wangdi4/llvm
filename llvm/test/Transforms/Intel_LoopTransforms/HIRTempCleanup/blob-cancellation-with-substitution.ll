@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt  < %s -passes="hir-ssa-deconstruction,print<hir>,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the use ref in the HLIf is made consistent when these two blobs get
 ; cancelled after substitution-
-; 1. -1 * ptrtoint.i8*.i64(%pLineSrc.191713) 
-; 2. ptrtoint.i8*.i64(%pLineSrc.191713.out) 
+; 1. -1 * ptrtoint.i8*.i64(%pLineSrc.191713)
+; 2. ptrtoint.i8*.i64(%pLineSrc.191713.out)
 
 ; This test was compfailing because verifier was asserting on inconsistent def level.
 

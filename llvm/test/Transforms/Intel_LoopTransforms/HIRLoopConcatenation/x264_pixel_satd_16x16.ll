@@ -1,6 +1,5 @@
 ; RUN: opt -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
-; RUN: opt -opaque-pointers -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
 ; Look for 16 loops with trip count of 4 before the transformation.
 
