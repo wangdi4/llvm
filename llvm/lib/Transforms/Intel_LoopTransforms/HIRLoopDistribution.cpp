@@ -1161,7 +1161,7 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
 
-    ORBuilder(*LoopNode).addOrigin("Distributed chunk%d",
+    ORBuilder(*LoopNode).addOrigin(OptRemarkID::LoopDistributionChunkNum,
                                    (int)CurLoopIndex + 1);
   }
 

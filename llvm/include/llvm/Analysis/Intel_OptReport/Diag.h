@@ -137,6 +137,7 @@ enum class OptRemarkID {
   InvariantConditionHoisted = 25422,
   InvariantIfConditionHoisted = 25423,
   InvariantSwitchConditionHoisted = 25424,
+  LoopDistributionChunkNum = 25425,
   LoopDistributionPerfectNest = 25426,
   LoopDistributionEnableVec = 25427,
   LoopStripMineFactor = 25428,

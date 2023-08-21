@@ -541,6 +541,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Invariant If condition%s hoisted out of this loop"},
     {OptRemarkID::InvariantSwitchConditionHoisted,
      "Invariant Switch condition%s hoisted out of this loop"},
+    {OptRemarkID::LoopDistributionChunkNum, "Distributed chunk%d"},
     {OptRemarkID::LoopDistributionPerfectNest,
      "Loop distributed (%d way) for perfect loopnest formation"},
     {OptRemarkID::LoopDistributionEnableVec,
