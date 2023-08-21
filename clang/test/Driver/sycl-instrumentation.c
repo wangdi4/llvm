@@ -1,14 +1,15 @@
-/// Check if -fsycl-instrument-device-code is passed to device-side -cc1
-/// and if ITT device libraries are pulled in.
-/// The following conditions must be fulfilled:
-/// 1. A SPIR-V-based environment must be targetted
-/// 2. The option must not be explicitly disabled in the Driver call
+// Check if -fsycl-instrument-device-code is passed to device-side -cc1
+// and if ITT device libraries are pulled in.
+// The following conditions must be fulfilled:
+// 1. A SPIR-V-based environment must be targetted
+// 2. The option must not be explicitly disabled in the Driver call
 
-/// FIXME: Force linux targets to allow for the libraries to be found.  Dummy
-/// inputs for --sysroot should be updated to work better for Windows.
+// FIXME: Force linux targets to allow for the libraries to be found.  Dummy
+// inputs for --sysroot should be updated to work better for Windows.
+
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fsycl --sysroot=%S/Inputs/SYCL -fsycl-targets=spir64 -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-SPIRV,CHECK-HOST %s
-/// -fno-sycl-device-lib mustn't affect the linkage of ITT libraries
+// -fno-sycl-device-lib mustn't affect the linkage of ITT libraries
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fsycl --sysroot=%S/Inputs/SYCL -fno-sycl-device-lib=all -fsycl-targets=spir64 -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-SPIRV %s
 
@@ -23,9 +24,13 @@
 // RUN: | FileCheck -check-prefixes=CHECK-NONPASSED %s
 // RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -fno-sycl-instrument-device-code -nocudalib -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-NONPASSED %s
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -fno-sycl-instrument-device-code -fno-sycl-libspirv -nocudalib -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-NONPASSED %s
 // end INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> bd1250f3d66f692ab1c5b85eca43bc4972466035
 // CHECK-NONPASSED-NOT: "-fsycl-instrument-device-code"
 // CHECK-NONPASSED-NOT: "-input={{.*}}libsycl-itt-{{.*}}.{{o|obj}}"
