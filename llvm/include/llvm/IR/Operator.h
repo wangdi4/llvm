@@ -394,12 +394,6 @@ class ShlOperator
   : public ConcreteOperator<OverflowingBinaryOperator, Instruction::Shl> {
 };
 
-class SDivOperator
-  : public ConcreteOperator<PossiblyExactOperator, Instruction::SDiv> {
-};
-class UDivOperator
-  : public ConcreteOperator<PossiblyExactOperator, Instruction::UDiv> {
-};
 class AShrOperator
   : public ConcreteOperator<PossiblyExactOperator, Instruction::AShr> {
 };
