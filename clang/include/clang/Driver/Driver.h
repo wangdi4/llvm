@@ -853,7 +853,10 @@ private:
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
   llvm::opt::Visibility
-  getOptionVisibilityMask(bool UseDriverMode = true) const;
+#if INTEL_CUSTOMIZATION
+  getOptionVisibilityMask(bool UseDriverMode = true,
+                          bool AllowAllOpts = false) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when

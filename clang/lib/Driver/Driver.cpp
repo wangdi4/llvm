@@ -322,7 +322,19 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
   llvm::PrettyStackTraceString CrashInfo("Command line argument parsing");
   ContainsError = false;
 
-  llvm::opt::Visibility VisibilityMask = getOptionVisibilityMask(UseDriverMode);
+#if INTEL_CUSTOMIZATION
+  bool AllowAllOpts =
+      IsIntelMode() &&
+      // Check for -i_allow-all-opts.
+      llvm::any_of(ArgStrings,
+                   [AllowAllOpts = getOpts()
+                                       .getOption(options::OPT_i_allow_all_opts)
+                                       .getPrefixedName()](StringRef Opt) {
+                     return Opt == AllowAllOpts;
+                   });
+  llvm::opt::Visibility VisibilityMask =
+      getOptionVisibilityMask(UseDriverMode, AllowAllOpts);
+#endif // INTEL_CUSTOMIZATION
 
   unsigned MissingArgIndex, MissingArgCount;
   InputArgList Args = getOpts().ParseArgs(ArgStrings, MissingArgIndex,
@@ -11026,9 +11038,16 @@ bool Driver::GetReleaseVersion(StringRef Str,
 }
 
 llvm::opt::Visibility
-Driver::getOptionVisibilityMask(bool UseDriverMode) const {
+#if INTEL_CUSTOMIZATION
+Driver::getOptionVisibilityMask(bool UseDriverMode, bool AllowAllOpts) const {
+#endif // INTEL_CUSTOMIZATION
   if (!UseDriverMode)
     return llvm::opt::Visibility(options::ClangOption);
+#if INTEL_CUSTOMIZATION
+  if (AllowAllOpts)
+    return llvm::opt::Visibility(options::ClangOption | options::CLOption |
+                                 options::DXCOption);
+#endif // INTEL_CUSTOMIZATION
   if (IsCLMode())
     return llvm::opt::Visibility(options::CLOption);
   if (IsDXCMode())
