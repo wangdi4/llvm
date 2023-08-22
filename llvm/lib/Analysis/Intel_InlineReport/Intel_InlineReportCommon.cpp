@@ -19,7 +19,7 @@ using namespace llvm;
 ///
 /// \brief Print 'indentCount' indentations
 ///
-void llvm::printIndentCount(formatted_raw_ostream &OS, unsigned indentCount) {
+void llvm::printIndentCount(raw_ostream &OS, unsigned indentCount) {
   OS.indent(indentCount * 3);
 }
 
@@ -199,7 +199,7 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
 }
 
 // Print the inlining option values
-void llvm::printOptionValues(formatted_raw_ostream &OS, unsigned OptLevel,
+void llvm::printOptionValues(raw_ostream &OS, unsigned OptLevel,
                              unsigned SizeLevel) {
   InlineParams Params;
   if (!OptLevel && !SizeLevel)

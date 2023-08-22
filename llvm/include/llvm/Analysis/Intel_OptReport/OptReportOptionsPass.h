@@ -1,6 +1,6 @@
 //===-------------------- OptReportOptionsPass.h --------------------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,7 +20,6 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
 
@@ -56,7 +55,7 @@ public:
   }
 
   /// Returns a formatted ostream that opt-report output should be written to.
-  static formatted_raw_ostream &getOutputStream();
+  static raw_fd_ostream &getOutputStream();
 };
 
 extern OptReportOptions::OptReportEmitterKind IntelOptReportEmitter;

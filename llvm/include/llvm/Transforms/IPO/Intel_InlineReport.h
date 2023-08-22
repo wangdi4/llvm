@@ -81,7 +81,7 @@ public:
 
   InlineReportFunction *getIRBrokerTarget() const { return IRBrokerTarget; }
   void setIRBrokerTarget(InlineReportFunction *IRF) { IRBrokerTarget = IRF; }
-  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned ReportLevel);
+  void printBrokerTargetName(raw_ostream &OS, unsigned ReportLevel);
 
   InlineReason getReason() const { return Reason; }
   void setReason(InlineReason MyReason) { Reason = MyReason; }
@@ -152,8 +152,7 @@ public:
   /// Print the info in the inlining instance to 'OS' for the inlining report
   /// indenting 'indentCount' indentations, assuming an inlining report
   /// level of 'ReportLevel'.
-  void print(formatted_raw_ostream &OS, unsigned IndentCount,
-             unsigned ReportLevel);
+  void print(raw_ostream &OS, unsigned IndentCount, unsigned ReportLevel);
 
   /// Load the call represented by '*this' and all of its descendant
   /// calls into the map 'Lmap'.
@@ -211,11 +210,11 @@ private:
   unsigned Line;
   unsigned Col;
   bool SuppressPrint; // suppress inline-report print info
-  void printICSMethod(formatted_raw_ostream &OS, unsigned Level);
-  void printCostAndBenefit(formatted_raw_ostream &OS, unsigned Level);
-  void printCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
-  void printOuterCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
-  void printCalleeNameModuleLineCol(formatted_raw_ostream &OS, unsigned Level);
+  void printICSMethod(raw_ostream &OS, unsigned Level);
+  void printCostAndBenefit(raw_ostream &OS, unsigned Level);
+  void printCostAndThreshold(raw_ostream &OS, unsigned Level);
+  void printOuterCostAndThreshold(raw_ostream &OS, unsigned Level);
+  void printCalleeNameModuleLineCol(raw_ostream &OS, unsigned Level);
 
   /// Search 'OldIRCSV' for 'this' and if it is found, move it to 'NewIRCSV'.
   void moveCalls(InlineReportCallSiteVector &OldIRCSV,
@@ -316,14 +315,14 @@ public:
 
   void setName(std::string FunctionName) { Name = FunctionName; }
 
-  void printName(formatted_raw_ostream &OS, unsigned Level) {
+  void printName(raw_ostream &OS, unsigned Level) {
     if ((Level & InlineReportOptions::Demangle) && getLanguageChar() == 'C')
       OS << demangle(getName());
     else
       OS << getName();
   }
 
-  void print(formatted_raw_ostream &OS, unsigned Level) const;
+  void print(raw_ostream &OS, unsigned Level) const;
 
   /// Populate 'OutFIRCSSet' with the InlineReportCallSites corresponding
   /// to the CallBases in 'OutFCBSet'
@@ -683,7 +682,7 @@ private:
   InlineReportFunctionSet IRDeadFunctionSet;
 
   /// The output stream to print the inlining report to
-  formatted_raw_ostream &OS;
+  raw_ostream &OS;
 
   /// Clone the newly created callsites in 'IIMap' and append them to
   /// 'NewCallSite', while using 'IRFCallee' to update the compact form

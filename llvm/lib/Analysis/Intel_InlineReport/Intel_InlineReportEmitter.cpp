@@ -60,7 +60,7 @@ private:
       DeadFortranFunctionNames;       // to provide language char.
   SmallDenseMap<StringRef, StringRef> // Map from dead function name to linkage
       DeadFunctionLinkage;
-  formatted_raw_ostream &OS; // Stream to print Inline Report to
+  raw_ostream &OS; // Stream to print Inline Report to
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
@@ -80,8 +80,7 @@ private:
   void printCalleeNameModuleLineCol(MDTuple *MD);
 
   // Print the name of the target function called by the broker function.
-  void printBrokerTargetName(formatted_raw_ostream &OS, unsigned Level,
-                             MDTuple *MD);
+  void printBrokerTargetName(raw_ostream &OS, unsigned Level, MDTuple *MD);
 
   // Print a simple message for a callsite. 'Message' is the message,
   // 'IsInlined' is 'true' if the callsite was inlined. 'IndentCount' is
@@ -263,8 +262,8 @@ void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
   OS << ")";
 }
 
-void IREmitterInfo::printBrokerTargetName(formatted_raw_ostream &OS,
-                                          unsigned Level, MDTuple *MD) {
+void IREmitterInfo::printBrokerTargetName(raw_ostream &OS, unsigned Level,
+                                          MDTuple *MD) {
   StringRef Name =
       llvm::getOpStr(MD->getOperand(CSMDIR_BrokerTargetName), "name: ");
   OS << "(" << Name << ")\n";
