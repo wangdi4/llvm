@@ -36,6 +36,7 @@
 
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Assumptions.h"
 #include "llvm/Support/ModRef.h"
 
 using namespace llvm;
@@ -404,6 +405,12 @@ CallInst *llvm::vpo::insertWorkGroupBarrier(Instruction *InsertPt,
       InsertPt);
   // __spirv_ControlBarrier() is a convergent call.
   CI->getCalledFunction()->setConvergent();
+
+  // All barriers that we add here are "aligned", meaning that all threads in
+  // the team will reach them in the same order. This special annotation makes
+  // it possible for OpenMPOpt to optimize them.
+  addAssumptions(*CI, {"ompx_aligned_barrier"});
+
   return CI;
 }
 

@@ -351,6 +351,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   NFn->setCallingConv(CallingConv::SPIR_KERNEL);
   NFn->addFnAttr("target.declare", "true");
 
+  // Also add the "kernel" attribute, which is used by the OpenMPOpt pass to
+  // identify OpenMP Offload kernels that can be optimized.
+  NFn->addFnAttr("kernel");
+
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);
   NFn->splice(NFn->begin(), Fn);
@@ -999,11 +1003,21 @@ void VPOParoptTransform::guardSideEffectStatements(WRegionNode *W,
     //       used for the target region.
     IRBuilder<> Builder(KernelEntryDir);
     auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
-    Value *LocalId = nullptr;
     Value *MasterCheckPredicate = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      LocalId = VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
+      CallInst *const LocalId =
+          VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
+
+      // At this point in device compilation we shouldn't get adverse effects by
+      // allowing code motioning of these function calls, so the function can be
+      // marked with the relevant attributes for later optimizations.
+      Function *const LocalIdCallee = LocalId->getCalledFunction();
+      LocalIdCallee->setDoesNotAccessMemory();
+      LocalIdCallee->setDoesNotThrow();
+      LocalIdCallee->setNoSync();
+      LocalIdCallee->setWillReturn();
+
       Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
       if (!MasterCheckPredicate) {
