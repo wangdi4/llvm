@@ -1,6 +1,7 @@
 ; RUN: opt -passes='vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s -check-prefixes=LLVMIR,CHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -disable-vplan-codegen -vplan-enable-hir-f90-dv < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 
+; Check proper support for SIMD private C1 of real8 type.
 ; Fortran sourcecode used for this test
 ; integer function sum(c1, c2, n, m)
 ;      real(8) :: c1(:)
@@ -43,8 +44,7 @@
 
 ; CHECK:       [[BB20]]
 ; CHECK:        [DA: Div] ptr [[VP8:%.*]] = allocate-dv-buffer double i64 [[VP6]], OrigAlign = 8
-; CHECK:        [DA: Div] ptr [[VP9:%.*]] = getelementptr %"QNCA_a0$ptr$rank1$", ptr [[VP1]] i32 0 i32 0
-; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP9]]
+; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP1]]
 ; CHECK:        [DA: Uni] br BB21
 ; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore
 
@@ -82,9 +82,34 @@
 ; LLVMIR-NEXT:   %.array.buffer.insert.0 = insertelement <2 x ptr> undef, ptr %.array.buffer.lane.0, i64 0
 ; LLVMIR-NEXT:   %.array.buffer.lane.1 = alloca double, i64 %.extract.0.5, align 8
 ; LLVMIR-NEXT:   %.array.buffer.insert.1 = insertelement <2 x ptr> %.array.buffer.insert.0, ptr %.array.buffer.lane.1, i64 1
-; LLVMIR-NEXT:   %mm_vectorGEP = getelementptr %"QNCA_a0$ptr$rank1$", <2 x ptr> %"sum_$C1.priv.vec.base.addr", <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
-; LLVMIR-NEXT:   call void @llvm.masked.scatter.v2p0.v2p0(<2 x ptr> %.array.buffer.insert.1, <2 x ptr> %mm_vectorGEP, i32 1, <2 x i1> <i1 true, i1 true>)
+; LLVMIR-NEXT:   call void @llvm.masked.scatter.v2p0.v2p0(<2 x ptr> %.array.buffer.insert.1, <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 1, <2 x i1> <i1 true, i1 true>)
 ; LLVMIR-NEXT:   br label %VPlannedBB4
+
+; HIR:        %priv.mem.bc = &((%"QNCA_a0$ptr$rank1$"*)(%priv.mem)[0]);
+; HIR-NEXT:   %serial.temp = undef;
+; HIR-NEXT:   %_f90_dope_vector_init2 = @_f90_dope_vector_init2(&((%"QNCA_a0$ptr$rank1$"*)(%priv.mem)[0]),  %"sum_$C1.priv");
+; HIR-NEXT:   %serial.temp = insertelement %serial.temp,  %_f90_dope_vector_init2,  0;
+; HIR-NEXT:   %extract.1. = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; HIR-NEXT:   %_f90_dope_vector_init22 = @_f90_dope_vector_init2(%extract.1.,  %"sum_$C1.priv");
+; HIR-NEXT:   %serial.temp = insertelement %serial.temp,  %_f90_dope_vector_init22,  1;
+; HIR-NEXT:   %llvm.stacksave = @llvm.stacksave();
+; HIR-NEXT:   %.vec4 = %serial.temp  /u  8;
+; HIR-NEXT:   %.vec5 = %serial.temp > 0;
+; HIR-NEXT:   %extract.0.6 = extractelement %.vec5,  0;
+; HIR-NEXT:   if (%extract.0.6 == 1)
+; HIR-NEXT:   {
+; HIR-NEXT:   }
+; HIR-NEXT:   else
+; HIR-NEXT:   {
+; HIR-NEXT:      goto BB21.62;
+; HIR-NEXT:   }
+; HIR-NEXT:   %extract.0.7 = extractelement %.vec4,  0;
+; HIR-NEXT:   %dv.buffer.vec = undef;
+; HIR-NEXT:   %dv.buffer.scal = alloca %extract.0.7;
+; HIR-NEXT:   %dv.buffer.vec = insertelement %dv.buffer.vec,  %dv.buffer.scal,  0;
+; HIR-NEXT:   %dv.buffer.scal9 = alloca %extract.0.7;
+; HIR-NEXT:   %dv.buffer.vec = insertelement %dv.buffer.vec,  %dv.buffer.scal9,  1;
+; HIR-NEXT:   (<2 x ptr>*)(%priv.mem.bc)[<i32 0, i32 1>] = %dv.buffer.vec;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

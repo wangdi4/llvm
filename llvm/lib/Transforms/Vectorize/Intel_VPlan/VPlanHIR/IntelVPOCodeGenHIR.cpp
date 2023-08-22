@@ -3863,7 +3863,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
     IndexedElementType = IndexedElementType->getScalarType();
 
   unsigned PrefScalSymbase = loopopt::InvalidSymbase;
-  if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
+  if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr, true /* LookThruLoad */)) {
     // For accesses to private memory we need to use new private alloca's
     // symbase.
     auto *PrivAlloca = cast<VPAllocatePrivate>(Priv);
@@ -5160,6 +5160,34 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::AllocateDVBuffer: {
+    auto *VPAllocaDVBuffer = cast<VPAllocateDVBuffer>(VPInst);
+    Type *OrigTy = VPAllocaDVBuffer->getAllocatedType();
+    RegDDRef *Size =
+        getOrCreateScalarRef(VPInst->getOperand(0), 0 /* ScalarLaneID */);
+    auto *VecInstTy = getResultRefTy(VPInst->getType(), VF, true /* Widen */);
+    auto *WideRef = DDRefUtilities.createUndefDDRef(VecInstTy);
+    auto *CopyInst = HLNodeUtilities.createCopyInst(WideRef, "dv.buffer.vec");
+    addInstUnmasked(CopyInst);
+    WideRef = CopyInst->getLvalDDRef();
+
+    // To properly allocate buffer size we need to create VF allocas where each
+    // of them has specified Size. Those allocas then need to be placed in
+    // single <VF * ptr> vector.
+    for (unsigned Lane = 0; Lane < getVF(); ++Lane) {
+      HLInst *AllocaInst =
+          HLNodeUtilities.createAlloca(OrigTy, Size->clone(), "dv.buffer.scal");
+      addInstUnmasked(AllocaInst);
+      HLInst *InsertInst = HLNodeUtilities.createInsertElementInst(
+          WideRef->clone(), AllocaInst->getLvalDDRef()->clone(), Lane,
+          "serial.insert", WideRef->clone());
+      addInstUnmasked(InsertInst);
+    }
+
+    addVPValueWideRefMapping(VPInst, WideRef);
+    return;
+  }
+
   case VPInstruction::AllocatePrivate: {
     auto *VPAllocaPriv = cast<VPAllocatePrivate>(VPInst);
     Type *OrigTy = VPAllocaPriv->getAllocatedType();
@@ -6426,6 +6454,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::CompressExpandIndex:
   case VPInstruction::CompressExpandIndexInc:
   case VPInstruction::CompressExpandMask:
+  case VPInstruction::AllocateDVBuffer:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {

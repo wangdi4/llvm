@@ -319,8 +319,6 @@ static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
   SmallVector<VPInstruction *, 2> DVInitInst(VPInstRange.begin(),
                                              VPInstRange.end());
   const DataLayout *DL = Plan->getDataLayout();
-  auto *I32 = Type::getInt32Ty(*Plan->getLLVMContext());
-  VPConstant *I32Zero = Plan->getVPConstant(ConstantInt::get(I32, 0));
 
   for (VPInstruction *VPInst : DVInitInst) {
     auto *VPF90DVInitInst = dyn_cast<F90DVBufferInit>(VPInst);
@@ -359,11 +357,7 @@ static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
     auto *AllocateBuffer = Builder.create<VPAllocateDVBuffer>(
         ".array.buffer", DVTypePtr, DVElementType,
         DL->getPrefTypeAlign(DVElementType), ArrayRef<VPValue *>{NumElements});
-    auto *BaseAddrGEP = Builder.createGEP(
-        VPAllocaPriv->getAllocatedType(), DVTypePtr, VPAllocaPriv,
-        {I32Zero, I32Zero}, nullptr /* Underlying Instruction */);
-    DA->updateDivergence(*BaseAddrGEP);
-    Builder.createStore(AllocateBuffer, BaseAddrGEP);
+    Builder.createStore(AllocateBuffer, VPAllocaPriv);
 
     VPBB->eraseInstruction(VPF90DVInitInst);
   }
