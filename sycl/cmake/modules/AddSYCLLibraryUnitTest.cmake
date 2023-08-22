@@ -56,6 +56,22 @@ macro(add_sycl_library_unittest test_suite_name)
     foreach(_lib "pthread" "dl" "ncurses")
       list(APPEND _LIBRARIES "-l${_lib}")
     endforeach()
+# INTEL_CUSTOMIZATION
+# We will use intel specific functions like _intel_fast_memcpy in LLVMTestingSupport etc.
+# Need to link to intel runtime in static linking mode.
+# We should have set the path in LD_LIBRARY_PATH for build compiler, extract path from it.
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" )
+      if(DEFINED ENV{LD_LIBRARY_PATH})
+        list(APPEND _INTERNAL_LINKER_FLAGS "--intel")
+        string (REPLACE ":" ";" LD_FLAGS_STR "$ENV{LD_LIBRARY_PATH}")
+        foreach(_libpath ${LD_FLAGS_STR})
+          if("${_libpath}" MATCHES ".*intel64_lin")
+            list(APPEND _INTERNAL_LINKER_FLAGS "-L${_libpath}")
+          endif()
+        endforeach()
+      endif()
+    endif()
+# end INTEL_CUSTOMIZATION
   endif()
 
   get_target_property(GTEST_INCLUDES llvm_gtest INCLUDE_DIRECTORIES)
