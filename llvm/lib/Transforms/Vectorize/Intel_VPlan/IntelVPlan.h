@@ -511,16 +511,7 @@ class VPInstruction : public VPUser,
         if (!InstTy)
           return FlagsKind::UnknownOperatorFlags;
 
-        while (ArrayType *ArrTy = dyn_cast<ArrayType>(InstTy))
-          InstTy = ArrTy->getElementType();
-
-        // Instructions that return StructType with a unique element type can be
-        // treated as FPMathOperator based on the elment type.
-        if (auto *StructTy = dyn_cast<StructType>(InstTy))
-          if (StructTy->hasIdenticalElementTypes())
-            InstTy = StructTy->getElementType(0);
-
-        if (InstTy->isFPOrFPVectorTy())
+        if (isOrUsesFPTy(InstTy))
           return FlagsKind::VPFastMathFlags;
 
         return FlagsKind::UnknownOperatorFlags;
