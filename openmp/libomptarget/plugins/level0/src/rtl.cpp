@@ -80,11 +80,15 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 } // extern "C"
 
 /// Default alignmnet for allocation
-#define LEVEL0_ALIGNMENT 0
+constexpr size_t L0Alignment = 0;
 /// Default staging buffer size for host to device copy (16KB)
-#define LEVEL0_STAGING_BUFFER_SIZE (1 << 14)
+constexpr size_t L0StagingBufferSize = (1 << 14);
 /// Default staging buffer count
-#define LEVEL0_STAGING_BUFFER_COUNT 64
+constexpr size_t L0StagingBufferCount = 64;
+/// USM allocation threshold where preallocation does not pay off (128MB)
+constexpr size_t L0UsmPreAllocThreshold = (128 << 20);
+/// Host USM allocation threshold where preallocation does not pay off (8MB)
+constexpr size_t L0HostUsmPreAllocThreshold = (8 << 20);
 
 #ifndef EXTRACT_BITS
 // MSB=63, LSB=0
@@ -234,20 +238,35 @@ enum class CommandModeTy { Sync = 0, Async, AsyncOrdered };
 /// A single staging buffer is not enough when batching is enabled since there
 /// can be multiple pending copy operations.
 class StagingBufferTy {
+  /// Context for L0 calls
   ze_context_handle_t Context = nullptr;
-  size_t Size = LEVEL0_STAGING_BUFFER_SIZE;
-  size_t Count = LEVEL0_STAGING_BUFFER_COUNT;
-  std::vector<void *> Buffers;
-  size_t Offset = 0;
+  /// Max allowed size for staging buffer
+  size_t Size = L0StagingBufferSize;
+  /// Number of buffers allocated together for small-size buffers
+  size_t Count = L0StagingBufferCount;
+  /// Small buffer size
+  size_t SmallSize = L0StagingBufferSize;
+  /// Buffers increasing by Count if a new buffer is required
+  std::list<void *> SmallBuffers;
+  /// Buffers increasing by one if a new buffer is required
+  std::list<void *> LargeBuffers;
+  /// Next buffer location in the small buffers
+  size_t SmallOffset = 0;
+  /// Next buffer location in the large buffers
+  size_t LargeOffset = 0;
 
-  void *addBuffers() {
+  void *addBuffers(bool IsSmall) {
     ze_host_mem_alloc_desc_t AllocDesc = {
       ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0
     };
     void *Ret = nullptr;
-    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &AllocDesc, Size * Count,
-                     LEVEL0_ALIGNMENT, &Ret);
-    Buffers.push_back(Ret);
+    size_t AllocSize = IsSmall ? SmallSize * Count : Size;
+    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &AllocDesc, AllocSize,
+                     L0Alignment, &Ret);
+    if (IsSmall)
+      SmallBuffers.push_back(Ret);
+    else
+      LargeBuffers.push_back(Ret);
     return Ret;
   }
 
@@ -255,7 +274,9 @@ public:
   ~StagingBufferTy() {
     ze_result_t Rc;
     (void)Rc; // GCC build compiler thinks Rc is unused for some reason.
-    for (auto Ptr : Buffers)
+    for (auto Ptr : SmallBuffers)
+      CALL_ZE(Rc, zeMemFree, Context, Ptr);
+    for (auto Ptr : LargeBuffers)
       CALL_ZE(Rc, zeMemFree, Context, Ptr);
   }
 
@@ -265,33 +286,48 @@ public:
     Context = _Context;
     Size = _Size;
     Count = _Count;
+    SmallSize = (std::min)(Size, L0HostUsmPreAllocThreshold);
   }
 
-  void reset() { Offset = 0; }
+  void reset() {
+    SmallOffset = 0;
+    LargeOffset = 0;
+  }
 
   /// Always return the first buffer
-  void *get() {
+  void *get(size_t CopySize) {
     if (Size == 0 || Count == 0)
       return nullptr;
+    bool IsSmall = CopySize < SmallSize;
+    auto &Buffers = IsSmall ? SmallBuffers : LargeBuffers;
     if (Buffers.empty())
-      return addBuffers();
+      return addBuffers(IsSmall);
     else
-      return Buffers[0];
+      return Buffers.front();
   }
 
   /// Return the next available buffer
-  void *getNext() {
+  void *getNext(size_t CopySize) {
     void *Ret = nullptr;
     if (Size == 0 || Count == 0)
       return Ret;
-    if (Buffers.empty() || Offset >= Buffers.size() * Size * Count) {
-      Ret = addBuffers();
-      if (!Ret)
-        return Ret;
+    bool IsSmall = CopySize < SmallSize;
+    auto GetBuffer = [&](std::list<void *> &Buffers, size_t BlockSize,
+                         size_t Offset) {
+      void *Buffer = nullptr;
+      if (Buffers.empty() || Offset >= Buffers.size() * BlockSize)
+        Buffer = addBuffers(IsSmall);
+      else
+        Buffer = (void *)((uintptr_t)Buffers.back() + (Offset % BlockSize));
+      return Buffer;
+    };
+    if (IsSmall) {
+      Ret = GetBuffer(SmallBuffers, SmallSize * Count, SmallOffset);
+      SmallOffset += SmallSize;
     } else {
-      Ret = (void *)((uintptr_t)Buffers.back() + (Offset % (Size * Count)));
+      Ret = GetBuffer(LargeBuffers, Size, LargeOffset);
+      LargeOffset += Size;
     }
-    Offset += Size;
     return Ret;
   }
 };
@@ -1489,10 +1525,10 @@ struct RTLOptionTy {
 #endif // INTEL_CUSTOMIZATION
 
   /// Staging buffer size
-  size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
+  size_t StagingBufferSize = L0StagingBufferSize;
 
   /// Staging buffer count
-  size_t StagingBufferCount = LEVEL0_STAGING_BUFFER_COUNT;
+  size_t StagingBufferCount = L0StagingBufferCount;
 
 #if INTEL_CUSTOMIZATION
   /// Command batch support
@@ -2525,9 +2561,10 @@ class MemAllocatorTy {
         if (BlockSize <= AllocUnit) {
           BlockSize = AllocUnit; // Allocation unit is already large enough
         } else if (IsDiscrete) {
-          // Keep a single chunk for >=8MB host mem, >=128MB otherwise
-          if (ChunkSize >= (128 << 20) ||
-              (AllocKind == TARGET_ALLOC_HOST && ChunkSize >= (8 << 20)))
+          // Do not preallocate if it does not pay off
+          if (ChunkSize >= L0UsmPreAllocThreshold ||
+              (AllocKind == TARGET_ALLOC_HOST &&
+               ChunkSize >= L0HostUsmPreAllocThreshold))
             BlockSize = ChunkSize;
         }
         BucketParams.emplace_back(ChunkSize, BlockSize);
@@ -4013,6 +4050,9 @@ static void closeRTL() {
   if (DeviceInfo->NumDevices == 0)
     return;
 
+  if (L0Interop::SyclWrapper.WrapApiValid)
+    L0Interop::SyclWrapper.delete_all_sycl_interop();
+
   for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
     if (!DeviceInfo->Initialized[I])
       continue;
@@ -4269,8 +4309,8 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
         !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      SrcPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
-                       : DeviceInfo->getStagingBuffer().get();
+      SrcPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext(Size)
+                       : DeviceInfo->getStagingBuffer().get(Size);
       std::copy_n(static_cast<char *>(HstPtr), Size,
                   static_cast<char *>(SrcPtr));
     }
@@ -4332,8 +4372,8 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
         !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      DstPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
-                       : DeviceInfo->getStagingBuffer().get();
+      DstPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext(Size)
+                       : DeviceInfo->getStagingBuffer().get(Size);
     }
     int32_t RC;
     if (IsAsync)
@@ -5243,7 +5283,7 @@ int32_t CommandBatchTy::enqueueMemCopyTo(
   void *SrcPtr = Src;
   if (Size <= DeviceInfo->Option.StagingBufferSize &&
       DeviceInfo->getMemAllocType(Src) == ZE_MEMORY_TYPE_UNKNOWN) {
-    SrcPtr = DeviceInfo->getStagingBuffer().getNext();
+    SrcPtr = DeviceInfo->getStagingBuffer().getNext(Size);
     std::copy_n(static_cast<char *>(Src), Size, static_cast<char *>(SrcPtr));
   }
 
@@ -5268,7 +5308,7 @@ int32_t CommandBatchTy::enqueueMemCopyFrom(
   void *DstPtr = Dst;
   if (Size <= DeviceInfo->Option.StagingBufferSize &&
       DeviceInfo->getMemAllocType(Dst) == ZE_MEMORY_TYPE_UNKNOWN) {
-    DstPtr = DeviceInfo->getStagingBuffer().getNext();
+    DstPtr = DeviceInfo->getStagingBuffer().getNext(Size);
     // Delayed copy from staging buffer to host buffer
     MemCopyList.emplace_back(Dst, DstPtr, Size);
   }

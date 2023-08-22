@@ -1346,7 +1346,9 @@ public:
   const DebugLoc &getBranchDebugLoc() const { return BranchDbgLoc; }
   void setBranchDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
 
-  const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
+  const DebugLoc getDebugLoc() const override {
+    return getLLVMLoop() ? getLLVMLoop()->getStartLoc() : DebugLoc();
+  }
 
   OptReport getOptReport() const { return OR; }
   void setOptReport(OptReport R) { OR = R; }

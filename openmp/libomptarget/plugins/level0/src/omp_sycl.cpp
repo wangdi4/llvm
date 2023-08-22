@@ -57,7 +57,7 @@ public:
   omp_interop_t interop;        // Original openmp interop
 };
 
-std::vector<SyclWrapperTy *> SyclWrappers;
+std::vector<SyclWrapperTy *> *SyclWrappers = nullptr;
 std::unique_ptr<sycl::context> SyclContext;
 std::unique_ptr<sycl::platform> SyclPlatform;
 
@@ -80,12 +80,14 @@ EXTERN void __tgt_sycl_init_interop(omp_interop_t interop) {
           {ZeContext, SyclDevices,
            sycl::ext::oneapi::level_zero::ownership::keep}));
 
+  SyclWrappers = new std::vector<SyclWrapperTy *>();
+
   return;
 }
 
 EXTERN void *__tgt_sycl_get_interop(void *zedevice) {
 
-  for (auto obj : SyclWrappers)
+  for (auto obj : *SyclWrappers)
     if (obj->ZeDevice == zedevice)
       return static_cast<void *>(obj);
   return NULL;
@@ -125,7 +127,7 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop,
                                                              *SyclContext));
 
   SyclWrapperObj->interop = interop;
-  SyclWrappers.push_back(SyclWrapperObj);
+  SyclWrappers->push_back(SyclWrapperObj);
 
   // Update interop object by replacing  level0 with sycl
   TgtInterop->Platform = static_cast<void *>(SyclPlatform.get());
@@ -140,21 +142,24 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop,
 }
 
 EXTERN void __tgt_sycl_delete_interop_wrapper(omp_interop_t Interop) {
-  for (auto Itr = SyclWrappers.begin(), End = SyclWrappers.end(); Itr != End;
+  for (auto Itr = SyclWrappers->begin(), End = SyclWrappers->end(); Itr != End;
        ++Itr)
     if ((*Itr)->interop == Interop) {
       delete *Itr;
-      SyclWrappers.erase(Itr);
+      SyclWrappers->erase(Itr);
       DP("Deleted sycl wrapper for interop " DPxMOD "\n", DPxPTR(Interop));
       return;
     }
   DP("ERROR: Could not find sycl wrapper " DPxMOD "\n", DPxPTR(Interop));
 }
 
+// This routine can only be called after we are sure that no other
+// calls into sycl_omp are going to be done
 EXTERN void __tgt_sycl_delete_all_interop_wrapper() {
-  for (auto *Wrapper : SyclWrappers)
+  for (auto *Wrapper : *SyclWrappers)
     delete Wrapper;
-  SyclWrappers.clear();
+  SyclWrappers->clear();
+  delete SyclWrappers;
 }
 
 EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {

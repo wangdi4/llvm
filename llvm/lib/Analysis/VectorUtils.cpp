@@ -1728,6 +1728,18 @@ llvm::SmallVector<int, 64> llvm::createVectorStrideMask(unsigned Start,
 
   return Mask;
 }
+
+bool llvm::isOrUsesFPTy(Type *Ty) {
+  while (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty))
+    Ty = ArrTy->getElementType();
+
+  // StructType with a unique element type.
+  if (auto *StructTy = dyn_cast<StructType>(Ty))
+    if (StructTy->hasIdenticalElementTypes())
+      Ty = StructTy->getElementType(0);
+
+  return Ty->isFPOrFPVectorTy();
+}
 #endif // INTEL_CUSTOMIZATION
 
 llvm::SmallVector<int, 16> llvm::createSequentialMask(unsigned Start,

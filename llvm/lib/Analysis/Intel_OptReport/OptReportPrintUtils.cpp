@@ -1,6 +1,6 @@
 //===----- OptReportPrintUtils.cpp - Utils to print Loop Reports -*- C++ -*-==//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -141,28 +141,28 @@ std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
   return Msg;
 }
 
-void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Remark) {
+void printRemark(raw_ostream &OS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
-  FOS.indent(IntentationStep * Depth);
+  OS.indent(IntentationStep * Depth);
   std::string RemarkPrefixStr;
   unsigned RemarkID = Remark.getRemarkID();
   if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID))
     RemarkPrefixStr = "remark: ";
   else
     RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
-  FOS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
+  OS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
 }
 
-void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin) {
+void printOrigin(raw_ostream &OS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
-  FOS.indent(IntentationStep * Depth);
+  OS.indent(IntentationStep * Depth);
   unsigned RemarkID = Origin.getRemarkID();
-  FOS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
+  OS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
 }
 
-void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
-                        const DILocation *DL, bool AbsolutePaths) {
+void printDebugLocation(raw_ostream &OS, unsigned Depth, const DILocation *DL,
+                        bool AbsolutePaths) {
   assert(DL &&
          "Client code is responsible for providing non-null debug location");
 
@@ -170,66 +170,65 @@ void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
   SmallVector<char, 64> Path(Scope->getFilename().bytes());
   if (AbsolutePaths)
     sys::fs::make_absolute(Scope->getDirectory(), Path);
-  FOS << " at " << Path << " (" << DL->getLine() << ", " << DL->getColumn()
-      << ")\n";
+  OS << " at " << Path << " (" << DL->getLine() << ", " << DL->getColumn()
+     << ")\n";
 }
 
-void printNodeHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
-  FOS << '\n';
-  FOS.indent(IntentationStep * Depth);
-  FOS << OR.title() << " BEGIN";
+void printNodeHeader(raw_ostream &OS, unsigned Depth, OptReport OR) {
+  OS << '\n';
+  OS.indent(IntentationStep * Depth);
+  OS << OR.title() << " BEGIN";
 }
 
-void printNodeFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
-  FOS.indent(IntentationStep * Depth);
-  FOS << OR.title() << " END\n";
+void printNodeFooter(raw_ostream &OS, unsigned Depth, OptReport OR) {
+  OS.indent(IntentationStep * Depth);
+  OS << OR.title() << " END\n";
 }
 
-void printNodeHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
-                              OptReport OR, const DebugLoc &DL,
-                              bool AbsolutePaths) {
-  printNodeHeader(FOS, Depth, OR);
+void printNodeHeaderAndOrigin(raw_ostream &OS, unsigned Depth, OptReport OR,
+                              const DebugLoc &DL, bool AbsolutePaths) {
+  printNodeHeader(OS, Depth, OR);
 
   if (DL.get())
-    printDebugLocation(FOS, Depth, DL.get(), AbsolutePaths);
+    printDebugLocation(OS, Depth, DL.get(), AbsolutePaths);
   else if (OR && OR.debugLoc())
-    printDebugLocation(FOS, Depth, OR.debugLoc(), AbsolutePaths);
+    printDebugLocation(OS, Depth, OR.debugLoc(), AbsolutePaths);
   else
-    FOS << "\n";
+    OS << "\n";
 
   if (OR) {
     for (const OptRemark R : OR.origin()) {
-      printOrigin(FOS, Depth, R);
+      printOrigin(OS, Depth, R);
     }
   }
 }
 
-void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                            OptReport OR, bool AbsolutePaths) {
+void printEnclosedOptReport(raw_ostream &OS, unsigned Depth, OptReport OR,
+                            bool AbsolutePaths) {
   assert(OR && "Client code is responsible for providing non-null OptReport");
 
-  printNodeHeaderAndOrigin(FOS, Depth, OR, DebugLoc(), AbsolutePaths);
+  printNodeHeaderAndOrigin(OS, Depth, OR, DebugLoc(), AbsolutePaths);
 
-  printOptReport(FOS, Depth + 1, OR, AbsolutePaths);
-  printNodeFooter(FOS, Depth, OR);
+  printOptReport(OS, Depth + 1, OR, AbsolutePaths);
+  printNodeFooter(OS, Depth, OR);
 
   // After printing Optimization Report for the first child, we check whether it
   // has attached lost next sibling loops.
   if (OR.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
+    printEnclosedOptReport(OS, Depth, OR.nextSibling(), AbsolutePaths);
 }
 
-void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR,
+void printOptReport(raw_ostream &OS, unsigned Depth, OptReport OR,
                     bool AbsolutePaths) {
   assert(OR && "Client code is responsible for providing non-null OptReport");
 
   for (const OptRemark R : OR.remarks())
-    printRemark(FOS, Depth, R);
+    printRemark(OS, Depth, R);
 
   // After printing Optimization Report for the loop, we check whether it has
   // attached lost child loops opt reports.
   if (OR.firstChild())
-    printEnclosedOptReport(FOS, Depth, OR.firstChild(), AbsolutePaths);
+    printEnclosedOptReport(OS, Depth, OR.firstChild(), AbsolutePaths);
 }
 } // namespace OptReportUtils
 } // namespace llvm

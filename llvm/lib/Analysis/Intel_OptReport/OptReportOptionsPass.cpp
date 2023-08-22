@@ -1,6 +1,6 @@
 //===------------------ OptReportOptionsPass.cpp ---------------------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -98,27 +98,26 @@ bool llvm::optReportShouldUseAbsolutePathsInModule(Module &M) {
   return sys::path::is_absolute(M.getSourceFileName());
 }
 
-formatted_raw_ostream &OptReportOptions::getOutputStream() {
+raw_fd_ostream &OptReportOptions::getOutputStream() {
 
   // Use stdout and stderr if requested.
   if (OptReportFile == "stdout")
-    return fouts();
+    return outs();
   if (OptReportFile == "stderr")
-    return ferrs();
+    return errs();
 
-  // Attempt to open the specified file; fall back to stderr if that fails.
+  // Attempt to open the specified file; fall back to stdout if that fails.
   static std::error_code Error;
   static raw_fd_ostream File{OptReportFile, Error};
   if (Error) {
-    ferrs() << "warning #13022: could not open file '" << OptReportFile
-            << "' for optimization report output, reverting to stdout\n";
+    errs() << "warning #13022: could not open file '" << OptReportFile
+           << "' for optimization report output, reverting to stdout\n";
     OptReportFile = "stdout";
     return getOutputStream();
   }
 
   // If opening the file succeeded, use it for opt-report output.
-  static formatted_raw_ostream FormattedFile{File};
-  return FormattedFile;
+  return File;
 }
 
 char OptReportOptionsPass::ID = 0;

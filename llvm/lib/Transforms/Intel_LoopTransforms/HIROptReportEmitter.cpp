@@ -1,6 +1,6 @@
 //===---- HIROptReportEmitter.cpp - Prints Loop Optimization reports ------==//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -48,12 +48,12 @@ struct HIROptReportEmitter {
 };
 
 struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
-  formatted_raw_ostream &FOS;
+  raw_ostream &OS;
   unsigned Depth;
   bool AbsolutePaths;
 
-  HIROptReportEmitVisitor(formatted_raw_ostream &FOS, bool AbsolutePaths)
-      : FOS(FOS), Depth(0), AbsolutePaths(AbsolutePaths) {}
+  HIROptReportEmitVisitor(raw_ostream &OS, bool AbsolutePaths)
+      : OS(OS), Depth(0), AbsolutePaths(AbsolutePaths) {}
 
   bool skipRecursion(const HLNode *Node) {
     const HLLoop *L = dyn_cast<HLLoop>(Node);
@@ -70,27 +70,27 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   void visit(const HLRegion *Reg) {
     OptReport OR = Reg->getOptReport();
     if (OR && OR.firstChild())
-      printEnclosedOptReport(FOS, Depth, OR.firstChild(), AbsolutePaths);
+      printEnclosedOptReport(OS, Depth, OR.firstChild(), AbsolutePaths);
   }
 
   void visit(const HLLoop *Lp) {
     OptReport OR = Lp->getOptReport();
 
-    printNodeHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc(), AbsolutePaths);
+    printNodeHeaderAndOrigin(OS, Depth, OR, Lp->getDebugLoc(), AbsolutePaths);
 
     ++Depth;
     if (OR)
-      printOptReport(FOS, Depth, OR, AbsolutePaths);
+      printOptReport(OS, Depth, OR, AbsolutePaths);
   }
 
   void postVisit(const HLLoop *Lp) {
     OptReport OR = Lp->getOptReport();
 
     --Depth;
-    printNodeFooter(FOS, Depth, OR);
+    printNodeFooter(OS, Depth, OR);
 
     if (OR && OR.nextSibling())
-      printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
+      printEnclosedOptReport(OS, Depth, OR.nextSibling(), AbsolutePaths);
   }
 
   void visit(const HLNode *Node) {}
@@ -102,7 +102,7 @@ bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF,
   if (DisableHIROptReportEmitter)
     return false;
 
-  formatted_raw_ostream &OS = OptReportOptions::getOutputStream();
+  raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Report from: HIR Loop optimizations framework for : " << F.getName()
      << "\n";
 

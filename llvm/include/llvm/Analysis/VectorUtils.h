@@ -1289,6 +1289,10 @@ SmallVector<int, 64> createVectorInterleaveMask(unsigned VF, unsigned NumVecs,
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
 SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
                                             unsigned VF, unsigned VecWidth);
+
+/// Return true if given Type \p Ty is a FP type or uses FP type. Arrays and
+/// identical element-type Structs are accounted for in this utility.
+bool isOrUsesFPTy(Type *Ty);
 #endif // INTEL_CUSTOMIZATION
 
 /// Create a sequential shuffle mask.

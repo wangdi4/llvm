@@ -84,7 +84,7 @@ namespace vpo {
 bool ForceUDSReductionVec = true;
 bool EnableHIRPrivateArrays = false;
 bool EnableF90DVSupport = true;
-bool EnableHIRF90DVSupport = false;
+bool EnableHIRF90DVSupport = true;
 NestedSimdStrategies NestedSimdStrategy = NestedSimdStrategies::Outermost;
 } // namespace vpo
 } // namespace llvm

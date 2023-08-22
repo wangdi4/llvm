@@ -1,6 +1,6 @@
 //===---- MachineOptReportEmitter.cpp - Prints Optimization reports -------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,7 +22,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
 
 #define DEBUG_TYPE "intel-mir-optreport-emitter"
@@ -42,8 +41,8 @@ struct MachineOptReportEmitter : public MachineFunctionPass {
     initializeMachineOptReportEmitterPass(*PassRegistry::getPassRegistry());
   }
 
-  void printOptReportRecursive(MachineLoop *L, unsigned Depth,
-                               formatted_raw_ostream &FOS, bool AbsolutePaths);
+  void printOptReportRecursive(MachineLoop *L, unsigned Depth, raw_ostream &OS,
+                               bool AbsolutePaths);
 
   bool runOnMachineFunction(MachineFunction &F) override;
 
@@ -51,17 +50,18 @@ struct MachineOptReportEmitter : public MachineFunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
-void MachineOptReportEmitter::printOptReportRecursive(
-    MachineLoop *ML, unsigned Depth, formatted_raw_ostream &FOS,
-    bool AbsolutePaths) {
+void MachineOptReportEmitter::printOptReportRecursive(MachineLoop *ML,
+                                                      unsigned Depth,
+                                                      raw_ostream &OS,
+                                                      bool AbsolutePaths) {
 
   MDNode *LoopID = ML->getLoopID();
   OptReport OR = OptReport::findOptReportInLoopID(LoopID);
 
-  printNodeHeaderAndOrigin(FOS, Depth, OR, ML->getStartLoc(), AbsolutePaths);
+  printNodeHeaderAndOrigin(OS, Depth, OR, ML->getStartLoc(), AbsolutePaths);
 
   if (OR)
-    printOptReport(FOS, Depth + 1, OR, AbsolutePaths);
+    printOptReport(OS, Depth + 1, OR, AbsolutePaths);
 
   //
   // TODO (vzakhari 4/23/2018): the true/false successors of conditional
@@ -76,12 +76,12 @@ void MachineOptReportEmitter::printOptReportRecursive(
   for (auto I = GraphTraits<const MachineLoop *>::child_begin(EntryNode),
             E = GraphTraits<const MachineLoop *>::child_end(EntryNode);
        I != E; ++I)
-    printOptReportRecursive(*I, Depth + 1, FOS, AbsolutePaths);
+    printOptReportRecursive(*I, Depth + 1, OS, AbsolutePaths);
 
-  printNodeFooter(FOS, Depth, OR);
+  printNodeFooter(OS, Depth, OR);
 
   if (OR && OR.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OR.nextSibling(), AbsolutePaths);
+    printEnclosedOptReport(OS, Depth, OR.nextSibling(), AbsolutePaths);
 }
 
 bool MachineOptReportEmitter::runOnMachineFunction(MachineFunction &MF) {
@@ -91,7 +91,7 @@ bool MachineOptReportEmitter::runOnMachineFunction(MachineFunction &MF) {
   const Function &F = MF.getFunction();
   const MachineLoopInfo &MLI = getAnalysis<MachineLoopInfo>();
   const OptReportOptions &Options = getAnalysis<OptReportOptionsPass>().Impl;
-  formatted_raw_ostream &OS = OptReportOptions::getOutputStream();
+  raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Global Mloop optimization report for : " << F.getName() << "\n";
 
   // First check that there are attached reports to the function itself.

@@ -3635,57 +3635,61 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   VPReduction *VPRed = nullptr;
 
   // FastMathFlags for this reduction maybe attached to Exit or any of the
-  // LinkedVPValues.
+  // LinkedVPValues. Collect the flags only if recurrence type of the reduction
+  // is or uses FP type.
   FastMathFlags RedFMF;
-  if (Exit && Exit->hasFastMathFlags())
-    RedFMF = Exit->getFastMathFlags();
-  else {
-    for (auto *V : LinkedVPVals) {
-      if (auto *VPI = dyn_cast<VPInstruction>(V))
-        if (VPI->hasFastMathFlags()) {
-          RedFMF = VPI->getFastMathFlags();
-          break;
-        }
-    }
-    if (RedFMF.none() && AllocaInst) {
-      // For in-memory reductions, analyze the stored values using a worklist
-      // approach.
-      SmallVector<VPValue *, 4> Worklist;
-      Worklist.push_back(AllocaInst);
-
-      while (!Worklist.empty()) {
-        auto *CurrVal = Worklist.pop_back_val();
-
-        for (auto *User : CurrVal->users()) {
-          // If user is a memory alias, add the corresponding external def to
-          // the worklist.
-          if (auto *UserI = dyn_cast<VPInstruction>(User)) {
-            for (auto &KeyValPair : MemAliases) {
-              if (UserI == KeyValPair.second.first)
-                Worklist.push_back(KeyValPair.first);
-            }
+  if (isOrUsesFPTy(getRecType())) {
+    if (Exit && Exit->hasFastMathFlags())
+      RedFMF = Exit->getFastMathFlags();
+    else {
+      for (auto *V : LinkedVPVals) {
+        if (auto *VPI = dyn_cast<VPInstruction>(V))
+          if (VPI->hasFastMathFlags()) {
+            RedFMF = VPI->getFastMathFlags();
+            break;
           }
+      }
+      if (RedFMF.none() && AllocaInst) {
+        // For in-memory reductions, analyze the stored values using a worklist
+        // approach.
+        SmallVector<VPValue *, 4> Worklist;
+        Worklist.push_back(AllocaInst);
 
-          // If we encounter a GEP/subscript operating on alloca, then add to
-          // worklist.
-          if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
-            Worklist.push_back(VPGEP);
-          if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
-            Worklist.push_back(VPSub);
+        while (!Worklist.empty()) {
+          auto *CurrVal = Worklist.pop_back_val();
 
-          auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
-          if (!VPLS)
-            continue;
-          // Look through the stores that store into the alloca or gep that
-          // operates on alloca.
-          if (VPLS->getOpcode() != Instruction::Store)
-            continue;
-          if (CurrVal == VPLS->getPointerOperand())
-            if (auto *StoredVal = dyn_cast<VPInstruction>(VPLS->getOperand(0)))
-              if (StoredVal->hasFastMathFlags()) {
-                RedFMF = StoredVal->getFastMathFlags();
-                break;
+          for (auto *User : CurrVal->users()) {
+            // If user is a memory alias, add the corresponding external def to
+            // the worklist.
+            if (auto *UserI = dyn_cast<VPInstruction>(User)) {
+              for (auto &KeyValPair : MemAliases) {
+                if (UserI == KeyValPair.second.first)
+                  Worklist.push_back(KeyValPair.first);
               }
+            }
+
+            // If we encounter a GEP/subscript operating on alloca, then add to
+            // worklist.
+            if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
+              Worklist.push_back(VPGEP);
+            if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
+              Worklist.push_back(VPSub);
+
+            auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
+            if (!VPLS)
+              continue;
+            // Look through the stores that store into the alloca or gep that
+            // operates on alloca.
+            if (VPLS->getOpcode() != Instruction::Store)
+              continue;
+            if (CurrVal == VPLS->getPointerOperand())
+              if (auto *StoredVal =
+                      dyn_cast<VPInstruction>(VPLS->getOperand(0)))
+                if (StoredVal->hasFastMathFlags()) {
+                  RedFMF = StoredVal->getFastMathFlags();
+                  break;
+                }
+          }
         }
       }
     }

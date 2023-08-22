@@ -1,5 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes="vplan-vec,print" -disable-output -debug-only=vploop-analysis -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; NOTE: Check whether aliases are properly collected for Fortran private dope vector.
+; NOTE: In this test %"C1.addr_a0$_fetch.22" is the alias that is required to be processed.
 
 ; CHECK:      Aliases:
 ; CHECK-NEXT: ptr %"C1.dim_info$.spacing$"
@@ -22,10 +24,10 @@
 ; CHECK-NEXT:  %C1.priv.vec.base.addr = getelementptr %"QNCA_a0$i32*$rank1$", ptr %C1.priv.vec, <2 x i32> <i32 0, i32 1>
 
 ; CHECK:       VPlannedBB4:                                      ; preds = %VPlannedBB3, %VPlannedBB2
-; CHECK-NEXT:    %mm_vectorGEP6 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> <i32 6, i32 6>, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>
-; CHECK-NEXT:    %mm_vectorGEP7 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> zeroinitializer
-; CHECK-NEXT:    %wide.masked.gather = call <2 x ptr> @llvm.masked.gather.v2p0.v2p0(<2 x ptr> %mm_vectorGEP7, i32 8, <2 x i1> <i1 true, i1 true>, <2 x ptr> poison)
-; CHECK-NEXT:    %wide.masked.gather8 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> %mm_vectorGEP6, i32 8, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
+; CHECK-NEXT:    %mm_vectorGEP = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> <i32 6, i32 6>, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>
+; CHECK-NEXT:    %mm_vectorGEP6 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> zeroinitializer
+; CHECK-NEXT:    %wide.masked.gather = call <2 x ptr> @llvm.masked.gather.v2p0.v2p0(<2 x ptr> %mm_vectorGEP6, i32 8, <2 x i1> <i1 true, i1 true>, <2 x ptr> poison)
+; CHECK-NEXT:    %wide.masked.gather7 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> %mm_vectorGEP, i32 8, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    %10 = and i64 %0, 4294967294
 ; CHECK-NEXT:    br label %vector.body
 
