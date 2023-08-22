@@ -14688,7 +14688,8 @@ static Value *EmitX86MaskedStore(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   Value *Ptr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       Ops[0], llvm::PointerType::getUnqual(Ops[1]->getType()));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Ptr = Ops[0];
+  Value *Ptr = CGF.Builder.CreateAddrSpaceCast(
+      Ops[0], llvm::PointerType::getUnqual(Ops[1]->getType()));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Value *MaskVec = getMaskVecValue(
@@ -14705,7 +14706,8 @@ static Value *EmitX86MaskedLoad(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   Value *Ptr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       Ops[0], llvm::PointerType::getUnqual(Ty));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Ptr = Ops[0];
+  Value *Ptr = CGF.Builder.CreateAddrSpaceCast(
+      Ops[0], llvm::PointerType::getUnqual(Ops[1]->getType()));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Value *MaskVec = getMaskVecValue(
