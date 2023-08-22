@@ -8793,7 +8793,11 @@ void VPOCodeGenHIR::lowerRemarksForVectorLoops() {
     // Drop any existing opt-report and re-add the opt-report tracked
     // for current VPLoop to corresponding HIR loop. Remarks from prior
     // components are all captured in VPLoop's opt-report during VPlan CFG
-    // construction.
+    // construction.  Copy the HIR loop's debug location to ensure a source
+    // location is printed for all loops.
+    if (!OR.debugLoc() && HIRLp->getDebugLoc())
+      OR.setDebugLoc(HIRLp->getDebugLoc());
+
     HIRLp->eraseOptReport();
     HIRLp->setOptReport(OR);
   };
