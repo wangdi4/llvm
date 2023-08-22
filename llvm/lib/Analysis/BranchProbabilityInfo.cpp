@@ -48,6 +48,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/PatternMatch.h" // INTEL
 #include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -57,6 +58,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ScaledNumber.h" // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
@@ -147,6 +149,7 @@ static const BranchProbability
 static const BranchProbability
     PtrUntakenProb(PH_NONTAKEN_WEIGHT, PH_TAKEN_WEIGHT + PH_NONTAKEN_WEIGHT);
 
+using Scaled32 = ScaledNumber<uint32_t>; // INTEL
 using ProbabilityList = SmallVector<BranchProbability>;
 using ProbabilityTable = std::map<CmpInst::Predicate, ProbabilityList>;
 
@@ -664,9 +667,165 @@ void BranchProbabilityInfo::computeUnlikelySuccessorsWrapper(
   computeUnlikelySuccessors(BB, L, UnlikelyBlocks);
 }
 
-static void
-computeLikelySuccessors(const BasicBlock *BB, Loop *L,
-                          SmallPtrSetImpl<const BasicBlock*> &LikelyBlocks) {
+// JIRA: CMPLRLLVM-48247
+// Match hot loop in intel-weighted-averaging-pixels-loop.ll.
+static bool isHotWeightedAveragingPixelsLoop(const BasicBlock *BB, Loop *L) {
+  using namespace llvm::PatternMatch;
+  if (L->getNumBlocks() != 1 || L->getLoopDepth() != 5)
+    return false;
+
+  SmallPtrSet<const PHINode *, 4> UnvisitedPHIs;
+  for (const PHINode &PHI : BB->phis())
+    UnvisitedPHIs.insert(&PHI);
+  if (UnvisitedPHIs.size() != 4)
+    return false;
+
+  // Match trip count IV.
+  Instruction *Add;
+  BasicBlock *SucBB, *CurBB;
+  ICmpInst::Predicate Pred;
+  if (!match(BB->getTerminator(),
+             m_Br(m_ICmp(Pred, m_Instruction(Add), m_ZeroInt()),
+                  m_BasicBlock(SucBB), m_BasicBlock(CurBB))) ||
+      Pred != ICmpInst::ICMP_EQ || CurBB != BB)
+    return false;
+
+  Instruction *IV;
+  if (!match(Add, m_Add(m_Instruction(IV), m_SpecificInt(-1))) ||
+      !isa<PHINode>(IV) ||
+      cast<PHINode>(IV)->getIncomingValueForBlock(BB) != Add)
+    return false;
+
+  UnvisitedPHIs.erase(cast<PHINode>(IV));
+
+  // Find weighted average of pixels result from loop successor phi.
+  Value *Result = nullptr;
+  for (const PHINode &PHI : SucBB->phis()) {
+    FixedVectorType *ValTy = dyn_cast<FixedVectorType>(PHI.getType());
+    if (ValTy && ValTy->getNumElements() == 4 &&
+        ValTy->getElementType()->isDoubleTy()) {
+      if (Result)
+        return false;
+      Result = PHI.getIncomingValueForBlock(BB);
+    }
+  }
+  if (!Result)
+    return false;
+
+  // The loop has been unrolled twice. We need to collect each weight(K) and
+  // pixels which is used to calculate weight averaged pixels.
+  SmallVector<std::pair<Instruction *, Instruction *>, 2> AveragingSource;
+  std::function<void(Value *)> collectAveragingSource;
+  collectAveragingSource = [&AveragingSource,
+                            &collectAveragingSource](Value *FAdd) {
+    Instruction *Mul, *FAddOrPHI;
+    if (!match(FAdd, m_FAdd(m_Instruction(Mul), m_Instruction(FAddOrPHI))))
+      return;
+
+    if (Mul->getOpcode() != Instruction::FMul)
+      std::swap(Mul, FAddOrPHI);
+
+    Instruction *KShuffle, *UiToFp;
+    if (!match(Mul, m_FMul(m_Instruction(KShuffle), m_Instruction(UiToFp))))
+      return;
+
+    if (KShuffle->getOpcode() != Instruction::ShuffleVector)
+      std::swap(KShuffle, UiToFp);
+
+    Instruction *K;
+    if (!match(KShuffle,
+               m_Shuffle(
+                   m_InsertElt(m_Poison(), m_Load(m_Instruction(K)), m_Zero()),
+                   m_Poison(), m_ZeroMask())))
+      return;
+
+    Instruction *Pixels;
+    if (!match(UiToFp, m_UIToFP(m_Instruction(Pixels))))
+      return;
+
+    AveragingSource.push_back({K, Pixels});
+    if (FAddOrPHI->getOpcode() == Instruction::FAdd)
+      collectAveragingSource(FAddOrPHI);
+  };
+
+  collectAveragingSource(Result);
+  if (AveragingSource.size() != 2)
+    return false;
+
+  Instruction *K0 = AveragingSource[1].first;
+  Instruction *K1 = AveragingSource[0].first;
+
+  // Weight is double type in an array and fetched in descending index.
+  PHINode *KIV = nullptr;
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(K1)) {
+    if (GEP->getNumIndices() == 1 &&
+        match(GEP->idx_begin()->get(), m_SpecificInt(-8)))
+      KIV = dyn_cast<PHINode>(GEP->getPointerOperand());
+  }
+
+  if (!KIV || KIV != K0)
+    return false;
+
+  auto *KGEP = dyn_cast<GetElementPtrInst>(KIV->getIncomingValueForBlock(BB));
+  if (!KGEP || KGEP->getNumIndices() != 1 || KGEP->getPointerOperand() != KIV ||
+      !match(KGEP->idx_begin()->get(), m_SpecificInt(-16)))
+    return false;
+
+  UnvisitedPHIs.erase(KIV);
+
+  // Pixels is <4 x i16> vector type in an array and fetched in ascending index.
+  // Each iteration loads 2 x <4 x i16> pixels and they are splited using
+  // shuffle.
+  Instruction *PixelsLoad, *PixelsAddr;
+  Instruction *Pixels0 = AveragingSource[1].second;
+  Instruction *Pixels1 = AveragingSource[0].second;
+  ArrayRef<int> Mask0, Mask1;
+  if (!match(Pixels0,
+             m_Shuffle(m_Instruction(PixelsLoad), m_Undef(), m_Mask(Mask0))) ||
+      !match(Pixels1,
+             m_Shuffle(m_Specific(PixelsLoad), m_Undef(), m_Mask(Mask1))) ||
+      !match(PixelsLoad, m_Load(m_Instruction(PixelsAddr))) ||
+      !isa<PHINode>(PixelsAddr))
+    return false;
+
+  unsigned PixelsWidth = 0;
+  int StartIndex0, StartIndex1;
+  if (auto *ValTy = dyn_cast<FixedVectorType>(PixelsLoad->getType()))
+    PixelsWidth = ValTy->getNumElements();
+  if (PixelsWidth != 8 ||
+      !ShuffleVectorInst::isExtractSubvectorMask(Mask0, PixelsWidth,
+                                                 StartIndex0) ||
+      !ShuffleVectorInst::isExtractSubvectorMask(Mask1, PixelsWidth,
+                                                 StartIndex1) ||
+      StartIndex0 != 0 || StartIndex1 != 4)
+    return false;
+
+  PHINode *PixelsAddrIV = cast<PHINode>(PixelsAddr);
+  auto *PixelsAddrGEP =
+      dyn_cast<GetElementPtrInst>(PixelsAddrIV->getIncomingValueForBlock(BB));
+  if (!PixelsAddrGEP || PixelsAddrGEP->getNumIndices() != 1 ||
+      PixelsAddrGEP->getPointerOperand() != PixelsAddr ||
+      !match(PixelsAddrGEP->idx_begin()->get(), m_SpecificInt(16)))
+    return false;
+
+  UnvisitedPHIs.erase(PixelsAddrIV);
+  return UnvisitedPHIs.size() == 1 &&
+         (*UnvisitedPHIs.begin())->getIncomingValueForBlock(BB) == Result;
+}
+
+static void computeLikelySuccessors(
+    const BasicBlock *BB, Loop *L,
+    SmallDenseMap<const BasicBlock *, Scaled32> &LikelyBlocks) {
+
+  // This loop real trip count is far more than estimated TC. The inaccurate
+  // probalility leads RA splits register in this loop which is bad idea. Here
+  // we detect this loop and multiply back edge weight by factor 3 to increase
+  // the loop trip count.
+  if (isHotWeightedAveragingPixelsLoop(BB, L)) {
+    LikelyBlocks[BB] = Scaled32::getFraction(3, 1);
+    return;
+  }
+
   // Consider the following C code example:
   //  int n = a;
   //  while (...) {
@@ -766,7 +925,8 @@ computeLikelySuccessors(const BasicBlock *BB, Loop *L,
         {
           for(const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
             if ((*I)->getSingleSuccessor() ==  B)
-              LikelyBlocks.insert(*I);
+              LikelyBlocks[*I] =
+                  Scaled32::getFraction(LBH_LIKELY_WEIGHT, LBH_TAKEN_WEIGHT);
         }
       }
     }
@@ -1207,7 +1367,8 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  SmallPtrSet<const BasicBlock*, 8> LikelyBlocks;
+  // Map LikelyBlock to its scale.
+  SmallDenseMap<const BasicBlock *, Scaled32> LikelyBlocks;
   if (L)
     computeLikelySuccessors(BB, L, LikelyBlocks);
 #endif // INTEL_CUSTOMIZATION
@@ -1252,11 +1413,12 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
     bool IsLikelyEdge = LoopBB.getLoop() && LikelyBlocks.contains(SuccBB);
     if (IsLikelyEdge &&
         Weight != static_cast<uint32_t>(BlockExecWeight::ZERO)) {
-      Weight = std::max(
-          static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
-          Weight.value_or(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
-                            LBH_LIKELY_WEIGHT) /
-              LBH_TAKEN_WEIGHT);
+      Scaled32 ScaledWeight =
+          Scaled32::get(Weight.value_or(
+              static_cast<uint32_t>(BlockExecWeight::DEFAULT))) *
+          LikelyBlocks[SuccBB];
+      Weight = std::max(static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
+                        ScaledWeight.toInt<uint32_t>());
     }
 #endif // INTEL_CUSTOMIZATION
 
