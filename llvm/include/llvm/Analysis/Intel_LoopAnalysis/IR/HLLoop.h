@@ -907,13 +907,18 @@ public:
   }
 
   /// Adds all symbases attached at Ref as live out to the loop
-  void addLiveOutTemp(const RegDDRef *Ref) {
+  /// \p OnlyNonLinear is set if only NonLinear SBs should be added
+  void addLiveOutTemp(const RegDDRef *Ref, bool OnlyNonLinear = false) {
     if (Ref->isSelfBlob()) {
-      addLiveOutTemp(Ref->getSymbase());
+      if (!OnlyNonLinear || Ref->isNonLinear()) {
+        addLiveOutTemp(Ref->getSymbase());
+      }
     }
 
     for (auto DRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
-      addLiveOutTemp(DRef->getSymbase());
+      if (!OnlyNonLinear || DRef->isNonLinear()) {
+        addLiveOutTemp(DRef->getSymbase());
+      }
     }
   }
 
