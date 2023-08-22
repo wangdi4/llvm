@@ -1339,25 +1339,20 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add the PSTL header search directory before the standard search
   // directories.  This will be done for both host and device compilations
-  // in the presence of -fsycl -fsycl-pstl-offload.  The location is based on
-  // known installation locations for the unified directory structure, unless
-  // the use of DPL_ROOT is provided, which will override.
+  // in the presence of -fsycl -fsycl-pstl-offload.
   if (JA.isOffloading(Action::OFK_SYCL) &&
       Args.hasArg(options::OPT_fsycl_pstl_offload_EQ)) {
     Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ);
     StringRef Value(A->getValue());
-    SmallString<128> HeaderBase(D.Dir);
-    llvm::sys::path::append(HeaderBase, "..", "..");
     if (Value != "off") {
-      std::optional<std::string> DPLRoot =
-          llvm::sys::Process::GetEnv("DPL_ROOT");
-      if (DPLRoot)
-        HeaderBase = *DPLRoot;
+      SmallString<128> HeaderBase(getToolChain().GetDPLIncludePath());
+      SmallString<128> OffloadBase(HeaderBase);
+      llvm::sys::path::append(OffloadBase, "pstl_offload");
+      CmdArgs.push_back("-internal-isystem");
+      CmdArgs.push_back(Args.MakeArgString(OffloadBase));
+      CmdArgs.push_back("-internal-isystem");
+      CmdArgs.push_back(Args.MakeArgString(HeaderBase));
     }
-    llvm::sys::path::append(HeaderBase, "include", "oneapi", "pstl",
-                            "pstl_offload");
-    CmdArgs.push_back("-internal-isystem");
-    CmdArgs.push_back(Args.MakeArgString(HeaderBase));
   }
 
   // Add the AC Types header directories before the SYCL headers

@@ -1409,6 +1409,36 @@ static const std::string getIntelBasePath(const std::string DriverDir) {
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 }
 
+// The location is based on known installation locations for the unified
+// directory structure, unless the use of DPL_ROOT is provided, which will
+// override.
+static std::string getDPLBasePath(const std::string DriverDir) {
+  SmallString<128> DPLDir(DriverDir);
+  llvm::sys::path::append(DPLDir, "..", "..");
+  std::optional<std::string> DPLRoot = llvm::sys::Process::GetEnv("DPL_ROOT");
+  if (DPLRoot)
+    DPLDir = *DPLRoot;
+  return std::string(DPLDir.str());
+}
+
+std::string ToolChain::GetDPLIncludePath() const {
+  SmallString<128> P(getDPLBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return std::string(P);
+}
+
+std::string ToolChain::GetDPLLibPath() const {
+  SmallString<128> P(getDPLBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "lib");
+  return std::string(P);
+}
+
+// Add oneDPL specific library search path
+void ToolChain::AddDPLLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                              std::string Opt) const {
+  CmdArgs.push_back(Args.MakeArgString(Opt + GetDPLLibPath()));
+}
+
 static std::string getIPPBasePath(const ArgList &Args,
                                   const std::string DriverDir) {
   const char * IPPRoot = getenv("IPPROOT");
