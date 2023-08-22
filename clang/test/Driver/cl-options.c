@@ -780,8 +780,12 @@
 // JMCWARN: /JMC requires debug info. Use '/Zi', '/Z7' or debug options that enable debugger's stepping function; option ignored
 
 // RUN: %clang_cl /JMC /c -### -- %s 2>&1 | FileCheck %s --check-prefix NOJMC
-// RUN: %clang_cl /JMC /Z7 /JMC- /c -### -- %s 2>&1 | FileCheck %s --check-prefix NOJMC
 // NOJMC-NOT: -fjmc
+
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl /JMC /Z7 /JMC- /c -### -- %s 2>&1 | FileCheck %s --check-prefix FNOJMC
+// FNOJMC-NOT: "-fjmc"{{.*}} "-dwarf-debug-flags{{.*}}"
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cl /JMC /Z7 /c -### -- %s 2>&1 | FileCheck %s --check-prefix JMC
 // JMC: -fjmc

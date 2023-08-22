@@ -582,7 +582,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         // optimization are disabled, which may take considerable time to
         // track down compilation issues.
         // To improve user experience, warn users in this scenario.
-        if (Arg *A = Args.getLastArgNoClaim(options::OPT_g_Group,
+        if (const Arg *A = Args.getLastArgNoClaim(options::OPT_g_Group,
                                             options::OPT_intel_debug_Group,
                                             options::OPT__SLASH_Z7)) {
           bool emitremark = true;
@@ -591,6 +591,8 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
               emitremark = false;
             }
           }
+	  while (A->getAlias())
+            A = A->getAlias();
           if (emitremark)
             Diags.setSeverity(
                 diag::remark_use_of_debug_turn_off_optimization_level,

@@ -10753,7 +10753,7 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Run the preprocessor, parser and semantic analysis stages">,
   Alias<fsyntax_only>;
 #if INTEL_CUSTOMIZATION
-def _SLASH_ZI : CLFlag<"ZI">, Alias<_SLASH_Z7>, HelpText<"Like /Z7">;
+def _SLASH_ZI : CLFlag<"ZI">, Alias<g_Flag>, HelpText<"Like /Z7">;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_openmp_ : CLFlag<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
