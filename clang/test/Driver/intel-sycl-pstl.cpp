@@ -1,15 +1,17 @@
 /// Tests general behaviors of -fsycl-pstl-offload
 
-// RUN: %clangxx -fsycl -fsycl-pstl-offload -c -### %s 2>&1 \
-// RUN:   | FileCheck %s --check-prefix=PSTL_DEFAULT
-// RUN: %clang_cl /fsycl /fsycl-pstl-offload -c -### %s 2>&1 \
+// RUN: %clangxx --target=x86_64-unknown-linux-gnu -fsycl -fsycl-pstl-offload -### %s 2>&1 \
+// RUN:   | FileCheck %s --check-prefixes=PSTL_DEFAULT,PSTL_DEFAULT_LINUX
+// RUN: %clang_cl /fsycl /fsycl-pstl-offload -### %s 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=PSTL_DEFAULT
 // PSTL_DEFAULT: clang{{.*}} "-fsycl-is-device"
 // PSTL_DEFAULT-SAME: "-D__SYCL_PSTL_OFFLOAD__=1"
-// PSTL_DEFAULT-SAME: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
+// PSTL_DEFAULT-SAME: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
 // PSTL_DEFAULT: clang{{.*}} "-fsycl-is-host"
 // PSTL_DEFAULT-SAME: "-D__SYCL_PSTL_OFFLOAD__=1"
-// PSTL_DEFAULT-SAME: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
+// PSTL_DEFAULT-SAME: "-internal-isystem" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
+// PSTL_DEFAULT_LINUX: ld{{.*}} "-L{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}lib"
+// PSTL_DEFAULT_LINUX-SAME: "-lpstloffload"
 
 // RUN: %clangxx -fsycl -fsycl-pstl-offload=gpu -c -### %s 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=PSTL_GPU
@@ -45,15 +47,17 @@
 // PSTL_UNUSED: argument unused during compilation: '{{.*}}fsycl-pstl-offload'
 
 // RUN: env DPL_ROOT=dplrootval \
-// RUN: %clangxx -fsycl -fsycl-pstl-offload -c -### %s 2>&1 \
-// RUN:   | FileCheck %s --check-prefix=PSTL_DPL_ROOT
+// RUN: %clangxx -fsycl -fsycl-pstl-offload --target=x86_64-unknown-linux-gnu -### %s 2>&1 \
+// RUN:   | FileCheck %s --check-prefixes=PSTL_DPL_ROOT,PSTL_DPL_ROOT_LINUX
 // RUN: env DPL_ROOT=dplrootval \
-// RUN: %clang_cl /fsycl /fsycl-pstl-offload -c -### %s 2>&1 \
+// RUN: %clang_cl /fsycl /fsycl-pstl-offload -### %s 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=PSTL_DPL_ROOT
 // PSTL_DPL_ROOT: clang{{.*}} "-fsycl-is-device"
-// PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
+// PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
 // PSTL_DPL_ROOT: clang{{.*}} "-fsycl-is-host"
-// PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}oneapi{{(/|\\\\)}}pstl{{(/|\\\\)}}pstl_offload"
+// PSTL_DPL_ROOT-SAME: "-internal-isystem" "dplrootval{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
+// PSTL_DPL_ROOT_LINUX: ld{{.*}} "-Ldplrootval{{(/|\\\\)}}lib"
+// PSTL_DPL_ROOT_LINUX-SAME: "-lpstloffload"
 
 // RUN: %clangxx -help -### 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=PSTL_HELP
