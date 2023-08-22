@@ -24,9 +24,15 @@ macro(add_sycl_library_unittest test_suite_name)
   set(_OUTPUT_BIN ${CMAKE_CURRENT_BINARY_DIR}/${test_suite_name}Tests)
   set(_TESTS_TARGET ${test_suite_name}Tests)
   set(_BIN_TARGET ${_TESTS_TARGET}_bin)
-  set(_LLVM_TARGET_DEPENDENCIES
-    "llvm_gtest_main;llvm_gtest;LLVMTestingSupport;LLVMSupport;LLVMDemangle")
-
+# INTEL_CUSTOMIZATION
+  if(WIN32)
+    set(_LLVM_TARGET_DEPENDENCIES
+      "llvm_gtest_main_dyn;llvm_gtest_dyn;LLVMTestingSupport_dyn;LLVMSupport_dyn;LLVMDemangle")
+  else()
+    set(_LLVM_TARGET_DEPENDENCIES
+      "llvm_gtest_main;llvm_gtest;LLVMTestingSupport;LLVMSupport;LLVMDemangle")
+  endif()
+# end INTEL_CUSTOMIZATION
   if (NOT SYCL_COMPAT_UNITTEST_GCC_TOOLCHAIN STREQUAL "")
     set(_GCC_TOOLCHAIN "--gcc-toolchain=${SYCL_COMPAT_UNITTEST_GCC_TOOLCHAIN}")
   else()
