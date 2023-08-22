@@ -128,6 +128,13 @@ public:
     return const_cast<HLDDNode *>(this)->ddref_rend();
   }
 
+  iterator_range<ddref_iterator> ddrefs() {
+    return make_range(ddref_begin(), ddref_end());
+  }
+  iterator_range<const_ddref_iterator> ddrefs() const {
+    return make_range(ddref_begin(), ddref_end());
+  }
+
   /// This traversal includes all RegDDRefs and associated BlobDDRefs
   const_all_ddref_iterator all_dd_begin() const {
     return const_all_ddref_iterator(ddref_begin());
