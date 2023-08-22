@@ -92,7 +92,7 @@
 ; HIR-NEXT:   %extract.1. = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; HIR-NEXT:   %_f90_dope_vector_init22 = @_f90_dope_vector_init2(%extract.1.,  %"sum_$C1.priv");
 ; HIR-NEXT:   %serial.temp = insertelement %serial.temp,  %_f90_dope_vector_init22,  1;
-; HIR-NEXT:   %llvm.stacksave = @llvm.stacksave();
+; HIR-NEXT:   %llvm.stacksave.p0 = @llvm.stacksave.p0();
 ; HIR-NEXT:   %.vec4 = %serial.temp  /u  8;
 ; HIR-NEXT:   %.vec5 = %serial.temp > 0;
 ; HIR-NEXT:   %extract.0.6 = extractelement %.vec5,  0;
