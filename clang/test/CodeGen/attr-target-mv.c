@@ -19,7 +19,6 @@ int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
-int __attribute__((target("arch=gracemont"))) foo(void) {return 16;}  // INTEL
 int __attribute__((target("arch=raptorlake"))) foo(void) {return 14;}
 int __attribute__((target("arch=meteorlake"))) foo(void) {return 15;}
 int __attribute__((target("arch=sierraforest"))) foo(void) {return 16;}
