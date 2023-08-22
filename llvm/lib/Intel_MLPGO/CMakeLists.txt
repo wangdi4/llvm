@@ -47,8 +47,8 @@ file(COPY ${ONNX_FILES} DESTINATION ${ONNX_DIR})
 
 set(onnxruntime_INCLUDE_DIRS ${ONNX_DIR}/include)
 set(onnxruntime_CXX_FLAGS "") # no flags needed
-
-find_library(onnxruntime_LIBRARY onnxruntime PATHS "${ONNX_DIR}/lib")
+set(onnxruntime_NAME "onnxruntime.1.12.22.721")
+find_library(onnxruntime_LIBRARY "${onnxruntime_NAME}" PATHS "${ONNX_DIR}/lib")
 
 add_library(onnxruntime SHARED IMPORTED)
 
@@ -58,11 +58,11 @@ set_property(TARGET onnxruntime PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${onnxru
 set_property(TARGET onnxruntime PROPERTY INTERFACE_COMPILE_OPTIONS "${onnxruntime_CXX_FLAGS}")
 if(WIN32)
     set_target_properties(onnxruntime PROPERTIES
-      IMPORTED_IMPLIB "${ONNX_DIR}/lib/onnxruntime.lib"
-      IMPORTED_LOCATION "${ONNX_DIR}/lib/onnxruntime.dll"
+      IMPORTED_IMPLIB "${ONNX_DIR}/lib/${onnxruntime_NAME}.lib"
+      IMPORTED_LOCATION "${ONNX_DIR}/lib/${onnxruntime_NAME}.dll"
     )
     # copy ONNX runtime to the build so it can be found during LIT testing
-    file(COPY "${ONNX_DIR}/lib/onnxruntime.dll" DESTINATION ${CMAKE_BINARY_DIR}/bin)
+    file(COPY "${ONNX_DIR}/lib/${onnxruntime_NAME}.dll" DESTINATION ${CMAKE_BINARY_DIR}/bin)
 else()
     file(COPY ${onnxruntime_LIBRARY}  DESTINATION ${CMAKE_BINARY_DIR}/lib FOLLOW_SYMLINK_CHAIN)
 endif()
@@ -71,26 +71,6 @@ install(IMPORTED_RUNTIME_ARTIFACTS onnxruntime
     RUNTIME DESTINATION "bin" COMPONENT onnxruntime
     LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT onnxruntime
 )
-
-if(WIN32)
-# Some Windows distributions carry their own onnxruntime.dll in C:/Windows/system32.
-# Those can clash with our onnxruntime.dll because the DLL are searched in
-# the system folders before they are searched in PATH. But even higher preference is
-# given to DLL that are in the same folder as the app using it. We already installed
-# it to "bin", so do the same to "bin/compiler".
-#
-# NOTE: oddly the symbolic links while are being created not loaded correctly afterwards.
-# So install a copy of onnxruntime.dll until we have a better solution.
-#
-#   install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-#       \"../onnxruntime.dll\"
-#       \"${CMAKE_INSTALL_PREFIX}/bin/compiler/onnxruntime.dll\")"
-#       COMPONENT onnxruntime)
-
-    install(FILES "${ONNX_DIR}/lib/onnxruntime.dll"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/compiler/"
-        COMPONENT onnxruntime)
-endif()
 
 find_package_handle_standard_args(onnxruntime DEFAULT_MSG onnxruntime_LIBRARY onnxruntime_INCLUDE_DIRS)
 
