@@ -803,16 +803,12 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
                              {VTableOffset->getType()}),
             {VTable, VTableOffset});
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
 #if INTEL_COLLAB
         VirtualFn =
             CGF.Builder.CreateBitCastFPT(VirtualFn, FTy->getPointerTo());
 #else // INTEL_COLLAB
         VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
 #endif // INTEL_COLLAB
-=======
-        VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
->>>>>>> f727cee48dfcb484aac39105efb66fc2e388fe97
 #endif
       } else {
         llvm::Value *VFPAddr =
@@ -2307,17 +2303,11 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       llvm::Value *Load = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
-<<<<<<< HEAD
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCastFPT(Load, TyPtr);
 #else // INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
 #endif // INTEL_COLLAB
-=======
-
-      VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
->>>>>>> f727cee48dfcb484aac39105efb66fc2e388fe97
 #endif
     } else {
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
