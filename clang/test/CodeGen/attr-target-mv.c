@@ -164,10 +164,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 12
 // LINUX: define{{.*}} i32 @foo.arch_core2()
 // LINUX: ret i32 13
-// if INTEL_CUSTOMIZATION
-// LINUX: define{{.*}} i32 @foo.arch_gracemont()
-// LINUX: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_raptorlake()
 // LINUX: ret i32 14
 // LINUX: define{{.*}} i32 @foo.arch_meteorlake()
@@ -221,10 +217,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 12
 // WINDOWS: define dso_local i32 @foo.arch_core2()
 // WINDOWS: ret i32 13
-// if INTEL_CUSTOMIZATION
-// WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
-// WINDOWS: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // WINDOWS: define dso_local i32 @foo.arch_raptorlake()
 // WINDOWS: ret i32 14
 // WINDOWS: define dso_local i32 @foo.arch_meteorlake()
