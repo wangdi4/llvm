@@ -4782,10 +4782,6 @@ The following is the syntax for constant expressions:
     Perform a logical right shift on constants.
 ``ashr (LHS, RHS)``
     Perform an arithmetic right shift on constants.
-``and (LHS, RHS)``
-    Perform a bitwise and on constants.
-``or (LHS, RHS)``
-    Perform a bitwise or on constants.
 ``xor (LHS, RHS)``
     Perform a bitwise xor on constants.
 
