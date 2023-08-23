@@ -30,12 +30,12 @@ define ptr @foo_(ptr noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 %"foo_$NG_fetch" to i64
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     ptr [[VP6:%.*]] = subscript inbounds ptr @mod1_mp_weight_ i64 [[VP4]] i64 [[VP5]] i64 0
+; CHECK-NEXT:     ptr [[VP6:%.*]] = subscript inbounds ptr @mod1_mp_weight_ i64 0 i64 [[VP4]] i64 [[VP5]] i64 0
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ;
 ; CHECK-LABEL:  BEGIN REGION { modified }
-; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[%"foo_$NG_fetch"][<i64 0, i64 1> + 1][0]);
-; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[%"foo_$NG_fetch"][<i64 0, i64 1> + 3][0]);
+; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[0][%"foo_$NG_fetch"][<i64 0, i64 1> + 1][0]);
+; CHECK-NEXT:         %liveoutcopy = &((<2 x ptr>)(@mod1_mp_weight_)[0][%"foo_$NG_fetch"][<i64 0, i64 1> + 3][0]);
 ; CHECK-NEXT:         %"mod1_mp_weight_[][][]" = extractelement %liveoutcopy,  1;
 ; CHECK:        END REGION
 ;

@@ -10,7 +10,7 @@
 ; CHECK: |   + DO i2 = 0, 14, 1   <DO_LOOP>
 ; CHECK: |   |   + DO i3 = 0, 27, 1   <DO_LOOP>
 ; CHECK: |   |   |   + DO i4 = 0, 18, 1   <DO_LOOP>
-; CHECK: |   |   |   |   (%i79)[i1][i2][i3][i4] = 0.000000e+00;
+; CHECK: |   |   |   |   (%i79)[0][i1][i2][i3][i4] = 0.000000e+00;
 ; CHECK: |   |   |   + END LOOP
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP

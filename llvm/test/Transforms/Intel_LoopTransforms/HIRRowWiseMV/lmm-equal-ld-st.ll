@@ -33,7 +33,7 @@
 ; CHECK-CHANGED: Dump Before HIRTempCleanup
 ; CHECK-CHANGED-NOT: Dump After HIRRowWiseMV
 
-define void @lmm-equal-ld-st(double* %A, double* %b) #0 {
+define void @lmm-equal-ld-st(ptr %A, ptr %b) #0 {
 entry:
   br label %L1
 
@@ -45,12 +45,12 @@ L1:
 L2:
   %j = phi i64 [ 0, %L1 ], [ %j.next, %L2 ]
   %A_ind = add nuw nsw i64 %A_row, %j
-  %Aijp = getelementptr inbounds double, double* %A, i64 %A_ind
-  %Aij = load double, double* %Aijp
-  %bjp = getelementptr inbounds double, double* %b, i64 %j
-  %bj = load double, double* %bjp, align 8
+  %Aijp = getelementptr inbounds double, ptr %A, i64 %A_ind
+  %Aij = load double, ptr %Aijp
+  %bjp = getelementptr inbounds double, ptr %b, i64 %j
+  %bj = load double, ptr %bjp, align 8
   %bj.next = fadd nnan nsz arcp afn reassoc double %bj, %Aij
-  store double %bj.next, double* %bjp, align 8
+  store double %bj.next, ptr %bjp, align 8
   %j.next = add nuw nsw i64 %j, 1
   %L2.cond = icmp ne i64 %j.next, 32
   br i1 %L2.cond, label %L2, label %L1.latch

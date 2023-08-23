@@ -3,7 +3,7 @@
 ; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s --check-prefix=VPLAN-CM-DEF
 ; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 -march=+sse | FileCheck %s --check-prefix=VPLAN-CM-SSE
 
-; The test checks that SLP patterns in both functions are found to be profitable for
+; The test checks that SLP patterns in all functions are found to be profitable for
 ; SSE-able target, and none is profitable for target w/o SSE.
 
 ; VPLAN-CM-DEF-NOT: Cost decrease due to SLP breaking heuristic is

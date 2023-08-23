@@ -135,6 +135,26 @@ bool VPlanSlp::isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const {
   return true;
 }
 
+bool VPlanSlp::isSplatVector(ArrayRef<const VPValue *> Values) const {
+  assert(!Values.empty() && "Empty array/vector is not expected.");
+
+  if (Values.empty())
+    return false;
+
+  return llvm::all_of(Values,
+                      [&Values](const VPValue *V) { return V == Values[0]; });
+}
+
+bool VPlanSlp::isConstVector(ArrayRef<const VPValue *> Values) const {
+  assert(!Values.empty() && "Empty array/vector is not expected.");
+
+  if (Values.empty())
+    return false;
+
+  return llvm::all_of(Values, [&Values](const VPValue *V) {
+    return isa<VPConstant>(V) && (V->getType() == Values[0]->getType()); });
+}
+
 VPInstructionCost VPlanSlp::getVectorCost(const VPInstruction *Base,
                                           unsigned VF, bool IsUnitMemref,
                                           bool IsMasked) const {
@@ -164,7 +184,7 @@ VPInstructionCost VPlanSlp::getVectorCost(const VPInstruction *Base,
   return CM->getTTICostForVF(Base, VF);
 }
 
-bool VPlanSlp::areVectorizable(
+bool VPlanSlp::areVectorizableInsts(
     ArrayRef<const VPValue *> Values,
     SmallVectorImpl<const VPInstruction *> &Insts) const {
   assert(!Values.empty() && "Missed operands.");
@@ -282,11 +302,55 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference(
   if (SlpReportDetailLevel >= 1) {
     LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # " << BundleID
                       << '/' << GraphID << " in " << BB->getName()
-                      << ", vector: "  << VecCost << ", scalar:" << ScalCost
+                      << ", vector: " << VecCost << ", scalar: " << ScalCost
                       << '\n');
   }
 
   return VecCost - ScalCost;
+}
+
+VPInstructionCost
+VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
+  if (Values.empty())
+    return VPInstructionCost::getUnknown();
+
+  // Support for the vector of constants: the cost of a scalar constant value
+  // and the cost of a vector constant are both assumed to be 0 as constant
+  // is encoded as a part of HW instruction.
+  if (isConstVector(Values)) {
+    if (SlpReportDetailLevel >= 1) {
+      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
+                        << BundleID << '/' << GraphID << " in " << BB->getName()
+                        << ", vector: "  << TTI::TCC_Free << ", scalar: "
+                        << TTI::TCC_Free << '\n');
+    }
+    return TTI::TCC_Free;
+  }
+
+  // Support for a splat vector: the scalar cost is a cost of a single scalar
+  // instruction, the vector cost is the cost of broadcast instruction plus
+  // the cost of a single scalar instruction.
+  if (isSplatVector(Values) && isa<VPInstruction>(Values[0])) {
+    VectorType *VecTy;
+    const VPInstruction *Inst = cast<VPInstruction>(Values[0]);
+
+    if (const auto *InstMem = dyn_cast<VPLoadStoreInst>(Inst))
+      VecTy = getWidenedType(InstMem->getValueType(), Values.size());
+    else
+      VecTy = getWidenedType(Inst->getType(), Values.size());
+
+    auto DiffCost = CM->TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+
+    if (SlpReportDetailLevel >= 1) {
+      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
+                        << BundleID << '/' << GraphID << " in " << BB->getName()
+                        << ", vector: X + "  << DiffCost << ", scalar: X\n");
+    }
+
+    return DiffCost;
+  }
+
+  return VPInstructionCost::getUnknown();
 }
 
 VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
@@ -307,33 +371,32 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
     BundleID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    bool Vectorizable = areVectorizable(Values, Insts);
-    VPInstructionCost VCost = VPInstructionCost::getInvalid();
+    unsigned VL = Values.size();
+    VPInstructionCost VCost = estimateSLPCostDifference(Values);
 
-    if (Vectorizable)
+    // If 'VPValue' based estimateSLPCostDifference() fails, try to find
+    // vectoriable VPInstructions by areVectorizableInsts().
+    if (!VCost.isValid() && areVectorizableInsts(Values, Insts)) {
       VCost = estimateSLPCostDifference(Insts);
+      VL = Insts.size();
+    }
 
     if (SlpReportDetailLevel >= 1) {
-      LLVM_DEBUG(dbgs()
-        << "VSLP: bundle/graph " << BundleID << '/' << GraphID << " in "
-        << BB->getName() << " is" << (Vectorizable ? " " : " not ")
-        << "vectorizable with VL = " << Insts.size() << ":\n";
-        for (const auto *V : Values) {
-          dbgs() << '\t';
-          if (const auto *I = dyn_cast<VPInstruction>(V))
-            I->printWithoutAnalyses(dbgs());
-          else
-            V->printAsOperand(dbgs());
-          dbgs() << '\n';
-        });
+      LLVM_DEBUG(dbgs() << "VSLP: bundle/graph " << BundleID << '/' << GraphID
+                        << " in " << BB->getName() << " is"
+                        << (VCost.isValid() ? " " : " not ")
+                        << "vectorizable with VL = " << VL << ":\n";
+                 for (const auto *V : Values) {
+                   dbgs() << '\t';
+                   if (const auto *I = dyn_cast<VPInstruction>(V))
+                     I->printWithoutAnalyses(dbgs());
+                   else
+                     V->printAsOperand(dbgs());
+                   dbgs() << '\n';
+                 });
     }
 
     if (!VCost.isValid())
-      return VPInstructionCost::getInvalid();
-
-    // TODO:
-    // Do not support VL reduction yet.
-    if (Insts.size() != Values.size())
       return VPInstructionCost::getInvalid();
 
     Cost += VCost;
@@ -345,11 +408,25 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
     // Vector 2 <- { Insts[0].Op[2], Insts[1], Op[2] }
     //
     // Don't walk through memref operands for stores & loads.
-    unsigned NumOperands = Insts[0]->getNumOperands();
-    if (Insts[0]->getOpcode() == Instruction::Load)
-      NumOperands = 0;
-    else if (Insts[0]->getOpcode() == Instruction::Store)
-      NumOperands = 1;
+    // Stop traversing at splat vectors.
+    unsigned NumOperands = 0;
+
+    if (!Insts.empty()) {
+      NumOperands = Insts[0]->getNumOperands();
+      if (Insts[0]->getOpcode() == Instruction::Load || isSplatVector(Values))
+        NumOperands = 0;
+      else if (Insts[0]->getOpcode() == Instruction::Store)
+        NumOperands = 1;
+    }
+
+    // TODO:
+    // Do not support VL reduction yet.
+    if (NumOperands > 0 && VL != Values.size()) {
+      LLVM_DEBUG(dbgs() << "VSLP: dropping candidate bundle/graph " << BundleID
+                        << '/' << GraphID << " in " << BB->getName() << ": "
+                        << Insts.size() << " != " << Values.size() << '\n');
+      return VPInstructionCost::getInvalid();
+    }
 
     for (unsigned I = 0; I < NumOperands; I++)
       WorkQueue.emplace(map_range(Insts, [I](const auto *Inst) {

@@ -1611,11 +1611,13 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   if (getTriple().getArch() == llvm::Triple::x86)
     P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   // FIXME - this only handles Linux and Windows for now
   if (getTriple().isWindowsMSVCEnvironment())
     llvm::sys::path::append(P, "vc14");
   else
     llvm::sys::path::append(P, "gcc4.8");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }

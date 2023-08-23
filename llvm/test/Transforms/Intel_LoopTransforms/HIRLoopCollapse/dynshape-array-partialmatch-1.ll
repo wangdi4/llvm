@@ -15,7 +15,7 @@
 ;CHECK:      BEGIN REGION { }
 ;CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
 ;CHECK:            |   + DO i2 = 0, 99, 1   <DO_LOOP>
-;CHECK:            |   |   (@"sub_$A")[i1][i2] = (@"sub_$B")[i1][i2][i1][i2];
+;CHECK:            |   |   (@"sub_$A")[0][i1][i2] = (@"sub_$B")[0][i1][i2][i1][i2];
 ;CHECK:            |   + END LOOP
 ;CHECK:            + END LOOP
 ;CHECK:      END REGION
@@ -26,7 +26,7 @@
 ;CHECK:     BEGIN REGION { }
 ;CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
 ;CHECK:            |   + DO i2 = 0, 99, 1   <DO_LOOP>
-;CHECK:            |   |   (@"sub_$A")[i1][i2] = (@"sub_$B")[i1][i2][i1][i2];
+;CHECK:            |   |   (@"sub_$A")[0][i1][i2] = (@"sub_$B")[0][i1][i2][i1][i2];
 ;CHECK:            |   + END LOOP
 ;CHECK:            + END LOOP
 ;CHECK:      END REGION

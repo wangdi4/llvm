@@ -29,7 +29,7 @@
 ;           %i36 = 0x7FF0000000000000;
 ;           %i38 = 1;
 ;
-; CHECK:    + DO i1 = 0, sext.i32.i64(%arg) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:    + DO i1 = 0, sext.i32.i64(%arg) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3000001>  <LEGAL_MAX_TC = 2147483647>
 ;           |   %i25 = @llvm.fabs.f32((@"cortesa_$VEL")[0][i1]);
 ;           |   %i28 = %i25  +  (@"cortesa_$SOUND")[0][i1];
 ;           |   %i29 = (@"cortesa_$DX")[0][i1]  /  %i28;

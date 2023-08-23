@@ -102,6 +102,14 @@ static cl::opt<bool> CMScalarSLPAnalysis(
     cl::desc(
         "Enables SLP analysis over scalar VPlan IR"));
 
+static cl::opt<bool> CMUseSLPPatternHeuristics(
+    "vplan-cm-use-slp-pattern-heuristics", cl::init(true), cl::Hidden,
+    cl::desc("Allows CM to use SLP pattern detecting heuristics"));
+
+static cl::opt<bool> CMUseSLPRedPatternHeuristics(
+    "vplan-cm-use-slp-red-pattern-heuristics", cl::init(true), cl::Hidden,
+    cl::desc("Allows CM to use SLP reduction pattern detecting heuristics"));
+
 namespace llvm {
 
 namespace vpo {
@@ -329,9 +337,10 @@ void HeuristicSLP::apply(
       }
     }
 
-  if ((ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
+  if ((CMUseSLPPatternHeuristics &&
+       ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
        ProcessSLPHIRMemrefs(HIRLoadMemrefs, VPlanSLPLoadPatternSize)) ||
-      (NumSLPRednsSeen == 4 && !NonSLPRednSeen))
+      (CMUseSLPRedPatternHeuristics && NumSLPRednsSeen == 4 && !NonSLPRednSeen))
     Cost *= VF;
 }
 
