@@ -5583,18 +5583,15 @@ static bool canVectorizeSplitLoads(
 
 namespace {
 /// Tracks the state we can represent the loads in the given sequence.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-enum class LoadsState { Gather, Vectorize, ScatterVectorize, SplitLoads };
-#endif // INTEL_CUSTOMIZATION
-=======
 enum class LoadsState {
   Gather,
   Vectorize,
   ScatterVectorize,
-  PossibleStridedVectorize
+  PossibleStridedVectorize,
+  SplitLoads
 };
->>>>>>> b51195dece56f1d73dfc60986310cebb5295dabe
+#endif // INTEL_CUSTOMIZATION
 } // anonymous namespace
 
 static bool arePointersCompatible(Value *Ptr1, Value *Ptr2,
@@ -5652,13 +5649,13 @@ static LoadsState canVectorizeLoads(
   }
 
   bool CandidateForGatherLoad = false; // INTEL
+  bool IsPossibleStrided = false;
   Order.clear();
   // Check the order of pointer operands or that all pointers are the same.
   bool IsSorted = sortPtrAccesses(PointerOps, ScalarTy, DL, SE, Order);
   if (IsSorted || all_of(PointerOps, [&](Value *P) {
         return arePointersCompatible(P, PointerOps.front(), TLI);
       })) {
-    bool IsPossibleStrided = false;
     if (IsSorted) {
       Value *Ptr0;
       Value *PtrN;
@@ -5694,24 +5691,10 @@ static LoadsState canVectorizeLoads(
           auto *GEP = dyn_cast<GetElementPtrInst>(P);
           return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
                  (GEP && GEP->getNumOperands() == 2);
-<<<<<<< HEAD
         });
     if (!CompatibilitySLPMode)
       CandidateForGatherLoad =
           CandidateForGatherLoad && VL.size() >= MinGatherLoadSize;
-=======
-        })) {
-      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
-      for (Value *V : VL)
-        CommonAlignment =
-            std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
-      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
-      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
-          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
-        return IsPossibleStrided ? LoadsState::PossibleStridedVectorize
-                                 : LoadsState::ScatterVectorize;
-    }
->>>>>>> b51195dece56f1d73dfc60986310cebb5295dabe
   }
 
   if (canVectorizeSplitLoads(ScalarTy, VL.size(), DL, SE, PointerOps, Order,
@@ -5729,7 +5712,8 @@ static LoadsState canVectorizeLoads(
     auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
     if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
         !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
-      return LoadsState::ScatterVectorize;
+        return IsPossibleStrided ? LoadsState::PossibleStridedVectorize
+                                 : LoadsState::ScatterVectorize;
   }
 #endif // INTEL_CUSTOMIZATION
 
