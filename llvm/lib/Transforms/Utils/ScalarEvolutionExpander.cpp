@@ -1942,7 +1942,6 @@ Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty) {
   return V;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// See if nsw/nuw flags can be preserved in I, in the context where value I
 /// will replace S. Notice that I is Value*.
@@ -1982,9 +1981,6 @@ static bool canPreservePoisonFlags(const SCEV *S, const Instruction *I) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Value *SCEVExpander::FindValueInExprValueMap(const SCEV *S,
-                                             const Instruction *InsertPt) {
-=======
 static bool
 canReuseInstruction(ScalarEvolution &SE, const SCEV *S, Instruction *I,
                     SmallVectorImpl<Instruction *> &DropPoisonGeneratingInsts) {
@@ -2043,7 +2039,6 @@ canReuseInstruction(ScalarEvolution &SE, const SCEV *S, Instruction *I,
 Value *SCEVExpander::FindValueInExprValueMap(
     const SCEV *S, const Instruction *InsertPt,
     SmallVectorImpl<Instruction *> &DropPoisonGeneratingInsts) {
->>>>>>> 1c6e6432ca0b6832e06b93a4bcf22ead1899c14d
   // If the expansion is not in CanonicalMode, and the SCEV contains any
   // sub scAddRecExpr type SCEV, it is required to expand the SCEV literally.
   if (!CanonicalMode && SE.containsAddRecurrence(S))
@@ -2147,32 +2142,17 @@ Value *SCEVExpander::expand(const SCEV *S) {
     V = visit(S);
     V = fixupLCSSAFormFor(V);
   } else {
-<<<<<<< HEAD
-    // If we're reusing an existing instruction, we are effectively CSEing two
-    // copies of the instruction (with potentially different flags).  As such,
-    // we need to drop any poison generating flags unless we can prove that
-    // said flags must be valid for all new users.
+    for (Instruction *I : DropPoisonGeneratingInsts)
 #if INTEL_CUSTOMIZATION
-    // if (auto *I = dyn_cast<Instruction>(V))
-    //   if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I)) {
-    //     I->dropPoisonGeneratingFlags();
-    //   }
-
     // Dropping poison generating flags maximally has a detrimental
     // effect on subsequent optimizations, in particular on loopopt.
     // So, we narrow the condition of hasPoisonGeneratingFlags().
     // For Nary operation, if both S and I are add and
     // have poison-generating flags,
     // flags are not dropped when possible.
-    if (auto *I = dyn_cast<Instruction>(V))
-      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I) &&
-          !canPreservePoisonFlags(S, I))
-          I->dropPoisonGeneratingFlags();
+    if (!canPreservePoisonFlags(S, I))
 #endif // INTEL_CUSTOMIZATION
-=======
-    for (Instruction *I : DropPoisonGeneratingInsts)
       I->dropPoisonGeneratingFlagsAndMetadata();
->>>>>>> 1c6e6432ca0b6832e06b93a4bcf22ead1899c14d
   }
   // Remember the expanded value for this SCEV at this location.
   //
