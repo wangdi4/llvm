@@ -617,6 +617,14 @@ void hp_bar(int M, int N)
   }
   //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.PARALLEL"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME: "DIR.OMP.TARGET"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+  //ALL: !{!"llvm.loop.unroll.count", i32 4}
+  #pragma omp target
+  #pragma omp unroll partial (4)
+  for (int i = 0; i < 1024; i++);
 }
 
 void ignore_caller(unsigned);
