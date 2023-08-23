@@ -4181,12 +4181,13 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
                   llvm::PointerType::getUnqual(VMContext),
                   ObjCIvarOffsetVariable(Interface, Ivar),
                   CGF.getPointerAlign(), "ivar"),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-              Int32Ty, CGF.Builder.CreateAlignedLoad(
-                           llvm::Type::getInt32PtrTy(VMContext),
-                           ObjCIvarOffsetVariable(Interface, Ivar),
-                           CGF.getPointerAlign(), "ivar"),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+              Int32Ty,
+              CGF.Builder.CreateAlignedLoad(
+                  llvm::Type::getInt32PtrTy(VMContext),
+                  ObjCIvarOffsetVariable(Interface, Ivar),
+                  CGF.getPointerAlign(), "ivar"),
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
               CharUnits::fromQuantity(4)),
           PtrDiffTy);
     std::string name = "__objc_ivar_offset_value_" +
