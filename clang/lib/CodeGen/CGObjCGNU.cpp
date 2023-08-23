@@ -4123,6 +4123,7 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
   // when linked against code which isn't (most of the time).
   llvm::GlobalVariable *IvarOffsetPointer = TheModule.getNamedGlobal(Name);
   if (!IvarOffsetPointer)
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     IvarOffsetPointer = new llvm::GlobalVariable(
         TheModule, llvm::PointerType::getUnqual(VMContext), false,
@@ -4132,6 +4133,17 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
             llvm::Type::getInt32PtrTy(VMContext), false,
             llvm::GlobalValue::ExternalLinkage, nullptr, Name);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    IvarOffsetPointer = new llvm::GlobalVariable(TheModule,
+            llvm::Type::getInt32PtrTy(VMContext), false,
+            llvm::GlobalValue::ExternalLinkage, nullptr, Name);
+#else
+    IvarOffsetPointer = new llvm::GlobalVariable(
+        TheModule, llvm::PointerType::getUnqual(VMContext), false,
+        llvm::GlobalValue::ExternalLinkage, nullptr, Name);
+#endif
+>>>>>>> 30eb7e1124021bdc2fb8378ee2b09b25347ecf28
   return IvarOffsetPointer;
 }
 
@@ -4175,6 +4187,7 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
         CGF.CGM.getTarget().getTriple().isKnownWindowsMSVCEnvironment())
       return CGF.Builder.CreateZExtOrBitCast(
           CGF.Builder.CreateAlignedLoad(
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
               Int32Ty,
               CGF.Builder.CreateAlignedLoad(
@@ -4182,11 +4195,24 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
                   ObjCIvarOffsetVariable(Interface, Ivar),
                   CGF.getPointerAlign(), "ivar"),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 30eb7e1124021bdc2fb8378ee2b09b25347ecf28
               Int32Ty, CGF.Builder.CreateAlignedLoad(
                            llvm::Type::getInt32PtrTy(VMContext),
                            ObjCIvarOffsetVariable(Interface, Ivar),
                            CGF.getPointerAlign(), "ivar"),
+<<<<<<< HEAD
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+#else
+              Int32Ty,
+              CGF.Builder.CreateAlignedLoad(
+                  llvm::PointerType::getUnqual(VMContext),
+                  ObjCIvarOffsetVariable(Interface, Ivar),
+                  CGF.getPointerAlign(), "ivar"),
+#endif
+>>>>>>> 30eb7e1124021bdc2fb8378ee2b09b25347ecf28
               CharUnits::fromQuantity(4)),
           PtrDiffTy);
     std::string name = "__objc_ivar_offset_value_" +
