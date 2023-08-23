@@ -6746,12 +6746,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   ReductionClause &RedClause = W->getRed();
 
-  for (ReductionItem *RedI : RedClause.items()) {
-    if (RedI->getIsTask()) {
-      std::string ErrorMsg = "Task reduction-modifier on a reduction clause is "
-                             "currently not supported\n";
-      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
-    }
+  bool GenTaskReductionCalls = llvm::any_of(
+      RedClause.items(), [](ReductionItem *RedI) { return RedI->getIsTask(); });
+
+  if (GenTaskReductionCalls) {
+    Instruction *InsertPt = EntryBB->getTerminator();
+    genTaskRedModifierInit(W, InsertPt);
   }
 
   if (!RedClause.empty()) {
@@ -7053,15 +7053,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           !RedI->getIsArraySection())
         RedI->setNew(GlobalBufToReplaceWith);
 
-      if ((FastReductionEnabled) && !UseRec) {
+      BasicBlock *PrevBB = nullptr;
+      if ((FastReductionEnabled && !UseRec) || GenTaskReductionCalls) {
+        PrevBB = RedUpdateEntryBB->getSinglePredecessor();
+        SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
+      }
+
+      if (FastReductionEnabled && !UseRec) {
         BasicBlock *RecInitEntryBB = createEmptyPrivInitBB(W);
         // Generate private variable (RecInst) used by fast reduction callback
         Value *RecInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst,
             RecInitEntryBB->getTerminator());
-        BasicBlock *PrevBB = RedUpdateEntryBB->getSinglePredecessor();
-        SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
-
         // And copy private reduction variable (NewRedInst) to private variable
         // (RecInst)
         RedI->setNew(RecInst);
@@ -7069,6 +7072,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
             getClauseItemReplacementValue(RedI, PrevBB->getTerminator());
         genFastRedCopy(RedI, ReplacementVal, NewRedInst,
                        PrevBB->getTerminator(), DT);
+      }
+
+      if (GenTaskReductionCalls) {
+        VPOParoptUtils::genKmpcTaskRedModifierFini(W, IdentTy, TidPtrHolder,
+                                                   &PrevBB->front());
+        GenTaskReductionCalls = false;
       }
 
       BasicBlock *BeginBB = nullptr; // (1)

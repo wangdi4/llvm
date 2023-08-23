@@ -2441,6 +2441,98 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 }
 
 // This function generates a call as follows.
+// i8* @__kmpc_taskred_modifier_init((%ident_t*, i32, i32, i32, i8*)
+CallInst *VPOParoptUtils::genKmpcTaskRedModifierInit(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, int ParmNum,
+    Value *RedRecord, Instruction *InsertPt, bool UseTbb) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  ConstantInt *IsWs = isa<WRNParallelLoopNode>(W) ||
+                              isa<WRNParallelSectionsNode>(W) ||
+                              isa<WRNSectionsNode>(W) || isa<WRNWksLoopNode>(W)
+                          ? ConstantInt::get(Type::getInt32Ty(C), 1)
+                          : ConstantInt::get(Type::getInt32Ty(C), 0);
+
+  Value *TaskRedModifierInitArgs[] = {
+      Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), IsWs,
+      Builder.getInt32(ParmNum),
+      Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
+                        Type::getInt32Ty(C), Type::getInt32Ty(C),
+                        Type::getInt8PtrTy(C)};
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+
+  StringRef FnName = UseTbb ? "__tbb_omp_taskred_modifier_init"
+                            : "__kmpc_taskred_modifier_init";
+
+  Function *FnTaskRedModifierInit = M->getFunction(FnName);
+
+  if (!FnTaskRedModifierInit)
+    FnTaskRedModifierInit =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskRedModifierInitCall =
+      CallInst::Create(FnTy, FnTaskRedModifierInit, TaskRedModifierInitArgs,
+                       "task.reduction.modifier.init", InsertPt);
+  setFuncCallingConv(TaskRedModifierInitCall, M);
+  TaskRedModifierInitCall->setTailCall(false);
+  addFuncletOperandBundle(TaskRedModifierInitCall, W->getDT(), InsertPt);
+
+  return TaskRedModifierInitCall;
+}
+
+// This function generates a call as follows.
+// void __kmpc_task_reduction_modifier_fini(ident_t *loc, int gtid, int is_ws)
+CallInst *VPOParoptUtils::genKmpcTaskRedModifierFini(WRegionNode *W,
+                                                     StructType *IdentTy,
+                                                     Value *TidPtr,
+                                                     Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  ConstantInt *IsWs = isa<WRNParallelLoopNode>(W) ||
+                              isa<WRNParallelSectionsNode>(W) ||
+                              isa<WRNSectionsNode>(W) || isa<WRNWksLoopNode>(W)
+                          ? ConstantInt::get(Type::getInt32Ty(C), 1)
+                          : ConstantInt::get(Type::getInt32Ty(C), 0);
+
+  Value *TaskRedModifierFiniArgs[] = {
+      Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), IsWs};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
+                        Type::getInt32Ty(C)};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+
+  StringRef FnName = "__kmpc_task_reduction_modifier_fini";
+
+  Function *FnTaskRedModifierFini = M->getFunction(FnName);
+
+  if (!FnTaskRedModifierFini)
+    FnTaskRedModifierFini =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskRedModifierFiniCall = CallInst::Create(
+      FnTy, FnTaskRedModifierFini, TaskRedModifierFiniArgs, "", InsertPt);
+  setFuncCallingConv(TaskRedModifierFiniCall, M);
+  TaskRedModifierFiniCall->setTailCall(false);
+  addFuncletOperandBundle(TaskRedModifierFiniCall, W->getDT(), InsertPt);
+
+  return TaskRedModifierFiniCall;
+}
+
+// This function generates a call as follows.
 //    i8* @__kmpc_taskred_init(i32, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,

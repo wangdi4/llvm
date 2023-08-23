@@ -1620,28 +1620,27 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 
   return DummyTaskTDependVec;
 }
-// Generate the call __kmpc_task_reduction_init and the corresponding
-// preparation.
-void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
-                                           Instruction *InsertBefore) {
 
-  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTask\n");
+// Creates and populates taskt.red.rec, an array of KmpTaskTRedTy structs.
+// The array have as many structs as there are task red vars.
+AllocaInst *VPOParoptTransform::genTaskTRedRec(WRegionNode *W,
+                                               Instruction *InsertBefore,
+                                               unsigned &Count) {
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskTRedRec\n");
 
   genTaskTRedType();
 
   SmallVector<Type *, 4> KmpTaskTRedRecTyArgs;
 
-  if (!W->canHaveReduction())
-    return; // in case this is a task instead of taskloop
-
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.empty())
-    return;
   LLVMContext &C = F->getContext();
 
-  for (int I = 0; I < RedClause.size(); I++)
-    KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
-
+  bool IsTaskloopOrTaskgroup =
+      isa<WRNTaskloopNode>(W) || isa<WRNTaskgroupNode>(W);
+  for (ReductionItem *RedI : RedClause.items()) {
+    if (IsTaskloopOrTaskgroup || RedI->getIsTask())
+      KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
+  }
   StructType *KmpTaskTTRedRecTy = StructType::create(
       C, KmpTaskTRedRecTyArgs, "__struct.kmp_task_t_red_rec", false);
 
@@ -1652,8 +1651,10 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
       Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
 
   const DataLayout &DL = F->getParent()->getDataLayout();
-  unsigned Count = 0;
+
   for (ReductionItem *RedI : RedClause.items()) {
+    if (!IsTaskloopOrTaskgroup && !RedI->getIsTask())
+      continue;
     unsigned Idx = 0;
 
     // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
@@ -1741,6 +1742,53 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
                                     NamePrefix + ".red.flags");
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskTRedRec\n");
+
+  return DummyTaskTRedRec;
+}
+
+void VPOParoptTransform::genTaskRedModifierInit(WRegionNode *W,
+                                                Instruction *InsertBefore) {
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskRedModifierInit\n");
+
+  if (!W->canHaveReduction() || !W->canHaveReductionTask())
+    return;
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.empty())
+    return;
+
+  unsigned Count = 0;
+
+  AllocaInst *DummyTaskTRedRec = genTaskTRedRec(W, InsertBefore, Count);
+
+  IRBuilder<> Builder(InsertBefore);
+
+  VPOParoptUtils::genKmpcTaskRedModifierInit(
+      W, IdentTy, TidPtrHolder, Count, DummyTaskTRedRec,
+      &*Builder.GetInsertPoint(), Mode & OmpTbb);
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskRedModifierInit\n");
+}
+
+void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
+                                           Instruction *InsertBefore) {
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTask\n");
+
+  if (!W->canHaveReduction())
+    return;
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.empty())
+    return;
+
+  unsigned Count = 0;
+
+  AllocaInst *DummyTaskTRedRec = genTaskTRedRec(W, InsertBefore, Count);
+
+  IRBuilder<> Builder(InsertBefore);
+
   VPOParoptUtils::genKmpcTaskReductionInit(
       W, TidPtrHolder, Count, DummyTaskTRedRec, &*Builder.GetInsertPoint(),
       Mode & OmpTbb);
