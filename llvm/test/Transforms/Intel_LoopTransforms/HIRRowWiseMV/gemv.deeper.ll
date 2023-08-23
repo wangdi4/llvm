@@ -86,7 +86,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemv(double* %As, double* %b) #0 {
+define double @gemv(ptr %As, ptr %b) #0 {
 entry:
   br label %L0
 
@@ -94,7 +94,7 @@ L0:
   %h = phi i32 [ 0, %entry ], [ %h.next, %L1.exit ]
   %sum = phi double [ 0.0, %entry ], [ %sum.next.lcssa.lcssa, %L1.exit ]
   %A_start = mul nuw nsw i32 %h, 8192
-  %A = getelementptr inbounds double, double* %As, i32 %A_start
+  %A = getelementptr inbounds double, ptr %As, i32 %A_start
   br label %L1
 
 L1:
@@ -107,10 +107,10 @@ L2:
   %j = phi i32 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum.L2 = phi double [ %sum.L1, %L1 ], [ %sum.next, %L2 ]
   %A_ind = add nuw nsw i32 %A_row, %j
-  %Aijp = getelementptr inbounds double, double* %A, i32 %A_ind
-  %Aij = load double, double* %Aijp
-  %bjp = getelementptr inbounds double, double* %b, i32 %j
-  %bj = load double, double* %bjp
+  %Aijp = getelementptr inbounds double, ptr %A, i32 %A_ind
+  %Aij = load double, ptr %Aijp
+  %bjp = getelementptr inbounds double, ptr %b, i32 %j
+  %bj = load double, ptr %bjp
   %Aijbj = fmul nnan nsz arcp afn reassoc double %Aij, %bj
   %sum.next = fadd double %sum.L2, %Aijbj
   %j.next = add nuw nsw i32 %j, 1
