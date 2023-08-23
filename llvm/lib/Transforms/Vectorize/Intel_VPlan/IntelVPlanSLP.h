@@ -47,7 +47,8 @@ class VPlanSlp {
   //
   // The utility populates Insts with vectoriable Values casted to
   // VPInstruction type.
-  bool areVectorizable(ArrayRef<const VPValue *> Values,
+  bool
+  areVectorizableInsts(ArrayRef<const VPValue *> Values,
                        SmallVectorImpl<const VPInstruction *> &Insts) const;
 
   // Returns true iff VPInstruction FromInst can be moved to ToInst.
@@ -93,6 +94,14 @@ class VPlanSlp {
   // The number of elements is an arbitrary (it is not nessesary power of two).
   bool isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const;
 
+  // Returns true iff Values vector contains only the very same single
+  // value in every index. It means the vector value can be obtained
+  // by broadcasting the scalar value.
+  bool isSplatVector(ArrayRef<const VPValue *> Values) const;
+
+  // Returns true iff Values vector contains only VPConstants of the same type.
+  bool isConstVector(ArrayRef<const VPValue *> Values) const;
+
   // Calculates the cost of a vector instruction that would be produced from
   // scalar instruction Base extending it for VF elements. If Base is a memory
   // reference 'IsUnitMemref' indicates when the extention of the memory
@@ -103,11 +112,21 @@ class VPlanSlp {
                                   bool IsUnitMemref, bool IsMasked) const;
 
   // Returns the difference (vectorized_cost - scalar_cost), where
-  // scalar_cost - the sum of all TTI costs of interuction in Insts array,
+  // scalar_cost - the sum of all costs of scalar instructions to represent
+  // Values in input array,
+  // vectorized_cost - the cost of vector instruction to represent the vector
+  // value that is constructed from the scalar Values.
+  VPInstructionCost
+  estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const;
+
+  // Specialized to VPInstruction input vector version of
+  // estimateSLPCostDifference.
+  // Returns the difference (vectorized_cost - scalar_cost), where
+  // scalar_cost - the sum of all TTI costs of instructions in Insts array,
   // vectorized_cost - TTI cost of vector instruction that implements
   // operation equivalent to what all Insts do.
-  VPInstructionCost estimateSLPCostDifference(
-      ArrayRef<const VPInstruction *> Insts) const;
+  VPInstructionCost
+  estimateSLPCostDifference(ArrayRef<const VPInstruction *> Insts) const;
 
   // The method tries to bundle 'similar' instructions in groups and see if
   // those groups are profitable to SLP. The group is discarded (not stored
