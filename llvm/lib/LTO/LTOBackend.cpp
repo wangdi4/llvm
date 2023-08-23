@@ -445,7 +445,10 @@ static void codegen(const Config &Conf, TargetMachine *TM,
                               Conf.CGFileType))
     report_fatal_error("Failed to setup codegen");
   CodeGenPasses.run(Mod);
-
+#if INTEL_CUSTOMIZATION
+  if (OptReportOptions::shouldCloseOptReport())
+    OptReportOptions::getOutputStream().close();
+#endif // INTEL_CUSTOMIZATION
   if (DwoOut)
     DwoOut->keep();
 }
