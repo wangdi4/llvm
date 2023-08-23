@@ -2100,8 +2100,12 @@ PHINode *WidenIV::createWideIV(SCEVExpander &Rewriter) {
       // Propagate the debug location associated with the original loop
       // increment to the new (widened) increment.
       auto *OrigInc =
-          cast<Instruction>(OrigPhi->getIncomingValueForBlock(LatchBlock));
-      WideInc->setDebugLoc(OrigInc->getDebugLoc());
+#if INTEL_CUSTOMIZATION
+          // IV increment may not be an instruction in some cases.
+          dyn_cast<Instruction>(OrigPhi->getIncomingValueForBlock(LatchBlock));
+      if (OrigInc)
+#endif // INTEL_CUSTOMIZATION
+        WideInc->setDebugLoc(OrigInc->getDebugLoc());
     }
   }
 
