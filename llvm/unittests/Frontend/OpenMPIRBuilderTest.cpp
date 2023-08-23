@@ -1157,45 +1157,44 @@ TEST_F(OpenMPIRBuilderTest, ParallelForwardAsPointers) {
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
   using InsertPointTy = OpenMPIRBuilder::InsertPointTy;
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *I32Ty = Type::getInt32Ty(M->getContext());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *PtrTy = PointerType::get(M->getContext(), 0);
-  Type *StructTy = StructType::get(I32Ty, PtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *I32PtrTy = Type::getInt32PtrTy(M->getContext());
   Type *StructTy = StructType::get(I32Ty, I32PtrTy);
   Type *StructPtrTy = StructTy->getPointerTo();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *VoidTy = Type::getVoidTy(M->getContext());
   FunctionCallee RetI32Func = M->getOrInsertFunction("ret_i32", I32Ty);
   FunctionCallee TakeI32Func =
       M->getOrInsertFunction("take_i32", VoidTy, I32Ty);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  FunctionCallee RetI32PtrFunc = M->getOrInsertFunction("ret_i32ptr", PtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee RetI32PtrFunc = M->getOrInsertFunction("ret_i32ptr", I32PtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee TakeI32PtrFunc =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      M->getOrInsertFunction("take_i32ptr", VoidTy, PtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
       M->getOrInsertFunction("take_i32ptr", VoidTy, I32PtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee RetStructFunc = M->getOrInsertFunction("ret_struct", StructTy);
   FunctionCallee TakeStructFunc =
       M->getOrInsertFunction("take_struct", VoidTy, StructTy);
   FunctionCallee RetStructPtrFunc =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      M->getOrInsertFunction("ret_structptr", PtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
       M->getOrInsertFunction("ret_structptr", StructPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee TakeStructPtrFunc =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      M->getOrInsertFunction("take_structPtr", VoidTy, PtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
       M->getOrInsertFunction("take_structPtr", VoidTy, StructPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+  Type *I32Ty = Type::getInt32Ty(M->getContext());
+  Type *PtrTy = PointerType::get(M->getContext(), 0);
+  Type *StructTy = StructType::get(I32Ty, PtrTy);
+  Type *VoidTy = Type::getVoidTy(M->getContext());
+  FunctionCallee RetI32Func = M->getOrInsertFunction("ret_i32", I32Ty);
+  FunctionCallee TakeI32Func =
+      M->getOrInsertFunction("take_i32", VoidTy, I32Ty);
+  FunctionCallee RetI32PtrFunc = M->getOrInsertFunction("ret_i32ptr", PtrTy);
+  FunctionCallee TakeI32PtrFunc =
+      M->getOrInsertFunction("take_i32ptr", VoidTy, PtrTy);
+  FunctionCallee RetStructFunc = M->getOrInsertFunction("ret_struct", StructTy);
+  FunctionCallee TakeStructFunc =
+      M->getOrInsertFunction("take_struct", VoidTy, StructTy);
+  FunctionCallee RetStructPtrFunc =
+      M->getOrInsertFunction("ret_structptr", PtrTy);
+  FunctionCallee TakeStructPtrFunc =
+      M->getOrInsertFunction("take_structPtr", VoidTy, PtrTy);
+#endif
   Value *I32Val = Builder.CreateCall(RetI32Func);
   Value *I32PtrVal = Builder.CreateCall(RetI32PtrFunc);
   Value *StructVal = Builder.CreateCall(RetStructFunc);
@@ -5414,13 +5413,13 @@ TEST_F(OpenMPIRBuilderTest, TargetRegionDevice) {
   LoadInst *Value = nullptr;
   StoreInst *TargetStore = nullptr;
   llvm::SmallVector<llvm::Value *, 2> CapturedArgs = {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      Constant::getNullValue(PointerType::get(Ctx, 0)),
-      Constant::getNullValue(PointerType::get(Ctx, 0))};
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       Constant::getNullValue(Type::getInt32PtrTy(Ctx)),
       Constant::getNullValue(Type::getInt32PtrTy(Ctx))};
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+      Constant::getNullValue(PointerType::get(Ctx, 0)),
+      Constant::getNullValue(PointerType::get(Ctx, 0))};
+#endif
 
   llvm::OpenMPIRBuilder::MapInfosTy CombinedInfos;
   auto GenMapInfoCB = [&](llvm::OpenMPIRBuilder::InsertPointTy codeGenIP)
@@ -6094,19 +6093,17 @@ TEST_F(OpenMPIRBuilderTest, EmitOffloadingArraysArguments) {
   OpenMPIRBuilder::TargetDataRTArgs RTArgs;
   OpenMPIRBuilder::TargetDataInfo Info(true, false);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto VoidPtrTy = PointerType::getUnqual(Builder.getContext());
-  auto VoidPtrPtrTy = PointerType::getUnqual(Builder.getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   auto VoidPtrTy = Type::getInt8PtrTy(Builder.getContext());
   auto VoidPtrPtrTy = VoidPtrTy->getPointerTo(0);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   auto Int64Ty = Type::getInt64Ty(Builder.getContext());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto Int64PtrTy = PointerType::getUnqual(Builder.getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
   auto Int64PtrTy = Type::getInt64PtrTy(Builder.getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+  auto VoidPtrTy = PointerType::getUnqual(Builder.getContext());
+  auto VoidPtrPtrTy = PointerType::getUnqual(Builder.getContext());
+  auto Int64Ty = Type::getInt64Ty(Builder.getContext());
+  auto Int64PtrTy = PointerType::getUnqual(Builder.getContext());
+#endif
   auto Array4VoidPtrTy = ArrayType::get(VoidPtrTy, 4);
   auto Array4Int64PtrTy = ArrayType::get(Int64Ty, 4);
   Info.RTArgs.BasePointersArray =

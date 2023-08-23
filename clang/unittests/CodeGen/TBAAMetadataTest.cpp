@@ -113,11 +113,11 @@ TEST(TBAAMetadataTest, BasicTypes) {
 
   I = matchNext(I,
       MInstruction(Instruction::Store,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        MValType(PointerType::getUnqual(Compiler.Context)),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
         MValType(Type::getInt8PtrTy(Compiler.Context)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+        MValType(PointerType::getUnqual(Compiler.Context)),
+#endif
         MMTuple(
           MMTuple(
             MMString("any pointer"),
@@ -129,11 +129,11 @@ TEST(TBAAMetadataTest, BasicTypes) {
 
   I = matchNext(I,
       MInstruction(Instruction::Store,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        MValType(PointerType::getUnqual(Compiler.Context)),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
         MValType(Type::getInt32PtrTy(Compiler.Context)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+        MValType(PointerType::getUnqual(Compiler.Context)),
+#endif
         MMTuple(
           MMTuple(
             MMString("any pointer"),

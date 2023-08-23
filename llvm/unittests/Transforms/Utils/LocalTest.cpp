@@ -154,11 +154,11 @@ TEST(Local, ReplaceDbgDeclare) {
   ASSERT_TRUE(Inst);
   auto *DII = dyn_cast<DbgDeclareInst>(Inst);
   ASSERT_TRUE(DII);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *NewBase = Constant::getNullValue(PointerType::getUnqual(C));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *NewBase = Constant::getNullValue(Type::getInt32PtrTy(C));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#else
+  Value *NewBase = Constant::getNullValue(PointerType::getUnqual(C));
+#endif
   DIBuilder DIB(*M);
   replaceDbgDeclare(AI, NewBase, DIB, DIExpression::ApplyOffset, 0);
   // There should be exactly two dbg.declares.
