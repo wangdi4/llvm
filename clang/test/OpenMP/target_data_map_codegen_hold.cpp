@@ -510,24 +510,3 @@ void foo(int arg) {
 }
 
 #endif
-<<<<<<< HEAD
-//.
-// CHECK-PPC64LE: attributes #[[ATTR0:[0-9]+]] = { mustprogress noinline nounwind optnone "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-features"="-altivec,-bpermd,-crbits,-crypto,-direct-move,-extdiv,-htm,-isa-v206-instructions,-isa-v207-instructions,-isa-v30-instructions,-power8-vector,-power9-vector,-privileged,-quadword-atomics,-rop-protect,-spe,-vsx" }
-// CHECK-PPC64LE: attributes #[[ATTR1:[0-9]+]] = { nounwind }
-// CHECK-PPC64LE: attributes #[[ATTR2:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-//.
-// CHECK-I386: attributes #[[ATTR0:[0-9]+]] = { mustprogress noinline nounwind optnone "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-features"="+cx8,+x87" }
-// CHECK-I386: attributes #[[ATTR1:[0-9]+]] = { nounwind }
-// CHECK-I386: attributes #[[ATTR2:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-//.
-// CHECK-PPC64LE: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
-// CHECK-PPC64LE: [[META1:![0-9]+]] = !{i32 7, !"openmp", i32 51}
-// NOT-CHECK-PPC64LE: [[META2:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"} ;INTEL
-//.
-// CHECK-I386: [[META0:![0-9]+]] = !{i32 1, !"NumRegisterParameters", i32 0}
-// CHECK-I386: [[META1:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
-// CHECK-I386: [[META2:![0-9]+]] = !{i32 7, !"openmp", i32 51}
-// NOT-CHECK-I386: [[META3:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"} ;INTEL
-//.
-=======
->>>>>>> 5a64ae75b5a05bdfc7ccb12d0b0958478b5d865b
