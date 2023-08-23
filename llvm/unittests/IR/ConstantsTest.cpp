@@ -812,19 +812,11 @@ TEST(ConstantsTest, isElementWiseEqual) {
   EXPECT_FALSE(CF12U2->isElementWiseEqual(CF12U1));
   EXPECT_FALSE(CF12U1->isElementWiseEqual(CF12U2));
 
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *PtrTy = PointerType::get(Context, 0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *PtrTy = Type::getInt8PtrTy(Context);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *PtrTy = Type::getInt8PtrTy(Context);
 #else
   PointerType *PtrTy = PointerType::get(Context, 0);
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   Constant *CPU = UndefValue::get(PtrTy);
   Constant *CP0 = ConstantPointerNull::get(PtrTy);
   Constant *CP0000 = ConstantVector::get({CP0, CP0, CP0, CP0});

@@ -368,29 +368,13 @@ GlobalVariable *createFatbinDesc(Module &M, ArrayRef<char> Image, bool IsHIP) {
 Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
   LLVMContext &C = M.getContext();
   // Get the __cudaRegisterFunction function declaration.
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *Int8PtrTy = PointerType::get(C, 0);
-  PointerType *Int8PtrPtrTy = PointerType::get(C, 0);
-  PointerType *Int32PtrTy = PointerType::get(C, 0);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   auto *RegFuncTy = FunctionType::get(
       Type::getInt32Ty(C),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      {Int8PtrPtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Type::getInt32Ty(C),
-       Int8PtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32PtrTy},
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
       {Type::getInt8PtrTy(C)->getPointerTo(), Type::getInt8PtrTy(C),
        Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt32Ty(C),
        Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
        Type::getInt8PtrTy(C), Type::getInt32PtrTy(C)},
-<<<<<<< HEAD
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-
 #else
   PointerType *Int8PtrTy = PointerType::get(C, 0);
   PointerType *Int8PtrPtrTy = PointerType::get(C, 0);
@@ -400,7 +384,6 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
       {Int8PtrPtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Type::getInt32Ty(C),
        Int8PtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32PtrTy},
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
       /*isVarArg*/ false);
   FunctionCallee RegFunc = M.getOrInsertFunction(
       IsHIP ? "__hipRegisterFunction" : "__cudaRegisterFunction", RegFuncTy);
@@ -408,21 +391,12 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
   // Get the __cudaRegisterVar function declaration.
   auto *RegVarTy = FunctionType::get(
       Type::getVoidTy(C),
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      {Int8PtrPtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Type::getInt32Ty(C),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      {Type::getInt8PtrTy(C)->getPointerTo(), Type::getInt8PtrTy(C),
-       Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt32Ty(C),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       {Type::getInt8PtrTy(C)->getPointerTo(), Type::getInt8PtrTy(C),
        Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt32Ty(C),
 #else
       {Int8PtrPtrTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Type::getInt32Ty(C),
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
        getSizeTTy(M), Type::getInt32Ty(C), Type::getInt32Ty(C)},
       /*isVarArg*/ false);
   FunctionCallee RegVar = M.getOrInsertFunction(
@@ -444,16 +418,9 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
                                : "__stop_cuda_offloading_entries");
   EntriesE->setVisibility(GlobalValue::HiddenVisibility);
 
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *RegGlobalsTy = FunctionType::get(Type::getVoidTy(C), Int8PtrPtrTy,
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   auto *RegGlobalsTy = FunctionType::get(Type::getVoidTy(C),
                                          Type::getInt8PtrTy(C)->getPointerTo(),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                                          /*isVarArg*/ false);
 #else
   auto *RegGlobalsTy = FunctionType::get(Type::getVoidTy(C), Int8PtrPtrTy,
@@ -484,36 +451,20 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
       Builder.CreateInBoundsGEP(getEntryTy(M), Entry,
                                 {ConstantInt::get(getSizeTTy(M), 0),
                                  ConstantInt::get(Type::getInt32Ty(C), 0)});
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *Addr = Builder.CreateLoad(Int8PtrTy, AddrPtr, "addr");
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *Addr = Builder.CreateLoad(Type::getInt8PtrTy(C), AddrPtr, "addr");
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *Addr = Builder.CreateLoad(Type::getInt8PtrTy(C), AddrPtr, "addr");
 #else
   auto *Addr = Builder.CreateLoad(Int8PtrTy, AddrPtr, "addr");
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   auto *NamePtr =
       Builder.CreateInBoundsGEP(getEntryTy(M), Entry,
                                 {ConstantInt::get(getSizeTTy(M), 0),
                                  ConstantInt::get(Type::getInt32Ty(C), 1)});
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *Name = Builder.CreateLoad(Int8PtrTy, NamePtr, "name");
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *Name = Builder.CreateLoad(Type::getInt8PtrTy(C), NamePtr, "name");
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *Name = Builder.CreateLoad(Type::getInt8PtrTy(C), NamePtr, "name");
 #else
   auto *Name = Builder.CreateLoad(Int8PtrTy, NamePtr, "name");
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   auto *SizePtr =
       Builder.CreateInBoundsGEP(getEntryTy(M), Entry,
                                 {ConstantInt::get(getSizeTTy(M), 0),
@@ -530,19 +481,7 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
 
   // Create kernel registration code.
   Builder.SetInsertPoint(IfThenBB);
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  Builder.CreateCall(RegFunc, {RegGlobalsFn->arg_begin(), Addr, Name, Name,
-                               ConstantInt::get(Type::getInt32Ty(C), -1),
-                               ConstantPointerNull::get(Int8PtrTy),
-                               ConstantPointerNull::get(Int8PtrTy),
-                               ConstantPointerNull::get(Int8PtrTy),
-                               ConstantPointerNull::get(Int8PtrTy),
-                               ConstantPointerNull::get(Int32PtrTy)});
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   Builder.CreateCall(RegFunc,
                      {RegGlobalsFn->arg_begin(), Addr, Name, Name,
                       ConstantInt::get(Type::getInt32Ty(C), -1),
@@ -551,9 +490,6 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
                       ConstantPointerNull::get(Type::getInt8PtrTy(C)),
                       ConstantPointerNull::get(Type::getInt8PtrTy(C)),
                       ConstantPointerNull::get(Type::getInt32PtrTy(C))});
-<<<<<<< HEAD
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
 #else
   Builder.CreateCall(RegFunc, {RegGlobalsFn->arg_begin(), Addr, Name, Name,
                                ConstantInt::get(Type::getInt32Ty(C), -1),
@@ -563,7 +499,6 @@ Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
                                ConstantPointerNull::get(Int8PtrTy),
                                ConstantPointerNull::get(Int32PtrTy)});
 #endif
->>>>>>> 9a5166ba8ceb677069bb4d278b254c9dd881f544
   Builder.CreateBr(IfEndBB);
   Builder.SetInsertPoint(IfElseBB);
 
