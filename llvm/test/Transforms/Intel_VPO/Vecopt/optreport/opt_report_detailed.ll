@@ -154,7 +154,8 @@ define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.171875
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
-; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
+; LLVM-NEXT:      remark #15482: vectorized math library calls: 2
+; LLVM-NEXT:      remark #15591: vectorized intrinsic functions: 1
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -182,7 +183,8 @@ define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 2.171875
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
-; HIR-NEXT:      remark #15482: vectorized math library calls: 3
+; HIR-NEXT:      remark #15482: vectorized math library calls: 2
+; HIR-NEXT:      remark #15591: vectorized intrinsic functions: 1
 ; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================

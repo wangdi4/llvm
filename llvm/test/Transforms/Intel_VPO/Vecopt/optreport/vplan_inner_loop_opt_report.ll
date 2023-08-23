@@ -22,7 +22,7 @@
 
 ; CHECK:          LOOP BEGIN
 ; CHECK-NEXT:         remark #15475: --- begin vector loop cost summary ---
-; CHECK-NEXT:         remark #15482: vectorized math library calls: 1
+; CHECK-NEXT:         remark #15591: vectorized intrinsic functions: 1
 ; CHECK-NEXT:         remark #15488: --- end vector loop cost summary ---
 ; CHECK:          LOOP END
 ; CHECK-NEXT: LOOP END
