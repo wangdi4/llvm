@@ -8871,11 +8871,15 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   // FIXME: should we even be calling this method if RTTI is disabled
   // and it's not for EH?
   if (!shouldEmitRTTI(ForEH))
+<<<<<<< HEAD
 #if INTEL_COLLAB
     return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     return llvm::Constant::getNullValue(Int8PtrTy);
 #endif // INTEL_COLLAB
+=======
+    return llvm::Constant::getNullValue(Int8PtrTy);
+>>>>>>> b9f28b2c853937d6ae5e1e9c775c50b70454f3c1
 
   if (ForEH && Ty->isObjCObjectPointerType() &&
       LangOpts.ObjCRuntime.isGNUFamily())
