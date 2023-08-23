@@ -7660,7 +7660,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
     case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
       widenTrivialIntrinsic(VPCall);
-      ++OptRptStats.VectorMathCalls;
+      ++OptRptStats.VectorIntrinsics;
       return;
     }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {

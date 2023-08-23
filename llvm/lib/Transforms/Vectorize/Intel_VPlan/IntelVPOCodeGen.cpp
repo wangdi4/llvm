@@ -1339,7 +1339,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       // Call that can be vectorized trviailly using vector overload of
       // intrinsics.
       vectorizeTrivialIntrinsic(VPCall);
-      ++OptRptStats.VectorMathCalls;
+      ++OptRptStats.VectorIntrinsics;
       return;
     }
     case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {

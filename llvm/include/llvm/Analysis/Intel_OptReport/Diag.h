@@ -115,6 +115,7 @@ enum class OptRemarkID {
   VecCloneVariantLegalization = 15581,
   VecCloneLinearUValUnoptimized = 15582,
   VectorizerReductionInfo = 15590,
+  VectorizedIntrinsics = 15591,
 
   /// Prefetching remarks.
   TotalLinesPrefetched = 25018,

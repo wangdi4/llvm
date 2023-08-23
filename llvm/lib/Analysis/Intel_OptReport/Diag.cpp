@@ -511,6 +511,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "uval parameters at -O0."},
     {OptRemarkID::VectorizerReductionInfo,
      "vectorization support: %s reduction with value type %s"},
+    {OptRemarkID::VectorizedIntrinsics, "vectorized intrinsic functions: %s"},
 
     {OptRemarkID::TotalLinesPrefetched, "Total number of lines prefetched=%d"},
     {OptRemarkID::NumSpatialPrefetches,
