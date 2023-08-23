@@ -1308,9 +1308,14 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // -qopt-streaming-stores
   if (Arg *A = Args.getLastArg(options::OPT_qopt_streaming_stores_EQ)) {
     StringRef Val = A->getValue();
-    if (Val == "always")
+    if (Val == "always") {
       addllvmOption("-hir-nontemporal-cacheline-count=0");
-    else if (Val == "never")
+      // if -qopt-dynamic-align isn't already set on the command line, go
+      // ahead and add the corresponding setting here.
+      if (!Args.hasArg(options::OPT_qopt_dynamic_align,
+                       options::OPT_qno_opt_dynamic_align))
+        addllvmOption("-vplan-enable-peeling=true");
+    } else if (Val == "never")
       addllvmOption("-disable-hir-nontemporal-marking");
     else if (Val != "auto")
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val

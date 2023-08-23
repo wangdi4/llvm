@@ -220,6 +220,7 @@
 // RUN: not %clang -qopt-streaming-stores unknown -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=STREAMING_STORES_UNKNOWN %s
 // STREAMING_STORES_ALWAYS: "-mllvm" "-hir-nontemporal-cacheline-count=0"
+// STREAMING_STORES_ALWAYS: "-mllvm" "-vplan-enable-peeling=true"
 // STREAMING_STORES_NEVER: "-mllvm" "-disable-hir-nontemporal-marking"
 // STREAMING_STORES_UNKNOWN: error: invalid argument 'unknown' to -qopt-streaming-stores=
 //
