@@ -180,7 +180,11 @@ void initializeFlattenCFGLegacyPassPass(PassRegistry &);
 void initializeFloat128ExpandPass(PassRegistry&); // INTEL
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
 void initializeFuncletLayoutPass(PassRegistry&);
+<<<<<<< HEAD
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
+=======
+void initializeGCEmptyBasicBlocksPass(PassRegistry &);
+>>>>>>> e280e406c2e34ce29e1e71da7cd3a284ea112ce8
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNLegacyPassPass(PassRegistry&);
