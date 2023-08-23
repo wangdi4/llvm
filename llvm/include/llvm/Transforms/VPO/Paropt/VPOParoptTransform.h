@@ -1186,8 +1186,17 @@ private:
   /// Generate the struct type kmp_task_red_input
   void genTaskTRedType();
 
-  /// breif Generate the struct type kmp_depend_info
+  /// Generate the struct type kmp_depend_info
   void genKmpTaskDependInfo();
+
+  /// Creates and populates taskt.red.rec, an array of KmpTaskTRedTy structs.
+  /// The array has as many structs as there are task red vars.
+  AllocaInst *genTaskTRedRec(WRegionNode *W, Instruction *InsertBefore,
+                             unsigned &Count);
+
+  /// Generate the call __kmpc_task_reduction_modifier_init and the
+  /// corresponding preparation.
+  void genTaskRedModifierInit(WRegionNode *W, Instruction *InsertBefore);
 
   /// Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.

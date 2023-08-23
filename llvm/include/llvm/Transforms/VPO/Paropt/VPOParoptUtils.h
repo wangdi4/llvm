@@ -1901,6 +1901,24 @@ public:
                                         Value *SharedGep, Instruction *InsertPt,
                                         bool UseTbb);
 
+  /// Generate a call to `__kmpc_taskred_modifier_init`. Prototype:
+  /// \code
+  ///   i8* @__kmpc_taskred_modifier_init(%ident_t*, i32, i32, i32, i8*)
+  /// \endcode
+  static CallInst *
+  genKmpcTaskRedModifierInit(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                             int ParmNum, Value *RedRecord,
+                             Instruction *InsertPt, bool UseTbb);
+
+  /// Generate a call to '__kmpc_task_reduction_modifier_fini'. Prototype:
+  /// \code
+  ///   void @__kmpc_task_reduction_modifier_fini((%ident_t*, i32 , i32)
+  /// \endcode
+  static CallInst *genKmpcTaskRedModifierFini(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *TidPtr,
+                                              Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_taskred_init`. Prototype:
   /// \code
   ///   i8* @__kmpc_taskred_init(i32, i32, i8*)
