@@ -8,7 +8,8 @@
 
 // REQUIRES: esimd_emulator
 // INTEL_CUSTOMIZATION
-// RUN: %{build} -I%S/.. -inline-level=0 -o %t.out
+// DEFINE: %{noinlineflags} = %if cl_options %{/clang:-fno-inline-functions%} %else %{-fno-inline-functions%}
+// RUN: %{build} %{noinlineflags} -I%S/.. -o %t.out
 // end INTEL_CUSTOMIZATION
 // RUN: %{run} %t.out 3 2 1
 //
