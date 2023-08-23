@@ -2158,6 +2158,14 @@ if (INTEL_CUSTOMIZATION)
           sanitizer-rt-symbols
         )
       endif()
+      if (WIN32)
+        # These are Windows only components.
+        list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+          # Address sanitizer thunk libs.
+          clang_rt.asan_dll_thunk-x86_64
+          clang_rt.asan_dynamic_runtime_thunk-x86_64
+        )
+      endif()
     endif()
 
     # Deploying fuzzer libraries.
