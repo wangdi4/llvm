@@ -28,6 +28,8 @@ using namespace llvm;
 
 AnalysisKey OptReportOptionsAnalysis::Key;
 
+bool OptReportOptions::ShouldCloseOptReport = false;
+
 static cl::opt<OptReportVerbosity::Level> OptReportVerbosityOption(
     "intel-opt-report",
     cl::desc("Option for enabling the formation of optimization reports "
@@ -117,6 +119,7 @@ raw_fd_ostream &OptReportOptions::getOutputStream() {
   }
 
   // If opening the file succeeded, use it for opt-report output.
+  ShouldCloseOptReport = true;
   return File;
 }
 

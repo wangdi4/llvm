@@ -33,6 +33,8 @@ class OptReportOptions {
 
   friend class OptReportOptionsPass;
 
+  static bool ShouldCloseOptReport;
+
 public:
   OptReportOptions(bool AbsolutePaths = false);
 
@@ -56,6 +58,10 @@ public:
 
   /// Returns a formatted ostream that opt-report output should be written to.
   static raw_fd_ostream &getOutputStream();
+
+  /// Indicates opt report should be closed explicitly, at least with Windows
+  /// LTO
+  static bool shouldCloseOptReport() { return ShouldCloseOptReport; }
 };
 
 extern OptReportOptions::OptReportEmitterKind IntelOptReportEmitter;

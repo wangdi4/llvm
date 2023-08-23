@@ -275,7 +275,6 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: LocalBufferAnalysis
-; CHECK:      Running pass: GlobalOptPass
 
 ; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -320,6 +319,7 @@
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 
+; CHECK:      Running pass: GlobalOptPass
 ; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DCEPass
 

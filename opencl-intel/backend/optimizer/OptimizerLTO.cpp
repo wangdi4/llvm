@@ -515,15 +515,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize()));
     MPM.addPass(LocalBuffersPass());
 
-    // clang converts OCL's local to global.
-    // LocalBuffersPass changes the local allocation from global to a
-    // kernel argument.
-    // The next pass GlobalOptPass cleans the unused global
-    // allocation in order to make sure we will not allocate redundant space on
-    // the jit
-    if (Level != OptimizationLevel::O0 && m_debugType != intel::Native)
-      MPM.addPass(GlobalOptPass());
-
 #ifdef _DEBUG
     MPM.addPass(VerifierPass());
 #endif
@@ -581,6 +572,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(PrepareKernelArgsPass());
 
     if (Level != OptimizationLevel::O0) {
+      MPM.addPass(GlobalOptPass());
       // Clean up internal globals. ModuleInlinerWrapperPass doesn't discard
       // internal lib function, e.g. udiv, which is inlined and now unused.
       MPM.addPass(GlobalDCEPass());
