@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; In this case, HIRRuntimeDD multiversioning is not triggered, because %arg[0] and %tempcast[0].1 are partial alias
 ; based on alias analysis result.
@@ -35,43 +36,41 @@ entry:
   %arg = alloca i64, align 8
   %st = alloca %struct.test1, align 8
   %tt = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %tt to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #2
-  %1 = load i32, i32* @val1, align 4, !tbaa !3
-  %idxprom = sext i32 %1 to i64
-  %Tempcast =  bitcast i64* %arg to %struct.test1*
-  %arg.temp = bitcast i64* %arg to i32*
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %tt, i64 0, i64 %idxprom, !intel-tbaa !7
-  %arrayidx.promoted = load i32, i32* %arrayidx, align 4, !tbaa !7
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %tt) #2
+  %Tempcast = bitcast ptr %arg to ptr
+  %0 = load i32, ptr @val1, align 4, !tbaa !3
+  %idxprom = sext i32 %0 to i64
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %tt, i64 0, i64 %idxprom, !intel-tbaa !7
+  %arrayidx.promoted = load i32, ptr %arrayidx, align 4, !tbaa !7
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond
   %add24.lcssa = phi i32 [ 0, %entry ]
-  store i32 %add24.lcssa, i32* %arrayidx, align 4, !tbaa !7
+  store i32 %add24.lcssa, ptr %arrayidx, align 4, !tbaa !7
   br label %for.body5
 
 for.cond.cleanup4:                                ; preds = %for.body5
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %tt) #2
   ret void
 
 for.body5:                                        ; preds = %for.cond1.preheader, %for.body5
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body5 ]
-  store i32 %a1, i32* %arg.temp
-  %field2 = getelementptr %struct.test1, %struct.test1* %Tempcast, i32 0, i32 1
-  store i32 %a2, i32* %field2
-  %l64 = load i64, i64* %arg
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %tt, i32 0, i64 %l64
-  store i32 5, i32* %arrayidx7, align 8, !tbaa !7
+  store i32 %a1, ptr %arg
+  %field2 = getelementptr %struct.test1, ptr %Tempcast, i32 0, i32 1
+  store i32 %a2, ptr %field2
+  %l64 = load i64, ptr %arg
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr %tt, i32 0, i64 %l64
+  store i32 5, ptr %arrayidx7, align 8, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp2 = icmp ult i64 %indvars.iv, 98
   br i1 %cmp2, label %for.body5, label %for.cond.cleanup4, !llvm.loop !12
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly nofree nosync nounwind willreturn mustprogress }
