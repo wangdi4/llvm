@@ -23,16 +23,16 @@
 ;      C(i,i) = 1.0
 ;    enddo
 
-; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@A)[i1][i1] = 1.000000e+00;
-; CHECK: Found Zero Instruction: <{{[0-9]+}}>          (@A)[i1][i2] = 0.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@A)[i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@A)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>          (@A)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@A)[0][i1][i1] = 1.000000e+00;
 
-; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@C)[i1][i1] = 1.000000e+00;
-; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@B)[i1][i1] = 1.000000e+00;
-; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@C)[i1][i2] = 0.000000e+00;
-; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@B)[i1][i2] = 0.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@C)[i1][i1] = 1.000000e+00;
-; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@B)[i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@C)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Diag Inst in OuterLp: <{{[0-9]+}}>         (@B)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@C)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Zero Instruction: <{{[0-9]+}}>         (@B)[0][i1][i2] = 0.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@C)[0][i1][i1] = 1.000000e+00;
+; CHECK: Found Ident Matrix, DiagInst: <{{[0-9]+}}>         (@B)[0][i1][i1] = 1.000000e+00;
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

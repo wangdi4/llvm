@@ -1,6 +1,6 @@
 //===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -156,6 +156,13 @@ class HIRParser {
   // Set of loops which were converted from countable to unknown. These are
   // populated in phase1 and processed/discarded at the end of phase1.
   SmallPtrSet<HLLoop *, 8> CountableToUnkownLoops;
+
+  /// GetElementPtrInsts created with zero indices when parsing a GEP chain
+  /// with a global/alloca base to incorporate information about number of
+  /// elements in the dimension.
+  /// This is 'mutable' because it is being populated by the GEPChain class
+  /// which otherwise uses a 'const HIRParser &' reference.
+  mutable SmallVector<Instruction *, 8> ZeroIndexGEPInsts;
 
   /// Represents information about dimensions of a single chain of GEP
   /// operators and Subscripts instructions.

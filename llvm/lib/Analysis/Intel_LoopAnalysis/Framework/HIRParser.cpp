@@ -3435,6 +3435,14 @@ class HIRParser::GEPChain {
   // Removes dims with zero index and same stride as the next dim.
   void removeDummyDims();
 
+  // In opaque-ptr mode we do not have GEPs with zero indices representing
+  // indexing into inner types. This function tries to recreate them for
+  // Global/Alloca pointer operand of GEPOp for better parsing. It returns the
+  // original pointer operand of \p GEPOp if not zero index GEP was created.
+  const Value *getZeroIndexGEPOrOrigPtrOperand(const GEPOrSubsOperator *GEPOp,
+                                               const HIRParser &Parser,
+                                               Type *OffsetTy);
+
 public:
   using iterator = decltype(Arrays)::iterator;
   using const_iterator = decltype(Arrays)::const_iterator;
@@ -3460,6 +3468,61 @@ public:
   const ArrayInfo &back() const { return Arrays.back(); }
 };
 
+const Value *HIRParser::GEPChain::getZeroIndexGEPOrOrigPtrOperand(
+    const GEPOrSubsOperator *GEPOp, const HIRParser &Parser, Type *OffsetTy) {
+  auto *PtrOp = GEPOp->getPointerOperand();
+  auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+
+  if (!Subs)
+    return PtrOp;
+
+  Type *PtrOpElemTy = nullptr;
+
+  if (auto *Global = dyn_cast<GlobalVariable>(PtrOp)) {
+    PtrOpElemTy = Global->getValueType();
+
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(PtrOp)) {
+    PtrOpElemTy = Alloca->getAllocatedType();
+
+  } else {
+    return PtrOp;
+  }
+
+  auto *ElemTy = PtrOpElemTy;
+  auto *SubsElemTy = Subs->getElementType();
+
+  SmallVector<Value *, 4> IdxList;
+  // Initial index for pointer type.
+  IdxList.push_back((Constant::getNullValue(OffsetTy)));
+
+  // Recreate GEPInst with zero indices representing indexing into the
+  // SubscriptInst's element type.
+  while (ElemTy != SubsElemTy) {
+
+    if (auto *STy = dyn_cast<StructType>(ElemTy)) {
+      IdxList.push_back(
+          Constant::getNullValue(Type::getInt32Ty(ElemTy->getContext())));
+      ElemTy = STy->getElementType(0);
+
+    } else if (auto *ArrTy = dyn_cast<ArrayType>(ElemTy)) {
+      IdxList.push_back((Constant::getNullValue(OffsetTy)));
+      ElemTy = ArrTy->getElementType();
+
+    } else {
+      break;
+    }
+  }
+
+  if (ElemTy != SubsElemTy)
+    return PtrOp;
+
+  auto *ZeroIndexGEP = GetElementPtrInst::CreateInBounds(
+      PtrOpElemTy, const_cast<Value *>(PtrOp), IdxList);
+  Parser.ZeroIndexGEPInsts.push_back(ZeroIndexGEP);
+
+  return ZeroIndexGEP;
+}
+
 HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
                               const GEPOrSubsOperator *GEPOp) {
   OffsetTy =
@@ -3468,8 +3531,9 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
   extend(Parser, GEPOp);
   setBase(GEPOp);
 
-  while (const GEPOrSubsOperator *NextGEPOp = dyn_cast<GEPOrSubsOperator>(
-             Parser.traceSingleOperandPhis(GEPOp->getPointerOperand()))) {
+  while (const GEPOrSubsOperator *NextGEPOp =
+             dyn_cast<GEPOrSubsOperator>(Parser.traceSingleOperandPhis(
+                 getZeroIndexGEPOrOrigPtrOperand(GEPOp, Parser, OffsetTy)))) {
 
     if (!Parser.isValidGEPOp(NextGEPOp)) {
       break;
@@ -5088,6 +5152,11 @@ void HIRParser::run() {
   }
 
   LF.eraseStoredLoopLabelsAndBottomTests();
+
+  // Erase dummy zero-index GEP insts that were created during parsing.
+  for (auto *ZeroGEPInst : ZeroIndexGEPInsts) {
+    ZeroGEPInst->deleteValue();
+  }
 
   IsReady = true;
 }

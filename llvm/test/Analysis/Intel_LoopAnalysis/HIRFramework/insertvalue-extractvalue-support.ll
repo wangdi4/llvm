@@ -4,7 +4,7 @@
 
 
 ; CHECK-HIR:        + DO i1 = 0, 4, 1   <DO_LOOP>
-; CHECK-HIR:        |   %pR_fetch = (@pR)[i1 + 1];
+; CHECK-HIR:        |   %pR_fetch = (@pR)[0][i1 + 1];
 ; CHECK-HIR:        |   %int_cast = sitofp.i32.float(i1 + 1);
 ; CHECK-HIR:        |   %pR_fetch_c0 = extractvalue %pR_fetch, 0;
 ; CHECK-HIR:        |   %add = %pR_fetch_c0  +  %int_cast;
@@ -12,7 +12,7 @@
 ; CHECK-HIR:        |   %add6 = %pR_fetch_c1  +  0.000000e+00;
 ; CHECK-HIR:        |   %insertval8 = insertvalue zeroinitializer,  %add, 0;
 ; CHECK-HIR:        |   %insertval10 = insertvalue %insertval8,  %add6, 1;
-; CHECK-HIR:        |   (@pR)[i1 + 1] = %insertval10;
+; CHECK-HIR:        |   (@pR)[0][i1 + 1] = %insertval10;
 ; CHECK-HIR:        + END LOOP
 
 

@@ -9,10 +9,10 @@
 ; CHECK:          BEGIN REGION { }
 ; CHECK:                + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:                |   + DO i2 = 0, 499999, 1   <DO_LOOP>
-; CHECK:                |   |   (@global.9)[i2] = 1;
+; CHECK:                |   |   (@global.9)[0][i2] = 1;
 ; CHECK:                |   + END LOOP
 ; CHECK:                |   + DO i2 = 0, 499999, 1   <DO_LOOP>
-; CHECK:                |   |   %tmp61 = (@global.9)[i2];
+; CHECK:                |   |   %tmp61 = (@global.9)[0][i2];
 ; CHECK:                |   |   if (%tmp61 != 0)
 ; CHECK:                |   |   {
 ; CHECK:                |   |      %tmp76 = zext.i32.i64(2 * i2 + 3);
@@ -21,7 +21,7 @@
 ; CHECK:                |   |         + UNKNOWN LOOP i3
 ; CHECK:                |   |         |   <i3 = 0>
 ; CHECK:                |   |         |   bb63:
-; CHECK:                |   |         |   (@global.9)[3 * i2 + %tmp76 * i3 + 3] = 0;
+; CHECK:                |   |         |   (@global.9)[0][3 * i2 + %tmp76 * i3 + 3] = 0;
 ; CHECK:                |   |         |   if (5 * i2 + %tmp76 * i3 + 7 <u 500001)
 ; CHECK:                |   |         |   {
 ; CHECK:                |   |         |      <i3 = i3 + 1>
