@@ -2688,8 +2688,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // vtable field is derived from `this` pointer, therefore they should be in
   // the same addr space. Note that this might not be LLVM address space 0.
   VTableField = VTableField.withElementType(PtrTy);
-  VTableField = VTableField.withElementType(VTablePtrTy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
+#else
   // vtable field is derived from `this` pointer, therefore it should be in
   // default address space.
   VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
@@ -2699,7 +2698,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
 #else  // INTEL_COLLAB
   VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
 #endif // INTEL_COLLAB
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
