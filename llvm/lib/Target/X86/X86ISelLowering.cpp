@@ -19518,17 +19518,15 @@ unsigned X86TargetLowering::getGlobalWrapperKind(
   if (GV && GV->isAbsoluteSymbolRef())
     return X86ISD::Wrapper;
 
-  // The following OpFlags under RIP-rel PIC use RIP.
+  CodeModel::Model M = getTargetMachine().getCodeModel();
   if (Subtarget.isPICStyleRIPRel() &&
-      (OpFlags == X86II::MO_NO_FLAG || OpFlags == X86II::MO_COFFSTUB ||
-       OpFlags == X86II::MO_DLLIMPORT))
+      (M == CodeModel::Small || M == CodeModel::Kernel))
     return X86ISD::WrapperRIP;
 
   // In the medium model, functions can always be referenced RIP-relatively,
   // since they must be within 2GiB. This is also possible in non-PIC mode, and
   // shorter than the 64-bit absolute immediate that would otherwise be emitted.
-  if (getTargetMachine().getCodeModel() == CodeModel::Medium &&
-      isa_and_nonnull<Function>(GV))
+  if (M == CodeModel::Medium && isa_and_nonnull<Function>(GV))
     return X86ISD::WrapperRIP;
 
   // GOTPCREL references must always use RIP.
@@ -19556,8 +19554,7 @@ X86TargetLowering::LowerConstantPool(SDValue Op, SelectionDAG &DAG) const {
   SDValue Result = DAG.getTargetConstantPool(
       CP->getConstVal(), PtrVT, CP->getAlign(), CP->getOffset(), OpFlag);
   SDLoc DL(CP);
-  Result =
-      DAG.getNode(getGlobalWrapperKind(nullptr, OpFlag), DL, PtrVT, Result);
+  Result = DAG.getNode(getGlobalWrapperKind(), DL, PtrVT, Result);
   // With PIC, the address is actually $g + Offset.
   if (OpFlag) {
     Result =
@@ -19578,8 +19575,7 @@ SDValue X86TargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
   auto PtrVT = getPointerTy(DAG.getDataLayout());
   SDValue Result = DAG.getTargetJumpTable(JT->getIndex(), PtrVT, OpFlag);
   SDLoc DL(JT);
-  Result =
-      DAG.getNode(getGlobalWrapperKind(nullptr, OpFlag), DL, PtrVT, Result);
+  Result = DAG.getNode(getGlobalWrapperKind(), DL, PtrVT, Result);
 
   // With PIC, the address is actually $g + Offset.
   if (OpFlag)
@@ -19605,8 +19601,7 @@ X86TargetLowering::LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   auto PtrVT = getPointerTy(DAG.getDataLayout());
   SDValue Result = DAG.getTargetBlockAddress(BA, PtrVT, Offset, OpFlags);
-  Result =
-      DAG.getNode(getGlobalWrapperKind(nullptr, OpFlags), dl, PtrVT, Result);
+  Result = DAG.getNode(getGlobalWrapperKind(), dl, PtrVT, Result);
 
   // With PIC, the address is actually $g + Offset.
   if (isGlobalRelativeToPICBase(OpFlags)) {
@@ -28018,7 +28013,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     auto &Context = MF.getMMI().getContext();
     MCSymbol *S = Context.getOrCreateSymbol(Twine("GCC_except_table") +
                                             Twine(MF.getFunctionNumber()));
-    return DAG.getNode(getGlobalWrapperKind(nullptr, /*OpFlags=*/0), dl, VT,
+    return DAG.getNode(getGlobalWrapperKind(), dl, VT,
                        DAG.getMCSymbol(S, PtrVT));
   }
 
