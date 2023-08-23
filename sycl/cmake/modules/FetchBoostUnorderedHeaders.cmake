@@ -8,7 +8,14 @@ function(add_boost_module_headers)
     ${ARGN})                   # arguments
 
   if (NOT DEFINED BOOST_MODULE_SRC_DIR)
-    set(BOOST_MODULE_GIT_REPO "https://github.com/boostorg/${BOOST_MODULE_NAME}.git")
+    if (INTEL_CUSTOMIZATION)
+      set(BOOST_MODULE_GIT_REPO "https://github.com/boostorg/${BOOST_MODULE_NAME}.git")
+      if (DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+        # ICS_GIT_MIRROR, if set, overrides default internal URL.
+        set(BOOST_MODULE_GIT_REPO "$ENV{ICS_GIT_MIRROR}/${BOOST_MODULE_NAME}.git")
+        STRING(REGEX REPLACE "\\\\" "/" BOOST_MODULE_GIT_REPO "${BOOST_MODULE_GIT_REPO}")
+      endif ()
+    endif (INTEL_CUSTOMIZATION)
     message(STATUS "Source dir not set for boost module ${BOOST_MODULE_NAME}, downloading headers from ${BOOST_MODULE_GIT_REPO}")
 
     set(BOOST_MODULE_FULL_NAME "boost_${BOOST_MODULE_NAME}")
