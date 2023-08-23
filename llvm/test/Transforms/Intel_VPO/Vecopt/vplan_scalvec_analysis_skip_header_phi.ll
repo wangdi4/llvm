@@ -7,7 +7,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -S < %s -passes=vplan-vec -vplan-force-vf=2 -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
 
-define void @test_uni_inner(i64 *%p) {
+define void @test_uni_inner(ptr %p) {
 ;
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: test_uni_inner:simd.header
@@ -24,7 +24,7 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
@@ -72,7 +72,7 @@ simd.preheader:
 
 simd.header:
   %simd.iv = phi i64 [ 0, %simd.preheader ], [ %simd.iv.next, %simd.latch ]
-  %gep = getelementptr i64, i64 *%p, i64 %simd.iv
+  %gep = getelementptr i64, ptr %p, i64 %simd.iv
   br label %entry
 
 entry:
@@ -106,7 +106,7 @@ simd.end:
   ret void
 }
 
-define void @test_self_user_phi(i64 *%p) {
+define void @test_self_user_phi(ptr %p) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: test_self_user_phi:simd.header
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -122,7 +122,7 @@ define void @test_self_user_phi(i64 *%p) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
@@ -168,7 +168,7 @@ simd.preheader:
 
 simd.header:
   %simd.iv = phi i64 [ 0, %simd.preheader ], [ %simd.iv.next, %simd.latch ]
-  %gep = getelementptr i64, i64 *%p, i64 %simd.iv
+  %gep = getelementptr i64, ptr %p, i64 %simd.iv
   br label %entry
 
 entry:

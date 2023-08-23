@@ -4,23 +4,22 @@
 
 ; RUN: opt -S < %s -passes=vplan-vec -vplan-print-scalvec-results | FileCheck %s
 
-define dso_local void @foo(i32 addrspace(4)** %uni.addr) {
+define dso_local void @foo(ptr addrspace(4) %uni.addr) {
 entry:
   %priv = alloca i32, align 4
   br label %simd.begin.region
 
 simd.begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %priv, i32 0, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %priv, i32 0, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-; CHECK:          [DA: Div, SVA: (FV )] i32* [[VP_PRIV:%.*]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP0:%.*]] = bitcast i32* [[VP_PRIV]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 addrspace(4)* [[VP_PRIV_ADDRCAST:%.*]] = addrspacecast i32* [[VP_PRIV]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 addrspace(4)* [[VP_PRIV_GEP:%.*]] = getelementptr inbounds i32 addrspace(4)* [[VP_PRIV_ADDRCAST]] i64 0 (SVAOpBits 0->V 1->V )
-  %priv.addrcast = addrspacecast i32* %priv to i32 addrspace(4)*
-  %priv.gep = getelementptr inbounds i32, i32 addrspace(4)* %priv.addrcast, i64 0
+; CHECK:          [DA: Div, SVA: (FV )] ptr [[VP_PRIV:%.*]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4 ptr [[VP_PRIV]] ptr @llvm.lifetime.start.p0 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr addrspace(4) [[VP_PRIV_ADDRCAST:%.*]] = addrspacecast ptr [[VP_PRIV]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr addrspace(4) [[VP_PRIV_GEP:%.*]] = getelementptr inbounds i32, ptr addrspace(4) [[VP_PRIV_ADDRCAST]] i64 0 (SVAOpBits 0->V 1->V )
+  %priv.addrcast = addrspacecast ptr %priv to ptr addrspace(4)
+  %priv.gep = getelementptr inbounds i32, ptr addrspace(4) %priv.addrcast, i64 0
   br label %simd.loop
 
 simd.loop:
@@ -30,8 +29,8 @@ simd.loop:
 
 if.then:
 ; CHECK:          [DA: Div, SVA: ( V )] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND:%.*]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i32 addrspace(4)* [[VP_PRIV_GEP]] i32 addrspace(4)** [[UNI_ADDR0:%.*]] (SVAOpBits 0->V 1->V )
-  store i32 addrspace(4)* %priv.gep, i32 addrspace(4)** %uni.addr, align 4
+; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store ptr addrspace(4) [[VP_PRIV_GEP]] ptr addrspace(4) [[UNI_ADDR0:%.*]] (SVAOpBits 0->V 1->V )
+  store ptr addrspace(4) %priv.gep, ptr addrspace(4) %uni.addr, align 4
   br label %merge
 
 merge:

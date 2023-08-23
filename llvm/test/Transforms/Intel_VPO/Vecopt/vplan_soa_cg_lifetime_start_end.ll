@@ -15,29 +15,24 @@ define void @test_lifetime_start_end() {
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
-; CHECK-NEXT:    [[UNI_GEP:%.*]] = getelementptr inbounds [1024 x i8], [1024 x i8]* [[ARR_PRIV8]], i64 0, i64 0
-; CHECK-NEXT:    [[BC:%.*]] = bitcast [1024 x i32]* [[ARR_PRIV32]] to i8*
+; CHECK-NEXT:    [[UNI_GEP:%.*]] = getelementptr inbounds [1024 x i8], ptr [[ARR_PRIV8]], i64 0, i64 0
+; CHECK-NEXT:    [[BC:%.*]] = bitcast ptr [[ARR_PRIV32]] to ptr
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[TMP1]])
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast [1024 x <2 x i8>]* [[ARR_PRIV8_SOA_VEC]] to <2 x i8>*
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i8>* [[TMP2]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 2048, i8* [[TMP3]])
-; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i8>], [1024 x <2 x i8>]* [[ARR_PRIV8_SOA_VEC]], i64 0, i64 0
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8192, ptr [[ARR_PRIV32_SOA_VEC]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 2048, ptr [[ARR_PRIV8_SOA_VEC]])
+; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i8>], ptr [[ARR_PRIV8_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i8>, <2 x i8>* [[SOA_SCALAR_GEP]], align 4
-; CHECK-NEXT:    store <2 x i8> <i8 30, i8 30>, <2 x i8>* [[SOA_SCALAR_GEP]], align 1
-; CHECK-NEXT:    [[SOA_SCALAR_GEP3:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
-; CHECK-NEXT:    [[WIDE_LOAD4:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
-; CHECK-NEXT:    store <2 x i32> <i32 30, i32 30>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i8>, ptr [[SOA_SCALAR_GEP]], align 4
+; CHECK-NEXT:    store <2 x i8> <i8 30, i8 30>, ptr [[SOA_SCALAR_GEP]], align 1
+; CHECK-NEXT:    [[SOA_SCALAR_GEP3:%.*]] = getelementptr inbounds [1024 x <2 x i32>], ptr [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
+; CHECK-NEXT:    [[WIDE_LOAD4:%.*]] = load <2 x i32>, ptr [[SOA_SCALAR_GEP3]], align 4
+; CHECK-NEXT:    store <2 x i32> <i32 30, i32 30>, ptr [[SOA_SCALAR_GEP3]], align 4
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
@@ -49,29 +44,29 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i8]* %arr.priv8, i8 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv32, i32 0, i32 1024)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv8, i8 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv32, i32 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-  %uni.gep = getelementptr inbounds [1024 x i8], [1024 x i8]* %arr.priv8, i64 0, i64 0
-  %bc = bitcast [1024 x i32]* %arr.priv32 to i8*
+  %uni.gep = getelementptr inbounds [1024 x i8], ptr %arr.priv8, i64 0, i64 0
+  %bc = bitcast ptr %arr.priv32 to ptr
   br label %simd.loop
 
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %simd.loop]
-  call void @llvm.lifetime.start.p0i8(i64 1024, i8* nonnull %uni.gep)
-  call void @llvm.lifetime.start.p0i8(i64 4096, i8* nonnull %bc)
-  %ld8 = load i8, i8* %uni.gep, align 4
-  store i8 30, i8* %uni.gep
+  call void @llvm.lifetime.start.p0(i64 1024, ptr nonnull %uni.gep)
+  call void @llvm.lifetime.start.p0(i64 4096, ptr nonnull %bc)
+  %ld8 = load i8, ptr %uni.gep, align 4
+  store i8 30, ptr %uni.gep
 
   ; load/store on i32 array.
-  %uni.gep32 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 0
-  %ld32 = load i32, i32* %uni.gep32, align 4
-  store i32 30, i32* %uni.gep32
+  %uni.gep32 = getelementptr inbounds [1024 x i32], ptr %arr.priv32, i64 0, i64 0
+  %ld32 = load i32, ptr %uni.gep32, align 4
+  store i32 30, ptr %uni.gep32
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
-  call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull %uni.gep)
-  call void @llvm.lifetime.end.p0i8(i64 4096, i8* nonnull %bc)
+  call void @llvm.lifetime.end.p0(i64 1024, ptr nonnull %uni.gep)
+  call void @llvm.lifetime.end.p0(i64 4096, ptr nonnull %bc)
   br i1 %cmp, label %simd.loop, label %simd.end
 
 simd.end:
@@ -92,20 +87,18 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
-; CHECK-NEXT:    [[UNI_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[ARR_PRIV32]], i64 0, i64 0
+; CHECK-NEXT:    [[UNI_GEP:%.*]] = getelementptr inbounds [1024 x i32], ptr [[ARR_PRIV32]], i64 0, i64 0
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[TMP1]])
-; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8192, ptr [[ARR_PRIV32_SOA_VEC]])
+; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], ptr [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP15:%.*]], [[VPLANNEDBB14:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP14:%.*]], [[VPLANNEDBB14]] ]
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, ptr [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i64> [[VEC_PHI]], <i64 42, i64 42>
 ; CHECK-NEXT:    br label [[ALL_ZERO_BYPASS_BEGIN42:%.*]]
 ; CHECK:       all.zero.bypass.begin42:
@@ -113,7 +106,6 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i2 [[TMP3]], 0
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[ALL_ZERO_BYPASS_END44:%.*]], label [[VPLANNEDBB3:%.*]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i64 [ 0, [[VPLANNEDBB3]] ], [ [[TMP6:%.*]], [[VPLANNEDBB4]] ]
@@ -136,7 +128,7 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    br label [[ALL_ZERO_BYPASS_END44]]
 ; CHECK:       all.zero.bypass.end44:
-; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi <2 x i8>* [ [[TMP5]], [[VPLANNEDBB10]] ], [ null, [[ALL_ZERO_BYPASS_BEGIN42]] ]
+; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi ptr [ [[ARR_PRIV32_SOA_VEC]], [[VPLANNEDBB10]] ], [ null, [[ALL_ZERO_BYPASS_BEGIN42]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB12:%.*]]
 ; CHECK:       VPlannedBB12:
 ; CHECK-NEXT:    [[TMP13:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> <i1 true, i1 true>, <2 x i1> zeroinitializer
@@ -149,9 +141,7 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    [[TMP16:%.*]] = icmp ult i64 [[TMP15]], 1024
 ; CHECK-NEXT:    br i1 [[TMP16]], label [[VECTOR_BODY]], label [[VPLANNEDBB15:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       VPlannedBB15:
-; CHECK-NEXT:    [[TMP17:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to <2 x i8>*
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x i8>* [[TMP17]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* [[TMP18]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8192, ptr [[ARR_PRIV32_SOA_VEC]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB16:%.*]]
 ; CHECK:       VPlannedBB16:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
@@ -160,11 +150,11 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    br label [[SIMD_END:%.*]]
 ; CHECK:       simd.loop:
 ; CHECK-NEXT:    [[IV1:%.*]] = phi i64 [ [[IV1_NEXT:%.*]], [[INNER_SKIP:%.*]] ]
-; CHECK-NEXT:    [[LD8:%.*]] = load i32, i32* [[UNI_GEP]], align 4
+; CHECK-NEXT:    [[LD8:%.*]] = load i32, ptr [[UNI_GEP]], align 4
 ; CHECK-NEXT:    [[DIV_COND:%.*]] = icmp eq i64 [[IV1]], 42
 ; CHECK-NEXT:    br i1 [[DIV_COND]], label [[INNER_PH:%.*]], label [[INNER_SKIP]]
 ; CHECK:       inner.ph:
-; CHECK-NEXT:    [[BC_IF:%.*]] = bitcast [1024 x i32]* [[ARR_PRIV32]] to i8*
+; CHECK-NEXT:    [[BC_IF:%.*]] = bitcast ptr [[ARR_PRIV32]] to ptr
 ; CHECK-NEXT:    br label [[INNER_LOOP:%.*]]
 ; CHECK:       inner.loop:
 ; CHECK-NEXT:    [[INNER_IV:%.*]] = phi i64 [ 0, [[INNER_PH]] ], [ [[INNER_IV_NEXT:%.*]], [[INNER_LOOP]] ]
@@ -176,8 +166,8 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK:       lifetime.check.bb:
 ; CHECK-NEXT:    br i1 true, label [[LIFETIME_BB:%.*]], label [[INNER_SKIP]]
 ; CHECK:       lifetime.bb:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 1024, i8* nonnull [[BC_IF]])
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull [[BC_IF]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 1024, ptr nonnull [[BC_IF]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 1024, ptr nonnull [[BC_IF]])
 ; CHECK-NEXT:    br label [[INNER_SKIP]]
 ; CHECK:       inner.skip:
 ; CHECK-NEXT:    [[IV1_NEXT]] = add nuw nsw i64 [[IV1]], 1
@@ -192,21 +182,21 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv32, i32 0, i32 1024)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv32, i32 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-  %uni.gep = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 0
+  %uni.gep = getelementptr inbounds [1024 x i32], ptr %arr.priv32, i64 0, i64 0
   br label %simd.loop
 
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %inner.skip]
-  %ld8 = load i32, i32* %uni.gep, align 4
+  %ld8 = load i32, ptr %uni.gep, align 4
   %div.cond = icmp eq i64 %iv1, 42
   br i1 %div.cond, label %inner.ph, label %inner.skip
 
 inner.ph:
-  %bc.if = bitcast [1024 x i32]* %arr.priv32 to i8*
+  %bc.if = bitcast ptr %arr.priv32 to ptr
   br label %inner.loop
 
 inner.loop:
@@ -222,8 +212,8 @@ lifetime.check.bb:
   br i1 true, label %lifetime.bb, label %inner.skip
 
 lifetime.bb:
-  call void @llvm.lifetime.start.p0i8(i64 1024, i8* nonnull %bc.if)
-  call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull %bc.if)
+  call void @llvm.lifetime.start.p0(i64 1024, ptr nonnull %bc.if)
+  call void @llvm.lifetime.end.p0(i64 1024, ptr nonnull %bc.if)
   br label %inner.skip
 
 inner.skip:
@@ -236,7 +226,7 @@ simd.end:
   ret void
 }
 
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
