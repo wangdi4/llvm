@@ -67,7 +67,7 @@ STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
 static cl::opt<unsigned> FuncSpecMaxIters(
-    "funcspec-max-iters", cl::init(1), cl::Hidden, cl::desc(
+    "funcspec-max-iters", cl::init(10), cl::Hidden, cl::desc(
     "The maximum number of iterations function specialization is run"));
 
 #if INTEL_CUSTOMIZATION
