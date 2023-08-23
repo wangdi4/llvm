@@ -1,4 +1,21 @@
 //==------ program_manager.cpp --- SYCL program manager---------------------==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -379,27 +396,47 @@ appendCompileOptionsForGRFSizeProperties(std::string &CompileOpts,
   // The mutual exclusivity of these properties should have been checked in
   // sycl-post-link.
   assert(!RegAllocModeProp || !GRFSizeProp);
-  bool IsLargeGRF = false;
+  bool Is256GRF = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  bool Is512GRF = false;
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
   bool IsAutoGRF = false;
   if (RegAllocModeProp) {
     uint32_t RegAllocModePropVal =
         DeviceBinaryProperty(RegAllocModeProp).asUint32();
-    IsLargeGRF = RegAllocModePropVal ==
-                 static_cast<uint32_t>(register_alloc_mode_enum::large);
+    Is256GRF = RegAllocModePropVal ==
+               static_cast<uint32_t>(register_alloc_mode_enum::large);
     IsAutoGRF = RegAllocModePropVal ==
                 static_cast<uint32_t>(register_alloc_mode_enum::automatic);
   } else {
     assert(GRFSizeProp);
     uint32_t GRFSizePropVal = DeviceBinaryProperty(GRFSizeProp).asUint32();
-    IsLargeGRF = GRFSizePropVal == 256;
+    Is256GRF = GRFSizePropVal == 256;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    Is512GRF = GRFSizePropVal == 512;
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
     IsAutoGRF = GRFSizePropVal == 0;
   }
-  if (IsLargeGRF) {
+  if (Is256GRF) {
     if (!CompileOpts.empty())
       CompileOpts += " ";
     // This option works for both LO AND OCL backends.
     CompileOpts += IsEsimdImage ? "-doubleGRF" : "-ze-opt-large-register-file";
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  if (Is512GRF) {
+    if (!CompileOpts.empty())
+      CompileOpts += " ";
+    // This option works for both LO AND OCL backends.
+    CompileOpts += "-ze-opt-register-file-size=512";
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
   // TODO: Support Auto GRF for ESIMD once vc supports it.
   if (IsAutoGRF && !IsEsimdImage) {
     if (!CompileOpts.empty())

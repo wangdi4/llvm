@@ -13,7 +13,8 @@
 // this is a temporary fix for CMPLRTST-21037
 // we pass -fno-inline-functions to sure it won't hang in host compile
 // we don't do the same thing in intel/llvm since it will lead to runfail
-// RUN: %{build} %{mathflags} -I%S/.. -O2 -inline-level=0 -o %t.out
+// DEFINE: %{noinlineflags} = %if cl_options %{/clang:-fno-inline-functions%} %else %{-fno-inline-functions%}
+// RUN: %{build} %{mathflags} %{noinlineflags} -I%S/.. -O2 -o %t.out
 // end INTEL_CUSTOMIZATION
 // RUN: %{run} %t.out 3 2 1
 //
