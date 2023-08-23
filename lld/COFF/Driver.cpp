@@ -1206,10 +1206,11 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
   std::string temp = std::string(s.str());
   temporaryFiles.push_back(temp);
 
-  Error e =
-      llvm::writeArchive(temp, New, /*WriteSymtab=*/true, Archive::Kind::K_GNU,
-                         /*Deterministics=*/true,
-                         /*Thin=*/false);
+  Error e = llvm::writeArchive(temp, New,
+                               /*WriteSymtab=*/SymtabWritingMode::NormalSymtab,
+                               Archive::Kind::K_GNU,
+                               /*Deterministics=*/true,
+                               /*Thin=*/false);
   handleAllErrors(std::move(e), [&](const ErrorInfoBase &ei) {
     error("failed to create a new archive " + s.str() + ": " + ei.message());
   });
