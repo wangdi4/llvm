@@ -940,6 +940,10 @@ bool CombineRuleBuilder::parseApply(DagInit &Apply) {
   }
 
   const StringInit *Code = dyn_cast<StringInit>(Apply.getArg(0));
+  if (!Code) {
+    PrintError("Expected a string argument to 'apply'");
+    return false;
+  }
   const auto PatName = makeAnonPatName("apply");
   ApplyPats[PatName] =
       std::make_unique<CXXPattern>(*Code, PatName, /*IsApply*/ true);
