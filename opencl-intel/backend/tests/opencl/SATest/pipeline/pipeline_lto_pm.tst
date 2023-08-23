@@ -160,7 +160,6 @@
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK:      Running pass: GlobalOptPass
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
@@ -177,6 +176,7 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK:      Running pass: GlobalOptPass
 ; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: SROAPass on test
 ; CHECK:      Running pass: InstCombinePass on test

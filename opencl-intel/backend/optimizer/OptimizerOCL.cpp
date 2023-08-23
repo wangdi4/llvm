@@ -637,14 +637,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize()));
   MPM.addPass(LocalBuffersPass());
-  // clang converts OCL's local to global.
-  // LocalBuffersPass changes the local allocation from global to a
-  // kernel argument.
-  // The next pass GlobalOptPass cleans the unused global
-  // allocation in order to make sure we will not allocate redundant space on
-  // the jit
-  if (Level != OptimizationLevel::O0 && m_debugType != intel::Native)
-    MPM.addPass(GlobalOptPass());
 
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
@@ -715,6 +707,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(PrepareKernelArgsPass());
 
   if (Level != OptimizationLevel::O0) {
+    MPM.addPass(GlobalOptPass());
     // Cleaning up internal globals
     MPM.addPass(GlobalDCEPass());
     // These passes come after PrepareKernelArgsPass to eliminate the
