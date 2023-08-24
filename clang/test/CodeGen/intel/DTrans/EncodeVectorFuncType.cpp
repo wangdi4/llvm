@@ -7,8 +7,29 @@ struct a {
 };
 a (*d)();
 
+struct a2 {
+  float b[2];
+};
+a2 (*d2)();
+
+struct a3 {
+  __complex__ float b[1];
+};
+a3 (*d3)();
+
+struct a4 {
+  a3 bb;
+};
+a4 (*d4)();
+
 // PTR: @d = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D:[0-9]+]]
 // OPQ: @d = global ptr null, align 8, !intel_dtrans_type ![[D:[0-9]+]]
+// PTR: @d2 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
+// OPQ: @d2 = global ptr null, align 8, !intel_dtrans_type ![[D]]
+// PTR: @d3 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
+// OPQ: @d3 = global ptr null, align 8, !intel_dtrans_type ![[D]]
+// PTR: @d4 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
+// OPQ: @d4 = global ptr null, align 8, !intel_dtrans_type ![[D]]
 
 // CHECK: !intel.dtrans.types = !{}
 // CHECK: ![[D]] = !{![[FUNCTY:[0-9]+]], i32 1}
