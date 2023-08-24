@@ -548,12 +548,11 @@ constexpr ProcInfo Processors[] = {
   { {"znver3"}, CK_ZNVER3, FEATURE_AVX2, FeaturesZNVER3, '\0', false },
   { {"znver4"}, CK_ZNVER4, FEATURE_AVX512VBMI2, FeaturesZNVER4, '\0', false },
   // Generic 64-bit processor.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  { {"x86-64"}, CK_x86_64, ~0U, FeaturesX86_64, 'J', false },
-  { {"x86-64-v2"}, CK_x86_64_v2, ~0U, FeaturesX86_64_V2, 'R', false },
-  { {"x86-64-v3"}, CK_x86_64_v3, ~0U, FeaturesX86_64_V3, 'V', false },
-  { {"x86-64-v4"}, CK_x86_64_v4, ~0U, FeaturesX86_64_V4, 'a', false },
+  { {"x86-64"}, CK_x86_64, FEATURE_SSE2, FeaturesX86_64, 'J', false },
+  { {"x86-64-v2"}, CK_x86_64_v2, FEATURE_SSE4_2, FeaturesX86_64_V2, 'R', false },
+  { {"x86-64-v3"}, CK_x86_64_v3, FEATURE_AVX2, FeaturesX86_64_V3, 'V', false },
+  { {"x86-64-v4"}, CK_x86_64_v4, FEATURE_AVX512VL, FeaturesX86_64_V4, 'a', false },
   // Intersection of SKX and KNL.
   { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', false },
   { {"common_avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', true },
@@ -574,12 +573,6 @@ constexpr ProcInfo Processors[] = {
   { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal, '\0', false },
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
-=======
-  { {"x86-64"}, CK_x86_64, FEATURE_SSE2 , FeaturesX86_64, '\0', false },
-  { {"x86-64-v2"}, CK_x86_64_v2, FEATURE_SSE4_2 , FeaturesX86_64_V2, '\0', false },
-  { {"x86-64-v3"}, CK_x86_64_v3, FEATURE_AVX2, FeaturesX86_64_V3, '\0', false },
-  { {"x86-64-v4"}, CK_x86_64_v4, FEATURE_AVX512VL, FeaturesX86_64_V4, '\0', false },
->>>>>>> 7a41af86041bd757b7f380d7f645403d4e1725ca
   // Geode processors.
   { {"geode"}, CK_Geode, ~0U, FeaturesGeode, '\0', false },
 };
