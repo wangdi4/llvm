@@ -2,6 +2,7 @@
 //
 // RUN: %clang --intel -c -fprofile-ml-use -mllvm -debug-only=mlpgo %s 2>&1 \
 // RUN: | FileCheck --check-prefix=FPROFILE_ML_USE %s
+// UNSUPPORTED: intel_use_sanitizers
 //
 // FPROFILE_ML_USE: ML model version: 0.1.2
 // FPROFILE_ML_USE: Branch Prediction Model result
