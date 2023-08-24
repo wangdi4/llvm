@@ -4767,4 +4767,39 @@ int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
 
   return -1;
 }
+
+int32_t __tgt_rtl_flush_queue(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+  // No need to anything here for OpenCL
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+  if (!Interop->TargetSync)
+    return OFFLOAD_SUCCESS;
+
+  auto CmdQueue = static_cast<cl_command_queue>(Interop->TargetSync);
+  CALL_CL_RET_FAIL(clFinish, CmdQueue);
+
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+  if (!Interop->TargetSync)
+    return OFFLOAD_SUCCESS;
+
+  return __tgt_rtl_sync_barrier(Interop);
+}
+
 #endif // INTEL_COLLAB
