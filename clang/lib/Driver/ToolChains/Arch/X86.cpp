@@ -91,15 +91,13 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("sierraforest", "sierraforest")
               .CaseLower("grandridge", "grandridge")
               .CaseLower("emeraldrapids", "emeraldrapids")
+              .CaseLower("lunarlake", "lunarlake")
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
 #if INTEL_FEATURE_CPU_RYL
               .CaseLower("royal", "royal")
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-              .CaseLower("lunarlake", "lunarlake")
-#endif // INTEL_FEATURE_CPU_LNL
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
