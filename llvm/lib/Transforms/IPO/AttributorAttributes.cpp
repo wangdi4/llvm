@@ -10703,8 +10703,7 @@ struct AAInterFnReachabilityFunction
 
   bool instructionCanReach(
       Attributor &A, const Instruction &From, const Function &To,
-      const AA::InstExclusionSetTy *ExclusionSet,
-      SmallPtrSet<const Function *, 16> *Visited) const override {
+      const AA::InstExclusionSetTy *ExclusionSet) const override {
     assert(From.getFunction() == getAnchorScope() && "Queried the wrong AA!");
     auto *NonConstThis = const_cast<AAInterFnReachabilityFunction *>(this);
 
@@ -10725,12 +10724,8 @@ struct AAInterFnReachabilityFunction
     const Instruction *EntryI =
         &RQI.From->getFunction()->getEntryBlock().front();
     if (EntryI != RQI.From &&
-        !instructionCanReach(A, *EntryI, *RQI.To, nullptr, nullptr))
+        !instructionCanReach(A, *EntryI, *RQI.To, nullptr))
       return rememberResult(A, RQITy::Reachable::No, RQI, false);
-
-    SmallPtrSet<const Function *, 16> LocalVisited;
-    if (!Visited)
-      Visited = &LocalVisited;
 
     auto CheckReachableCallBase = [&](CallBase *CB) {
       auto *CBEdges = A.getAAFor<AACallEdges>(
@@ -10744,8 +10739,7 @@ struct AAInterFnReachabilityFunction
       for (Function *Fn : CBEdges->getOptimisticEdges()) {
         if (Fn == RQI.To)
           return false;
-        if (!Visited->insert(Fn).second)
-          continue;
+
         if (Fn->isDeclaration()) {
           if (Fn->hasFnAttribute(Attribute::NoCallback))
             continue;
@@ -10766,7 +10760,7 @@ struct AAInterFnReachabilityFunction
         const Instruction &FnFirstInst = Fn->getEntryBlock().front();
         if (!InterFnReachability ||
             InterFnReachability->instructionCanReach(A, FnFirstInst, *RQI.To,
-                                                     RQI.ExclusionSet, Visited))
+                                                     RQI.ExclusionSet))
           return false;
       }
       return true;
