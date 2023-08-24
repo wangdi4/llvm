@@ -631,7 +631,10 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
       TM->getTargetTriple().isOSBinFormatELF() &&
       TM->getRelocationModel() != Reloc::Static &&
       Mod.getPIELevel() == PIELevel::Default;
-  renameModuleForThinLTO(Mod, CombinedIndex, ClearDSOLocalOnDeclarations);
+#if INTEL_CUSTOMIZATION
+  if (renameModuleForThinLTO(Mod, CombinedIndex, ClearDSOLocalOnDeclarations))
+    report_fatal_error("renameModuleForThinLTO failed");
+#endif // INTEL_CUSTOMIZATION
 
   dropDeadSymbols(Mod, DefinedGlobals, CombinedIndex);
 
