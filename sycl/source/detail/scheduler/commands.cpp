@@ -70,6 +70,9 @@ bool CurrentCodeLocationValid() {
 struct DemangleHandle {
   char *p;
   DemangleHandle(char *ptr) : p(ptr) {}
+
+  DemangleHandle &operator=(const DemangleHandle &) = delete;
+
   ~DemangleHandle() { std::free(p); }
 };
 static std::string demangleKernelName(std::string Name) {
@@ -2384,7 +2387,7 @@ pi_int32 enqueueImpCommandBufferKernel(
   pi_program PiProgram = nullptr;
 
   auto Kernel = CommandGroup.MSyclKernel;
-  const KernelArgMask *EliminatedArgMask;
+  const KernelArgMask *EliminatedArgMask = nullptr;
   if (Kernel != nullptr) {
     PiKernel = Kernel->getHandleRef();
   } else {
