@@ -38,6 +38,11 @@
 #include "sanitizer_libc.h"
 #include "sanitizer_placement_new.h"
 
+#if INTEL_CUSTOMIZATION
+extern void *_ZN4sycl3_V118default_selector_vERKNS0_6deviceE
+    __attribute__((weak));
+#endif  // INTEL_CUSTOMIZATION
+
 namespace __sanitizer {
 
 const char *SanitizerToolName = "SanitizerTool";
@@ -423,6 +428,10 @@ void WarnAboutMissingSymbolizer() {
   }
 }
 void NotifyNoSymbolizer() { NoSymbolizerFound = true; }
+
+bool IsInSyclContext() {
+  return &_ZN4sycl3_V118default_selector_vERKNS0_6deviceE != nullptr;
+}
 #endif  // INTEL_CUSTOMIZATION
 
 } // namespace __sanitizer
