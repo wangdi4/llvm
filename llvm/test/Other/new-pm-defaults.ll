@@ -227,10 +227,7 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-<<<<<<< HEAD
-=======
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis
->>>>>>> ef867d2ea10e8246be20c608160e07a54eb2ed14
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass on foo
