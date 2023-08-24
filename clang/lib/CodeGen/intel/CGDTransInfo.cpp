@@ -1108,8 +1108,9 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
     EltTy = VTy->getElementType();
   } else if (const auto *ATy =
                  CGM.getContext().getAsConstantArrayType(ClangType)) {
-    assert(ATy->getSize() == VT->getNumElements() &&
-           "Mismatched array-to-vector size");
+    // Could be an array of the vector type or an array of a complex
+    // of the vector type. Additionally we don't know which since it could be
+    // hidden under an ugly templated Record type.
     EltTy = ATy->getElementType();
   } else {
     const auto *CplxTy = ClangType->castAs<ComplexType>();

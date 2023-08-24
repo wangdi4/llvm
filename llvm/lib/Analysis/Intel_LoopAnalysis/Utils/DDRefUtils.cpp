@@ -419,39 +419,6 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   return true;
 }
 
-bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
-                                             const RegDDRef *Ref2,
-                                             bool RelaxedMode) {
-  // Dealing with GEP refs only
-  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
-         "Both refs are expected to be memrefs");
-  if (Ref1 == Ref2) {
-    return true;
-  }
-
-  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
-    return false;
-  }
-
-  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
-    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
-    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
-
-    // Do not allow different offsets in outer dimensions.
-    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
-      return false;
-    }
-
-    bool Res =
-        CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, RelaxedMode);
-    if (!Res) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool RelaxedMode, bool IgnoreAddressOf,
                               bool IgnoreBitCastDestType) {
@@ -640,6 +607,45 @@ makeBasePtrElemTyConsistentForDistComputation(const RegDDRef *&Ref1,
   }
 
   return {Ref1Clone, Ref2Clone};
+}
+
+bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2,
+                                             bool RelaxedMode) {
+  // Dealing with GEP refs only
+  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
+         "Both refs are expected to be memrefs");
+  if (Ref1 == Ref2) {
+    return true;
+  }
+
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
+
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
+
+  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
+    return false;
+  }
+
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
+
+    // Do not allow different offsets in outer dimensions.
+    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
+
+    bool Res =
+        CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, RelaxedMode);
+    if (!Res) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,

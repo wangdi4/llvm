@@ -1,6 +1,6 @@
 //===--- HIRLoopConcatenation.cpp - Implements Loop Concatenation class ---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -397,6 +397,7 @@ private:
   SmallVector<unsigned, 4> AllocaLoadNodeOffset;
   SmallVector<unsigned, 4> AllocaStoreNodeOffset;
   SmallVector<HLInst *, 24> IntermediateInsts;
+  SmallVector<HLInst *, 16> NoAliasScopeInsts;
   SmallVector<std::pair<RegDDRef *, RegDDRef *>, 4> RednTempToAllocaMap;
 
   unsigned AllocaSymbase;
@@ -480,7 +481,6 @@ bool HIRLoopConcatenation::validTopLevelNodes(
       Loops.push_back(Loop);
 
     } else if (auto HInst = dyn_cast<HLInst>(Child)) {
-      IntermediateInsts.push_back(HInst);
 
       if (HInst->isCopyInst()) {
         // Non-constant rval may cause data dependencies.
@@ -490,12 +490,27 @@ bool HIRLoopConcatenation::validTopLevelNodes(
         if (!RvalRef->isIntConstant()) {
           return false;
         }
+
+        IntermediateInsts.push_back(HInst);
         continue;
       }
 
-      if (!HInst->isLifetimeIntrinsic()) {
+      if (HInst->isLifetimeIntrinsic()) {
+        IntermediateInsts.push_back(HInst);
+        continue;
+      }
+
+      Intrinsic::ID IntrinID;
+
+      // NoAliasScopeDecl insts will be moved before the very first loop so that
+      // the relationship with the corresponding loads/stores is maintained.
+      if (!HInst->isIntrinCall(IntrinID) ||
+          (IntrinID != Intrinsic::experimental_noalias_scope_decl)) {
         return false;
       }
+
+      NoAliasScopeInsts.push_back(HInst);
+
     } else {
       return false;
     }
@@ -1180,6 +1195,11 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(Type *AllocatedType,
   }
 
   FirstLp->getUpperCanonExpr()->setConstant(Is16LoopMode ? 15 : 7);
+
+  // Prepend all NoAliasScope Insts to FirstLp.
+  for (auto *NoAliasInst : NoAliasScopeInsts) {
+    HLNodeUtils::moveBefore(FirstLp, NoAliasInst);
+  }
 
   // Remove all other write loops.
   for (unsigned I = 1, NumLoops = AllocaWriteLoops.size(); I < NumLoops; ++I) {
