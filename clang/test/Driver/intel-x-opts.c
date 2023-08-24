@@ -225,6 +225,12 @@
 // RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
 // XMETEORLAKE: "-target-cpu" "meteorlake"
 
+// RUN: %clang -### -c -xLUNARLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XLUNARLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxLUNARLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XLUNARLAKE,ADV_OPT %s
+// XLUNARLAKE: "-target-cpu" "lunarlake"
+
 // RUN: %clang -### -c -xGRANITERAPIDS %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxGRANITERAPIDS %s 2>&1 \
