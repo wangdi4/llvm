@@ -639,14 +639,6 @@ constexpr ProcInfo Processors[] = {
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids, 'n', false },
 #endif // INTEL_FEATURE_CPU_DMR
-<<<<<<< HEAD
-#if INTEL_FEATURE_CPU_LNL
-  // Lunarlake microarchitecture based processors.
-  { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesLunarlake, 'p', false },
-#endif // INTEL_FEATURE_CPU_LNL
-=======
-  { {"gracemont"}, CK_Gracemont, FEATURE_AVX2, FeaturesAlderlake, 'p', false },
->>>>>>> 864b83e4fd56d15253613553ae2527207e38abc1
 #if INTEL_FEATURE_CPU_RYL
   // Royal microarchitecture based processors.
   { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal, '\0', false },
