@@ -433,7 +433,7 @@ appendCompileOptionsForGRFSizeProperties(std::string &CompileOpts,
     if (!CompileOpts.empty())
       CompileOpts += " ";
     // This option works for both LO AND OCL backends.
-    CompileOpts += "-ze-opt-register-file-size=512";
+    CompileOpts += "-ze-exp-register-file-size=512";
   }
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
