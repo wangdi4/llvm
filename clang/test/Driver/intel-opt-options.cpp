@@ -53,6 +53,7 @@
 // CHECK-QOPT-MATMUL-NOT: "-mllvm" "-disable-hir-generate-mkl-call"
 // CHECK-QOPT-MATMUL-WIN: "--dependent-lib=libmatmul"
 // CHECK-QOPT-MATMUL-LIN: ld{{.*}} "-lmatmul"
+// CHECK-QOPT-MATMUL-LIN-SAME: "-liomp5"
 
 // RUN: %clang -### %s -c -qno-opt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
 // RUN: %clang_cl -### %s -c /Qopt-matmul- 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL

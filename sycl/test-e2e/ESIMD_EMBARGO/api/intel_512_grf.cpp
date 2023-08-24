@@ -90,8 +90,8 @@ int main(void) {
 }
 
 // CHECK-LABEL: ---> piProgramBuild(
-// CHECK-NO-VAR: -vc-codegen -disable-finalizer-msg -ze-opt-register-file-size=512
-// CHECK-WITH-VAR: -g -vc-codegen -disable-finalizer-msg -ze-opt-register-file-size=512
+// CHECK-NO-VAR: -vc-codegen -disable-finalizer-msg -ze-exp-register-file-size=512
+// CHECK-WITH-VAR: -g -vc-codegen -disable-finalizer-msg -ze-exp-register-file-size=512
 // TODO: Remove error check once flag is implemented in GPU driver
-// CHECK: invalid api option: -ze-opt-register-file-size=512
+// CHECK: invalid api option: -ze-exp-register-file-size=512
 // end INTEL_FEATURE_ESIMD_EMBARGO
