@@ -21,6 +21,51 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-add-implicit-args"
 
+namespace {
+class FuncTypeRemapper : public ValueMapTypeRemapper {
+  DenseMap<Type *, Type *> MappedTypes;
+
+public:
+  void addMapping(Type *SrcTy, Type *DstTy) { MappedTypes[SrcTy] = DstTy; }
+
+  Type *remapType(Type *SrcTy) override {
+    auto It = MappedTypes.find(SrcTy);
+    return It != MappedTypes.end() ? It->second : SrcTy;
+  }
+
+  /// Recursively add type mapping.
+  Type *get(Type *Ty, SmallPtrSetImpl<Type *> &Visited) {
+    if (Visited.contains(Ty))
+      return remapType(Ty);
+    Visited.insert(Ty);
+
+    if (auto It = MappedTypes.find(Ty); It != MappedTypes.end())
+      return It->second;
+
+    if (isa<PointerType>(Ty))
+      return Ty;
+
+    bool Changed = false;
+    SmallVector<Type *, 8> NewEltTypes;
+    for (auto *SubTy : Ty->subtypes()) {
+      Type *MappedTy = get(SubTy, Visited);
+      Changed |= MappedTy != Ty;
+      NewEltTypes.push_back(MappedTy);
+    }
+    if (!Changed)
+      return Ty;
+
+    if (Ty->getTypeID() == Type::ArrayTyID) {
+      Type *NewTy = ArrayType::get(NewEltTypes[0], Ty->getArrayNumElements());
+      addMapping(Ty, NewTy);
+      return NewTy;
+    }
+
+    llvm_unreachable("Unhandled type");
+  }
+};
+} // namespace
+
 PreservedAnalyses AddImplicitArgsPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
@@ -224,7 +269,16 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
     }
   }
 
+  FuncTypeRemapper TypeMapper;
+  ValueToValueMapTy VMap;
+  VMap[F] = NewF;
+  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals,
+                      &TypeMapper);
+
   if (F->getContext().supportsTypedPointers()) {
+    SmallPtrSet<Type *, 4> Visited{F->getType()};
+    TypeMapper.addMapping(F->getType(), NewF->getType());
+
     // It seems that removing function use (by changing its operand to another
     // function) somehow breaks data structure used to hold uses and for example
     // for two uses, the loop stops after the first one.
@@ -248,6 +302,8 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
         } else {
           UsersToReplace[SI] = {OpNo, NewF};
         }
+      } else if (auto *C = dyn_cast<Constant>(Usr)) {
+        std::ignore = TypeMapper.get(C->getType(), Visited);
       }
     }
 
@@ -257,17 +313,24 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
     }
   }
 
-  ValueToValueMapTy VMap;
-  VMap[F] = NewF;
-  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-  Users.assign(F->user_begin(), F->user_end());
-  for (User *U : Users) {
-    if (auto *I = dyn_cast<Instruction>(U))
+  for (User *U : make_early_inc_range(F->users())) {
+    if (auto *I = dyn_cast<Instruction>(U)) {
       VMapper.remapInstruction(*I);
-    else if (auto *C = dyn_cast<Constant>(U))
-      C->replaceAllUsesWith(VMapper.mapConstant(*C));
-    else
+    } else if (auto *C = dyn_cast<Constant>(U)) {
+      Constant *NewC;
+      if (auto *CA = dyn_cast<ConstantArray>(C);
+          CA && F->getContext().supportsTypedPointers()) {
+        Constant *Elt = CA->getAggregateElement(0u);
+        Constant *NewElt =
+            ConstantExpr::getBitCast(VMapper.mapConstant(*Elt), Elt->getType());
+        NewC = ConstantArray::get(CA->getType(), NewElt);
+      } else {
+        NewC = VMapper.mapConstant(*C);
+      }
+      C->replaceAllUsesWith(NewC);
+    } else {
       llvm_unreachable("unhandled kernel user");
+    }
   }
 }
 
