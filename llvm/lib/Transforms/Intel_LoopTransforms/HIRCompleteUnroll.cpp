@@ -1315,12 +1315,11 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
     return false;
   }
 
-  assert(Dist != 0 && "Non-zero distance expected!");
   unsigned TripCount = HCU.AvgTripCount.find(Loop)->second;
 
   // Distance should be negative for (store -> store) case but it doesn't matter
   // as it will be accounted once per ref pair due to symmetry of checks.
-  if ((Dist < 0) || (Dist >= TripCount)) {
+  if ((Dist <= 0) || (Dist >= TripCount)) {
     return true;
   }
 
