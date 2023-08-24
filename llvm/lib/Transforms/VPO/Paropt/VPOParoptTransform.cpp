@@ -10631,7 +10631,6 @@ bool VPOParoptTransform::insertStackSaveRestore(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
-  Module *M = EntryBB->getModule();
 
   IRBuilder<> Builder(EntryBB->getFirstNonPHI());
   auto *StackSave = Builder.CreateStackSave();
