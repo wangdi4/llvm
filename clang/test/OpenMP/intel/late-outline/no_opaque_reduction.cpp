@@ -561,7 +561,7 @@ void foo4() {
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.[[I2]](%struct.B2* noalias noundef %0, %struct.B2* noalias noundef %1)
-// CHECK: call void @_ZN2B2C1E2A2(%struct.B2* {{[^,]*}} %3, i64 %9, i32 %11)
+// CHECK: call void @_ZN2B2C1E2A2(%struct.B2* {{[^,]*}} %3, i64 %10, i32 %12)
 // CHECK: ret void
 
 // CHECK: define internal void @.[[I3]](%struct.B3* noalias noundef %0, %struct.B3* noalias noundef %1)
