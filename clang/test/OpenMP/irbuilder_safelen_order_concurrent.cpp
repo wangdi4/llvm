@@ -249,11 +249,7 @@ void simple(float *a, float *b, int *c) {
 //.
 // CHECK: !0 = !{i32 1, !"wchar_size", i32 4}
 // CHECK: !1 = !{i32 7, !"openmp", i32 50}
-<<<<<<< HEAD
-// CHECK: !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"} ; INTEL
-=======
 // CHECK: !2 = !{!"
->>>>>>> 81792de2b0a698d33a0685de698827f9f12320fd
 // CHECK: !3 = distinct !{}
 // CHECK: !4 = distinct !{!4, !5, !6, !7}
 // CHECK: !5 = !{!"llvm.loop.parallel_accesses", !3}
