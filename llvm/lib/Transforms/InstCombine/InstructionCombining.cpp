@@ -1421,6 +1421,7 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op, SelectInst *SI,
       return nullptr;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // After cbca9ce, because we do not 100% canonicalize to min/max, the
   // compiler may loop without the llorg code below.
@@ -1464,6 +1465,22 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op, SelectInst *SI,
     }
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Test if a FCmpInst instruction is used exclusively by a select as
+  // part of a minimum or maximum operation. If so, refrain from doing
+  // any other folding. This helps out other analyses which understand
+  // non-obfuscated minimum and maximum idioms. And in this case, at
+  // least one of the comparison operands has at least one user besides
+  // the compare (the select), which would often largely negate the
+  // benefit of folding anyway.
+  if (auto *CI = dyn_cast<FCmpInst>(SI->getCondition())) {
+    if (CI->hasOneUse()) {
+      Value *Op0 = CI->getOperand(0), *Op1 = CI->getOperand(1);
+      if ((TV == Op0 && FV == Op1) || (FV == Op0 && TV == Op1))
+        return nullptr;
+    }
+  }
+>>>>>>> 167db7ce551b2c99fda6427449fb4361eade58bb
 
   // Make sure that one of the select arms constant folds successfully.
   Value *NewTV = constantFoldOperationIntoSelectOperand(Op, SI, /*IsTrueArm*/ true);
