@@ -1000,6 +1000,10 @@ int CodeCoverageTool::doShow(int argc, const char **argv,
                                    cl::desc("Show function instantiations"),
                                    cl::init(true), cl::cat(ViewCategory));
 
+  cl::opt<bool> ShowDirectoryCoverage("show-directory-coverage", cl::Optional,
+                                      cl::desc("Show directory coverage"),
+                                      cl::cat(ViewCategory));
+
   cl::opt<std::string> ShowOutputDirectory(
       "output-dir", cl::init(""),
       cl::desc("Directory in which coverage information is written out"));
@@ -1080,6 +1084,7 @@ int CodeCoverageTool::doShow(int argc, const char **argv,
   ViewOpts.ShowBranchPercents =
       ShowBranches == CoverageViewOptions::BranchOutputType::Percent;
   ViewOpts.ShowFunctionInstantiations = ShowInstantiations;
+  ViewOpts.ShowDirectoryCoverage = ShowDirectoryCoverage;
   ViewOpts.ShowOutputDirectory = ShowOutputDirectory;
   ViewOpts.TabSize = TabSize;
   ViewOpts.ProjectTitle = ProjectTitle;
