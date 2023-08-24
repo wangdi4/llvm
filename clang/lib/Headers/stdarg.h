@@ -22,18 +22,15 @@
  *===-----------------------------------------------------------------------===
  */
 
-<<<<<<< HEAD
-#ifndef __STDARG_H
+#if !defined(__STDARG_H) || defined(__need___va_list) ||                       \
+    defined(__need_va_list) || defined(__need_va_arg) ||                       \
+    defined(__need___va_copy) || defined(__need_va_copy)
+
 /* INTEL_CUSTOMIZATION */
 #if defined(_MSC_VER)
 #include <vcruntime.h>
 #endif // if defined(_MSC_VER)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !defined(__STDARG_H) || defined(__need___va_list) ||                       \
-    defined(__need_va_list) || defined(__need_va_arg) ||                       \
-    defined(__need___va_copy) || defined(__need_va_copy)
->>>>>>> 62f769aa82f668a076fed2633e425631a4598a47
 
 #if !defined(__need___va_list) && !defined(__need_va_list) &&                  \
     !defined(__need_va_arg) && !defined(__need___va_copy) &&                   \
