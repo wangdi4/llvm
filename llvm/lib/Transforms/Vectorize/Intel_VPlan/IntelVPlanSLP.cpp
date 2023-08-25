@@ -309,6 +309,47 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference(
   return VecCost - ScalCost;
 }
 
+void VPlanSlp::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
+                                  MutableArrayRef<const VPValue *> Op2) const {
+  const VPValue *BaseV = Op1[0];
+  bool IsInst = isa<VPInstruction>(BaseV);
+  unsigned Opcode = IsInst ? cast<VPInstruction>(BaseV)->getOpcode() : 0;
+
+  // 'Similar' VPValues are likely to form vectorizable vector, not
+  // guaranteed though. 'Not similar' VPValues are guaranteed to be
+  // non vectorizable.
+  //
+  // Define the function of 'similarity' as follow:
+  // 1) Equal VPValues are similar.
+  // 2) VPInstructions with the same opcode are similar.
+  // 3) VPValues that are not VPInstructions are similar.
+  // NOTE:
+  // 3) can be improved to distinguish VPConstants vs other VPValues,
+  // although it is not clear whether it can manifest vectorizable
+  // code which is not detected otherwise.
+  // TODO:
+  // We might want to establish cost-wise operands swapping.
+  auto IsSimilar = [BaseV, IsInst, Opcode](const VPValue *V) {
+    return (V == BaseV) || (!IsInst && !isa<VPInstruction>(V)) ||
+           (isa<VPInstruction>(V) &&
+            cast<VPInstruction>(V)->getOpcode() == Opcode);
+  };
+
+  for (unsigned Idx = 1; Idx < Op1.size(); Idx++) {
+    if (!IsSimilar(Op1[Idx])) {
+      std::swap(Op1[Idx], Op2[Idx]);
+      if (SlpReportDetailLevel >= 2) {
+        LLVM_DEBUG(dbgs() << "VSLP: swapped operands ";
+                   Op1[Idx]->printAsOperand(dbgs()); dbgs() << " <-> ";
+                   Op2[Idx]->printAsOperand(dbgs());
+                   dbgs() << " at index = " << Idx << " in bundle/graph "
+                          << BundleID << '/' << GraphID << " in "
+                          << BB->getName() << '\n');
+      }
+    }
+  }
+}
+
 VPInstructionCost
 VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
   if (Values.empty())
@@ -330,16 +371,9 @@ VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
   // Support for a splat vector: the scalar cost is a cost of a single scalar
   // instruction, the vector cost is the cost of broadcast instruction plus
   // the cost of a single scalar instruction.
-  if (isSplatVector(Values) && isa<VPInstruction>(Values[0])) {
-    VectorType *VecTy;
-    const VPInstruction *Inst = cast<VPInstruction>(Values[0]);
-
-    if (const auto *InstMem = dyn_cast<VPLoadStoreInst>(Inst))
-      VecTy = getWidenedType(InstMem->getValueType(), Values.size());
-    else
-      VecTy = getWidenedType(Inst->getType(), Values.size());
-
-    auto DiffCost = CM->TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+  if (isSplatVector(Values)) {
+    auto DiffCost = CM->TTI.getShuffleCost(
+        TTI::SK_Broadcast, getWidenedType(Values[0]->getType(), Values.size()));
 
     if (SlpReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
@@ -358,6 +392,8 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
   VPInstructionCost Cost = 0;
   // The queue stores the operands yet to be processed.
   std::queue<SmallVector<const VPValue *, 8>> WorkQueue;
+
+  assert(Seed.size() > 1 && "Too small Seed's size.");
 
   // Initialize the queue with Seed from input and proceed to the main loop.
   WorkQueue.emplace(Seed);
@@ -432,6 +468,24 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
       WorkQueue.emplace(map_range(Insts, [I](const auto *Inst) {
         return Inst->getOperand(I);
       }));
+
+    // If the instruction is binary and commutative we do 1 step
+    // 'look ahead' check: if the first operand's type/opcode doesn't match
+    // to what we already selected we peek the second operand.
+    // TODO:
+    // Consider deeper look ahead check.
+    if (!Insts.empty() && Instruction::isBinaryOp(Insts[0]->getOpcode()) &&
+        Instruction::isCommutative(Insts[0]->getOpcode())) {
+      SmallVector<const VPValue *, 8> Op2Vec = WorkQueue.front();
+      WorkQueue.pop();
+      SmallVector<const VPValue *, 8> Op1Vec = WorkQueue.front();
+      WorkQueue.pop();
+
+      tryReorderOperands(Op1Vec, Op2Vec);
+
+      WorkQueue.push(Op1Vec);
+      WorkQueue.push(Op2Vec);
+    }
   }
   return Cost;
 }
