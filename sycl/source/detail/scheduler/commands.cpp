@@ -2920,7 +2920,8 @@ pi_int32 ExecCGCommand::enqueueImpQueue() {
         Requirement *Req = static_cast<Requirement *>(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
 
-        Req->MData = AllocaCmd->getMemAllocation();
+        if (AllocaCmd)
+          Req->MData = AllocaCmd->getMemAllocation();
         break;
       }
       default:
