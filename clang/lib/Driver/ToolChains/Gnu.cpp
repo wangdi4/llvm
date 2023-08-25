@@ -1061,6 +1061,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     // Add -lgcc before libirc.
+
+    if (Args.hasArg(options::OPT_static_libgcc) ||
+        Args.hasArg(options::OPT_static) ||
+        Args.hasArg(options::OPT_static_pie)) {
+      // Force linking of library modules to define _Unwind_ForcedUnwind
+      // when -static-libgcc is used.
+      CmdArgs.push_back("-u");
+      CmdArgs.push_back("_Unwind_ForcedUnwind");
+    }
+
     AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
