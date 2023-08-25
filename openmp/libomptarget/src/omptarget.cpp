@@ -600,7 +600,6 @@ int targetDataMapper(ident_t *Loc, DeviceTy &Device, void *ArgBase, void *Arg,
                      int64_t ArgSize, int64_t ArgType, map_var_info_t ArgNames,
                      void *ArgMapper, AsyncInfoTy &AsyncInfo,
                      TargetDataFuncPtrTy TargetDataFunction) {
-  TIMESCOPE_WITH_IDENT(Loc);
   DP("Calling the mapper function " DPxMOD "\n", DPxPTR(ArgMapper));
 
   // The mapper function fills up Components.
@@ -642,6 +641,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                     int64_t *ArgTypes, map_var_info_t *ArgNames,
                     void **ArgMappers, AsyncInfoTy &AsyncInfo,
                     bool FromMapper) {
+<<<<<<< HEAD
 #if INTEL_COLLAB
   int32_t GTID = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
@@ -656,6 +656,9 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     return OFFLOAD_FAIL;
   }
 #endif // INTEL_COLLAB
+=======
+  TIMESCOPE_WITH_IDENT(Loc);
+>>>>>>> 6579021f02aed021d8cfab808072aa50311e6d12
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
 #if INTEL_COLLAB
@@ -1174,7 +1177,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 static int targetDataContiguous(ident_t *Loc, DeviceTy &Device, void *ArgsBase,
                                 void *HstPtrBegin, int64_t ArgSize,
                                 int64_t ArgType, AsyncInfoTy &AsyncInfo) {
-  TIMESCOPE_WITH_IDENT(Loc);
   TargetPointerResultTy TPR =
       Device.getTgtPtrBegin(HstPtrBegin, ArgSize, /*UpdateRefCount=*/false,
                             /*UseHoldRefCount=*/false, /*MustContain=*/true);
@@ -1268,7 +1270,6 @@ static int targetDataNonContiguous(ident_t *Loc, DeviceTy &Device,
                                    uint64_t Size, int64_t ArgType,
                                    int CurrentDim, int DimSize, uint64_t Offset,
                                    AsyncInfoTy &AsyncInfo) {
-  TIMESCOPE_WITH_IDENT(Loc);
   int Ret = OFFLOAD_SUCCESS;
   if (CurrentDim < DimSize) {
     for (unsigned int I = 0; I < NonContig[CurrentDim].Count; ++I) {

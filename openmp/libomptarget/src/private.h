@@ -532,3 +532,25 @@ public:
 
   bool isAboveThreshold() const { return Count > CountThreshold; }
 };
+<<<<<<< HEAD
+=======
+
+#include "llvm/Support/TimeProfiler.h"
+#define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
+#define TIMESCOPE_WITH_IDENT(IDENT)                                            \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation())
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
+#define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)                     \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation() + RegionTypeMsg)
+#else
+#define TIMESCOPE()
+#define TIMESCOPE_WITH_IDENT(IDENT)
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
+#define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)                                    \
+
+#endif
+>>>>>>> 6579021f02aed021d8cfab808072aa50311e6d12
