@@ -57,6 +57,19 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
                                                    cl::init(0x3000),
                                                    cl::ReallyHidden);
 
+// Minimum number of calls for a consecutive call chain to be considered a long
+// consecutive call chain.
+static cl::opt<unsigned> InlineAggressiveLongConsecutiveCallChainSize(
+    "inline-agg-long-consecutive-call-chain-size", cl::init(6),
+    cl::ReallyHidden);
+
+// Force inlining of all calls to functions found in long consecutive call
+// chains, without profitability analysis.
+static cl::opt<bool>
+    InlineAggressiveLongConsecutiveCallChainIgnoreProfitability(
+        "inline-agg-long-consecutive-call-chain-ignore-profitability",
+        cl::init(false), cl::ReallyHidden);
+
 // Maximum number of Global variable's uses allowed.
 static const unsigned MaxNumGVUses = 16;
 
@@ -74,8 +87,361 @@ static const unsigned MaxNumBBInlineLimit = 32;
 // this limit.
 static const unsigned MaxNumBBTinyFuncLimit = 1;
 
-InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI)
-    : GetTLI(GetTLI) {
+// This class implements the long-consecutive-call-chain heuristic.
+// It tries to find a function that is called consecutively for many times, and
+// find all call sites of all functions that appear inside the same call
+// chain to find inlining opportunities that is likely to facilitate potential
+// future optimization, e.g. loop fusion.
+//
+// For example, if code like below appears inside the source:
+//
+//   ... // Not adjacent to another function call
+//   func_a(data);
+//   func_b(data);
+//   func_c(data);
+//   func_c(data);
+//   func_c(data);
+//   func_c(data);
+//   func_d(data);
+//   ... // Not adjacent to another function call
+//
+// And our threshold for "long consecutive call chain" is less than 5, every
+// call to func_a(), func_b(), func_c() and func_d() will be checked for
+// profitability and, if passed, be inlined.
+//
+// In detail:
+// Not all functions are eligible to be inside a long consecutive call chain. We
+// only handle functions whose performance is likely to be optimized in later
+// passes. Such function is called a "candidate leaf function".
+// A "call chain" is a series of call instructions residing in the same basic
+// block, inside which each call must be a direct call to a candidate leaf
+// function.
+// If all calls inside a call chain has the same callee, the chain is called a
+// "consecutive call chain" (abbreviated "CCChain" in the source). A consecutive
+// call chain with length above a certain threshold is called a "long
+// consecutive call chain".
+// We find all chains containing a long consecutive call chain, and check
+// whether it's profitable to inline these calls. If so, All callees of these
+// call chains are promoted from "candidate leaf function" to "leaf function"
+// (related to a long consecutive call chain). Bail out if any chain is not
+// profitable.
+// These leaf functions may also be called in a chained fashion elsewhere, these
+// chains don't satisfy the conditions of a long consecutive call chain, but
+// can usually be optimized in a similar manner. We also find these chains and
+// check them for profitability. In this step, non-profitable calls are allowed,
+// but they'll not be inlined.
+class LongConsecutiveCallChainHeuristic {
+  // A call chain is identified by two instructions: the Start and the End. It's
+  // an [closed, open) interval, the End is not included in the chain.
+  // Every instruction in a call chain must be a direct call to a candidate
+  // leaf function. Since a call instruction is not a terminator, End is
+  // guaranteed to be non-null.
+  // A Length is also stored for convenience.
+  struct CallChain {
+    CallInst *Start;
+    Instruction *End;
+    unsigned Length;
+    const Function *getCaller() const { return Start->getCaller(); }
+    CallChain(CallInst *Start, Instruction *End, unsigned Length)
+        : Start(Start), End(End), Length(Length) {
+      assert(Start->getParent() == End->getParent() &&
+             "A call chain must be contained in one basic block");
+      assert(Length >= 1 && "Empty call chain is not allowed");
+    }
+    bool operator<(const CallChain &Other) const {
+      assert(!(Start == Other.Start ^ End == Other.End) &&
+             "A call instruction may be covered by at most one call chain");
+      return Start < Other.Start;
+    }
+  };
+
+  // Determining whether a function is a valid candidate for a call chain
+  // requires some analysis, we cache the result with the Loop required by its
+  // definition. The function can't be part of a call chain if the loop is
+  // nullptr.
+  std::map<Function *, Loop *> LeafFunctionCandidacyCache;
+  // All call chains found in the module
+  std::set<CallChain> CallChains;
+  // Map from a call to the call chain it belongs to. It's guaranteed that every
+  // call chain in CallChains has all of its call instructions present in the
+  // map.
+  std::map<CallInst *, const CallChain *> CallToChainMap;
+  Module &M;
+  std::function<void(CallBase &)> SetInline;
+  std::function<void(CallBase &)> SetNoInline;
+  AggInlGetLITy GetLI;
+
+  // Determine whether a function is a valid leaf function candidate.
+  bool isLeafFunctionCandidate(Function *F);
+  // Analyze the module, find all long consecutive call chains, store them in a
+  // set and return.
+  DenseSet<const CallChain *> findChainsWithLongConsecutiveCallChain();
+  // Given two calls, determine whether inlining them is profitable. CallA and
+  // CallB must be two adjacent calls in the same call chain.
+  bool isProfitableToInlineCallPair(CallInst *CallA, CallInst *CallB);
+
+public:
+  // This class uses SetInline and SetNoInline callback to mark call sites to be
+  // or not to be inlined.
+  LongConsecutiveCallChainHeuristic(Module &M,
+                                    std::function<void(CallBase &)> SetInline,
+                                    std::function<void(CallBase &)> SetNoInline,
+                                    AggInlGetLITy GetLI)
+      : M(M), SetInline(SetInline), SetNoInline(SetNoInline), GetLI(GetLI) {}
+
+  bool run();
+};
+
+bool LongConsecutiveCallChainHeuristic::isProfitableToInlineCallPair(
+    CallInst *CallA, CallInst *CallB) {
+  if (InlineAggressiveLongConsecutiveCallChainIgnoreProfitability)
+    return true;
+  // Not implemented yet.
+  return false;
+}
+
+bool LongConsecutiveCallChainHeuristic::isLeafFunctionCandidate(Function *F) {
+  auto CacheIt = LeafFunctionCandidacyCache.find(F);
+  if (CacheIt != LeafFunctionCandidacyCache.end())
+    return CacheIt->second;
+
+  // Current qualification for a candidate leaf function is very naive. More
+  // analysis is done when checking for the profitability of inlining each call
+  // chain.
+  // Functions with variadic arguments are not accepted because they're rare and
+  // make later analysis more complex.
+  if (F->isDeclaration() || F->isVarArg()) {
+    LeafFunctionCandidacyCache[F] = nullptr;
+    return false;
+  }
+  const LoopInfo &LI = GetLI(*F);
+  // The function should have one and only one top-level loop.
+  if (LI.size() != 1) {
+    LeafFunctionCandidacyCache[F] = nullptr;
+    return false;
+  }
+
+  LeafFunctionCandidacyCache[F] = *LI.begin();
+  return true;
+}
+
+DenseSet<const LongConsecutiveCallChainHeuristic::CallChain *>
+LongConsecutiveCallChainHeuristic::findChainsWithLongConsecutiveCallChain() {
+  DenseSet<const CallChain *> Result;
+  // For every candidate leaf function in the module, build call chains by
+  // finding all its call sites and then finding their adjacent calls.
+  for (auto &F : M) {
+    if (!isLeafFunctionCandidate(&F))
+      continue;
+
+    for (User *U : F.users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != &F)
+        continue;
+      // Skip if the call chain it belongs to is already constructed (i.e. the
+      // call has been visited before)
+      if (CallToChainMap.find(CI) != CallToChainMap.end())
+        continue;
+
+      auto IsEligibleInstForCallChain = [this](Instruction *I) {
+        auto CI = dyn_cast<CallInst>(I);
+        if (!CI)
+          return false;
+        auto Callee = CI->getCalledFunction();
+        if (!Callee || !isLeafFunctionCandidate(Callee))
+          return false;
+        return true;
+      };
+
+      // Start from the call, walk its adjacent instructions in both directions
+      // to build its call chain.
+      unsigned ChainLength = 1;
+      CallInst *ChainStart = CI;
+      while (Instruction *Prev = ChainStart->getPrevNonDebugInstruction()) {
+        if (!IsEligibleInstForCallChain(Prev))
+          break;
+        assert(CallToChainMap.find(CI) == CallToChainMap.end() &&
+               "The same call is visited twice while building call chain");
+        ChainLength += 1;
+        ChainStart = cast<CallInst>(Prev);
+      }
+      Instruction *ChainEnd = CI;
+      while (Instruction *Next = ChainEnd->getNextNonDebugInstruction()) {
+        if (!IsEligibleInstForCallChain(Next))
+          break;
+        assert(CallToChainMap.find(CI) == CallToChainMap.end() &&
+               "The same call is visited twice while building call chain");
+        ChainLength += 1;
+        ChainEnd = Next;
+      }
+      ChainEnd = ChainEnd->getNextNonDebugInstruction();
+      const CallChain &Chain =
+          *CallChains.emplace(ChainStart, ChainEnd, ChainLength).first;
+
+      // Compute the length for the longest consecutive call chain inside the
+      // chain. Put it into Result if the length is above a threshold.
+      Function *CalleeWithLongestCCChain = nullptr;
+      // The variable is only for debug message
+      (void)CalleeWithLongestCCChain;
+      unsigned LongestCCChainLength = 1;
+      Function *CalleeForCurrentCCChain = nullptr;
+      unsigned CurrentCCChainLength = 0;
+      for (Instruction *Curr = ChainStart; Curr != ChainEnd;
+           Curr = Curr->getNextNonDebugInstruction()) {
+        auto CurrCall = cast<CallInst>(Curr);
+        auto Callee = CurrCall->getCalledFunction();
+        assert(Callee &&
+               "An instruction in a call chain must be a direct call");
+        if (Callee != CalleeForCurrentCCChain) {
+          if (LongestCCChainLength < CurrentCCChainLength) {
+            CalleeWithLongestCCChain = CalleeForCurrentCCChain;
+            LongestCCChainLength = CurrentCCChainLength;
+          }
+          CalleeForCurrentCCChain = Callee;
+          CurrentCCChainLength = 1;
+        } else {
+          CurrentCCChainLength += 1;
+        }
+        CallToChainMap.emplace(CurrCall, &Chain);
+      }
+      if (LongestCCChainLength < CurrentCCChainLength) {
+        CalleeWithLongestCCChain = CalleeForCurrentCCChain;
+        LongestCCChainLength = CurrentCCChainLength;
+      }
+
+      if (LongestCCChainLength >=
+          InlineAggressiveLongConsecutiveCallChainSize) {
+        LLVM_DEBUG(
+            dbgs() << "AggInl: long consecutive call chain located inside "
+                   << CI->getFunction()->getName() << ", total length "
+                   << ChainLength << ", the longest consecutive chain has "
+                   << LongestCCChainLength << " calls to "
+                   << CalleeWithLongestCCChain->getName()
+                   << ", chain starts from " << *ChainStart << "\n");
+        Result.insert(&Chain);
+      }
+    }
+  }
+  return Result;
+}
+
+bool LongConsecutiveCallChainHeuristic::run() {
+  LLVM_DEBUG(dbgs() << "AggInl: LongConsecutiveCallChainHeuristic\n");
+  // First, find all long consecutive call chains.
+  DenseSet<const CallChain *> ChainsWithLCCC =
+      findChainsWithLongConsecutiveCallChain();
+  if (ChainsWithLCCC.empty())
+    return false;
+
+  // Every callee function in the long chains is a leaf function.
+  DenseSet<Function *> LeafFunctions;
+  // Store all call sites to be inlined.
+  // Their callers are also stored to help determine whether to call chains with
+  // a single call.
+  DenseSet<CallInst *> InlinedCallSites;
+  DenseSet<const Function *> CallersOfInlinedCallSites;
+
+  // Find all profitable pairs to inline in a call chain and do the bookkeeping.
+  auto CheckProfitabilityForCallChain =
+      [this, &InlinedCallSites,
+       &CallersOfInlinedCallSites](const CallChain *Chain) {
+        unsigned NumInlinedPairs = 0;
+        for (CallInst *Curr = Chain->Start;
+             Curr->getNextNonDebugInstruction() != Chain->End;
+             Curr = cast<CallInst>(Curr->getNextNonDebugInstruction())) {
+          auto NextCI = cast<CallInst>(Curr->getNextNonDebugInstruction());
+          if (!isProfitableToInlineCallPair(Curr, NextCI))
+            continue;
+          NumInlinedPairs += 1;
+          InlinedCallSites.insert(Curr);
+          InlinedCallSites.insert(NextCI);
+        }
+        if (NumInlinedPairs)
+          CallersOfInlinedCallSites.insert(Chain->getCaller());
+        LLVM_DEBUG(dbgs() << "AggInl: LCCC in " << Chain->getCaller()->getName()
+                          << ", found " << NumInlinedPairs
+                          << " profitable pairs among " << Chain->Length
+                          << " calls in call chain from " << *Chain->Start
+                          << " TO " << *Chain->End << "\n");
+        return NumInlinedPairs;
+      };
+
+  // Then check every long chain found above for profitability. If there are
+  // multiple long chains, every chain needs to be profitable for the heuristic
+  // to continue.
+  DenseSet<const CallChain *> VisitedCallChains;
+  for (auto Chain : ChainsWithLCCC) {
+    assert(Chain->Length > 1 && "Too few calls for a long chain");
+    VisitedCallChains.insert(Chain);
+    for (Instruction *I = Chain->Start; I != Chain->End;
+         I = I->getNextNonDebugInstruction())
+      LeafFunctions.insert(cast<CallInst>(I)->getCalledFunction());
+    if (CheckProfitabilityForCallChain(Chain) != Chain->Length - 1)
+      return false;
+  }
+
+  // We've found the leaf functions from the long chains. Check profitability of
+  // inlining for every call chain that calls a leaf function.
+  // The profitability check requires at least two calls, if there is only one
+  // call, we then check whether there is any other call chain that passes the
+  // check in the same function.
+  DenseSet<CallInst *> SoleLeafCalls;
+  for (auto LeafFunction : LeafFunctions)
+    for (auto U : LeafFunction->users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != LeafFunction)
+        continue;
+      const CallChain *Chain = CallToChainMap[CI];
+      assert(
+          Chain &&
+          "Expected call chain to be present for every call of leaf function");
+
+      if (VisitedCallChains.find(Chain) != VisitedCallChains.end())
+        continue;
+      VisitedCallChains.insert(Chain);
+
+      if (Chain->Length == 1)
+        SoleLeafCalls.insert(CI);
+      else
+        CheckProfitabilityForCallChain(Chain);
+    }
+  for (auto CI : SoleLeafCalls)
+    if (CallersOfInlinedCallSites.find(CI->getCaller()) !=
+        CallersOfInlinedCallSites.end())
+      InlinedCallSites.insert(CI);
+
+  for (CallInst *CI : InlinedCallSites)
+    SetInline(*CI);
+
+  // It's possible that a leaf function becomes recursive after inlining. The
+  // default setting of LLVM's inliner forbids all inlining of all recursive
+  // functions. To ensure more leaf functions are inlined, detect recursive
+  // call chains like func_a() -> func_b() -> func_a() and prevent inlining
+  // of func_b().
+  // A complete analysis would build the SCC of leaf functions, but that's
+  // too heavy for our current need. For the time being we just check one level
+  // upward.
+  for (auto LeafFunction : LeafFunctions) {
+    for (auto U : LeafFunction->users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != LeafFunction)
+        continue;
+      Function *Caller = CI->getCaller();
+      for (auto UOfCaller : Caller->users()) {
+        auto CallOfCaller = dyn_cast<CallInst>(UOfCaller);
+        if (CallOfCaller && CallOfCaller->getCalledFunction() == Caller &&
+            CallOfCaller->getCaller() == LeafFunction)
+          SetNoInline(*CallOfCaller);
+      }
+    }
+  }
+
+  return true;
+}
+
+InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI,
+                                           AggInlGetLITy GetLI)
+    : GetTLI(GetTLI), GetLI(GetLI) {
   AggInlCalls.clear();
 }
 
@@ -396,8 +762,9 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
 
 InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
                                                    WholeProgramInfo &WPI,
-                                                   AggInlGetTLITy GetTLI) {
-  InlineAggressiveInfo Result(GetTLI);
+                                                   AggInlGetTLITy GetTLI,
+                                                   AggInlGetLITy GetLI) {
+  InlineAggressiveInfo Result(GetTLI, GetLI);
   if (!WPI.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe\n");
     return Result;
@@ -900,6 +1267,16 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
     addInliningAttributes();
     return true;
   }
+  LongConsecutiveCallChainHeuristic LCCCA(
+      M,
+      [this](CallBase &CB) {
+        setAggInlInfoForCallSite(CB, false /*Recursive*/);
+      },
+      [](CallBase &CB) { CB.setIsNoInline(); }, GetLI);
+  if (LCCCA.run()) {
+    addInliningAttributes();
+    return true;
+  }
   return false;
 }
 
@@ -918,7 +1295,10 @@ PreservedAnalyses AggInlinerPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
+  auto GetLI = [&FAM](const Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(*(const_cast<Function *>(&F)));
+  };
   Result.reset(new InlineAggressiveInfo(InlineAggressiveInfo::runImpl(
-      M, AM.getResult<WholeProgramAnalysis>(M), GetTLI)));
+      M, AM.getResult<WholeProgramAnalysis>(M), GetTLI, GetLI)));
   return PreservedAnalyses::all();
 }
