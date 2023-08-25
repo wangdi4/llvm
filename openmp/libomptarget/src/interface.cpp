@@ -283,6 +283,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             int64_t *ArgTypes,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
+  
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
       ArgMappers, targetDataUpdate, "Updating data within the OpenMP data region with update_mapper", "update");
