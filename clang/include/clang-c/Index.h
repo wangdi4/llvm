@@ -2157,10 +2157,12 @@ enum CXCursorKind {
    */
   CXCursor_OMPScopeDirective = 306,
 
-  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 307,
   CXCursor_OMPPrefetchDirective = 308,
+  CXCursor_LastStmt = CXCursor_OMPPrefetchDirective,
+#else  /* INTEL_COLLAB */
+  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #endif /* INTEL_COLLAB */
 
   /**

@@ -1,9 +1,8 @@
 // INTEL_COLLAB
 //
 // RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
-// RUN: -fopenmp-version=52 -DLATEOUT %s -verify=expected
+// RUN: -fopenmp-version=52 %s -verify=expected
 //
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 %s -verify=expected
 
 typedef enum omp_allocator_handle_t {
   omp_null_allocator = 0,
@@ -24,15 +23,9 @@ int main () {
   int BadAlloc;
   omp_allocator_handle_t MyAlloc = omp_large_cap_mem_alloc;
 
-#ifdef LATEOUT
   // expected-error@+1 {{expected ':'}}
   #pragma omp scope allocate(align(8)foo) private(foo)
-#else
-  // expected-error@+1 {{unexpected OpenMP directive '#pragma omp scope'}}
-  #pragma omp scope allocate(align(8)foo) private(foo)
-#endif
 
-#if LATEOUT
   // expected-error@+1 {{expected ':'}}
   #pragma omp scope allocate(allocator(MyAlloc), align(2)foo,bar) private(foo,bar)
 
@@ -134,7 +127,6 @@ int main () {
   // expected-error@+1 {{expected expression}}
   #pragma omp scope allocate(allocator(MyAlloc):,foo,bar) private(foo,bar)
   {}
-#endif
 
   return 0;
 }

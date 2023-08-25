@@ -2276,18 +2276,20 @@ def OMP_DeclareTargetFunction : Directive<"declare target function"> {
     VersionedClause<OMPC_DeviceType>,
   ];
 }
+#endif // INTEL_COLLAB
 def OMP_scope : Directive<"scope"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_Private, 51>,
+#if INTEL_COLLAB
     VersionedClause<OMPC_FirstPrivate, 52>,
-    VersionedClause<OMPC_Reduction>,
-    VersionedClause<OMPC_Allocate, 52>
+    VersionedClause<OMPC_Allocate, 52>,
+#endif // INTEL_COLLAB
+    VersionedClause<OMPC_Reduction, 51>
   ];
   let allowedOnceClauses = [
-    VersionedClause<OMPC_NoWait>
+    VersionedClause<OMPC_NoWait, 51>
   ];
 }
-#endif // INTEL_COLLAB
 
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {
   let allowedClauses = [
