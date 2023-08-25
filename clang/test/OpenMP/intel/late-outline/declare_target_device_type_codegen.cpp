@@ -2,16 +2,16 @@
 
 // RUN: %clang_cc1 -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fintel-compatibility -fopenmp-late-outline \
-// RUN: -fopenmp-targets=spir64 -opaque-pointers -emit-llvm %s -o - \
+// RUN: -fopenmp-targets=spir64 -emit-llvm %s -o - \
 // RUN: | FileCheck %s --check-prefix HOST
 //
 // RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:   -fintel-compatibility -fopenmp-late-outline -opaque-pointers \
+// RUN:   -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 
 // RUN: %clang_cc1 -verify -triple spir64 -fopenmp \
 // RUN:   -fintel-compatibility -fopenmp-late-outline \
-// RUN:   -fopenmp-targets=spir64 -fopenmp-is-device -opaque-pointers \
+// RUN:   -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:   -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
 // RUN:   | FileCheck %s --check-prefix TARG
 

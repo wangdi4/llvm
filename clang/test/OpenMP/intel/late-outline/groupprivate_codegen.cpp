@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp  \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp  \
 // RUN:  -fopenmp-late-outline -verify -triple x86_64-unknown-linux-gnu  \
 // RUN:  -Wno-openmp-groupprivate %s | FileCheck %s -check-prefix HOST
 
@@ -8,7 +8,7 @@
 // RUN:  -fopenmp-late-outline -Werror -Wsource-uses-openmp -o \
 // RUN:  %t_host.bc %s
 
-// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+// RUN: %clang_cc1 -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm -disable-llvm-passes \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline\

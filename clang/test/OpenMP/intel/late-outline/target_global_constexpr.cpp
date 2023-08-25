@@ -1,17 +1,17 @@
 // INTEL_COLLAB
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes -fopenmp-version=51 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix HOST
 //
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=51 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 //
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple spir64 -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-version=51 \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \

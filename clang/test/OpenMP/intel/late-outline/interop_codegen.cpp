@@ -1,17 +1,17 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN:  --check-prefixes=CHECK,CHECK-NEW %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -fno-openmp-new-depend-ir %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -include-pch %t -verify \
 // RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s | \
 // RUN:  FileCheck --check-prefixes=CHECK,CHECK-OLD %s
