@@ -260,16 +260,6 @@
 // CHECK-ASAN-ANDROID-SHARED-NOT: "-lpthread"
 // CHECK-ASAN-ANDROID-SHARED-NOT: "-lresolv"
 
-// RUN: %clang -### %s 2>&1 \
-// RUN:     --target=sparcel-myriad-rtems-elf -fuse-ld=ld -fsanitize=address \
-// RUN:     --sysroot=%S/Inputs/basic_myriad_tree \
-// RUN:   | FileCheck --check-prefix=CHECK-ASAN-MYRIAD %s
-//
-// CHECK-ASAN-MYRIAD: "{{(.*[^.0-9A-Z_a-z])?}}ld{{(.exe)?}}"
-// CHECK-ASAN-MYRIAD-NOT: "-lc"
-// CHECK-ASAN-MYRIAD: libclang_rt.asan-sparcel.a"
-
-// INTEL
 // RUN: not %clangxx -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld -stdlib=platform -lstdc++ \
 // RUN:     -fsanitize=thread \
