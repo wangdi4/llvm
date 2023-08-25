@@ -565,6 +565,31 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddACTypesLibPath(Args, CmdArgs, "-L");
 }
 
+static bool isPSTLOffloadEnabled(const JobAction &JA,
+                                 const llvm::opt::ArgList &Args) {
+  if (!JA.isOffloading(Action::OFK_SYCL))
+    return false;
+  if (Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ)) {
+    StringRef Value(A->getValue());
+    if (Value != "off")
+      return true;
+  }
+  return false;
+}
+
+// Add PSTL offloading library path to search locations.
+static void addDPLLibPath(const JobAction &JA, ArgStringList &CmdArgs,
+                          const llvm::opt::ArgList &Args, const ToolChain &TC) {
+  if (isPSTLOffloadEnabled(JA, Args))
+    TC.AddDPLLibPath(Args, CmdArgs, "-L");
+}
+
+static void addDPLLib(const JobAction &JA, ArgStringList &CmdArgs,
+                      const llvm::opt::ArgList &Args) {
+  if (isPSTLOffloadEnabled(JA, Args))
+    CmdArgs.push_back("-lpstloffload");
+}
+
 static bool mcmodelSet(const llvm::opt::ArgList &Args) {
   if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
     StringRef CM = A->getValue();
@@ -958,6 +983,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.IsIntelMode())
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
+  addDPLLibPath(JA, CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
@@ -1024,6 +1050,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if (Args.hasArg(options::OPT_fortlib))
     addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
+
+  // Add oneDPL PSTL offload library
+  addDPLLib(JA, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
 
   if (D.CCCIsCXX() &&

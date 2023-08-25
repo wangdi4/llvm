@@ -758,6 +758,16 @@ public:
   bool CheckAddIntelLib(StringRef LibName,
                         const llvm::opt::ArgList &Args) const;
 
+  /// GetDPLLibPath - return the location of the oneDPL library path.
+  std::string GetDPLLibPath() const;
+
+  /// GetDPLIncludePath - return the location of the oneDPL include path.
+  std::string GetDPLIncludePath() const;
+
+  /// AddDPLLibPath - Add the oneDPL library search path.
+  void AddDPLLibPath(const llvm::opt::ArgList &Args,
+                     llvm::opt::ArgStringList &CmdArgs, std::string Opt) const;
+
   /// GetIPPIncludePath - return the IPP header search path.
   std::string GetIPPIncludePath(const llvm::opt::ArgList &Args) const;
 
