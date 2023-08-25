@@ -282,7 +282,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             void **Args, int64_t *ArgSizes,
                                             int64_t *ArgTypes,
                                             map_var_info_t *ArgNames,
-  
+                                            void **ArgMappers) {
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
       ArgMappers, targetDataUpdate, "Updating data within the OpenMP data region with update_mapper", "update");
@@ -439,16 +439,12 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
                                KernelArgsTy *KernelArgs) {
-<<<<<<< HEAD
-  TIMESCOPE_WITH_IDENT(Loc);
 #if INTEL_CUSTOMIZATION
   // TODO: investigate what it costs to enable the new (improved) scheme of
   // invoking asynchronous target region. We are using customization in all
   // places (codegen, host runtime, offload runtime), so we are not able to
   // adopt the new scheme right away.
 #else  // INTEL_CUSTOMIZATION
-=======
->>>>>>> 6579021f02aed021d8cfab808072aa50311e6d12
   if (KernelArgs->Flags.NoWait)
     return targetKernel<TaskAsyncInfoWrapperTy>(
         Loc, DeviceId, NumTeams, ThreadLimit, HostPtr, KernelArgs);

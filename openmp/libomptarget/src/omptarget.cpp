@@ -641,7 +641,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                     int64_t *ArgTypes, map_var_info_t *ArgNames,
                     void **ArgMappers, AsyncInfoTy &AsyncInfo,
                     bool FromMapper) {
-<<<<<<< HEAD
+  TIMESCOPE_WITH_IDENT(Loc);
 #if INTEL_COLLAB
   int32_t GTID = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
@@ -656,9 +656,6 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     return OFFLOAD_FAIL;
   }
 #endif // INTEL_COLLAB
-=======
-  TIMESCOPE_WITH_IDENT(Loc);
->>>>>>> 6579021f02aed021d8cfab808072aa50311e6d12
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
 #if INTEL_COLLAB
