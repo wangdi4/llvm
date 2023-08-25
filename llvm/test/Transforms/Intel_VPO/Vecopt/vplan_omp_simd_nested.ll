@@ -111,7 +111,6 @@ define internal void @foo(ptr nocapture readonly %a.addr.0.val, ptr noalias noca
 ; HIR-INNER-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; HIR-INNER-NEXT:  External Defs Start:
 ; HIR-INNER-DAG:     [[VP0:%.*]] = {%add222}
-; HIR-INNER-DAG:     [[VP1:%.*]] = {%j.linear.iv}
 ; HIR-INNER-DAG:     [[VP2:%.*]] = {%i7}
 ; HIR-INNER-NEXT:  External Defs End:
 ; HIR-INNER-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -146,7 +145,6 @@ define internal void @foo(ptr nocapture readonly %a.addr.0.val, ptr noalias noca
 ;
 DIR.OMP.SIMD.4:
   %i.priv = alloca i32, align 4
-  %j.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.4
@@ -163,7 +161,7 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.115, %
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %omp.inner.for.body
-  %i6 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %j.linear.iv, i32 0, i32 1, i32 1) ]
+  %i6 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.117
 
 DIR.OMP.SIMD.117:                                 ; preds = %DIR.OMP.SIMD.2
