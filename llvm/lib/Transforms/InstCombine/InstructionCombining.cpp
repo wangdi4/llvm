@@ -1436,6 +1436,26 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op, SelectInst *SI,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // If we have this:
+  // %cmp37 = icmp slt i32 %conv13, 0
+  // %spec.store.select = select i1 %cmp37, i32 0, i32 %conv13
+  // %conv62 = trunc i32 %spec.store.select to i8
+  //
+  // and we try to hoist the trunc before the select (converting the select
+  // operands to i8), we may sink the trunc back down in visitSelectInst,
+  // creating an infinite loop. The above pattern would normally be recognized
+  // as max(%conv13,0), which avoids the loop. But if we suppress min/max
+  // recognition, we have to also suppress the hoisting.
+  if (auto *CI = dyn_cast<ICmpInst>(SI->getCondition())) {
+    if (CI->hasOneUse() && suppressMinMax(CI)) {
+      Value *Op0 = CI->getOperand(0), *Op1 = CI->getOperand(1);
+      if ((TV == Op0 && FV == Op1) || (FV == Op0 && TV == Op1))
+        return nullptr;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Make sure that one of the select arms constant folds successfully.
   Value *NewTV = constantFoldOperationIntoSelectOperand(Op, SI, /*IsTrueArm*/ true);
   Value *NewFV = constantFoldOperationIntoSelectOperand(Op, SI, /*IsTrueArm*/ false);

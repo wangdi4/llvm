@@ -167,6 +167,19 @@ public:
    }
    return false;
   }
+  bool suppressMinMax(Instruction *I) {
+    // Suppress min/max: for AVX2 always, and AVX512 before loopopt. Avoids
+    // vectorization cases that don't produce optimal codegen.
+    // CMPLRLLVM-36522,37173,37342
+    auto HasAVX512 =
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+    auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+    auto &TTI = getTargetTransformInfo();
+    return TTI.isAdvancedOptEnabled(HasAVX2) &&
+               !TTI.isAdvancedOptEnabled(HasAVX512) ||
+           TTI.isAdvancedOptEnabled(HasAVX512) &&
+               I->getFunction()->isPreLoopOpt();
+  }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
                                    BinaryOperator &I);
