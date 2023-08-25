@@ -32,7 +32,7 @@
 
 # COMPONENT: CFE
 # CFE: Team owns everything in Clang unless otherwise specified.
-/clang/ @mikerice1969 @aaronballman
+/clang/ @mikerice1969 @aaronballman @jyu2-git
 
 # clang-tools-extra (includes clang-tidy)
 /clang-tools-extra/ @aaronballman
