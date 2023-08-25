@@ -1,14 +1,14 @@
-//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu \
 //RUN:   -emit-llvm -o - %s | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu \
 //RUN:   -emit-llvm-bc -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple spir64 -fopenmp-is-device \
 //RUN:   -fopenmp-host-ir-file-path %t_host.bc \

@@ -1,24 +1,24 @@
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
 
-//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -26,13 +26,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
 
-//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir \
+//RUN: %clang_cc1 -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -40,13 +40,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -54,13 +54,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR-OLD --check-prefix=ALL
 
-//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir \
+//RUN: %clang_cc1 -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
