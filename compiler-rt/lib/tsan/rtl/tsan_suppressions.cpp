@@ -1,21 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
-//
 //===-- tsan_suppressions.cpp ---------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -51,40 +33,6 @@ static const char *const std_suppressions =
 // See http://llvm.org/bugs/show_bug.cgi?id=17066 for details.
 "race:std::_Sp_counted_ptr_inplace<std::thread::_Impl\n";
 
-#if INTEL_CUSTOMIZATION
-// Suppressions for enabling sanitizers for SYCL host code
-static const char *const sycl_host_suppressions =
-    // Libraries that will cause error reports
-    "called_from_lib:*libintelocl_emu.so\n"
-    "called_from_lib:libintelocl.so\n"
-    "called_from_lib:libsycl.so\n"
-    "called_from_lib:libtbb.so\n"
-    "mutex:libintelocl_emu.so\n"
-    "mutex:libintelocl.so\n"
-    "mutex:libsycl.so\n"
-    "mutex:libtbb.so\n"
-    "mutex:^sycl::_v1::\n"
-    "mutex:^_ZN4sycl3_V1\n"
-    "race:libintelocl_emu.so\n"
-    "race:libintelocl.so\n"
-    "race:libsycl.so\n"
-    "race:libtbb.so\n"
-    "race:^sycl::_v1::\n"
-    "race:^_ZN4sycl3_V1\n"
-    "signal:libintelocl_emu.so\n"
-    "signal:libintelocl.so\n"
-    "signal:libsycl.so\n"
-    "signal:libtbb.so\n"
-    "signal:^sycl::_v1::\n"
-    "signal:^_ZN4sycl3_V1\n"
-    "thread:libintelocl_emu.so\n"
-    "thread:libintelocl.so\n"
-    "thread:libsycl.so\n"
-    "thread:libtbb.so\n"
-    "thread:^sycl::_v1::\n"
-    "thread:^_ZN4sycl3_V1\n";
-#endif  // INTEL_CUSTOMIZATION
-
 // Can be overriden in frontend.
 SANITIZER_WEAK_DEFAULT_IMPL
 const char *__tsan_default_suppressions() {
@@ -109,12 +57,6 @@ void InitializeSuppressions() {
 #if !SANITIZER_GO
   suppression_ctx->Parse(__tsan_default_suppressions());
   suppression_ctx->Parse(std_suppressions);
-#  if INTEL_CUSTOMIZATION
-  if (IsInSyclContext()) {
-    VReport(1, "Applying suppressions for SYCL Host Sanitizers.");
-    suppression_ctx->Parse(sycl_host_suppressions);
-  }
-#  endif  // INTEL_CUSTOMIZATION
 #endif
 }
 
