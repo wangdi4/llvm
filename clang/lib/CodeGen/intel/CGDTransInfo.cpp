@@ -1264,9 +1264,25 @@ llvm::MDNode *DTransInfoGenerator::CreateArrayTypeMD(QualType ClangType,
     // initializer.
   }
 
+  auto GetArrayDecayCastedStringLiteral = [](const Expr *E) -> const Expr * {
+    while (const auto *CE = dyn_cast<CastExpr>(E)) {
+      if (CE->getCastKind() == CK_ArrayToPointerDecay)
+        return dyn_cast<StringLiteral>(CE->getSubExpr());
+      E = CE->getSubExpr();
+    }
+    return nullptr;
+  };
+
+  QualType ClangElemType = ClangType->castAsArrayTypeUnsafe()->getElementType();
+
+  // Special case for array to pointer decayed string literals.
+  if (CurInit) {
+    if (const Expr *SL = GetArrayDecayCastedStringLiteral(CurInit))
+      ClangElemType = CGM.getContext().getPointerType(SL->getType());
+  }
+
   ArrMD.push_back(
-      CreateTypeMD(ClangType->castAsArrayTypeUnsafe()->getElementType(),
-                   LLVMType->getArrayElementType(), CurInit));
+      CreateTypeMD(ClangElemType, LLVMType->getArrayElementType(), CurInit));
   return llvm::MDNode::get(Ctx, ArrMD);
 }
 
