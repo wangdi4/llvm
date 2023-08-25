@@ -1540,7 +1540,8 @@ static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
 enum SkipFlags {
   SkipReadMem = 1,
   SkipSideEffect = 2,
-  SkipImplicitControlFlow = 4
+  SkipImplicitControlFlow = 4,
+  SeenStkAdj = 8 // INTEL
 };
 
 static unsigned skippedInstrFlags(Instruction *I) {
@@ -1553,6 +1554,12 @@ static unsigned skippedInstrFlags(Instruction *I) {
     Flags |= SkipSideEffect;
   if (!isGuaranteedToTransferExecutionToSuccessor(I))
     Flags |= SkipImplicitControlFlow;
+#if INTEL_CUSTOMIZATION
+  // Track stacksave, so alloca can be moved when there is no stacksave.
+  if (auto *II = dyn_cast<IntrinsicInst>(I))
+    if (II->getIntrinsicID() == Intrinsic::stacksave)
+      Flags |= SeenStkAdj;
+#endif // INTEL_CUSTOMIZATION
   return Flags;
 }
 
@@ -1565,8 +1572,14 @@ static bool isSafeToHoistInstr(Instruction *I, unsigned Flags) {
 
   // If we have seen an instruction with side effects, it's unsafe to reorder an
   // instruction which reads memory or itself has side effects.
+#if INTEL_CUSTOMIZATION
+  // Only block alloca motion when there is stacksave.
+  // Motion of stacksave itself, is still (correctly) blocked by the
+  // alloca check in the skippedInstrFlags function.
   if ((Flags & SkipSideEffect) &&
-      (I->mayReadFromMemory() || I->mayHaveSideEffects() || isa<AllocaInst>(I)))
+      (I->mayReadFromMemory() || I->mayHaveSideEffects() ||
+       (isa<AllocaInst>(I) && (Flags & SeenStkAdj))))
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   // Reordering across an instruction which does not necessarily transfer
