@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -fexceptions -fcxx-exceptions -emit-llvm -opaque-pointers %s -o - | FileCheck %s 
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -fexceptions -fcxx-exceptions -emit-llvm %s -o - | FileCheck %s 
 
 // Test DTrans generation for inalloca parameters and return values, which are
 // just pointers to the actual type, but only seem to appear on 32 bit windows,

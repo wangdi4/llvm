@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 typedef struct point {
   int x, y, z;
@@ -9,10 +8,8 @@ typedef struct point {
 void test() {
   // CHECK: define dso_local void @test()
   char *data[200];
-  // PTR: %data = alloca [200 x i8*], align 16, !intel_dtrans_type ![[ARRAY:[0-9]+]]
   // OPQ: %data = alloca [200 x ptr], align 16, !intel_dtrans_type ![[ARRAY:[0-9]+]]
 
-  // PTR: %local_ptr = alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
   // OPQ: %local_ptr = alloca ptr, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
   int *local_ptr;
 
@@ -20,10 +17,8 @@ void test() {
                              //type will be obvious even with opaque ponters
 
   struct point *local_struct_ptr;
-  // PTR: %local_struct_ptr = alloca %struct._ZTS5point.point*, align 8, !intel_dtrans_type ![[POINT_PTR:[0-9]+]]
   // OPQ: %local_struct_ptr = alloca ptr, align 8, !intel_dtrans_type ![[POINT_PTR:[0-9]+]]
   struct point **local_array_ptrptr[100];
-  // PTR: %local_array_ptrptr = alloca [100 x %struct._ZTS5point.point**], align 16, !intel_dtrans_type ![[PTRPTR_ARRAY:[0-9]+]]
   // OPQ: %local_array_ptrptr = alloca [100 x ptr], align 16, !intel_dtrans_type ![[PTRPTR_ARRAY:[0-9]+]]
 }
 

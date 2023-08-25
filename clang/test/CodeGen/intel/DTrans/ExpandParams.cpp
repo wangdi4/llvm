@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-windows-pc -opaque-pointers -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-windows-pc -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s
 
 // Ensure that we properly handle 'Expand' parameters,
 // which seemingly only happen on i386 windows.

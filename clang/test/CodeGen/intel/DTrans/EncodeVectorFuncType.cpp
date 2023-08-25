@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 struct a {
   float b;
   float c;
@@ -22,13 +21,9 @@ struct a4 {
 };
 a4 (*d4)();
 
-// PTR: @d = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D:[0-9]+]]
 // OPQ: @d = global ptr null, align 8, !intel_dtrans_type ![[D:[0-9]+]]
-// PTR: @d2 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
 // OPQ: @d2 = global ptr null, align 8, !intel_dtrans_type ![[D]]
-// PTR: @d3 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
 // OPQ: @d3 = global ptr null, align 8, !intel_dtrans_type ![[D]]
-// PTR: @d4 = global <2 x float> ()* null, align 8, !intel_dtrans_type ![[D]]
 // OPQ: @d4 = global ptr null, align 8, !intel_dtrans_type ![[D]]
 
 // CHECK: !intel.dtrans.types = !{}
