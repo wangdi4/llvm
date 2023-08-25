@@ -1002,8 +1002,7 @@ static llvm::Triple computeTargetTriple(const Driver &D, StringRef TargetTriple,
   }
 
   // Skip further flag support on OSes which don't support '-m32' or '-m64'.
-  if (Target.getArch() == llvm::Triple::tce ||
-      Target.getOS() == llvm::Triple::Minix)
+  if (Target.getArch() == llvm::Triple::tce)
     return Target;
 
   // On AIX, the env OBJECT_MODE may affect the resulting arch variant.
