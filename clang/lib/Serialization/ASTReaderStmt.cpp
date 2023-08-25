@@ -2423,6 +2423,7 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
   D->setHasCancel(Record.readBool());
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
@@ -2438,11 +2439,16 @@ void ASTStmtReader::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 void ASTStmtReader::VisitOMPScopeDirective(OMPScopeDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
@@ -3413,6 +3419,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = OMPSectionDirective::CreateEmpty(Context, Empty);
       break;
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
     case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
       S = OMPTargetVariantDispatchDirective::CreateEmpty(
@@ -3424,11 +3431,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
     case STMT_OMP_SCOPE_DIRECTIVE:
       S = OMPScopeDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
     case STMT_OMP_SINGLE_DIRECTIVE:
       S = OMPSingleDirective::CreateEmpty(

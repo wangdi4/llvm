@@ -602,6 +602,7 @@ OMPSectionDirective *OMPSectionDirective::CreateEmpty(const ASTContext &C,
                                                    /*HasAssociatedStmt=*/true);
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 OMPTargetVariantDispatchDirective *OMPTargetVariantDispatchDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
@@ -638,6 +639,8 @@ OMPPrefetchDirective *OMPPrefetchDirective::CreateEmpty(const ASTContext &C,
                                                     /*NumChildren=*/0);
 }
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 OMPScopeDirective *OMPScopeDirective::Create(const ASTContext &C,
                                              SourceLocation StartLoc,
                                              SourceLocation EndLoc,
@@ -654,7 +657,10 @@ OMPScopeDirective *OMPScopeDirective::CreateEmpty(const ASTContext &C,
   return createEmptyDirective<OMPScopeDirective>(C, NumClauses,
                                                  /*HasAssociatedStmt=*/true);
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,

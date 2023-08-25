@@ -2186,6 +2186,7 @@ public:
   }
 };
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 /// This represents '#pragma omp target variant dispatch' directive.
 ///
@@ -2308,6 +2309,8 @@ public:
   }
 };
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 /// This represents '#pragma omp scope' directive.
 /// \code
 /// #pragma omp scope private(a,b) nowait
@@ -2342,9 +2345,16 @@ public:
   /// \param EndLoc Ending Location of the directive.
   /// \param AssociatedStmt Statement, associated with the directive.
   ///
+<<<<<<< HEAD
   static OMPScopeDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+=======
+  static OMPScopeDirective *Create(const ASTContext &C, SourceLocation StartLoc,
+                                   SourceLocation EndLoc,
+                                   ArrayRef<OMPClause *> Clauses,
+                                   Stmt *AssociatedStmt);
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
   /// Creates an empty directive.
   ///
@@ -2357,7 +2367,10 @@ public:
     return T->getStmtClass() == OMPScopeDirectiveClass;
   }
 };
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 /// This represents '#pragma omp single' directive.
 ///

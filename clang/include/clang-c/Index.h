@@ -2153,6 +2153,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPErrorDirective = 305,
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 306,
   CXCursor_OMPPrefetchDirective = 307,
@@ -2161,6 +2162,13 @@ enum CXCursorKind {
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPErrorDirective,
 #endif /* INTEL_COLLAB */
+=======
+  /** OpenMP scope directive.
+   */
+  CXCursor_OMPScopeDirective = 306,
+
+  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
   /**
    * Cursor that represents the translation unit itself.

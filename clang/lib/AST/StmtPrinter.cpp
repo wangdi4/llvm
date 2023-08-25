@@ -777,6 +777,7 @@ void StmtPrinter::VisitOMPSectionDirective(OMPSectionDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 void StmtPrinter::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *Node) {
@@ -789,11 +790,16 @@ void StmtPrinter::VisitOMPPrefetchDirective(OMPPrefetchDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 void StmtPrinter::VisitOMPScopeDirective(OMPScopeDirective *Node) {
   Indent() << "#pragma omp scope";
   PrintOMPExecutableDirective(Node);
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {
   Indent() << "#pragma omp single";

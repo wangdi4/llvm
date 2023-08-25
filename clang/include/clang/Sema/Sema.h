@@ -12185,6 +12185,7 @@ public:
   /// associated statement.
   StmtResult ActOnOpenMPSectionDirective(Stmt *AStmt, SourceLocation StartLoc,
                                          SourceLocation EndLoc);
+<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Called on well-formed '\#pragma omp target variant dispatch' after
   /// parsing of the associated statement.
@@ -12195,13 +12196,18 @@ public:
   StmtResult ActOnOpenMPPrefetchDirective(
       ArrayRef<OMPClause *> Clauses, SourceLocation StartLoc,
       SourceLocation EndLoc);
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   /// Called on well-formed '\#pragma omp scope' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
                                        Stmt *AStmt, SourceLocation StartLoc,
                                        SourceLocation EndLoc);
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   /// Called on well-formed '\#pragma omp single' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,

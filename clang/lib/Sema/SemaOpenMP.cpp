@@ -3962,9 +3962,13 @@ class DSAAttrChecker final : public StmtVisitor<DSAAttrChecker, void> {
         S->getDirectiveKind() == OMPD_section ||
         S->getDirectiveKind() == OMPD_master ||
         S->getDirectiveKind() == OMPD_masked ||
+<<<<<<< HEAD
 #if INTEL_COLLAB
         S->getDirectiveKind() == OMPD_scope ||
 #endif // INTEL_COLLAB
+=======
+        S->getDirectiveKind() == OMPD_scope ||
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
         isOpenMPLoopTransformationDirective(S->getDirectiveKind())) {
       Visit(S->getAssociatedStmt());
       return;
@@ -4575,10 +4579,14 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_distribute:
   case OMPD_distribute_simd:
   case OMPD_ordered:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
   case OMPD_scope:
 #endif // INTEL_COLLAB
+=======
+  case OMPD_scope:
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   case OMPD_target_data:
   case OMPD_dispatch: {
     Sema::CapturedParamNameType Params[] = {
@@ -5418,14 +5426,20 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                        diag::note_omp_previous_critical_region);
         return true;
       }
+<<<<<<< HEAD
 #if INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
     } else if (CurrentRegion == OMPD_barrier || CurrentRegion == OMPD_scope) {
       // OpenMP 5.1 [2.22, Nesting of Regions]
       // A scope region may not be closely nested inside a worksharing, loop,
       // task, taskloop, critical, ordered, atomic, or masked region.
+<<<<<<< HEAD
 #else // INTEL_COLLAB
     } else if (CurrentRegion == OMPD_barrier) {
 #endif // INTEL_COLLAB
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
       // OpenMP 5.1 [2.22, Nesting of Regions]
       // A barrier region may not be closely nested inside a worksharing, loop,
       // task, taskloop, critical, ordered, atomic, or masked region.
@@ -6815,6 +6829,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     if (LangOpts.OpenMP >= 50)
       AllowedNameModifiers.push_back(OMPD_simd);
     break;
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPD_prefetch:
     assert(AStmt == nullptr &&
@@ -6826,6 +6841,12 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
                                     EndLoc);
     break;
 #endif // INTEL_COLLAB
+=======
+  case OMPD_scope:
+    Res =
+        ActOnOpenMPScopeDirective(ClausesWithImplicit, AStmt, StartLoc, EndLoc);
+    break;
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   case OMPD_parallel_master:
     Res = ActOnOpenMPParallelMasterDirective(ClausesWithImplicit, AStmt,
                                              StartLoc, EndLoc);
@@ -26238,6 +26259,7 @@ OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
                                       Vars);
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 OMPClause *Sema::ActOnOpenMPInteropClause(ArrayRef<Expr *> VarList,
                                           SourceLocation StartLoc,
@@ -26433,6 +26455,10 @@ OMPClause *Sema::ActOnOpenMPDataClause(Expr *Hint, ArrayRef<Expr *> VarList,
 StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
                                            Stmt *AStmt,
                                            SourceLocation StartLoc,
+=======
+StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
+                                           Stmt *AStmt, SourceLocation StartLoc,
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
                                            SourceLocation EndLoc) {
   if (!AStmt)
     return StmtError();
@@ -26442,6 +26468,7 @@ StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
   return OMPScopeDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 
+<<<<<<< HEAD
 OMPClause *Sema::ActOnOpenMPNeedDevicePtrClause(ArrayRef<Expr *> ArgExprs,
                                                 SourceLocation StartLoc,
                                                 SourceLocation LParenLoc,
@@ -26531,6 +26558,8 @@ OMPClause *Sema::ActOnOpenMPDataflowClause(Expr *StaticChunkSize,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 OMPClause *Sema::ActOnOpenMPInclusiveClause(ArrayRef<Expr *> VarList,
                                             SourceLocation StartLoc,
                                             SourceLocation LParenLoc,
