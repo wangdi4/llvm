@@ -1406,7 +1406,7 @@ void InlineReportBuilder::updateName(Function *F) {
   if (!FMD)
     return;
   auto FIR = cast<MDTuple>(FMD);
-  std::string FuncName = std::string(F ? F->getName() : "");
+  std::string FuncName = std::string(F->getName());
   FuncName.insert(0, "name: ");
   LLVMContext &Ctx = F->getParent()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
