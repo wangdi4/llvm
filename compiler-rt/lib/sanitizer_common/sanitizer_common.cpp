@@ -40,7 +40,7 @@
 
 #if INTEL_CUSTOMIZATION
 extern void *_ZN4sycl3_V118default_selector_vERKNS0_6deviceE
-    __attribute__((weak));
+    SANITIZER_WEAK_ATTRIBUTE;
 #endif  // INTEL_CUSTOMIZATION
 
 namespace __sanitizer {
