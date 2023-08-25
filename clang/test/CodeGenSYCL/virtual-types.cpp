@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -fsycl-is-device -triple spir64-unknown-linux -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
-=======
 // if INTEL_COLLAB
 // We don't emit type info in xmain
-// RUN: %clang_cc1 -fsycl-is-device -triple spir64-unknown-linux -disable-llvm-passes -opaque-pointers -emit-llvm %s -o - | FileCheck %s --implicit-check-not @_ZTI6Struct
+// RUN: %clang_cc1 -fsycl-is-device -triple spir64-unknown-linux -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s --implicit-check-not @_ZTI6Struct
 // end INTEL_COLLAB
->>>>>>> dbfad6389a96f70ba2c7070375a883a87de3f595
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
   kernelFunc();
