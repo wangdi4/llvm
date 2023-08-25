@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 struct a {
   enum { T1,
          T2 } c;
@@ -8,7 +7,6 @@ struct a {
   char d;
 };
 a (*e)(int);
-// PTR: @e = global void (%struct._ZTS1a.a*, i32)* null, align 8, !intel_dtrans_type ![[FUNC_PTR:[0-9]+]]
 // OPQ: @e = global ptr null, align 8, !intel_dtrans_type ![[FUNC_PTR:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[STRUCTA:[0-9]+]]}

@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -opaque-pointers -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 
 struct pointed_to_t;
 typedef pointed_to_t *pointed_to_p;

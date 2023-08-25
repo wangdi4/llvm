@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 class HasPMFToCompleteClass {
 public:
@@ -111,20 +110,8 @@ void use() {
 
 // If these ever change (beyond to opaque-ptr) we need to confirm that the
 // dtrans info matches.
-// PTR: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { i8*, i32, i32, i32 } }
-// PTR: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
 // PTR-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
 // PTR-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
-// PTR: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { i8* } 
-// PTR: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { i32 (...)** }
-// PTR: %"class..?AVVirtual@@.Virtual" = type { i32 (...)** } 
-// PTR: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { i8* } 
-// PTR: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas4Base@@.PtrToHas4Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { i8*, i32 } } 
 
 // Order changes for Opaque Ptr?
 // OPQ: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { ptr } 
