@@ -1088,7 +1088,6 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
@@ -1098,16 +1097,10 @@ void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
 void StmtProfiler::VisitOMPPrefetchDirective(const OMPPrefetchDirective *S) {
   VisitOMPExecutableDirective(S);
 }
-
-void StmtProfiler::VisitOMPScopeDirective(const OMPScopeDirective *S) {
-  VisitOMPExecutableDirective(S);
-}
 #endif // INTEL_COLLAB
-=======
 void StmtProfiler::VisitOMPScopeDirective(const OMPScopeDirective *S) {
   VisitOMPExecutableDirective(S);
 }
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {
   VisitOMPExecutableDirective(S);

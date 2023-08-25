@@ -685,7 +685,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPSectionDirectiveClass:
     K = CXCursor_OMPSectionDirective;
     break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     K = CXCursor_OMPTargetVariantDispatchDirective;
@@ -693,15 +692,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPPrefetchDirectiveClass:
     K = CXCursor_OMPPrefetchDirective;
     break;
-  case Stmt::OMPScopeDirectiveClass:
-    K = CXCursor_OMPScopeDirective;
-    break;
 #endif // INTEL_COLLAB
-=======
   case Stmt::OMPScopeDirectiveClass:
     K = CXCursor_OMPScopeDirective;
     break;
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   case Stmt::OMPSingleDirectiveClass:
     K = CXCursor_OMPSingleDirective;
     break;

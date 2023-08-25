@@ -2251,7 +2251,6 @@ def OMP_BeginAssumes : Directive<"begin assumes"> {}
 def OMP_EndAssumes : Directive<"end assumes"> {}
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -2290,17 +2289,6 @@ def OMP_scope : Directive<"scope"> {
 }
 #endif // INTEL_COLLAB
 
-=======
-def OMP_scope : Directive<"scope"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_Private, 51>,
-    VersionedClause<OMPC_Reduction, 51>,
-  ];
-  let allowedOnceClauses = [
-    VersionedClause<OMPC_NoWait, 51>
-  ];
-}
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {
   let allowedClauses = [
     VersionedClause<OMPC_Allocate>,

@@ -266,15 +266,11 @@ def OMPTargetUpdateDirective : StmtNode<OMPExecutableDirective>;
 def OMPTeamsDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancellationPointDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancelDirective : StmtNode<OMPExecutableDirective>;
-<<<<<<< HEAD
 // INTEL_COLLAB
 def OMPTargetVariantDispatchDirective : StmtNode<OMPExecutableDirective>;
 def OMPPrefetchDirective : StmtNode<OMPExecutableDirective>;
-def OMPScopeDirective : StmtNode<OMPExecutableDirective>;
 //end INTEL_COLLAB
-=======
 def OMPScopeDirective : StmtNode<OMPExecutableDirective>;
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 def OMPTaskLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPMasterTaskLoopDirective : StmtNode<OMPLoopDirective>;

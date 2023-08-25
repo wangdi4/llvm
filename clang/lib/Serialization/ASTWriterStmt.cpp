@@ -2345,7 +2345,6 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
   Code = serialization::STMT_OMP_SECTION_DIRECTIVE;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 void ASTStmtWriter::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
@@ -2362,17 +2361,12 @@ void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   Code = serialization::STMT_OMP_PREFETCH_DIRECTIVE;
 }
 
-=======
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
+#endif // INTEL_COLLAB
 void ASTStmtWriter::VisitOMPScopeDirective(OMPScopeDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_SCOPE_DIRECTIVE;
 }
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-=======
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);

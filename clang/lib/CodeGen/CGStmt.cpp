@@ -503,19 +503,14 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPDispatchDirectiveClass:
     llvm_unreachable("Dispatch directive not supported yet.");
     break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
   case Stmt::OMPPrefetchDirectiveClass:
     llvm_unreachable("prefetch not supported with FE outlining");
-  case Stmt::OMPScopeDirectiveClass:
-    llvm_unreachable("scope not supported with FE outlining");
 #endif // INTEL_COLLAB
-=======
   case Stmt::OMPScopeDirectiveClass:
     llvm_unreachable("scope not supported with FE outlining");
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
   case Stmt::OMPMaskedDirectiveClass:
     EmitOMPMaskedDirective(cast<OMPMaskedDirective>(*S));
     break;

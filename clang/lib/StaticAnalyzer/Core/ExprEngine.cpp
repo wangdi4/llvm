@@ -1746,15 +1746,11 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPForSimdDirectiveClass:
     case Stmt::OMPSectionsDirectiveClass:
     case Stmt::OMPSectionDirectiveClass:
-<<<<<<< HEAD
 #if INTEL_COLLAB
     case Stmt::OMPTargetVariantDispatchDirectiveClass:
     case Stmt::OMPPrefetchDirectiveClass:
-    case Stmt::OMPScopeDirectiveClass:
 #endif // INTEL_COLLAB
-=======
     case Stmt::OMPScopeDirectiveClass:
->>>>>>> e4c7298bea88727ed55817c436db1675c867d72b
     case Stmt::OMPSingleDirectiveClass:
     case Stmt::OMPMasterDirectiveClass:
     case Stmt::OMPCriticalDirectiveClass:
