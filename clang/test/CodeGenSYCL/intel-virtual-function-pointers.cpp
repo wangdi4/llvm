@@ -4,7 +4,7 @@
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
 // CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x void (%struct.C addrspace(4)*)*] [void (%struct.C addrspace(4)*)* @_ZN1C3zooEv], align 8
-// CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [{{.+}} ({{.+}} ({{.+}} @_ZTI4Base to i8*) {{.+}}), {{.+}} ({{.+}}({{.+}} @"_ZN4Base1fEi$SIMDTable" to i8*) {{.+}})] }
+// CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [{{.+}} null, {{.+}} ({{.+}}({{.+}} @"_ZN4Base1fEi$SIMDTable" to i8*) {{.+}})] }
 // CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x void (%struct.Base addrspace(4)*, i32)*] [void (%struct.Base addrspace(4)*, i32)* @_ZN4Base1fEi]
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
