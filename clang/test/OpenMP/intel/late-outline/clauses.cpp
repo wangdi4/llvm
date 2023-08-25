@@ -1,7 +1,7 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -disable-llvm-passes -emit-llvm -o - \
+// RUN: %clang_cc1 -disable-llvm-passes -emit-llvm -o - \
 // RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -O2 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefix OPT

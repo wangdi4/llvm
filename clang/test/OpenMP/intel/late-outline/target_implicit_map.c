@@ -1,17 +1,17 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-declare-target-global-default-map \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-declare-target-scalar-defaultmap-firstprivate \
 // RUN:  -fopenmp-declare-target-global-default-map \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s \
 // RUN:  --check-prefix=FPRIVATE
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s \
 // RUN:  --check-prefix=LIVEIN

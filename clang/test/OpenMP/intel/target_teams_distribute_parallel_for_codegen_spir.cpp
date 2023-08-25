@@ -1,10 +1,10 @@
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -12,13 +12,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_split.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -26,13 +26,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT2 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_split2.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT2 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
@@ -40,13 +40,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT3 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_split2.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT3 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \

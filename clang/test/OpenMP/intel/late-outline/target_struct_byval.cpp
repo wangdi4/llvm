@@ -1,11 +1,11 @@
 // INTEL_COLLAB
 
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 \
 // RUN:  -emit-llvm-bc -o %t-host.bc %s
 //
-// RUN: %clang_cc1 -opaque-pointers -triple spir64 -fopenmp \
+// RUN: %clang_cc1 -triple spir64 -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc -emit-llvm -o - %s | \

@@ -1,7 +1,7 @@
 //INTEL_COLLAB
 
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=51 \
-//RUN:   -opaque-pointers -fopenmp-late-outline \
+//RUN:   -fopenmp-late-outline \
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: @_Z22target_has_device_addri(

@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -std=c++11 -fopenmp-late-outline \
-// RUN:  -opaque-pointers -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // expected-no-diagnostics
 
