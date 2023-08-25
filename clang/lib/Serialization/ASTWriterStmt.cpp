@@ -2361,12 +2361,12 @@ void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   Code = serialization::STMT_OMP_PREFETCH_DIRECTIVE;
 }
 
+#endif // INTEL_COLLAB
 void ASTStmtWriter::VisitOMPScopeDirective(OMPScopeDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_SCOPE_DIRECTIVE;
 }
-#endif // INTEL_COLLAB
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);

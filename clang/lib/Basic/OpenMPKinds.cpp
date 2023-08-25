@@ -994,8 +994,8 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_distribute_simd:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
-  case OMPD_scope:
 #endif // INTEL_COLLAB
+  case OMPD_scope:
   case OMPD_dispatch:
     CaptureRegions.push_back(OMPD_unknown);
     break;

@@ -788,12 +788,12 @@ void StmtPrinter::VisitOMPPrefetchDirective(OMPPrefetchDirective *Node) {
   Indent() << "#pragma ompx prefetch";
   PrintOMPExecutableDirective(Node);
 }
+#endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPScopeDirective(OMPScopeDirective *Node) {
   Indent() << "#pragma omp scope";
   PrintOMPExecutableDirective(Node);
 }
-#endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {
   Indent() << "#pragma omp single";

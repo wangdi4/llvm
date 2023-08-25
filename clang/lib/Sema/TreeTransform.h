@@ -9175,6 +9175,7 @@ TreeTransform<Derived>::TransformOMPPrefetchDirective(OMPPrefetchDirective *D) {
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
+#endif // INTEL_COLLAB
 
 template <typename Derived>
 StmtResult
@@ -9186,7 +9187,6 @@ TreeTransform<Derived>::TransformOMPScopeDirective(OMPScopeDirective *D) {
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
-#endif // INTEL_COLLAB
 
 template <typename Derived>
 StmtResult

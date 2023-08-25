@@ -2437,12 +2437,12 @@ void ASTStmtReader::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
 }
+#endif // INTEL_COLLAB
 
 void ASTStmtReader::VisitOMPScopeDirective(OMPScopeDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
 }
-#endif // INTEL_COLLAB
 
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
@@ -3424,11 +3424,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
+#endif // INTEL_COLLAB
     case STMT_OMP_SCOPE_DIRECTIVE:
       S = OMPScopeDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
-#endif // INTEL_COLLAB
 
     case STMT_OMP_SINGLE_DIRECTIVE:
       S = OMPSingleDirective::CreateEmpty(

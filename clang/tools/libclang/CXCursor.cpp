@@ -692,10 +692,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPPrefetchDirectiveClass:
     K = CXCursor_OMPPrefetchDirective;
     break;
+#endif // INTEL_COLLAB
   case Stmt::OMPScopeDirectiveClass:
     K = CXCursor_OMPScopeDirective;
     break;
-#endif // INTEL_COLLAB
   case Stmt::OMPSingleDirectiveClass:
     K = CXCursor_OMPSingleDirective;
     break;

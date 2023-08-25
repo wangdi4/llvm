@@ -3033,9 +3033,9 @@ DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPPrefetchDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
+#endif // INTEL_COLLAB
 DEF_TRAVERSE_STMT(OMPScopeDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
-#endif // INTEL_COLLAB
 
 DEF_TRAVERSE_STMT(OMPSingleDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
