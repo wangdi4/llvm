@@ -1,21 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
-//
 //===-- asan_flags.cpp ------------------------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -132,20 +114,6 @@ void InitializeFlags() {
   const char *lsan_default_options = __lsan_default_options();
   lsan_parser.ParseString(lsan_default_options);
 #endif
-
-#if INTEL_CUSTOMIZATION
-  if (IsInSyclContext()) {
-    VReport(1, "Applying custom settings for SYCL Host Sanitizers.");
-
-    // Workaround for libigc.so
-    asan_parser.ParseString("alloc_dealloc_mismatch=0");
-    asan_parser.ParseString("new_delete_type_mismatch=0");
-
-    // Do not print suppression by default because we use suppression as
-    // workaround
-    asan_parser.ParseString("print_suppressions=0");
-  }
-#endif  // INTEL_CUSTOMIZATION
 
   // Override from command line.
   asan_parser.ParseStringFromEnv("ASAN_OPTIONS");

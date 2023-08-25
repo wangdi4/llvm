@@ -1,21 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
-//
 //===-- sanitizer_common_interceptors.inc -----------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -6280,34 +6262,11 @@ INTERCEPTOR(int, fclose, __sanitizer_FILE *fp) {
 #endif
 
 #if SANITIZER_INTERCEPT_DLOPEN_DLCLOSE
-
-#if INTEL_CUSTOMIZATION
-// This macro is copied from dlfcn.h, we cannot include that header without
-// causing confilts with the interceptor definations
-// TODO: Find a better way to get this flag
-#define RTLD_DEEPBIND 0x00008
-
-// Do not dlclose libigdrcl.so because dlclose it will introduce some leaks that
-// will later symbolize to other modules, which makes it hard to suppress
-static void *libigdrcl_so_handle = nullptr;
-#endif  // INTEL_CUSTOMIZATION
-
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER_NOIGNORE(ctx, dlopen, filename, flag);
   if (filename) COMMON_INTERCEPTOR_READ_STRING(ctx, filename, 0);
-#if INTEL_CUSTOMIZATION
-  if (IsInSyclContext() && (flag & RTLD_DEEPBIND)) {
-    // TODO: Only clear this flag for our libraries, not for user's libraries
-    flag &= ~RTLD_DEEPBIND;
-  }
-#endif  // INTEL_CUSTOMIZATION
   void *res = COMMON_INTERCEPTOR_DLOPEN(filename, flag);
-#if INTEL_CUSTOMIZATION
-  if (IsInSyclContext() && filename &&
-      internal_strstr(filename, "libigdrcl.so") != nullptr)
-    libigdrcl_so_handle = res;
-#endif  // INTEL_CUSTOMIZATION
   Symbolizer::GetOrInit()->InvalidateModuleList();
   COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, res);
   return res;
@@ -6316,11 +6275,7 @@ INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
 INTERCEPTOR(int, dlclose, void *handle) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER_NOIGNORE(ctx, dlclose, handle);
-#if INTEL_CUSTOMIZATION
-  int res = 1;
-  if (!IsInSyclContext() || handle != libigdrcl_so_handle)
-    res = REAL(dlclose)(handle);
-#endif  // INTEL_CUSTOMIZATION
+  int res = REAL(dlclose)(handle);
   Symbolizer::GetOrInit()->InvalidateModuleList();
   COMMON_INTERCEPTOR_LIBRARY_UNLOADED();
   return res;

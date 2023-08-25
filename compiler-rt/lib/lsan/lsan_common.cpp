@@ -1,21 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
-//
 //=-- lsan_common.cpp -----------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -141,27 +123,6 @@ static const char kStdSuppressions[] =
     // https://sourceware.org/bugzilla/show_bug.cgi?id=12650.
     "leak:*tls_get_addr*\n";
 
-#  if INTEL_CUSTOMIZATION
-// Suppressions for enabling sanitizers for SYCL host code
-static const char kSyclHostSuppression[] =
-    ""
-
-    // Libraries that will cause error reports
-    "leak:*libintelocl.so*\n"
-    "leak:*libintelocl_emu.so*\n"
-    "leak:*libigc.so*\n"
-    "leak:*libigdrcl.so*\n"
-    "leak:*libsycl.so*\n"
-    "leak:*libur_adapter_level_zero.so*\n"
-    "leak:*libze_intel_gpu.so*\n"
-    "leak:*libOpenCL.so*\n"
-
-    // Other errors that comes up on testing
-    "leak:*<unknown module>*\n"
-    "leak:*urProgramCreateWithIL*\n"
-    "leak:*_ur_ze_event_list_t*\n";
-#  endif  // INTEL_CUSTOMIZATION
-
 void InitializeSuppressions() {
   CHECK_EQ(nullptr, suppression_ctx);
   suppression_ctx = new (suppression_placeholder)
@@ -175,12 +136,6 @@ void LeakSuppressionContext::LazyInit() {
     if (&__lsan_default_suppressions)
       context.Parse(__lsan_default_suppressions());
     context.Parse(kStdSuppressions);
-#  if INTEL_CUSTOMIZATION
-    if (IsInSyclContext()) {
-      VReport(1, "Applying suppressions for SYCL Host Sanitizers.");
-      context.Parse(kSyclHostSuppression);
-    }
-#  endif  // INTEL_CUSTOMIZATION
     if (flags()->use_tls && flags()->use_ld_allocations)
       suppress_module = GetLinker();
   }
