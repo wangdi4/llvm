@@ -206,7 +206,6 @@ event handler::finalize() {
 
       std::vector<sycl::detail::pi::PiEvent> RawEvents;
       detail::EventImplPtr NewEvent;
-      sycl::detail::pi::PiEvent *OutEvent = nullptr;
 
       auto EnqueueKernel = [&]() {
         // 'Result' for single point of return
@@ -220,6 +219,9 @@ event handler::finalize() {
         } else {
           if (MQueue->getDeviceImplPtr()->getBackend() ==
               backend::ext_intel_esimd_emulator) {
+            // Capture the host timestamp for profiling (queue time)
+            if (NewEvent != nullptr)
+              NewEvent->setHostEnqueueTime();
             MQueue->getPlugin()->call<detail::PiApiKind::piEnqueueKernelLaunch>(
                 nullptr, reinterpret_cast<pi_kernel>(MHostKernel->getPtr()),
                 MNDRDesc.Dims, &MNDRDesc.GlobalOffset[0],
@@ -229,7 +231,7 @@ event handler::finalize() {
           } else {
             Result =
                 enqueueImpKernel(MQueue, MNDRDesc, MArgs, KernelBundleImpPtr,
-                                 MKernel, MKernelName, RawEvents, OutEvent,
+                                 MKernel, MKernelName, RawEvents, NewEvent,
                                  nullptr, MImpl->MKernelCacheConfig);
           }
         }
@@ -256,8 +258,6 @@ event handler::finalize() {
         NewEvent = std::make_shared<detail::event_impl>(MQueue);
         NewEvent->setContextImpl(MQueue->getContextImplPtr());
         NewEvent->setStateIncomplete();
-        OutEvent = &NewEvent->getHandleRef();
-
         NewEvent->setSubmissionTime();
 
         if (PI_SUCCESS != EnqueueKernel())
