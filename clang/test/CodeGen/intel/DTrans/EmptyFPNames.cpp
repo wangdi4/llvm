@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct ContainsFPType;
 using FPType = int(*)(ContainsFPType*);
@@ -24,14 +23,10 @@ int func2(ContainsFPType2*) {
   return 1;
 }
 
-// PTR: %struct._ZTS14ContainsFPType.ContainsFPType = type { %"__Intel$Empty$Struct"* }
 // OPQ: %struct._ZTS14ContainsFPType.ContainsFPType = type { ptr }
-// PTR: %struct._ZTS15ContainsFPType2.ContainsFPType2 = type { %"__Intel$Empty$Struct.0"* }
 // OPQ: %struct._ZTS15ContainsFPType2.ContainsFPType2 = type { ptr }
 
-// PTR: define dso_local noundef i32 @_Z5func1P14ContainsFPType(%struct._ZTS14ContainsFPType.ContainsFPType* {{.*}} "intel_dtrans_func_index"="1" %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNC1:[0-9]+]]
 // OPQ: define dso_local noundef i32 @_Z5func1P14ContainsFPType(ptr {{.*}} "intel_dtrans_func_index"="1" %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNC1:[0-9]+]]
-// PTR: define dso_local noundef i32 @_Z5func2P15ContainsFPType2(%struct._ZTS15ContainsFPType2.ContainsFPType2* {{.*}} "intel_dtrans_func_index"="1" %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNC2:[0-9]+]]
 // OPQ: define dso_local noundef i32 @_Z5func2P15ContainsFPType2(ptr {{.*}} "intel_dtrans_func_index"="1" %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNC2:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[CONT_FP_TYPE:[0-9]+]], ![[CONT_FP_TYPE2:[0-9]+]]}

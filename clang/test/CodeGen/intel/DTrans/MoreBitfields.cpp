@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s
 
 // In some situations, a bitfield is added to the layout object as an array of
 // ints, so make sure that we handle this case correctly, rather than asserting

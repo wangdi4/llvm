@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct arc_t;
 
@@ -27,7 +26,6 @@ int main() {
   return 0;
 }
 
-// PTR: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[ARC:[0-9]+]], ![[TD:[0-9]+]]}
 // OPQ: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[TD:[0-9]+]], ![[ARC:[0-9]+]]}
 
 // CHECK: ![[TP2P]] = !{!"S", %struct._ZTS12test_ptr2ptr.test_ptr2ptr zeroinitializer, i32 4, ![[ARC_PTR:[0-9]+]], ![[SELF_PTR:[0-9]+]], ![[TD_PTR_PTR:[0-9]+]], ![[STRUCT:[0-9]+]]}
