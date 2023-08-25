@@ -57,6 +57,12 @@ class VPlanSlp {
   bool canMoveTo(const VPLoadStoreInst *FromInst,
                  const VPLoadStoreInst *ToInst) const;
 
+  // The method swaps elements from Op1 with elements from Op2 on the same index
+  // position in order to make vectorization of Op1 and/or Op2 more probable or
+  // profitable.
+  void tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
+                          MutableArrayRef<const VPValue *> Op2) const;
+
   // Tries to build an SLP tree starting at 'Seed' list and returns the
   // difference (vectorized_graph_cost - scalar_graph_cost). Thereby if the
   // cost is negative, it is profitable to vectorize. If the cost is Invalid,
