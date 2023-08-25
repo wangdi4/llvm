@@ -8,9 +8,9 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 }
 
 extern SYCL_EXTERNAL int zoo (int);
-//CHECK: @_ZTV1B = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI1B to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class.B addrspace(4)*, i32)*]* @"_ZN1B3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }
+//CHECK: @_ZTV1B = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class.B addrspace(4)*, i32)*]* @"_ZN1B3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }
 //CHECK: @"_ZN1B3fooEi$SIMDTable" = weak global [1 x i32 (%class.B addrspace(4)*, i32)*] [i32 (%class.B addrspace(4)*, i32)* @_ZN1B3fooEi]
-//CHECK: @_ZTV1A = unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI1A to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }, align 8
+//CHECK: @_ZTV1A = unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }, align 8
 //@"_ZN1A3fooEi$SIMDTable" = weak global [1 x i32 (%class.A addrspace(4)*, i32)*] [i32 (%class.A addrspace(4)*, i32)* @_ZN1A3fooEi]
 //CHECK: @"_ZN1A3fooEi$SIMDTable" = weak global [1 x i32 (%class.A addrspace(4)*, i32)*] [i32 (%class.A addrspace(4)*, i32)* @_ZN1A3fooEi]
 
