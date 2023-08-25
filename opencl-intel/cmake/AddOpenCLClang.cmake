@@ -80,4 +80,31 @@ macro(set_opencl_clang_extra_properties)
       set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
     endif()
   endif()
+
+  # Deploy
+  if(WIN32)
+    if(OPENCL_INTREE_BUILD)
+      set(COMMON_CLANG_BIN_DIR ${LLVM_BINARY_DIR}/bin)
+    else()
+      set(COMMON_CLANG_BIN_DIR ${LLVM_BINARY_DIR})
+    endif()
+    set(COMMON_CLANG_FILES ${COMMON_CLANG_BIN_DIR}/${COMMON_CLANG}.dll)
+  else(WIN32)
+    set(COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
+  endif(WIN32)
+  if(WIN32)
+    get_ics_build_type(ICS_BUILD_TYPE)
+    # Disable PDB installation in release build
+    if(NOT ICS_BUILD_TYPE STREQUAL "release")
+      list(APPEND COMMON_CLANG_FILES ${COMMON_CLANG_BIN_DIR}/${COMMON_CLANG}.pdb)
+    endif()
+  endif(WIN32)
+
+  if(NOT OPENCL_INTREE_BUILD)
+    copy_to(${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+    copy_to(${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF})
+  endif()
+
+  install_to(${COMMON_CLANG_FILES} DESTINATION ${OCL_INSTALL_LIBRARY_DIR}
+             COMPONENT ocl-common_clang)
 endmacro()
