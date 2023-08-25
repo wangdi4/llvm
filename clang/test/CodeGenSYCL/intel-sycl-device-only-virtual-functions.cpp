@@ -44,9 +44,7 @@
 // CHECK-SAME:, ptr addrspace(4) null
 //
 // CHECK: @_ZTV12AbstractBase =
-// CHECK-SAME:, ptr addrspace(4) null
-// CHECK-SAME:, ptr addrspace(4) null
-// CHECK-SAME:, ptr addrspace(4) null
+// CHECK-SAME: zeroinitializer
 //
 // CHECK: @_ZTV8Derived4 =
 // CHECK-SAME:, {{.*}} @_ZN8Derived410device_fooEv
