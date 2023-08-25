@@ -2352,8 +2352,7 @@ InputFileInfo ASTReader::getInputFileInfo(ModuleFile &F, unsigned ID) {
   // Go find this input file.
   BitstreamCursor &Cursor = F.InputFilesCursor;
   SavedStreamPosition SavedPosition(Cursor);
-  if (llvm::Error Err = Cursor.JumpToBit(F.InputFilesOffsetBase +
-                                         F.InputFileOffsets[ID - 1])) {
+  if (llvm::Error Err = Cursor.JumpToBit(F.InputFileOffsets[ID - 1])) {
     // FIXME this drops errors on the floor.
     consumeError(std::move(Err));
   }
@@ -2437,8 +2436,7 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   // Go find this input file.
   BitstreamCursor &Cursor = F.InputFilesCursor;
   SavedStreamPosition SavedPosition(Cursor);
-  if (llvm::Error Err = Cursor.JumpToBit(F.InputFilesOffsetBase +
-                                         F.InputFileOffsets[ID - 1])) {
+  if (llvm::Error Err = Cursor.JumpToBit(F.InputFileOffsets[ID - 1])) {
     // FIXME this drops errors on the floor.
     consumeError(std::move(Err));
   }
@@ -2816,7 +2814,6 @@ ASTReader::ReadControlBlock(ModuleFile &F,
           Error("malformed block record in AST file");
           return Failure;
         }
-        F.InputFilesOffsetBase = F.InputFilesCursor.GetCurrentBitNo();
         continue;
 
       case OPTIONS_BLOCK_ID:
@@ -4760,6 +4757,12 @@ ASTReader::ReadASTCore(StringRef FileName,
       ShouldFinalizePCM = true;
       return Success;
 
+    case UNHASHED_CONTROL_BLOCK_ID:
+      // This block is handled using look-ahead during ReadControlBlock.  We
+      // shouldn't get here!
+      Error("malformed block record in AST file");
+      return Failure;
+
     default:
       if (llvm::Error Err = Stream.SkipBlock()) {
         Error(std::move(Err));
@@ -4879,18 +4882,13 @@ ASTReader::ASTReadResult ASTReader::readUnhashedControlBlockImpl(
     }
     switch ((UnhashedControlBlockRecordTypes)MaybeRecordType.get()) {
     case SIGNATURE:
-      if (F) {
-        F->Signature = ASTFileSignature::create(Blob.begin(), Blob.end());
-        assert(F->Signature != ASTFileSignature::createDummy() &&
-               "Dummy AST file signature not backpatched in ASTWriter.");
-      }
+      if (F)
+        F->Signature = ASTFileSignature::create(Record.begin(), Record.end());
       break;
     case AST_BLOCK_HASH:
-      if (F) {
-        F->ASTBlockHash = ASTFileSignature::create(Blob.begin(), Blob.end());
-        assert(F->ASTBlockHash != ASTFileSignature::createDummy() &&
-               "Dummy AST block hash not backpatched in ASTWriter.");
-      }
+      if (F)
+        F->ASTBlockHash =
+            ASTFileSignature::create(Record.begin(), Record.end());
       break;
     case DIAGNOSTIC_OPTIONS: {
       bool Complain = (ClientLoadCapabilities & ARR_OutOfDate) == 0;
@@ -5192,12 +5190,9 @@ static ASTFileSignature readASTFileSignature(StringRef PCH) {
       consumeError(MaybeRecord.takeError());
       return ASTFileSignature();
     }
-    if (SIGNATURE == MaybeRecord.get()) {
-      auto Signature = ASTFileSignature::create(Blob.begin(), Blob.end());
-      assert(Signature != ASTFileSignature::createDummy() &&
-             "Dummy AST file signature not backpatched in ASTWriter.");
-      return Signature;
-    }
+    if (SIGNATURE == MaybeRecord.get())
+      return ASTFileSignature::create(Record.begin(),
+                                      Record.begin() + ASTFileSignature::size);
   }
 }
 
@@ -5359,7 +5354,6 @@ bool ASTReader::readASTFileControlBlock(
   bool NeedsSystemInputFiles = Listener.needsSystemInputFileVisitation();
   bool NeedsImports = Listener.needsImportVisitation();
   BitstreamCursor InputFilesCursor;
-  uint64_t InputFilesOffsetBase = 0;
 
   RecordData Record;
   std::string ModuleDir;
@@ -5395,7 +5389,6 @@ bool ASTReader::readASTFileControlBlock(
         if (NeedsInputFiles &&
             ReadBlockAbbrevs(InputFilesCursor, INPUT_FILES_BLOCK_ID))
           return true;
-        InputFilesOffsetBase = InputFilesCursor.GetCurrentBitNo();
         break;
 
       default:
@@ -5468,8 +5461,7 @@ bool ASTReader::readASTFileControlBlock(
 
         BitstreamCursor &Cursor = InputFilesCursor;
         SavedStreamPosition SavedPosition(Cursor);
-        if (llvm::Error Err =
-                Cursor.JumpToBit(InputFilesOffsetBase + InputFileOffs[I])) {
+        if (llvm::Error Err = Cursor.JumpToBit(InputFileOffs[I])) {
           // FIXME this drops errors on the floor.
           consumeError(std::move(Err));
         }

@@ -658,8 +658,9 @@ static Value *emitUnaryMaybeConstrainedFPBuiltin(
   if (Func)
     return CreateBuiltinCallWithAttr(CGF, Name, Func, {Src0},
                                      FPAccuracyIntrinsicID);
+
+  CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
   if (CGF.Builder.getIsFPConstrained()) {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
     Function *F = CGF.CGM.getIntrinsic(ConstrainedIntrinsicID, Src0->getType());
     return CGF.Builder.CreateConstrainedFPCall(F, {Src0});
   } else {
