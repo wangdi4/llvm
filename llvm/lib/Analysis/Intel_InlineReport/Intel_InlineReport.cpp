@@ -125,7 +125,7 @@ void InlineReport::updateName(Function *F) {
 /// indentCount: The number of indentations before printing the message
 /// level: The level N from '-inline-report=N'
 ///
-static void printSimpleMessage(formatted_raw_ostream &OS, const char *Message,
+static void printSimpleMessage(raw_ostream &OS, const char *Message,
                                unsigned IndentCount, unsigned Level,
                                bool IsInline) {
 #if !INTEL_PRODUCT_RELEASE
@@ -149,7 +149,7 @@ static void printSimpleMessage(formatted_raw_ostream &OS, const char *Message,
 ///
 /// Print the inlining cost and benefit values
 ///
-void InlineReportCallSite::printCostAndBenefit(formatted_raw_ostream &OS,
+void InlineReportCallSite::printCostAndBenefit(raw_ostream &OS,
                                                unsigned Level) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
@@ -166,7 +166,7 @@ void InlineReportCallSite::printCostAndBenefit(formatted_raw_ostream &OS,
 ///
 /// Print the inlining cost and threshold values
 ///
-void InlineReportCallSite::printCostAndThreshold(formatted_raw_ostream &OS,
+void InlineReportCallSite::printCostAndThreshold(raw_ostream &OS,
                                                  unsigned Level) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
@@ -190,7 +190,7 @@ void InlineReportCallSite::printCostAndThreshold(formatted_raw_ostream &OS,
 ///
 /// Print the outer inlining cost and threshold values
 ///
-void InlineReportCallSite::printOuterCostAndThreshold(formatted_raw_ostream &OS,
+void InlineReportCallSite::printOuterCostAndThreshold(raw_ostream &OS,
                                                       unsigned Level) {
   if (!(Level & InlineReportOptions::EarlyExitCost))
     return;
@@ -201,8 +201,7 @@ void InlineReportCallSite::printOuterCostAndThreshold(formatted_raw_ostream &OS,
 ///
 /// Print the indirect call specialization method.
 ///
-void InlineReportCallSite::printICSMethod(formatted_raw_ostream &OS,
-                                          unsigned Level) {
+void InlineReportCallSite::printICSMethod(raw_ostream &OS, unsigned Level) {
   if (!(Level & InlineReportOptions::Indirects))
     return;
   switch (getICSMethod()) {
@@ -226,7 +225,7 @@ void InlineReportCallSite::printICSMethod(formatted_raw_ostream &OS,
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
 ///
-static void printFunctionLinkage(formatted_raw_ostream &OS, unsigned Level,
+static void printFunctionLinkage(raw_ostream &OS, unsigned Level,
                                  InlineReportFunction *IRF) {
   if (!(Level & InlineReportOptions::Linkage))
     return;
@@ -239,7 +238,7 @@ static void printFunctionLinkage(formatted_raw_ostream &OS, unsigned Level,
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
 ///
-static void printFunctionLanguage(formatted_raw_ostream &OS, unsigned Level,
+static void printFunctionLanguage(raw_ostream &OS, unsigned Level,
                                   InlineReportFunction *IRF) {
   if (!(Level & InlineReportOptions::Language))
     return;
@@ -250,8 +249,8 @@ static void printFunctionLanguage(formatted_raw_ostream &OS, unsigned Level,
 /// Print optionally the callee linkage and language, and then the
 /// callee name, and if non-zero, the line and column number of the call site
 ///
-void InlineReportCallSite::printCalleeNameModuleLineCol(
-    formatted_raw_ostream &OS, unsigned Level) {
+void InlineReportCallSite::printCalleeNameModuleLineCol(raw_ostream &OS,
+                                                        unsigned Level) {
   if (auto IRF = getIRCallee()) {
     printICSMethod(OS, Level);
     printFunctionLinkage(OS, Level, getIRCallee());
@@ -264,7 +263,7 @@ void InlineReportCallSite::printCalleeNameModuleLineCol(
     OS << " (" << Line << "," << Col << ")";
 }
 
-void InlineReportCallSite::printBrokerTargetName(formatted_raw_ostream &OS,
+void InlineReportCallSite::printBrokerTargetName(raw_ostream &OS,
                                                  unsigned Level) {
   OS << "(";
   getIRBrokerTarget()->printName(OS, Level);
@@ -278,8 +277,8 @@ void InlineReportCallSite::printBrokerTargetName(formatted_raw_ostream &OS,
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
 ///
-void InlineReportCallSite::print(formatted_raw_ostream &OS,
-                                 unsigned IndentCount, unsigned Level) {
+void InlineReportCallSite::print(raw_ostream &OS, unsigned IndentCount,
+                                 unsigned Level) {
   assert(InlineReasonText[getReason()].Type != InlPrtNone);
   if (getIsInlined()) {
     printIndentCount(OS, IndentCount);
@@ -769,7 +768,7 @@ void InlineReport::setReasonNotInlined(CallBase *Call, const InlineCost &IC,
 /// level: The level N from '-inline-report=N'
 ///
 static void
-printInlineReportCallSiteVector(formatted_raw_ostream &OS,
+printInlineReportCallSiteVector(raw_ostream &OS,
                                 const InlineReportCallSiteVector &Vector,
                                 unsigned IndentCount, unsigned Level) {
   for (unsigned I = 0, E = Vector.size(); I < E; ++I) {
@@ -782,8 +781,7 @@ printInlineReportCallSiteVector(formatted_raw_ostream &OS,
   }
 }
 
-void InlineReportFunction::print(formatted_raw_ostream &OS,
-                                 unsigned Level) const {
+void InlineReportFunction::print(raw_ostream &OS, unsigned Level) const {
   if (!Level || (Level & BasedOnMetadata))
     return;
   printInlineReportCallSiteVector(OS, CallSites, 1, Level);
