@@ -7266,6 +7266,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalDtor(Fn, DA->getPriority(), true);
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
   if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
@@ -7295,6 +7296,10 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (getLangOpts().OpenMP && D->hasAttr<OMPDeclareTargetDeclAttr>())
+    getOpenMPRuntime().emitDeclareTargetFunction(D, GV);
+>>>>>>> 9da61aed751ea6a51e7fa2e970de896d3cc27791
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
