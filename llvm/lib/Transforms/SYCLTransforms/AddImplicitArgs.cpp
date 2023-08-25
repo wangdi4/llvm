@@ -55,13 +55,30 @@ public:
     if (!Changed)
       return Ty;
 
-    if (Ty->getTypeID() == Type::ArrayTyID) {
-      Type *NewTy = ArrayType::get(NewEltTypes[0], Ty->getArrayNumElements());
-      addMapping(Ty, NewTy);
-      return NewTy;
+    Type *NewTy;
+    switch (Ty->getTypeID()) {
+    case Type::ArrayTyID:
+      NewTy = ArrayType::get(NewEltTypes[0], Ty->getArrayNumElements());
+      break;
+    case Type::FixedVectorTyID:
+    case Type::ScalableVectorTyID:
+      NewTy = VectorType::get(NewEltTypes[0],
+                              cast<VectorType>(Ty)->getElementCount());
+      break;
+    case Type::StructTyID:
+      if (cast<StructType>(Ty)->isLiteral())
+        NewTy = StructType::get(Ty->getContext(), NewEltTypes,
+                                cast<StructType>(Ty)->isPacked());
+      else
+        NewTy = StructType::create(NewEltTypes, Ty->getStructName(),
+                                   cast<StructType>(Ty)->isPacked());
+      break;
+    default:
+      llvm_unreachable("Unhandled type");
     }
 
-    llvm_unreachable("Unhandled type");
+    addMapping(Ty, NewTy);
+    return NewTy;
   }
 };
 } // namespace
@@ -317,13 +334,21 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
     if (auto *I = dyn_cast<Instruction>(U)) {
       VMapper.remapInstruction(*I);
     } else if (auto *C = dyn_cast<Constant>(U)) {
-      Constant *NewC;
-      if (auto *CA = dyn_cast<ConstantArray>(C);
-          CA && F->getContext().supportsTypedPointers()) {
-        Constant *Elt = CA->getAggregateElement(0u);
-        Constant *NewElt =
-            ConstantExpr::getBitCast(VMapper.mapConstant(*Elt), Elt->getType());
-        NewC = ConstantArray::get(CA->getType(), NewElt);
+      Constant *NewC = nullptr;
+      if (F->getContext().supportsTypedPointers() &&
+          isa<ConstantAggregate>(C)) {
+        SmallVector<Constant *, 8> Data;
+        for (auto *Op : C->operand_values()) {
+          Constant *OpC = cast<Constant>(Op);
+          Data.push_back(ConstantExpr::getBitCast(VMapper.mapConstant(*OpC),
+                                                  OpC->getType()));
+        }
+        if (auto *CA = dyn_cast<ConstantArray>(C))
+          NewC = ConstantArray::get(CA->getType(), Data);
+        else if (auto *CS = dyn_cast<ConstantStruct>(C))
+          NewC = ConstantStruct::get(CS->getType(), Data);
+        else
+          NewC = ConstantVector::get(Data);
       } else {
         NewC = VMapper.mapConstant(*C);
       }
