@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -opaque-pointers -triple \
+//RUN: %clang_cc1 -triple \
 //RUN: x86_64-pc-windows-msvc -emit-llvm-bc \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -6,7 +6,7 @@
 //RUN: x86-64 -fopenmp-late-outline \
 //RUN: -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc \
+//RUN: %clang_cc1 -triple x86_64-pc-windows-msvc \
 //RUN: -emit-llvm -disable-llvm-passes \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -15,7 +15,7 @@
 //RUN: -o - %s \
 //RUN: | FileCheck %s --check-prefix=CHECK-HOST
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple \
+//RUN: %clang_cc1 -triple spir64 -aux-triple \
 //RUN: x86_64-pc-windows-msvc -emit-llvm-bc \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -24,7 +24,7 @@
 //RUN: -fopenmp-late-outline \
 //RUN: -o %t_targ.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple \
+//RUN: %clang_cc1 -triple spir64 -aux-triple \
 //RUN: x86_64-pc-windows-msvc \
 //RUN: -emit-llvm -disable-llvm-passes \
 //RUN: -fintel-compatibility -fms-compatibility \

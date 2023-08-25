@@ -1,10 +1,10 @@
 // INTEL_COLLAB
 // Check host code generation.
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-HST --check-prefix CHECK-ALL
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-HST --check-prefix CHECK-ALL
 //
 // Check target code generation. Need to create host IR.
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s --check-prefix CHECK-TGT --check-prefix CHECK-ALL
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
+// RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s --check-prefix CHECK-TGT --check-prefix CHECK-ALL
 //
 // expected-no-diagnostics
 

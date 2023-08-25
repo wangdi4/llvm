@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | \
 // RUN: FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir \
 // RUN: | FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
 void bar();

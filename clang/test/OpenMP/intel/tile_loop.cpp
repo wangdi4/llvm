@@ -1,16 +1,16 @@
-// RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -std=c++14 -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-pch -o %t %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -include-pch %t %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu | FileCheck %s
 
