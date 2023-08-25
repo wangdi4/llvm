@@ -1258,7 +1258,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   // Windows specific
   if (!T.isOSWindows()) {
     TLI.setUnavailable(LibFunc_acrt_iob_func);
-    TLI.setUnavailable(LibFunc_atexit);
     TLI.setUnavailable(LibFunc_tunder_mb_cur_max_func);
     TLI.setUnavailable(LibFunc_dunder_CxxFrameHandler3);
     TLI.setUnavailable(LibFunc_dunder_RTDynamicCast);
