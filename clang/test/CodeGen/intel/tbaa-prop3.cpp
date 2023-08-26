@@ -1,5 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu  -std=c++11  -fintel-compatibility -O3 %s -disable-llvm-optzns -emit-llvm -o - -no-opaque-pointers | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu  -std=c++11  -fintel-compatibility -O3 %s -disable-llvm-optzns -emit-llvm -o - -opaque-pointers | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu  -std=c++11  -fintel-compatibility -O3 %s -disable-llvm-optzns -emit-llvm -o - | FileCheck %s
 //
 // CQ415654
 // Check that we generate fakeload intrinsic for the return pointers when

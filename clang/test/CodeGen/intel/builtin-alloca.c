@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 
 void *p;
 

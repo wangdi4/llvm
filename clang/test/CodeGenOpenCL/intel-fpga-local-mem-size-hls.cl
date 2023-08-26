@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -emit-llvm %s -opaque-pointers -o - | FileCheck %s -check-prefixes=CHECK,SPIR
-// RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -opaque-pointers -o - | FileCheck %s -check-prefixes=CHECK,X86
+// RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR
+// RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,X86
 
 // SPIR: define{{.*}}spir_kernel void @foo(ptr addrspace(3) nocapture noundef align 4 %ip) local_unnamed_addr #0 !local_mem_size ![[LMS:[0-9]+]]
 // X86: define{{.*}}spir_kernel void @foo(ptr nocapture noundef align 4 %ip) local_unnamed_addr #0 !local_mem_size ![[LMS:[0-9]+]]

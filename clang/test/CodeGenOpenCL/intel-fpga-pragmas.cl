@@ -1,7 +1,7 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -opaque-pointers -o - %s | FileCheck --check-prefixes=CHECK,SPIR %s
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -opaque-pointers -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
-//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -opaque-pointers -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
-//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -opaque-pointers -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,SPIR %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
 
 // This test file is a copy of CodeGenIntelHLS/pragmas.cpp adopted for OpenCL C
 // Main changes:

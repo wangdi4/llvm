@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-windows-msvc -fms-extensions -fintel-compatibility -fintel-compatibility-enable=InstantiateDefaultArgs -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-windows-msvc -fms-extensions -fintel-compatibility -fintel-compatibility-enable=InstantiateDefaultArgs -emit-llvm -o - %s | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-windows-msvc -fintel-compatibility -fintel-compatibility-disable=InstantiateDefaultArgs -verify %s
 
 // The MS ABI requires instantiating of default arguments.

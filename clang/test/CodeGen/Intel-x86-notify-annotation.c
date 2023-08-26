@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=X64
-// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=X86
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s -check-prefix=X64
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s -check-prefix=X86
 extern void bar(void *, void *, void *);
 int foo(int zc, void *lock) {
     static int lock2 = 2;

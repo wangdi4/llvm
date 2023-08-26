@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx512_bf16_ne
-// RUN: %clang_cc1 -opaque-pointers -ffreestanding -flax-vector-conversions=none %s -triple=x86_64-unknown-unknown -target-feature +avx512vl -target-feature +avx512bf16ne -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding -flax-vector-conversions=none %s -triple=x86_64-unknown-unknown -target-feature +avx512vl -target-feature +avx512bf16ne -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 

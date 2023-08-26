@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -verify -triple x86_64-pc-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -verify -triple x86_64-pc-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 class A { public: ~A(); };
 

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple x86_64-pc-windows -opaque-pointers %s -o - | FileCheck %s --check-prefix=WIN
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple x86_64-pc-linux -opaque-pointers %s -o - | FileCheck %s --check-prefix=LIN
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple x86_64-pc-windows %s -o - | FileCheck %s --check-prefix=WIN
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple x86_64-pc-linux %s -o - | FileCheck %s --check-prefix=LIN
 extern int printf(const char* format, ...);
 
 // match the "%d %d\n" constant string.

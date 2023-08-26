@@ -1,6 +1,6 @@
 // The special IL0 backend version of the test is in the il0-backend subfolder.
 // CQ#366961
-// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu --extended_float_types -emit-llvm %s -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu --extended_float_types -emit-llvm %s -o - | FileCheck %s
 
 // CHECK: %struct.anon = type { i32, fp128 }
 struct {

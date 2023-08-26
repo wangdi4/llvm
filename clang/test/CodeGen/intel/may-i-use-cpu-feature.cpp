@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
 #define FEAT_1 1U << 7
 #define FEAT_2 1U << 8

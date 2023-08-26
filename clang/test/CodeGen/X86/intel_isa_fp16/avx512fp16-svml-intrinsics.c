@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefix=CHECK-AVX512FP16
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefix=CHECK-AVX512FP16
 
 #include <immintrin.h>
 
