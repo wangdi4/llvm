@@ -1,8 +1,8 @@
 ; UNSUPPORTED: !system-windows
 ; RUN: llvm-as -o %t.obj %s
-; RUN: env LLD_IN_TEST=0 lld-link -out:mymain.exe -opt:lldlto=2 -mllvm:-intel-opt-report-emitter=ir -mllvm:-enable-ra-report -mllvm:-intel-opt-report=high -mllvm:-intel-ra-spillreport=high -mllvm:-inline-report=0xf859 -mllvm:-intel-opt-report-file=ipo_out.optrpt -mllvm:-loopopt=1 %t.obj
-; RUN: FileCheck %s < ipo_out.optrpt
-; RUN: rm %t.obj ipo_out.optrpt mymain.exe
+; RUN: env LLD_IN_TEST=0 lld-link -out:%t.exe -opt:lldlto=2 -mllvm:-intel-opt-report-emitter=ir -mllvm:-enable-ra-report -mllvm:-intel-opt-report=high -mllvm:-intel-ra-spillreport=high -mllvm:-inline-report=0xf859 -mllvm:-intel-opt-report-file=%t.ipo_out.optrpt -mllvm:-loopopt=1 %t.obj
+; RUN: FileCheck %s < %t.ipo_out.optrpt
+; RUN: rm %t.obj %t.ipo_out.optrpt %t.exe
 
 ; CMPLRLLVM-50071: Check that when LLD_IN_TEST=0, lld-link will produce a
 ; non-empty .optrpt file with the expected contents 

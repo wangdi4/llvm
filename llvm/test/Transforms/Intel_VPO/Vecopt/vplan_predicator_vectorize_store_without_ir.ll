@@ -9,7 +9,7 @@
 target datalayout = "e-m:e-i32:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_unnamed_addr {
+define dso_local void @foo_non_lcssa(i32 %N, ptr %a, i32 %mask_out_loop) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP18:%.*]] = icmp sgt i32 [[N0:%.*]] i32 0
@@ -47,8 +47,8 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_X2:%.*]] = mul i32 [[VP_IV]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_IV_X2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i32 [[VP_IV_X2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
@@ -88,8 +88,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LCSSA:%.*]] = phi  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
-; CHECK-NEXT:     [DA: Uni] i32* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i32* [[A0]] i32 0
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP_PHI_USE_LCSSA]] i32* [[VP_STORE_USER_GEP]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_PHI_USE_LCSSA]] ptr [[A0]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]
@@ -112,8 +111,8 @@ for.body3.preheader:
 for.body3:
   %iv = phi i32 [ %iv.next, %no_early_exit ], [ 0, %for.body3.preheader ]
   %iv.x2 = mul i32 %iv, %lane
-  %arrayidx = getelementptr inbounds i32, i32* %a, i32 %iv.x2
-  %ld = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds i32, ptr %a, i32 %iv.x2
+  %ld = load i32, ptr %arrayidx
   %some_cmp = icmp eq i32 %ld, 42
   %iv.next = add nuw nsw i32 %iv, 1
   br i1 %some_cmp, label %for.inc5.loopexit, label %no_early_exit
@@ -126,8 +125,7 @@ for.inc5.loopexit:
   %phi_use = phi i32 [ %iv, %for.body3 ], [ 100, %no_early_exit ]
   %phi_update_use = phi i32 [ %iv.next, %for.body3 ], [ 100, %no_early_exit ]
   %no_phi_inst_use = phi i1 [%some_cmp, %for.body3 ], [ 100, %no_early_exit ]
-  %store_user_gep = getelementptr inbounds i32, i32* %a, i32 0
-  store i32 %phi_use, i32* %store_user_gep
+  store i32 %phi_use, ptr %a
   br label %exit
 
 exit:

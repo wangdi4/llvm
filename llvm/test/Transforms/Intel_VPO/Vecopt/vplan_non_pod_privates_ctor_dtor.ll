@@ -9,85 +9,77 @@
 ; Check VPlan-IR after VPEntities instruction lowering
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:       BB{{.*}}: # preds: BB{{.*}}
-; CHECK:        %struct.ClassA* [[PRIVATE_MEM:%vp.*]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
-; CHECK-NEXT:   i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
-; CHECK-NEXT:   call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:   i32* [[PRIV_GEP:%vp.*]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
-; CHECK-NEXT:   %struct.ClassA* [[PRIV_CTOR:%vp.*]] = call %struct.ClassA* [[PRIVATE_MEM]] %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr
+; CHECK:        ptr [[PRIVATE_MEM:%vp.*]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
+; CHECK-NEXT:   call i64 4 ptr [[PRIVATE_MEM]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:   ptr [[PRIV_CTOR:%vp.*]] = call ptr [[PRIVATE_MEM]] ptr @_ZTS6ClassA.omp.def_constr
 
 ; CHECK:       BB{{.*}}: # preds: BB{{.*}}
-; CHECK:        call %struct.ClassA* [[PRIVATE_MEM]] void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr
+; CHECK:        call ptr [[PRIVATE_MEM]] ptr @_ZTS6ClassA.omp.destr
 
 
 ; Check VPlan-IR after CallVecDecisions. Ctor/Dtor calls to non-POD privates
 ; are expected to be serialized.
 ; CHECK-LABEL: VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK:         BB{{.*}}: # preds: BB{{.*}}
-; CHECK:          [DA: Div] %struct.ClassA* [[PRIVATE_MEM]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
-; CHECK-NEXT:     i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
-; CHECK-NEXT:     call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     [DA: Div] i32* [[PRIV_GEP]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
-; CHECK-NEXT:     [DA: Div] %struct.ClassA* [[PRIV_CTOR]] = call %struct.ClassA* [[PRIVATE_MEM]] %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr [Serial]
+; CHECK:          [DA: Div] ptr [[PRIVATE_MEM]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[PRIVATE_MEM]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     [DA: Div] ptr [[PRIV_CTOR]] = call ptr [[PRIVATE_MEM]] ptr @_ZTS6ClassA.omp.def_constr [Serial]
 
 ; CHECK:         BB{{.*}}: # preds: BB{{.*}}
-; CHECK:          [DA: Div] call %struct.ClassA* [[PRIVATE_MEM]] void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr [Serial]
+; CHECK:          [DA: Div] call ptr [[PRIVATE_MEM]] ptr @_ZTS6ClassA.omp.destr [Serial]
 
 
 %struct.ClassA = type { i32 }
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly %src, i32 %n) local_unnamed_addr  {
+define dso_local void @_Z4funcPiS_i(ptr nocapture %dst, ptr nocapture readonly %src, i32 %n) local_unnamed_addr  {
 ; CHECK-LABEL: @_Z4funcPiS_i(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VALUE_PRIV:%.*]] = alloca [[STRUCT_CLASSA:%.*]], align 4
-; CHECK-NEXT:    [[VALUE_PRIV_CONSTR:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV]])
+; CHECK-NEXT:    [[VALUE_PRIV_CONSTR:%.*]] = call ptr @_ZTS6ClassA.omp.def_constr(ptr [[VALUE_PRIV]])
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC:%.*]] = alloca [2 x %struct.ClassA], align 8
-; CHECK-NEXT:    [[VALUE_PRIV_VEC_BC:%.*]] = bitcast [2 x %struct.ClassA]* [[VALUE_PRIV_VEC]] to %struct.ClassA*
-; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 1
-; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr [[STRUCT_CLASSA]], ptr [[VALUE_PRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x ptr> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x ptr> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[VALUE_PRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.ClassA]* [[VALUE_PRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[VALUE_PRIV_VEC_BCAST]])
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    [[TMP3:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP2:%.*]] = call ptr @_ZTS6ClassA.omp.def_constr(ptr [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call ptr @_ZTS6ClassA.omp.def_constr(ptr [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[WIDE_TRIP_COUNT27:%.*]], 4294967294
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
-; CHECK:       VPlannedBB8:
+; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    [[TMP15:%.*]] = mul i64 1, [[TMP4]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = add i64 0, [[TMP15]]
-; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(ptr [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(ptr [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ;
 
 
 entry:
   %value.priv = alloca %struct.ClassA, align 4
-  %value.priv.constr = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* %value.priv)
+  %value.priv.constr = call ptr @_ZTS6ClassA.omp.def_constr(ptr %value.priv)
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.ClassA* %value.priv, %struct.ClassA zeroinitializer, i32 1, %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr, void (%struct.ClassA*)* @_ZTS6ClassA.omp.destr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %value.priv, %struct.ClassA zeroinitializer, i32 1, ptr @_ZTS6ClassA.omp.def_constr, ptr @_ZTS6ClassA.omp.destr) ]
   br label %DIR.OMP.SIMD.128
 
 DIR.OMP.SIMD.128:                                 ; preds = %DIR.OMP.SIMD.1
-  %m_value = getelementptr inbounds %struct.ClassA, %struct.ClassA* %value.priv, i64 0, i32 0
   %wide.trip.count27 = zext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.128, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.128 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.trunc = trunc i64 %indvars.iv to i32
-  call void @_ZN6ClassA3incEi(%struct.ClassA* nonnull dereferenceable(4) %value.priv, i32 %iv.trunc)
-  %ptridx = getelementptr inbounds i32, i32* %src, i64 %indvars.iv
-  %src.ld = load i32, i32* %ptridx, align 4
-  %m_value.ld = load i32, i32* %m_value, align 4
+  call void @_ZN6ClassA3incEi(ptr nonnull dereferenceable(4) %value.priv, i32 %iv.trunc)
+  %ptridx = getelementptr inbounds i32, ptr %src, i64 %indvars.iv
+  %src.ld = load i32, ptr %ptridx, align 4
+  %m_value.ld = load i32, ptr %value.priv, align 4
   %add5 = add nsw i32 %src.ld, %m_value.ld
-  %ptridx7 = getelementptr inbounds i32, i32* %dst, i64 %indvars.iv
-  %dst.ld = load i32, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %dst, i64 %indvars.iv
+  %dst.ld = load i32, ptr %ptridx7, align 4
   %add8 = add nsw i32 %add5, %dst.ld
-  store i32 %add8, i32* %ptridx7, align 4
+  store i32 %add8, ptr %ptridx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count27
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.226, label %omp.inner.for.body
@@ -100,12 +92,12 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.22
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
-  call void @_ZTS6ClassA.omp.destr(%struct.ClassA* nonnull %value.priv)
+  call void @_ZTS6ClassA.omp.destr(ptr nonnull %value.priv)
   ret void
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* nonnull returned %0)
-declare void @_ZTS6ClassA.omp.destr(%struct.ClassA* nocapture readnone %0)
-declare void @_ZN6ClassA3incEi(%struct.ClassA* nocapture nonnull dereferenceable(4) %this, i32 %a)
+declare ptr @_ZTS6ClassA.omp.def_constr(ptr nonnull returned %0)
+declare void @_ZTS6ClassA.omp.destr(ptr nocapture readnone %0)
+declare void @_ZN6ClassA3incEi(ptr nocapture nonnull dereferenceable(4) %this, i32 %a)
