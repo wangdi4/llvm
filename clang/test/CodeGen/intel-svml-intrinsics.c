@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse2 -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-NOSSE41
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse4.1 -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-SSE41
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx2 -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512f -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2,CHECK-AVX512F
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse2 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-NOSSE41
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse4.1 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-SSE41
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx2 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512f -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2,CHECK-AVX512F
 
 #include <immintrin.h>
 

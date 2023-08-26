@@ -3,12 +3,12 @@
 
 // RUN: %clang_cc1 -flto -flto-unit -fwhole-program-vtables \
 // RUN:  -fintel-compatibility -triple x86_64-unknown-linux \
-// RUN:  -emit-llvm -opaque-pointers -o - %s \
+// RUN:  -emit-llvm -o - %s \
 // RUN:  | FileCheck --check-prefix=CHECK-LINUX --check-prefix=CHECK-BOTH %s
 
 // RUN: %clang_cc1 -flto -flto-unit -fwhole-program-vtables \
 // RUN:  -fintel-compatibility -triple x86_64-pc-windows-msvc \
-// RUN:  -emit-llvm -opaque-pointers -o - %s \
+// RUN:  -emit-llvm -o - %s \
 // RUN:  | FileCheck --check-prefix=CHECK-MS --check-prefix=CHECK-BOTH %s
 
 struct A { A(); virtual void f(); };

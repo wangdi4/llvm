@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - -std=c++11 -debug-info-kind=limited -o - %s | FileCheck --check-prefix LINUX %s
-// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-windows-msvc -emit-llvm -opaque-pointers -o - -std=c++11 -debug-info-kind=limited -o - %s | FileCheck --check-prefix WIN_MSVC %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -emit-llvm -o - -std=c++11 -debug-info-kind=limited -o - %s | FileCheck --check-prefix LINUX %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-windows-msvc -emit-llvm -o - -std=c++11 -debug-info-kind=limited -o - %s | FileCheck --check-prefix WIN_MSVC %s
 
 // LINUX: %"class._ZTSZ4mainE3$_0" = type { ptr }
 // WIN_MSVC: %"class.__10<lambda_0>@" = type { ptr }

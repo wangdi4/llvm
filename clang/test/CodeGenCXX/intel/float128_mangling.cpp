@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple -x86_64-linux-gnu %s -emit-llvm -opaque-pointers -o - | FileCheck %s -check-prefix=LINUX
-// RUN: %clang_cc1 -triple -x86_64-windows-msvc -fintel-compatibility %s -emit-llvm -opaque-pointers -o - | FileCheck %s -check-prefix=WINDOWS
+// RUN: %clang_cc1 -triple -x86_64-linux-gnu %s -emit-llvm -o - | FileCheck %s -check-prefix=LINUX
+// RUN: %clang_cc1 -triple -x86_64-windows-msvc -fintel-compatibility %s -emit-llvm -o - | FileCheck %s -check-prefix=WINDOWS
 
 void foo(__float128){}
 // LINUX: define dso_local void @_Z3foog(fp128 noundef %0)

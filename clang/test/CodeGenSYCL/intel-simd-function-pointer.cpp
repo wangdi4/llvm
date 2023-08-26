@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
-// RUN: -no-opaque-pointers -fenable-variant-function-pointers \
+// RUN: -fenable-variant-function-pointers \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
 template <typename name, typename Func>
@@ -26,14 +26,14 @@ extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int roo(CC, int);
 extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int too(int, CC);
 const func two = &bar;
 __attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one;
-//CHECK: @"_Z2f1i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f1i], align 8
-//CHECK: @"_Z2f2i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f2i], align 8
-//CHECK: @"_Z2f3i$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z2f3i], align 8
-//CHECK: @__const._Z3xoov.pfarr = private unnamed_addr addrspace(1) constant [3 x i32 (i32)*] [i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f1i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f2i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f3i$SIMDTable" to i32 (i32)*)]
-//CHECK: @__const._Z3xoov.obj = private unnamed_addr addrspace(1) constant %struct.C { i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f1i$SIMDTable" to i32 (i32)*), i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z2f2i$SIMDTable" to i32 (i32)*) }
-//CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3zooi]
-//CHECK: @"_Z3barii$SIMDTable" = weak global [1 x i32 (i32, i32)*] [i32 (i32, i32)* @_Z3barii]
-//CHECK: @"_Z3mooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3mooi]
+//CHECK: @"_Z2f1i$SIMDTable" = weak global [1 x ptr] [ptr @_Z2f1i], align 8
+//CHECK: @"_Z2f2i$SIMDTable" = weak global [1 x ptr] [ptr @_Z2f2i], align 8
+//CHECK: @"_Z2f3i$SIMDTable" = weak global [1 x ptr] [ptr @_Z2f3i], align 8
+//CHECK: @__const._Z3xoov.pfarr = private unnamed_addr addrspace(1) constant [3 x ptr] [ptr @"_Z2f1i$SIMDTable", ptr @"_Z2f2i$SIMDTable", ptr @"_Z2f3i$SIMDTable"]
+//CHECK: @__const._Z3xoov.obj = private unnamed_addr addrspace(1) constant %struct.C { ptr @"_Z2f1i$SIMDTable", ptr @"_Z2f2i$SIMDTable" }
+//CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x ptr] [ptr @_Z3zooi]
+//CHECK: @"_Z3barii$SIMDTable" = weak global [1 x ptr] [ptr @_Z3barii]
+//CHECK: @"_Z3mooi$SIMDTable" = weak global [1 x ptr] [ptr @_Z3mooi]
 
 int f1(int val) { return val * 2; }
 int f2(int val) { return val * 4; }
@@ -46,13 +46,13 @@ struct C {
 };
 
 extern void xoo() {
-// CHECK: call i32 @__intel_indirect_call_0(i32 (i32)* addrspace(4)* {{.*}}, i32 4)
+// CHECK: call i32 @__intel_indirect_call_0(ptr addrspace(4) {{.*}}, i32 4)
   (f4())(4);
   int (* pfarr[])(int) = {f1, f2, f3};
-// CHECK: call i32 @__intel_indirect_call_0(i32 (i32)* addrspace(4)* {{.*}}, i32 5)
+// CHECK: call i32 @__intel_indirect_call_0(ptr addrspace(4) {{.*}}, i32 5)
   pfarr[0](5);
   C obj = {f1, f2};
-// CHECK:  call i32 @__intel_indirect_call_0(i32 (i32)* addrspace(4)* {{.*}}, i32 1)
+// CHECK:  call i32 @__intel_indirect_call_0(ptr addrspace(4) {{.*}}, i32 1)
   obj.f1(1);
 }
 
@@ -77,29 +77,29 @@ void test(int i) {
   func p = bar;
   fp = &zoo;
   p = bar;
-//CHECK: [[FP:%fp]] = alloca i32 (i32)*,
-//CHECK: [[P:%p]] = alloca i32 (i32, i32)*,
-//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
-//CHECK: %[[P_CAST:.+]] = addrspacecast i32 (i32, i32)** [[P]] to i32 (i32, i32)* addrspace(4)*
-//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
-//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
-//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
-//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
-//CHECK: [[L2:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
-//CHECK: [[L3:%[0-9]+]] = addrspacecast i32 (i32, i32)* [[L2]] to i32 (i32, i32)* addrspace(4)*
-//CHECK: [[L4:%[0-9]+]] = call i32  @__intel_indirect_call_2(i32 (i32, i32)* addrspace(4)* [[L3]], i32 1, i32 1)
+//CHECK: [[FP:%fp]] = alloca ptr,
+//CHECK: [[P:%p]] = alloca ptr,
+//CHECK: %[[FP_CAST:.+]] = addrspacecast ptr [[FP]] to ptr addrspace(4)
+//CHECK: %[[P_CAST:.+]] = addrspacecast ptr [[P]] to ptr addrspace(4)
+//CHECK: store ptr @"_Z3zooi$SIMDTable", ptr addrspace(4) %[[FP_CAST]],
+//CHECK: store ptr @"_Z3barii$SIMDTable", ptr addrspace(4) %[[P_CAST]],
+//CHECK: store ptr @"_Z3zooi$SIMDTable", ptr addrspace(4) %[[FP_CAST]],
+//CHECK: store ptr @"_Z3barii$SIMDTable", ptr addrspace(4) %[[P_CAST]],
+//CHECK: [[L2:%[0-9]+]] = load ptr, ptr addrspace(4) %[[P_CAST]],
+//CHECK: [[L3:%[0-9]+]] = addrspacecast ptr [[L2]] to ptr addrspace(4)
+//CHECK: [[L4:%[0-9]+]] = call i32  @__intel_indirect_call_2(ptr addrspace(4) [[L3]], i32 1, i32 1)
   p(1, 1);
-//CHECK: [[L5:%[0-9]+]] = load i32 (i32)*, i32 (i32)* addrspace(4)* %[[FP_CAST]], align 8
-//CHECK: [[L6:%[0-9]+]] = addrspacecast i32 (i32)* [[L5]] to i32 (i32)* addrspace(4)*
-//CHECK: [[L7:%[0-9]+]] = call i32  @__intel_indirect_call_0(i32 (i32)* addrspace(4)* [[L6]], i32 10
+//CHECK: [[L5:%[0-9]+]] = load ptr, ptr addrspace(4) %[[FP_CAST]], align 8
+//CHECK: [[L6:%[0-9]+]] = addrspacecast ptr [[L5]] to ptr addrspace(4)
+//CHECK: [[L7:%[0-9]+]] = call i32  @__intel_indirect_call_0(ptr addrspace(4) [[L6]], i32 10
   fp(10);
-//CHECK: store i32 (i32, i32)* null, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
-//CHECK: [[L8:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
-//CHECK: [[L9:%[0-9]+]] = addrspacecast i32 (i32, i32)* [[L8]] to i32 (i32, i32)* addrspace(4)*
-//CHECK: [[L10:%[0-9]+]] = call i32 @__intel_indirect_call_2(i32 (i32, i32)* addrspace(4)* [[L9]], i32 1, i32 1)
+//CHECK: store ptr null, ptr addrspace(4) %[[P_CAST]],
+//CHECK: [[L8:%[0-9]+]] = load ptr, ptr addrspace(4) %[[P_CAST]],
+//CHECK: [[L9:%[0-9]+]] = addrspacecast ptr [[L8]] to ptr addrspace(4)
+//CHECK: [[L10:%[0-9]+]] = call i32 @__intel_indirect_call_2(ptr addrspace(4) [[L9]], i32 1, i32 1)
   p = nullptr;
   p(1,1);
-//CHECK:call{{.*}}@__intel_indirect_call_2(i32 (i32, i32)* addrspace(4)*
+//CHECK:call{{.*}}@__intel_indirect_call_2(ptr addrspace(4)
   two(1,2);
 //CHECK:select{{.*}}@"_Z3mooi$SIMDTable"{{.*}}@"_Z3zooi$SIMDTable"
   fptr one = i ? &moo : &zoo;
@@ -132,9 +132,9 @@ extern void qoo(func pt) {
   y(c, 1);
 //CHECK:call{{.*}}@__intel_indirect_call_5
 }
-//CHECK: declare spir_func {{.*}} i32 @__intel_indirect_call_3(i32 (%struct.CC*)* addrspace(4)*, %struct.CC* noundef byval(%struct.CC) align 8)
-//CHECK: declare spir_func noundef i32 @__intel_indirect_call_4(i32 (i32, %struct.CC*)* addrspace(4)*, i32 noundef, %struct.CC* noundef byval(%struct.CC) align 8)
-//CHECK: declare spir_func noundef i32 @__intel_indirect_call_5(i32 (%struct.CC*, i32)* addrspace(4)*, %struct.CC* noundef byval(%struct.CC) align 8, i32 noundef)
+//CHECK: declare spir_func {{.*}} i32 @__intel_indirect_call_3(ptr addrspace(4), ptr noundef byval(%struct.CC) align 8)
+//CHECK: declare spir_func noundef i32 @__intel_indirect_call_4(ptr addrspace(4), i32 noundef, ptr noundef byval(%struct.CC) align 8)
+//CHECK: declare spir_func noundef i32 @__intel_indirect_call_5(ptr addrspace(4), ptr noundef byval(%struct.CC) align 8, i32 noundef)
 //CHECK: attributes #[[ATT4]] = {{.*}}"vector_function_ptrs"="_Z3zooi$SIMDTable()"
 //CHECK: attributes #[[ATT5]] = {{.*}}"vector_function_ptrs"="_Z3barii$SIMDTable()"
 //CHECK: attributes #[[ATT6]] = {{.*}}"vector_function_ptrs"="_Z3mooi$SIMDTable()"

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility -fms-compatibility -triple=x86_64-pc-win32 -opaque-pointers %s -debug-info-kind=limited | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility -fms-compatibility -triple=x86_64-pc-win32 %s -debug-info-kind=limited | FileCheck %s
 
 // CHECK-LABEL: @main
 int main() {

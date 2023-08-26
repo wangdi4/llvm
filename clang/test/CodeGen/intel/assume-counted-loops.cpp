@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 -fassume-counted-loops -triple x86_64-unknown-linux-gnu \
-// RUN:   -verify -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN:   -verify -emit-llvm %s -o - | FileCheck %s
 
 // RUN: %clang_cc1 -fno-assume-counted-loops -triple x86_64-unknown-linux-gnu \
-// RUN:   -verify -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN:   -verify -emit-llvm %s -o - | FileCheck %s
 
 // expected-no-diagnostics
 

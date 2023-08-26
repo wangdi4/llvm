@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device -internal-isystem %S/Inputs -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device -internal-isystem %S/Inputs -emit-llvm -o - %s | FileCheck %s
 
 #include "sycl.hpp"
 
@@ -30,9 +30,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo2()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD7:![0-9]+]]
 [[intel::ivdep(ucharVar)]]
 for (int i = 0; i < 10; ++i) {}
@@ -43,9 +43,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo2a()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD10:![0-9]+]]
 [[intel::ivdep(ucharVar, 4)]]
 for (int i = 0; i < 10; ++i) {}
@@ -56,9 +56,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo3()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD13:![0-9]+]]
 [[intel::ivdep(structVar, 8)]]
 [[intel::ivdep(ucharVar, 8)]]
@@ -69,9 +69,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo4()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD17:![0-9]+]]
 [[intel::ivdep(structVar, 8)]]
 [[intel::ivdep(ucharVar, 4)]]
@@ -82,9 +82,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo5()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD22:![0-9]+]]
 [[intel::ivdep(structVar, 8)]]
 [[intel::ivdep(ucharVar)]]
@@ -96,9 +96,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo6()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD27:![0-9]+]]
 [[intel::ivdep(ucharVar, 4)]]
 [[intel::ivdep()]]
@@ -110,9 +110,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo7()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD28:![0-9]+]]
 [[intel::ivdep(structVar2.tmp, 8)]]
 [[intel::ivdep(ucharVar, 4)]]
@@ -124,9 +124,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo8()
 {
 //CHECK: alloca i32, align 4
-//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
-//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
-//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: addrspacecast ptr %i to ptr addrspace(4)
+//CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
+//CHECK: load i32, ptr addrspace(4) %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD33:![0-9]+]]
 [[intel::ivdep(ucharVar, 8)]]
 [[intel::ivdep(4)]]
@@ -137,9 +137,8 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo9
 void foo9(long* buffer1)
 {
-//CHECK: buffer1.addr = alloca i64 addrspace(4)*, align 8
-//CHECK: buffer1.addr.ascast = addrspacecast i64 addrspace(4)** %buffer1.addr to i64 addrspace(4)* addrspace(4)*
-//CHECK: store i64 addrspace(4)* %buffer1, i64 addrspace(4)* addrspace(4)* %buffer1.addr.ascast, align 8
+//CHECK: buffer1.addr = alloca ptr addrspace(4), align 8
+//CHECK: store ptr addrspace(4) %buffer1, ptr addrspace(4) %buffer1.addr.ascast, align 8
 //CHECK: br label %while.body, !llvm.loop [[MD36:![0-9]+]]
 [[intel::ivdep(buffer1)]]
 while (1) { }
@@ -153,12 +152,12 @@ int do_stuff(int N) {
   //CHECK: %N.addr = alloca i32, align 4
   //CHECK: %temp = alloca i32, align 4
   //CHECK: %i = alloca i32, align 4
-  //CHECK: %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
-  //CHECK: %temp.ascast = addrspacecast i32* %temp to i32 addrspace(4)*
-  //CHECK: %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  //CHECK: store i32 %N, i32 addrspace(4)* %N.addr.ascast, align 4
-  //CHECK: store i32 0, i32 addrspace(4)* %temp.ascast, align 4
-  //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+  //CHECK: %N.addr.ascast = addrspacecast ptr %N.addr to ptr addrspace(4)
+  //CHECK: %temp.ascast = addrspacecast ptr %temp to ptr addrspace(4)
+  //CHECK: %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  //CHECK: store i32 %N, ptr addrspace(4) %N.addr.ascast, align 4
+  //CHECK: store i32 0, ptr addrspace(4) %temp.ascast, align 4
+  //CHECK: store i32 0, ptr addrspace(4) %i.ascast, align 4
   //CHECK: br{{.*}}!llvm.loop [[MD39:![0-9]+]]
   [[intel::ivdep(LEN)]]
   for (int i = 0; i < N; ++i) {
