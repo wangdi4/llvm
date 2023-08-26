@@ -1056,8 +1056,9 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
     return;
   }
 
-  // Unwinding instructions successors are always executable.
-  if (TI.isExceptionalTerminator()) {
+  // We cannot analyze special terminators, so consider all successors
+  // executable.
+  if (TI.isSpecialTerminator()) {
     Succs.assign(TI.getNumSuccessors(), true);
     return;
   }
@@ -1122,13 +1123,6 @@ void SCCPInstVisitor::getFeasibleSuccessors(Instruction &TI,
 
     // If we didn't find our destination in the IBR successor list, then we
     // have undefined behavior. Its ok to assume no successor is executable.
-    return;
-  }
-
-  // In case of callbr, we pessimistically assume that all successors are
-  // feasible.
-  if (isa<CallBrInst>(&TI)) {
-    Succs.assign(TI.getNumSuccessors(), true);
     return;
   }
 
