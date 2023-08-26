@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
 // Check SVML calling conventions are assigned correctly when compiling 512-bit SVML functions.
 
 typedef float __m512 __attribute__((__vector_size__(64), __aligned__(64)));

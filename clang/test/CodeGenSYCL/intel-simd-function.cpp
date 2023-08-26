@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
 // RUN:  -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
-// RUN:  -no-opaque-pointers %s | FileCheck %s
+// RUN:  %s | FileCheck %s
 
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -Wno-c++20-extensions \
-// RUN:  -no-opaque-pointers -fenable-variant-function-pointers \
+// RUN:  -fenable-variant-function-pointers \
 // RUN:  -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
 // RUN:  %s | FileCheck %s
 
@@ -236,23 +236,23 @@ SYCL_EXTERNAL auto bar()
 
 // Call operator
 //CHECK: define{{.*}} noundef i32 {{.*}}_EEEclEOiOf
-//CHECK-SAME: class{{.*}}SimdFunction{{.*}}* {{[^,]*}} %this
-//CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* noundef align 4 dereferenceable(4) %args
-//CHECK-SAME: float [[AS4]]* noundef align 4 dereferenceable(4) %args
-//CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
-//CHECK: [[ARG1:%args.addr.*]] = alloca i32 [[AS4]]*,
-//CHECK: [[ARG2:%args.addr.*]] = alloca float [[AS4]]*,
-//CHECK: %[[ARG1_CAST:.+]] = addrspacecast i32 [[AS4]]** [[ARG1]] to i32 [[AS4]]* [[AS4]]*
-//CHECK: %[[ARG2_CAST:.+]] = addrspacecast float [[AS4]]** [[ARG2]] to float [[AS4]]* [[AS4]]*
+//CHECK-SAME: ptr {{[^,]*}} %this
+//CHECK-SAME: ptr [[AS4:addrspace\(4\)]] noundef align 4 dereferenceable(4) %args
+//CHECK-SAME: ptr [[AS4]] noundef align 4 dereferenceable(4) %args
+//CHECK: [[THISARG:%this.addr.*]] = alloca ptr [[AS4]],
+//CHECK: [[ARG1:%args.addr.*]] = alloca ptr [[AS4]],
+//CHECK: [[ARG2:%args.addr.*]] = alloca ptr [[AS4]],
+//CHECK: %[[ARG1_CAST:.+]] = addrspacecast ptr [[ARG1]] to ptr [[AS4]]
+//CHECK: %[[ARG2_CAST:.+]] = addrspacecast ptr [[ARG2]] to ptr [[AS4]]
 
 //CHECK: %ptrs = getelementptr {{.*}}%this{{.*}} i32 0, i32 0
 //CHECK-NEXT: [[C1:%call[0-9]*]] = {{.*}}%ptrs
 
-//CHECK: [[L0:%[0-9]+]] = load i32 [[AS4]]*, i32 [[AS4]]* [[AS4]]* %[[ARG1_CAST]],
-//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[L0]], align 4
+//CHECK: [[L0:%[0-9]+]] = load ptr [[AS4]], ptr [[AS4]] %[[ARG1_CAST]],
+//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[AS4]] [[L0]], align 4
 
-//CHECK: [[L2:%[0-9]+]] = load float [[AS4]]*, float [[AS4]]* [[AS4]]* %[[ARG2_CAST]],
-//CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[L2]], align 4
+//CHECK: [[L2:%[0-9]+]] = load ptr [[AS4]], ptr [[AS4]] %[[ARG2_CAST]],
+//CHECK-NEXT: [[L3:%[0-9]+]] = load float, ptr [[AS4]] [[L2]], align 4
 
 //CHECK: @__intel_indirect_call_0
 //CHECK-SAME: [[C1]], i32 [[L1]], float [[L3]]) #[[CALL:[0-9]+]]

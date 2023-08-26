@@ -1,6 +1,6 @@
 // REQUIRES: intel_feature_isa_avx256p
-// RUN: %clang_cc1 -no-opaque-pointers -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx256p -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
-// RUN: %clang_cc1 -no-opaque-pointers -flax-vector-conversions=none -fms-extensions -fms-compatibility -ffreestanding %s -triple=x86_64-windows-msvc -target-feature +avx256p -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
+// RUN: %clang_cc1 -no-flax-vector-conversions=none -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx256p -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
+// RUN: %clang_cc1 -no-flax-vector-conversions=none -fms-extensions -fms-compatibility -ffreestanding %s -triple=x86_64-windows-msvc -target-feature +avx256p -emit-llvm -o - -Wall -Werror -Wsign-conversion | FileCheck %s
 #include <immintrin.h>
 
 __m128 test_mm_add_round_ss(__m128 __A, __m128 __B) {

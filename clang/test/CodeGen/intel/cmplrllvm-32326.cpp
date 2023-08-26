@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O3 -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O3 -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
 struct HasCrash {
   float *DoThing() const {

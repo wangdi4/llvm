@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 #define PARAM_1 1U << 7
 #define PARAM_2 1U << 8

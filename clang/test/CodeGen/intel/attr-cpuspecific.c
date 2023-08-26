@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s --check-prefixes=CHECK,LINUX
-// RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s --check-prefixes=CHECK,WINDOWS
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,LINUX
+// RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -fms-compatibility -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,WINDOWS
 
 #ifdef _WIN64
 #define ATTR(X) __declspec(X)

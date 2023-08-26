@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-enable=IntelTBAABF -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-disable=IntelTBAABF -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s -check-prefix=CHECK-DISABLED
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-enable=IntelTBAABF -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-disable=IntelTBAABF -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s -check-prefix=CHECK-DISABLED
 struct in_t {
   int x,y,w;
     unsigned char  xage : 2;

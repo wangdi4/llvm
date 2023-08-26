@@ -2,25 +2,25 @@
 // RUN: split-file %s %t
 // RUN: cd %t
 
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 N.cpp \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 N.cpp \
 // RUN:    -emit-module-interface -o N.pcm
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 N.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 N.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-N
 
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 O.cpp \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.cpp \
 // RUN:    -emit-module-interface -o O.pcm
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 O.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-O
 
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M-part.cpp \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.cpp \
 // RUN:    -emit-module-interface -o M-part.pcm
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M-part.pcm -S \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.pcm -S \
 // RUN: -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-P
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.cpp \
 // RUN: -fmodule-file=N=N.pcm -fmodule-file=O=O.pcm -fmodule-file=M:Part=M-part.pcm \
 // RUN:    -emit-module-interface -o M.pcm
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-M
 
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 useM.cpp \

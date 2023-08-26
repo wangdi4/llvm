@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple spir -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_20
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_12
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple x86_64 -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,X86
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,X86
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_20
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_12
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple x86_64 -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,X86
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,X86
 
 __kernel void
 producer (write_only pipe int __attribute__((blocking)) c0) {
