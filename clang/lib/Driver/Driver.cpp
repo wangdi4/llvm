@@ -689,12 +689,22 @@ static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
 
 std::string Driver::GetUserOnlyTemporaryDirectory(StringRef Prefix) const {
   SmallString<128> Path;
-  llvm::sys::fs::createUniquePath(Twine(Prefix) + Twine("-%%%%%%"), Path, true);
-  std::error_code EC =
-      llvm::sys::fs::create_directory(Path, true, llvm::sys::fs::owner_all);
-  if (EC) {
-    Diag(clang::diag::err_unable_to_make_temp) << EC.message();
-    return "";
+  // Attempt to create a directory a fixed number of times if we fail due
+  // to permission problems.
+  for (int Retries = 128; Retries > 0; --Retries) {
+    // Use 10 characters to provide 40 bits of entropy to reduce chances of
+    // creating an already existing temporary directory name.
+    llvm::sys::fs::createUniquePath(Twine(Prefix) + Twine("-%%%%%%%%%%"), Path,
+                                    true);
+    std::error_code EC =
+        llvm::sys::fs::create_directory(Path, false, llvm::sys::fs::owner_all);
+    if (EC) {
+      if (EC == std::errc::file_exists)
+        continue;
+      Diag(clang::diag::err_unable_to_make_temp) << EC.message();
+      return "";
+    }
+    break;
   }
   return std::string(Path.str());
 }
