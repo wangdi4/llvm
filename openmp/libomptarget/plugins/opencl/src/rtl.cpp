@@ -3337,14 +3337,9 @@ int32_t OpenCLProgramTy::buildKernels() {
     }
 #endif  // _WIN32
     cl_int RC;
-    CALL_CL_RVRC(Kernels[I], clCreateKernel, RC, FinalProgram, Name);
-    if (RC != CL_SUCCESS) {
-      // If a kernel was deleted by optimizations (e.g. DCE), then
-      // clCreateKernel will fail. We expect that such a kernel
-      // will never be actually invoked.
-      DP("Warning: Failed to create kernel %s, %d\n", Name, RC);
+    CALL_CL_RVRC_SILENT(Kernels[I], clCreateKernel, RC, FinalProgram, Name);
+    if (RC != CL_SUCCESS)
       Kernels[I] = nullptr;
-    }
     Entries[I].addr = &Kernels[I];
     Entries[I].name = Name;
 
