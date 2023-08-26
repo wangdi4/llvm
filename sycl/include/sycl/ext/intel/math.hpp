@@ -31,6 +31,7 @@
 #if defined(__SPIR__)
 using _iml_half_internal = _Float16;
 #else
+#include <cstdint> // for uint16_t
 using _iml_half_internal = uint16_t;
 #endif
 
