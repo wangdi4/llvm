@@ -9152,14 +9152,6 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       Type *TruncTy = IntegerType::get(getContext(), BitWidth - AShrAmt);
 
       Operator *L = dyn_cast<Operator>(BO->LHS);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // HIR parsing
-      // Suppress traceback for instruction with live-range metadata.
-      auto *LInst = dyn_cast<Instruction>(BO->LHS);
-      if (L && L->getOpcode() == Instruction::Shl &&
-          (!LInst || !getHIRMetadata(LInst, HIRLiveKind::LiveRange))) {
-#endif // INTEL_CUSTOMIZATION
-=======
       const SCEV *AddTruncateExpr = nullptr;
       ConstantInt *ShlAmtCI = nullptr;
       const SCEV *AddConstant = nullptr;
@@ -9188,8 +9180,14 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
             AddTruncateExpr = getTruncateExpr(ShlOp0SCEV, TruncTy);
           }
         }
-      } else if (L && L->getOpcode() == Instruction::Shl) {
->>>>>>> 5a9a02f67b771fb2edcf0662146fb023892d8ec7
+      }
+#if INTEL_CUSTOMIZATION // HIR parsing
+      // Suppress traceback for instruction with live-range metadata.
+      else if (L && L->getOpcode() == Instruction::Shl &&
+               (!dyn_cast<Instruction>(BO->LHS) ||
+                !getHIRMetadata(dyn_cast<Instruction>(BO->LHS),
+                                HIRLiveKind::LiveRange))) {
+#endif // INTEL_CUSTOMIZATION
         // X = Shl A, n
         // Y = AShr X, m
         // Both n and m are constant.
