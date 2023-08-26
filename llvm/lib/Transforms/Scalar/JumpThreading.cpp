@@ -2536,8 +2536,12 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
     return false;
 
   const Instruction *TI = SinglePred->getTerminator();
+<<<<<<< HEAD
   if (TI->isExceptionalTerminator() || TI->getNumSuccessors() != 1 ||
       !DoCFGSimplifications ||                                         // INTEL
+=======
+  if (TI->isSpecialTerminator() || TI->getNumSuccessors() != 1 ||
+>>>>>>> 4eafc9b6ff4ae2bce82e9fdf0123b336825d931c
       SinglePred == BB || hasAddressTakenAndUsed(BB))
     return false;
 
