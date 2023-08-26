@@ -667,7 +667,14 @@ static void registerGlobalCtorsDtorsForImage(__tgt_bin_desc *Desc,
          Entry < Img->EntriesEnd; ++Entry) {
 #else  // INTEL_COLLAB
          Entry != Img->EntriesEnd; ++Entry) {
+<<<<<<< HEAD
 #endif  // INTEL_COLLAB
+=======
+      // Globals are not callable and use a different set of flags.
+      if (Entry->size != 0)
+        continue;
+
+>>>>>>> aa78e94b0bc66375de7f2383b4e39c07cd482104
       if (Entry->flags & OMP_DECLARE_TARGET_CTOR) {
         DP("Adding ctor " DPxMOD " to the pending list.\n",
            DPxPTR(Entry->addr));
