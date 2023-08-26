@@ -263,7 +263,11 @@ public:
     }
 
     const CanonExpr *CE = Ref->getSingleCanonExpr();
-    if (CE->isNonLinear() || CE->getDefinedAtLevel() >= Level) {
+
+    // The input canon-expr needs to be invariant in an inner loop, and must
+    // be defined outside of the loop.
+    if (!CE->isInvariantAtLevel(Level + 1) ||
+        CE->getDefinedAtLevel() == Level) {
       return false;
     }
 
