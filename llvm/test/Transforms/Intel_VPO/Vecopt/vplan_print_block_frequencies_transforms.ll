@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; However, this may not be critical so leaving it for now.
 ; See FIXME below
 
-define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef readonly %A, <32 x i32*> noalias nocapture noundef readonly %B, <32 x i32*> noalias nocapture noundef writeonly %C, <32 x i32> noundef %N) local_unnamed_addr #1 {
+define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef readonly %A, <32 x ptr> noalias nocapture noundef readonly %B, <32 x ptr> noalias nocapture noundef writeonly %C, <32 x i32> noundef %N) local_unnamed_addr #1 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {[[FREQ0:freq: 0]]}
@@ -24,34 +24,34 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]] {[[FREQ255:freq: 255]]}
 ; CHECK-NEXT:     i32 [[VP_INDEX:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_VEC_N_CAST_GEP1:%.*]] = getelementptr i32* [[VEC_N_CAST0:%.*]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2:%.*]] = load i32* [[VP_VEC_N_CAST_GEP1]]
+; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1:%.*]] = getelementptr i32, ptr [[VEC_N_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2:%.*]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     i1 [[VP_CMP15:%.*]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP_CMP15]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159:freq: 159]]}
 ; CHECK-NEXT:       i64 [[VP_WIDE_TRIP_COUNT18:%.*]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       i32** [[VP_VEC_B_CAST_GEP:%.*]] = getelementptr i32** [[VEC_B_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_B_CAST0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB7:BB[0-9]+]] {[[FREQ2600:freq: 2600]]}
 ; CHECK-NEXT:       i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB7]] ]
-; CHECK-NEXT:       i32** [[VP_VEC_A_CAST_GEP:%.*]] = getelementptr i32** [[VEC_A_CAST0:%.*]] i32 [[VP_INDEX]]
-; CHECK-NEXT:       i32* [[VP_VEC_A_ELEM:%.*]] = load i32** [[VP_VEC_A_CAST_GEP]]
-; CHECK-NEXT:       i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_A_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_ELEM:%.*]] = load ptr [[VP_VEC_A_CAST_GEP]]
+; CHECK-NEXT:       ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:       br i1 [[VP_CMP1]], [[BB8:BB[0-9]+]], [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {[[FREQ2519:freq: 2519]]}
-; CHECK-NEXT:         i32* [[VP_VEC_B_ELEM:%.*]] = load i32** [[VP_VEC_B_CAST_GEP]]
-; CHECK-NEXT:         i32* [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32* [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:         i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX5]]
+; CHECK-NEXT:         ptr [[VP_VEC_B_ELEM:%.*]] = load ptr [[VP_VEC_B_CAST_GEP]]
+; CHECK-NEXT:         ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:         i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         i32 [[VP_ADD:%.*]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:         i32** [[VP_VEC_C_CAST_GEP:%.*]] = getelementptr i32** [[VEC_C_CAST0:%.*]] i32 [[VP_INDEX]]
-; CHECK-NEXT:         i32* [[VP_VEC_C_ELEM:%.*]] = load i32** [[VP_VEC_C_CAST_GEP]]
-; CHECK-NEXT:         i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:         store i32 [[VP_ADD]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_C_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_ELEM:%.*]] = load ptr [[VP_VEC_C_CAST_GEP]]
+; CHECK-NEXT:         ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:         store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:         i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:         i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:         br i1 [[VP_EXITCOND_NOT]], [[BB8]], [[BB6]]
@@ -86,34 +86,34 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
 ; CHECK-NEXT:     i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_VEC_N_CAST_GEP1]] = getelementptr i32* [[VEC_N_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2]] = load i32* [[VP_VEC_N_CAST_GEP1]]
+; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP_CMP15]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
 ; CHECK-NEXT:       i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       i32** [[VP_VEC_B_CAST_GEP]] = getelementptr i32** [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       br [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] {[[FREQ2600]]}
 ; CHECK-NEXT:       i64 [[VP_INDVARS_IV]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
-; CHECK-NEXT:       i32** [[VP_VEC_A_CAST_GEP]] = getelementptr i32** [[VEC_A_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:       i32* [[VP_VEC_A_ELEM]] = load i32** [[VP_VEC_A_CAST_GEP]]
-; CHECK-NEXT:       i32* [[VP_ARRAYIDX]] = getelementptr inbounds i32* [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       i32 [[VP0]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
+; CHECK-NEXT:       ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       i1 [[VP_CMP1]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:       br i1 [[VP_CMP1]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]], [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {[[FREQ2519]]}
-; CHECK-NEXT:         i32* [[VP_VEC_B_ELEM]] = load i32** [[VP_VEC_B_CAST_GEP]]
-; CHECK-NEXT:         i32* [[VP_ARRAYIDX5]] = getelementptr inbounds i32* [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:         i32 [[VP1]] = load i32* [[VP_ARRAYIDX5]]
+; CHECK-NEXT:         ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
+; CHECK-NEXT:         ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:         i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:         i32** [[VP_VEC_C_CAST_GEP]] = getelementptr i32** [[VEC_C_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:         i32* [[VP_VEC_C_ELEM]] = load i32** [[VP_VEC_C_CAST_GEP]]
-; CHECK-NEXT:         i32* [[VP_ARRAYIDX7]] = getelementptr inbounds i32* [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:         store i32 [[VP_ADD]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
+; CHECK-NEXT:         ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:         store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:         i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:         i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:         br [[NEW_LOOP_LATCH0]]
@@ -161,14 +161,14 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_VEC_N_CAST_GEP1]] = getelementptr i32* [[VEC_N_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load i32* [[VP_VEC_N_CAST_GEP1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP_CMP15]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       [DA: Div] i32** [[VP_VEC_B_CAST_GEP]] = getelementptr i32** [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB11:BB[0-9]+]] {[[FREQ2600]]}
@@ -177,22 +177,22 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB12:BB[0-9]+]], [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB12]]: # preds: [[BB6]] {[[FREQ2600]]}
-; CHECK-NEXT:         [DA: Div] i32** [[VP_VEC_A_CAST_GEP]] = getelementptr i32** [[VEC_A_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:         [DA: Div] i32* [[VP_VEC_A_ELEM]] = load i32** [[VP_VEC_A_CAST_GEP]]
-; CHECK-NEXT:         [DA: Div] i32* [[VP_ARRAYIDX]] = getelementptr inbounds i32* [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:         [DA: Div] i32 [[VP0]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:         [DA: Div] i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_CMP1]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:         [DA: Div] br i1 [[VP_CMP1]], [[INTERMEDIATE_BB0]], [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:          [[BB7]]: # preds: [[BB12]] {[[FREQ2519]]}
-; CHECK-NEXT:           [DA: Div] i32* [[VP_VEC_B_ELEM]] = load i32** [[VP_VEC_B_CAST_GEP]]
-; CHECK-NEXT:           [DA: Div] i32* [[VP_ARRAYIDX5]] = getelementptr inbounds i32* [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:           [DA: Div] i32 [[VP1]] = load i32* [[VP_ARRAYIDX5]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:           [DA: Div] i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:           [DA: Div] i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:           [DA: Div] i32** [[VP_VEC_C_CAST_GEP]] = getelementptr i32** [[VEC_C_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:           [DA: Div] i32* [[VP_VEC_C_ELEM]] = load i32** [[VP_VEC_C_CAST_GEP]]
-; CHECK-NEXT:           [DA: Div] i32* [[VP_ARRAYIDX7]] = getelementptr inbounds i32* [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:           [DA: Div] store i32 [[VP_ADD]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:           [DA: Div] store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:           [DA: Uni] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:           [DA: Uni] br [[NEW_LOOP_LATCH0]]
@@ -246,15 +246,15 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_VEC_N_CAST_GEP1]] = getelementptr i32* [[VEC_N_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load i32* [[VP_VEC_N_CAST_GEP1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:     [DA: Div] i32** [[VP_VEC_B_CAST_GEP]] = getelementptr i32** [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]], [[BB11]] {[[FREQ2600]]}
@@ -269,10 +269,10 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]: # preds: [[BB13]] {[[FREQ2600]]}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Div] i32** [[VP_VEC_A_CAST_GEP]] = getelementptr i32** [[VEC_A_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_VEC_A_ELEM]] = load i32** [[VP_VEC_A_CAST_GEP]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX]] = getelementptr inbounds i32* [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1_NOT:%.*]] = not i1 [[VP_CMP1]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB14:BB[0-9]+]]
@@ -284,14 +284,14 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB14]] {[[FREQ2519]]}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB14_BR_VP_CMP1_NOT]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_VEC_B_ELEM]] = load i32** [[VP_VEC_B_CAST_GEP]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX5]] = getelementptr inbounds i32* [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP1]] = load i32* [[VP_ARRAYIDX5]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:     [DA: Div] i32** [[VP_VEC_C_CAST_GEP]] = getelementptr i32** [[VEC_C_CAST0]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_VEC_C_ELEM]] = load i32** [[VP_VEC_C_CAST_GEP]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX7]] = getelementptr inbounds i32* [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_ADD]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:     [DA: Uni] br [[INTERMEDIATE_BB0]]
@@ -339,18 +339,14 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ;        from BB7. However, control flow is changed and frequency should reflect the dominator
 ;        BB6.
 entry:
-  %vec.A = alloca <32 x i32*>, align 256
-  %vec.B = alloca <32 x i32*>, align 256
-  %vec.C = alloca <32 x i32*>, align 256
+  %vec.A = alloca <32 x ptr>, align 256
+  %vec.B = alloca <32 x ptr>, align 256
+  %vec.C = alloca <32 x ptr>, align 256
   %vec.N = alloca <32 x i32>, align 128
-  %vec.A.cast = bitcast <32 x i32*>* %vec.A to i32**
-  store <32 x i32*> %A, <32 x i32*>* %vec.A, align 256
-  %vec.B.cast = bitcast <32 x i32*>* %vec.B to i32**
-  store <32 x i32*> %B, <32 x i32*>* %vec.B, align 256
-  %vec.C.cast = bitcast <32 x i32*>* %vec.C to i32**
-  store <32 x i32*> %C, <32 x i32*>* %vec.C, align 256
-  %vec.N.cast = bitcast <32 x i32>* %vec.N to i32*
-  store <32 x i32> %N, <32 x i32>* %vec.N, align 128
+  store <32 x ptr> %A, ptr %vec.A, align 256
+  store <32 x ptr> %B, ptr %vec.B, align 256
+  store <32 x ptr> %C, ptr %vec.C, align 256
+  store <32 x i32> %N, ptr %vec.N, align 128
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
@@ -362,34 +358,34 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 
 simd.loop.header:                                 ; preds = %simd.loop.latch, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
-  %vec.N.cast.gep1 = getelementptr i32, i32* %vec.N.cast, i32 %index
-  %vec.N.elem2 = load i32, i32* %vec.N.cast.gep1, align 4
+  %vec.N.cast.gep1 = getelementptr i32, ptr %vec.N, i32 %index
+  %vec.N.elem2 = load i32, ptr %vec.N.cast.gep1, align 4
   %cmp15 = icmp sgt i32 %vec.N.elem2, 0
   br i1 %cmp15, label %for.body.preheader, label %cleanup
 
 for.body.preheader:                               ; preds = %simd.loop.header
   %wide.trip.count18 = zext i32 %vec.N.elem2 to i64
-  %vec.B.cast.gep = getelementptr i32*, i32** %vec.B.cast, i32 %index
+  %vec.B.cast.gep = getelementptr ptr, ptr %vec.B, i32 %index
   br label %for.body
 
 for.body:                                         ; preds = %if.end, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
-  %vec.A.cast.gep = getelementptr i32*, i32** %vec.A.cast, i32 %index
-  %vec.A.elem = load i32*, i32** %vec.A.cast.gep, align 8
-  %arrayidx = getelementptr inbounds i32, i32* %vec.A.elem, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %vec.A.cast.gep = getelementptr ptr, ptr %vec.A, i32 %index
+  %vec.A.elem = load ptr, ptr %vec.A.cast.gep, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %vec.A.elem, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 7
   br i1 %cmp1, label %cleanup.loopexit, label %if.end
 
 if.end:                                           ; preds = %for.body
-  %vec.B.elem = load i32*, i32** %vec.B.cast.gep, align 8
-  %arrayidx5 = getelementptr inbounds i32, i32* %vec.B.elem, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx5, align 4
+  %vec.B.elem = load ptr, ptr %vec.B.cast.gep, align 8
+  %arrayidx5 = getelementptr inbounds i32, ptr %vec.B.elem, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add nsw i32 %1, %0
-  %vec.C.cast.gep = getelementptr i32*, i32** %vec.C.cast, i32 %index
-  %vec.C.elem = load i32*, i32** %vec.C.cast.gep, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %vec.C.elem, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx7, align 4
+  %vec.C.cast.gep = getelementptr ptr, ptr %vec.C, i32 %index
+  %vec.C.elem = load ptr, ptr %vec.C.cast.gep, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %vec.C.elem, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count18
   br i1 %exitcond.not, label %cleanup.loopexit, label %for.body

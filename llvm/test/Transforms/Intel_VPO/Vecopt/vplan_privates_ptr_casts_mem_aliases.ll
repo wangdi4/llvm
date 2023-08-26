@@ -10,48 +10,43 @@
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std::complex" addrspace(4)* %B) {
+define dso_local void @foo(ptr addrspace(4) %A, ptr addrspace(4) %B) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:omp.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64* [[VP_MY_PRIV_ASCAST_PRIV:%.*]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     float* [[VP_PRIV_FP_BC:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
-; CHECK-NEXT:     i64 addrspace(4)* [[VP_PRIV_ASCAST:%.*]] = addrspacecast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
-; CHECK-NEXT:     %"struct.std::complex"* [[VP_TMPCAST9:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
-; CHECK-NEXT:     %"struct.std::complex" addrspace(4)* [[VP_MY_PRIV_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast %"struct.std::complex"* [[VP_TMPCAST9]]
-; CHECK-NEXT:     float addrspace(4)* [[VP_VALUE_IMAGP:%.*]] = getelementptr inbounds %"struct.std::complex" addrspace(4)* [[VP_MY_PRIV_ASCAST_PRIV_ASCAST]] i64 0 i32 0 i32 1
-; CHECK-NEXT:     float addrspace(4)* [[VP_VALUE_REALP:%.*]] = addrspacecast float* [[VP_PRIV_FP_BC]]
+; CHECK-NEXT:     ptr [[VP_MY_PRIV_ASCAST_PRIV:%.*]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_MY_PRIV_ASCAST_PRIV]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr addrspace(4) [[VP_PRIV_ASCAST:%.*]] = addrspacecast ptr [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     ptr addrspace(4) [[VP_TMPCAST9:%.*]] = addrspacecast ptr [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     ptr addrspace(4) [[VP_MY_PRIV_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast ptr [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     ptr addrspace(4) [[VP_VALUE_IMAGP:%.*]] = getelementptr inbounds %"struct.std::complex", ptr addrspace(4) [[VP_MY_PRIV_ASCAST_PRIV_ASCAST]] i64 0 i32 0 i32 1
 ; CHECK-NEXT:     i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     %"struct.std::complex" addrspace(4)* [[VP_A_IDX:%.*]] = getelementptr inbounds %"struct.std::complex" addrspace(4)* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     i64 addrspace(4)* [[VP_A_IDX_BC:%.*]] = bitcast %"struct.std::complex" addrspace(4)* [[VP_A_IDX]]
-; CHECK-NEXT:     i64 [[VP_A_LD:%.*]] = load i64 addrspace(4)* [[VP_A_IDX_BC]]
+; CHECK-NEXT:     ptr addrspace(4) [[VP_A_IDX:%.*]] = getelementptr inbounds %"struct.std::complex", ptr addrspace(4) [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     i64 [[VP_A_LD:%.*]] = load ptr addrspace(4) [[VP_A_IDX]]
 ; CHECK-NEXT:     i32 [[VP_REAL_TRUNC:%.*]] = trunc i64 [[VP_A_LD]] to i32
 ; CHECK-NEXT:     float [[VP_REAL_VAL:%.*]] = bitcast i32 [[VP_REAL_TRUNC]]
 ; CHECK-NEXT:     i64 [[VP_IMAG_LSHR:%.*]] = lshr i64 [[VP_A_LD]] i64 32
 ; CHECK-NEXT:     i32 [[VP_IMAG_TRUNC:%.*]] = trunc i64 [[VP_IMAG_LSHR]] to i32
 ; CHECK-NEXT:     float [[VP_IMAG_VAL:%.*]] = bitcast i32 [[VP_IMAG_TRUNC]]
-; CHECK-NEXT:     store float [[VP_REAL_VAL]] float addrspace(4)* [[VP_VALUE_REALP]]
-; CHECK-NEXT:     store float [[VP_IMAG_VAL]] float addrspace(4)* [[VP_VALUE_IMAGP]]
-; CHECK-NEXT:     i64 [[VP_LD_PRIV:%.*]] = load i64 addrspace(4)* [[VP_PRIV_ASCAST]]
-; CHECK-NEXT:     store i64 [[VP_LD_PRIV]] i64 addrspace(4)* [[VP_A_IDX_BC]]
+; CHECK-NEXT:     store float [[VP_REAL_VAL]] ptr addrspace(4) [[VP_PRIV_ASCAST]]
+; CHECK-NEXT:     store float [[VP_IMAG_VAL]] ptr addrspace(4) [[VP_VALUE_IMAGP]]
+; CHECK-NEXT:     i64 [[VP_LD_PRIV:%.*]] = load ptr addrspace(4) [[VP_TMPCAST9]]
+; CHECK-NEXT:     store i64 [[VP_LD_PRIV]] ptr addrspace(4) [[VP_A_IDX]]
 ; CHECK-NEXT:     i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i8* [[VP1:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 8 ptr [[VP_MY_PRIV_ASCAST_PRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -59,35 +54,32 @@ define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std
 ;
 entry:
   %my_priv.ascast.priv = alloca i64, align 8
-  %tmpcast9 = bitcast i64* %my_priv.ascast.priv to %"struct.std::complex"*
-  %my_priv.ascast.priv.ascast = addrspacecast %"struct.std::complex"* %tmpcast9 to %"struct.std::complex" addrspace(4)*
+  %my_priv.ascast.priv.ascast = addrspacecast ptr %my_priv.ascast.priv to ptr addrspace(4)
   br label %pred.simd
 
 pred.simd:                                   ; preds = %entry
-  %priv.ascast = addrspacecast i64* %my_priv.ascast.priv to i64 addrspace(4)*
-  %priv.fp.bc = bitcast i64* %my_priv.ascast.priv to float*
-  %value.realp = addrspacecast float* %priv.fp.bc to float addrspace(4)*
-  %value.imagp = getelementptr inbounds %"struct.std::complex", %"struct.std::complex" addrspace(4)* %my_priv.ascast.priv.ascast, i64 0, i32 0, i32 1
+  %priv.ascast = addrspacecast ptr %my_priv.ascast.priv to ptr addrspace(4)
+  %value.realp = addrspacecast ptr %my_priv.ascast.priv to ptr addrspace(4)
+  %value.imagp = getelementptr inbounds %"struct.std::complex", ptr addrspace(4) %my_priv.ascast.priv.ascast, i64 0, i32 0, i32 1
   br label %DIR.OMP.SIMD
 
 DIR.OMP.SIMD:                                ; preds = %pred.simd
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"(%"struct.std::complex" addrspace(4)* %my_priv.ascast.priv.ascast, %"struct.std::complex" zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %my_priv.ascast.priv.ascast, %"struct.std::complex" zeroinitializer, i32 1) ]
   br label %omp.for.body
 
 omp.for.body:                                ; preds = %DIR.OMP.SIMD
   %iv = phi i64 [ 0, %DIR.OMP.SIMD ], [ %iv.next, %omp.for.body ]
-  %A.idx = getelementptr inbounds %"struct.std::complex", %"struct.std::complex" addrspace(4)* %A, i64 %iv
-  %A.idx.bc = bitcast %"struct.std::complex" addrspace(4)* %A.idx to i64 addrspace(4)*
-  %A.ld = load i64, i64 addrspace(4)* %A.idx.bc, align 4
+  %A.idx = getelementptr inbounds %"struct.std::complex", ptr addrspace(4) %A, i64 %iv
+  %A.ld = load i64, ptr addrspace(4) %A.idx, align 4
   %real.trunc = trunc i64 %A.ld to i32
   %real.val = bitcast i32 %real.trunc to float
   %imag.lshr = lshr i64 %A.ld, 32
   %imag.trunc = trunc i64 %imag.lshr to i32
   %imag.val = bitcast i32 %imag.trunc to float
-  store float %real.val, float addrspace(4)* %value.realp, align 8
-  store float %imag.val, float addrspace(4)* %value.imagp, align 8
-  %ld.priv = load i64, i64 addrspace(4)* %priv.ascast, align 4
-  store i64 %ld.priv, i64 addrspace(4)* %A.idx.bc, align 4
+  store float %real.val, ptr addrspace(4) %value.realp, align 8
+  store float %imag.val, ptr addrspace(4) %value.imagp, align 8
+  %ld.priv = load i64, ptr addrspace(4) %priv.ascast, align 4
+  store i64 %ld.priv, ptr addrspace(4) %A.idx, align 4
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %iv.next, 1024
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD, label %omp.for.body
