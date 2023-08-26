@@ -969,15 +969,21 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
 #define CALL_CL_RET_VOID(Fn, ...) CALL_CL_RET(, Fn, __VA_ARGS__)
 #define CALL_CLW_RET_VOID(Fn, ...) CALL_CLW_RET(, Fn, __VA_ARGS__)
 
-/// Calls that have return value and return code
-#define CALL_CL_RVRC(Rv, Fn, Rc, ...)                                          \
+/// Calls that have return value and return code. No error reports.
+#define CALL_CL_RVRC_SILENT(Rv, Fn, Rc, ...)                                   \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING((__VA_ARGS__)));   \
       Rv = TRACE_FN(Fn)(__VA_ARGS__, &Rc);                                     \
     } else {                                                                   \
       Rv = Fn(__VA_ARGS__, &Rc);                                               \
     }                                                                          \
+  } while (0)
+
+/// Calls that have return value and return code
+#define CALL_CL_RVRC(Rv, Fn, Rc, ...)                                          \
+  do {                                                                         \
+    CALL_CL_RVRC_SILENT(Rv, Fn, Rc, __VA_ARGS__);                              \
     if (Rc != CL_SUCCESS) {                                                    \
       DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
          getCLErrorName(Rc));                                                  \
