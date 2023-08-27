@@ -119,20 +119,15 @@ enum OpenMPOffloadingDeclareTargetFlags {
   OMP_DECLARE_TARGET_LINK = 0x01,
   /// Mark the entry kernel as being a global constructor.
   OMP_DECLARE_TARGET_CTOR = 0x02,
-<<<<<<< HEAD
-  /// Mark the entry as being a global destructor.
-  OMP_DECLARE_TARGET_DTOR = 0x04
-#if INTEL_COLLAB
-  ,
-  /// Mark the entry as being a function pointer.
-  OMP_DECLARE_TARGET_FPTR = 0x8
-#endif // INTEL_COLLAB
-=======
   /// Mark the entry kernel as being a global destructor.
   OMP_DECLARE_TARGET_DTOR = 0x04,
   /// Mark the entry global as being an indirectly callable function.
   OMP_DECLARE_TARGET_INDIRECT = 0x08
->>>>>>> aa78e94b0bc66375de7f2383b4e39c07cd482104
+#if INTEL_COLLAB
+  ,
+  /// Mark the entry as being a function pointer.
+  OMP_DECLARE_TARGET_FPTR = 0x10
+#endif // INTEL_COLLAB
 };
 
 enum OpenMPOffloadingRequiresDirFlags {
