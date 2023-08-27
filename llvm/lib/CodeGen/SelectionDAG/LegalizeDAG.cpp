@@ -3922,7 +3922,6 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     SDValue Chain = Node->getOperand(0);
     SDValue Table = Node->getOperand(1);
     SDValue Index = Node->getOperand(2);
-    int JTI = cast<JumpTableSDNode>(Table.getNode())->getIndex();
 
     const DataLayout &TD = DAG.getDataLayout();
     EVT PTy = TLI.getPointerTy(TD);
@@ -3957,7 +3956,7 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
                           TLI.getPICJumpTableRelocBase(Table, DAG));
     }
 
-    Tmp1 = TLI.expandIndirectJTBranch(dl, LD.getValue(1), Addr, JTI, DAG);
+    Tmp1 = TLI.expandIndirectJTBranch(dl, LD.getValue(1), Addr, DAG);
     Results.push_back(Tmp1);
     break;
   }
