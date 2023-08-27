@@ -3047,7 +3047,6 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   case ISD::PATCHPOINT:
     Select_PATCHPOINT(NodeToMatch);
     return;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   case ISD::INTRINSIC_VOID: {
@@ -3071,11 +3070,6 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   }
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
-  case ISD::JUMP_TABLE_DEBUG_INFO:
-    Select_JUMP_TABLE_DEBUG_INFO(NodeToMatch);
-    return;
-=======
->>>>>>> 0a4fc4ac1c6e74eba7eb184d3da11772a06df65f
   }
 
   assert(!NodeToMatch->isMachineOpcode() && "Node already selected!");
