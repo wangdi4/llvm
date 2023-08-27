@@ -1290,14 +1290,12 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   // We should move FloatToInt pass after LoopOpt to minimize such cases.
   //
   // Also reject the group if any ref has the following properties:
-  // - volatile
   // - fake ddref
   // - masked ddref
   //
-  auto *BitCastTy = FirstRef->getBitCastDestVecOrElemType();
+  auto *DestTy = FirstRef->getDestType();
   for (auto *Ref : Group) {
-    if (Ref->isFake() || Ref->isMasked() ||
-        (BitCastTy != Ref->getBitCastDestVecOrElemType())) {
+    if (Ref->isFake() || Ref->isMasked() || (DestTy != Ref->getDestType())) {
       return false;
     }
   }
