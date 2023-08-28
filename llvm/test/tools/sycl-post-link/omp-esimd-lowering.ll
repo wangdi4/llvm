@@ -64,9 +64,9 @@ define dso_local spir_kernel void @test_sg_barrier() {
 }
 
 define dso_local spir_kernel void @test_prefetch(i32 addrspace(4)* %ptr) {
-; CHECK: [[PTR_CAST:%.*]] = bitcast i32 addrspace(4)* %ptr to <1 x i32 addrspace(4)*>
-; CHECK-NEXT: call void @llvm.genx.lsc.prefetch.stateless.v1i1.v1p4i32(<1 x i1> <i1 true>, i8 0, i8 0, i8 0, i16 1, i32 0, i8 3, i8 6, i8 2, i8 0, <1 x i32 addrspace(4)*> [[PTR_CAST]], i32 0)
-
+; CHECK: [[PTR_CAST:%.*]] = ptrtoint i32 addrspace(4)* %ptr to i64
+; CHECK: [[PTR1_CAST:%.*]] = bitcast i64 %1 to <1 x i64>
+; CHECK-NEXT: call void @llvm.genx.lsc.prefetch.stateless.v1i1.v1i64(<1 x i1> <i1 true>, i8 0, i8 0, i8 0, i16 1, i32 0, i8 3, i8 6, i8 2, i8 0, <1 x i64> [[PTR1_CAST]], i32 0)
   tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
   tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
   tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
