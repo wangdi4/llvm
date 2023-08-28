@@ -1,6 +1,6 @@
 //===--GroupBuiltinPass.cpp - Process WorkGroup Builtins ---------*- C++ -*-==//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -316,11 +316,13 @@ CallInst *GroupBuiltinPass::getWICall(Instruction *Before, StringRef FuncName,
 }
 
 static inline bool isMaskedBroadcast(const Function *F) {
-  // For non-masked broadcast, the last argument is a scalar local ID, while
-  // the the masked version, it's a vector mask.
+  // The last argument of masked broadcast must be a vector i32 mask.
   auto *FTy = F->getFunctionType();
   unsigned LastOpIdx = FTy->getNumParams() - 1;
-  return FTy->getParamType(LastOpIdx)->isVectorTy();
+  if (auto *VTy = dyn_cast<FixedVectorType>(FTy->getParamType(LastOpIdx)))
+    return VTy->getScalarType()->isIntegerTy() &&
+           VTy->getScalarType()->getIntegerBitWidth() == 32;
+  return false;
 }
 
 static inline unsigned getNDimForBroadcast(const Function *F) {
@@ -383,19 +385,33 @@ Value *GroupBuiltinPass::calculateLinearIDForBroadcast(CallInst *WGCallInstr) {
   auto *CalledF = WGCallInstr->getCalledFunction();
   unsigned NDim = getNDimForBroadcast(CalledF);
 
+  // For assume-uniform vector variant of work_group_broadcast, the local id
+  // parameter type is widened to vector type. Assuming the vector local ids
+  // uniform so we extract the first element from the vector as the uniform
+  // local id for the broadcast operation.
+  auto GetUniformLocalID = [&](Value *LocalID) {
+    if (LocalID->getType()->isVectorTy()) {
+      IRBuilder<> Builder(WGCallInstr);
+      return Builder.CreateExtractElement(
+          LocalID, Builder.getInt32(0), LocalID->getName() + ".assume.uniform");
+    }
+    return LocalID;
+  };
+
   // For single-dimensional we return local_id parameter as is
-  Value *RetVal = WGCallInstr->getArgOperand(1);
+  Value *RetVal = GetUniformLocalID(WGCallInstr->getArgOperand(1));
   if (NDim > 1) {
     // For multi-dimensional - start from 2-dim calculation
     CallInst *LocalSize_0 = getWICall(WGCallInstr, mangledGetLocalSize(), 0);
-    RetVal = calculate2DimLinearID(WGCallInstr, RetVal, LocalSize_0,
-                                   WGCallInstr->getArgOperand(2));
+    RetVal =
+        calculate2DimLinearID(WGCallInstr, RetVal, LocalSize_0,
+                              GetUniformLocalID(WGCallInstr->getArgOperand(2)));
     if (NDim > 2) {
       // For 3-dim - account for dimension#2
       CallInst *LocalSize_1 = getWICall(WGCallInstr, mangledGetLocalSize(), 1);
-      RetVal =
-          calculate3DimLinearID(WGCallInstr, RetVal, LocalSize_0, LocalSize_1,
-                                WGCallInstr->getArgOperand(3));
+      RetVal = calculate3DimLinearID(
+          WGCallInstr, RetVal, LocalSize_0, LocalSize_1,
+          GetUniformLocalID(WGCallInstr->getArgOperand(3)));
     }
   }
   return RetVal;
@@ -561,6 +577,10 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
       if (IsMaskedBroadcast)
         MaskTy = FD.Parameters.back();
       auto IDTy = FD.Parameters[1]; // Get ID type of the local ID
+      // If local ID type is widened, get the scalar type
+      if (auto *VecIDParam =
+              reflection::dyn_cast<reflection::VectorType>(IDTy.get()))
+        IDTy = VecIDParam->getScalarType();
 
       FD.Parameters.resize(1); // Keep the type of the value to broadcast
       FD.Parameters.push_back(IDTy); // Add type for linear local ID
