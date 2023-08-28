@@ -208,6 +208,7 @@ enum class OptRemarkID {
   LLORGFullyUnrolled = 25603,
   LLORGUnrolledBy = 25604,
   LLORGRemainderLoop = 25605,
+  LLORGPeeledBy = 25606,
 };
 
 struct DiagTableKey {

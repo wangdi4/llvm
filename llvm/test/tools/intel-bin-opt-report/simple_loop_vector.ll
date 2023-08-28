@@ -20,6 +20,7 @@
 ; CHECK-NEXT: Property Message Map:
 ; CHECK-DAG:    C_LOOP_VEC_VL --> vectorization support: vector length %s
 ; CHECK-DAG:    C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
+; CHECK-DAG:    C_LOOP_VEC_REMAINDER --> Remainder loop for vectorization
 ; CHECK-NEXT: Number of reports: 2
 
 ; CHECK-DAG:  === Loop Begin ===
@@ -31,7 +32,8 @@
 
 ; CHECK-DAG:  === Loop Begin ===
 ; CHECK-DAG:  Anchor ID: acaeb5319062b23bfbf47f58b6360c4b
-; CHECK-DAG:  Number of remarks: 0
+; CHECK-DAG:  Number of remarks: 1
+; CHECK-DAG:    Property: C_LOOP_VEC_REMAINDER, Remark ID: 25519, Remark Args:
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK:      --- End Intel Binary Optimization Report ---
@@ -245,16 +247,16 @@ attributes #3 = { nounwind }
 !13 = !{!"intel.optreport.debug_location", !14}
 !14 = !DILocation(line: 4, column: 1, scope: !6)
 !15 = !{!"intel.optreport.remarks", !16, !17, !18}
-!16 = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-!17 = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"8"}
-!18 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
+!16 = !{!"intel.optreport.remark", i32 15300}
+!17 = !{!"intel.optreport.remark", i32 15305, !"8"}
+!18 = !{!"intel.optreport.remark", i32 25603}
 !19 = !{!"intel.optreport.next_sibling", !20}
 !20 = distinct !{!"intel.optreport.rootnode", !21}
 !21 = distinct !{!"intel.optreport", !13, !22, !24}
 !22 = !{!"intel.optreport.origin", !23}
-!23 = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+!23 = !{!"intel.optreport.remark", i32 25519}
 !24 = !{!"intel.optreport.remarks", !25, !18}
-!25 = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", !""}
+!25 = !{!"intel.optreport.remark", i32 15441, !""}
 !26 = !DILocation(line: 6, column: 12, scope: !6)
 !27 = !{!28, !28, i64 0}
 !28 = !{!"float", !29, i64 0}

@@ -28,13 +28,13 @@
 ; CHECK: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
-; CHECK: [[M4]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
+; CHECK: [[M4]] = !{!"intel.optreport.remark", i32 15300}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
 ; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25519}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

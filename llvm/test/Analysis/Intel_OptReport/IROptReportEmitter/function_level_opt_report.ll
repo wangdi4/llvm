@@ -7,7 +7,7 @@
 ; CHECK-LABEL: Global optimization report for : foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT: FUNCTION REPORT BEGIN
-; CHECK-NEXT:     remark: Dummy function level remark
+; CHECK-NEXT:     remark #15340: pragma supersedes previous setting
 ; CHECK-NEXT: FUNCTION REPORT END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN
@@ -42,11 +42,14 @@ loop.exit:                                        ; preds = %final.merge
 !1 = distinct !{!"intel.optreport", !2, !3}
 !2 = !{!"intel.optreport.title", !"FUNCTION REPORT"}
 !3 = !{!"intel.optreport.remarks", !4}
-!4 = !{!"intel.optreport.remark", i32 0, !"Dummy function level remark"}
+; We no longer have the capability to invent remarks with remark ID 0
+; and a string, so instead we use an arbitrary remark thrown into the
+; function report section.
+!4 = !{!"intel.optreport.remark", i32 15340}
 !5 = distinct !{!5, !6, !11}
 !6 = distinct !{!"intel.optreport.rootnode", !7}
 !7 = distinct !{!"intel.optreport", !8}
 !8 = !{!"intel.optreport.remarks", !9, !10}
-!9 = !{!"intel.optreport.remark", i32 15301, !"SIMD LOOP WAS VECTORIZED"}
-!10 = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
+!9 = !{!"intel.optreport.remark", i32 15301}
+!10 = !{!"intel.optreport.remark", i32 15305, !"4"}
 !11 = !{!"llvm.loop.isvectorized", i32 1}

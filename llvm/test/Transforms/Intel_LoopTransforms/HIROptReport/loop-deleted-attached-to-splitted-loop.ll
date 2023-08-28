@@ -41,15 +41,15 @@
 ; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"4"}
 ; CHECK: [[M12:!.*]] = distinct !{[[M12]]{{.*}}[[M13:!.*]]{{.*}}}
 ; CHECK: [[M13]] = distinct !{!"intel.optreport.rootnode", [[M14:!.*]]}
 ; CHECK: [[M14]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519}
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

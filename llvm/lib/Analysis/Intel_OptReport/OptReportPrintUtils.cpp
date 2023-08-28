@@ -40,29 +40,14 @@ static const unsigned IntentationStep = 4;
 // TODO Alexander: Replace the format string parameter with msg ID.
 //                 Add the support for %u, %f.
 //                 Add unit tests for this function.
-std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
-  std::string FormatString;
-  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID)) {
-    // Valid remark ID was not provided, format string is obtained from metadata
-    // operands (2nd operand).
-    // TODO: Remove this code when all remarks have valid IDs i.e. legacy
-    // interface is retired.
-    const MDString *R = cast<MDString>(Remark.getOperand(1));
-    FormatString = std::string(R->getString());
-  } else {
-    // Obtain format string from message catalogue using valid remark ID.
-    FormatString = std::string(OptReportDiag::getMsg(RemarkID));
-  }
-
-  // Temporary assert to validate correctness of remark id and remark message.
-  // Should be dropped in future.
-  assert(FormatString == cast<MDString>(Remark.getOperand(1))->getString() &&
-         "Remark messages don't match.");
+std::string formatRemarkMessage(OptRemark Remark, OptRemarkID RemarkID) {
+  assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
+  std::string FormatString = std::string(OptReportDiag::getMsg(RemarkID));
 
   std::string Msg;
   // First, reserve some space in the string to avoid memory rellocations.
   Msg.reserve(2 * FormatString.length());
-  unsigned CurOpIdx = 2; // 0 -> RemarkID, 1 -> FormatString
+  unsigned CurOpIdx = 1; // 0 -> RemarkID
   unsigned Idx = 0;
   unsigned FormatStringLength = FormatString.length();
   while (Idx < FormatStringLength) {
@@ -144,12 +129,9 @@ std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
 void printRemark(raw_ostream &OS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   OS.indent(IntentationStep * Depth);
-  std::string RemarkPrefixStr;
-  unsigned RemarkID = Remark.getRemarkID();
-  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID))
-    RemarkPrefixStr = "remark: ";
-  else
-    RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
+  unsigned RID = Remark.getRemarkID();
+  std::string RemarkPrefixStr = "remark #" + std::to_string(RID) + ": ";
+  OptRemarkID RemarkID = static_cast<OptRemarkID>(RID);
   OS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
 }
 
@@ -157,7 +139,7 @@ void printOrigin(raw_ostream &OS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   OS.indent(IntentationStep * Depth);
-  unsigned RemarkID = Origin.getRemarkID();
+  OptRemarkID RemarkID = static_cast<OptRemarkID>(Origin.getRemarkID());
   OS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
 }
 

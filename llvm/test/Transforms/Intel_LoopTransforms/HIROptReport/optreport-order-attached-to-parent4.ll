@@ -39,7 +39,7 @@
 ; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]], [[M9:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; CHECK: [[M9]] = !{!"intel.optreport.next_sibling", [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"intel.optreport.rootnode", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.optreport", [[M7]], [[M12:!.*]]}

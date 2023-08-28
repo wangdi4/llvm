@@ -577,9 +577,9 @@ public:
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
                         OptRemarkID BailoutID, Args &&...BailoutArgs) const {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark = OptRemark::get(
-        *Context, static_cast<unsigned>(BailoutID),
-        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark =
+        OptRemark::get(*Context, static_cast<unsigned>(BailoutID),
+                       std::forward<Args>(BailoutArgs)...);
   }
 
   /// Access the cached bailout remark.
@@ -697,13 +697,23 @@ protected:
   /// \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
   void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-               std::string Message, Args &&...BailoutArgs) const;
+               std::string Message, Args &&...BailoutArgs) const {
+#define DEBUG_TYPE "LoopVectorizationPlanner"
+    LLVM_DEBUG(dbgs() << Message << '\n');
+#undef DEBUG_TYPE
+    setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Debug will appear in the debug dump, but not in the opt report remark.
   template <typename... Args>
   void bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
-                        std::string Debug, Args &&...BailoutArgs) const;
+                        std::string Debug, Args &&...BailoutArgs) const {
+#define DEBUG_TYPE "LoopVectorizationPlanner"
+    LLVM_DEBUG(dbgs() << Debug << '\n');
+#undef DEBUG_TYPE
+    setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {

@@ -681,7 +681,6 @@ public:
                         OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
     BR.BailoutRemark = OptRemark::get(Context, static_cast<unsigned>(BailoutID),
-                                      OptReportDiag::getMsg(BailoutID),
                                       std::forward<Args>(BailoutArgs)...);
   }
 

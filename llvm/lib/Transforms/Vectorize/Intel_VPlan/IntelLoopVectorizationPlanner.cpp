@@ -511,27 +511,6 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
 
-template <typename... Args>
-void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level Level,
-                                       OptRemarkID ID, std::string Message,
-                                       Args &&...BailoutArgs) const {
-  LLVM_DEBUG(dbgs() << Message << '\n');
-  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
-}
-
-// Instantiation required to support accesses from external module.
-template void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level,
-                                                OptRemarkID, std::string) const;
-
-template <typename... Args>
-void LoopVectorizationPlanner::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                OptRemarkID ID,
-                                                std::string Debug,
-                                                Args &&...BailoutArgs) const {
-  LLVM_DEBUG(dbgs() << Debug << '\n');
-  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
-}
-
 void LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
   if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
