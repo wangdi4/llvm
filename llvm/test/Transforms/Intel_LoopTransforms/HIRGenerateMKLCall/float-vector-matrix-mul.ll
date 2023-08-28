@@ -1,137 +1,123 @@
-; Test for generating mkl call for multiplication of a vector with matrix
+; Test for generating mkl call for float  vector matrix multiply
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-generate-mkl-call,hir-dead-store-elimination,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
+;  real*4 a(1000,1000), b(1000), c(1000), sum
+;  integer i1,i2,i3
+;  DO i1 = 1,1000
+;     sum = c(i1)
+;     DO i2 = 1,1000
+;        sum = sum + b(i2) * a(i2,i1)
+;     enddo
+;     c(i1) = sum
+;  enddo
+;
+; HIR before this pass
+;  + DO i1 = 0, 999, 1   <DO_LOOP>
+;  |   + DO i2 = 0, 999, 1   <DO_LOOP>
+;  |   |   %"vecmat_$SUM.0" = (%"vecmat_$C")[i1];
+;  |   |   %mul.2 = (%"vecmat_$A")[i1][i2]  *  (%"vecmat_$B")[i2];
+;  |   |   %"vecmat_$SUM.0" = %mul.2  +  %"vecmat_$SUM.0";
+;  |   |   (%"vecmat_$C")[i1] = %"vecmat_$SUM.0";
+;  |   + END LOOP
+;  + END LOOP
 
-; Before HIR Generate MKL Call-
-; + DO i1 = 0, 999, 1   <DO_LOOP>
-; |   %add120 = (@c)[0][i1];
-; |
-; |   + DO i2 = 0, 999, 1   <DO_LOOP>
-; |   |   %mul = (@b)[0][i2]  *  (@a)[0][i1][i2];
-; |   |   %add120 = %add120  +  %mul;
-; |   + END LOOP
-; |
-; |   (@c)[0][i1] = %add120;
-; + END LOOP
-
-; After HIR Generate MKL Call-
-; CHECK: BEGIN REGION { modified }
-; CHECK: 0 = &((i8*)(@c)[0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 1;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1000;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 0 = &((i8*)(@b)[0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 1;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1000;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 0 = &((i8*)(@a)[0][0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 2;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1000;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 9 = 1000;
-; CHECK: 10 = 4000;
-; CHECK: 11 = 1;
-; CHECK: @matmul_mkl_f32_
-; CHECK: END REGION
+; After HIR SinkingForPerfectLoopnest, GenerateMKLCall, DeadStoreElimination
+;
+; CHECK:  BEGIN REGION { modified }
+; CHECK:   (%.DopeVector)[0].0 = &((i8*)(%"vecmat_$C")[0]);
+; CHECK:   (%.DopeVector)[0].1 = 4;
+; CHECK:   (%.DopeVector)[0].2 = 0;
+; CHECK:   (%.DopeVector)[0].3 = 0;
+; CHECK:   (%.DopeVector)[0].4 = 1;
+; CHECK:   (%.DopeVector)[0].5 = 0;
+; CHECK:   (%.DopeVector)[0].6 = 1000;
+; CHECK:   (%.DopeVector)[0].7 = 4;
+; CHECK:   (%.DopeVector)[0].8 = 1;
+; CHECK:   (%.DopeVector2)[0].0 = &((i8*)(%"vecmat_$B")[0]);
+; CHECK:   (%.DopeVector2)[0].1 = 4;
+; CHECK:   (%.DopeVector2)[0].2 = 0;
+; CHECK:   (%.DopeVector2)[0].3 = 0;
+; CHECK:   (%.DopeVector2)[0].4 = 1;
+; CHECK:   (%.DopeVector2)[0].5 = 0;
+; CHECK:   (%.DopeVector2)[0].6 = 1000;
+; CHECK:   (%.DopeVector2)[0].7 = 4;
+; CHECK:   (%.DopeVector2)[0].8 = 1;
+; CHECK:   (%.DopeVector3)[0].0 = &((i8*)(%"vecmat_$A")[0][0]);
+; CHECK:   (%.DopeVector3)[0].1 = 4;
+; CHECK:   (%.DopeVector3)[0].2 = 0;
+; CHECK:   (%.DopeVector3)[0].3 = 0;
+; CHECK:   (%.DopeVector3)[0].4 = 2;
+; CHECK:   (%.DopeVector3)[0].5 = 0;
+; CHECK:   (%.DopeVector3)[0].6 = 1000;
+; CHECK:   (%.DopeVector3)[0].7 = 4;
+; CHECK:   (%.DopeVector3)[0].8 = 1;
+; CHECK:   (%.DopeVector3)[0].9 = 1000;
+; CHECK:   (%.DopeVector3)[0].10 = 4000;
+; CHECK:   (%.DopeVector3)[0].11 = 1;
+; CHECK:   @matmul_mkl_f32_(&((%.DopeVector)[0]),  &((%.DopeVector2)[0]),  &((%.DopeVector3)[0]),  9,  1);
+; CHECK:  END REGION
 
 ;Module Before HIR
-; ModuleID = 'float-vector-matrix-mul.cpp'
-source_filename = "float-vector-matrix-mul.cpp"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; ModuleID = 'float-vector-matrix-mul.f90'
+source_filename = "float-vector-matrix-mul.f90"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"class.std::ios_base::Init" = type { i8 }
+; Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable
+define void @vecmat_(ptr noalias nocapture readonly dereferenceable(4) %"vecmat_$A", ptr noalias nocapture readonly dereferenceable(4) %"vecmat_$B", ptr noalias nocapture dereferenceable(4) %"vecmat_$C") local_unnamed_addr #0 {
+alloca_0:
+  br label %do.body2
 
-@_ZStL8__ioinit = internal global %"class.std::ios_base::Init" zeroinitializer, align 1
-@__dso_handle = external hidden global i8
-@a = dso_local local_unnamed_addr global [1000 x [1000 x float]] zeroinitializer, align 16
-@b = dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
-@c = dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
-@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_float_vector_matrix_mul.cpp, ptr null }]
+do.body2:                                         ; preds = %do.epilog10, %alloca_0
+  %indvars.iv13 = phi i64 [ %indvars.iv.next14, %do.epilog10 ], [ 1, %alloca_0 ]
+  %"vecmat_$C[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"vecmat_$C", i64 %indvars.iv13), !llfort.type_idx !0
+  %"vecmat_$C[]_fetch.2" = load float, ptr %"vecmat_$C[]", align 1, !tbaa !1, !llfort.type_idx !6
+  %"vecmat_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 4000, ptr nonnull elementtype(float) %"vecmat_$A", i64 %indvars.iv13), !llfort.type_idx !0
+  br label %do.body7
 
-declare dso_local void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #0
-
-; Function Attrs: nounwind
-declare dso_local void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #1
-
-; Function Attrs: nounwind
-declare dso_local i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #2
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() local_unnamed_addr #3 {
-entry:
-  br label %for.cond1.preheader
-
-for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
-  %indvars.iv25 = phi i64 [ 0, %entry ], [ %indvars.iv.next26, %for.cond.cleanup3 ]
-  %arrayidx10 = getelementptr inbounds [1000 x float], ptr @c, i64 0, i64 %indvars.iv25, !intel-tbaa !2
-  %arrayidx10.promoted = load float, ptr %arrayidx10, align 4, !tbaa !2
-  br label %for.body4
-
-for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
-  ret i32 0
-
-for.cond.cleanup3:                                ; preds = %for.body4
-  %add.lcssa = phi float [ %add, %for.body4 ]
-  store float %add.lcssa, ptr %arrayidx10, align 4, !tbaa !2
-  %indvars.iv.next26 = add nuw nsw i64 %indvars.iv25, 1
-  %exitcond27 = icmp eq i64 %indvars.iv.next26, 1000
-  br i1 %exitcond27, label %for.cond.cleanup, label %for.cond1.preheader
-
-for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
-  %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %add23 = phi float [ %arrayidx10.promoted, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx = getelementptr inbounds [1000 x float], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds [1000 x [1000 x float]], ptr @a, i64 0, i64 %indvars.iv25, i64 %indvars.iv, !intel-tbaa !7
-  %1 = load float, ptr %arrayidx8, align 4, !tbaa !7
-  %mul = fmul float %0, %1
-  %add = fadd float %add23, %mul
+do.body7:                                         ; preds = %do.body7, %do.body2
+  %indvars.iv = phi i64 [ %indvars.iv.next, %do.body7 ], [ 1, %do.body2 ]
+  %"vecmat_$SUM.0" = phi float [ %add.1, %do.body7 ], [ %"vecmat_$C[]_fetch.2", %do.body2 ]
+  %"vecmat_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"vecmat_$B", i64 %indvars.iv), !llfort.type_idx !0
+  %"vecmat_$B[]_fetch.5" = load float, ptr %"vecmat_$B[]", align 1, !tbaa !7, !llfort.type_idx !9
+  %"vecmat_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"vecmat_$A[]", i64 %indvars.iv), !llfort.type_idx !0
+  %"vecmat_$A[][]_fetch.8" = load float, ptr %"vecmat_$A[][]", align 1, !tbaa !10, !llfort.type_idx !12
+  %mul.2 = fmul reassoc ninf nsz arcp contract afn float %"vecmat_$A[][]_fetch.8", %"vecmat_$B[]_fetch.5"
+  %add.1 = fadd reassoc ninf nsz arcp contract afn float %mul.2, %"vecmat_$SUM.0"
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 1000
-  br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
-}
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1001
+  br i1 %exitcond.not, label %do.epilog10, label %do.body7
 
-; Function Attrs: uwtable
-define internal void @_GLOBAL__sub_I_float_vector_matrix_mul.cpp() #4 section ".text.startup" {
-entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZStL8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZStL8__ioinit, ptr nonnull @__dso_handle) #2
+do.epilog10:                                      ; preds = %do.body7
+  %add.1.lcssa = phi float [ %add.1, %do.body7 ]
+  store float %add.1.lcssa, ptr %"vecmat_$C[]", align 1, !tbaa !1
+  %indvars.iv.next14 = add nuw nsw i64 %indvars.iv13, 1
+  %exitcond15.not = icmp eq i64 %indvars.iv.next14, 1001
+  br i1 %exitcond15.not, label %do.epilog5, label %do.body2
+
+do.epilog5:                                       ; preds = %do.epilog10
   ret void
 }
 
-attributes #0 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
-attributes #3 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+; Function Attrs: mustprogress nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
+attributes #0 = { nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
+attributes #1 = { mustprogress nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) 2019.8.2.0"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA1000_f", !4, i64 0}
-!4 = !{!"float", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C++ TBAA"}
-!7 = !{!8, !4, i64 0}
-!8 = !{!"array@_ZTSA1000_A1000_f", !3, i64 0}
+!omp_offload.info = !{}
 
+!0 = !{i64 5}
+!1 = !{!2, !2, i64 0}
+!2 = !{!"ifx$unique_sym$2", !3, i64 0}
+!3 = !{!"Fortran Data Symbol", !4, i64 0}
+!4 = !{!"Generic Fortran Symbol", !5, i64 0}
+!5 = !{!"ifx$root$1$vecmat_"}
+!6 = !{i64 44}
+!7 = !{!8, !8, i64 0}
+!8 = !{!"ifx$unique_sym$5", !3, i64 0}
+!9 = !{i64 45}
+!10 = !{!11, !11, i64 0}
+!11 = !{!"ifx$unique_sym$6", !3, i64 0}
+!12 = !{i64 46}

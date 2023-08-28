@@ -1,202 +1,161 @@
-; Test for generating mkl call for matrix multiplication with float data type
+; Test for generating mkl call for matrix multiplication with float type and variable UB
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-generate-mkl-call,hir-dead-store-elimination,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
-
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
-
-
-; Before HIR Generate MKL Call-
-; + DO i1 = 0, 1023, 1   <DO_LOOP>
-; |   + DO i2 = 0, 1023, 1   <DO_LOOP>
-; |   |   + DO i3 = 0, 1023, 1   <DO_LOOP>
-; |   |   |   %0 = (@c)[0][i1][i3];
-; |   |   |   %mul = (@a)[0][i1][i2]  *  (@b)[0][i2][i3];
-; |   |   |   %0 = %0  +  %mul;
-; |   |   |   (@c)[0][i1][i3] = %0;
-; |   |   + END LOOP
-; |   + END LOOP
-; + END LOOP
-
-; After HIR Generate MKL Call-
-; CHECK: BEGIN REGION { modified }
-; CHECK: 0 = &((i8*)(@c)[0][0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 2;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1024;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 9 = 1024;
-; CHECK: 10 = 4096;
-; CHECK: 11 = 1;
-; CHECK: 0 = &((i8*)(@b)[0][0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 2;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1024;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 9 = 1024;
-; CHECK: 10 = 4096;
-; CHECK: 11 = 1;
-; CHECK: 0 = &((i8*)(@a)[0][0][0]);
-; CHECK: 1 = 4;
-; CHECK: 2 = 0;
-; CHECK: 3 = 0;
-; CHECK: 4 = 2;
-; CHECK: 5 = 0;
-; CHECK: 6 = 1024;
-; CHECK: 7 = 4;
-; CHECK: 8 = 1;
-; CHECK: 9 = 1024;
-; CHECK: 10 = 4096;
-; CHECK: 11 = 1;
-; CHECK: @matmul_mkl_f32_
-; CHECK: END REGION
-
-; Verify that pass is dumped with print-changed when it triggers.
-
-; CHECK-CHANGED: Dump Before HIRTempCleanup
-; CHECK-CHANGED: Dump After HIRGenerateMKL
-
+; subroutine sub(a,b,c,n) 
+; real*4  a(n,n)
+; real*4  b(n,n)
+; real*4  c(n,n) 
+; do k=1,1000
+;   do j=1, n
+;     do i=1,n
+;       c(i,j) = c(i,j) +  a(i,k) * b(k,j)
+;     enddo
+;  enddo
+;  enddo
+; end subroutine 
+;
+;
+; HIR before this pass 
+;  + DO i1 = 0, sext.i32.i64(%div.2) + -1, 1   <DO_LOOP>  
+;  |   + DO i2 = 0, sext.i32.i64(%div.1) + -1, 1   <DO_LOOP>  
+;  |   |   + DO i3 = 0, sext.i32.i64(%"sub_$N_fetch.1") + -1, 1   <DO_LOOP> 
+;  |   |   |   %"sub_$B[][]_fetch.28" = (%"sub_$B")[i1][i2];
+;  |   |   |   %mul.7 = %"sub_$B[][]_fetch.28"  *  (%"sub_$A")[i2][i3];
+;  |   |   |   %add.4 = %mul.7  +  (%"sub_$C")[i1][i3];
+;  |   |   |   (%"sub_$C")[i1][i3] = %add.4;
+;  |   |   + END LOOP
+;  |   + END LOOP
+;  + END LOOP
+;
+; After HIR SinkingForPerfectLoopnest, GenerateMKLCall, DeadStoreElimination
+;
+; CHECK:  BEGIN REGION { modified }
+; CHECK:     (%.DopeVector)[0].0 = &((i8*)(%"sub_$C")[0][0]);
+; CHECK:     (%.DopeVector)[0].1 = 4;
+; CHECK:     (%.DopeVector)[0].2 = 0;
+; CHECK:     (%.DopeVector)[0].3 = 0;
+; CHECK:     (%.DopeVector)[0].4 = 2;
+; CHECK:     (%.DopeVector)[0].5 = 0;
+; CHECK:     (%.DopeVector)[0].6 = sext.i32.i64(%"sub_$N_fetch.1");
+; CHECK:     (%.DopeVector)[0].7 = 4;
+; CHECK:     (%.DopeVector)[0].8 = 1;
+; CHECK:     (%.DopeVector)[0].9 = sext.i32.i64(%"sub_$N_fetch.1");
+; CHECK:     (%.DopeVector)[0].10 = (4 * sext.i32.i64(%"sub_$N_fetch.1"));
+; CHECK:     (%.DopeVector)[0].11 = 1;
+; CHECK:     (%.DopeVector3)[0].0 = &((i8*)(%"sub_$A")[0][0]);
+; CHECK:     (%.DopeVector3)[0].1 = 4;
+; CHECK:     (%.DopeVector3)[0].2 = 0;
+; CHECK:     (%.DopeVector3)[0].3 = 0;
+; CHECK:     (%.DopeVector3)[0].4 = 2;
+; CHECK:     (%.DopeVector3)[0].5 = 0;
+; CHECK:     (%.DopeVector3)[0].6 = sext.i32.i64(%"sub_$N_fetch.1");
+; CHECK:     (%.DopeVector3)[0].7 = 4;
+; CHECK:     (%.DopeVector3)[0].8 = 1;
+; CHECK:     (%.DopeVector3)[0].9 = 1000;
+; CHECK:     (%.DopeVector3)[0].10 = (4 * sext.i32.i64(%"sub_$N_fetch.1"));
+; CHECK:     (%.DopeVector3)[0].11 = 1;
+; CHECK:     (%.DopeVector4)[0].0 = &((i8*)(%"sub_$B")[0][0]);
+; CHECK:     (%.DopeVector4)[0].1 = 4;
+; CHECK:     (%.DopeVector4)[0].2 = 0;
+; CHECK:     (%.DopeVector4)[0].3 = 0;
+; CHECK:     (%.DopeVector4)[0].4 = 2;
+; CHECK:     (%.DopeVector4)[0].5 = 0;
+; CHECK:     (%.DopeVector4)[0].6 = 1000;
+; CHECK:     (%.DopeVector4)[0].7 = 4;
+; CHECK:     (%.DopeVector4)[0].8 = 1;
+; CHECK:     (%.DopeVector4)[0].9 = sext.i32.i64(%"sub_$N_fetch.1");
+; CHECK:     (%.DopeVector4)[0].10 = (4 * sext.i32.i64(%"sub_$N_fetch.1"));
+; CHECK:     (%.DopeVector4)[0].11 = 1;
+; CHECK:     @matmul_mkl_f32_(&((%.DopeVector)[0]),  &((%.DopeVector3)[0]),  &((%.DopeVector4)[0]),  9,  1);
+; CHECK:  END REGION
+;
 ;Module Before HIR
-; ModuleID = 'float-matmul.cpp'
-source_filename = "float-matmul.cpp"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; ModuleID = 'float-matmul.f90'
+source_filename = "float-matmul.f90"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"class.std::ios_base::Init" = type { i8 }
+; Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable
+define void @sub_(ptr noalias nocapture readonly dereferenceable(4) %"sub_$A", ptr noalias nocapture readonly dereferenceable(4) %"sub_$B", ptr noalias nocapture dereferenceable(4) %"sub_$C", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr #0 {
+alloca_0:
+  %"sub_$N_fetch.1" = load i32, ptr %"sub_$N", align 1, !tbaa !0
+  %int_sext = sext i32 %"sub_$N_fetch.1" to i64, !llfort.type_idx !5
+  %mul.1 = shl nsw i64 %int_sext, 2
+  %rel.1 = icmp slt i32 %"sub_$N_fetch.1", 1
+  %0 = add nuw nsw i32 %"sub_$N_fetch.1", 1
+  %wide.trip.count39 = sext i32 %0 to i64
+  br label %do.body3
 
-@_ZStL8__ioinit = internal global %"class.std::ios_base::Init" zeroinitializer, align 1
-@__dso_handle = external hidden global i8
-@a = dso_local local_unnamed_addr global [1024 x [1024 x float]] zeroinitializer, align 16
-@b = dso_local local_unnamed_addr global [1024 x [1024 x float]] zeroinitializer, align 16
-@c = dso_local local_unnamed_addr global [1024 x [1024 x float]] zeroinitializer, align 16
-@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_float_matmul.cpp, ptr null }]
+do.body3:                                         ; preds = %do.end_do8, %alloca_0
+  %indvars.iv41 = phi i64 [ %indvars.iv.next42, %do.end_do8 ], [ 1, %alloca_0 ]
+  br i1 %rel.1, label %do.end_do8, label %do.body7.preheader
 
-declare dso_local void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #0
+do.body7.preheader:                               ; preds = %do.body3
+  %"sub_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"sub_$A", i64 %indvars.iv41), !llfort.type_idx !6
+  br label %do.body7
 
-; Function Attrs: nounwind
-declare dso_local void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #1
+do.body7:                                         ; preds = %do.body7.preheader, %do.end_do12
+  %indvars.iv37 = phi i64 [ 1, %do.body7.preheader ], [ %indvars.iv.next38, %do.end_do12 ]
+  %"sub_$C[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"sub_$C", i64 %indvars.iv37), !llfort.type_idx !7
+  %"sub_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(float) %"sub_$B", i64 %indvars.iv37), !llfort.type_idx !8
+  %"sub_$B[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$B[]", i64 %indvars.iv41), !llfort.type_idx !8
+  %"sub_$B[][]_fetch.26" = load float, ptr %"sub_$B[][]", align 1, !tbaa !9, !llfort.type_idx !11
+  br label %do.body11
 
-; Function Attrs: nounwind
-declare dso_local i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #2
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @_Z8multiplyv() local_unnamed_addr #3 {
-entry:
-  br label %for.cond1.preheader
-
-for.cond1.preheader:                              ; preds = %for.inc20, %entry
-  %indvars.iv41 = phi i64 [ 0, %entry ], [ %indvars.iv.next42, %for.inc20 ]
-  br label %for.cond4.preheader
-
-for.cond4.preheader:                              ; preds = %for.inc17, %for.cond1.preheader
-  %indvars.iv38 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next39, %for.inc17 ]
-  %arrayidx16 = getelementptr inbounds [1024 x [1024 x float]], ptr @c, i64 0, i64 %indvars.iv41, i64 %indvars.iv38, !intel-tbaa !2
-  %arrayidx16.promoted = load float, ptr %arrayidx16, align 4, !tbaa !2
-  br label %for.body6
-
-for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
-  %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %0 = phi float [ %arrayidx16.promoted, %for.cond4.preheader ], [ %add, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [1024 x [1024 x float]], ptr @a, i64 0, i64 %indvars.iv41, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load float, ptr %arrayidx8, align 4, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [1024 x [1024 x float]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv38, !intel-tbaa !2
-  %2 = load float, ptr %arrayidx12, align 4, !tbaa !2
-  %mul = fmul float %1, %2
-  %add = fadd float %0, %mul
+do.body11:                                        ; preds = %do.body7, %do.body11
+  %indvars.iv = phi i64 [ 1, %do.body7 ], [ %indvars.iv.next, %do.body11 ]
+  %"sub_$C[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$C[]", i64 %indvars.iv), !llfort.type_idx !7
+  %"sub_$C[][]_fetch.12" = load float, ptr %"sub_$C[][]", align 1, !tbaa !12, !llfort.type_idx !14
+  %"sub_$A[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A[]", i64 %indvars.iv), !llfort.type_idx !6
+  %"sub_$A[][]_fetch.19" = load float, ptr %"sub_$A[][]", align 1, !tbaa !15, !llfort.type_idx !17
+  %mul.7 = fmul reassoc ninf nsz arcp contract afn float %"sub_$B[][]_fetch.26", %"sub_$A[][]_fetch.19"
+  %add.4 = fadd reassoc ninf nsz arcp contract afn float %mul.7, %"sub_$C[][]_fetch.12"
+  store float %add.4, ptr %"sub_$C[][]", align 1, !tbaa !12
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 1024
-  br i1 %exitcond, label %for.inc17, label %for.body6
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count39
+  br i1 %exitcond, label %do.end_do12, label %do.body11
 
-for.inc17:                                        ; preds = %for.body6
-  %add.lcssa = phi float [ %add, %for.body6 ]
-  store float %add.lcssa, ptr %arrayidx16, align 4, !tbaa !2
-  %indvars.iv.next39 = add nuw nsw i64 %indvars.iv38, 1
-  %exitcond40 = icmp eq i64 %indvars.iv.next39, 1024
-  br i1 %exitcond40, label %for.inc20, label %for.cond4.preheader
+do.end_do12:                                      ; preds = %do.body11
+  %indvars.iv.next38 = add nuw nsw i64 %indvars.iv37, 1
+  %exitcond40 = icmp eq i64 %indvars.iv.next38, %wide.trip.count39
+  br i1 %exitcond40, label %do.end_do8.loopexit, label %do.body7
 
-for.inc20:                                        ; preds = %for.inc17
+do.end_do8.loopexit:                              ; preds = %do.end_do12
+  br label %do.end_do8
+
+do.end_do8:                                       ; preds = %do.end_do8.loopexit, %do.body3
   %indvars.iv.next42 = add nuw nsw i64 %indvars.iv41, 1
-  %exitcond43 = icmp eq i64 %indvars.iv.next42, 1024
-  br i1 %exitcond43, label %for.end22, label %for.cond1.preheader
+  %exitcond43.not = icmp eq i64 %indvars.iv.next42, 1001
+  br i1 %exitcond43.not, label %do.epilog6, label %do.body3
 
-for.end22:                                        ; preds = %for.inc20
+do.epilog6:                                       ; preds = %do.end_do8
   ret void
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() local_unnamed_addr #3 {
-entry:
-  br label %for.cond1.preheader.i
+; Function Attrs: mustprogress nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
-for.cond1.preheader.i:                            ; preds = %for.inc20.i, %entry
-  %indvars.iv41.i = phi i64 [ 0, %entry ], [ %indvars.iv.next42.i, %for.inc20.i ]
-  br label %for.cond4.preheader.i
+attributes #0 = { nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
+attributes #1 = { mustprogress nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
 
-for.cond4.preheader.i:                            ; preds = %for.inc17.i, %for.cond1.preheader.i
-  %indvars.iv38.i = phi i64 [ 0, %for.cond1.preheader.i ], [ %indvars.iv.next39.i, %for.inc17.i ]
-  %arrayidx16.i = getelementptr inbounds [1024 x [1024 x float]], ptr @c, i64 0, i64 %indvars.iv41.i, i64 %indvars.iv38.i, !intel-tbaa !2
-  %arrayidx16.promoted.i = load float, ptr %arrayidx16.i, align 4, !tbaa !2
-  br label %for.body6.i
+!omp_offload.info = !{}
 
-for.body6.i:                                      ; preds = %for.body6.i, %for.cond4.preheader.i
-  %indvars.iv.i = phi i64 [ 0, %for.cond4.preheader.i ], [ %indvars.iv.next.i, %for.body6.i ]
-  %0 = phi float [ %arrayidx16.promoted.i, %for.cond4.preheader.i ], [ %add.i, %for.body6.i ]
-  %arrayidx8.i = getelementptr inbounds [1024 x [1024 x float]], ptr @a, i64 0, i64 %indvars.iv41.i, i64 %indvars.iv.i, !intel-tbaa !2
-  %1 = load float, ptr %arrayidx8.i, align 4, !tbaa !2
-  %arrayidx12.i = getelementptr inbounds [1024 x [1024 x float]], ptr @b, i64 0, i64 %indvars.iv.i, i64 %indvars.iv38.i, !intel-tbaa !2
-  %2 = load float, ptr %arrayidx12.i, align 4, !tbaa !2
-  %mul.i = fmul float %1, %2
-  %add.i = fadd float %0, %mul.i
-  %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
-  %exitcond.i = icmp eq i64 %indvars.iv.next.i, 1024
-  br i1 %exitcond.i, label %for.inc17.i, label %for.body6.i
-
-for.inc17.i:                                      ; preds = %for.body6.i
-  %add.i.lcssa = phi float [ %add.i, %for.body6.i ]
-  store float %add.i.lcssa, ptr %arrayidx16.i, align 4, !tbaa !2
-  %indvars.iv.next39.i = add nuw nsw i64 %indvars.iv38.i, 1
-  %exitcond40.i = icmp eq i64 %indvars.iv.next39.i, 1024
-  br i1 %exitcond40.i, label %for.inc20.i, label %for.cond4.preheader.i
-
-for.inc20.i:                                      ; preds = %for.inc17.i
-  %indvars.iv.next42.i = add nuw nsw i64 %indvars.iv41.i, 1
-  %exitcond43.i = icmp eq i64 %indvars.iv.next42.i, 1024
-  br i1 %exitcond43.i, label %_Z8multiplyv.exit, label %for.cond1.preheader.i
-
-_Z8multiplyv.exit:                                ; preds = %for.inc20.i
-  ret i32 0
-}
-
-; Function Attrs: uwtable
-define internal void @_GLOBAL__sub_I_float_matmul.cpp() #4 section ".text.startup" {
-entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZStL8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZStL8__ioinit, ptr nonnull @__dso_handle) #2
-  ret void
-}
-
-attributes #0 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
-attributes #3 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) 2019.8.2.0"}
-!2 = !{!3, !5, i64 0}
-!3 = !{!"array@_ZTSA1024_A1024_f", !4, i64 0}
-!4 = !{!"array@_ZTSA1024_f", !5, i64 0}
-!5 = !{!"float", !6, i64 0}
-!6 = !{!"omnipotent char", !7, i64 0}
-!7 = !{!"Simple C++ TBAA"}
+!0 = !{!1, !1, i64 0}
+!1 = !{!"ifx$unique_sym$1", !2, i64 0}
+!2 = !{!"Fortran Data Symbol", !3, i64 0}
+!3 = !{!"Generic Fortran Symbol", !4, i64 0}
+!4 = !{!"ifx$root$1$sub_"}
+!5 = !{i64 3}
+!6 = !{i64 25}
+!7 = !{i64 29}
+!8 = !{i64 27}
+!9 = !{!10, !10, i64 0}
+!10 = !{!"ifx$unique_sym$7", !2, i64 0}
+!11 = !{i64 54}
+!12 = !{!13, !13, i64 0}
+!13 = !{!"ifx$unique_sym$5", !2, i64 0}
+!14 = !{i64 52}
+!15 = !{!16, !16, i64 0}
+!16 = !{!"ifx$unique_sym$6", !2, i64 0}
+!17 = !{i64 53}
