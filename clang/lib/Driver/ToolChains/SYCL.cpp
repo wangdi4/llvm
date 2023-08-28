@@ -1525,9 +1525,11 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
 
   // Diagnose unsupported options only once.
-  // All sanitizer options are not currently supported.
+  // All sanitizer, cf-protection and traceback options are not currently
+  // supported.
   for (auto A :
-       Args.filtered(options::OPT_fsanitize_EQ, options::OPT_fcf_protection_EQ))
+       Args.filtered(options::OPT_fsanitize_EQ, options::OPT_fcf_protection_EQ,
+                     options::OPT_traceback))
     D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
         << A->getAsString(Args) << getTriple().str();
 }
@@ -1558,6 +1560,7 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     switch (Opt) {
     case options::OPT_fsanitize_EQ:
     case options::OPT_fcf_protection_EQ:
+    case options::OPT_traceback: // INTEL
       if (!IsNewDAL)
         DAL->eraseArg(Opt);
       break;
