@@ -3164,7 +3164,7 @@ used to avoid cache misses when the developer has a good understanding of which
 data are going to be used next. ``addr`` is the address that needs to be brought
 into the cache. ``rws`` indicates the expected access mode: ``0`` for *read*,
 ``1`` for *write* and ``2`` for *share* between *read* and *write*. ``locality``
-indicates the expected persistance of data in cache, from ``0`` which means that
+indicates the expected persistence of data in cache, from ``0`` which means that
 data can be discarded from cache after its next use to ``3`` which means that
 data is going to be reused a lot once in cache. ``1`` and ``2`` provide
 intermediate behavior between these two extremes. ``type`` indicates the cache
