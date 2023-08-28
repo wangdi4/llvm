@@ -1179,10 +1179,11 @@ std::string getWorkGroupSortCopyName(StringRef SortFuncName, bool ToScratch) {
     // Only mask param in vector workgroup sort builtin is vector of uint
     if (TypeIter->getTypeId() == reflection::TYPE_ID_VECTOR) {
       reflection::VectorType *Vec =
-          dyn_cast<reflection::VectorType>(TypeIter.get());
+          reflection::dyn_cast<reflection::VectorType>(TypeIter.get());
       if (Vec->getScalarType()->getTypeId() == reflection::TYPE_ID_PRIMITIVE) {
         reflection::PrimitiveType *PrimitiveParam =
-            dyn_cast<reflection::PrimitiveType>(Vec->getScalarType().get());
+            reflection::dyn_cast<reflection::PrimitiveType>(
+                Vec->getScalarType().get());
         if (PrimitiveParam->getPrimitive() == reflection::PRIMITIVE_UINT)
           continue;
       }
@@ -2319,7 +2320,8 @@ static reflection::TypeVector
 widenParameters(const reflection::TypeVector ScalarParams, unsigned int VF) {
   reflection::TypeVector VectorParams;
   for (auto &Param : ScalarParams) {
-    if (auto *VecParam = dyn_cast<reflection::VectorType>(Param.get())) {
+    if (auto *VecParam =
+            reflection::dyn_cast<reflection::VectorType>(Param.get())) {
       int widen_len = VecParam->getLength() * VF;
       VectorParams.emplace_back(
           VECTOR_TYPE(VecParam->getScalarType(), widen_len));
@@ -3295,7 +3297,7 @@ TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
 Type *getLLVMTypeFromReflectionType(LLVMContext &C,
                                     const reflection::RefParamType &PT) {
   auto *ParamTy = PT.get();
-  auto *VPT = dyn_cast<reflection::VectorType>(ParamTy);
+  auto *VPT = reflection::dyn_cast<reflection::VectorType>(ParamTy);
   if (VPT)
     ParamTy = VPT->getScalarType().get();
   Type *Ty = StringSwitch<Type *>(ParamTy->toString())

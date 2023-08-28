@@ -207,11 +207,11 @@ static bool isSematicallyEqual(const std::string &l, const std::string &r) {
 }
 
 static bool isVector(const ParamType *T) {
-  return NULL != llvm::dyn_cast<VectorType>(T);
+  return NULL != dyn_cast<VectorType>(T);
 }
 
 static bool isPointer(const ParamType *T) {
-  return NULL != llvm::dyn_cast<PointerType>(T);
+  return NULL != dyn_cast<PointerType>(T);
 }
 
 //
@@ -245,8 +245,7 @@ TEST(DemangleTest, retByPtr) {
   FunctionDescriptor fd = demangle(strRetByPtr);
   ASSERT_FALSE(fd.isNull());
 
-  const PrimitiveType *pSclTy =
-      llvm::dyn_cast<PrimitiveType>(fd.Parameters[0].get());
+  const PrimitiveType *pSclTy = dyn_cast<PrimitiveType>(fd.Parameters[0].get());
   ASSERT_TRUE(pSclTy != NULL);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 
@@ -443,7 +442,7 @@ TEST(DemangleTest, addressSpace) {
 TEST(DemangleTest, addressSpace1) {
   FunctionDescriptor fd = demangle("_Z3myfPU3AS1i");
   ASSERT_FALSE(fd.isNull());
-  PointerType *p = llvm::dyn_cast<PointerType>(fd.Parameters[0].get());
+  PointerType *p = dyn_cast<PointerType>(fd.Parameters[0].get());
   ASSERT_TRUE(p);
   ASSERT_EQ(ATTR_GLOBAL, *p->getAttributes().begin());
 }
@@ -451,7 +450,7 @@ TEST(DemangleTest, addressSpace1) {
 TEST(DemangleTest, addressSpaceAndUserDefTy) {
   FunctionDescriptor fd = demangle("_Z3myfPU3AS23mta");
   ASSERT_FALSE(fd.isNull());
-  PointerType *p = llvm::dyn_cast<PointerType>(fd.Parameters[0].get());
+  PointerType *p = dyn_cast<PointerType>(fd.Parameters[0].get());
   ASSERT_TRUE(p);
   ASSERT_EQ(ATTR_CONSTANT, *p->getAttributes().begin());
   ASSERT_EQ(std::string("mta"), p->getPointee()->toString());
@@ -503,9 +502,9 @@ TEST(DemangleTest, doubleDup1) {
   ASSERT_FALSE(fd.isNull());
   RefParamType T = fd.Parameters[0];
   ASSERT_TRUE(isVector(T.get()));
-  const VectorType *pVecTy = llvm::dyn_cast<VectorType>(T.get());
+  const VectorType *pVecTy = dyn_cast<VectorType>(T.get());
   const PrimitiveType *pSclTy =
-      llvm::dyn_cast<PrimitiveType>(pVecTy->getScalarType().get());
+      dyn_cast<PrimitiveType>(pVecTy->getScalarType().get());
   ASSERT_TRUE(pSclTy != NULL);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
@@ -515,9 +514,9 @@ TEST(DemangleTest, doubleDup2) {
   ASSERT_FALSE(fd.isNull());
   RefParamType T = fd.Parameters[1];
   ASSERT_TRUE(isVector(T.get()));
-  const VectorType *pVecTy = llvm::dyn_cast<VectorType>(T.get());
+  const VectorType *pVecTy = dyn_cast<VectorType>(T.get());
   const PrimitiveType *pSclTy =
-      llvm::dyn_cast<PrimitiveType>(pVecTy->getScalarType().get());
+      dyn_cast<PrimitiveType>(pVecTy->getScalarType().get());
   ASSERT_TRUE(pSclTy != NULL);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
@@ -533,7 +532,7 @@ TEST(DemangleTest, doubleDup4) {
   ASSERT_FALSE(fd.isNull());
   RefParamType T = fd.Parameters[2];
   ASSERT_TRUE(isPointer(T.get()));
-  const PointerType *P = llvm::dyn_cast<PointerType>(T.get());
+  const PointerType *P = dyn_cast<PointerType>(T.get());
   ASSERT_TRUE(isVector(P->getPointee().get()));
 }
 
@@ -542,7 +541,7 @@ TEST(DemangleTest, doubleDup5) {
   ASSERT_FALSE(fd.isNull());
   RefParamType T = fd.Parameters[3];
   ASSERT_TRUE(isPointer(T.get()));
-  const PointerType *P = llvm::dyn_cast<PointerType>(T.get());
+  const PointerType *P = dyn_cast<PointerType>(T.get());
   ASSERT_TRUE(isVector(P->getPointee().get()));
 }
 
@@ -686,8 +685,8 @@ TEST(MangleAPI, visitorExample) {
 TEST(Type, TypeCast) {
   RefParamType primitiveInt(new PrimitiveType(PRIMITIVE_INT));
   VectorType vectorInt(primitiveInt, 4);
-  ASSERT_TRUE(nullptr == llvm::dyn_cast<VectorType>(primitiveInt.get()));
-  ASSERT_EQ(&vectorInt, llvm::dyn_cast<VectorType>(&vectorInt));
+  ASSERT_TRUE(nullptr == dyn_cast<VectorType>(primitiveInt.get()));
+  ASSERT_EQ(&vectorInt, dyn_cast<VectorType>(&vectorInt));
 }
 
 TEST(MemoryLeaks, Vector) {
@@ -713,7 +712,7 @@ TEST(MemoryLeaks, PointerAttribToVector) {
 TEST(MemoryLeaks, StructTy) {
   FunctionDescriptor fd = demangle("_Z1f2xx");
   ASSERT_FALSE(fd.isNull());
-  EXPECT_TRUE(llvm::dyn_cast<UserDefinedType>(fd.Parameters[0].get()));
+  EXPECT_TRUE(dyn_cast<UserDefinedType>(fd.Parameters[0].get()));
 }
 
 } // namespace tests

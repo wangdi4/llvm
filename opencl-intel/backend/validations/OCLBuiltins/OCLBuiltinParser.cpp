@@ -285,7 +285,7 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string &in_str,
 
         // find attributes : __global, __constant, etc
         reflection::PointerType *pPTy =
-            dyn_cast<reflection::PointerType>(&*fd.Parameters[i]);
+            reflection::dyn_cast<reflection::PointerType>(&*fd.Parameters[i]);
         for (unsigned int j = 0; j < pPTy->getAttributes().size(); ++j) {
           switch (pPTy->getAttributes()[j]) {
           case reflection::ATTR_LOCAL:

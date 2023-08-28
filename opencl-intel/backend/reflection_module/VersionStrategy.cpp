@@ -149,21 +149,24 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW &sw) const {
   std::string Name;
   if (orig.Parameters.size() > 0) {
     std::stringstream nameBuilder;
-    const VectorType *pVec = dyn_cast<VectorType>(orig.Parameters[0].get());
+    const VectorType *pVec =
+        reflection::dyn_cast<VectorType>(orig.Parameters[0].get());
     int nameWidth = pVec ? pVec->getLength() : 1;
     nameBuilder << "soa_" << std::string(orig.Name) << nameWidth;
     Name = nameBuilder.str();
     fd.Name = Name;
   }
   for (size_t i = 0; i < orig.Parameters.size(); ++i) {
-    const VectorType *pVector = dyn_cast<VectorType>(orig.Parameters[i].get());
+    const VectorType *pVector =
+        reflection::dyn_cast<VectorType>(orig.Parameters[i].get());
     RefParamType pParam = orig.Parameters[i];
     width::V paramWidth = width::SCALAR;
     if (pVector) {
       paramWidth = static_cast<width::V>(pVector->getLength());
       pParam = pVector->getScalarType();
     }
-    const PrimitiveType *pPrimitive = dyn_cast<PrimitiveType>(pParam.get());
+    const PrimitiveType *pPrimitive =
+        reflection::dyn_cast<PrimitiveType>(pParam.get());
     assert(pPrimitive && "Parameter has no primitive type");
     TypePrimitiveEnum p = pPrimitive->getPrimitive();
     for (unsigned j = 0; j < static_cast<unsigned>(paramWidth); ++j) {
@@ -191,7 +194,7 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW &sw) const {
          "this type cannot be transposed (forgot to add it to transpose map?");
   RefParamType retTy = it->second;
   // Calculating the OUT parameter type
-  VectorType *retVecTy = dyn_cast<VectorType>(&*retTy);
+  VectorType *retVecTy = reflection::dyn_cast<VectorType>(&*retTy);
   assert(retVecTy && "non-vector return type");
   RefParamType vOut(new VectorType(retVecTy->getScalarType(), sw.second));
   // All pointers for return data have private address space

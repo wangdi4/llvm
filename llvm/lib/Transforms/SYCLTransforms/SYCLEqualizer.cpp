@@ -297,7 +297,8 @@ private:
         FuncArgTys.push_back(NewType);
         // Get params reflection type for remangle builtin
         reflection::PointerType *OldParam =
-            dyn_cast<reflection::PointerType>(SortFD.Parameters[Idx].get());
+            reflection::dyn_cast<reflection::PointerType>(
+                SortFD.Parameters[Idx].get());
         reflection::RefParamType NewParam = new reflection::PointerType(
             OldParam->getPointee(), {reflection::ATTR_GENERIC});
         SortFD.Parameters[Idx] = NewParam;

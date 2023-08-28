@@ -65,10 +65,10 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
   reflection::FunctionDescriptor FD = demangle(FuncName);
   reflection::RefParamType Param = FD.Parameters[0];
   if (reflection::VectorType *VecParam =
-          dyn_cast<reflection::VectorType>(Param.get()))
+          reflection::dyn_cast<reflection::VectorType>(Param.get()))
     Param = VecParam->getScalarType();
   reflection::PrimitiveType *PrimitiveParam =
-      dyn_cast<reflection::PrimitiveType>(Param.get());
+      reflection::dyn_cast<reflection::PrimitiveType>(Param.get());
   assert(PrimitiveParam && "WG function parameter should be either primitive "
                            "or vector of primitives");
   reflection::TypePrimitiveEnum DataEnum = PrimitiveParam->getPrimitive();
