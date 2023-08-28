@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2022 Intel Corporation
+// Copyright (C) 2013-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -68,6 +68,13 @@ let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
     def work_group_broadcast1d_mask        : OclBuiltin<"work_group_broadcast",     (outs gentype:$ret), (ins gentype:$src, size_t:$local_id, u32gentype:$mask), [], [], 1, 0>;
     def work_group_broadcast2d_mask        : OclBuiltin<"work_group_broadcast",     (outs gentype:$ret), (ins gentype:$src, size_t:$local_id_x, size_t:$local_id_y, u32gentype:$mask), [], [], 1, 0>;
     def work_group_broadcast3d_mask        : OclBuiltin<"work_group_broadcast",     (outs gentype:$ret), (ins gentype:$src, size_t:$local_id_x, size_t:$local_id_y, size_t:$local_id_z, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_broadcast1d_assume_uniform : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id), [], [], 1, 0>;
+    def work_group_broadcast2d_assume_uniform : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id_x, u64gentype:$local_id_y), [], [], 1, 0>;
+    def work_group_broadcast3d_assume_uniform : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id_x, u64gentype:$local_id_y, u64gentype:$local_id_z), [], [], 1, 0>;
+    // Force using u32 mask (different with local id types) to differentiate the masked variant.
+    def work_group_broadcast1d_assume_uniform_mask : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_broadcast2d_assume_uniform_mask : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id_x, u64gentype:$local_id_y, u32gentype:$mask), [], [], 1, 0>;
+    def work_group_broadcast3d_assume_uniform_mask : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u64gentype:$local_id_x, u64gentype:$local_id_y, u64gentype:$local_id_z, u32gentype:$mask), [], [], 1, 0>;
     def work_group_reduce_add_mask         : OclBuiltin<"work_group_reduce_add",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_reduce_min_mask         : OclBuiltin<"work_group_reduce_min",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
     def work_group_reduce_max_mask         : OclBuiltin<"work_group_reduce_max",    (outs gentype:$ret), (ins gentype:$src, u32gentype:$mask), [], [], 1, 0>;
@@ -126,6 +133,14 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]
   def work_group_broadcast1d_mask_vect_info : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d_mask, work_group_broadcast1d_mask, work_group_broadcast1d_mask, work_group_broadcast1d_mask, work_group_broadcast1d_mask>;
   def work_group_broadcast2d_mask_vect_info : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask>;
   def work_group_broadcast3d_mask_vect_info : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask>;
+  // Assume uniform variants
+  def : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d_assume_uniform, work_group_broadcast1d_assume_uniform, work_group_broadcast1d_assume_uniform, work_group_broadcast1d_assume_uniform, work_group_broadcast1d_assume_uniform>;
+  def : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d_assume_uniform, work_group_broadcast2d_assume_uniform, work_group_broadcast2d_assume_uniform, work_group_broadcast2d_assume_uniform, work_group_broadcast2d_assume_uniform>;
+  def : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d_assume_uniform, work_group_broadcast3d_assume_uniform, work_group_broadcast3d_assume_uniform, work_group_broadcast3d_assume_uniform, work_group_broadcast3d_assume_uniform>;
+  // Assume uniform with mask
+  def : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d_assume_uniform_mask, work_group_broadcast1d_assume_uniform_mask, work_group_broadcast1d_assume_uniform_mask, work_group_broadcast1d_assume_uniform_mask, work_group_broadcast1d_assume_uniform_mask>;
+  def : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d_assume_uniform_mask, work_group_broadcast2d_assume_uniform_mask, work_group_broadcast2d_assume_uniform_mask, work_group_broadcast2d_assume_uniform_mask, work_group_broadcast2d_assume_uniform_mask>;
+  def : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d_assume_uniform_mask, work_group_broadcast3d_assume_uniform_mask, work_group_broadcast3d_assume_uniform_mask, work_group_broadcast3d_assume_uniform_mask, work_group_broadcast3d_assume_uniform_mask>;
 }
 
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
