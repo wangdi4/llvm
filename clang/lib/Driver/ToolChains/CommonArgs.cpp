@@ -1526,6 +1526,10 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
     if (A->getValue() == StringRef("parallel"))
       addOpenMPLib = true;
   }
+  // Use of -qopt-matmul implies needing the OpenMP library.
+  if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
+                   false))
+    addOpenMPLib = true;
 #endif // INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
