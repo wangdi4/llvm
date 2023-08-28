@@ -89,7 +89,6 @@ struct RTLInfoTy {
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
   typedef int32_t(pop_subdevice_ty)(void);
-  typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
 #if INTEL_CUSTOMIZATION
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
@@ -199,7 +198,6 @@ struct RTLInfoTy {
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;
   pop_subdevice_ty *pop_subdevice = nullptr;
-  add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
 #if INTEL_CUSTOMIZATION
   create_interop_ty *create_interop = nullptr;
