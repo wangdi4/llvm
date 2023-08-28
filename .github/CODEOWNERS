@@ -499,6 +499,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 /llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
+/llvm/test/Transforms/Intel_TightLoopEmitter/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 /llvm/test/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 
