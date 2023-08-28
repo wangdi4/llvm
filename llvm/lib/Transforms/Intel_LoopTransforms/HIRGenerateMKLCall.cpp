@@ -1,6 +1,6 @@
 //===----- HIRGenerateMKLCall.cpp - Implements MKL Call transformation ----===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -155,7 +155,8 @@ private:
                                          const RegDDRef *RRef,
                                          const RegDDRef *TripCountDDRef,
                                          unsigned AllocaBlobIdx,
-                                         unsigned &DopeVectorFieldIdx);
+                                         unsigned &DopeVectorFieldIdx,
+                                         unsigned DVSymbase);
 
   RegDDRef *
   createDopeVectorAssignments(HLLoop *Loop, const RegDDRef *RRef,
@@ -236,7 +237,7 @@ bool HIRGenerateMKLCallLegacyPass::runOnFunction(Function &Func) {
       .run();
 }
 
-// Gather all perfect/near-perfect Loop Nests with level 2/3
+// Gather all perfect Loop Nests with level 2/3
 struct HIRGenerateMKLCall::CollectCandidateLoops final
     : public HLNodeVisitorBase {
 
@@ -256,18 +257,11 @@ struct HIRGenerateMKLCall::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
-    LLVM_DEBUG(dbgs() << "In collect Perfect/Near-Perfect loopnest\n");
+    LLVM_DEBUG(dbgs() << "In collect Perfect loopnest\n");
 
-    // Allow Near Perfect loop (and return the result).
-    bool IsNearPerfectLoop = false;
-    bool IsPerfectNest = HLNodeUtils::isPerfectLoopNest(
-        Loop, &InnermostLoop, false, &IsNearPerfectLoop);
-    assert((!IsPerfectNest || !IsNearPerfectLoop) &&
-           "isPerfectLoopNest is malfunctioning");
+    // Perfect LoopNest only
 
-    if (!IsPerfectNest && !IsNearPerfectLoop) {
-      // Do not skip recursion.
-      // We might find a perfect loop nest starting from an inner loop.
+    if (!(HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop))) {
       return;
     }
 
@@ -334,16 +328,19 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
       computeDopeVectorFieldsAndTransform(Context, Loop, MatrixRefs,
                                           TripCountDDRefs, IsZeroSet, false);
       MKLCallGenerated = true;
+
     } else if (isMatVecMul(Loop, MatrixRefs, TripCountDDRefs, &IsZeroSet)) {
       LLVM_DEBUG(dbgs() << "\nLoop is a vecmul\n"; Loop->dump());
       computeDopeVectorFieldsAndTransform(Context, Loop, MatrixRefs,
                                           TripCountDDRefs, IsZeroSet, false);
       MKLCallGenerated = true;
+
     } else if (isComplexMatmul(Loop, MatrixRefs, TripCountDDRefs, &IsZeroSet)) {
       LLVM_DEBUG(dbgs() << "\nLoop is a complex matmul\n"; Loop->dump());
       computeDopeVectorFieldsAndTransform(Context, Loop, MatrixRefs,
                                           TripCountDDRefs, IsZeroSet, true);
       MKLCallGenerated = true;
+
     } else {
       // matmul can be embedded inside other loops
       // Example.
@@ -361,8 +358,8 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
         ChildLoop = dyn_cast<HLLoop>(&*Child);
         Child++;
       }
-
-      if (isMatVecMul(ChildLoop, MatrixRefs, TripCountDDRefs, &IsZeroSet)) {
+      if (!ChildLoop->isInnermost() &&
+          isMatVecMul(ChildLoop, MatrixRefs, TripCountDDRefs, &IsZeroSet)) {
         LLVM_DEBUG(dbgs() << "\nLoop is a vecmul\n"; Loop->dump());
         computeDopeVectorFieldsAndTransform(Context, ChildLoop, MatrixRefs,
                                             TripCountDDRefs, IsZeroSet, false);
@@ -374,6 +371,49 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
   }
 
   return Modified;
+}
+
+static bool isComplexType(const RegDDRef *RealRef, const RegDDRef *ImagRef) {
+
+  auto *StructTy = dyn_cast<StructType>(RealRef->getDimensionElementType(1));
+  if (!StructTy) {
+    return false;
+  }
+
+  if (StructTy->getNumElements() != 2) {
+    return false;
+  }
+  //  B3[i1][i2].0
+  //  B3[i1][i2].1
+  //  Verify that first offset is 0. Second offset equals data type of the first
+  //  field
+
+  if (!CanonExprUtils::areEqual(RealRef->getBaseCE(), ImagRef->getBaseCE())) {
+    return false;
+  }
+
+  if (ImagRef->getDestTypeSizeInBytes() != RealRef->getDestTypeSizeInBytes()) {
+    return false;
+  }
+
+  auto RealOffsets = RealRef->getTrailingStructOffsets(1);
+  auto &DL = RealRef->getCanonExprUtils().getDataLayout();
+
+  if (DDRefUtils::getOffsetDistance(StructTy, DL, RealOffsets) != 0) {
+    return false;
+  }
+
+  if (ImagRef->getDimensionElementType(1) != StructTy) {
+    return false;
+  }
+  auto ImagOffsets = ImagRef->getTrailingStructOffsets(1);
+  int64_t TypeSize = RealRef->getDestTypeSizeInBytes();
+
+  if (DDRefUtils::getOffsetDistance(StructTy, DL, ImagOffsets) != TypeSize) {
+    return false;
+  }
+
+  return true;
 }
 
 static StringRef getFuncName(Type *Ty, bool IsComplexType) {
@@ -411,12 +451,27 @@ static int getEncodingForType(Type *Ty, bool IsComplexType) {
 }
 
 // Return the iv levels in some particular dimensions
-SmallVector<unsigned, 4> getIVLevelsAtDim(const RegDDRef *RRef, unsigned Dim) {
+SmallVector<unsigned, 4> getIVLevelsAtDim(const RegDDRef *RRef, unsigned Dim,
+                                          bool *IsValid,
+                                          bool Validate = false) {
+
   SmallVector<unsigned, 4> Levels;
   auto *CE = RRef->getDimensionIndex(Dim);
+  if (Validate)
+    *IsValid = true;
+
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
+
     if (CE->hasIV(CE->getLevel(CurIVPair))) {
+      // Library supports only constant coeff = 1
+      if (Validate) {
+        if (CE->getIVConstCoeff(CurIVPair) != 1 ||
+            CE->getIVBlobCoeff(CurIVPair)) {
+          *IsValid = false;
+          break;
+        }
+      }
       Levels.push_back(CE->getLevel(CurIVPair));
     }
   }
@@ -424,11 +479,33 @@ SmallVector<unsigned, 4> getIVLevelsAtDim(const RegDDRef *RRef, unsigned Dim) {
 }
 
 // Return the iv levels present in all dimensions
-SmallVector<unsigned, 4> getIVLevels(const RegDDRef *RRef) {
+SmallVector<unsigned, 4> getIVLevels(const RegDDRef *RRef, bool *IsValid,
+                                     bool Validate = false) {
+
   SmallVector<unsigned, 4> Levels;
+
+  if (Validate) {
+    // Assumed shape or pointer array will not work with library code
+    int64_t ConstStride = RRef->getDimensionConstStride(1);
+
+    // DV.stride may be constant prop
+    auto DimTy = RRef->getDimensionElementType(1);
+    int64_t ElemSize = RRef->getCanonExprUtils().getTypeSizeInBytes(DimTy);
+    if (ConstStride != ElemSize) {
+      *IsValid = false;
+      return Levels;
+    }
+  }
+
   unsigned NumDims = RRef->getNumDimensions();
+
   for (unsigned Dim = 1; Dim <= NumDims; Dim++) {
-    SmallVector<unsigned, 4> LevelsAtDim = getIVLevelsAtDim(RRef, Dim);
+    SmallVector<unsigned, 4> LevelsAtDim =
+        getIVLevelsAtDim(RRef, Dim, IsValid, Validate);
+    if (Validate && !IsValid) {
+      break;
+    }
+
     Levels.insert(Levels.end(), LevelsAtDim.begin(), LevelsAtDim.end());
   }
   return Levels;
@@ -485,7 +562,7 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
 void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
     HLLoop *Loop, unsigned IVLevel, const RegDDRef *MatrixRef,
     const RegDDRef *TripCountDDRef, unsigned AllocaBlobIdx,
-    unsigned &DopeVectorFieldIdx) {
+    unsigned &DopeVectorFieldIdx, unsigned DVSymbase) {
   auto &HNU = Loop->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
   auto &CEU = DDRU.getCanonExprUtils();
@@ -497,9 +574,13 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   // Compute 'extent' field for current dimension and create the
   // assignment instruction like-
   // (%.DopeVector1)[0].6 = 500;
+
   RegDDRef *ExtentRef = TripCountDDRef->clone();
   ExtentRef->makeConsistent({}, Level);
-  RegDDRef *DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+
+  RegDDRef *DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   auto FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   auto StoreInst = HNU.createStore(ExtentRef, ".extent", DopeVectorRef);
@@ -509,11 +590,17 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   // Compute 'stride' field for current dimension and create the
   // assignment instruction
   // (%.DopeVector1)[0].7 = 4;
+
   auto *StrideCanon = MatrixRef->getStrideAtLevel(IVLevel);
+
+  assert(StrideCanon && "Cannot find dimension with level");
+
   RegDDRef *StrideCanonRef =
       DDRU.createScalarRegDDRef(GenericRvalSymbase, StrideCanon);
+
   StrideCanonRef->makeConsistent(MatrixRef, Level);
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   StoreInst = HNU.createStore(StrideCanonRef, ".stride", DopeVectorRef);
@@ -524,7 +611,8 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   // instruction
   // (%.DopeVector1)[0].8 = 1;
   RegDDRef *LowerRef = DDRU.createConstDDRef(IntType, 1);
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   StoreInst = HNU.createStore(LowerRef, ".lower", DopeVectorRef);
@@ -541,6 +629,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
   auto &DDRU = HNU.getDDRefUtils();
   auto &CEU = DDRU.getCanonExprUtils();
   LLVMContext &Context = HNU.getContext();
+
   Type *IntType =
       Type::getIntNTy(Context, CEU.getTypeSizeInBits(MatrixRef->getBaseType()));
 
@@ -550,14 +639,19 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
       HNU.createAlloca(DopeVectorType, RegionNode, ".DopeVector");
   unsigned DopeVectorFieldIdx = 0;
 
+  unsigned DVSymbase = HNU.getDDRefUtils().getNewSymbase();
+
   // Compute 'addr_a0' field and create the assignment instruction
   // (%.DopeVector1)[0].0 = &((i8*)(@c)[0][0][0]);
-  RegDDRef *DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  RegDDRef *DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   CanonExpr *FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
   auto *BasePtrRef = MatrixRef->clone();
   BasePtrRef->setAddressOf(true);
+
   BasePtrRef->setBitCastDestVecOrElemType(Type::getInt8Ty(Context));
   BasePtrRef->getDimensionIndex(1)->clear();
   BasePtrRef->getDimensionIndex(1)->setConstant(
@@ -575,7 +669,9 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'addr_length' field and create the assignment instruction
   // (%.DopeVector1)[0].1 = 4;
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -583,48 +679,69 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
       MatrixRef->getDestTypeSizeInBytes() * (IsComplexType ? 2 : 1);
   auto AddrLengthRef = DDRU.createConstDDRef(IntType, AddrLength);
   StoreInst = HNU.createStore(AddrLengthRef, ".addr_length", DopeVectorRef);
+
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump());
 
   // Compute 'offset' field and create the assignment instruction
   // (%.DopeVector1)[0].2 = 0;
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
   auto OffsetRef = DDRU.createConstDDRef(IntType, 0);
   StoreInst = HNU.createStore(OffsetRef, ".offset", DopeVectorRef);
+
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump(); dbgs() << "\n");
 
   // Compute 'flags' field and create the assignment instruction
   // (%.DopeVector1)[0].3 = 0;
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
   auto FlagsRef = DDRU.createConstDDRef(IntType, 0);
   StoreInst = HNU.createStore(FlagsRef, ".flags", DopeVectorRef);
+
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump(); dbgs() << "\n");
 
   // Compute 'rank' field and create the assignment instruction
   // (%.DopeVector1)[0].4 = 2;
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
-  SmallVector<unsigned, 4> LevelsAtDim = getIVLevelsAtDim(MatrixRef, 1);
-  auto DimNumRef =
-      DDRU.createConstDDRef(IntType, std::max(MatrixRef->getNumDimensions() - 1,
-                                              (unsigned)LevelsAtDim.size()));
+  unsigned DimNum = 0;
+  for (auto CE = MatrixRef->canon_begin(), E = MatrixRef->canon_end(); CE != E;
+       ++CE) {
+    if ((*CE)->hasIV()) {
+      DimNum++;
+    }
+  }
+
+  bool IsValid = true;
+
+  SmallVector<unsigned, 4> LevelsAtDim =
+      getIVLevelsAtDim(MatrixRef, 1, &IsValid);
+  auto DimNumRef = DDRU.createConstDDRef(
+      IntType, std::max(DimNum, (unsigned)LevelsAtDim.size()));
   StoreInst = HNU.createStore(DimNumRef, ".rank", DopeVectorRef);
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump(); dbgs() << "\n");
 
   // Compute 'reserved' field and create the assignment instruction
   // (%.DopeVector1)[0].5 = 0;
-  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  DopeVectorRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -633,7 +750,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump(); dbgs() << "\n");
 
-  unsigned DimNum = 1;
+  DimNum = 1;
   for (auto CEI = MatrixRef->canon_begin(), CEE = MatrixRef->canon_end();
        CEI != CEE; ++CEI, ++DimNum) {
 
@@ -648,7 +765,8 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
         MinLevel = OrderedLevelsToProc[I];
       }
     }
-    LevelsAtDim = getIVLevelsAtDim(MatrixRef, DimNum);
+    LevelsAtDim = getIVLevelsAtDim(MatrixRef, DimNum, &IsValid);
+
     // We have to process the iv levels in the particular order given by
     // OrderedLevelsToProc
     for (unsigned I = 0; I < OrderedLevelsToProc.size(); I++) {
@@ -660,14 +778,19 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
           LevelsAtDim.end()) {
         continue;
       }
-      createDopeVectorAssignmentsForDim(Loop, IVLevel, MatrixRef,
-                                        TripCountDDRefs[IVLevel - MinLevel],
-                                        AllocaBlobIdx, DopeVectorFieldIdx);
+
+      createDopeVectorAssignmentsForDim(
+          Loop, IVLevel, MatrixRef, TripCountDDRefs[IVLevel - MinLevel],
+          AllocaBlobIdx, DopeVectorFieldIdx, DVSymbase);
     }
   }
+
   // Create the dope vector field reference and make it live-in to loop
-  RegDDRef *DopeRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
+  RegDDRef *DopeRef =
+      DDRU.createMemRef(DopeVectorType, AllocaBlobIdx, 0, DVSymbase);
+
   auto ZeroCE = CEU.createCanonExpr(IntType);
+
   DopeRef->setAddressOf(true);
   DopeRef->addDimension(ZeroCE);
 
@@ -695,13 +818,19 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   createDopeVectorType(Context, IntType);
   assert(DopeVectorType && "Dope vector type not created");
 
+  bool IsValid = true;
   SmallVector<RegDDRef *, 8> CallArgs;
-  SmallVector<unsigned, 4> LevelsAtStoreRef = getIVLevels(MatrixRefs[0]);
-  SmallVector<unsigned, 4> LevelsAtLoadRef1 = getIVLevels(MatrixRefs[1]);
-  SmallVector<unsigned, 4> LevelsAtLoadRef2 = getIVLevels(MatrixRefs[2]);
+  SmallVector<unsigned, 4> LevelsAtStoreRef =
+      getIVLevels(MatrixRefs[0], &IsValid);
+
+  SmallVector<unsigned, 4> LevelsAtLoadRef1 =
+      getIVLevels(MatrixRefs[1], &IsValid);
+  SmallVector<unsigned, 4> LevelsAtLoadRef2 =
+      getIVLevels(MatrixRefs[2], &IsValid);
   SmallVector<unsigned, 4> OrderedLevelsToProc;
 
   OrderedLevelsToProc.push_back(LevelsAtStoreRef[0]);
+
   if (LevelsAtStoreRef.size() == 2) {
     // The iv at the second dimension of the store ref should be processed first
     // and the iv at first dimension should go last
@@ -739,6 +868,8 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
     }
   }
 
+  std::array<RegDDRef *, 3> FakeDDRef;
+
   // Process each of the mem refs and create dope vector structure for each
   for (int i = 0; i < 3; i++) {
     RegDDRef *DopeRef =
@@ -746,6 +877,10 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
                                     IsComplexType, OrderedLevelsToProc);
     // Collect the dope vector ref as argument
     CallArgs.push_back(DopeRef);
+
+    auto *FakeRvalRef = DopeRef->clone();
+    FakeRvalRef->setAddressOf(false);
+    FakeDDRef[i] = FakeRvalRef;
   }
 
   // Populate the argument vector with data type info and reset field
@@ -767,6 +902,11 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
       pNewFuncType);
   Function *MKLFunc = cast<Function>(MKLFuncCallee.getCallee());
   auto CallInst = HNU.createCall(MKLFunc, CallArgs, MKLFunc->getName());
+
+  for (int i = 0; i < 3; i++) {
+    CallInst->addFakeRvalDDRef(FakeDDRef[i]);
+  }
+
   HLNodeUtils::insertBefore(Loop, CallInst);
   LLVM_DEBUG(CallInst->dump(); dbgs() << "\n");
 
@@ -789,10 +929,11 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   HLNodeUtils::remove(Loop);
 }
 
-// Matches instructions like these-
-// %mul = (@a)[0][i1][i2]  *  (@b)[0][i2][i3]
+// Matches instructions like these
 // %mul = %50  *  (@b)[0][i2][i3]
-// And collect only the memrefs through parameters
+// %mul = (@b)[0][i2][i3] * %50
+// %mul = (%"matvec_$A")[i1][i2]  *  (%"matvec_$B")[i2];
+
 static bool matchMultiplication(const HLInst *Inst, const RegDDRef **RefA,
                                 const RegDDRef **RefB) {
   if (!Inst) {
@@ -812,22 +953,22 @@ static bool matchMultiplication(const HLInst *Inst, const RegDDRef **RefA,
     return false;
   }
 
-  // Save only the memrefs
-  if (!OperandRef1->isTerminalRef()) {
-    *RefA = OperandRef1;
+  // Both Temps?
+  if (OperandRef1->isTerminalRef() && OperandRef2->isTerminalRef()) {
+    return false;
   }
 
-  if (!OperandRef2->isTerminalRef()) {
-    *RefB = OperandRef2;
-  }
+  *RefA = OperandRef1;
+  *RefB = OperandRef2;
 
   return true;
 }
 
-// Matches instructions like these-
-// %add120 = %add120  +  %mul;
-// %add120 = (@c)[0][i1][i2]  +  %mul;
+// Match instruction like this
+// %add.1 = %mul.4  +  (@c)[0][i1][i2];
+
 static bool matchAddition(const HLInst *Inst, const RegDDRef **LoadRef) {
+
   if (!Inst) {
     return false;
   }
@@ -841,13 +982,15 @@ static bool matchAddition(const HLInst *Inst, const RegDDRef **LoadRef) {
   auto *RefA = Inst->getOperandDDRef(1);
   auto *RefB = Inst->getOperandDDRef(2);
 
-  if (*LoadRef != nullptr && (RefA->isMemRef() || RefB->isMemRef())) {
+  if (RefA->isMemRef() && RefB->isMemRef()) {
     LLVM_DEBUG(dbgs() << "Multiple load at addition is present.\n");
     return false;
   }
 
   if (RefA->isMemRef()) {
     *LoadRef = RefA;
+  } else if (RefB->isMemRef()) {
+    *LoadRef = RefB;
   }
 
   return true;
@@ -855,7 +998,7 @@ static bool matchAddition(const HLInst *Inst, const RegDDRef **LoadRef) {
 
 // Matches instructions like- (@c)[0][i1] = %add120;
 // And checks that the store ref with load ref are equal
-static bool checkStoreInstruction(HLInst *Inst, const RegDDRef *LoadRef,
+static bool checkStoreInstruction(const HLInst *Inst, const RegDDRef *LoadRef,
                                   const RegDDRef **StoreRef) {
   if (!Inst || !isa<StoreInst>(Inst->getLLVMInstruction())) {
     LLVM_DEBUG(dbgs() << "Store instruction not found.\n");
@@ -871,9 +1014,18 @@ static bool checkStoreInstruction(HLInst *Inst, const RegDDRef *LoadRef,
   return true;
 }
 
+bool static matchTemp(const RegDDRef *LvalTmp, const RegDDRef *RvalTmp) {
+
+  if (!LvalTmp->isSelfBlob() || !RvalTmp->isSelfBlob() ||
+      LvalTmp->getSelfBlobIndex() != RvalTmp->getSelfBlobIndex()) {
+    return false;
+  }
+  return true;
+}
+
 // Matches instructions like- %mul = %.unpack1317  *  %.unpack1321;
-bool static matchesTempMul(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
-                           RegDDRef *RvalTmp2) {
+bool static matchesTempMul(const HLInst *Inst, const RegDDRef **LvalTmp,
+                           const RegDDRef *RvalTmp1, const RegDDRef *RvalTmp2) {
   if (!Inst) {
     return false;
   }
@@ -884,8 +1036,8 @@ bool static matchesTempMul(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   }
 
   *LvalTmp = Inst->getLvalDDRef();
-  RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
-  RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
+  const RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
+  const RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
   if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob() ||
       FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex() ||
@@ -897,8 +1049,8 @@ bool static matchesTempMul(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
 }
 
 // Matches instructions like- %sub165 = %mul164  -  %mul;
-bool static matchesTempSub(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
-                           RegDDRef *RvalTmp2) {
+bool static matchesTempSub(const HLInst *Inst, const RegDDRef **LvalTmp,
+                           const RegDDRef *RvalTmp1, const RegDDRef *RvalTmp2) {
   if (!Inst) {
     return false;
   }
@@ -909,8 +1061,8 @@ bool static matchesTempSub(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   }
 
   *LvalTmp = Inst->getLvalDDRef();
-  RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
-  RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
+  const RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
+  const RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
   if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob() ||
       FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex() ||
@@ -922,8 +1074,8 @@ bool static matchesTempSub(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
 }
 
 // Matches instructions like- %add168 = %mul166  +  %mul167;
-bool static matchesTempAdd(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
-                           RegDDRef *RvalTmp2) {
+bool static matchesTempAdd(const HLInst *Inst, const RegDDRef **LvalTmp,
+                           const RegDDRef *RvalTmp1, const RegDDRef *RvalTmp2) {
   if (!Inst) {
     return false;
   }
@@ -934,8 +1086,8 @@ bool static matchesTempAdd(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   }
 
   *LvalTmp = Inst->getLvalDDRef();
-  RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
-  RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
+  const RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
+  const RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
   if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob()) {
     return false;
@@ -952,9 +1104,11 @@ bool static matchesTempAdd(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   return true;
 }
 
-// Matches instructions like- %add173 = (@c)[0][i1 + 1][i3 + 1].0 + %sub165;
-bool static matchesLoadTempAdd(HLInst *Inst, RegDDRef **LvalTmp,
-                               RegDDRef **LoadRef, RegDDRef *RvalTmp) {
+// Matches  %sub.1 = %mul.4  +  (%"cmatmul_$C3")[i1][i3].0;
+
+bool static matchesLoadTempAdd(const HLInst *Inst, const RegDDRef **LvalTmp,
+                               const RegDDRef *RvalTmp,
+                               const RegDDRef **LoadRef) {
   if (!Inst) {
     return false;
   }
@@ -965,220 +1119,341 @@ bool static matchesLoadTempAdd(HLInst *Inst, RegDDRef **LvalTmp,
   }
 
   *LvalTmp = Inst->getLvalDDRef();
-  RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
-  RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
+  const RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
+  const RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
-  if (!FirstOperand->isMemRef() || !SecondOperand->isSelfBlob()) {
+  if (!SecondOperand->isMemRef() || !FirstOperand->isSelfBlob()) {
     return false;
   }
 
-  if (SecondOperand->getSelfBlobIndex() != RvalTmp->getSelfBlobIndex()) {
+  if (FirstOperand->getSelfBlobIndex() != RvalTmp->getSelfBlobIndex()) {
     return false;
   }
 
-  *LoadRef = FirstOperand;
+  *LoadRef = SecondOperand;
 
   return true;
 }
 
 bool static matchesComplexMatmulInnermostLoopPattern(
-    HLLoop *Loop, SmallVector<const RegDDRef *, 3> &MatrixRefs,
-    RegDDRef *LvalTmp1, RegDDRef *LvalTmp2) {
-  const RegDDRef *RealLoad1 = nullptr;
-  const RegDDRef *RealLoad2 = nullptr;
+    const HLLoop *Loop, SmallVector<const RegDDRef *, 3> &MatrixRefs) {
 
-  // Match: %.unpack1315 = (@"main_$A3")[0][i2 + 1][i3 + 1].0;
-  HLInst *Inst = dyn_cast<HLInst>(Loop->getFirstChild());
+  const RegDDRef *LvalTmp1;
+  const RegDDRef *LvalTmp2;
+  const RegDDRef *LvalTmp3;
+  const RegDDRef *LvalTmp4;
+
+  const RegDDRef *RealLoadB;  // B3
+  const RegDDRef *RealLoadA;  // A3
+  const RegDDRef *RealLoadC;  // C3
+  const RegDDRef *RealStoreC; // C3
+
+  const RegDDRef *ImagLoadB;
+  const RegDDRef *ImagLoadA;
+  const RegDDRef *ImagLoadC;
+  const RegDDRef *ImagStoreC;
+
+  unsigned InnermostLoopLevel = Loop->getNestingLevel();
+
+  // In the innermost loop check first two loads
+  // Match:  %fetch.17 = (%"cmatmul_$B3")[i1][i2].0;
+  const auto *Inst = dyn_cast<HLInst>(Loop->getFirstChild());
+
   if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  RealLoad1 = Inst->getRvalDDRef();
-  RegDDRef *LvalTmp3 = Inst->getLvalDDRef();
-  SmallVector<unsigned, 4> IVLevelsAtRealLoad1 = getIVLevels(RealLoad1);
+  if (Loop->hasLiveOutTemps()) {
+    return false;
+  }
 
-  // Match: %.unpack1317 = (@"main_$A3")[0][i2 + 1][i3 + 1].1;
+  // %fetch.17
+  LvalTmp1 = Inst->getLvalDDRef();
+  RealLoadB = Inst->getRvalDDRef();
+
+  bool IsValid = true;
+  SmallVector<unsigned, 4> Levels1 = getIVLevels(RealLoadB, &IsValid, true);
+  if (!IsValid)
+    return false;
+
+  // Match: %fetch.18 = (%"cmatmul_$B3")[i1][i2].1;
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
   if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  if (RealLoad1->getSymbase() != Inst->getRvalDDRef()->getSymbase()) {
+  // %fetch.18
+  LvalTmp2 = Inst->getLvalDDRef();
+  ImagLoadB = Inst->getRvalDDRef();
+
+  if (!isComplexType(RealLoadB, ImagLoadB)) {
     return false;
   }
-  RegDDRef *LvalTmp4 = Inst->getLvalDDRef();
-  SmallVector<unsigned, 4> IVLevelsAtImagLoad1 =
-      getIVLevels(Inst->getRvalDDRef());
+
+  SmallVector<unsigned, 4> Levels1Temp =
+      getIVLevels(Inst->getRvalDDRef(), &IsValid, true);
+  if (!IsValid)
+    return false;
 
   // Compare IV levels
-  if (IVLevelsAtRealLoad1.size() != 2 || IVLevelsAtImagLoad1.size() != 2 ||
-      IVLevelsAtRealLoad1[0] != IVLevelsAtImagLoad1[0] ||
-      IVLevelsAtRealLoad1[1] != IVLevelsAtImagLoad1[1]) {
+  if (Levels1.size() != 2 || Levels1Temp.size() != 2 ||
+      Levels1[0] != Levels1Temp[0] || Levels1[1] != Levels1Temp[1]) {
     return false;
   }
 
-  // Match: %mul = %.unpack1317  *  %.unpack1321;
-  Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempMulRef1;
-  if (!matchesTempMul(Inst, &TempMulRef1, LvalTmp4, LvalTmp2) &&
-      !matchesTempMul(Inst, &TempMulRef1, LvalTmp2, LvalTmp4)) {
+  if (Levels1[0] != (InnermostLoopLevel - 1) ||
+      Levels1[1] != (InnermostLoopLevel - 2)) {
     return false;
   }
 
-  // Match: %mul164 = %.unpack1315  *  %.unpack1319;
+  // Match:  %fetch.13 = (%"cmatmul_$A3")[i2][i3].0;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempMulRef2;
-  if (!matchesTempMul(Inst, &TempMulRef2, LvalTmp3, LvalTmp1) &&
-      !matchesTempMul(Inst, &TempMulRef2, LvalTmp1, LvalTmp3)) {
+  if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  // Match: %sub165 = %mul164  -  %mul;
+  // %fetch13
+  LvalTmp3 = Inst->getLvalDDRef();
+  RealLoadA = Inst->getRvalDDRef();
+
+  SmallVector<unsigned, 4> IVLevelsAtRealLoadB =
+      getIVLevels(RealLoadA, &IsValid, true);
+  if (!IsValid)
+    return false;
+
+  // Match:   %fetch.14 = (%"cmatmul_$A3")[i2][i3].1;
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempSubRef;
-  if (!matchesTempSub(Inst, &TempSubRef, TempMulRef2, TempMulRef1)) {
+  if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  // Match: %mul166 = %.unpack1317  *  %.unpack1319;
+  // %fetch14
+  LvalTmp4 = Inst->getLvalDDRef();
+  ImagLoadA = Inst->getRvalDDRef();
+
+  if (!isComplexType(RealLoadA, ImagLoadA)) {
+    return false;
+  }
+
+  SmallVector<unsigned, 4> IVLevelsAtImagLoadB =
+      getIVLevels(ImagLoadA, &IsValid, true);
+
+  if (!IsValid)
+    return false;
+
+  // Compare IV levels
+  if (IVLevelsAtRealLoadB.size() != 2 || IVLevelsAtImagLoadB.size() != 2 ||
+      IVLevelsAtRealLoadB[0] != IVLevelsAtImagLoadB[0] ||
+      IVLevelsAtRealLoadB[1] != IVLevelsAtImagLoadB[1]) {
+    return false;
+  }
+
+  if (IVLevelsAtRealLoadB[0] != (InnermostLoopLevel) ||
+      IVLevelsAtRealLoadB[1] != (InnermostLoopLevel - 1)) {
+    return false;
+  }
+
+  // Match: %mul.4 = %fetch.17  *  %fetch.13;
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempMulRef3;
+
+  const RegDDRef *TempMulRef1;
+  if (!matchesTempMul(Inst, &TempMulRef1, LvalTmp1, LvalTmp3) &&
+      !matchesTempMul(Inst, &TempMulRef1, LvalTmp3, LvalTmp1)) {
+    return false;
+  }
+
+  // Match: %mul.6 = %fetch.18  *  %fetch.13;
+  Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
+  const RegDDRef *TempMulRef2;
+  if (!matchesTempMul(Inst, &TempMulRef2, LvalTmp3, LvalTmp2) &&
+      !matchesTempMul(Inst, &TempMulRef2, LvalTmp2, LvalTmp3)) {
+    return false;
+  }
+
+  // Match:  %mul.7 = %fetch.17  *  %fetch.14;
+
+  Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
+  const RegDDRef *TempMulRef3;
   if (!matchesTempMul(Inst, &TempMulRef3, LvalTmp4, LvalTmp1) &&
-      !matchesTempMul(Inst, &TempMulRef3, LvalTmp2, LvalTmp3)) {
+      !matchesTempMul(Inst, &TempMulRef3, LvalTmp1, LvalTmp4)) {
     return false;
   }
 
-  // Match: %mul167 = %.unpack1315  *  %.unpack1321;
+  // Match: %sub.1 = %mul.4  +  (%"cmatmul_$C3")[i1][i3].0;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempMulRef4;
-  if (!matchesTempMul(Inst, &TempMulRef4, LvalTmp3, LvalTmp2) &&
-      !matchesTempMul(Inst, &TempMulRef4, LvalTmp1, LvalTmp4)) {
+
+  const RegDDRef *TempAddRef1;
+
+  if (!matchesLoadTempAdd(Inst, &TempAddRef1, TempMulRef1, &RealLoadC)) {
     return false;
   }
 
-  // Match: %add168 = %mul166  +  %mul167;
+  SmallVector<unsigned, 4> IVLevelsAtRealLoadC =
+      getIVLevels(RealLoadC, &IsValid, true);
+  // Match: %6 = %fetch.18  *  %fetch.14;
+
+  if (!IsValid)
+    return false;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempAddRef1;
-  if (!matchesTempAdd(Inst, &TempAddRef1, TempMulRef3, TempMulRef4)) {
+
+  const RegDDRef *TempMulRef4;
+  if (!matchesTempMul(Inst, &TempMulRef4, LvalTmp2, LvalTmp4) &&
+      !matchesTempMul(Inst, &TempMulRef4, LvalTmp4, LvalTmp2)) {
     return false;
   }
 
-  // Match: %add173 = (@"main_$C3")[0][i1 + 1][i3 + 1].0  +  %sub165;
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempAddRef2;
-  RegDDRef *LoadRef1;
-  if (!matchesLoadTempAdd(Inst, &TempAddRef2, &LoadRef1, TempSubRef)) {
+
+  // Match: %add.2 = %sub.1  -  %6;
+
+  const RegDDRef *TempSubRef;
+  if (!matchesTempSub(Inst, &TempSubRef, TempAddRef1, TempMulRef4)) {
     return false;
   }
 
-  // Match: %add176 = (@"main_$C3")[0][i1 + 1][i3 + 1].1  +  %add168;
+  // Match: %add.1 = %mul.7  +  (%"cmatmul_$C3")[i1][i3].1;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  RegDDRef *TempAddRef3;
-  RegDDRef *LoadRef2;
-  if (!matchesLoadTempAdd(Inst, &TempAddRef3, &LoadRef2, TempAddRef1)) {
+
+  const RegDDRef *TempAddRef3;
+
+  if (!matchesLoadTempAdd(Inst, &TempAddRef3, TempMulRef3, &ImagLoadC)) {
     return false;
   }
 
-  if (LoadRef1->getSymbase() != LoadRef2->getSymbase()) {
-    return false;
-  }
+  SmallVector<unsigned, 4> IVLevelsAtImagLoadC =
+      getIVLevels(ImagLoadC, &IsValid, true);
 
-  // Match: (@"main_$C3")[0][i1 + 1][i3 + 1].0 = %add173;
+  if (!IsValid)
+    return false;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
+  // Match:  %add.3 = %add.1  +  %mul.6;
+
+  const RegDDRef *TempAddRef4;
+  if (!matchesTempAdd(Inst, &TempAddRef4, TempAddRef3, TempMulRef2)) {
+    return false;
+  }
+
+  // Compare IV levels
+  if (IVLevelsAtRealLoadC.size() != 2 || IVLevelsAtImagLoadC.size() != 2 ||
+      IVLevelsAtRealLoadC[0] != IVLevelsAtImagLoadC[0] ||
+      IVLevelsAtRealLoadC[1] != IVLevelsAtImagLoadC[1]) {
+    return false;
+  }
+
+  if (IVLevelsAtRealLoadC[0] != (InnermostLoopLevel) ||
+      IVLevelsAtRealLoadC[1] != (InnermostLoopLevel - 2)) {
+    return false;
+  }
+
+  // Match:   (%"cmatmul_$C3")[i1][i3].0 = %add.2;
+
+  Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
   if (!Inst || !isa<StoreInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  RealLoad2 = Inst->getLvalDDRef();
-  if (RealLoad2->getSymbase() != LoadRef2->getSymbase()) {
+  RealStoreC = Inst->getLvalDDRef();
+
+  if (!CanonExprUtils::areEqual(RealStoreC->getBaseCE(),
+                                RealLoadC->getBaseCE())) {
     return false;
   }
 
-  if (!DDRefUtils::areEqual(Inst->getRvalDDRef(), TempAddRef2)) {
+  if (!DDRefUtils::areEqual(Inst->getRvalDDRef(), TempSubRef)) {
     return false;
   }
 
-  // Match: (@"main_$C3")[0][i1 + 1][i3 + 1].1 = %add176;
+  // Match:  (%"cmatmul_$C3")[i1][i3].1 = %add.3;
+
   Inst = dyn_cast<HLInst>(Inst->getNextNode());
+
   if (!Inst || !isa<StoreInst>(Inst->getLLVMInstruction())) {
     return false;
   }
 
-  if (RealLoad2->getSymbase() != Inst->getLvalDDRef()->getSymbase()) {
+  ImagStoreC = Inst->getLvalDDRef();
+
+  if (!isComplexType(RealStoreC, ImagStoreC)) {
     return false;
   }
 
-  if (!DDRefUtils::areEqual(Inst->getRvalDDRef(), TempAddRef3)) {
+  if (!DDRefUtils::areEqual(Inst->getRvalDDRef(), TempAddRef4)) {
     return false;
   }
 
-  // Collect mem refs
-  MatrixRefs.push_back(RealLoad2);
-  MatrixRefs.push_back(RealLoad1);
+  if (Inst->getNextNode()) {
+    return false;
+  }
+
+  // Collect MemRefs
+  MatrixRefs.push_back(RealLoadC); // C3
+  MatrixRefs.push_back(RealLoadA); // A3
+
   return true;
 }
 
-// Example of multiplication of a matrix with a vector-
-// DO i1 = 0, 999, 1   <DO_LOOP>
-//   %add120 = (@c)[0][i1];
+// Multiplication of a matrix with a vector
+// Sinking is done prior to this pass
 //
-//   + DO i2 = 0, 999, 1   <DO_LOOP>
-//   |   %mul = (@b)[0][i2]  *  (@a)[0][i1][i2];
-//   |   %add120 = %add120  +  %mul;
-//   + END LOOP
-//
-//   (@c)[0][i1] = %add120;
-// END LOOP
+//  + DO i1 = 0, 4095, 1   <DO_LOOP>
+//  |   + DO i2 = 0, 4095, 1   <DO_LOOP>
+//  |   |   %add.113 = (%"matvec_$C")[i1];
+//  |   |   %mul.2 = (%"matvec_$A")[i1][i2]  *  (%"matvec_$B")[i2];
+//  |   |   %add.113 = %mul.2  +  %add.113;
+//  |   |   (%"matvec_$C")[i1] = %add.113;
+//  |   + END LOOP
+//  + END LOOP
+
 bool HIRGenerateMKLCall::isMatVecMul(
     HLLoop *Loop, SmallVector<const RegDDRef *, 3> &MatrixRefs,
     SmallVector<const RegDDRef *, 3> &TripCountDDRefs, bool *IsZeroSet) const {
   LLVM_DEBUG(dbgs() << "\nIn vecmul pattern matching:\n"; Loop->dump());
 
-  // Before the innermost loop we can have the load instruction
-  auto FirstChild = Loop->getFirstChild();
+  bool IsValid = true;
   *IsZeroSet = false;
 
+  const HLLoop *InnermostLoop;
+
+  if (!(HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop))) {
+    return false;
+  }
+
+  if (Loop->getFirstChild() != InnermostLoop) {
+    return false;
+  }
+
+  if (InnermostLoop->hasLiveOutTemps()) {
+    return false;
+  }
   // LoadRef stores the initial load value of the output matrix
   const RegDDRef *InitialLoadRef;
-  HLInst *InitialLoad = dyn_cast<HLInst>(FirstChild);
+
+  //  %add.113 = (%"matvec_$C")[i1]
+  const HLInst *InitialLoad = dyn_cast<HLInst>(InnermostLoop->getFirstChild());
+
   if (!InitialLoad || !isa<LoadInst>(InitialLoad->getLLVMInstruction())) {
     return false;
   }
+
   InitialLoadRef = InitialLoad->getRvalDDRef();
-
-  // Check for innermost loop
-  HLLoop *InnermostLoop = dyn_cast<HLLoop>(FirstChild->getNextNode());
-
-  if (!InnermostLoop) {
-    LLVM_DEBUG(dbgs() << "Innermost loop missing.\n");
-    return false;
-  }
-  // For the first pattern store comes as last child of second level loop
-  if (!InnermostLoop->getNextNode()) {
-    return false;
-  }
 
   // Innermost loop contains multiplications and additions
   const RegDDRef *LoadRef1 = nullptr;
   const RegDDRef *LoadRef2 = nullptr;
-  HLInst *FirstInst = dyn_cast<HLInst>(InnermostLoop->getFirstChild());
+  const HLInst *MultiplyInst = dyn_cast<HLInst>(InitialLoad->getNextNode());
 
-  // Match:  %mul = (@b)[0][i2]  *  (@a)[0][i1][i2];
-  if (!matchMultiplication(FirstInst, &LoadRef1, &LoadRef2)) {
-    return false;
-  }
-
-  // Memref initialization check
-  // For some patterns one of the loads of input matrix  may get hoisted out
-  // We need to initialize LoadRef1 or LoadRef2 from that load and reinitialize
-  // InitialLoadRef to null. See similar example IR at isMatMul()
-  // TODO: add example IR
-  if (!LoadRef1 && InitialLoadRef) {
-    std::swap(LoadRef1, InitialLoadRef);
-  } else if (!LoadRef2 && InitialLoadRef) {
-    std::swap(LoadRef2, InitialLoadRef);
-  } else if (!LoadRef1 || !LoadRef2) {
-    LLVM_DEBUG(dbgs() << "Multiplication does not involve two memrefs.\n");
+  // Match:  %mul.2 = (%"matvec_$A")[i1][i2]  *  (%"matvec_$B")[i2];
+  if (!matchMultiplication(MultiplyInst, &LoadRef1, &LoadRef2)) {
     return false;
   }
 
@@ -1190,17 +1465,31 @@ bool HIRGenerateMKLCall::isMatVecMul(
 
   // Second child of the innermost loop is the addition
   // InitialLoadRef can get populated from this instruction
-  // Match: %add120 = %add120  +  %mul;
-  HLInst *SecondInst = dyn_cast<HLInst>(FirstInst->getNextNode());
-  if (!matchAddition(SecondInst, &InitialLoadRef)) {
+  // Match: %add.113 = %mul.2  +  %add.113;
+
+  const HLInst *AddInst = dyn_cast<HLInst>(MultiplyInst->getNextNode());
+  if (!matchAddition(AddInst, &InitialLoadRef)) {
     return false;
   }
 
-  HLInst *ThirdInst = dyn_cast<HLInst>(InnermostLoop->getNextNode());
+  const HLInst *StoreInst = dyn_cast<HLInst>(AddInst->getNextNode());
 
-  // Match: (@c)[0][i1] = %add120;
+  if (!StoreInst) {
+    return false;
+  }
+
+  // Match:  (%"matvec_$C")[i1] = %add.113;
   const RegDDRef *StoreRef = nullptr;
-  if (!checkStoreInstruction(ThirdInst, InitialLoadRef, &StoreRef)) {
+  if (!checkStoreInstruction(StoreInst, InitialLoadRef, &StoreRef)) {
+    return false;
+  }
+
+  // Match: Def and use of %add.113
+  if (!matchTemp(InitialLoad->getLvalDDRef(), StoreInst->getRvalDDRef())) {
+    return false;
+  }
+
+  if (StoreInst->getNextNode()) {
     return false;
   }
 
@@ -1215,19 +1504,31 @@ bool HIRGenerateMKLCall::isMatVecMul(
   unsigned NumDims2 = LoadRef2->getNumDimensions();
   unsigned NumDims3 = StoreRef->getNumDimensions();
 
-  if (!((NumDims1 == 2 && NumDims2 == 2 && NumDims3 == 2) ||
-        (NumDims1 == 2 && NumDims2 == 1 && NumDims3 == 2) ||
+  if (!((NumDims1 == 2 && NumDims2 == 1 && NumDims3 == 1) ||
+        (NumDims1 == 1 && NumDims2 == 2 && NumDims3 == 1) ||
         (NumDims1 == 2 && NumDims2 == 3 && NumDims3 == 2) ||
         (NumDims1 == 3 && NumDims2 == 2 && NumDims3 == 2))) {
-    LLVM_DEBUG(dbgs() << "Number of dimensions not fit for vecmul.\n");
+    LLVM_DEBUG(dbgs() << "Number of dimensions not fit for vecmul\n");
     return false;
   }
 
   // Check IV levels in 3 memrefs
-  SmallVector<unsigned, 4> Levels1 = getIVLevels(LoadRef1); // 2   // 3 2
-  SmallVector<unsigned, 4> Levels2 = getIVLevels(LoadRef2); // 2 1 // 3
-  SmallVector<unsigned, 4> Levels3 = getIVLevels(StoreRef); // 1   // 2
+  SmallVector<unsigned, 4> Levels1 =
+      getIVLevels(LoadRef1, &IsValid, true); // 2   // 3 2
+  if (!IsValid)
+    return false;
 
+  SmallVector<unsigned, 4> Levels2 =
+      getIVLevels(LoadRef2, &IsValid, true); // 2 1 // 3
+  if (!IsValid)
+    return false;
+
+  SmallVector<unsigned, 4> Levels3 =
+      getIVLevels(StoreRef, &IsValid, true); // 1   // 2
+  if (!IsValid)
+    return false;
+
+  // A(i2,i1) comes before B(i2)
   if (Levels1.size() > 1) {
     if (Levels1[0] != Levels2[0] || Levels1[1] != Levels3[0]) {
       LLVM_DEBUG(dbgs() << "IV leveles mismatch for matmul.\n");
@@ -1240,6 +1541,11 @@ bool HIRGenerateMKLCall::isMatVecMul(
     }
   }
 
+  //  Check explict index level = nesting level - 1 for store C[i1]
+  if (Levels3[0] != (InnermostLoop->getNestingLevel() - 1)) {
+    return false;
+  }
+
   TripCountDDRefs = {Loop->getTripCountDDRef(),
                      InnermostLoop->getTripCountDDRef(),
                      InnermostLoop->getTripCountDDRef()};
@@ -1250,34 +1556,41 @@ bool HIRGenerateMKLCall::isMatVecMul(
   return true;
 }
 
-// Complex matrix multiplication example-
-//+ DO i1 = 0, 49, 1   <DO_LOOP>
-//|   + DO i2 = 0, 49, 1   <DO_LOOP>
-//|   |   %.unpack1319 = (@"main_$B3")[0][i1 + 1][i2 + 1].0;
-//|   |   %.unpack1321 = (@"main_$B3")[0][i1 + 1][i2 + 1].1;
-//|   |
-//|   |   + DO i3 = 0, 49, 1   <DO_LOOP>
-//|   |   |   %.unpack1315 = (@"main_$A3")[0][i2 + 1][i3 + 1].0;
-//|   |   |   %.unpack1317 = (@"main_$A3")[0][i2 + 1][i3 + 1].1;
-//|   |   |   %mul = %.unpack1317  *  %.unpack1321;
-//|   |   |   %mul164 = %.unpack1315  *  %.unpack1319;
-//|   |   |   %sub165 = %mul164  -  %mul;
-//|   |   |   %mul166 = %.unpack1317  *  %.unpack1319;
-//|   |   |   %mul167 = %.unpack1315  *  %.unpack1321;
-//|   |   |   %add168 = %mul166  +  %mul167;
-//|   |   |   %add173 = (@"main_$C3")[0][i1 + 1][i3 + 1].0  +  %sub165;
-//|   |   |   %add176 = (@"main_$C3")[0][i1 + 1][i3 + 1].1  +  %add168;
-//|   |   |   (@"main_$C3")[0][i1 + 1][i3 + 1].0 = %add173;
-//|   |   |   (@"main_$C3")[0][i1 + 1][i3 + 1].1 = %add176;
-//|   |   + END LOOP
-//|   + END LOOP
-//+ END LOOP
+// Complex matrix multiplication example
+
+//    + DO i1 = 0, 49, 1   <DO_LOOP>
+//    |   + DO i2 = 0, 49, 1   <DO_LOOP>
+//    |   |   + DO i3 = 0, 49, 1   <DO_LOOP>
+//    |   |   |   %fetch.17 = (%"cmatmul_$B3")[i1][i2].0;
+//    |   |   |   %fetch.18 = (%"cmatmul_$B3")[i1][i2].1;
+//    |   |   |   %fetch.13 = (%"cmatmul_$A3")[i2][i3].0;
+//    |   |   |   %fetch.14 = (%"cmatmul_$A3")[i2][i3].1;
+//    |   |   |   %mul.4 = %fetch.17  *  %fetch.13;
+//    |   |   |   %mul.6 = %fetch.18  *  %fetch.13;
+//    |   |   |   %mul.7 = %fetch.17  *  %fetch.14;
+//    |   |   |   %sub.1 = %mul.4  +  (%"cmatmul_$C3")[i1][i3].0;
+//    |   |   |   %6 = %fetch.18  *  %fetch.14;
+//    |   |   |   %add.2 = %sub.1  -  %6;
+//    |   |   |   %add.1 = %mul.7  +  (%"cmatmul_$C3")[i1][i3].1;
+//    |   |   |   %add.3 = %add.1  +  %mul.6;
+//    |   |   |   (%"cmatmul_$C3")[i1][i3].0 = %add.2;
+//    |   |   |   (%"cmatmul_$C3")[i1][i3].1 = %add.3;
+//    |   |   + END LOOP
+//    |   + END LOOP
+//    + END LOOP
+
 bool HIRGenerateMKLCall::isComplexMatmul(
     HLLoop *Loop, SmallVector<const RegDDRef *, 3> &MatrixRefs,
     SmallVector<const RegDDRef *, 3> &TripCountDDRefs, bool *IsZeroSet) const {
   LLVM_DEBUG(dbgs() << "\nIn complex matmul pattern matching:\n"; Loop->dump());
 
-  const RegDDRef *LoadRef1 = nullptr;
+  const HLLoop *InnermostLoop;
+
+  if (!(HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop))) {
+    return false;
+  }
+
+  const RegDDRef *LoadRef1;
   *IsZeroSet = false;
 
   // STEP 1: Check for second level loop
@@ -1287,46 +1600,15 @@ bool HIRGenerateMKLCall::isComplexMatmul(
     return false;
   }
 
-  // Before the innermost loop we have two loads
-  // Match: %.unpack1319 = (@"main_$B3")[0][i1 + 1][i2 + 1].0;
-  HLInst *Inst = dyn_cast<HLInst>(ChildLoop->getFirstChild());
-  if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
+  // STEP 2: Check for innermost loop Matrix Refs
+
+  if (!matchesComplexMatmulInnermostLoopPattern(InnermostLoop, MatrixRefs)) {
     return false;
   }
 
+  const auto *Inst = dyn_cast<HLInst>(InnermostLoop->getFirstChild());
   LoadRef1 = Inst->getRvalDDRef();
-  RegDDRef *LvalTmp1 = Inst->getLvalDDRef();
-  SmallVector<unsigned, 4> Levels1 = getIVLevels(LoadRef1);
 
-  // Match: %.unpack1321 = (@"main_$B3")[0][i1 + 1][i2 + 1].1;
-  Inst = dyn_cast<HLInst>(Inst->getNextNode());
-  if (!Inst || !isa<LoadInst>(Inst->getLLVMInstruction())) {
-    return false;
-  }
-
-  if (LoadRef1->getSymbase() != Inst->getRvalDDRef()->getSymbase()) {
-    return false;
-  }
-  RegDDRef *LvalTmp2 = Inst->getLvalDDRef();
-  SmallVector<unsigned, 4> Levels1Temp = getIVLevels(Inst->getRvalDDRef());
-
-  // Compare IV levels
-  if (Levels1.size() != 2 || Levels1Temp.size() != 2 ||
-      Levels1[0] != Levels1Temp[0] || Levels1[1] != Levels1Temp[1]) {
-    return false;
-  }
-
-  // STEP 2: Check for innermost loop
-  HLLoop *InnermostLoop = dyn_cast<HLLoop>(Inst->getNextNode());
-  if (!InnermostLoop) {
-    LLVM_DEBUG(dbgs() << "Innermost loop missing.\n");
-    return false;
-  }
-
-  if (!matchesComplexMatmulInnermostLoopPattern(InnermostLoop, MatrixRefs,
-                                                LvalTmp1, LvalTmp2)) {
-    return false;
-  }
   MatrixRefs.push_back(LoadRef1);
   TripCountDDRefs = {Loop->getTripCountDDRef(), ChildLoop->getTripCountDDRef(),
                      InnermostLoop->getTripCountDDRef()};
@@ -1334,152 +1616,142 @@ bool HIRGenerateMKLCall::isComplexMatmul(
   return true;
 }
 
-// Matrix multiplication example-
-// DO i1 = 0, 499, 1   <DO_LOOP>
-//   + DO i2 = 0, 499, 1   <DO_LOOP>
-//   |   %add44 = 0.000000e+00;
-//   |
-//   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-//   |   |   %mul = (@a)[0][i1][i3]  *  (@b)[0][i3][i2];
-//   |   |   %add44 = %add44  +  %mul;
-//   |   + END LOOP
-//   |
-//   |   (@c)[0][i1][i2] = %add44;
-//   + END LOOP
-// END LOOP
+//   Matrix multiplication
+//   Interchange and Sinking are done prior to this pass
+//   matmul pattern occurs mostly in this form:
+//
+//    + DO i1 = 0, 4095, 1   <DO_LOOP>
+//    |   + DO i2 = 0, 4095, 1   <DO_LOOP>
+//    |   |   + DO i3 = 0, 4095, 1   <DO_LOOP>
+//    |   |   |   %"cmatmul_$B3[][]_fetch.9" = (%"cmatmul_$B3")[i1][i2];
+//    |   |   |   %mul.4 = %"cmatmul_$B3[][]_fetch.9"  *
+//    (%"cmatmul_$A3")[i2][i3]; |   |   |   %add.1 = %mul.4  +
+//    (%"cmatmul_$C3")[i1][i3]; |   |   |   (%"cmatmul_$C3")[i1][i3] = %add.1;
+//    |   |   + END LOOP
+//    |   + END LOOP
+//    + END LOOP
+//
+//    But this pattern may occur  (TODO: Not important for now)
+//    + DO i1 = 0, 4095, 1   <DO_LOOP>
+//    |   + DO i2 = 0, 4095, 1   <DO_LOOP>
+//    |   |   + DO i3 = 0, 4095, 1   <DO_LOOP>
+//    |   |   |   %add  = (%"cmatmul_$C3")[i1][i3];
+//    |   |   |   %mul =  (%"cmatmul_$B3")[i1][i2] * (%"cmatmul_$A3")[i2][i3];
+//    |   |   |   %add =  %mul + %add;
+//    |   |   |   (%"cmatmul_$C3")[i1][i3] = %add;
+//    |   |   + END LOOP
+//    |   + END LOOP
+//    + END LOOP
+//
+//    For Linearized form, this pattern occurs  (TODO: Not important for now,
+//    requiring new code to invoke delinerization)
+//    + DO i1 = 0, zext.i32.i64(%M)
+//    |   + DO i2 = 0, sext.i32.i64(%N)
+//    |   |   + DO i3 = 0, sext.i32.i64(%K)
+//    |   |   |   %8 = (%A)[zext.i32.i64(%N) * i1 + i2];
+//    |   |   |   %mul11 = (%B)[sext.i32.i64(%K) * i2 + i3]  *  %8;
+//    |   |   |   %add16 = (%C)[sext.i32.i64(%K) * i1 + i3]  +  %mul11;
+//    |   |   |   (%C)[sext.i32.i64(%K) * i1 + i3] = %add16;
+//    |   |   + END LOOP
+//    |   + END LOOP
+//    + END LOOP
+
 bool HIRGenerateMKLCall::isMatmul(
     HLLoop *Loop, SmallVector<const RegDDRef *, 3> &MatrixRefs,
     SmallVector<const RegDDRef *, 3> &TripCountDDRefs, bool *IsZeroSet) const {
   LLVM_DEBUG(dbgs() << "\nIn matmul pattern matching:\n"; Loop->dump());
 
-  // STEP 1: Check for second level loop
-  HLLoop *ChildLoop = dyn_cast<HLLoop>(Loop->getFirstChild());
-  if (!ChildLoop) {
-    LLVM_DEBUG(dbgs() << "Second level loop missing.\n");
+  bool IsValid = true;
+
+  const HLLoop *InnermostLoop;
+
+  // Check for second level loop
+  HLLoop *SecondLoop = dyn_cast<HLLoop>(Loop->getFirstChild());
+  if (!SecondLoop) {
     return false;
   }
 
-  // Before the innermost loop we can have an optional assignment or a load
-  // Match: %add44 = 0.000000e+00;
-  bool TempAssignment = false;
-  auto Itr = ChildLoop->child_begin();
-  ConstantFP *FC = nullptr;
-  HLInst *Assignment = dyn_cast<HLInst>(&*Itr);
-
-  if (Assignment && Assignment->getLvalDDRef() &&
-      Assignment->getLvalDDRef()->isTerminalRef() &&
-      Assignment->getRvalDDRef() &&
-      (Assignment->getRvalDDRef()->isFPConstant(&FC) ||
-       isa<LoadInst>(Assignment->getLLVMInstruction()))) {
-    TempAssignment = true;
-    Itr++;
-  }
-
-  // Check for zero initialized or track the memref in case of load
-  const RegDDRef *InitialLoadRef = nullptr;
-  if (FC && !FC->isZero()) {
-    LLVM_DEBUG(dbgs() << "Non-zero initialization of output array.\n");
-    return false;
-  } else if (Assignment && isa<LoadInst>(Assignment->getLLVMInstruction())) {
-    InitialLoadRef = Assignment->getRvalDDRef();
-  } else if (FC) {
-    *IsZeroSet = true;
-  }
-
-  // STEP 2: Check for innermost loop
-  HLLoop *InnermostLoop = dyn_cast<HLLoop>(&*Itr);
-  if (!InnermostLoop) {
-    LLVM_DEBUG(dbgs() << "Innermost loop missing.\n");
+  if (!(HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop))) {
     return false;
   }
 
-  // Innermost loop contains the initialization (with a load, if not at second
-  // level loop), multiplications and additions
-  auto InnerItr = InnermostLoop->child_begin();
-  if (!TempAssignment) {
-    HLInst *InitialLoad = dyn_cast<HLInst>(&*InnerItr);
-    if (!InitialLoad || !isa<LoadInst>(InitialLoad->getLLVMInstruction())) {
-      LLVM_DEBUG(dbgs() << "Unwanted instructions inside innermost loop.\n");
-      return false;
-    }
-    InnerItr++;
-
-    auto I = InitialLoad->rval_op_ddref_begin();
-    if (InitialLoadRef) {
-      LLVM_DEBUG(dbgs() << "Another load exists before this!");
-      return false;
-    }
-    InitialLoadRef = *I;
-  }
-
-  // Match: %mul = (@a)[0][i1][i3]  *  (@b)[0][i3][i2];
-  const RegDDRef *LoadRef1 = nullptr;
-  const RegDDRef *LoadRef2 = nullptr;
-  HLInst *FirstInst = dyn_cast<HLInst>(&*InnerItr);
-  if (!matchMultiplication(FirstInst, &LoadRef1, &LoadRef2)) {
+  if (InnermostLoop != dyn_cast<HLLoop>(SecondLoop->getFirstChild())) {
     return false;
   }
 
-  // Memref initialization check
-  // For some patterns one of the loads of input matrix  may get hoisted out
-  // We need to initialize LoadRef1 or LoadRef2 from that load and reinitialize
-  // InitialLoadRef to null
-  // + DO i1 = 0, zext.i32.i64((1 + %"matmul_$N1")) + -2, 1   <DO_LOOP>
-  // |   + DO i2 = 0, zext.i32.i64((1 + %"matmul_$N1")) + -2, 1   <DO_LOOP>
-  // |   |   %5 = (%"matmul_$B")[i1 + 1][i2 + 1];
-  // |   |
-  // |   |   + DO i3 = 0, zext.i32.i64((1 + %"matmul_$N1")) + -2, 1   <DO_LOOP>
-  // |   |   |   %mul64 = (%"matmul_$A")[i2 + 1][i3 + 1]  *  %5;
-  // |   |   |   %add65 = (%"matmul_$C")[i1 + 1][i3 + 1]  +  %mul64;
-  // |   |   |   (%"matmul_$C")[i1 + 1][i3 + 1] = %add65;
-  // |   |   + END LOOP
-  // |   + END LOOP
-  // + END LOOP
-  if (!LoadRef1 && InitialLoadRef) {
-    std::swap(LoadRef1, InitialLoadRef);
-  } else if (!LoadRef2 && InitialLoadRef) {
-    std::swap(LoadRef2, InitialLoadRef);
-  } else if (!LoadRef1 || !LoadRef2) {
-    LLVM_DEBUG(dbgs() << "Multiplication does not involve two memrefs.\n");
+  if (InnermostLoop->hasLiveOutTemps()) {
     return false;
   }
 
-  // Second child of the innermost loop is the addition
-  // InitialLoadRef can get populated from this instruction
-  // Match: %add44 = %add44  +  %mul;
-  InnerItr++;
-  HLInst *SecondInst = dyn_cast<HLInst>(&*InnerItr);
-  if (!matchAddition(SecondInst, &InitialLoadRef)) {
+  const HLInst *FirstLoadInst =
+      dyn_cast<HLInst>(InnermostLoop->getFirstChild());
+
+  // First load:   %"cmatmul_$B3[][]_fetch.9" = (%"cmatmul_$B3")[i1][i2]
+  if (!FirstLoadInst || !isa<LoadInst>(FirstLoadInst->getLLVMInstruction())) {
+    LLVM_DEBUG(dbgs() << "Unwanted instructions inside innermost loop.\n");
     return false;
   }
 
-  // For the first pattern store comes as last child of the innermost loop
-  // Otherwise it will in the second level loop
-  InnerItr++;
-  Itr++;
-  HLInst *ThirdInst = nullptr;
-  if (InnerItr != InnermostLoop->child_end()) {
-    ThirdInst = dyn_cast<HLInst>(&*InnerItr);
-  } else if (Itr != ChildLoop->child_end()) {
-    ThirdInst = dyn_cast<HLInst>(&*Itr);
+  const RegDDRef *LvalTmp1 = FirstLoadInst->getLvalDDRef();
+  const RegDDRef *LoadRef1 = FirstLoadInst->getRvalDDRef();
+
+  // Match: %mul.4 = %"cmatmul_$B3[][]_fetch.9" * (%"cmatmul_$A3")[i2][i3]
+
+  const HLInst *MultiplyInst = dyn_cast<HLInst>(FirstLoadInst->getNextNode());
+
+  const RegDDRef *MulOperand1 = nullptr;
+  const RegDDRef *MulOperand2 = nullptr;
+
+  if (!matchMultiplication(MultiplyInst, &MulOperand1, &MulOperand2)) {
+    return false;
   }
 
-  // Match: (@c)[0][i1][i2] = %add44;
-  const RegDDRef *StoreRef = nullptr;
-  if (!checkStoreInstruction(ThirdInst, InitialLoadRef, &StoreRef)) {
+  // One of them has to be a temp
+  if (MulOperand1->isMemRef() && MulOperand2->isMemRef()) {
+    return false;
+  }
+
+  const RegDDRef *LoadRef2;
+
+  if (MulOperand1->isMemRef())
+    LoadRef2 = MulOperand1;
+  else
+    LoadRef2 = MulOperand2;
+
+  // Match: Def and use of  %"cmatmul_$B3[][]_fetch.9"
+  if (!matchTemp(MulOperand1, LvalTmp1) && !matchTemp(MulOperand2, LvalTmp1)) {
+    LLVM_DEBUG(dbgs() << "Multiplication tmp does not match \n");
+    return false;
+  }
+
+  // Match:  %add.1 = %mul.4  +  (%"cmatmul_$C3")[i1][i3]
+  const HLInst *AddInst = dyn_cast<HLInst>(MultiplyInst->getNextNode());
+  const RegDDRef *C3LoadRef;
+  if (!matchAddition(AddInst, &C3LoadRef)) {
+    return false;
+  }
+
+  // Match: (%"cmatmul_$C3")[i1][i3] = %add.1
+  const HLInst *StoreInst = dyn_cast<HLInst>(AddInst->getNextNode());
+  const RegDDRef *C3StoreRef = nullptr;
+  if (!checkStoreInstruction(StoreInst, C3LoadRef, &C3StoreRef)) {
+    return false;
+  }
+
+  if (StoreInst->getNextNode()) {
     return false;
   }
 
   // Check that all symbases are different
-  if (LoadRef1->getSymbase() == StoreRef->getSymbase() ||
-      LoadRef2->getSymbase() == StoreRef->getSymbase()) {
+  if (LoadRef1->getSymbase() == C3StoreRef->getSymbase() ||
+      LoadRef2->getSymbase() == C3StoreRef->getSymbase()) {
     return false;
   }
 
   // Number of dimensions check
   unsigned NumDims1 = LoadRef1->getNumDimensions();
   unsigned NumDims2 = LoadRef2->getNumDimensions();
-  unsigned NumDims3 = StoreRef->getNumDimensions();
+  unsigned NumDims3 = C3StoreRef->getNumDimensions();
 
   if (!((NumDims1 == 2 && NumDims2 == 2 && NumDims3 == 2) ||
         (NumDims1 == 1 && NumDims2 == 1 && NumDims3 == 1) ||
@@ -1491,23 +1763,35 @@ bool HIRGenerateMKLCall::isMatmul(
   }
 
   // Check IV levels in 3 memrefs
-  SmallVector<unsigned, 4> Levels1 = getIVLevels(LoadRef1); // 1 2 // 2 1 // 1 3
-  SmallVector<unsigned, 4> Levels2 = getIVLevels(LoadRef2); // 2 3 // 3 2 // 2 3
-  SmallVector<unsigned, 4> Levels3 = getIVLevels(StoreRef); // 1 3 // 3 1 // 1 2
+  SmallVector<unsigned, 4> Levels1 =
+      getIVLevels(LoadRef1, &IsValid, true); // 1 2 // 2 1 // 1 3
+  if (!IsValid) {
+    return false;
+  }
+
+  SmallVector<unsigned, 4> Levels2 =
+      getIVLevels(LoadRef2, &IsValid, true); // 2 3 // 3 2 // 2 3
+  if (!IsValid) {
+    return false;
+  }
+
+  SmallVector<unsigned, 4> Levels3 =
+      getIVLevels(C3StoreRef, &IsValid, true); // 1 3 // 3 1 // 1 2
+  if (!IsValid) {
+    return false;
+  }
 
   if (!((Levels1[0] == Levels2[1] && Levels1[1] == Levels3[1] &&
          Levels2[0] == Levels3[0]) ||
         (Levels1[1] == Levels2[0] && Levels1[0] == Levels3[0] &&
-         Levels2[1] == Levels3[1]) ||
-        (Levels1[0] == Levels3[0] && Levels1[1] == Levels2[1] &&
-         Levels2[0] == Levels3[1]))) {
-    LLVM_DEBUG(dbgs() << "IV leveles mismatch for matmul.\n");
+         Levels2[1] == Levels3[1]))) {
+    LLVM_DEBUG(dbgs() << "IV levels mismatch for matmul\n");
     return false;
   }
 
   SmallSet<unsigned, 4> NestingLevels;
   NestingLevels.insert(Loop->getNestingLevel());
-  NestingLevels.insert(ChildLoop->getNestingLevel());
+  NestingLevels.insert(SecondLoop->getNestingLevel());
   NestingLevels.insert(InnermostLoop->getNestingLevel());
 
   if (!(NestingLevels.count(Levels1[0]) && NestingLevels.count(Levels1[1]) &&
@@ -1516,10 +1800,10 @@ bool HIRGenerateMKLCall::isMatmul(
     return false;
   }
 
-  TripCountDDRefs = {Loop->getTripCountDDRef(), ChildLoop->getTripCountDDRef(),
+  TripCountDDRefs = {Loop->getTripCountDDRef(), SecondLoop->getTripCountDDRef(),
                      InnermostLoop->getTripCountDDRef()};
 
-  MatrixRefs.push_back(StoreRef);
+  MatrixRefs.push_back(C3StoreRef);
   // Check which matrix should go first based on the innermost iv matching
   // with store ref
   if (std::max(Levels3[1], Levels3[0]) == Levels1[0] ||
