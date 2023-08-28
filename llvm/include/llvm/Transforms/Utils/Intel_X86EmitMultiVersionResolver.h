@@ -52,7 +52,8 @@ namespace X86 {
 
 void emitCPUInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr);
-Value *emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask);
+Value *emitCpuSupports(IRBuilderBase &Builder,
+                       std::array<uint32_t, 4> FeaturesMask);
 Value *emitCpuSupports(IRBuilderBase &Builder, ArrayRef<StringRef> FeatureStrs);
 void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc,
                          bool PerformCPUBrandCheck);
