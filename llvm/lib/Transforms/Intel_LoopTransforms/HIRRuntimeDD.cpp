@@ -110,6 +110,8 @@
 #define DEBUG_TYPE OPT_SWITCH
 
 #define LLVM_DEBUG_DDG(X) DEBUG_WITH_TYPE(OPT_SWITCH "-ddg", X)
+#define LLVM_DEBUG_REPORT_MV_ONLY_DELINEAR(X)                                  \
+  DEBUG_WITH_TYPE(OPT_SWITCH "-report-mv-only-delinear", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -160,6 +162,11 @@ static cl::opt<int64_t> ContiguousStridedAccessSizeThreshold(
 static cl::opt<bool> IgnoreIVDepLoopLoops(
     OPT_SWITCH "-ignore-ivdeploop-loops", cl::init(false), cl::Hidden,
     cl::desc("Ignore loops with \"ivdep loop\" in " OPT_DESCR "."));
+
+static cl::opt<unsigned> MinNumIVsForDelinearzationWithoutAliasing(
+    OPT_SWITCH "-min-numivs-delinear-noalias", cl::init(3), cl::ReallyHidden,
+    cl::desc(
+        "Minimum number of IVs for delinearization based MV without noalias"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 namespace DbgMessage {
@@ -1053,6 +1060,10 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
     if (!DDRefUtils::delinearizeRefs(Group, DelinearizedGroup, &GroupSizes,
                                      EnableSExtDelinearization)) {
+      // TODO: Checking the size of Group(I) could be more accurate.
+      //       When Group(I)'s size is 1, sort is trivially true, but
+      //       delinearilzation could have been unsuccessful. e.g.)
+      //       Group(I).size() > 1 && IsAlreadySorted(I)
       if (IsAlreadySorted(I)) {
         DelinearizedGroup.clear();
         continue;
@@ -1107,7 +1118,6 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     if (HLNodeUtils::isKnownPredicate(Cond.Op1->getSingleCanonExpr(), Cond.Pred,
                                       Cond.Op2->getSingleCanonExpr(),
                                       &Result)) {
-
       if (!Result) {
         IsTriviallyFalse = true;
       }
@@ -1185,8 +1195,9 @@ bool HIRRuntimeDD::canHelpVectorization(const HLLoop *InnermostLoop) const {
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
     DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
-    SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> &Tests)
-    const {
+    SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> &Tests,
+    SmallSet<unsigned, ExpectedNumOfSameBaseStarEdgeGroups>
+        &GroupsWithSameBaseStarEdges) const {
   DDGraph DDG = DDA.getGraph(Loop);
   LLVM_DEBUG_DDG(dbgs() << "[RTDD] Loop DDG:\n");
   LLVM_DEBUG_DDG(DDG.dump());
@@ -1224,6 +1235,8 @@ RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
                                         : std::make_pair(GroupA, GroupB);
 
         Tests.insert(TestPair);
+      } else {
+        GroupsWithSameBaseStarEdges.insert(GroupA);
       }
     }
   }
@@ -1244,6 +1257,19 @@ static void clearNotInvolvedGroups(
 
   for (unsigned GroupNo : TestedGroups.set_bits()) {
     Groups[GroupNo].clear();
+  }
+}
+
+static void clearNotInvolvedGroups(
+    RefGroupVecTy &Groups,
+    const SmallSet<unsigned, ExpectedNumOfSameBaseStarEdgeGroups>
+        &GroupsWithSameBaseStarEdges) {
+  // Still keep Groups with star edge without baseAlias.
+  // This is done only when Tests is empty to preserve the current logic as much
+  // as possible.
+  for (unsigned GroupNo = 0, E = Groups.size(); GroupNo < E; GroupNo++) {
+    if (!GroupsWithSameBaseStarEdges.count(GroupNo))
+      Groups[GroupNo].clear();
   }
 }
 
@@ -1464,6 +1490,32 @@ static bool isReadDominant(RefGroupVecTy &Groups) {
   return LoadOnlySum > (GroupSize - LoadOnlySum) * ReadDominanceThreshold;
 }
 
+static bool isDelinearizationDesirable(
+    const SmallSet<unsigned, ExpectedNumOfSameBaseStarEdgeGroups>
+        &GroupsWithSameBaseStarEdges,
+    const RefGroupVecTy &Groups) {
+
+  bool MultiIVs = false;
+  for (auto GroupID : GroupsWithSameBaseStarEdges) {
+    const RefGroupTy &Group = Groups[GroupID];
+    for (const auto *Ref : Group) {
+
+      // Even without this check here, stability is not affected
+      // because a larger set of legality checks
+      // are done later. Here it is more of a short-cut.
+      if (Ref->isNonLinear() || Ref->getNumDimensions() > 1)
+        return false;
+
+      // Cost model towards 3-d stencil
+      if (Ref->getSingleCanonExpr()->numIVs() >=
+          MinNumIVsForDelinearzationWithoutAliasing)
+        MultiIVs = true;
+    }
+  }
+
+  return MultiIVs;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   RuntimeDDResult Ret = OK;
   Context.Loop = Loop;
@@ -1633,18 +1685,33 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
              });
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, MemRefs, Grouping.getIndex(), Tests);
+  // Extra arg for blobs without alias
+  SmallSet<unsigned, ExpectedNumOfSameBaseStarEdgeGroups>
+      GroupsWithSameBaseStarEdges;
+  Ret = processDDGToGroupPairs(Loop, MemRefs, Grouping.getIndex(), Tests,
+                               GroupsWithSameBaseStarEdges);
 
   if (Ret != OK) {
     return Ret;
   }
 
-  if (Tests.size() < 1) {
-    return NO_OPPORTUNITIES;
+  if (Tests.empty()) {
+    // Don't return immediately if GroupsWithSameBaseStarEdges exist.
+    if (GroupsWithSameBaseStarEdges.empty())
+      return NO_OPPORTUNITIES;
+
+    // Cost-model. Can be adjusted.
+    if (!isDelinearizationDesirable(GroupsWithSameBaseStarEdges, Groups))
+      return NO_OPPORTUNITIES;
   }
 
   LLVM_DEBUG(dbgs() << "Tests size: " << Tests.size() << "\n");
 
+  // TODO: I believe this test should go after clearNotInvolvedGroups()
+  //       because of the check, "Groups.size() <= MaximumNumberOfTests".
+  //       However, isReadDominant(Groups)) is using Groups before elimination.
+  //       The function is related to spec2006 hmmr. To move it after
+  //       more investigation is needed.
   if (Tests.size() > RtlThreshold && !isReadDominant(Groups)) {
     if (EnableLibraryCallMethod && Groups.size() <= MaximumNumberOfTests) {
       LLVM_DEBUG(dbgs() << "[RTDD] LibraryCall method selected.\n");
@@ -1657,12 +1724,23 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   }
 
+  bool TryDelinearizationWithoutAlias = Tests.empty();
+  LLVM_DEBUG(if (TryDelinearizationWithoutAlias) dbgs()
+                 << "[RTDD] Trying delinearization without aliasing. \n";);
+
   // Empty groups not involved in tests.
-  clearNotInvolvedGroups(Groups, Tests);
+  if (TryDelinearizationWithoutAlias)
+    clearNotInvolvedGroups(Groups, GroupsWithSameBaseStarEdges);
+  else
+    clearNotInvolvedGroups(Groups, Tests);
 
   bool DelinearizationRequired = false;
   SmallVector<unsigned, 8> UnsortedGroupIndices;
-  if (!sortRefsInGroups(Groups, UnsortedGroupIndices)) {
+  // Sort could be successful even with star edges when a Group has only one
+  // ref. For example, A[n*i + j] --> A[n*i + j] (= *), when A[n*i + j] is only
+  // one ref in a Group.
+  if (!sortRefsInGroups(Groups, UnsortedGroupIndices) ||
+      TryDelinearizationWithoutAlias) {
     LLVM_DEBUG(dbgs() << "[RTDD] Could not find min and max address in groups. "
                          "Trying to delinearize refs.\n");
 
@@ -1675,6 +1753,17 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return IsNearPerfect ? NON_PERFECT_LOOPNEST : Ret;
     }
 
+    // TryDelinearizationWithoutAlias means no aliasing-resolving test.
+    // If PreConditions for delinearizations are missing no need for MV.
+    if (TryDelinearizationWithoutAlias && Context.PreConditions.empty()) {
+      LLVM_DEBUG(
+          dbgs() << "[RTDD] Tried delinearization when alias doesn't exist. "
+                    "Delinearization was not successful or "
+                    "delinearization's pre-conditions are all trivial. "
+                    "No opportunities for MV.\n");
+      return NO_OPPORTUNITIES;
+    }
+
     LLVM_DEBUG(
         dbgs() << "[RTDD] Delinearization done. Required pre-conditions: "
                << Context.PreConditions.size() << "\n");
@@ -1683,9 +1772,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Populate DelinearizedGroupIndices with indexes where
     // DelinearizedGroups[I] is not empty.
-    for (const auto &Group : enumerate(DelinearizedGroups)) {
-      if (!Group.value().empty()) {
-        Context.DelinearizedGroupIndices.push_back(Group.index());
+    for (const auto &DGroup : enumerate(DelinearizedGroups)) {
+      if (!DGroup.value().empty()) {
+        Context.DelinearizedGroupIndices.push_back(DGroup.index());
       }
     }
   }
@@ -1710,8 +1799,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   unsigned LoopLevel = Loop->getNestingLevel();
 
-  // Construct IV Segments from Groups.
-  SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
+  // Check linearity before constructing tests.
   for (unsigned I = 0; I < GroupSize; ++I) {
     if (!EnableStructSupport && !Groups[I].empty() &&
         Groups[I].front()->accessesStruct()) {
@@ -1746,7 +1834,22 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
         return NON_PERFECT_LOOPNEST;
       }
     }
+  }
 
+  // We don't have alias checking "Tests", but still have
+  // candidate for delinearizations due to star edges.
+  //
+  // Except for vectorizer profitability checks,
+  // all logic after this are no-ops if Tests.empty().
+  // Consider hoisting vectorizer profitablity check above this.
+  // TryDelinearizationWithoutAlias == Tests.empty()
+
+  if (TryDelinearizationWithoutAlias)
+    return OK;
+
+  // Construct IV Segments from Groups.
+  SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
+  for (unsigned I = 0; I < GroupSize; ++I) {
     bool IsWriteGroup =
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
@@ -1763,11 +1866,15 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   }
 
+  // TODO: I think these checks are cheaper than delinearization.
+  // Can be moved before tryDelinearization.
   if (!canHelpVectorization(InnermostLoop) &&
       !canHelpScalarReplacementOrMemoryMotion(InnermostLoop)) {
     return NON_PROFITABLE;
   }
 
+  // In effect, all following operations in this function
+  // are no-ops without Tests.
   if (ConvertibleUnknownLoop) {
     createUnknownLoopUBInsts(Context);
   }
@@ -1950,6 +2057,10 @@ static Type *getMinimalElementSizeType(const DataLayout &DL,
 HLIf *HIRRuntimeDD::createLibraryCallCondition(
     LoopContext &Context, HLIf *MasterIf, HLContainerTy &Nodes,
     SmallVectorImpl<unsigned> &NewSymbases) {
+
+  if (Context.isMVOnlyForDelinearization())
+    return MasterIf;
+
   auto &HNU = Context.Loop->getHLNodeUtils();
   auto &BU = HNU.getBlobUtils();
   auto &DRU = HNU.getDDRefUtils();
@@ -2073,6 +2184,9 @@ HLIf *HIRRuntimeDD::createCompareCondition(LoopContext &Context, HLIf *MasterIf,
   //
   //   <PostExit>
   // }
+
+  if (Context.isMVOnlyForDelinearization())
+    return MasterIf;
 
   auto &HNU = Context.Loop->getHLNodeUtils();
 
@@ -2247,7 +2361,8 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLIf *MemcheckIf = createMasterCondition(Context, Nodes, NewLiveinSymbases);
   MemcheckIf->setMVTag(NoAliasLoop->getNumber());
 
-  HLNodeUtils::insertBefore(NoAliasLoop, &Nodes);
+  if (!Nodes.empty())
+    HLNodeUtils::insertBefore(NoAliasLoop, &Nodes);
   HLNodeUtils::insertBefore(NoAliasLoop, MemcheckIf);
 
   HLNodeUtils::moveAsFirstThenChild(MemcheckIf, NoAliasLoop);
@@ -2300,9 +2415,18 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
           HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
         }
       });
+
+  LLVM_DEBUG_REPORT_MV_ONLY_DELINEAR(if (Context.isMVOnlyForDelinearization()) {
+    dbgs() << "The loop is RTDD MVed without aliaising\n";
+    MemcheckIf->dump();
+  });
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
+  // No aliasing tests. Only precondtions of delinearization
+  if (Context.isMVOnlyForDelinearization())
+    return;
+
   auto &LLVMContext =
       Context.Loop->getHLNodeUtils().getHIRFramework().getContext();
   RefGroupVecTy &Groups = Context.Groups;
