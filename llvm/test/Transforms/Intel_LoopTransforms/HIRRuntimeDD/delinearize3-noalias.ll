@@ -1,6 +1,10 @@
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -enable-intel-advanced-opts  -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Check delinearize conditions for 2d case with respect to lower bound (-2).
+; Verify that with certain option levels, MV is enabled without aliasing among baseptr.
+; Notice that ptrs %p and %q have noalias attribute. No checks for overlapping address spaces
+; are done. However, MV based on validity conditions for delinearization of MIV memrefs are done.
+; This MV can help later optimization passes such as loop blocking.
+
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, %UB1, 1   <DO_LOOP>
@@ -13,34 +17,45 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK: %mv.test = &((%q)[%UB3]) >=u &((%p)[0][0][0]);
-; CHECK: %mv.test3 = &((%p)[%UB1][%UB2 + 1][%UB3 + -2]) >=u &((%q)[0]);
-; CHECK: %mv.and = %mv.test  &  %mv.test3;
+; To
+; BEGIN REGION { }
+;       if (%d2 > 1 & %UB3 + 2 < %d2 & %d1 > 1 & %UB2 + 1 < %d1)  <MVTag: 42>
+;       {
+;          + DO i1 = 0, %UB1, 1   <DO_LOOP>  <MVTag: 42, Delinearized: %p>
+;          |   + DO i2 = 0, %UB2, 1   <DO_LOOP>  <MVTag: 43>
+;          |   |   + DO i3 = 0, %UB3, 1   <DO_LOOP>  <MVTag: 44>
+;          |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3] = (%q)[i3];
+;          |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3 + %d2 + -2] = (%q)[i3];
+;          |   |   + END LOOP
+;          |   + END LOOP
+;          + END LOOP
+;       }
+;       else
+;       {
+;          + DO i1 = 0, %UB1, 1   <DO_LOOP>  <MVTag: 42> <nounroll> <novectorize>
+;          |   + DO i2 = 0, %UB2, 1   <DO_LOOP>  <MVTag: 43> <nounroll> <novectorize>
+;          |   |   + DO i3 = 0, %UB3, 1   <DO_LOOP>  <MVTag: 44> <nounroll> <novectorize>
+;          |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3] = (%q)[i3];
+;          |   |   |   (%p)[(%d2 * %d1) * i1 + %d2 * i2 + i3 + %d2 + -2] = (%q)[i3];
+;          |   |   + END LOOP
+;          |   + END LOOP
+;          + END LOOP
+;       }
+; END REGION
 
-; For each inner dimension check that the index span (Maximum index - Minimum index)
-; is less then the next higher dimension size. In this case-
+; Verify that no tests for aliasing are generated.
 ;
-;      d1     d2
-; (%p)[i1][i2    ][i3    ]
-; (%p)[i1][i2 + 1][i3 - 2]
-;
-; Maximum indices for inner dimensions:
-; [][UB2 + 1][UB3]
-;
-; Minimum indices for inner dimensions:
-; [][0][-2]
+; CHECK-NOT: %mv.and == 0
 
-; CHECK: if
-; CHECK-DAG: %d2 > 1
-; CHECK-DAG: %UB3 + 2 < %d2
-; CHECK-DAG: %d1 > 1
-; CHECK-DAG: %UB2 + 1 < %d1
-; CHECK-DAG: %mv.and == 0
+; Verify that validity conditions from delinearizations are generated, and loop is MVed.
+;
+; CHECK: if (%d2 > 1 & %UB3 + 2 < %d2 & %d1 > 1 & %UB2 + 1 < %d1)  <MVTag: [[TAG_NUM:[0-9]+]]>
+; CHECK:          DO i1 = 0, %UB1, 1   <DO_LOOP>  <MVTag: [[TAG_NUM]], Delinearized: %p>
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(ptr nocapture %p, ptr nocapture readonly %q, i64 %d2, i64 %d1, i64 %UB1, i64 %UB2, i64 %UB3) {
+define void @foo(ptr nocapture noalias %p, ptr nocapture readonly noalias %q, i64 %d2, i64 %d1, i64 %UB1, i64 %UB2, i64 %UB3) {
 entry:
   %mul = mul i64 %d1, %d2
   br label %for.cond1.preheader
