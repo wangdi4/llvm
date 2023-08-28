@@ -4376,28 +4376,6 @@ int32_t __tgt_rtl_get_data_alloc_info(
 }
 #endif // INTEL_CUSTOMIZATION
 
-void __tgt_rtl_add_build_options(
-    const char *CompileOptions, const char *LinkOptions) {
-  if (CompileOptions) {
-    auto &compileOptions = DeviceInfo->Option.UserCompilationOptions;
-    if (compileOptions.empty()) {
-      compileOptions = std::string(CompileOptions) + " ";
-    } else {
-      DP("Respecting LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS=%s\n",
-         compileOptions.c_str());
-    }
-  }
-  if (LinkOptions) {
-    auto &linkOptions = DeviceInfo->Option.UserLinkingOptions;
-    if (linkOptions.empty()) {
-      linkOptions = std::string(LinkOptions) + " ";
-    } else {
-      DP("Respecting LIBOMPTARGET_OPENCL_LINKING_OPTIONS=%s\n",
-         linkOptions.c_str());
-    }
-  }
-}
-
 int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   if (!DeviceType)
     return true;

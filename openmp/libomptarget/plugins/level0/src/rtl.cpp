@@ -7306,20 +7306,6 @@ int32_t __tgt_rtl_pop_subdevice() {
   return OFFLOAD_SUCCESS;
 }
 
-void __tgt_rtl_add_build_options(const char *CompileOptions,
-                                 const char *LinkOptions) {
-  auto &options = DeviceInfo->Option.UserCompilationOptions;
-  if (!options.empty()) {
-    DP("Respecting LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=%s\n",
-       options.c_str());
-    return;
-  }
-  if (CompileOptions)
-    options = std::string(CompileOptions) + " ";
-  if (LinkOptions)
-    options += std::string(LinkOptions) + " ";
-}
-
 int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   if (!DeviceType)
     return true;

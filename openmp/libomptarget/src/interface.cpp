@@ -990,24 +990,7 @@ EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-EXTERN int __tgt_get_num_devices(void) {
-  return omp_get_num_devices();
-}
-
-EXTERN void __tgt_add_build_options(
-    const char *CompileOptions, const char *LinkOptions) {
-
-  int64_t DeviceNum = omp_get_default_device();
-
-  if (!deviceIsReady(DeviceNum)) {
-    REPORT("Device %" PRId64 " is not ready.\n", DeviceNum);
-    return;
-  }
-
-  auto RTLInfo = PM->Devices[DeviceNum]->RTL;
-  if (RTLInfo->add_build_options)
-    RTLInfo->add_build_options(CompileOptions, LinkOptions);
-}
+EXTERN int __tgt_get_num_devices(void) { return omp_get_num_devices(); }
 #endif // INTEL_COLLAB
 
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {

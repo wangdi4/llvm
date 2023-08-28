@@ -45,7 +45,6 @@ VERS1.0 {
 # end INTEL_CUSTOMIZATION
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
-    __tgt_add_build_options;
     __tgt_create_interop;
     __tgt_release_interop;
     __tgt_use_interop;
