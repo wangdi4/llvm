@@ -1968,6 +1968,8 @@ namespace llvm {
 
     bool needsCmpXchgNb(Type *MemType) const;
 
+    template<typename T> bool isSoftFP16(T VT) const;
+
     void SetupEntryBlockForSjLj(MachineInstr &MI, MachineBasicBlock *MBB,
                                 MachineBasicBlock *DispatchBB, int FI) const;
 
