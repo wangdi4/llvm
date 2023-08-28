@@ -952,24 +952,32 @@ bool WRegionUtils::hasWorksharingLoop(WRegionNode *W, bool Recursive) {
 }
 #endif
 
-bool WRegionUtils::hasParallelOrGenericLoop(WRegionNode *W, bool Recursive) {
-  assert(W && "hasParallelOrGenericLoop: null WRegionNode");
+int WRegionUtils::countParallelOrGenericLoop(WRegionNode *W,
+                                             int &NumGenericLoop,
+                                             int &NumGenericLoopWithReduction,
+                                             bool Recursive) {
+  assert(W && "countParallelOrGenericLoop: null WRegionNode");
 
+  int TotalCount = 0; // Number of children that are parallel or loop
   for (WRegionNode *Child : W->getChildren()) {
     unsigned SubClassID = Child->getWRegionKindID();
     switch (SubClassID) {
+    case WRegionNode::WRNGenericLoop:
+      NumGenericLoop++;
+      if (!Child->getRed().empty())
+        NumGenericLoopWithReduction++;
+      LLVM_FALLTHROUGH;
     case WRegionNode::WRNParallel:
     case WRegionNode::WRNParallelLoop:
     case WRegionNode::WRNParallelSections:
     case WRegionNode::WRNParallelWorkshare:
-    case WRegionNode::WRNGenericLoop:
-      return true;
+      TotalCount++;
     }
     if (Recursive)
-      if (hasParallelOrGenericLoop(Child, true))
-        return true;
+      TotalCount += countParallelOrGenericLoop(
+          Child, NumGenericLoop, NumGenericLoopWithReduction, true);
   }
-  return false;
+  return TotalCount;
 }
 
 // Return nullptr if W has no parent of the specified kind.
