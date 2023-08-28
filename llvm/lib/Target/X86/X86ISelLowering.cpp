@@ -1833,7 +1833,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::FP_ROUND,           VT, Custom);
       setOperationAction(ISD::STRICT_FP_ROUND,    VT, Custom);
     }
-    for (MVT VT : { MVT::f32, MVT::v2f32, MVT::v4f32, MVT::v8f32 }) {
+    for (MVT VT : { MVT::f32, MVT::v2f32, MVT::v4f32 }) {
       setOperationAction(ISD::FP_EXTEND,          VT, Custom);
       setOperationAction(ISD::STRICT_FP_EXTEND,   VT, Custom);
     }
@@ -1841,6 +1841,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationPromotedToType(Opc, MVT::v8f16, MVT::v8f32);
       setOperationPromotedToType(Opc, MVT::v16f16, MVT::v16f32);
     }
+
+    setOperationAction(ISD::FP_EXTEND, MVT::v8f32, Legal);
+    setOperationAction(ISD::STRICT_FP_EXTEND, MVT::v8f32, Legal);
   }
 
   // This block controls legalization of the mask vector sizes that are
@@ -2175,8 +2178,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setF16Action(MVT::v32f16, Expand);
     setOperationAction(ISD::FP_ROUND, MVT::v16f16, Custom);
     setOperationAction(ISD::STRICT_FP_ROUND, MVT::v16f16, Custom);
-    setOperationAction(ISD::FP_EXTEND, MVT::v16f32, Custom);
-    setOperationAction(ISD::STRICT_FP_EXTEND, MVT::v16f32, Custom);
+    setOperationAction(ISD::FP_EXTEND, MVT::v16f32, Legal);
+    setOperationAction(ISD::STRICT_FP_EXTEND, MVT::v16f32, Legal);
     for (unsigned Opc : {ISD::FADD, ISD::FSUB, ISD::FMUL, ISD::FDIV}) {
       setOperationPromotedToType(Opc, MVT::v16f16, MVT::v16f32);
       setOperationPromotedToType(Opc, MVT::v32f16, MVT::v32f32);
@@ -2554,9 +2557,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::STRICT_UINT_TO_FP,      MVT::v32i16, Legal);
       setOperationAction(ISD::FP_ROUND,               MVT::v16f16, Legal);
       setOperationAction(ISD::STRICT_FP_ROUND,        MVT::v16f16, Legal);
-      setOperationAction(ISD::FP_EXTEND,              MVT::v16f32, Custom);
+      setOperationAction(ISD::FP_EXTEND,              MVT::v16f32, Legal);
       setOperationAction(ISD::STRICT_FP_EXTEND,       MVT::v16f32, Legal);
-      setOperationAction(ISD::FP_EXTEND,              MVT::v8f64,  Custom);
+      setOperationAction(ISD::FP_EXTEND,              MVT::v8f64,  Legal);
       setOperationAction(ISD::STRICT_FP_EXTEND,       MVT::v8f64,  Legal);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
 
@@ -2610,9 +2613,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v8i16, Custom);
       setOperationAction(ISD::FP_ROUND,           MVT::v8f16, Legal);
       setOperationAction(ISD::STRICT_FP_ROUND,    MVT::v8f16, Legal);
-      setOperationAction(ISD::FP_EXTEND,          MVT::v8f32, Custom);
+      setOperationAction(ISD::FP_EXTEND,          MVT::v8f32, Legal);
       setOperationAction(ISD::STRICT_FP_EXTEND,   MVT::v8f32, Legal);
-      setOperationAction(ISD::FP_EXTEND,          MVT::v4f64, Custom);
+      setOperationAction(ISD::FP_EXTEND,          MVT::v4f64, Legal);
       setOperationAction(ISD::STRICT_FP_EXTEND,   MVT::v4f64, Legal);
 
       // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
@@ -12851,15 +12854,19 @@ static bool isShuffleFoldableLoad(SDValue V) {
 }
 
 template<typename T>
-static bool isSoftF16(T VT, const X86Subtarget &Subtarget) {
-  T EltVT = VT.getScalarType();
+static bool isSoftFP16(T VT, const X86Subtarget &Subtarget) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  return (EltVT == MVT::bf16 || (EltVT == MVT::f16 && !Subtarget.hasFP16())) && !Subtarget.hasAVX256P();
+  return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16() && !Subtarget.hasAVX256P();
 #else // INTEL_FEATURE_ISA_AVX256P
-  return EltVT == MVT::bf16 || (EltVT == MVT::f16 && !Subtarget.hasFP16());
+  return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16();
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+}
+
+template<typename T>
+bool X86TargetLowering::isSoftFP16(T VT) const {
+  return ::isSoftFP16(VT, Subtarget);
 }
 
 /// Try to lower insertion of a single element into a zero vector.
@@ -12875,7 +12882,7 @@ static SDValue lowerShuffleAsElementInsertion(
   unsigned NumElts = VT.getVectorNumElements();
   unsigned EltBits = VT.getScalarSizeInBits();
 
-  if (isSoftF16(EltVT, Subtarget))
+  if (isSoftFP16(EltVT, Subtarget))
     return SDValue();
 
   int V2Index =
@@ -18683,7 +18690,7 @@ SDValue X86TargetLowering::LowerVSELECT(SDValue Op, SelectionDAG &DAG) const {
 
   SDLoc dl(Op);
   MVT VT = Op.getSimpleValueType();
-  if (isSoftF16(VT, Subtarget)) {
+  if (isSoftFP16(VT)) {
     MVT NVT = VT.changeVectorElementTypeToInteger();
     return DAG.getBitcast(VT, DAG.getNode(ISD::VSELECT, dl, NVT, Cond,
                                           DAG.getBitcast(NVT, LHS),
@@ -20375,7 +20382,7 @@ SDValue X86TargetLowering::LowerSINT_TO_FP(SDValue Op,
   MVT VT = Op.getSimpleValueType();
   SDLoc dl(Op);
 
-  if (isSoftF16(VT, Subtarget))
+  if (isSoftFP16(VT))
     return promoteXINT_TO_FP(Op, DAG);
   else if (isLegalConversion(SrcVT, true, Subtarget))
     return Op;
@@ -20887,7 +20894,7 @@ SDValue X86TargetLowering::LowerUINT_TO_FP(SDValue Op,
   if (DstVT == MVT::f128)
     return SDValue();
 
-  if (isSoftF16(DstVT, Subtarget))
+  if (isSoftFP16(DstVT))
     return promoteXINT_TO_FP(Op, DAG);
   else if (isLegalConversion(SrcVT, false, Subtarget))
     return Op;
@@ -21968,7 +21975,7 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
 
   SDValue Res;
-  if (isSoftF16(SrcVT, Subtarget)) {
+  if (isSoftFP16(SrcVT)) {
     MVT NVT = VT.isVector() ? VT.changeVectorElementType(MVT::f32) : MVT::f32;
     if (IsStrict)
       return DAG.getNode(Op.getOpcode(), dl, {VT, MVT::Other},
@@ -22430,7 +22437,7 @@ X86TargetLowering::LowerFP_TO_INT_SAT(SDValue Op, SelectionDAG &DAG) const {
 
   // This code is only for floats and doubles. Fall back to generic code for
   // anything else.
-  if (!isScalarFPTypeInSSEReg(SrcVT) || isSoftF16(SrcVT, Subtarget))
+  if (!isScalarFPTypeInSSEReg(SrcVT) || isSoftFP16(SrcVT))
     return SDValue();
 
   EVT SatVT = cast<VTSDNode>(Node->getOperand(1))->getVT();
@@ -22575,10 +22582,6 @@ SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
                           !Subtarget.getTargetTriple().isOSDarwin()))
     return SDValue();
 
-  if ((SVT == MVT::v8f16 && Subtarget.hasF16C()) ||
-      (SVT == MVT::v16f16 && Subtarget.useAVX512Regs()))
-    return Op;
-
   if (SVT == MVT::f16) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -22657,25 +22660,7 @@ SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
   if (!SVT.isVector())
     return Op;
 
-  if (SVT.getVectorElementType() == MVT::bf16) {
-    // FIXME: Do we need to support strict FP?
-    assert(!IsStrict && "Strict FP doesn't support BF16");
-    if (VT.getVectorElementType() == MVT::f64) {
-      MVT TmpVT = VT.changeVectorElementType(MVT::f32);
-      return DAG.getNode(ISD::FP_EXTEND, DL, VT,
-                         DAG.getNode(ISD::FP_EXTEND, DL, TmpVT, In));
-    }
-    assert(VT.getVectorElementType() == MVT::f32 && "Unexpected fpext");
-    MVT NVT = SVT.changeVectorElementType(MVT::i32);
-    In = DAG.getBitcast(SVT.changeTypeToInteger(), In);
-    In = DAG.getNode(ISD::ZERO_EXTEND, DL, NVT, In);
-    In = DAG.getNode(ISD::SHL, DL, NVT, In, DAG.getConstant(8, DL, NVT));
-    return DAG.getBitcast(VT, In);
-  }
-
   if (SVT.getVectorElementType() == MVT::f16) {
-    if (Subtarget.hasFP16() && isTypeLegal(SVT))
-      return Op;
     assert(Subtarget.hasF16C() && "Unexpected features!");
     if (SVT == MVT::v2f16)
       In = DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v4f16, In,
@@ -24626,7 +24611,7 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
 
-    if (isSoftF16(EltVT, Subtarget))
+    if (isSoftFP16(EltVT, Subtarget))
       return SDValue();
 
     bool IsSignaling = Op.getOpcode() == ISD::STRICT_FSETCCS;
@@ -25347,7 +25332,7 @@ SDValue X86TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   ISD::CondCode CC =
       cast<CondCodeSDNode>(Op.getOperand(IsStrict ? 3 : 2))->get();
 
-  if (isSoftF16(Op0.getValueType(), Subtarget))
+  if (isSoftFP16(Op0.getValueType()))
     return SDValue();
 
   // Handle f128 first, since one possible outcome is a normal integer
@@ -25540,7 +25525,7 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   MVT VT = Op1.getSimpleValueType();
   SDValue CC;
 
-  if (isSoftF16(VT, Subtarget)) {
+  if (isSoftFP16(VT)) {
     MVT NVT = VT.changeTypeToInteger();
     return DAG.getBitcast(VT, DAG.getNode(ISD::SELECT, DL, NVT, Cond,
                                           DAG.getBitcast(NVT, Op1),
@@ -25634,7 +25619,7 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   }
 
   if (Cond.getOpcode() == ISD::SETCC &&
-      !isSoftF16(Cond.getOperand(0).getSimpleValueType(), Subtarget)) {
+      !isSoftFP16(Cond.getOperand(0).getSimpleValueType())) {
     if (SDValue NewCond = LowerSETCC(Cond, DAG)) {
       Cond = NewCond;
       // If the condition was updated, it's possible that the operands of the
@@ -26347,7 +26332,7 @@ SDValue X86TargetLowering::LowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
   // Bail out when we don't have native compare instructions.
   if (Cond.getOpcode() == ISD::SETCC &&
       Cond.getOperand(0).getValueType() != MVT::f128 &&
-      !isSoftF16(Cond.getOperand(0).getValueType(), Subtarget)) {
+      !isSoftFP16(Cond.getOperand(0).getValueType())) {
     SDValue LHS = Cond.getOperand(0);
     SDValue RHS = Cond.getOperand(1);
     ISD::CondCode CC = cast<CondCodeSDNode>(Cond.getOperand(2))->get();
@@ -35037,7 +35022,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     EVT SrcVT = Src.getValueType();
 
     SDValue Res;
-    if (isSoftF16(SrcVT, Subtarget)) {
+    if (isSoftFP16(SrcVT)) {
       EVT NVT = VT.isVector() ? VT.changeVectorElementType(MVT::f32) : MVT::f32;
       if (IsStrict) {
         Res =
@@ -49084,7 +49069,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
   // ignored in unsafe-math mode).
   // We also try to create v2f32 min/max nodes, which we later widen to v4f32.
   if (Cond.getOpcode() == ISD::SETCC && VT.isFloatingPoint() &&
-      VT != MVT::f80 && VT != MVT::f128 && !isSoftF16(VT, Subtarget) &&
+      VT != MVT::f80 && VT != MVT::f128 && !isSoftFP16(VT, Subtarget) &&
       (TLI.isTypeLegal(VT) || VT == MVT::v2f32) &&
       (Subtarget.hasSSE2() ||
        (Subtarget.hasSSE1() && VT.getScalarType() == MVT::f32))) {
@@ -49424,7 +49409,7 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
   }
 
   // Early exit check
-  if (!TLI.isTypeLegal(VT) || isSoftF16(VT, Subtarget))
+  if (!TLI.isTypeLegal(VT) || isSoftFP16(VT, Subtarget))
     return SDValue();
 
   if (SDValue V = combineVSelectWithAllOnesOrZeros(N, DAG, DCI, Subtarget))
@@ -57131,7 +57116,7 @@ static SDValue combineFMinFMax(SDNode *N, SelectionDAG &DAG) {
 static SDValue combineFMinNumFMaxNum(SDNode *N, SelectionDAG &DAG,
                                      const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
-  if (Subtarget.useSoftFloat() || isSoftF16(VT, Subtarget))
+  if (Subtarget.useSoftFloat() || isSoftFP16(VT, Subtarget))
     return SDValue();
 
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
