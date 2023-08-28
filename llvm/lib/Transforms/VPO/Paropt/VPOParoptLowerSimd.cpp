@@ -465,13 +465,38 @@ translateBuiltinIBIntrinsic(CallInst *CI, StringRef BuiltinIBIntrName,
   mapCacheControl(Field, L1Ctrl, L3Ctrl);
   auto L1CtrlV = ConstantInt::get(CI8Ty, L1Ctrl);
   auto L3CtrlV = ConstantInt::get(CI8Ty, L3Ctrl);
+
   // create prefetch intrinsic call
-  auto VPtrTy = llvm::FixedVectorType::get(PtrV->getType(), 1);
+  // auto VPtrTy = llvm::FixedVectorType::get(PtrV->getType(), 1);
+  auto VPtrTy = llvm::FixedVectorType::get(Type::getInt64Ty(CTX), 1);
+
   // create the intrinsic call
   Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(CI->getModule(), ID,
                                                          {PredV1Ty, VPtrTy});
+  // auto VecPtr =
+  //    CastInst::CreateBitOrPointerCast(PtrV, VPtrTy, PtrV->getName(), CI);
+  //
+  // SIMD lowering change per IGC VC BE request
+#if INTEL_CUSTOMIZATION
+  // JIRA: IGC-7759
+#endif // INTEL_CUSTOMIZATION
+  // Without patch:
+  // [[PCAST:%.*]] = bitcast i32 addrspace(4)* %ptr to <1xi32 addrspace(4)*>
+  // void @llvm.genx.lsc.prefetch.stateless.v1i1.v1p4i32(<1xi1> <i1 true>,
+  //            i8 0, i8 0, i8 0, i16 1, i32 0, i8 3, i8 6, i8 2, i8 0,
+  //            <1 x i32 addrspace(4)*> [[PCAST]], i32 0)
+  //
+  // With patch:
+  // [[PTR_CAST:%.*]] = ptrtoint i32 addrspace(4)* %ptr to i64
+  // [[PTR1_CAST:%.*]] = bitcast i64 %1 to <1 x i64>
+  // call void @llvm.genx.lsc.prefetch.stateless.v1i1.v1i64(<1xi1> <i1 true>,
+  //                 i8 0, i8 0, i8 0, i16 1, i32 0, i8 3, i8 6, i8 2, i8 0,
+  //                 <1 x i64> [[PTR1_CAST]], i32 0)
+  auto IntV =
+      CastInst::CreateBitOrPointerCast(PtrV, Type::getInt64Ty(CTX), "", CI);
   auto VecPtr =
-      CastInst::CreateBitOrPointerCast(PtrV, VPtrTy, PtrV->getName(), CI);
+      CastInst::CreateBitOrPointerCast(IntV, VPtrTy, PtrV->getName(), CI);
+
   CallInst::Create(NewFDecl,
                    {OnePred1, Zeroi8C, L1CtrlV, L3CtrlV, Onei16C, ImmedOffsetV,
                     DatumSizeV, NumElemsV, Twoi8C, Zeroi8C, VecPtr, Zeroi32C},
