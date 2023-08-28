@@ -48,7 +48,7 @@
 ; CHECK: [[M4]] = distinct !{!"intel.optreport.rootnode", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.optreport", [[M6:!.*]], [[M8:!.*]]}
 ; CHECK: [[M6]] = !{!"intel.optreport.remarks", [[M7:!.*]]}
-; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; CHECK: [[M8]] = !{!"intel.optreport.first_child", [[M9:!.*]]}
 ; CHECK: [[M9]] = distinct !{!"intel.optreport.rootnode", [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"intel.optreport", [[M6]], [[M11:!.*]], [[M16:!.*]]}
@@ -56,12 +56,12 @@
 ; CHECK: [[M12]] = distinct !{!"intel.optreport.rootnode", [[M13:!.*]]}
 ; CHECK: [[M13]] = distinct !{!"intel.optreport", [[M14:!.*]]}
 ; CHECK: [[M14]] = !{!"intel.optreport.remarks", [[M15:!.*]]}
-; CHECK: [[M15]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 3}
+; CHECK: [[M15]] = !{!"intel.optreport.remark", i32 25436, i32 3}
 ; CHECK: [[M16]] = !{!"intel.optreport.first_child", [[M17:!.*]]}
 ; CHECK: [[M17]] = distinct !{!"intel.optreport.rootnode", [[M18:!.*]]}
 ; CHECK: [[M18]] = distinct !{!"intel.optreport", [[M19:!.*]]}
 ; CHECK: [[M19]] = !{!"intel.optreport.remarks", [[M20:!.*]]}
-; CHECK: [[M20]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 2}
+; CHECK: [[M20]] = !{!"intel.optreport.remark", i32 25436, i32 2}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

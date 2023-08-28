@@ -91,7 +91,7 @@
 ; OPTRPT-NEXT:        #25600:   %13 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.0.0)
 ;
 ; OPTRPT:             LOOP BEGIN at fma.cpp (16, 9)
-; OPTRPT:                 remark: LLorg: Loop has been completely unrolled
+; OPTRPT:                 remark #25603: Loop has been completely unrolled by LLVM LoopUnroll
 ; OPTRPT:             LOOP END
 ; OPTRPT:         LOOP END
 ; OPTRPT:     LOOP END
@@ -308,7 +308,7 @@ attributes #1 = { mustprogress nocallback nofree nosync nounwind readnone specul
 !42 = !{!"intel.optreport.debug_location", !43}
 !43 = !DILocation(line: 16, column: 9, scope: !6)
 !44 = !{!"intel.optreport.remarks", !45}
-!45 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
+!45 = !{!"intel.optreport.remark", i32 25603}
 !72 = !DILocation(line: 23, column: 9, scope: !6)
 !73 = !DILocation(line: 9, column: 30, scope: !6)
 !74 = !DILocation(line: 9, column: 23, scope: !6)

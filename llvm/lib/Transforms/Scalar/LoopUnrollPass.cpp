@@ -1317,10 +1317,8 @@ tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
     });
 #if INTEL_CUSTOMIZATION
     ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
-                                 "LLorg: Loop has been peeled by %d "
-                                 "iterations",
-                                 PP.PeelCount);
-#endif  // INTEL_CUSTOMIZATION
+                                 OptRemarkID::LLORGPeeledBy, PP.PeelCount);
+#endif // INTEL_CUSTOMIZATION
 
     ValueToValueMapTy VMap;
     if (peelLoop(L, PP.PeelCount, LI, &SE, DT, &AC, PreserveLCSSA, VMap)) {

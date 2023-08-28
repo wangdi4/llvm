@@ -118,4 +118,4 @@ attributes #1 = { nounwind readnone speculatable }
 !39 = distinct !{!"intel.optreport.rootnode", !40}
 !40 = distinct !{!"intel.optreport", !41}
 !41 = !{!"intel.optreport.remarks", !42}
-!42 = !{!"intel.optreport.remark", i32 25579, !"Loop was reversed"}
+!42 = !{!"intel.optreport.remark", i32 25579}

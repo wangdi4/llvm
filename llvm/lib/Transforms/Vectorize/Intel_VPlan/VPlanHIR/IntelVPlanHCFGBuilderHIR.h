@@ -191,9 +191,9 @@ private:
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
                         OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark = OptRemark::get(
-        *Context, static_cast<unsigned>(BailoutID),
-        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark =
+        OptRemark::get(*Context, static_cast<unsigned>(BailoutID),
+                       std::forward<Args>(BailoutArgs)...);
   }
 
   /// Add an explicit non-POD private to PrivatesList
