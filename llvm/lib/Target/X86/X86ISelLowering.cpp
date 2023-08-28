@@ -12851,25 +12851,15 @@ static bool isShuffleFoldableLoad(SDValue V) {
 }
 
 template<typename T>
-<<<<<<< HEAD
-static bool isSoftFP16(T VT, const X86Subtarget &Subtarget) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16() && !Subtarget.hasAVX256P();
-#else // INTEL_FEATURE_ISA_AVX256P
-  return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16();
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-}
-
-template<typename T>
-bool X86TargetLowering::isSoftFP16(T VT) const {
-  return ::isSoftFP16(VT, Subtarget);
-=======
 static bool isSoftF16(T VT, const X86Subtarget &Subtarget) {
   T EltVT = VT.getScalarType();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  return (EltVT == MVT::bf16 || (EltVT == MVT::f16 && !Subtarget.hasFP16())) && !Subtarget.hasAVX256P();
+#else // INTEL_FEATURE_ISA_AVX256P
   return EltVT == MVT::bf16 || (EltVT == MVT::f16 && !Subtarget.hasFP16());
->>>>>>> 915139fc73fd34223caaec0c3b3525ad79540ec0
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Try to lower insertion of a single element into a zero vector.
@@ -24633,14 +24623,10 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
            EltVT == MVT::f64);
 #else // INTEL_FEATURE_ISA_BF16_BASE
     assert(EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64);
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
 
-    if (isSoftFP16(EltVT, Subtarget))
-=======
     if (isSoftF16(EltVT, Subtarget))
->>>>>>> 915139fc73fd34223caaec0c3b3525ad79540ec0
       return SDValue();
 
     bool IsSignaling = Op.getOpcode() == ISD::STRICT_FSETCCS;
