@@ -4011,6 +4011,9 @@ static void closeRTL() {
   if (DeviceInfo->NumDevices == 0)
     return;
 
+  if (L0Interop::SyclWrapper.WrapApiValid)
+    L0Interop::SyclWrapper.delete_all_sycl_interop();
+
   for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
     if (!DeviceInfo->Initialized[I])
       continue;
