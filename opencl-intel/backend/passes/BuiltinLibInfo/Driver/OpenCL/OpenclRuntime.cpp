@@ -425,8 +425,7 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
   assert(desc.Parameters.size() == 2 && "min, max should have two parameters");
   // The argument type should be (u)int/(u)long
   RefParamType argTy = desc.Parameters[0];
-  const PrimitiveType *pPrimitive =
-      reflection::dyn_cast<PrimitiveType>(argTy.get());
+  const PrimitiveType *pPrimitive = dyn_cast<PrimitiveType>(argTy.get());
   if (!pPrimitive)
     return false;
   TypePrimitiveEnum basicType = pPrimitive->getPrimitive();

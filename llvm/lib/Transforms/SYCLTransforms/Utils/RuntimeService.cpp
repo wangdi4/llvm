@@ -124,7 +124,7 @@ bool RuntimeService::isScalarMinMaxBuiltin(StringRef FuncName, bool &IsMin,
   assert(Desc.Parameters.size() == 2 && "min/max should have two parameters");
   // The argument type should be (u)int/(u)long
   RefParamType ArgTy = Desc.Parameters[0];
-  const auto *PTy = reflection::dyn_cast<PrimitiveType>(ArgTy.get());
+  const auto *PTy = dyn_cast<PrimitiveType>(ArgTy.get());
   if (!PTy)
     return false;
   TypePrimitiveEnum BasicTy = PTy->getPrimitive();
