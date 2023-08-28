@@ -551,7 +551,6 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
   SET_OPTIONAL_INTERFACE_FN(push_subdevice);
   SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
-  SET_OPTIONAL_INTERFACE_FN(add_build_options);
   SET_OPTIONAL_INTERFACE_FN(is_supported_device);
 #if INTEL_CUSTOMIZATION
   SET_OPTIONAL_INTERFACE_FN(create_interop);
