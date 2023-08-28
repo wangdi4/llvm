@@ -30,12 +30,12 @@
 ; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 6}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 6}
 ; CHECK: [[M9:!.*]] = distinct !{[[M9]], [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"intel.optreport.rootnode", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
-; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 25444, !"Loopnest interchanged: %s", !"( 1 2 ) --> ( 2 1 )"}
+; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 25444, !"( 1 2 ) --> ( 2 1 )"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -93,4 +93,4 @@ define void @foo(ptr noalias nocapture readonly %A, i32 %N) local_unnamed_addr #
 !12 = distinct !{!"intel.optreport.rootnode", !13}
 !13 = distinct !{!"intel.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
-!15 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 6}
+!15 = !{!"intel.optreport.remark", i32 25436, i32 6}

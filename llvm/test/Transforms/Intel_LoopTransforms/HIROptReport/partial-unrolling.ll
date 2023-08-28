@@ -23,12 +23,12 @@
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25439, !"Loop unrolled with remainder by %d", {{.*}}}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25439, {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]], {{!.*}}, [[M7:!.*]]}
 ; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25491, !"Remainder loop"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25491}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -42,15 +42,15 @@
 ; MERGED-CFG: [[M11]] = distinct !{!"intel.optreport.rootnode", [[M12:!.*]]}
 ; MERGED-CFG: [[M12]] = distinct !{!"intel.optreport", [[M13:!.*]]}
 ; MERGED-CFG: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
-; MERGED-CFG: [[M14]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; MERGED-CFG: [[M14]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; MERGED-CFG: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]], [[M6:!.*]]}
-; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-; MERGED-CFG: [[M6]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
+; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15300}
+; MERGED-CFG: [[M6]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; MERGED-CFG: [[M7:!.*]] = distinct !{[[M7]]{{.*}}[[M8:!.*]]{{.*}}}
 ; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport.rootnode", [[M9:!.*]]}
 ; MERGED-CFG: [[M9]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; MERGED-CFG: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; MERGED-CFG: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
+; MERGED-CFG: [[M16]] = !{!"intel.optreport.remark", i32 25519}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

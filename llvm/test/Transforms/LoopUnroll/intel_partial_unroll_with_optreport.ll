@@ -47,8 +47,8 @@ attributes #0 = { "target-cpu"="skylake-avx512" }
 ; CHECK-DAG: ![[OPTREPORT_ROOT_PRAGMA]] = distinct !{!"intel.optreport.rootnode", ![[OPTREPORT_PRAGMA:[0-9]+]]}
 ; CHECK-DAG: ![[OPTREPORT_PRAGMA]] = distinct !{!"intel.optreport", ![[REMARKS:[0-9]+]]}
 ; CHECK-DAG: ![[REMARKS]] = !{!"intel.optreport.remarks", ![[DUMMY:[0-9]+]], ![[LLORG_UNROLLED:[0-9]+]]}
-; CHECK-DAG: ![[DUMMY]] = !{!"intel.optreport.remark", i32 0, !"dummy opt report"}
-; CHECK-DAG: ![[LLORG_UNROLLED]] = !{!"intel.optreport.remark", i32 25604, !"Loop has been partially unrolled with factor %d by LLVM LoopUnroll", i32 8}
+; CHECK-DAG: ![[DUMMY]] = !{!"intel.optreport.remark", i32 15339}
+; CHECK-DAG: ![[LLORG_UNROLLED]] = !{!"intel.optreport.remark", i32 25604, i32 8}
 ; CHECK-DAG: ![[UNROLL_DISABLE]] = !{!"llvm.loop.unroll.disable"}
 
 ; CHECK-DAG: ![[LOOP_HEUR]] = distinct !{![[LOOP_HEUR]], ![[OPTREPORT_ROOT_HEUR:[0-9]+]]}
@@ -59,7 +59,7 @@ attributes #0 = { "target-cpu"="skylake-avx512" }
 !2 = distinct !{!"intel.optreport.rootnode", !3}
 !3 = distinct !{!"intel.optreport", !4}
 !4 = !{!"intel.optreport.remarks", !5}
-!5 = !{!"intel.optreport.remark", i32 0, !"dummy opt report"}
+!5 = !{!"intel.optreport.remark", i32 15339}
 
 !6 = distinct !{!6, !7}
 !7 = distinct !{!"intel.optreport.rootnode", !8}

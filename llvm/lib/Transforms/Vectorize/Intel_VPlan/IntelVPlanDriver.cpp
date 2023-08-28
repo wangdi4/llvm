@@ -1963,21 +1963,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 // "HIR: " to the first argument string (if present).
 OptRemark VPlanDriverHIRImpl::prependHIR(OptRemark R) {
 
-  // The first two operands are the unsigned RemarkID and the format
-  // string associated with the RemarkID.  The third is the string we
-  // want to update.
-  assert(R.getNumOperands() >= 2);
-  if (R.getNumOperands() == 2)
+  // The first operand is the unsigned RemarkID.  The second is the
+  // string we want to update.
+  assert(R.getNumOperands() >= 1);
+  if (R.getNumOperands() == 1)
     return R;
 
-  const MDString *MDMsg = cast_or_null<MDString>(R.getOperand(2));
+  const MDString *MDMsg = cast_or_null<MDString>(R.getOperand(1));
   assert(MDMsg && "Expected a string!");
   std::string NewMsg = "HIR: " + std::string(MDMsg->getString());
   MDString *NewMDMsg = MDString::get(ORBuilder.getContext(), NewMsg);
   MDTuple *Tuple = R.get();
   // Operand number for raw tuple is adjusted by one for the
   // intel.optreport.remark tag at operand 0.
-  Tuple->replaceOperandWith(3, NewMDMsg);
+  Tuple->replaceOperandWith(2, NewMDMsg);
   return OptRemark(Tuple);
 }
 
