@@ -38,6 +38,12 @@
 #include "sanitizer_libc.h"
 #include "sanitizer_placement_new.h"
 
+#if INTEL_CUSTOMIZATION
+#define SYCL_CONTEXT_TEST_SYMBOL \
+    _ZN4sycl3_V118default_selector_vERKNS0_6deviceE
+SANITIZER_WEAK_ATTRIBUTE extern void *SYCL_CONTEXT_TEST_SYMBOL;
+#endif  // INTEL_CUSTOMIZATION
+
 namespace __sanitizer {
 
 const char *SanitizerToolName = "SanitizerTool";
@@ -423,6 +429,16 @@ void WarnAboutMissingSymbolizer() {
   }
 }
 void NotifyNoSymbolizer() { NoSymbolizerFound = true; }
+
+bool IsInSyclContext() {
+#if SANITIZER_LINUX
+  return (uptr)&SYCL_CONTEXT_TEST_SYMBOL != 0;
+#else
+  // We don't plan on support SYCL with sanitizers on platform other than Linux,
+  // and on windows this will cause linking problem.
+  return false;
+#endif  // SANITIZER_LINUX
+}
 #endif  // INTEL_CUSTOMIZATION
 
 } // namespace __sanitizer
