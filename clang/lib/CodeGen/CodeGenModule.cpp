@@ -5238,18 +5238,14 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   bool UseLibIrc =
     (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc));
   while (Options.size() > 1 &&
-<<<<<<< HEAD
          ((UseLibIrc && CodeGenFunction::GetCpuFeatureBitmap(
-                          (Options.end() - 2)->Conditions.Features) ==
-                          std::array<uint64_t, 2>{0, 0}) ||
-         (!UseLibIrc && llvm::X86::getCpuSupportsMask(
-                            (Options.end() - 2)->Conditions.Features) == 0))) {
+                            (Options.end() - 2)->Conditions.Features) ==
+                            std::array<uint64_t, 2>{0, 0}) ||
+          (!UseLibIrc &&
+           llvm::all_of(llvm::X86::getCpuSupportsMask(
+                            (Options.end() - 2)->Conditions.Features),
+                        [](auto X) { return X == 0; })))) {
 #endif // INTEL_CUSTOMIZATION
-=======
-         llvm::all_of(llvm::X86::getCpuSupportsMask(
-                          (Options.end() - 2)->Conditions.Features),
-                      [](auto X) { return X == 0; })) {
->>>>>>> 27da15381cbe2ac6fd1319f6409dbbab9a857b7b
     StringRef LHSName = (Options.end() - 2)->Function->getName();
     StringRef RHSName = (Options.end() - 1)->Function->getName();
     if (LHSName.compare(RHSName) < 0)
