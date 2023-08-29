@@ -7124,6 +7124,11 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
     if (DeviceInfo->Option.CommandMode == CommandModeTy::AsyncOrdered) {
       // Only need to wait for the last event
       CALL_ZE_RET_FAIL(zeEventHostSynchronize, WaitEvents.back(), UINT64_MAX);
+      // Synchronize on kernel event to support printf()
+      auto KE = AsyncQueue.KernelEvent;
+      if (KE && KE != WaitEvents.back()) {
+        CALL_ZE_RET_FAIL(zeEventHostSynchronize, KE, UINT64_MAX);
+      }
       for (auto &Event : WaitEvents) {
         if (Prof)
           AsyncQueue.updateProf(Prof, Event);
@@ -7134,15 +7139,13 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
       // to avoid premature event reset. If we have a kernel event in the queue,
       // it is the last event to wait for since all wait events of the kernel
       // are signaled before the kernel is invoked.
+      // We always invoke synchronization on kernel event to support printf().
       bool WaitDone = false;
-      auto KE = AsyncQueue.KernelEvent;
-      bool HasKernelAndCopyFrom = KE && KE != WaitEvents.back();
       for (auto Itr = WaitEvents.rbegin(); Itr != WaitEvents.rend(); Itr++) {
         if (!WaitDone) {
-          if (*Itr == KE)
+          CALL_ZE_RET_FAIL(zeEventHostSynchronize, *Itr, UINT64_MAX);
+          if (*Itr == AsyncQueue.KernelEvent)
             WaitDone = true;
-          if (!WaitDone || !HasKernelAndCopyFrom)
-            CALL_ZE_RET_FAIL(zeEventHostSynchronize, *Itr, UINT64_MAX);
         }
         if (Prof)
           AsyncQueue.updateProf(Prof, *Itr);
