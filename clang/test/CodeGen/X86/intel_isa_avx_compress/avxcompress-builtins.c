@@ -1,101 +1,101 @@
 // REQUIRES: intel_feature_isa_avx_compress
-// RUN: %clang_cc1 -no-opaque-pointers -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxcompress -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxcompress -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
 __m128i test_mm_maskload_epi8(char const *a, __m128i m) {
   // CHECK-LABEL: test_mm_maskload_epi8
-  // CHECK: call <16 x i8> @llvm.x86.avx2.maskload.b(i8* %{{.*}}, <16 x i8> %{{.*}})
+  // CHECK: call <16 x i8> @llvm.x86.avx2.maskload.b(ptr %{{.*}}, <16 x i8> %{{.*}})
   return _mm_maskload_epi8(a, m);
 }
 
 __m256i test_mm256_maskload_epi8(char const *a, __m256i m) {
   // CHECK-LABEL: test_mm256_maskload_epi8
-  // CHECK: call <32 x i8> @llvm.x86.avx2.maskload.b.256(i8* %{{.*}}, <32 x i8> %{{.*}})
+  // CHECK: call <32 x i8> @llvm.x86.avx2.maskload.b.256(ptr %{{.*}}, <32 x i8> %{{.*}})
   return _mm256_maskload_epi8(a, m);
 }
 
 __m128i test_mm_maskload_epi16(short const *a, __m128i m) {
   // CHECK-LABEL: test_mm_maskload_epi16
-  // CHECK: call <8 x i16> @llvm.x86.avx2.maskload.w(i8* %{{.*}}, <8 x i16> %{{.*}})
+  // CHECK: call <8 x i16> @llvm.x86.avx2.maskload.w(ptr %{{.*}}, <8 x i16> %{{.*}})
   return _mm_maskload_epi16(a, m);
 }
 
 __m256i test_mm256_maskload_epi16(short const *a, __m256i m) {
   // CHECK-LABEL: test_mm256_maskload_epi16
-  // CHECK: call <16 x i16> @llvm.x86.avx2.maskload.w.256(i8* %{{.*}}, <16 x i16> %{{.*}})
+  // CHECK: call <16 x i16> @llvm.x86.avx2.maskload.w.256(ptr %{{.*}}, <16 x i16> %{{.*}})
   return _mm256_maskload_epi16(a, m);
 }
 
 void test_mm_maskstore_epi8(char *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_maskstore_epi8
-  // CHECK: call void @llvm.x86.avx2.maskstore.b(i8* %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.maskstore.b(ptr %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
   _mm_maskstore_epi8(a, m, b);
 }
 
 void test_mm256_maskstore_epi8(char *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_maskstore_epi8
-  // CHECK: call void @llvm.x86.avx2.maskstore.b.256(i8* %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.maskstore.b.256(ptr %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}})
   _mm256_maskstore_epi8(a, m, b);
 }
 
 void test_mm_maskstore_epi16(short *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_maskstore_epi16
-  // CHECK: call void @llvm.x86.avx2.maskstore.w(i8* %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.maskstore.w(ptr %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}})
   _mm_maskstore_epi16(a, m, b);
 }
 
 void test_mm256_maskstore_epi16(short *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_maskstore_epi16
-  // CHECK: call void @llvm.x86.avx2.maskstore.w.256(i8* %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.maskstore.w.256(ptr %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}})
   _mm256_maskstore_epi16(a, m, b);
 }
 
 void test_mm_compress_store_epi8(char *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_compress_store_epi8
-  // CHECK: call void @llvm.x86.avx2.vpcompressb.store.128(i8* %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressb.store.128(ptr %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
   _mm_compress_store_epi8(a, m, b);
 }
 
 void test_mm_compress_store_epi16(short *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_compress_store_epi16
-  // CHECK: call void @llvm.x86.avx2.vpcompressw.store.128(i8* %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressw.store.128(ptr %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}})
   _mm_compress_store_epi16(a, m, b);
 }
 
 void test_mm_compress_store_epi32(int *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_compress_store_epi32
-  // CHECK: call void @llvm.x86.avx2.vpcompressd.store.128(i8* %{{.*}}, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressd.store.128(ptr %{{.*}}, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
   _mm_compress_store_epi32(a, m, b);
 }
 
 void test_mm_compress_store_epi64(long long *a, __m128i m, __m128i b) {
   // CHECK-LABEL: test_mm_compress_store_epi64
-  // CHECK: call void @llvm.x86.avx2.vpcompressq.store.128(i8* %{{.*}}, <2 x i64> %{{.*}}, <2 x i64> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressq.store.128(ptr %{{.*}}, <2 x i64> %{{.*}}, <2 x i64> %{{.*}})
   _mm_compress_store_epi64(a, m, b);
 }
 
 void test_mm256_compress_store_epi8(char *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_compress_store_epi8
-  // CHECK: call void @llvm.x86.avx2.vpcompressb.store.256(i8* %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressb.store.256(ptr %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}})
   _mm256_compress_store_epi8(a, m, b);
 }
 
 void test_mm256_compress_store_epi16(short *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_compress_store_epi16
-  // CHECK: call void @llvm.x86.avx2.vpcompressw.store.256(i8* %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressw.store.256(ptr %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}})
   _mm256_compress_store_epi16(a, m, b);
 }
 
 void test_mm256_compress_store_epi32(int *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_compress_store_epi32
-  // CHECK: call void @llvm.x86.avx2.vpcompressd.store.256(i8* %{{.*}}, <8 x i32> %{{.*}}, <8 x i32> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressd.store.256(ptr %{{.*}}, <8 x i32> %{{.*}}, <8 x i32> %{{.*}})
   _mm256_compress_store_epi32(a, m, b);
 }
 
 void test_mm256_compress_store_epi64(long long *a, __m256i m, __m256i b) {
   // CHECK-LABEL: test_mm256_compress_store_epi64
-  // CHECK: call void @llvm.x86.avx2.vpcompressq.store.256(i8* %{{.*}}, <4 x i64> %{{.*}}, <4 x i64> %{{.*}})
+  // CHECK: call void @llvm.x86.avx2.vpcompressq.store.256(ptr %{{.*}}, <4 x i64> %{{.*}}, <4 x i64> %{{.*}})
   _mm256_compress_store_epi64(a, m, b);
 }
 
