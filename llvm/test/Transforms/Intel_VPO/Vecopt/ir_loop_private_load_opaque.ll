@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -vplan-enable-soa=false -passes=vplan-vec -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -vplan-force-vf=4 -S %s | FileCheck %s
 
 define void @foo(ptr nocapture %arr) {
 ; CHECK-LABEL: @foo(

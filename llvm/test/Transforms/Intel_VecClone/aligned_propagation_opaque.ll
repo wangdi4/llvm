@@ -4,7 +4,7 @@
 ; - GEPs that preserve alignment (which may be lower than the arg align,
 ;                                 e.g. Align(64) + 32 * i => Align(32))
 
-; RUN: opt -opaque-pointers -passes="vec-clone,alignment-from-assumptions" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone,alignment-from-assumptions" -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

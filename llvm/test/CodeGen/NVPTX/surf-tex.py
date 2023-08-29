@@ -1,5 +1,5 @@
 # RUN: %python %s --target=cuda --tests=suld,sust,tex,tld4 --gen-list=%t.list > %t-cuda.ll
-# RUN: llc --opaque-pointers -mcpu=sm_20 %t-cuda.ll -verify-machineinstrs -o - | FileCheck %t-cuda.ll
+# RUN: llc -mcpu=sm_20 %t-cuda.ll -verify-machineinstrs -o - | FileCheck %t-cuda.ll
 # RUN: %if ptxas %{ llc -mcpu=sm_20 %t-cuda.ll -verify-machineinstrs -o - | %ptxas-verify %}
 
 # We only need to run this second time for texture tests, because

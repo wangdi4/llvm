@@ -1,4 +1,4 @@
-; RUN: opt -passes="tbaa-prop" -opaque-pointers -S %s | FileCheck %s
+; RUN: opt -passes="tbaa-prop" -S %s | FileCheck %s
 
 ; Verify that TBAA propagation will propagate metadata from GEPs to memory
 ; instructions of the same result type as the GEP.

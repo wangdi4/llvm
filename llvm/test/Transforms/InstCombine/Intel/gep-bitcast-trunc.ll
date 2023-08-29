@@ -1,9 +1,9 @@
 ; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; This series of tests ensures that InstCombine can transform things like:
-;   %t = getelementptr i8* bitcast (i32* %arr to i8*), %scale
+;   %t = getelementptr ptr bitcast (ptr %arr to ptr), %scale
 ; into:
-;   %t = getelementptr i32* %arr, i32 (%scale/4)
+;   %t = getelementptr ptr %arr, i32 (%scale/4)
 ;
 ; The idea is to eliminate the unnecessary bitcasts by "descaling" %scale and
 ; changing the bitcast to a larger type. This should be possible in some cases

@@ -1,11 +1,11 @@
-; RUN: opt -opaque-pointers=0 -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
+; RUN: opt -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
 ;
 ; Validate debug intrinsics are updated during address space inference.
 ;
-; CHECK: call void @llvm.dbg.value(metadata i32 addrspace(1)* %glob.ascast, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !21
-; CHECK: call void @llvm.dbg.declare(metadata i32 addrspace(1)* @a.ascast.priv.__global, metadata !20, metadata !DIExpression()), !dbg !22
+; CHECK: call void @llvm.dbg.value(metadata ptr addrspace(1) %glob.ascast, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !21
+; CHECK: call void @llvm.dbg.declare(metadata ptr addrspace(1) @a.ascast.priv.__global, metadata !20, metadata !DIExpression()), !dbg !22
 ; CHECK: call void @llvm.dbg.value(metadata i64 3, metadata !18, metadata !DIExpression()), !dbg !23
-; CHECK: call void @llvm.dbg.value(metadata i32 addrspace(1)* @a.ascast.priv.__global, metadata !11, metadata !DIExpression()), !dbg !23
+; CHECK: call void @llvm.dbg.value(metadata ptr addrspace(1) @a.ascast.priv.__global, metadata !11, metadata !DIExpression()), !dbg !23
 
 ; ModuleID = 'minimal.ll'
 source_filename = "minimal.ll"
@@ -15,20 +15,20 @@ target triple = "x86_64-pc-linux"
 @a.ascast.priv.__global = internal addrspace(1) global i32 0, align 4
 
 ; Function Attrs: convergent nounwind
-define void @function(i32 addrspace(1)* %glob.ascast) #0 !dbg !5 {
+define void @function(ptr addrspace(1) %glob.ascast) #0 !dbg !5 {
 newFuncRoot:
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %glob.ascast, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !21
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)* @a.ascast.priv.__global, metadata !20, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %glob.ascast, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !21
+  call void @llvm.dbg.declare(metadata ptr addrspace(1) @a.ascast.priv.__global, metadata !20, metadata !DIExpression()), !dbg !22
   call void @llvm.dbg.value(metadata i64 3, metadata !18, metadata !DIExpression()), !dbg !23
-  call void @llvm.dbg.value(metadata i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a.ascast.priv.__global to i32 addrspace(4)*), metadata !11, metadata !DIExpression()), !dbg !23
-  store i32 0, i32 addrspace(1)* @a.ascast.priv.__global, align 4, !dbg !24
-  %0 = load i32, i32 addrspace(1)* @a.ascast.priv.__global, align 4, !dbg !25
+  call void @llvm.dbg.value(metadata ptr addrspace(4) addrspacecast (ptr addrspace(1) @a.ascast.priv.__global to ptr addrspace(4)), metadata !11, metadata !DIExpression()), !dbg !23
+  store i32 0, ptr addrspace(1) @a.ascast.priv.__global, align 4, !dbg !24
+  %0 = load i32, ptr addrspace(1) @a.ascast.priv.__global, align 4, !dbg !25
   %inc = add nsw i32 %0, 1, !dbg !25
-  store i32 %inc, i32 addrspace(1)* @a.ascast.priv.__global, align 4, !dbg !25
-  store i32 0, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a.ascast.priv.__global to i32 addrspace(4)*), align 4, !dbg !26
-  %1 = load i32, i32 addrspace(1)* @a.ascast.priv.__global, align 4, !dbg !27
+  store i32 %inc, ptr addrspace(1) @a.ascast.priv.__global, align 4, !dbg !25
+  store i32 0, ptr addrspace(4) addrspacecast (ptr addrspace(1) @a.ascast.priv.__global to ptr addrspace(4)), align 4, !dbg !26
+  %1 = load i32, ptr addrspace(1) @a.ascast.priv.__global, align 4, !dbg !27
   %inc3 = add nsw i32 %1, 1, !dbg !27
-  store i32 %inc3, i32 addrspace(1)* @a.ascast.priv.__global, align 4, !dbg !27
+  store i32 %inc3, ptr addrspace(1) @a.ascast.priv.__global, align 4, !dbg !27
   ret void
 }
 
