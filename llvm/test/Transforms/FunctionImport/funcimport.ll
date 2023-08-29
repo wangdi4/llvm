@@ -1,12 +1,18 @@
 ; REQUIRES: x86-registered-target
 
 ; Do setup work for all below tests: generate bitcode and combined index
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Use extra option to allow full source filename path in module
 ; RUN: opt -strip-module-src-path=false -module-summary %s -o %t.bc
 ; RUN: opt -strip-module-src-path=false -module-summary %p/Inputs/funcimport.ll -o %t2.bc
 ; RUN: llvm-lto -strip-module-src-path=false -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: opt -module-summary %s -o %t.bc
+; RUN: opt -module-summary %p/Inputs/funcimport.ll -o %t2.bc
+; RUN: llvm-lto -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 
 ; Do the import now
 ; RUN: opt -passes=function-import -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF

@@ -1,6 +1,7 @@
 // UNSUPPORTED: target={{.*}}-zos{{.*}}, target={{.*}}-aix{{.*}}
 // RUN: rm -rf %t
 // RUN: split-file %s %t
+<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -emit-llvm -o %t/test-compatible-extensions.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-compatible-extensions.m \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -fmodule-name=InterfaceAndExtension -opaque-pointers
 // RUN: FileCheck --input-file=%t/test-compatible-extensions.ll %t/test-compatible-extensions.m
@@ -15,6 +16,22 @@
 // RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar-extension.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache \
 // INTEL RUN:            -DIMPORT_EXTENSION=1 -opaque-pointers
+=======
+// RUN: %clang_cc1 -emit-llvm -o %t/test-compatible-extensions.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-compatible-extensions.m \
+// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -fmodule-name=InterfaceAndExtension 
+// RUN: FileCheck --input-file=%t/test-compatible-extensions.ll %t/test-compatible-extensions.m
+
+// RUN: %clang_cc1 -emit-llvm -o %t/test-access-extension-ivar.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-access-extension-ivar.m \
+// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache 
+// RUN: FileCheck --input-file=%t/test-access-extension-ivar.ll %t/test-access-extension-ivar.m
+
+// RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
+// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache 
+// RUN: FileCheck --input-file=%t/test-synthesized-ivar.ll %t/test-synthesized-ivar.m
+// RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar-extension.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
+// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache \
+// RUN:            -DIMPORT_EXTENSION=1 
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 // RUN: FileCheck --input-file=%t/test-synthesized-ivar-extension.ll %t/test-synthesized-ivar.m
 
 // Test various scenarios where we can end up with the same-name ivars coming from multiple modules.

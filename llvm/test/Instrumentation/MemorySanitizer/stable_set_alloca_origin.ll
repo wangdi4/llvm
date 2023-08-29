@@ -1,8 +1,12 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Must pass -opaque-pointers explicitly until it becomes the default on xmain
 ; RUN: opt < %s -opaque-pointers -msan-check-access-address=0 \
+=======
+; RUN: opt < %s -msan-check-access-address=0 \
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 ; RUN: -msan-track-origins=1 -S -passes=msan 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -msan-check-access-address=0  \
+; RUN: opt < %s -msan-check-access-address=0  \
 ; RUN: -msan-track-origins=2 -S -passes=msan 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

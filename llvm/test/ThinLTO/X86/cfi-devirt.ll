@@ -6,9 +6,12 @@
 
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+=======
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
@@ -33,9 +36,12 @@
 ; RUN: opt -thinlto-bc -o %t2.o %S/Inputs/empty.ll
 ; RUN: not llvm-lto2 run %t.o %t2.o -thinlto-distributed-indexes \
 ; RUN:   -whole-program-visibility \
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+=======
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \

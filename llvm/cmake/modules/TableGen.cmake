@@ -21,6 +21,7 @@
 # Adds the name of the generated file to TABLEGEN_OUTPUT.
 include(LLVMDistributionSupport)
 
+<<<<<<< HEAD
 if(LLVM_MAIN_INCLUDE_DIR)
   set(LLVM_TABLEGEN_FLAGS -I ${LLVM_MAIN_INCLUDE_DIR})
 endif()
@@ -32,6 +33,9 @@ endif()
 if(INTEL_COLLAB)
   list(APPEND LLVM_TABLEGEN_FLAGS -DINTEL_COLLAB)
 endif()
+=======
+list(APPEND LLVM_TABLEGEN_FLAGS "-DINTEL_SYCL_OPAQUEPOINTER_READY")
+>>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 
 function(tablegen project ofn)
   cmake_parse_arguments(ARG "" "" "DEPENDS;EXTRA_INCLUDES" ${ARGN})
