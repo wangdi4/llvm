@@ -18,6 +18,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/IndirectCallLowering.h"
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
@@ -101,7 +102,6 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
 /// Customized diagnostic handler to be registered to LLVMContext before running
 /// passes. Prints error messages and throw exception if received an error
 /// diagnostic.
-/// - Handles VFAnalysisDiagInfo emitted by VFAnalysis.
 class OCLDiagnosticHandler : public DiagnosticHandler {
 public:
   OCLDiagnosticHandler(raw_ostream &OS) : OS(OS) {}
@@ -125,6 +125,16 @@ public:
       if (DKADI->getSeverity() == DS_Error)
         throw Exceptions::CompilerException(
             "Analyzing SYCL kernel properties failed", CL_DEV_INVALID_BINARY);
+      return true;
+    }
+    if (auto *VVDI = dyn_cast<VectorVariantDiagInfo>(&DI)) {
+      OS << LLVMContext::getDiagnosticMessagePrefix(VVDI->getSeverity())
+         << ": ";
+      VVDI->print(OS);
+      OS << ".\n";
+      if (VVDI->getSeverity() == DS_Error)
+        throw Exceptions::CompilerException("vector-variant failure",
+                                            CL_DEV_INVALID_BINARY);
       return true;
     }
     return false;
@@ -174,11 +184,6 @@ bool Optimizer::hasFpgaPipeDynamicAccess() const {
               .empty();
 }
 
-bool Optimizer::hasVectorVariantFailure() const {
-  return !GetInvalidFunctions(InvalidFunctionType::VECTOR_VARIANT_FAILURE)
-              .empty();
-}
-
 bool Optimizer::hasFPGAChannelsWithDepthIgnored() const {
   return !GetInvalidGlobals(InvalidGVType::FPGA_DEPTH_IS_IGNORED).empty();
 }
@@ -221,9 +226,6 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
                 KMD.FpgaPipeDynamicAccess.get();
-      break;
-    case VECTOR_VARIANT_FAILURE:
-      Invalid = F.hasFnAttribute(KernelAttribute::VectorVariantFailure);
       break;
     }
 
