@@ -958,9 +958,10 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         return;
       }
 
+      auto Children =
+          make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end());
       if (ShouldVectorizeChildren && WRLp->hasChildren())
-        for (auto *WRN :
-             make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end()))
+        for (auto *WRN : Children)
           AddLoopsToVectorize(WRN, AddLoopsToVectorize);
 
       if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
@@ -972,7 +973,18 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         return;
       }
 
-      if (ShouldVectorizeWithChildren || !WRLp->hasChildren())
+      if (!WRLp->hasChildren() ||
+          ShouldVectorizeWithChildren &&
+              // Note: we don't vectorize outer loop if there is a
+              // reduction/private/linear clause in the nested loop since it
+              // will be treated as uniform.
+              // TODO: remove this bailout and switch nested vectorization
+              // strategy to innermost-to-outermost by default in a long-term.
+              llvm::all_of(Children, [](WRegionNode *N) {
+                return !isa<WRNVecLoopNode>(N) || N->getRed().empty() &&
+                                                      N->getPriv().empty() &&
+                                                      N->getLinear().empty();
+              }))
         AddLoopToVectorize(Lp, WRLp);
     }
   };
