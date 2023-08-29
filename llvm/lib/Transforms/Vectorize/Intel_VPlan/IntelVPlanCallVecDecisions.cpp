@@ -479,6 +479,12 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
+  // Calls with kernel-call-once cannot be serialized or pumped
+  if (VPCall->isKernelCallOnce()) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   // If underlying CallInst is not available for further analysis, serialize
   // conservatively if current decision is undefined.
   if (!UnderlyingCI) {
