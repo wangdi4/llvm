@@ -5,8 +5,6 @@
 // Test we maintain at least a basic amount of interoperation between
 // ObjC and C++ exceptions in the legacy runtime.
 
-// rdar://12364847
-
 void foo(void);
 
 void test0(id obj) {
