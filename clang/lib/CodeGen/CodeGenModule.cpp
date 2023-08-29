@@ -8871,6 +8871,9 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   // FIXME: should we even be calling this method if RTTI is disabled
   // and it's not for EH?
   if ((!ForEH && !getLangOpts().RTTI) || getLangOpts().CUDAIsDevice ||
+#if INTEL_COLLAB
+      getLangOpts().SYCLIsDevice ||
+#endif // INTEL_COLLAB
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
        getTriple().isNVPTX()))
 #if INTEL_COLLAB
