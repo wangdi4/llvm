@@ -148,7 +148,6 @@ public:
                                             Ordering, SSID);
   }
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
   llvm::Value *CreateBitCastFPT(llvm::Value *Ptr, llvm::Type *Ty) {
     // According to function-pointer extension for SPIR-V the function
@@ -169,7 +168,6 @@ public:
     return CGBuilderBaseTy::CreateBitCast(Ptr, Ty, Name);
   }
 #endif  // INTEL_COLLAB
-#endif
 
   using CGBuilderBaseTy::CreateAddrSpaceCast;
   Address CreateAddrSpaceCast(Address Addr, llvm::Type *Ty,
