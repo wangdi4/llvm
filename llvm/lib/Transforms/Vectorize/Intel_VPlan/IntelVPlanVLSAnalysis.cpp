@@ -201,7 +201,7 @@ bool VPlanVLSAnalysis::limitVLSForAVX512(int64_t Stride,
   if (VPInst.getOpcode() == Instruction::Load &&
       VPInst.getType()->isIntegerTy(16) && VPInst.getNumUsers() == 1) {
     auto *UserInst = dyn_cast<VPInstruction>(*VPInst.user_begin());
-    if (UserInst->getOpcode() == Instruction::UIToFP)
+    if (UserInst && UserInst->getOpcode() == Instruction::UIToFP)
       return true;
   }
 

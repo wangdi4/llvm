@@ -793,8 +793,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForUnaryInst(
 static bool fitsInInteger(unsigned NumBits, APInt MinVal, APInt MaxVal) {
   int64_t Min = MinVal.getSExtValue();
   int64_t Max = MaxVal.getSExtValue();
-  if (NumBits == 64 && Min >= std::numeric_limits<int64_t>::min() &&
-      Max <= std::numeric_limits<int64_t>::max())
+  if (NumBits == 64)
     return true;
   if (NumBits == 32 && Min >= std::numeric_limits<int32_t>::min() &&
      Max <= std::numeric_limits<int32_t>::max())
