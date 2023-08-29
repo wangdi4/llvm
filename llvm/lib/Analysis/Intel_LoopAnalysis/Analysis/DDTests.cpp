@@ -1,5 +1,5 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -----------===//
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -4067,6 +4067,7 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
 
   unsigned int IVProcessed = 0;
   unsigned int IVNum = 0;
+  CanonExpr *FirstCE = nullptr;
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
 
@@ -4089,6 +4090,9 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
       LoopLevelForUnitStride = IVLevel;
       IVLevels.push_back(IVLevel);
       IVProcessed = IVNum;
+      LLVM_DEBUG(dbgs() << "\n 1) subscript pushed " << IVLevel << "\n";);
+      LLVM_DEBUG(TmpCE->dump(););
+      FirstCE = TmpCE;
       break;
     }
   }
@@ -4134,9 +4138,28 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
                                           ParentLoop->getUpperCanonExpr())) {
       // Construct the subscript e.g. 4  from 4 * n * i by removing the
       // symbolic stride
+      unsigned IVBlobIndex = TmpCE->getSingleBlobIndex();
       CanonExpr *Tmp = const_cast<CanonExpr *>(TmpCE);
       Tmp->clearBlobs();
       Tmp->setIVCoeff(IVLevel, InvalidBlobIndex, ConstCoeff); // becomes 4
+      // TODO: rewrite the code for multiple IVs.
+      if (!RelaxChecking && (ConstCoeff != 0)) {
+        if (FirstCE->numBlobs() == 1) {
+          int64_t SingleBlobCoeff = FirstCE->getSingleBlobCoeff();
+          unsigned SingleBlobIndex = FirstCE->getSingleBlobIndex();
+
+          if (IVBlobIndex == SingleBlobIndex) {
+            LLVM_DEBUG(dbgs() << "\n   added " << SingleBlobCoeff
+                              << " to level " << IVLevel << "\n";);
+            Tmp->setConstant(SingleBlobCoeff);
+            FirstCE->clearBlobs();
+          }
+        }
+      }
+
+      LLVM_DEBUG(dbgs() << "\n 2) subscript pushed  " << IVLevel << "\n";);
+      LLVM_DEBUG(Tmp->dump(););
+
       Subscripts.push_back(Tmp);
       IVLevels.push_back(IVLevel);
     }
