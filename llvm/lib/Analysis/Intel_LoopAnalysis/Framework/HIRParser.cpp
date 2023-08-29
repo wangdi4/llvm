@@ -3500,6 +3500,10 @@ const Value *HIRParser::GEPChain::getZeroIndexGEPOrOrigPtrOperand(
   while (ElemTy != SubsElemTy) {
 
     if (auto *STy = dyn_cast<StructType>(ElemTy)) {
+
+      if (STy->isEmptyTy())
+        break;
+
       IdxList.push_back(
           Constant::getNullValue(Type::getInt32Ty(ElemTy->getContext())));
       ElemTy = STy->getElementType(0);
