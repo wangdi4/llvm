@@ -1104,6 +1104,7 @@ inline u32 GetNumberOfCPUsCached() {
 #if INTEL_CUSTOMIZATION
 void WarnAboutMissingSymbolizer();
 void NotifyNoSymbolizer();
+bool IsInSyclContext();
 #endif  // INTEL_CUSTOMIZATION
 
 }  // namespace __sanitizer
