@@ -240,10 +240,6 @@ public:
   /// invalidated by getGraphImpl() resulting in invalid memory access.
   void resetInvalidGraphs(const HLRegion *Region);
 
-  /// \brief Caller has DDG and the level it needs to refine. Should check
-  /// isRefinable before calling refineDV
-  bool isRefinableDepAtLevel(const DDEdge *Edge, unsigned Level) const;
-
   /// \brief Refine DV by calling demand driven DD.
   /// e.g. If we are testing for vectorization for outer loop level 4
   /// in a 5 level loop then \p StartNestingLevel = 4 and \p DeepestNestingLevel

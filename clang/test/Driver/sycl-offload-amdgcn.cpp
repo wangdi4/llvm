@@ -48,11 +48,11 @@
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -nogpulib \
 // RUN:   -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend \
 // RUN:   --offload-arch=gfx906 %s -L%S/Inputs/SYCL -llin64 2>&1 \
-// RUN: | FileCheck -check-prefix=CHK-ARCHIVE %s
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc | FileCheck -check-prefix=CHK-ARCHIVE %s
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -nogpulib \
 // RUN:   -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend \
 // RUN:   --offload-arch=gfx906 %s %S/Inputs/SYCL/liblin64.a 2>&1 \
-// RUN: | FileCheck -check-prefix=CHK-ARCHIVE %s
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc | FileCheck -check-prefix=CHK-ARCHIVE %s
 // CHK-ARCHIVE: clang-offload-bundler{{.*}} "-input={{.*}}/Inputs/SYCL/liblin64.a"
 // CHK-ARCHIVE: llvm-link{{.*}}
 // CHK-ARCHIVE-NOT: clang-offload-bundler{{.*}} "-unbundle"

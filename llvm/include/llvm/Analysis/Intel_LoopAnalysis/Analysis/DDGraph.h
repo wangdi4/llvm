@@ -114,12 +114,6 @@ public:
     return DV.isCrossIterDepAtLevel(Level);
   }
 
-  // Proxy to isDVRefinableAtLevel().
-  bool isRefinableDepAtLevel(unsigned Level) const {
-    // Cut down compile time for now by adding  more condition
-    return DV.isRefinableAtLevel(Level);
-  }
-
   bool isOutput() const { return getEdgeType() == DepType::OUTPUT; }
   bool isFlow() const { return getEdgeType() == DepType::FLOW; }
   bool isAnti() const { return getEdgeType() == DepType::ANTI; }

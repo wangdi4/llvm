@@ -135,49 +135,71 @@
 
 /// Tests the behaviors of using -fsycl-targets=amd_gpu*
 
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx700 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx700 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx700 -DMAC_STR=GFX700
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx701 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx701 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx701 -DMAC_STR=GFX701
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx702 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx702 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx702 -DMAC_STR=GFX702
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx801 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx801 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx801 -DMAC_STR=GFX801
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx802 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx802 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx802 -DMAC_STR=GFX802
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx803 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx803 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx803 -DMAC_STR=GFX803
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx805 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx805 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx805 -DMAC_STR=GFX805
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx810 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx810 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx810 -DMAC_STR=GFX810
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx900 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx900 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx900 -DMAC_STR=GFX900
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx902 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx902 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx902 -DMAC_STR=GFX902
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx904 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx904 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx904 -DMAC_STR=GFX904
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx906 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx906 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx906 -DMAC_STR=GFX906
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx908 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx908 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx908 -DMAC_STR=GFX908
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx90a -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx90a \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx90a -DMAC_STR=GFX90A
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1010 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1010 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1010 -DMAC_STR=GFX1010
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1011 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1011 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1011 -DMAC_STR=GFX1011
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1012 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1012 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1012 -DMAC_STR=GFX1012
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1013 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1013 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1013 -DMAC_STR=GFX1013
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1030 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1030 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1030 -DMAC_STR=GFX1030
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1031 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1031 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1031 -DMAC_STR=GFX1031
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1032 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1032 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1032 -DMAC_STR=GFX1032
-// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1034 -### %s 2>&1 | \
+// RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx1034 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefixes=DEVICE_AMD,MACRO_AMD -DDEV_STR=gfx1034 -DMAC_STR=GFX1034
 // MACRO_AMD: clang{{.*}} "-triple" "amdgcn-amd-amdhsa"
 // MACRO_AMD: "-D__SYCL_TARGET_AMD_GPU_[[MAC_STR]]__"
@@ -224,6 +246,7 @@
 
 /// Test for proper creation of fat object
 // RUN: %clangxx -c -fsycl -nocudalib -fsycl-targets=nvidia_gpu_sm_50 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc \
 // RUN:   -target x86_64-unknown-linux-gnu -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefix=NVIDIA_FATO
 // NVIDIA_FATO: clang-offload-bundler{{.*}} "-type=o"
@@ -231,6 +254,7 @@
 
 /// Test for proper creation of fat object
 // RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx700 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc \
 // RUN:   -target x86_64-unknown-linux-gnu -### %s 2>&1 | \
 // RUN:   FileCheck %s --check-prefix=AMD_FATO
 // AMD_FATO: clang-offload-bundler{{.*}} "-type=o"
@@ -248,6 +272,7 @@
 /// Test for proper consumption of fat object
 // RUN: touch %t.o
 // RUN: %clangxx -fsycl -nocudalib -fsycl-targets=nvidia_gpu_sm_50 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc \
 // RUN:   -target x86_64-unknown-linux-gnu -### %t.o 2>&1 | \
 // RUN:   FileCheck %s --check-prefix=NVIDIA_CONSUME_FAT
 // NVIDIA_CONSUME_FAT: clang-offload-bundler{{.*}} "-type=o"
@@ -257,6 +282,7 @@
 /// Test for proper consumption of fat object
 // RUN: touch %t.o
 // RUN: %clangxx -fsycl -nogpulib -fsycl-targets=amd_gpu_gfx700 \
+// RUN:   -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc \
 // RUN:   -target x86_64-unknown-linux-gnu -### %t.o 2>&1 | \
 // RUN:   FileCheck %s --check-prefix=AMD_CONSUME_FAT
 // AMD_CONSUME_FAT: clang-offload-bundler{{.*}} "-type=o"

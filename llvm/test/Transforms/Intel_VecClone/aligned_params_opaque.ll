@@ -7,7 +7,7 @@
 ; Additionally, check that the inserted assumption are marked with metadata so
 ; downstream passes (VPlan) can clean them up after they are propagated.
 
-; RUN: opt -S < %s -opaque-pointers -passes="vec-clone" | FileCheck %s
+; RUN: opt -S < %s -passes="vec-clone" | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

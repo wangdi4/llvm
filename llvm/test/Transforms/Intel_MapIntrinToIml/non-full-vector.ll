@@ -1,6 +1,6 @@
 ; Check narrower SVML calls are correctly lowered to corresponding SVML calls
 ; or widened if absent in the library.
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -82,15 +82,15 @@ entry:
 ; CHECK-LABEL: @test_sincosf8
 ; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_l9(<8 x float> %a)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
-; CHECK: store <8 x float> [[COS]], <8 x float>* %p, align 32
+; CHECK: store <8 x float> [[COS]], ptr %p, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
 ; CHECK: ret <8 x float> [[SIN]]
 
-define <8 x float> @test_sincosf8(<8 x float>* nocapture %p, <8 x float> %a) #1 {
+define <8 x float> @test_sincosf8(ptr nocapture %p, <8 x float> %a) #1 {
 entry:
   %0 = tail call svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8(<8 x float> %a)
   %1 = extractvalue { <8 x float>, <8 x float> } %0, 1
-  store <8 x float> %1, <8 x float>* %p, align 32
+  store <8 x float> %1, ptr %p, align 32
   %2 = extractvalue { <8 x float>, <8 x float> } %0, 0
   ret <8 x float> %2
 }
@@ -98,15 +98,15 @@ entry:
 ; CHECK-LABEL: @test_sincosf8_mask
 ; CHECK: [[RESULT:%.*]] = call svml_avx_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> %B, <8 x i32> %C)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
-; CHECK: store <8 x float> [[COS]], <8 x float>* %A, align 32
+; CHECK: store <8 x float> [[COS]], ptr %A, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
 ; CHECK: ret <8 x float> [[SIN]]
 
-define <8 x float> @test_sincosf8_mask(<8 x float>* nocapture %A, <8 x float> %B, <8 x i32> %C) #1 {
+define <8 x float> @test_sincosf8_mask(ptr nocapture %A, <8 x float> %B, <8 x i32> %C) #1 {
 entry:
   %0 = tail call svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask(<8 x float> %B, <8 x i32> %C)
   %1 = extractvalue { <8 x float>, <8 x float> } %0, 1
-  store <8 x float> %1, <8 x float>* %A, align 32
+  store <8 x float> %1, ptr %A, align 32
   %2 = extractvalue { <8 x float>, <8 x float> } %0, 0
   ret <8 x float> %2
 }
@@ -116,20 +116,20 @@ entry:
 ; CHECK: [[DIVISOR:%.*]] = bitcast <4 x i64> %C to <8 x i32>
 ; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x i32>, <8 x i32> } @__svml_idivrem8_l9(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]])
 ; CHECK: [[REMAINDER:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 1
-; CHECK: [[REMAINDER_PTR_CAST:%.*]] = bitcast <4 x i64>* %A to <8 x i32>*
-; CHECK: store <8 x i32> [[REMAINDER]], <8 x i32>* [[REMAINDER_PTR_CAST]], align 32
+; CHECK: [[REMAINDER_PTR_CAST:%.*]] = bitcast ptr %A to ptr
+; CHECK: store <8 x i32> [[REMAINDER]], ptr [[REMAINDER_PTR_CAST]], align 32
 ; CHECK: [[QUOTIENT:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 0
 ; CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <8 x i32> [[QUOTIENT]] to <4 x i64>
 ; CHECK: ret <4 x i64> [[QUOTIENT_CAST]]
 
-define <4 x i64> @test_divrem8(<4 x i64>* nocapture %A, <4 x i64> %B, <4 x i64> %C) #1 {
+define <4 x i64> @test_divrem8(ptr nocapture %A, <4 x i64> %B, <4 x i64> %C) #1 {
 entry:
   %0 = bitcast <4 x i64> %B to <8 x i32>
   %1 = bitcast <4 x i64> %C to <8 x i32>
   %2 = tail call svml_cc { <8 x i32>, <8 x i32> } @__svml_idivrem8(<8 x i32> %0, <8 x i32> %1)
   %3 = extractvalue { <8 x i32>, <8 x i32> } %2, 1
-  %4 = bitcast <4 x i64>* %A to <8 x i32>*
-  store <8 x i32> %3, <8 x i32>* %4, align 32
+  %4 = bitcast ptr %A to ptr
+  store <8 x i32> %3, ptr %4, align 32
   %5 = extractvalue { <8 x i32>, <8 x i32> } %2, 0
   %6 = bitcast <8 x i32> %5 to <4 x i64>
   ret <4 x i64> %6
@@ -209,15 +209,15 @@ entry:
 ; CHECK: [[COS_EXTRACT:%.*]] = shufflevector <4 x float> [[COS]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[RESULT_EXTRACT:%.*]] = insertvalue { <2 x float>, <2 x float> } [[TMP1]], <2 x float> [[COS_EXTRACT]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <2 x float>, <2 x float> } [[RESULT_EXTRACT]], 1
-; CHECK: store <2 x float> [[COS_RET]], <2 x float>* %p, align 32
+; CHECK: store <2 x float> [[COS_RET]], ptr %p, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <2 x float>, <2 x float> } [[RESULT_EXTRACT]], 0
 ; CHECK: ret <2 x float> [[SIN_RET]]
 
-define <2 x float> @test_sincosf2(<2 x float>* nocapture %p, <2 x float> %a) #1 {
+define <2 x float> @test_sincosf2(ptr nocapture %p, <2 x float> %a) #1 {
 entry:
   %0 = tail call svml_cc { <2 x float>, <2 x float> } @__svml_sincosf2(<2 x float> %a)
   %1 = extractvalue { <2 x float>, <2 x float> } %0, 1
-  store <2 x float> %1, <2 x float>* %p, align 32
+  store <2 x float> %1, ptr %p, align 32
   %2 = extractvalue { <2 x float>, <2 x float> } %0, 0
   ret <2 x float> %2
 }
@@ -233,15 +233,15 @@ entry:
 ; CHECK: [[COS_EXTRACT:%.*]] = shufflevector <4 x float> [[COS]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[RESULT_EXTRACT:%.*]] = insertvalue { <2 x float>, <2 x float> } [[TMP1]], <2 x float> [[COS_EXTRACT]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <2 x float>, <2 x float> } [[RESULT_EXTRACT]], 1
-; CHECK: store <2 x float> [[COS_RET]], <2 x float>* %A, align 32
+; CHECK: store <2 x float> [[COS_RET]], ptr %A, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <2 x float>, <2 x float> } [[RESULT_EXTRACT]], 0
 ; CHECK: ret <2 x float> [[SIN_RET]]
 
-define <2 x float> @test_sincosf2_mask(<2 x float>* nocapture %A, <2 x float> %B, <2 x i32> %C) #1 {
+define <2 x float> @test_sincosf2_mask(ptr nocapture %A, <2 x float> %B, <2 x i32> %C) #1 {
 entry:
   %0 = tail call svml_cc { <2 x float>, <2 x float> } @__svml_sincosf2_mask(<2 x float> %B, <2 x i32> %C)
   %1 = extractvalue { <2 x float>, <2 x float> } %0, 1
-  store <2 x float> %1, <2 x float>* %A, align 32
+  store <2 x float> %1, ptr %A, align 32
   %2 = extractvalue { <2 x float>, <2 x float> } %0, 0
   ret <2 x float> %2
 }
@@ -259,19 +259,19 @@ entry:
 ; CHECK: [[REMAINDER_EXTRACT:%.*]] = shufflevector <4 x i32> [[REMAINDER]], <4 x i32> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[RESULT_EXTRACT:%.*]] = insertvalue { <2 x i32>, <2 x i32> } [[TMP1]], <2 x i32> [[REMAINDER_EXTRACT]], 1
 ; CHECK: [[REMAINDER_RET:%.*]] = extractvalue { <2 x i32>, <2 x i32> } [[RESULT_EXTRACT]], 1
-; CHECK: store <2 x i32> [[REMAINDER_RET]], <2 x i32>* [[REMAINDER_PTR_CAST]], align 32
+; CHECK: store <2 x i32> [[REMAINDER_RET]], ptr [[REMAINDER_PTR_CAST]], align 32
 ; CHECK: [[QUOTIENT_RET:%.*]] = extractvalue { <2 x i32>, <2 x i32> } [[RESULT_EXTRACT]], 0
 ; CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <2 x i32> [[QUOTIENT_RET]] to <1 x i64>
 ; CHECK: ret <1 x i64> [[QUOTIENT_CAST]]
 
-define <1 x i64> @test_divrem2(<1 x i64>* nocapture %A, <1 x i64> %B, <1 x i64> %C) #1 {
+define <1 x i64> @test_divrem2(ptr nocapture %A, <1 x i64> %B, <1 x i64> %C) #1 {
 entry:
   %0 = bitcast <1 x i64> %B to <2 x i32>
   %1 = bitcast <1 x i64> %C to <2 x i32>
   %2 = tail call svml_cc { <2 x i32>, <2 x i32> } @__svml_idivrem2(<2 x i32> %0, <2 x i32> %1)
   %3 = extractvalue { <2 x i32>, <2 x i32> } %2, 1
-  %4 = bitcast <1 x i64>* %A to <2 x i32>*
-  store <2 x i32> %3, <2 x i32>* %4, align 32
+  %4 = bitcast ptr %A to ptr
+  store <2 x i32> %3, ptr %4, align 32
   %5 = extractvalue { <2 x i32>, <2 x i32> } %2, 0
   %6 = bitcast <2 x i32> %5 to <1 x i64>
   ret <1 x i64> %6

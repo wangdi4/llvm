@@ -5,8 +5,8 @@
 ; instructions are loading the same address using different types and
 ; one of the instructions is loading an opaque pointer.
 
-; RUN: opt -passes="instcombine" -opaque-pointers -disable-combine-upcasting=true < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes="instcombine" -opaque-pointers -disable-combine-upcasting=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="instcombine" -disable-combine-upcasting=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="instcombine" -disable-combine-upcasting=false < %s -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'intel_disable_bitcast_upcasting_01.ll'
 source_filename = "intel_disable_bitcast_upcasting_01.ll"

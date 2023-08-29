@@ -1,10 +1,10 @@
 ; Check broadcast of a constant. The store of the constant should be moved inside of the loop.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4_foo
 ; CHECK: simd.loop.header:
-; CHECK: store i32 99, i32* %ret.cast.gep
+; CHECK: store i32 99, ptr %vec.retval.gep
 
 ; ModuleID = 'foo.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

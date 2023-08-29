@@ -566,7 +566,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     return;
   }
 
-  if (Info->isVectorMode() && DDA.isRefinableDepAtLevel(Edge, NestLevel)) {
+  if (Info->isVectorMode()) {
     DDRef *SinkRef = Edge->getSink();
 
     // Compute the deepest common level.
@@ -608,7 +608,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     }
     LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize\n");
   } else {
-    LLVM_DEBUG(dbgs() << "\tDV is not refinable - unsafe to vectorize\n");
+    LLVM_DEBUG(dbgs() << "\tis unsafe to parallelize\n");
   }
 
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);

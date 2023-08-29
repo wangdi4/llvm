@@ -56,13 +56,6 @@ file(GLOB_RECURSE OCL_ALL_TD_FILES
 
 set_unicode_off()
 
-#
-# Settings for Linux compilation
-#
-if(NOT WIN32 AND (CMAKE_BUILD_TYPE MATCHES "Release"))
-  add_definitions(-D_FORTIFY_SOURCE=2)
-endif()
-
 ################################################################################
 
 project(Backend C CXX)

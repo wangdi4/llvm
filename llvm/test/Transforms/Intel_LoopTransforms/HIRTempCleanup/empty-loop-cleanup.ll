@@ -7,7 +7,7 @@
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:             |   %0 = (@.str.94)[0][i1 + 1];
+; CHECK:             |   %0 = (@.str.94)[i1 + 1];
 ; CHECK:             + END LOOP
 ; CHECK:          END REGION
 
@@ -30,9 +30,9 @@ entry:
   br label %for.inc.i.i
 
 for.inc.i.i:                                      ; preds = %for.inc.i.i, %entry
-  %s2.addr.0.i.i9591070 = phi i8* [ getelementptr inbounds ([3 x i8], [3 x i8]* @.str.94, i64 0, i64 0), %entry ], [ %incdec.ptr4.i.i, %for.inc.i.i ]
-  %incdec.ptr4.i.i = getelementptr inbounds i8, i8* %s2.addr.0.i.i9591070, i64 1
-  %0 = load i8, i8* %incdec.ptr4.i.i, align 1
+  %s2.addr.0.i.i9591070 = phi ptr [ getelementptr inbounds ([3 x i8], ptr @.str.94, i64 0, i64 0), %entry ], [ %incdec.ptr4.i.i, %for.inc.i.i ]
+  %incdec.ptr4.i.i = getelementptr inbounds i8, ptr %s2.addr.0.i.i9591070, i64 1
+  %0 = load i8, ptr %incdec.ptr4.i.i, align 1
   %cmp3.i.i = icmp eq i8 %0, 0
   br i1 %cmp3.i.i, label %for.body.i.i23.preheader, label %for.inc.i.i
 

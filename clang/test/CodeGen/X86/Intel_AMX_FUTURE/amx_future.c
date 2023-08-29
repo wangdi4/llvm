@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_future
-// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown \
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-reduce -target-feature +amx-memory  \
 // RUN: -target-feature +amx-format -target-feature +amx-element  -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
@@ -15,55 +15,55 @@ void test_tile_coladdbcastps(void) {
 
 void test_tile_coladdps(void *A) {
   // CHECK-LABEL: @test_tile_coladdps
-  // CHECK: call void @llvm.x86.tcoladdps(i8* %{{.*}}, i8 1)
+  // CHECK: call void @llvm.x86.tcoladdps(ptr %{{.*}}, i8 1)
   _tile_coladdps(A, 1);
 }
 
 void test_tile_gatherrowd(const void *A, const void *B) {
   // CHECK-LABEL: @test_tile_gatherrowd
-  // CHECK: call void @llvm.x86.tgatherrowd(i8 1, i8* %{{.*}}, i8* %{{.*}})
+  // CHECK: call void @llvm.x86.tgatherrowd(i8 1, ptr %{{.*}}, ptr %{{.*}})
   _tile_gatherrowd(1, A, B);
 }
 
 void test_tile_gatherrowdt1(const void *A, const void *B) {
   // CHECK-LABEL: @test_tile_gatherrowdt1
-  // CHECK: call void @llvm.x86.tgatherrowdt1(i8 1, i8* %{{.*}}, i8* %{{.*}})
+  // CHECK: call void @llvm.x86.tgatherrowdt1(i8 1, ptr %{{.*}}, ptr %{{.*}})
   _tile_gatherrowdt1(1, A, B);
 }
 
 void test_tile_gatherrowq(const void *A, const void *B) {
   // CHECK-LABEL: @test_tile_gatherrowq
-  // CHECK: call void @llvm.x86.tgatherrowq(i8 1, i8* %{{.*}}, i8* %{{.*}})
+  // CHECK: call void @llvm.x86.tgatherrowq(i8 1, ptr %{{.*}}, ptr %{{.*}})
   _tile_gatherrowq(1, A, B);
 }
 
 void test_tile_gatherrowqt1(const void *A, const void *B) {
   // CHECK-LABEL: @test_tile_gatherrowqt1
-  // CHECK: call void @llvm.x86.tgatherrowqt1(i8 1, i8* %{{.*}}, i8* %{{.*}})
+  // CHECK: call void @llvm.x86.tgatherrowqt1(i8 1, ptr %{{.*}}, ptr %{{.*}})
   _tile_gatherrowqt1(1, A, B);
 }
 
 void test_tile_scatterrowd(void *A, void *B) {
   // CHECK-LABEL: @test_tile_scatterrowd
-  // CHECK: call void @llvm.x86.tscatterrowd(i8* %{{.*}}, i8* %{{.*}}, i8 1)
+  // CHECK: call void @llvm.x86.tscatterrowd(ptr %{{.*}}, ptr %{{.*}}, i8 1)
   _tile_scatterrowd(A, B, 1);
 }
 
 void test_tile_scatterrowdt1(void *A, void *B) {
   // CHECK-LABEL: @test_tile_scatterrowdt1
-  // CHECK: call void @llvm.x86.tscatterrowdt1(i8* %{{.*}}, i8* %{{.*}}, i8 1)
+  // CHECK: call void @llvm.x86.tscatterrowdt1(ptr %{{.*}}, ptr %{{.*}}, i8 1)
   _tile_scatterrowdt1(A, B, 1);
 }
 
 void test_tile_scatterrowq(void *A, void *B) {
   // CHECK-LABEL: @test_tile_scatterrowq
-  // CHECK: call void @llvm.x86.tscatterrowq(i8* %{{.*}}, i8* %{{.*}}, i8 1)
+  // CHECK: call void @llvm.x86.tscatterrowq(ptr %{{.*}}, ptr %{{.*}}, i8 1)
   _tile_scatterrowq(A, B, 1);
 }
 
 void test_tile_scatterrowqt1(void *A, void *B) {
   // CHECK-LABEL: @test_tile_scatterrowqt1
-  // CHECK: call void @llvm.x86.tscatterrowqt1(i8* %{{.*}}, i8* %{{.*}}, i8 1)
+  // CHECK: call void @llvm.x86.tscatterrowqt1(ptr %{{.*}}, ptr %{{.*}}, i8 1)
   _tile_scatterrowqt1(A, B, 1);
 }
 
@@ -118,7 +118,7 @@ void test_tile_permb_reg(void) {
 
 void test_tile_permb_mem(const void *A) {
   // CHECK-LABEL: @test_tile_permb_mem
-  // CHECK: call void @llvm.x86.tpermb.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tpermb.mem(i8 1, i8 2, ptr {{.*}})
   _tile_permb_mem(1, 2, A);
 }
 
@@ -130,7 +130,7 @@ void test_tile_permd_reg(void) {
 
 void test_tile_permd_mem(const void *A) {
   //  CHECK-LABEL: @test_tile_permd_mem
-  // CHECK: call void @llvm.x86.tpermd.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tpermd.mem(i8 1, i8 2, ptr {{.*}})
   _tile_permd_mem(1, 2, A);
 }
 
@@ -142,7 +142,7 @@ void test_tile_permw_reg(void) {
 
 void test_tile_permw_mem(const void *A) {
   // CHECK-LABEL: @test_tile_permw_mem
-  // CHECK: call void @llvm.x86.tpermw.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tpermw.mem(i8 1, i8 2, ptr {{.*}})
   _tile_permw_mem(1, 2, A);
 }
 
@@ -167,7 +167,7 @@ void test_tile_addps_reg(void) {
 
 void test_tile_addps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_addps_mem
-  // CHECK: call void @llvm.x86.taddps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.taddps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_addps_mem(1, 2, A);
 }
 
@@ -179,7 +179,7 @@ void test_tile_andd_reg(void) {
 
 void test_tile_andd_mem(const void *A) {
   // CHECK-LABEL: @test_tile_andd_mem
-  // CHECK: call void @llvm.x86.tandd.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tandd.mem(i8 1, i8 2, ptr {{.*}})
   _tile_andd_mem(1, 2, A);
 }
 
@@ -191,7 +191,7 @@ void test_tile_andnd_reg(void) {
 
 void test_tile_andnd_mem(const void *A) {
   // CHECK-LABEL: @test_tile_andnd_mem
-  // CHECK: call void @llvm.x86.tandnd.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tandnd.mem(i8 1, i8 2, ptr {{.*}})
   _tile_andnd_mem(1, 2, A);
 }
 
@@ -203,7 +203,7 @@ void test_tile_cmpps_reg(void) {
 
 void test_tile_cmpps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_cmpps_mem
-  // CHECK: call void @llvm.x86.tcmpps.mem(i8 1, i8 2, i8* {{.*}}, i8 127)
+  // CHECK: call void @llvm.x86.tcmpps.mem(i8 1, i8 2, ptr {{.*}}, i8 127)
   _tile_cmpps_mem(1, 2, A, 127);
 }
 
@@ -257,7 +257,7 @@ void test_tile_fmaddps_reg(void) {
 
 void test_tile_fmaddps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_fmaddps_mem
-  // CHECK: call void @llvm.x86.tfmaddps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tfmaddps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_fmaddps_mem(1, 2, A);
 }
 
@@ -269,7 +269,7 @@ void test_tile_fmsubps_reg(void) {
 
 void test_tile_fmsubps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_fmsubps_mem
-  // CHECK: call void @llvm.x86.tfmsubps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tfmsubps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_fmsubps_mem(1, 2, A);
 }
 
@@ -281,7 +281,7 @@ void test_tile_fnmaddps_reg(void) {
 
 void test_tile_fnmaddps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_fnmaddps_mem
-  // CHECK: call void @llvm.x86.tfnmaddps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tfnmaddps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_fnmaddps_mem(1, 2, A);
 }
 
@@ -293,7 +293,7 @@ void test_tile_fnmsubps_reg(void) {
 
 void test_tile_fnmsubps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_fnmsubps_mem
-  // CHECK: call void @llvm.x86.tfnmsubps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tfnmsubps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_fnmsubps_mem(1, 2, A);
 }
 
@@ -305,7 +305,7 @@ void test_tile_maxps_reg(void) {
 
 void test_tile_maxps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_maxps_mem
-  // CHECK: call void @llvm.x86.tmaxps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tmaxps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_maxps_mem(1, 2, A);
 }
 
@@ -317,7 +317,7 @@ void test_tile_minps_reg(void) {
 
 void test_tile_minps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_minps_mem
-  // CHECK: call void @llvm.x86.tminps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tminps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_minps_mem(1, 2, A);
 }
 
@@ -329,7 +329,7 @@ void test_tile_mulps_reg(void) {
 
 void test_tile_mulps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_mulps_mem
-  // CHECK: call void @llvm.x86.tmulps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tmulps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_mulps_mem(1, 2, A);
 }
 
@@ -341,7 +341,7 @@ void test_tile_ord_reg(void) {
 
 void test_tile_ord_mem(const void *A) {
   // CHECK-LABEL: @test_tile_ord_mem
-  // CHECK: call void @llvm.x86.tord.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tord.mem(i8 1, i8 2, ptr {{.*}})
   _tile_ord_mem(1, 2, A);
 }
 
@@ -365,7 +365,7 @@ void test_tile_scalefps_reg(void) {
 
 void test_tile_scalefps_mem(const void *A) {
   // CHECK-LABEL: @test_tile_scalefps_mem
-  // CHECK: call void @llvm.x86.tscalefps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tscalefps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_scalefps_mem(1, 2, A);
 }
 
@@ -389,7 +389,7 @@ void test_tile_srlvd_reg(void) {
 
 void test_tile_srlvd_mem(void *A) {
   // CHECK-LABEL: @test_tile_srlvd_mem
-  // CHECK: call void @llvm.x86.tsrlvd.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tsrlvd.mem(i8 1, i8 2, ptr {{.*}})
   _tile_srlvd_mem(1, 2, A);
 }
 
@@ -401,7 +401,7 @@ void test_tile_subps_reg(void) {
 
 void test_tile_subps_mem(void *A) {
   // CHECK-LABEL: @test_tile_subps_mem
-  // CHECK: call void @llvm.x86.tsubps.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.tsubps.mem(i8 1, i8 2, ptr {{.*}})
   _tile_subps_mem(1, 2, A);
 }
 
@@ -413,6 +413,6 @@ void test_tile_xord_reg(void) {
 
 void test_tile_xord_mem(void *A) {
   // CHECK-LABEL: @test_tile_xord_mem
-  // CHECK: call void @llvm.x86.txord.mem(i8 1, i8 2, i8* {{.*}})
+  // CHECK: call void @llvm.x86.txord.mem(i8 1, i8 2, ptr {{.*}})
   _tile_xord_mem(1, 2, A);
 }
