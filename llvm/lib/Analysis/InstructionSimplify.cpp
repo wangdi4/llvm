@@ -5005,8 +5005,8 @@ static Value *simplifyGEPInst(Type *SrcTy, Value *Ptr,
   // CMPLRLLVM-36462: Need to retain GEPs for DTrans analysis.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // All-zero GEP is a no-op, unless it performs a vector splat.
-  if (Ptr->getType() == GEPTy &&
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  if (EnableGEP0Removal && Ptr->getType() == GEPTy &&
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
   // For opaque pointers an all-zero GEP is a no-op. For typed pointers,
   // it may be equivalent to a bitcast.
   if (EnableGEP0Removal &&
