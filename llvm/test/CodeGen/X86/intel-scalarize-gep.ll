@@ -130,14 +130,14 @@ define void @test_scatter_load(double* %src, <4 x i64>* %p, <4 x double> %data) 
 ; CHECK-LABEL: test_scatter_load:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    movq 8(%rsi), %rcx
+; CHECK-NEXT:    movq 16(%rsi), %rdx
+; CHECK-NEXT:    movq 24(%rsi), %rsi
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movq 8(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rcx,8)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movq 16(%rsi), %rax
-; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movq 24(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rdx,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rsi,8)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i64>, <4 x i64>* %p, align 4
@@ -150,14 +150,14 @@ define void @test_scatter_sext(double* %src, <4 x i32>* %p, <4 x double> %data) 
 ; CHECK-LABEL: test_scatter_sext:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movslq (%rsi), %rax
+; CHECK-NEXT:    movslq 4(%rsi), %rcx
+; CHECK-NEXT:    movslq 8(%rsi), %rdx
+; CHECK-NEXT:    movslq 12(%rsi), %rsi
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movslq 4(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rcx,8)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movslq 8(%rsi), %rax
-; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movslq 12(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rdx,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rsi,8)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i32>, <4 x i32>* %p, align 4
@@ -171,14 +171,14 @@ define void @test_scatter_zext(double* %src, <4 x i32>* %p, <4 x double> %data) 
 ; CHECK-LABEL: test_scatter_zext:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movl (%rsi), %eax
+; CHECK-NEXT:    movl 4(%rsi), %ecx
+; CHECK-NEXT:    movl 8(%rsi), %edx
+; CHECK-NEXT:    movl 12(%rsi), %esi
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movl 4(%rsi), %eax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rcx,8)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movl 8(%rsi), %eax
-; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movl 12(%rsi), %eax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rdx,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rsi,8)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i32>, <4 x i32>* %p, align 4
@@ -192,14 +192,12 @@ define void @test_scatter_shuffle(double* %src, <4 x i64>* %p, <4 x double> %dat
 ; CHECK-LABEL: test_scatter_shuffle:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    movq (%rsi), %rcx
+; CHECK-NEXT:    movq 8(%rsi), %rdx
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movq (%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movq (%rsi), %rax
-; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movq 8(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rcx,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rdx,8)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i64>, <4 x i64>* %p, align 4
@@ -212,14 +210,12 @@ define void @test_scatter_shuffle(double* %src, <4 x i64>* %p, <4 x double> %dat
 define void @test_scatter_undef_shuffle(double* %src, <4 x i64>* %p, <4 x double> %data) {
 ; CHECK-LABEL: test_scatter_undef_shuffle:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    movq 8(%rsi), %rcx
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi)
-; CHECK-NEXT:    movq (%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movq (%rsi), %rax
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
-; CHECK-NEXT:    movq 8(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rcx,8)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i64>, <4 x i64>* %p, align 4
@@ -233,14 +229,14 @@ define void @test_scatter_bc(float* %src, <4 x i64>* %p, <4 x double> %data) {
 ; CHECK-LABEL: test_scatter_bc:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    movq 8(%rsi), %rcx
+; CHECK-NEXT:    movq 16(%rsi), %rdx
+; CHECK-NEXT:    movq 24(%rsi), %rsi
 ; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,4)
-; CHECK-NEXT:    movq 8(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rcx,4)
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
-; CHECK-NEXT:    movq 16(%rsi), %rax
-; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,4)
-; CHECK-NEXT:    movq 24(%rsi), %rax
-; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rdx,4)
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rsi,4)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %gepload = load <4 x i64>, <4 x i64>* %p, align 4

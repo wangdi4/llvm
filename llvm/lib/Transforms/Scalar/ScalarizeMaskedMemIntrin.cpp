@@ -713,7 +713,7 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
     auto *Ext = cast<CastInst>(V);
     Value *Src = createSplatAndConstExpr(Ext->getOperand(0), Element, Builder);
     auto *DstTy = dyn_cast<VectorType>(Ext->getType());
-    assert(DstTy && "DstTy must be ");
+    assert(DstTy && "DstTy must be vector type.");
     Type *ScalarDstTy = DstTy->getElementType();
     return Builder.CreateCast(Ext->getOpcode(), Src, ScalarDstTy);
   } else if (auto Shuf = dyn_cast<ShuffleVectorInst>(V)) {
@@ -724,6 +724,12 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
     return createSplatAndConstExpr(Shuf->getOperand(0), ShufMask[Element],
                                    Builder);
   } else if (auto Load = dyn_cast<LoadInst>(V)) {
+    auto IP = Builder.GetInsertPoint();
+    auto IB = Builder.GetInsertBlock();
+
+    // Insert new instructions just before Load.
+    Builder.SetInsertPoint(Load);
+
     Value *Ptrs = Load->getPointerOperand();
     auto *PtrsTy = cast<PointerType>(Ptrs->getType());
     auto *DataTy = cast<FixedVectorType>(Load->getType());
@@ -731,7 +737,10 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
     auto *NewPtrTy = PointerType::get(ElemTy, PtrsTy->getAddressSpace());
     Value *NewPtr = Builder.CreateBitCast(Ptrs, NewPtrTy);
     Value *NewGEP = Builder.CreateConstGEP1_32(ElemTy, NewPtr, Element);
-    return Builder.CreateLoad(ElemTy, NewGEP);
+    Value *NewLoad = Builder.CreateLoad(ElemTy, NewGEP);
+
+    Builder.SetInsertPoint(IB, IP);
+    return NewLoad;
   }
   llvm_unreachable("Not reachable.");
   return nullptr;
