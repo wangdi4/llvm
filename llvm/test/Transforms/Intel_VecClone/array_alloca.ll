@@ -42,7 +42,7 @@ attributes #0 = { "vector-variants"="_ZGVbN4L_foo" }
 ; CHECK-LABEL: entry
 ; CHECK: %arr = alloca i32, i64 1024, align 16
 ; CHECK-LABEL: simd.loop.header
-; CHECK: %0 = call ptr @llvm.stacksave()
+; CHECK: %0 = call ptr @llvm.stacksave.p0()
 ; CHECK: "vector-variants"="_ZGVbN4L_bar"
 
 define void @bar(i32 %k) #1 {

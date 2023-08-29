@@ -35,6 +35,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/FormattedStream.h"
+#include <functional>
 #include <memory>
 
 namespace llvm {
@@ -95,8 +96,11 @@ class Dumper {
   const object::ObjectFile &O;
   StringSet<> Warnings;
 
+protected:
+  std::function<Error(const Twine &Msg)> WarningHandler;
+
 public:
-  Dumper(const object::ObjectFile &O) : O(O) {}
+  Dumper(const object::ObjectFile &O);
   virtual ~Dumper() {}
 
   void reportUniqueWarning(Error Err);

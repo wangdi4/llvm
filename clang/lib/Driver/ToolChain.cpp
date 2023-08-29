@@ -451,6 +451,12 @@ ToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
   return UnwindTableLevel::None;
 }
 
+unsigned ToolChain::GetDefaultDwarfVersion() const {
+#if INTEL_CUSTOMIZATION
+  return 4;
+#endif // INTEL_CUSTOMIZATION
+}
+
 Tool *ToolChain::getClang() const {
   if (!Clang)
     Clang.reset(new tools::Clang(*this, useIntegratedBackend()));
@@ -2202,20 +2208,16 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       llvm::BumpPtrAllocator BPA;
       llvm::StringSaver S(BPA);
       llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-      // Setup masks so Windows options aren't picked up for parsing
+      // Setup visibility so Windows options aren't picked up for parsing
       // Linux options
-      unsigned IncludedFlagsBitmask = 0;
-      unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-      if (getDriver().IsCLMode()) {
-        // Include CL and Core options.
-        IncludedFlagsBitmask |= options::CLOption;
-        IncludedFlagsBitmask |= options::CoreOption;
-      } else
-        ExcludedFlagsBitmask |= options::CLOption;
+      const auto Visibility =
+          getDriver().IsCLMode()
+              ? llvm::opt::Visibility(options::ClangOption | options::CLOption |
+                                      options::DXCOption)
+              : llvm::opt::Visibility(options::ClangOption);
       unsigned MissingArgIndex, MissingArgCount;
-      InputArgList NewArgs =
-          Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                         IncludedFlagsBitmask, ExcludedFlagsBitmask);
+      InputArgList NewArgs = Opts.ParseArgs(TargetArgs, MissingArgIndex,
+                                            MissingArgCount, Visibility);
       for (Arg *NA : NewArgs) {
         // Add the new arguments.
         Arg *OffloadArg;

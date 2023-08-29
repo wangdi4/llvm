@@ -419,8 +419,12 @@ void X86LowerAMXType::combineLoadBitcast(LoadInst *LD, BitCastInst *Bitcast) {
   IRBuilder<> Builder(Bitcast);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Value *I8Ptr = LD->getOperand(0);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
   Value *I8Ptr =
       Builder.CreateBitCast(LD->getOperand(0), Builder.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
 
   Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
@@ -447,8 +451,12 @@ void X86LowerAMXType::combineBitcastStore(BitCastInst *Bitcast, StoreInst *ST) {
   // Use the maximum column as stride. It must be the same with load
   // stride.
   Value *Stride = Builder.getInt64(64);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Value *I8Ptr = ST->getOperand(1);
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
   Value *I8Ptr =
       Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
@@ -476,10 +484,13 @@ bool X86LowerAMXType::transformBitcast(BitCastInst *Bitcast) {
 
   auto Prepare = [&](Type *MemTy) {
     AllocaAddr = createAllocaInstAtEntry(Builder, Bitcast->getParent(), MemTy);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    I8Ptr = AllocaAddr;
+#else //INTEL_SYCL_OPAQUEPOINTER_READY
     I8Ptr = Builder.CreateBitCast(AllocaAddr, Builder.getInt8PtrTy());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Stride = Builder.getInt64(64);
   };
-
   if (Bitcast->getType()->isX86_AMXTy()) {
     // %2 = bitcast <256 x i32> %src to x86_amx
     // -->
@@ -690,7 +701,7 @@ static void replaceWithTileLoad(Use &U, Value *Ptr, bool IsPHI = false) {
   Value *Col = II->getOperand(Idx + 1);
 #endif // INTEL_CUSTOMIZATION
 
-  Instruction *UserI = dyn_cast<Instruction>(U.getUser());
+  Instruction *UserI = cast<Instruction>(U.getUser());
   IRBuilder<> Builder(UserI);
   Value *Stride = Builder.getInt64(64);
   std::array<Value *, 4> Args = {Row, Col, Ptr, Stride};

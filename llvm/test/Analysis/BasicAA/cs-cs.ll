@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
 
@@ -431,23 +431,6 @@ entry:
 ; CHECK: NoModRef:   call void @an_argmemonly_func(ptr %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
 ; CHECK: Both ModRef:   call void @an_argmemonly_func(ptr %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(ptr %q) #{{.*}} [ "unknown"() ]
 }
-
-; CHECK:      attributes #{{.*}} = { nocallback nofree nounwind willreturn memory(argmem: write) }
-; CHECK-NEXT: attributes #{{.*}} = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { nosync nounwind willreturn memory(argmem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind memory(read) }
-; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind memory(write) }
-; CHECK-NEXT: attributes #{{.*}} = { nounwind ssp }
-; CHECK-NEXT: attributes #{{.*}} = { nounwind memory(inaccessiblemem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { nounwind memory(argmem: readwrite, inaccessiblemem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { nounwind memory(argmem: readwrite) }
-;; Note: next is a CHECK, not CHECK-NEXT, allowing us to skip the
-;; @llvm.intel.subscript attributes in the convert-to-subscript RUN.
-; CHECK:      attributes #{{.*}} = { memory(read) }
-; CHECK-NEXT: attributes #{{.*}} = { memory(inaccessiblemem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { memory(argmem: readwrite, inaccessiblemem: readwrite) }
-; CHECK-NEXT: attributes #{{.*}} = { memory(argmem: readwrite) }
-; end INTEL_CUSTOMIZATION
 
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { noinline nounwind readonly }

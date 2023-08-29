@@ -10631,15 +10631,12 @@ bool VPOParoptTransform::insertStackSaveRestore(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
-  Module *M = EntryBB->getModule();
 
   IRBuilder<> Builder(EntryBB->getFirstNonPHI());
-  auto *StackSave =
-      Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stacksave));
+  auto *StackSave = Builder.CreateStackSave();
 
   Builder.SetInsertPoint(ExitBB->getTerminator());
-  Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackrestore),
-                     StackSave);
+  Builder.CreateStackRestore(StackSave);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Inserted stacksave'" << *StackSave
                     << "'.\n");
   return true;

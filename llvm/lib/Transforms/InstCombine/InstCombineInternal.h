@@ -457,6 +457,8 @@ private:
   Instruction *foldAndOrOfSelectUsingImpliedCond(Value *Op, SelectInst &SI,
                                                  bool IsAnd);
 
+  Instruction *hoistFNegAboveFMulFDiv(Value *FNegOp, Instruction &FMFSource);
+
 public:
   /// Create and insert the idiom we use to indicate a block is unreachable
   /// without having to rewrite the CFG from within InstCombine.
@@ -637,6 +639,8 @@ public:
 
   Instruction *foldAddWithConstant(BinaryOperator &Add);
 
+  Instruction *foldSquareSumInts(BinaryOperator &I);
+
   /// Try to rotate an operation below a PHI node, using PHI nodes for
   /// its operands.
   Instruction *foldPHIArgOpIntoPHI(PHINode &PN);
@@ -781,7 +785,6 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
@@ -795,7 +798,6 @@ public:
   /// pair. Returns whether or not it was successful.
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
 

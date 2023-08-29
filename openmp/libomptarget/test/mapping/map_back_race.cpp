@@ -9,6 +9,10 @@
 // UNSUPPORTED: x86_64-pc-linux-gnu-oldDriver
 // UNSUPPORTED: nvptx64-nvidia-cuda-oldDriver
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>

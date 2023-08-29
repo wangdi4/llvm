@@ -804,15 +804,6 @@ def FeatureHardenSlsIJmp
           "harden-sls-ijmp", "HardenSlsIJmp", "true",
           "Harden against straight line speculation across indirect JMP instructions.">;
 
-#if INTEL_CUSTOMIZATION
-def FeaturePreferNoGather
-    : SubtargetFeature<"prefer-no-gather", "PreferGather", "false",
-                       "Indicates if gather prefer to be disabled">;
-def FeaturePreferNoScatter
-    : SubtargetFeature<"prefer-no-scatter", "PreferScatter", "false",
-                       "Indicates if scatter prefer to be disabled">;
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // X86 Subtarget Tuning features
 //===----------------------------------------------------------------------===//
@@ -1039,6 +1030,13 @@ def TuningMacroFusion
 def TuningFastGather
     : SubtargetFeature<"fast-gather", "HasFastGather", "true",
                        "Indicates if gather is reasonably fast (this is true for Skylake client and all AVX-512 CPUs)">;
+
+def TuningPreferNoGather
+    : SubtargetFeature<"prefer-no-gather", "PreferGather", "false",
+                       "Prefer no gather instructions">;
+def TuningPreferNoScatter
+    : SubtargetFeature<"prefer-no-scatter", "PreferScatter", "false",
+                       "Prefer no scatter instructions">;
 
 def TuningPrefer128Bit
     : SubtargetFeature<"prefer-128-bit", "Prefer128Bit", "true",
@@ -1760,7 +1758,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
   // Gracemont
   list<SubtargetFeature> GRTTuning = [TuningMacroFusion,
                                       TuningSlow3OpsLEA,
@@ -1772,6 +1769,7 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RYL
 #define ENABLE_CPU_RYL
   list<SubtargetFeature> RYLAdditionalFeatures = [
@@ -1790,6 +1788,7 @@ def ProcessorFeatures {
     !listconcat(ICLTuning, RYLAdditionalTuning);
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+
   // Sierraforest
   list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
                                                   FeatureAVXIFMA,

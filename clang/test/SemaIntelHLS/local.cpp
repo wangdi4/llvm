@@ -584,7 +584,7 @@ void foo1()
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int mrg_one[4];
 
-  //expected-error@+1{{attribute requires a string}}
+  //expected-error@+1{{expected string literal as argument of '__merge__' attribute}}
   __attribute__((__merge__(3,9.0)))
   unsigned int mrg_two[4];
 
@@ -777,7 +777,7 @@ T type_temp(T t) {
 
 //CHECK: FunctionTemplateDecl{{.*}}type_temp{{$}}
 //CHECK: FunctionDecl{{.*}}type_temp 'T (T)'{{$}}
-//CHECK: FunctionDecl{{.*}}type_temp 'int (int)'{{$}}
+//CHECK: FunctionDecl{{.*}}type_temp 'int (int)' implicit_instantiation{{$}}
 //CHECK: TemplateArgument type 'int'
 //CHECK: VarDecl{{.*}}t1 'int':'int'{{$}}
 //CHECK: MemoryAttr

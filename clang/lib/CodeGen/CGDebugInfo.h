@@ -170,7 +170,7 @@ class CGDebugInfo {
   llvm::BumpPtrAllocator DebugInfoNames;
   StringRef CWDName;
 
-  llvm::StringMap<llvm::TrackingMDRef> DIFileCache;
+  llvm::DenseMap<const char *, llvm::TrackingMDRef> DIFileCache;
   llvm::DenseMap<const FunctionDecl *, llvm::TrackingMDRef> SPCache;
   /// Cache declarations relevant to DW_TAG_imported_declarations (C++
   /// using declarations and global alias variables) that aren't covered
@@ -361,6 +361,9 @@ class CGDebugInfo {
   llvm::DIDerivedType *createBitFieldType(const FieldDecl *BitFieldDecl,
                                           llvm::DIScope *RecordTy,
                                           const RecordDecl *RD);
+
+  /// Create type for binding declarations.
+  llvm::DIType *CreateBindingDeclType(const BindingDecl *BD);
 
   /// Create an anonnymous zero-size separator for bit-field-decl if needed on
   /// the target.

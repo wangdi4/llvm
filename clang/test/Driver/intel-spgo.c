@@ -2,7 +2,8 @@
 // CHECK-GENERATE0-NOT: "-debug-info-kind=line-tables-only"
 
 // RUN: %clang -### --target=x86_64-unknown-linux -fprofile-sample-generate %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE %s
-// CHECK-GENERATE: "-fdebug-info-for-profiling" "-debug-info-kind=line-tables-only" "-dwarf-version=4" "-debugger-tuning=gdb" "-funique-internal-linkage-names"
+// CHECK-GENERATE: "-fdebug-info-for-profiling" "-debug-info-kind=line-tables-only" "-dwarf-version=4" "-debugger-tuning=gdb"
+// CHECK-GENERATE: "-funique-internal-linkage-names"
 // CHECK-GENERATE-SAME: -fprofile-sample-generate=keep-all-opt
 // CHECK-GENERATE: ld"
 
@@ -17,7 +18,8 @@
 // CHECK-GENERATE3: "-O0"
 
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -- %s 2>&1 | FileCheck --check-prefix=CHECK-CL-GENERATE %s
-// CHECK-CL-GENERATE: "-fdebug-info-for-profiling" "-debug-info-kind=line-tables-only" "-dwarf-version=4" "-funique-internal-linkage-names"
+// CHECK-CL-GENERATE: "-fdebug-info-for-profiling" "-debug-info-kind=line-tables-only" "-dwarf-version=4"
+// CHECK-CL-GENERATE: "-funique-internal-linkage-names"
 // CHECK-CL-GENERATE: lld-link"
 // CHECK-CL-GENERATE-SAME: "-profile-sample-generate"
 
@@ -56,7 +58,9 @@
 // CHECK-GENERATE-ERROR5: error: invalid value '4' in '-fprofile-sample-generate=4'
 
 // RUN: %clang -### --target=x86_64-unknown-linux -S -fprofile-sample-use=%S/Inputs/file.prof %s 2>&1 | FileCheck -check-prefix=CHECK-USE %s
-// CHECK-USE: "-fdebug-info-for-profiling" "-debugger-tuning=gdb" "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"
+// CHECK-USE: "-fdebug-info-for-profiling" "-debugger-tuning=gdb"
+// CHECK-USE: "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"
 
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc -S -fprofile-sample-use=%S/Inputs/file.prof -- %s 2>&1 | FileCheck -check-prefix=CHECK-USE-CL %s
-// CHECK-USE-CL: "-fdebug-info-for-profiling" "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"
+// CHECK-USE-CL: "-fdebug-info-for-profiling"
+// CHECK-USE-CL: "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"

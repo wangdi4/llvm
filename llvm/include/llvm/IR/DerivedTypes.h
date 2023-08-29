@@ -696,9 +696,8 @@ class PointerType : public Type {
 
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   explicit PointerType(Type *ElType, unsigned AddrSpace);
-
-  Type *PointeeTy;
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *PointeeTy;
 
 public:
   PointerType(const PointerType &) = delete;

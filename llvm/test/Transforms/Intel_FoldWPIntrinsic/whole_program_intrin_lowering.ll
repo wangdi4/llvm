@@ -6,7 +6,7 @@
 
 ; Opt driver forces this pass to go through the legacy pass manager
 ; For more details, check function 'shouldForceLegacyPM' in opt.cpp
-; RUN: opt < %s -pre-isel-intrinsic-lowering -S 2>&1 | FileCheck %s
+; RUN: opt < %s -mtriple=x86_64-pc-linux-gnu -pre-isel-intrinsic-lowering -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 

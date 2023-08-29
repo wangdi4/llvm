@@ -19,7 +19,6 @@ int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
-int __attribute__((target("arch=gracemont"))) foo(void) {return 16;}  // INTEL
 int __attribute__((target("arch=raptorlake"))) foo(void) {return 14;}
 int __attribute__((target("arch=meteorlake"))) foo(void) {return 15;}
 int __attribute__((target("arch=sierraforest"))) foo(void) {return 16;}
@@ -30,6 +29,7 @@ int __attribute__((target("arch=graniterapids-d"))) foo(void) {return 20;}
 int __attribute__((target("arch=arrowlake"))) foo(void) {return 21;}
 int __attribute__((target("arch=arrowlake-s"))) foo(void) {return 22;}
 int __attribute__((target("arch=lunarlake"))) foo(void) {return 23;}
+int __attribute__((target("arch=gracemont"))) foo(void) {return 24;}
 int __attribute__((target("default"))) foo(void) { return 2; }
 
 int bar(void) {
@@ -164,10 +164,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 12
 // LINUX: define{{.*}} i32 @foo.arch_core2()
 // LINUX: ret i32 13
-// if INTEL_CUSTOMIZATION
-// LINUX: define{{.*}} i32 @foo.arch_gracemont()
-// LINUX: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_raptorlake()
 // LINUX: ret i32 14
 // LINUX: define{{.*}} i32 @foo.arch_meteorlake()
@@ -188,6 +184,8 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 22
 // LINUX: define{{.*}} i32 @foo.arch_lunarlake()
 // LINUX: ret i32 23
+// LINUX: define{{.*}} i32 @foo.arch_gracemont()
+// LINUX: ret i32 24
 // LINUX: define{{.*}} i32 @foo()
 // LINUX: ret i32 2
 // LINUX: define{{.*}} i32 @bar()
@@ -219,10 +217,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 12
 // WINDOWS: define dso_local i32 @foo.arch_core2()
 // WINDOWS: ret i32 13
-// if INTEL_CUSTOMIZATION
-// WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
-// WINDOWS: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // WINDOWS: define dso_local i32 @foo.arch_raptorlake()
 // WINDOWS: ret i32 14
 // WINDOWS: define dso_local i32 @foo.arch_meteorlake()
@@ -243,6 +237,8 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 22
 // WINDOWS: define dso_local i32 @foo.arch_lunarlake()
 // WINDOWS: ret i32 23
+// WINDOWS: define dso_local i32 @foo.arch_gracemont()
+// WINDOWS: ret i32 24
 // WINDOWS: define dso_local i32 @foo()
 // WINDOWS: ret i32 2
 // WINDOWS: define dso_local i32 @bar()

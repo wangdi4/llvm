@@ -21,7 +21,7 @@ int test1(int n) {
   // CHECK-NEXT: store i32 %n, i32* [[NADDR]], align 4
   // CHECK-NEXT: [[LD0:%[0-9]+]] = load i32, i32* [[NADDR]], align 4
   // CHECK-NEXT: [[LD1:%[0-9]+]] = zext i32 [[LD0]] to i64
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = call i8* @llvm.stacksave()
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = call i8* @llvm.stacksave.p0i8()
   // CHECK-NEXT: store i8* [[LD2]], i8** %saved_stack, align 8
   // CHECK-NEXT: [[VLA:%vla]] = alloca i32, i64 [[LD1]], align 16
   // CHECK-NEXT: store i64 [[LD1]], i64* [[VLAEXPR]], align 8

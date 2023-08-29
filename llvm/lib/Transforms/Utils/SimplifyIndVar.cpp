@@ -2094,17 +2094,19 @@ PHINode *WidenIV::createWideIV(SCEVExpander &Rewriter) {
   // SCEVExpander. Henceforth, we produce 1-to-1 narrow to wide uses.
   if (BasicBlock *LatchBlock = L->getLoopLatch()) {
     WideInc =
-      cast<Instruction>(WidePhi->getIncomingValueForBlock(LatchBlock));
-    WideIncExpr = SE->getSCEV(WideInc);
-    // Propagate the debug location associated with the original loop increment
-    // to the new (widened) increment.
-    auto *OrigInc =
+        dyn_cast<Instruction>(WidePhi->getIncomingValueForBlock(LatchBlock));
+    if (WideInc) {
+      WideIncExpr = SE->getSCEV(WideInc);
+      // Propagate the debug location associated with the original loop
+      // increment to the new (widened) increment.
+      auto *OrigInc =
 #if INTEL_CUSTOMIZATION
-      // IV increment may not be an instruction in some cases.
-      dyn_cast<Instruction>(OrigPhi->getIncomingValueForBlock(LatchBlock));
-    if (OrigInc)
+          // IV increment may not be an instruction in some cases.
+          dyn_cast<Instruction>(OrigPhi->getIncomingValueForBlock(LatchBlock));
+      if (OrigInc)
 #endif // INTEL_CUSTOMIZATION
-    WideInc->setDebugLoc(OrigInc->getDebugLoc());
+        WideInc->setDebugLoc(OrigInc->getDebugLoc());
+    }
   }
 
   LLVM_DEBUG(dbgs() << "Wide IV: " << *WidePhi << "\n");

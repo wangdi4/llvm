@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: SATest -REF -config=%s.cfg -neat=1
 
 ;CHECKNEAT: ACCURATE 41.00

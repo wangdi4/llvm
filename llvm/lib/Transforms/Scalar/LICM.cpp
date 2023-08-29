@@ -1137,7 +1137,6 @@ static bool isLoadInvariantInLoop(LoadInst *LI, DominatorTree *DT,
   auto *PtrInt8Ty = PointerType::get(Type::getInt8Ty(LI->getContext()),
                                      LI->getPointerAddressSpace());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-
   unsigned BitcastsVisited = 0;
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // Look through bitcasts until we reach the PtrASXTy type (this is
@@ -2146,23 +2145,6 @@ bool isNotVisibleOnUnwindInLoop(const Value *Object, const Loop *L,
 
   return !RequiresNoCaptureBeforeUnwind ||
          isNotCapturedBeforeOrInLoop(Object, L, DT);
-}
-
-// We don't consider globals as writable: While the physical memory is writable,
-// we may not have provenance to perform the write.
-bool isWritableObject(const Value *Object) {
-  // TODO: Alloca might not be writable after its lifetime ends.
-  // See https://github.com/llvm/llvm-project/issues/51838.
-  if (isa<AllocaInst>(Object))
-    return true;
-
-  // TODO: Also handle sret.
-  if (auto *A = dyn_cast<Argument>(Object))
-    return A->hasByValAttr();
-
-  // TODO: Noalias has nothing to do with writability, this should check for
-  // an allocator function.
-  return isNoAliasCall(Object);
 }
 
 bool isThreadLocalObject(const Value *Object, const Loop *L, DominatorTree *DT,

@@ -1,4 +1,4 @@
-; RUN: opt -pre-isel-intrinsic-lowering -S -o - %s | FileCheck %s
+; RUN: opt -mtriple=x86_64-pc-linux-gnu -pre-isel-intrinsic-lowering -S -o - %s | FileCheck %s
 
 ; Verify that llvm.intel.directive.elementsize intrinsic is removed
 

@@ -270,12 +270,27 @@ InstructionCost RISCVTTIImpl::getVRGatherVVCost(MVT VT) {
   return getLMULCost(VT) * getLMULCost(VT);
 }
 
+/// Return the cost of a vrgather.vi (or vx) instruction for the type VT.
+/// vrgather.vi/vx may be linear in the number of vregs implied by LMUL,
+/// or may track the vrgather.vv cost. It is implementation-dependent.
+InstructionCost RISCVTTIImpl::getVRGatherVICost(MVT VT) {
+  return getLMULCost(VT);
+}
+
+/// Return the cost of a vslidedown.vi/vx or vslideup.vi/vx instruction
+/// for the type VT.  (This does not cover the vslide1up or vslide1down
+/// variants.)  Slides may be linear in the number of vregs implied by LMUL,
+/// or may track the vrgather.vv cost. It is implementation-dependent.
+InstructionCost RISCVTTIImpl::getVSlideCost(MVT VT) {
+  return getLMULCost(VT);
+}
+
 InstructionCost RISCVTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
                                              VectorType *Tp, ArrayRef<int> Mask,
                                              TTI::TargetCostKind CostKind,
                                              int Index, VectorType *SubTp,
                                              ArrayRef<const Value *> Args) {
-  Kind = improveShuffleKindFromMask(Kind, Mask);
+  Kind = improveShuffleKindFromMask(Kind, Mask, Tp, Index, SubTp);
 
   std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Tp);
 
@@ -320,7 +335,7 @@ InstructionCost RISCVTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
           return IndexCost + getVRGatherVVCost(LT.second);
         }
       }
-      break;
+      [[fallthrough]];
     }
     case TTI::SK_Transpose:
     case TTI::SK_PermuteTwoSrc: {
@@ -340,6 +355,40 @@ InstructionCost RISCVTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
           return 2 * IndexCost + 2 * getVRGatherVVCost(LT.second) + MaskCost;
         }
       }
+      [[fallthrough]];
+    }
+    case TTI::SK_Select: {
+      // We are going to permute multiple sources and the result will be in
+      // multiple destinations. Providing an accurate cost only for splits where
+      // the element type remains the same.
+      if (LT.first.isValid() && LT.first != 1 &&
+          LT.second.isFixedLengthVector() &&
+          LT.second.getVectorElementType().getSizeInBits() ==
+              Tp->getElementType()->getPrimitiveSizeInBits() &&
+          LT.second.getVectorNumElements() <
+              cast<FixedVectorType>(Tp)->getNumElements()) {
+        unsigned NumRegs = *LT.first.getValue();
+        unsigned VF = cast<FixedVectorType>(Tp)->getNumElements();
+        unsigned SubVF = PowerOf2Ceil(VF / NumRegs);
+        auto *SubVecTy = FixedVectorType::get(Tp->getElementType(), SubVF);
+
+        InstructionCost Cost = 0;
+        for (unsigned I = 0; I < NumRegs; ++I) {
+          bool IsSingleVector = true;
+          SmallVector<int> SubMask(SubVF, PoisonMaskElem);
+          transform(Mask.slice(I * SubVF,
+                               I == NumRegs - 1 ? Mask.size() % SubVF : SubVF),
+                    SubMask.begin(), [&](int I) {
+                      bool SingleSubVector = I / VF == 0;
+                      IsSingleVector &= SingleSubVector;
+                      return (SingleSubVector ? 0 : 1) * SubVF + I % VF;
+                    });
+          Cost += getShuffleCost(IsSingleVector ? TTI::SK_PermuteSingleSrc
+                                                : TTI::SK_PermuteTwoSrc,
+                                 SubVecTy, SubMask, CostKind, 0, nullptr);
+          return Cost;
+        }
+      }
       break;
     }
     }
@@ -356,12 +405,12 @@ InstructionCost RISCVTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
     // Example sequence:
     // vsetivli     zero, 4, e8, mf2, tu, ma (ignored)
     // vslidedown.vi  v8, v9, 2
-    return LT.first * getLMULCost(LT.second);
+    return LT.first * getVSlideCost(LT.second);
   case TTI::SK_InsertSubvector:
     // Example sequence:
     // vsetivli     zero, 4, e8, mf2, tu, ma (ignored)
     // vslideup.vi  v8, v9, 2
-    return LT.first * getLMULCost(LT.second);
+    return LT.first * getVSlideCost(LT.second);
   case TTI::SK_Select: {
     // Example sequence:
     // li           a0, 90
@@ -402,15 +451,13 @@ InstructionCost RISCVTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
 
     // Example sequence:
     //   vrgather.vi     v9, v8, 0
-    // TODO: vrgather could be slower than vmv.v.x. It is
-    // implementation-dependent.
-    return LT.first * getLMULCost(LT.second);
+    return LT.first * getVRGatherVICost(LT.second);
   }
   case TTI::SK_Splice:
     // vslidedown+vslideup.
     // TODO: Multiplying by LT.first implies this legalizes into multiple copies
     // of similar code, but I think we expand through memory.
-    return 2 * LT.first * getLMULCost(LT.second);
+    return 2 * LT.first * getVSlideCost(LT.second);
   case TTI::SK_Reverse: {
     // TODO: Cases to improve here:
     // * Illegal vector types

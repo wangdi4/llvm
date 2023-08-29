@@ -8,6 +8,7 @@
 
 #include "mlir/Analysis/Presburger/PresburgerRelation.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
+#include "mlir/Analysis/Presburger/PWMAFunction.h"
 #include "mlir/Analysis/Presburger/Simplex.h"
 #include "mlir/Analysis/Presburger/Utils.h"
 #include "llvm/ADT/STLExtras.h"
@@ -142,7 +143,8 @@ PresburgerRelation::intersect(const PresburgerRelation &set) const {
   return result;
 }
 
-PresburgerRelation PresburgerRelation::intersectRange(PresburgerSet &set) {
+PresburgerRelation
+PresburgerRelation::intersectRange(const PresburgerSet &set) const {
   assert(space.getRangeSpace().isCompatible(set.getSpace()) &&
          "Range of `this` must be compatible with range of `set`");
 
@@ -152,7 +154,7 @@ PresburgerRelation PresburgerRelation::intersectRange(PresburgerSet &set) {
 }
 
 PresburgerRelation
-PresburgerRelation::intersectDomain(const PresburgerSet &set) {
+PresburgerRelation::intersectDomain(const PresburgerSet &set) const {
   assert(space.getDomainSpace().isCompatible(set.getSpace()) &&
          "Domain of `this` must be compatible with range of `set`");
 
@@ -160,6 +162,20 @@ PresburgerRelation::intersectDomain(const PresburgerSet &set) {
   other.insertVarInPlace(VarKind::Domain, 0, getNumDomainVars());
   other.inverse();
   return intersect(other);
+}
+
+PresburgerSet PresburgerRelation::getDomainSet() const {
+  PresburgerSet result = PresburgerSet::getEmpty(space.getDomainSpace());
+  for (const IntegerRelation &cs : disjuncts)
+    result.unionInPlace(cs.getDomainSet());
+  return result;
+}
+
+PresburgerSet PresburgerRelation::getRangeSet() const {
+  PresburgerSet result = PresburgerSet::getEmpty(space.getRangeSpace());
+  for (const IntegerRelation &cs : disjuncts)
+    result.unionInPlace(cs.getRangeSet());
+  return result;
 }
 
 void PresburgerRelation::inverse() {
@@ -201,6 +217,33 @@ void PresburgerRelation::applyDomain(const PresburgerRelation &rel) {
 
 void PresburgerRelation::applyRange(const PresburgerRelation &rel) {
   compose(rel);
+}
+
+static SymbolicLexOpt findSymbolicIntegerLexOpt(const PresburgerRelation &rel,
+                                                bool isMin) {
+  SymbolicLexOpt result(rel.getSpace());
+  PWMAFunction &lexopt = result.lexopt;
+  PresburgerSet &unboundedDomain = result.unboundedDomain;
+  for (const IntegerRelation &cs : rel.getAllDisjuncts()) {
+    SymbolicLexOpt s(rel.getSpace());
+    if (isMin) {
+      s = cs.findSymbolicIntegerLexMin();
+      lexopt = lexopt.unionLexMin(s.lexopt);
+    } else {
+      s = cs.findSymbolicIntegerLexMax();
+      lexopt = lexopt.unionLexMax(s.lexopt);
+    }
+    unboundedDomain = unboundedDomain.intersect(s.unboundedDomain);
+  }
+  return result;
+}
+
+SymbolicLexOpt PresburgerRelation::findSymbolicIntegerLexMin() const {
+  return findSymbolicIntegerLexOpt(*this, true);
+}
+
+SymbolicLexOpt PresburgerRelation::findSymbolicIntegerLexMax() const {
+  return findSymbolicIntegerLexOpt(*this, false);
 }
 
 /// Return the coefficients of the ineq in `rel` specified by  `idx`.

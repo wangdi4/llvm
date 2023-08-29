@@ -116,7 +116,7 @@ LogicalResult acc::PresentOp::verify() {
 //===----------------------------------------------------------------------===//
 LogicalResult acc::CopyinOp::verify() {
   // Test for all clauses this operation can be decomposed from:
-  if (getDataClause() != acc::DataClause::acc_copyin &&
+  if (!getImplicit() && getDataClause() != acc::DataClause::acc_copyin &&
       getDataClause() != acc::DataClause::acc_copyin_readonly &&
       getDataClause() != acc::DataClause::acc_copy)
     return emitError(
@@ -1034,6 +1034,14 @@ LogicalResult acc::DeclareEnterOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult acc::DeclareExitOp::verify() {
+  return checkDeclareOperands(*this, this->getDataClauseOperands());
+}
+
+//===----------------------------------------------------------------------===//
+// DeclareOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult acc::DeclareOp::verify() {
   return checkDeclareOperands(*this, this->getDataClauseOperands());
 }
 

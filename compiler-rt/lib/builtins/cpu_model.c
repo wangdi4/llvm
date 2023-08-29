@@ -97,7 +97,6 @@ enum ProcessorTypes {
   INTEL_SIERRAFOREST,
   INTEL_GRANDRIDGE,
 #if INTEL_CUSTOMIZATION
-  INTEL_GRACEMONT,
 #if INTEL_FEATURE_CPU_RYL
   INTEL_RYL,
 #endif // INTEL_FEATURE_CPU_RYL
@@ -487,6 +486,8 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     // Meteorlake:
     case 0xaa:
     case 0xac:
+    // Gracemont:
+    case 0xbe:
       CPU = "alderlake";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_ALDERLAKE;

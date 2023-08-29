@@ -372,7 +372,6 @@ MODULE_PASS("memprof-module", ModuleMemProfilerPass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
 MODULE_PASS("pseudo-probe-update", PseudoProbeUpdatePass())
 MODULE_PASS("LowerESIMD", SYCLLowerESIMDPass())
-MODULE_PASS("ESIMDLowerVecArg", ESIMDLowerVecArgPass())
 MODULE_PASS("esimd-opt-call-conv", ESIMDOptimizeVecArgCallConvPass())
 MODULE_PASS("esimd-verifier", ESIMDVerifierPass())
 MODULE_PASS("lower-invoke-simd", SYCLLowerInvokeSimdPass())
@@ -510,7 +509,7 @@ CGSCC_PASS_WITH_PARAMS("function-attrs",
                          return PostOrderFunctionAttrsPass(SkipNonRecursive);
                        },
                        parsePostOrderFunctionAttrsPassOptions,
-                       "skip-non-recursive")
+                       "skip-non-recursive-function-attrs")
 #undef CGSCC_PASS_WITH_PARAMS
 
 #ifndef FUNCTION_ANALYSIS

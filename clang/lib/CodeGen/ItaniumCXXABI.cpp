@@ -802,12 +802,14 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
             CGM.getIntrinsic(llvm::Intrinsic::load_relative,
                              {VTableOffset->getType()}),
             {VTable, VTableOffset});
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
         VirtualFn =
             CGF.Builder.CreateBitCastFPT(VirtualFn, FTy->getPointerTo());
 #else // INTEL_COLLAB
         VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
 #endif // INTEL_COLLAB
+#endif
       } else {
         llvm::Value *VFPAddr =
             CGF.Builder.CreateGEP(CGF.Int8Ty, VTable, VTableOffset);
@@ -2262,16 +2264,28 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
                                                   Address This,
                                                   llvm::Type *Ty,
                                                   SourceLocation Loc) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *PtrTy = CGM.GlobalsInt8PtrTy;
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *TyPtr = Ty->getPointerTo();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   auto *MethodDecl = cast<CXXMethodDecl>(GD.getDecl());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Value *VTable = CGF.GetVTablePtr(This, PtrTy, MethodDecl->getParent());
+#else
   llvm::Value *VTable = CGF.GetVTablePtr(
       This, TyPtr->getPointerTo(), MethodDecl->getParent());
+#endif
 
   uint64_t VTableIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(GD);
   llvm::Value *VFunc;
   if (CGF.ShouldEmitVTableTypeCheckedLoad(MethodDecl->getParent())) {
     VFunc = CGF.EmitVTableTypeCheckedLoad(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        MethodDecl->getParent(), VTable, PtrTy,
+#else
         MethodDecl->getParent(), VTable, TyPtr,
+#endif
         VTableIndex *
             CGM.getContext().getTargetInfo().getPointerWidth(LangAS::Default) /
             8);
@@ -2280,6 +2294,11 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
 
     llvm::Value *VFuncLoad;
     if (CGM.getItaniumVTableContext().isRelativeLayout()) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      VFuncLoad = CGF.Builder.CreateCall(
+          CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
+          {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
+#else
       VTable = CGF.Builder.CreateBitCast(VTable, CGM.Int8PtrTy);
       llvm::Value *Load = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
@@ -2289,7 +2308,14 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
 #else // INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
 #endif // INTEL_COLLAB
+#endif
     } else {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      llvm::Value *VTableSlotPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
+          PtrTy, VTable, VTableIndex, "vfn");
+      VFuncLoad = CGF.Builder.CreateAlignedLoad(PtrTy, VTableSlotPtr,
+                                                CGF.getPointerAlign());
+#else
       VTable =
           CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo());
       llvm::Value *VTableSlotPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
@@ -2297,6 +2323,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       VFuncLoad =
           CGF.Builder.CreateAlignedLoad(TyPtr, VTableSlotPtr,
                                         CGF.getPointerAlign());
+#endif
     }
 
     // Add !invariant.load md to virtual function load to indicate that
@@ -3305,7 +3332,7 @@ static bool isThreadWrapperReplaceable(const VarDecl *VD,
 static llvm::GlobalValue::LinkageTypes
 getThreadLocalWrapperLinkage(const VarDecl *VD, CodeGen::CodeGenModule &CGM) {
   llvm::GlobalValue::LinkageTypes VarLinkage =
-      CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/false);
+      CGM.getLLVMLinkageVarDefinition(VD);
 
   // For internal linkage variables, we don't need an external or weak wrapper.
   if (llvm::GlobalValue::isLocalLinkage(VarLinkage))
@@ -4177,7 +4204,11 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     VTable = CGM.getModule().getNamedAlias(VTableName);
 
   if (!VTable)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    VTable = CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
     VTable = CGM.CreateRuntimeVariable(CGM.DefaultInt8PtrTy, VTableName);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
@@ -4202,15 +4233,25 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     // The vtable address point is 8 bytes after its start:
     // 4 for the offset to top + 4 for the relative offset to rtti.
     llvm::Constant *Eight = llvm::ConstantInt::get(CGM.Int32Ty, 8);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
   } else {
     llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy,
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.DefaultInt8PtrTy,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                                           VTable, Two);
   }
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.GlobalsInt8PtrTy);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Fields.push_back(VTable);
 }

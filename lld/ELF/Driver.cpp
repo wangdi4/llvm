@@ -70,6 +70,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/LTO/LTO.h"
 #include "llvm/Object/Archive.h"
+#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compression.h"
@@ -258,6 +259,19 @@ static bool isBitcode(MemoryBufferRef mb) {
   return identify_magic(mb.getBuffer()) == llvm::file_magic::bitcode;
 }
 
+bool LinkerDriver::tryAddFatLTOFile(MemoryBufferRef mb, StringRef archiveName,
+                                    uint64_t offsetInArchive, bool lazy) {
+  if (!config->fatLTOObjects)
+    return false;
+  Expected<MemoryBufferRef> fatLTOData =
+      IRObjectFile::findBitcodeInMemBuffer(mb);
+  if (errorToBool(fatLTOData.takeError()))
+    return false;
+  files.push_back(
+      make<BitcodeFile>(*fatLTOData, archiveName, offsetInArchive, lazy));
+  return true;
+}
+
 // Opens a file and create a file object. Path has to be resolved already.
 void LinkerDriver::addFile(StringRef path, bool withLOption) {
   using namespace sys::fs;
@@ -348,7 +362,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
         if (isBitcode(p.first))
           files.push_back(make<BitcodeFile>(p.first, path, p.second, false));
-        else
+        else if (!tryAddFatLTOFile(p.first, path, p.second, false))
           files.push_back(createObjFile(p.first, path));
       }
       return;
@@ -377,17 +391,21 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         // The following lines are community code. They were commented out and
         // replaced with the code below since we need to catch when an
         // object has GNU LTO information.
-        // if (magic == file_magic::elf_relocatable)
-        //   files.push_back(createObjFile(p.first, path, true));
-        // else if (magic == file_magic::bitcode)
+        //
+        // if (magic == file_magic::elf_relocatable) {
+        //   if (!tryAddFatLTOFile(p.first, path, p.second, true))
+        //     files.push_back(createObjFile(p.first, path, true));
+        // } else if (magic == file_magic::bitcode)
         //   files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
+        //
         auto *lazyFile = (magic == file_magic::elf_relocatable)
                              ? (InputFile*)createObjFile(p.first, path, true)
                              : make<BitcodeFile>(p.first, path, p.second, true);
         if (lazyFile->isGNULTOFile)
           ctx.lazyGNULTOFiles.push_back(lazyFile);
         else
-          files.push_back(lazyFile);
+          if (!tryAddFatLTOFile(p.first, path, p.second, true))
+            files.push_back(lazyFile);
       }
       // There is a chance that we could have nested archives. In this case
       // we need to parse them.
@@ -430,13 +448,18 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     // The following line is community code. It was commented out and
     // replaced with the code below since we need to catch when an
     // object has GNU LTO information.
-    // files.push_back(createObjFile(mbref, "", inLib));
+    //
+    // if (!tryAddFatLTOFile(mbref, "", 0, inLib))
+    //   files.push_back(createObjFile(mbref, "", inLib));
+    //
     {
       auto *objFile = createObjFile(mbref, "", inLib);
       if (objFile->isGNULTOFile)
         ctx.gnuLTOFiles.push_back(objFile);
-      else
-        files.push_back(objFile);
+      else {
+        if (!tryAddFatLTOFile(mbref, "", 0, inLib))
+          files.push_back(objFile);
+      }
     }
 #endif // INTEL_CUSTOMIZATION
     break;
@@ -1214,7 +1237,7 @@ static bool remapInputs(StringRef line, const Twine &location) {
   else if (Expected<GlobPattern> pat = GlobPattern::create(fields[0]))
     config->remapInputsWildcards.emplace_back(std::move(*pat), fields[1]);
   else {
-    error(location + ": " + toString(pat.takeError()));
+    error(location + ": " + toString(pat.takeError()) + ": " + fields[0]);
     return true;
   }
   return false;
@@ -1234,16 +1257,20 @@ static void readConfigs(opt::InputArgList &args) {
       args.hasFlag(OPT_android_memtag_heap, OPT_no_android_memtag_heap, false);
   config->androidMemtagStack = args.hasFlag(OPT_android_memtag_stack,
                                             OPT_no_android_memtag_stack, false);
+  config->fatLTOObjects =
+      args.hasFlag(OPT_fat_lto_objects, OPT_no_fat_lto_objects, false);
   config->androidMemtagMode = getMemtagMode(args);
   config->auxiliaryList = args::getStrings(args, OPT_auxiliary);
   config->armBe8 = args.hasArg(OPT_be8);
-  if (opt::Arg *arg =
-          args.getLastArg(OPT_Bno_symbolic, OPT_Bsymbolic_non_weak_functions,
-                          OPT_Bsymbolic_functions, OPT_Bsymbolic)) {
+  if (opt::Arg *arg = args.getLastArg(
+          OPT_Bno_symbolic, OPT_Bsymbolic_non_weak_functions,
+          OPT_Bsymbolic_functions, OPT_Bsymbolic_non_weak, OPT_Bsymbolic)) {
     if (arg->getOption().matches(OPT_Bsymbolic_non_weak_functions))
       config->bsymbolic = BsymbolicKind::NonWeakFunctions;
     else if (arg->getOption().matches(OPT_Bsymbolic_functions))
       config->bsymbolic = BsymbolicKind::Functions;
+    else if (arg->getOption().matches(OPT_Bsymbolic_non_weak))
+      config->bsymbolic = BsymbolicKind::NonWeak;
     else if (arg->getOption().matches(OPT_Bsymbolic))
       config->bsymbolic = BsymbolicKind::All;
   }
@@ -1533,7 +1560,7 @@ static void readConfigs(opt::InputArgList &args) {
     else if (Expected<GlobPattern> pat = GlobPattern::create(kv.first))
       config->shuffleSections.emplace_back(std::move(*pat), uint32_t(v));
     else
-      error(errPrefix + toString(pat.takeError()));
+      error(errPrefix + toString(pat.takeError()) + ": " + kv.first);
   }
 
   auto reports = {std::make_pair("bti-report", &config->zBtiReport),
@@ -1571,7 +1598,7 @@ static void readConfigs(opt::InputArgList &args) {
     else if (Expected<GlobPattern> pat = GlobPattern::create(kv.first))
       config->deadRelocInNonAlloc.emplace_back(std::move(*pat), v);
     else
-      error(errPrefix + toString(pat.takeError()));
+      error(errPrefix + toString(pat.takeError()) + ": " + kv.first);
   }
 
   cl::ResetAllOptionOccurrences();
@@ -1737,7 +1764,8 @@ static void readConfigs(opt::InputArgList &args) {
     if (Expected<GlobPattern> pat = GlobPattern::create(pattern))
       config->warnBackrefsExclude.push_back(std::move(*pat));
     else
-      error(arg->getSpelling() + ": " + toString(pat.takeError()));
+      error(arg->getSpelling() + ": " + toString(pat.takeError()) + ": " +
+            pattern);
   }
 
   // For -no-pie and -pie, --export-dynamic-symbol specifies defined symbols
@@ -2332,7 +2360,7 @@ static void handleUndefined(Symbol *sym, const char *option) {
 static void handleUndefinedGlob(StringRef arg) {
   Expected<GlobPattern> pat = GlobPattern::create(arg);
   if (!pat) {
-    error("--undefined-glob: " + toString(pat.takeError()));
+    error("--undefined-glob: " + toString(pat.takeError()) + ": " + arg);
     return;
   }
 

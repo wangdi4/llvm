@@ -15,6 +15,12 @@
 #define EXTERN_C
 #endif // __cplusplus
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#define SYCL_EXTERNAL
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
+
 #if defined(__SPIR__) || defined(__NVPTX__)
 #ifdef __SYCL_DEVICE_ONLY__
 #define DEVICE_EXTERNAL SYCL_EXTERNAL __attribute__((weak))

@@ -1067,6 +1067,27 @@ public:
                            nullptr, Name);
   }
 
+  /// Create a call to llvm.stacksave
+  CallInst *CreateStackSave(const Twine &Name = "") {
+    const DataLayout &DL = BB->getModule()->getDataLayout();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return CreateIntrinsic(Intrinsic::stacksave, {DL.getAllocaPtrType(Context)},
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+    return CreateIntrinsic(
+        Intrinsic::stacksave,
+        {Context.supportsTypedPointers()
+             ? Type::getInt8PtrTy(Context, DL.getAllocaAddrSpace())
+             : DL.getAllocaPtrType(Context)},
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+                           {}, nullptr, Name);
+  }
+
+  /// Create a call to llvm.stackrestore
+  CallInst *CreateStackRestore(Value *Ptr, const Twine &Name = "") {
+    return CreateIntrinsic(Intrinsic::stackrestore, {Ptr->getType()}, {Ptr},
+                           nullptr, Name);
+  }
+
 private:
   /// Create a call to a masked intrinsic with given Id.
   CallInst *CreateMaskedIntrinsic(Intrinsic::ID Id, ArrayRef<Value *> Ops,

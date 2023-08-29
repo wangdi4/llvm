@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -opaque-pointers -fsycl-is-host -fintelfpga -triple x86_64 -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -fsycl-is-host -fintelfpga -triple x86_64-pc-windows-msvc -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-host -fintelfpga -triple x86_64 -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-host -fintelfpga -triple x86_64-pc-windows-msvc -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
 
 // This test checks that we generate appropriate code for division
 // operations of _BitInts of size greater than 128 bits, since it

@@ -56,7 +56,7 @@
 ;Function: jacobian_
 
 ; CHECK:      BEGIN REGION { modified }
-; CHECK:            %call = @llvm.stacksave();
+; CHECK:            %call = @llvm.stacksave.p0();
 ; CHECK:            %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 2  *  sext.i32.i64(%"jacobian_$NX_fetch");
 ; CHECK:            %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK:            %TempArray = alloca %array_size3;
@@ -89,7 +89,7 @@
 ;                   |   |   + END LOOP
 ;                   |   + END LOOP
 ;                   + END LOOP
-; CHECK:            @llvm.stackrestore(&((%call)
+; CHECK:            @llvm.stackrestore.p0(&((%call)
 ;             END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -23,9 +23,9 @@
 ; CHECK:    ptr [[VP1]] = allocate-priv %"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:    call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0
 ; CHECK:    i64 [[VP4:%.*]] = call ptr [[VP3:%.*]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2
-; CHECK:    ptr [[VP5:%.*]] = call ptr @llvm.stacksave
+; CHECK:    ptr [[VP5:%.*]] = call ptr @llvm.stacksave.p0
 ; CHECK:    f90-dv-buffer-init i64 [[VP4]] ptr [[VP1]]
-; CHECK:    call ptr [[VP5]] ptr @llvm.stackrestore
+; CHECK:    call ptr [[VP5]] ptr @llvm.stackrestore.p0
 
 ; CHECK:  VPlan after private finalization instructions transformation:
 ; CHECK:  Private list
@@ -37,7 +37,7 @@
 ; CHECK:      [DA: Div] ptr [[VP1]] = allocate-priv %"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:      [DA: Div] call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0 [Serial]
 ; CHECK:      [DA: Div] i64 [[VP4]] = call ptr [[VP3]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2 [Serial]
-; CHECK:      [DA: Uni] ptr [[VP5]] = call ptr @llvm.stacksave
+; CHECK:      [DA: Uni] ptr [[VP5]] = call ptr @llvm.stacksave.p0
 ; CHECK:      [DA: Div] i64 [[VP6:%.*]] = udiv i64 [[VP4]] i64 4
 ; CHECK:      [DA: Div] i1 [[VP7:%.*]] = icmp sgt i64 [[VP4]] i64 0
 ; CHECK:      [DA: Div] br i1 [[VP7]], [[BB20:BB[0-9]+]], [[BB21:BB[0-9]+]]
@@ -46,7 +46,7 @@
 ; CHECK:        [DA: Div] ptr [[VP8:%.*]] = allocate-dv-buffer i32 i64 [[VP6]], OrigAlign = 4
 ; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP1]]
 ; CHECK:        [DA: Uni] br BB21
-; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore
+; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore.p0
 
 ; LLVMIR-NOT: DominatorTree is different than a freshly computed one!
 ; LLVMIR-NOT: PostDominatorTree is different than a freshly computed one!
@@ -69,7 +69,7 @@
 ; LLVMIR-NEXT:   %3 = insertelement <2 x i64> undef, i64 %2, i32 0
 ; LLVMIR-NEXT:   %4 = call i64 @_f90_dope_vector_init2(ptr %"sum_$C1.priv.vec.base.addr.extract.1.", ptr %"sum_$C1.priv")
 ; LLVMIR-NEXT:   %5 = insertelement <2 x i64> %3, i64 %4, i32 1
-; LLVMIR-NEXT:   %6 = call ptr @llvm.stacksave()
+; LLVMIR-NEXT:   %6 = call ptr @llvm.stacksave.p0()
 ; LLVMIR-NEXT:   %7 = udiv <2 x i64> %5, <i64 4, i64 4>
 ; LLVMIR-NEXT:   %.extract.0.5 = extractelement <2 x i64> %7, i32 0
 ; LLVMIR-NEXT:   %8 = icmp sgt <2 x i64> %5, zeroinitializer
@@ -91,7 +91,7 @@
 ; HIR-NEXT:   %extract.1. = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
 ; HIR-NEXT:   %_f90_dope_vector_init22 = @_f90_dope_vector_init2(%extract.1.,  %"sum_$C1.priv");
 ; HIR-NEXT:   %serial.temp = insertelement %serial.temp,  %_f90_dope_vector_init22,  1;
-; HIR-NEXT:   %llvm.stacksave = @llvm.stacksave();
+; HIR-NEXT:   %llvm.stacksave.p0 = @llvm.stacksave.p0();
 ; HIR-NEXT:   %.vec4 = %serial.temp  /u  4;
 ; HIR-NEXT:   %.vec5 = %serial.temp > 0;
 ; HIR-NEXT:   %extract.0.6 = extractelement %.vec5,  0;

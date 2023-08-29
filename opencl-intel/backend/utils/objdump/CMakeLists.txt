@@ -44,3 +44,5 @@ add_opencl_library(${TARGET_NAME} STATIC ObjectDump.h ObjectDump.cpp
 
 # For a tidy Visual Studio solution layout
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
+
+target_link_libraries(${TARGET_NAME} PRIVATE LLVMDebuginfod)

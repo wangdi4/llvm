@@ -2,6 +2,10 @@
 // RUN: %libomptarget-run-generic 2>&1 \
 // RUN: | %fcheck-generic
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <assert.h>
 #include <iostream>
 #include <omp.h>

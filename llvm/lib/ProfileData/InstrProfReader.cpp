@@ -576,9 +576,9 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
 
   CountersDelta = swap(Header.CountersDelta);
   NamesDelta = swap(Header.NamesDelta);
-  auto NumData = swap(Header.DataSize);
+  auto NumData = swap(Header.NumData);
   auto PaddingBytesBeforeCounters = swap(Header.PaddingBytesBeforeCounters);
-  auto CountersSize = swap(Header.CountersSize) * getCounterTypeSize();
+  auto CountersSize = swap(Header.NumCounters) * getCounterTypeSize();
   auto PaddingBytesAfterCounters = swap(Header.PaddingBytesAfterCounters);
   auto NamesSize = swap(Header.NamesSize);
   ValueKindLast = swap(Header.ValueKindLast);
@@ -591,7 +591,7 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
     dbgs() << "  Num data records         : " << NumData << "\n";
     dbgs() << "  Pad bytes before counters: " << PaddingBytesBeforeCounters
            << "\n";
-    dbgs() << "  Num counters             : " << swap(Header.CountersSize)
+    dbgs() << "  Num counters             : " << swap(Header.NumCounters)
            << " Bytes for counters: " << CountersSize << "\n";
     dbgs() << "  Pad bytes after counters : " << PaddingBytesAfterCounters
            << "\n";

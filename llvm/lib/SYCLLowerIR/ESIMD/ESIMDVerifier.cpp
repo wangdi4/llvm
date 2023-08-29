@@ -80,6 +80,7 @@ static const char *LegalSYCLFunctions[] = {
     "^sycl::_V1::ext::oneapi::sub_group::.+",
     "^sycl::_V1::ext::oneapi::experimental::spec_constant<.+>::.+",
     "^sycl::_V1::ext::oneapi::experimental::this_sub_group",
+    "^sycl::_V1::ext::oneapi::experimental::uniform<.+>::.+",
     "^sycl::_V1::ext::oneapi::bfloat16::.+",
     /* INTEL_CUSTOMIZATION */
     /* INTEL_FEATURE_ESIMD_EMBARGO */
