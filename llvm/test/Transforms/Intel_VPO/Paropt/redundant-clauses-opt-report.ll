@@ -1090,7 +1090,7 @@ attributes #2 = { nounwind }
 !llvm.module.flags = !{!6, !7, !8, !9, !10, !11}
 !llvm.ident = !{!12}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)", isOptimized: false, flags: "-g -fopenmp-version=51 -fopenmp-targets=spir64 -Xclang -fopenmp-typed-clauses -Xclang -opaque-pointers -O0 -fiopenmp -Xclang -disable-llvm-passes -mllvm -pretty-print-directives -emit-llvm -S test.c -o cfe.ll", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)", isOptimized: false, flags: "-g -fopenmp-version=51 -fopenmp-targets=spir64 -Xclang -fopenmp-typed-clauses -O0 -fiopenmp -Xclang -disable-llvm-passes -mllvm -pretty-print-directives -emit-llvm -S test.c -o cfe.ll", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "test.c", directory: "/tmp")
 !2 = !{i32 0, i32 66313, i32 50002633, !"_Z5test2", i32 17, i32 1, i32 0}
 !3 = !{i32 0, i32 66313, i32 50002633, !"_Z5test3", i32 30, i32 2, i32 0}
