@@ -927,6 +927,19 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                               << ": Added TGT_MAP_TARGET_PARAM flag.\n");
           }
 
+          if (NewMapType & TGT_MAP_USE_HOST_MEM) {
+            LLVM_DEBUG(dbgs() << __FUNCTION__ << ": MapType " << NewMapType
+                              << " has HOST_MEM bit ");
+            if (!MapI->getIsUsedInAtomicFreeReduction()) {
+              // Do not honor the HOST_MEM bit if the mapped var is not
+              // used in atomic-free reduction.
+              NewMapType &= ~TGT_MAP_USE_HOST_MEM;
+              LLVM_DEBUG(dbgs() << "but it is removed.\n");
+            } else {
+              LLVM_DEBUG(dbgs() << "and it is honored.\n");
+            }
+          }
+
           if (MapType != NewMapType) {
             LLVM_DEBUG(dbgs()
                        << __FUNCTION__ << ": MapType changed from '" << MapType
@@ -935,10 +948,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                        << llvm::format_hex(NewMapType, 18, true) << ")'.\n");
             MapType = NewMapType;
           }
+
           MapTypes.push_back(MapType);
-        } else
+        } else {
           MapTypes.push_back(getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0,
                                             VIsTargetKernelArg));
+        }
         bool IsMapChainHeadAndParam =
             (I == 0 && (MapTypes.back() & TGT_MAP_TARGET_PARAM));
 #if INTEL_CUSTOMIZATION

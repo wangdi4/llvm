@@ -6858,7 +6858,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         WRegionUtils::supportsLocalAtomicFreeReduction(W);
     // Filling the AtomicFreeRedGlobalBufs array to be used for
     // atomic-free reduction generation later
-    if (isTargetSPIRV() && (FillGlobalBuffers || FillLocalBuffers)) {
+    if (FillGlobalBuffers || FillLocalBuffers) {
       for (ReductionItem *RedI : RedClause.items()) {
         if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI))
           continue;
@@ -6907,7 +6907,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                      << "] of " << *ArrayElementType << "\n");
         };
 
-        Parse1DArrayAsArraySection(F->getContext());
+        if (isTargetSPIRV())
+          Parse1DArrayAsArraySection(F->getContext());
 
         auto *WTarget =
             WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
@@ -6924,7 +6925,38 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         // for different reduction item it is not intended to used for.
         // TODO: replace with 2 calls of find(MapClause.items(),...)
         for (auto &MItem : MapClause.items()) {
-          GlobalVariable *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig());
+          //  RedI that reaches here will be used in atomic-free reduction.
+          //  If MItem is for the same var in RedI then mark it so we can
+          //  honor the HOST_MEM bit if its MapType has it. Any MItem that
+          //  is not so marked will have its HOST_MEM bit (if any) ignored.
+          Value *MapOrig = MItem->getOrig();
+          Value *RedOrig = RedI->getOrig();
+          Value *RedVar = nullptr;
+          if (RedI->getIsPointerToPointer() || RedI->getIsByRef()) {
+            // There should only be one store to RedOrig at this point.
+            // Find its value operand.
+            for (auto *User : RedOrig->users()) {
+              if (StoreInst *Store = dyn_cast<StoreInst>(User)) {
+                assert(RedOrig == Store->getPointerOperand() &&
+                       "Expected RedOrig to be pointer operand of the store");
+                RedVar = Store->getValueOperand();
+                break;
+              }
+            }
+            assert(RedVar && "RedI is ptr-to-ptr or byref but store not found");
+          } else {
+            RedVar = RedOrig;
+          }
+          if (MapOrig == RedVar) {
+            MItem->setIsUsedInAtomicFreeReduction(true);
+            LLVM_DEBUG(dbgs() << "MapOrig: "; MapOrig->printAsOperand(dbgs());
+                       dbgs() << " is used in atomic-free reduction.\n");
+          }
+
+          if (!isTargetSPIRV()) // host compilation need not proceed further
+            continue;
+
+          GlobalVariable *MapPtr = dyn_cast<GlobalVariable>(MapOrig);
           if (!MapPtr)
             continue;
           if (FillGlobalBuffers && !GlobalFound &&
