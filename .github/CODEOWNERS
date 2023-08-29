@@ -813,16 +813,16 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 # COMPONENT: Misc
 # Code owners for optimization reports
-/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
-/llvm/test/tools/llvm-reduce/intel-opt-report-metadata.ll @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
+/llvm/test/tools/llvm-reduce/intel-opt-report-metadata.ll @karthik-senthil @pankaj-chawla @dwoodwor-intel @wjschmidt
 
 # Code owners for binary opt-report
 /llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
