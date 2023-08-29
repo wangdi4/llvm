@@ -28,6 +28,7 @@
 
 #include <set>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #define DEBUG_TYPE "sycl-kernel-barrier"
@@ -325,6 +326,21 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
 
     // Get offset of alloca value in special buffer.
     unsigned int Offset = DPV->getOffset(V);
+    // Update AddrAI value.
+    if (AI && DI && AllocaUpdateMap.contains(AI)) {
+      for (auto *BB : AllocaUpdateMap[AI]) {
+        Instruction *InsertBefore = BB->getFirstNonPHI();
+        if (BarrierUtils::isBarrierOrDummyBarrierCall(InsertBefore))
+          InsertBefore = InsertBefore->getNextNode();
+        assert(InsertBefore && "InsertBefore is invalid, debug info isn't "
+                               "fixed for alloca pointer cast users.");
+        Value *AddrInSpecialBuffer =
+            getAddressInSpecialBuffer(Offset, AllocatedTy, InsertBefore, &DB);
+        IRBuilder<> Builder(InsertBefore);
+        Builder.SetCurrentDebugLocation(DB);
+        Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
+      }
+    }
 
     // Insert instruction to load V's address in special buffer to AddrAI.
     // Barrier region header is a coarse estimate of insert point. Within the
@@ -451,6 +467,31 @@ void KernelBarrier::fixSpecialValues() {
     Instruction *Inst = cast<Instruction>(V);
 
     const DebugLoc &DB = Inst->getDebugLoc();
+
+    // Update AllocaUpdateMap.
+    if (auto *AI = dyn_cast<AllocaInst>(V->stripPointerCasts()); AI != V) {
+      if (std::find(AllocaValues->begin(), AllocaValues->end(), AI) !=
+          AllocaValues->end()) {
+        std::unordered_set<BasicBlock *> AIUserBBs;
+        std::unordered_set<BasicBlock *> AIPointerCastUserBBs;
+        for (auto *U : AI->users())
+          if (auto *Inst = dyn_cast<Instruction>(U))
+            AIUserBBs.insert(Inst->getParent());
+
+        for (auto *U : V->users())
+          if (auto *Inst = dyn_cast<Instruction>(U))
+            AIPointerCastUserBBs.insert(Inst->getParent());
+
+        SmallVector<BasicBlock *, 8> AllocaUpdateVec;
+        for (auto *BB : AIPointerCastUserBBs)
+          if (!AIUserBBs.count(BB))
+            AllocaUpdateVec.push_back(BB);
+
+        if (!AllocaUpdateVec.empty())
+          AllocaUpdateMap.insert({AI, AllocaUpdateVec});
+      }
+    }
+
     // This will hold the real type of this value in the special buffer.
     Type *TyInSP = Inst->getType();
     bool OneBitBaseType = DPV->isOneBitElementType(Inst);

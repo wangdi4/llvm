@@ -352,6 +352,16 @@ private:
   /// This holds per-function map from sync basic block to newly splitted sync
   /// basic block.
   DenseMap<Function *, DenseMap<BasicBlock *, BasicBlock *>> OldToNewSyncBBMap;
+
+  using MapAllocaToBasicBlockVector =
+      MapVector<Value *, SmallVector<BasicBlock *, 8>>;
+  /// Map from alloca to BasicBlock vector.
+  /// If original alloca %my_i used in debugger intrinsic functions has user
+  /// %my_i.ascast generated from addrspacecast and %my_i.ascast is
+  /// cross-barrier value, then new %my_i.addr need to update value from special
+  /// buffer in the BBs where %my_i is not used but %my_i.ascast is used.
+  /// Without this, debug info of %my_i is incorrect in those BBs.
+  MapAllocaToBasicBlockVector AllocaUpdateMap;
 };
 
 } // namespace llvm
