@@ -1,8 +1,8 @@
 // INTEL_FEATURE_CPU_RYL
 // REQUIRES: intel_feature_cpu_ryl
 
-// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
-// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-windows-pc -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
+// RUN: %clang_cc1 -triple x86_64-windows-pc -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
 
 int __attribute__((target("arch=royal"))) foo(void) {return 14;}
 int __attribute__((target("default"))) foo(void) { return 2; }

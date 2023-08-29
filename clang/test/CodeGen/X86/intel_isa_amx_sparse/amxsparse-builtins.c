@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_sparse
-// RUN: %clang_cc1 -no-opaque-pointers %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-sparse \
+// RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-sparse \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>
@@ -43,24 +43,24 @@ void test_tile_dpsfp16ps(void) {
 
 void test_tile_ldexpandb(const void *A, size_t B, unsigned int C) {
   // CHECK-LABEL: @test_tile_ldexpandb(
-  // CHECK: call void @llvm.x86.tldexpandb(i8 1, i8* %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
+  // CHECK: call void @llvm.x86.tldexpandb(i8 1, ptr %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
   _tile_ldexpandb(1, A, B, C);
 }
 
 void test_tile_ldexpandbt1(const void *A, size_t B, unsigned int C) {
   // CHECK-LABEL: @test_tile_ldexpandbt1(
-  // CHECK: call void @llvm.x86.tldexpandbt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
+  // CHECK: call void @llvm.x86.tldexpandbt1(i8 1, ptr %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
   _tile_ldexpandbt1(1, A, B, C);
 }
 
 void test_tile_ldexpandw(const void *A, size_t B, unsigned int C) {
   // CHECK-LABEL: @test_tile_ldexpandw(
-  // CHECK: call void @llvm.x86.tldexpandw(i8 1, i8* %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
+  // CHECK: call void @llvm.x86.tldexpandw(i8 1, ptr %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
   _tile_ldexpandw(1, A, B, C);
 }
 
 void test_tile_ldexpandwt1(const void *A, size_t B, unsigned int C) {
   // CHECK-LABEL: @test_tile_ldexpandwt1(
-  // CHECK: call void @llvm.x86.tldexpandwt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
+  // CHECK: call void @llvm.x86.tldexpandwt1(i8 1, ptr %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
   _tile_ldexpandwt1(1, A, B, C);
 }
