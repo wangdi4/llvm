@@ -22,6 +22,9 @@ extern bool SYCLEnableVectorVariantPasses;
 
 namespace llvm {
 
+DiagnosticKind VectorVariantDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
+
 PreservedAnalyses IndirectCallLowering::run(Module &M,
                                             ModuleAnalysisManager &MAM) {
   if (!runImpl(M))
@@ -133,8 +136,8 @@ bool IndirectCallLowering::runImpl(Module &M) {
       if (Index >= Variants.size()) {
         // Final function's code will be incorrect, so let's mark it as
         // an invalid one.
-        Fn.addFnAttr(KernelAttribute::VectorVariantFailure,
-                     "failed to find a masked vector variant for an indirect call");
+        Fn.getContext().diagnose(VectorVariantDiagInfo(
+            Fn, "failed to find a masked vector variant for an indirect call"));
         continue;
       }
 

@@ -40,8 +40,7 @@ public:
   enum InvalidFunctionType {
     RECURSION,
     RECURSION_WITH_BARRIER,
-    FPGA_PIPE_DYNAMIC_ACCESS,
-    VECTOR_VARIANT_FAILURE
+    FPGA_PIPE_DYNAMIC_ACCESS
   };
 
   enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
@@ -55,9 +54,6 @@ public:
 
   /// @brief checks if some pipes access were not resolved statically
   bool hasFpgaPipeDynamicAccess() const;
-
-  /// @brief checks if there are any issues with vector-varian attributes.
-  bool hasVectorVariantFailure() const;
 
   /// @brief checks if there are some channels whose depths are differs from
   /// real depth on FPGA hardware due to channel depth mode, so we should emit
