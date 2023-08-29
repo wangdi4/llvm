@@ -48,12 +48,9 @@
 
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> de5de1472acee6ceed3a619a32bc77433fbb2d1b
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,_Z3bazP1A,px \
 ; RUN:   -r=%t.o,_ZN1A3fooEv, \
