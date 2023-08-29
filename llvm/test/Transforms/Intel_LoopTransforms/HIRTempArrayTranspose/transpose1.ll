@@ -28,7 +28,7 @@
 ;         END REGION
 
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        %call6 = @llvm.stacksave.p0i8();
+; CHECK:        %call6 = @llvm.stacksave.p0();
 ; CHECK:        %TranspTmpArr = alloca 4 * (sext.i32.i64(%arg1) * sext.i32.i64(%arg2));
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%arg1) + -1, 1
 ; CHECK:        |   + DO i2 = 0, sext.i32.i64(%arg2) + -1, 1
@@ -55,7 +55,7 @@
 ; CHECK:        |   |   (%arg5)[sext.i32.i64(%arg1) * i1 + i2] = %load91 + -1 * ((%load84 * %load88) + %load98) + (%arg2 * %load88) + %phi96;
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:        @llvm.stackrestore.p0i8(&((%call6)[0]));
+; CHECK:        @llvm.stackrestore.p0(&((%call6)[0]));
 ; CHECK:  END REGION
 
 
