@@ -3796,9 +3796,6 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
   HelpText<"Experimental feature: Controls the maximum parallelism of actions performed "
   "on SYCL device code post-link, i.e. the generation of SPIR-V device images "
   "or AOT compilation of each device image.">;
-// TODO: remove this option before release
-def fsycl_nonsemantic_debuginfo : Flag<["-"], "fsycl-nonsemantic-debuginfo">, Flags<[HelpHidden, CoreOption, DpcppOption]>,
-  HelpText<"Compile SYCL code with new SPIR-V debug info">;
 def fsycl_pstl_offload_EQ : Joined<["-"], "fsycl-pstl-offload=">,
   Values<"cpu,gpu,default,off">, HelpText<"Enable offloading of C++ standard "
   "parallel algorithms. Valid arguments are gpu and cpu (experimental).">;
