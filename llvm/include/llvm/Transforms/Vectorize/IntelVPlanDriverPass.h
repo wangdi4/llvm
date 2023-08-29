@@ -36,6 +36,7 @@ class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
 public:
   VPlanDriverPass();
   VPlanDriverPass(const VPlanDriverPass &) noexcept;
+  VPlanDriverPass &operator=(const VPlanDriverPass &) = delete;
   ~VPlanDriverPass();
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
@@ -56,6 +57,7 @@ public:
                             loopopt::HIRFramework &);
   VPlanDriverHIRPass(bool LightWeightMode, bool WillRunLLVMIRVPlan);
   VPlanDriverHIRPass(const VPlanDriverHIRPass &) noexcept;
+  VPlanDriverHIRPass &operator=(const VPlanDriverHIRPass &) = delete;
   ~VPlanDriverHIRPass();
 };
 
