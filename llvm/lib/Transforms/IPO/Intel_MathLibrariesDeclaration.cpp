@@ -174,8 +174,13 @@ bool MathLibrariesDeclImpl::generateSinCos() {
     FSinCosName = StringRef("sincosf");
     FModName = StringRef("fmodf");
     SinCosArgTys.push_back(Type::getFloatTy(Cxt));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     SinCosArgTys.push_back(Type::getFloatPtrTy(Cxt));
     SinCosArgTys.push_back(Type::getFloatPtrTy(Cxt));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     FModArgTys.push_back(Type::getFloatTy(Cxt));
     FModArgTys.push_back(Type::getFloatTy(Cxt));
     break;
@@ -183,8 +188,13 @@ bool MathLibrariesDeclImpl::generateSinCos() {
     FSinCosName = StringRef("sincos");
     FModName = StringRef("fmod");
     SinCosArgTys.push_back(Type::getDoubleTy(Cxt));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     SinCosArgTys.push_back(Type::getDoublePtrTy(Cxt));
     SinCosArgTys.push_back(Type::getDoublePtrTy(Cxt));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     FModArgTys.push_back(Type::getDoubleTy(Cxt));
     FModArgTys.push_back(Type::getDoubleTy(Cxt));
     break;
@@ -192,8 +202,13 @@ bool MathLibrariesDeclImpl::generateSinCos() {
     FSinCosName = StringRef("sincosl");
     FModName = StringRef("fmodl");
     SinCosArgTys.push_back(Type::getX86_FP80Ty(Cxt));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     SinCosArgTys.push_back(Type::getX86_FP80PtrTy(Cxt));
     SinCosArgTys.push_back(Type::getX86_FP80PtrTy(Cxt));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     FModArgTys.push_back(Type::getX86_FP80Ty(Cxt));
     FModArgTys.push_back(Type::getX86_FP80Ty(Cxt));
     break;
@@ -201,8 +216,13 @@ bool MathLibrariesDeclImpl::generateSinCos() {
     FSinCosName = StringRef("sincosl");
     FModName = StringRef("fmodl");
     SinCosArgTys.push_back(Type::getFP128Ty(Cxt));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     SinCosArgTys.push_back(Type::getFP128PtrTy(Cxt));
     SinCosArgTys.push_back(Type::getFP128PtrTy(Cxt));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+    SinCosArgTys.push_back(PointerType::getUnqual(Cxt));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     FModArgTys.push_back(Type::getFP128Ty(Cxt));
     FModArgTys.push_back(Type::getFP128Ty(Cxt));
     break;
