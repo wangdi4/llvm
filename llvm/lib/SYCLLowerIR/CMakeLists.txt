@@ -47,7 +47,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # Author: Gorban, Igor <igor.gorban@intel.com>
       # Date:   Tue Jun 6 23:56:43 2023 +0000
       # Mark llvm15 tests failures
-      set(LLVMGenXIntrinsics_GIT_TAG 910db4801d4a029834606e3e42a8d60358e74fdf)
+      set(LLVMGenXIntrinsics_GIT_TAG bccb1ae99ca821983bd0c16e642590da3935652e)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -60,7 +60,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
         # Author: Gorban, Igor <igor.gorban@intel.com>
         # Date:   Tue Jun 6 23:56:43 2023 +0000
         # Mark llvm15 tests failures
-        set(LLVMGenXIntrinsics_GIT_TAG ea08174555b58685d93d5a072f897fcc81b374c8)
+        set(LLVMGenXIntrinsics_GIT_TAG 7e6e5ac78d6fbf0a5ecbcc7fcb110222b18a5274)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
