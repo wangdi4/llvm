@@ -12,11 +12,6 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
-if(NOT WIN32)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-endif(NOT WIN32)
-
 add_definitions(-DCLANG_VERSION_STRING="${CLANG_VERSION_MAJOR}")
 
 use_rtti(TRUE)
