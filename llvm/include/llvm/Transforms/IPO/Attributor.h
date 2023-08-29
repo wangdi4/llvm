@@ -1455,7 +1455,7 @@ struct AttributorConfig {
   const char *PassName = nullptr;
 
   using IPOAmendableCBTy = function_ref<bool(const Function &F)>;
-  IPOAmendableCBTy IPOAmendableCB;
+  IPOAmendableCBTy IPOAmendableCB{}; // INTEL
 };
 
 /// The fixpoint analysis framework that orchestrates the attribute deduction.
@@ -1729,7 +1729,7 @@ struct Attributor {
     if (AAType::requiresCallersForArgOrFunction())
       if (IRP.getPositionKind() == IRPosition::IRP_FUNCTION ||
           IRP.getPositionKind() == IRPosition::IRP_ARGUMENT)
-        if (!AssociatedFn->hasLocalLinkage())
+        if (AssociatedFn && !AssociatedFn->hasLocalLinkage()) // INTEL
           return false;
 
     if (!AAType::isValidIRPositionForUpdate(*this, IRP))
