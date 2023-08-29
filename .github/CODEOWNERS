@@ -503,6 +503,9 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 
+# ParVec analysis is owned by vectorizer team
+/llvm/test/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis/ @intel-restricted/cmplrllvm-llvm-vectorizer
+
 # COMPONENT: PAROPT
 # JIRA: CMPLRLLVM->LLVM PAROPT
 /llvm/include/llvm/Analysis/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
