@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes="loop-unroll" -S %s | FileCheck %s
-; CHECK: llvm.vector.reduce.umin.v16p0i8
+; RUN: opt -passes="loop-unroll" -S %s | FileCheck %s
+; CHECK: llvm.vector.reduce.umin.v16p0
 
 ; 24495: Make sure the cost modeller does not crash when it sees a vector
 ; reduction of pointer type.
@@ -50,7 +50,7 @@ while.cond1244.preheader:                         ; preds = %while.cond199
   unreachable
 
 while.cond199.thread3917.preheader:               ; preds = %while.cond199
-  %0 = call i8* @llvm.vector.reduce.umin.v16p0i8(<16 x i8*> undef)
+  %0 = call ptr @llvm.vector.reduce.umin.v16p0(<16 x ptr> undef)
   br label %for.body1756
 
 sw.bb1029:                                        ; preds = %while.cond199, %while.cond199
@@ -67,7 +67,7 @@ for.body1756:                                     ; preds = %for.body1756, %whil
 }
 
 ; Function Attrs: nofree nosync nounwind readnone willreturn
-declare i8* @llvm.vector.reduce.umin.v16p0i8(<16 x i8*>) #1
+declare ptr @llvm.vector.reduce.umin.v16p0(<16 x ptr>) #1
 
 attributes #0 = { "use-soft-float"="false" }
 attributes #1 = { nofree nosync nounwind readnone willreturn }

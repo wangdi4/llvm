@@ -11,13 +11,13 @@
 ;<31>               + DO i1 = 0, 511, 1   <DO_LOOP>
 ;<2>                |   %j.0205.out = %j.0205;
 ;<4>                |   %cond46 = 0;
-;<5>                |   if (i1 != zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s1))))) + 304)
+;<5>                |   if (i1 != zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s1))))) + 304)
 ;<5>                |   {
 ;<10>               |      %cond46 = 98;
-;<11>               |      if (i1 >=u zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s1))))) + 176)
+;<11>               |      if (i1 >=u zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s1))))) + 176)
 ;<11>               |      {
 ;<15>               |         %j.0205 = %j.0205  +  1;
-;<19>               |         %t1 = (@s2)[0][zext.i6.i64(trunc.i64.i6(%j.0205.out)) + zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s2))))) + 112];
+;<19>               |         %t1 = (@s2)[0][zext.i6.i64(trunc.i64.i6(%j.0205.out)) + zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s2))))) + 112];
 ;<20>               |         %cond46 = %t1;
 ;<11>               |      }
 ;<5>                |   }
@@ -31,12 +31,12 @@
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, 511, 1   <DO_LOOP>
 ; CHECK:           |   %cond46 = 0;
-; CHECK:           |   if (i1 != zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s1))))) + 304)
+; CHECK:           |   if (i1 != zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s1))))) + 304)
 ; CHECK:           |   {
 ; CHECK:           |      %cond46 = 98;
-; CHECK:           |      if (i1 >=u zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s1))))) + 176)
+; CHECK:           |      if (i1 >=u zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s1))))) + 176)
 ; CHECK:           |      {
-; CHECK:           |         %t1 = (@s2)[0][zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.[512 x i8]*.i64(@s2))))) + zext.i6.i64(trunc.i64.i6(%j.0205)) + 112];
+; CHECK:           |         %t1 = (@s2)[0][zext.i6.i64((16 + (-1 * trunc.i64.i6(ptrtoint.ptr.i64(@s2))))) + zext.i6.i64(trunc.i64.i6(%j.0205)) + 112];
 ; CHECK:           |         %j.0205 = %j.0205  +  1;
 ; CHECK:           |         %cond46 = %t1;
 ; CHECK:           |      }
@@ -72,41 +72,41 @@ entry:
 for.body:                                       ; preds = %for.body.preheader, %cond.end45
   %i.1206 = phi i64 [ %inc50, %cond.end45 ], [ 0, %entry ]
   %j.0205 = phi i64 [ %j.1, %cond.end45 ], [ 0, %entry ]
-  %cmp30 = icmp eq i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 304)
+  %cmp30 = icmp eq i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 304)
   br i1 %cmp30, label %cond.end45, label %cond.false33
 
 cond.false33:                                     ; preds = %for.body
-  %cmp34.not = icmp ult i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 176)
+  %cmp34.not = icmp ult i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)
   br i1 %cmp34.not, label %cond.end45, label %cond.true36
 
 cond.true36:                                      ; preds = %cond.false33
   %inc37 = add i64 %j.0205, 1
   %rem38 = and i64 %j.0205, 63
-  %add39 = add nuw nsw i64 %rem38, add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s2 to i6)) to i64), i64 112)
-  %arrayidx40 = getelementptr inbounds [512 x i8], [512 x i8]* @s2, i64 0, i64 %add39, !intel-tbaa !3
-  %t1 = load i8, i8* %arrayidx40, align 1, !tbaa !3
+  %add39 = add nuw nsw i64 %rem38, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)
+  %arrayidx40 = getelementptr inbounds [512 x i8], ptr @s2, i64 0, i64 %add39, !intel-tbaa !3
+  %t1 = load i8, ptr %arrayidx40, align 1, !tbaa !3
   br label %cond.end45
 
 cond.end45:                                       ; preds = %cond.true36, %cond.false33, %for.body
   %j.1 = phi i64 [ %j.0205, %for.body ], [ %inc37, %cond.true36 ], [ %j.0205, %cond.false33 ]
   %cond46 = phi i8 [ 0, %for.body ], [ %t1, %cond.true36 ], [ 98, %cond.false33 ]
-  %arrayidx48 = getelementptr inbounds [512 x i8], [512 x i8]* @s1, i64 0, i64 %i.1206, !intel-tbaa !3
-  store i8 %cond46, i8* %arrayidx48, align 1, !tbaa !3
+  %arrayidx48 = getelementptr inbounds [512 x i8], ptr @s1, i64 0, i64 %i.1206, !intel-tbaa !3
+  store i8 %cond46, ptr %arrayidx48, align 1, !tbaa !3
   %inc50 = add nuw nsw i64 %i.1206, 1
   %exitcond210.not = icmp eq i64 %inc50, 512
   br i1 %exitcond210.not, label %for.end51, label %for.body, !llvm.loop !9
 
 for.end51:                                        ; preds = %cond.end45
-  %call = tail call i8* @strstr(i8* noundef nonnull getelementptr ([512 x i8], [512 x i8]* @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 112)), i8* noundef nonnull getelementptr ([512 x i8], [512 x i8]* @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s2 to i6)) to i64), i64 112))) #3
-  %cmp55.not = icmp eq i8* %call, getelementptr inbounds ([512 x i8], [512 x i8]* @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 176))
+  %call = tail call ptr @strstr(ptr noundef nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)), ptr noundef nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112))) #3
+  %cmp55.not = icmp eq ptr %call, getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176))
   br i1 %cmp55.not, label %if.end66, label %if.then57
 
 if.then57:                                        ; preds = %for.end51
-  %call58 = tail call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([19 x i8], [19 x i8]* @.str, i64 0, i64 0))
-  %call59 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i8* %call)
-  %call61 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @.str.2, i64 0, i64 0), i8* nonnull getelementptr ([512 x i8], [512 x i8]* @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 112)))
-  %call63 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @.str.3, i64 0, i64 0), i8* nonnull getelementptr ([512 x i8], [512 x i8]* @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s2 to i6)) to i64), i64 112)))
-  %call65 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([30 x i8], [30 x i8]* @.str.4, i64 0, i64 0), i8* nonnull getelementptr inbounds ([512 x i8], [512 x i8]* @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint ([512 x i8]* @s1 to i6)) to i64), i64 176)))
+  %call58 = tail call i32 @puts(ptr nonnull dereferenceable(1) getelementptr inbounds ([19 x i8], ptr @.str, i64 0, i64 0))
+  %call59 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([18 x i8], ptr @.str.1, i64 0, i64 0), ptr %call)
+  %call61 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], ptr @.str.2, i64 0, i64 0), ptr nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)))
+  %call63 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], ptr @.str.3, i64 0, i64 0), ptr nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)))
+  %call65 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([30 x i8], ptr @.str.4, i64 0, i64 0), ptr nonnull getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)))
   br label %if.end66
 
 if.end66:                                         ; preds = %if.then57, %for.end51
@@ -116,11 +116,11 @@ if.end66:                                         ; preds = %if.then57, %for.end
 for.body70:
   ret i32 0
 }
-declare dso_local i8* @strstr(i8*, i8* nocapture) local_unnamed_addr
+declare dso_local ptr @strstr(ptr, ptr nocapture) local_unnamed_addr
 
-declare dso_local noundef i32 @puts(i8* nocapture noundef readonly) local_unnamed_addr
+declare dso_local noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr
 
-declare dso_local noundef i32 @printf(i8* nocapture noundef readonly, ...) local_unnamed_addr
+declare dso_local noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}

@@ -1,26 +1,26 @@
-; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="aa-eval" -evaluate-aa-metadata -print-may-aliases -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="tbaa" -passes="aa-eval" -evaluate-aa-metadata -print-may-aliases -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK:   MayAlias:   %1 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 %1, i32* @h, align 4, !tbaa !9
-; CHECK:   MayAlias:   %1 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 5, i32* @g, align 4, !tbaa !9
-; CHECK:   MayAlias:   %2 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 %1, i32* @h, align 4, !tbaa !9
-; CHECK:   MayAlias:   %2 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 5, i32* @g, align 4, !tbaa !9
+; CHECK:   MayAlias:   %1 = load i32, ptr %a, align 4, !tbaa !6 <->   store i32 %1, ptr @h, align 4, !tbaa !9
+; CHECK:   MayAlias:   %1 = load i32, ptr %a, align 4, !tbaa !6 <->   store i32 5, ptr @g, align 4, !tbaa !9
+; CHECK:   MayAlias:   %2 = load i32, ptr %a, align 4, !tbaa !6 <->   store i32 %1, ptr @h, align 4, !tbaa !9
+; CHECK:   MayAlias:   %2 = load i32, ptr %a, align 4, !tbaa !6 <->   store i32 5, ptr @g, align 4, !tbaa !9
 
 
 %struct.T = type { i32, i32, i32 }
 
 @g = dso_local global i32 0, align 4
 @h = dso_local global i32 0, align 4
-@p = dso_local global %struct.T* null, align 8
+@p = dso_local global ptr null, align 8
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo() #0 {
 entry:
-  %0 = load %struct.T*, %struct.T** @p, align 8, !tbaa !2
-  %a = getelementptr inbounds %struct.T, %struct.T* %0, i32 0, i32 0
-  %1 = load i32, i32* %a, align 4, !tbaa !6
-  store i32 %1, i32* @h, align 4, !tbaa !9
-  store i32 5, i32* @g, align 4, !tbaa !9
-  %2 = load i32, i32* %a, align 4, !tbaa !6
+  %0 = load ptr, ptr @p, align 8, !tbaa !2
+  %a = getelementptr inbounds %struct.T, ptr %0, i32 0, i32 0
+  %1 = load i32, ptr %a, align 4, !tbaa !6
+  store i32 %1, ptr @h, align 4, !tbaa !9
+  store i32 5, ptr @g, align 4, !tbaa !9
+  %2 = load i32, ptr %a, align 4, !tbaa !6
   ret i32 %2
 }
 

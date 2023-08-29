@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=loop-interchange -S | FileCheck %s
+; RUN: opt < %s -passes=loop-interchange -S | FileCheck %s
 ;
 ; This test verifies that when a basic block is split at
 ; a debug intrinsic call, the source location of the br
@@ -26,10 +26,10 @@ for2:
   call void @llvm.dbg.value(metadata i64 %j, metadata !13, metadata !DIExpression()), !dbg !14
   ; The new basic block from the split would get the source location of
   ; this instruction.
-  %arrayidx5 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j, i64 %j23, !dbg !15
-  %lv = load i64, i64* %arrayidx5
+  %arrayidx5 = getelementptr inbounds [100 x [100 x i64]], ptr @A, i64 0, i64 %j, i64 %j23, !dbg !15
+  %lv = load i64, ptr %arrayidx5
   %add = add nsw i64 %lv, %k
-  store i64 %add, i64* %arrayidx5
+  store i64 %add, ptr %arrayidx5
   %j.next = add nuw nsw i64 %j, 1
   %exitcond = icmp eq i64 %j, 99
   call void @llvm.dbg.value(metadata i64 %j, metadata !13, metadata !DIExpression()), !dbg !14
