@@ -394,26 +394,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   optimizer->Optimize(pResult->LogS());
 
-  if (optimizer->hasVectorVariantFailure()) {
-    std::map<std::string, std::vector<std::string>> Reasons;
-    for (auto &F : *pModule)
-      if (F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure)) {
-        std::string Value =
-            F.getFnAttribute(llvm::KernelAttribute::VectorVariantFailure)
-                .getValueAsString()
-                .str();
-        Reasons[Value].push_back(F.getName().str());
-      }
-
-    for (const auto &It : Reasons)
-      Utils::LogVectorVariantFailureFunctions(pResult->LogS(), It.second,
-                                              It.first);
-
-    throw Exceptions::UserErrorCompilerException(
-        "Vector-variant processing problem for an indirect function call.",
-        CL_DEV_INVALID_BINARY);
-  }
-
   if (optimizer->hasUnsupportedRecursion()) {
     Utils::LogHasRecursion(pResult->LogS(),
                            optimizer->GetInvalidFunctions(
