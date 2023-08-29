@@ -3407,7 +3407,11 @@ struct RTLDeviceInfoTy {
       using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
       auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
       DP("Registering Host Pointer: " DPxMOD " Size %zu\n", DPxPTR(Ptr), Size);
-        return (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+      ze_result_t RC = Fn(Driver, Ptr, Size);
+      if (RC == ZE_RESULT_SUCCESS)
+        return true;
+      DP("Error: Cannot register host pointer " DPxMOD " with size %zu\n",
+         DPxPTR(Ptr), Size);
     }
     return false;
   }
@@ -3420,8 +3424,8 @@ struct RTLDeviceInfoTy {
       ze_result_t RC = Fn(Driver, Ptr);
       if (RC == ZE_RESULT_SUCCESS)
         return true;
+      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
     }
-    DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
     return false;
   }
 
@@ -5825,7 +5829,9 @@ int32_t RTLDeviceInfoTy::findDevices() {
     GitsIndirectAllocationOffsets = nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-  // Look up Driver Import and Release  External Pointer
+#if !_WIN32
+  // Look up Driver Import and Release External Pointer.
+  // Windows is not supported.
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverImportExternalPointer", &RegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
@@ -5840,6 +5846,7 @@ int32_t RTLDeviceInfoTy::findDevices() {
           "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
   if (Rc != ZE_RESULT_SUCCESS)
     GetHostPointerBaseAddress  = nullptr;
+#endif
 
   return NumRootDevices;
 }
