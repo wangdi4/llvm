@@ -4305,7 +4305,8 @@ struct AAKernelInfoFunction : AAKernelInfo {
     if (!mayContainParallelRegion()) {
       ++NumOpenMPTargetRegionKernelsWithoutStateMachine;
 
-      auto Remark = [&](OptimizationRemark OR) {
+      auto Remark =                                            // INTEL
+          [&](OptimizationRemark &&OR) -> OptimizationRemark { // INTEL
         return OR << "Removing unused state machine from generic-mode kernel.";
       };
       A.emitRemark<OptimizationRemark>(KernelInitCB, "OMP130", Remark);
@@ -4317,7 +4318,8 @@ struct AAKernelInfoFunction : AAKernelInfo {
     if (ReachedUnknownParallelRegions.empty()) {
       ++NumOpenMPTargetRegionKernelsCustomStateMachineWithoutFallback;
 
-      auto Remark = [&](OptimizationRemark OR) {
+      auto Remark =                                            // INTEL
+          [&](OptimizationRemark &&OR) -> OptimizationRemark { // INTEL
         return OR << "Rewriting generic-mode kernel with a customized state "
                      "machine.";
       };
@@ -4325,7 +4327,8 @@ struct AAKernelInfoFunction : AAKernelInfo {
     } else {
       ++NumOpenMPTargetRegionKernelsCustomStateMachineWithFallback;
 
-      auto Remark = [&](OptimizationRemarkAnalysis OR) {
+      auto Remark = [&](OptimizationRemarkAnalysis &&OR) // INTEL
+          -> OptimizationRemarkAnalysis {                // INTEL
         return OR << "Generic-mode kernel is executed with a customized state "
                      "machine that requires a fallback.";
       };
@@ -4335,7 +4338,8 @@ struct AAKernelInfoFunction : AAKernelInfo {
       for (CallBase *UnknownParallelRegionCB : ReachedUnknownParallelRegions) {
         if (!UnknownParallelRegionCB)
           continue;
-        auto Remark = [&](OptimizationRemarkAnalysis ORA) {
+        auto Remark = [&](OptimizationRemarkAnalysis &&ORA) // INTEL
+            -> OptimizationRemarkAnalysis {                 // INTEL
           return ORA << "Call may contain unknown parallel regions. Use "
                      << "`__attribute__((assume(\"omp_no_parallelism\")))` to "
                         "override.";

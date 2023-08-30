@@ -1443,7 +1443,7 @@ void InlineReportBuilder::setBrokerTarget(CallBase *CB, Function *F) {
   if (!CBMD)
     return;
   auto CSIR = cast<MDTuple>(CBMD);
-  std::string FuncName = std::string(F ? F->getName() : "");
+  std::string FuncName = std::string(F->hasName() ? F->getName() : "");
   FuncName.insert(0, "name: ");
   LLVMContext &Ctx = CB->getModule()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
