@@ -118,4 +118,4 @@ attributes #5 = { convergent }
 !32 = !DILocation(line: 7, column: 3, scope: !18)
 !33 = !DILocation(line: 8, column: 1, scope: !18)
 !34 = !{!"int*"}
-!35 = !{i32 addrspace(1)* null}
+!35 = !{ptr addrspace(1) null}

@@ -147,6 +147,6 @@ attributes #0 = { nounwind }
 !12 = !{!"none", !"none"}
 !13 = !{!"int*", !"int*"}
 !14 = !{!"", !""}
-!15 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!15 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

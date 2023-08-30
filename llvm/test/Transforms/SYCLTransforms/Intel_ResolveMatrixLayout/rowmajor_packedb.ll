@@ -78,4 +78,4 @@ declare void @llvm.experimental.matrix.store.v8i16.p4.v2(<8 x i16>, ptr, i64, i1
 ; DEBUGIFY: PASS
 
 !0 = !{!"int*", !"long", !"int*"}
-!1 = !{i32* null, i64 0, i32* null}
+!1 = !{ptr null, i64 0, ptr null}

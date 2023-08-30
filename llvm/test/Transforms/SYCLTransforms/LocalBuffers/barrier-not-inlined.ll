@@ -101,7 +101,7 @@ LoopEnd_0:
 !7 = !{i32 16}
 !8 = !{i32 0}
 !9 = !{!"int*"}
-!10 = !{i32 addrspace(1)* null}
+!10 = !{ptr addrspace(1) null}
 
 ; CHECK: [[LOCAL_SIZE]] = !{i32 4}
 

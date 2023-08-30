@@ -51,6 +51,6 @@ entry:
 !24 = !{i32 5}
 !27 = !{i32 4}
 !28 = !{ptr @A}
-!29 = !{i32 addrspace(1)* null, i32 0}
+!29 = !{ptr addrspace(1) null, i32 0}
 
 ; DEBUGIFY-NOT: WARNING

@@ -41,7 +41,7 @@ entry:
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
 !1 = !{!"%struct.struct1*", !"char __attribute__((ext_vector_type(2)))", !"int", !"short __attribute__((ext_vector_type(8)))", !"char", !"int*"}
-!2 = !{%struct.struct1 addrspace(1)* null, <2 x i8> zeroinitializer, i32 0, <8 x i16> zeroinitializer, i8 0, i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null, <2 x i8> zeroinitializer, i32 0, <8 x i16> zeroinitializer, i8 0, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}

@@ -65,4 +65,4 @@ dim_0_exit:                                       ; preds = %scalar_kernel_entry
 !sycl.kernels = !{!0}
 !0 = !{ptr @_Test}
 !1 = !{!"double*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"double*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"}
-!2 = !{double addrspace(1)* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, double addrspace(1)* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null}
+!2 = !{ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null}

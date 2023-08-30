@@ -41,7 +41,7 @@ entry:
 !2 = !{i32 1}
 !3 = !{i32 16}
 !4 = !{!"int*"}
-!5 = !{i32 addrspace(1)* null}
+!5 = !{ptr addrspace(1) null}
 
 ; CHECK: [[LOCAL_SIZE]] = !{i32 4}
 

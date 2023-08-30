@@ -107,9 +107,9 @@ attributes #2 = { nounwind "prefer-vector-width"="512" }
 !sycl.kernels = !{!0}
 !0 = !{ptr @_ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_EUlNS0_14kernel_handlerEE_, ptr @_Z8user_sotPiS_i._block_invoke_kernel, ptr @_Z7lib_sotPiS_i._block_invoke_kernel, ptr @_Z11dot_productPiS_i._block_invoke_kernel}
 !1 = !{!"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"char*"}
-!2 = !{i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i8 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null}
 !3 = !{!"char*"}
-!4 = !{i8* null}
+!4 = !{ptr null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-144: WARNING: Instruction with empty DebugLoc in function {{.*}}

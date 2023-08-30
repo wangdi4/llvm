@@ -79,6 +79,6 @@ attributes #4 = { convergent nounwind readnone }
 !19 = !{!"Simple C/C++ TBAA"}
 !20 = !{i32 16}
 !21 = !{i32 5}
-!22 = !{i32 addrspace(1)* null}
+!22 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

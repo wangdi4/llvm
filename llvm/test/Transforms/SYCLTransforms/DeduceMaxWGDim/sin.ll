@@ -73,6 +73,6 @@ declare <8 x float> @_Z3sinDv8_f(<8 x float>) nounwind readnone
 !24 = !{i32 14}
 !27 = !{i32 8}
 !28 = !{ptr @D}
-!29 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!29 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

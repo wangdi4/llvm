@@ -285,7 +285,7 @@ attributes #4 = { convergent nounwind }
 !13 = !{!"Simple C/C++ TBAA"}
 !14 = !{ptr @a}
 !15 = !{i32 4}
-!16 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) zeroinitializer, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 1) zeroinitializer}
+!16 = !{ptr addrspace(1) null, ptr addrspace(1) null, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) zeroinitializer, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 1) zeroinitializer}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} call

@@ -26,7 +26,7 @@ entry:
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
 !1 = !{!"char", !"%struct.struct1*", !"%struct.struct2*"}
-!2 = !{i8 0, %struct.struct1 addrspace(1)* null, %struct.struct2 addrspace(1)* null}
+!2 = !{i8 0, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-34: WARNING: Instruction with empty DebugLoc in function {{.*}}

@@ -224,9 +224,9 @@ attributes #3 = { convergent nounwind readnone }
 !1 = !{i32 1, i32 2}
 !2 = !{}
 !3 = !{!"int*", !"int*"}
-!4 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!4 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 !5 = !{!"float*", !"float*"}
-!6 = !{float addrspace(1)* null, float addrspace(1)* null}
+!6 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 !7 = !{!"float*"}
 !8 = !{ptr addrspace(1) null}
 

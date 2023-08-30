@@ -73,7 +73,7 @@ BB3:
 
 !0 = !{ptr @foo}
 !1 = !{!"bool*", !"bool2*", !"float3*", !"int*"}
-!2 = !{i1 addrspace(1)* null, <2 x i1> addrspace(1)* null, <3 x float> addrspace(1)* null, i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

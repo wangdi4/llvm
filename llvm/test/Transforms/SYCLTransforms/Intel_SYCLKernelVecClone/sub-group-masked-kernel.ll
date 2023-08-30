@@ -69,7 +69,7 @@ attributes #2 = { convergent nounwind }
 !15 = !{!"int", !16, i64 0}
 !16 = !{!"omnipotent char", !17, i64 0}
 !17 = !{!"Simple C/C++ TBAA"}
-!18 = !{i32 addrspace(1)* null}
+!18 = !{ptr addrspace(1) null}
 
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4u_test {{.*}} br

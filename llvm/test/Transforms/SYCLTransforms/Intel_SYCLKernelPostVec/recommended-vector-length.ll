@@ -232,6 +232,6 @@ attributes #6 = { convergent nounwind willreturn memory(none) }
 !18 = distinct !{!18, !19}
 !19 = !{!"llvm.loop.isvectorized", i32 1}
 !20 = distinct !{!20, !19}
-!21 = !{i32 addrspace(1)* null}
+!21 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
