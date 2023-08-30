@@ -2655,7 +2655,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 
-<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   if (!Subtarget.useSoftFloat() && Subtarget.hasAVXCOMPRESS()) {
     for (auto VT : { MVT::v16i8, MVT::v32i8, MVT::v8i16, MVT::v16i16 })
@@ -2686,16 +2685,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
         Subtarget.hasAVX256P() ||
 #endif // INTEL_FEATURE_ISA_AVX256P
       (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16()))) {
-    addRegisterClass(MVT::v8bf16, &X86::VR128XRegClass);
-    addRegisterClass(MVT::v16bf16, &X86::VR256XRegClass);
-=======
-  if (!Subtarget.useSoftFloat() &&
-      (Subtarget.hasAVXNECONVERT() || Subtarget.hasBF16())) {
     addRegisterClass(MVT::v8bf16, Subtarget.hasAVX512() ? &X86::VR128XRegClass
                                                         : &X86::VR128RegClass);
     addRegisterClass(MVT::v16bf16, Subtarget.hasAVX512() ? &X86::VR256XRegClass
                                                          : &X86::VR256RegClass);
->>>>>>> b667e9c23d6d2f1c7371eb4a03b30de4a6f8b7b6
     // We set the type action of bf16 to TypeSoftPromoteHalf, but we don't
     // provide the method to promote BUILD_VECTOR and INSERT_VECTOR_ELT.
     // Set the operation action Custom to do the customization later.
@@ -22767,20 +22760,17 @@ SDValue X86TargetLowering::LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const {
     return Res;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (VT.getScalarType() == MVT::f16 &&
-      !(Subtarget.hasFP16() || Subtarget.hasAVX256P())) {
-#else  // INTEL_FEATURE_ISA_AVX256P
-=======
   if (VT.getScalarType() == MVT::bf16) {
     if (SVT.getScalarType() == MVT::f32 && isTypeLegal(VT))
       return Op;
     return SDValue();
   }
 
->>>>>>> b667e9c23d6d2f1c7371eb4a03b30de4a6f8b7b6
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (VT.getScalarType() == MVT::f16 &&
+      !(Subtarget.hasFP16() || Subtarget.hasAVX256P())) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16()) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
