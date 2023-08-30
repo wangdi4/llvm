@@ -43,7 +43,7 @@ CodeGenVTables::EmitVTTDefinition(llvm::GlobalVariable *VTT,
                                   const CXXRecordDecl *RD) {
   VTTBuilder Builder(CGM.getContext(), RD, /*GenerateDefinition=*/true);
   llvm::ArrayType *ArrayType =
-      llvm::ArrayType::get(CGM.DefaultInt8PtrTy, Builder.getVTTComponents().size());
+      llvm::ArrayType::get(CGM.Int8PtrTy, Builder.getVTTComponents().size());
 
   SmallVector<llvm::GlobalVariable *, 8> VTables;
   SmallVector<VTableAddressPointsMapTy, 8> VTableAddressPoints;
