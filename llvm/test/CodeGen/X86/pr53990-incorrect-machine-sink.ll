@@ -14,30 +14,6 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    movq %rdx, %rbx
 ; CHECK-NEXT:    movl %edi, %ebp
 ; CHECK-NEXT:    movq (%rsi), %r14
-<<<<<<< HEAD
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_1: # %split.1
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
-; CHECK-NEXT:  .LBB0_2: # %split.3
-; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    testb $1, %bpl
-; CHECK-NEXT:    je .LBB0_4
-; CHECK-NEXT:  # %bb.3: # %clobber
-; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
-; CHECK-NEXT:    callq clobber@PLT
-; CHECK-NEXT:  .LBB0_4: # %sink
-; CHECK-NEXT:    # in Loop: Header=BB0_2 Depth=1
-; CHECK-NEXT:    movq %r14, (%rbx)
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
-; CHECK-NEXT:  .LBB0_5: # %latch
-; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-NEXT:    movb $1, %r15b
 ; CHECK-NEXT:    jmp .LBB0_1
 ; CHECK-NEXT:    .p2align 4, 0x90
@@ -45,7 +21,6 @@ define void @test(i1 %c, ptr %p, ptr noalias %p2) nounwind {
 ; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    movq %r14, (%rbx)
 ; CHECK-NEXT:  .LBB0_1: # %loop
->>>>>>> a701b7e368b70688bb4b84dafcaa43fa7c9a3649
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    testb %r15b, %r15b
 ; CHECK-NEXT:    jne .LBB0_1

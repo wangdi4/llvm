@@ -249,14 +249,7 @@ define i64 @loop(ptr nocapture readonly %p) {
 ; CHECK:       bb0:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
->>>>>>> a701b7e368b70688bb4b84dafcaa43fa7c9a3649
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, ptr [[P:%.*]], i64 [[MERGE]]
 ; CHECK-NEXT:    store i64 [[MERGE]], ptr [[TMP0]], align 4
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[MERGE]], 1
