@@ -359,10 +359,16 @@ unsigned OptRemark::getNumOperands() const {
   return Remark->getNumOperands() - 1;
 }
 
-unsigned OptRemark::getRemarkID() const {
+OptRemarkID OptRemark::getRemarkID() const {
   assert(getNumOperands() > 0 && "No remark ID present!");
+  // Avoid crash on release build.
+  if (getNumOperands() == 0)
+    return OptRemarkID::InvalidRemarkID;
   const Metadata *MD = getOperand(0);
   const ConstantAsMetadata *ConstMD = cast_or_null<ConstantAsMetadata>(MD);
   assert(ConstMD && "Remark ID is not a constant!");
-  return cast<ConstantInt>(ConstMD->getValue())->getZExtValue();
+  // Avoid crash on release build.
+  uint64_t Val =
+      ConstMD ? cast<ConstantInt>(ConstMD->getValue())->getZExtValue() : 0;
+  return static_cast<OptRemarkID>(Val);
 }

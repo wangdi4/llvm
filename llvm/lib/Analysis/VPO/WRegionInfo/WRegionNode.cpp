@@ -1034,6 +1034,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   bool IsTyped = ClauseInfo.getIsTyped();
+  bool IsSubObject = ClauseInfo.getIsSubObject();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
@@ -1053,6 +1054,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
+    if (IsSubObject)
+      C.back()->setIsSubObject(true);
     if (IsByRef)
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
@@ -1115,6 +1118,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
   bool IsTyped = ClauseInfo.getIsTyped();
+  bool IsSubObject = ClauseInfo.getIsSubObject();
   // Example of a non-Typed POD clause: "QUAL.OMP.PRIVATE"(var)
   // Example of a Typed POD clause: "QUAL.OMP.PRIVATE:TYPED"(var, type, number
   // of elements) Example of a non-Typed nonPOD clause: "QUAL.OMP.PRIVATE"(var,
@@ -1150,6 +1154,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
          "NonPod can't be conditional by OMP standard.");
 
   auto addModifiersToItem = [&](ClauseItemTy *I) {
+    if (IsSubObject)
+      I->setIsSubObject(true);
     if (IsByRef)
       I->setIsByRef(true);
     if (IsConditional)
@@ -1384,6 +1390,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MI->setIsByRef(ClauseInfo.getIsByRef());
       MI->setIsFunctionPointer(ClauseInfo.getIsFunctionPointer());
       MI->setIsVarLen(ClauseInfo.getIsVarLen());
+      MI->setIsSubObject(ClauseInfo.getIsSubObject());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -1460,6 +1467,20 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
+void WRegionNode::extractLiveinOpndList(const Use *Args, unsigned NumArgs,
+                                        const ClauseSpecifier &ClauseInfo,
+                                        LiveinClause &C) {
+  // TODO: Assert to ensure only one LIVEIN operand per bundle.
+  C.setClauseID(ClauseInfo.getId());
+  bool IsSubObject = ClauseInfo.getIsSubObject();
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = Args[I];
+    C.add(V);
+    if (IsSubObject)
+      C.back()->setIsSubObject(true);
+  }
+}
+
 void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
                                         const ClauseSpecifier &ClauseInfo,
                                         LinearClause &C) {
@@ -1492,6 +1513,7 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
+    LI->setIsSubObject(ClauseInfo.getIsSubObject());
     LI->setIsIV(ClauseInfo.getIsIV());
     if (ClauseInfo.getIsPointerToPointer()) {
       LI->setIsPointerToPointer(true);
@@ -1586,6 +1608,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsInReduction(IsInReduction);
     RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    RI->setIsSubObject(ClauseInfo.getIsSubObject());
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID()))
@@ -1693,6 +1716,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+      RI->setIsSubObject(ClauseInfo.getIsSubObject());
 
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
@@ -2072,7 +2096,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_LIVEIN: {
-    extractQualOpndList<LiveinClause>(Args, NumArgs, ClauseID, getLivein());
+    extractLiveinOpndList(Args, NumArgs, ClauseInfo, getLivein());
     break;
   }
   case QUAL_OMP_ALLOCATE: {

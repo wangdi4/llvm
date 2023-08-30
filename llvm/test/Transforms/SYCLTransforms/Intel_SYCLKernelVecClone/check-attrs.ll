@@ -33,7 +33,7 @@ declare dso_local i64 @_Z12get_local_idj(i64 %0)
 !0 = !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_}
 !1 = !{i32 16}
 !2 = !{!"int*", !"int*"}
-!3 = !{i32* null, i32* null}
+!3 = !{ptr null, ptr null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_ {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_ {{.*}} call

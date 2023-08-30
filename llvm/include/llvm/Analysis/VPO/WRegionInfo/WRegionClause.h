@@ -181,6 +181,7 @@ class Item
     const ItemKind Kind; // Item kind for LLVM's RTTI
 
     bool IsTyped = false; // true if type is transfered thru arguments
+    bool IsSubObject = false; // is the item a subobject? e.g. a struct member.
     Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
     Value *NumElements = nullptr; // Number of elements of this item
     Type *PointeeElementTypeFromIR =
@@ -213,6 +214,7 @@ class Item
     void setIsVla(bool Flag)      { IsVla = Flag;       }
     void setIsVarLen(bool Flag)   { IsVarLen = Flag;    }
     void setIsTyped(bool Flag) { IsTyped = Flag; }
+    void setIsSubObject(bool Flag) { IsSubObject = Flag; }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
       assert((!Flag || (!IsF90DopeVector && !IsCptr && !IsF90NonPod)) &&
@@ -237,6 +239,7 @@ class Item
     bool getIsVarLen()      const { return IsVarLen;       }
     bool getIsVla()         const { return IsVla;          }
     bool getIsTyped() const { return IsTyped; }
+    bool getIsSubObject() const { return IsSubObject; }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
     EXPR getThunkBufferSize() const { return ThunkBufferSize; }
     EXPR getNewThunkBufferSize() const { return NewThunkBufferSize; }
@@ -325,6 +328,8 @@ class Item
         OS << "VARLEN(";
       if (getIsByRef())
         OS << "BYREF(";
+      if (getIsSubObject())
+        OS << "SUBOBJ(";
       if (getIsTyped())
         OS << "TYPED(";
       if (getIsPointerToPointer())
@@ -341,6 +346,8 @@ class Item
         printIfTyped(OS, PrintType);
         OS << ")";
       }
+      if (getIsSubObject())
+        OS << ")";
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
@@ -365,6 +372,8 @@ class Item
         ModStrings.push_back("VARLEN");
       if (getIsByRef())
         ModStrings.push_back("BYREF");
+      if (getIsSubObject())
+        ModStrings.push_back("SUBOBJ");
       if (getIsTyped())
         ModStrings.push_back("TYPED");
       if (getIsPointerToPointer())
@@ -1498,7 +1507,8 @@ public:
   void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
       OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "")
-         << (getIsVarLen() ? ",VARLEN" : "") << "(";
+         << (getIsVarLen() ? ",VARLEN" : "")
+         << (getIsSubObject() ? ",SUBOBJ" : "") << "(";
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         Value *BasePtr = Aggr->getBasePtr();
@@ -1926,13 +1936,19 @@ class LiveinItem
 {
   private:
     VAR  Var;
+    bool IsSubObject = false;
 
   public:
     LiveinItem(VAR V=nullptr) : Var(V) {}
     void setOrig(VAR V) { Var = V; }
+    void setIsSubObject(bool Flag) { IsSubObject = Flag; }
+
     VAR getOrig() const { return Var; }
+    bool getIsSubObject() const { return IsSubObject; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsSubObject())
+        OS << "SUBOBJ";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";

@@ -690,6 +690,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Remainder loop for LLVM LoopUnroll partial unrolling"},
     {OptRemarkID::LLORGPeeledBy,
      "Loop has been peeled by %d iterations by LLVM LoopUnroll"},
+    {OptRemarkID::DummyRemarkForTesting, "Dummy remark for testing"},
 };
 
 const char *OptReportDiag::getMsg(DiagTableKey Id) {

@@ -8856,8 +8856,7 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     for (const auto &R : ScalarLpVPI->getOriginRemarks())
-      ORBuilder(*ScalarHLp)
-          .addOrigin(static_cast<OptRemarkID>(R.Remark.getRemarkID()));
+      ORBuilder(*ScalarHLp).addOrigin(R.Remark.getRemarkID());
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
       ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.Remark);

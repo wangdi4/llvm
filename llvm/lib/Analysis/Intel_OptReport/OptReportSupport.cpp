@@ -120,12 +120,7 @@ std::string formatBinaryStream(OptReport OR) {
     return "";
 
   for (const OptRemark Remark : OR.origin()) {
-    const ConstantAsMetadata *CM =
-        dyn_cast<ConstantAsMetadata>(Remark.getOperand(0));
-    assert(CM && "Couldn't parse remark ID!");
-    // Don't crash on release build.
-    unsigned Val = CM ? getMDNodeAsInt(CM) : 0;
-    OptRemarkID RemarkID = static_cast<OptRemarkID>(Val);
+    OptRemarkID RemarkID = Remark.getRemarkID();
 
     if (RemarkID == OptRemarkID::VectorizerRemainderLoop) {
       VecBits.set(2);
@@ -145,12 +140,7 @@ std::string formatBinaryStream(OptReport OR) {
   }
 
   for (const OptRemark Remark : OR.remarks()) {
-    const ConstantAsMetadata *CM =
-        dyn_cast<ConstantAsMetadata>(Remark.getOperand(0));
-    assert(CM && "Couldn't parse remark ID!");
-    // Don't crash on release build.
-    unsigned Val = CM ? getMDNodeAsInt(CM) : 0;
-    OptRemarkID RemarkID = static_cast<OptRemarkID>(Val);
+    OptRemarkID RemarkID = Remark.getRemarkID();
 
     if (RemarkID == OptRemarkID::LoopVectorized) {
       // TODO (vzakhari 02/10/2019): bits 47-49 must specify main vectorization

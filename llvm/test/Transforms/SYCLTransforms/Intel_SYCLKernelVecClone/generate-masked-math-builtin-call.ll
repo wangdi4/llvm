@@ -73,7 +73,7 @@ attributes #1 = { convergent nounwind readnone }
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{i32 4}
 !11 = !{!"int*", !"int*"}
-!12 = !{i32* null, i32* null}
+!12 = !{ptr null, ptr null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} call

@@ -10025,7 +10025,10 @@ bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   }
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
-  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+  if (!L->isRotatedForm()) {
+    LLVM_DEBUG(dbgs() << "Loop is not rotated, calling LoopRotation\n");
+    LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+  }
   // Critical edges splitting for loop nests done during loop rotation
   // may produce PHI nodes that we'd better optimize right away,
   // otherwise they will prevent IV recognition in

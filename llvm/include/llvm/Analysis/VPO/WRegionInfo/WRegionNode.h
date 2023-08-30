@@ -1067,6 +1067,11 @@ private:
                                     const ClauseSpecifier &ClauseInfo,
                                     DependClause &C, bool IsIn);
 
+  /// Extract operands from a livein clause
+  static void extractLiveinOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
+                                    LiveinClause &C);
+
   /// Extract operands from a linear clause
 #if INTEL_CUSTOMIZATION
          void extractLinearOpndList(const Use *Args, unsigned NumArgs,

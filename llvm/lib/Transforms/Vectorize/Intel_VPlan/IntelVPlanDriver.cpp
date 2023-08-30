@@ -810,8 +810,7 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                               WRNVecLoopNode *WRLp,
                               VPlanBailoutRemark RemarkData) {
 
-  OptRemarkID ID =
-      static_cast<OptRemarkID>(RemarkData.BailoutRemark.getRemarkID());
+  OptRemarkID ID = RemarkData.BailoutRemark.getRemarkID();
 
   if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
       ID == OptRemarkID::VecFailGenericBailout) {
@@ -1992,8 +1991,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                                  WRNVecLoopNode *WRLp,
                                  VPlanBailoutRemark RemarkData) {
 
-  OptRemarkID ID =
-      static_cast<OptRemarkID>(RemarkData.BailoutRemark.getRemarkID());
+  OptRemarkID ID = RemarkData.BailoutRemark.getRemarkID();
 
   if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
 #if !INTEL_PRODUCT_RELEASE

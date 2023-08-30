@@ -175,9 +175,8 @@ public:
       return *this;
 
     assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
-    OptRemark Remark =
-        OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
-                       std::forward<Args>(args)...);
+    OptRemark Remark = OptRemark::get(Builder.getContext(), RemarkID,
+                                      std::forward<Args>(args)...);
     getOrCreateOptReport().addOrigin(Remark);
     return *this;
   }
@@ -190,9 +189,8 @@ public:
       return *this;
 
     assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
-    OptRemark Remark =
-        OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
-                       std::forward<Args>(args)...);
+    OptRemark Remark = OptRemark::get(Builder.getContext(), RemarkID,
+                                      std::forward<Args>(args)...);
     getOrCreateOptReport().addRemark(Remark);
     return *this;
   }

@@ -161,9 +161,8 @@ protected:
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
                         OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(ORBuilder.getContext(), static_cast<unsigned>(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark = OptRemark::get(ORBuilder.getContext(), BailoutID,
+                                      std::forward<Args>(BailoutArgs)...);
   }
 
   /// Convenience function for optimization remark substitution strings.

@@ -129,18 +129,16 @@ std::string formatRemarkMessage(OptRemark Remark, OptRemarkID RemarkID) {
 void printRemark(raw_ostream &OS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   OS.indent(IntentationStep * Depth);
-  unsigned RID = Remark.getRemarkID();
-  std::string RemarkPrefixStr = "remark #" + std::to_string(RID) + ": ";
-  OptRemarkID RemarkID = static_cast<OptRemarkID>(RID);
-  OS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
+  OptRemarkID RemarkID = Remark.getRemarkID();
+  OS << "remark #" << RemarkID << ": " << formatRemarkMessage(Remark, RemarkID)
+     << "\n";
 }
 
 void printOrigin(raw_ostream &OS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   OS.indent(IntentationStep * Depth);
-  OptRemarkID RemarkID = static_cast<OptRemarkID>(Origin.getRemarkID());
-  OS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
+  OS << "<" << formatRemarkMessage(Origin, Origin.getRemarkID()) << ">\n";
 }
 
 void printDebugLocation(raw_ostream &OS, unsigned Depth, const DILocation *DL,

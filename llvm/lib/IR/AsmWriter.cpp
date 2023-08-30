@@ -129,6 +129,10 @@ static cl::opt<bool> PrintProfCounts(
     "print-prof-counts", cl::init(false), cl::Hidden,
     cl::desc(
         "Print profile branch count data beside instructions as comments"));
+static cl::opt<bool>
+    PrintBlocksPreOrder("print-blocks-preorder", cl::init(false), cl::Hidden,
+                        cl::desc("Print BBlocks in Pre-order. "
+                                 "Useful for printing IR from Fortran FE."));
 #endif
 
 #if INTEL_PRODUCT_RELEASE
@@ -2685,6 +2689,10 @@ public:
   void printInstructionLine(const Instruction &I);
   void printInstruction(const Instruction &I);
 
+#if INTEL_CUSTOMIZATION
+  void printFunctionBlocksPreOrder(const Function *F);
+#endif // INTEL_CUSTOMIZATION
+
   void printUseListOrder(const Value *V, const std::vector<unsigned> &Shuffle);
   void printUseLists(const Function *F);
 
@@ -2870,6 +2878,8 @@ static void printMapTypeAsComment(raw_ostream &Out,
   }
 
   TEST_MAPTYPE(NON_CONTIG);
+  TEST_MAPTYPE(USE_HOST_MEM);
+  TEST_MAPTYPE(USE_ZERO_INIT_MEM);
   TEST_MAPTYPE(OMPX_HOLD);
   TEST_MAPTYPE(PRESENT);
   TEST_MAPTYPE(ND_DESC);
@@ -3962,6 +3972,67 @@ void AssemblyWriter::printTypeIdentities() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+
+/// Print all Blocks of \p F in pre-order, starting from the entry block.
+/// This may not work for cycles of blocks that are not reachable from
+/// entry, for which we will fall-back to printing them in the order
+/// of their iterators in \p F.
+void AssemblyWriter::printFunctionBlocksPreOrder(const Function *F) {
+  if (F->empty())
+    return;
+
+  SmallPtrSet<const BasicBlock *, 32> Visited;
+
+  auto PrintBlocksPreOrderStartingWith = [&](const BasicBlock *RootBB) {
+    SmallVector<const BasicBlock *, 128> ToVisit;
+    ToVisit.push_back(RootBB);
+
+    while (!ToVisit.empty()) {
+      const BasicBlock *Current = ToVisit.pop_back_val();
+
+      if (!Visited.insert(Current).second)
+        continue; // Already visited.
+
+      printBasicBlock(Current);
+
+      // Push successors of the current BB onto the stack in reverse
+      // so that we visit them in pre-order.
+      for (const BasicBlock *Succ : reverse(successors(Current)))
+        ToVisit.push_back(Succ);
+    }
+  };
+
+  // For most cases we shouldn't have any blocks unreachable from entry, so we
+  // just need a single pre-order walk starting from EntryBB.
+  PrintBlocksPreOrderStartingWith(&F->getEntryBlock());
+
+  if (Visited.size() == F->size())
+    return;
+
+  // Next, we collect any unvisited blocks that have zero predecessors.
+  SmallVector<const BasicBlock *, 32> RootBBs;
+  for (const BasicBlock &BB : *F)
+    if (!Visited.count(&BB))
+      if (pred_empty(&BB))
+        RootBBs.push_back(&BB);
+
+  // And do a pre-order walk starting with those unreachable blocks as root.
+  for (const BasicBlock *RootBB : RootBBs)
+    PrintBlocksPreOrderStartingWith(RootBB);
+
+  if (Visited.size() == F->size())
+    return;
+
+  // If there are still some BBs in cycles that are unreachable from function
+  // entry, print them as-is without trying to sort them. Such unreachable
+  // cycles are likely a bug in the IR anyway.
+  for (const auto &BB : *F)
+    if (!Visited.count(&BB))
+      printBasicBlock(&BB);
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// printFunction - Print all aspects of a function.
 void AssemblyWriter::printFunction(const Function *F) {
   if (AnnotationWriter) AnnotationWriter->emitFunctionAnnot(F, Out);
@@ -4097,8 +4168,14 @@ void AssemblyWriter::printFunction(const Function *F) {
 
     Out << " {";
     // Output all of the function's basic blocks.
-    for (const BasicBlock &BB : *F)
-      printBasicBlock(&BB);
+#if INTEL_CUSTOMIZATION
+    if (PrintBlocksPreOrder) {
+      printFunctionBlocksPreOrder(F);
+    } else {
+      for (const BasicBlock &BB : *F)
+        printBasicBlock(&BB);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Output the function's use-lists.
     printUseLists(F);

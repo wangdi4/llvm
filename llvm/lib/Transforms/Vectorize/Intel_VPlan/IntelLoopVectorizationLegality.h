@@ -749,8 +749,7 @@ private:
                         OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
     BR.BailoutRemark =
-        OptRemark::get(*Context, static_cast<unsigned>(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+        OptRemark::get(*Context, BailoutID, std::forward<Args>(BailoutArgs)...);
   }
 
   /// Add an in memory non-POD private to the vector of private values.

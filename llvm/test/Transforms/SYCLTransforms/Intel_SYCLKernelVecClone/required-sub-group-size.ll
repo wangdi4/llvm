@@ -92,7 +92,7 @@ attributes #1 = { nounwind readnone }
 !13 = !{i1 true}
 !14 = !{i32 8}
 !15 = !{i32 16}
-!16 = !{i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null}
+!16 = !{ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} call
