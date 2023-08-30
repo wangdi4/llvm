@@ -4731,8 +4731,6 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   // defined above for use with the classic inlining report.
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Rets);
-  getInlineReport()->cloneFunction(F, NewF, VMap);
-  getMDInlineReport()->cloneFunction(F, NewF, VMap);
   Argument *ArgLast = nullptr;
   for (auto &ArgNew : NewF->args())
     ArgLast = &ArgNew;

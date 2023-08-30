@@ -2832,6 +2832,11 @@ bool Attributor::internalizeFunctions(SmallPtrSetImpl<Function *> &FnSet,
         return !FnMap.lookup(CB->getCaller());
       return false;
     };
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->replaceUsesWithIf(F, InternalizedFn, IsNotInternalized);
+    getMDInlineReport()->replaceUsesWithIf(F, InternalizedFn,
+                                           IsNotInternalized);
+#endif // INTEL_CUSTOMIZATION
     F->replaceUsesWithIf(InternalizedFn, IsNotInternalized);
   }
 

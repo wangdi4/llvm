@@ -3077,9 +3077,6 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   SmallVector<ReturnInst *, 8> Rets;
   CloneFunctionInto(Clone, F, Old2New,
                     CloneFunctionChangeType::LocalChangesOnly, Rets);
-  getInlineReport()->initFunctionClosure(F);
-  getInlineReport()->cloneFunction(F, Clone, Old2New);
-  getMDInlineReport()->cloneFunction(F, Clone, Old2New);
 
   // Redirect the calls in the input map to the cloned functions they map to.
   // Also fix the actual parameter lists removing the constants

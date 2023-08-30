@@ -85,6 +85,8 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
@@ -1883,6 +1885,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
     NF->addMetadata(MD.first, *MD.second);
 
   // Delete the old function
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
   F->eraseFromParent();
 
   return true;
@@ -2257,6 +2261,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
                           ConstantInt::get(I32, 1)  // 1: data cache
                       });
 
+    getInlineReport()->addCallSite(PrefetchInst);
+    getMDInlineReport()->addCallSite(PrefetchInst);
     LLVM_DEBUG({
       dbgs() << "PrefetchInst: " << *PrefetchInst << "\n"
              << "BasicBlock:\n"
@@ -2298,7 +2304,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
                             ConstantInt::get(I32, 3), // L3
                             ConstantInt::get(I32, 1)  // 1: data cache
                         });
-
+      getInlineReport()->addCallSite(PrefetchInst2);
+      getMDInlineReport()->addCallSite(PrefetchInst2);
       LLVM_DEBUG({
         dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n"
                << "BasicBlock:\n"
@@ -2374,7 +2381,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
   }
 
   // Suppress inline report with a special flag or under PROD build
-  if (SuppressInlineReport || IPOUtils::isProdBuild())
+  if (SuppressInlineReport || IPOUtils::isProductReleaseBuild())
     if (!MarkFunctionNoInlineReport(PrefetchFunction)) {
       LLVM_DEBUG(dbgs() << "MarkFunctionNoInlineReport() failed\n";);
       return false;
@@ -2434,9 +2441,11 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
 
       CallInst *CI = Builder.CreateCall(PrefetchFunction, Args);
       CI->setCallingConv(PrefetchFunction->getCallingConv());
+      getInlineReport()->addCallSite(CI);
+      getMDInlineReport()->addCallSite(CI);
 
       // Suppress inline report with a special flag or under PROD build
-      if (SuppressInlineReport || IPOUtils::isProdBuild())
+      if (SuppressInlineReport || IPOUtils::isProductReleaseBuild())
         if (!MarkCallNoInlineReport(CI)) {
           LLVM_DEBUG(dbgs() << "MarkCallNoInlineReport(CI) failed\n";);
           return false;

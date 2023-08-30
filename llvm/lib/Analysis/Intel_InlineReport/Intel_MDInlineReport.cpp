@@ -318,12 +318,29 @@ bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
   return S->getString() == CallSiteTag;
 }
 
-void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
+void CallSiteInliningReport::initReason(CallBase *CB) {
+  Function *Callee = CB->getCalledFunction();
+  if (Callee) {
+    if (Callee->isDeclaration()) {
+      if (Callee->isIntrinsic())
+        llvm::setMDReasonNotInlined(CB, NinlrIntrinsic);
+      else
+        llvm::setMDReasonNotInlined(CB, NinlrExtern);
+    } else {
+      llvm::setMDReasonNotInlined(CB, NinlrNewlyCreated);
+    }
+  } else {
+    llvm::setMDReasonNotInlined(CB, NinlrIndirect);
+  }
+}
+
+void InlineReportBuilder::addCallSite(CallBase *CB) {
   if (!isMDIREnabled())
     return;
-  CallSiteInliningReport CSIR(CB, nullptr, NinlrMultiversionedCallsite);
+  CallSiteInliningReport CSIR(CB, nullptr, NinlrNoReason);
   Function *Caller = CB->getCaller();
   Function *Callee = CB->getCalledFunction();
+  CSIR.initReason(CB);
   std::string FuncName = std::string(Callee ? Callee->getName() : "");
   FuncName.insert(0, "name: ");
   CB->setMetadata(CallSiteTag, CSIR.get());
@@ -346,6 +363,26 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   CallerMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
   addCallback(CB);
+}
+
+void InlineReportBuilder::addFunction(Function *F) {
+  if (!isMDIREnabled())
+    return;
+  std::vector<MDTuple *> CSs;
+  FunctionInliningReport FIR(F, &CSs, /*isDead=*/false, getLevel() & Compact);
+  addCallback(F);
+  initFunctionTemps(F);
+  Module *M = F->getParent();
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  ModuleInlineReport->addOperand(FIR.get());
+  F->setMetadata(FunctionTag, FIR.get());
+}
+
+void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
+  if (!isMDIREnabled())
+    return;
+  addCallSite(CB);
+  llvm::setMDReasonNotInlined(CB, NinlrMultiversionedCallsite);
 }
 
 void InlineReportBuilder::deleteFunctionBody(Function *F) {
@@ -1207,7 +1244,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   auto *OldFunctionMDTuple = dyn_cast<MDTuple>(OldFunctionMD);
   if (!OldFunctionMDTuple)
     return;
-  LLVMContext &Ctx = NewFunction->getParent()->getContext();
+  LLVMContext &Ctx = OldFunction->getParent()->getContext();
   Metadata *NewFunctionMD = copyMD(Ctx, OldFunctionMD);
   auto *NewFunctionMDTuple = cast<MDTuple>(NewFunctionMD);
   // Update the function name to correspond to NewFunction.
@@ -1226,7 +1263,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   // Update the clone's list of callsites.
   Module *M = OldFunction->getParent();
   NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
-  initFunctionTemps(NewFunction);
+  initFunctionTemps(NewFunction, M);
   ModuleInlineReport->addOperand(NewFunctionMDTuple);
   SmallVector<Metadata *, 100> Ops;
   SmallPtrSet<Metadata *, 32> CopiedMD;
@@ -1365,6 +1402,21 @@ void InlineReportBuilder::replaceAllUsesWith(Function *OldFunction,
   for (auto U : OldFunction->users())
     if (auto CB = dyn_cast<CallBase>(U))
       setCalledFunction(CB, NewFunction);
+}
+
+void InlineReportBuilder::replaceUsesWithIf(
+    Function *OldFunction, Function *NewFunction,
+    llvm::function_ref<bool(Use &U)> ShouldReplace) {
+  //
+  // NOTE: This should be called before replaceUsesWithIf() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isMDIREnabled())
+    return;
+  for (auto &U : OldFunction->uses())
+    if (ShouldReplace(U))
+      if (auto CB = dyn_cast<CallBase>(U.getUser()))
+        setCalledFunction(CB, NewFunction);
 }
 
 void InlineReportBuilder::removeCallBasesInBasicBlocks(
