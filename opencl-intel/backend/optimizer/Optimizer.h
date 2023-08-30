@@ -37,11 +37,7 @@ public:
 
   virtual ~Optimizer() {}
 
-  enum InvalidFunctionType {
-    RECURSION,
-    RECURSION_WITH_BARRIER,
-    FPGA_PIPE_DYNAMIC_ACCESS
-  };
+  enum InvalidFunctionType { RECURSION, RECURSION_WITH_BARRIER };
 
   enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
 
@@ -51,9 +47,6 @@ public:
   /// @return for SYCL returns true if the recursive function also calls
   /// barrier; for OpenCL returns true if any recursive function is present.
   bool hasUnsupportedRecursion();
-
-  /// @brief checks if some pipes access were not resolved statically
-  bool hasFpgaPipeDynamicAccess() const;
 
   /// @brief checks if there are some channels whose depths are differs from
   /// real depth on FPGA hardware due to channel depth mode, so we should emit
