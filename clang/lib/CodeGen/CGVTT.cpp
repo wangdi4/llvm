@@ -81,8 +81,8 @@ CodeGenVTables::EmitVTTDefinition(llvm::GlobalVariable *VTT,
          VTable->getValueType(), VTable, Idxs, /*InBounds=*/true,
          /*InRangeIndex=*/1);
 
-     Init = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(Init,
-                                                                 CGM.Int8PtrTy);
+     Init = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+         Init, CGM.Int8PtrTy);
 
      VTTComponents.push_back(Init);
   }
