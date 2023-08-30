@@ -59,10 +59,6 @@ sections with improvements to Clang's support for those languages.
 C++ Language Changes
 --------------------
 
-C++14 Feature Support
-^^^^^^^^^^^^^^^^^^^^^
-- Sized deallocation is enabled by default in C++14 onwards.
-
 C++20 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -193,6 +189,9 @@ Bug Fixes in This Version
   (`#64876 <https://github.com/llvm/llvm-project/issues/64876>`_)
 - Fixed an assertion if a function has cleanups and fatal erors.
   (`#48974 <https://github.com/llvm/llvm-project/issues/48974>`_)
+- Clang now emits an error if it is not possible to deduce array size for a
+  variable with incomplete array type.
+  (`#37257 <https://github.com/llvm/llvm-project/issues/37257>`_)
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
