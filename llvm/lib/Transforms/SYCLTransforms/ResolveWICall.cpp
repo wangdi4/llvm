@@ -535,8 +535,8 @@ void ResolveWICallPass::updatePrefetch(IRBuilder<> &Builder, CallInst *CI) {
   // prefetch builtin has OpenCL built-in scalar or vector data type.
   auto FDesc = NameMangleAPI::demangle(CI->getCalledFunction()->getName());
   Type *Ty = CompilationUtils::getLLVMTypeFromReflectionType(
-      *Ctx, reflection::cast<reflection::PointerType>(FDesc.Parameters[0].get())
-                ->getPointee());
+      *Ctx,
+      cast<reflection::PointerType>(FDesc.Parameters[0].get())->getPointee());
   assert(Ty && "invalid LLVM type from reflection::PointerType");
   unsigned EltSize = M->getDataLayout().getTypeAllocSize(Ty);
   Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), EltSize));
