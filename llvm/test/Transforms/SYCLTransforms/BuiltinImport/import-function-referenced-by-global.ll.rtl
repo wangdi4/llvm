@@ -57,6 +57,6 @@ declare <4 x i32> @llvm.smax.v4i32(<4 x i32>, <4 x i32>) #0
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !0 = !{!"char*", !"int4"}
-!1 = !{i8* null, <4 x i32> <i32 0, i32 0, i32 0, i32 0>}
+!1 = !{ptr null, <4 x i32> <i32 0, i32 0, i32 0, i32 0>}
 !2 = !{!"image2d_t", !"int", !"int2"}
 !3 = !{target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) zeroinitializer, i32 0, <2 x i32> <i32 0, i32 0>}

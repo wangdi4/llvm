@@ -9,4 +9,4 @@ define <8 x i32> @_Z18convert_uchar8_satDv8_j(ptr nocapture readonly byval(<8 x 
 }
 
 !0 = !{!"int8"}
-!1 = !{<8 x i32>* null}
+!1 = !{ptr null}

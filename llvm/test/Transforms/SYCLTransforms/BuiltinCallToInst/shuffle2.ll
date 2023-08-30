@@ -67,6 +67,6 @@ declare <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double>, <2 x double>, <4 x i
 ; CHECK-NOT:    call <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double> %d, <2 x double> %d, <4 x i64> <i64 1, i64 0, i64 0, i64 1>)
 
 !0 = !{!"int4", !"int4", !"char2", !"double2", !"int4*", !"int8*", !"int16*", !"int4*", !"char4*", !"double4*"}
-!1 = !{<4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <2 x i8> <i8 0, i8 0>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, <4 x i32> addrspace(1)* null, <8 x i32> addrspace(1)* null, <16 x i32> addrspace(1)* null, <4 x i32> addrspace(1)* null, <4 x i8> addrspace(1)* null, <4 x double> addrspace(1)* null}
+!1 = !{<4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <2 x i8> <i8 0, i8 0>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

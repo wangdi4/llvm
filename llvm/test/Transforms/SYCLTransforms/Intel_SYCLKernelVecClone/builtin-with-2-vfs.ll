@@ -77,9 +77,9 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 !1 = !{i32 16}
 !2 = !{i32 8}
 !3 = !{!"int*"}
-!4 = !{i32 addrspace(1)* null}
+!4 = !{ptr addrspace(1) null}
 !5 = !{!"long*", !"int*"}
-!6 = !{i64 addrspace(1)* null, i32 addrspace(1)* null}
+!6 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} alloca

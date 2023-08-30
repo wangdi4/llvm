@@ -39,7 +39,7 @@ else:
 
 !0 = !{ptr @kernel}
 !1 = !{!"long*", !"bool"}
-!2 = !{i64 addrspace(1)* null, i1 0}
+!2 = !{ptr addrspace(1) null, i1 0}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

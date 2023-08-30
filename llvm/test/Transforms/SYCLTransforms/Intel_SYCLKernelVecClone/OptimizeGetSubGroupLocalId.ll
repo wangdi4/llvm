@@ -46,6 +46,6 @@ declare i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #2
 !0 = !{ptr @_ZTSZ4mainE9broadcast}
 !1 = !{i1 true}
 !2 = !{!"int*", !"int*"}
-!3 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: CheckModuleDebugify: PASS

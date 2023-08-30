@@ -42,7 +42,7 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 !0 = !{ptr @basic}
 !1 = !{i32 4}
 !2 = !{!"long*", !"long*"}
-!3 = !{i64 addrspace(1)* null, i64 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca

@@ -26,4 +26,4 @@ entry:
 }
 
 !0 = !{!"int*"}
-!1 = !{i32 addrspace(1)* null}
+!1 = !{ptr addrspace(1) null}

@@ -36,4 +36,4 @@ declare void @llvm.experimental.matrix.store.v256f32.p4(<256 x float>, ptr addrs
 ; DEBUGIFY: PASS
 
 !0 = !{!"int*", !"long", !"int*"}
-!1 = !{i32* null, i64 0, i32* null}
+!1 = !{ptr null, i64 0, ptr null}

@@ -26,7 +26,7 @@ attributes #0 = { convergent }
 !0 = !{ptr @test_fn}
 !1 = !{i32 4}
 !2 = !{!"char*", !"char*", !"long", !"long"}
-!3 = !{i8 addrspace(3)* null, i8 addrspace(1)* null, i64 0, i64 0}
+!3 = !{ptr addrspace(3) null, ptr addrspace(1) null, i64 0, i64 0}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} call

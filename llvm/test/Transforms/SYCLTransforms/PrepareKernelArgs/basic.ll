@@ -66,7 +66,7 @@ define void @A(ptr addrspace(1) nocapture %out, ptr addrspace(1) nocapture %a, i
 !sycl.kernels = !{!0}
 !0 = !{ptr @A}
 !1 = !{!"int*", !"int*", !"int"}
-!2 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i32 0}
+!2 = !{ptr addrspace(1) null, ptr addrspace(1) null, i32 0}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-34: WARNING: Instruction with empty DebugLoc in function A

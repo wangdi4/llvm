@@ -90,9 +90,9 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !11 = !{!12, !12, i64 0}
 !12 = !{!"float", !5, i64 0}
 !13 = !{!"int", !"int*"}
-!14 = !{i32 0, i32 addrspace(1)* null}
+!14 = !{i32 0, ptr addrspace(1) null}
 !15 = !{!"float*", !"float*"}
-!16 = !{float addrspace(1)* null, float addrspace(1)* null}
+!16 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} call

@@ -13,4 +13,4 @@ define void @sample_test(i64 %x, ptr %y) nounwind !kernel_arg_base_type !0 !arg_
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"unsigned long", !"double*"}
-!1 = !{i64 0, double* null}
+!1 = !{i64 0, ptr null}

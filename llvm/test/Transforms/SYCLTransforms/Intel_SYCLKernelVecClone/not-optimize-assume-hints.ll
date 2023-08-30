@@ -49,7 +49,7 @@ attributes #3 = { nounwind readnone willreturn }
 !7 = distinct !{!7}
 !8 = !{i32 4, i32 100000}
 !9 = !{!"double*", !"double*"}
-!10 = !{double addrspace(1)* null, double addrspace(1)* null}
+!10 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} call

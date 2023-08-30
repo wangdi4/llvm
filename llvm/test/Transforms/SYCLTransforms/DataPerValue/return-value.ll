@@ -157,4 +157,4 @@ attributes #6 = { convergent }
 !11 = !{i32 0}
 !12 = !{!"dst"}
 !13 = !{i32 5}
-!14 = !{i64 addrspace(1)* null}
+!14 = !{ptr addrspace(1) null}

@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/CoerceTypes.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
@@ -318,8 +319,10 @@ Type *CoerceTypesPass::getIntegerType(StructType *T, unsigned Offset) const {
   // of a two-eightbyte struct to 64 bits
   assert(Offset <= Size &&
          "Offset of struct element should be less than struct size");
+  // Ceil to power-of-2 bit width, assuring we only generate normal integer
+  // types: i8, i16, i32 or i64
   return IntegerType::get(PModule->getContext(),
-                          std::min(Size - Offset, 8U) * 8);
+                          PowerOf2Ceil(std::min(Size - Offset, 8U) * 8));
 }
 
 Type *CoerceTypesPass::getSSEType(StructType *T, unsigned Offset) const {
@@ -608,4 +611,3 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
     ++OldArgI;
   }
 }
-

@@ -195,7 +195,7 @@ attributes #0 = { convergent nounwind }
 !0 = !{ptr @a}
 !1 = !{i32 4}
 !2 = !{!"int*", !"int*"}
-!3 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} call

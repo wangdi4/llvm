@@ -65,4 +65,4 @@ declare <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double>, <2 x i64>) nounwind rea
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"int4", !"int8", !"char2", !"double2", !"int4*", !"int8*", !"int16*", !"int8*", !"char2*", !"double2*"}
-!1 = !{<4 x i32> <i32 0, i32 0, i32 0, i32 0>, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, <2 x i8> <i8 0, i8 0>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, <4 x i32> addrspace(1)* null, <8 x i32> addrspace(1)* null, <16 x i32> addrspace(1)* null, <8 x i32> addrspace(1)* null, <2 x i8> addrspace(1)* null, <2 x double> addrspace(1)* null}
+!1 = !{<4 x i32> <i32 0, i32 0, i32 0, i32 0>, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>, <2 x i8> <i8 0, i8 0>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}

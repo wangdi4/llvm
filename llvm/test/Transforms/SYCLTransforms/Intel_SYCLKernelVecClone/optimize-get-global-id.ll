@@ -135,7 +135,7 @@ attributes #1 = { nounwind readnone }
 !10 = !{!"int*", !"float*"}
 !11 = !{i1 true}
 !12 = !{i32 8}
-!13 = !{i32 addrspace(1)* null, float addrspace(1)* null}
+!13 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} call

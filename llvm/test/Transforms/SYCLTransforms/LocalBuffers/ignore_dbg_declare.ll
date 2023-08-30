@@ -109,7 +109,7 @@ entry:
 !34 = !{i32 786443, !12, i32 4, i32 0, !6, i32 1} ; [ DW_TAG_lexical_block ] [C:\ocl\tmp/2]
 !35 = !{i32 7, i32 0, !34, null}
 !36 = !{!"char*"}
-!37 = !{i8 addrspace(3)* null}
+!37 = !{ptr addrspace(3) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

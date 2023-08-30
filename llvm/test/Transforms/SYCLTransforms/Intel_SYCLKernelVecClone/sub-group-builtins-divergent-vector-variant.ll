@@ -92,7 +92,7 @@ declare i64 @_Z13get_global_idj(i32)
 !2 = !{ptr @test}
 !3 = !{i32 16}
 !4 = !{!"int*", !"int2*"}
-!5 = !{i32 addrspace(1)* null, <2 x i32> addrspace(1)* null}
+!5 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} call

@@ -173,7 +173,7 @@ entry:
 declare void @_Z7barrierj(i32 noundef) #5
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i64 noundef %gid, ptr noalias %local.ids) #1 !dbg !62 !kernel_arg_base_type !78 !arg_type_null_val !79 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i64 noundef %gid, ptr noalias %local.ids) #1 !dbg !62 {
 entry:
 ; CHECK-LABEL: @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca i64, align 8
@@ -316,7 +316,5 @@ attributes #8 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !73 = !DILocation(line: 2, column: 12, scope: !62)
 !74 = !DILocation(line: 3, column: 1, scope: !62)
 !75 = !{!"int*", !"long"}
-!76 = !{i32 addrspace(1)* null, i64 0}
-!77 = !{i32 addrspace(1)* null}
-!78 = !{!"int*", !"long", !"long*" }
-!79 = !{i32 addrspace(1)* null, i64 0, [3 x i64]* null}
+!76 = !{ptr addrspace(1) null, i64 0}
+!77 = !{ptr addrspace(1) null}

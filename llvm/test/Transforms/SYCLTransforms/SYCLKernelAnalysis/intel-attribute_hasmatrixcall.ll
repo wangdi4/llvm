@@ -29,6 +29,6 @@ attributes #0 = { convergent }
 !sycl.kernels = !{!0}
 !0 = !{ptr @kernel_contains_matrix_call}
 !1 = !{!"int*", !"int*", !"long*"}
-!2 = !{i32* null, i32* null, i64* null}
+!2 = !{ptr null, ptr null, ptr null}
 
 ; DEBUGIFY-NOT: WARNING

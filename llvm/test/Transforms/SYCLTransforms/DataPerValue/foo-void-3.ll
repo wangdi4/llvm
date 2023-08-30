@@ -109,4 +109,4 @@ declare i32 @_Z12get_local_idj(i32)
 
 !0 = !{ptr @main}
 !1 = !{!"int*"}
-!2 = !{i32* null}
+!2 = !{ptr null}

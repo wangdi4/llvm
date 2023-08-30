@@ -26,9 +26,9 @@ entry:
 }
 
 !0 = !{!"int*", !"char*", !"float*"}
-!1 = !{i32 addrspace(1)* null, i8 addrspace(1)* null, float addrspace(1)* null}
+!1 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 !2 = !{!"int4*", !"long16*"}
-!3 = !{<4 x i32> addrspace(1)* null, <16 x i64> addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; CHECK:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CEHCK:   entry:

@@ -130,9 +130,9 @@ attributes #3 = { convergent }
 !15 = !{i32 12}
 !16 = !{i32 1}
 !17 = !{i32 56}
-!18 = !{i32 addrspace(1)* null, i32 0}
+!18 = !{ptr addrspace(1) null, i32 0}
 !19 = !{!"int*", !"int", !"long"}
-!20 = !{i32 addrspace(1)* null, i32 0, i64 0}
+!20 = !{ptr addrspace(1) null, i32 0, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}
