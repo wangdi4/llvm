@@ -9134,7 +9134,8 @@ multiclass VCVTNEPS2BF16_BASE {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-let Predicates = [HasAVXNECONVERT, NoVLX_Or_NoNECONVERT], checkVEXPredicate = 1 in {
+let Predicates = [HasAVXNECONVERT, NoVLX_Or_NoNECONVERT] in {
+  let checkVEXPredicate = 1 in {
 #else // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 let Predicates = [HasAVXNECONVERT] in {
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
@@ -9151,6 +9152,11 @@ let Predicates = [HasAVXNECONVERT] in {
        f256mem>, T8XD;
   defm VCVTNEOPH2PS : AVX_NE_CONVERT_BASE<0xb0, "vcvtneoph2ps", f128mem,
        f256mem>, T8PS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#endif // INTEL_CUSTOMIZATION libLLVMLinker.so
   let checkVEXPredicate = 1 in
   defm VCVTNEPS2BF16 : VCVTNEPS2BF16_BASE, VEX, T8XS, ExplicitVEXPrefix;
 
