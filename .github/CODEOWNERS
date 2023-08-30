@@ -462,11 +462,11 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/unittests/Transforms/Utils/VFABIUtils.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @intel-restricted/cmplrllvm-llvm-vectorizer
 
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/lib/Transforms/SYCLTransforms/SYCLKernelVecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/lib/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/test/Transforms/SYCLTransforms/SYCLKernelVecClone/ @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/lib/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.cpp @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/lib/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.cpp @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/test/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone/ @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
 
 /llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Utils/Intel_VecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
@@ -474,7 +474,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 /llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/test/Transforms/Reassociate/Intel_addsub* @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Transforms/SLPVectorizer/ @intel-restricted/cmplrllvm-llvm-vectorizer
 
 /llvm/lib/Analysis/Intel_OptVLS.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
@@ -800,6 +799,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/MergeICmps/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/NaryReassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Reassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Reassociate/Intel_addsub* @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Transforms/SCCP/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SROA/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SimpleLoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
