@@ -63,7 +63,7 @@ for.body:
   %sin = getelementptr inbounds [256 x double], ptr %sin.arr, i64 0, i64 %iv
   %cos = getelementptr inbounds [256 x double], ptr %cos.arr, i64 0, i64 %iv
 
-  call void @sincos(double 1.0, double* %sin, double* %cos)
+  call void @sincos(double 1.0, ptr %sin, ptr %cos)
 
   %iv.next = add nuw nsw i64 %iv, 1
   %cmp = icmp ult i64 %iv.next, 256
@@ -78,5 +78,5 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
 
 ; Function Attrs: nounwind
-declare dso_local void @sincos(double noundef, double* noundef, double* noundef) local_unnamed_addr #1
+declare dso_local void @sincos(double noundef, ptr noundef, ptr noundef) local_unnamed_addr #1
 attributes #1 = { nounwind }

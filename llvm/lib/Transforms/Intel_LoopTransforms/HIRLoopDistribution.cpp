@@ -1106,6 +1106,7 @@ void HIRLoopDistribution::distributeLoop(
 
   unsigned LoopCount = DistributedLoops.size();
   assert(LoopCount > 1 && "Invalid loop distribution");
+  std::array<HLLoop *, MaxDistributedLoop> NewLoops = {};
   LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LoopCount
                     << " way distributed\n");
 

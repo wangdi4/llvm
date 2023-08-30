@@ -65,10 +65,10 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
   reflection::FunctionDescriptor FD = demangle(FuncName);
   reflection::RefParamType Param = FD.Parameters[0];
   if (reflection::VectorType *VecParam =
-          reflection::dyn_cast<reflection::VectorType>(Param.get()))
+          dyn_cast<reflection::VectorType>(Param.get()))
     Param = VecParam->getScalarType();
   reflection::PrimitiveType *PrimitiveParam =
-      reflection::dyn_cast<reflection::PrimitiveType>(Param.get());
+      dyn_cast<reflection::PrimitiveType>(Param.get());
   assert(PrimitiveParam && "WG function parameter should be either primitive "
                            "or vector of primitives");
   reflection::TypePrimitiveEnum DataEnum = PrimitiveParam->getPrimitive();
@@ -578,8 +578,7 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
         MaskTy = FD.Parameters.back();
       auto IDTy = FD.Parameters[1]; // Get ID type of the local ID
       // If local ID type is widened, get the scalar type
-      if (auto *VecIDParam =
-              reflection::dyn_cast<reflection::VectorType>(IDTy.get()))
+      if (auto *VecIDParam = dyn_cast<reflection::VectorType>(IDTy.get()))
         IDTy = VecIDParam->getScalarType();
 
       FD.Parameters.resize(1); // Keep the type of the value to broadcast
