@@ -46,4 +46,3 @@ simd.end:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
-declare dso_local i64 @helper(i64*)
