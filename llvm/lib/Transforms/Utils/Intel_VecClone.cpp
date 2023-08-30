@@ -157,6 +157,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/X86TargetParser.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -1743,6 +1745,8 @@ CallInst *VecCloneImpl::Factory::insertBeginRegion() {
       Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry),
       std::nullopt, OpndBundles, "entry.region");
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
+  getInlineReport()->addCallSite(SIMDBeginCall);
+  getMDInlineReport()->addCallSite(SIMDBeginCall);
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;
 }
@@ -1761,6 +1765,8 @@ void VecCloneImpl::Factory::insertEndRegion(CallInst *EntryDirCall) {
   CallInst *SIMDEndCall =
       IntrinsicUtils::createSimdDirectiveEnd(M, EntryDirCall);
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
+  getInlineReport()->addCallSite(SIMDEndCall);
+  getMDInlineReport()->addCallSite(SIMDEndCall);
 }
 
 void VecCloneImpl::Factory::insertDirectiveIntrinsics() {

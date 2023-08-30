@@ -500,6 +500,11 @@ public:
   /// inlining report.
   void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
 
+  /// Replace all uses of 'OldFunction' with 'NewFunction'
+  /// where 'ShouldReplace' is true in the inlining report.
+  void replaceUsesWithIf(Function *OldFunction, Function *NewFunction,
+                         llvm::function_ref<bool(Use &U)> ShouldReplace);
+
   /// Ensure that 'F' and all Functions that call it directly are in the
   /// inlining report.
   void initFunctionClosure(Function *F);
@@ -639,6 +644,12 @@ public:
   // Update the name of 'F' in the inlining report.
   void updateName(Function *F);
 
+  // Create an InlineReportFunction to represent 'F'
+  InlineReportFunction *addFunction(Function *F);
+
+  // Create an InlineReportCallSite to represent Call
+  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -731,14 +742,8 @@ private:
 
   DenseMap<Value *, InlineReportCallback *> CallbackMap;
 
-  // Create an InlineReportFunction to represent 'F'
-  InlineReportFunction *addFunction(Function *F);
-
   // Get the existing or create an InlineReportFunction to represent 'F'
   InlineReportFunction *getOrAddFunction(Function *F);
-
-  // Create an InlineReportCallSite to represent Call
-  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
 
   // Get the existing or create an InlineReportCallSite to represent 'Call'
   InlineReportCallSite *getOrAddCallSite(CallBase *Call);

@@ -1091,6 +1091,26 @@ void InlineReport::replaceAllUsesWith(Function *OldFunction,
   }
 }
 
+void InlineReport::replaceUsesWithIf(
+    Function *OldFunction, Function *NewFunction,
+    llvm::function_ref<bool(Use &U)> ShouldReplace) {
+  //
+  // NOTE: This should be called before replaceUsesWithIf() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(NewFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *IRFNew = MapIt->second;
+  for (auto &U : OldFunction->uses())
+    if (ShouldReplace(U))
+      if (auto CB = dyn_cast<CallBase>(U.getUser())) {
+        InlineReportCallSite *IRCS = getOrAddCallSite(CB);
+        IRCS->setIRCallee(IRFNew);
+      }
+}
+
 InlineReportFunction *InlineReport::initFunction(Function *F) {
   InlineReportFunction *IRF = getOrAddFunction(F);
   assert(IRF);

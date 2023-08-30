@@ -79,6 +79,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <optional>
@@ -491,6 +493,8 @@ void CandidateInfo::fixQsortCallsites() {
     NewCB->setAttributes(NewPAL);
     if (!CB->use_empty() || CB->isUsedByMetadata())
       CB->replaceAllUsesWith(NewCB);
+    getInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
+    getMDInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
     CB->eraseFromParent();
     return NewCB;
   };
@@ -548,6 +552,8 @@ void CandidateInfo::transform() {
   // Wrap RecursionCall under newly created condition.
   wrapRecursionCallUnderCond();
   // Remove original SortFn.
+  getInlineReport()->removeFunctionReference(*SortFn);
+  getMDInlineReport()->removeFunctionReference(*SortFn);
   SortFn->eraseFromParent();
 }
 
