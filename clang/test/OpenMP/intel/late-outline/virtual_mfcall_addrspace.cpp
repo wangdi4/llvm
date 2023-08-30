@@ -30,15 +30,13 @@ struct S;
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[S_MAP_PTR_TMP_ASCAST]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load { i64, i64 }, ptr addrspace(4) [[P_ADDR_ASCAST]], align 8
 // CHECK-NEXT:    [[MEMPTR_ADJ:%.*]] = extractvalue { i64, i64 } [[TMP4]], 1
-// CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(4) [[TMP3]] to ptr
-// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr [[TMP5]], i64 [[MEMPTR_ADJ]]
-// CHECK-NEXT:    [[THIS_ADJUSTED:%.*]] = addrspacecast ptr [[TMP6]] to ptr addrspace(4)
+// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[TMP3]], i64 [[MEMPTR_ADJ]]
 // CHECK-NEXT:    [[MEMPTR_PTR:%.*]] = extractvalue { i64, i64 } [[TMP4]], 0
 // CHECK-NEXT:    [[TMP7:%.*]] = and i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[MEMPTR_ISVIRTUAL:%.*]] = icmp ne i64 [[TMP7]], 0
 // CHECK-NEXT:    br i1 [[MEMPTR_ISVIRTUAL]], label [[MEMPTR_VIRTUAL:%.*]], label [[MEMPTR_NONVIRTUAL:%.*]]
 // CHECK:       memptr.virtual:
-// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADJUSTED]], align 8
+// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[TMP6]], align 8
 // CHECK-NEXT:    [[TMP8:%.*]] = sub i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr addrspace(4) [[VTABLE]], i64 [[TMP8]], !nosanitize !9
 // CHECK-NEXT:    [[MEMPTR_VIRTUALFN:%.*]] = load ptr, ptr addrspace(4) [[TMP9]], align 8, !nosanitize !9
@@ -48,7 +46,7 @@ struct S;
 // CHECK-NEXT:    br label [[MEMPTR_END]]
 // CHECK:       memptr.end:
 // CHECK-NEXT:    [[TMP10:%.*]] = phi ptr [ [[MEMPTR_VIRTUALFN]], [[MEMPTR_VIRTUAL]] ], [ [[MEMPTR_NONVIRTUALFN]], [[MEMPTR_NONVIRTUAL]] ]
-// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) [[THIS_ADJUSTED]]) #[[ATTR4:[0-9]+]]
+// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) [[TMP6]]) #[[ATTR4:[0-9]+]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    ret void
 //
@@ -179,15 +177,13 @@ void test_4(C *p) {
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[P_MAP_PTR_TMP_ASCAST]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load { i64, i64 }, ptr addrspace(4) [[Q_ADDR_ASCAST]], align 8
 // CHECK-NEXT:    [[MEMPTR_ADJ:%.*]] = extractvalue { i64, i64 } [[TMP4]], 1
-// CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(4) [[TMP3]] to ptr
-// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr [[TMP5]], i64 [[MEMPTR_ADJ]]
-// CHECK-NEXT:    [[THIS_ADJUSTED:%.*]] = addrspacecast ptr [[TMP6]] to ptr addrspace(4)
+// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[TMP3]], i64 [[MEMPTR_ADJ]]
 // CHECK-NEXT:    [[MEMPTR_PTR:%.*]] = extractvalue { i64, i64 } [[TMP4]], 0
 // CHECK-NEXT:    [[TMP7:%.*]] = and i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[MEMPTR_ISVIRTUAL:%.*]] = icmp ne i64 [[TMP7]], 0
 // CHECK-NEXT:    br i1 [[MEMPTR_ISVIRTUAL]], label [[MEMPTR_VIRTUAL:%.*]], label [[MEMPTR_NONVIRTUAL:%.*]]
 // CHECK:       memptr.virtual:
-// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADJUSTED]], align 8
+// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[TMP6]], align 8
 // CHECK-NEXT:    [[TMP8:%.*]] = sub i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr addrspace(4) [[VTABLE]], i64 [[TMP8]], !nosanitize !9
 // CHECK-NEXT:    [[MEMPTR_VIRTUALFN:%.*]] = load ptr, ptr addrspace(4) [[TMP9]], align 8, !nosanitize !9
@@ -197,7 +193,7 @@ void test_4(C *p) {
 // CHECK-NEXT:    br label [[MEMPTR_END]]
 // CHECK:       memptr.end:
 // CHECK-NEXT:    [[TMP10:%.*]] = phi ptr [ [[MEMPTR_VIRTUALFN]], [[MEMPTR_VIRTUAL]] ], [ [[MEMPTR_NONVIRTUALFN]], [[MEMPTR_NONVIRTUAL]] ]
-// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 8 dereferenceable_or_null(8) [[THIS_ADJUSTED]]) #[[ATTR4]]
+// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 8 dereferenceable_or_null(8) [[TMP6]]) #[[ATTR4]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    ret void
 //
@@ -229,15 +225,13 @@ struct S : B1, B3 {};
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[S_MAP_PTR_TMP_ASCAST]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load { i64, i64 }, ptr addrspace(4) [[P_ADDR_ASCAST]], align 8
 // CHECK-NEXT:    [[MEMPTR_ADJ:%.*]] = extractvalue { i64, i64 } [[TMP4]], 1
-// CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(4) [[TMP3]] to ptr
-// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr [[TMP5]], i64 [[MEMPTR_ADJ]]
-// CHECK-NEXT:    [[THIS_ADJUSTED:%.*]] = addrspacecast ptr [[TMP6]] to ptr addrspace(4)
+// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[TMP3]], i64 [[MEMPTR_ADJ]]
 // CHECK-NEXT:    [[MEMPTR_PTR:%.*]] = extractvalue { i64, i64 } [[TMP4]], 0
 // CHECK-NEXT:    [[TMP7:%.*]] = and i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[MEMPTR_ISVIRTUAL:%.*]] = icmp ne i64 [[TMP7]], 0
 // CHECK-NEXT:    br i1 [[MEMPTR_ISVIRTUAL]], label [[MEMPTR_VIRTUAL:%.*]], label [[MEMPTR_NONVIRTUAL:%.*]]
 // CHECK:       memptr.virtual:
-// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADJUSTED]], align 8
+// CHECK-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[TMP6]], align 8
 // CHECK-NEXT:    [[TMP8:%.*]] = sub i64 [[MEMPTR_PTR]], 1
 // CHECK-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr addrspace(4) [[VTABLE]], i64 [[TMP8]], !nosanitize !9
 // CHECK-NEXT:    [[MEMPTR_VIRTUALFN:%.*]] = load ptr, ptr addrspace(4) [[TMP9]], align 8, !nosanitize !9
@@ -247,7 +241,7 @@ struct S : B1, B3 {};
 // CHECK-NEXT:    br label [[MEMPTR_END]]
 // CHECK:       memptr.end:
 // CHECK-NEXT:    [[TMP10:%.*]] = phi ptr [ [[MEMPTR_VIRTUALFN]], [[MEMPTR_VIRTUAL]] ], [ [[MEMPTR_NONVIRTUALFN]], [[MEMPTR_NONVIRTUAL]] ]
-// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) [[THIS_ADJUSTED]]) #[[ATTR4]]
+// CHECK-NEXT:    call spir_func void [[TMP10]](ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) [[TMP6]]) #[[ATTR4]]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    ret void
 //
