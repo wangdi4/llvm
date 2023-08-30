@@ -9547,6 +9547,37 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         } else {
           for (unsigned I = 0; I < Sz; ++I)
             ScalarCost += ScalarEltCost(I);
+#if INTEL_CUSTOMIZATION
+          // TODO: Ideally this cost adjustment for x86 CPUs superscalar feature
+          // should belong to TTI. Currently implemented cost modeling
+          // entirely missed it, hence we do overestimate cost of multiple
+          // instructions when using sum of individual instructions cost
+          // approach.
+          auto IsSuperscalarOpc = [](unsigned Op) {
+            switch (Op) {
+            case Instruction::And:
+            case Instruction::Or:
+            case Instruction::Xor:
+              return true;
+            default:
+              return false;
+            }
+          };
+
+          if (TTI->isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel::
+                                            AO_TargetHasIntelAVX2) &&
+              ScalarTy->isIntegerTy() && TTI->getNumberOfParts(ScalarTy) == 1 &&
+              (IsSuperscalarOpc(ShuffleOrOp) ||
+               (E->isAltShuffle()) && IsSuperscalarOpc(E->getOpcode()) &&
+                   IsSuperscalarOpc(E->getAltOpcode()))) {
+            // Most modern x86 CPUs execute from 2 to 4 these ops per cpu cycle.
+            // So we conservatively take two. We might want to take into
+            // account whether all the set does fit into some instructions
+            // "window" (which also depends on a specific CPU) in the future but
+            // currently just assume they do fit.
+            ScalarCost /= 2;
+          }
+#endif // INTEL_CUSTOMIZATION
         }
 
         InstructionCost VecCost = VectorCost(CommonCost);
