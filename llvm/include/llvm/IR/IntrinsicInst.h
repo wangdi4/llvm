@@ -115,7 +115,14 @@ public:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_label:
-    case Intrinsic::intel_directive_elementsize: // INTEL
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::intel_directive_elementsize:
+#if INTEL_FEATURE_MARKERCOUNT
+    case Intrinsic::mark_loop_header:
+    case Intrinsic::mark_prolog:
+    case Intrinsic::mark_epilog:
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
     case Intrinsic::invariant_start:
     case Intrinsic::invariant_end:
     case Intrinsic::lifetime_start:
