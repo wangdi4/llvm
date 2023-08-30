@@ -44,9 +44,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      # Author: Gorban, Igor <igor.gorban@intel.com>
-      # Date:   Tue Jun 6 23:56:43 2023 +0000
-      # Mark llvm15 tests failures
+      # Author: Igor Gorban <igor.gorban@intel.com>
+      # Date:   Wed Aug 2 21:22:15 2023 +0000
+      # Fixed warning from statical code analizer
       set(LLVMGenXIntrinsics_GIT_TAG bccb1ae99ca821983bd0c16e642590da3935652e)
 
       # Determine if the build is embargo and provide specific settings.
@@ -57,9 +57,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Gorban, Igor <igor.gorban@intel.com>
-        # Date:   Tue Jun 6 23:56:43 2023 +0000
-        # Mark llvm15 tests failures
+        # Author: Igor Gorban <igor.gorban@intel.com>
+        # Date:   Mon Aug 28 22:03:14 2023 +0200
+        # [Feature] Fixed warning from statical code analizer
         set(LLVMGenXIntrinsics_GIT_TAG 7e6e5ac78d6fbf0a5ecbcc7fcb110222b18a5274)
 
         add_compile_definitions(__INTEL_EMBARGO__)
