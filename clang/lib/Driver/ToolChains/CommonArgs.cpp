@@ -580,7 +580,7 @@ void tools::getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   case llvm::Triple::x86_64_xucc:
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-    x86::getX86TargetFeatures(D, Triple, Args, Features);
+    x86::getX86TargetFeatures(D, Triple, Args, Features, ForAS);
     break;
   case llvm::Triple::hexagon:
     hexagon::getHexagonTargetFeatures(D, Triple, Args, Features);
