@@ -282,7 +282,6 @@ set(CXXLIBS none default libstdc++ libc++)
 set_property(CACHE SANITIZER_TEST_CXX PROPERTY STRINGS ;${CXXLIBS})
 handle_default_cxx_lib(SANITIZER_TEST_CXX)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Since we only need to collect code coverage info for our release scope, we
 # remove ccov build flags from cxx/c flags here to avoid them being included
@@ -306,16 +305,7 @@ else()
 endif()
 # end INTEL_CUSTOMIZATION
 
-set(DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER OFF)
-if (ANDROID)
-  set(DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER ON)
-endif()
-
-option(COMPILER_RT_USE_LLVM_UNWINDER
-  "Use the LLVM unwinder." ${DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER})
-=======
 option(COMPILER_RT_USE_LLVM_UNWINDER "Use the LLVM unwinder." OFF)
->>>>>>> cd8bba941f06e17cfdab8cb2b31e9171f019fe29
 cmake_dependent_option(COMPILER_RT_ENABLE_STATIC_UNWINDER
   "Statically link the LLVM unwinder." OFF
   "COMPILER_RT_USE_LLVM_UNWINDER" OFF)
