@@ -1608,10 +1608,10 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
                 NewV = BCNewV;
 #endif // INTEL_COLLAB
             }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
             ASC->replaceAllUsesWith(BCNewV);
 #endif // INTEL_COLLAB
-#endif
             DeadInstructions.push_back(ASC);
             continue;
           }
