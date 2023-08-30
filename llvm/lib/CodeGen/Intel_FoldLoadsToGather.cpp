@@ -101,6 +101,8 @@ struct LoadInfo {
   Value *AddrBase;
   // The dest type if there is zext.
   Type *ZExtDstTy;
+  // GEP's source element type
+  Type *GEPSrcTy;
   // The gather's index.
   uint64_t Pos;
   // The inserted base vector.
@@ -113,6 +115,7 @@ struct LoadInfo {
     AddrIndex = nullptr;
     AddrBase = nullptr;
     ZExtDstTy = nullptr;
+    GEPSrcTy = nullptr;
     Pos = 0;
     Base = nullptr;
     Load = nullptr;
@@ -153,6 +156,7 @@ static std::optional<LoadInfo> findLoad(Value *I, const BasicBlock *BB) {
     return std::nullopt;
 
   L.AddrBase = GEP->getPointerOperand();
+  L.GEPSrcTy = GEP->getSourceElementType();
 
   // Handle the zext instruction.
   Value *LastV = *GEP->idx_begin();
@@ -216,6 +220,8 @@ bool FoldLoadsToGather::run(Instruction& I) {
       return false;
     if (Load0.AddrBase != Load.AddrBase)
       return false;
+    if (Load0.GEPSrcTy != Load.GEPSrcTy)
+      return false;
     if (Load0.ZExtDstTy != Load.ZExtDstTy)
       return false;
     if (Load.Pos != (E - I - 1))
@@ -232,13 +238,11 @@ bool FoldLoadsToGather::run(Instruction& I) {
     return false;
 
   // A quick way to check the alias between these loads.
-  for (auto I = Loads[Load0.VF - 1].Load->getIterator(),
-    E = Load0.Load->getIterator();
-    I != E; ++I) {
-    Instruction& Inst = *I;
-    if (Inst.mayWriteToMemory())
-      return false;
-  }
+  for (unsigned Elem = 0; Elem < Load0.VF; ++Elem)
+    for (auto LoadIt = Loads[Elem].Load->getIterator(), E = I.getIterator();
+         LoadIt != E; ++LoadIt)
+      if (LoadIt->mayWriteToMemory())
+        return false;
 
   LLVM_DEBUG(
     dbgs() << "Transform:\n";
@@ -256,12 +260,8 @@ bool FoldLoadsToGather::run(Instruction& I) {
   }
 
   // Generate the GEP with 'AddrBase' and 'AddrIndex'.
-  auto AddrBaseTy = Load0.AddrBase->getType()->getScalarType();
-  auto GEPTy = AddrBaseTy->isOpaquePointerTy()
-                   ? AddrBaseTy
-                   : AddrBaseTy->getNonOpaquePointerElementType();
-  auto GEP =
-      Builder.CreateGEP(GEPTy, Load0.AddrBase, ArrayRef<Value *>({AddrIndex}));
+  auto GEP = Builder.CreateGEP(Load0.GEPSrcTy, Load0.AddrBase,
+                               ArrayRef<Value *>({AddrIndex}));
 
   auto Gather = Builder.CreateMaskedGather(Load0.Base->getType(), GEP,
                                            Load0.Load->getAlign());
