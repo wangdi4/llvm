@@ -636,10 +636,10 @@ bool InstCombinerImpl::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
            BinaryOperator::Create(Opcode, A, B);
 
          if (isa<FPMathOperator>(NewBO)) {
-          FastMathFlags Flags = I.getFastMathFlags();
-          Flags &= Op0->getFastMathFlags();
-          Flags &= Op1->getFastMathFlags();
-          NewBO->setFastMathFlags(Flags);
+           FastMathFlags Flags = I.getFastMathFlags() &
+                                 Op0->getFastMathFlags() &
+                                 Op1->getFastMathFlags();
+           NewBO->setFastMathFlags(Flags);
         }
         InsertNewInstWith(NewBO, I);
         NewBO->takeName(Op1);
