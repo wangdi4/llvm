@@ -650,14 +650,7 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 }
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
-<<<<<<< HEAD
-  const llvm::Triple &T = Target.getTriple();
-  // If we encounter a try statement on in an OpenMP target region offloaded to
-  // a GPU, we treat it as a basic block.
-  const bool IsTargetDevice =
-      (CGM.getLangOpts().OpenMPIsTargetDevice && (T.isNVPTX() || T.isAMDGCN()));
-  if (!IsTargetDevice)
-    EnterCXXTryStmt(S);
+  EnterCXXTryStmt(S);
 #if INTEL_COLLAB
   if (CapturedStmtInfo)
     CapturedStmtInfo->enterTryStmt();
@@ -682,13 +675,7 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   if (CapturedStmtInfo)
     CapturedStmtInfo->exitTryStmt();
 #endif // INTEL_COLLAB
-  if (!IsTargetDevice)
-    ExitCXXTryStmt(S);
-=======
-  EnterCXXTryStmt(S);
-  EmitStmt(S.getTryBlock());
   ExitCXXTryStmt(S);
->>>>>>> e5d8160040f69d9084e89260eec85f98038611b5
 }
 
 void CodeGenFunction::EnterCXXTryStmt(const CXXTryStmt &S, bool IsFnTryBlock) {
