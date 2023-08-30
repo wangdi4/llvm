@@ -533,6 +533,16 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
 // are accessing entries from 0 to 3, and the distance between each RegDDRef
 // is 1. This means that the entries in the group represents an access to
 // the memory that is contiguous.
+// This function can also work on a delinearized group. An example group is
+//
+//   (%0)[2 * i1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2]
+//   (%0)[2 * i1][4 * i2 + 1] <-- (%0)[2 * %18 * i1 + 4 * i2 + 1]
+//   (%0)[2 * i1][4 * i2 + 2]
+//   (%0)[2 * i1][4 * i2 + 3]
+//   (%0)[2 * i1 + 1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2 + %18]
+//   (%0)[2 * i1 + 1][4 * i2 + 1]
+//   (%0)[2 * i1 + 1][4 * i2 + 2]
+//   (%0)[2 * i1 + 1][4 * i2 + 3]
 static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
                                              const HLLoop *InnermostLoop,
                                              TargetTransformInfo &TTI) {
@@ -549,7 +559,7 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
     return false;
 
   RegDDRef *FirstRef = Group.front();
-  bool IsLoad = FirstRef->isRval();
+
   auto &DDRU = FirstRef->getDDRefUtils();
   auto &CEU = FirstRef->getCanonExprUtils();
   auto Level = InnermostLoop->getNestingLevel();
@@ -582,9 +592,8 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
 
   // If MaxContiguousStrideSize is 0, then we fully disable RuntimeDD for
   // contiguous memory access.
-  if (MaxContiguousStrideSize == 0) {
+  if (MaxContiguousStrideSize == 0)
     return false;
-  }
 
   if (MaxContiguousStrideSize > 0) {
     int64_t ExpectedAccessInBits =
@@ -605,13 +614,6 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
            "Number of dimensions are different");
     assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
            "Base canon expr are different");
-
-    // We are going to trace only the Refs that are loads or stores if they
-    // match the first entry.
-    // NOTE: Perhaps we can expand this in the future to check both cases in
-    // one group.
-    if (Ref->isRval() != IsLoad)
-      continue;
 
     int64_t DistanceInBytes = 0;
     if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
@@ -637,6 +639,19 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
     //
     // In this case, the coefficient is 4 but we only found 3 entries. There is
     // a gap of 1.
+    //
+    // With delinearized group, this function can return true with the first 4
+    // ref occurences.
+    //
+    // (%0)[2 * i1][4 * i2]
+    // (%0)[2 * i1][4 * i2 + 1]
+    // (%0)[2 * i1][4 * i2 + 2]
+    // (%0)[2 * i1][4 * i2 + 3]
+    // (%0)[2 * i1 + 1][4 * i2]
+    // (%0)[2 * i1 + 1][4 * i2 + 1]
+    // (%0)[2 * i1 + 1][4 * i2 + 2]
+    // (%0)[2 * i1 + 1][4 * i2 + 3]
+    //
     if (NumContiguousAccessMatches == ExpectedContiguousAccessMatches)
       return true;
 
@@ -1854,8 +1869,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
-    bool IsContiguousGroup =
-        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop, TTI);
+    bool IsContiguousGroup = isGroupAccessingContiguousMemory(
+        GetGroupForChecks(I), InnermostLoop, TTI);
+
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);
 
