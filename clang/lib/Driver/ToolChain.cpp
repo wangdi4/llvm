@@ -2059,8 +2059,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     if (A->getOption().matches(options::OPT_m_Group)) {
       // AMD GPU is a special case, as -mcpu is required for the device
       // compilation, except for SYCL which uses --offload-arch.
-      if (SameTripleAsHost || (getTriple().getArch() == llvm::Triple::amdgcn &&
-                               DeviceOffloadKind != Action::OFK_SYCL)) {
+      // Pass code object version to device toolchain
+      // to correctly set metadata in intermediate files.
+      if (SameTripleAsHost ||
+          A->getOption().matches(options::OPT_mcode_object_version_EQ) ||
+          (getTriple().getArch() == llvm::Triple::amdgcn &&
+           DeviceOffloadKind != Action::OFK_SYCL)) {
         DAL->append(A);
         continue;
       }
