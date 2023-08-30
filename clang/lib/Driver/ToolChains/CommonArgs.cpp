@@ -644,7 +644,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
+  return Triple.isPS();
 }
 
 #if INTEL_CUSTOMIZATION
