@@ -16766,7 +16766,7 @@ private:
             TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
 #if INTEL_COLLAB
       if (RdxKind == RecurKind::FAdd) {
-        auto *I = dyn_cast<Instruction>(FirstReducedVal);
+        auto *I = dyn_cast<Instruction>(ReducedVals.front());
         if (I &&
             I->getOpcode() == Instruction::FMul &&
             I->hasAllowContract()) {

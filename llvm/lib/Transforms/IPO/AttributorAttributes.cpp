@@ -12203,7 +12203,7 @@ struct AAGlobalValueInfoFloating : public AAGlobalValueInfo {
         return checkUse(A, U, Follow, Worklist);
       case UseCaptureKind::MAY_CAPTURE:
         return checkUse(A, U, Follow, Worklist);
-      case UseCaptureKind::PASSTHROUGH:
+      case UseCaptureKind::USER_MAY_CAPTURE: // INTEL
         Follow = true;
         return true;
       }
