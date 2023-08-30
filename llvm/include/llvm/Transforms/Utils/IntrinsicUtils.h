@@ -92,6 +92,14 @@ public:
       CallInst *CI,
       function_ref<bool(const OperandBundleDef &Bundle)> Predicate);
 
+  /// Creates a clone of \p CI with the first operand of each bundle, if
+  /// present, replaced with its counterpart from \p OpndReplacementMap, if \p
+  /// Predicate holds true for the bundle. If a change is made, CI is replaced
+  /// with the clone, and the clone is returned.
+  static CallInst *replaceFirstBundleOperandsInDirectiveIf(
+      CallInst *CI, SmallDenseMap<Value *, Value *, 8> &OpndReplacementMap,
+      function_ref<bool(const OperandBundleDef &Bundle)> Predicate);
+
 #if INTEL_CUSTOMIZATION
   /// Creates a clone of \p CI without without private clauses for \p V.
   /// Replaces all uses of the original \p CI with the new Instruction created.

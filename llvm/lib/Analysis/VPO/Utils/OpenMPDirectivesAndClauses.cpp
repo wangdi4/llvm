@@ -65,7 +65,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
       IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
-      IsReproducible(false), IsTyped(false) {
+      IsReproducible(false), IsTyped(false), IsSubObject(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -206,6 +206,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapChainLink();
         else if (ModSubString[i] == "IV")          // for linear clause
           setIsIV();
+        else if (ModSubString[i] == "SUBOBJ")
+          setIsSubObject();
         else if (ModSubString[i] == "PTR_TO_PTR") // For operands like "int *x"
           setIsPointerToPointer(); // (i32**) on linear, is/use_device_ptr etc.
         else if (ModSubString[i] == "FPTR") // map chain whose base is a
