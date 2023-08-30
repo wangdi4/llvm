@@ -1808,7 +1808,6 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   return true;
 }
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
 #if INTEL_CUSTOMIZATION
@@ -2168,7 +2167,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
     Ancestor = Ancestor->user_back();
   } while (true);
 }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   if (!isa<VectorType>(Inst.getType()))
@@ -2830,6 +2828,7 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
 
   return nullptr;
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 // Transform:
@@ -2842,8 +2841,10 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
 // %ld = load i32, ptr %newgep
 GetElementPtrInst *
 InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   assert(cast<PointerType>(GEP.getType())->isOpaque() &&
          "Opaque ptr expected!");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Type *LoadStoreTy = nullptr;
   Type *SrcElemTy = GEP.getSourceElementType();
@@ -2909,8 +2910,6 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
@@ -3343,6 +3342,13 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     if (Instruction *I = visitGEPOfBitcast(BCI, GEP))
       return I;
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+#if INTEL_CUSTOMIZATION
+  if (GEP.getNumOperands() == 2 && !IsGEPSrcEleScalable &&
+      GEPEltType->isSized())
+    if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
