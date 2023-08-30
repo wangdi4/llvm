@@ -244,7 +244,7 @@ macro(handle_default_cxx_lib var)
     if (APPLE OR CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
       set(${var}_LIBNAME "libc++")
       set(${var}_SYSTEM 1)
-    elseif (FUCHSIA)
+    elseif (ANDROID OR FUCHSIA)
       set(${var}_LIBNAME "libc++")
       set(${var}_INTREE 1)
     else()
@@ -282,6 +282,7 @@ set(CXXLIBS none default libstdc++ libc++)
 set_property(CACHE SANITIZER_TEST_CXX PROPERTY STRINGS ;${CXXLIBS})
 handle_default_cxx_lib(SANITIZER_TEST_CXX)
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Since we only need to collect code coverage info for our release scope, we
 # remove ccov build flags from cxx/c flags here to avoid them being included
@@ -306,12 +307,21 @@ endif()
 # end INTEL_CUSTOMIZATION
 
 option(COMPILER_RT_USE_LLVM_UNWINDER "Use the LLVM unwinder." OFF)
+=======
+set(DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER OFF)
+if (ANDROID)
+  set(DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER ON)
+endif()
+
+option(COMPILER_RT_USE_LLVM_UNWINDER
+  "Use the LLVM unwinder." ${DEFAULT_COMPILER_RT_USE_LLVM_UNWINDER})
+>>>>>>> cf403c10fba72ddc6a083a0e1603974d0749c6b3
 cmake_dependent_option(COMPILER_RT_ENABLE_STATIC_UNWINDER
   "Statically link the LLVM unwinder." OFF
   "COMPILER_RT_USE_LLVM_UNWINDER" OFF)
 
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
-if (FUCHSIA)
+if (ANDROID OR FUCHSIA)
   set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER ON)
 elseif (DEFINED LIBUNWIND_ENABLE_SHARED AND NOT LIBUNWIND_ENABLE_SHARED)
   set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER ON)
@@ -349,7 +359,7 @@ cmake_dependent_option(COMPILER_RT_STATIC_CXX_LIBRARY
   "COMPILER_RT_CXX_LIBRARY" OFF)
 
 set(DEFAULT_COMPILER_RT_USE_BUILTINS_LIBRARY OFF)
-if (FUCHSIA)
+if (ANDROID OR FUCHSIA)
   set(DEFAULT_COMPILER_RT_USE_BUILTINS_LIBRARY ON)
 endif()
 
