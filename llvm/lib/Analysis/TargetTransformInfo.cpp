@@ -1244,6 +1244,10 @@ bool TargetTransformInfo::hasCDI() const {
 
 bool TargetTransformInfo::hasVLX() const { return TTIImpl->hasVLX(); }
 
+bool TargetTransformInfo::preferNoGather() const {
+  return TTIImpl->preferNoGather();
+}
+
 bool TargetTransformInfo::has2KDSB() const {return TTIImpl->has2KDSB();}
 
 bool TargetTransformInfo::has4KDSB() const {return TTIImpl->has4KDSB();}
