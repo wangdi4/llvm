@@ -40,11 +40,7 @@ def main(builtin_params={}):
         order=opts.order,
         params=params,
         config_prefix=opts.configPrefix,
-<<<<<<< HEAD
         show_final_subst=opts.show_final_subst, #INTEL
-        echo_all_commands=opts.echoAllCommands,
-=======
->>>>>>> 09b6e457d91ce84088e6e21783913e5f1e5bd227
         per_test_coverage=opts.per_test_coverage,
     )
 
