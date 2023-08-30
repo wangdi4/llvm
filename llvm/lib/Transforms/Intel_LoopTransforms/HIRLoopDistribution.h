@@ -297,7 +297,6 @@ private:
 
   DistHeuristics DistCostModel;
   DistAnalysis Analysis;
-  std::array<HLLoop *, MaxDistributedLoop> NewLoops;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 
