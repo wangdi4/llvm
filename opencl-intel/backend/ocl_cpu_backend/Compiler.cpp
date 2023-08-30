@@ -87,31 +87,6 @@ static void LogHasRecursion(llvm::raw_ostream &logs,
 }
 
 /**
- * Generates the log record (to the given stream) enumerating function names
-   with unresolved pipe accesses.
- */
-static void
-LogHasFpgaPipeDynamicAccess(llvm::raw_ostream &logs,
-                            const std::vector<std::string> &functions) {
-  logs << "Error: dynamic pipe or channel access in function(s):\n";
-
-  for (const auto &fun : functions) {
-    logs << fun << "\n";
-  }
-}
-
-static void
-LogVectorVariantFailureFunctions(llvm::raw_ostream &logs,
-                                 const std::vector<std::string> &functions,
-                                 const std::string &reason) {
-  logs << "Error: " << reason << " in function(s):\n";
-
-  for (const auto &f : functions) {
-    logs << f << "\n";
-  }
-}
-
-/**
  * Generates the log record (to the given stream) enumerating global names
    whose depth attribute is ignored.
    Note: currently only FPGA channels is expected to be such globals.
@@ -400,17 +375,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                Optimizer::InvalidFunctionType::RECURSION));
     throw Exceptions::UserErrorCompilerException("Recursive call detected.",
                                                  CL_DEV_INVALID_BINARY);
-  }
-
-  if (optimizer->hasFpgaPipeDynamicAccess()) {
-    Utils::LogHasFpgaPipeDynamicAccess(
-        pResult->LogS(),
-        optimizer->GetInvalidFunctions(
-            Optimizer::InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS));
-
-    throw Exceptions::UserErrorCompilerException(
-        "Dynamic access to FPGA pipe or channel detected.",
-        CL_DEV_INVALID_BINARY);
   }
 
   if (optimizer->hasFPGAChannelsWithDepthIgnored()) {

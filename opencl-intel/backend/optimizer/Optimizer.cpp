@@ -179,11 +179,6 @@ bool Optimizer::hasUnsupportedRecursion() {
              : !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
 }
 
-bool Optimizer::hasFpgaPipeDynamicAccess() const {
-  return !GetInvalidFunctions(InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS)
-              .empty();
-}
-
 bool Optimizer::hasFPGAChannelsWithDepthIgnored() const {
   return !GetInvalidGlobals(InvalidGVType::FPGA_DEPTH_IS_IGNORED).empty();
 }
@@ -222,10 +217,6 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
       break;
     case RECURSION_WITH_BARRIER:
       Invalid = F.hasFnAttribute(KernelAttribute::RecursionWithBarrier);
-      break;
-    case FPGA_PIPE_DYNAMIC_ACCESS:
-      Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
-                KMD.FpgaPipeDynamicAccess.get();
       break;
     }
 
