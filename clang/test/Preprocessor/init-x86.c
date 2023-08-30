@@ -1001,6 +1001,7 @@
 // X32:#define __x86_64 1
 // X32:#define __x86_64__ 1
 
+<<<<<<< HEAD
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=x86_64-unknown-cloudabi < /dev/null | FileCheck -match-full-lines -check-prefix X86_64-CLOUDABI %s
 //
 // X86_64-CLOUDABI:#define _LP64 1
@@ -1309,6 +1310,8 @@
 // X86_64-CLOUDABI:#define __x86_64 1
 // X86_64-CLOUDABI:#define __x86_64__ 1
 
+=======
+>>>>>>> 5165593a97a04caad553cb0c213d3b3d359b1853
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=x86_64-pc-linux-gnu < /dev/null | FileCheck -match-full-lines -check-prefix X86_64-LINUX %s
 //
 // X86_64-LINUX:#define _LP64 1
