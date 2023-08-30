@@ -5615,8 +5615,7 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     for (const auto &R : ScalarLpVPI->getOriginRemarks())
-      ORBuilder(*ScalarLp, *LI)
-          .addOrigin(static_cast<OptRemarkID>(R.Remark.getRemarkID()));
+      ORBuilder(*ScalarLp, *LI).addOrigin(R.Remark.getRemarkID());
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
       ORBuilder(*ScalarLp, *LI).addRemark(R.MessageVerbosity, R.Remark);

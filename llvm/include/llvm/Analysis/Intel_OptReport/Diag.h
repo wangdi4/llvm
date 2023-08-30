@@ -20,6 +20,7 @@
 #define LLVM_ANALYSIS_INTEL_OPTREPORT_DIAG_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
@@ -209,6 +210,8 @@ enum class OptRemarkID {
   LLORGUnrolledBy = 25604,
   LLORGRemainderLoop = 25605,
   LLORGPeeledBy = 25606,
+
+  DummyRemarkForTesting = 99999,
 };
 
 struct DiagTableKey {
@@ -221,6 +224,11 @@ struct DiagTableKey {
 // Use DiagTableKey::operator unsigned() as a shortcut to define
 // DenseMapInfo for DiagTableKey.
 template <> struct DenseMapInfo<DiagTableKey> : DenseMapInfo<unsigned> {};
+
+inline raw_ostream &operator<<(raw_ostream &OS, OptRemarkID ID) {
+  OS << static_cast<unsigned>(ID);
+  return OS;
+}
 
 class OptReportDiag {
   static const DenseMap<DiagTableKey, const char *> Diags;

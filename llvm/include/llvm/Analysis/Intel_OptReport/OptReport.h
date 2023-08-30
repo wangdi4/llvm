@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 
@@ -73,9 +74,10 @@ public:
   OptRemark(const MDOperand &R) : OptRemark(cast<MDTuple>(R)) {}
 
   template <typename... Args>
-  static OptRemark get(LLVMContext &Context, Args &&...args) {
+  static OptRemark get(LLVMContext &Context, OptRemarkID ID, Args &&...args) {
     SmallVector<Metadata *, 4> Ops;
     populateMDTupleOperands(Ops, Context, OptReportTag::Remark,
+                            static_cast<unsigned>(ID),
                             std::forward<Args>(args)...);
     MDTuple *Tuple = MDTuple::get(Context, Ops);
     return Tuple;
@@ -83,7 +85,7 @@ public:
 
   const Metadata *getOperand(unsigned Idx) const;
   unsigned getNumOperands() const;
-  unsigned getRemarkID() const;
+  OptRemarkID getRemarkID() const;
 
   explicit operator bool() const { return Remark; }
   MDTuple *get() const { return Remark; }
