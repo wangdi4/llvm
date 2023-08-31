@@ -1,5 +1,15 @@
-; REQUIRES: asserts
+; REQUIRES: asserts, typed_pointers
 ; RUN: opt -passes=instcombine -debug-only=instcombine -S <%s 2>&1 | FileCheck %s
+
+; This test was for CMPLRLLVM-24134, commit 7ec7d45834.
+; The memcpy calls are expected to be lowered to load/stores by
+; code in InstCombineCalls. The optimization relies on either pointer types or
+; TBAA MD, neither of which are being produced by the FFE.
+; The optimization and the tests both need to be rewritten to match what
+; the FFE is currently producing for CMPLRLLVM-24131 (cam4).
+
+; For now, it's fine to leave it, as it's not actually clear that this
+; optimization really created a performance gain for cam4.
 
 ; Check memcpy lowering for Fortran
 

@@ -183,9 +183,8 @@ static bool isScalarTBAANode(const MDNode *MD);
 // threshold if the memcpy is transformed. If the number exceeds
 // some threshold, the expansion will give up due to performance reason.
 //
-// For Fortran, we lower all struct-to-struct copies, for structs without
-// nested ArrayTypes or VectorTypes, for compatibility with what was done
-// in ifort.
+// This code depends on TBAA MD. It must be extended, if it needs to work
+// for Fortran.
 //
 static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
                                      StructType *&STy) {
@@ -282,10 +281,18 @@ static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
   }
   STy = SrcSTy;
   const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+
+  // NOTE: this code depends on typed pointers. CMPLRLLVM-24134 needs to be
+  // revisited if we want this to work with opaque pointers.
+  //
+  // For Fortran, we lower all struct-to-struct copies, for structs without
+  // nested ArrayTypes or VectorTypes, for compatibility with what was done
+  // in ifort.
   if (MI->getFunction()->isFortran())
     return DL.getTypeStoreSize(SrcSTy) == Size &&
         Size <= StructCopySizeThresholdFortran &&
         !hasNonStructNonSingleValueType(SrcSTy);
+
   if ((Size & (Size - 1)) != 0)
     return false;
   MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
