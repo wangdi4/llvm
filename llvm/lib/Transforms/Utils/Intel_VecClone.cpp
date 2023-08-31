@@ -1340,6 +1340,8 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         auto *BasePtrExtract = Builder.CreateExtractElement(
             Arg, (uint64_t)0, Arg->getName() + ".ext");
         auto *ArgElemType = cast<VectorType>(Arg->getType())->getElementType();
+        assert(ArgElemType->isPointerTy() &&
+               "Vector of pointers expected as val arg type");
         ArgMemory = Builder.CreateAlloca(
             ArgElemType, nullptr, "alloca." + Arg->getName() + ".scalar");
         Builder.CreateStore(BasePtrExtract, ArgMemory);
