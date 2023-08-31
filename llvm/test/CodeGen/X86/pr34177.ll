@@ -88,6 +88,8 @@ define void @test(<4 x i64> %a, <4 x x86_fp80> %b, ptr %c) local_unnamed_addr {
 ; AVX512VL-NEXT:    fadd %st, %st(0) ;INTEL
 ; AVX512VL-NEXT:    fstpt 20(%rdi)
 ; AVX512VL-NEXT:    fadd %st, %st(0)
+; AVX512VL-NEXT:    fstpt (%rdi)
+; AVX512VL-NEXT:    fadd %st, %st(0)
 ; AVX512VL-NEXT:    fstpt 60(%rdi)
   %1 = icmp eq <4 x i64> <i64 0, i64 1, i64 2, i64 3>, %a
   %2 = select <4 x i1> %1, <4 x x86_fp80> <x86_fp80 0xK3FFF8000000000000000, x86_fp80 0xK3FFF8000000000000000, x86_fp80 0xK3FFF8000000000000000, x86_fp80 0xK3FFF8000000000000000>, <4 x x86_fp80> zeroinitializer

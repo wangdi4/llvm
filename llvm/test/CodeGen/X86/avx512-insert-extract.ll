@@ -175,9 +175,8 @@ define <16 x i32> @test11(<16 x i32>%a, <16 x i32>%b) nounwind {
 ; KNL-LABEL: test11:
 ; KNL:       ## %bb.0:
 ; KNL-NEXT:    vpcmpltud %zmm1, %zmm0, %k0
-; KNL-NEXT:    kshiftrw $4, %k0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
-; KNL-NEXT:    testb $1, %al
+; KNL-NEXT:    testb $16, %al
 ; KNL-NEXT:    je LBB10_2
 ; KNL-NEXT:  ## %bb.1: ## %A
 ; KNL-NEXT:    vmovdqa64 %zmm1, %zmm0
@@ -189,9 +188,8 @@ define <16 x i32> @test11(<16 x i32>%a, <16 x i32>%b) nounwind {
 ; SKX-LABEL: test11:
 ; SKX:       ## %bb.0:
 ; SKX-NEXT:    vpcmpltud %zmm1, %zmm0, %k0
-; SKX-NEXT:    kshiftrw $4, %k0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
-; SKX-NEXT:    testb $1, %al
+; SKX-NEXT:    testb $16, %al
 ; SKX-NEXT:    je LBB10_2
 ; SKX-NEXT:  ## %bb.1: ## %A
 ; SKX-NEXT:    vmovdqa64 %zmm1, %zmm0
@@ -277,7 +275,7 @@ define i64 @test14(<8 x i64>%a, <8 x i64>%b, i64 %a1, i64 %b1) nounwind {
 ; KNL-NEXT:    movq %rdi, %rax
 ; KNL-NEXT:    vpcmpgtq %zmm0, %zmm1, %k0
 ; KNL-NEXT:    kmovw %k0, %ecx
-; KNL-NEXT:    testb $16, %cl ;INTEL
+; KNL-NEXT:    testb $16, %cl
 ; KNL-NEXT:    cmoveq %rsi, %rax
 ; KNL-NEXT:    vzeroupper
 ; KNL-NEXT:    retq
@@ -287,7 +285,7 @@ define i64 @test14(<8 x i64>%a, <8 x i64>%b, i64 %a1, i64 %b1) nounwind {
 ; SKX-NEXT:    movq %rdi, %rax
 ; SKX-NEXT:    vpcmpgtq %zmm0, %zmm1, %k0
 ; SKX-NEXT:    kmovd %k0, %ecx
-; SKX-NEXT:    testb $16, %cl ;INTEL
+; SKX-NEXT:    testb $16, %cl
 ; SKX-NEXT:    cmoveq %rsi, %rax
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq
