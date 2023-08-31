@@ -1346,6 +1346,7 @@ class MapItem : public Item
 {
 private:
   unsigned MapKind = 0; // bit vector for map kind and modifiers
+
   // True for map-chains with function pointers as their base. e.g.:
   //   void (*fptr)(void);
   //   #pragma omp target firstprivate(fptr)
@@ -1353,6 +1354,12 @@ private:
   // %0 = load void ()*, void ()** %fptr, align 8
   // "QUAL.OMP.MAP.TOFROM:FPTR"(void ()* %0, void ()* %0, i64 0, i64 32, ...)
   bool IsFunctionPointer = false;
+
+  // True if getOrig() is used in an atomic-free reduction inside this TARGET
+  // region. This bool is computed during code tranformation after traversing
+  // all child WRNs (of the current TARGET region) that have REDUCTION clauses.
+  bool IsUsedInAtomicFreeReduction = false;
+
   PrivateItem *InPrivate = nullptr;           // PrivateItem with the same opnd
   FirstprivateItem *InFirstprivate = nullptr; // FP Item with the same opnd
   UseDevicePtrItem *InUseDevicePtr = nullptr; // Map is for use-device-ptr
@@ -1451,6 +1458,9 @@ public:
   void setIsMapClose()   { MapKind |= WRNMapClose; }
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setIsFunctionPointer(bool Flag) { IsFunctionPointer = Flag; }
+  void setIsUsedInAtomicFreeReduction(bool Flag) {
+    IsUsedInAtomicFreeReduction = Flag;
+  }
   void setInPrivate(PrivateItem *PI) { InPrivate = PI; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
@@ -1471,6 +1481,9 @@ public:
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   bool getIsFunctionPointer() const { return IsFunctionPointer; }
+  bool getIsUsedInAtomicFreeReduction() const {
+    return IsUsedInAtomicFreeReduction;
+  }
   PrivateItem *getInPrivate() const { return InPrivate; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
