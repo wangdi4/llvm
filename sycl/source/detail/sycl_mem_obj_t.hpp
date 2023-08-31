@@ -175,7 +175,7 @@ public:
   bool canReuseHostPtr(void *HostPtr, const size_t RequiredAlign) {
     bool Aligned =
         (reinterpret_cast<std::uintptr_t>(HostPtr) % RequiredAlign) == 0;
-    return !MHostPtrReadOnly && (Aligned || useHostPtr());
+    return Aligned || useHostPtr();
   }
 
   void handleHostData(void *HostPtr, const size_t RequiredAlign) {
