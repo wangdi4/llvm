@@ -118,7 +118,7 @@ protected:
   // memprof profile data for that function, i.e allocation and callsite info.
   llvm::MapVector<GlobalValue::GUID, IndexedMemProfRecord> FunctionProfileData;
   // An iterator to the internal function profile data structure.
-  llvm::MapVector<GlobalValue::GUID, IndexedMemProfRecord>::iterator Iter;
+  llvm::MapVector<GlobalValue::GUID, IndexedMemProfRecord>::iterator Iter{}; // INTEL
 };
 
 // Map from id (recorded from sanitizer stack depot) to virtual addresses for
@@ -220,13 +220,6 @@ private:
 
   // Cached symbolization from PC to Frame.
   llvm::DenseMap<uint64_t, llvm::SmallVector<FrameId>> SymbolizedFrame;
-<<<<<<< HEAD
-  llvm::DenseMap<FrameId, Frame> IdToFrame;
-
-  llvm::MapVector<GlobalValue::GUID, IndexedMemProfRecord> FunctionProfileData;
-  llvm::MapVector<GlobalValue::GUID, IndexedMemProfRecord>::iterator Iter{}; // INTEL
-=======
->>>>>>> 37fd3c96b917096d8a550038f6e61cdf0fc4174f
 
   // Whether to keep the symbol name for each frame after hashing.
   bool KeepSymbolName = false;
