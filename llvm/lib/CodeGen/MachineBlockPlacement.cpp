@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -3257,8 +3257,19 @@ void MachineBlockPlacement::alignBlocks() {
     if (!L)
       continue;
 
-    const Align Align = TLI->getPrefLoopAlignment(L);
-    if (Align == 1)
+#if INTEL_CUSTOMIZATION
+    const Align TLIAlign = TLI->getPrefLoopAlignment(L);
+    Attribute AttrAlignAttr =
+        F->getFunction().getFnAttribute("intel-code-align");
+    unsigned AttrAlign = 1;
+    if (AttrAlignAttr.isValid()) {
+      StringRef Val = AttrAlignAttr.getValueAsString();
+      Val.getAsInteger(0, AttrAlign);
+    }
+    // Use max of the TLIAlign and AttrAlign
+    const Align LoopAlign = std::max(TLIAlign, Align(AttrAlign));
+    if (LoopAlign == 1)
+#endif // INTEL_CUSTOMIZATION
       continue; // Don't care about loop alignment.
 
     // If the block is cold relative to the function entry don't waste space
@@ -3284,7 +3295,7 @@ void MachineBlockPlacement::alignBlocks() {
     MachineBasicBlock *LayoutPred =
         &*std::prev(MachineFunction::iterator(ChainBB));
 
-    if (ChainBB->getAlignment() > Align) // INTEL
+    if (ChainBB->getAlignment() > LoopAlign) // INTEL
       continue; // INTEL
 
     auto DetermineMaxAlignmentPadding = [&]() {
@@ -3300,7 +3311,7 @@ void MachineBlockPlacement::alignBlocks() {
     // Force alignment if all the predecessors are jumps. We already checked
     // that the block isn't cold above.
     if (!LayoutPred->isSuccessor(ChainBB)) {
-      ChainBB->setAlignment(Align);
+      ChainBB->setAlignment(LoopAlign); // INTEL
       DetermineMaxAlignmentPadding();
       continue;
     }
@@ -3313,7 +3324,7 @@ void MachineBlockPlacement::alignBlocks() {
         MBPI->getEdgeProbability(LayoutPred, ChainBB);
     BlockFrequency LayoutEdgeFreq = MBFI->getBlockFreq(LayoutPred) * LayoutProb;
     if (LayoutEdgeFreq <= (Freq * ColdProb)) {
-      ChainBB->setAlignment(Align);
+      ChainBB->setAlignment(LoopAlign); // INTEL
       DetermineMaxAlignmentPadding();
     }
   }
