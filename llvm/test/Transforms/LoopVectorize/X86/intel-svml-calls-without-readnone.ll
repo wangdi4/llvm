@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(float* nocapture %a) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a) local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK:         [[TMP4:%.*]] = extractelement <2 x float> [[WIDE_LOAD:%.*]], i32 0
@@ -22,10 +22,10 @@ omp.inner.for.body.lr.ph:
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  %ptridx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %0 = load float, float* %ptridx, align 4
+  %ptridx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %0 = load float, ptr %ptridx, align 4
   %call = call float @logf(float %0) #2
-  store float %call, float* %ptridx, align 4
+  store float %call, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body

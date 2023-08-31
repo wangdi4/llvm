@@ -6,8 +6,7 @@
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-@llvm.compiler.used = appending global [6 x ptr] [ptr bitcast (<2 x double> (<2 x double>)* @__svml_sin2 to ptr), ptr bitcast (<4 x double> (<4 x double>)* @__svml_sin4
-to ptr), ptr bitcast (<8 x double> (<8 x double>)* @__svml_sin8 to ptr), ptr bitcast (<16 x double> (<16 x double>)* @__svml_sin16 to ptr), ptr bitcast (<32 x double> (<32 x double>)* @__svml_sin32 to ptr), ptr bitcast (<64 x double> (<64 x double>)* @__svml_sin64 to ptr)], section "llvm.metadata"
+@llvm.compiler.used = appending global [6 x ptr] [ptr @__svml_sin2, ptr @__svml_sin4, ptr @__svml_sin8, ptr @__svml_sin16, ptr @__svml_sin32, ptr @__svml_sin64], section "llvm.metadata"
 
 ; Function Attrs: nofree nounwind
 define dso_local void @a(i32 %b, ptr nocapture %c) local_unnamed_addr #0 {
