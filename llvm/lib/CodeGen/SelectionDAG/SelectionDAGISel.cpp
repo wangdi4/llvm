@@ -2494,6 +2494,13 @@ GetVBR(uint64_t Val, const unsigned char *MatcherTable, unsigned &Idx) {
   return Val;
 }
 
+void SelectionDAGISel::Select_JUMP_TABLE_DEBUG_INFO(SDNode *N) {
+  SDLoc dl(N);
+  CurDAG->SelectNodeTo(N, TargetOpcode::JUMP_TABLE_DEBUG_INFO, MVT::Glue,
+                       CurDAG->getTargetConstant(N->getConstantOperandVal(1),
+                                                 dl, MVT::i64, true));
+}
+
 /// When a match is complete, this method updates uses of interior chain results
 /// to use the new results.
 void SelectionDAGISel::UpdateChains(
@@ -3047,6 +3054,7 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   case ISD::PATCHPOINT:
     Select_PATCHPOINT(NodeToMatch);
     return;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   case ISD::INTRINSIC_VOID: {
@@ -3070,6 +3078,11 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   }
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
+=======
+  case ISD::JUMP_TABLE_DEBUG_INFO:
+    Select_JUMP_TABLE_DEBUG_INFO(NodeToMatch);
+    return;
+>>>>>>> 0c5c7b52f0f395a6beb7956ba210b8ca727c0471
   }
 
   assert(!NodeToMatch->isMachineOpcode() && "Node already selected!");
