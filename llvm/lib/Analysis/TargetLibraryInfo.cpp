@@ -155,10 +155,13 @@ static bool hasBcmp(const Triple &TT) {
 #if INTEL_CUSTOMIZATION
 bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   // Track if call allows substitution with approximate functions. We use
-  // FastMathFlags to determine this property for FP computations.
+  // FastMathFlags to determine this property for FP computations. Ignore the
+  // flags if user has specified compiler to use SVML (-fimf-use-svml).
   bool CallAllowsApproxFn = true;
   if (auto *FPCall = dyn_cast<FPMathOperator>(&CB))
     CallAllowsApproxFn = FPCall->hasApproxFunc();
+  if (CB.getFnAttr("imf-use-svml").getValueAsBool())
+    CallAllowsApproxFn = true;
   if (!CallAllowsApproxFn)
     return false;
 

@@ -893,7 +893,9 @@ void HIRLoopCollapse::setMaxVecLenAllowed(HLLoop *const OrigOutermostLp,
     for (auto &Edge : DDG.outgoing(Ref)) {
       auto *SinkRef = cast<RegDDRef>(Edge->getSink());
       if (HLNodeUtils::dominates(SinkRef->getHLDDNode(), Ref->getHLDDNode())) {
-        if (Edge->getDVAtLevel(OrigOutermostLevel) == DVKind::LT) {
+        // DV may be in this form:   (< = ) or (* > =)  when collapsing
+        // innermost 2 levels
+        if (Edge->getDVAtLevel(OrigOutermostLevel) != DVKind::EQ) {
           unsigned TC = 2;
           if (TCArry[OrigInnermostLevel].isConstant()) {
             TC = TCArry[OrigInnermostLevel].getConstTripCount();
