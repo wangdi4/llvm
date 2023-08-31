@@ -405,6 +405,15 @@ class HIRParser {
   /// resulting value.
   const Value *traceSingleOperandPhis(const Value *Val) const;
 
+  // In opaque-ptr mode we do not have GEPs with zero indices representing
+  // indexing into inner types. This function tries to recreate them for
+  // Global/Alloca pointer \p Ptr which can return a resulting type of
+  // \p ResultElemTy. This allows incorporating dimension info of the
+  // Global/Alloca which may result in better MAX_TC_ESTs of parent loops. It
+  // returns \p Ptr if zero index GEP was not created.
+  const Value *getZeroIndexGEPOrOrigPtr(const Value *Ptr,
+                                        Type *ResultElemTy) const;
+
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
                     bool SkipLiveRangeCheck = false) const;

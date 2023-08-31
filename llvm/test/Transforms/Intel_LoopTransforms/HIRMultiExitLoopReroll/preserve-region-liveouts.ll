@@ -44,16 +44,16 @@
 ; CHECK: LiveOuts:
 ; CHECK-SAME: %i757
 
-; CHECK: + DO i1 = 0, 4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4) + 3, 1   <DO_MULTI_EXIT_LOOP> 
-; CHECK: |   %i743 = (@log_name)[i1];
+; CHECK: + DO i1 = 0, 4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4) + 3, 1   <DO_MULTI_EXIT_LOOP> <MAX_TC_EST = 4092>
+; CHECK: |   %i743 = (@log_name)[0][i1];
 ; CHECK: |   (%i231)[i1] = %i743;
 ; CHECK: |   if (%i743 == 0)
 ; CHECK: |   {
-; CHECK: |      %i742 = &((@log_name)[i1 + 1]);
+; CHECK: |      %i742 = &((@log_name)[0][i1 + 1]);
 ; CHECK: |      goto bb798;
 ; CHECK: |   }
 ; CHECK: + END LOOP
-; CHECK:   %i757 = &((@log_name)[4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4) + 4]);
+; CHECK:   %i757 = &((@log_name)[0][4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4) + 4]);
 ; CHECK:   %i761 = &((%i231)[4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4) + 4]);
 ; CHECK:   %i762 = %i232 + -4 * ((-1 + (-1 * umin(4, (-4 + %i232))) + %i232) /u 4)  +  -4;
 
