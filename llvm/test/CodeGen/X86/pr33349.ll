@@ -44,11 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; SKX-NEXT:    vpmovd2m %xmm0, %k0
 ; SKX-NEXT:    kshiftrb $2, %k0, %k1
 ; SKX-NEXT:    kmovd %k1, %eax
-<<<<<<< HEAD
 ; SKX-NEXT:    testb $2, %al
-=======
-; SKX-NEXT:    testb $1, %al
->>>>>>> 9734b2256d89cb4c61a4dbf4a3c3f3f942fe9b8c
 ; SKX-NEXT:    fld1
 ; SKX-NEXT:    fldz
 ; SKX-NEXT:    fld %st(0)
@@ -57,12 +53,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; SKX-NEXT:    testb $1, %al
 ; SKX-NEXT:    fld %st(1)
 ; SKX-NEXT:    fcmovne %st(3), %st
-<<<<<<< HEAD
 ; SKX-NEXT:    testb $2, %al
-=======
-; SKX-NEXT:    kmovd %k0, %eax
-; SKX-NEXT:    testb $1, %al
->>>>>>> 9734b2256d89cb4c61a4dbf4a3c3f3f942fe9b8c
 ; SKX-NEXT:    fld %st(2)
 ; SKX-NEXT:    fcmovne %st(4), %st
 ; SKX-NEXT:    testb $4, %al
