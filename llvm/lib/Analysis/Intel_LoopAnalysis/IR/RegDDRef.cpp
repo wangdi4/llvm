@@ -1047,15 +1047,43 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
 
     uint64_t DimStride = getDimensionConstStride(I);
 
-    if (!DimStride) {
-      // TODO: extend for non-const strides.
-      return nullptr;
-    }
-
-    if (Index != InvalidBlobIndex) {
-      StrideAtLevel->addBlob(Index, Coeff * DimStride * LoopStrideVal);
+    if (DimStride) {
+      if (Index != InvalidBlobIndex) {
+        StrideAtLevel->addBlob(Index, Coeff * DimStride * LoopStrideVal);
+      } else {
+        StrideAtLevel->addConstant(Coeff * DimStride * LoopStrideVal, false);
+      }
     } else {
-      StrideAtLevel->addConstant(Coeff * DimStride * LoopStrideVal, false);
+      // If dim stride is non-constant, we perform the following steps-
+      // 1. Convert it to stand-alone blob.
+      // 2. Multiply it with coefficients.
+      // 3. Convert the result to stand-alone blob.
+      // 4. Add it to StrideAtLevel.
+      auto *StrideCE = getDimensionStride(I);
+
+      if (!StrideCE->canConvertToStandAloneBlobOrConstant()) {
+        return nullptr;
+      }
+
+      std::unique_ptr<CanonExpr> StrideCEClone(StrideCE->clone());
+
+      StrideCEClone->convertToStandAloneBlobOrConstant();
+
+      if (!StrideCEClone->multiplyByConstant(Coeff) ||
+          !StrideCEClone->multiplyByConstant(LoopStrideVal)) {
+        return nullptr;
+      }
+
+      if ((Index != InvalidBlobIndex) &&
+          !StrideCEClone->multiplyByBlob(Index)) {
+        return nullptr;
+      }
+
+      if (!StrideCEClone->convertToStandAloneBlobOrConstant()) {
+        return nullptr;
+      }
+
+      StrideAtLevel->addBlob(StrideCEClone->getSingleBlobIndex(), 1);
     }
   }
 
