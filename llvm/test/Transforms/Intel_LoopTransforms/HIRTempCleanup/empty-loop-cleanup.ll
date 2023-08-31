@@ -7,7 +7,7 @@
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:             |   %0 = (@.str.94)[i1 + 1];
+; CHECK:             |   %0 = (@.str.94)[0][i1 + 1];
 ; CHECK:             + END LOOP
 ; CHECK:          END REGION
 

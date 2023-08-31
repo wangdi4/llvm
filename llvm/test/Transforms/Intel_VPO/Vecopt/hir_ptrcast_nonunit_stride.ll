@@ -18,7 +18,7 @@
 ;
 ; CHECK:      BEGIN REGION
 ; CHECK-NEXT:  DO i1 = 0, 127, 4
-; CHECK-NEXT:  (<4 x i32>*)(@darr)[i1 + <i64 0, i64 1, i64 2, i64 3>] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:  (<4 x i32>*)(@darr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  (<4 x i32>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:  END LOOP
 ; CHECK:      END REGION
