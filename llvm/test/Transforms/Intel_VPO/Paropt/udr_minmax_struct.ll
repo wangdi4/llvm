@@ -228,8 +228,8 @@ for.end:                                          ; preds = %for.cond
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; FASTRED-NOT: __kmpc_atomic
-; FASTRED: call void @.omp_initializer..2(ptr %maxp.red{{.*}}, ptr %maxp)
-; FASTRED: call void @.omp_initializer.(ptr %minp.red{{.*}}, ptr %minp)
+; FASTRED: call void @.omp_initializer..2(ptr %maxp.fast_red{{.*}}, ptr %maxp)
+; FASTRED: call void @.omp_initializer.(ptr %minp.fast_red{{.*}}, ptr %minp)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(ptr %minp, ptr %minp.fast_red{{.*}})
 ; FASTRED-DAG: call void @.omp_combiner..1(ptr %maxp, ptr %maxp.fast_red{{.*}})

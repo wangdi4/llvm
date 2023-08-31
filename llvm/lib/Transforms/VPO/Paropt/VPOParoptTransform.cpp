@@ -205,16 +205,19 @@ static cl::opt<bool> UseFastRedAtomic("vpo-paropt-fast-reduction-atomic",
                                       cl::Hidden, cl::init(true),
                                       cl::desc("Allow to use atomic reduction "
                                                "within fast reduction."));
-static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
-                                           cl::Hidden, cl::init(0x3),
-                                           cl::desc("Control option for fast "
-                                                    "reduction. Bit 0(default "
-                                                    "on): Scalar variables are"
-                                                    " used directly in "
-                                                    "reduction code. Bit 1("
-                                                    "default on): similar with"
-                                                    " bit 0, but for array "
-                                                    "reduction."));
+static cl::opt<uint32_t>
+    FastReductionCtrl("vpo-paropt-fast-reduction-ctrl", cl::Hidden,
+                      cl::init(0x3),
+                      cl::desc("Control option for fast "
+                               "reduction. Bit 0(default "
+                               "on): Scalar variables are"
+                               " used directly in "
+                               "reduction code. Bit 1("
+                               "default on): similar with"
+                               " bit 0, but for array "
+                               "reduction. Bit 2(default"
+                               "off): similar with bit 0,"
+                               "but for non-POD variables"));
 cl::opt<bool> AtomicFreeReduction("vpo-paropt-atomic-free-reduction",
                                   cl::Hidden, cl::init(true),
                                   cl::desc("Enable atomic-free GPU reduction"));
@@ -6058,6 +6061,10 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   return false;
 }
 
+bool VPOParoptTransform::isNonPodReduction(ReductionItem *I) {
+  return I->getConstructor() != nullptr || I->getDestructor() != nullptr;
+}
+
 // Determine if we want to generate fast reduction code and which method will
 // be generated (tree reduction only or tree + atomic reduction).
 int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
@@ -6622,6 +6629,12 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
     return;
   }
 
+  if (isNonPodReduction(RedI)) {
+    ConstantInt *ValueOne = Builder.getInt32(1);
+    genCopyByAddr(RedI, Dst, Src, InsertPt, nullptr, false, ValueOne);
+    return;
+  }
+
   genFastRedScalarCopy(Dst, Src, AllocaTy, Builder);
 }
 
@@ -7010,7 +7023,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
-      bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
+      bool UseRecForNonPod = ((FastReductionCtrl & 0x4) == 0);
+      bool UseRec = ((isNonPodReduction(RedI) && UseRecForNonPod) ||
+                     (!isArrayReduction(RedI) && UseRecForScalar) ||
                      (isArrayReduction(RedI) && UseRecForArray));
       Value *GlobalBufToReplaceWith = nullptr;
       if (FastReductionEnabled && UseRec) {
