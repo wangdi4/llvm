@@ -91,6 +91,8 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -128,6 +130,13 @@ static cl::opt<int> ColdCCRelFreq(
         "Maximum block frequency, expressed as a percentage of caller's "
         "entry frequency, for a call site to be considered cold for enabling"
         "coldcc"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> MaxGlobalTrivialUsageChainLength(
+    "max-global-trivial-usage-chain-length", cl::Hidden, cl::init(8),
+    cl::desc("Maximum length of instruction chain to analyze for trivial "
+             "global usage optimization."));
+#endif // INTEL_CUSTOMIZATION
 
 /// Is this global variable possibly used by a leak checker as a root?  If so,
 /// we might not really want to eliminate the stores to it.
@@ -1712,6 +1721,138 @@ static bool tryToReplaceGlobalWithMSVCStdout(
   }
   return true;
 }
+
+// A trivial load for a global variable is a load from global variable, that
+// all instructions following the def-use chains of the load is not a terminator
+// (i.e. we can analyze this usage purely through data dependencies), and is
+// side-effect free (or is a store to the global itself).
+// If all usages of a global are either a trivial load or a store, we can remove
+// the global, as well as all instructions involved only in its usages.
+//
+// This routine can optimize the following pattern:
+// ; @g is not used outside of @trivial_load_store_chain
+// define void @trivial_load_store_chain() {
+//   %1 = load i32, ptr @g
+//   %2 = add i32, %1, 1
+//   store i32 %2, ptr @g
+//   ret void
+// }
+// It also works in cases like below, where multiple globals are loaded,
+// assuming all usages of these globals follow similar patterns:
+//   %1 = load i32, ptr @g
+//   %2 = load i32, ptr @h
+//   %3 = add i32, %1, %2
+//   store i32 %3, ptr @g
+// However currently it doesn't work if stores to multiple globals are
+// present. That's because GlobalOpt handles globals one by one and we don't
+// know whether stores to globals other than the current one can be
+// optimized.
+static bool optimizeIfAllUsagesAreTrivial(
+    GlobalVariable *GV,
+    function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+  DenseSet<Instruction *> Visited;
+  SmallVector<Instruction *, 8> Worklist;
+
+  // We don't optimize globals involved in code fragments that're too complex.
+  // To implement the throttling, a union-find structure is used to store
+  // "clusters" of instructions. Two instructions are in the same cluster, if
+  // they use values that are potentially derived from the same load instruction
+  // of a global.
+  // LLVM EquivalenceClasses doesn't store size of each class, which happens to
+  // be exactly what we need here. We store them externally in a map.
+  EquivalenceClasses<Instruction *> Clusters;
+  DenseMap<Instruction *, unsigned> ClusterSizes;
+
+  // Ensure every user of the GV is either a load of the GV or a store into it.
+  // Meanwhile populate the initial values of relevant data structures.
+  for (User *U : GV->users()) {
+    auto *I = dyn_cast<Instruction>(U);
+    if (!I)
+      return false;
+    if (!GetTTI(*I->getFunction())
+             .isAdvancedOptEnabled(
+                 TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2))
+      return false;
+    if (auto *Load = dyn_cast<LoadInst>(I)) {
+      Worklist.push_back(Load);
+      Clusters.insert(Load);
+      ClusterSizes[Load] = 1;
+      continue;
+    }
+    auto *Store = dyn_cast<StoreInst>(I);
+    // The algorithm below won't find simple stores like "store i32 0, ptr @g".
+    // But in the last step, we need to remove the GV as well as all related
+    // instructions, including the stores. So here we also add these stores to
+    // simplify the code.
+    if (Store && Store->getPointerOperand() == GV) {
+      Visited.insert(Store);
+      Clusters.insert(Store);
+      ClusterSizes[Store] = 1;
+      continue;
+    }
+    return false;
+  }
+
+  // Walk the def-use chain to make sure all uses are safe to remove.
+  while (!Worklist.empty()) {
+    auto *I = Worklist.pop_back_val();
+
+    if (!Visited.insert(I).second)
+      continue;
+
+    for (User *U : I->users()) {
+      auto *UserI = dyn_cast<Instruction>(U);
+      if (!UserI)
+        return false;
+      // A terminator indicates some control flow depends on the global. This is
+      // harder to analyze. Bail out.
+      if (UserI->isTerminator())
+        return false;
+      // Bail out if we find any instruction with side effects
+      // But stores to the GV itself are okay
+      auto *Store = dyn_cast<StoreInst>(UserI);
+      if (!(Store && Store->getPointerOperand() == GV) &&
+          UserI->mayHaveSideEffects())
+        return false;
+
+      // Put the user instruction and the defining instruction into the same
+      // cluster (if it's not already the case). If the merged cluster has too
+      // many instructions, bail out.
+      // Most of the time, the user instruction is not visited yet and is not in
+      // Clusters, in this case a new cluster with only 1 instruction is created
+      // first.
+      // It's also possible that the user is already involved in another cluster
+      // (it's using multiple loads of the same global). The two clusters are
+      // simply merged.
+      if (Clusters.findValue(UserI) == Clusters.end()) {
+        Clusters.insert(UserI);
+        ClusterSizes[UserI] = 1;
+      }
+      if (!Clusters.isEquivalent(UserI, I)) {
+        unsigned NewSize = ClusterSizes[Clusters.getLeaderValue(UserI)] +
+                           ClusterSizes[Clusters.getLeaderValue(I)];
+        if (NewSize > MaxGlobalTrivialUsageChainLength)
+          return false;
+        Clusters.unionSets(I, UserI);
+        ClusterSizes[Clusters.getLeaderValue(I)] = NewSize;
+      }
+
+      Worklist.push_back(UserI);
+    }
+  }
+
+  // If the checks above are all okay, we can safely remove the GV and all
+  // instructions related to it.
+  for (auto *I : Visited)
+    I->dropAllReferences();
+  for (auto *I : Visited)
+    I->eraseFromParent();
+
+  assert(GV->use_empty() &&
+         "All uses of GlobalVariable should be identified and removed by now");
+  GV->eraseFromParent();
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 // For a global variable with one store, if the store dominates any loads,
@@ -1968,6 +2109,11 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (optimizeIfAllUsagesAreTrivial(GV, GetTTI))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return Changed;
 }
