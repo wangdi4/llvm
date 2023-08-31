@@ -305,42 +305,42 @@
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
 
 ; Function Attrs: nounwind readonly uwtable
-define dso_local i32 @x264_pixel_satd_8x8(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) #2 {
+define dso_local i32 @x264_pixel_satd_8x8(ptr nocapture readonly %pix1, i32 %i_pix1, ptr nocapture readonly %pix2, i32 %i_pix2) #2 {
 entry:
   %idx.ext.i = sext i32 %i_pix1 to i64
   %idx.ext63.i = sext i32 %i_pix2 to i64
   %alloca = alloca [8 x [4 x i32]], align 4
-  %gepload = load i8, i8* %pix1, align 1, !tbaa !21
-  %gepload154 = load i8, i8* %pix2, align 1, !tbaa !21
-  %arrayIdx = getelementptr inbounds i8, i8* %pix1, i64 4
-  %gepload155 = load i8, i8* %arrayIdx, align 1, !tbaa !21
-  %arrayIdx156 = getelementptr inbounds i8, i8* %pix2, i64 4
-  %gepload157 = load i8, i8* %arrayIdx156, align 1, !tbaa !21
-  %arrayIdx158 = getelementptr inbounds i8, i8* %pix1, i64 1
-  %gepload159 = load i8, i8* %arrayIdx158, align 1, !tbaa !21
-  %arrayIdx160 = getelementptr inbounds i8, i8* %pix2, i64 1
-  %gepload161 = load i8, i8* %arrayIdx160, align 1, !tbaa !21
-  %arrayIdx162 = getelementptr inbounds i8, i8* %pix1, i64 5
-  %gepload163 = load i8, i8* %arrayIdx162, align 1, !tbaa !21
-  %arrayIdx164 = getelementptr inbounds i8, i8* %pix2, i64 5
-  %gepload165 = load i8, i8* %arrayIdx164, align 1, !tbaa !21
-  %arrayIdx166 = getelementptr inbounds i8, i8* %pix1, i64 2
-  %gepload167 = load i8, i8* %arrayIdx166, align 1, !tbaa !21
-  %arrayIdx168 = getelementptr inbounds i8, i8* %pix2, i64 2
-  %gepload169 = load i8, i8* %arrayIdx168, align 1, !tbaa !21
-  %arrayIdx170 = getelementptr inbounds i8, i8* %pix1, i64 6
-  %gepload171 = load i8, i8* %arrayIdx170, align 1, !tbaa !21
-  %arrayIdx172 = getelementptr inbounds i8, i8* %pix2, i64 6
-  %gepload173 = load i8, i8* %arrayIdx172, align 1, !tbaa !21
-  %arrayIdx174 = getelementptr inbounds i8, i8* %pix1, i64 3
-  %gepload175 = load i8, i8* %arrayIdx174, align 1, !tbaa !21
-  %arrayIdx176 = getelementptr inbounds i8, i8* %pix2, i64 3
-  %gepload177 = load i8, i8* %arrayIdx176, align 1, !tbaa !21
-  %arrayIdx178 = getelementptr inbounds i8, i8* %pix1, i64 7
-  %gepload179 = load i8, i8* %arrayIdx178, align 1, !tbaa !21
-  %arrayIdx180 = getelementptr inbounds i8, i8* %pix2, i64 7
-  %gepload181 = load i8, i8* %arrayIdx180, align 1, !tbaa !21
-  %arrayIdx182 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 0, i64 0
+  %gepload = load i8, ptr %pix1, align 1, !tbaa !21
+  %gepload154 = load i8, ptr %pix2, align 1, !tbaa !21
+  %arrayIdx = getelementptr inbounds i8, ptr %pix1, i64 4
+  %gepload155 = load i8, ptr %arrayIdx, align 1, !tbaa !21
+  %arrayIdx156 = getelementptr inbounds i8, ptr %pix2, i64 4
+  %gepload157 = load i8, ptr %arrayIdx156, align 1, !tbaa !21
+  %arrayIdx158 = getelementptr inbounds i8, ptr %pix1, i64 1
+  %gepload159 = load i8, ptr %arrayIdx158, align 1, !tbaa !21
+  %arrayIdx160 = getelementptr inbounds i8, ptr %pix2, i64 1
+  %gepload161 = load i8, ptr %arrayIdx160, align 1, !tbaa !21
+  %arrayIdx162 = getelementptr inbounds i8, ptr %pix1, i64 5
+  %gepload163 = load i8, ptr %arrayIdx162, align 1, !tbaa !21
+  %arrayIdx164 = getelementptr inbounds i8, ptr %pix2, i64 5
+  %gepload165 = load i8, ptr %arrayIdx164, align 1, !tbaa !21
+  %arrayIdx166 = getelementptr inbounds i8, ptr %pix1, i64 2
+  %gepload167 = load i8, ptr %arrayIdx166, align 1, !tbaa !21
+  %arrayIdx168 = getelementptr inbounds i8, ptr %pix2, i64 2
+  %gepload169 = load i8, ptr %arrayIdx168, align 1, !tbaa !21
+  %arrayIdx170 = getelementptr inbounds i8, ptr %pix1, i64 6
+  %gepload171 = load i8, ptr %arrayIdx170, align 1, !tbaa !21
+  %arrayIdx172 = getelementptr inbounds i8, ptr %pix2, i64 6
+  %gepload173 = load i8, ptr %arrayIdx172, align 1, !tbaa !21
+  %arrayIdx174 = getelementptr inbounds i8, ptr %pix1, i64 3
+  %gepload175 = load i8, ptr %arrayIdx174, align 1, !tbaa !21
+  %arrayIdx176 = getelementptr inbounds i8, ptr %pix2, i64 3
+  %gepload177 = load i8, ptr %arrayIdx176, align 1, !tbaa !21
+  %arrayIdx178 = getelementptr inbounds i8, ptr %pix1, i64 7
+  %gepload179 = load i8, ptr %arrayIdx178, align 1, !tbaa !21
+  %arrayIdx180 = getelementptr inbounds i8, ptr %pix2, i64 7
+  %gepload181 = load i8, ptr %arrayIdx180, align 1, !tbaa !21
+  %arrayIdx182 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 0, i64 0
   %0 = zext i8 %gepload175 to i32
   %1 = zext i8 %gepload167 to i32
   %2 = add nuw nsw i32 %0, %1
@@ -380,8 +380,8 @@ entry:
   %36 = sub i32 %34, %35
   %37 = zext i8 %gepload154 to i32
   %38 = sub i32 %36, %37
-  store i32 %38, i32* %arrayIdx182, align 4
-  %arrayIdx184 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 0, i64 2
+  store i32 %38, ptr %arrayIdx182, align 4
+  %arrayIdx184 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 0, i64 2
   %39 = add nuw nsw i32 %0, %1
   %40 = sub nsw i32 %3, %39
   %41 = add nsw i32 %40, %5
@@ -397,8 +397,8 @@ entry:
   %51 = add i32 %50, %33
   %52 = sub i32 %51, %35
   %53 = sub i32 %52, %37
-  store i32 %53, i32* %arrayIdx184, align 4
-  %arrayIdx202 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 0, i64 1
+  store i32 %53, ptr %arrayIdx184, align 4
+  %arrayIdx202 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 0, i64 1
   %54 = sub nsw i32 %1, %0
   %55 = sub nsw i32 %54, %3
   %56 = add nsw i32 %55, %5
@@ -414,8 +414,8 @@ entry:
   %66 = sub i32 %65, %33
   %67 = add i32 %66, %35
   %68 = sub i32 %67, %37
-  store i32 %68, i32* %arrayIdx202, align 4
-  %arrayIdx220 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 0, i64 3
+  store i32 %68, ptr %arrayIdx202, align 4
+  %arrayIdx220 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 0, i64 3
   %69 = sub nsw i32 %0, %1
   %70 = sub nsw i32 %69, %3
   %71 = add nsw i32 %70, %5
@@ -431,54 +431,54 @@ entry:
   %81 = add i32 %80, %33
   %82 = add i32 %81, %35
   %83 = sub i32 %82, %37
-  store i32 %83, i32* %arrayIdx220, align 4
-  %arrayIdx237 = getelementptr inbounds i8, i8* %pix1, i64 %idx.ext.i
-  %gepload238 = load i8, i8* %arrayIdx237, align 1, !tbaa !21
-  %arrayIdx239 = getelementptr inbounds i8, i8* %pix2, i64 %idx.ext63.i
-  %gepload240 = load i8, i8* %arrayIdx239, align 1, !tbaa !21
+  store i32 %83, ptr %arrayIdx220, align 4
+  %arrayIdx237 = getelementptr inbounds i8, ptr %pix1, i64 %idx.ext.i
+  %gepload238 = load i8, ptr %arrayIdx237, align 1, !tbaa !21
+  %arrayIdx239 = getelementptr inbounds i8, ptr %pix2, i64 %idx.ext63.i
+  %gepload240 = load i8, ptr %arrayIdx239, align 1, !tbaa !21
   %84 = add nsw i64 %idx.ext.i, 4
-  %arrayIdx241 = getelementptr inbounds i8, i8* %pix1, i64 %84
-  %gepload242 = load i8, i8* %arrayIdx241, align 1, !tbaa !21
+  %arrayIdx241 = getelementptr inbounds i8, ptr %pix1, i64 %84
+  %gepload242 = load i8, ptr %arrayIdx241, align 1, !tbaa !21
   %85 = add nsw i64 %idx.ext63.i, 4
-  %arrayIdx243 = getelementptr inbounds i8, i8* %pix2, i64 %85
-  %gepload244 = load i8, i8* %arrayIdx243, align 1, !tbaa !21
+  %arrayIdx243 = getelementptr inbounds i8, ptr %pix2, i64 %85
+  %gepload244 = load i8, ptr %arrayIdx243, align 1, !tbaa !21
   %86 = add nsw i64 %idx.ext.i, 1
-  %arrayIdx245 = getelementptr inbounds i8, i8* %pix1, i64 %86
-  %gepload246 = load i8, i8* %arrayIdx245, align 1, !tbaa !21
+  %arrayIdx245 = getelementptr inbounds i8, ptr %pix1, i64 %86
+  %gepload246 = load i8, ptr %arrayIdx245, align 1, !tbaa !21
   %87 = add nsw i64 %idx.ext63.i, 1
-  %arrayIdx247 = getelementptr inbounds i8, i8* %pix2, i64 %87
-  %gepload248 = load i8, i8* %arrayIdx247, align 1, !tbaa !21
+  %arrayIdx247 = getelementptr inbounds i8, ptr %pix2, i64 %87
+  %gepload248 = load i8, ptr %arrayIdx247, align 1, !tbaa !21
   %88 = add nsw i64 %idx.ext.i, 5
-  %arrayIdx249 = getelementptr inbounds i8, i8* %pix1, i64 %88
-  %gepload250 = load i8, i8* %arrayIdx249, align 1, !tbaa !21
+  %arrayIdx249 = getelementptr inbounds i8, ptr %pix1, i64 %88
+  %gepload250 = load i8, ptr %arrayIdx249, align 1, !tbaa !21
   %89 = add nsw i64 %idx.ext63.i, 5
-  %arrayIdx251 = getelementptr inbounds i8, i8* %pix2, i64 %89
-  %gepload252 = load i8, i8* %arrayIdx251, align 1, !tbaa !21
+  %arrayIdx251 = getelementptr inbounds i8, ptr %pix2, i64 %89
+  %gepload252 = load i8, ptr %arrayIdx251, align 1, !tbaa !21
   %90 = add nsw i64 %idx.ext.i, 2
-  %arrayIdx253 = getelementptr inbounds i8, i8* %pix1, i64 %90
-  %gepload254 = load i8, i8* %arrayIdx253, align 1, !tbaa !21
+  %arrayIdx253 = getelementptr inbounds i8, ptr %pix1, i64 %90
+  %gepload254 = load i8, ptr %arrayIdx253, align 1, !tbaa !21
   %91 = add nsw i64 %idx.ext63.i, 2
-  %arrayIdx255 = getelementptr inbounds i8, i8* %pix2, i64 %91
-  %gepload256 = load i8, i8* %arrayIdx255, align 1, !tbaa !21
+  %arrayIdx255 = getelementptr inbounds i8, ptr %pix2, i64 %91
+  %gepload256 = load i8, ptr %arrayIdx255, align 1, !tbaa !21
   %92 = add nsw i64 %idx.ext.i, 6
-  %arrayIdx257 = getelementptr inbounds i8, i8* %pix1, i64 %92
-  %gepload258 = load i8, i8* %arrayIdx257, align 1, !tbaa !21
+  %arrayIdx257 = getelementptr inbounds i8, ptr %pix1, i64 %92
+  %gepload258 = load i8, ptr %arrayIdx257, align 1, !tbaa !21
   %93 = add nsw i64 %idx.ext63.i, 6
-  %arrayIdx259 = getelementptr inbounds i8, i8* %pix2, i64 %93
-  %gepload260 = load i8, i8* %arrayIdx259, align 1, !tbaa !21
+  %arrayIdx259 = getelementptr inbounds i8, ptr %pix2, i64 %93
+  %gepload260 = load i8, ptr %arrayIdx259, align 1, !tbaa !21
   %94 = add nsw i64 %idx.ext.i, 3
-  %arrayIdx261 = getelementptr inbounds i8, i8* %pix1, i64 %94
-  %gepload262 = load i8, i8* %arrayIdx261, align 1, !tbaa !21
+  %arrayIdx261 = getelementptr inbounds i8, ptr %pix1, i64 %94
+  %gepload262 = load i8, ptr %arrayIdx261, align 1, !tbaa !21
   %95 = add nsw i64 %idx.ext63.i, 3
-  %arrayIdx263 = getelementptr inbounds i8, i8* %pix2, i64 %95
-  %gepload264 = load i8, i8* %arrayIdx263, align 1, !tbaa !21
+  %arrayIdx263 = getelementptr inbounds i8, ptr %pix2, i64 %95
+  %gepload264 = load i8, ptr %arrayIdx263, align 1, !tbaa !21
   %96 = add nsw i64 %idx.ext.i, 7
-  %arrayIdx265 = getelementptr inbounds i8, i8* %pix1, i64 %96
-  %gepload266 = load i8, i8* %arrayIdx265, align 1, !tbaa !21
+  %arrayIdx265 = getelementptr inbounds i8, ptr %pix1, i64 %96
+  %gepload266 = load i8, ptr %arrayIdx265, align 1, !tbaa !21
   %97 = add nsw i64 %idx.ext63.i, 7
-  %arrayIdx267 = getelementptr inbounds i8, i8* %pix2, i64 %97
-  %gepload268 = load i8, i8* %arrayIdx267, align 1, !tbaa !21
-  %arrayIdx270 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 1, i64 0
+  %arrayIdx267 = getelementptr inbounds i8, ptr %pix2, i64 %97
+  %gepload268 = load i8, ptr %arrayIdx267, align 1, !tbaa !21
+  %arrayIdx270 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 1, i64 0
   %98 = zext i8 %gepload262 to i32
   %99 = zext i8 %gepload254 to i32
   %100 = add nuw nsw i32 %98, %99
@@ -518,8 +518,8 @@ entry:
   %134 = sub i32 %132, %133
   %135 = zext i8 %gepload240 to i32
   %136 = sub i32 %134, %135
-  store i32 %136, i32* %arrayIdx270, align 4
-  %arrayIdx288 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 1, i64 2
+  store i32 %136, ptr %arrayIdx270, align 4
+  %arrayIdx288 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 1, i64 2
   %137 = add nuw nsw i32 %98, %99
   %138 = sub nsw i32 %101, %137
   %139 = add nsw i32 %138, %103
@@ -535,8 +535,8 @@ entry:
   %149 = add i32 %148, %131
   %150 = sub i32 %149, %133
   %151 = sub i32 %150, %135
-  store i32 %151, i32* %arrayIdx288, align 4
-  %arrayIdx306 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 1, i64 1
+  store i32 %151, ptr %arrayIdx288, align 4
+  %arrayIdx306 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 1, i64 1
   %152 = sub nsw i32 %99, %98
   %153 = sub nsw i32 %152, %101
   %154 = add nsw i32 %153, %103
@@ -552,8 +552,8 @@ entry:
   %164 = sub i32 %163, %131
   %165 = add i32 %164, %133
   %166 = sub i32 %165, %135
-  store i32 %166, i32* %arrayIdx306, align 4
-  %arrayIdx324 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 1, i64 3
+  store i32 %166, ptr %arrayIdx306, align 4
+  %arrayIdx324 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 1, i64 3
   %167 = sub nsw i32 %98, %99
   %168 = sub nsw i32 %167, %101
   %169 = add nsw i32 %168, %103
@@ -569,56 +569,56 @@ entry:
   %179 = add i32 %178, %131
   %180 = add i32 %179, %133
   %181 = sub i32 %180, %135
-  store i32 %181, i32* %arrayIdx324, align 4
+  store i32 %181, ptr %arrayIdx324, align 4
   %182 = shl nsw i64 %idx.ext.i, 1
-  %arrayIdx341 = getelementptr inbounds i8, i8* %pix1, i64 %182
-  %gepload342 = load i8, i8* %arrayIdx341, align 1, !tbaa !21
+  %arrayIdx341 = getelementptr inbounds i8, ptr %pix1, i64 %182
+  %gepload342 = load i8, ptr %arrayIdx341, align 1, !tbaa !21
   %183 = shl nsw i64 %idx.ext63.i, 1
-  %arrayIdx343 = getelementptr inbounds i8, i8* %pix2, i64 %183
-  %gepload344 = load i8, i8* %arrayIdx343, align 1, !tbaa !21
+  %arrayIdx343 = getelementptr inbounds i8, ptr %pix2, i64 %183
+  %gepload344 = load i8, ptr %arrayIdx343, align 1, !tbaa !21
   %184 = add nsw i64 %182, 4
-  %arrayIdx345 = getelementptr inbounds i8, i8* %pix1, i64 %184
-  %gepload346 = load i8, i8* %arrayIdx345, align 1, !tbaa !21
+  %arrayIdx345 = getelementptr inbounds i8, ptr %pix1, i64 %184
+  %gepload346 = load i8, ptr %arrayIdx345, align 1, !tbaa !21
   %185 = add nsw i64 %183, 4
-  %arrayIdx347 = getelementptr inbounds i8, i8* %pix2, i64 %185
-  %gepload348 = load i8, i8* %arrayIdx347, align 1, !tbaa !21
+  %arrayIdx347 = getelementptr inbounds i8, ptr %pix2, i64 %185
+  %gepload348 = load i8, ptr %arrayIdx347, align 1, !tbaa !21
   %186 = or i64 %182, 1
-  %arrayIdx349 = getelementptr inbounds i8, i8* %pix1, i64 %186
-  %gepload350 = load i8, i8* %arrayIdx349, align 1, !tbaa !21
+  %arrayIdx349 = getelementptr inbounds i8, ptr %pix1, i64 %186
+  %gepload350 = load i8, ptr %arrayIdx349, align 1, !tbaa !21
   %187 = or i64 %183, 1
-  %arrayIdx351 = getelementptr inbounds i8, i8* %pix2, i64 %187
-  %gepload352 = load i8, i8* %arrayIdx351, align 1, !tbaa !21
+  %arrayIdx351 = getelementptr inbounds i8, ptr %pix2, i64 %187
+  %gepload352 = load i8, ptr %arrayIdx351, align 1, !tbaa !21
   %188 = add nsw i64 %182, 5
-  %arrayIdx353 = getelementptr inbounds i8, i8* %pix1, i64 %188
-  %gepload354 = load i8, i8* %arrayIdx353, align 1, !tbaa !21
+  %arrayIdx353 = getelementptr inbounds i8, ptr %pix1, i64 %188
+  %gepload354 = load i8, ptr %arrayIdx353, align 1, !tbaa !21
   %189 = add nsw i64 %183, 5
-  %arrayIdx355 = getelementptr inbounds i8, i8* %pix2, i64 %189
-  %gepload356 = load i8, i8* %arrayIdx355, align 1, !tbaa !21
+  %arrayIdx355 = getelementptr inbounds i8, ptr %pix2, i64 %189
+  %gepload356 = load i8, ptr %arrayIdx355, align 1, !tbaa !21
   %190 = add nsw i64 %182, 2
-  %arrayIdx357 = getelementptr inbounds i8, i8* %pix1, i64 %190
-  %gepload358 = load i8, i8* %arrayIdx357, align 1, !tbaa !21
+  %arrayIdx357 = getelementptr inbounds i8, ptr %pix1, i64 %190
+  %gepload358 = load i8, ptr %arrayIdx357, align 1, !tbaa !21
   %191 = add nsw i64 %183, 2
-  %arrayIdx359 = getelementptr inbounds i8, i8* %pix2, i64 %191
-  %gepload360 = load i8, i8* %arrayIdx359, align 1, !tbaa !21
+  %arrayIdx359 = getelementptr inbounds i8, ptr %pix2, i64 %191
+  %gepload360 = load i8, ptr %arrayIdx359, align 1, !tbaa !21
   %192 = add nsw i64 %182, 6
-  %arrayIdx361 = getelementptr inbounds i8, i8* %pix1, i64 %192
-  %gepload362 = load i8, i8* %arrayIdx361, align 1, !tbaa !21
+  %arrayIdx361 = getelementptr inbounds i8, ptr %pix1, i64 %192
+  %gepload362 = load i8, ptr %arrayIdx361, align 1, !tbaa !21
   %193 = add nsw i64 %183, 6
-  %arrayIdx363 = getelementptr inbounds i8, i8* %pix2, i64 %193
-  %gepload364 = load i8, i8* %arrayIdx363, align 1, !tbaa !21
+  %arrayIdx363 = getelementptr inbounds i8, ptr %pix2, i64 %193
+  %gepload364 = load i8, ptr %arrayIdx363, align 1, !tbaa !21
   %194 = add nsw i64 %182, 3
-  %arrayIdx365 = getelementptr inbounds i8, i8* %pix1, i64 %194
-  %gepload366 = load i8, i8* %arrayIdx365, align 1, !tbaa !21
+  %arrayIdx365 = getelementptr inbounds i8, ptr %pix1, i64 %194
+  %gepload366 = load i8, ptr %arrayIdx365, align 1, !tbaa !21
   %195 = add nsw i64 %183, 3
-  %arrayIdx367 = getelementptr inbounds i8, i8* %pix2, i64 %195
-  %gepload368 = load i8, i8* %arrayIdx367, align 1, !tbaa !21
+  %arrayIdx367 = getelementptr inbounds i8, ptr %pix2, i64 %195
+  %gepload368 = load i8, ptr %arrayIdx367, align 1, !tbaa !21
   %196 = add nsw i64 %182, 7
-  %arrayIdx369 = getelementptr inbounds i8, i8* %pix1, i64 %196
-  %gepload370 = load i8, i8* %arrayIdx369, align 1, !tbaa !21
+  %arrayIdx369 = getelementptr inbounds i8, ptr %pix1, i64 %196
+  %gepload370 = load i8, ptr %arrayIdx369, align 1, !tbaa !21
   %197 = add nsw i64 %183, 7
-  %arrayIdx371 = getelementptr inbounds i8, i8* %pix2, i64 %197
-  %gepload372 = load i8, i8* %arrayIdx371, align 1, !tbaa !21
-  %arrayIdx374 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 2, i64 0
+  %arrayIdx371 = getelementptr inbounds i8, ptr %pix2, i64 %197
+  %gepload372 = load i8, ptr %arrayIdx371, align 1, !tbaa !21
+  %arrayIdx374 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 2, i64 0
   %198 = zext i8 %gepload366 to i32
   %199 = zext i8 %gepload358 to i32
   %200 = add nuw nsw i32 %198, %199
@@ -658,8 +658,8 @@ entry:
   %234 = sub i32 %232, %233
   %235 = zext i8 %gepload344 to i32
   %236 = sub i32 %234, %235
-  store i32 %236, i32* %arrayIdx374, align 4
-  %arrayIdx392 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 2, i64 2
+  store i32 %236, ptr %arrayIdx374, align 4
+  %arrayIdx392 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 2, i64 2
   %237 = add nuw nsw i32 %198, %199
   %238 = sub nsw i32 %201, %237
   %239 = add nsw i32 %238, %203
@@ -675,8 +675,8 @@ entry:
   %249 = add i32 %248, %231
   %250 = sub i32 %249, %233
   %251 = sub i32 %250, %235
-  store i32 %251, i32* %arrayIdx392, align 4
-  %arrayIdx410 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 2, i64 1
+  store i32 %251, ptr %arrayIdx392, align 4
+  %arrayIdx410 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 2, i64 1
   %252 = sub nsw i32 %199, %198
   %253 = sub nsw i32 %252, %201
   %254 = add nsw i32 %253, %203
@@ -692,8 +692,8 @@ entry:
   %264 = sub i32 %263, %231
   %265 = add i32 %264, %233
   %266 = sub i32 %265, %235
-  store i32 %266, i32* %arrayIdx410, align 4
-  %arrayIdx428 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 2, i64 3
+  store i32 %266, ptr %arrayIdx410, align 4
+  %arrayIdx428 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 2, i64 3
   %267 = sub nsw i32 %198, %199
   %268 = sub nsw i32 %267, %201
   %269 = add nsw i32 %268, %203
@@ -709,56 +709,56 @@ entry:
   %279 = add i32 %278, %231
   %280 = add i32 %279, %233
   %281 = sub i32 %280, %235
-  store i32 %281, i32* %arrayIdx428, align 4
+  store i32 %281, ptr %arrayIdx428, align 4
   %282 = mul nsw i64 %idx.ext.i, 3
-  %arrayIdx445 = getelementptr inbounds i8, i8* %pix1, i64 %282
-  %gepload446 = load i8, i8* %arrayIdx445, align 1, !tbaa !21
+  %arrayIdx445 = getelementptr inbounds i8, ptr %pix1, i64 %282
+  %gepload446 = load i8, ptr %arrayIdx445, align 1, !tbaa !21
   %283 = mul nsw i64 %idx.ext63.i, 3
-  %arrayIdx447 = getelementptr inbounds i8, i8* %pix2, i64 %283
-  %gepload448 = load i8, i8* %arrayIdx447, align 1, !tbaa !21
+  %arrayIdx447 = getelementptr inbounds i8, ptr %pix2, i64 %283
+  %gepload448 = load i8, ptr %arrayIdx447, align 1, !tbaa !21
   %284 = add nsw i64 %282, 4
-  %arrayIdx449 = getelementptr inbounds i8, i8* %pix1, i64 %284
-  %gepload450 = load i8, i8* %arrayIdx449, align 1, !tbaa !21
+  %arrayIdx449 = getelementptr inbounds i8, ptr %pix1, i64 %284
+  %gepload450 = load i8, ptr %arrayIdx449, align 1, !tbaa !21
   %285 = add nsw i64 %283, 4
-  %arrayIdx451 = getelementptr inbounds i8, i8* %pix2, i64 %285
-  %gepload452 = load i8, i8* %arrayIdx451, align 1, !tbaa !21
+  %arrayIdx451 = getelementptr inbounds i8, ptr %pix2, i64 %285
+  %gepload452 = load i8, ptr %arrayIdx451, align 1, !tbaa !21
   %286 = add nsw i64 %282, 1
-  %arrayIdx453 = getelementptr inbounds i8, i8* %pix1, i64 %286
-  %gepload454 = load i8, i8* %arrayIdx453, align 1, !tbaa !21
+  %arrayIdx453 = getelementptr inbounds i8, ptr %pix1, i64 %286
+  %gepload454 = load i8, ptr %arrayIdx453, align 1, !tbaa !21
   %287 = add nsw i64 %283, 1
-  %arrayIdx455 = getelementptr inbounds i8, i8* %pix2, i64 %287
-  %gepload456 = load i8, i8* %arrayIdx455, align 1, !tbaa !21
+  %arrayIdx455 = getelementptr inbounds i8, ptr %pix2, i64 %287
+  %gepload456 = load i8, ptr %arrayIdx455, align 1, !tbaa !21
   %288 = add nsw i64 %282, 5
-  %arrayIdx457 = getelementptr inbounds i8, i8* %pix1, i64 %288
-  %gepload458 = load i8, i8* %arrayIdx457, align 1, !tbaa !21
+  %arrayIdx457 = getelementptr inbounds i8, ptr %pix1, i64 %288
+  %gepload458 = load i8, ptr %arrayIdx457, align 1, !tbaa !21
   %289 = add nsw i64 %283, 5
-  %arrayIdx459 = getelementptr inbounds i8, i8* %pix2, i64 %289
-  %gepload460 = load i8, i8* %arrayIdx459, align 1, !tbaa !21
+  %arrayIdx459 = getelementptr inbounds i8, ptr %pix2, i64 %289
+  %gepload460 = load i8, ptr %arrayIdx459, align 1, !tbaa !21
   %290 = add nsw i64 %282, 2
-  %arrayIdx461 = getelementptr inbounds i8, i8* %pix1, i64 %290
-  %gepload462 = load i8, i8* %arrayIdx461, align 1, !tbaa !21
+  %arrayIdx461 = getelementptr inbounds i8, ptr %pix1, i64 %290
+  %gepload462 = load i8, ptr %arrayIdx461, align 1, !tbaa !21
   %291 = add nsw i64 %283, 2
-  %arrayIdx463 = getelementptr inbounds i8, i8* %pix2, i64 %291
-  %gepload464 = load i8, i8* %arrayIdx463, align 1, !tbaa !21
+  %arrayIdx463 = getelementptr inbounds i8, ptr %pix2, i64 %291
+  %gepload464 = load i8, ptr %arrayIdx463, align 1, !tbaa !21
   %292 = add nsw i64 %282, 6
-  %arrayIdx465 = getelementptr inbounds i8, i8* %pix1, i64 %292
-  %gepload466 = load i8, i8* %arrayIdx465, align 1, !tbaa !21
+  %arrayIdx465 = getelementptr inbounds i8, ptr %pix1, i64 %292
+  %gepload466 = load i8, ptr %arrayIdx465, align 1, !tbaa !21
   %293 = add nsw i64 %283, 6
-  %arrayIdx467 = getelementptr inbounds i8, i8* %pix2, i64 %293
-  %gepload468 = load i8, i8* %arrayIdx467, align 1, !tbaa !21
+  %arrayIdx467 = getelementptr inbounds i8, ptr %pix2, i64 %293
+  %gepload468 = load i8, ptr %arrayIdx467, align 1, !tbaa !21
   %294 = add nsw i64 %282, 3
-  %arrayIdx469 = getelementptr inbounds i8, i8* %pix1, i64 %294
-  %gepload470 = load i8, i8* %arrayIdx469, align 1, !tbaa !21
+  %arrayIdx469 = getelementptr inbounds i8, ptr %pix1, i64 %294
+  %gepload470 = load i8, ptr %arrayIdx469, align 1, !tbaa !21
   %295 = add nsw i64 %283, 3
-  %arrayIdx471 = getelementptr inbounds i8, i8* %pix2, i64 %295
-  %gepload472 = load i8, i8* %arrayIdx471, align 1, !tbaa !21
+  %arrayIdx471 = getelementptr inbounds i8, ptr %pix2, i64 %295
+  %gepload472 = load i8, ptr %arrayIdx471, align 1, !tbaa !21
   %296 = add nsw i64 %282, 7
-  %arrayIdx473 = getelementptr inbounds i8, i8* %pix1, i64 %296
-  %gepload474 = load i8, i8* %arrayIdx473, align 1, !tbaa !21
+  %arrayIdx473 = getelementptr inbounds i8, ptr %pix1, i64 %296
+  %gepload474 = load i8, ptr %arrayIdx473, align 1, !tbaa !21
   %297 = add nsw i64 %283, 7
-  %arrayIdx475 = getelementptr inbounds i8, i8* %pix2, i64 %297
-  %gepload476 = load i8, i8* %arrayIdx475, align 1, !tbaa !21
-  %arrayIdx478 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 3, i64 0
+  %arrayIdx475 = getelementptr inbounds i8, ptr %pix2, i64 %297
+  %gepload476 = load i8, ptr %arrayIdx475, align 1, !tbaa !21
+  %arrayIdx478 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 3, i64 0
   %298 = zext i8 %gepload470 to i32
   %299 = zext i8 %gepload462 to i32
   %300 = add nuw nsw i32 %298, %299
@@ -798,8 +798,8 @@ entry:
   %334 = sub i32 %332, %333
   %335 = zext i8 %gepload448 to i32
   %336 = sub i32 %334, %335
-  store i32 %336, i32* %arrayIdx478, align 4
-  %arrayIdx496 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 3, i64 2
+  store i32 %336, ptr %arrayIdx478, align 4
+  %arrayIdx496 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 3, i64 2
   %337 = add nuw nsw i32 %298, %299
   %338 = sub nsw i32 %301, %337
   %339 = add nsw i32 %338, %303
@@ -815,8 +815,8 @@ entry:
   %349 = add i32 %348, %331
   %350 = sub i32 %349, %333
   %351 = sub i32 %350, %335
-  store i32 %351, i32* %arrayIdx496, align 4
-  %arrayIdx514 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 3, i64 1
+  store i32 %351, ptr %arrayIdx496, align 4
+  %arrayIdx514 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 3, i64 1
   %352 = sub nsw i32 %299, %298
   %353 = sub nsw i32 %352, %301
   %354 = add nsw i32 %353, %303
@@ -832,8 +832,8 @@ entry:
   %364 = sub i32 %363, %331
   %365 = add i32 %364, %333
   %366 = sub i32 %365, %335
-  store i32 %366, i32* %arrayIdx514, align 4
-  %arrayIdx532 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 3, i64 3
+  store i32 %366, ptr %arrayIdx514, align 4
+  %arrayIdx532 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 3, i64 3
   %367 = sub nsw i32 %298, %299
   %368 = sub nsw i32 %367, %301
   %369 = add nsw i32 %368, %303
@@ -849,56 +849,56 @@ entry:
   %379 = add i32 %378, %331
   %380 = add i32 %379, %333
   %381 = sub i32 %380, %335
-  store i32 %381, i32* %arrayIdx532, align 4
+  store i32 %381, ptr %arrayIdx532, align 4
   %382 = shl nsw i64 %idx.ext.i, 2
-  %arrayIdx549 = getelementptr inbounds i8, i8* %pix1, i64 %382
-  %gepload550 = load i8, i8* %arrayIdx549, align 1, !tbaa !21
+  %arrayIdx549 = getelementptr inbounds i8, ptr %pix1, i64 %382
+  %gepload550 = load i8, ptr %arrayIdx549, align 1, !tbaa !21
   %383 = shl nsw i64 %idx.ext63.i, 2
-  %arrayIdx551 = getelementptr inbounds i8, i8* %pix2, i64 %383
-  %gepload552 = load i8, i8* %arrayIdx551, align 1, !tbaa !21
+  %arrayIdx551 = getelementptr inbounds i8, ptr %pix2, i64 %383
+  %gepload552 = load i8, ptr %arrayIdx551, align 1, !tbaa !21
   %384 = add nsw i64 %382, 4
-  %arrayIdx553 = getelementptr inbounds i8, i8* %pix1, i64 %384
-  %gepload554 = load i8, i8* %arrayIdx553, align 1, !tbaa !21
+  %arrayIdx553 = getelementptr inbounds i8, ptr %pix1, i64 %384
+  %gepload554 = load i8, ptr %arrayIdx553, align 1, !tbaa !21
   %385 = add nsw i64 %383, 4
-  %arrayIdx555 = getelementptr inbounds i8, i8* %pix2, i64 %385
-  %gepload556 = load i8, i8* %arrayIdx555, align 1, !tbaa !21
+  %arrayIdx555 = getelementptr inbounds i8, ptr %pix2, i64 %385
+  %gepload556 = load i8, ptr %arrayIdx555, align 1, !tbaa !21
   %386 = or i64 %382, 1
-  %arrayIdx557 = getelementptr inbounds i8, i8* %pix1, i64 %386
-  %gepload558 = load i8, i8* %arrayIdx557, align 1, !tbaa !21
+  %arrayIdx557 = getelementptr inbounds i8, ptr %pix1, i64 %386
+  %gepload558 = load i8, ptr %arrayIdx557, align 1, !tbaa !21
   %387 = or i64 %383, 1
-  %arrayIdx559 = getelementptr inbounds i8, i8* %pix2, i64 %387
-  %gepload560 = load i8, i8* %arrayIdx559, align 1, !tbaa !21
+  %arrayIdx559 = getelementptr inbounds i8, ptr %pix2, i64 %387
+  %gepload560 = load i8, ptr %arrayIdx559, align 1, !tbaa !21
   %388 = add nsw i64 %382, 5
-  %arrayIdx561 = getelementptr inbounds i8, i8* %pix1, i64 %388
-  %gepload562 = load i8, i8* %arrayIdx561, align 1, !tbaa !21
+  %arrayIdx561 = getelementptr inbounds i8, ptr %pix1, i64 %388
+  %gepload562 = load i8, ptr %arrayIdx561, align 1, !tbaa !21
   %389 = add nsw i64 %383, 5
-  %arrayIdx563 = getelementptr inbounds i8, i8* %pix2, i64 %389
-  %gepload564 = load i8, i8* %arrayIdx563, align 1, !tbaa !21
+  %arrayIdx563 = getelementptr inbounds i8, ptr %pix2, i64 %389
+  %gepload564 = load i8, ptr %arrayIdx563, align 1, !tbaa !21
   %390 = or i64 %382, 2
-  %arrayIdx565 = getelementptr inbounds i8, i8* %pix1, i64 %390
-  %gepload566 = load i8, i8* %arrayIdx565, align 1, !tbaa !21
+  %arrayIdx565 = getelementptr inbounds i8, ptr %pix1, i64 %390
+  %gepload566 = load i8, ptr %arrayIdx565, align 1, !tbaa !21
   %391 = or i64 %383, 2
-  %arrayIdx567 = getelementptr inbounds i8, i8* %pix2, i64 %391
-  %gepload568 = load i8, i8* %arrayIdx567, align 1, !tbaa !21
+  %arrayIdx567 = getelementptr inbounds i8, ptr %pix2, i64 %391
+  %gepload568 = load i8, ptr %arrayIdx567, align 1, !tbaa !21
   %392 = add nsw i64 %382, 6
-  %arrayIdx569 = getelementptr inbounds i8, i8* %pix1, i64 %392
-  %gepload570 = load i8, i8* %arrayIdx569, align 1, !tbaa !21
+  %arrayIdx569 = getelementptr inbounds i8, ptr %pix1, i64 %392
+  %gepload570 = load i8, ptr %arrayIdx569, align 1, !tbaa !21
   %393 = add nsw i64 %383, 6
-  %arrayIdx571 = getelementptr inbounds i8, i8* %pix2, i64 %393
-  %gepload572 = load i8, i8* %arrayIdx571, align 1, !tbaa !21
+  %arrayIdx571 = getelementptr inbounds i8, ptr %pix2, i64 %393
+  %gepload572 = load i8, ptr %arrayIdx571, align 1, !tbaa !21
   %394 = or i64 %382, 3
-  %arrayIdx573 = getelementptr inbounds i8, i8* %pix1, i64 %394
-  %gepload574 = load i8, i8* %arrayIdx573, align 1, !tbaa !21
+  %arrayIdx573 = getelementptr inbounds i8, ptr %pix1, i64 %394
+  %gepload574 = load i8, ptr %arrayIdx573, align 1, !tbaa !21
   %395 = or i64 %383, 3
-  %arrayIdx575 = getelementptr inbounds i8, i8* %pix2, i64 %395
-  %gepload576 = load i8, i8* %arrayIdx575, align 1, !tbaa !21
+  %arrayIdx575 = getelementptr inbounds i8, ptr %pix2, i64 %395
+  %gepload576 = load i8, ptr %arrayIdx575, align 1, !tbaa !21
   %396 = add nsw i64 %382, 7
-  %arrayIdx577 = getelementptr inbounds i8, i8* %pix1, i64 %396
-  %gepload578 = load i8, i8* %arrayIdx577, align 1, !tbaa !21
+  %arrayIdx577 = getelementptr inbounds i8, ptr %pix1, i64 %396
+  %gepload578 = load i8, ptr %arrayIdx577, align 1, !tbaa !21
   %397 = add nsw i64 %383, 7
-  %arrayIdx579 = getelementptr inbounds i8, i8* %pix2, i64 %397
-  %gepload580 = load i8, i8* %arrayIdx579, align 1, !tbaa !21
-  %arrayIdx582 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 4, i64 0
+  %arrayIdx579 = getelementptr inbounds i8, ptr %pix2, i64 %397
+  %gepload580 = load i8, ptr %arrayIdx579, align 1, !tbaa !21
+  %arrayIdx582 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 4, i64 0
   %398 = zext i8 %gepload574 to i32
   %399 = zext i8 %gepload566 to i32
   %400 = add nuw nsw i32 %398, %399
@@ -938,8 +938,8 @@ entry:
   %434 = sub i32 %432, %433
   %435 = zext i8 %gepload552 to i32
   %436 = sub i32 %434, %435
-  store i32 %436, i32* %arrayIdx582, align 4
-  %arrayIdx600 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 4, i64 2
+  store i32 %436, ptr %arrayIdx582, align 4
+  %arrayIdx600 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 4, i64 2
   %437 = add nuw nsw i32 %398, %399
   %438 = sub nsw i32 %401, %437
   %439 = add nsw i32 %438, %403
@@ -955,8 +955,8 @@ entry:
   %449 = add i32 %448, %431
   %450 = sub i32 %449, %433
   %451 = sub i32 %450, %435
-  store i32 %451, i32* %arrayIdx600, align 4
-  %arrayIdx618 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 4, i64 1
+  store i32 %451, ptr %arrayIdx600, align 4
+  %arrayIdx618 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 4, i64 1
   %452 = sub nsw i32 %399, %398
   %453 = sub nsw i32 %452, %401
   %454 = add nsw i32 %453, %403
@@ -972,8 +972,8 @@ entry:
   %464 = sub i32 %463, %431
   %465 = add i32 %464, %433
   %466 = sub i32 %465, %435
-  store i32 %466, i32* %arrayIdx618, align 4
-  %arrayIdx636 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 4, i64 3
+  store i32 %466, ptr %arrayIdx618, align 4
+  %arrayIdx636 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 4, i64 3
   %467 = sub nsw i32 %398, %399
   %468 = sub nsw i32 %467, %401
   %469 = add nsw i32 %468, %403
@@ -989,56 +989,56 @@ entry:
   %479 = add i32 %478, %431
   %480 = add i32 %479, %433
   %481 = sub i32 %480, %435
-  store i32 %481, i32* %arrayIdx636, align 4
+  store i32 %481, ptr %arrayIdx636, align 4
   %482 = mul nsw i64 %idx.ext.i, 5
-  %arrayIdx653 = getelementptr inbounds i8, i8* %pix1, i64 %482
-  %gepload654 = load i8, i8* %arrayIdx653, align 1, !tbaa !21
+  %arrayIdx653 = getelementptr inbounds i8, ptr %pix1, i64 %482
+  %gepload654 = load i8, ptr %arrayIdx653, align 1, !tbaa !21
   %483 = mul nsw i64 %idx.ext63.i, 5
-  %arrayIdx655 = getelementptr inbounds i8, i8* %pix2, i64 %483
-  %gepload656 = load i8, i8* %arrayIdx655, align 1, !tbaa !21
+  %arrayIdx655 = getelementptr inbounds i8, ptr %pix2, i64 %483
+  %gepload656 = load i8, ptr %arrayIdx655, align 1, !tbaa !21
   %484 = add nsw i64 %482, 4
-  %arrayIdx657 = getelementptr inbounds i8, i8* %pix1, i64 %484
-  %gepload658 = load i8, i8* %arrayIdx657, align 1, !tbaa !21
+  %arrayIdx657 = getelementptr inbounds i8, ptr %pix1, i64 %484
+  %gepload658 = load i8, ptr %arrayIdx657, align 1, !tbaa !21
   %485 = add nsw i64 %483, 4
-  %arrayIdx659 = getelementptr inbounds i8, i8* %pix2, i64 %485
-  %gepload660 = load i8, i8* %arrayIdx659, align 1, !tbaa !21
+  %arrayIdx659 = getelementptr inbounds i8, ptr %pix2, i64 %485
+  %gepload660 = load i8, ptr %arrayIdx659, align 1, !tbaa !21
   %486 = add nsw i64 %482, 1
-  %arrayIdx661 = getelementptr inbounds i8, i8* %pix1, i64 %486
-  %gepload662 = load i8, i8* %arrayIdx661, align 1, !tbaa !21
+  %arrayIdx661 = getelementptr inbounds i8, ptr %pix1, i64 %486
+  %gepload662 = load i8, ptr %arrayIdx661, align 1, !tbaa !21
   %487 = add nsw i64 %483, 1
-  %arrayIdx663 = getelementptr inbounds i8, i8* %pix2, i64 %487
-  %gepload664 = load i8, i8* %arrayIdx663, align 1, !tbaa !21
+  %arrayIdx663 = getelementptr inbounds i8, ptr %pix2, i64 %487
+  %gepload664 = load i8, ptr %arrayIdx663, align 1, !tbaa !21
   %488 = add nsw i64 %482, 5
-  %arrayIdx665 = getelementptr inbounds i8, i8* %pix1, i64 %488
-  %gepload666 = load i8, i8* %arrayIdx665, align 1, !tbaa !21
+  %arrayIdx665 = getelementptr inbounds i8, ptr %pix1, i64 %488
+  %gepload666 = load i8, ptr %arrayIdx665, align 1, !tbaa !21
   %489 = add nsw i64 %483, 5
-  %arrayIdx667 = getelementptr inbounds i8, i8* %pix2, i64 %489
-  %gepload668 = load i8, i8* %arrayIdx667, align 1, !tbaa !21
+  %arrayIdx667 = getelementptr inbounds i8, ptr %pix2, i64 %489
+  %gepload668 = load i8, ptr %arrayIdx667, align 1, !tbaa !21
   %490 = add nsw i64 %482, 2
-  %arrayIdx669 = getelementptr inbounds i8, i8* %pix1, i64 %490
-  %gepload670 = load i8, i8* %arrayIdx669, align 1, !tbaa !21
+  %arrayIdx669 = getelementptr inbounds i8, ptr %pix1, i64 %490
+  %gepload670 = load i8, ptr %arrayIdx669, align 1, !tbaa !21
   %491 = add nsw i64 %483, 2
-  %arrayIdx671 = getelementptr inbounds i8, i8* %pix2, i64 %491
-  %gepload672 = load i8, i8* %arrayIdx671, align 1, !tbaa !21
+  %arrayIdx671 = getelementptr inbounds i8, ptr %pix2, i64 %491
+  %gepload672 = load i8, ptr %arrayIdx671, align 1, !tbaa !21
   %492 = add nsw i64 %482, 6
-  %arrayIdx673 = getelementptr inbounds i8, i8* %pix1, i64 %492
-  %gepload674 = load i8, i8* %arrayIdx673, align 1, !tbaa !21
+  %arrayIdx673 = getelementptr inbounds i8, ptr %pix1, i64 %492
+  %gepload674 = load i8, ptr %arrayIdx673, align 1, !tbaa !21
   %493 = add nsw i64 %483, 6
-  %arrayIdx675 = getelementptr inbounds i8, i8* %pix2, i64 %493
-  %gepload676 = load i8, i8* %arrayIdx675, align 1, !tbaa !21
+  %arrayIdx675 = getelementptr inbounds i8, ptr %pix2, i64 %493
+  %gepload676 = load i8, ptr %arrayIdx675, align 1, !tbaa !21
   %494 = add nsw i64 %482, 3
-  %arrayIdx677 = getelementptr inbounds i8, i8* %pix1, i64 %494
-  %gepload678 = load i8, i8* %arrayIdx677, align 1, !tbaa !21
+  %arrayIdx677 = getelementptr inbounds i8, ptr %pix1, i64 %494
+  %gepload678 = load i8, ptr %arrayIdx677, align 1, !tbaa !21
   %495 = add nsw i64 %483, 3
-  %arrayIdx679 = getelementptr inbounds i8, i8* %pix2, i64 %495
-  %gepload680 = load i8, i8* %arrayIdx679, align 1, !tbaa !21
+  %arrayIdx679 = getelementptr inbounds i8, ptr %pix2, i64 %495
+  %gepload680 = load i8, ptr %arrayIdx679, align 1, !tbaa !21
   %496 = add nsw i64 %482, 7
-  %arrayIdx681 = getelementptr inbounds i8, i8* %pix1, i64 %496
-  %gepload682 = load i8, i8* %arrayIdx681, align 1, !tbaa !21
+  %arrayIdx681 = getelementptr inbounds i8, ptr %pix1, i64 %496
+  %gepload682 = load i8, ptr %arrayIdx681, align 1, !tbaa !21
   %497 = add nsw i64 %483, 7
-  %arrayIdx683 = getelementptr inbounds i8, i8* %pix2, i64 %497
-  %gepload684 = load i8, i8* %arrayIdx683, align 1, !tbaa !21
-  %arrayIdx686 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 5, i64 0
+  %arrayIdx683 = getelementptr inbounds i8, ptr %pix2, i64 %497
+  %gepload684 = load i8, ptr %arrayIdx683, align 1, !tbaa !21
+  %arrayIdx686 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 5, i64 0
   %498 = zext i8 %gepload678 to i32
   %499 = zext i8 %gepload670 to i32
   %500 = add nuw nsw i32 %498, %499
@@ -1078,8 +1078,8 @@ entry:
   %534 = sub i32 %532, %533
   %535 = zext i8 %gepload656 to i32
   %536 = sub i32 %534, %535
-  store i32 %536, i32* %arrayIdx686, align 4
-  %arrayIdx704 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 5, i64 2
+  store i32 %536, ptr %arrayIdx686, align 4
+  %arrayIdx704 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 5, i64 2
   %537 = add nuw nsw i32 %498, %499
   %538 = sub nsw i32 %501, %537
   %539 = add nsw i32 %538, %503
@@ -1095,8 +1095,8 @@ entry:
   %549 = add i32 %548, %531
   %550 = sub i32 %549, %533
   %551 = sub i32 %550, %535
-  store i32 %551, i32* %arrayIdx704, align 4
-  %arrayIdx722 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 5, i64 1
+  store i32 %551, ptr %arrayIdx704, align 4
+  %arrayIdx722 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 5, i64 1
   %552 = sub nsw i32 %499, %498
   %553 = sub nsw i32 %552, %501
   %554 = add nsw i32 %553, %503
@@ -1112,8 +1112,8 @@ entry:
   %564 = sub i32 %563, %531
   %565 = add i32 %564, %533
   %566 = sub i32 %565, %535
-  store i32 %566, i32* %arrayIdx722, align 4
-  %arrayIdx740 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 5, i64 3
+  store i32 %566, ptr %arrayIdx722, align 4
+  %arrayIdx740 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 5, i64 3
   %567 = sub nsw i32 %498, %499
   %568 = sub nsw i32 %567, %501
   %569 = add nsw i32 %568, %503
@@ -1129,56 +1129,56 @@ entry:
   %579 = add i32 %578, %531
   %580 = add i32 %579, %533
   %581 = sub i32 %580, %535
-  store i32 %581, i32* %arrayIdx740, align 4
+  store i32 %581, ptr %arrayIdx740, align 4
   %582 = mul nsw i64 %idx.ext.i, 6
-  %arrayIdx757 = getelementptr inbounds i8, i8* %pix1, i64 %582
-  %gepload758 = load i8, i8* %arrayIdx757, align 1, !tbaa !21
+  %arrayIdx757 = getelementptr inbounds i8, ptr %pix1, i64 %582
+  %gepload758 = load i8, ptr %arrayIdx757, align 1, !tbaa !21
   %583 = mul nsw i64 %idx.ext63.i, 6
-  %arrayIdx759 = getelementptr inbounds i8, i8* %pix2, i64 %583
-  %gepload760 = load i8, i8* %arrayIdx759, align 1, !tbaa !21
+  %arrayIdx759 = getelementptr inbounds i8, ptr %pix2, i64 %583
+  %gepload760 = load i8, ptr %arrayIdx759, align 1, !tbaa !21
   %584 = add nsw i64 %582, 4
-  %arrayIdx761 = getelementptr inbounds i8, i8* %pix1, i64 %584
-  %gepload762 = load i8, i8* %arrayIdx761, align 1, !tbaa !21
+  %arrayIdx761 = getelementptr inbounds i8, ptr %pix1, i64 %584
+  %gepload762 = load i8, ptr %arrayIdx761, align 1, !tbaa !21
   %585 = add nsw i64 %583, 4
-  %arrayIdx763 = getelementptr inbounds i8, i8* %pix2, i64 %585
-  %gepload764 = load i8, i8* %arrayIdx763, align 1, !tbaa !21
+  %arrayIdx763 = getelementptr inbounds i8, ptr %pix2, i64 %585
+  %gepload764 = load i8, ptr %arrayIdx763, align 1, !tbaa !21
   %586 = or i64 %582, 1
-  %arrayIdx765 = getelementptr inbounds i8, i8* %pix1, i64 %586
-  %gepload766 = load i8, i8* %arrayIdx765, align 1, !tbaa !21
+  %arrayIdx765 = getelementptr inbounds i8, ptr %pix1, i64 %586
+  %gepload766 = load i8, ptr %arrayIdx765, align 1, !tbaa !21
   %587 = or i64 %583, 1
-  %arrayIdx767 = getelementptr inbounds i8, i8* %pix2, i64 %587
-  %gepload768 = load i8, i8* %arrayIdx767, align 1, !tbaa !21
+  %arrayIdx767 = getelementptr inbounds i8, ptr %pix2, i64 %587
+  %gepload768 = load i8, ptr %arrayIdx767, align 1, !tbaa !21
   %588 = add nsw i64 %582, 5
-  %arrayIdx769 = getelementptr inbounds i8, i8* %pix1, i64 %588
-  %gepload770 = load i8, i8* %arrayIdx769, align 1, !tbaa !21
+  %arrayIdx769 = getelementptr inbounds i8, ptr %pix1, i64 %588
+  %gepload770 = load i8, ptr %arrayIdx769, align 1, !tbaa !21
   %589 = add nsw i64 %583, 5
-  %arrayIdx771 = getelementptr inbounds i8, i8* %pix2, i64 %589
-  %gepload772 = load i8, i8* %arrayIdx771, align 1, !tbaa !21
+  %arrayIdx771 = getelementptr inbounds i8, ptr %pix2, i64 %589
+  %gepload772 = load i8, ptr %arrayIdx771, align 1, !tbaa !21
   %590 = add nsw i64 %582, 2
-  %arrayIdx773 = getelementptr inbounds i8, i8* %pix1, i64 %590
-  %gepload774 = load i8, i8* %arrayIdx773, align 1, !tbaa !21
+  %arrayIdx773 = getelementptr inbounds i8, ptr %pix1, i64 %590
+  %gepload774 = load i8, ptr %arrayIdx773, align 1, !tbaa !21
   %591 = add nsw i64 %583, 2
-  %arrayIdx775 = getelementptr inbounds i8, i8* %pix2, i64 %591
-  %gepload776 = load i8, i8* %arrayIdx775, align 1, !tbaa !21
+  %arrayIdx775 = getelementptr inbounds i8, ptr %pix2, i64 %591
+  %gepload776 = load i8, ptr %arrayIdx775, align 1, !tbaa !21
   %592 = add nsw i64 %582, 6
-  %arrayIdx777 = getelementptr inbounds i8, i8* %pix1, i64 %592
-  %gepload778 = load i8, i8* %arrayIdx777, align 1, !tbaa !21
+  %arrayIdx777 = getelementptr inbounds i8, ptr %pix1, i64 %592
+  %gepload778 = load i8, ptr %arrayIdx777, align 1, !tbaa !21
   %593 = add nsw i64 %583, 6
-  %arrayIdx779 = getelementptr inbounds i8, i8* %pix2, i64 %593
-  %gepload780 = load i8, i8* %arrayIdx779, align 1, !tbaa !21
+  %arrayIdx779 = getelementptr inbounds i8, ptr %pix2, i64 %593
+  %gepload780 = load i8, ptr %arrayIdx779, align 1, !tbaa !21
   %594 = add nsw i64 %582, 3
-  %arrayIdx781 = getelementptr inbounds i8, i8* %pix1, i64 %594
-  %gepload782 = load i8, i8* %arrayIdx781, align 1, !tbaa !21
+  %arrayIdx781 = getelementptr inbounds i8, ptr %pix1, i64 %594
+  %gepload782 = load i8, ptr %arrayIdx781, align 1, !tbaa !21
   %595 = add nsw i64 %583, 3
-  %arrayIdx783 = getelementptr inbounds i8, i8* %pix2, i64 %595
-  %gepload784 = load i8, i8* %arrayIdx783, align 1, !tbaa !21
+  %arrayIdx783 = getelementptr inbounds i8, ptr %pix2, i64 %595
+  %gepload784 = load i8, ptr %arrayIdx783, align 1, !tbaa !21
   %596 = add nsw i64 %582, 7
-  %arrayIdx785 = getelementptr inbounds i8, i8* %pix1, i64 %596
-  %gepload786 = load i8, i8* %arrayIdx785, align 1, !tbaa !21
+  %arrayIdx785 = getelementptr inbounds i8, ptr %pix1, i64 %596
+  %gepload786 = load i8, ptr %arrayIdx785, align 1, !tbaa !21
   %597 = add nsw i64 %583, 7
-  %arrayIdx787 = getelementptr inbounds i8, i8* %pix2, i64 %597
-  %gepload788 = load i8, i8* %arrayIdx787, align 1, !tbaa !21
-  %arrayIdx790 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 6, i64 0
+  %arrayIdx787 = getelementptr inbounds i8, ptr %pix2, i64 %597
+  %gepload788 = load i8, ptr %arrayIdx787, align 1, !tbaa !21
+  %arrayIdx790 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 6, i64 0
   %598 = zext i8 %gepload782 to i32
   %599 = zext i8 %gepload774 to i32
   %600 = add nuw nsw i32 %598, %599
@@ -1218,8 +1218,8 @@ entry:
   %634 = sub i32 %632, %633
   %635 = zext i8 %gepload760 to i32
   %636 = sub i32 %634, %635
-  store i32 %636, i32* %arrayIdx790, align 4
-  %arrayIdx808 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 6, i64 2
+  store i32 %636, ptr %arrayIdx790, align 4
+  %arrayIdx808 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 6, i64 2
   %637 = add nuw nsw i32 %598, %599
   %638 = sub nsw i32 %601, %637
   %639 = add nsw i32 %638, %603
@@ -1235,8 +1235,8 @@ entry:
   %649 = add i32 %648, %631
   %650 = sub i32 %649, %633
   %651 = sub i32 %650, %635
-  store i32 %651, i32* %arrayIdx808, align 4
-  %arrayIdx826 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 6, i64 1
+  store i32 %651, ptr %arrayIdx808, align 4
+  %arrayIdx826 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 6, i64 1
   %652 = sub nsw i32 %599, %598
   %653 = sub nsw i32 %652, %601
   %654 = add nsw i32 %653, %603
@@ -1252,8 +1252,8 @@ entry:
   %664 = sub i32 %663, %631
   %665 = add i32 %664, %633
   %666 = sub i32 %665, %635
-  store i32 %666, i32* %arrayIdx826, align 4
-  %arrayIdx844 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 6, i64 3
+  store i32 %666, ptr %arrayIdx826, align 4
+  %arrayIdx844 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 6, i64 3
   %667 = sub nsw i32 %598, %599
   %668 = sub nsw i32 %667, %601
   %669 = add nsw i32 %668, %603
@@ -1269,56 +1269,56 @@ entry:
   %679 = add i32 %678, %631
   %680 = add i32 %679, %633
   %681 = sub i32 %680, %635
-  store i32 %681, i32* %arrayIdx844, align 4
+  store i32 %681, ptr %arrayIdx844, align 4
   %682 = mul nsw i64 %idx.ext.i, 7
-  %arrayIdx861 = getelementptr inbounds i8, i8* %pix1, i64 %682
-  %gepload862 = load i8, i8* %arrayIdx861, align 1, !tbaa !21
+  %arrayIdx861 = getelementptr inbounds i8, ptr %pix1, i64 %682
+  %gepload862 = load i8, ptr %arrayIdx861, align 1, !tbaa !21
   %683 = mul nsw i64 %idx.ext63.i, 7
-  %arrayIdx863 = getelementptr inbounds i8, i8* %pix2, i64 %683
-  %gepload864 = load i8, i8* %arrayIdx863, align 1, !tbaa !21
+  %arrayIdx863 = getelementptr inbounds i8, ptr %pix2, i64 %683
+  %gepload864 = load i8, ptr %arrayIdx863, align 1, !tbaa !21
   %684 = add nsw i64 %682, 4
-  %arrayIdx865 = getelementptr inbounds i8, i8* %pix1, i64 %684
-  %gepload866 = load i8, i8* %arrayIdx865, align 1, !tbaa !21
+  %arrayIdx865 = getelementptr inbounds i8, ptr %pix1, i64 %684
+  %gepload866 = load i8, ptr %arrayIdx865, align 1, !tbaa !21
   %685 = add nsw i64 %683, 4
-  %arrayIdx867 = getelementptr inbounds i8, i8* %pix2, i64 %685
-  %gepload868 = load i8, i8* %arrayIdx867, align 1, !tbaa !21
+  %arrayIdx867 = getelementptr inbounds i8, ptr %pix2, i64 %685
+  %gepload868 = load i8, ptr %arrayIdx867, align 1, !tbaa !21
   %686 = add nsw i64 %682, 1
-  %arrayIdx869 = getelementptr inbounds i8, i8* %pix1, i64 %686
-  %gepload870 = load i8, i8* %arrayIdx869, align 1, !tbaa !21
+  %arrayIdx869 = getelementptr inbounds i8, ptr %pix1, i64 %686
+  %gepload870 = load i8, ptr %arrayIdx869, align 1, !tbaa !21
   %687 = add nsw i64 %683, 1
-  %arrayIdx871 = getelementptr inbounds i8, i8* %pix2, i64 %687
-  %gepload872 = load i8, i8* %arrayIdx871, align 1, !tbaa !21
+  %arrayIdx871 = getelementptr inbounds i8, ptr %pix2, i64 %687
+  %gepload872 = load i8, ptr %arrayIdx871, align 1, !tbaa !21
   %688 = add nsw i64 %682, 5
-  %arrayIdx873 = getelementptr inbounds i8, i8* %pix1, i64 %688
-  %gepload874 = load i8, i8* %arrayIdx873, align 1, !tbaa !21
+  %arrayIdx873 = getelementptr inbounds i8, ptr %pix1, i64 %688
+  %gepload874 = load i8, ptr %arrayIdx873, align 1, !tbaa !21
   %689 = add nsw i64 %683, 5
-  %arrayIdx875 = getelementptr inbounds i8, i8* %pix2, i64 %689
-  %gepload876 = load i8, i8* %arrayIdx875, align 1, !tbaa !21
+  %arrayIdx875 = getelementptr inbounds i8, ptr %pix2, i64 %689
+  %gepload876 = load i8, ptr %arrayIdx875, align 1, !tbaa !21
   %690 = add nsw i64 %682, 2
-  %arrayIdx877 = getelementptr inbounds i8, i8* %pix1, i64 %690
-  %gepload878 = load i8, i8* %arrayIdx877, align 1, !tbaa !21
+  %arrayIdx877 = getelementptr inbounds i8, ptr %pix1, i64 %690
+  %gepload878 = load i8, ptr %arrayIdx877, align 1, !tbaa !21
   %691 = add nsw i64 %683, 2
-  %arrayIdx879 = getelementptr inbounds i8, i8* %pix2, i64 %691
-  %gepload880 = load i8, i8* %arrayIdx879, align 1, !tbaa !21
+  %arrayIdx879 = getelementptr inbounds i8, ptr %pix2, i64 %691
+  %gepload880 = load i8, ptr %arrayIdx879, align 1, !tbaa !21
   %692 = add nsw i64 %682, 6
-  %arrayIdx881 = getelementptr inbounds i8, i8* %pix1, i64 %692
-  %gepload882 = load i8, i8* %arrayIdx881, align 1, !tbaa !21
+  %arrayIdx881 = getelementptr inbounds i8, ptr %pix1, i64 %692
+  %gepload882 = load i8, ptr %arrayIdx881, align 1, !tbaa !21
   %693 = add nsw i64 %683, 6
-  %arrayIdx883 = getelementptr inbounds i8, i8* %pix2, i64 %693
-  %gepload884 = load i8, i8* %arrayIdx883, align 1, !tbaa !21
+  %arrayIdx883 = getelementptr inbounds i8, ptr %pix2, i64 %693
+  %gepload884 = load i8, ptr %arrayIdx883, align 1, !tbaa !21
   %694 = add nsw i64 %682, 3
-  %arrayIdx885 = getelementptr inbounds i8, i8* %pix1, i64 %694
-  %gepload886 = load i8, i8* %arrayIdx885, align 1, !tbaa !21
+  %arrayIdx885 = getelementptr inbounds i8, ptr %pix1, i64 %694
+  %gepload886 = load i8, ptr %arrayIdx885, align 1, !tbaa !21
   %695 = add nsw i64 %683, 3
-  %arrayIdx887 = getelementptr inbounds i8, i8* %pix2, i64 %695
-  %gepload888 = load i8, i8* %arrayIdx887, align 1, !tbaa !21
+  %arrayIdx887 = getelementptr inbounds i8, ptr %pix2, i64 %695
+  %gepload888 = load i8, ptr %arrayIdx887, align 1, !tbaa !21
   %696 = add nsw i64 %682, 7
-  %arrayIdx889 = getelementptr inbounds i8, i8* %pix1, i64 %696
-  %gepload890 = load i8, i8* %arrayIdx889, align 1, !tbaa !21
+  %arrayIdx889 = getelementptr inbounds i8, ptr %pix1, i64 %696
+  %gepload890 = load i8, ptr %arrayIdx889, align 1, !tbaa !21
   %697 = add nsw i64 %683, 7
-  %arrayIdx891 = getelementptr inbounds i8, i8* %pix2, i64 %697
-  %gepload892 = load i8, i8* %arrayIdx891, align 1, !tbaa !21
-  %arrayIdx894 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 7, i64 0
+  %arrayIdx891 = getelementptr inbounds i8, ptr %pix2, i64 %697
+  %gepload892 = load i8, ptr %arrayIdx891, align 1, !tbaa !21
+  %arrayIdx894 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 7, i64 0
   %698 = zext i8 %gepload886 to i32
   %699 = zext i8 %gepload878 to i32
   %700 = add nuw nsw i32 %698, %699
@@ -1358,8 +1358,8 @@ entry:
   %734 = sub i32 %732, %733
   %735 = zext i8 %gepload864 to i32
   %736 = sub i32 %734, %735
-  store i32 %736, i32* %arrayIdx894, align 4
-  %arrayIdx912 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 7, i64 2
+  store i32 %736, ptr %arrayIdx894, align 4
+  %arrayIdx912 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 7, i64 2
   %737 = add nuw nsw i32 %698, %699
   %738 = sub nsw i32 %701, %737
   %739 = add nsw i32 %738, %703
@@ -1375,8 +1375,8 @@ entry:
   %749 = add i32 %748, %731
   %750 = sub i32 %749, %733
   %751 = sub i32 %750, %735
-  store i32 %751, i32* %arrayIdx912, align 4
-  %arrayIdx930 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 7, i64 1
+  store i32 %751, ptr %arrayIdx912, align 4
+  %arrayIdx930 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 7, i64 1
   %752 = sub nsw i32 %699, %698
   %753 = sub nsw i32 %752, %701
   %754 = add nsw i32 %753, %703
@@ -1392,8 +1392,8 @@ entry:
   %764 = sub i32 %763, %731
   %765 = add i32 %764, %733
   %766 = sub i32 %765, %735
-  store i32 %766, i32* %arrayIdx930, align 4
-  %arrayIdx948 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 7, i64 3
+  store i32 %766, ptr %arrayIdx930, align 4
+  %arrayIdx948 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 7, i64 3
   %767 = sub nsw i32 %698, %699
   %768 = sub nsw i32 %767, %701
   %769 = add nsw i32 %768, %703
@@ -1409,25 +1409,25 @@ entry:
   %779 = add i32 %778, %731
   %780 = add i32 %779, %733
   %781 = sub i32 %780, %735
-  store i32 %781, i32* %arrayIdx948, align 4
+  store i32 %781, ptr %arrayIdx948, align 4
   br label %loop.458
 
 loop.458:                                         ; preds = %loop.458, %entry
   %t301.0 = phi <4 x i32> [ zeroinitializer, %entry ], [ %820, %loop.458 ]
   %t320.0 = phi <4 x i32> [ zeroinitializer, %entry ], [ %859, %loop.458 ]
   %i1.i64.0 = phi i64 [ 0, %entry ], [ %nextivloop.458, %loop.458 ]
-  %arrayIdx970 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 0, i64 %i1.i64.0
-  %782 = bitcast i32* %arrayIdx970 to <4 x i32>*
-  %gepload971 = load <4 x i32>, <4 x i32>* %782, align 4
-  %arrayIdx973 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 1, i64 %i1.i64.0
-  %783 = bitcast i32* %arrayIdx973 to <4 x i32>*
-  %gepload974 = load <4 x i32>, <4 x i32>* %783, align 4
-  %arrayIdx976 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 2, i64 %i1.i64.0
-  %784 = bitcast i32* %arrayIdx976 to <4 x i32>*
-  %gepload977 = load <4 x i32>, <4 x i32>* %784, align 4
-  %arrayIdx979 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 3, i64 %i1.i64.0
-  %785 = bitcast i32* %arrayIdx979 to <4 x i32>*
-  %gepload980 = load <4 x i32>, <4 x i32>* %785, align 4
+  %arrayIdx970 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 0, i64 %i1.i64.0
+  %782 = bitcast ptr %arrayIdx970 to ptr
+  %gepload971 = load <4 x i32>, ptr %782, align 4
+  %arrayIdx973 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 1, i64 %i1.i64.0
+  %783 = bitcast ptr %arrayIdx973 to ptr
+  %gepload974 = load <4 x i32>, ptr %783, align 4
+  %arrayIdx976 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 2, i64 %i1.i64.0
+  %784 = bitcast ptr %arrayIdx976 to ptr
+  %gepload977 = load <4 x i32>, ptr %784, align 4
+  %arrayIdx979 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 3, i64 %i1.i64.0
+  %785 = bitcast ptr %arrayIdx979 to ptr
+  %gepload980 = load <4 x i32>, ptr %785, align 4
   %786 = add <4 x i32> %gepload971, %gepload974
   %787 = add <4 x i32> %786, %gepload977
   %788 = add <4 x i32> %787, %gepload980
@@ -1463,18 +1463,18 @@ loop.458:                                         ; preds = %loop.458, %entry
   %818 = add <4 x i32> %809, %816
   %819 = add <4 x i32> %818, %t301.0
   %820 = add <4 x i32> %817, %819
-  %arrayIdx1014 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 4, i64 %i1.i64.0
-  %821 = bitcast i32* %arrayIdx1014 to <4 x i32>*
-  %gepload1015 = load <4 x i32>, <4 x i32>* %821, align 4
-  %arrayIdx1017 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 5, i64 %i1.i64.0
-  %822 = bitcast i32* %arrayIdx1017 to <4 x i32>*
-  %gepload1018 = load <4 x i32>, <4 x i32>* %822, align 4
-  %arrayIdx1020 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 6, i64 %i1.i64.0
-  %823 = bitcast i32* %arrayIdx1020 to <4 x i32>*
-  %gepload1021 = load <4 x i32>, <4 x i32>* %823, align 4
-  %arrayIdx1023 = getelementptr inbounds [8 x [4 x i32]], [8 x [4 x i32]]* %alloca, i64 0, i64 7, i64 %i1.i64.0
-  %824 = bitcast i32* %arrayIdx1023 to <4 x i32>*
-  %gepload1024 = load <4 x i32>, <4 x i32>* %824, align 4
+  %arrayIdx1014 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 4, i64 %i1.i64.0
+  %821 = bitcast ptr %arrayIdx1014 to ptr
+  %gepload1015 = load <4 x i32>, ptr %821, align 4
+  %arrayIdx1017 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 5, i64 %i1.i64.0
+  %822 = bitcast ptr %arrayIdx1017 to ptr
+  %gepload1018 = load <4 x i32>, ptr %822, align 4
+  %arrayIdx1020 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 6, i64 %i1.i64.0
+  %823 = bitcast ptr %arrayIdx1020 to ptr
+  %gepload1021 = load <4 x i32>, ptr %823, align 4
+  %arrayIdx1023 = getelementptr inbounds [8 x [4 x i32]], ptr %alloca, i64 0, i64 7, i64 %i1.i64.0
+  %824 = bitcast ptr %arrayIdx1023 to ptr
+  %gepload1024 = load <4 x i32>, ptr %824, align 4
   %825 = add <4 x i32> %gepload1015, %gepload1018
   %826 = add <4 x i32> %825, %gepload1021
   %827 = add <4 x i32> %826, %gepload1024
