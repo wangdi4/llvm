@@ -20,14 +20,14 @@
 ;
 ; {
 ;  float y1; double b1;
-;  #pragma omp task depend(out:y1)
+;  #pragma omp task firstprivate(y1)
 ;  {
 ;    y1 = 1;
 ;    myfoo();
 ;  }
 ; }
 
-; Depend operand with no uses in the parent, gets wrapped into the task
+; Firstprivate operand with no uses in the parent, gets wrapped into the task
 ; function. Code is generated on the parent's side with no definition.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -49,8 +49,7 @@ DIR.OMP.TASK.1:                                   ; preds = %entry
 
 DIR.OMP.TASK.2:                                   ; preds = %DIR.OMP.TASK.1
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
-    "QUAL.OMP.DEPEND.OUT"(ptr %y1),
-    "QUAL.OMP.FIRSTPRIVATE"(ptr %y1) ]
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %y1, float 0.000000e+00, i32 1) ]
 
   br label %DIR.OMP.TASK.34
 
