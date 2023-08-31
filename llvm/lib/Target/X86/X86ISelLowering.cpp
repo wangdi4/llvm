@@ -4603,8 +4603,16 @@ static SDValue widenSubVector(SDValue Vec, bool ZeroNewElements,
 static MVT widenMaskVectorType(MVT VT, const X86Subtarget &Subtarget) {
   assert(VT.getVectorElementType() == MVT::i1 && "Expected bool vector");
   unsigned NumElts = VT.getVectorNumElements();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if ((!(Subtarget.hasDQI() || Subtarget.hasAVX256P()) && NumElts == 8) ||
+      NumElts < 8)
+    return Subtarget.hasDQI() || Subtarget.hasAVX256P() ? MVT::v8i1 : MVT::v16i1;
+#else  // INTEL_FEATURE_ISA_AVX256P
   if ((!Subtarget.hasDQI() && NumElts == 8) || NumElts < 8)
     return Subtarget.hasDQI() ? MVT::v8i1 : MVT::v16i1;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   return VT;
 }
 
@@ -4919,22 +4927,7 @@ static SDValue insert1BitVector(SDValue Op, SelectionDAG &DAG,
   SDValue ZeroIdx = DAG.getIntPtrConstant(0, dl);
 
   // Extend to natively supported kshift.
-<<<<<<< HEAD
-  MVT WideOpVT = OpVT;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if ((!(Subtarget.hasDQI() || Subtarget.hasAVX256P()) && NumElems == 8) ||
-      NumElems < 8)
-    WideOpVT =
-        Subtarget.hasDQI() || Subtarget.hasAVX256P() ? MVT::v8i1 : MVT::v16i1;
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if ((!Subtarget.hasDQI() && NumElems == 8) || NumElems < 8)
-    WideOpVT = Subtarget.hasDQI() ? MVT::v8i1 : MVT::v16i1;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-=======
   MVT WideOpVT = widenMaskVectorType(OpVT, Subtarget);
->>>>>>> 81dc54e823a8746cdd35e2e0c07da476cf312dc0
 
   // Inserting into the lsbs of a zero vector is legal. ISel will insert shifts
   // if necessary.
@@ -18152,27 +18145,8 @@ static SDValue lower1BitShuffleAsKSHIFTR(const SDLoc &DL, ArrayRef<int> Mask,
   assert(ShiftAmt >= 0 && "All undef?");
 
   // Great we found a shift right.
-<<<<<<< HEAD
-  MVT WideVT = VT;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if ((!(Subtarget.hasDQI() || Subtarget.hasAVX256P()) && NumElts == 8) ||
-      NumElts < 8)
-    WideVT =
-        Subtarget.hasDQI() || Subtarget.hasAVX256P() ? MVT::v8i1 : MVT::v16i1;
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if ((!Subtarget.hasDQI() && NumElts == 8) || NumElts < 8)
-    WideVT = Subtarget.hasDQI() ? MVT::v8i1 : MVT::v16i1;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-  SDValue Res = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, WideVT,
-                            DAG.getUNDEF(WideVT), V1,
-                            DAG.getIntPtrConstant(0, DL));
-  Res = DAG.getNode(X86ISD::KSHIFTR, DL, WideVT, Res,
-=======
   SDValue Res = widenMaskVector(V1, false, Subtarget, DAG, DL);
   Res = DAG.getNode(X86ISD::KSHIFTR, DL, Res.getValueType(), Res,
->>>>>>> 81dc54e823a8746cdd35e2e0c07da476cf312dc0
                     DAG.getTargetConstant(ShiftAmt, DL, MVT::i8));
   return DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, VT, Res,
                      DAG.getIntPtrConstant(0, DL));
@@ -18274,26 +18248,8 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
     unsigned Opcode;
     int ShiftAmt = match1BitShuffleAsKSHIFT(Opcode, Mask, Offset, Zeroable);
     if (ShiftAmt >= 0) {
-<<<<<<< HEAD
-      MVT WideVT = VT;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-      if ((!(Subtarget.hasDQI() || Subtarget.hasAVX256P()) && NumElts == 8) ||
-          NumElts < 8)
-        WideVT = Subtarget.hasDQI() || Subtarget.hasAVX256P() ? MVT::v8i1
-                                                              : MVT::v16i1;
-#else  // INTEL_FEATURE_ISA_AVX256P
-      if ((!Subtarget.hasDQI() && NumElts == 8) || NumElts < 8)
-        WideVT = Subtarget.hasDQI() ? MVT::v8i1 : MVT::v16i1;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-      SDValue Res = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, WideVT,
-                                DAG.getUNDEF(WideVT), V,
-                                DAG.getIntPtrConstant(0, DL));
-=======
       SDValue Res = widenMaskVector(V, false, Subtarget, DAG, DL);
       MVT WideVT = Res.getSimpleValueType();
->>>>>>> 81dc54e823a8746cdd35e2e0c07da476cf312dc0
       // Widened right shifts need two shifts to ensure we shift in zeroes.
       if (Opcode == X86ISD::KSHIFTR && WideVT != VT) {
         int WideElts = WideVT.getVectorNumElements();
@@ -19496,26 +19452,7 @@ static SDValue LowerEXTRACT_SUBVECTOR(SDValue Op, const X86Subtarget &Subtarget,
     return Op;
 
   // Extend to natively supported kshift.
-<<<<<<< HEAD
-  MVT WideVecVT = VecVT;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if ((!(Subtarget.hasDQI() || Subtarget.hasAVX256P()) && NumElems == 8) ||
-      NumElems < 8) {
-    WideVecVT =
-        Subtarget.hasDQI() || Subtarget.hasAVX256P() ? MVT::v8i1 : MVT::v16i1;
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if ((!Subtarget.hasDQI() && NumElems == 8) || NumElems < 8) {
-    WideVecVT = Subtarget.hasDQI() ? MVT::v8i1 : MVT::v16i1;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-    Vec = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, WideVecVT,
-                      DAG.getUNDEF(WideVecVT), Vec,
-                      DAG.getIntPtrConstant(0, dl));
-  }
-=======
   Vec = widenMaskVector(Vec, false, Subtarget, DAG, dl);
->>>>>>> 81dc54e823a8746cdd35e2e0c07da476cf312dc0
 
   // Shift to the LSB.
   Vec = DAG.getNode(X86ISD::KSHIFTR, dl, Vec.getSimpleValueType(), Vec,
