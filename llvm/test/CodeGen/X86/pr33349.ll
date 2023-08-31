@@ -21,8 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; KNL-NEXT:    fld %st(1)
 ; KNL-NEXT:    fcmovne %st(3), %st
 ; KNL-NEXT:    kmovw %k0, %eax
-; KNL-NEXT:    kmovw %k0, %ecx
-; KNL-NEXT:    testb $1, %cl
+; KNL-NEXT:    testb $1, %al
 ; KNL-NEXT:    fld %st(2)
 ; KNL-NEXT:    fcmovne %st(4), %st
 ; KNL-NEXT:    testb $2, %al
