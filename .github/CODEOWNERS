@@ -176,9 +176,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.cpp @KanRobert
 /llvm/test/Transforms/Intel_MarkerCount @KanRobert
 /llvm/docs/Intel/MarkerCount/ @KanRobert
-/llvm/include/llvm/Transforms/Scalar/Intel_GVBasedMultiVersioning.h @tianqingw @williamweixiao
-/llvm/lib/Transforms/Scalar/Intel_GVBasedMultiVersioning.cpp @tianqingw @williamweixiao
-/llvm/test/Transforms/Intel_GVBasedMultiVersioning/ @tianqingw @williamweixiao
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders
@@ -462,11 +459,11 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/unittests/Transforms/Utils/VFABIUtils.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @intel-restricted/cmplrllvm-llvm-vectorizer
 
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/include/llvm/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/lib/Transforms/SYCLTransforms/SYCLKernelVecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/lib/Transforms/SYCLTransforms/SYCLPrepareKernelForVecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/test/Transforms/SYCLTransforms/SYCLKernelVecClone/ @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/lib/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.cpp @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/lib/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.cpp @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
+/llvm/test/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone/ @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
 
 /llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Utils/Intel_VecClone.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
@@ -474,7 +471,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 /llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
-/llvm/test/Transforms/Reassociate/Intel_addsub* @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Transforms/SLPVectorizer/ @intel-restricted/cmplrllvm-llvm-vectorizer
 
 /llvm/lib/Analysis/Intel_OptVLS.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
@@ -800,6 +796,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/MergeICmps/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/NaryReassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Reassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Reassociate/Intel_addsub* @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/test/Transforms/SCCP/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SROA/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SimpleLoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -835,6 +832,11 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 # Code owners for register allocation report
 /llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @phoebewang @williamweixiao @dwoodwor-intel
 /llvm/test/Analysis/Intel_OptReport/RegisterAllocation @phoebewang @williamweixiao @dwoodwor-intel
+
+# Global-variable-based Multiversioning pass
+/llvm/include/llvm/Transforms/Scalar/Intel_GVBasedMultiVersioning.h @tianqingw @williamweixiao @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/Scalar/Intel_GVBasedMultiVersioning.cpp @tianqingw @williamweixiao @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Intel_GVBasedMultiVersioning/ @tianqingw @williamweixiao @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 /llvm/tools/llvm-profgen/ @williamweixiao @HaohaiWen
 /llvm/test/tools/llvm-profgen/ @williamweixiao @HaohaiWen
