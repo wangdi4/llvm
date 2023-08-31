@@ -5,7 +5,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Test function with a kernel-call-once call to @foo. Attribute is on the function.
 ; Call to kernel-call-once function shouldn't be widened, but the loop should be vectorized
-define dso_local void @kco(i64 %N, i64* %I) local_unnamed_addr {
+define dso_local void @kco(i64 %N, ptr %I) local_unnamed_addr {
 ; CHECK-LABEL: vector.body:
 ; CHECK-NEXT: [[UNIPHI:%.*]] = phi i64 [ 0, %VPlannedBB2 ], [ [[TMP6:%.*]], %vector.body ]
 ; CHECK-NEXT: [[VECPHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, %VPlannedBB2 ], [ [[TMP5:%.*]], %vector.body ]
@@ -13,7 +13,7 @@ define dso_local void @kco(i64 %N, i64* %I) local_unnamed_addr {
 ; CHECK-NEXT: [[VECPHI5:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, %VPlannedBB2 ], [ [[TMP3:%.*]], %vector.body ]
 ; CHECK-NEXT: call void @foo(i64 [[UNIPHI4]])
 entry:
-  %outer.idx = load i64, i64* %I
+  %outer.idx = load i64, ptr %I
   br label %for.body.preheader
 for.body.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
