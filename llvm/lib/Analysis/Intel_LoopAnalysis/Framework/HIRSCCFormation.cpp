@@ -112,10 +112,15 @@ bool HIRSCCFormation::hasUnconventionalAccess(
 
   uint64_t PtrElemSize = DL.getTypeAllocSize(ElementTy);
 
+  // Element size of 1 evenly divides any stride.
+  if (PtrElemSize == 1) {
+    return false;
+  }
+
   // Return conservative answer if constant stride is not available or not
   // evenly divisible by ptr element size.
   if ((ConstStride == 0) || (ConstStride % (int64_t)PtrElemSize != 0)) {
-    return RI.hasNonGEPAccess(Phi);
+    return true;
   }
 
   return false;

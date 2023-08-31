@@ -1,14 +1,16 @@
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that unconventional access of %phi.ptr (which has AddRec form)
-; is parsed using IV in the bottom test.
+; is parsed using the liveout copy %phi.ptr.out in the bottom test.
 
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   do.loop:
-; CHECK: |   %val = (%phi.ptr)[0].0;
-; CHECK: |   %phi.ptr = &((%phi.ptr)[1].1);
-; CHECK: |   if (&((%init.ptr)[3 * i1]) != &((%end.ptr)[0]))
+; CHECK: |   %phi.ptr.out = &((%phi.ptr)[0]);
+; CHECK: |   %val = (%phi.ptr.out)[0].0;
+; CHECK: |   %end.ptr = (%end.ptr.ptr)[0];
+; CHECK: |   %phi.ptr = &((%phi.ptr.out)[1].1);
+; CHECK: |   if (&((%phi.ptr.out)[0]) != &((%end.ptr)[0]))
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto do.loop;
@@ -21,16 +23,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.Segment = type { i32, ptr }
 
-define void @foo(ptr %init.ptr, ptr %end.ptr) {
+define void @foo(ptr %init.ptr, ptr %end.ptr.ptr) {
 entry:
   br label %do.loop
 
 do.loop:                                          ; preds = %do.loop, %entry
-  %phi.ptr = phi ptr [ %init.ptr, %entry ], [ %bc, %do.loop ]
+  %phi.ptr = phi ptr [ %init.ptr, %entry ], [ %incdec.ptr, %do.loop ]
   %gep = getelementptr inbounds %struct.Segment, ptr %phi.ptr, i64 0, i32 0
   %val = load i32, ptr %gep, align 8
   %incdec.ptr = getelementptr inbounds %struct.Segment, ptr %phi.ptr, i64 1, i32 1
-  %bc = bitcast ptr %incdec.ptr to ptr
+  %end.ptr = load ptr, ptr %end.ptr.ptr, align 8
   %cmp44 = icmp eq ptr %phi.ptr, %end.ptr
   br i1 %cmp44, label %exit, label %do.loop
 

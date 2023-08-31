@@ -2783,32 +2783,6 @@ const Value *HIRRegionIdentification::getHeaderPhiOperand(const PHINode *Phi,
   }
 }
 
-bool HIRRegionIdentification::hasNonGEPAccess(
-    const PHINode *AddRecPtrPhi) const {
-  assert(isHeaderPhi(AddRecPtrPhi) && "AddRecPtrPhi is not a header phi!");
-  assert(isa<PointerType>(AddRecPtrPhi->getType()) &&
-         "Pointer type phi expected!");
-
-  auto Inst = cast<Instruction>(getHeaderPhiUpdateVal(AddRecPtrPhi));
-
-  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
-  while (Inst != AddRecPtrPhi) {
-    if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
-      Inst = dyn_cast<Instruction>(GEPInst->getPointerOperand());
-
-      if (!Inst) {
-        return false;
-      }
-    } else {
-      // Some other kind of instruction is involved, probably a bitcast
-      // instruction.
-      return true;
-    }
-  }
-
-  return false;
-}
-
 const GEPOperator *HIRRegionIdentification::tracebackToGEPOp(
     const Value *Val, SmallPtrSetImpl<const Value *> &VisitedInsts) const {
   while (1) {
@@ -2870,5 +2844,21 @@ HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
                              : PhiTy->getNonOpaquePointerElementType();
   }
 
-  return GEPOp->getResultElementType();
+  // Valid element types are those where we can represent IVs. These can be
+  // represented in ptr or array dimensions for which we create subscripts but
+  // excludes struct element types. The following loop returns the last
+  // 'inductive' type.
+  bool LastAccessIsStructTy = false;
+  Type *LastPtrOrArrElemTy = nullptr;
+
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    auto *IndexedTy = I.getIndexedType();
+
+    if (!LastAccessIsStructTy)
+      LastPtrOrArrElemTy = IndexedTy;
+
+    LastAccessIsStructTy = isa<StructType>(IndexedTy);
+  }
+
+  return LastPtrOrArrElemTy;
 }
