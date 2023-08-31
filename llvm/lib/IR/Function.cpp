@@ -1569,6 +1569,7 @@ static bool matchIntrinsicType(
     }
     case IITDescriptor::Pointer: {
       PointerType *PT = dyn_cast<PointerType>(Ty);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       if (!PT || PT->getAddressSpace() != D.Pointer_AddressSpace)
         return true;
       if (!PT->isOpaque()) {
@@ -1596,6 +1597,9 @@ static bool matchIntrinsicType(
              "Unsupported polymorphic pointer type with opaque pointer");
       Infos = Infos.slice(1);
       return false;
+#else
+      return !PT || PT->getAddressSpace() != D.Pointer_AddressSpace;
+#endif
     }
 
     case IITDescriptor::Struct: {
