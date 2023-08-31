@@ -85,6 +85,21 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(
     return errVal;
   }
 
+  // Register tracker event for blocking USMFree.
+  auto &usmPtrList = pCommand->GetUsmPtrList();
+  if (!usmPtrList.empty()) {
+    // Retain tracker event in case it is released by user or by following code
+    // when user event is null before USMBlockingFree.
+    m_pEventsManager->RetainEvent(pEventHandle);
+
+    std::shared_ptr<_cl_event> trackerEvtSPtr(
+        pEventHandle, [=](cl_event e) { m_pEventsManager->ReleaseEvent(e); });
+
+    for (auto usmPtr : usmPtrList)
+      m_pContext->GetContextModule().RegisterUSMFreeWaitEvent(usmPtr,
+                                                              trackerEvtSPtr);
+  }
+
   if (auto *Cmd = dynamic_cast<NDRangeKernelCommand *>(pCommand)) {
     if (Cmd->HasFPGASerializeCompleteCallBack()) {
       // This is for special handling of trackerEvent from
@@ -119,6 +134,9 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(
   RemoveFloatingDependence(pQueueEvent);
 
   if (CL_FAILED(errVal)) {
+    for (auto usmPtr : usmPtrList)
+      m_pContext->GetContextModule().UnregisterUSMFreeWaitEvent(usmPtr,
+                                                                pEventHandle);
     pCommand->CommandDone();
     if (NULL == pUserEvent) {
       m_pEventsManager->ReleaseEvent(pEventHandle);
