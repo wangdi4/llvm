@@ -5656,8 +5656,10 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     // If a +CData is used in other non-fneg instructions, we don't fold the
     // -CData, because this usually generate unnecessary load -CData from Data
     // section. The constant check/replace work has already done in mid-end.
+    // This skip won't be applied to ConstantFPSDNode
     if (SkipFNegConstantFold)
-      break;
+      if (!dyn_cast<ConstantFPSDNode>(N1))
+        break;
     LLVM_FALLTHROUGH;
 #endif // INTEL_CUSTOMIZATION
   case ISD::FABS:
