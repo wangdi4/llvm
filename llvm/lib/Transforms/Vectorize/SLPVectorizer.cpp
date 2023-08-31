@@ -4111,60 +4111,6 @@ private:
 
     /// Tells whether the tree node have any opcode override.
     bool hasOpcodeOverride() const { return !InvertScalarOpcode.empty(); }
-
-    /// Build a shuffle mask for an entry to merge main and alternate operations
-    /// into the final result.
-    /// \returns false if the case is not handled.
-    // Note: this specific version only handles cases where opcode override was
-    // requested (as a result of MultiNode reordering) and is done in a way to
-    // minimize intrusion into community code. The problem concerns how
-    // standalone buildShuffleEntryMask routine interface is defined. Ideally
-    // it shall be a TreeEntry method as it uses its input from the TreeEntry
-    // anyway. But the main issue with it is that one of its arguments, the
-    // predicate callback, takes instruction as argument. The predicate
-    // for comparison instructions specifically (see isAlternateInstruction)
-    // represents stumbling block for converting the predicate on opcode base.
-    bool
-    buildAltShuffleMask(SmallVectorImpl<int> &Mask,
-                        SmallVectorImpl<Value *> *OpScalars = nullptr,
-                        SmallVectorImpl<Value *> *AltScalars = nullptr) const {
-      if (InvertScalarOpcode.empty())
-        return false;
-
-      unsigned NumLanes = Scalars.size();
-
-      Mask.assign(NumLanes, PoisonMaskElem);
-      SmallVector<int> OrderMask;
-      if (!ReorderIndices.empty())
-        inversePermutation(ReorderIndices, OrderMask);
-
-      for (int Lane : seq<int>(0, NumLanes)) {
-        int SourceIdx = Lane;
-        if (!ReorderIndices.empty())
-          SourceIdx = OrderMask[Lane];
-
-        if (getScalarOpcode(Lane) == OverrideMainOpc) {
-          // Main op
-          Mask[Lane] = SourceIdx;
-          if (OpScalars)
-            OpScalars->push_back(Scalars[SourceIdx]);
-        } else {
-          // Alt op
-          Mask[Lane] = NumLanes + SourceIdx;
-          if (AltScalars)
-            AltScalars->push_back(Scalars[SourceIdx]);
-        }
-      }
-
-      if (!ReuseShuffleIndices.empty()) {
-        SmallVector<int> NewMask(ReuseShuffleIndices.size(), PoisonMaskElem);
-        transform(ReuseShuffleIndices, NewMask.begin(), [&Mask](int Idx) {
-          return Idx != PoisonMaskElem ? Mask[Idx] : PoisonMaskElem;
-        });
-        Mask.swap(NewMask);
-      }
-      return true;
-    }
 #endif // INTEL_CUSTOMIZATION
 
     /// Set this bundle's \p OpIdx'th operand to \p OpVL.
@@ -8451,7 +8397,14 @@ void BoUpSLP::TreeEntry::buildAltOpShuffleMask(
     if (!ReorderIndices.empty())
       Idx = OrderMask[I];
     auto *OpInst = cast<Instruction>(Scalars[Idx]);
-    if (IsAltOp(OpInst)) {
+#if INTEL_CUSTOMIZATION
+    // If we have opcode override requested (as a result of MultiNode
+    // reordering) then check against updated opcode data.
+    bool IsAlternateOp = InvertScalarOpcode.empty()
+                             ? IsAltOp(OpInst)
+                             : getScalarOpcode(I) != OverrideMainOpc;
+    if (IsAlternateOp) {
+#endif // INTEL_CUSTOMIZATION
       Mask[I] = Sz + Idx;
       if (AltScalars)
         AltScalars->push_back(OpInst);
@@ -10147,14 +10100,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
                                          TTI::CastContextHint::None, CostKind);
       }
       SmallVector<int> Mask;
-#if INTEL_CUSTOMIZATION
-      // If tree entry is a MultiNode trunk with frontiers and reordering
-      // modified any opcodes this will build the alternate mask taking into
-      // account these overrides.
-      // This could be a much better glue up if buildShuffleEntryMask was
-      // a TreeEntry member.
-      if (!E->buildAltShuffleMask(Mask))
-#endif // INTEL_CUSTOMIZATION
       E->buildAltOpShuffleMask(
           [E](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
@@ -13154,14 +13099,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       // each vector operation.
       ValueList OpScalars, AltScalars;
       SmallVector<int> Mask;
-#if INTEL_CUSTOMIZATION
-      // If tree entry is a MultiNode trunk with frontiers and reordering
-      // modified any opcodes this will build the alternate mask taking into
-      // account these overrides.
-      // This could be a much better glue up if buildShuffleEntryMask was
-      // a TreeEntry member.
-      if (!E->buildAltShuffleMask(Mask, &OpScalars, &AltScalars))
-#endif // INTEL_CUSTOMIZATION
       E->buildAltOpShuffleMask(
           [E, this](Instruction *I) {
             assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
