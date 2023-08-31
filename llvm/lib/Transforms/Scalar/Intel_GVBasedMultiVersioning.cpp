@@ -31,15 +31,15 @@
 //
 // * First find all eligible branches. An eligible branch is a conditional
 // branch based on an i1 global variable. We then choose the global variable
-// with the most branches as a starting point. Bail out if the number of
-// branches is too small.
-// * Assume an invariant for each of the two boolean values of the global
-// variable selected. If the global may be modified inside the function, try to
-// find other invariants that make the modification unreachable. Do this
-// recursively until we've built a set of invariants (InvariantSet) that can be
-// assumed throughout the function if all of the invariants are satisfied at the
-// entry of function. As the starting global may take 2 values, we try to build
-// 2 InvariantSets. Bail out if we can't build any InvariantSet.
+// with the most branches (called "principal global") as a starting point. Bail
+// out if the number of branches is too small.
+// * Assume an invariant for each of the two boolean values of the principal
+// global. If it may be modified inside the function, try to find other
+// invariants that make the modification unreachable. Do this recursively until
+// we've built a set of invariants (InvariantSet) that can be assumed throughout
+// the function if all of the invariants are satisfied at the entry of function.
+// As the starting global may take 2 values, we try to build 2 InvariantSets.
+// Bail out if we can't build any InvariantSet.
 // * Do the actual multiversioning by cloning the function body and generating
 // dispatch code based on the InvariantSets. The InvariantSets are applied to
 // the new clones and some quick constant folding is done.
@@ -83,6 +83,8 @@ static cl::opt<unsigned int> GVBasedMultiversionMaxNumInvariants(
     "gvbased-multiversion-max-num-invariants", cl::init(8), cl::Hidden,
     cl::desc(
         "Maximum number of invariants allowed for GVBasedMultiversioning."));
+
+namespace {
 
 // Structure to store information of an invariant temporarily
 struct InvariantDesc {
@@ -154,6 +156,17 @@ static GlobalVariable *getGlobalVariableForBranch(BranchInst *Branch) {
   return GV;
 }
 
+// Utility to remove all blocks satisfying Pred from BBs.
+static void filterBBsWithPred(function_ref<bool(BasicBlock *)> Pred,
+                              DenseSet<BasicBlock *> &BBs) {
+  SmallVector<BasicBlock *, 4> BBsToRemove;
+  for (auto BB : BBs)
+    if (Pred(BB))
+      BBsToRemove.push_back(BB);
+  for (auto BB : BBsToRemove)
+    BBs.erase(BB);
+}
+
 // Given a set of BBs and an invariant, remove all BBs that is unreachable if
 // the invariant is true from the set.
 static void removeUnreachableBasicBlocksForInvariant(
@@ -172,14 +185,14 @@ static void removeUnreachableBasicBlocksForInvariant(
       Edges.push_back(BBE);
   }
 
-  SmallVector<BasicBlock *, 4> BBsToRemove;
-  for (auto *BB : BlocksSet)
-    for (const auto &Edge : Edges)
-      if (DT->dominates(Edge, BB))
-        BBsToRemove.push_back(BB);
-
-  for (auto *BB : BBsToRemove)
-    BlocksSet.erase(BB);
+  filterBBsWithPred(
+      [DT, Edges](BasicBlock *BB) {
+        return std::any_of(Edges.begin(), Edges.end(),
+                           [DT, BB](const BasicBlockEdge &Edge) {
+                             return DT->dominates(Edge, BB);
+                           });
+      },
+      BlocksSet);
 }
 
 std::optional<InvariantDesc>
@@ -295,21 +308,21 @@ void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
 
   // Find the global variable that's most frequently used in conditional
   // branches.
-  GlobalVariable *GlobalWithMostBranches = nullptr;
+  GlobalVariable *PrincipalGlobal = nullptr;
   unsigned NumUses = 0;
   for (const auto &[GV, Branches] : GlobalBranches) {
     unsigned NumBranches = Branches.size();
     if (NumBranches <= NumUses)
       continue;
-    GlobalWithMostBranches = GV;
+    PrincipalGlobal = GV;
     NumUses = NumBranches;
   }
 
   // Bail out if we can't find any eligible branch, or the number of branches is
   // too few.
-  if (!GlobalWithMostBranches) {
+  if (!PrincipalGlobal) {
     LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
-                      << " bails out, no eligible branch\n");
+                      << " bails out, no principal global found\n");
     return;
   }
   if (NumUses < GVBasedMultiversionMinNumBranches) {
@@ -325,11 +338,11 @@ void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
              << " eligible branches found, proceed to build invariant sets\n");
 
   // Attempt to build two InvariantSets with the initial invariants:
-  // GlobalWithMostBranches = true and GlobalWithMostBranches = false.
+  // PrincipalGlobal = true and PrincipalGlobal = false.
   auto TryBuildAndAddInvariantSetWithInitialValue =
-      [this, &Out, GlobalWithMostBranches](bool InitialValue) {
+      [this, &Out, PrincipalGlobal](bool InitialValue) {
         InvariantSet Result = buildInvariantSetFromInvariant(
-            InvariantDesc(GlobalWithMostBranches, InitialValue));
+            InvariantDesc(PrincipalGlobal, InitialValue));
         if (Result.empty())
           return;
         if (Result.size() > GVBasedMultiversionMaxNumInvariants) {
@@ -339,7 +352,7 @@ void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
           return;
         }
         LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
-                          << " invariant set: ";
+                          << " created invariant set: ";
                    for (const auto &Invariant
                         : Result) dbgs()
                    << "(" << Invariant.first->getName() << " = "
@@ -373,6 +386,72 @@ static bool canReuseOriginalCode(ArrayRef<InvariantSet> BranchInvariantSets) {
   return true;
 }
 
+// Given an InvariantSet, create instructions to check all the invariants.
+// Returns an i1 Value.
+// Variables from the invariants are fetched by calling MakeLoadInst, to allow
+// reuse of instruction sequences among multiple invariants.
+template <typename MakeLoadInstTy>
+Value *buildConditionForInvariantSet(const InvariantSet &Invariants,
+                                     IRBuilder<> &Builder,
+                                     MakeLoadInstTy MakeLoadInst) {
+  assert(!Invariants.empty());
+  auto *Int1Ty = IntegerType::getInt1Ty(Builder.getContext());
+  if (Invariants.empty())
+    return ConstantInt::get(Int1Ty, 1);
+  SmallVector<Value *, 4> Values;
+  for (auto &Invariant : Invariants) {
+    Value *Load = MakeLoadInst(Invariant.first, Builder);
+    Values.push_back(Invariant.second ? Load : Builder.CreateNot(Load));
+  }
+  return Builder.CreateAnd(Values);
+}
+
+// Inside a region cloned from the original function, substitute uses of all
+// variables in the InvariantSet with the constant stored in the corresponding
+// invariant.
+static void
+applyInvariantSetToClone(const InvariantSet &Invariants,
+                         const SmallVector<BasicBlock *, 32> &Blocks) {
+  for (auto *BB : Blocks) {
+    SmallVector<Instruction *, 4> InstsToRemove;
+    for (auto &I : *BB) {
+      auto *Load = dyn_cast<LoadInst>(&I);
+      if (!Load)
+        continue;
+      auto *GV = dyn_cast<GlobalVariable>(Load->getPointerOperand());
+      if (!GV)
+        continue;
+      auto It = Invariants.find(GV);
+      if (It != Invariants.end()) {
+        Load->replaceAllUsesWith(ConstantInt::get(
+            IntegerType::getInt1Ty(BB->getContext()), It->second));
+        InstsToRemove.push_back(Load);
+      }
+    }
+    for (auto *I : InstsToRemove)
+      I->eraseFromParent();
+  }
+}
+
+// Clone all blocks in BBs and apply Invariants to the new clone. Mapping
+// between the old BBs and cloned ones is returned in VMap.
+static void cloneBBsWithInvariants(ArrayRef<BasicBlock *> BBs,
+                                   const InvariantSet &Invariants,
+                                   ValueToValueMapTy &VMap) {
+  if (BBs.empty())
+    return;
+  Function *F = BBs[0]->getParent();
+  SmallVector<BasicBlock *, 32> CloneBBs;
+  for (auto *OrigBB : BBs) {
+    auto CloneBB = CloneBasicBlock(OrigBB, VMap, ".clone", F);
+    VMap[OrigBB] = CloneBB;
+    CloneBBs.push_back(CloneBB);
+  }
+  remapInstructionsInBlocks(CloneBBs, VMap);
+  applyInvariantSetToClone(Invariants, CloneBBs);
+  return;
+}
+
 void GVBasedMultiVersioning::doTransformation(
     ArrayRef<InvariantSet> BranchInvariantSets) {
   BasicBlock *OrigEntryBB = &F->getEntryBlock();
@@ -393,58 +472,6 @@ void GVBasedMultiVersioning::doTransformation(
   BasicBlock *BBAfterLoadsBB = OrigEntryBB;
   auto *EntryBr = BranchInst::Create(OrigEntryBB, GlobalLoadsBB);
 
-  // Given an InvariantSet, create instructions to check all the invariants.
-  // Returns an i1 Value.
-  auto BuildConditionForInvariantSet =
-      [&LoadsForGlobals, EntryBr](const InvariantSet &Invariants,
-                                  IRBuilder<> &Builder) -> Value * {
-    assert(!Invariants.empty());
-    auto *Int1Ty = IntegerType::getInt1Ty(Builder.getContext());
-    if (Invariants.empty())
-      return ConstantInt::get(Int1Ty, 1);
-    SmallVector<Value *, 4> Values;
-    for (auto &Invariant : Invariants) {
-      auto *GV = Invariant.first;
-      auto It = LoadsForGlobals.find(GV);
-      if (It == LoadsForGlobals.end())
-        It = LoadsForGlobals
-                 .insert(std::make_pair(
-                     GV, new LoadInst(Int1Ty, GV, "mv.load." + GV->getName(),
-                                      EntryBr)))
-                 .first;
-      Value *Load = It->second;
-      Values.push_back(Invariant.second ? Load : Builder.CreateNot(Load));
-    }
-    return Builder.CreateAnd(Values);
-  };
-
-  // Inside a region cloned from the original function, substitute uses of all
-  // variables in the InvariantSet with the constant stored in the corresponding
-  // invariant.
-  auto ApplyInvariantSetToClone =
-      [](const InvariantSet &Invariants,
-         const SmallVector<BasicBlock *, 32> &Blocks) {
-        for (auto *BB : Blocks) {
-          SmallVector<Instruction *, 4> InstsToRemove;
-          for (auto &I : *BB) {
-            auto *Load = dyn_cast<LoadInst>(&I);
-            if (!Load)
-              continue;
-            auto *GV = dyn_cast<GlobalVariable>(Load->getPointerOperand());
-            if (!GV)
-              continue;
-            auto It = Invariants.find(GV);
-            if (It != Invariants.end()) {
-              Load->replaceAllUsesWith(ConstantInt::get(
-                  IntegerType::getInt1Ty(BB->getContext()), It->second));
-              InstsToRemove.push_back(Load);
-            }
-          }
-          for (auto *I : InstsToRemove)
-            I->eraseFromParent();
-        }
-      };
-
   // Clone the function body for every InvariantSet and generate dispatch code
   // to each clone. Reuse the original code if possible.
   const bool ReuseOriginalCode = canReuseOriginalCode(BranchInvariantSets);
@@ -452,26 +479,34 @@ void GVBasedMultiVersioning::doTransformation(
     if (ReuseOriginalCode && &Invariants == &BranchInvariantSets.back()) {
       LLVM_DEBUG(dbgs() << "GVMV transformation for " << F->getName() << ": "
                         << "Reusing the original code.\n");
-      ApplyInvariantSetToClone(Invariants, OrigBBs);
+      applyInvariantSetToClone(Invariants, OrigBBs);
       continue;
     }
 
-    SmallVector<BasicBlock *, 32> CloneBBs;
     ValueToValueMapTy VMap;
-    for (auto *OrigBB : OrigBBs) {
-      auto CloneBB = CloneBasicBlock(OrigBB, VMap, ".clone", F);
-      VMap[OrigBB] = CloneBB;
-      CloneBBs.push_back(CloneBB);
-    }
-    remapInstructionsInBlocks(CloneBBs, VMap);
-    ApplyInvariantSetToClone(Invariants, CloneBBs);
-
+    cloneBBsWithInvariants(OrigBBs, Invariants, VMap);
     // Create a new BB to check the InvariantSet and jump to the new clone. Then
     // use it as the new successor of GlobalLoadsBB.
     BasicBlock *CondBB = BasicBlock::Create(F->getParent()->getContext(),
                                             "mv.cond", F, BBAfterLoadsBB);
     IRBuilder<> Builder(CondBB);
-    Value *Condition = BuildConditionForInvariantSet(Invariants, Builder);
+
+    Type *Int1Ty = IntegerType::getInt1Ty(F->getContext());
+    auto BuildOrReuseGlobalLoadInst = [&LoadsForGlobals, EntryBr,
+                                       Int1Ty](GlobalVariable *GV,
+                                               IRBuilder<> &Builder) {
+      auto It = LoadsForGlobals.find(GV);
+      if (It == LoadsForGlobals.end())
+        It = LoadsForGlobals
+                 .insert(std::make_pair(
+                     GV, new LoadInst(Int1Ty, GV, "mv.load." + GV->getName(),
+                                      EntryBr)))
+                 .first;
+      return It->second;
+    };
+    Value *Condition = buildConditionForInvariantSet(
+        Invariants, Builder, BuildOrReuseGlobalLoadInst);
+
     Builder.CreateCondBr(Condition, cast<BasicBlock>(VMap.lookup(OrigEntryBB)),
                          BBAfterLoadsBB);
     EntryBr->setSuccessor(0, CondBB);
@@ -500,6 +535,8 @@ bool GVBasedMultiVersioning::run() {
   doTransformation(InvariantSets);
   return true;
 }
+
+} // namespace
 
 PreservedAnalyses GVBasedMultiVersioningPass::run(Function &F,
                                                   FunctionAnalysisManager &AM) {
