@@ -40,8 +40,8 @@ define internal void @myfoo() {
 define dso_local void @_Z3foov() local_unnamed_addr {
 entry:
   %y1 = alloca float, align 4
-  %0 = bitcast float* %y1 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0)
+  %0 = bitcast ptr %y1 to ptr
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0)
   br label %DIR.OMP.TASK.1
 
 DIR.OMP.TASK.1:                                   ; preds = %entry
@@ -49,8 +49,8 @@ DIR.OMP.TASK.1:                                   ; preds = %entry
 
 DIR.OMP.TASK.2:                                   ; preds = %DIR.OMP.TASK.1
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
-    "QUAL.OMP.DEPEND.OUT"(float* %y1),
-    "QUAL.OMP.FIRSTPRIVATE"(float* %y1) ]
+    "QUAL.OMP.DEPEND.OUT"(ptr %y1),
+    "QUAL.OMP.FIRSTPRIVATE"(ptr %y1) ]
 
   br label %DIR.OMP.TASK.34
 
@@ -58,7 +58,7 @@ DIR.OMP.TASK.34:                                  ; preds = %DIR.OMP.TASK.2
   br label %DIR.OMP.TASK.3
 
 DIR.OMP.TASK.3:                                   ; preds = %DIR.OMP.TASK.34
-  store float 1.000000e+00, float* %y1, align 4
+  store float 1.000000e+00, ptr %y1, align 4
   call void @myfoo()
   br label %DIR.OMP.END.TASK.4.split
 
@@ -71,12 +71,12 @@ DIR.OMP.END.TASK.4:                               ; preds = %DIR.OMP.END.TASK.4.
   br label %DIR.OMP.END.TASK.5
 
 DIR.OMP.END.TASK.5:                               ; preds = %DIR.OMP.END.TASK.4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %0)
   ret void
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
@@ -85,7 +85,7 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
 attributes #1 = { nounwind }
