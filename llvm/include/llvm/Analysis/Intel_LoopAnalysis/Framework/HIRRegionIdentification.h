@@ -243,10 +243,6 @@ public:
     return getHeaderPhiOperand(Phi, false);
   }
 
-  /// Returns true if the \p AddRecPtrPhi has unconventional access pattern
-  /// (through a bitcast, for example).
-  bool hasNonGEPAccess(const PHINode *AddRecPtrPhi) const;
-
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.
   bool
