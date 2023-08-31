@@ -2137,6 +2137,21 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       return errVal;
   }
 
+  // Register tracker event for wait list of USM buffers to free.
+  // For USM buffers passed as kernel argument.
+  std::vector<const void *> usmPtrList;
+  for (const auto &IndexUSMBuffer : pKernel->GetUsmArgs()) {
+    USMBuffer *buf = IndexUSMBuffer.second;
+    if (nullptr != buf)
+      usmPtrList.push_back(buf->GetAddr());
+  }
+  // For USM buffers that kernel may access indirectly.
+  std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
+  pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
+  for (const auto &buf : nonArgUsmBufs)
+    usmPtrList.push_back(buf->GetAddr());
+  pNDRangeKernelCmd->SetUsmPtrList(usmPtrList);
+
   // Kernel serialization.
   // If we have the same kernel being enqueued on FPGA emulator several
   // times - we don't want two or more instances of this kernel being
@@ -2157,9 +2172,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // patch must be reverted and actually I don't know if kernel
   // serialization is possible in this case.
   bool updatedEventList = false;
-
-  // Set a tracker event to track kernel execution.
-  cl_event trackerEvent = nullptr;
 
   // Do nothing in case of multi-device program
   // Process kernel serialization only for out-of-order queues, so the
@@ -2214,6 +2226,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         pNDRangeKernelCmd->SetFPGASerializeCompleteCallBack(
             [this](cl_event Evt) { callbackForKernelEventMap(Evt); });
 
+        // Set a tracker event to track kernel execution.
+        cl_event trackerEvent = nullptr;
+
         // EnqueueSelf must also be guarded by KernelEventMutex,
         // otherwise prevClEvent's status could change during
         // EnqueueSelf call, causing callbackForKernelEventMap to
@@ -2226,6 +2241,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // Update the map replacing old with a newer one.
         if (CL_SUCCEEDED(errVal))
           m_OclKernelEventMap[kernelName] = trackerEvent;
+
+        if (nullptr != pEvent)
+          *pEvent = trackerEvent;
       }
 
       updatedEventList = true;
@@ -2233,9 +2251,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   }
 
   if (!updatedEventList) {
-    errVal = pNDRangeKernelCmd->EnqueueSelf(
-        false /*never blocking*/, uNumEventsInWaitList, cpEventWaitList,
-        &trackerEvent, apiLogger);
+    errVal = pNDRangeKernelCmd->EnqueueSelf(false /*never blocking*/,
+                                            uNumEventsInWaitList,
+                                            cpEventWaitList, pEvent, apiLogger);
   }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -2251,26 +2269,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     pNDRangeKernelCmd->CommandDone();
     return errVal;
   }
-
-  // Return tracker event to user.
-  if (pEvent != nullptr)
-    *pEvent = trackerEvent;
-
-  // Register tracker event for wait list of USM buffers to free.
-  // For USM buffers passed as kernel argument.
-  std::vector<const void *> usmPtrList;
-  for (const auto &IndexUSMBuffer : pKernel->GetUsmArgs()) {
-    USMBuffer *buf = IndexUSMBuffer.second;
-    if (nullptr != buf)
-      usmPtrList.push_back(buf->GetAddr());
-  }
-  // For USM buffers that kernel may access indirectly.
-  std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
-  pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
-  for (const auto &buf : nonArgUsmBufs)
-    usmPtrList.push_back(buf->GetAddr());
-  SetTrackerForUSM(pNDRangeKernelCmd.get(), usmPtrList, trackerEvent,
-                   pEvent != nullptr);
 
   (void)pNDRangeKernelCmd.release();
 
@@ -3586,25 +3584,6 @@ bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
   return true;
 }
 
-void ExecutionModule::SetTrackerForUSM(
-    Command *command, const std::vector<const void *> &usmPtrList,
-    cl_event tracker, bool isTrackerVisible) {
-  // Retain tracker event in case it is released by user before USMBlockingFree.
-  if (isTrackerVisible)
-    m_pEventsManager->RetainEvent(tracker);
-
-  // Releasing tracker event along with its related context will cause huge
-  // memory consumption in extreme case. So we save USM pointers for the command
-  // in order to unregister its tracker event once the command is completed.
-  command->SetUsmPtrList(usmPtrList);
-
-  std::shared_ptr<_cl_event> trackerEvtSPtr(
-      tracker, [=](cl_event e) { m_pEventsManager->ReleaseEvent(e); });
-
-  for (auto usmPtr : usmPtrList)
-    m_pContextModule->RegisterUSMFreeWaitEvent(usmPtr, trackerEvtSPtr);
-}
-
 cl_err_code ExecutionModule::EnqueueUSMMemset(
     cl_command_queue command_queue, void *dst_ptr, cl_int value, size_t size,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
@@ -3664,20 +3643,16 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  memsetCommand->SetUsmPtrList({dst_ptr});
+
   err = memsetCommand->EnqueueSelf(false, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memsetCommand->CommandDone();
     delete memsetCommand;
     return err;
   }
-
-  SetTrackerForUSM(memsetCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3740,20 +3715,16 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  memFillCommand->SetUsmPtrList({dst_ptr});
+
   err = memFillCommand->EnqueueSelf(false, num_events_in_wait_list,
-                                    event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                    event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memFillCommand->CommandDone();
     delete memFillCommand;
     return err;
   }
-
-  SetTrackerForUSM(memFillCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3849,25 +3820,21 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  std::vector<const void *> usmPtrs;
+  if (!blocking) {
+    usmPtrs.push_back(src_ptr);
+    usmPtrs.push_back(dst_ptr);
+  }
+  memcpyCommand->SetUsmPtrList(usmPtrs);
+
   err = memcpyCommand->EnqueueSelf(blocking, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memcpyCommand->CommandDone();
     delete memcpyCommand;
     return err;
   }
-
-  std::vector<const void *> usmPtrs;
-  if (!blocking) {
-    usmPtrs.push_back(src_ptr);
-    usmPtrs.push_back(dst_ptr);
-  }
-  SetTrackerForUSM(memcpyCommand, usmPtrs, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3908,12 +3875,10 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  migrateCommand->SetUsmPtrList({ptr});
+
   err = migrateCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
-                                    event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                    event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     // Enqueue failed, free resources
@@ -3921,8 +3886,6 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     delete migrateCommand;
     return err;
   }
-
-  SetTrackerForUSM(migrateCommand, {ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3966,12 +3929,10 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  adviseCommand->SetUsmPtrList({ptr});
+
   err = adviseCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     // Enqueue failed, free resources
@@ -3979,8 +3940,6 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     delete adviseCommand;
     return err;
   }
-
-  SetTrackerForUSM(adviseCommand, {ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -4281,20 +4240,6 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
-  err = cmd->EnqueueSelf(blocking, num_events_in_wait_list, event_wait_list,
-                         &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
-
-  if (CL_FAILED(err)) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy EnqueueSelf failed, err = %d"), err);
-    cmd->CommandDone();
-    delete cmd;
-    return err;
-  }
-
   std::vector<const void *> usmPtrs;
   if (!blocking) {
     if (is_src_usm)
@@ -4302,7 +4247,17 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     if (is_dst_usm)
       usmPtrs.push_back(dst);
   }
-  SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
+  cmd->SetUsmPtrList(usmPtrs);
+
+  err = cmd->EnqueueSelf(blocking, num_events_in_wait_list, event_wait_list,
+                         event, api_logger);
+
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueLibraryCopy EnqueueSelf failed, err = %d"), err);
+    cmd->CommandDone();
+    delete cmd;
+    return err;
+  }
 
   return CL_SUCCESS;
 }
@@ -4370,12 +4325,14 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
-  err = cmd->EnqueueSelf(false, num_events_in_wait_list, event_wait_list,
-                         &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+  std::vector<const void *> usmPtrs;
+  if (is_dst_usm) {
+    usmPtrs.push_back(dst);
+  }
+  cmd->SetUsmPtrList(usmPtrs);
+
+  err = cmd->EnqueueSelf(false, num_events_in_wait_list, event_wait_list, event,
+                         api_logger);
 
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("EnqueueLibrarySet EnqueueSelf failed, err = %d"), err);
@@ -4383,12 +4340,6 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     delete cmd;
     return err;
   }
-
-  std::vector<const void *> usmPtrs;
-  if (is_dst_usm) {
-    usmPtrs.push_back(dst);
-  }
-  SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }

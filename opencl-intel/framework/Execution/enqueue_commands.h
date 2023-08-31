@@ -141,9 +141,14 @@ public:
   const SharedPtr<FissionableDevice> &GetDevice() const { return m_pDevice; }
 
   void SetUsmPtrList(const std::vector<const void *> &usmPtrs) {
-    std::lock_guard<std::mutex> lock(m_UsmPtrsMutex);
+    // Releasing tracker event along with its related context will cause huge
+    // memory consumption in extreme case. So we save USM pointers for the
+    // command in order to unregister its tracker event once the command is
+    // completed.
     m_UsmPtrs = usmPtrs;
   }
+
+  const std::vector<const void *> &GetUsmPtrList(void) { return m_UsmPtrs; }
 
   cl_dev_cmd_desc *GetDeviceCommandDescriptor();
 
@@ -281,7 +286,6 @@ protected:
   ContextModule *m_pContextModule;
   // A list of pointers to USM whose free may be blocked by this command.
   std::vector<const void *> m_UsmPtrs;
-  std::mutex m_UsmPtrsMutex;
 
   DECLARE_LOGGER_CLIENT;
 

@@ -136,7 +136,6 @@ void inline Command::DetachEventSharedPtr() {
 }
 
 void inline Command::UnregisterUSMFreeWaitEvent() {
-  std::lock_guard<std::mutex> lock(m_UsmPtrsMutex);
   for (auto usmPtr : m_UsmPtrs) {
     m_pContextModule->UnregisterUSMFreeWaitEvent(usmPtr,
                                                  this->GetEvent()->GetHandle());
