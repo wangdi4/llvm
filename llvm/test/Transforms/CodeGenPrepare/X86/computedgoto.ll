@@ -276,7 +276,7 @@ define i64 @loop(ptr nocapture readonly %p) {
 ; SPLIT-SWITCH-CE-NEXT:    [[TARGET:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
 ; SPLIT-SWITCH-CE-NEXT:    indirectbr ptr [[TARGET]], [label [[BB0]], label %bb1]
 ; SPLIT-SWITCH-CE:       bb1:
-; SPLIT-SWITCH-CE-NEXT:    ret void
+; SPLIT-SWITCH-CE-NEXT:    ret i64 [[I_NEXT]]
 ;
 ; end INTEL_CUSTOMIZATION
 entry:
@@ -403,7 +403,7 @@ define i32 @noncritical(i32 %k, ptr %p)
 ; SPLIT-SWITCH-CE-NEXT:    br label [[EXIT]]
 ; SPLIT-SWITCH-CE:       exit:
 ; SPLIT-SWITCH-CE-NEXT:    [[V:%.*]] = phi i32 [ [[R0]], [[BB0]] ], [ [[R1]], [[BB1:%.*]] ]
-; SPLIT-SWITCH-CE-NEXT:    ret i32 0
+; SPLIT-SWITCH-CE-NEXT:    ret i32 [[V]]
 ;
 ; end INTEL_CUSTOMIZATION
 {
