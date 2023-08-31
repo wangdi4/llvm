@@ -245,6 +245,10 @@ static cl::opt<bool> ClInlineAllChecks("hwasan-inline-all-checks",
                                        cl::desc("inline all checks"),
                                        cl::Hidden, cl::init(false));
 
+static cl::opt<bool> ClInlineFastPathChecks("hwasan-inline-fast-path-checks",
+                                            cl::desc("inline all checks"),
+                                            cl::Hidden, cl::init(false));
+
 // Enabled from clang by "-fsanitize-hwaddress-experimental-aliasing".
 static cl::opt<bool> ClUsePageAliases("hwasan-experimental-use-page-aliases",
                                       cl::desc("Use page aliasing in HWASan"),
@@ -395,6 +399,7 @@ private:
   bool CompileKernel;
   bool Recover;
   bool OutlinedChecks;
+  bool InlineFastPath;
   bool UseShortGranules;
   bool InstrumentLandingPads;
   bool InstrumentWithCalls;
@@ -601,6 +606,13 @@ void HWAddressSanitizer::initializeModule() {
       (TargetTriple.isAArch64() || TargetTriple.isRISCV64()) &&
       TargetTriple.isOSBinFormatELF() &&
       (ClInlineAllChecks.getNumOccurrences() ? !ClInlineAllChecks : !Recover);
+
+  InlineFastPath =
+      (ClInlineFastPathChecks.getNumOccurrences()
+           ? ClInlineFastPathChecks
+           : !(TargetTriple.isAndroid() ||
+               TargetTriple.isOSFuchsia())); // These platforms may prefer less
+                                             // inlining to reduce binary size.
 
   if (ClMatchAllTag.getNumOccurrences()) {
     if (ClMatchAllTag != -1) {
@@ -868,6 +880,11 @@ void HWAddressSanitizer::instrumentMemAccessOutline(Value *Ptr, bool IsWrite,
   assert(!UsePageAliases);
   const int64_t AccessInfo = getAccessInfo(IsWrite, AccessSizeIndex);
   IRBuilder<> IRB(InsertBefore);
+
+  if (InlineFastPath) {
+    // TODO.
+  }
+
   Module *M = IRB.GetInsertBlock()->getParent()->getParent();
   Ptr = IRB.CreateBitCast(Ptr, Int8PtrTy);
   IRB.CreateCall(Intrinsic::getDeclaration(
