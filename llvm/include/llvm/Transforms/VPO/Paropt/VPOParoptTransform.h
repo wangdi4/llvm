@@ -955,6 +955,9 @@ private:
   /// Check if it's array reduction (type of reduction variable is array).
   bool isArrayReduction(ReductionItem *I);
 
+  /// Check if the type of the reduction variable is non-POD
+  bool isNonPodReduction(ReductionItem *I);
+
   /// Check if we want to generate fast reduction code (including tree-like
   /// reduction, atomic and etc).
   int checkFastReduction(WRegionNode *W);

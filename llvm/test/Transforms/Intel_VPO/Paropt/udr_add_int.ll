@@ -90,7 +90,7 @@ for.end:                                          ; preds = %for.cond
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; FASTRED-NOT: __kmpc_atomic
-; FASTRED: call void @.omp_initializer.(ptr %sum_udr.red{{.*}}, ptr %sum_udr)
+; FASTRED: call void @.omp_initializer.(ptr %sum_udr.fast_red{{.*}}, ptr %sum_udr)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(ptr %sum_udr, ptr %sum_udr.fast_red{{.*}})
 ; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})

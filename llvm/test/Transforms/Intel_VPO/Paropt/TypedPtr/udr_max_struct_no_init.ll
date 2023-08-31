@@ -155,7 +155,7 @@ for.end:                                          ; preds = %for.cond
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; FASTRED-NOT: __kmpc_atomic
-; FASTRED: %{{.*}} = bitcast %struct.point* %maxp.red{{.*}} to i8*
+; FASTRED: %{{.*}} = bitcast %struct.point* %maxp.fast_red{{.*}} to i8*
 ; FASTRED-NEXT: call void @llvm.memset.{{.*}}({{.*}})
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(%struct.point* %maxp, %struct.point* %maxp.fast_red{{.*}})

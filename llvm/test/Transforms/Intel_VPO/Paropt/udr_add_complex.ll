@@ -73,7 +73,7 @@ entry:
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; FASTRED-NOT: __kmpc_atomic
-; FASTRED: call void @.omp_initializer.(ptr %sum.red, ptr %sum)
+; FASTRED: call void @.omp_initializer.(ptr %sum.fast_red, ptr %sum)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(ptr %sum, ptr %sum.fast_red)
 ; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})

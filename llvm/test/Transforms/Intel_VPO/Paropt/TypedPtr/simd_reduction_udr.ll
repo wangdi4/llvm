@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-fast-reduction-ctrl=7 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-fast-reduction-ctrl=7 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S %s | FileCheck %s --check-prefix=NOFASTRED --check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S %s | FileCheck %s --check-prefix=NOFASTRED --check-prefix=ALL
 
@@ -48,8 +48,9 @@
 ; ALL: [[LEXIT]]:
 ; ALL: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 
-; FASTRED: %[[XPRIV_VAL:[^ ]+]] = load %class.C, %class.C* %[[XPRIV]], align 4
-; FASTRED: store %class.C %[[XPRIV_VAL]], %class.C* %[[FXPRIV]], align 4
+; FASTRED: %[[FRREG:.+]] = bitcast %class.C* %[[FXPRIV]] to i8*
+; FASTRED-NEXT: %[[RREG:.+]] = bitcast %class.C* %[[XPRIV]] to i8*
+; FASTRED-NEXT: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[FRREG]], i8* align 4 %[[RREG]], i64 4, i1 false)
 
 ; ALL: br label %[[LEXIT_SPLIT:[^,]+]]
 ; ALL: [[LEXIT_SPLIT]]:
