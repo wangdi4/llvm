@@ -164,11 +164,6 @@ static cl::opt<bool> PersistProfileStaleness(
     cl::desc("Compute stale profile statistical metrics and write it into the "
              "native object file(.llvm_stats section)."));
 
-static cl::opt<bool> FlattenProfileForMatching(
-    "flatten-profile-for-matching", cl::Hidden, cl::init(true),
-    cl::desc(
-        "Use flattened profile for stale profile detection and matching."));
-
 static cl::opt<bool> ProfileSampleAccurate(
     "profile-sample-accurate", cl::Hidden, cl::init(false),
     cl::desc("If the sample profile is accurate, we will mark all un-sampled "
@@ -488,12 +483,7 @@ class SampleProfileMatcher {
 public:
   SampleProfileMatcher(Module &M, SampleProfileReader &Reader,
                        const PseudoProbeManager *ProbeManager)
-      : M(M), Reader(Reader), ProbeManager(ProbeManager) {
-    if (FlattenProfileForMatching) {
-      ProfileConverter::flattenProfile(Reader.getProfiles(), FlattenedProfiles,
-                                       FunctionSamples::ProfileIsCS);
-    }
-  }
+      : M(M), Reader(Reader), ProbeManager(ProbeManager){};
   void runOnModule();
 
 private:
@@ -504,11 +494,12 @@ private:
       return &It->second;
     return nullptr;
   }
-  void runOnFunction(const Function &F, const FunctionSamples &FS);
+  void runOnFunction(const Function &F);
   void findIRAnchors(const Function &F,
                      std::map<LineLocation, StringRef> &IRAnchors);
   void findProfileAnchors(const FunctionSamples &FS,
                           std::map<LineLocation, StringSet<>> &ProfileAnchors);
+  void countMismatchedSamples(const FunctionSamples &FS);
   void countProfileMismatches(
       const Function &F, const FunctionSamples &FS,
       const std::map<LineLocation, StringRef> &IRAnchors,
@@ -2208,10 +2199,29 @@ void SampleProfileMatcher::findIRAnchors(
   // Extract profile matching anchors in the IR.
   for (auto &BB : F) {
     for (auto &I : BB) {
-      // TODO: Support line-number based location(AutoFDO).
+      // TODO: To support AutoFDO, we need to parse all the non-call
+      // instructions to extract the line-number based locations. For
+      // pseudo-probe mode, since each block is instrumented with one probe
+      // inst, parsing probe inst is enough.
       if (FunctionSamples::ProfileIsProbeBased && isa<PseudoProbeInst>(&I)) {
-        if (std::optional<PseudoProbe> Probe = extractProbe(I))
-          IRAnchors.emplace(LineLocation(Probe->Id, 0), StringRef());
+        std::optional<PseudoProbe> Probe = extractProbe(I);
+        assert(Probe &&
+               "Probe should not be null for pseudo-probe instruction");
+        // Flatten inlined IR for the matching. Recover the original callsite
+        // and call target by analyzing the inline frames from the debug info.
+        if (DILocation *DIL = I.getDebugLoc()) {
+          if (DIL->getInlinedAt()) {
+            // Find the top-level inline frame.
+            const DILocation *PrevDIL = DIL;
+            for (; DIL->getInlinedAt(); DIL = DIL->getInlinedAt())
+              PrevDIL = DIL;
+
+            LineLocation Callsite = FunctionSamples::getCallSiteIdentifier(DIL);
+            StringRef CalleeName = PrevDIL->getSubprogramLinkageName();
+            IRAnchors.emplace(Callsite, CalleeName);
+          } else
+            IRAnchors.emplace(LineLocation(Probe->Id, 0), StringRef());
+        }
       }
 
       if (!isa<CallBase>(&I) || isa<IntrinsicInst>(&I))
@@ -2219,6 +2229,11 @@ void SampleProfileMatcher::findIRAnchors(
 
       const auto *CB = cast<CallBase>(&I);
       if (auto &DLoc = I.getDebugLoc()) {
+        // Skip the inlined callsite. For pseudo probe mode, extracting inline
+        // info from the probe inst is enough.
+        if (DLoc.getInlinedAt())
+          continue;
+
         LineLocation IRCallsite = FunctionSamples::getCallSiteIdentifier(DLoc);
         StringRef CalleeName = UnknownIndirectCallee;
         if (Function *Callee = CB->getCalledFunction())
@@ -2237,19 +2252,36 @@ void SampleProfileMatcher::findIRAnchors(
   }
 }
 
+void SampleProfileMatcher::countMismatchedSamples(const FunctionSamples &FS) {
+  const auto *FuncDesc = ProbeManager->getDesc(FS.getName());
+  // Skip the function that is external or renamed.
+  if (!FuncDesc)
+    return;
+
+  if (ProbeManager->profileIsHashMismatched(*FuncDesc, FS)) {
+    MismatchedFuncHashSamples += FS.getTotalSamples();
+    return;
+  }
+  for (const auto &I : FS.getCallsiteSamples())
+    for (const auto &CS : I.second)
+      countMismatchedSamples(CS.second);
+}
+
 void SampleProfileMatcher::countProfileMismatches(
     const Function &F, const FunctionSamples &FS,
     const std::map<LineLocation, StringRef> &IRAnchors,
     const std::map<LineLocation, StringSet<>> &ProfileAnchors) {
-  bool IsFuncHashMismatch = false;
+  [[maybe_unused]] bool IsFuncHashMismatch = false;
   if (FunctionSamples::ProfileIsProbeBased) {
-    uint64_t Count = FS.getTotalSamples();
-    TotalFuncHashSamples += Count;
+    TotalFuncHashSamples += FS.getTotalSamples();
     TotalProfiledFunc++;
-    if (!ProbeManager->profileIsValid(F, FS)) {
-      MismatchedFuncHashSamples += Count;
-      NumMismatchedFuncHash++;
-      IsFuncHashMismatch = true;
+    const auto *FuncDesc = ProbeManager->getDesc(F);
+    if (FuncDesc) {
+      if (ProbeManager->profileIsHashMismatched(*FuncDesc, FS)) {
+        NumMismatchedFuncHash++;
+        IsFuncHashMismatch = true;
+      }
+      countMismatchedSamples(FS);
     }
   }
 
@@ -2446,8 +2478,17 @@ void SampleProfileMatcher::runStaleProfileMatching(
   }
 }
 
-void SampleProfileMatcher::runOnFunction(const Function &F,
-                                         const FunctionSamples &FS) {
+void SampleProfileMatcher::runOnFunction(const Function &F) {
+  // We need to use flattened function samples for matching.
+  // Unlike IR, which includes all callsites from the source code, the callsites
+  // in profile only show up when they are hit by samples, i,e. the profile
+  // callsites in one context may differ from those in another context. To get
+  // the maximum number of callsites, we merge the function profiles from all
+  // contexts, aka, the flattened profile to find profile anchors.
+  const auto *FSFlattened = getFlattenedSamplesFor(F);
+  if (!FSFlattened)
+    return;
+
   // Anchors for IR. It's a map from IR location to callee name, callee name is
   // empty for non-call instruction and use a dummy name(UnknownIndirectCallee)
   // for unknown indrect callee name.
@@ -2456,17 +2497,23 @@ void SampleProfileMatcher::runOnFunction(const Function &F,
   // Anchors for profile. It's a map from callsite location to a set of callee
   // name.
   std::map<LineLocation, StringSet<>> ProfileAnchors;
-  findProfileAnchors(FS, ProfileAnchors);
+  findProfileAnchors(*FSFlattened, ProfileAnchors);
 
   // Detect profile mismatch for profile staleness metrics report.
-  if (ReportProfileStaleness || PersistProfileStaleness) {
-    countProfileMismatches(F, FS, IRAnchors, ProfileAnchors);
+  // Skip reporting the metrics for imported functions.
+  if (!GlobalValue::isAvailableExternallyLinkage(F.getLinkage()) &&
+      (ReportProfileStaleness || PersistProfileStaleness)) {
+    // Use top-level nested FS for counting profile mismatch metrics since
+    // currently once a callsite is mismatched, all its children profiles are
+    // dropped.
+    if (const auto *FS = Reader.getSamplesFor(F))
+      countProfileMismatches(F, *FS, IRAnchors, ProfileAnchors);
   }
 
   // Run profile matching for checksum mismatched profile, currently only
   // support for pseudo-probe.
   if (SalvageStaleProfile && FunctionSamples::ProfileIsProbeBased &&
-      !ProbeManager->profileIsValid(F, FS)) {
+      !ProbeManager->profileIsValid(F, *FSFlattened)) {
     // The matching result will be saved to IRToProfileLocationMap, create a new
     // map for each function.
     runStaleProfileMatching(F, IRAnchors, ProfileAnchors,
@@ -2475,17 +2522,12 @@ void SampleProfileMatcher::runOnFunction(const Function &F,
 }
 
 void SampleProfileMatcher::runOnModule() {
+  ProfileConverter::flattenProfile(Reader.getProfiles(), FlattenedProfiles,
+                                   FunctionSamples::ProfileIsCS);
   for (auto &F : M) {
     if (F.isDeclaration() || !F.hasFnAttribute("use-sample-profile"))
       continue;
-    FunctionSamples *FS = nullptr;
-    if (FlattenProfileForMatching)
-      FS = getFlattenedSamplesFor(F);
-    else
-      FS = Reader.getSamplesFor(F);
-    if (!FS)
-      continue;
-    runOnFunction(F, *FS);
+    runOnFunction(F);
   }
   if (SalvageStaleProfile)
     distributeIRToProfileLocationMap();
