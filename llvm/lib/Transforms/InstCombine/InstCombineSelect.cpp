@@ -3698,7 +3698,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         return replaceInstUsesWith(SI, NewSel);
       }
     }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp + int) for invariants.
 //  If the parent function has "unsafe-fp-math" set, then we can
@@ -3735,7 +3734,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
       }
     }
 #endif  // INTEL_CUSTOMIZATION
-=======
 
     if (SIFPOp) {
       // Fold out scale-if-equals-zero pattern.
@@ -3769,7 +3767,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
                                         SI, SIFPOp->hasNoSignedZeros()))
         return replaceInstUsesWith(SI, Cmp0);
     }
->>>>>>> 5ae881ff0ab3a38121f240c9e73427367284e802
   }
 
   if (SIFPOp) {
