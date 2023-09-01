@@ -31,6 +31,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 using namespace Intel::OpenCL::ClangFE;
 
@@ -121,6 +122,32 @@ bool ClangFECompilerParseSPIRVTask::readSPIRVHeader(std::string &error) {
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
+  // print specific module name instead of number
+  static std::unordered_map<int, std::string> Spvmodule2string = {
+      {spv::CapabilityFPGAMemoryAttributesINTEL, "FPGAMemoryAttributes"},
+      {spv::CapabilityFPGALoopControlsINTEL, "FPGALoopControls"},
+      {spv::CapabilityFPGARegINTEL, "FPGAReg"},
+      {spv::CapabilityBlockingPipesINTEL, "BlockingPipes"},
+      {spv::CapabilityKernelAttributesINTEL, "KernelAttributes"},
+      {spv::CapabilityFPGAKernelAttributesINTEL, "FPGAKernelAttributes"},
+      {spv::CapabilityArbitraryPrecisionFixedPointINTEL,
+       "ArbitraryPrecisionFixedPoint"},
+      {spv::CapabilityArbitraryPrecisionFloatingPointINTEL,
+       "ArbitraryPrecisionFloatingPoint"},
+      {spv::CapabilityFPGAMemoryAccessesINTEL, "FPGAMemoryAccesses"},
+      {spv::CapabilityIOPipesINTEL, "IOPipes"},
+      {spv::CapabilityUSMStorageClassesINTEL, "USMStorageClasses"},
+      {spv::CapabilityFPGABufferLocationINTEL, "FPGABufferLocation"},
+      {spv::CapabilityFPGAClusterAttributesINTEL, "FPGAClusterAttributes"},
+      {spv::CapabilityLoopFuseINTEL, "LoopFuse"},
+      {spv::CapabilityFPGADSPControlINTEL, "FPGADSPControl"},
+      {spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+       "FPGAInvocationPipeliningAttributes"},
+      {spv::CapabilityFPGAArgumentInterfacesINTEL, "FPGAArgumentInterfaces"},
+      {spv::CapabilityFPGAKernelAttributesv2INTEL, "FPGAKernelAttributesv2"},
+      {spv::internal::CapabilityFPArithmeticFenceINTEL, "FPArithmeticFence"},
+      {spv::internal::CapabilityTaskSequenceINTEL, "TaskSequence"}};
+
   std::stringstream errStr;
   // Require SPIR-V version 1.1.
   // We do not fully support 1.1, yet want to use some of the features.
@@ -262,7 +289,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {
-        errStr << capability << " is only supported on FPGA emulator";
+        errStr << Spvmodule2string[capability]
+               << " is only supported on FPGA emulator";
         error = errStr.str();
         return false;
       }

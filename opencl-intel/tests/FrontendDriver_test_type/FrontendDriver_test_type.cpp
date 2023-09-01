@@ -804,9 +804,33 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
       spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+      SPIRVOpMemoryModel, spv::AddressingModelPhysical64,
+      spv::MemoryModelOpenCL};
 
-  };
+  // This needs to be consistent with the function
+  // ClangFECompilerParseSPIRVTask::isSPIRVSupported
+  std::vector<std::string> SpvModuleName = {
+      "FPGAMemoryAttributes",
+      "FPGALoopControls",
+      "FPGAReg",
+      "BlockingPipes",
+      "KernelAttributes",
+      "FPGAKernelAttributes",
+      "ArbitraryPrecisionFixedPoint",
+      "ArbitraryPrecisionFloatingPoint",
+      "FPGAMemoryAccesses",
+      "IOPipes",
+      "USMStorageClasses",
+      "FPGABufferLocation",
+      "FPGAClusterAttributes",
+      "LoopFuse",
+      "FPGADSPControl",
+      "FPGAInvocationPipeliningAttributes",
+      "FPGAArgumentInterfaces",
+      "FPGAKernelAttributesv2",
+      "FPArithmeticFence",
+      "TaskSequence"};
+
   auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
   CLANG_DEV_INFO devInfo = {
@@ -827,6 +851,13 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
   err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
   ASSERT_NE(CL_SUCCESS, err)
       << "Unexpected retcode for an invalid SPIR-V module.\n";
+
+  std::string ErrLog(m_binary_result->GetErrorLog());
+  ASSERT_TRUE(std::any_of(SpvModuleName.begin(), SpvModuleName.end(),
+                          [&](const std::string &str) {
+                            return ErrLog.find(str) != std::string::npos;
+                          }))
+      << "Unsupported capability name not found in error log\n";
 }
 
 int main(int argc, char **argv) {
