@@ -3772,16 +3772,20 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
 RegDDRef *
 VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
                                                  Type *ScalarAccessType) {
-  assert(VPPtr->getType()->isPointerTy() && "Expected VPPtr to be PointerTy.");
-
   // Widened pointer.
   RegDDRef *WidePtr = widenRef(VPPtr, getVF());
 
-  auto *PtrType = cast<PointerType>(VPPtr->getType());
   auto *VecType = dyn_cast<FixedVectorType>(ScalarAccessType);
   // No replication is needed for non-vector types.
   if (!VecType)
     return WidePtr;
+
+  if (auto *PtrVecTy = dyn_cast<FixedVectorType>(VPPtr->getType()))
+    if (VecType->getNumElements() == PtrVecTy->getNumElements())
+      return WidePtr;
+
+  assert(VPPtr->getType()->isPointerTy() && "Expected VPPtr to be PointerTy.");
+  auto *PtrType = cast<PointerType>(VPPtr->getType());
 
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr for replication : ";
              WidePtr->dump(1); dbgs() << "\n");
@@ -6239,10 +6243,15 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     //
     // in loopopt::RegDDRef. For a vector of pointers they want that vector
     // instead of element types as "an exception".
-    ResultRefTy = getWidenedType(
-        DestTy->getScalarType()->getPointerTo(
-            cast<PointerType>(VPSubscript->getType())->getAddressSpace()),
-        VF);
+    Type *Ty = VPSubscript->getType();
+    unsigned NumElts = VF;
+    if (auto *VecTy = dyn_cast<FixedVectorType>(Ty)) {
+      NumElts *= VecTy->getNumElements();
+      Ty = VecTy->getElementType();
+    }
+    ResultRefTy = getWidenedType(DestTy->getScalarType()->getPointerTo(
+                                     cast<PointerType>(Ty)->getAddressSpace()),
+                                 NumElts);
   }
 
   RegDDRef *PointerRef = getOrCreateRefForVPVal(

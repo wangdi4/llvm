@@ -2,6 +2,9 @@
 ; RUN: opt %s -S -passes=vplan-vec -vplan-nested-simd-strategy=innermost -vplan-force-vf=2 | FileCheck %s --check-prefix=INNER
 ; RUN: opt %s -S -passes=vplan-vec -vplan-nested-simd-strategy=frominside -vplan-force-vf=2 | FileCheck %s
 
+; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-nested-simd-strategy=innermost -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=HIR-INNER
+; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-nested-simd-strategy=frominside -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=HIR
+
 define void @foo(ptr %a) {
 ; INNER-LABEL: define void @foo
 ;
@@ -39,6 +42,39 @@ define void @foo(ptr %a) {
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI16]], 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i32 [[TMP3]], 64
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB20:%.*]], label [[VPLANNEDBB15]]
+;
+; HIR-INNER:      BEGIN REGION { modified }
+; HIR-INNER-NEXT:       + DO i1 = 0, 31, 1   <DO_LOOP>
+; HIR-INNER-NEXT:       |   + DO i2 = 0, 63, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-INNER-NEXT:       |   |   %.unifload = (ptr)(%a)[i1];
+; HIR-INNER-NEXT:       |   |   (<2 x i32>*)(%.unifload)[i2] = i1 + i2 + <i32 0, i32 1>;
+; HIR-INNER-NEXT:       |   + END LOOP
+; HIR-INNER-NEXT:       + END LOOP
+; HIR-INNER-NEXT: END REGION
+;
+; HIR:      BEGIN REGION { modified }
+; HIR-NEXT:       + DO i1 = 0, 31, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:       |   %phi.temp = 0;
+; HIR-NEXT:       |
+; HIR-NEXT:       |   + DO i2 = 0, 31, 1   <DO_LOOP> <novectorize>
+; HIR-NEXT:       |   |   %.vec = (<2 x ptr>*)(%a)[i1];
+; HIR-NEXT:       |   |   %wide.insert = shufflevector i1 + <i32 0, i32 1>,  undef,  <i32 0, i32 undef, i32 1, i32 undef>;
+; HIR-NEXT:       |   |   %shuffle = shufflevector %wide.insert,  poison,  <i64 0, i64 0, i64 2, i64 2>;
+; HIR-NEXT:       |   |   %wide.insert3 = shufflevector i2,  undef,  <i32 0, i32 undef, i32 1, i32 undef>;
+; HIR-NEXT:       |   |   %extractsubvec. = shufflevector %wide.insert3,  undef,  <i32 0, i32 1>;
+; HIR-NEXT:       |   |   %shuffle4 = shufflevector %extractsubvec.,  poison,  zeroinitializer;
+; HIR-NEXT:       |   |   %.replicated = shufflevector %shuffle4,  undef,  <i32 0, i32 1, i32 0, i32 1>;
+; HIR-NEXT:       |   |   %.vec5 = <i32 2, i32 2, i32 2, i32 2>  *  %.replicated;
+; HIR-NEXT:       |   |   %.scal = <i32 2, i32 2>  *  %shuffle4;
+; HIR-NEXT:       |   |   %.vec6 = 2  *  i2;
+; HIR-NEXT:       |   |   %.scal7 = 2  *  i2;
+; HIR-NEXT:       |   |   %.replicated.elts = shufflevector &((<2 x ptr>)(%.vec)[%.vec6]),  undef,  <i32 0, i32 0, i32 1, i32 1>;
+; HIR-NEXT:       |   |   (<4 x i32>*)(%.replicated.elts)[<i64 0, i64 1, i64 0, i64 1>] = %shuffle + <i32 0, i32 1, i32 0, i32 1> + %.vec5;
+; HIR-NEXT:       |   |   %.vec8 = i2 + 1 < 32;
+; HIR-NEXT:       |   |   %phi.temp = i2 + 1;
+; HIR-NEXT:       |   + END LOOP
+; HIR-NEXT:       + END LOOP
+; HIR-NEXT: END REGION
 ;
 entry:
   br label %header

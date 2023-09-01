@@ -243,6 +243,7 @@ private:
   VPConstant *decomposeCoeff(int64_t Coeff, Type *Ty);
   VPInstruction *decomposeConversion(VPValue *Src, unsigned ConvOpCode,
                                      Type *DestType);
+  VPInstruction *decomposeConvToVectorType(VPValue *Src, VectorType *DestTy);
   VPValue *decomposeCanonExprConv(loopopt::CanonExpr *CE, VPValue *Src);
   VPValue *decomposeBlobImplicitConv(VPValue *Src, Type *DestTy);
   VPValue *decomposeBlob(loopopt::RegDDRef *RDDR, unsigned BlobIdx,

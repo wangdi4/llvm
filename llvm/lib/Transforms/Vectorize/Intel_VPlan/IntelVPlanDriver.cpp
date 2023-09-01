@@ -916,8 +916,7 @@ bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
 template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
   const bool ShouldVectorizeChildren =
       NestedSimdStrategy == NestedSimdStrategies::Innermost ||
-      (NestedSimdStrategy == NestedSimdStrategies::FromInside &&
-       std::is_same_v<Loop, llvm::Loop>);
+      NestedSimdStrategy == NestedSimdStrategies::FromInside;
   const bool ShouldVectorizeWithChildren =
       NestedSimdStrategy != NestedSimdStrategies::Innermost;
 
@@ -1952,6 +1951,19 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (IsOmpSIMD) {
       setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
       VCodeGen.setIsVecMDForHLLoops();
+    }
+
+    // If the vectorization strategy supposes outer loop vectorization we need
+    // to normalize all the inner loops before doing that.
+    if (NestedSimdStrategy == NestedSimdStrategies::FromInside) {
+      struct Normalizer : HLNodeVisitorBase {
+        void visit(const HLNode *) {}
+        void postVisit(const HLNode *) {}
+        void visit(HLLoop *Loop) { Loop->normalize(); }
+      } Visitor;
+      HLLoop *ParentLoop = VCodeGen.getMainLoop()->getParentLoop();
+      if (ParentLoop && ParentLoop->isSIMD())
+        HLNodeUtils::visit(Visitor, ParentLoop);
     }
   }
 
