@@ -2226,13 +2226,6 @@ void SampleProfileMatcher::findIRAnchors(
       if (!DIL)
         continue;
 
-<<<<<<< HEAD
-      const auto *CB = cast<CallBase>(&I);
-      if (auto &DLoc = I.getDebugLoc()) {
-        // Skip the inlined callsite. For pseudo probe mode, extracting inline
-        // info from the probe inst is enough.
-        if (DLoc.getInlinedAt())
-=======
       if (FunctionSamples::ProfileIsProbeBased) {
         if (auto Probe = extractProbe(I)) {
           // Flatten inlined IR for the matching.
@@ -2254,7 +2247,6 @@ void SampleProfileMatcher::findIRAnchors(
         // find callsite anchors. In future, we need to parse all the non-call
         // instructions to extract the line locations for profile matching.
         if (!isa<CallBase>(&I) || isa<IntrinsicInst>(&I))
->>>>>>> f14a5ff6357cc17b6ef9e1a4f08ffbd87e2c28b9
           continue;
 
         if (DIL->getInlinedAt()) {
