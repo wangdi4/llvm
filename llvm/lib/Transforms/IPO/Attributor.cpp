@@ -1098,7 +1098,9 @@ Attributor::Attributor(SetVector<Function *> &Functions,
     if (Fn->hasAddressTaken(/*PutOffender=*/nullptr,
                             /*IgnoreCallbackUses=*/false,
                             /*IgnoreAssumeLikeCalls=*/true,
-                            /*IgnoreLLVMUsed=*/true))
+                            /*IgnoreLLVMUsed=*/true,
+                            /*IgnoreARCAttachedCall=*/false,
+                            /*IgnoreCastedDirectCall=*/true))
       InfoCache.IndirectlyCallableFunctions.push_back(Fn);
 }
 
