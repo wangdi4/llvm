@@ -115,6 +115,7 @@ typedef SmallVector<PiBlock *, 4> PiBlockList;
 typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
                                         IsAddressOfRefs)>
     Gatherer;
+typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 class ScalarExpansion {
 public:

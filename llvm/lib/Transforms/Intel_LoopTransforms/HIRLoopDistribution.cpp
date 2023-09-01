@@ -178,7 +178,8 @@ bool HIRLoopDistribution::run() {
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
 
-    LLVM_DEBUG(Analysis.dumpResult(););
+    LLVM_DEBUG(if (DistCostModel == DistHeuristics::BreakMemRec)
+                   Analysis.dumpResult(););
 
     // Heuristic: if we cannot do normal stripmine and distribution is only
     // splitting loops due to memref count with control flow, just give up as
@@ -1390,7 +1391,7 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
   uint64_t TripCount;
   // Skip  some constant trip counts loops:  small, looks like copy stmt
   if (Lp->isConstTripLoop(&TripCount)) {
-    if (TripCount < 5 || HLR.getTotalLoopResource(Lp).getNumFPOps() == 0) {
+    if (TripCount < 5 || HLR.getTotalLoopResource(Lp).getNumMemOps() == 0) {
       return false;
     }
   }
@@ -1417,34 +1418,65 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
 
     // Why ruin perfection
     // Should we run distribution in perfect loopnest mode on innermost loops?
-
     if (!Lp->isInnermost() &&
         HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
 
-    // For compile time consideration, throttle for
-    // more than 3 innermost loops or nesting level > 3
-    // Forming Perfect Loop Nest is primarily to enable interchange
-
     SmallVector<HLLoop *, 12> InnermostLPVector;
-
     HNU.gatherInnermostLoops(InnermostLPVector, const_cast<HLLoop *>(Lp));
     if (InnermostLPVector.size() > 2) {
       return false;
     }
+
     bool NonUnitStride = false;
-    for (auto &Loop : InnermostLPVector) {
-      if ((Loop->getNestingLevel() - Lp->getNestingLevel()) > 2) {
+
+    // For compile time consideration, throttle for
+    // more than 3 innermost loops or nesting level > 3
+    // Form loopnests for interchange when NonUnitStride refs present
+    for (auto &InnermostLp : InnermostLPVector) {
+      if ((InnermostLp->getNestingLevel() - Lp->getNestingLevel()) > 2) {
         return false;
       }
-      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(Loop)) {
+      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(InnermostLp)) {
         NonUnitStride = true;
       }
     }
-    if (!NonUnitStride) {
-      return false;
+
+    if (NonUnitStride) {
+      LLVM_DEBUG(dbgs() << "Detected Non-Unit Stride\n");
+      return true;
     }
+
+    // Try to enable vectorization for refs with different dimensions
+    // at different looplevels. Look for loops where ref dimensions
+    // correspond to the parent Loopnest level. E.g:
+    // DO i1
+    //   A[i1] = ...
+    //   DO i2
+    //     B[i1][i2] = ...
+    //   END DO
+    // END DO
+    MemRefGatherer::VectorTy MemRefs;
+    MemRefGatherer::gather(Lp, MemRefs);
+    SmallDenseMap<unsigned, unsigned> LoopDimMap;
+
+    for (auto *MemRef : MemRefs) {
+      if (MemRef->isNonLinear()) {
+        return false;
+      }
+
+      unsigned NumDims = MemRef->getNumDimensions();
+      unsigned LoopLevel = MemRef->getNodeLevel();
+      auto It = LoopDimMap.find(NumDims);
+      if (It == LoopDimMap.end()) {
+        LoopDimMap[NumDims] = LoopLevel;
+      } else if (LoopLevel != It->second) {
+        return false;
+      }
+    }
+
+    return LoopDimMap.size() > 1;
   }
 
   return true;
@@ -1643,7 +1675,9 @@ void HIRLoopDistribution::findDistPoints(
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
     breakPiBlockRecurrences(Lp, PGraph, DistPoints);
+    LLVM_DEBUG(dbgs() << "BreakMemRec: ";);
   } else if (DistCostModel == DistHeuristics::NestFormation) {
+    LLVM_DEBUG(dbgs() << "NestFormation: ";);
     if (!Lp->isInnermost()) {
       formPerfectLoopNests(PGraph, DistPoints);
     } else {
