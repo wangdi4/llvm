@@ -1815,6 +1815,17 @@ ExpectedType clang::ASTNodeImporter::VisitPipeType(const clang::PipeType *T) {
     return ToCtx.getWritePipeType(*ToElementTypeOrErr);
 }
 
+#if INTEL_CUSTOMIZATION
+ExpectedType
+clang::ASTNodeImporter::VisitChannelType(const clang::ChannelType *T) {
+  ExpectedType ToElementTypeOrErr = import(T->getElementType());
+  if (!ToElementTypeOrErr)
+    return ToElementTypeOrErr.takeError();
+
+  return Importer.getToContext().getChannelType(*ToElementTypeOrErr);
+}
+#endif // INTEL_CUSTOMIZATION
+
 //----------------------------------------------------------------------------
 // Import Declarations
 //----------------------------------------------------------------------------
