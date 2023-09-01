@@ -13,20 +13,22 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerBarrierPass.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerValuePass.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierRegionInfo.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
-
-#include <set>
+#include <map>
 #include <sstream>
 #include <unordered_set>
 #include <vector>
@@ -35,22 +37,334 @@
 
 using namespace llvm;
 
-PreservedAnalyses KernelBarrier::run(Module &M, ModuleAnalysisManager &MAM) {
-  // Get Analysis data.
-  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
-  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
-  if (!runImpl(M, DPB, DPV))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserve<DataPerBarrierAnalysis>();
-  PA.preserve<DataPerValueAnalysis>();
-  PA.preserve<DominatorTreeAnalysis>();
-  return PA;
-}
+namespace {
 
-bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
-  this->DPB = DPB;
-  this->DPV = DPV;
+class KernelBarrierImpl {
+public:
+  KernelBarrierImpl(DataPerBarrier *DPB, DataPerValue *DPV)
+      : DPB(DPB), DPV(DPV) {}
+
+  bool run(Module &M);
+
+private:
+  using BBSet = CompilationUtils::BBSet;
+  using FuncSet = CompilationUtils::FuncSet;
+  using InstSet = CompilationUtils::InstSet;
+  using InstVec = CompilationUtils::InstVec;
+  using ValueVec = CompilationUtils::ValueVec;
+
+  /// Execute pass on given function.
+  /// F function to optimize.
+  /// Returns True if function was modified.
+  bool runOnFunction(Function &F);
+
+  /// Use the stack for kernel function execution rather then the special
+  /// work item buffer. This is needed for DWARF based debugging.
+  /// Variable data will be copied out of a basic block from the special work
+  /// item buffer up on entry. Variable data will be copied back out to the
+  /// work item buffer upon leaving the basic block.
+  /// InsertBeforeBegin instruction to insert copy out of stack before
+  /// InsertBeforeEnd instruction to insert copy into stack before
+  void useStackAsWorkspace(Instruction *InsertBeforeBegin,
+                           Instruction *InsertBeforeEnd);
+
+  /// Hanlde Values of Group-A and debug info.
+  /// F Function to fix.
+  void fixAllocaAndDbg(Function &F);
+
+  /// Hanlde Values of Group-B.1 of processed function.
+  void fixSpecialValues();
+
+  /// Hanlde Values of Group-B.2 of processed function.
+  /// \p F Function to fix.
+  void fixCrossBarrierValues(Function &F);
+
+  /// Handle synchronize value of processed function.
+  void replaceSyncInstructions();
+
+  /// Initialize general values used to handle special values
+  /// and synchronize instructions in the processed function
+  /// Func function to create key values for.
+  /// HasNoInternalCalls true if and only if processed function
+  /// has no calls function inside the module.
+  void createBarrierKeyValues(Function *Func, bool HasNoInternalCalls);
+
+  /// Get general values used to handle special values
+  /// and synchronize instructions in the processed function.
+  /// Func function to get key values for.
+  void getBarrierKeyValues(Function *Func);
+
+  /// Calculate address in special buffer.
+  /// Offset - offset of the address in the structure,
+  /// PtrType - type of the address to calculate,
+  /// InsertBefore - instruction to insert new instructions before,
+  /// DB Debug location, NULL if not available.
+  /// Returns value represnting the calculated address in the special buffer.
+  Value *getAddressInSpecialBuffer(unsigned int Offset, PointerType *PtrTy,
+                                   Instruction *InsertBefore,
+                                   const DebugLoc *DB);
+
+  /// Return instructions to insert new instruction before, which are
+  /// termenators of prevBBs of PhiNode with respect to Inst, and instructions
+  /// can be empty if prevBBs are equal to BB(Inst).
+  /// Inst - value that PhiNode is using,
+  /// PhiNode - instruction that is using Inst value
+  SmallVector<Instruction *> getInstructionsToInsertBefore(Instruction *Inst,
+                                                           PHINode *PhiNode);
+
+  /// Fix get_local_id and get_global_id.
+  /// M module to optimize.
+  /// Returns True if module was modified.
+  bool fixGetWIIdFunctions(Module &M);
+
+  /// Create new fixed function with extra offset arguments.
+  /// FuncToFix original function to clone.
+  void fixNonInlineFunction(Function *FuncToFix);
+
+  /// Fix usage of argument by loading it from special buffer
+  /// if needed instead of reading it directly from the function arguments.
+  /// OriginalArg original argument that need to be fix its usages,
+  void fixArgumentUsage(Value *OriginalArg);
+
+  /// Fix return value by storing it to special buffer at given offset
+  /// RetVal value to be saved, it is the function return value,
+  /// OffsetRet offset in special buffer to save the return value at,
+  /// InsertBefore new instructions will be added before this
+  /// instruction.
+  void fixReturnValue(Value *RetVal, unsigned int OffsetRet,
+                      Instruction *InsertBefore);
+
+  /// Handle parameters and return value of call instruction
+  /// store relevent parametrs in sepcial buffer and load result
+  /// from special buffer.
+  /// OriginalCall original call instruction to handle.
+  void fixCallInstruction(CallInst *OriginalCall);
+
+  /// fixSynclessTIDUsers - Patch functions which are users of get_*_id() and do
+  /// not produce the values within.
+  bool fixSynclessTIDUsers(Module &M, const FuncSet &FuncsWithSync);
+
+  /// Remove all instructions in ToRemoveInstructions.
+  bool eraseAllToRemoveInstructions();
+
+  /// Update Map with structure stride size for each kernel.
+  /// M module to optimize.
+  void updateStructureStride(Module &M, FuncSet &FnsWithSync);
+
+  unsigned computeNumDim(Function *F);
+  using BarrierBBIdListTy = std::vector<std::pair<ConstantInt *, BasicBlock *>>;
+  BasicBlock *createLatchNesting(unsigned Dim, BasicBlock *Body,
+                                 BasicBlock *Dispatch, Value *Step,
+                                 const DebugLoc &DL);
+
+  /// Return the innermost nested BB (where all the action happens).
+  BasicBlock *createBarrierLatch(BasicBlock *pPreSyncBB, BasicBlock *pSyncBB,
+                                 BarrierBBIdListTy &BBId, Value *UniqueID,
+                                 const DebugLoc &DL);
+  /// Below are generators which are used for accessing and setting the
+  /// function's various values. Most rely on that CurrentBarrierKeyValues is
+  /// set for the function being processed.
+  Instruction *createGetCurrBarrierId(IRBuilder<> &B) {
+    return B.CreateLoad(I32Ty, CurrentBarrierKeyValues->CurrBarrierId,
+                        "CurrBarrierId");
+  }
+  Instruction *createSetCurrBarrierId(Value *V, IRBuilder<> &B) {
+    return B.CreateStore(V, CurrentBarrierKeyValues->CurrBarrierId);
+  }
+  Instruction *createGetCurrSBIndex(IRBuilder<> &B) {
+    return B.CreateLoad(SizeTTy, CurrentBarrierKeyValues->CurrSBIndex,
+                        "SBIndex");
+  }
+  Instruction *createSetCurrSBIndex(Value *V, IRBuilder<> &B) {
+    return B.CreateStore(V, CurrentBarrierKeyValues->CurrSBIndex);
+  }
+  Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
+    Value *Ptr = createGetPtrToLocalId(Dim);
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
+  }
+  Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
+                                IRBuilder<> &B) {
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(
+        LocalIdValues, LocalIdArrayTy, Dim, B);
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
+  }
+  Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
+                                IRBuilder<> &B) {
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(
+        LocalIdValues, LocalIdArrayTy, ConstantInt::get(I32Ty, APInt(32, Dim)),
+        B);
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
+  }
+  Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
+    Value *Ptr = createGetPtrToLocalId(Dim);
+    return B.CreateStore(V, Ptr);
+  }
+  Value *createGetPtrToLocalId(unsigned Dim) {
+    // For accesses to constant dimensions, cache the GEP instruction
+    Value **Ptr;
+    if (HasTLSGlobals) {
+      Ptr = PtrLocalId + Dim;
+    } else {
+      Ptr = CurrentBarrierKeyValues->PtrLocalId + Dim;
+    }
+    if (!*Ptr) {
+      Function *F;
+      if (HasTLSGlobals) {
+        F = CurrentFunction;
+      } else {
+        F = CurrentBarrierKeyValues->TheFunction;
+      }
+      IRBuilder<> LB(F->getEntryBlock().getTerminator());
+      Value *LocalIdValues;
+      if (HasTLSGlobals) {
+        LocalIdValues = TLSLocalIds;
+      } else {
+        // If the LocalIDValues are generated externally to the function, make
+        // sure we place the GEP before the value is accessed
+        if (!isa<Instruction>(CurrentBarrierKeyValues->LocalIdValues))
+          LB.SetInsertPoint(
+              &*CurrentBarrierKeyValues->TheFunction->getEntryBlock().begin());
+        LocalIdValues = CurrentBarrierKeyValues->LocalIdValues;
+      }
+      *Ptr = CompilationUtils::createGetPtrToLocalId(
+          LocalIdValues, LocalIdArrayTy,
+          ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
+    }
+    return *Ptr;
+  }
+
+  Value *getLocalSize(unsigned Dim) {
+    return CurrentBarrierKeyValues->LocalSize[Dim];
+  }
+  void createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else);
+  Instruction *createOOBCheckGetLocalId(CallInst *Call);
+  /// Emits code equivalent to get_local_id().
+  /// Call - a call where first arg is dimension. New instructions are emitted
+  /// before this instruction.
+  Value *resolveGetLocalIDCall(CallInst *Call);
+  unsigned getNumDims() const { return CurrentBarrierKeyValues->NumDims; }
+
+private:
+  void calculateDirectPrivateSize(
+      Module &M, FuncSet &FnsWithSync,
+      DenseMap<Function *, size_t> &DirectPrivateSizeMap);
+  void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
+                            DenseMap<Function *, size_t> &PrivateSizeMap);
+
+  const DataLayout *DL = nullptr;
+
+  /// This is barrier utility class.
+  BarrierUtils Utils;
+
+  /// This holds the processed module context.
+  LLVMContext *Context = nullptr;
+  /// This holds size of size_t of processed module.
+  unsigned int SizeT = 0;
+  /// This holds type of size_t of processed module.
+  Type *SizeTTy = nullptr;
+  Type *I32Ty = nullptr;
+
+  /// The module has TLS globals if true, implicit arguments otherwise.
+  bool HasTLSGlobals = false;
+  /// Type of allocation used for storing local ID values for all dimensions.
+  PointerType *LocalIdAllocTy = nullptr;
+  /// This holds TLS global containing local ids.
+  GlobalVariable *TLSLocalIds = nullptr;
+  /// This holds type of the TLS global containing local ids.
+  ArrayType *LocalIdArrayTy = nullptr;
+  /// This holds cached GEP instructions for local ids.
+  Value *PtrLocalId[MAX_WORK_DIM] = {nullptr};
+
+  Value *ConstZero = nullptr;
+  Value *ConstOne = nullptr;
+
+  /// This holds instruction to be removed in the processed function/module.
+  InstVec InstructionsToRemove;
+
+  /// This holds the container of all Group-A values in processed function.
+  ValueVec *AllocaValues = nullptr;
+  /// This holds the container of all Group-B.1 values in processed function.
+  ValueVec *SpecialValues = nullptr;
+  /// This holds the container of all Group-B.2 values in processed function.
+  ValueVec *CrossBarrierValues = nullptr;
+
+  /// This holds the container of all sync instructions in processed function.
+  InstSet *SyncInstructions = nullptr;
+
+  /// This holds the data per barrier analysis pass.
+  DataPerBarrier *DPB = nullptr;
+
+  /// This holds the data per value analysis pass.
+  DataPerValue *DPV = nullptr;
+
+  struct BarrierKeyValues {
+    BarrierKeyValues()
+        : TheFunction(0), NumDims(0), LocalIdValues(0), CurrBarrierId(0),
+          SpecialBufferValue(0), CurrSBIndex(0), StructureSizeValue(0),
+          CurrentVectorizedWidthValue(0) {
+      Value *V = 0;
+      std::fill(PtrLocalId, LocalSize + MAX_WORK_DIM, V);
+      std::fill(LocalSize, LocalSize + MAX_WORK_DIM, V);
+    }
+    /// Pointer to function is needed because it is not always known how a
+    /// BarrierKeyValues was obtained.
+    Function *TheFunction;
+    unsigned NumDims;
+    /// This value is an array of size_t with MAX_WORK_DIM elements.
+    Value *LocalIdValues;
+    /// This array of pointers is used to cache GEP instructions.
+    Value *PtrLocalId[MAX_WORK_DIM];
+
+    /// This holds the alloca value of processed barrier id.
+    Value *CurrBarrierId;
+    /// This holds the argument value of special buffer address.
+    Value *SpecialBufferValue;
+    /// This holds the alloca value of current stride offset in Special Buffer.
+    Value *CurrSBIndex;
+    Value *LocalSize[MAX_WORK_DIM];
+    /// This holds the constant value of structure size of Special Buffer.
+    Value *StructureSizeValue;
+    Value *CurrentVectorizedWidthValue;
+  };
+  using MapFunctionToKeyValuesTy = std::map<Function *, BarrierKeyValues>;
+
+  /// This holds the function currently being handled.
+  Function *CurrentFunction = nullptr;
+  /// This holds barrier key values for current handled function.
+  BarrierKeyValues *CurrentBarrierKeyValues = nullptr;
+  /// This holds a map between function and its barrier key values.
+  MapFunctionToKeyValuesTy BarrierKeyValuesPerFunction;
+
+  using MapBasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
+  /// This holds a map between sync basic block and previous pre sync loop
+  /// header basic block.
+  MapBasicBlockToBasicBlockTy PreSyncLoopHeader;
+
+  /// This holds a map between function to its total size of all new addr
+  /// alloca created in fixAllocaAndDbg.
+  DenseMap<Function *, uint64_t> AddrAllocaSize;
+
+  /// This holds per-function map from sync basic block to newly splitted sync
+  /// basic block.
+  DenseMap<Function *, DenseMap<BasicBlock *, BasicBlock *>> OldToNewSyncBBMap;
+
+  using MapAllocaToBasicBlockVector =
+      MapVector<Value *, SmallVector<BasicBlock *, 8>>;
+  /// Map from alloca to BasicBlock vector.
+  /// If original alloca %my_i used in debugger intrinsic functions has user
+  /// %my_i.ascast generated from addrspacecast and %my_i.ascast is
+  /// cross-barrier value, then new %my_i.addr need to update value from special
+  /// buffer in the BBs where %my_i is not used but %my_i.ascast is used.
+  /// Without this, debug info of %my_i is incorrect in those BBs.
+  MapAllocaToBasicBlockVector AllocaUpdateMap;
+};
+
+} // namespace
+
+bool KernelBarrierImpl::run(Module &M) {
   DL = &M.getDataLayout();
 
   // Initialize barrier utils class with current module.
@@ -150,7 +464,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   return Changed;
 }
 
-bool KernelBarrier::runOnFunction(Function &F) {
+bool KernelBarrierImpl::runOnFunction(Function &F) {
   // Get key values for this functions.
   getBarrierKeyValues(&F);
 
@@ -182,8 +496,8 @@ bool KernelBarrier::runOnFunction(Function &F) {
   return true;
 }
 
-bool KernelBarrier::fixSynclessTIDUsers(Module &M,
-                                        const FuncSet &FuncsWithSync) {
+bool KernelBarrierImpl::fixSynclessTIDUsers(Module &M,
+                                            const FuncSet &FuncsWithSync) {
   DenseMap<Function *, Value *> PatchedFToLocalIds;
   for (auto &Pair : BarrierKeyValuesPerFunction)
     PatchedFToLocalIds.insert({Pair.first, Pair.second.LocalIdValues});
@@ -227,7 +541,7 @@ bool KernelBarrier::fixSynclessTIDUsers(Module &M,
   return true;
 }
 
-void KernelBarrier::fixAllocaAndDbg(Function &F) {
+void KernelBarrierImpl::fixAllocaAndDbg(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
   Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
@@ -462,7 +776,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
   DIB.finalize();
 }
 
-void KernelBarrier::fixSpecialValues() {
+void KernelBarrierImpl::fixSpecialValues() {
   for (Value *V : *SpecialValues) {
     Instruction *Inst = cast<Instruction>(V);
 
@@ -652,7 +966,7 @@ hoistUniformCrossBarrierInstToEntryBlock(Instruction *I,
   return true;
 }
 
-void KernelBarrier::fixCrossBarrierValues(Function &F) {
+void KernelBarrierImpl::fixCrossBarrierValues(Function &F) {
   ValueVec WorkList;
   if (!F.hasOptNone()) {
     Instruction *InsertBefore = &*F.begin()->getFirstNonPHIOrDbgOrAlloca();
@@ -736,9 +1050,11 @@ void KernelBarrier::fixCrossBarrierValues(Function &F) {
   }
 }
 
-BasicBlock *KernelBarrier::createLatchNesting(unsigned Dim, BasicBlock *Body,
-                                              BasicBlock *Dispatch, Value *Step,
-                                              const DebugLoc &DL) {
+BasicBlock *KernelBarrierImpl::createLatchNesting(unsigned Dim,
+                                                  BasicBlock *Body,
+                                                  BasicBlock *Dispatch,
+                                                  Value *Step,
+                                                  const DebugLoc &DL) {
   LLVMContext &C = Body->getContext();
   Function *F = Body->getParent();
   // BB that is jumped to if loop in current nesting finishes.
@@ -765,11 +1081,11 @@ BasicBlock *KernelBarrier::createLatchNesting(unsigned Dim, BasicBlock *Body,
   return LoopEnd;
 }
 
-BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
-                                              BasicBlock *SyncBB,
-                                              BarrierBBIdListTy &BBId,
-                                              Value *UniqueID,
-                                              const DebugLoc &DL) {
+BasicBlock *KernelBarrierImpl::createBarrierLatch(BasicBlock *PreSyncBB,
+                                                  BasicBlock *SyncBB,
+                                                  BarrierBBIdListTy &BBId,
+                                                  Value *UniqueID,
+                                                  const DebugLoc &DL) {
   Function *F = PreSyncBB->getParent();
   unsigned NumDims = getNumDims();
   // A. change the preSync basic block as follow
@@ -828,7 +1144,7 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
   return InnerMost;
 }
 
-void KernelBarrier::replaceSyncInstructions() {
+void KernelBarrierImpl::replaceSyncInstructions() {
   // Run over all sync instructions and split its basic-block
   // in order to create an empty basic-block previous to the sync basic block.
   unsigned ID = 0;
@@ -898,8 +1214,8 @@ void KernelBarrier::replaceSyncInstructions() {
   }
 }
 
-void KernelBarrier::createBarrierKeyValues(Function *Func,
-                                           bool /*HasNoInternalCalls*/) {
+void KernelBarrierImpl::createBarrierKeyValues(Function *Func,
+                                               bool /*HasNoInternalCalls*/) {
   BarrierKeyValues *KeyValues = &BarrierKeyValuesPerFunction[Func];
 
   const auto AllocaAddrSpace = DL->getAllocaAddrSpace();
@@ -938,7 +1254,7 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
       ConstantInt::get(SizeTTy, Utils.getFunctionVectorizationWidth(Func));
 }
 
-void KernelBarrier::getBarrierKeyValues(Function *Func) {
+void KernelBarrierImpl::getBarrierKeyValues(Function *Func) {
   CurrentFunction = Func;
   assert(BarrierKeyValuesPerFunction.count(Func) &&
          "initiation of argument values is broken");
@@ -946,8 +1262,8 @@ void KernelBarrier::getBarrierKeyValues(Function *Func) {
 }
 
 SmallVector<Instruction *>
-KernelBarrier::getInstructionsToInsertBefore(Instruction *Inst,
-                                             PHINode *PhiNode) {
+KernelBarrierImpl::getInstructionsToInsertBefore(Instruction *Inst,
+                                                 PHINode *PhiNode) {
   auto PrevBBs = BarrierUtils::findBasicBlocksOfPhiNode(Inst, PhiNode);
   SmallVector<Instruction *, 1> InsertBefores;
   for (auto *BB : PrevBBs) {
@@ -958,10 +1274,10 @@ KernelBarrier::getInstructionsToInsertBefore(Instruction *Inst,
   return InsertBefores;
 }
 
-Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
-                                                PointerType *Ty,
-                                                Instruction *InsertBefore,
-                                                const DebugLoc *DB) {
+Value *KernelBarrierImpl::getAddressInSpecialBuffer(unsigned int Offset,
+                                                    PointerType *Ty,
+                                                    Instruction *InsertBefore,
+                                                    const DebugLoc *DB) {
   Value *OffsetVal = ConstantInt::get(SizeTTy, APInt(SizeT, Offset));
   // If hit this assert then need to handle PHINode!
   assert(!isa<PHINode>(InsertBefore) &&
@@ -986,7 +1302,7 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
 
 // TODO: Since ResolveVariableTIDCall ran before this pass, we won't encounter
 // variable TID call. This logic can be removed.
-Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
+Instruction *KernelBarrierImpl::createOOBCheckGetLocalId(CallInst *Call) {
   // if we are going in this path, then no chance that we can run less than 3D
   //
   // Create three basic blocks to contain the dim check as follows
@@ -1044,7 +1360,7 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   return AttrResult;
 }
 
-Value *KernelBarrier::resolveGetLocalIDCall(CallInst *Call) {
+Value *KernelBarrierImpl::resolveGetLocalIDCall(CallInst *Call) {
   Value *Dimension = Call->getOperand(0);
   if (ConstantInt *C = dyn_cast<ConstantInt>(Dimension)) {
     uint64_t Dim = C->getZExtValue();
@@ -1060,7 +1376,7 @@ Value *KernelBarrier::resolveGetLocalIDCall(CallInst *Call) {
   return createOOBCheckGetLocalId(Call);
 }
 
-bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
+bool KernelBarrierImpl::fixGetWIIdFunctions(Module & /*M*/) {
   // clear container for new iteration on new function.
   InstructionsToRemove.clear();
 
@@ -1125,7 +1441,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
   return eraseAllToRemoveInstructions();
 }
 
-void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
+void KernelBarrierImpl::fixNonInlineFunction(Function *FuncToFix) {
   // TODO: do we need to set DebugLoc for these instructions?
   // Get key values for this functions.
   getBarrierKeyValues(FuncToFix);
@@ -1214,7 +1530,7 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
   }
 }
 
-void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
+void KernelBarrierImpl::fixArgumentUsage(Value *OriginalArg) {
   assert((!DPV->isOneBitElementType(OriginalArg) ||
           !isa<VectorType>(OriginalArg->getType())) &&
          "OriginalArg with base type i1!");
@@ -1264,8 +1580,8 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
   }
 }
 
-void KernelBarrier::fixReturnValue(Value *RetVal, unsigned int OffsetRet,
-                                   Instruction *InsertBefore) {
+void KernelBarrierImpl::fixReturnValue(Value *RetVal, unsigned int OffsetRet,
+                                       Instruction *InsertBefore) {
   assert((!DPV->isOneBitElementType(RetVal) ||
           !isa<VectorType>(RetVal->getType())) &&
          "RetVal with base type i1!");
@@ -1281,7 +1597,7 @@ void KernelBarrier::fixReturnValue(Value *RetVal, unsigned int OffsetRet,
   SI->setDebugLoc(InsertBefore->getDebugLoc());
 }
 
-void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
+void KernelBarrierImpl::fixCallInstruction(CallInst *CallToFix) {
   Function *CalledFunc = CallToFix->getCalledFunction();
   assert(CalledFunc && "Call instruction has no called function");
   Function *Func = CallToFix->getFunction();
@@ -1368,14 +1684,14 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
   }
 }
 
-bool KernelBarrier::eraseAllToRemoveInstructions() {
+bool KernelBarrierImpl::eraseAllToRemoveInstructions() {
   // Remove all instructions in InstructionsToRemove.
   for (Instruction *Inst : InstructionsToRemove)
     Inst->eraseFromParent();
   return !InstructionsToRemove.empty();
 }
 
-unsigned KernelBarrier::computeNumDim(Function *F) {
+unsigned KernelBarrierImpl::computeNumDim(Function *F) {
   auto MaxWGDimMDApi =
       SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F).MaxWGDimensions;
   if (MaxWGDimMDApi.hasValue()) {
@@ -1402,7 +1718,7 @@ getCalculatedPrivateSize(Function *Func,
   return FnPrivSize[Func];
 }
 
-void KernelBarrier::calculateDirectPrivateSize(
+void KernelBarrierImpl::calculateDirectPrivateSize(
     Module &M, FuncSet &FnsWithSync,
     DenseMap<Function *, size_t> &DirectPrivateSizeMap) {
   for (auto &F : *const_cast<Module *>(&M)) {
@@ -1415,7 +1731,7 @@ void KernelBarrier::calculateDirectPrivateSize(
   }
 }
 
-void KernelBarrier::calculatePrivateSize(
+void KernelBarrierImpl::calculatePrivateSize(
     Module &M, FuncSet &FnsWithSync,
     DenseMap<Function *, size_t> &PrivateSizeMap) {
   DenseMap<Function *, size_t> DirectPrivateSizeMap;
@@ -1426,8 +1742,8 @@ void KernelBarrier::calculatePrivateSize(
       CG, DirectPrivateSizeMap, PrivateSizeMap);
 }
 
-void KernelBarrier::updateStructureStride(Module &M,
-                                          FuncSet &FunctionsWithSync) {
+void KernelBarrierImpl::updateStructureStride(Module &M,
+                                              FuncSet &FunctionsWithSync) {
   // Collect Functions to process.
   DenseMap<Function *, size_t> FuncToPrivSize;
 
@@ -1472,4 +1788,18 @@ void KernelBarrier::updateStructureStride(Module &M,
                       << ", PrivateMemorySize=" << KIMD.PrivateMemorySize.get()
                       << '\n');
   }
+}
+
+PreservedAnalyses KernelBarrier::run(Module &M, ModuleAnalysisManager &MAM) {
+  // Get Analysis data.
+  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
+  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
+  KernelBarrierImpl Impl(DPB, DPV);
+  if (!Impl.run(M))
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<DataPerBarrierAnalysis>();
+  PA.preserve<DataPerValueAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+  return PA;
 }

@@ -320,6 +320,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
       FunctionPassManager FPM;
       FPM.addPass(DCEPass());
       FPM.addPass(SimplifyCFGPass());
+      FPM.addPass(LoopUnrollPass(
+          LoopUnrollOptions(Level.getSpeedupLevel()).setPartial(true)));
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
       MPM.addPass(DeduceMaxWGDimPass());
     }

@@ -225,6 +225,11 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   // sycl_benchmarks/dnnbench-pooling.
   Args.push_back("-unroll-runtime=false");
 
+  // Threshold is tuned based on sycl_benchmarks/mandelbrot-dpd,dnnbench-norm.
+  // For dnnbench-norm, we need to disable vectorization on single-task kernels
+  // to observe the impact of the threshold.
+  Args.push_back("-unroll-partial-threshold=30");
+
   // inline threshold is not exposed by standard new pass manager
   // pipeline, so we have to set threshold globally here.
   Args.push_back("-inline-threshold=16384");

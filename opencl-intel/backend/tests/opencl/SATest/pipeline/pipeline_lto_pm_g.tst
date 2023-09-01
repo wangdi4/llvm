@@ -55,6 +55,7 @@
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
+; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
 ; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
