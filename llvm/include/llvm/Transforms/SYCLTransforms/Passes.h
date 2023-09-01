@@ -26,6 +26,8 @@
 #include "llvm/Transforms/SYCLTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceTypes.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceWin64Types.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerBarrierPass.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerValuePass.h"
 #include "llvm/Transforms/SYCLTransforms/DeduceMaxWGDim.h"
 #include "llvm/Transforms/SYCLTransforms/DetectRecursion.h"
 #include "llvm/Transforms/SYCLTransforms/DuplicateCalledKernelsPass.h"
