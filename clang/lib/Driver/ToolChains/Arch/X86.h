@@ -43,7 +43,7 @@ std::string getX86TargetCPU(const Driver &D, const llvm::opt::ArgList &Args,
 
 void getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
                           const llvm::opt::ArgList &Args,
-                          std::vector<llvm::StringRef> &Features, bool ForAS);
+                          std::vector<llvm::StringRef> &Features);
 
 #if INTEL_CUSTOMIZATION
 bool isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple);
