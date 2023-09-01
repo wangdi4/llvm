@@ -136,6 +136,25 @@ VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
   return getOrCreateNaryOp(ConvOpCode, {Src}, DestType);
 }
 
+// Create a chain of VPInstructions to convert \p Src operand to \p DestTy
+// destination vector type. For example, if we need need to convert i32 %vp0
+// to <4 x i32> destination type we generate this code:
+//   %vp1 = insertelement <4 x i32> poison, i32 %vp0, i64 0
+//   %vp2 = shufflevector <4 x i32> %vp1, <4 x i32> poison, <4 x i64> zeroinitializer
+VPInstruction *VPDecomposerHIR::decomposeConvToVectorType(VPValue *Src,
+                                                          VectorType *DestTy) {
+  VPConstant *Poison = Plan->getPoison(DestTy);
+  Constant *Zero =
+      ConstantInt::get(Type::getInt64Ty(*Plan->getLLVMContext()), 0);
+  VPValue *InsElInst =
+      getOrCreateNaryOp(Instruction::InsertElement,
+                        {Poison, Src, Plan->getVPConstant(Zero)}, DestTy);
+  VPConstant *Splat = Plan->getVPConstant(
+      ConstantVector::getSplat(DestTy->getElementCount(), Zero));
+  return getOrCreateNaryOp(Instruction::ShuffleVector,
+                           {InsElInst, Poison, Splat}, DestTy);
+}
+
 // Create a VPInstruction for the conversion of \p CE, if any, using \p Src as a
 // source operand. Return \p Src if \p CE doesn't have conversion.
 VPValue *VPDecomposerHIR::decomposeCanonExprConv(CanonExpr *CE, VPValue *Src) {
@@ -163,6 +182,8 @@ VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
     return decomposeConversion(Src, Instruction::PtrToInt, DestTy);
   if (SrcTy->isIntegerTy() && DestTy->isPointerTy())
     return decomposeConversion(Src, Instruction::IntToPtr, DestTy);
+  if (DestTy->isVectorTy())
+    return decomposeConvToVectorType(Src, cast<VectorType>(DestTy));
 
   llvm_unreachable("Unexpected blob implicit conversion!");
 }
@@ -277,20 +298,23 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   // Add a conversion for VPIndVar if its type does not match canon expr
   // type specified in Ty. We mimic the code from HIR CG here.
   if (Ty != IVTy) {
-    assert(Ty->isIntegerTy() && "Expected integer type");
-    if (Ty->getPrimitiveSizeInBits() > IVTy->getPrimitiveSizeInBits()) {
-      bool IsNSW = OutermostHLp->hasSignedIV();
-      VPIndVar = IsNSW ? decomposeConversion(VPIndVar, Instruction::SExt, Ty)
-                       : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
-    } else
-      VPIndVar = decomposeConversion(VPIndVar, Instruction::Trunc, Ty);
+    if (Ty->isVectorTy())
+      VPIndVar = decomposeConvToVectorType(VPIndVar, cast<VectorType>(Ty));
+    else {
+      if (Ty->getPrimitiveSizeInBits() > IVTy->getPrimitiveSizeInBits()) {
+        bool IsNSW = OutermostHLp->hasSignedIV();
+        VPIndVar = IsNSW ? decomposeConversion(VPIndVar, Instruction::SExt, Ty)
+                         : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
+      } else
+        VPIndVar = decomposeConversion(VPIndVar, Instruction::Trunc, Ty);
 
-    // Mark that the IV convert needs to be folded into the containing canon
-    // expression. This is important for preserving linear canon expressions in
-    // generated vector code.
-    // TODO - IV tracking for inner loops
-    if (IVLevel == OutermostHLp->getNestingLevel())
-      cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
+      // Mark that the IV convert needs to be folded into the containing canon
+      // expression. This is important for preserving linear canon expressions
+      // in generated vector code.
+      // TODO - IV tracking for inner loops
+      if (IVLevel == OutermostHLp->getNestingLevel())
+        cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
+    }
   }
 
   bool CanSetNoWrap = false;
@@ -672,6 +696,10 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                               Ref->getDimensionType(I),
                               Ref->getDimensionElementType(I), HIRDimOffsets);
     }
+
+    if (auto *VecTy = dyn_cast<FixedVectorType>(Dimensions[0].Index->getType()))
+      SubscriptResultType =
+          FixedVectorType::get(SubscriptResultType, VecTy->getNumElements());
   }
   auto *Subscript = Builder.create<VPSubscriptInst>(
       "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
