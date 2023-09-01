@@ -1575,7 +1575,6 @@ TEST_F(CommandGraphTest, GetProfilingInfoExceptionCheck) {
   ASSERT_EQ(ExceptionCode, sycl::errc::invalid);
 }
 
-<<<<<<< HEAD
 TEST_F(CommandGraphTest, MakeEdgeErrors) {
   // Set up some nodes in the graph
   auto NodeA = Graph.add(
@@ -1734,8 +1733,6 @@ TEST_F(CommandGraphTest, InvalidHostAccessor) {
   ASSERT_NO_THROW({ host_accessor HostAcc{Buffer}; });
 }
 
-=======
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 class MultiThreadGraphTest : public CommandGraphTest {
 public:
   MultiThreadGraphTest()

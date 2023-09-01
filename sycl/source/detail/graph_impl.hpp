@@ -310,7 +310,6 @@ public:
       MAllowBuffers = true;
     }
 
-<<<<<<< HEAD
     if (SyclDevice.get_info<
             ext::oneapi::experimental::info::device::graph_support>() ==
         graph_support_level::unsupported) {
@@ -325,8 +324,6 @@ public:
 
   ~graph_impl();
 
-=======
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
   /// Remove node from list of root nodes.
   /// @param Root Node to remove from list of root nodes.
   void removeRoot(const std::shared_ptr<node_impl> &Root);
@@ -453,7 +450,6 @@ public:
     MInorderQueueMap[QueueWeakPtr] = Node;
   }
 
-<<<<<<< HEAD
   /// Make an edge between two nodes in the graph. Performs some mandatory
   /// error checks as well as an optional check for cycles introduced by making
   /// this edge.
@@ -474,8 +470,6 @@ public:
     }
   }
 
-=======
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
   /// Checks if the graph_impl of Graph has a similar structure to
   /// the graph_impl of the caller.
   /// Graphs are considered similar if they have same numbers of nodes
@@ -612,7 +606,6 @@ private:
   std::map<std::weak_ptr<sycl::detail::queue_impl>, std::shared_ptr<node_impl>,
            std::owner_less<std::weak_ptr<sycl::detail::queue_impl>>>
       MInorderQueueMap;
-<<<<<<< HEAD
   /// Controls whether we skip the cycle checks in makeEdge, set by the presence
   /// of the no_cycle_check property on construction.
   bool MSkipCycleChecks = false;
@@ -622,18 +615,6 @@ private:
   /// Controls whether we allow buffers to be used in the graph. Set by the
   /// presence of the assume_buffer_outlives_graph property.
   bool MAllowBuffers = false;
-=======
-
-  /// Insert node into list of root nodes.
-  /// @param Root Node to add to list of root nodes.
-  void addRoot(const std::shared_ptr<node_impl> &Root);
-
-  /// Adds nodes to the exit nodes of this graph.
-  /// @param NodeList List of nodes from sub-graph in schedule order.
-  /// @return An empty node is used to schedule dependencies on this sub-graph.
-  std::shared_ptr<node_impl>
-  addNodesToExits(const std::list<std::shared_ptr<node_impl>> &NodeList);
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 };
 
 /// Class representing the implementation of command_graph<executable>.

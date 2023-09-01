@@ -5,11 +5,6 @@
 int main() {
 
   queue Queue{{sycl::ext::intel::property::queue::no_immediate_command_list{}}};
-<<<<<<< HEAD
-=======
-
-  exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 
   float DotpData = 0.f;
 

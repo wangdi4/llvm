@@ -73,7 +73,6 @@ bool checkForRequirement(sycl::detail::AccessorImplHost *Req,
   return SuccessorAddedDep;
 }
 
-<<<<<<< HEAD
 /// Visits a node on the graph and it's successors recursively in a depth-first
 /// approach.
 /// @param[in] Node The current node being visited.
@@ -108,8 +107,6 @@ bool visitNodeDepthFirst(
   return false;
 }
 
-=======
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 void duplicateNode(const std::shared_ptr<node_impl> Node,
                    std::shared_ptr<node_impl> &NodeCopy) {
   if (Node->MCGType == sycl::detail::CG::None) {
@@ -130,7 +127,6 @@ void exec_graph_impl::schedule() {
   }
 }
 
-<<<<<<< HEAD
 graph_impl::~graph_impl() {
   clearQueues();
   for (auto &MemObj : MMemObjs) {
@@ -138,8 +134,6 @@ graph_impl::~graph_impl() {
   }
 }
 
-=======
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 std::shared_ptr<node_impl> graph_impl::addNodesToExits(
     const std::list<std::shared_ptr<node_impl>> &NodeList) {
   // Find all input and output nodes from the node list
@@ -722,13 +716,7 @@ void modifiable_command_graph::make_edge(node &Src, node &Dest) {
       sycl::detail::getSyclObjImpl(Dest);
 
   graph_impl::WriteLock Lock(impl->MMutex);
-<<<<<<< HEAD
   impl->makeEdge(SenderImpl, ReceiverImpl);
-=======
-  SenderImpl->registerSuccessor(ReceiverImpl,
-                                SenderImpl); // register successor
-  impl->removeRoot(ReceiverImpl); // remove receiver from root node list
->>>>>>> b2d3f17144e1f9525d2c0ddc2a627d84389da9cf
 }
 
 command_graph<graph_state::executable>
