@@ -1,4 +1,4 @@
-//==----------- get_coord_bf16_matB.cpp  - DPC++ joint_matrix---------==//
+//==-------- joint_matrix_down_convert.cpp  - DPC++ joint_matrix------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,17 +10,8 @@
 // RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
 // RUN: %{run} %t.out
 
-// XFAIL: cpu, gpu
-
-#include <iostream>
-#include <random>
-#include <sycl/sycl.hpp>
-
-using namespace sycl;
-using namespace sycl::ext::oneapi::experimental::matrix;
-using bfloat16 = sycl::ext::oneapi::bfloat16;
+#include "../common.hpp"
 
 constexpr size_t SG_SZ = 32;
-constexpr size_t TN = 16;
 
-#include "../get_coord_bf16_matB_impl.hpp"
+#include "../joint_matrix_down_convert_impl.hpp"
