@@ -1,21 +1,4 @@
 //===- ModuleSummaryAnalysis.cpp - Module summary index builder -----------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -391,10 +374,8 @@ static void computeFunctionSummary(
 
       auto *CalledValue = CB->getCalledOperand();
       auto *CalledFunction = CB->getCalledFunction();
-      auto *CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
       if (CalledValue && !CalledFunction) {
         CalledValue = CalledValue->stripPointerCasts();
-        CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
         // Stripping pointer casts can reveal a called function.
         CalledFunction = dyn_cast<Function>(CalledValue);
       }
@@ -406,20 +387,15 @@ static void computeFunctionSummary(
       }
       // Check if this is a direct call to a known function or a known
       // intrinsic, or an indirect call with profile data.
-#if INTEL_CUSTOMIZATION
-      // CMPLRLLVM-26286: Ensure that calls to GlobalIFuncs end up in
-      // the summary call graph. (This and related changes in this file
-      // could be pushed back to the community.)
-      if (CalledFunction || CalledGIF) {
-        if (CI && CalledFunction && CalledFunction->isIntrinsic()) {
-#endif // INTEL_CUSTOMIZATION
+      if (CalledFunction) {
+        if (CI && CalledFunction->isIntrinsic()) {
           addIntrinsicToSummary(
               CI, TypeTests, TypeTestAssumeVCalls, TypeCheckedLoadVCalls,
               TypeTestAssumeConstVCalls, TypeCheckedLoadConstVCalls, DT);
           continue;
         }
         // We should have named any anonymous globals
-        assert(CalledGIF || CalledFunction->hasName()); // INTEL
+        assert(CalledFunction->hasName());
         auto ScaledCount = PSI->getProfileCount(*CB, BFI);
         auto Hotness = ScaledCount ? getHotness(*ScaledCount, PSI)
                                    : CalleeInfo::HotnessType::Unknown;
