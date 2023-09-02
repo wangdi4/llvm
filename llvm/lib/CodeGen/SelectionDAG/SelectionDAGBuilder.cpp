@@ -6736,6 +6736,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::fabs:
   case Intrinsic::sin:
   case Intrinsic::cos:
+  case Intrinsic::exp10:
   case Intrinsic::floor:
   case Intrinsic::ceil:
   case Intrinsic::trunc:
@@ -6751,6 +6752,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     case Intrinsic::fabs:      Opcode = ISD::FABS;       break;
     case Intrinsic::sin:       Opcode = ISD::FSIN;       break;
     case Intrinsic::cos:       Opcode = ISD::FCOS;       break;
+    case Intrinsic::exp10:     Opcode = ISD::FEXP10;     break;
     case Intrinsic::floor:     Opcode = ISD::FFLOOR;     break;
     case Intrinsic::ceil:      Opcode = ISD::FCEIL;      break;
     case Intrinsic::trunc:     Opcode = ISD::FTRUNC;     break;
@@ -9109,6 +9111,7 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FEXP2))
           return;
         break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case LibFunc_log:
       case LibFunc_logf:
@@ -9141,6 +9144,14 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
           return;
         break;
 #endif  // INTEL_CUSTOMIZATION
+=======
+      case LibFunc_exp10:
+      case LibFunc_exp10f:
+      case LibFunc_exp10l:
+        if (visitUnaryFloatCall(I, ISD::FEXP10))
+          return;
+        break;
+>>>>>>> b14e83d1a449d70239e1d37e2a406e9a0e3892a1
       case LibFunc_ldexp:
       case LibFunc_ldexpf:
       case LibFunc_ldexpl:
