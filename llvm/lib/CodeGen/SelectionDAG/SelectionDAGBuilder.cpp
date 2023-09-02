@@ -9111,7 +9111,6 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FEXP2))
           return;
         break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case LibFunc_log:
       case LibFunc_logf:
@@ -9144,14 +9143,12 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
           return;
         break;
 #endif  // INTEL_CUSTOMIZATION
-=======
       case LibFunc_exp10:
       case LibFunc_exp10f:
       case LibFunc_exp10l:
         if (visitUnaryFloatCall(I, ISD::FEXP10))
           return;
         break;
->>>>>>> b14e83d1a449d70239e1d37e2a406e9a0e3892a1
       case LibFunc_ldexp:
       case LibFunc_ldexpf:
       case LibFunc_ldexpl:
