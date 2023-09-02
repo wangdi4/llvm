@@ -146,6 +146,7 @@
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DOTGraphTraits.h"
+#include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ModRef.h"
 #include "llvm/Support/TimeProfiler.h"
@@ -1478,6 +1479,10 @@ struct AttributorConfig {
   IPOAmendableCBTy IPOAmendableCB{}; // INTEL
 };
 
+/// A debug counter to limit the number of AAs created.
+DEBUG_COUNTER(NumAbstractAttributes, "num-abstract-attributes",
+              "How many AAs should be initialized");
+
 /// The fixpoint analysis framework that orchestrates the attribute deduction.
 ///
 /// The Attributor provides a general abstract analysis framework (guided
@@ -1588,6 +1593,9 @@ struct Attributor {
 
     bool ShouldUpdateAA;
     if (!shouldInitialize<AAType>(IRP, ShouldUpdateAA))
+      return nullptr;
+
+    if (!DebugCounter::shouldExecute(NumAbstractAttributes))
       return nullptr;
 
     // No matching attribute found, create one.
@@ -1752,10 +1760,16 @@ struct Attributor {
 
     Function *AssociatedFn = IRP.getAssociatedFunction();
 
-    // Check if we require a callee but there is none.
-    if (!AssociatedFn && AAType::requiresCalleeForCallBase() &&
-        IRP.isAnyCallSitePosition())
-      return false;
+    if (IRP.isAnyCallSitePosition()) {
+      // Check if we require a callee but there is none.
+      if (!AssociatedFn && AAType::requiresCalleeForCallBase())
+        return false;
+
+      // Check if we require non-asm but it is inline asm.
+      if (AAType::requiresNonAsmForCallBase() &&
+          cast<CallBase>(IRP.getAnchorValue()).isInlineAsm())
+        return false;
+    }
 
     // Check if we require a calles but we can't see all.
     if (AAType::requiresCallersForArgOrFunction())
@@ -3282,6 +3296,9 @@ struct AbstractAttribute : public IRPosition, public AADepGraphNode {
   /// Virtual destructor.
   virtual ~AbstractAttribute() = default;
 
+  /// Compile time access to the IR attribute kind.
+  static constexpr Attribute::AttrKind IRAttributeKind = Attribute::None;
+
   /// This function is used to identify if an \p DGN is of type
   /// AbstractAttribute so that the dyn_cast and cast can use such information
   /// to cast an AADepGraphNode to an AbstractAttribute.
@@ -3297,6 +3314,9 @@ struct AbstractAttribute : public IRPosition, public AADepGraphNode {
   /// Return true if this AA requires a "callee" (or an associted function) for
   /// a call site positon. Default is optimistic to minimize AAs.
   static bool requiresCalleeForCallBase() { return true; }
+
+  /// Return true if this AA requires non-asm "callee" for a call site positon.
+  static bool requiresNonAsmForCallBase() { return true; }
 
   /// Return true if this AA requires all callees for an argument or function
   /// positon.
@@ -4615,7 +4635,7 @@ struct AAPrivatizablePtr
 /// (readnone/readonly/writeonly).
 struct AAMemoryBehavior
     : public IRAttribute<
-          Attribute::ReadNone,
+          Attribute::None,
           StateWrapper<BitIntegerState<uint8_t, 3>, AbstractAttribute>,
           AAMemoryBehavior> {
   AAMemoryBehavior(const IRPosition &IRP, Attributor &A) : IRAttribute(IRP) {}
@@ -4690,7 +4710,7 @@ struct AAMemoryBehavior
 /// (readnone/argmemonly/inaccessiblememonly/inaccessibleorargmemonly).
 struct AAMemoryLocation
     : public IRAttribute<
-          Attribute::ReadNone,
+          Attribute::None,
           StateWrapper<BitIntegerState<uint32_t, 511>, AbstractAttribute>,
           AAMemoryLocation> {
   using MemoryLocationsKind = StateType::base_t;
@@ -5482,6 +5502,9 @@ struct AACallEdges : public StateWrapper<BooleanState, AbstractAttribute>,
   /// The callee value is tracked beyond a simple stripPointerCasts, so we allow
   /// unknown callees.
   static bool requiresCalleeForCallBase() { return false; }
+
+  /// See AbstractAttribute::requiresNonAsmForCallBase.
+  static bool requiresNonAsmForCallBase() { return false; }
 
   /// Get the optimistic edges.
   virtual const SetVector<Function *> &getOptimisticEdges() const = 0;
