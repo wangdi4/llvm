@@ -59,10 +59,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; SKX-NEXT:    testb $1, %al
 ; SKX-NEXT:    fld %st(1)
 ; SKX-NEXT:    fcmovne %st(3), %st
-<<<<<<< HEAD
-=======
-; SKX-NEXT:    kshiftrb $1, %k0, %k1
->>>>>>> 57595086db5c9180bf6a248ed90f8e83a2c66752
 ; SKX-NEXT:    kmovd %k1, %eax
 ; SKX-NEXT:    testb $1, %al
 ; SKX-NEXT:    fld %st(2)
