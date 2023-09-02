@@ -2,10 +2,17 @@
 // RUN: %clang -target x86_64-linux-gnu -gdwarf-3 -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER3
 // RUN: %clang -target x86_64-linux-gnu -gdwarf-4 -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER4
 // RUN: %clang -target x86_64-linux-gnu -gdwarf-5 -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER5
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -target x86_64-linux-gnu -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER4
 // RUN: %clang -target x86_64-linux-gnu -gdwarf -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER4
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang -target x86_64-linux-gnu -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER5
+// RUN: %clang -target x86_64-linux-gnu -gdwarf -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER5
+// RUN: %clang --target=i386-pc-solaris -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER5
+// RUN: %clang --target=i386-pc-solaris -gdwarf -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER5
+>>>>>>> b1b1f364d63382637fa5f64871ee06bf74bd0405
 
 // The -isysroot is used as a hack to avoid LIT messing with the SDKROOT
 // environment variable which indirecty overrides the version in the target
@@ -15,8 +22,6 @@
 
 // RUN: %clang -target powerpc-unknown-openbsd -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER2
 // RUN: %clang -target powerpc-unknown-freebsd -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER4
-// RUN: %clang -target i386-pc-solaris -g -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER2
-// RUN: %clang -target i386-pc-solaris -gdwarf -S -emit-llvm -o - %s | FileCheck %s --check-prefix=VER2
 
 // Check which debug info formats we use on Windows. By default, in an MSVC
 // environment, we should use codeview. You can enable dwarf, which implicitly
