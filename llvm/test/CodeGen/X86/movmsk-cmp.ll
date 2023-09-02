@@ -4251,9 +4251,19 @@ define i32 @PR39665_c_ray(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmpltpd %zmm0, %zmm1, %k0
+; KNL-NEXT:    kshiftrw $1, %k0, %k1
+; KNL-NEXT:    kmovw %k1, %eax
 ; KNL-NEXT:    kmovw %k0, %ecx
+<<<<<<< HEAD
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $2, %al
+=======
+<<<<<<< HEAD
+; KNL-NEXT:    testb $2, %cl
+=======
+; KNL-NEXT:    testb $1, %al
+>>>>>>> parent of 239ab16ec121 ([X86] combineCMP - attempt to simplify KSHIFTR mask element extractions when just comparing against zero)
+>>>>>>> b0b3f82dd3c00cdba891f1ff6ba63abd419d0f18
 ; KNL-NEXT:    movl $42, %eax
 ; KNL-NEXT:    movl $99, %edx
 ; KNL-NEXT:    cmovel %edx, %eax
@@ -4265,8 +4275,14 @@ define i32 @PR39665_c_ray(<2 x double> %x, <2 x double> %y) {
 ; SKX-LABEL: PR39665_c_ray:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vcmpltpd %xmm0, %xmm1, %k0
+; SKX-NEXT:    kshiftrb $1, %k0, %k1
+; SKX-NEXT:    kmovd %k1, %eax
 ; SKX-NEXT:    kmovd %k0, %ecx
+<<<<<<< HEAD
 ; SKX-NEXT:    testb $2, %cl
+=======
+; SKX-NEXT:    testb $1, %al
+>>>>>>> parent of 239ab16ec121 ([X86] combineCMP - attempt to simplify KSHIFTR mask element extractions when just comparing against zero)
 ; SKX-NEXT:    movl $42, %eax
 ; SKX-NEXT:    movl $99, %edx
 ; SKX-NEXT:    cmovel %edx, %eax
