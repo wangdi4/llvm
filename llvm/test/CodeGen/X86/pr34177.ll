@@ -50,11 +50,17 @@ define void @test(<4 x i64> %a, <4 x x86_fp80> %b, ptr %c) local_unnamed_addr {
 ; AVX512VL-LABEL: test:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vpcmpeqq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %k0
+<<<<<<< HEAD
 ; AVX512VL-NEXT:    kshiftrb $2, %k0, %k1
 ; AVX512VL-NEXT:    kshiftrb $1, %k0, %k2 ;INTEL
 ; AVX512VL-NEXT:    kmovd %k0, %eax
 ; AVX512VL-NEXT:    kshiftrb $1, %k1, %k0 ;INTEL
 ; AVX512VL-NEXT:    kmovd %k1, %ecx ;INTEL
+=======
+; AVX512VL-NEXT:    kshiftrb $1, %k0, %k1
+; AVX512VL-NEXT:    kshiftrb $2, %k0, %k2
+; AVX512VL-NEXT:    kmovd %k0, %eax
+>>>>>>> 57595086db5c9180bf6a248ed90f8e83a2c66752
 ; AVX512VL-NEXT:    testb $1, %al
 ; AVX512VL-NEXT:    fld1
 ; AVX512VL-NEXT:    fldz
@@ -63,7 +69,12 @@ define void @test(<4 x i64> %a, <4 x x86_fp80> %b, ptr %c) local_unnamed_addr {
 ; AVX512VL-NEXT:    testb $1, %cl ;INTEL
 ; AVX512VL-NEXT:    fld %st(1)
 ; AVX512VL-NEXT:    fcmovne %st(3), %st
+<<<<<<< HEAD
 ; AVX512VL-NEXT:    kmovd %k2, %eax ;INTEL
+=======
+; AVX512VL-NEXT:    kshiftrb $1, %k2, %k0
+; AVX512VL-NEXT:    kmovd %k0, %eax
+>>>>>>> 57595086db5c9180bf6a248ed90f8e83a2c66752
 ; AVX512VL-NEXT:    testb $1, %al
 ; AVX512VL-NEXT:    fld %st(2)
 ; AVX512VL-NEXT:    fcmovne %st(4), %st
