@@ -3985,6 +3985,7 @@ cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
                                      event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    readHostPipeCmd->CommandDone();
     delete readHostPipeCmd;
     return err;
   }
@@ -4033,6 +4034,7 @@ cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
                                       event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    writeHostPipeCmd->CommandDone();
     delete writeHostPipeCmd;
     return err;
   }
@@ -4106,6 +4108,7 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
                                event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    readGVCmd->CommandDone();
     delete readGVCmd;
     return err;
   }
@@ -4180,6 +4183,7 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
                                 event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    writeGVCmd->CommandDone();
     delete writeGVCmd;
     return err;
   }

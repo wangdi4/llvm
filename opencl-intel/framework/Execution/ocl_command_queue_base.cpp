@@ -137,7 +137,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(
     for (auto usmPtr : usmPtrList)
       m_pContext->GetContextModule().UnregisterUSMFreeWaitEvent(usmPtr,
                                                                 pEventHandle);
-    pCommand->CommandDone();
     if (NULL == pUserEvent) {
       m_pEventsManager->ReleaseEvent(pEventHandle);
     }
