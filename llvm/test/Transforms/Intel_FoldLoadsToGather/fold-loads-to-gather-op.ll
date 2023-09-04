@@ -3,7 +3,7 @@
 
 define <4 x i32> @gather_i32_i32(<4 x i32> %offset, i32 addrspace(1)* %base) nounwind {
 ; CHECK-LABEL: @gather_i32_i32(
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr ptr addrspace(1), ptr addrspace(1) [[BASE:%.*]], <4 x i32> [[OFFSET:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i32, ptr addrspace(1) [[BASE:%.*]], <4 x i32> [[OFFSET:%.*]]
 ; CHECK-NEXT:    [[I3:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p1(<4 x ptr addrspace(1)> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
 ; CHECK-NEXT:    ret <4 x i32> [[I3]]
 ;
@@ -29,7 +29,7 @@ define <4 x i32> @gather_i32_i32(<4 x i32> %offset, i32 addrspace(1)* %base) nou
 define <4 x i32> @gather_i32_ext_i32(<4 x i32> %offset, i32 addrspace(1)* %base) nounwind {
 ; CHECK-LABEL: @gather_i32_ext_i32(
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext <4 x i32> [[OFFSET:%.*]] to <4 x i64>
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr ptr addrspace(1), ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[TMP1]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i32, ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[TMP1]]
 ; CHECK-NEXT:    [[I3:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p1(<4 x ptr addrspace(1)> [[TMP2]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
 ; CHECK-NEXT:    ret <4 x i32> [[I3]]
 ;
@@ -58,7 +58,7 @@ define <4 x i32> @gather_i32_ext_i32(<4 x i32> %offset, i32 addrspace(1)* %base)
 
 define <4 x double> @gather_i64_f64(<4 x i64> %offset, double addrspace(1)* %base) nounwind {
 ; CHECK-LABEL: @gather_i64_f64(
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr ptr addrspace(1), ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[OFFSET:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr double, ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[OFFSET:%.*]]
 ; CHECK-NEXT:    [[I3:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p1(<4 x ptr addrspace(1)> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> poison)
 ; CHECK-NEXT:    ret <4 x double> [[I3]]
 ;
@@ -84,7 +84,7 @@ define <4 x double> @gather_i64_f64(<4 x i64> %offset, double addrspace(1)* %bas
 define <4 x double> @gather_i32_ext_f64(<4 x i32> %offset, double addrspace(1)* %base) nounwind {
 ; CHECK-LABEL: @gather_i32_ext_f64(
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext <4 x i32> [[OFFSET:%.*]] to <4 x i64>
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr ptr addrspace(1), ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[TMP1]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr double, ptr addrspace(1) [[BASE:%.*]], <4 x i64> [[TMP1]]
 ; CHECK-NEXT:    [[I3:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p1(<4 x ptr addrspace(1)> [[TMP2]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> poison)
 ; CHECK-NEXT:    ret <4 x double> [[I3]]
 ;
