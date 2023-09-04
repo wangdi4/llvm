@@ -23,7 +23,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
 
 set(TARGET_INCLUDE_FILES
     BackendUtils.h
-    debuggingservicetype.h
     OptimizerConfig.h
     SerializerCompatibility.h
     TypeConversion.h
@@ -41,7 +40,6 @@ set(TARGET_SOURCE_FILES
     SerializerCompatibility.cpp
     TypeConversion.cpp
     VectorizerUtils.cpp
-    debuggingservicetype.cpp
     ${TARGET_EXTRA_SOURCE_FILES})
 
 include_directories(

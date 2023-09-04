@@ -128,12 +128,10 @@ void ProgramBuildResult::SetBuildResult(cl_dev_err_code code) {
 
 cl_dev_err_code ProgramBuildResult::GetBuildResult() const { return m_result; }
 
-CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts)
-    : m_debugInfo(false), m_useNativeDebugger(true), m_profiling(false),
-      m_disableOpt(false), m_relaxedMath(false), m_denormalsZero(false),
-      m_uniformWGSize(false) {
+CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts) {
+  if (!pBuildOpts)
+    return;
   llvm::StringRef buildOptions(pBuildOpts);
-
   if (buildOptions.empty())
     return;
 
@@ -257,8 +255,7 @@ Compiler::Compiler(const ICompilerConfig &config)
     : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
       m_transposeSize(config.GetTransposeSize()),
       m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
-      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
-      m_disableOptimization(false), m_useNativeDebugger(true),
+      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
       m_streamingAlways(config.GetStreamingAlways()),
       m_expensiveMemOpts(config.GetExpensiveMemOpts()),
       m_passManagerType(config.GetPassManagerType()),
@@ -305,7 +302,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
     TargetOpts.DoFMAOpt = false;
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::CodeGenOpt::Level CGOptLevel = m_disableOptimization
+  llvm::CodeGenOpt::Level CGOptLevel = m_buildOptions.GetDisableOpt()
                                            ? llvm::CodeGenOpt::None
                                            : llvm::CodeGenOpt::Default;
 
@@ -335,12 +332,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   validateVectorizerMode(pResult->LogS());
 
-  CompilerBuildOptions buildOptions(pBuildOptions);
-
-  // Record the debug control flags.
-  m_debug = buildOptions.GetDebugInfoFlag();
-  m_disableOptimization = buildOptions.GetDisableOpt();
-  m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
+  m_buildOptions = CompilerBuildOptions(pBuildOptions);
 
   materializeSpirTriple(pModule);
 
@@ -353,12 +345,11 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   //
 
   intel::OptimizerConfig optimizerConfig(
-      m_CpuId, m_transposeSize, targetMachine.get(), m_debug,
-      m_useNativeDebugger, buildOptions.GetProfilingFlag(),
-      buildOptions.GetDisableOpt(), buildOptions.GetRelaxedMath(),
-      buildOptions.GetUniformWGSize(), m_bIsFPGAEmulator, m_dumpHeuristicIR,
-      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts,
-      m_subGroupConstructionMode);
+      m_CpuId, m_transposeSize, targetMachine.get(),
+      m_buildOptions.GetProfilingFlag(), m_buildOptions.GetDisableOpt(),
+      m_buildOptions.GetRelaxedMath(), m_buildOptions.GetUniformWGSize(),
+      m_bIsFPGAEmulator, m_dumpHeuristicIR, m_rtLoopUnrollFactor,
+      m_streamingAlways, m_expensiveMemOpts, m_subGroupConstructionMode);
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {

@@ -29,12 +29,8 @@ public:
 protected:
   virtual void SetUp() {
     m_options = "-cl-std=CL2.0";
-    if (GetParam()) {
+    if (GetParam())
       m_options += " -g -cl-opt-disable";
-#if defined _WIN32 && (defined _M_X64 || defined __x86_64__)
-      ASSERT_TRUE(SETENV("CL_CONFIG_USE_NATIVE_DEBUGGER", "1"));
-#endif
-    }
 
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");

@@ -304,8 +304,7 @@ bool WGLoopCreatorImpl::run() {
   ConstOne = ConstantInt::get(IndTy, 1);
 
   auto Kernels = getKernels(M);
-  UseTLSGlobals =
-      llvm::any_of(M, [](Function &F) { return F.getSubprogram() != nullptr; });
+  UseTLSGlobals = !M.debug_compile_units().empty();
 
   bool Changed = createTLSLocalIds();
 
