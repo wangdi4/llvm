@@ -344,6 +344,7 @@ public:
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
   bool hasVLX() const;
+  bool preferNoGather() const;
   bool has2KDSB() const;
   bool has4KDSB() const;
   bool displacementFoldable() const;

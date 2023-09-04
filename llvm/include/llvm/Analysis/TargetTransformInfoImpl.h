@@ -887,6 +887,8 @@ public:
 
   bool hasVLX() const { return false; }
 
+  bool preferNoGather() const { return false; }
+
   bool has2KDSB() const { return false; }
 
   bool has4KDSB() const { return false; }

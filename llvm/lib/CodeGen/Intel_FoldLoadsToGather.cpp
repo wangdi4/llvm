@@ -283,7 +283,8 @@ bool FoldLoadsToGather::runOnFunction(Function &F) {
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   // Don't attempt vectorization if the target does not support vectors.
-  if (!TTI->getNumberOfRegisters(TTI->getRegisterClassForType(/*Vector*/ true)))
+  if (TTI->preferNoGather() ||
+      !TTI->getNumberOfRegisters(TTI->getRegisterClassForType(/*Vector*/ true)))
     return false;
 
   bool MadeChange = false;
