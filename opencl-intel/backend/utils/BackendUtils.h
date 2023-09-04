@@ -28,6 +28,7 @@ namespace BackendUtils {
 
 void recordGlobalCtorDtors(llvm::Module &M, std::vector<std::string> &CtorNames,
                            std::vector<std::string> &DtorNames);
+
 } // namespace BackendUtils
 
 } // namespace DeviceBackend

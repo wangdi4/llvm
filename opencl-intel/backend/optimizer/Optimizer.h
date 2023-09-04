@@ -16,7 +16,6 @@
 
 #include "Compiler.h"
 #include "OptimizerConfig.h"
-#include "debuggingservicetype.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -106,7 +105,6 @@ protected:
 
   bool m_IsFpgaEmulator;
 
-  intel::DebuggingServiceType m_debugType;
   bool m_UseTLSGlobals;
 
   bool UnrollLoops;

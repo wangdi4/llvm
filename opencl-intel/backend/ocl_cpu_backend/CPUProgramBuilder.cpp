@@ -23,7 +23,6 @@
 #include "StaticObjectLoader.h"
 #include "cache_binary_handler.h"
 #include "cl_sys_defines.h"
-#include "debuggingservicetype.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -179,18 +178,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
   Compiler *pCompiler = GetCompiler();
   std::unique_ptr<Module> M = pCompiler->ParseModuleIR(Buffer.get());
 
-  bool useLLDJIT =
-      m_compiler.isObjectFromLLDJIT(StringRef(objectBuffer, objectSize));
-  if (useLLDJIT) {
-    intel::DebuggingServiceType userType =
-        intel::getUserDefinedDebuggingServiceType();
-
-    if (userType != intel::None && userType != intel::Native) {
-      // user has overriden cached object type
-      pProgram->SetModule(std::move(M));
-      return false;
-    }
-  }
   pCompiler->materializeSpirTriple(M.get());
 
   // create cache manager
@@ -201,6 +188,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
 
   CPUProgram *cpuProgram = static_cast<CPUProgram *>(pProgram);
 
+  bool useLLDJIT =
+      m_compiler.isObjectFromLLDJIT(StringRef(objectBuffer, objectSize));
   if (useLLDJIT) {
     m_compiler.CreateExecutionEngine(pProgram->GetModule());
     m_compiler.SetObjectCache(pCache);

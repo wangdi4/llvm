@@ -438,8 +438,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-    // The m_debugType enum and profiling flag are mutually exclusive, with
-    // precedence given to m_debugType.
+    // OpenCL -g and -profiling flags are mutually exclusive, with precedence
+    // given to -g.
     if (Config.GetProfilingFlag())
       MPM.addPass(ProfilingInfoPass());
 

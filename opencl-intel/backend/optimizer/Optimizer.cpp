@@ -22,7 +22,6 @@
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
-using namespace intel;
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -155,9 +154,7 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   SYCLForceOptnone = Config.GetDisableOpt();
   m_HasOcl20 = CompilationUtils::hasOcl20Support(M);
-  m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
-                                        Config.GetUseNativeDebuggerFlag());
-  m_UseTLSGlobals = (m_debugType == intel::Native);
+  m_UseTLSGlobals = !M.debug_compile_units().empty();
 
   static llvm::once_flag OptionOnceFlag;
   llvm::call_once(OptionOnceFlag, [&] {

@@ -87,8 +87,6 @@ TEST_F(GetProgramBuildInfoTest, LLJITLog) {
 /// Check that LLDJIT log is saved to program build log
 #if defined _WIN32
 TEST_F(GetProgramBuildInfoTest, LLDJITLog) {
-  ASSERT_TRUE(SETENV("CL_CONFIG_USE_NATIVE_DEBUGGER", "1")) << "set env failed";
-
   cl_int iRet;
 
   iRet = clBuildProgram(m_program, 1, &m_device, "-g", nullptr, nullptr);

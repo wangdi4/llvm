@@ -578,8 +578,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   }
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
 
-  // The m_debugType enum and isProfiling flag are mutually exclusive, with
-  // precedence given to m_debugType.
+  // OpenCL -g and -profiling flags are mutually exclusive, with precedence
+  // given to -g.
   if (isProfiling)
     MPM.addPass(ProfilingInfoPass());
 
