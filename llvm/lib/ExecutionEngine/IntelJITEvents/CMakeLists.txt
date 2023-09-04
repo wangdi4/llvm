@@ -67,6 +67,11 @@ endif()
 
 set(LLVM_INTEL_JIT_LIBS ${LLVM_PTHREAD_LIB} ${LLVM_INTEL_JIT_LIBS})
 
+if(INTEL_CUSTOMIZATION)
+  # JIRA: CMPLRLLVM-51249
+  # Suppress unwanted warning: [[]] attributes are a C2x extension
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-c2x-extensions ")
+endif(INTEL_CUSTOMIZATION)
 
 add_llvm_component_library(LLVMIntelJITEvents
   IntelJITEventListener.cpp
