@@ -409,10 +409,24 @@ CoerceTypesPass::ClassPair CoerceTypesPass::classify(Type *T,
     return {TypeClass::NO_CLASS, TypeClass::NO_CLASS};
 
   if (auto *ArrayT = dyn_cast<ArrayType>(T)) {
+    auto ArrayAllocSize = PDataLayout->getTypeAllocSize(ArrayT);
+    // If the last eightbyte remainder of the array can not be fully represented
+    // by any normal integer types (i8, i16, i32, i64), we conservatively pass
+    // it by MEMORY to avoid irregular integer parameter widening issue of SG
+    // emulation.
+    // FIXEME: we should teach subgroup emulation to properly handle irregular
+    // integer parameter (e.g. i48) instead.
+    auto RemainderSize = ArrayAllocSize % 8;
+    if (RemainderSize != 0 && RemainderSize != 1 && RemainderSize != 2 &&
+        RemainderSize != 4) {
+      LLVM_DEBUG(dbgs() << "Classify irregular array type as MEMORY: "
+                        << *ArrayT << ", size = " << ArrayAllocSize << '\n');
+      return {TypeClass::MEMORY, TypeClass::MEMORY};
+    }
     Type *ElementT = ArrayT->getElementType();
     ClassPair Result = classify(ElementT, Offset);
     // If the array occupies both eightbytes, classify the high one as well
-    if (Offset < 8 && PDataLayout->getTypeAllocSize(ArrayT) + Offset > 8)
+    if (Offset < 8 && ArrayAllocSize + Offset > 8)
       Result.second = Result.first;
     return Result;
   }
@@ -608,4 +622,3 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
     ++OldArgI;
   }
 }
-
