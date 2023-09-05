@@ -4252,7 +4252,8 @@ define i32 @PR39665_c_ray(<2 x double> %x, <2 x double> %y) {
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; KNL-NEXT:    vcmpltpd %zmm0, %zmm1, %k0
 ; KNL-NEXT:    kmovw %k0, %ecx
-; KNL-NEXT:    testb $2, %cl
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    testb $2, %al
 ; KNL-NEXT:    movl $42, %eax
 ; KNL-NEXT:    movl $99, %edx
 ; KNL-NEXT:    cmovel %edx, %eax
