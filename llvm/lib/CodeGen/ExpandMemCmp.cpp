@@ -298,9 +298,9 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
     RhsSource = Builder.CreateConstGEP1_64(
         ByteType, Builder.CreateBitCast(RhsSource, ByteType->getPointerTo()),
         OffsetBytes);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     LhsAlign = commonAlignment(LhsAlign, OffsetBytes);
     RhsAlign = commonAlignment(RhsAlign, OffsetBytes);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   LhsSource = Builder.CreateBitCast(LhsSource, LoadSizeType->getPointerTo());
