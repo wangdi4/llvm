@@ -722,14 +722,30 @@ template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
                                            VPScalarPeel *LoopInst,
                                            const Twine &Name);
 
-void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
-                                   AttributeList OrigAttrs,
-                                   SmallVectorImpl<Value *> &VecArgs,
-                                   SmallVectorImpl<Type *> &VecArgTys,
-                                   SmallVectorImpl<AttributeSet> &VecArgAttrs,
-                                   bool IsDevice = false) {
+void VPOCodeGen::addMaskToLibCall(Function *OrigF, Value *CallMaskValue,
+                                  AttributeList OrigAttrs,
+                                  SmallVectorImpl<Value *> &VecArgs,
+                                  SmallVectorImpl<Type *> &VecArgTys,
+                                  SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                                  bool IsDevice = false) {
   assert(CallMaskValue && "Expected mask to be present");
-  auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
+  bool IsFortranRNGVecFunc = isFortranRNGLibraryFunc(OrigF, TLI);
+  FixedVectorType *VecTy = nullptr;
+  if (!VecArgTys.empty())
+    VecTy = cast<FixedVectorType>(VecArgTys[0]);
+  else {
+    assert(IsFortranRNGVecFunc &&
+           "Call without args is expected only for Fortran RNG functions.");
+    // If call does not have any args, then use the return type to determine
+    // VecTy.
+    assert(!OrigF->getReturnType()->isVoidTy() && "Unexpected return type.");
+    // We could be pumping this call, so use the mask argument to determine
+    // current VF.
+    // TODO: Alternatively pass VecReturnTy to addMaskToLibCall.
+    unsigned CurVF =
+        cast<FixedVectorType>(CallMaskValue->getType())->getNumElements();
+    VecTy = getWidenedType(OrigF->getReturnType(), CurVF);
+  }
   unsigned MaskNumElems = VecTy->getNumElements();
   StringRef FnName = OrigF->getName();
   // For calls transformed via arg repacking and for complex float-type math
@@ -746,7 +762,8 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
           cast<FixedVectorType>(CallMaskValue->getType())->getNumElements() &&
       "Re-vectorization of SVML functions is not supported yet");
 
-  if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512 || IsDevice) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512 || IsDevice ||
+      IsFortranRNGVecFunc) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For ESIMD versions that's done for any widths.
     // For example:
@@ -2896,12 +2913,13 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   StringRef VecFnName =
       TLI->getVectorizedFunction(FnName, ElementCount::getFixed(PumpedVF),
                                  IsMasked);
-  if (IsMasked && !VecFnName.empty() &&
-      (isSVMLFunction(TLI, FnName, VecFnName) ||
-       isSVMLDeviceFunction(TLI, FnName, VecFnName))) {
-    addMaskToSVMLCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,
-                      VecArgAttrs,
-                      isSVMLDeviceFunction(TLI, FnName, VecFnName));
+  bool IsFortranRNGVecFunc = isFortranRNGLibraryFunc(F, TLI);
+  if (IsMasked && (IsFortranRNGVecFunc ||
+                   (!VecFnName.empty() &&
+                    (isSVMLFunction(TLI, FnName, VecFnName) ||
+                     isSVMLDeviceFunction(TLI, FnName, VecFnName))))) {
+    addMaskToLibCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,
+                     VecArgAttrs, isSVMLDeviceFunction(TLI, FnName, VecFnName));
     return;
   }
   if (!VecVariant || !VecVariant->isMasked())

@@ -670,15 +670,15 @@ private:
   // Widen Shuffle instruction - loop re-vectorization.
   void vectorizeShuffle(VPInstruction *VPInst);
 
-  /// Adjust arguments passed to SVML functions to handle masks. \p
-  /// CallMaskValue defines the mask being applied to the current SVML call
-  /// instruction that is processed.
-  void addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
-                         AttributeList OrigAttrs,
-                         SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys,
-                         SmallVectorImpl<AttributeSet> &VecArgAttrs,
-                         bool IsDevice);
+  /// Adjust arguments passed to SVML/vector library functions to handle masks.
+  /// \p CallMaskValue defines the mask being applied to the current SVML/vector
+  /// libary call instruction that is processed.
+  void addMaskToLibCall(Function *OrigF, Value *CallMaskValue,
+                        AttributeList OrigAttrs,
+                        SmallVectorImpl<Value *> &VecArgs,
+                        SmallVectorImpl<Type *> &VecArgTys,
+                        SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                        bool IsDevice);
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.
