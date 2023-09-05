@@ -2506,48 +2506,41 @@ pushWGSortBuiltinVectInfo(const reflection::TypeVector &KeyValueParams,
   }
 }
 
-// Container storing all the sort builtin's name, whose vector info has been
-// added to ExtendedVectInfos
-static std::set<std::string> AddedSortVectInfos;
-
 static void pushWGSortBuiltinVectorInfo(const Module &M) {
   SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames;
   for (auto &F : M) {
     if (!F.isDeclaration())
       continue;
     StringRef FnName = F.getName();
+    if (!isWorkGroupSort(FnName))
+      continue;
+
     reflection::FunctionDescriptor SortFD = demangle(FnName);
     reflection::TypeVector DataScalarParams, OtherScalarParams;
     SmallVector<llvm::VFParamKind, 4> ParamKinds;
-    if (isWorkGroupSort(FnName)) {
-      if (AddedSortVectInfos.find(FnName.data()) != AddedSortVectInfos.end())
-        continue;
-      AddedSortVectInfos.insert(FnName.data());
 
-      // e.g.
-      // key-only sort : void
-      // __devicelib_default_work_group_joint_sort_ascending_p1i32_u32_p3i8(int*
-      // key, uint n, byte* scratch);
-      // The first arg needs to be widen.
-      // key-value sort : void
-      // __devicelib_default_work_group_joint_sort_ascending_p3u32_p3u32_u32_p1i8(uint*
-      // key, uint* value, uint n, byte* scratch);
-      // The first and second args need to be widen.
-      unsigned int DataArgNum = isWorkGroupKeyOnlySort(FnName) ? 1 : 2;
-      assert(DataArgNum == SortFD.Parameters.size() - 2 &&
-             "Unknown work group sort builtin");
-      for (unsigned int Idx = 0; Idx < DataArgNum; ++Idx) {
-        DataScalarParams.push_back(SortFD.Parameters[Idx]);
-        ParamKinds.push_back(llvm::VFParamKind::Vector);
-      }
-      for (unsigned int Idx = DataArgNum; Idx < SortFD.Parameters.size();
-           ++Idx) {
-        ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
-        OtherScalarParams.push_back(SortFD.Parameters[Idx]);
-      }
-      pushWGSortBuiltinVectInfo(DataScalarParams, OtherScalarParams, ParamKinds,
-                                SortFD.Name, FnName);
+    // e.g.
+    // key-only sort : void
+    // __devicelib_default_work_group_joint_sort_ascending_p1i32_u32_p3i8(int*
+    // key, uint n, byte* scratch);
+    // The first arg needs to be widen.
+    // key-value sort : void
+    // __devicelib_default_work_group_joint_sort_ascending_p3u32_p3u32_u32_p1i8(uint*
+    // key, uint* value, uint n, byte* scratch);
+    // The first and second args need to be widen.
+    unsigned int DataArgNum = isWorkGroupKeyOnlySort(FnName) ? 1 : 2;
+    assert(DataArgNum == SortFD.Parameters.size() - 2 &&
+           "Unknown work group sort builtin");
+    for (unsigned int Idx = 0; Idx < DataArgNum; ++Idx) {
+      DataScalarParams.push_back(SortFD.Parameters[Idx]);
+      ParamKinds.push_back(llvm::VFParamKind::Vector);
     }
+    for (unsigned int Idx = DataArgNum; Idx < SortFD.Parameters.size(); ++Idx) {
+      ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
+      OtherScalarParams.push_back(SortFD.Parameters[Idx]);
+    }
+    pushWGSortBuiltinVectInfo(DataScalarParams, OtherScalarParams, ParamKinds,
+                              SortFD.Name, FnName);
   }
 }
 
@@ -2623,7 +2616,9 @@ void initializeVectInfo(ArrayRef<VectItem> VectInfos, const Module &M) {
   // Add extra vector info for work group sort builtin that is used in the
   // module. It can't be initialized just once, because there could be multiple
   // modules in the application.
-  pushWGSortBuiltinVectorInfo(M);
+  static SmallPtrSet<const Module *, 8> VisitedModules;
+  if (VisitedModules.insert(&M).second)
+    pushWGSortBuiltinVectorInfo(M);
 }
 
 static std::string getFormatStr(Value *V) {
