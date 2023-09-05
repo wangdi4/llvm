@@ -1844,6 +1844,7 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
     if (IsLoadCSE) {
       LoadInst *NLoadI = cast<LoadInst>(AvailableVal);
       combineMetadataForCSE(NLoadI, LoadI, false);
+      LVI->forgetValue(NLoadI);
     };
 
     // If the returned value is the load itself, replace with poison. This can
@@ -2036,6 +2037,7 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
   for (LoadInst *PredLoadI : CSELoads) {
     combineMetadataForCSE(PredLoadI, LoadI, true);
+    LVI->forgetValue(PredLoadI);
   }
 
   LoadI->replaceAllUsesWith(PN);
