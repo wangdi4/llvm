@@ -48,30 +48,34 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %dx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r8
-; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %r9
-; CHECK-NEXT:    movl $buf, %r10d
-; CHECK-NEXT:    movl $32, %r11d
-; CHECK-NEXT:    t2rpntlvwz0 (%r10,%r11), %tmm2
-; CHECK-NEXT:    movl $64, %r10d
-; CHECK-NEXT:    tilestored %tmm2, (%r9,%r10)
-; CHECK-NEXT:    movl $64, %r10d
-; CHECK-NEXT:    tilestored %tmm3, (%r8,%r10)
-; CHECK-NEXT:    tilezero %tmm0
-; CHECK-NEXT:    movl $64, %r10d
-; CHECK-NEXT:    tilestored %tmm0, (%rdi,%r10)
-; CHECK-NEXT:    movl $64, %r10d
-; CHECK-NEXT:    tileloadd (%r9,%r10), %tmm1
-; CHECK-NEXT:    movl $64, %r9d
-; CHECK-NEXT:    tileloadd (%r8,%r9), %tmm2
-; CHECK-NEXT:    movl $64, %r8d
-; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
-; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
+; CHECK-NEXT:    movl $buf, %esi
+; CHECK-NEXT:    movl $32, %edi
+; CHECK-NEXT:    t2rpntlvwz0 (%rsi,%rdi), %tmm2
 ; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tilestored %tmm2, (%rsi,%rdi)
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tilestored %tmm3, (%rsi,%rdi)
+; CHECK-NEXT:    tilezero %tmm0
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rsi,%rdi)
 ; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tileloadd (%rsi,%rdi), %tmm1
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tileloadd (%rsi,%rdi), %tmm2
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tileloadd (%rsi,%rdi), %tmm0
+; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    tilestored %tmm0, (%rsi,%rdi)
+; CHECK-NEXT:    movl $64, %edi
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rsi
 ; CHECK-NEXT:    tileloadd (%rsi,%rdi), %tmm0
 ; CHECK-NEXT:    movl $buf2, %edx
 ; CHECK-NEXT:    movl $32, %esi
@@ -83,7 +87,7 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
 entry:
-  %0 = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64 0, i64 0), i64 32) #3
+  %0 = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, ptr @buf, i64 32) #3
   %1 = extractvalue { x86_amx, x86_amx } %0, 0
   %2 = tail call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %1) #3
   %3 = extractvalue { x86_amx, x86_amx } %0, 1
@@ -96,11 +100,11 @@ entry:
   %10 = tail call x86_amx @llvm.x86.tdpbssd.internal(i16 %row, i16 %col1, i16 %col0, x86_amx %7, x86_amx %8, x86_amx %9) #3
   %11 = tail call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %10) #3
   %12 = tail call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> %11) #3
-  tail call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col0, i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf2, i64 0, i64 0), i64 32, x86_amx %12) #3
+  tail call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col0, ptr @buf2, i64 32, x86_amx %12) #3
   ret void
 }
 
-declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, i8*, i64) #1
+declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, ptr, i64) #1
 
 declare <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx) #2
 
@@ -110,7 +114,7 @@ declare x86_amx @llvm.x86.tdpbssd.internal(i16, i16, i16, x86_amx, x86_amx, x86_
 
 declare x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32>) #2
 
-declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx) #4
+declare void @llvm.x86.tilestored64.internal(i16, i16, ptr, i64, x86_amx) #4
 
 attributes #0 = { nounwind uwtable "target-cpu"="x86-64" "target-features"="+amx-avx512,+amx-bf16,+amx-int8,+amx-tile,+amx-transpose" }
 attributes #1 = { argmemonly nofree nounwind readonly }
