@@ -472,6 +472,53 @@ IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
   return nullptr;
 }
 
+// Searches for the enclosing begin directive intrinsic starting from \p BB
+// using BFS search and returns the next enclosing OpenMP begin directive if it
+// is available, or nullptr if none.
+IntrinsicInst *VPOUtils::enclosingBeginDirective(BasicBlock *BB) {
+  SmallVector<BasicBlock *, 4> BFT;
+  SmallPtrSet<BasicBlock *, 4> Visited;
+  bool EntryBlockFound = false;
+  Visited.insert(BB);
+  BFT.push_back(BB);
+
+  while (!BFT.empty() && !EntryBlockFound) {
+    BasicBlock *Cur = BFT.pop_back_val();
+    if (Cur->isEntryBlock())
+      EntryBlockFound = true;
+    // Check if the current bblock contains the begin directive intrinsic
+    // instruction.
+    if (IntrinsicInst *II = VPOAnalysisUtils::getBeginDirective(Cur))
+      return II;
+    // visit all predecessors of the current bblock
+    for (BasicBlock *Pred : predecessors(Cur)) {
+      if (!Visited.contains(Pred)) {
+        BFT.push_back(Pred);
+        Visited.insert(Pred);
+      }
+    }
+  }
+  return nullptr;
+}
+
+// Return true if ClauseId is found in II, or false if not.
+bool VPOUtils::hasOpenMPClause(IntrinsicInst *II, int ClauseId) {
+  assert(II && "Begin directive intrinsic instruction is null.");
+  unsigned NumOB = II->getNumOperandBundles();
+  // Index i start from (NumOB -1) and runs till it becomes 1 (not
+  // 0) because we want to skip the first OperandBundle, which is
+  // the directive name.
+  for (unsigned i = NumOB - 1; i >= 1; i--) {
+    // BU is the i-th OperandBundle, which represents a clause
+    OperandBundleUse BU = II->getOperandBundleAt(i);
+    if (!VPOAnalysisUtils::isOpenMPClause(BU.getTagName()))
+      continue;
+    if (ClauseSpecifier(BU.getTagName()).getId() == ClauseId)
+      return true;
+  }
+  return false;
+}
+
 /// Find BlockAddress references in NewFunction that point to OldFunction,
 /// and replace them. This must be called after all code has moved to
 /// NewFunction.
