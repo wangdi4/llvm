@@ -92,7 +92,10 @@ TLI_DEFINE_ALTMATHFUNC(Intrinsic::fpbuiltin_cos, Type::DoubleTyID, FIXED(2), "__
 
 #endif
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 32c3e642d6440b296d821c18825eafd632728866
 #if defined(TLI_DEFINE_SVML_ALTMATHFUNCS)
 //-----------------------SIN-----------------------//
 TLI_DEFINE_ALTMATHFUNC(Intrinsic::fpbuiltin_sin, Type::HalfTyID, FIXED(1), "__svml_sins1_ep", 32)
@@ -1185,7 +1188,10 @@ TLI_DEFINE_ALTMATHFUNC(Intrinsic::fpbuiltin_sqrt, Type::FloatTyID, FIXED(8), "__
 TLI_DEFINE_ALTMATHFUNC(Intrinsic::fpbuiltin_sqrt, Type::FloatTyID, FIXED(8), "__svml_sqrtf8_ha", 0.6)
 #endif
 #undef TLI_DEFINE_SVML_ALTMATHFUNCS
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 32c3e642d6440b296d821c18825eafd632728866
 
 #undef TLI_DEFINE_ALTMATHFUNC
 #undef TLI_DEFINE_TEST_ALTMATHFUNCS
