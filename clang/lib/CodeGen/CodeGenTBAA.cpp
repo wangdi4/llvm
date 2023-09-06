@@ -162,14 +162,17 @@ static bool TypeHasMayAlias(QualType QTy) {
 }
 
 /// Check if the given type is a valid base type to be used in access tags.
-static bool isValidBaseType(CodeGenModule *CGM, QualType QTy) { // INTEL
+#if INTEL_CUSTOMIZATION
+static bool isValidBaseType(QualType QTy, const LangOptions &LangOpts,
+                            const CodeGenOptions &CodeGenOpts) {
+#endif // INTEL_CUSTOMIZATION
   if (QTy->isReferenceType())
     return false;
 #if INTEL_CUSTOMIZATION
   if (QTy->isComplexType())
     // ComplexType is struct
-    return CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
-           CGM->getCodeGenOpts().StructPathTBAA;
+    return LangOpts.isIntelCompat(LangOptions::IntelTBAA) &&
+           CodeGenOpts.StructPathTBAA;
 #endif // INTEL_CUSTOMIZATION
   if (const RecordType *TTy = QTy->getAs<RecordType>()) {
     const RecordDecl *RD = TTy->getDecl()->getDefinition();
@@ -335,7 +338,7 @@ llvm::MDNode *CodeGenTBAA::getTypeInfo(QualType QTy) {
   // subsequent accesses to direct and indirect members of that aggregate will
   // be considered may-alias too.
   // TODO: Combine getTypeInfo() and getBaseTypeInfo() into a single function.
-  if (isValidBaseType(CGM, QTy)) // INTEL
+  if (isValidBaseType(QTy, Features, CodeGenOpts)) // INTEL
     return getBaseTypeInfo(QTy);
 
   const Type *Ty = Context.getCanonicalType(QTy).getTypePtr();
@@ -411,11 +414,10 @@ CodeGenTBAA::CollectFields(uint64_t BaseOffset,
     return true;
   }
 #if INTEL_CUSTOMIZATION
-  if (QTy->isComplexType() &&
-      CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
-      CGM->getCodeGenOpts().StructPathTBAA) {
+  if (QTy->isComplexType() && Features.isIntelCompat(LangOptions::IntelTBAA) &&
+      CodeGenOpts.StructPathTBAA) {
     QualType FieldTy = QTy->castAs<ComplexType>()->getElementType();
-    llvm::MDNode *TypeNode = isValidBaseType(CGM, FieldTy)
+    llvm::MDNode *TypeNode = isValidBaseType(FieldTy, Features, CodeGenOpts)
                                  ? getBaseTypeInfo(FieldTy)
                                  : getTypeInfo(FieldTy);
     uint64_t Size = Context.getTypeSizeInChars(FieldTy).getQuantity();
@@ -471,9 +473,11 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
         const CXXRecordDecl *BaseRD = BaseQTy->getAsCXXRecordDecl();
         if (BaseRD->isEmpty())
           continue;
-        llvm::MDNode *TypeNode = isValidBaseType(CGM, BaseQTy) // INTEL
+#if INTEL_CUSTOMIZATION
+        llvm::MDNode *TypeNode = isValidBaseType(BaseQTy, Features, CodeGenOpts)
                                      ? getBaseTypeInfo(BaseQTy)
                                      : getTypeInfo(BaseQTy);
+#endif // INTEL_CUSTOMIZATION
         if (!TypeNode)
           return BaseTypeMetadataCache[Ty] = nullptr;
         uint64_t Offset = Layout.getBaseClassOffset(BaseRD).getQuantity();
@@ -497,7 +501,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
         continue;
       QualType FieldQTy = Field->getType();
 #if INTEL_CUSTOMIZATION
-      if (CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAABF) &&
+      if (Features.isIntelCompat(LangOptions::IntelTBAABF) &&
           Field->isBitField() && Field->getBitWidthValue(Context) > 0) {
         const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD);
         const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
@@ -515,9 +519,10 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
       } else {
         FieldQTy = Field->getType();
       }
+      llvm::MDNode *TypeNode = isValidBaseType(FieldQTy, Features, CodeGenOpts)
+                                   ? getBaseTypeInfo(FieldQTy)
+                                   : getTypeInfo(FieldQTy);
 #endif // INTEL_CUSTOMIZATION
-      llvm::MDNode *TypeNode = isValidBaseType(CGM, FieldQTy) ? // INTEL
-          getBaseTypeInfo(FieldQTy) : getTypeInfo(FieldQTy);
       if (!TypeNode)
         return BaseTypeMetadataCache[Ty] = nullptr;
 
@@ -563,7 +568,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
     SmallString<256> OutName;
     SmallVector<std::pair<llvm::MDNode *, uint64_t>, 4> OffsetsAndTypes;
     QualType FieldTy = Ty->castAs<ComplexType>()->getElementType();
-    llvm::MDNode *TypeNode = isValidBaseType(CGM, FieldTy)
+    llvm::MDNode *TypeNode = isValidBaseType(FieldTy, Features, CodeGenOpts)
                                  ? getBaseTypeInfo(FieldTy)
                                  : getTypeInfo(FieldTy);
     uint64_t Offset = 0;
@@ -585,7 +590,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
 }
 
 llvm::MDNode *CodeGenTBAA::getBaseTypeInfo(QualType QTy) {
-  if (!isValidBaseType(CGM, QTy)) // INTEL
+  if (!isValidBaseType(QTy, Features, CodeGenOpts)) // INTEL
     return nullptr;
 
   const Type *Ty = Context.getCanonicalType(QTy).getTypePtr();
