@@ -8190,8 +8190,8 @@ ExpectedStmt ASTNodeImporter::VisitCXXThisExpr(CXXThisExpr *E) {
   if (!ToLocationOrErr)
     return ToLocationOrErr.takeError();
 
-  return new (Importer.getToContext()) CXXThisExpr(
-      *ToLocationOrErr, *ToTypeOrErr, E->isImplicit());
+  return CXXThisExpr::Create(Importer.getToContext(), *ToLocationOrErr,
+                             *ToTypeOrErr, E->isImplicit());
 }
 
 ExpectedStmt ASTNodeImporter::VisitCXXBoolLiteralExpr(CXXBoolLiteralExpr *E) {

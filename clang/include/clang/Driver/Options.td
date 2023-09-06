@@ -7087,9 +7087,9 @@ def mno_vpinsr_vpextr : Flag<["-"], "mno-vpinsr-vpextr">, Group<m_x86_Features_G
 #endif // INTEL_CUSTOMIZATION
 def mvzeroupper : Flag<["-"], "mvzeroupper">, Group<m_x86_Features_Group>;
 def mno_vzeroupper : Flag<["-"], "mno-vzeroupper">, Group<m_x86_Features_Group>;
-def mno_gather : Flag<["-"], "mno-gather">, Group<m_x86_Features_Group>,
+def mno_gather : Flag<["-"], "mno-gather">, Group<m_Group>,
                  HelpText<"Disable generation of gather instructions in auto-vectorization(x86 only)">;
-def mno_scatter : Flag<["-"], "mno-scatter">, Group<m_x86_Features_Group>,
+def mno_scatter : Flag<["-"], "mno-scatter">, Group<m_Group>,
                   HelpText<"Disable generation of scatter instructions in auto-vectorization(x86 only)">;
 } // let Flags = [TargetSpecific]
 
