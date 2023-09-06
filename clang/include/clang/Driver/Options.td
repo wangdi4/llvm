@@ -4340,6 +4340,9 @@ def fno_sycl_pstl_offload : Flag<["-"], "fno-sycl-pstl-offload">,
   Alias<fsycl_pstl_offload_EQ>, AliasArgs<["off"]>, HelpText<"Disable "
   "offloading of C++ standard parallel algorithms.">;
 #endif // INTEL_CUSTOMIZATION
+def fsycl_preserve_device_nonsemantic_metadata : Flag<["-"], "fsycl-preserve-device-nonsemantic-metadata">,
+  Visibility<[ClangOption, CLOption, DXCOption]>, Flags<[HelpHidden]>, HelpText<"Preserve non-semantic "
+  "metadata in SPIR-V device images.">;
 def ftarget_compile_fast : Flag<["-"], "ftarget-compile-fast">,
   Visibility<[ClangOption, CLOption, DXCOption]>, HelpText<"Experimental feature: Reduce target "
   "compilation time, with potential runtime performance trade-off.">;
