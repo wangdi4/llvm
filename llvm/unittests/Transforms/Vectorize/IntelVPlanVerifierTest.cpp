@@ -130,9 +130,9 @@ TEST_F(VPlanVerifierTestBase, DTUpdateTest) {
 // stored shape and the result of a fresh calculation
 TEST_F(VPlanVerifierTestBase, DATests) {
   Module &M = parseModule(R"(
-    define void @foo(i64 %N, i64* %Idx) {
+    define void @foo(i64 %N, ptr %Idx) {
       entry:
-        %outer.idx = load i64, i64* %Idx
+        %outer.idx = load i64, ptr %Idx
         br label %for.body
       for.body:
         %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
