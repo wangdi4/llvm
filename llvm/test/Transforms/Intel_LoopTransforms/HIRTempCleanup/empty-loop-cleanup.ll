@@ -17,8 +17,6 @@
 ; CHECK-NEXT:     END REGION
 
 
-; ModuleID = 'bugpoint-reduced-simplified.bc'
-source_filename = "bugpoint-output-a3f490f.bc"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -30,7 +28,7 @@ entry:
   br label %for.inc.i.i
 
 for.inc.i.i:                                      ; preds = %for.inc.i.i, %entry
-  %s2.addr.0.i.i9591070 = phi ptr [ getelementptr inbounds ([3 x i8], ptr @.str.94, i64 0, i64 0), %entry ], [ %incdec.ptr4.i.i, %for.inc.i.i ]
+  %s2.addr.0.i.i9591070 = phi ptr [ @.str.94, %entry ], [ %incdec.ptr4.i.i, %for.inc.i.i ]
   %incdec.ptr4.i.i = getelementptr inbounds i8, ptr %s2.addr.0.i.i9591070, i64 1
   %0 = load i8, ptr %incdec.ptr4.i.i, align 1
   %cmp3.i.i = icmp eq i8 %0, 0
